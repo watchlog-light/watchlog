@@ -1,0 +1,69 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+/*
+ * Tailwind v4 theme for WatchLog (the "preset" from SPEC §11.4, see ADR-011).
+ * Import after `@import "tailwindcss";` and tokens.css. Tailwind's default
+ * palette is removed so only token colours exist as utilities.
+ */
+@theme inline {
+  --color-*: initial;
+  --color-bg: var(--bg);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-glow: var(--primary-glow);
+  --color-on-primary: var(--on-primary);
+  --color-ok: var(--ok);
+  --color-warning: var(--warning);
+  --color-critical: var(--critical);
+  --color-info: var(--info);
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+
+  /* Type scale (SPEC §11.2), named by pixel size: text-12 … text-64. */
+  --text-*: initial;
+  --text-12: 12px;
+  --text-13: 13px;
+  --text-14: 14px;
+  --text-16: 16px;
+  --text-20: 20px;
+  --text-24: 24px;
+  --text-32: 32px;
+  --text-48: 48px;
+  --text-64: 64px;
+
+  /* Radius (SPEC §11.3): 6px controls, 10px cards. */
+  --radius-control: 6px;
+  --radius-card: 10px;
+
+  /* 4px spacing base (SPEC §11.3). */
+  --spacing: 4px;
+}
+
+@layer base {
+  html {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--primary-glow);
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}

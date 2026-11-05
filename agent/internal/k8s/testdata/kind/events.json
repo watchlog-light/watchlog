@@ -1,0 +1,1302 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:53:59Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:53:59Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:53:59Z",
+                "name": "helper-pod-create-pvc-d288b755-bfab-4b26-a2c6-aa25e2d56e67.18e3914d9a2478f3",
+                "namespace": "local-path-storage",
+                "resourceVersion": "8492",
+                "uid": "68709ab9-a337-4776-b345-2c9de94e719a"
+            },
+            "note": "Container image \"docker.io/kindest/local-path-helper:v20260131-7181c60a\" already present on machine and can be accessed by the pod",
+            "reason": "Pulled",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{helper-pod}",
+                "kind": "Pod",
+                "name": "helper-pod-create-pvc-d288b755-bfab-4b26-a2c6-aa25e2d56e67",
+                "namespace": "local-path-storage",
+                "resourceVersion": "8489",
+                "uid": "820f766b-a404-47e6-884f-0a57e3b26d51"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:53:59Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:53:59Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:53:59Z",
+                "name": "helper-pod-create-pvc-d288b755-bfab-4b26-a2c6-aa25e2d56e67.18e3914d9dd95456",
+                "namespace": "local-path-storage",
+                "resourceVersion": "8494",
+                "uid": "8996a5c8-fcca-405b-b0e3-febecd160980"
+            },
+            "note": "Container created",
+            "reason": "Created",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{helper-pod}",
+                "kind": "Pod",
+                "name": "helper-pod-create-pvc-d288b755-bfab-4b26-a2c6-aa25e2d56e67",
+                "namespace": "local-path-storage",
+                "resourceVersion": "8489",
+                "uid": "820f766b-a404-47e6-884f-0a57e3b26d51"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:53:59Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:53:59Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:53:59Z",
+                "name": "helper-pod-create-pvc-d288b755-bfab-4b26-a2c6-aa25e2d56e67.18e3914da04862f1",
+                "namespace": "local-path-storage",
+                "resourceVersion": "8495",
+                "uid": "811b0935-5006-4809-ac05-7399f814c47a"
+            },
+            "note": "Container started",
+            "reason": "Started",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{helper-pod}",
+                "kind": "Pod",
+                "name": "helper-pod-create-pvc-d288b755-bfab-4b26-a2c6-aa25e2d56e67",
+                "namespace": "local-path-storage",
+                "resourceVersion": "8489",
+                "uid": "820f766b-a404-47e6-884f-0a57e3b26d51"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 9,
+            "deprecatedFirstTimestamp": "2026-10-31T07:50:33Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:06:43Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T07:50:33Z",
+                "name": "crashloop.18e38dd78b09c57e",
+                "namespace": "wl-test",
+                "resourceVersion": "3791",
+                "uid": "d4bd275c-fa06-4588-aa69-ba53db47ebdf"
+            },
+            "note": "Container created",
+            "reason": "Created",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "crashloop",
+                "namespace": "wl-test",
+                "resourceVersion": "1933",
+                "uid": "79315c4b-45e0-4755-97e6-833eb80ad509"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 9,
+            "deprecatedFirstTimestamp": "2026-10-31T07:50:33Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:06:43Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T07:50:33Z",
+                "name": "crashloop.18e38dd78f383d35",
+                "namespace": "wl-test",
+                "resourceVersion": "3792",
+                "uid": "868c6869-c7a2-4b80-b1b6-44f074e2061f"
+            },
+            "note": "Container started",
+            "reason": "Started",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "crashloop",
+                "namespace": "wl-test",
+                "resourceVersion": "1933",
+                "uid": "79315c4b-45e0-4755-97e6-833eb80ad509"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 17,
+            "deprecatedFirstTimestamp": "2026-10-31T07:50:36Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:53:38Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T07:50:36Z",
+                "name": "crashloop.18e38dd82a347e4e",
+                "namespace": "wl-test",
+                "resourceVersion": "8439",
+                "uid": "447740d8-6c6d-4130-97ac-67fe639f39c2"
+            },
+            "note": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+            "reason": "Pulled",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "crashloop",
+                "namespace": "wl-test",
+                "resourceVersion": "1933",
+                "uid": "79315c4b-45e0-4755-97e6-833eb80ad509"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 54,
+            "deprecatedFirstTimestamp": "2026-10-31T07:50:39Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:50:54Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T07:50:39Z",
+                "name": "crashloop.18e38dd8ddb5553b",
+                "namespace": "wl-test",
+                "resourceVersion": "8148",
+                "uid": "6eb0b5f8-8149-4740-935d-1d949b30ce69"
+            },
+            "note": "Back-off restarting failed container main in pod crashloop_wl-test(79315c4b-45e0-4755-97e6-833eb80ad509)",
+            "reason": "BackOff",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "crashloop",
+                "namespace": "wl-test",
+                "resourceVersion": "1933",
+                "uid": "79315c4b-45e0-4755-97e6-833eb80ad509"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker",
+            "type": "Warning"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 4,
+            "deprecatedFirstTimestamp": "2026-10-31T08:53:17Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:53:55Z",
+            "deprecatedSource": {
+                "component": "persistentvolume-controller"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:53:17Z",
+                "name": "data-db-0.18e39143ec374620",
+                "namespace": "wl-test",
+                "resourceVersion": "8474",
+                "uid": "8acbd6f8-ebab-45cc-954c-2b43973f5942"
+            },
+            "note": "waiting for first consumer to be created before binding",
+            "reason": "WaitForFirstConsumer",
+            "regarding": {
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
+                "name": "data-db-0",
+                "namespace": "wl-test",
+                "resourceVersion": "8393",
+                "uid": "d288b755-bfab-4b26-a2c6-aa25e2d56e67"
+            },
+            "reportingController": "persistentvolume-controller",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:53:58Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:53:58Z",
+            "deprecatedSource": {
+                "component": "persistentvolume-controller"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:53:58Z",
+                "name": "data-db-0.18e3914d7dc346f9",
+                "namespace": "wl-test",
+                "resourceVersion": "8487",
+                "uid": "dd71712d-f84f-4d2f-8c67-55caa62a6be3"
+            },
+            "note": "Waiting for a volume to be created either by the external provisioner 'rancher.io/local-path' or manually by the system administrator. If volume creation is delayed, please verify that the provisioner is running and correctly registered.",
+            "reason": "ExternalProvisioning",
+            "regarding": {
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
+                "name": "data-db-0",
+                "namespace": "wl-test",
+                "resourceVersion": "8486",
+                "uid": "d288b755-bfab-4b26-a2c6-aa25e2d56e67"
+            },
+            "reportingController": "persistentvolume-controller",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:53:58Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:53:58Z",
+            "deprecatedSource": {
+                "component": "rancher.io/local-path_local-path-provisioner-75f7fc7dc5-gw9tr_7d577c03-f478-4c26-9503-230d3144ac2a"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:53:58Z",
+                "name": "data-db-0.18e3914d7df2a59a",
+                "namespace": "wl-test",
+                "resourceVersion": "8488",
+                "uid": "76dc2e4c-aa9f-40f2-85c9-0db9ef798695"
+            },
+            "note": "External provisioner is provisioning volume for claim \"wl-test/data-db-0\"",
+            "reason": "Provisioning",
+            "regarding": {
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
+                "name": "data-db-0",
+                "namespace": "wl-test",
+                "resourceVersion": "8486",
+                "uid": "d288b755-bfab-4b26-a2c6-aa25e2d56e67"
+            },
+            "reportingController": "rancher.io/local-path_local-path-provisioner-75f7fc7dc5-gw9tr_7d577c03-f478-4c26-9503-230d3144ac2a",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:54:01Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:54:01Z",
+            "deprecatedSource": {
+                "component": "rancher.io/local-path_local-path-provisioner-75f7fc7dc5-gw9tr_7d577c03-f478-4c26-9503-230d3144ac2a"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:54:01Z",
+                "name": "data-db-0.18e3914e38bb369f",
+                "namespace": "wl-test",
+                "resourceVersion": "8522",
+                "uid": "56dbbc3e-132d-409d-a9f7-4b63d613055a"
+            },
+            "note": "Successfully provisioned volume pvc-d288b755-bfab-4b26-a2c6-aa25e2d56e67",
+            "reason": "ProvisioningSucceeded",
+            "regarding": {
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
+                "name": "data-db-0",
+                "namespace": "wl-test",
+                "resourceVersion": "8486",
+                "uid": "d288b755-bfab-4b26-a2c6-aa25e2d56e67"
+            },
+            "reportingController": "rancher.io/local-path_local-path-provisioner-75f7fc7dc5-gw9tr_7d577c03-f478-4c26-9503-230d3144ac2a",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:53:17Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:53:17Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker2"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:53:17Z",
+                "name": "db-0.18e39143d18538df",
+                "namespace": "wl-test",
+                "resourceVersion": "8386",
+                "uid": "b0ef3bee-a031-4707-8b24-7a53bba5087d"
+            },
+            "note": "Stopping container main",
+            "reason": "Killing",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "db-0",
+                "namespace": "wl-test",
+                "resourceVersion": "1953",
+                "uid": "9f71c0ab-6ff4-46f5-b262-8dca51eb20fb"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker2",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:54:02Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:54:02Z",
+            "deprecatedSource": {
+                "component": "default-scheduler"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:54:02Z",
+                "name": "db-0.18e3914e6c6859f7",
+                "namespace": "wl-test",
+                "resourceVersion": "8531",
+                "uid": "d2223863-b439-4e23-a0ef-fbf73a40b52b"
+            },
+            "note": "Successfully assigned wl-test/db-0 to watchlog-worker",
+            "reason": "Scheduled",
+            "regarding": {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": "db-0",
+                "namespace": "wl-test",
+                "resourceVersion": "8481",
+                "uid": "5aee2adf-5478-4cf7-bb32-48d0d0ba71aa"
+            },
+            "reportingController": "default-scheduler",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:54:03Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:54:03Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:54:03Z",
+                "name": "db-0.18e3914e843d146d",
+                "namespace": "wl-test",
+                "resourceVersion": "8539",
+                "uid": "0902f206-933d-489b-ae1d-c77c5a90e73f"
+            },
+            "note": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+            "reason": "Pulled",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "db-0",
+                "namespace": "wl-test",
+                "resourceVersion": "8530",
+                "uid": "5aee2adf-5478-4cf7-bb32-48d0d0ba71aa"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:54:03Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:54:03Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:54:03Z",
+                "name": "db-0.18e3914e85fb462d",
+                "namespace": "wl-test",
+                "resourceVersion": "8541",
+                "uid": "e041e301-a314-4ed6-9bcc-da7b8efbff9d"
+            },
+            "note": "Container created",
+            "reason": "Created",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "db-0",
+                "namespace": "wl-test",
+                "resourceVersion": "8530",
+                "uid": "5aee2adf-5478-4cf7-bb32-48d0d0ba71aa"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:54:03Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:54:03Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:54:03Z",
+                "name": "db-0.18e3914e8ed92d10",
+                "namespace": "wl-test",
+                "resourceVersion": "8542",
+                "uid": "f5b384ef-87e3-4bb1-88ae-1056e228c1d8"
+            },
+            "note": "Container started",
+            "reason": "Started",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "db-0",
+                "namespace": "wl-test",
+                "resourceVersion": "8530",
+                "uid": "5aee2adf-5478-4cf7-bb32-48d0d0ba71aa"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:53:17Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:53:17Z",
+            "deprecatedSource": {
+                "component": "statefulset-controller"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:53:17Z",
+                "name": "db.18e39143ec67cb59",
+                "namespace": "wl-test",
+                "resourceVersion": "8395",
+                "uid": "03f093bf-e410-4ddd-ab01-0b96edb7f53e"
+            },
+            "note": "Create Claim data-db-0 Pod db-0 in StatefulSet db success",
+            "reason": "SuccessfulCreate",
+            "regarding": {
+                "apiVersion": "apps/v1",
+                "kind": "StatefulSet",
+                "name": "db",
+                "namespace": "wl-test",
+                "resourceVersion": "8390",
+                "uid": "eeaa75e9-150f-42d8-b042-9e2fe2828192"
+            },
+            "reportingController": "statefulset-controller",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:53:58Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:53:58Z",
+            "deprecatedSource": {
+                "component": "statefulset-controller"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:53:58Z",
+                "name": "db.18e3914d7cccb058",
+                "namespace": "wl-test",
+                "resourceVersion": "8482",
+                "uid": "66a7933e-575c-43e9-8661-def342f47d29"
+            },
+            "note": "Create Pod db-0 in StatefulSet db successful",
+            "reason": "SuccessfulCreate",
+            "regarding": {
+                "apiVersion": "apps/v1",
+                "kind": "StatefulSet",
+                "name": "db",
+                "namespace": "wl-test",
+                "resourceVersion": "8397",
+                "uid": "eeaa75e9-150f-42d8-b042-9e2fe2828192"
+            },
+            "reportingController": "statefulset-controller",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:54:00Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:54:00Z",
+            "deprecatedSource": {
+                "component": "default-scheduler"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:54:00Z",
+                "name": "every-minute-29890614-tcpv8.18e3914dd77cfb9b",
+                "namespace": "wl-test",
+                "resourceVersion": "8507",
+                "uid": "0e104c2c-e148-42cb-99aa-fd3cd2a96930"
+            },
+            "note": "Successfully assigned wl-test/every-minute-29890614-tcpv8 to watchlog-worker2",
+            "reason": "Scheduled",
+            "regarding": {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": "every-minute-29890614-tcpv8",
+                "namespace": "wl-test",
+                "resourceVersion": "8503",
+                "uid": "0bbde6a9-15ab-46b6-a3b5-15b3d2906baf"
+            },
+            "reportingController": "default-scheduler",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:54:00Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:54:00Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker2"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:54:00Z",
+                "name": "every-minute-29890614-tcpv8.18e3914deed335c9",
+                "namespace": "wl-test",
+                "resourceVersion": "8509",
+                "uid": "b4688a0c-0d90-4541-8fda-c9094e5fdc45"
+            },
+            "note": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+            "reason": "Pulled",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "every-minute-29890614-tcpv8",
+                "namespace": "wl-test",
+                "resourceVersion": "8506",
+                "uid": "0bbde6a9-15ab-46b6-a3b5-15b3d2906baf"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker2",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:54:00Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:54:00Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker2"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:54:00Z",
+                "name": "every-minute-29890614-tcpv8.18e3914def31e21d",
+                "namespace": "wl-test",
+                "resourceVersion": "8511",
+                "uid": "99a0cb0c-a55f-404f-86ef-5446d751f093"
+            },
+            "note": "Container created",
+            "reason": "Created",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "every-minute-29890614-tcpv8",
+                "namespace": "wl-test",
+                "resourceVersion": "8506",
+                "uid": "0bbde6a9-15ab-46b6-a3b5-15b3d2906baf"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker2",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:54:00Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:54:00Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker2"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:54:00Z",
+                "name": "every-minute-29890614-tcpv8.18e3914df14f738e",
+                "namespace": "wl-test",
+                "resourceVersion": "8512",
+                "uid": "b79d6c2b-cc24-4091-a06e-4475c7aec0a5"
+            },
+            "note": "Container started",
+            "reason": "Started",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "every-minute-29890614-tcpv8",
+                "namespace": "wl-test",
+                "resourceVersion": "8506",
+                "uid": "0bbde6a9-15ab-46b6-a3b5-15b3d2906baf"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker2",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:54:00Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:54:00Z",
+            "deprecatedSource": {
+                "component": "job-controller"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:54:00Z",
+                "name": "every-minute-29890614.18e3914dd73ad3bb",
+                "namespace": "wl-test",
+                "resourceVersion": "8504",
+                "uid": "fc91fe5e-cb84-4c5c-ac70-2ad7b447ea77"
+            },
+            "note": "Created pod: every-minute-29890614-tcpv8",
+            "reason": "SuccessfulCreate",
+            "regarding": {
+                "apiVersion": "batch/v1",
+                "kind": "Job",
+                "name": "every-minute-29890614",
+                "namespace": "wl-test",
+                "resourceVersion": "8500",
+                "uid": "4825693c-23f5-4bff-90ca-2c8d8c028031"
+            },
+            "reportingController": "job-controller",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:54:02Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:54:02Z",
+            "deprecatedSource": {
+                "component": "job-controller"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:54:02Z",
+                "name": "every-minute-29890614.18e3914e7d9c7ded",
+                "namespace": "wl-test",
+                "resourceVersion": "8536",
+                "uid": "ac304a11-1494-4923-aad2-3d2105d479b4"
+            },
+            "note": "Job completed",
+            "reason": "Completed",
+            "regarding": {
+                "apiVersion": "batch/v1",
+                "kind": "Job",
+                "name": "every-minute-29890614",
+                "namespace": "wl-test",
+                "resourceVersion": "8533",
+                "uid": "4825693c-23f5-4bff-90ca-2c8d8c028031"
+            },
+            "reportingController": "job-controller",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:55:00Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:55:00Z",
+            "deprecatedSource": {
+                "component": "default-scheduler"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:55:00Z",
+                "name": "every-minute-29890615-dtl8c.18e3915bced823e6",
+                "namespace": "wl-test",
+                "resourceVersion": "8653",
+                "uid": "201e22f2-7cd2-4798-b101-5ccf467b75d1"
+            },
+            "note": "Successfully assigned wl-test/every-minute-29890615-dtl8c to watchlog-worker2",
+            "reason": "Scheduled",
+            "regarding": {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": "every-minute-29890615-dtl8c",
+                "namespace": "wl-test",
+                "resourceVersion": "8649",
+                "uid": "e1d59b91-f939-4f3e-956b-2358798018b3"
+            },
+            "reportingController": "default-scheduler",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:55:00Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:55:00Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker2"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:55:00Z",
+                "name": "every-minute-29890615-dtl8c.18e3915be769e98b",
+                "namespace": "wl-test",
+                "resourceVersion": "8656",
+                "uid": "2b6560ad-f798-4394-8858-24018711d4a4"
+            },
+            "note": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+            "reason": "Pulled",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "every-minute-29890615-dtl8c",
+                "namespace": "wl-test",
+                "resourceVersion": "8652",
+                "uid": "e1d59b91-f939-4f3e-956b-2358798018b3"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker2",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:55:00Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:55:00Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker2"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:55:00Z",
+                "name": "every-minute-29890615-dtl8c.18e3915be813ddae",
+                "namespace": "wl-test",
+                "resourceVersion": "8658",
+                "uid": "d630df4e-fe68-48ff-82ab-d5dd31da8e87"
+            },
+            "note": "Container created",
+            "reason": "Created",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "every-minute-29890615-dtl8c",
+                "namespace": "wl-test",
+                "resourceVersion": "8652",
+                "uid": "e1d59b91-f939-4f3e-956b-2358798018b3"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker2",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:55:00Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:55:00Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker2"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:55:00Z",
+                "name": "every-minute-29890615-dtl8c.18e3915beb6371fc",
+                "namespace": "wl-test",
+                "resourceVersion": "8659",
+                "uid": "2e797d85-d536-49e7-82d7-05fa600ef4e5"
+            },
+            "note": "Container started",
+            "reason": "Started",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "every-minute-29890615-dtl8c",
+                "namespace": "wl-test",
+                "resourceVersion": "8652",
+                "uid": "e1d59b91-f939-4f3e-956b-2358798018b3"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker2",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:55:00Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:55:00Z",
+            "deprecatedSource": {
+                "component": "job-controller"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:55:00Z",
+                "name": "every-minute-29890615.18e3915bce7724af",
+                "namespace": "wl-test",
+                "resourceVersion": "8651",
+                "uid": "5bdc3cb9-ce0c-4499-b05e-c14b5e43da0a"
+            },
+            "note": "Created pod: every-minute-29890615-dtl8c",
+            "reason": "SuccessfulCreate",
+            "regarding": {
+                "apiVersion": "batch/v1",
+                "kind": "Job",
+                "name": "every-minute-29890615",
+                "namespace": "wl-test",
+                "resourceVersion": "8646",
+                "uid": "9bb30989-1316-48f8-8028-88866616f1ca"
+            },
+            "reportingController": "job-controller",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:55:03Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:55:03Z",
+            "deprecatedSource": {
+                "component": "job-controller"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:55:03Z",
+                "name": "every-minute-29890615.18e3915c8472a3c7",
+                "namespace": "wl-test",
+                "resourceVersion": "8671",
+                "uid": "2196b7c0-ca2d-4917-8d03-1d28fd0991c0"
+            },
+            "note": "Job completed",
+            "reason": "Completed",
+            "regarding": {
+                "apiVersion": "batch/v1",
+                "kind": "Job",
+                "name": "every-minute-29890615",
+                "namespace": "wl-test",
+                "resourceVersion": "8668",
+                "uid": "9bb30989-1316-48f8-8028-88866616f1ca"
+            },
+            "reportingController": "job-controller",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:54:00Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:54:00Z",
+            "deprecatedSource": {
+                "component": "cronjob-controller"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:54:00Z",
+                "name": "every-minute.18e3914dd69992f8",
+                "namespace": "wl-test",
+                "resourceVersion": "8501",
+                "uid": "13db0e9c-9727-4e04-b42b-339a068f72b2"
+            },
+            "note": "Created job every-minute-29890614",
+            "reason": "SuccessfulCreate",
+            "regarding": {
+                "apiVersion": "batch/v1",
+                "kind": "CronJob",
+                "name": "every-minute",
+                "namespace": "wl-test",
+                "resourceVersion": "8392",
+                "uid": "018f9a4c-496d-4d8f-88ed-2085b161c98a"
+            },
+            "reportingController": "cronjob-controller",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:54:02Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:54:02Z",
+            "deprecatedSource": {
+                "component": "cronjob-controller"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:54:02Z",
+                "name": "every-minute.18e3914e7d9d563c",
+                "namespace": "wl-test",
+                "resourceVersion": "8537",
+                "uid": "3db5024e-ea37-4c24-a547-3736923c1a88"
+            },
+            "note": "Saw completed job: every-minute-29890614, condition: Complete",
+            "reason": "SawCompletedJob",
+            "regarding": {
+                "apiVersion": "batch/v1",
+                "kind": "CronJob",
+                "name": "every-minute",
+                "namespace": "wl-test",
+                "resourceVersion": "8502",
+                "uid": "018f9a4c-496d-4d8f-88ed-2085b161c98a"
+            },
+            "reportingController": "cronjob-controller",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:55:00Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:55:00Z",
+            "deprecatedSource": {
+                "component": "cronjob-controller"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:55:00Z",
+                "name": "every-minute.18e3915bcdfdadf5",
+                "namespace": "wl-test",
+                "resourceVersion": "8647",
+                "uid": "ece7d4b8-54c1-4ce1-97db-b599504033b3"
+            },
+            "note": "Created job every-minute-29890615",
+            "reason": "SuccessfulCreate",
+            "regarding": {
+                "apiVersion": "batch/v1",
+                "kind": "CronJob",
+                "name": "every-minute",
+                "namespace": "wl-test",
+                "resourceVersion": "8538",
+                "uid": "018f9a4c-496d-4d8f-88ed-2085b161c98a"
+            },
+            "reportingController": "cronjob-controller",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:55:03Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:55:03Z",
+            "deprecatedSource": {
+                "component": "cronjob-controller"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:55:03Z",
+                "name": "every-minute.18e3915c84caf892",
+                "namespace": "wl-test",
+                "resourceVersion": "8673",
+                "uid": "5365eea4-4863-4107-8bfb-fc72204925b6"
+            },
+            "note": "Deleted job every-minute-29890614",
+            "reason": "SuccessfulDelete",
+            "regarding": {
+                "apiVersion": "batch/v1",
+                "kind": "CronJob",
+                "name": "every-minute",
+                "namespace": "wl-test",
+                "resourceVersion": "8648",
+                "uid": "018f9a4c-496d-4d8f-88ed-2085b161c98a"
+            },
+            "reportingController": "cronjob-controller",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 1,
+            "deprecatedFirstTimestamp": "2026-10-31T08:55:03Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:55:03Z",
+            "deprecatedSource": {
+                "component": "cronjob-controller"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:55:03Z",
+                "name": "every-minute.18e3915c84cb6c21",
+                "namespace": "wl-test",
+                "resourceVersion": "8675",
+                "uid": "6213440e-bf3c-4d66-b830-c37fd1f93fee"
+            },
+            "note": "Saw completed job: every-minute-29890615, condition: Complete",
+            "reason": "SawCompletedJob",
+            "regarding": {
+                "apiVersion": "batch/v1",
+                "kind": "CronJob",
+                "name": "every-minute",
+                "namespace": "wl-test",
+                "resourceVersion": "8648",
+                "uid": "018f9a4c-496d-4d8f-88ed-2085b161c98a"
+            },
+            "reportingController": "cronjob-controller",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 9,
+            "deprecatedFirstTimestamp": "2026-10-31T07:50:35Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:07:05Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker2"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T07:50:35Z",
+                "name": "oom.18e38dd7f421db22",
+                "namespace": "wl-test",
+                "resourceVersion": "3833",
+                "uid": "bed00536-e48b-48a5-9b4e-65d08abc1dfe"
+            },
+            "note": "Container created",
+            "reason": "Created",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "oom",
+                "namespace": "wl-test",
+                "resourceVersion": "1938",
+                "uid": "c296fc71-56e3-48b5-953c-b3d0b0ab31fb"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker2",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 9,
+            "deprecatedFirstTimestamp": "2026-10-31T07:50:35Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:07:05Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker2"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T07:50:35Z",
+                "name": "oom.18e38dd7f83864df",
+                "namespace": "wl-test",
+                "resourceVersion": "3834",
+                "uid": "8079562b-d6b7-43c1-882f-5edf73d94c1a"
+            },
+            "note": "Container started",
+            "reason": "Started",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "oom",
+                "namespace": "wl-test",
+                "resourceVersion": "1938",
+                "uid": "c296fc71-56e3-48b5-953c-b3d0b0ab31fb"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker2",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 17,
+            "deprecatedFirstTimestamp": "2026-10-31T07:50:39Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:53:29Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker2"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T07:50:39Z",
+                "name": "oom.18e38dd8ddda8eb1",
+                "namespace": "wl-test",
+                "resourceVersion": "8421",
+                "uid": "4232afa7-2a6b-4f55-975b-594bb8521bdf"
+            },
+            "note": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+            "reason": "Pulled",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "oom",
+                "namespace": "wl-test",
+                "resourceVersion": "1938",
+                "uid": "c296fc71-56e3-48b5-953c-b3d0b0ab31fb"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker2",
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 52,
+            "deprecatedFirstTimestamp": "2026-10-31T07:50:43Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:50:58Z",
+            "deprecatedSource": {
+                "component": "kubelet",
+                "host": "watchlog-worker2"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T07:50:43Z",
+                "name": "oom.18e38dd9ccc970de",
+                "namespace": "wl-test",
+                "resourceVersion": "8157",
+                "uid": "ad7abfee-2f70-4c56-b117-4739927c48ef"
+            },
+            "note": "Back-off restarting failed container main in pod oom_wl-test(c296fc71-56e3-48b5-953c-b3d0b0ab31fb)",
+            "reason": "BackOff",
+            "regarding": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{main}",
+                "kind": "Pod",
+                "name": "oom",
+                "namespace": "wl-test",
+                "resourceVersion": "1938",
+                "uid": "c296fc71-56e3-48b5-953c-b3d0b0ab31fb"
+            },
+            "reportingController": "kubelet",
+            "reportingInstance": "watchlog-worker2",
+            "type": "Warning"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 8,
+            "deprecatedFirstTimestamp": "2026-10-31T08:53:17Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:55:02Z",
+            "deprecatedSource": {
+                "component": "horizontal-pod-autoscaler"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:53:17Z",
+                "name": "web.18e39143ed7158a2",
+                "namespace": "wl-test",
+                "resourceVersion": "8666",
+                "uid": "78dbc0dc-8b6b-4ccc-a014-0b2e3bdfd888"
+            },
+            "note": "failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server could not find the requested resource (get pods.metrics.k8s.io)",
+            "reason": "FailedGetResourceMetric",
+            "regarding": {
+                "apiVersion": "autoscaling/v2",
+                "kind": "HorizontalPodAutoscaler",
+                "name": "web",
+                "namespace": "wl-test",
+                "resourceVersion": "8394",
+                "uid": "055c9ea1-45d6-41a4-874f-6e481da1f8cf"
+            },
+            "reportingController": "horizontal-pod-autoscaler",
+            "type": "Warning"
+        },
+        {
+            "apiVersion": "events.k8s.io/v1",
+            "deprecatedCount": 8,
+            "deprecatedFirstTimestamp": "2026-10-31T08:53:17Z",
+            "deprecatedLastTimestamp": "2026-10-31T08:55:02Z",
+            "deprecatedSource": {
+                "component": "horizontal-pod-autoscaler"
+            },
+            "eventTime": null,
+            "kind": "Event",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T08:53:17Z",
+                "name": "web.18e39143ed9cf558",
+                "namespace": "wl-test",
+                "resourceVersion": "8667",
+                "uid": "21352907-210c-45e1-b929-4571ce75a588"
+            },
+            "note": "invalid metrics (1 invalid out of 1), first error is: failed to get cpu resource metric value: failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server could not find the requested resource (get pods.metrics.k8s.io)",
+            "reason": "FailedComputeMetricsReplicas",
+            "regarding": {
+                "apiVersion": "autoscaling/v2",
+                "kind": "HorizontalPodAutoscaler",
+                "name": "web",
+                "namespace": "wl-test",
+                "resourceVersion": "8394",
+                "uid": "055c9ea1-45d6-41a4-874f-6e481da1f8cf"
+            },
+            "reportingController": "horizontal-pod-autoscaler",
+            "type": "Warning"
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

@@ -1,0 +1,22 @@
+# Private content guard (scripts/check-private-paths.sh): fails when this public repository
+# tracks private repositories' folders, local settings or databases, or any file names the
+# private repositories, the workspace's folders, a personal email address or a home path.
+# Unlike ci.yml it also runs on docs-only changes, since a stray note is one.
+name: Private paths
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  private-paths:
+    name: No private code tracked
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: scripts/check-private-paths.sh

@@ -1,0 +1,62 @@
+{{/* SPDX-License-Identifier: AGPL-3.0-only */}}
+{{- $name := printf "%s-postgresql" .Release.Name }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels: {{- include "watchlog.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels: {{- include "watchlog.selector" (list .Release.Name "postgresql") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "watchlog.labels" . | nindent 8 }}
+        app.kubernetes.io/component: postgresql
+    spec:
+      # The official image's postgres user (alpine: uid 70).
+      securityContext: {{- include "watchlog.podSecurity" 70 | nindent 8 }}
+      containers:
+        - name: postgresql
+          image: {{ .Values.postgresql.image }}
+          env:
+            - { name: POSTGRES_USER, value: watchlog }
+            - { name: POSTGRES_DB, value: watchlog }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ $name }}, key: password } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports:
+            - { name: postgresql, containerPort: 5432 }
+          readinessProbe:
+            exec: { command: [pg_isready, -U, watchlog, -d, watchlog] }
+            periodSeconds: 5
+          resources: {{- toYaml .Values.postgresql.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+            - { name: run, mountPath: /var/run/postgresql }
+      volumes:
+        - { name: run, emptyDir: {} }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.postgresql.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources: { requests: { storage: {{ .Values.postgresql.storage }} } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels: {{- include "watchlog.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  selector: {{- include "watchlog.selector" (list .Release.Name "postgresql") | nindent 4 }}
+  ports:
+    - { name: postgresql, port: 5432, targetPort: postgresql }

@@ -1,0 +1,628 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "addressType": "IPv4",
+            "apiVersion": "discovery.k8s.io/v1",
+            "endpoints": [
+                {
+                    "addresses": [
+                        "172.19.0.2"
+                    ],
+                    "conditions": {
+                        "ready": true
+                    }
+                }
+            ],
+            "kind": "EndpointSlice",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T12:27:00Z",
+                "generation": 1,
+                "labels": {
+                    "kubernetes.io/service-name": "kubernetes"
+                },
+                "name": "kubernetes",
+                "namespace": "default",
+                "resourceVersion": "218",
+                "uid": "4da8d727-af0a-4b84-b4a5-a8fe6889d6fd"
+            },
+            "ports": [
+                {
+                    "name": "https",
+                    "port": 6443,
+                    "protocol": "TCP"
+                }
+            ]
+        },
+        {
+            "addressType": "IPv4",
+            "apiVersion": "discovery.k8s.io/v1",
+            "endpoints": [
+                {
+                    "addresses": [
+                        "10.244.0.6"
+                    ],
+                    "conditions": {
+                        "ready": true,
+                        "serving": true,
+                        "terminating": false
+                    },
+                    "nodeName": "watchlog-control-plane",
+                    "targetRef": {
+                        "kind": "Pod",
+                        "name": "coredns-559f6c778d-bprzs",
+                        "namespace": "kube-system",
+                        "uid": "529a02c2-7f99-4d9a-9efd-d3d9c115c677"
+                    }
+                },
+                {
+                    "addresses": [
+                        "10.244.0.7"
+                    ],
+                    "conditions": {
+                        "ready": true,
+                        "serving": true,
+                        "terminating": false
+                    },
+                    "nodeName": "watchlog-control-plane",
+                    "targetRef": {
+                        "kind": "Pod",
+                        "name": "coredns-559f6c778d-8v6rv",
+                        "namespace": "kube-system",
+                        "uid": "5417c3a6-231a-4da0-887a-9e079b18cb0d"
+                    }
+                }
+            ],
+            "kind": "EndpointSlice",
+            "metadata": {
+                "annotations": {
+                    "endpoints.kubernetes.io/last-change-trigger-time": "2026-11-01T12:41:44Z"
+                },
+                "creationTimestamp": "2026-10-31T12:27:08Z",
+                "generateName": "kube-dns-",
+                "generation": 11,
+                "labels": {
+                    "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+                    "k8s-app": "kube-dns",
+                    "kubernetes.io/cluster-service": "true",
+                    "kubernetes.io/name": "CoreDNS",
+                    "kubernetes.io/service-name": "kube-dns"
+                },
+                "name": "kube-dns-wk2fl",
+                "namespace": "kube-system",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "v1",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "Service",
+                        "name": "kube-dns",
+                        "uid": "0733e450-1bdd-4d96-ba62-cd5587ccf6ce"
+                    }
+                ],
+                "resourceVersion": "88308",
+                "uid": "de599563-91a7-49fb-b3b5-9a1d82b06ecb"
+            },
+            "ports": [
+                {
+                    "name": "dns",
+                    "port": 53,
+                    "protocol": "UDP"
+                },
+                {
+                    "name": "dns-tcp",
+                    "port": 53,
+                    "protocol": "TCP"
+                },
+                {
+                    "name": "metrics",
+                    "port": 9153,
+                    "protocol": "TCP"
+                }
+            ]
+        },
+        {
+            "addressType": "IPv4",
+            "apiVersion": "discovery.k8s.io/v1",
+            "endpoints": [
+                {
+                    "addresses": [
+                        "10.244.2.3"
+                    ],
+                    "conditions": {
+                        "ready": true,
+                        "serving": true,
+                        "terminating": false
+                    },
+                    "nodeName": "watchlog-worker",
+                    "targetRef": {
+                        "kind": "Pod",
+                        "name": "wl-dev-cluster-agent-69c4c96d8-rfd4n",
+                        "namespace": "watchlog-dev",
+                        "uid": "a448a661-526a-42b0-bfe5-4dafe74cacab"
+                    }
+                }
+            ],
+            "kind": "EndpointSlice",
+            "metadata": {
+                "annotations": {
+                    "endpoints.kubernetes.io/last-change-trigger-time": "2026-11-01T12:41:27Z"
+                },
+                "creationTimestamp": "2026-10-31T12:42:41Z",
+                "generateName": "wl-dev-cluster-agent-",
+                "generation": 7,
+                "labels": {
+                    "app.kubernetes.io/component": "cluster-agent",
+                    "app.kubernetes.io/instance": "kind-demo",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "watchlog-agent",
+                    "app.kubernetes.io/version": "dev",
+                    "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+                    "helm.sh/chart": "watchlog-agent-0.2.0",
+                    "kubernetes.io/service-name": "wl-dev-cluster-agent"
+                },
+                "name": "wl-dev-cluster-agent-4z4pv",
+                "namespace": "watchlog-dev",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "v1",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "Service",
+                        "name": "wl-dev-cluster-agent",
+                        "uid": "80481616-155e-4c07-800a-9dbfd8ab6eed"
+                    }
+                ],
+                "resourceVersion": "88256",
+                "uid": "ff4a29e3-3c78-4ebc-9a8d-b2874b9045e6"
+            },
+            "ports": [
+                {
+                    "name": "podmap",
+                    "port": 8443,
+                    "protocol": "TCP"
+                }
+            ]
+        },
+        {
+            "addressType": "IPv4",
+            "apiVersion": "discovery.k8s.io/v1",
+            "endpoints": [
+                {
+                    "addresses": [
+                        "10.244.2.90"
+                    ],
+                    "conditions": {
+                        "ready": true,
+                        "serving": true,
+                        "terminating": false
+                    },
+                    "nodeName": "watchlog-worker",
+                    "targetRef": {
+                        "kind": "Pod",
+                        "name": "watchlog-agent-cluster-agent-69d9846499-cfmwc",
+                        "namespace": "watchlog",
+                        "uid": "d61d167e-6d30-4669-b262-b4ee29c7566a"
+                    }
+                }
+            ],
+            "kind": "EndpointSlice",
+            "metadata": {
+                "annotations": {
+                    "endpoints.kubernetes.io/last-change-trigger-time": "2026-11-01T12:53:38Z"
+                },
+                "creationTimestamp": "2026-10-31T12:27:30Z",
+                "generateName": "watchlog-agent-cluster-agent-",
+                "generation": 31,
+                "labels": {
+                    "app.kubernetes.io/component": "cluster-agent",
+                    "app.kubernetes.io/instance": "watchlog",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "watchlog-agent",
+                    "app.kubernetes.io/version": "dev",
+                    "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+                    "helm.sh/chart": "watchlog-agent-0.2.0",
+                    "kubernetes.io/service-name": "watchlog-agent-cluster-agent"
+                },
+                "name": "watchlog-agent-cluster-agent-d8xh9",
+                "namespace": "watchlog",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "v1",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "Service",
+                        "name": "watchlog-agent-cluster-agent",
+                        "uid": "d3dbfceb-167b-4cba-a299-76647b584137"
+                    }
+                ],
+                "resourceVersion": "91054",
+                "uid": "c280fa28-9ce7-47af-b54b-fd3a8b198292"
+            },
+            "ports": [
+                {
+                    "name": "podmap",
+                    "port": 8443,
+                    "protocol": "TCP"
+                }
+            ]
+        },
+        {
+            "addressType": "IPv4",
+            "apiVersion": "discovery.k8s.io/v1",
+            "endpoints": [
+                {
+                    "addresses": [
+                        "10.244.2.92"
+                    ],
+                    "conditions": {
+                        "ready": true,
+                        "serving": true,
+                        "terminating": false
+                    },
+                    "nodeName": "watchlog-worker",
+                    "targetRef": {
+                        "kind": "Pod",
+                        "name": "watchlog-backend-7dcf6b56df-xc778",
+                        "namespace": "watchlog",
+                        "uid": "2109e7aa-26e0-4307-87c3-0b3383b66928"
+                    }
+                }
+            ],
+            "kind": "EndpointSlice",
+            "metadata": {
+                "annotations": {
+                    "endpoints.kubernetes.io/last-change-trigger-time": "2026-11-01T12:53:40Z"
+                },
+                "creationTimestamp": "2026-10-31T12:27:30Z",
+                "generateName": "watchlog-backend-",
+                "generation": 39,
+                "labels": {
+                    "app.kubernetes.io/component": "backend",
+                    "app.kubernetes.io/instance": "watchlog",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "watchlog",
+                    "app.kubernetes.io/version": "dev",
+                    "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+                    "helm.sh/chart": "watchlog-0.2.0",
+                    "kubernetes.io/service-name": "watchlog-backend"
+                },
+                "name": "watchlog-backend-whl22",
+                "namespace": "watchlog",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "v1",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "Service",
+                        "name": "watchlog-backend",
+                        "uid": "e8ff9103-b28a-4111-ad1f-52fe234e639b"
+                    }
+                ],
+                "resourceVersion": "91129",
+                "uid": "f20bfdd6-e40b-4b0c-a49a-cc267d9c925f"
+            },
+            "ports": [
+                {
+                    "name": "http",
+                    "port": 4080,
+                    "protocol": "TCP"
+                }
+            ]
+        },
+        {
+            "addressType": "IPv4",
+            "apiVersion": "discovery.k8s.io/v1",
+            "endpoints": [
+                {
+                    "addresses": [
+                        "10.244.1.10"
+                    ],
+                    "conditions": {
+                        "ready": true,
+                        "serving": true,
+                        "terminating": false
+                    },
+                    "hostname": "watchlog-postgresql-0",
+                    "nodeName": "watchlog-worker2",
+                    "targetRef": {
+                        "kind": "Pod",
+                        "name": "watchlog-postgresql-0",
+                        "namespace": "watchlog",
+                        "uid": "3d6e6a71-acc0-4be3-bedc-728c1c33ff6d"
+                    }
+                }
+            ],
+            "kind": "EndpointSlice",
+            "metadata": {
+                "annotations": {
+                    "endpoints.kubernetes.io/last-change-trigger-time": "2026-10-31T12:27:30Z"
+                },
+                "creationTimestamp": "2026-10-31T12:27:30Z",
+                "generateName": "watchlog-postgresql-",
+                "generation": 5,
+                "labels": {
+                    "app.kubernetes.io/component": "postgresql",
+                    "app.kubernetes.io/instance": "watchlog",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "watchlog",
+                    "app.kubernetes.io/version": "dev",
+                    "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+                    "helm.sh/chart": "watchlog-0.2.0",
+                    "kubernetes.io/service-name": "watchlog-postgresql"
+                },
+                "name": "watchlog-postgresql-wgsvf",
+                "namespace": "watchlog",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "v1",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "Service",
+                        "name": "watchlog-postgresql",
+                        "uid": "a5901192-adac-4818-88cd-42243ff46b33"
+                    }
+                ],
+                "resourceVersion": "79223",
+                "uid": "62571a93-f489-413c-9ce8-ef8b54648389"
+            },
+            "ports": [
+                {
+                    "name": "postgresql",
+                    "port": 5432,
+                    "protocol": "TCP"
+                }
+            ]
+        },
+        {
+            "addressType": "IPv4",
+            "apiVersion": "discovery.k8s.io/v1",
+            "endpoints": [
+                {
+                    "addresses": [
+                        "10.244.1.6"
+                    ],
+                    "conditions": {
+                        "ready": true,
+                        "serving": true,
+                        "terminating": false
+                    },
+                    "hostname": "watchlog-victoriametrics-0",
+                    "nodeName": "watchlog-worker2",
+                    "targetRef": {
+                        "kind": "Pod",
+                        "name": "watchlog-victoriametrics-0",
+                        "namespace": "watchlog",
+                        "uid": "7b13db9d-2a01-4ca3-97e2-32e384a03c27"
+                    }
+                }
+            ],
+            "kind": "EndpointSlice",
+            "metadata": {
+                "annotations": {
+                    "endpoints.kubernetes.io/last-change-trigger-time": "2026-10-31T12:27:30Z"
+                },
+                "creationTimestamp": "2026-10-31T12:27:30Z",
+                "generateName": "watchlog-victoriametrics-",
+                "generation": 5,
+                "labels": {
+                    "app.kubernetes.io/component": "victoriametrics",
+                    "app.kubernetes.io/instance": "watchlog",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "watchlog",
+                    "app.kubernetes.io/version": "dev",
+                    "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+                    "helm.sh/chart": "watchlog-0.2.0",
+                    "kubernetes.io/service-name": "watchlog-victoriametrics"
+                },
+                "name": "watchlog-victoriametrics-f5qmj",
+                "namespace": "watchlog",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "v1",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "Service",
+                        "name": "watchlog-victoriametrics",
+                        "uid": "21e1bb31-720a-4839-a4f3-1ffdab4a9817"
+                    }
+                ],
+                "resourceVersion": "79226",
+                "uid": "26c4465e-d5b9-4451-81d3-74041a939419"
+            },
+            "ports": [
+                {
+                    "name": "http",
+                    "port": 8428,
+                    "protocol": "TCP"
+                }
+            ]
+        },
+        {
+            "addressType": "IPv4",
+            "apiVersion": "discovery.k8s.io/v1",
+            "endpoints": [
+                {
+                    "addresses": [
+                        "10.244.2.93"
+                    ],
+                    "conditions": {
+                        "ready": true,
+                        "serving": true,
+                        "terminating": false
+                    },
+                    "nodeName": "watchlog-worker",
+                    "targetRef": {
+                        "kind": "Pod",
+                        "name": "watchlog-web-656c999d8f-vp8bn",
+                        "namespace": "watchlog",
+                        "uid": "dd8fc779-c915-426e-8d04-c6e762caa5b4"
+                    }
+                }
+            ],
+            "kind": "EndpointSlice",
+            "metadata": {
+                "annotations": {
+                    "endpoints.kubernetes.io/last-change-trigger-time": "2026-11-01T12:53:38Z"
+                },
+                "creationTimestamp": "2026-10-31T12:27:30Z",
+                "generateName": "watchlog-web-",
+                "generation": 29,
+                "labels": {
+                    "app.kubernetes.io/component": "web",
+                    "app.kubernetes.io/instance": "watchlog",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "watchlog",
+                    "app.kubernetes.io/version": "dev",
+                    "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+                    "helm.sh/chart": "watchlog-0.2.0",
+                    "kubernetes.io/service-name": "watchlog-web"
+                },
+                "name": "watchlog-web-6pvpb",
+                "namespace": "watchlog",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "v1",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "Service",
+                        "name": "watchlog-web",
+                        "uid": "ae54e1e4-8305-4c0e-a08b-a62ce951a999"
+                    }
+                ],
+                "resourceVersion": "91059",
+                "uid": "50c077db-c528-4d3d-a806-951deea658c0"
+            },
+            "ports": [
+                {
+                    "name": "http",
+                    "port": 8080,
+                    "protocol": "TCP"
+                }
+            ]
+        },
+        {
+            "addressType": "IPv4",
+            "apiVersion": "discovery.k8s.io/v1",
+            "endpoints": [
+                {
+                    "addresses": [
+                        "10.244.1.3"
+                    ],
+                    "conditions": {
+                        "ready": true,
+                        "serving": true,
+                        "terminating": false
+                    },
+                    "nodeName": "watchlog-worker2",
+                    "targetRef": {
+                        "kind": "Pod",
+                        "name": "mailpit-5c8f8658f9-nln8s",
+                        "namespace": "wl-alert-mocks",
+                        "uid": "30f09216-b91d-4524-8e46-4fa1b552e7b1"
+                    }
+                }
+            ],
+            "kind": "EndpointSlice",
+            "metadata": {
+                "annotations": {
+                    "endpoints.kubernetes.io/last-change-trigger-time": "2026-10-31T16:31:31Z"
+                },
+                "creationTimestamp": "2026-10-31T16:31:31Z",
+                "generateName": "mailpit-",
+                "generation": 5,
+                "labels": {
+                    "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+                    "kubernetes.io/service-name": "mailpit"
+                },
+                "name": "mailpit-5v87p",
+                "namespace": "wl-alert-mocks",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "v1",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "Service",
+                        "name": "mailpit",
+                        "uid": "bfc93c52-2c8f-4d1e-b823-83c7ef5d7590"
+                    }
+                ],
+                "resourceVersion": "79225",
+                "uid": "581ecc67-a427-4ee2-866e-f9b72ad40143"
+            },
+            "ports": [
+                {
+                    "name": "http",
+                    "port": 8025,
+                    "protocol": "TCP"
+                },
+                {
+                    "name": "smtp",
+                    "port": 1025,
+                    "protocol": "TCP"
+                }
+            ]
+        },
+        {
+            "addressType": "IPv4",
+            "apiVersion": "discovery.k8s.io/v1",
+            "endpoints": [
+                {
+                    "addresses": [
+                        "10.244.2.12"
+                    ],
+                    "conditions": {
+                        "ready": true,
+                        "serving": true,
+                        "terminating": false
+                    },
+                    "nodeName": "watchlog-worker",
+                    "targetRef": {
+                        "kind": "Pod",
+                        "name": "mock-channels-5dc4bf877f-rz5lb",
+                        "namespace": "wl-alert-mocks",
+                        "uid": "df903b53-b9ca-4d0c-b05b-55305b6d956f"
+                    }
+                }
+            ],
+            "kind": "EndpointSlice",
+            "metadata": {
+                "annotations": {
+                    "endpoints.kubernetes.io/last-change-trigger-time": "2026-10-31T16:31:31Z"
+                },
+                "creationTimestamp": "2026-10-31T16:31:31Z",
+                "generateName": "mock-channels-",
+                "generation": 5,
+                "labels": {
+                    "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+                    "kubernetes.io/service-name": "mock-channels"
+                },
+                "name": "mock-channels-5zqrz",
+                "namespace": "wl-alert-mocks",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "v1",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "Service",
+                        "name": "mock-channels",
+                        "uid": "10057457-7a82-4783-b59b-f64c0cebda68"
+                    }
+                ],
+                "resourceVersion": "79227",
+                "uid": "38719a80-8ea0-4143-aef6-053ad587d408"
+            },
+            "ports": [
+                {
+                    "name": "",
+                    "port": 8080,
+                    "protocol": "TCP"
+                }
+            ]
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

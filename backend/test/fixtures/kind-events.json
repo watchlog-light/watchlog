@@ -1,0 +1,1362 @@
+[
+  {
+    "uid": "1c2ce8b6567e26ca310da2312092732f",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890793-p5fzp",
+      "uid": "9a591e2d-3a37-474a-bcd6-36588e03c367"
+    },
+    "type": "Normal",
+    "reason": "Created",
+    "message": "Container created",
+    "count": 1,
+    "first_ts": "2026-10-31T11:53:00+00:00",
+    "last_ts": "2026-10-31T11:53:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "e54659ab0ce36c8361d8444bdaa75b81",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890793",
+      "uid": "e5987a77-830b-4c58-a69a-0f6bc88f37bc"
+    },
+    "type": "Normal",
+    "reason": "SuccessfulCreate",
+    "message": "Created pod: every-minute-29890793-p5fzp",
+    "count": 1,
+    "first_ts": "2026-10-31T11:53:00+00:00",
+    "last_ts": "2026-10-31T11:53:00+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "8cdb60bd11541cb8767d8cb7a62ba40a",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890793-p5fzp",
+      "uid": "9a591e2d-3a37-474a-bcd6-36588e03c367"
+    },
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+    "count": 1,
+    "first_ts": "2026-10-31T11:53:00+00:00",
+    "last_ts": "2026-10-31T11:53:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "8dfaebc91ae08fbf2c4fcb5a2e1c28bb",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890793-p5fzp",
+      "uid": "9a591e2d-3a37-474a-bcd6-36588e03c367"
+    },
+    "type": "Normal",
+    "reason": "Scheduled",
+    "message": "Successfully assigned wl-test/every-minute-29890793-p5fzp to watchlog-worker",
+    "count": 1,
+    "first_ts": "2026-10-31T11:53:00+00:00",
+    "last_ts": "2026-10-31T11:53:00+00:00",
+    "reporting_controller": "default-scheduler"
+  },
+  {
+    "uid": "e8748715108c804ae633f0844041b65e",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890793-p5fzp",
+      "uid": "9a591e2d-3a37-474a-bcd6-36588e03c367"
+    },
+    "type": "Normal",
+    "reason": "Started",
+    "message": "Container started",
+    "count": 1,
+    "first_ts": "2026-10-31T11:53:00+00:00",
+    "last_ts": "2026-10-31T11:53:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "de403e8278fdeb4d9b0917e378229687",
+    "namespace": "watchlog",
+    "involved": {
+      "kind": "Deployment",
+      "namespace": "watchlog",
+      "name": "watchlog-agent-cluster-agent",
+      "uid": "abf107b9-0a15-4cfb-8a61-1f13bcfddd5e"
+    },
+    "type": "Normal",
+    "reason": "ScalingReplicaSet",
+    "message": "Scaled down replica set watchlog-agent-cluster-agent-74bd964fd8 from 1 to 0",
+    "count": 11,
+    "first_ts": "2026-10-31T11:28:43+00:00",
+    "last_ts": "2026-10-31T11:52:56+00:00",
+    "reporting_controller": "deployment-controller"
+  },
+  {
+    "uid": "807f0d6cf563154712f39bbe53ea4c04",
+    "namespace": "watchlog",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "watchlog",
+      "name": "watchlog-agent-cluster-agent-74bd964fd8-flj82",
+      "uid": "31374a4b-3417-495a-8e17-fa4a83078874"
+    },
+    "type": "Normal",
+    "reason": "Killing",
+    "message": "Stopping container cluster-agent",
+    "count": 1,
+    "first_ts": "2026-10-31T11:52:56+00:00",
+    "last_ts": "2026-10-31T11:52:56+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "3b22c86f6faacdb9599e0052ed8d5596",
+    "namespace": "watchlog",
+    "involved": {
+      "kind": "ReplicaSet",
+      "namespace": "watchlog",
+      "name": "watchlog-agent-cluster-agent-74bd964fd8",
+      "uid": "766fbb23-2537-461a-b182-c625475eb263"
+    },
+    "type": "Normal",
+    "reason": "SuccessfulDelete",
+    "message": "Deleted pod: watchlog-agent-cluster-agent-74bd964fd8-flj82",
+    "count": 3,
+    "first_ts": "2026-10-31T11:35:08+00:00",
+    "last_ts": "2026-10-31T11:52:56+00:00",
+    "reporting_controller": "replicaset-controller"
+  },
+  {
+    "uid": "9cdc03d1fff3c2268c063d1f5b0c1fcc",
+    "namespace": "watchlog",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "watchlog",
+      "name": "watchlog-agent-cluster-agent-86465b894f-n2494",
+      "uid": "809b7b26-84fa-4c19-ae80-a90298ad0fbe"
+    },
+    "type": "Normal",
+    "reason": "Created",
+    "message": "Container created",
+    "count": 1,
+    "first_ts": "2026-10-31T11:52:55+00:00",
+    "last_ts": "2026-10-31T11:52:55+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "387bfd0a9e3b84a201d63e851eb3a112",
+    "namespace": "watchlog",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "watchlog",
+      "name": "watchlog-agent-cluster-agent-86465b894f-n2494",
+      "uid": "809b7b26-84fa-4c19-ae80-a90298ad0fbe"
+    },
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"ghcr.io/watchlog-light/cluster-agent:dev\" already present on machine and can be accessed by the pod",
+    "count": 1,
+    "first_ts": "2026-10-31T11:52:55+00:00",
+    "last_ts": "2026-10-31T11:52:55+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "9293d390b3d4102a88292ed7da61a53d",
+    "namespace": "watchlog",
+    "involved": {
+      "kind": "ReplicaSet",
+      "namespace": "watchlog",
+      "name": "watchlog-agent-cluster-agent-86465b894f",
+      "uid": "19c3c61d-c67f-4eef-b4ea-28a60cee11b3"
+    },
+    "type": "Normal",
+    "reason": "SuccessfulCreate",
+    "message": "Created pod: watchlog-agent-cluster-agent-86465b894f-n2494",
+    "count": 1,
+    "first_ts": "2026-10-31T11:52:55+00:00",
+    "last_ts": "2026-10-31T11:52:55+00:00",
+    "reporting_controller": "replicaset-controller"
+  },
+  {
+    "uid": "ece039ace8ea3a22393650610a1df10d",
+    "namespace": "watchlog",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "watchlog",
+      "name": "watchlog-agent-cluster-agent-86465b894f-n2494",
+      "uid": "809b7b26-84fa-4c19-ae80-a90298ad0fbe"
+    },
+    "type": "Normal",
+    "reason": "Scheduled",
+    "message": "Successfully assigned watchlog/watchlog-agent-cluster-agent-86465b894f-n2494 to watchlog-worker2",
+    "count": 1,
+    "first_ts": "2026-10-31T11:52:55+00:00",
+    "last_ts": "2026-10-31T11:52:55+00:00",
+    "reporting_controller": "default-scheduler"
+  },
+  {
+    "uid": "416d9c77143fe91710071a0a52bab7b7",
+    "namespace": "watchlog",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "watchlog",
+      "name": "watchlog-agent-cluster-agent-86465b894f-n2494",
+      "uid": "809b7b26-84fa-4c19-ae80-a90298ad0fbe"
+    },
+    "type": "Normal",
+    "reason": "Started",
+    "message": "Container started",
+    "count": 1,
+    "first_ts": "2026-10-31T11:52:55+00:00",
+    "last_ts": "2026-10-31T11:52:55+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "3e23935724cb55863d329a24e74ce5ba",
+    "namespace": "watchlog",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "watchlog",
+      "name": "watchlog-agent-cluster-agent-86465b894f-n2494",
+      "uid": "809b7b26-84fa-4c19-ae80-a90298ad0fbe"
+    },
+    "type": "Warning",
+    "reason": "Unhealthy",
+    "message": "Readiness probe failed: Get \"https://10.244.2.34:8443/healthz\": dial tcp 10.244.2.34:8443: connect: connection refused",
+    "count": 1,
+    "first_ts": "2026-10-31T11:52:55+00:00",
+    "last_ts": "2026-10-31T11:52:55+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "8f035197ccfa14f098a29929e64f4582",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "oom",
+      "uid": "a14799bc-1616-45c5-abcd-3e4d43ff555b"
+    },
+    "type": "Warning",
+    "reason": "BackOff",
+    "message": "Back-off restarting failed container main in pod oom_wl-test(a14799bc-1616-45c5-abcd-3e4d43ff555b)",
+    "count": 25,
+    "first_ts": "2026-10-31T11:27:19+00:00",
+    "last_ts": "2026-10-31T11:52:42+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "55a0dc476897b1e84eeb1a92d8191975",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "HorizontalPodAutoscaler",
+      "namespace": "wl-test",
+      "name": "web",
+      "uid": "4b4a6d6c-126b-46a7-a904-e08ae2f0dcd0"
+    },
+    "type": "Warning",
+    "reason": "FailedGetResourceMetric",
+    "message": "failed to get cpu utilization: unable to get metrics for resource cpu: unable to fetch metrics from resource metrics API: the server could not find the requested resource (get pods.metrics.k8s.io)",
+    "count": 101,
+    "first_ts": "2026-10-31T11:27:05+00:00",
+    "last_ts": "2026-10-31T11:52:06+00:00",
+    "reporting_controller": "horizontal-pod-autoscaler"
+  },
+  {
+    "uid": "986698507022091dd6f1d077ab1cf69a",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890792",
+      "uid": "ee6eef04-4e75-4705-99f6-467edcfe0761"
+    },
+    "type": "Normal",
+    "reason": "Completed",
+    "message": "Job completed",
+    "count": 1,
+    "first_ts": "2026-10-31T11:52:03+00:00",
+    "last_ts": "2026-10-31T11:52:03+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "9b47d2fa13420582ea5e9e0a1ea29cff",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "crashloop",
+      "uid": "53cf1330-20e7-4770-91fd-68883c931056"
+    },
+    "type": "Warning",
+    "reason": "BackOff",
+    "message": "Back-off restarting failed container main in pod crashloop_wl-test(53cf1330-20e7-4770-91fd-68883c931056)",
+    "count": 25,
+    "first_ts": "2026-10-31T11:27:21+00:00",
+    "last_ts": "2026-10-31T11:52:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "9aa3415bfcac8e19d36f9a5a50c49264",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890792-c7zjf",
+      "uid": "e21f3917-e7ff-4037-821d-8393198218e9"
+    },
+    "type": "Normal",
+    "reason": "Started",
+    "message": "Container started",
+    "count": 1,
+    "first_ts": "2026-10-31T11:52:00+00:00",
+    "last_ts": "2026-10-31T11:52:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "15d54fa2f491da954b5590db58550766",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890792-c7zjf",
+      "uid": "e21f3917-e7ff-4037-821d-8393198218e9"
+    },
+    "type": "Normal",
+    "reason": "Created",
+    "message": "Container created",
+    "count": 1,
+    "first_ts": "2026-10-31T11:52:00+00:00",
+    "last_ts": "2026-10-31T11:52:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "df8a654624f443e322ac243e5c12ced6",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890792",
+      "uid": "ee6eef04-4e75-4705-99f6-467edcfe0761"
+    },
+    "type": "Normal",
+    "reason": "SuccessfulCreate",
+    "message": "Created pod: every-minute-29890792-c7zjf",
+    "count": 1,
+    "first_ts": "2026-10-31T11:52:00+00:00",
+    "last_ts": "2026-10-31T11:52:00+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "53a776a2774d101ba0ae759dfe928917",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890792-c7zjf",
+      "uid": "e21f3917-e7ff-4037-821d-8393198218e9"
+    },
+    "type": "Normal",
+    "reason": "Scheduled",
+    "message": "Successfully assigned wl-test/every-minute-29890792-c7zjf to watchlog-worker2",
+    "count": 1,
+    "first_ts": "2026-10-31T11:52:00+00:00",
+    "last_ts": "2026-10-31T11:52:00+00:00",
+    "reporting_controller": "default-scheduler"
+  },
+  {
+    "uid": "37a2c8aea20e3bf0a0bbdd60e9d3c04c",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890792-c7zjf",
+      "uid": "e21f3917-e7ff-4037-821d-8393198218e9"
+    },
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+    "count": 1,
+    "first_ts": "2026-10-31T11:52:00+00:00",
+    "last_ts": "2026-10-31T11:52:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "d18da71c9c09d69ea9505251ac670980",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890791",
+      "uid": "1b9997bd-543d-4a06-93de-01324130ae68"
+    },
+    "type": "Normal",
+    "reason": "Completed",
+    "message": "Job completed",
+    "count": 1,
+    "first_ts": "2026-10-31T11:51:03+00:00",
+    "last_ts": "2026-10-31T11:51:03+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "b0838925db7b2ac7199011d09ae1e4af",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890791-l98wp",
+      "uid": "1ff28b42-65f1-4077-97bf-4b4179c73b8a"
+    },
+    "type": "Normal",
+    "reason": "Created",
+    "message": "Container created",
+    "count": 1,
+    "first_ts": "2026-10-31T11:51:00+00:00",
+    "last_ts": "2026-10-31T11:51:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "313705e3e922984f78dd7bd6a428199a",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890791-l98wp",
+      "uid": "1ff28b42-65f1-4077-97bf-4b4179c73b8a"
+    },
+    "type": "Normal",
+    "reason": "Started",
+    "message": "Container started",
+    "count": 1,
+    "first_ts": "2026-10-31T11:51:00+00:00",
+    "last_ts": "2026-10-31T11:51:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "50ca2e0c2f06d46625e7a5a9a4a0ced8",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890791-l98wp",
+      "uid": "1ff28b42-65f1-4077-97bf-4b4179c73b8a"
+    },
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+    "count": 1,
+    "first_ts": "2026-10-31T11:51:00+00:00",
+    "last_ts": "2026-10-31T11:51:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "6de67e84efbf0acafbf8cd5fd4a11216",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890791-l98wp",
+      "uid": "1ff28b42-65f1-4077-97bf-4b4179c73b8a"
+    },
+    "type": "Normal",
+    "reason": "Scheduled",
+    "message": "Successfully assigned wl-test/every-minute-29890791-l98wp to watchlog-worker2",
+    "count": 1,
+    "first_ts": "2026-10-31T11:51:00+00:00",
+    "last_ts": "2026-10-31T11:51:00+00:00",
+    "reporting_controller": "default-scheduler"
+  },
+  {
+    "uid": "8f7adf75cd4c3bee76da6476aefe04f4",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890791",
+      "uid": "1b9997bd-543d-4a06-93de-01324130ae68"
+    },
+    "type": "Normal",
+    "reason": "SuccessfulCreate",
+    "message": "Created pod: every-minute-29890791-l98wp",
+    "count": 1,
+    "first_ts": "2026-10-31T11:51:00+00:00",
+    "last_ts": "2026-10-31T11:51:00+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "eaf28307565665c314c57092d232ca4b",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890790",
+      "uid": "5208ccf4-3131-462f-8d6c-7bb838ebd76d"
+    },
+    "type": "Normal",
+    "reason": "Completed",
+    "message": "Job completed",
+    "count": 1,
+    "first_ts": "2026-10-31T11:50:03+00:00",
+    "last_ts": "2026-10-31T11:50:03+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "196d3d14d5bd6d30017220710f5e4a3f",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890790-qjdk7",
+      "uid": "e45f9ea6-2c8c-4004-b672-e4ac5cc2caf0"
+    },
+    "type": "Normal",
+    "reason": "Started",
+    "message": "Container started",
+    "count": 1,
+    "first_ts": "2026-10-31T11:50:00+00:00",
+    "last_ts": "2026-10-31T11:50:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "9df48123c2a2ec9b2b02caf155076d7f",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890790-qjdk7",
+      "uid": "e45f9ea6-2c8c-4004-b672-e4ac5cc2caf0"
+    },
+    "type": "Normal",
+    "reason": "Scheduled",
+    "message": "Successfully assigned wl-test/every-minute-29890790-qjdk7 to watchlog-worker2",
+    "count": 1,
+    "first_ts": "2026-10-31T11:50:00+00:00",
+    "last_ts": "2026-10-31T11:50:00+00:00",
+    "reporting_controller": "default-scheduler"
+  },
+  {
+    "uid": "f9c0d4ec42d48bee34e6ca878ceb5b05",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890790",
+      "uid": "5208ccf4-3131-462f-8d6c-7bb838ebd76d"
+    },
+    "type": "Normal",
+    "reason": "SuccessfulCreate",
+    "message": "Created pod: every-minute-29890790-qjdk7",
+    "count": 1,
+    "first_ts": "2026-10-31T11:50:00+00:00",
+    "last_ts": "2026-10-31T11:50:00+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "2d12d3de398ec2d931ee95efd801db0b",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890790-qjdk7",
+      "uid": "e45f9ea6-2c8c-4004-b672-e4ac5cc2caf0"
+    },
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+    "count": 1,
+    "first_ts": "2026-10-31T11:50:00+00:00",
+    "last_ts": "2026-10-31T11:50:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "b16138448d46a8b6036a023508c7f78b",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890790-qjdk7",
+      "uid": "e45f9ea6-2c8c-4004-b672-e4ac5cc2caf0"
+    },
+    "type": "Normal",
+    "reason": "Created",
+    "message": "Container created",
+    "count": 1,
+    "first_ts": "2026-10-31T11:50:00+00:00",
+    "last_ts": "2026-10-31T11:50:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "24d60e687837df182a80eee6553e28d1",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890789",
+      "uid": "58ac27b1-ea64-49c5-b3d2-d98b9b0792e5"
+    },
+    "type": "Normal",
+    "reason": "Completed",
+    "message": "Job completed",
+    "count": 1,
+    "first_ts": "2026-10-31T11:49:03+00:00",
+    "last_ts": "2026-10-31T11:49:03+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "2a3e5a249c8ee5880d9a771aa094d0cd",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890789-m8rlh",
+      "uid": "2614f882-7cc6-442e-9b58-d32d0e0d8ac0"
+    },
+    "type": "Normal",
+    "reason": "Scheduled",
+    "message": "Successfully assigned wl-test/every-minute-29890789-m8rlh to watchlog-worker2",
+    "count": 1,
+    "first_ts": "2026-10-31T11:49:00+00:00",
+    "last_ts": "2026-10-31T11:49:00+00:00",
+    "reporting_controller": "default-scheduler"
+  },
+  {
+    "uid": "b99eb16db05d8b88677c6617c720be00",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890789-m8rlh",
+      "uid": "2614f882-7cc6-442e-9b58-d32d0e0d8ac0"
+    },
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+    "count": 1,
+    "first_ts": "2026-10-31T11:49:00+00:00",
+    "last_ts": "2026-10-31T11:49:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "9bcbda9f71d86cdeffecb7d6842a90c6",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890789-m8rlh",
+      "uid": "2614f882-7cc6-442e-9b58-d32d0e0d8ac0"
+    },
+    "type": "Normal",
+    "reason": "Created",
+    "message": "Container created",
+    "count": 1,
+    "first_ts": "2026-10-31T11:49:00+00:00",
+    "last_ts": "2026-10-31T11:49:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "77448eab2ddeebaa6f972639cf91098e",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890789-m8rlh",
+      "uid": "2614f882-7cc6-442e-9b58-d32d0e0d8ac0"
+    },
+    "type": "Normal",
+    "reason": "Started",
+    "message": "Container started",
+    "count": 1,
+    "first_ts": "2026-10-31T11:49:00+00:00",
+    "last_ts": "2026-10-31T11:49:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "6a3c3491e1d033e2473831b2b92a6634",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890789",
+      "uid": "58ac27b1-ea64-49c5-b3d2-d98b9b0792e5"
+    },
+    "type": "Normal",
+    "reason": "SuccessfulCreate",
+    "message": "Created pod: every-minute-29890789-m8rlh",
+    "count": 1,
+    "first_ts": "2026-10-31T11:49:00+00:00",
+    "last_ts": "2026-10-31T11:49:00+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "5f1b61e6ff2c0a5a42c5071c2238dfa6",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "crashloop",
+      "uid": "53cf1330-20e7-4770-91fd-68883c931056"
+    },
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+    "count": 10,
+    "first_ts": "2026-10-31T11:27:15+00:00",
+    "last_ts": "2026-10-31T11:48:50+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "7f8b6935861fd34cb1d2d7073c3989a6",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "oom",
+      "uid": "a14799bc-1616-45c5-abcd-3e4d43ff555b"
+    },
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+    "count": 10,
+    "first_ts": "2026-10-31T11:27:11+00:00",
+    "last_ts": "2026-10-31T11:48:40+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "40ae16b4dd59d6a5a137ab8923541629",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "CronJob",
+      "namespace": "wl-test",
+      "name": "every-minute",
+      "uid": "5f72a7b5-9cb9-4818-8736-ca59e8280cc8"
+    },
+    "type": "Normal",
+    "reason": "SuccessfulDelete",
+    "message": "(combined from similar events): Deleted job every-minute-29890787",
+    "count": 18,
+    "first_ts": "2026-10-31T11:29:02+00:00",
+    "last_ts": "2026-10-31T11:48:02+00:00",
+    "reporting_controller": "cronjob-controller"
+  },
+  {
+    "uid": "6269b5117971271fc3f4b680df459aaa",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890788",
+      "uid": "87e41389-1d16-40f7-a0dc-248cfdf2bf45"
+    },
+    "type": "Normal",
+    "reason": "Completed",
+    "message": "Job completed",
+    "count": 1,
+    "first_ts": "2026-10-31T11:48:02+00:00",
+    "last_ts": "2026-10-31T11:48:02+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "b8ee0c575d985c3ce74d447b18b2e08e",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890788-l4rnc",
+      "uid": "7ade03bb-025a-494e-b95c-53c2a8bedbab"
+    },
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+    "count": 1,
+    "first_ts": "2026-10-31T11:48:00+00:00",
+    "last_ts": "2026-10-31T11:48:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "64ca4562c10592e7bbd3f49907adba97",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890788",
+      "uid": "87e41389-1d16-40f7-a0dc-248cfdf2bf45"
+    },
+    "type": "Normal",
+    "reason": "SuccessfulCreate",
+    "message": "Created pod: every-minute-29890788-l4rnc",
+    "count": 1,
+    "first_ts": "2026-10-31T11:48:00+00:00",
+    "last_ts": "2026-10-31T11:48:00+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "7befcfd4cafe30f5d8cec668cb719fab",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890788-l4rnc",
+      "uid": "7ade03bb-025a-494e-b95c-53c2a8bedbab"
+    },
+    "type": "Normal",
+    "reason": "Created",
+    "message": "Container created",
+    "count": 1,
+    "first_ts": "2026-10-31T11:48:00+00:00",
+    "last_ts": "2026-10-31T11:48:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "c028e5dbbd7c339c6eac5dadd2bc18ef",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890788-l4rnc",
+      "uid": "7ade03bb-025a-494e-b95c-53c2a8bedbab"
+    },
+    "type": "Normal",
+    "reason": "Started",
+    "message": "Container started",
+    "count": 1,
+    "first_ts": "2026-10-31T11:48:00+00:00",
+    "last_ts": "2026-10-31T11:48:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "6def9424614c33bf4701fb384a84a49e",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890788-l4rnc",
+      "uid": "7ade03bb-025a-494e-b95c-53c2a8bedbab"
+    },
+    "type": "Normal",
+    "reason": "Scheduled",
+    "message": "Successfully assigned wl-test/every-minute-29890788-l4rnc to watchlog-worker2",
+    "count": 1,
+    "first_ts": "2026-10-31T11:48:00+00:00",
+    "last_ts": "2026-10-31T11:48:00+00:00",
+    "reporting_controller": "default-scheduler"
+  },
+  {
+    "uid": "a49e4ef5d5a64ef742dbc1a354012fab",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890787",
+      "uid": "d7209c2d-b53d-4c94-bd7f-58fc32e78741"
+    },
+    "type": "Normal",
+    "reason": "Completed",
+    "message": "Job completed",
+    "count": 1,
+    "first_ts": "2026-10-31T11:47:02+00:00",
+    "last_ts": "2026-10-31T11:47:02+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "e79c904692435042cd981f9a31bc2a43",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890787-44wtt",
+      "uid": "5e4b4003-5796-4e8e-9e64-64c430762fab"
+    },
+    "type": "Normal",
+    "reason": "Started",
+    "message": "Container started",
+    "count": 1,
+    "first_ts": "2026-10-31T11:47:00+00:00",
+    "last_ts": "2026-10-31T11:47:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "c7c6098013401bba205e2c96367a581f",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890787-44wtt",
+      "uid": "5e4b4003-5796-4e8e-9e64-64c430762fab"
+    },
+    "type": "Normal",
+    "reason": "Created",
+    "message": "Container created",
+    "count": 1,
+    "first_ts": "2026-10-31T11:47:00+00:00",
+    "last_ts": "2026-10-31T11:47:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "88e07a0f3756334e1697c7f2d2e5f677",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890787-44wtt",
+      "uid": "5e4b4003-5796-4e8e-9e64-64c430762fab"
+    },
+    "type": "Normal",
+    "reason": "Scheduled",
+    "message": "Successfully assigned wl-test/every-minute-29890787-44wtt to watchlog-worker2",
+    "count": 1,
+    "first_ts": "2026-10-31T11:47:00+00:00",
+    "last_ts": "2026-10-31T11:47:00+00:00",
+    "reporting_controller": "default-scheduler"
+  },
+  {
+    "uid": "0e19bcf4a4b24465a256b4b41125aca7",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890787-44wtt",
+      "uid": "5e4b4003-5796-4e8e-9e64-64c430762fab"
+    },
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+    "count": 1,
+    "first_ts": "2026-10-31T11:47:00+00:00",
+    "last_ts": "2026-10-31T11:47:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "605f73c6b94093e5cf3b517011de6e07",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890787",
+      "uid": "d7209c2d-b53d-4c94-bd7f-58fc32e78741"
+    },
+    "type": "Normal",
+    "reason": "SuccessfulCreate",
+    "message": "Created pod: every-minute-29890787-44wtt",
+    "count": 1,
+    "first_ts": "2026-10-31T11:47:00+00:00",
+    "last_ts": "2026-10-31T11:47:00+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "4d6bf7f3e1b30ce101710553a114c5bc",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890786",
+      "uid": "16c0e027-6c18-46aa-b964-0c92b4494a10"
+    },
+    "type": "Normal",
+    "reason": "Completed",
+    "message": "Job completed",
+    "count": 1,
+    "first_ts": "2026-10-31T11:46:03+00:00",
+    "last_ts": "2026-10-31T11:46:03+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "8f07aab563b9d682cc223468b262e44f",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890786-9sw6l",
+      "uid": "d21dbcfe-1def-413a-9bd2-7144354c3768"
+    },
+    "type": "Normal",
+    "reason": "Scheduled",
+    "message": "Successfully assigned wl-test/every-minute-29890786-9sw6l to watchlog-worker2",
+    "count": 1,
+    "first_ts": "2026-10-31T11:46:00+00:00",
+    "last_ts": "2026-10-31T11:46:00+00:00",
+    "reporting_controller": "default-scheduler"
+  },
+  {
+    "uid": "9036234be816cd9232a9067f52ddf190",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890786-9sw6l",
+      "uid": "d21dbcfe-1def-413a-9bd2-7144354c3768"
+    },
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+    "count": 1,
+    "first_ts": "2026-10-31T11:46:00+00:00",
+    "last_ts": "2026-10-31T11:46:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "2897cda277b68601ab536b9bb0d59650",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890786",
+      "uid": "16c0e027-6c18-46aa-b964-0c92b4494a10"
+    },
+    "type": "Normal",
+    "reason": "SuccessfulCreate",
+    "message": "Created pod: every-minute-29890786-9sw6l",
+    "count": 1,
+    "first_ts": "2026-10-31T11:46:00+00:00",
+    "last_ts": "2026-10-31T11:46:00+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "9cbfcd799e78307ee381edbc7bc36877",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890786-9sw6l",
+      "uid": "d21dbcfe-1def-413a-9bd2-7144354c3768"
+    },
+    "type": "Normal",
+    "reason": "Started",
+    "message": "Container started",
+    "count": 1,
+    "first_ts": "2026-10-31T11:46:00+00:00",
+    "last_ts": "2026-10-31T11:46:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "19159b54e7ca2cf6b0bbc5bb6d590eb5",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890786-9sw6l",
+      "uid": "d21dbcfe-1def-413a-9bd2-7144354c3768"
+    },
+    "type": "Normal",
+    "reason": "Created",
+    "message": "Container created",
+    "count": 1,
+    "first_ts": "2026-10-31T11:46:00+00:00",
+    "last_ts": "2026-10-31T11:46:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "ea0fe5ba1570f1ab47892103a4caad3c",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890785",
+      "uid": "9bd67f1f-3787-49da-9b90-77e1bd9c5a52"
+    },
+    "type": "Normal",
+    "reason": "Completed",
+    "message": "Job completed",
+    "count": 1,
+    "first_ts": "2026-10-31T11:45:03+00:00",
+    "last_ts": "2026-10-31T11:45:03+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "79c39734aec3107de07ad62f1a0ba311",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890785",
+      "uid": "9bd67f1f-3787-49da-9b90-77e1bd9c5a52"
+    },
+    "type": "Normal",
+    "reason": "SuccessfulCreate",
+    "message": "Created pod: every-minute-29890785-jx58b",
+    "count": 1,
+    "first_ts": "2026-10-31T11:45:00+00:00",
+    "last_ts": "2026-10-31T11:45:00+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "ad1279d67ac57cf0059e88220dcab3ed",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890785-jx58b",
+      "uid": "9590c100-3e32-446b-92e8-5cae040aac1c"
+    },
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+    "count": 1,
+    "first_ts": "2026-10-31T11:45:00+00:00",
+    "last_ts": "2026-10-31T11:45:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "cb46314347f8ace1e2b3d21bc9f4174c",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890785-jx58b",
+      "uid": "9590c100-3e32-446b-92e8-5cae040aac1c"
+    },
+    "type": "Normal",
+    "reason": "Created",
+    "message": "Container created",
+    "count": 1,
+    "first_ts": "2026-10-31T11:45:00+00:00",
+    "last_ts": "2026-10-31T11:45:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "ac51ce20ddba601f18fe99fda87104e5",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890785-jx58b",
+      "uid": "9590c100-3e32-446b-92e8-5cae040aac1c"
+    },
+    "type": "Normal",
+    "reason": "Scheduled",
+    "message": "Successfully assigned wl-test/every-minute-29890785-jx58b to watchlog-worker2",
+    "count": 1,
+    "first_ts": "2026-10-31T11:45:00+00:00",
+    "last_ts": "2026-10-31T11:45:00+00:00",
+    "reporting_controller": "default-scheduler"
+  },
+  {
+    "uid": "e7bba4d89666bf362a4ea1fd6bc56010",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890785-jx58b",
+      "uid": "9590c100-3e32-446b-92e8-5cae040aac1c"
+    },
+    "type": "Normal",
+    "reason": "Started",
+    "message": "Container started",
+    "count": 1,
+    "first_ts": "2026-10-31T11:45:00+00:00",
+    "last_ts": "2026-10-31T11:45:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "a0ffa6ad36fe21e8606611e44bd6aabf",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890784",
+      "uid": "61eccab6-8a41-4f75-8496-5ba8903a62d1"
+    },
+    "type": "Normal",
+    "reason": "Completed",
+    "message": "Job completed",
+    "count": 1,
+    "first_ts": "2026-10-31T11:44:03+00:00",
+    "last_ts": "2026-10-31T11:44:03+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "ab68f05ae386c1527a35aef42690281b",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890784-l7gsd",
+      "uid": "02bb87a0-6952-4b33-a9d6-6e146c30c703"
+    },
+    "type": "Normal",
+    "reason": "Created",
+    "message": "Container created",
+    "count": 1,
+    "first_ts": "2026-10-31T11:44:00+00:00",
+    "last_ts": "2026-10-31T11:44:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "9645ec7b2a766e3c0d3fed4d22aae8b9",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890784-l7gsd",
+      "uid": "02bb87a0-6952-4b33-a9d6-6e146c30c703"
+    },
+    "type": "Normal",
+    "reason": "Started",
+    "message": "Container started",
+    "count": 1,
+    "first_ts": "2026-10-31T11:44:00+00:00",
+    "last_ts": "2026-10-31T11:44:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "d5cb5f6280ea4e958041fb86ebcdd251",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890784-l7gsd",
+      "uid": "02bb87a0-6952-4b33-a9d6-6e146c30c703"
+    },
+    "type": "Normal",
+    "reason": "Scheduled",
+    "message": "Successfully assigned wl-test/every-minute-29890784-l7gsd to watchlog-worker2",
+    "count": 1,
+    "first_ts": "2026-10-31T11:44:00+00:00",
+    "last_ts": "2026-10-31T11:44:00+00:00",
+    "reporting_controller": "default-scheduler"
+  },
+  {
+    "uid": "ac637d3e85df1727d58368c507314d3d",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890784",
+      "uid": "61eccab6-8a41-4f75-8496-5ba8903a62d1"
+    },
+    "type": "Normal",
+    "reason": "SuccessfulCreate",
+    "message": "Created pod: every-minute-29890784-l7gsd",
+    "count": 1,
+    "first_ts": "2026-10-31T11:44:00+00:00",
+    "last_ts": "2026-10-31T11:44:00+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "20a0ff7b3d2204edb8118ea91a4c5c2e",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890784-l7gsd",
+      "uid": "02bb87a0-6952-4b33-a9d6-6e146c30c703"
+    },
+    "type": "Normal",
+    "reason": "Pulled",
+    "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+    "count": 1,
+    "first_ts": "2026-10-31T11:44:00+00:00",
+    "last_ts": "2026-10-31T11:44:00+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "752aa5c6e4dcdfb0c9a58adbba95b870",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "oom",
+      "uid": "a14799bc-1616-45c5-abcd-3e4d43ff555b"
+    },
+    "type": "Normal",
+    "reason": "Started",
+    "message": "Container started",
+    "count": 9,
+    "first_ts": "2026-10-31T11:27:11+00:00",
+    "last_ts": "2026-10-31T11:43:36+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "b62ae481d4adff875f21f04a4a596d86",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "oom",
+      "uid": "a14799bc-1616-45c5-abcd-3e4d43ff555b"
+    },
+    "type": "Normal",
+    "reason": "Created",
+    "message": "Container created",
+    "count": 9,
+    "first_ts": "2026-10-31T11:27:11+00:00",
+    "last_ts": "2026-10-31T11:43:35+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "b48aa88002220180d74991fd268a9ec2",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "crashloop",
+      "uid": "53cf1330-20e7-4770-91fd-68883c931056"
+    },
+    "type": "Normal",
+    "reason": "Started",
+    "message": "Container started",
+    "count": 9,
+    "first_ts": "2026-10-31T11:27:15+00:00",
+    "last_ts": "2026-10-31T11:43:20+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "d15b7600fb8f3e48a7677610f1c0d80e",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "crashloop",
+      "uid": "53cf1330-20e7-4770-91fd-68883c931056"
+    },
+    "type": "Normal",
+    "reason": "Created",
+    "message": "Container created",
+    "count": 9,
+    "first_ts": "2026-10-31T11:27:15+00:00",
+    "last_ts": "2026-10-31T11:43:20+00:00",
+    "reporting_controller": "kubelet"
+  },
+  {
+    "uid": "6070a616a370023ac81c626f7ba01b26",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Job",
+      "namespace": "wl-test",
+      "name": "every-minute-29890783",
+      "uid": "f1edeae2-0d1e-41e5-bd6c-92a4fb467524"
+    },
+    "type": "Normal",
+    "reason": "Completed",
+    "message": "Job completed",
+    "count": 1,
+    "first_ts": "2026-10-31T11:43:03+00:00",
+    "last_ts": "2026-10-31T11:43:03+00:00",
+    "reporting_controller": "job-controller"
+  },
+  {
+    "uid": "6ad04a82b59b8478660598feaeaf97a1",
+    "namespace": "wl-test",
+    "involved": {
+      "kind": "Pod",
+      "namespace": "wl-test",
+      "name": "every-minute-29890783-6z4n8",
+      "uid": "e124db99-b0a2-4531-b84a-23c7eb593b20"
+    },
+    "type": "Normal",
+    "reason": "Scheduled",
+    "message": "Successfully assigned wl-test/every-minute-29890783-6z4n8 to watchlog-worker2",
+    "count": 1,
+    "first_ts": "2026-10-31T11:43:00+00:00",
+    "last_ts": "2026-10-31T11:43:00+00:00",
+    "reporting_controller": "default-scheduler"
+  }
+]

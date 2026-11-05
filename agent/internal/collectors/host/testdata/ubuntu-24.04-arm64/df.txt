@@ -1,0 +1,8 @@
+Mounted on                Type        1B-blocks         Used       Avail
+/sys/firmware/efi/efivars efivarfs        57244         2424       54820
+/                         ext4      30083776512   2573230080 27493769216
+/boot                     ext4        933457920     63094784   805195776
+/boot/efi                 vfat        102185984      6638080    95547904
+/Users/user           virtiofs 494384795648 450967195648 43417600000
+/tmp/lima                 virtiofs 494384795648 450967195648 43417600000
+/mnt/lima-cidata          iso9660      20043776     20043776           0

@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/coverage
+**/.nuxt
+**/.output
+.git
+bin
+agent
+docs

@@ -1,0 +1,21 @@
+WatchLog agents installed in namespace {{ .Release.Namespace }}.
+{{- if .Values.agent.enabled }}
+  Node agent:     DaemonSet {{ include "watchlog-agent.fullname" . }} (one pod per node)
+{{- end }}
+{{- if .Values.clusterAgent.enabled }}
+  Cluster-agent:  Deployment {{ include "watchlog-agent.fullname" . }}-cluster-agent
+{{- end }}
+  Pushing to:     {{ tpl .Values.watchlog.endpoint . }}
+{{- if .Values.agent.enabled }}
+  Network flows:  {{ if eq (include "watchlog-agent.ebpfEnabled" .) "true" }}eBPF on (BPF and PERFMON capabilities){{ else }}off (agent.networkFlows.enabled=false){{ end }}
+{{- if (.Values.agent | default dict).ebpf }}
+  Note: agent.ebpf.enabled is no longer used; set agent.networkFlows.enabled instead.
+{{- end }}
+{{- end }}
+
+The node agent needs the "privileged" PodSecurity level (read-only hostPath mounts).
+If the namespace enforces "baseline" or "restricted", label it:
+  kubectl label namespace {{ .Release.Namespace }} pod-security.kubernetes.io/enforce=privileged
+
+Check:  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+The cluster appears in WatchLog within a minute.

@@ -1,0 +1,26 @@
+# Builds the images from this repository instead of pulling them (until images are
+# published, and for acceptance tests):
+#   docker compose -f compose.yaml -f compose.build.yaml up -d --build
+services:
+  migrate:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+      args:
+        RUNTIME_IMAGE: ${BACKEND_RUNTIME_IMAGE:-gcr.io/distroless/nodejs24-debian12:nonroot}
+  backend:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+      args:
+        RUNTIME_IMAGE: ${BACKEND_RUNTIME_IMAGE:-gcr.io/distroless/nodejs24-debian12:nonroot}
+  alert-worker:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+      args:
+        RUNTIME_IMAGE: ${BACKEND_RUNTIME_IMAGE:-gcr.io/distroless/nodejs24-debian12:nonroot}
+  web:
+    build:
+      context: ../..
+      dockerfile: web/Dockerfile

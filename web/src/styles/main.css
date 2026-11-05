@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+@import 'tailwindcss';
+@import '@watchlog/design-tokens/tokens.css';
+@import '@watchlog/design-tokens/theme.css';
+
+body {
+  @apply bg-bg text-14 text-text antialiased;
+}
+
+/* The app uses a plain 2px primary focus ring without the glow (ADR-038). */
+:focus-visible {
+  box-shadow: none;
+}

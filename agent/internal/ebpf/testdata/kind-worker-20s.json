@@ -1,0 +1,622 @@
+[
+ {
+  "cgroup": "",
+  "addr": "10.244.0.7",
+  "port": 8181,
+  "flow": {
+   "Cgroup": 13221,
+   "Addr": "10.244.0.7",
+   "Port": 8181,
+   "Connects": 2,
+   "Failures": 0,
+   "Established": 2,
+   "LatSumNs": 219167,
+   "Latency": [
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 214,
+   "BytesRecv": 274,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "/sys/fs/cgroup/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-burstable.slice/kubelet-kubepods-burstable-pod2109e7aa_26e0_4307_87c3_0b3383b66928.slice/cri-containerd-25be7cf2e8fcc26274193b0d086f3f0ba4be28cb734e1a195d5bf627d9042e1f.scope",
+  "addr": "10.96.175.21",
+  "port": 8428,
+  "flow": {
+   "Cgroup": 79698,
+   "Addr": "10.96.175.21",
+   "Port": 8428,
+   "Connects": 1,
+   "Failures": 0,
+   "Established": 1,
+   "LatSumNs": 84875,
+   "Latency": [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 23139,
+   "BytesRecv": 536,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "/sys/fs/cgroup/kubelet.slice/kubelet.service",
+  "addr": "10.244.2.92",
+  "port": 4080,
+  "flow": {
+   "Cgroup": 13035,
+   "Addr": "10.244.2.92",
+   "Port": 4080,
+   "Connects": 5,
+   "Failures": 0,
+   "Established": 5,
+   "LatSumNs": 1672910,
+   "Latency": [
+    4,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 580,
+   "BytesRecv": 4230,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "",
+  "addr": "10.244.0.7",
+  "port": 8080,
+  "flow": {
+   "Cgroup": 13221,
+   "Addr": "10.244.0.7",
+   "Port": 8080,
+   "Connects": 2,
+   "Failures": 0,
+   "Established": 2,
+   "LatSumNs": 443874,
+   "Latency": [
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 216,
+   "BytesRecv": 274,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "",
+  "addr": "10.244.1.3",
+  "port": 8025,
+  "flow": {
+   "Cgroup": 13128,
+   "Addr": "10.244.1.3",
+   "Port": 8025,
+   "Connects": 10,
+   "Failures": 0,
+   "Established": 10,
+   "LatSumNs": 1343575,
+   "Latency": [
+    10,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 1080,
+   "BytesRecv": 940,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "",
+  "addr": "127.0.0.1",
+  "port": 2381,
+  "flow": {
+   "Cgroup": 13221,
+   "Addr": "127.0.0.1",
+   "Port": 2381,
+   "Connects": 22,
+   "Failures": 0,
+   "Established": 22,
+   "LatSumNs": 3899940,
+   "Latency": [
+    22,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 2352,
+   "BytesRecv": 3762,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "",
+  "addr": "172.19.0.2",
+  "port": 6443,
+  "flow": {
+   "Cgroup": 13221,
+   "Addr": "172.19.0.2",
+   "Port": 6443,
+   "Connects": 22,
+   "Failures": 0,
+   "Established": 22,
+   "LatSumNs": 1959491,
+   "Latency": [
+    22,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 39906,
+   "BytesRecv": 69652,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "/sys/fs/cgroup/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-burstable.slice/kubelet-kubepods-burstable-pod2109e7aa_26e0_4307_87c3_0b3383b66928.slice/cri-containerd-25be7cf2e8fcc26274193b0d086f3f0ba4be28cb734e1a195d5bf627d9042e1f.scope",
+  "addr": "10.96.161.172",
+  "port": 5432,
+  "flow": {
+   "Cgroup": 79698,
+   "Addr": "10.96.161.172",
+   "Port": 5432,
+   "Connects": 1,
+   "Failures": 0,
+   "Established": 1,
+   "LatSumNs": 73625,
+   "Latency": [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 10703,
+   "BytesRecv": 1117,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "/sys/fs/cgroup/kubelet.slice/kubelet.service",
+  "addr": "10.244.2.91",
+  "port": 4081,
+  "flow": {
+   "Cgroup": 13035,
+   "Addr": "10.244.2.91",
+   "Port": 4081,
+   "Connects": 2,
+   "Failures": 0,
+   "Established": 2,
+   "LatSumNs": 611455,
+   "Latency": [
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 218,
+   "BytesRecv": 482,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "",
+  "addr": "10.244.0.6",
+  "port": 8080,
+  "flow": {
+   "Cgroup": 13221,
+   "Addr": "10.244.0.6",
+   "Port": 8080,
+   "Connects": 2,
+   "Failures": 0,
+   "Established": 2,
+   "LatSumNs": 229666,
+   "Latency": [
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 216,
+   "BytesRecv": 274,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "",
+  "addr": "127.0.0.1",
+  "port": 8080,
+  "flow": {
+   "Cgroup": 23280,
+   "Addr": "127.0.0.1",
+   "Port": 8080,
+   "Connects": 20,
+   "Failures": 0,
+   "Established": 20,
+   "LatSumNs": 505871,
+   "Latency": [
+    20,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 1840,
+   "BytesRecv": 2360,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "",
+  "addr": "127.0.0.1",
+  "port": 10257,
+  "flow": {
+   "Cgroup": 13221,
+   "Addr": "127.0.0.1",
+   "Port": 10257,
+   "Connects": 2,
+   "Failures": 0,
+   "Established": 2,
+   "LatSumNs": 153749,
+   "Latency": [
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 3628,
+   "BytesRecv": 7422,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "/sys/fs/cgroup/kubelet.slice/kubelet.service",
+  "addr": "10.244.2.3",
+  "port": 8443,
+  "flow": {
+   "Cgroup": 13035,
+   "Addr": "10.244.2.3",
+   "Port": 8443,
+   "Connects": 4,
+   "Failures": 0,
+   "Established": 4,
+   "LatSumNs": 289792,
+   "Latency": [
+    4,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 7136,
+   "BytesRecv": 10982,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "/sys/fs/cgroup/kubelet.slice/kubelet.service",
+  "addr": "10.244.2.12",
+  "port": 8080,
+  "flow": {
+   "Cgroup": 13035,
+   "Addr": "10.244.2.12",
+   "Port": 8080,
+   "Connects": 10,
+   "Failures": 0,
+   "Established": 10,
+   "LatSumNs": 1378578,
+   "Latency": [
+    10,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 1090,
+   "BytesRecv": 1570,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "",
+  "addr": "127.0.0.1",
+  "port": 10259,
+  "flow": {
+   "Cgroup": 13221,
+   "Addr": "127.0.0.1",
+   "Port": 10259,
+   "Connects": 22,
+   "Failures": 0,
+   "Established": 22,
+   "LatSumNs": 1622367,
+   "Latency": [
+    22,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 39906,
+   "BytesRecv": 80830,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "",
+  "addr": "127.0.0.1",
+  "port": 8080,
+  "flow": {
+   "Cgroup": 23406,
+   "Addr": "127.0.0.1",
+   "Port": 8080,
+   "Connects": 20,
+   "Failures": 0,
+   "Established": 20,
+   "LatSumNs": 881831,
+   "Latency": [
+    20,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 1840,
+   "BytesRecv": 2360,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "/sys/fs/cgroup/kubelet.slice/kubelet.service",
+  "addr": "10.244.2.90",
+  "port": 8443,
+  "flow": {
+   "Cgroup": 13035,
+   "Addr": "10.244.2.90",
+   "Port": 8443,
+   "Connects": 4,
+   "Failures": 0,
+   "Established": 4,
+   "LatSumNs": 478166,
+   "Latency": [
+    4,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 7140,
+   "BytesRecv": 11004,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "",
+  "addr": "10.244.0.6",
+  "port": 8181,
+  "flow": {
+   "Cgroup": 13221,
+   "Addr": "10.244.0.6",
+   "Port": 8181,
+   "Connects": 2,
+   "Failures": 0,
+   "Established": 2,
+   "LatSumNs": 157666,
+   "Latency": [
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 214,
+   "BytesRecv": 274,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "/sys/fs/cgroup/kubelet.slice/kubelet.service",
+  "addr": "10.244.2.93",
+  "port": 8080,
+  "flow": {
+   "Cgroup": 13035,
+   "Addr": "10.244.2.93",
+   "Port": 8080,
+   "Connects": 4,
+   "Failures": 0,
+   "Established": 4,
+   "LatSumNs": 487165,
+   "Latency": [
+    4,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 412,
+   "BytesRecv": 5056,
+   "Retransmits": 0
+  }
+ },
+ {
+  "cgroup": "",
+  "addr": "10.244.1.6",
+  "port": 8428,
+  "flow": {
+   "Cgroup": 13128,
+   "Addr": "10.244.1.6",
+   "Port": 8428,
+   "Connects": 4,
+   "Failures": 0,
+   "Established": 4,
+   "LatSumNs": 908537,
+   "Latency": [
+    4,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "BytesSent": 432,
+   "BytesRecv": 828,
+   "Retransmits": 0
+  }
+ }
+]

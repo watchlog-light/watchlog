@@ -1,0 +1,117 @@
+{
+  "kind": "docker",
+  "cluster": { "id": "01a198b9-d3c4-7002-accd-17d990b846bc", "name": "fleet" },
+  "range": 3600,
+  "step": 60,
+  "facts": {
+    "kubernetesVersion": null,
+    "dockerVersions": ["29.9.2"],
+    "nodes": 1,
+    "agents": { "reporting": 0, "expected": 1 },
+    "clusterAgent": "none",
+    "ebpf": "off",
+    "alertingRunning": false
+  },
+  "health": "critical",
+  "problems": {
+    "items": [
+      {
+        "id": "object:Container:h1/fx-crashloop",
+        "source": "object",
+        "severity": "critical",
+        "type": "crashloop",
+        "title": "fx-crashloop keeps restarting",
+        "why": "h1 · exited with code 1 · 6 restarts",
+        "since": null,
+        "alertId": null,
+        "object": { "kind": "Container", "namespace": "h1", "name": "fx-crashloop" },
+        "related": 0
+      }
+    ],
+    "critical": 1,
+    "warning": 0,
+    "types": [{ "type": "crashloop", "count": 1, "severity": "critical", "ruleId": null }],
+    "silenced": 0,
+    "oldestSince": null
+  },
+  "kpis": {
+    "nodes": { "ready": 0, "total": 1, "series": [] },
+    "pods": { "running": 2, "pending": 1, "failed": 0, "total": 3, "series": [] },
+    "restarts": { "total": null, "previous": null, "series": [] },
+    "traffic": null,
+    "cpu": { "usage": null, "requests": null, "allocatable": null },
+    "memory": { "usage": null, "requests": null, "allocatable": null }
+  },
+  "resources": {
+    "cpu": { "usage": [], "requests": null, "allocatable": null },
+    "memory": { "usage": [], "requests": null, "allocatable": null },
+    "network": { "received": [], "sent": [] }
+  },
+  "markers": [],
+  "changes": [
+    {
+      "kind": "image",
+      "target": "Container/h1/demo-web-1",
+      "namespace": "demo",
+      "details": { "to": "nginx:1.30", "from": "nginx:1.29" },
+      "ts": "2026-11-01T20:07:57.657Z"
+    }
+  ],
+  "top": { "cpu": [], "memory": [] },
+  "events": [
+    {
+      "kind": "Container",
+      "namespace": null,
+      "name": "fx-crashloop",
+      "reason": "Died",
+      "message": "Exited with code 1",
+      "count": 3,
+      "lastSeen": "2026-11-01T20:06:57.663Z",
+      "covered": true,
+      "watchlog": false
+    },
+    {
+      "kind": "Container",
+      "namespace": null,
+      "name": "demo-web-1",
+      "reason": "Died",
+      "message": "Exited with code 1",
+      "count": 3,
+      "lastSeen": "2026-11-01T20:06:57.663Z",
+      "covered": false,
+      "watchlog": false
+    }
+  ],
+  "nodes": [
+    {
+      "name": "h1",
+      "ready": false,
+      "roles": ["docker"],
+      "pods": 2,
+      "cpuRatio": null,
+      "memoryRatio": null
+    }
+  ],
+  "pods": [
+    {
+      "namespace": "h1",
+      "name": "fx-crashloop",
+      "node": "h1",
+      "cpu": null,
+      "cpuRequest": null,
+      "cpuRatio": null,
+      "failing": "Restarting",
+      "watchlog": false
+    },
+    {
+      "namespace": "h1",
+      "name": "demo-web-1",
+      "node": "h1",
+      "cpu": null,
+      "cpuRequest": null,
+      "cpuRatio": null,
+      "failing": null,
+      "watchlog": false
+    }
+  ]
+}

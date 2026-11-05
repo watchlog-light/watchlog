@@ -1,0 +1,1 @@
+lima-watchlog-cgv1 containerd://2.3.4-k3s1.36 6.8.0-142-generic

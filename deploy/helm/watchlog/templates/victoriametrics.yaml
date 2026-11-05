@@ -1,0 +1,56 @@
+{{/* SPDX-License-Identifier: AGPL-3.0-only */}}
+{{- $name := printf "%s-victoriametrics" .Release.Name }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels: {{- include "watchlog.labels" . | nindent 4 }}
+    app.kubernetes.io/component: victoriametrics
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels: {{- include "watchlog.selector" (list .Release.Name "victoriametrics") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "watchlog.labels" . | nindent 8 }}
+        app.kubernetes.io/component: victoriametrics
+    spec:
+      securityContext: {{- include "watchlog.podSecurity" 65532 | nindent 8 }}
+      containers:
+        - name: victoriametrics
+          image: {{ .Values.victoriametrics.image }}
+          args:
+            - -storageDataPath=/storage
+            - -retentionPeriod={{ .Values.victoriametrics.retention }}
+            - -httpListenAddr=:8428
+            # Agents push every 15 s; the 30 s default hid the first samples (ADR-045).
+            - -search.latencyOffset=5s
+          ports:
+            - { name: http, containerPort: 8428 }
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+          resources: {{- toYaml .Values.victoriametrics.resources | nindent 12 }}
+          securityContext: {{- include "watchlog.containerSecurity" . | nindent 12 }}
+          volumeMounts:
+            - { name: data, mountPath: /storage }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.victoriametrics.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources: { requests: { storage: {{ .Values.victoriametrics.storage }} } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels: {{- include "watchlog.labels" . | nindent 4 }}
+    app.kubernetes.io/component: victoriametrics
+spec:
+  selector: {{- include "watchlog.selector" (list .Release.Name "victoriametrics") | nindent 4 }}
+  ports:
+    - { name: http, port: 8428, targetPort: http }

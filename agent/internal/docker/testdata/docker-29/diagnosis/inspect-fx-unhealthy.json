@@ -1,0 +1,235 @@
+{
+ "Id": "8a285ad761510c8f648a5fb7faa9bc0f1bbe489779e6019a753b6b06315f4c47",
+ "Created": "2026-10-31T06:20:04.557167354Z",
+ "Path": "sleep",
+ "Args": [
+  "infinity"
+ ],
+ "State": {
+  "Status": "running",
+  "Running": true,
+  "Paused": false,
+  "Restarting": false,
+  "OOMKilled": false,
+  "Dead": false,
+  "Pid": 21762,
+  "ExitCode": 0,
+  "Error": "",
+  "StartedAt": "2026-10-31T06:20:04.607488843Z",
+  "FinishedAt": "0001-01-01T00:00:00Z",
+  "Health": {
+   "Status": "unhealthy",
+   "FailingStreak": 3,
+   "Log": [
+    {
+     "Start": "2026-10-31T06:20:06.610306419Z",
+     "End": "2026-10-31T06:20:06.641896329Z",
+     "ExitCode": 1,
+     "Output": "wget: can't connect to remote host (127.0.0.1): Connection refused\n"
+    },
+    {
+     "Start": "2026-10-31T06:20:11.644027252Z",
+     "End": "2026-10-31T06:20:11.664877538Z",
+     "ExitCode": 1,
+     "Output": "wget: can't connect to remote host (127.0.0.1): Connection refused\n"
+    },
+    {
+     "Start": "2026-10-31T06:20:16.66575324Z",
+     "End": "2026-10-31T06:20:16.696959215Z",
+     "ExitCode": 1,
+     "Output": "wget: can't connect to remote host (127.0.0.1): Connection refused\n"
+    }
+   ]
+  }
+ },
+ "Image": "sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec",
+ "ResolvConfPath": "/var/lib/docker/containers/8a285ad761510c8f648a5fb7faa9bc0f1bbe489779e6019a753b6b06315f4c47/resolv.conf",
+ "HostnamePath": "/var/lib/docker/containers/8a285ad761510c8f648a5fb7faa9bc0f1bbe489779e6019a753b6b06315f4c47/hostname",
+ "HostsPath": "/var/lib/docker/containers/8a285ad761510c8f648a5fb7faa9bc0f1bbe489779e6019a753b6b06315f4c47/hosts",
+ "LogPath": "/var/lib/docker/containers/8a285ad761510c8f648a5fb7faa9bc0f1bbe489779e6019a753b6b06315f4c47/8a285ad761510c8f648a5fb7faa9bc0f1bbe489779e6019a753b6b06315f4c47-json.log",
+ "Name": "/fx-unhealthy",
+ "RestartCount": 0,
+ "Driver": "overlayfs",
+ "Platform": "linux",
+ "MountLabel": "",
+ "ProcessLabel": "",
+ "AppArmorProfile": "docker-default",
+ "ExecIDs": null,
+ "HostConfig": {
+  "Binds": null,
+  "ContainerIDFile": "",
+  "LogConfig": {
+   "Type": "json-file",
+   "Config": {}
+  },
+  "NetworkMode": "bridge",
+  "PortBindings": {},
+  "RestartPolicy": {
+   "Name": "no",
+   "MaximumRetryCount": 0
+  },
+  "AutoRemove": false,
+  "VolumeDriver": "",
+  "VolumesFrom": null,
+  "ConsoleSize": [
+   0,
+   0
+  ],
+  "CapAdd": null,
+  "CapDrop": null,
+  "CgroupnsMode": "private",
+  "Dns": null,
+  "DnsOptions": [],
+  "DnsSearch": [],
+  "ExtraHosts": null,
+  "GroupAdd": null,
+  "IpcMode": "private",
+  "Cgroup": "",
+  "Links": null,
+  "OomScoreAdj": 0,
+  "PidMode": "",
+  "Privileged": false,
+  "PublishAllPorts": false,
+  "ReadonlyRootfs": false,
+  "SecurityOpt": null,
+  "UTSMode": "",
+  "UsernsMode": "",
+  "ShmSize": 67108864,
+  "Runtime": "runc",
+  "Isolation": "",
+  "CpuShares": 0,
+  "Memory": 0,
+  "NanoCpus": 0,
+  "CgroupParent": "",
+  "BlkioWeight": 0,
+  "BlkioWeightDevice": [],
+  "BlkioDeviceReadBps": [],
+  "BlkioDeviceWriteBps": [],
+  "BlkioDeviceReadIOps": [],
+  "BlkioDeviceWriteIOps": [],
+  "CpuPeriod": 0,
+  "CpuQuota": 0,
+  "CpuRealtimePeriod": 0,
+  "CpuRealtimeRuntime": 0,
+  "CpusetCpus": "",
+  "CpusetMems": "",
+  "Devices": [],
+  "DeviceCgroupRules": null,
+  "DeviceRequests": null,
+  "MemoryReservation": 0,
+  "MemorySwap": 0,
+  "MemorySwappiness": null,
+  "OomKillDisable": null,
+  "PidsLimit": null,
+  "Ulimits": null,
+  "CpuCount": 0,
+  "CpuPercent": 0,
+  "IOMaximumIOps": 0,
+  "IOMaximumBandwidth": 0,
+  "MaskedPaths": [
+   "/proc/acpi",
+   "/proc/asound",
+   "/proc/interrupts",
+   "/proc/kcore",
+   "/proc/keys",
+   "/proc/latency_stats",
+   "/proc/sched_debug",
+   "/proc/scsi",
+   "/proc/timer_list",
+   "/proc/timer_stats",
+   "/sys/devices/virtual/powercap",
+   "/sys/firmware"
+  ],
+  "ReadonlyPaths": [
+   "/proc/bus",
+   "/proc/fs",
+   "/proc/irq",
+   "/proc/sys",
+   "/proc/sysrq-trigger"
+  ]
+ },
+ "Storage": {
+  "RootFS": {
+   "Snapshot": {
+    "Name": "overlayfs"
+   }
+  }
+ },
+ "Mounts": [],
+ "Config": {
+  "Hostname": "8a285ad76151",
+  "Domainname": "",
+  "User": "",
+  "AttachStdin": false,
+  "AttachStdout": false,
+  "AttachStderr": false,
+  "Tty": false,
+  "OpenStdin": false,
+  "StdinOnce": false,
+  "Env": [
+   "REDACTED=by-fixture-capture"
+  ],
+  "Cmd": [
+   "sleep",
+   "infinity"
+  ],
+  "Healthcheck": {
+   "Test": [
+    "CMD-SHELL",
+    "wget -qO- --header 'Authorization: Bearer fixture-token-123' http://admin:s3cret@127.0.0.1:9/health || exit 1"
+   ],
+   "Interval": 5000000000,
+   "Timeout": 3000000000,
+   "StartPeriod": 2000000000,
+   "Retries": 3
+  },
+  "Image": "busybox:1.37",
+  "Volumes": null,
+  "WorkingDir": "",
+  "Entrypoint": null,
+  "Labels": {}
+ },
+ "NetworkSettings": {
+  "SandboxID": "9f879935a459d2f1a4d076930451c692b2243f3b251b7d6f6d659ee3d21d2f6d",
+  "SandboxKey": "/var/run/docker/netns/9f879935a459",
+  "Ports": {},
+  "Networks": {
+   "bridge": {
+    "IPAMConfig": null,
+    "Links": null,
+    "Aliases": null,
+    "DriverOpts": null,
+    "GwPriority": 0,
+    "NetworkID": "b93fdc7300074e14c461a608bd3c96defbc9df0debbb867844d5dbdd5f265874",
+    "EndpointID": "dbf3060a1e91419be216e7b68c2a7c5794a98fdf695911eff6e3b4eced72518f",
+    "Gateway": "172.17.0.1",
+    "IPAddress": "172.17.0.3",
+    "MacAddress": "52:15:19:4e:4c:85",
+    "IPPrefixLen": 16,
+    "IPv6Gateway": "",
+    "GlobalIPv6Address": "",
+    "GlobalIPv6PrefixLen": 0,
+    "DNSNames": null
+   }
+  }
+ },
+ "ImageManifestDescriptor": {
+  "mediaType": "application/vnd.oci.image.manifest.v1+json",
+  "digest": "sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c",
+  "size": 610,
+  "annotations": {
+   "com.docker.official-images.bashbrew.arch": "arm64v8",
+   "org.opencontainers.image.base.name": "scratch",
+   "org.opencontainers.image.created": "2026-09-08T23:04:09Z",
+   "org.opencontainers.image.revision": "b6edf7d5c5200d629d7c3f7758293a3675471dde",
+   "org.opencontainers.image.source": "https://github.com/docker-library/busybox.git",
+   "org.opencontainers.image.url": "https://hub.docker.com/_/busybox",
+   "org.opencontainers.image.version": "1.37.0-glibc"
+  },
+  "platform": {
+   "architecture": "arm64",
+   "os": "linux",
+   "variant": "v8"
+  }
+ }
+}

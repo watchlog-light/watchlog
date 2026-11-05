@@ -1,0 +1,33 @@
+{
+  "name": "watchlog",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @watchlog/backend --filter @watchlog/web dev",
+    "build": "pnpm -r build",
+    "lint": "eslint . && pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:license": "scripts/check-license-headers.sh",
+    "check:private": "scripts/check-private-paths.sh",
+    "infra:up": "docker compose -f deploy/docker/compose.dev.yaml up -d --wait",
+    "infra:down": "docker compose -f deploy/docker/compose.dev.yaml down",
+    "api-types:generate": "pnpm --filter @watchlog/api-types generate"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-vue": "^10.12.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1"
+  }
+}

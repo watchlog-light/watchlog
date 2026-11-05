@@ -1,0 +1,500 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "creationTimestamp": "2026-10-31T12:27:00Z",
+                "labels": {
+                    "component": "apiserver",
+                    "provider": "kubernetes"
+                },
+                "name": "kubernetes",
+                "namespace": "default",
+                "resourceVersion": "215",
+                "uid": "c1aea6fe-1d0c-4560-9d08-7098c5fbb2a7"
+            },
+            "spec": {
+                "clusterIP": "10.96.0.1",
+                "clusterIPs": [
+                    "10.96.0.1"
+                ],
+                "internalTrafficPolicy": "Cluster",
+                "ipFamilies": [
+                    "IPv4"
+                ],
+                "ipFamilyPolicy": "SingleStack",
+                "ports": [
+                    {
+                        "name": "https",
+                        "port": 443,
+                        "protocol": "TCP",
+                        "targetPort": 6443
+                    }
+                ],
+                "sessionAffinity": "None",
+                "type": "ClusterIP"
+            },
+            "status": {
+                "loadBalancer": {}
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "annotations": {
+                    "prometheus.io/port": "9153",
+                    "prometheus.io/scrape": "true"
+                },
+                "creationTimestamp": "2026-10-31T12:27:01Z",
+                "labels": {
+                    "k8s-app": "kube-dns",
+                    "kubernetes.io/cluster-service": "true",
+                    "kubernetes.io/name": "CoreDNS"
+                },
+                "name": "kube-dns",
+                "namespace": "kube-system",
+                "resourceVersion": "290",
+                "uid": "0733e450-1bdd-4d96-ba62-cd5587ccf6ce"
+            },
+            "spec": {
+                "clusterIP": "10.96.0.10",
+                "clusterIPs": [
+                    "10.96.0.10"
+                ],
+                "internalTrafficPolicy": "Cluster",
+                "ipFamilies": [
+                    "IPv4"
+                ],
+                "ipFamilyPolicy": "SingleStack",
+                "ports": [
+                    {
+                        "name": "dns",
+                        "port": 53,
+                        "protocol": "UDP",
+                        "targetPort": 53
+                    },
+                    {
+                        "name": "dns-tcp",
+                        "port": 53,
+                        "protocol": "TCP",
+                        "targetPort": 53
+                    },
+                    {
+                        "name": "metrics",
+                        "port": 9153,
+                        "protocol": "TCP",
+                        "targetPort": 9153
+                    }
+                ],
+                "selector": {
+                    "k8s-app": "kube-dns"
+                },
+                "sessionAffinity": "None",
+                "type": "ClusterIP"
+            },
+            "status": {
+                "loadBalancer": {}
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "kind-demo",
+                    "meta.helm.sh/release-namespace": "watchlog-dev"
+                },
+                "creationTimestamp": "2026-10-31T12:42:41Z",
+                "labels": {
+                    "app.kubernetes.io/component": "cluster-agent",
+                    "app.kubernetes.io/instance": "kind-demo",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "watchlog-agent",
+                    "app.kubernetes.io/version": "dev",
+                    "helm.sh/chart": "watchlog-agent-0.2.0"
+                },
+                "name": "wl-dev-cluster-agent",
+                "namespace": "watchlog-dev",
+                "resourceVersion": "3998",
+                "uid": "80481616-155e-4c07-800a-9dbfd8ab6eed"
+            },
+            "spec": {
+                "clusterIP": "10.96.129.23",
+                "clusterIPs": [
+                    "10.96.129.23"
+                ],
+                "internalTrafficPolicy": "Cluster",
+                "ipFamilies": [
+                    "IPv4"
+                ],
+                "ipFamilyPolicy": "SingleStack",
+                "ports": [
+                    {
+                        "name": "podmap",
+                        "port": 8443,
+                        "protocol": "TCP",
+                        "targetPort": "podmap"
+                    }
+                ],
+                "selector": {
+                    "app.kubernetes.io/component": "cluster-agent",
+                    "app.kubernetes.io/instance": "kind-demo"
+                },
+                "sessionAffinity": "None",
+                "type": "ClusterIP"
+            },
+            "status": {
+                "loadBalancer": {}
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "watchlog",
+                    "meta.helm.sh/release-namespace": "watchlog"
+                },
+                "creationTimestamp": "2026-10-31T12:27:30Z",
+                "labels": {
+                    "app.kubernetes.io/component": "cluster-agent",
+                    "app.kubernetes.io/instance": "watchlog",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "watchlog-agent",
+                    "app.kubernetes.io/version": "dev",
+                    "helm.sh/chart": "watchlog-agent-0.2.0"
+                },
+                "name": "watchlog-agent-cluster-agent",
+                "namespace": "watchlog",
+                "resourceVersion": "788",
+                "uid": "d3dbfceb-167b-4cba-a299-76647b584137"
+            },
+            "spec": {
+                "clusterIP": "10.96.163.218",
+                "clusterIPs": [
+                    "10.96.163.218"
+                ],
+                "internalTrafficPolicy": "Cluster",
+                "ipFamilies": [
+                    "IPv4"
+                ],
+                "ipFamilyPolicy": "SingleStack",
+                "ports": [
+                    {
+                        "name": "podmap",
+                        "port": 8443,
+                        "protocol": "TCP",
+                        "targetPort": "podmap"
+                    }
+                ],
+                "selector": {
+                    "app.kubernetes.io/component": "cluster-agent",
+                    "app.kubernetes.io/instance": "watchlog"
+                },
+                "sessionAffinity": "None",
+                "type": "ClusterIP"
+            },
+            "status": {
+                "loadBalancer": {}
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "watchlog",
+                    "meta.helm.sh/release-namespace": "watchlog"
+                },
+                "creationTimestamp": "2026-10-31T12:27:30Z",
+                "labels": {
+                    "app.kubernetes.io/component": "backend",
+                    "app.kubernetes.io/instance": "watchlog",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "watchlog",
+                    "app.kubernetes.io/version": "dev",
+                    "helm.sh/chart": "watchlog-0.2.0"
+                },
+                "name": "watchlog-backend",
+                "namespace": "watchlog",
+                "resourceVersion": "787",
+                "uid": "e8ff9103-b28a-4111-ad1f-52fe234e639b"
+            },
+            "spec": {
+                "clusterIP": "10.96.188.79",
+                "clusterIPs": [
+                    "10.96.188.79"
+                ],
+                "internalTrafficPolicy": "Cluster",
+                "ipFamilies": [
+                    "IPv4"
+                ],
+                "ipFamilyPolicy": "SingleStack",
+                "ports": [
+                    {
+                        "name": "http",
+                        "port": 4080,
+                        "protocol": "TCP",
+                        "targetPort": "http"
+                    }
+                ],
+                "selector": {
+                    "app.kubernetes.io/component": "backend",
+                    "app.kubernetes.io/instance": "watchlog"
+                },
+                "sessionAffinity": "None",
+                "type": "ClusterIP"
+            },
+            "status": {
+                "loadBalancer": {}
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "watchlog",
+                    "meta.helm.sh/release-namespace": "watchlog"
+                },
+                "creationTimestamp": "2026-10-31T12:27:30Z",
+                "labels": {
+                    "app.kubernetes.io/component": "postgresql",
+                    "app.kubernetes.io/instance": "watchlog",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "watchlog",
+                    "app.kubernetes.io/version": "dev",
+                    "helm.sh/chart": "watchlog-0.2.0"
+                },
+                "name": "watchlog-postgresql",
+                "namespace": "watchlog",
+                "resourceVersion": "784",
+                "uid": "a5901192-adac-4818-88cd-42243ff46b33"
+            },
+            "spec": {
+                "clusterIP": "10.96.161.172",
+                "clusterIPs": [
+                    "10.96.161.172"
+                ],
+                "internalTrafficPolicy": "Cluster",
+                "ipFamilies": [
+                    "IPv4"
+                ],
+                "ipFamilyPolicy": "SingleStack",
+                "ports": [
+                    {
+                        "name": "postgresql",
+                        "port": 5432,
+                        "protocol": "TCP",
+                        "targetPort": "postgresql"
+                    }
+                ],
+                "selector": {
+                    "app.kubernetes.io/component": "postgresql",
+                    "app.kubernetes.io/instance": "watchlog"
+                },
+                "sessionAffinity": "None",
+                "type": "ClusterIP"
+            },
+            "status": {
+                "loadBalancer": {}
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "watchlog",
+                    "meta.helm.sh/release-namespace": "watchlog"
+                },
+                "creationTimestamp": "2026-10-31T12:27:30Z",
+                "labels": {
+                    "app.kubernetes.io/component": "victoriametrics",
+                    "app.kubernetes.io/instance": "watchlog",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "watchlog",
+                    "app.kubernetes.io/version": "dev",
+                    "helm.sh/chart": "watchlog-0.2.0"
+                },
+                "name": "watchlog-victoriametrics",
+                "namespace": "watchlog",
+                "resourceVersion": "778",
+                "uid": "21e1bb31-720a-4839-a4f3-1ffdab4a9817"
+            },
+            "spec": {
+                "clusterIP": "10.96.175.21",
+                "clusterIPs": [
+                    "10.96.175.21"
+                ],
+                "internalTrafficPolicy": "Cluster",
+                "ipFamilies": [
+                    "IPv4"
+                ],
+                "ipFamilyPolicy": "SingleStack",
+                "ports": [
+                    {
+                        "name": "http",
+                        "port": 8428,
+                        "protocol": "TCP",
+                        "targetPort": "http"
+                    }
+                ],
+                "selector": {
+                    "app.kubernetes.io/component": "victoriametrics",
+                    "app.kubernetes.io/instance": "watchlog"
+                },
+                "sessionAffinity": "None",
+                "type": "ClusterIP"
+            },
+            "status": {
+                "loadBalancer": {}
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "watchlog",
+                    "meta.helm.sh/release-namespace": "watchlog"
+                },
+                "creationTimestamp": "2026-10-31T12:27:30Z",
+                "labels": {
+                    "app.kubernetes.io/component": "web",
+                    "app.kubernetes.io/instance": "watchlog",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "watchlog",
+                    "app.kubernetes.io/version": "dev",
+                    "helm.sh/chart": "watchlog-0.2.0"
+                },
+                "name": "watchlog-web",
+                "namespace": "watchlog",
+                "resourceVersion": "775",
+                "uid": "ae54e1e4-8305-4c0e-a08b-a62ce951a999"
+            },
+            "spec": {
+                "clusterIP": "10.96.114.99",
+                "clusterIPs": [
+                    "10.96.114.99"
+                ],
+                "internalTrafficPolicy": "Cluster",
+                "ipFamilies": [
+                    "IPv4"
+                ],
+                "ipFamilyPolicy": "SingleStack",
+                "ports": [
+                    {
+                        "name": "http",
+                        "port": 8080,
+                        "protocol": "TCP",
+                        "targetPort": "http"
+                    }
+                ],
+                "selector": {
+                    "app.kubernetes.io/component": "web",
+                    "app.kubernetes.io/instance": "watchlog"
+                },
+                "sessionAffinity": "None",
+                "type": "ClusterIP"
+            },
+            "status": {
+                "loadBalancer": {}
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "annotations": {
+                    "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"annotations\":{},\"name\":\"mailpit\",\"namespace\":\"wl-alert-mocks\"},\"spec\":{\"ports\":[{\"name\":\"smtp\",\"port\":1025},{\"name\":\"http\",\"port\":8025}],\"selector\":{\"app\":\"mailpit\"}}}\n"
+                },
+                "creationTimestamp": "2026-10-31T16:31:31Z",
+                "name": "mailpit",
+                "namespace": "wl-alert-mocks",
+                "resourceVersion": "46350",
+                "uid": "bfc93c52-2c8f-4d1e-b823-83c7ef5d7590"
+            },
+            "spec": {
+                "clusterIP": "10.96.173.64",
+                "clusterIPs": [
+                    "10.96.173.64"
+                ],
+                "internalTrafficPolicy": "Cluster",
+                "ipFamilies": [
+                    "IPv4"
+                ],
+                "ipFamilyPolicy": "SingleStack",
+                "ports": [
+                    {
+                        "name": "smtp",
+                        "port": 1025,
+                        "protocol": "TCP",
+                        "targetPort": 1025
+                    },
+                    {
+                        "name": "http",
+                        "port": 8025,
+                        "protocol": "TCP",
+                        "targetPort": 8025
+                    }
+                ],
+                "selector": {
+                    "app": "mailpit"
+                },
+                "sessionAffinity": "None",
+                "type": "ClusterIP"
+            },
+            "status": {
+                "loadBalancer": {}
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "annotations": {
+                    "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"annotations\":{},\"name\":\"mock-channels\",\"namespace\":\"wl-alert-mocks\"},\"spec\":{\"ports\":[{\"port\":8080,\"targetPort\":8080}],\"selector\":{\"app\":\"mock-channels\"}}}\n"
+                },
+                "creationTimestamp": "2026-10-31T16:31:31Z",
+                "name": "mock-channels",
+                "namespace": "wl-alert-mocks",
+                "resourceVersion": "46336",
+                "uid": "10057457-7a82-4783-b59b-f64c0cebda68"
+            },
+            "spec": {
+                "clusterIP": "10.96.142.108",
+                "clusterIPs": [
+                    "10.96.142.108"
+                ],
+                "internalTrafficPolicy": "Cluster",
+                "ipFamilies": [
+                    "IPv4"
+                ],
+                "ipFamilyPolicy": "SingleStack",
+                "ports": [
+                    {
+                        "port": 8080,
+                        "protocol": "TCP",
+                        "targetPort": 8080
+                    }
+                ],
+                "selector": {
+                    "app": "mock-channels"
+                },
+                "sessionAffinity": "None",
+                "type": "ClusterIP"
+            },
+            "status": {
+                "loadBalancer": {}
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

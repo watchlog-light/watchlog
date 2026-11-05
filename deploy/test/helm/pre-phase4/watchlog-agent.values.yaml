@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Computed values of a release installed with the chart before Phase 4 (commit 665fcf8),
+# as `helm upgrade --reuse-values` hands them to the new chart (upgrade-test.sh).
+# Generated with `helm install --dry-run=client --debug`; the token is a placeholder.
+agent:
+  ebpf:
+    enabled: false
+  enabled: true
+  interval: 15s
+  kubeletTLS: auto
+  nodeSelector: {}
+  priorityClassName: ''
+  resources:
+    limits:
+      memory: 128Mi
+    requests:
+      cpu: 20m
+      memory: 48Mi
+  tolerations:
+    - operator: Exists
+clusterAgent:
+  enabled: true
+  goMemLimit: 400MiB
+  nodeSelector: {}
+  replicas: 1
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  tolerations: []
+fullnameOverride: wl-dev
+image:
+  pullPolicy: IfNotPresent
+  registry: ghcr.io/watchlog-light
+  tag: ''
+watchlog:
+  clusterToken: wl_ct_example
+  endpoint: http://watchlog.example.internal:4080
+  existingSecret: ''
+  existingSecretKey: token

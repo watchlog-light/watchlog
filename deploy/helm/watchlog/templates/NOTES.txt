@@ -1,0 +1,27 @@
+WatchLog is starting in namespace {{ .Release.Namespace }}.
+
+1. Open the web UI:
+{{- if .Values.ingress.enabled }}
+     {{ if .Values.ingress.tlsSecret }}https{{ else }}http{{ end }}://{{ .Values.ingress.host }}
+{{- else }}
+     kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-web 8080
+     then http://localhost:8080
+{{- end }}
+{{- if not .Values.admin.email }}
+2. Finish setup with the one-time code from the backend log:
+     kubectl -n {{ .Release.Namespace }} logs deploy/{{ .Release.Name }}-backend -c backend | grep "setup code"
+{{- end }}
+
+Back up the secret key now. It encrypts alert channel secrets; without it they
+cannot be read after a reinstall or a restore:
+  kubectl -n {{ .Release.Namespace }} get secret {{ .Release.Name }}-secret-key -o jsonpath='{.data.key}' | base64 -d
+To restore it, install with --set secretKey=<key>.
+
+This cluster ("{{ .Values.clusterName }}") appears in WatchLog once setup is complete;
+its agents retry until then.
+{{- if index .Values "watchlog-agent" "enabled" }}
+
+The node agent needs the "privileged" PodSecurity level (read-only hostPath mounts).
+If the namespace enforces "baseline" or "restricted", label it:
+  kubectl label namespace {{ .Release.Namespace }} pod-security.kubernetes.io/enforce=privileged
+{{- end }}

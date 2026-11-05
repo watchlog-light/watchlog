@@ -1,0 +1,1727 @@
+{
+  "app": {
+    "name": "WatchLog",
+    "skipToContent": "Skip to content"
+  },
+  "nav": {
+    "label": "Main navigation",
+    "overview": "Overview",
+    "nodes": "Nodes",
+    "workloads": "Workloads",
+    "docker": "Docker",
+    "serviceMap": "Service Map",
+    "alerts": "Alerts",
+    "settings": "Settings",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "events": "Events",
+    "hosts": "Hosts",
+    "containers": "Containers"
+  },
+  "clusterSwitcher": {
+    "label": "Cluster",
+    "none": "No cluster connected",
+    "comingSoon": "Connect a cluster to select it here"
+  },
+  "topBar": {
+    "timeRange": "Time range",
+    "namespace": "Namespace",
+    "allNamespaces": "All namespaces",
+    "ranges": {
+      "15m": "15m",
+      "1h": "1h",
+      "6h": "6h",
+      "24h": "24h",
+      "7d": "7d"
+    },
+    "namespacesSelected": "{n} namespaces",
+    "noNamespaces": "No namespaces reported yet",
+    "pods": "no pods | {n} pod | {n} pods"
+  },
+  "empty": {
+    "connectCluster": "Connect a cluster",
+    "overview": {
+      "title": "No cluster connected yet",
+      "description": "Install the WatchLog agent on a Kubernetes cluster or Docker host. Within a minute this page shows cluster health, problems that need attention and recent warnings."
+    },
+    "nodes": {
+      "title": "No nodes reporting",
+      "description": "Nodes appear here as soon as the agent runs on them. Each node shows CPU, memory, disk, pod count and conditions."
+    },
+    "workloads": {
+      "title": "No workloads to show",
+      "description": "Connect a Kubernetes cluster to see Deployments, StatefulSets, DaemonSets, Jobs and their pods, including restart reasons such as OOMKilled."
+    },
+    "docker": {
+      "title": "No Docker hosts connected",
+      "description": "Run the WatchLog agent with one docker run command on each host. Hosts and their containers, grouped by Compose project, appear here."
+    },
+    "serviceMap": {
+      "title": "No traffic recorded yet",
+      "description": "The service map is built from network traffic captured by the agent. After a cluster is connected, it shows which workloads talk to each other within about two minutes."
+    },
+    "alerts": {
+      "title": "No alerts yet",
+      "description": "Default alert rules such as CrashLoopBackOff, OOMKilled and node pressure turn on automatically when a cluster connects. Add Slack, Telegram, email or a webhook to receive them."
+    },
+    "notFound": {
+      "title": "Page not found",
+      "description": "This page does not exist. Use the navigation on the left to go to a section.",
+      "action": "Go to overview"
+    }
+  },
+  "auth": {
+    "fields": {
+      "name": "Your name",
+      "email": "Email",
+      "password": "Password"
+    },
+    "setup": {
+      "title": "Set up WatchLog",
+      "intro": "Create the admin account for this WatchLog installation.",
+      "code": "Setup code",
+      "codeHint": "Printed in the backend log when WatchLog starts, e.g. docker compose logs backend.",
+      "passwordHint": "At least {min} characters.",
+      "passwordTooShort": "Use at least {min} characters.",
+      "submit": "Create admin account"
+    },
+    "login": {
+      "title": "Sign in",
+      "intro": "Sign in to your WatchLog installation.",
+      "submit": "Sign in"
+    },
+    "errors": {
+      "invalidCredentials": "Invalid email or password.",
+      "invalidCode": "That setup code is not valid. Copy it from the backend log; it changes when the backend restarts.",
+      "setupDone": "Setup is already complete. Sign in instead.",
+      "tooManyAttempts": "Too many attempts. Wait a minute and try again.",
+      "invalidInput": "Check the fields and try again.",
+      "unavailable": "The WatchLog backend cannot be reached. Check that it is running.",
+      "generic": "Something went wrong. Try again."
+    }
+  },
+  "account": {
+    "signOut": "Sign out",
+    "menuLabel": "Account"
+  },
+  "common": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Copy failed — select the text instead",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "loading": "Loading…",
+    "refreshing": "Updating…",
+    "save": "Save",
+    "delete": "Delete",
+    "close": "Close"
+  },
+  "clusters": {
+    "title": "Clusters and Docker fleets",
+    "intro": "A Kubernetes cluster or a Docker fleet (the hosts that run the agent with the same token) sends its metrics with one token.",
+    "detailTitle": "Cluster",
+    "add": "Add cluster or fleet",
+    "back": "All clusters",
+    "hosts": "no hosts yet | {n} host | {n} hosts",
+    "lastSeen": "last seen {at}",
+    "neverSeen": "waiting for the first agent",
+    "kind": {
+      "docker": "Docker fleet",
+      "kubernetes": "Kubernetes cluster"
+    },
+    "status": {
+      "pending": "Waiting for agent",
+      "active": "Connected",
+      "inactive": "Not reporting"
+    },
+    "empty": {
+      "title": "No cluster or Docker fleet yet",
+      "description": "Add a Kubernetes cluster or a Docker fleet to get a token and the install command. Metrics appear within a minute of starting the agent.",
+      "action": "Add a cluster or fleet"
+    },
+    "create": {
+      "title": "New cluster or Docker fleet",
+      "name": "Name",
+      "nameHint": "Lowercase letters, digits and dashes, e.g. production.",
+      "submit": "Create and get install command",
+      "kind": "Kind"
+    },
+    "reveal": {
+      "title": "Install the agent",
+      "once": "The token is shown only once. Copy the command now; you can always create a new token later.",
+      "installLabel": {
+        "docker": "Run on each Docker host",
+        "kubernetes": "Run once, from a checkout of the WatchLog repository, where helm reaches the cluster"
+      },
+      "installHint": {
+        "docker": "The command works on Linux hosts with Docker Engine 20.10 or newer. It mounts host paths read-only and adds no extra privileges.",
+        "kubernetes": "Creates the watchlog namespace and labels it for the privileged PodSecurity level (the node agent mounts host paths read-only), then installs the node agent DaemonSet and the cluster-agent with read-only RBAC (no Secrets, ConfigMaps or nodes/proxy). Charts are not published yet, so helm uses the chart in deploy/helm."
+      },
+      "rotationHint": "Update your agents with this command, then revoke the old token below.",
+      "tokenLabel": "Token",
+      "done": "I have copied it"
+    },
+    "tokens": {
+      "title": "Agent tokens",
+      "intro": "Agents authenticate with these tokens. To rotate, create a new token, update the agents, then revoke the old one.",
+      "issue": "Create new token",
+      "created": "created {at}",
+      "revokedAt": "revoked {at}",
+      "revoked": "Revoked",
+      "revoke": "Revoke",
+      "confirmRevoke": "Revoke now"
+    },
+    "errors": {
+      "load": "Clusters could not be loaded. Check that the backend is running.",
+      "limit": "WatchLog Community supports one cluster or Docker fleet. Add more hosts or nodes to the existing one with its install command.",
+      "nameTaken": "A cluster with this name already exists.",
+      "invalidName": "Use lowercase letters, digits and dashes (up to 63 characters).",
+      "tokenLimit": "This cluster already has 5 active tokens. Revoke one first.",
+      "notFound": "This cluster does not exist or was deleted.",
+      "generic": "Something went wrong. Try again."
+    },
+    "nodes": "no nodes yet | {n} node | {n} nodes"
+  },
+  "docker": {
+    "hostsTitle": "Hosts",
+    "containersTitle": "Containers",
+    "back": "All Docker hosts",
+    "hostMeta": "Docker {docker} · kernel {kernel}",
+    "agent": "agent {version}",
+    "containerCounts": "{running} running · {stopped} stopped",
+    "unhealthyCount": "{n} unhealthy",
+    "composeProject": "Compose project {name}",
+    "standalone": "Standalone containers",
+    "noHosts": {
+      "title": "Waiting for the first host",
+      "description": "Run the install command on a Docker host. Hosts appear here within a minute of starting the agent.",
+      "action": "Show install command"
+    },
+    "columns": {
+      "name": "Name",
+      "host": "Host",
+      "state": "State",
+      "restarts": "Restarts",
+      "cpu": "CPU",
+      "memory": "Memory",
+      "disk": "Disk",
+      "ports": "Ports"
+    },
+    "state": {
+      "running": "Running",
+      "restarting": "Restarting",
+      "exited": "Exited",
+      "paused": "Paused",
+      "created": "Created",
+      "dead": "Dead"
+    },
+    "health": {
+      "healthy": "Healthy",
+      "unhealthy": "Unhealthy",
+      "starting": "Starting"
+    },
+    "facts": {
+      "image": "Image",
+      "uptime": "Up for",
+      "compose": "Compose project / service",
+      "oom": "OOM killed",
+      "writableLayer": "Writable layer"
+    },
+    "charts": {
+      "cpu": "CPU usage",
+      "memory": "Memory",
+      "load": "Load (1 min)",
+      "network": "Network",
+      "diskIo": "Disk I/O",
+      "filesystem": "Filesystem usage",
+      "cpuCores": "CPU (cores)",
+      "usage": "usage",
+      "limit": "limit",
+      "workingSet": "working set",
+      "empty": "No data in this time range",
+      "error": "Could not load this chart",
+      "cpuOfLimit": "CPU (% of {limit}-core limit)",
+      "cpuOfCore": "CPU (% of one core)",
+      "noMemoryLimit": "No memory limit",
+      "noDiskActivity": "No disk activity in this range",
+      "noNetworkTraffic": "No network traffic in this range"
+    },
+    "errors": {
+      "load": "Docker data could not be loaded. Check that the backend is running.",
+      "hostNotFound": "This host is not part of the fleet.",
+      "containerNotFound": "This container no longer exists on this host."
+    },
+    "filter": {
+      "label": "Search hosts and containers",
+      "placeholder": "Search hosts and containers",
+      "statusLabel": "Filter containers by state",
+      "status": {
+        "running": "Running",
+        "stopped": "Stopped",
+        "unhealthy": "Unhealthy",
+        "restarting": "Restarting"
+      },
+      "hostsShown": "{shown} of {total} host | {shown} of {total} hosts",
+      "hostsTotal": "no hosts | {n} host | {n} hosts",
+      "containersShown": "{shown} of {total} container | {shown} of {total} containers",
+      "containersTotal": "no containers | {n} container | {n} containers",
+      "noHosts": "No host matches the search.",
+      "noContainers": "No container matches the search and the selected states.",
+      "noMatch": {
+        "title": "Nothing matches “{q}”",
+        "description": "Hosts are searched by name, OS and Docker version; containers by name, image, Compose project or service and host. Try another term or clear the filters.",
+        "scopeTitle": "Nothing matches the selected filters"
+      },
+      "clear": "Clear filters"
+    },
+    "exit": {
+      "0": "completed normally",
+      "1": "application error",
+      "2": "invalid usage or shell error",
+      "125": "Docker could not start the container",
+      "126": "command is not executable",
+      "127": "command not found",
+      "130": "interrupted (SIGINT)",
+      "134": "aborted (SIGABRT)",
+      "137": "killed (SIGKILL)",
+      "139": "segmentation fault (SIGSEGV)",
+      "143": "stopped (SIGTERM)",
+      "signal": "terminated by signal {n}",
+      "other": "application-specific exit code"
+    },
+    "reason": {
+      "restarting": "Restarting · {restarts} · last exit {code} ({meaning})",
+      "exited": "Exited with code {code} · {meaning}",
+      "dead": "Dead · exit code {code} · {meaning}",
+      "unhealthy": "Health check failing",
+      "unhealthyFor": "Health check failing for {duration}",
+      "unhealthyAtLeast": "Health check failing for at least {duration}"
+    },
+    "diagnosis": {
+      "title": {
+        "unhealthy": "Why is this container unhealthy?",
+        "exited": "Why did this container stop?",
+        "dead": "Why did this container stop?",
+        "restarting": "Why is this container restarting?"
+      },
+      "oom": "out of memory (OOM killed)",
+      "oomFlag": "Out of memory: the kernel killed this container because it exceeded its memory limit (OOMKilled).",
+      "killedHint": "Docker did not record an out-of-memory kill. Exit 137 means the process was killed with SIGKILL: by the kernel's out-of-memory killer (Docker can miss a kill right after start) or by docker kill / a stop timeout.",
+      "killedHintLimit": "This container has a {limit} memory limit, so running out of memory is a likely cause.",
+      "restarts": "{n} restart | {n} restarts",
+      "failures": "{n} consecutive failure | {n} consecutive failures",
+      "lastProbe": "Last probe",
+      "probeMeta": "{time} · exit code {code}",
+      "output": "Probe output",
+      "noOutput": "This host's agent is set not to send health check output.",
+      "emptyOutput": "The probe printed nothing.",
+      "check": "Health check",
+      "command": "Check command",
+      "interval": "Interval",
+      "timeout": "Timeout",
+      "retries": "Retries",
+      "startPeriod": "Start period",
+      "seconds": "{n}s",
+      "recentProbes": "Recent probes",
+      "probePassed": "Passed at {time}",
+      "probeFailed": "Failed at {time} (exit code {code})",
+      "exitCode": "Exit code",
+      "lastExit": "Last exit code",
+      "finishedAt": "Finished",
+      "stateError": "Docker error",
+      "redacted": "Credentials in the command and output are replaced with *** by the agent."
+    },
+    "scope": {
+      "host": "Host",
+      "allHosts": "All hosts",
+      "project": "Compose project",
+      "allProjects": "All Compose projects"
+    },
+    "hosts": {
+      "reporting": "Reporting",
+      "silent": "Not reporting",
+      "reportingCount": "{n} / {total} reporting",
+      "containersOf": "Containers · {n} running of {cap}",
+      "heatHint": "colour = CPU vs limit (or one core)",
+      "filter": "Name, Docker version or OS",
+      "tiles": {
+        "containers": "Containers",
+        "of": " / {n} in all",
+        "running": "{v} running"
+      },
+      "columns": {
+        "containers": "Containers",
+        "up": "Up"
+      }
+    },
+    "list": {
+      "columns": {
+        "name": "Container",
+        "status": "Status",
+        "restarts": "Restarts",
+        "cpu": "CPU (cores)",
+        "memory": "Memory",
+        "trend": "CPU trend",
+        "image": "Image",
+        "host": "Host",
+        "up": "Up"
+      },
+      "standalone": "Standalone",
+      "count": "1 container | {n} containers",
+      "problem": {
+        "OOMKilled": "OOM-killed",
+        "Restarting": "Restarting",
+        "Unhealthy": "Unhealthy",
+        "Exited": "Exited",
+        "Alert": "Alert",
+        "Problem": "Problem"
+      },
+      "running": "Running",
+      "stopped": "Stopped",
+      "lastExit": "Last exit:",
+      "exit": "code {code} · {meaning}",
+      "probes": "Last health checks",
+      "exitCode": "exit {code}",
+      "nothingYet": "No health checks or exits recorded.",
+      "open": "Open container {id}",
+      "hideOwn": "Hide WatchLog's containers",
+      "failing": "Failing",
+      "summary": "1 container | {n} containers",
+      "ownHidden": "{n} of WatchLog's hidden",
+      "filter": "Name, image, project or host"
+    }
+  },
+  "kube": {
+    "ago": "{d} ago",
+    "errors": {
+      "load": "Could not load cluster data. Check that the backend is running, then try again."
+    },
+    "waiting": {
+      "title": "Waiting for the agents",
+      "description": "The cluster exists, but no agent has reported yet. Install the agents with the helm command from the cluster's settings; data appears within a minute.",
+      "action": "Show the install command"
+    },
+    "health": {
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "critical": "Critical",
+      "unknown": "Unknown",
+      "allGood": "No alerts are firing.",
+      "notRunning": "Alerting is not running, so the cluster's health cannot be checked.",
+      "firing": "{n} alert firing | {n} alerts firing",
+      "criticalCount": "{n} critical | {n} critical",
+      "silencedCount": "{n} silenced",
+      "viewAlerts": "View alerts"
+    },
+    "tiles": {
+      "nodes": "Nodes",
+      "nodesReady": "ready / total",
+      "pods": "Running pods",
+      "podsDetail": "{pending} pending · {failed} failed",
+      "restarts": "Restarts",
+      "lastHour": "last hour",
+      "alerts": "Firing alerts",
+      "firing": "firing now",
+      "cpu": "CPU",
+      "memory": "Memory",
+      "silenced": "firing now · {n} silenced"
+    },
+    "usage": {
+      "aria": "{used} used, {requested} requested",
+      "requests": "requests {v}"
+    },
+    "attention": {
+      "title": "Needs attention",
+      "none": "Nothing needs attention right now.",
+      "more": "and {n} more | and {n} more",
+      "kinds": {
+        "CrashLoopBackOff": "CrashLoopBackOff",
+        "NodeNotReady": "Node not ready",
+        "OOMKilled": "OOMKilled",
+        "PendingPod": "Pending",
+        "PVCFull": "Volume almost full",
+        "ImagePull": "Image pull failing"
+      }
+    },
+    "warnings": {
+      "title": "Recent warnings",
+      "all": "All warnings",
+      "none": "No Warning events recently."
+    },
+    "events": {
+      "title": "Events",
+      "none": "No events for this object.",
+      "times": "{n}×",
+      "types": {
+        "warnings": "Warnings",
+        "all": "All",
+        "normal": "Normal",
+        "Warning": "Warning",
+        "Normal": "Normal"
+      },
+      "search": {
+        "label": "Search events",
+        "placeholder": "Object, reason or message"
+      },
+      "groupRepeated": "Group repeated events",
+      "zoomed": "{from} – {to}",
+      "dragHint": "drag across the chart to zoom into a time range",
+      "resetZoom": "Reset zoom",
+      "last": {
+        "15m": "Last 15 min",
+        "1h": "Last hour",
+        "6h": "Last 6 h",
+        "24h": "Last 24 h",
+        "7d": "Last 7 days"
+      },
+      "total": "1 event | {n} events",
+      "noMatch": "Try another type, facet or search, or a wider time range.",
+      "facets": {
+        "kinds": "Kind",
+        "ns": "Namespace",
+        "reasons": "Reason",
+        "all": "All",
+        "clusterWide": "cluster-wide",
+        "none": "None in this range",
+        "more": "Show {n} more",
+        "less": "Show fewer",
+        "hosts": "Host",
+        "projects": "Compose project",
+        "standalone": "Standalone"
+      },
+      "days": {
+        "today": "Today",
+        "yesterday": "Yesterday"
+      },
+      "seen": "First seen {first} · last seen {last}",
+      "reporter": "reported by {r}",
+      "group": {
+        "routine": "1 node reported healthy after start | {n} nodes reported healthy after start",
+        "routineReason": "Node status",
+        "routineDetail": "{reasons} · {n} events",
+        "repeated": "{object}, {n} times",
+        "allRebooted": "All {n} nodes rebooted",
+        "rebooted": "{n} nodes rebooted",
+        "notReady": "{n} nodes not ready",
+        "backOff": "{n} pods in {ns} keep failing to restart",
+        "unhealthy": "{n} pods in {ns} fail their health checks",
+        "unschedulable": "{n} pods in {ns} can't be scheduled",
+        "evicted": "{n} pods in {ns} were evicted",
+        "generic": "{reason} on {n} {kind} objects in {ns}",
+        "genericCluster": "{reason} on {n} {kind} objects",
+        "docker": {
+          "Died": "{n} containers in {ns} exited with errors",
+          "DiedStandalone": "{n} standalone containers exited with errors",
+          "OOMKilled": "{n} containers in {ns} were killed for memory",
+          "OOMKilledStandalone": "{n} standalone containers were killed for memory",
+          "Unhealthy": "{n} containers in {ns} are failing health checks",
+          "UnhealthyStandalone": "{n} standalone containers are failing health checks"
+        }
+      },
+      "markers": {
+        "Rebooted": "node rebooted | {n} nodes rebooted",
+        "NodeNotReady": "node not ready | {n} nodes not ready",
+        "OOMKilling": "OOM kill | OOM kills on {n} objects",
+        "SystemOOM": "system OOM | system OOMs on {n} nodes",
+        "Evicted": "eviction | {n} evictions",
+        "EvictionThresholdMet": "eviction threshold | eviction threshold on {n} nodes",
+        "NodeHasDiskPressure": "disk pressure | disk pressure on {n} nodes",
+        "NodeHasInsufficientMemory": "memory pressure | memory pressure on {n} nodes",
+        "Died": "container died | {n} containers died",
+        "OOMKilled": "OOM kill | {n} OOM kills"
+      },
+      "bar": "{from}–{to} · {w} warnings · {n} normal",
+      "chartAria": "Events over time: {total} events, {markers} notable ones marked",
+      "onHost": "on {host}"
+    },
+    "kubeletTls": {
+      "label": "Kubelet TLS not verified",
+      "hint": "The agent could not verify this node's kubelet certificate with the cluster CA and connects without verification (kubelet.tls: auto). Common on kind and kubeadm, whose kubelets use self-signed certificates.",
+      "note": "On {n} node the kubelet's certificate could not be verified; the agent reads its stats without verification. | On {n} nodes the kubelet's certificate could not be verified; the agent reads their stats without verification."
+    },
+    "nodes": {
+      "columns": {
+        "name": "Name",
+        "status": "Status",
+        "cpu": "CPU",
+        "memory": "Memory",
+        "disk": "Disk",
+        "pods": "Pods",
+        "age": "Age",
+        "conditions": "Conditions"
+      },
+      "status": {
+        "Ready": "Ready",
+        "NotReady": "Not ready",
+        "Unknown": "Unknown"
+      },
+      "agent": {
+        "active": "Agent reporting",
+        "inactive": "Agent silent",
+        "missing": "No agent"
+      },
+      "worker": "worker",
+      "cordoned": "Cordoned",
+      "conditionsOk": "OK",
+      "filter": {
+        "label": "Filter nodes",
+        "placeholder": "Name, role, version or OS",
+        "noMatch": "No nodes match “{q}”",
+        "noMatchDescription": "Try a shorter term or clear the filter."
+      },
+      "total": "{n} node | {n} nodes",
+      "shown": "{shown} of {total} node | {shown} of {total} nodes",
+      "back": "All nodes",
+      "notFound": "This node is not in the cluster (anymore).",
+      "kernel": "kernel {v}",
+      "age": "age {d}",
+      "podsCapacity": "pods / capacity",
+      "podsOnNode": "{n} pod on this node | {n} pods on this node",
+      "noPods": "No pods run on this node.",
+      "tiles": {
+        "cpu": "CPU · {v} cores allocatable",
+        "memory": "Memory · {v} allocatable",
+        "used": "used",
+        "aria": "{used} used, {requested} requested",
+        "usedPct": "used {v}",
+        "requestedPct": "requested {v}",
+        "free": "free {v}",
+        "pods": "Pods",
+        "capacity": "/ {n} capacity",
+        "slots": "{v} of pod slots",
+        "disk": "Disk · fullest mount",
+        "onAll": "{mount} on all {n} nodes",
+        "onSome": "{mount} on {n} nodes",
+        "onOne": "{mount} on {node}",
+        "alert": "alert firing",
+        "noDisk": "No disk data yet"
+      },
+      "layout": {
+        "label": "Layout",
+        "cards": "Cards",
+        "table": "Table"
+      },
+      "ready": "{n} / {total} Ready",
+      "up": "up {d}",
+      "readySince": "Ready since {t}",
+      "conditions": {
+        "memory": "Memory",
+        "disk": "Disk",
+        "pid": "PID",
+        "network": "Network"
+      },
+      "req": "req {v}",
+      "diskMount": "Disk {mount}",
+      "podsOf": "Pods · {n} / {cap}",
+      "heatHint": "colour = CPU vs request",
+      "tlsShort": "TLS unverified",
+      "tlsNotice": "The kubelet certificate on {n} node is self-signed, so the agent reads its stats without verifying it. Common on kind and kubeadm. | Kubelet certificates on {n} nodes are self-signed, so the agent reads their stats without verifying them. Common on kind and kubeadm.",
+      "howToFix": "How to fix",
+      "dismiss": "Dismiss",
+      "noDataYet": "no data yet"
+    },
+    "conditions": {
+      "title": "Conditions",
+      "error": "Could not load the conditions timeline.",
+      "empty": "No condition data in this time range.",
+      "noData": "no data",
+      "bad": "problem",
+      "good": "OK",
+      "badFor": "problem for {m} min",
+      "noProblems": "no problems"
+    },
+    "pods": {
+      "columns": {
+        "name": "Pod",
+        "status": "Status",
+        "ready": "Ready",
+        "restarts": "Restarts",
+        "cpu": "CPU",
+        "memory": "Memory",
+        "node": "Node",
+        "age": "Age",
+        "lastTermination": "Last termination"
+      },
+      "lastTermination": "last: {reason} (exit {code})",
+      "reqLimit": "req {req} · limit {limit}"
+    },
+    "markers": {
+      "rollout": "Rollout {kind} {name}: revision {from} → {to}",
+      "image": "Image change {kind} {name}: {to}",
+      "scale": "Scaled {kind} {name}: {from} → {to}",
+      "node": {
+        "added": "Node {name} added",
+        "removed": "Node {name} removed"
+      }
+    },
+    "workloads": {
+      "tabs": {
+        "workloads": "Workloads",
+        "pods": "Pods"
+      },
+      "columns": {
+        "name": "Workload",
+        "health": "Status",
+        "ready": "Ready",
+        "restarts": "Restarts",
+        "cpu": "CPU (cores)",
+        "memory": "Memory",
+        "trend": "CPU trend",
+        "images": "Image",
+        "changed": "Changed"
+      },
+      "health": {
+        "healthy": "Healthy",
+        "progressing": "Progressing",
+        "degraded": "Degraded",
+        "failed": "Failed",
+        "suspended": "Suspended"
+      },
+      "filter": {
+        "label": "Filter",
+        "placeholder": {
+          "workloads": "Name, namespace or image",
+          "pods": "Pod, namespace, node or status"
+        }
+      },
+      "total": {
+        "workloads": "{n} workload | {n} workloads",
+        "pods": "{n} pod | {n} pods"
+      },
+      "clearOwner": "Show pods of all workloads",
+      "noMatch": {
+        "title": "Nothing matches these filters",
+        "description": "Try another search or clear the filters.",
+        "namespaces": "The selected namespaces have no workloads or pods."
+      },
+      "level": "Level",
+      "hideSystem": "Hide system namespaces",
+      "failing": "Failing",
+      "systemHidden": "1 in system namespaces hidden | {n} in system namespaces hidden",
+      "editList": "edit list",
+      "needAttention": "none need attention | 1 needs attention | {n} need attention",
+      "allHealthy": "all healthy",
+      "badge": {
+        "failing": "Failing",
+        "degraded": "Degraded"
+      },
+      "readyOf": "{r} of {d} ready",
+      "squares": {
+        "starting": "{n} starting",
+        "failing": "{n} failing",
+        "missing": "{n} missing"
+      },
+      "lastRun": {
+        "succeeded": "last run ✓ {ago} ago",
+        "failed": "last run ✕ failed {ago} ago",
+        "running": "running for {ago}",
+        "none": "no run yet"
+      },
+      "podsError": "Could not load the pods.",
+      "onNode": "node {node}",
+      "unscheduled": "not scheduled",
+      "restarts": "1 restart | {n} restarts",
+      "lastExit": "last: {reason} ({code})",
+      "up": "up {d}",
+      "noPods": "No pods right now.",
+      "open": "Open {kind} {id}",
+      "job": {
+        "complete": "✓ {n}/{of} completed",
+        "failed": "✕ failed"
+      }
+    },
+    "pod": {
+      "back": "All pods",
+      "notFound": "This pod is not in the cluster (anymore). Pods that were replaced get a new name.",
+      "readyRestarts": "{ready} ready · {n} restarts",
+      "containers": "Containers",
+      "init": "init",
+      "terminated": "Container {container} last terminated: {reason} (exit {code})",
+      "oomHint": "The container used more memory than its limit and was killed by the kernel. Raise the memory limit or reduce the container's memory use.",
+      "exitCode": "exit {code}",
+      "columns": {
+        "name": "Container",
+        "state": "State",
+        "restarts": "Restarts"
+      },
+      "states": {
+        "running": "Running",
+        "waiting": "Waiting",
+        "terminated": "Terminated"
+      },
+      "charts": {
+        "cpu": "CPU per container (cores)",
+        "memory": "Memory per container",
+        "throttled": "CPU throttling",
+        "noThrottling": "No throttling",
+        "network": "Network",
+        "request": "{c} request",
+        "limit": "{c} limit",
+        "noMemoryLimit": "No memory limit"
+      },
+      "sigkillHint": "Exit code 137 means the container was killed with SIGKILL. Kubernetes did not report an OOM kill, but the usual causes are the memory limit or a failed liveness probe; check the memory chart and the events below."
+    },
+    "eventsPage": {
+      "type": "Event type",
+      "loadMore": "Load older events",
+      "end": "All {n} events shown",
+      "moreError": "Could not load older events.",
+      "noCluster": {
+        "title": "No cluster connected yet",
+        "description": "Kubernetes events (Normal and Warning) are stored for the retention period once a cluster is connected."
+      },
+      "empty": {
+        "title": "No events yet",
+        "description": "Events appear as the cluster reports them: scheduling, image pulls, restarts, scaling and node changes."
+      },
+      "noMatch": {
+        "title": "No events match"
+      }
+    },
+    "cron": {
+      "everyMinute": "every minute",
+      "everyMinutes": "every {n} min",
+      "hourly": "hourly at :{m}",
+      "daily": "daily at {time}"
+    }
+  },
+  "alerts": {
+    "down": {
+      "title": "Alerting is not running",
+      "description": "No alert-worker has finished a check in the last 2 minutes, so alerts are neither evaluated nor sent. Start the alert-worker (the alert-worker service in Compose or Helm).",
+      "lastCycle": "Last check: {at}."
+    },
+    "tabs": {
+      "firing": "Firing",
+      "history": "History",
+      "silences": "Silences",
+      "rules": "Rules"
+    },
+    "counts": "{pending} pending · {silenced} silenced",
+    "columns": {
+      "severity": "Severity",
+      "alert": "Alert",
+      "state": "State",
+      "since": "Since",
+      "lasted": "Lasted"
+    },
+    "severity": {
+      "warning": "Warning",
+      "critical": "Critical"
+    },
+    "state": {
+      "pending": "Pending",
+      "firing": "Firing",
+      "resolved": "Resolved"
+    },
+    "silenced": "Silenced",
+    "flapping": "Flapping",
+    "errors": {
+      "load": "Could not load alerts. Check that the backend is running, then try again."
+    },
+    "filteredByRule": "Showing one rule's alerts.",
+    "showAll": "Show all",
+    "loadMore": "Load more",
+    "empty": {
+      "firing": {
+        "title": "No alerts are firing",
+        "description": "Default rules watch for crash loops, OOM kills, node problems and more. Firing alerts appear here and go to your alert channels.",
+        "action": "See the rules"
+      },
+      "history": {
+        "title": "No resolved alerts yet",
+        "description": "Alerts appear here once they resolve, with how long they lasted. History is kept for 90 days."
+      },
+      "silences": {
+        "title": "No active silences",
+        "description": "Silence an alert from the Firing list to stop its messages for a while, for example during a deploy."
+      }
+    },
+    "silence": {
+      "action": "Silence",
+      "title": "Silence this alert",
+      "scope": "\"{rule}\" for {where}. The alert is still tracked; no messages are sent until the silence ends.",
+      "for": "For",
+      "durations": {
+        "60": "1 hour",
+        "240": "4 hours",
+        "1440": "1 day",
+        "10080": "7 days"
+      },
+      "comment": "Comment",
+      "commentHint": "Why, for example \"deploying a fix\". Shown to everyone.",
+      "submit": "Silence",
+      "forbidden": "Your role does not allow silencing alerts.",
+      "failed": "Could not create the silence. Try again.",
+      "forDuration": "For {d}",
+      "withComment": "With a comment…",
+      "new": "Silence…",
+      "newTitle": "New silence",
+      "newIntro": "Matching alerts are still tracked but send nothing until the silence ends, for example during maintenance.",
+      "any": "Any",
+      "needMatcher": "Choose at least one: cluster, severity, namespace, workload or node."
+    },
+    "matchers": {
+      "rule": "Rule",
+      "cluster": "Cluster",
+      "namespace": "Namespace",
+      "workload": "Workload",
+      "node": "Node",
+      "severity": "Severity",
+      "thisRule": "one rule"
+    },
+    "silences": {
+      "until": "until {at}",
+      "matching": "silences no alert now | silences {n} alert | silences {n} alerts",
+      "end": "End now"
+    },
+    "rules": {
+      "intro": "Default rules are on for every cluster. Change thresholds, durations, severity and channels, or turn a rule off.",
+      "default": "default",
+      "custom": "custom",
+      "for": "for {d}",
+      "immediately": "immediately",
+      "uiOnly": "shown here only, no channel",
+      "evalError": "Could not evaluate: {error}",
+      "firing": "{n} firing | {n} firing",
+      "enabled": "Rule \"{name}\" on",
+      "on": "On",
+      "off": "Off",
+      "edit": "Edit",
+      "threshold": "Threshold ({op})",
+      "criticalThreshold": "Critical threshold",
+      "none": "none",
+      "forMinutes": "For (minutes)",
+      "renotifyHours": "Re-notify every (hours, 0 = never)",
+      "channels": "Channels",
+      "noChannels": "No channels yet: alerts show here only.",
+      "addChannel": "Add a channel",
+      "saveFailed": "Could not save the rule. Try again.",
+      "groups": {
+        "pods": "Pods & workloads",
+        "nodes": "Nodes",
+        "docker": "Docker",
+        "watchlog": "WatchLog itself",
+        "custom": "Custom"
+      },
+      "count": "no rules | {n} rule | {n} rules",
+      "defaultsSendTo": "Default rules send to",
+      "defaultsNone": "no channel yet — alerts show here only",
+      "defaultsMixed": "(some rules differ)",
+      "change": "Change",
+      "newCustom": "Custom rule",
+      "sentence": {
+        "k8s_pod_crashloop": "A pod is **crash-looping**",
+        "k8s_container_oomkilled": "A container is **killed for running out of memory**",
+        "k8s_pod_pending": "A pod stays **Pending**",
+        "k8s_pod_imagepull": "A pod **cannot pull its image**",
+        "k8s_deployment_unavailable": "A Deployment has **fewer ready replicas** than desired",
+        "k8s_container_throttling": "A container is **CPU-throttled** more than **{value}**",
+        "k8s_pvc_usage": "A **volume (PVC)** is more than **{value}** full",
+        "node_disk_usage": "Node **disk** above **{value}**",
+        "node_cpu_high": "Node **CPU** above **{value}**",
+        "k8s_node_notready": "A node is **NotReady**",
+        "k8s_node_pressure": "A node is under **memory or disk pressure**",
+        "docker_container_unhealthy": "A container's **health check fails**",
+        "docker_container_restarts": "A container **restarts more than {value} times** in **10 min**",
+        "agent_not_reporting": "A cluster or host **stops reporting** for **3 min**",
+        "custom": "{metric} of **{scope}** {op} **{value}**",
+        "for": " for **{d}**",
+        "critical": " (critical above **{value}**)",
+        "criticalBelow": " (critical below **{value}**)",
+        "agentNote": "one alert per cluster, other alerts held",
+        "above": "above",
+        "below": "below",
+        "everyNode": "every node",
+        "everyContainer": "every container",
+        "wholeCluster": "the whole cluster",
+        "namespaces": "namespaces {list}",
+        "workload": "{name}",
+        "node": "node {name}",
+        "host": "host {name}",
+        "container": "container {name}",
+        "labels": "{labels} pods",
+        "network_connections_failed": "A workload's **connections fail** more than **{value}**"
+      }
+    },
+    "detail": {
+      "back": "All alerts",
+      "notFound": {
+        "title": "Alert not found",
+        "description": "It may have been removed with its rule or cluster, or pruned after 90 days."
+      },
+      "pods": "Pod: {pods} | Pods ({n}): {pods}",
+      "open": "Open in WatchLog",
+      "timeline": "Timeline",
+      "steps": {
+        "started": "Condition started",
+        "fired": "Fired",
+        "resolved": "Resolved"
+      },
+      "after": "after {d}",
+      "message": "{kind} message to {channel}",
+      "deletedChannel": "a deleted channel",
+      "noMessages": "No messages were sent: no channel was set for this rule, or the alert was silenced.",
+      "history": "Earlier episodes",
+      "openObject": "Open {name}",
+      "gap": "Alerting was not running {from}–{to}",
+      "gapOpen": "Alerting has not been running since {from}",
+      "ago": "{d} ago"
+    },
+    "kinds": {
+      "firing": "Firing",
+      "resolved": "Resolve",
+      "renotify": "Reminder",
+      "escalated": "Escalation",
+      "flapping": "Flapping",
+      "test": "Test"
+    },
+    "delivery": {
+      "pending": "Queued",
+      "sending": "Sending",
+      "sent": "Sent",
+      "failed": "Failed",
+      "dropped": "Not sent"
+    },
+    "custom": {
+      "add": "New custom rule",
+      "title": "New custom rule",
+      "cluster": "Cluster or fleet",
+      "metric": "Metric",
+      "scope": "Scope",
+      "scopes": {
+        "cluster": "Whole cluster",
+        "namespaces": "Namespaces",
+        "workload": "Workload",
+        "node": "Node",
+        "labels": "Pod labels",
+        "host": "Host",
+        "container": "Container"
+      },
+      "scopeInput": {
+        "namespaces": "Namespaces",
+        "node": "Node name",
+        "labels": "Pod label selector",
+        "host": "Host name",
+        "container": "Container name"
+      },
+      "scopeHint": {
+        "namespaces": "One or more, separated by commas.",
+        "node": "Exactly as Kubernetes names it.",
+        "labels": "key=value pairs, e.g. app=web tier=frontend. At most 500 matching pods.",
+        "host": "As shown on the Docker page.",
+        "container": "The container's name, on any host."
+      },
+      "workloadKind": "Workload kind",
+      "condition": "Condition",
+      "threshold": "Threshold",
+      "units": {
+        "ratio": "%",
+        "bytes": "MiB",
+        "bytes_per_second": "bytes/s",
+        "cores": "cores",
+        "load": "load",
+        "count": "count"
+      },
+      "preview": "Last hour",
+      "previewEmpty": "No data for this metric and scope in the last hour.",
+      "previewError": "Could not load the preview.",
+      "previewLabels": "whole cluster shown; the selector applies when the rule runs",
+      "name": "Name",
+      "nameHint": "Defaults to the metric's name.",
+      "submit": "Create rule",
+      "needThreshold": "Enter a threshold.",
+      "failed": "Could not create the rule. Try again.",
+      "above": "above",
+      "below": "below"
+    },
+    "scopeKind": {
+      "Deployment": "Deployment",
+      "StatefulSet": "StatefulSet",
+      "DaemonSet": "DaemonSet",
+      "Job": "Job",
+      "CronJob": "CronJob",
+      "ReplicaSet": "ReplicaSet",
+      "Pod": "Pod",
+      "PVC": "Volume",
+      "host": "Host",
+      "node": "Node",
+      "cluster-agent": "Cluster-agent of",
+      "kubernetes": "Kubernetes cluster",
+      "docker": "Docker fleet"
+    },
+    "pods": "no pods | {n} pod | {n} pods",
+    "heldMark": "Held back",
+    "open": "Open",
+    "heldBack": "Held back",
+    "heldWhy": "cluster not reporting",
+    "sinceFor": "for {d}",
+    "incident": {
+      "text": "{agents}. One alert is sent for the cluster instead of one per agent, and {n} other alerts from it are held until data comes back, because their state is unknown.",
+      "check": "What to check"
+    },
+    "showHeld": "Show held alerts",
+    "hideHeld": "Hide held alerts",
+    "heldTitle": "Held back ({n})",
+    "heldExplain": "Kept as they were; neither sent nor resolved until their cluster or node reports again.",
+    "nCritical": "{n} critical",
+    "nWarning": "{n} warning",
+    "onlyHeld": "Nothing else is firing; the alerts above are held back.",
+    "drawer": {
+      "newTitle": "New custom rule",
+      "customRule": "custom rule",
+      "defaultRule": "default rule",
+      "description": "Change when this rule fires, how severe it is, where it sends to and how often it reminds.",
+      "when": "When",
+      "on": "on",
+      "is": "is",
+      "for": "for",
+      "min": "min",
+      "then": "Then",
+      "raise": "raise a",
+      "makeIt": "make it",
+      "optional": "(optional)",
+      "sendTo": "Send to",
+      "remind": "Remind every",
+      "whileItLasts": "while it lasts",
+      "remindOptions": {
+        "0": "Never",
+        "3600": "1 hour",
+        "14400": "4 hours",
+        "86400": "24 hours"
+      },
+      "previewTitle": "Last 24 h · busiest {name}",
+      "wouldHaveFired": "With these settings this rule would not have fired in the last 24 h. | With these settings this rule would have fired once in the last 24 h | With these settings this rule would have fired {n} times in the last 24 h",
+      "ofWhichCritical": "({n} reached critical).",
+      "warningOnly": "(warning only).",
+      "firedLastWeek": "It has not fired in the last 7 days. | It fired once in the last 7 days. | It fired {n} times in the last 7 days.",
+      "advanced": "Advanced: resolve checks, flapping protection",
+      "resolveInfo": "Resolves after 2 clean checks in a row (about 1 minute), so a single good sample does not end it.",
+      "flappingInfo": "Flapping protection: a third firing within 30 minutes is sent once as flapping, then nothing until it stays clear for 15 minutes.",
+      "reset": "Reset to default",
+      "save": "Save rule",
+      "defaultMetric": {
+        "node_cpu_high": "CPU usage",
+        "node_disk_usage": "Disk usage",
+        "k8s_pvc_usage": "Volume (PVC) usage",
+        "k8s_container_throttling": "CPU throttling",
+        "docker_container_restarts": "Restarts in 10 min",
+        "network_connections_failed": "Failed connections"
+      },
+      "defaultScope": {
+        "node_cpu_high": "every node or host",
+        "node_disk_usage": "every node or host",
+        "k8s_pvc_usage": "every volume",
+        "k8s_container_throttling": "every container",
+        "docker_container_restarts": "every container",
+        "network_connections_failed": "every workload and destination"
+      }
+    },
+    "chart": {
+      "panels": {
+        "metric": "Metric",
+        "restarts": "Restarts",
+        "cpu": "CPU",
+        "memory": "Memory",
+        "conditions": "Node conditions",
+        "phases": "Pod phases",
+        "replicas": "Replicas",
+        "health": "Health checks",
+        "samples": "Samples received per minute"
+      },
+      "threshold": {
+        "warning": "Warning {value}",
+        "critical": "Critical {value}",
+        "limit": "Limit {value}"
+      },
+      "replicas": {
+        "desired": "Desired",
+        "ready": "Ready"
+      },
+      "marker": {
+        "started": "Condition started {at}",
+        "fired": "Fired {at}",
+        "resolved": "Resolved {at}",
+        "silenced": "Silenced {at}",
+        "oom": "OOM kill {at}",
+        "lastData": "Last data {at}",
+        "notification": "{kind} to {channel} · {status} {at}",
+        "oomMany": "{n} OOM kills, {from}–{to}"
+      },
+      "area": {
+        "firing": "Firing",
+        "episode": "Earlier episode",
+        "silent": "No data",
+        "gap": "Alerting not running"
+      },
+      "ruleChanged": "Rule changed since: threshold now {now}",
+      "ruleChangedOther": "Rule changed since this alert",
+      "more": "and {n} more | and {n} more",
+      "empty": "No data from this object in this window",
+      "error": "The chart couldn't be loaded",
+      "none": "There is no chart for this rule"
+    }
+  },
+  "channels": {
+    "title": "Alert channels",
+    "intro": "Where alert messages go. Default rules send to the channels you add here; each rule can be changed on the Alerts page.",
+    "add": "Add channel",
+    "types": {
+      "slack": "Slack",
+      "telegram": "Telegram",
+      "email": "Email",
+      "webhook": "Webhook"
+    },
+    "signingSecret": "Webhook signing secret, shown once. Verify X-WatchLog-Signature with it.",
+    "signingSecretLabel": "Signing secret",
+    "telegram": {
+      "step1": "Create a bot",
+      "step1Hint": "Open {'@'}BotFather in Telegram, send /newbot and paste the token it gives you.",
+      "continue": "Continue",
+      "step2": "Start a chat with your bot",
+      "step2Hint": "Open t.me/{bot} and press Start, or add the bot to a group.",
+      "open": "Open Telegram",
+      "step3": "Connects automatically",
+      "waiting": "Waiting for your message…",
+      "expires": "Connects automatically. Link expires in {time}.",
+      "expired": "The link expired before a message arrived.",
+      "newLink": "New link",
+      "connected": "Connected to {chat}.",
+      "connectAction": "Connect chat",
+      "addAnother": "Connect another bot or chat",
+      "settingUp": "Setting up",
+      "notSet": "Not set up",
+      "connectedCount": "{n} connected",
+      "unreachable": "This server cannot reach Telegram ({error}). Set an HTTPS proxy below, or check this server's network.",
+      "proxyQuestion": "Can't reach Telegram from this server? Set an HTTPS proxy",
+      "proxy": "HTTPS proxy",
+      "proxyHint": "Used only for Telegram, e.g. http://proxy.example.com:3128"
+    },
+    "form": {
+      "type": "Type",
+      "name": "Name",
+      "nameHint": "For example \"#ops-alerts\" or \"On-call\".",
+      "slackUrl": "Incoming webhook URL",
+      "slackHint": "In Slack: Apps → Incoming Webhooks → Add to a channel; paste the https://hooks.slack.com/… URL.",
+      "botToken": "Bot token",
+      "botHint": "Create a bot with {'@'}BotFather and paste its token. You connect a chat in the next step.",
+      "recipients": "Recipients",
+      "recipientsHint": "One or more addresses, separated by commas.",
+      "webhookUrl": "URL",
+      "webhookHint": "WatchLog POSTs JSON, signed with an HMAC secret shown after you add it.",
+      "useForAll": "Use for all rules",
+      "submit": "Add channel",
+      "target": {
+        "slack": "Incoming webhook URL",
+        "email": "Recipients",
+        "webhook": "URL"
+      },
+      "targetHint": {
+        "slack": "In Slack: Apps → Incoming Webhooks → Add to a channel; paste the https://hooks.slack.com/… URL.",
+        "email": "One or more addresses, separated by commas.",
+        "webhook": "WatchLog POSTs JSON, signed with an HMAC secret shown after you add it."
+      }
+    },
+    "errors": {
+      "create": "Could not add the channel. Check the settings and try again.",
+      "rateLimited": "Too many tests; wait a minute.",
+      "test": "The test could not be sent.",
+      "load": "Could not load alert channels."
+    },
+    "status": {
+      "notConnected": "Not connected",
+      "failing": "Failing",
+      "working": "Working",
+      "untested": "Not tested"
+    },
+    "webhookSet": "webhook {last}",
+    "empty": "No channels yet. Alerts fire on the Alerts page; add a channel to receive them.",
+    "usedBy": "used by no rule | used by {n} rule | used by {n} rules",
+    "lastSent": "last message {at}",
+    "test": "Send test",
+    "testOk": "Test message sent.",
+    "testFailed": "Test failed: {error}",
+    "confirmDelete": "Confirm delete",
+    "lastError": "Last delivery failed: {error} ({at})",
+    "notSet": "Not set up",
+    "count": "no channel | {n} channel | {n} channels",
+    "done": "Done",
+    "describe": {
+      "slack": "An incoming webhook posts to one Slack channel.",
+      "webhook": "POST signed JSON to your own endpoint (PagerDuty, n8n, custom scripts)."
+    },
+    "smtp": {
+      "title": "Email server (SMTP)",
+      "notSet": "Not set up",
+      "set": "Set up",
+      "fromEnv": "Set by the server",
+      "loadFailed": "Could not load the email server.",
+      "failed": "Could not save the email server. Try again.",
+      "host": "Server",
+      "port": "Port",
+      "security": "Security",
+      "securityOptions": {
+        "starttls": "STARTTLS",
+        "tls": "TLS",
+        "none": "None"
+      },
+      "username": "Username",
+      "password": "Password",
+      "passwordEnds": "Stored encrypted · ends in …{end}",
+      "passwordSet": "Stored encrypted",
+      "from": "Send as",
+      "test": "Send test email",
+      "testOk": "Test email delivered to {to} in {s} s",
+      "testFailed": "Test failed: {error}",
+      "recipients": "Who gets email alerts",
+      "needServer": "Set up the email server first; then add who gets the messages."
+    }
+  },
+  "metricNames": {
+    "node_cpu_utilization": "Node CPU utilization",
+    "node_memory_utilization": "Node memory utilization",
+    "node_filesystem_utilization": "Node disk usage (per mount)",
+    "node_load1": "Node load (1 min)",
+    "pod_cpu_usage": "Pod CPU usage",
+    "pod_memory_working_set": "Pod memory (working set)",
+    "pod_restarts": "Pod restarts (total)",
+    "workload_cpu_usage": "Workload CPU usage",
+    "workload_memory_working_set": "Workload memory (working set)",
+    "workload_container_cpu_throttling": "Container CPU throttling",
+    "namespace_cpu_usage": "Namespace CPU usage",
+    "namespace_memory_working_set": "Namespace memory (working set)",
+    "pvc_utilization": "PVC usage",
+    "host_cpu_utilization": "Host CPU utilization",
+    "host_memory_utilization": "Host memory utilization",
+    "host_filesystem_utilization": "Host disk usage (per mount)",
+    "host_load1": "Host load (1 min)",
+    "container_cpu_usage": "Container CPU usage",
+    "container_memory_working_set": "Container memory (working set)",
+    "container_restarts_increase": "Container restarts (10 min)"
+  },
+  "combobox": {
+    "noMatches": "No matches",
+    "clear": "Clear",
+    "remove": "Remove {label}",
+    "open": "Show {label} options"
+  },
+  "settings": {
+    "tabs": {
+      "clusters": "Clusters",
+      "channels": "Alert channels",
+      "general": "General"
+    },
+    "fromEnvironment": "Set by the server's environment",
+    "saved": "Saved.",
+    "general": {
+      "loadFailed": "Could not load the settings.",
+      "failed": "Could not save. Try again.",
+      "publicUrl": {
+        "title": "Public address",
+        "intro": "The address people and agents use to reach WatchLog. Alert messages link to it, and install commands point agents at it.",
+        "label": "Address",
+        "hint": "For example https://watchlog.example.com",
+        "useThis": "Use {origin}",
+        "useThisShort": "Use this address"
+      }
+    },
+    "publicAddressNotice": {
+      "text": "Alert messages need WatchLog's address for their links.",
+      "offer": "Use {origin}?",
+      "current": "(the address you're using now)",
+      "askAdmin": "Ask an owner or admin to set it in Settings → General."
+    },
+    "namespaces": {
+      "title": "System namespaces",
+      "intro": "Hidden by default on the Workloads page and in the overview's top workloads. Anyone can still show them with one switch.",
+      "label": "System namespaces",
+      "placeholder": "Add a namespace",
+      "watchlog": "Also hide the namespaces WatchLog runs in",
+      "reset": "Reset to the default",
+      "failed": "Could not save the system namespaces.",
+      "loadFailed": "Could not load the system namespaces."
+    }
+  },
+  "serviceMap": {
+    "title": "Service map",
+    "graphLabel": "Service map: workloads, databases and external services, and the TCP connections between them. Use the Connections view for a table.",
+    "from": "from {list}",
+    "health": {
+      "ok": "Healthy",
+      "warning": "Slow",
+      "critical": "Failing",
+      "idle": "Idle",
+      "unknown": "No traffic data"
+    },
+    "edge": {
+      "failed": "{pct} failed",
+      "slow": "p95 {p95}",
+      "p95": "p95 {v}",
+      "via": "via Service {service}"
+    },
+    "columns": {
+      "edge": "Connection",
+      "health": "Health",
+      "connections": "Connections/s",
+      "failed": "Failed",
+      "p95": "p95 connect",
+      "bytes": "Throughput"
+    },
+    "charts": {
+      "traffic": "Connections and failures per second",
+      "latency": "Connect latency (p95)",
+      "connections": "connections/s",
+      "failed": "failed/s",
+      "empty": "No connections on this edge in this range",
+      "error": "The edge's series couldn't be loaded"
+    },
+    "topology": {
+      "title": "Topology only, no traffic data",
+      "description": "eBPF is not running on any agent, so the map shows Services and the workloads behind them, not who connects to whom.",
+      "descriptionDocker": "eBPF is not running on any agent, so the map shows the Compose networks and the containers on them, not who connects to whom."
+    },
+    "empty": {
+      "flows": {
+        "title": "No connections in this range",
+        "description": "No workload opened a TCP connection in the selected time range. Widen the range, or check that your workloads are running."
+      },
+      "topology": {
+        "title": "No Services yet",
+        "description": "Without eBPF the map is built from Services and the pods behind them; this cluster has none with ready endpoints."
+      },
+      "filtered": {
+        "title": "Nothing matches the filters",
+        "description": "Every connection in this range is hidden by the filters on the left.",
+        "reset": "Reset filters"
+      }
+    },
+    "errors": {
+      "load": "The service map couldn't be loaded"
+    },
+    "dns": {
+      "title": "DNS errors",
+      "failed": "{pct} of lookups failed",
+      "detail": "NXDOMAIN {nx} · SERVFAIL {servfail} · timeouts {timeout} · of {total}",
+      "searchMiss": "Search-path misses {n}, not counted as errors",
+      "searchMissHint": "With ndots, the resolver tries a name under each search domain (such as name.<namespace>.svc.cluster.local) before the name itself. Those tries return NXDOMAIN by design.",
+      "emptyTitle": "No DNS lookups seen",
+      "empty": "No workload looked up a name over UDP in the last 5 minutes."
+    },
+    "ebpf": {
+      "partialTitle": "eBPF is off on {n} of {total} agents",
+      "partialDescription": "Connections from workloads on these nodes are missing from the map.",
+      "cause": {
+        "config": "eBPF is turned off in this agent's configuration.",
+        "kernel": "This node's kernel can't run the eBPF programs.",
+        "permission": "The agent doesn't have the BPF and PERFMON capabilities.",
+        "load": "The eBPF programs failed to load.",
+        "outdated": "This agent was installed before eBPF network flows and doesn't run them. Upgrade it to the current chart and image."
+      },
+      "hint": {
+        "kernel": "Network flows need Linux 5.8 or newer with BTF and cgroup v2. Everything else keeps working on this node.",
+        "permission": "The command below installs the current chart, which adds them. If a policy (PodSecurity, Kyverno, Gatekeeper) removes capabilities, allow BPF and PERFMON for the node agent."
+      },
+      "fixLabel": "Run this to turn eBPF on"
+    },
+    "live": {
+      "now": "Live · updated just now",
+      "ago": "Live · updated {s}s ago",
+      "topology": "Topology only"
+    },
+    "views": {
+      "label": "View",
+      "map": "Map",
+      "connections": "Connections",
+      "external": "External",
+      "dns": "DNS",
+      "problems": "need attention"
+    },
+    "search": {
+      "label": "Find a service",
+      "placeholder": "Find a service, database or address",
+      "none": "No matches",
+      "kind": {
+        "service": "service",
+        "database": "database",
+        "external": "external",
+        "node": "node"
+      }
+    },
+    "filters": {
+      "label": "Filters",
+      "show": "Show",
+      "onlyProblems": "Only problems",
+      "hideIdle": "Hide idle connections",
+      "externals": "External services",
+      "watchlog": "WatchLog components and nodes",
+      "namespaces": "Namespaces",
+      "allNamespaces": "All namespaces",
+      "ownNs": "(WatchLog)",
+      "noNamespaces": "No namespaces with connections yet",
+      "projects": "Compose projects"
+    },
+    "legend": {
+      "title": "Legend",
+      "ok": "Healthy · dots are live traffic",
+      "warning": "▲ Slow (p95 ≥ 1 s or ≥ 1 % failed)",
+      "critical": "✕ Failing (≥ 5 % failed)",
+      "idle": "Idle (no traffic in 5 min)",
+      "width": "Line width = connections per second"
+    },
+    "tools": {
+      "in": "Zoom in",
+      "out": "Zoom out",
+      "fit": "Fit to screen",
+      "reset": "Reset layout"
+    },
+    "zoomHint": "Hold ⌘ / Ctrl and scroll to zoom",
+    "footer": "{nodes} services · {edges} connections · positions are kept between refreshes",
+    "groupLabel": {
+      "external": "external",
+      "nodes": "nodes"
+    },
+    "groups": {
+      "attention": "Needs attention · {n}",
+      "healthy": "Healthy · {n}",
+      "idle": "Idle · {n}"
+    },
+    "connectionsEmpty": "No connections match.",
+    "external": {
+      "emptyTitle": "No external services",
+      "empty": "No workload connected outside the cluster in this range, or external services are hidden by the filters."
+    },
+    "panel": {
+      "now": "Traffic now",
+      "window": "last 5 min",
+      "allNamespaces": "All namespaces",
+      "connections": "Connections/s",
+      "failed": "Failed",
+      "active": "Active connections",
+      "externals": "External services",
+      "attention": "Needs attention · {n}",
+      "allHealthy": "Nothing needs attention.",
+      "busiest": "Busiest connections",
+      "externalService": "External service",
+      "external": "external",
+      "incoming": "Incoming/s",
+      "outgoing": "Outgoing/s",
+      "calledBy": "Called by · {n}",
+      "calls": "Calls · {n}",
+      "calledByNone": "No incoming connections seen",
+      "callsNone": "No outgoing connections seen",
+      "openWorkload": "Open {kind} {name}",
+      "open": "Open {name}"
+    },
+    "reason": {
+      "failed": {
+        "critical": "{pct} of connections fail.",
+        "warning": "{pct} of connections fail (warning at 1 %)."
+      },
+      "slow": "Slow connects: p95 {p95} over the last 5 minutes (warning at 1 s).",
+      "noneReady": "{name} has 0 ready pods since {time}.",
+      "scaledToZero": "{name} is scaled to 0 since {time}.",
+      "someReady": "{name} has {ready} of {desired} pods ready.",
+      "alert": "Alert: failed connections, firing since {time}"
+    }
+  },
+  "overview": {
+    "facts": {
+      "kubernetes": "Kubernetes {v}",
+      "nodes": "1 node | {n} nodes",
+      "hosts": "1 host | {n} hosts",
+      "agents": "agents {n} / {of}",
+      "ebpf": {
+        "on": "eBPF on",
+        "partial": "eBPF on some nodes",
+        "off": "eBPF off"
+      },
+      "alerting": "alerting running",
+      "noAlerting": "alerting not running",
+      "docker": "Docker {v}"
+    },
+    "live": {
+      "now": "Live · updated just now",
+      "ago": "Live · updated {s}s ago"
+    },
+    "severity": {
+      "critical": "Critical",
+      "warning": "Warning"
+    },
+    "status": {
+      "critical": "Critical",
+      "degraded": "Degraded",
+      "healthy": "All clear",
+      "unknown": "Status unknown",
+      "problems": "1 problem needs attention | {n} problems need attention",
+      "breakdown": "{critical} critical, {warning} warning",
+      "oldest": "oldest started {ago} ago",
+      "healthyWhy": "No alerts are firing and nothing needs attention.",
+      "unknownWhy": "Alerting is not running, so the cluster's health cannot be checked.",
+      "types": {
+        "crashloop": "1 crash-looping pod | {n} crash-looping pods",
+        "oom": "1 out of memory | {n} out of memory",
+        "connections": "1 failing connection | {n} failing connections",
+        "nodes": "1 node issue | {n} node issues",
+        "other": "1 other problem | {n} other problems"
+      },
+      "silenced": "{n} silenced",
+      "openAlerts": "Open alerts"
+    },
+    "kpi": {
+      "nodes": "Nodes ready",
+      "hosts": "Hosts reporting",
+      "pods": "Pods running",
+      "containers": "Containers running",
+      "restarts": "Restarts",
+      "traffic": "Service traffic",
+      "cpu": "CPU",
+      "memory": "Memory",
+      "noNodes": "No nodes yet",
+      "allReady": "all Ready",
+      "allReporting": "all reporting",
+      "notReady": "{n} not Ready",
+      "notReporting": "{n} not reporting",
+      "pendingFailed": "{pending} pending · {failed} failed",
+      "unhealthy": "{n} unhealthy",
+      "noPrevious": "no earlier data to compare",
+      "sameAsBefore": "same as the previous {period}",
+      "vsBefore": "{change} vs previous {period}",
+      "connPerSec": "conn/s",
+      "failedP95": "{failed} failed · p95 {p95}",
+      "noFlows": "needs eBPF (see the service map)",
+      "barLabel": "used {used}, requested {requested}",
+      "used": "used {v}",
+      "requested": "requested {v}",
+      "cores": "cores",
+      "stoppedUnhealthy": "{stopped} stopped · {unhealthy} unhealthy"
+    },
+    "resources": {
+      "title": "Cluster resources",
+      "hint": "usage vs requests vs allocatable · markers = changes",
+      "metric": "Metric",
+      "network": "Network",
+      "chart": {
+        "cpu": "CPU (cores)",
+        "memory": "Memory",
+        "network": "Network (all nodes)"
+      },
+      "usage": "usage",
+      "received": "received",
+      "sent": "sent",
+      "requested": "requested {v}",
+      "allocatable": "allocatable {v}",
+      "empty": "No usage data in this range"
+    },
+    "attention": {
+      "title": "Needs attention",
+      "all": "All alerts",
+      "related": "1 related alert | {n} related alerts",
+      "none": "Nothing needs attention.",
+      "unknown": "Nothing found, but alerting is not running.",
+      "more": "+ {n} more in Alerts",
+      "note": "Pods listed here are left out of Warning events below."
+    },
+    "top": {
+      "title": "Top workloads",
+      "containers": "Top containers",
+      "sort": "Sort by",
+      "empty": "No usage data yet.",
+      "legend": "Bar = usage · tick = request",
+      "legendDocker": "Bar = usage · tick = CPU limit",
+      "barLabel": "usage {usage}, request {request}",
+      "cores": "{v} cores",
+      "hideSystem": "Hide system namespaces",
+      "hideOwn": "Hide WatchLog's containers"
+    },
+    "changes": {
+      "title": "Recent changes",
+      "events": "Events",
+      "empty": "No changes in the last 7 days.",
+      "rollout": "Rollout · {name}",
+      "image": "New image · {name}",
+      "scale": "Scaled {from} → {to} · {name}",
+      "namespace": "Namespace created · {name}",
+      "node": {
+        "added": "Node added · {name}",
+        "removed": "Node removed · {name}"
+      },
+      "revision": "revision {from} → {to}",
+      "recreate": "Re-created · {name}",
+      "compose": {
+        "up": "Compose up · {name}",
+        "down": "Compose down · {name}"
+      }
+    },
+    "events": {
+      "title": "Warning events",
+      "hint": "grouped by object and reason",
+      "hideOwn": "Hide WatchLog's own pods",
+      "all": "All events",
+      "ago": "{t} ago",
+      "none": "No warning events in this range.",
+      "more": "{n} more in Events",
+      "hidden": "+ {n} hidden",
+      "hiddenCovered": "1 for a problem already in Needs attention | {n} for problems already in Needs attention",
+      "hiddenOwn": "1 from WatchLog's own pods | {n} from WatchLog's own pods",
+      "hints": {
+        "FailedGetResourceMetric": "The metrics API (metrics.k8s.io) is not installed: install metrics-server, or remove the HPA.",
+        "FailedComputeMetricsReplicas": "The HPA can't read its metrics: install metrics-server, or check the HPA's metric names.",
+        "FailedScheduling": "No node fits the pod: check its requests, node selectors, taints and free capacity.",
+        "FailedMount": "A volume couldn't be mounted: check the Secret, ConfigMap or PVC it refers to.",
+        "FailedAttachVolume": "The volume couldn't attach: it may still be attached to another node.",
+        "Unhealthy": "A probe is failing: check the probe's path and port, and the app's startup time.",
+        "BackOff": "The container keeps exiting: open the pod for its last exit code and logs.",
+        "ErrImagePull": "The image couldn't be pulled: check the image name, tag and registry credentials.",
+        "ImagePullBackOff": "The image couldn't be pulled: check the image name, tag and registry credentials.",
+        "FailedCreatePodSandBox": "The pod's network couldn't be set up: check the CNI plugin on that node.",
+        "Evicted": "The node ran short of memory or disk and evicted the pod.",
+        "OOMKilling": "The kernel killed a process for memory: raise the memory limit or find the leak.",
+        "FailedToCreateEndpoint": "An Endpoints object with this name already exists: usually harmless after a Service is re-created.",
+        "ClusterIPNotAllocated": "Kubernetes repaired a Service's cluster IP: usually harmless.",
+        "DNSConfigForming": "The node's resolv.conf has too many search domains or nameservers.",
+        "NodeNotReady": "The node stopped reporting: check the kubelet and the node's network."
+      },
+      "hideOwnDocker": "Hide WatchLog's containers"
+    },
+    "nodes": {
+      "pods": "1 pod | {n} pods",
+      "containers": "1 container | {n} containers"
+    },
+    "heat": {
+      "title": "Pods by node",
+      "titleDocker": "Containers by host",
+      "hint": "colour = pod CPU vs its request",
+      "hintDocker": "colour = container CPU vs its limit",
+      "unscheduled": "Not scheduled",
+      "empty": "No pods are running."
+    }
+  },
+  "heat": {
+    "cell": "{name} · CPU {cpu} cores, {pct} of its {req} request",
+    "cellDocker": "{name} · CPU {cpu} cores, {pct} of its {req} limit",
+    "cellNoRequest": "{name} · CPU {cpu} cores, no request",
+    "cellNoLimit": "{name} · CPU {cpu} cores, no limit",
+    "cellNoData": "{name} · no CPU data yet",
+    "cellFailing": "{name} · failing: {reason}",
+    "legend": {
+      "low": "< 25%",
+      "mid": "25–75%",
+      "high": "75–100%",
+      "over": "over request",
+      "overLimit": "over limit",
+      "fail": "failing"
+    },
+    "cellOneCore": "{name} · CPU {cpu} cores, {pct} of one core (no limit)"
+  },
+  "resources": {
+    "cores": "{v} cores",
+    "used": "used {v}",
+    "request": "request {v}",
+    "limit": "limit {v}",
+    "noRequest": "no request",
+    "noLimit": "no limit",
+    "noData": "no usage data yet",
+    "reqShort": "req {v}",
+    "limitShort": "limit {v}"
+  }
+}

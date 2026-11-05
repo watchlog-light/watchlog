@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-only
+# Opt-in pre-commit hook (CONTRIBUTING.md): `git config core.hooksPath .githooks`.
+# Stops a commit that would add private content: private repositories' folders or names,
+# local settings, personal email addresses or home paths (scripts/check-private-paths.sh).
+exec scripts/check-private-paths.sh

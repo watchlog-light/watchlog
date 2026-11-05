@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# 1,000 TCP connections a second from one node (watchlog-worker) for the agent CPU
+# budget test (Phase 4 acceptance). The image is built locally: see README in HISTORY.
+apiVersion: v1
+kind: Namespace
+metadata: { name: wl-load }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: conn-server, namespace: wl-load }
+spec:
+  selector: { matchLabels: { app: conn-server } }
+  template:
+    metadata: { labels: { app: conn-server } }
+    spec:
+      nodeSelector: { kubernetes.io/hostname: watchlog-worker2 }
+      containers:
+        - name: server
+          image: watchlog-test/connload:dev
+          imagePullPolicy: Never
+          args: [server, ':8080']
+          ports: [{ containerPort: 8080 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: conn-server, namespace: wl-load }
+spec: { selector: { app: conn-server }, ports: [{ port: 8080 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: conn-client, namespace: wl-load }
+spec:
+  selector: { matchLabels: { app: conn-client } }
+  template:
+    metadata: { labels: { app: conn-client } }
+    spec:
+      nodeSelector: { kubernetes.io/hostname: watchlog-worker }
+      containers:
+        - name: client
+          image: watchlog-test/connload:dev
+          imagePullPolicy: Never
+          args: [client, 'conn-server:8080', '1000']

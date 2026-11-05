@@ -1,0 +1,2179 @@
+[
+  {
+    "kind": "CronJob",
+    "uid": "5f72a7b5-9cb9-4818-8736-ca59e8280cc8",
+    "namespace": "wl-test",
+    "name": "every-minute",
+    "node": "",
+    "spec": { "suspend": false, "schedule": "* * * * *", "created_at": "2026-10-31T11:27:05Z" },
+    "status": {
+      "active": 1,
+      "last_success": "2026-10-31T11:52:03Z",
+      "last_schedule": "2026-10-31T11:53:00Z"
+    }
+  },
+  {
+    "kind": "DaemonSet",
+    "uid": "938990e0-eafd-4b88-9a97-22c4e083603e",
+    "namespace": "kube-system",
+    "name": "kindnet",
+    "node": "",
+    "spec": {
+      "containers": [
+        {
+          "name": "kindnet-cni",
+          "image": "docker.io/kindest/kindnetd:v20260820-69b56db7",
+          "requests": { "cpu": "100m", "memory": "50Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:16:09Z",
+      "generation": 1
+    },
+    "status": {
+      "ready": 3,
+      "current": 3,
+      "desired": 3,
+      "updated": 3,
+      "available": 3,
+      "misscheduled": 0,
+      "observed_generation": 1
+    }
+  },
+  {
+    "kind": "DaemonSet",
+    "uid": "0a6f2238-b55b-4a65-aa82-f448e8f43e4d",
+    "namespace": "kube-system",
+    "name": "kube-proxy",
+    "node": "",
+    "spec": {
+      "containers": [{ "name": "kube-proxy", "image": "registry.k8s.io/kube-proxy:v1.37.0" }],
+      "created_at": "2026-10-31T11:16:08Z",
+      "generation": 1
+    },
+    "status": {
+      "ready": 3,
+      "current": 3,
+      "desired": 3,
+      "updated": 3,
+      "available": 3,
+      "misscheduled": 0,
+      "observed_generation": 1
+    }
+  },
+  {
+    "kind": "DaemonSet",
+    "uid": "e72cdaff-173a-4702-9597-cd821937a94a",
+    "namespace": "watchlog",
+    "name": "watchlog-agent",
+    "node": "",
+    "spec": {
+      "containers": [
+        {
+          "name": "agent",
+          "image": "ghcr.io/watchlog-light/agent:dev",
+          "limits": { "memory": "128Mi" },
+          "requests": { "cpu": "20m", "memory": "48Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:28:43Z",
+      "generation": 1
+    },
+    "status": {
+      "ready": 3,
+      "current": 3,
+      "desired": 3,
+      "updated": 3,
+      "available": 3,
+      "misscheduled": 0,
+      "observed_generation": 1
+    }
+  },
+  {
+    "kind": "DaemonSet",
+    "uid": "fd5168e0-19f8-4213-970c-eb37d3e28b1f",
+    "namespace": "wl-test",
+    "name": "per-node",
+    "node": "",
+    "spec": {
+      "containers": [
+        { "name": "main", "image": "busybox:1.37", "requests": { "cpu": "5m", "memory": "8Mi" } }
+      ],
+      "created_at": "2026-10-31T11:27:05Z",
+      "generation": 1
+    },
+    "status": {
+      "ready": 3,
+      "current": 3,
+      "desired": 3,
+      "updated": 3,
+      "available": 3,
+      "misscheduled": 0,
+      "observed_generation": 1
+    }
+  },
+  {
+    "kind": "Deployment",
+    "uid": "bf4d3bdf-9321-4015-af91-316efc14e5e4",
+    "namespace": "kube-system",
+    "name": "coredns",
+    "node": "",
+    "spec": {
+      "replicas": 2,
+      "revision": "1",
+      "strategy": "RollingUpdate",
+      "containers": [
+        {
+          "name": "coredns",
+          "image": "registry.k8s.io/coredns/coredns:v1.14.6",
+          "limits": { "memory": "170Mi" },
+          "requests": { "cpu": "100m", "memory": "70Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:16:08Z",
+      "generation": 1
+    },
+    "status": {
+      "ready": 2,
+      "updated": 2,
+      "replicas": 2,
+      "available": 2,
+      "unavailable": 0,
+      "observed_generation": 1
+    }
+  },
+  {
+    "kind": "Deployment",
+    "uid": "bb93f5cf-4838-4cdb-a654-1f8e846e49f5",
+    "namespace": "local-path-storage",
+    "name": "local-path-provisioner",
+    "node": "",
+    "spec": {
+      "replicas": 1,
+      "revision": "1",
+      "strategy": "RollingUpdate",
+      "containers": [
+        {
+          "name": "local-path-provisioner",
+          "image": "docker.io/kindest/local-path-provisioner:v20260820-69b56db7"
+        }
+      ],
+      "created_at": "2026-10-31T11:16:09Z",
+      "generation": 1
+    },
+    "status": {
+      "ready": 1,
+      "updated": 1,
+      "replicas": 1,
+      "available": 1,
+      "unavailable": 0,
+      "observed_generation": 1
+    }
+  },
+  {
+    "kind": "Deployment",
+    "uid": "abf107b9-0a15-4cfb-8a61-1f13bcfddd5e",
+    "namespace": "watchlog",
+    "name": "watchlog-agent-cluster-agent",
+    "node": "",
+    "spec": {
+      "replicas": 1,
+      "revision": "6",
+      "strategy": "RollingUpdate",
+      "containers": [
+        {
+          "name": "cluster-agent",
+          "image": "ghcr.io/watchlog-light/cluster-agent:dev",
+          "limits": { "memory": "512Mi" },
+          "requests": { "cpu": "50m", "memory": "128Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:28:43Z",
+      "generation": 6
+    },
+    "status": {
+      "ready": 1,
+      "updated": 1,
+      "replicas": 1,
+      "available": 1,
+      "unavailable": 0,
+      "observed_generation": 6
+    }
+  },
+  {
+    "kind": "Deployment",
+    "uid": "17567f79-703f-423b-b645-5e226ea70070",
+    "namespace": "watchlog",
+    "name": "watchlog-backend",
+    "node": "",
+    "spec": {
+      "replicas": 1,
+      "revision": "1",
+      "strategy": "RollingUpdate",
+      "containers": [
+        {
+          "name": "backend",
+          "image": "ghcr.io/watchlog-light/backend:dev",
+          "limits": { "memory": "512Mi" },
+          "requests": { "cpu": "100m", "memory": "192Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:28:43Z",
+      "generation": 1
+    },
+    "status": {
+      "ready": 1,
+      "updated": 1,
+      "replicas": 1,
+      "available": 1,
+      "unavailable": 0,
+      "observed_generation": 1
+    }
+  },
+  {
+    "kind": "Deployment",
+    "uid": "618ec04e-b729-4a22-a6a6-fd6e3d9d2c4c",
+    "namespace": "watchlog",
+    "name": "watchlog-web",
+    "node": "",
+    "spec": {
+      "replicas": 1,
+      "revision": "2",
+      "strategy": "RollingUpdate",
+      "containers": [
+        {
+          "name": "web",
+          "image": "ghcr.io/watchlog-light/web:dev",
+          "limits": { "memory": "128Mi" },
+          "requests": { "cpu": "20m", "memory": "32Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:28:43Z",
+      "generation": 2
+    },
+    "status": {
+      "ready": 1,
+      "updated": 1,
+      "replicas": 1,
+      "available": 1,
+      "unavailable": 0,
+      "observed_generation": 2
+    }
+  },
+  {
+    "kind": "Deployment",
+    "uid": "a5ee0c4e-696f-4cb5-8cca-612bf69f0936",
+    "namespace": "wl-test",
+    "name": "web",
+    "node": "",
+    "spec": {
+      "replicas": 2,
+      "revision": "1",
+      "strategy": "RollingUpdate",
+      "containers": [
+        {
+          "name": "nginx",
+          "image": "nginx:1.29-alpine",
+          "limits": { "cpu": "200m", "memory": "64Mi" },
+          "requests": { "cpu": "50m", "memory": "32Mi" }
+        },
+        {
+          "name": "sidecar",
+          "image": "busybox:1.37",
+          "requests": { "cpu": "10m", "memory": "16Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:27:05Z",
+      "generation": 1
+    },
+    "status": {
+      "ready": 2,
+      "updated": 2,
+      "replicas": 2,
+      "available": 2,
+      "unavailable": 0,
+      "observed_generation": 1
+    }
+  },
+  {
+    "kind": "HorizontalPodAutoscaler",
+    "uid": "4b4a6d6c-126b-46a7-a904-e08ae2f0dcd0",
+    "namespace": "wl-test",
+    "name": "web",
+    "node": "",
+    "spec": {
+      "max": 4,
+      "min": 2,
+      "target": { "kind": "Deployment", "name": "web" },
+      "created_at": "2026-10-31T11:27:05Z"
+    },
+    "status": { "current": 2, "desired": 0, "last_scale": null }
+  },
+  {
+    "kind": "Job",
+    "uid": "ee6eef04-4e75-4705-99f6-467edcfe0761",
+    "namespace": "wl-test",
+    "name": "every-minute-29890792",
+    "node": "",
+    "spec": {
+      "cronjob": "every-minute",
+      "created_at": "2026-10-31T11:52:00Z",
+      "completions": 1,
+      "parallelism": 1
+    },
+    "status": {
+      "state": "complete",
+      "active": 0,
+      "failed": 0,
+      "succeeded": 1,
+      "started_at": "2026-10-31T11:52:00Z",
+      "completed_at": "2026-10-31T11:52:03Z"
+    }
+  },
+  {
+    "kind": "Job",
+    "uid": "e5987a77-830b-4c58-a69a-0f6bc88f37bc",
+    "namespace": "wl-test",
+    "name": "every-minute-29890793",
+    "node": "",
+    "spec": {
+      "cronjob": "every-minute",
+      "created_at": "2026-10-31T11:53:00Z",
+      "completions": 1,
+      "parallelism": 1
+    },
+    "status": {
+      "state": "running",
+      "active": 1,
+      "failed": 0,
+      "succeeded": 0,
+      "started_at": "2026-10-31T11:53:00Z",
+      "completed_at": null
+    }
+  },
+  {
+    "kind": "Job",
+    "uid": "87641cc7-99c9-4507-9820-4c8c45a39f91",
+    "namespace": "wl-test",
+    "name": "once",
+    "node": "",
+    "spec": { "created_at": "2026-10-31T11:27:05Z", "completions": 1, "parallelism": 1 },
+    "status": {
+      "state": "complete",
+      "active": 0,
+      "failed": 0,
+      "succeeded": 1,
+      "started_at": "2026-10-31T11:27:05Z",
+      "completed_at": "2026-10-31T11:27:19Z"
+    }
+  },
+  {
+    "kind": "Namespace",
+    "uid": "555928a3-6733-4775-b746-d6878378f5c7",
+    "namespace": "",
+    "name": "default",
+    "node": "",
+    "spec": {
+      "labels": { "kubernetes.io/metadata.name": "default" },
+      "created_at": "2026-10-31T11:16:05Z"
+    },
+    "status": { "phase": "Active" }
+  },
+  {
+    "kind": "Namespace",
+    "uid": "3ae0ff8b-ea1e-4b8b-ab4e-7feeb4a6b05b",
+    "namespace": "",
+    "name": "kube-node-lease",
+    "node": "",
+    "spec": {
+      "labels": { "kubernetes.io/metadata.name": "kube-node-lease" },
+      "created_at": "2026-10-31T11:16:05Z"
+    },
+    "status": { "phase": "Active" }
+  },
+  {
+    "kind": "Namespace",
+    "uid": "5d8101a1-dbfc-4c14-a3af-195020c2817e",
+    "namespace": "",
+    "name": "kube-public",
+    "node": "",
+    "spec": {
+      "labels": { "kubernetes.io/metadata.name": "kube-public" },
+      "created_at": "2026-10-31T11:16:05Z"
+    },
+    "status": { "phase": "Active" }
+  },
+  {
+    "kind": "Namespace",
+    "uid": "b6e0c439-7f96-4a02-8d36-eab570c3b087",
+    "namespace": "",
+    "name": "kube-system",
+    "node": "",
+    "spec": {
+      "labels": { "kubernetes.io/metadata.name": "kube-system" },
+      "created_at": "2026-10-31T11:16:05Z"
+    },
+    "status": { "phase": "Active" }
+  },
+  {
+    "kind": "Namespace",
+    "uid": "1adbb2d3-f43f-49c8-b136-966293a2ddc6",
+    "namespace": "",
+    "name": "local-path-storage",
+    "node": "",
+    "spec": {
+      "labels": { "kubernetes.io/metadata.name": "local-path-storage" },
+      "created_at": "2026-10-31T11:16:09Z"
+    },
+    "status": { "phase": "Active" }
+  },
+  {
+    "kind": "Namespace",
+    "uid": "04b608d1-0fa5-481f-b82c-679f0d327e57",
+    "namespace": "",
+    "name": "watchlog",
+    "node": "",
+    "spec": {
+      "labels": { "name": "watchlog", "kubernetes.io/metadata.name": "watchlog" },
+      "created_at": "2026-10-31T11:28:43Z"
+    },
+    "status": { "phase": "Active" }
+  },
+  {
+    "kind": "Namespace",
+    "uid": "e6786482-c6ab-4e98-9195-52255529a8f0",
+    "namespace": "",
+    "name": "wl-test",
+    "node": "",
+    "spec": {
+      "labels": { "kubernetes.io/metadata.name": "wl-test" },
+      "created_at": "2026-10-31T11:27:05Z"
+    },
+    "status": { "phase": "Active" }
+  },
+  {
+    "kind": "Node",
+    "uid": "cf9aef6a-05f6-4698-97fc-ce4352171f98",
+    "namespace": "",
+    "name": "watchlog-control-plane",
+    "node": "watchlog-control-plane",
+    "spec": {
+      "roles": ["control-plane"],
+      "labels": {
+        "kubernetes.io/os": "linux",
+        "kubernetes.io/arch": "arm64",
+        "beta.kubernetes.io/os": "linux",
+        "kubernetes.io/hostname": "watchlog-control-plane",
+        "beta.kubernetes.io/arch": "arm64",
+        "node-role.kubernetes.io/control-plane": "",
+        "node.kubernetes.io/exclude-from-external-load-balancers": ""
+      },
+      "taints": ["node-role.kubernetes.io/control-plane:NoSchedule"],
+      "created_at": "2026-10-31T11:16:05Z",
+      "unschedulable": false
+    },
+    "status": {
+      "info": {
+        "os_image": "Debian GNU/Linux 13 (trixie)",
+        "architecture": "arm64",
+        "kernel_version": "6.8.0-147-generic",
+        "kubelet_version": "v1.37.0",
+        "container_runtime": "containerd://2.3.4"
+      },
+      "capacity": {
+        "cpu": "4",
+        "pods": "110",
+        "memory": "6053276Ki",
+        "hugepages-1Gi": "0",
+        "hugepages-2Mi": "0",
+        "hugepages-32Mi": "0",
+        "hugepages-64Ki": "0",
+        "ephemeral-storage": "30083776512"
+      },
+      "conditions": [
+        {
+          "type": "MemoryPressure",
+          "since": "2026-10-31T11:16:05Z",
+          "reason": "KubeletHasSufficientMemory",
+          "status": "False",
+          "message": "kubelet has sufficient memory available"
+        },
+        {
+          "type": "DiskPressure",
+          "since": "2026-10-31T11:16:05Z",
+          "reason": "KubeletHasNoDiskPressure",
+          "status": "False",
+          "message": "kubelet has no disk pressure"
+        },
+        {
+          "type": "PIDPressure",
+          "since": "2026-10-31T11:16:05Z",
+          "reason": "KubeletHasSufficientPID",
+          "status": "False",
+          "message": "kubelet has sufficient PID available"
+        },
+        {
+          "type": "Ready",
+          "since": "2026-10-31T11:16:25Z",
+          "reason": "KubeletReady",
+          "status": "True",
+          "message": "kubelet is posting ready status"
+        }
+      ],
+      "allocatable": {
+        "cpu": "4",
+        "pods": "110",
+        "memory": "6053276Ki",
+        "hugepages-1Gi": "0",
+        "hugepages-2Mi": "0",
+        "hugepages-32Mi": "0",
+        "hugepages-64Ki": "0",
+        "ephemeral-storage": "30083776512"
+      },
+      "internal_ip": "172.19.0.4"
+    }
+  },
+  {
+    "kind": "Node",
+    "uid": "ba65395d-1b70-4cb6-9404-40cac6cac2dc",
+    "namespace": "",
+    "name": "watchlog-worker",
+    "node": "watchlog-worker",
+    "spec": {
+      "roles": null,
+      "labels": {
+        "kubernetes.io/os": "linux",
+        "kubernetes.io/arch": "arm64",
+        "beta.kubernetes.io/os": "linux",
+        "kubernetes.io/hostname": "watchlog-worker",
+        "beta.kubernetes.io/arch": "arm64"
+      },
+      "taints": null,
+      "created_at": "2026-10-31T11:16:20Z",
+      "unschedulable": false
+    },
+    "status": {
+      "info": {
+        "os_image": "Debian GNU/Linux 13 (trixie)",
+        "architecture": "arm64",
+        "kernel_version": "6.8.0-147-generic",
+        "kubelet_version": "v1.37.0",
+        "container_runtime": "containerd://2.3.4"
+      },
+      "capacity": {
+        "cpu": "4",
+        "pods": "110",
+        "memory": "6053276Ki",
+        "hugepages-1Gi": "0",
+        "hugepages-2Mi": "0",
+        "hugepages-32Mi": "0",
+        "hugepages-64Ki": "0",
+        "ephemeral-storage": "30083776512"
+      },
+      "conditions": [
+        {
+          "type": "MemoryPressure",
+          "since": "2026-10-31T11:16:20Z",
+          "reason": "KubeletHasSufficientMemory",
+          "status": "False",
+          "message": "kubelet has sufficient memory available"
+        },
+        {
+          "type": "DiskPressure",
+          "since": "2026-10-31T11:16:20Z",
+          "reason": "KubeletHasNoDiskPressure",
+          "status": "False",
+          "message": "kubelet has no disk pressure"
+        },
+        {
+          "type": "PIDPressure",
+          "since": "2026-10-31T11:16:20Z",
+          "reason": "KubeletHasSufficientPID",
+          "status": "False",
+          "message": "kubelet has sufficient PID available"
+        },
+        {
+          "type": "Ready",
+          "since": "2026-10-31T11:16:32Z",
+          "reason": "KubeletReady",
+          "status": "True",
+          "message": "kubelet is posting ready status"
+        }
+      ],
+      "allocatable": {
+        "cpu": "4",
+        "pods": "110",
+        "memory": "6053276Ki",
+        "hugepages-1Gi": "0",
+        "hugepages-2Mi": "0",
+        "hugepages-32Mi": "0",
+        "hugepages-64Ki": "0",
+        "ephemeral-storage": "30083776512"
+      },
+      "internal_ip": "172.19.0.2"
+    }
+  },
+  {
+    "kind": "Node",
+    "uid": "5ace6f3c-a288-4907-add9-85bed74c3d7e",
+    "namespace": "",
+    "name": "watchlog-worker2",
+    "node": "watchlog-worker2",
+    "spec": {
+      "roles": null,
+      "labels": {
+        "kubernetes.io/os": "linux",
+        "kubernetes.io/arch": "arm64",
+        "beta.kubernetes.io/os": "linux",
+        "kubernetes.io/hostname": "watchlog-worker2",
+        "beta.kubernetes.io/arch": "arm64"
+      },
+      "taints": null,
+      "created_at": "2026-10-31T11:16:20Z",
+      "unschedulable": false
+    },
+    "status": {
+      "info": {
+        "os_image": "Debian GNU/Linux 13 (trixie)",
+        "architecture": "arm64",
+        "kernel_version": "6.8.0-147-generic",
+        "kubelet_version": "v1.37.0",
+        "container_runtime": "containerd://2.3.4"
+      },
+      "capacity": {
+        "cpu": "4",
+        "pods": "110",
+        "memory": "6053276Ki",
+        "hugepages-1Gi": "0",
+        "hugepages-2Mi": "0",
+        "hugepages-32Mi": "0",
+        "hugepages-64Ki": "0",
+        "ephemeral-storage": "30083776512"
+      },
+      "conditions": [
+        {
+          "type": "MemoryPressure",
+          "since": "2026-10-31T11:16:20Z",
+          "reason": "KubeletHasSufficientMemory",
+          "status": "False",
+          "message": "kubelet has sufficient memory available"
+        },
+        {
+          "type": "DiskPressure",
+          "since": "2026-10-31T11:16:20Z",
+          "reason": "KubeletHasNoDiskPressure",
+          "status": "False",
+          "message": "kubelet has no disk pressure"
+        },
+        {
+          "type": "PIDPressure",
+          "since": "2026-10-31T11:16:20Z",
+          "reason": "KubeletHasSufficientPID",
+          "status": "False",
+          "message": "kubelet has sufficient PID available"
+        },
+        {
+          "type": "Ready",
+          "since": "2026-10-31T11:16:32Z",
+          "reason": "KubeletReady",
+          "status": "True",
+          "message": "kubelet is posting ready status"
+        }
+      ],
+      "allocatable": {
+        "cpu": "4",
+        "pods": "110",
+        "memory": "6053276Ki",
+        "hugepages-1Gi": "0",
+        "hugepages-2Mi": "0",
+        "hugepages-32Mi": "0",
+        "hugepages-64Ki": "0",
+        "ephemeral-storage": "30083776512"
+      },
+      "internal_ip": "172.19.0.3"
+    }
+  },
+  {
+    "kind": "PersistentVolumeClaim",
+    "uid": "869dfcf6-c396-4fb2-9637-fd06260fd67f",
+    "namespace": "watchlog",
+    "name": "data-watchlog-postgresql-0",
+    "node": "",
+    "spec": {
+      "volume": "pvc-869dfcf6-c396-4fb2-9637-fd06260fd67f",
+      "requested": "8Gi",
+      "created_at": "2026-10-31T11:28:43Z",
+      "access_modes": ["ReadWriteOnce"],
+      "storage_class": "standard"
+    },
+    "status": { "phase": "Bound", "capacity": "8Gi" }
+  },
+  {
+    "kind": "PersistentVolumeClaim",
+    "uid": "3c1ff83f-be0d-4c12-82ee-adc7a5b34622",
+    "namespace": "watchlog",
+    "name": "data-watchlog-victoriametrics-0",
+    "node": "",
+    "spec": {
+      "volume": "pvc-3c1ff83f-be0d-4c12-82ee-adc7a5b34622",
+      "requested": "20Gi",
+      "created_at": "2026-10-31T11:28:43Z",
+      "access_modes": ["ReadWriteOnce"],
+      "storage_class": "standard"
+    },
+    "status": { "phase": "Bound", "capacity": "20Gi" }
+  },
+  {
+    "kind": "PersistentVolumeClaim",
+    "uid": "4c351de6-4022-481a-a00a-71381dfd377f",
+    "namespace": "wl-test",
+    "name": "data-db-0",
+    "node": "",
+    "spec": {
+      "volume": "pvc-4c351de6-4022-481a-a00a-71381dfd377f",
+      "requested": "64Mi",
+      "created_at": "2026-10-31T11:27:05Z",
+      "access_modes": ["ReadWriteOnce"],
+      "storage_class": "standard"
+    },
+    "status": { "phase": "Bound", "capacity": "64Mi" }
+  },
+  {
+    "kind": "Pod",
+    "uid": "f624106d-6df6-4122-bf86-82cecf34e9db",
+    "namespace": "kube-system",
+    "name": "coredns-559f6c778d-54wft",
+    "node": "watchlog-control-plane",
+    "spec": {
+      "labels": { "k8s-app": "kube-dns", "pod-template-hash": "559f6c778d" },
+      "workload": { "kind": "Deployment", "name": "coredns" },
+      "containers": [
+        {
+          "name": "coredns",
+          "image": "registry.k8s.io/coredns/coredns:v1.14.6",
+          "limits": { "memory": "170Mi" },
+          "requests": { "cpu": "100m", "memory": "70Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:16:15Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.0.2",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "coredns",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:16:26Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:16:25Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "3f18cac8-3b5a-4f14-8859-18a7ffa7b86c",
+    "namespace": "kube-system",
+    "name": "coredns-559f6c778d-s4b4t",
+    "node": "watchlog-control-plane",
+    "spec": {
+      "labels": { "k8s-app": "kube-dns", "pod-template-hash": "559f6c778d" },
+      "workload": { "kind": "Deployment", "name": "coredns" },
+      "containers": [
+        {
+          "name": "coredns",
+          "image": "registry.k8s.io/coredns/coredns:v1.14.6",
+          "limits": { "memory": "170Mi" },
+          "requests": { "cpu": "100m", "memory": "70Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:16:15Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.0.3",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "coredns",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:16:26Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:16:25Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "5d4bf5d1-9568-4eab-bcd1-c39c6b501833",
+    "namespace": "kube-system",
+    "name": "etcd-watchlog-control-plane",
+    "node": "watchlog-control-plane",
+    "spec": {
+      "labels": { "tier": "control-plane", "component": "etcd" },
+      "mirror": "1803a12252cdf33c655eec1780ee5ad3",
+      "workload": { "kind": "StaticPod", "name": "etcd-watchlog-control-plane" },
+      "containers": [
+        {
+          "name": "etcd",
+          "image": "registry.k8s.io/etcd:3.7.0-0",
+          "requests": { "cpu": "100m", "memory": "100Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:16:08Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "172.19.0.4",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "etcd",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:16:04Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:16:08Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "ef84e04a-9eba-40e9-9629-ada4b60a9358",
+    "namespace": "kube-system",
+    "name": "kindnet-4z4x8",
+    "node": "watchlog-control-plane",
+    "spec": {
+      "labels": {
+        "app": "kindnet",
+        "tier": "node",
+        "k8s-app": "kindnet",
+        "pod-template-generation": "1",
+        "controller-revision-hash": "bf8997576"
+      },
+      "workload": { "kind": "DaemonSet", "name": "kindnet" },
+      "containers": [
+        {
+          "name": "kindnet-cni",
+          "image": "docker.io/kindest/kindnetd:v20260820-69b56db7",
+          "requests": { "cpu": "100m", "memory": "50Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:16:14Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "172.19.0.4",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "kindnet-cni",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:16:15Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:16:14Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "a2f9e38b-1b47-4c15-b859-c5fb6baa4b83",
+    "namespace": "kube-system",
+    "name": "kindnet-dc7qw",
+    "node": "watchlog-worker2",
+    "spec": {
+      "labels": {
+        "app": "kindnet",
+        "tier": "node",
+        "k8s-app": "kindnet",
+        "pod-template-generation": "1",
+        "controller-revision-hash": "bf8997576"
+      },
+      "workload": { "kind": "DaemonSet", "name": "kindnet" },
+      "containers": [
+        {
+          "name": "kindnet-cni",
+          "image": "docker.io/kindest/kindnetd:v20260820-69b56db7",
+          "requests": { "cpu": "100m", "memory": "50Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:16:20Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "172.19.0.3",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "kindnet-cni",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:16:22Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:16:20Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "db92515f-7b25-4a6d-b3bf-0f88b382db7e",
+    "namespace": "kube-system",
+    "name": "kindnet-mwf6n",
+    "node": "watchlog-worker",
+    "spec": {
+      "labels": {
+        "app": "kindnet",
+        "tier": "node",
+        "k8s-app": "kindnet",
+        "pod-template-generation": "1",
+        "controller-revision-hash": "bf8997576"
+      },
+      "workload": { "kind": "DaemonSet", "name": "kindnet" },
+      "containers": [
+        {
+          "name": "kindnet-cni",
+          "image": "docker.io/kindest/kindnetd:v20260820-69b56db7",
+          "requests": { "cpu": "100m", "memory": "50Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:16:20Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "172.19.0.2",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "kindnet-cni",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:16:22Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:16:20Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "7f89743d-585f-4d2a-9bfa-88e537c917f9",
+    "namespace": "kube-system",
+    "name": "kube-apiserver-watchlog-control-plane",
+    "node": "watchlog-control-plane",
+    "spec": {
+      "labels": { "tier": "control-plane", "component": "kube-apiserver" },
+      "mirror": "75823e4ed96b23d34b0e07e133f5f301",
+      "workload": { "kind": "StaticPod", "name": "kube-apiserver-watchlog-control-plane" },
+      "containers": [
+        {
+          "name": "kube-apiserver",
+          "image": "registry.k8s.io/kube-apiserver:v1.37.0",
+          "requests": { "cpu": "250m" }
+        }
+      ],
+      "created_at": "2026-10-31T11:16:08Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "172.19.0.4",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "kube-apiserver",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:16:04Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:16:08Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "dd57f25a-afee-4791-a8de-ca7aa8508f35",
+    "namespace": "kube-system",
+    "name": "kube-controller-manager-watchlog-control-plane",
+    "node": "watchlog-control-plane",
+    "spec": {
+      "labels": { "tier": "control-plane", "component": "kube-controller-manager" },
+      "mirror": "510cef57815c6de24bfbfb0b4326d919",
+      "workload": { "kind": "StaticPod", "name": "kube-controller-manager-watchlog-control-plane" },
+      "containers": [
+        {
+          "name": "kube-controller-manager",
+          "image": "registry.k8s.io/kube-controller-manager:v1.37.0",
+          "requests": { "cpu": "200m" }
+        }
+      ],
+      "created_at": "2026-10-31T11:16:08Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "172.19.0.4",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "kube-controller-manager",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:16:04Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:16:08Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "0c30ee68-f2fa-4504-b912-9a5e28220cfa",
+    "namespace": "kube-system",
+    "name": "kube-proxy-rt5d4",
+    "node": "watchlog-control-plane",
+    "spec": {
+      "labels": {
+        "k8s-app": "kube-proxy",
+        "pod-template-generation": "1",
+        "controller-revision-hash": "6f6bf99bf5"
+      },
+      "workload": { "kind": "DaemonSet", "name": "kube-proxy" },
+      "containers": [{ "name": "kube-proxy", "image": "registry.k8s.io/kube-proxy:v1.37.0" }],
+      "created_at": "2026-10-31T11:16:14Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "172.19.0.4",
+      "qos_class": "BestEffort",
+      "containers": [
+        {
+          "name": "kube-proxy",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:16:15Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:16:14Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "418b132c-3643-49ce-bb26-556a3d78f4fe",
+    "namespace": "kube-system",
+    "name": "kube-proxy-sxjrd",
+    "node": "watchlog-worker2",
+    "spec": {
+      "labels": {
+        "k8s-app": "kube-proxy",
+        "pod-template-generation": "1",
+        "controller-revision-hash": "6f6bf99bf5"
+      },
+      "workload": { "kind": "DaemonSet", "name": "kube-proxy" },
+      "containers": [{ "name": "kube-proxy", "image": "registry.k8s.io/kube-proxy:v1.37.0" }],
+      "created_at": "2026-10-31T11:16:20Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "172.19.0.3",
+      "qos_class": "BestEffort",
+      "containers": [
+        {
+          "name": "kube-proxy",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:16:21Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:16:20Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "d74d81fe-c623-4db0-85cf-6014c982df9a",
+    "namespace": "kube-system",
+    "name": "kube-proxy-vpqsg",
+    "node": "watchlog-worker",
+    "spec": {
+      "labels": {
+        "k8s-app": "kube-proxy",
+        "pod-template-generation": "1",
+        "controller-revision-hash": "6f6bf99bf5"
+      },
+      "workload": { "kind": "DaemonSet", "name": "kube-proxy" },
+      "containers": [{ "name": "kube-proxy", "image": "registry.k8s.io/kube-proxy:v1.37.0" }],
+      "created_at": "2026-10-31T11:16:20Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "172.19.0.2",
+      "qos_class": "BestEffort",
+      "containers": [
+        {
+          "name": "kube-proxy",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:16:21Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:16:20Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "092df976-2c6f-4f16-81d9-78968d41c4ec",
+    "namespace": "kube-system",
+    "name": "kube-scheduler-watchlog-control-plane",
+    "node": "watchlog-control-plane",
+    "spec": {
+      "labels": { "tier": "control-plane", "component": "kube-scheduler" },
+      "mirror": "645fcbc952b2362d30d2368e89fdb6b1",
+      "workload": { "kind": "StaticPod", "name": "kube-scheduler-watchlog-control-plane" },
+      "containers": [
+        {
+          "name": "kube-scheduler",
+          "image": "registry.k8s.io/kube-scheduler:v1.37.0",
+          "requests": { "cpu": "100m" }
+        }
+      ],
+      "created_at": "2026-10-31T11:16:08Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "172.19.0.4",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "kube-scheduler",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:16:04Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:16:08Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "abdf95cb-100e-4630-80ff-92e72c1478c4",
+    "namespace": "local-path-storage",
+    "name": "local-path-provisioner-75f7fc7dc5-tgvbh",
+    "node": "watchlog-control-plane",
+    "spec": {
+      "labels": { "app": "local-path-provisioner", "pod-template-hash": "75f7fc7dc5" },
+      "workload": { "kind": "Deployment", "name": "local-path-provisioner" },
+      "containers": [
+        {
+          "name": "local-path-provisioner",
+          "image": "docker.io/kindest/local-path-provisioner:v20260820-69b56db7"
+        }
+      ],
+      "created_at": "2026-10-31T11:16:15Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.0.4",
+      "qos_class": "BestEffort",
+      "containers": [
+        {
+          "name": "local-path-provisioner",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:16:26Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:16:25Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "809b7b26-84fa-4c19-ae80-a90298ad0fbe",
+    "namespace": "watchlog",
+    "name": "watchlog-agent-cluster-agent-86465b894f-n2494",
+    "node": "watchlog-worker2",
+    "spec": {
+      "labels": {
+        "helm.sh/chart": "watchlog-agent-0.2.0",
+        "pod-template-hash": "86465b894f",
+        "app.kubernetes.io/name": "watchlog-agent",
+        "app.kubernetes.io/version": "dev",
+        "app.kubernetes.io/instance": "watchlog",
+        "app.kubernetes.io/component": "cluster-agent",
+        "app.kubernetes.io/managed-by": "Helm"
+      },
+      "workload": { "kind": "Deployment", "name": "watchlog-agent-cluster-agent" },
+      "containers": [
+        {
+          "name": "cluster-agent",
+          "image": "ghcr.io/watchlog-light/cluster-agent:dev",
+          "limits": { "memory": "512Mi" },
+          "requests": { "cpu": "50m", "memory": "128Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:52:55Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.2.34",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "cluster-agent",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:52:55Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:52:55Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "d92d8f67-2722-4679-91c4-f4d68265b01e",
+    "namespace": "watchlog",
+    "name": "watchlog-agent-flrwx",
+    "node": "watchlog-control-plane",
+    "spec": {
+      "labels": {
+        "helm.sh/chart": "watchlog-agent-0.2.0",
+        "app.kubernetes.io/name": "watchlog-agent",
+        "pod-template-generation": "1",
+        "controller-revision-hash": "5594c789df",
+        "app.kubernetes.io/version": "dev",
+        "app.kubernetes.io/instance": "watchlog",
+        "app.kubernetes.io/component": "node-agent",
+        "app.kubernetes.io/managed-by": "Helm"
+      },
+      "workload": { "kind": "DaemonSet", "name": "watchlog-agent" },
+      "containers": [
+        {
+          "name": "agent",
+          "image": "ghcr.io/watchlog-light/agent:dev",
+          "limits": { "memory": "128Mi" },
+          "requests": { "cpu": "20m", "memory": "48Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:28:43Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.0.6",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "agent",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:28:44Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:28:43Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "f23c0d91-1289-42da-9a3e-df2acbf64918",
+    "namespace": "watchlog",
+    "name": "watchlog-agent-ltcjs",
+    "node": "watchlog-worker2",
+    "spec": {
+      "labels": {
+        "helm.sh/chart": "watchlog-agent-0.2.0",
+        "app.kubernetes.io/name": "watchlog-agent",
+        "pod-template-generation": "1",
+        "controller-revision-hash": "5594c789df",
+        "app.kubernetes.io/version": "dev",
+        "app.kubernetes.io/instance": "watchlog",
+        "app.kubernetes.io/component": "node-agent",
+        "app.kubernetes.io/managed-by": "Helm"
+      },
+      "workload": { "kind": "DaemonSet", "name": "watchlog-agent" },
+      "containers": [
+        {
+          "name": "agent",
+          "image": "ghcr.io/watchlog-light/agent:dev",
+          "limits": { "memory": "128Mi" },
+          "requests": { "cpu": "20m", "memory": "48Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:28:43Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.2.10",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "agent",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:28:44Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:28:43Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "6f1faed0-0fb2-4ad8-bbb9-35b2b76cdf50",
+    "namespace": "watchlog",
+    "name": "watchlog-agent-wt7c5",
+    "node": "watchlog-worker",
+    "spec": {
+      "labels": {
+        "helm.sh/chart": "watchlog-agent-0.2.0",
+        "app.kubernetes.io/name": "watchlog-agent",
+        "pod-template-generation": "1",
+        "controller-revision-hash": "5594c789df",
+        "app.kubernetes.io/version": "dev",
+        "app.kubernetes.io/instance": "watchlog",
+        "app.kubernetes.io/component": "node-agent",
+        "app.kubernetes.io/managed-by": "Helm"
+      },
+      "workload": { "kind": "DaemonSet", "name": "watchlog-agent" },
+      "containers": [
+        {
+          "name": "agent",
+          "image": "ghcr.io/watchlog-light/agent:dev",
+          "limits": { "memory": "128Mi" },
+          "requests": { "cpu": "20m", "memory": "48Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:28:43Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.1.9",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "agent",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:28:44Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:28:43Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "bd01c43b-7bcf-4aae-8b77-cd7a6dfa858f",
+    "namespace": "watchlog",
+    "name": "watchlog-backend-c59974db6-zrn8n",
+    "node": "watchlog-worker",
+    "spec": {
+      "labels": {
+        "helm.sh/chart": "watchlog-0.2.0",
+        "pod-template-hash": "c59974db6",
+        "app.kubernetes.io/name": "watchlog",
+        "app.kubernetes.io/version": "dev",
+        "app.kubernetes.io/instance": "watchlog",
+        "app.kubernetes.io/component": "backend",
+        "app.kubernetes.io/managed-by": "Helm"
+      },
+      "workload": { "kind": "Deployment", "name": "watchlog-backend" },
+      "containers": [
+        {
+          "name": "backend",
+          "image": "ghcr.io/watchlog-light/backend:dev",
+          "limits": { "memory": "512Mi" },
+          "requests": { "cpu": "100m", "memory": "192Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:28:43Z",
+      "init_containers": [{ "name": "migrate", "image": "ghcr.io/watchlog-light/backend:dev" }]
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.1.8",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "init": true,
+          "name": "migrate",
+          "ready": true,
+          "state": "terminated",
+          "reason": "Completed",
+          "exit_code": 0,
+          "started_at": "2026-10-31T11:29:20Z",
+          "restart_count": 3,
+          "last_termination": {
+            "reason": "Error",
+            "exit_code": 1,
+            "finished_at": "2026-10-31T11:29:00Z"
+          }
+        },
+        {
+          "name": "backend",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:29:21Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:28:43Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "6a93b85b-3995-432b-a8c8-ee3ea336ae1e",
+    "namespace": "watchlog",
+    "name": "watchlog-postgresql-0",
+    "node": "watchlog-worker2",
+    "spec": {
+      "pvcs": ["data-watchlog-postgresql-0"],
+      "labels": {
+        "helm.sh/chart": "watchlog-0.2.0",
+        "app.kubernetes.io/name": "watchlog",
+        "controller-revision-hash": "watchlog-postgresql-5d8dbf4bb7",
+        "app.kubernetes.io/version": "dev",
+        "app.kubernetes.io/instance": "watchlog",
+        "app.kubernetes.io/component": "postgresql",
+        "app.kubernetes.io/managed-by": "Helm",
+        "apps.kubernetes.io/pod-index": "0",
+        "statefulset.kubernetes.io/pod-name": "watchlog-postgresql-0"
+      },
+      "workload": { "kind": "StatefulSet", "name": "watchlog-postgresql" },
+      "containers": [
+        {
+          "name": "postgresql",
+          "image": "postgres:16-alpine",
+          "limits": { "memory": "512Mi" },
+          "requests": { "cpu": "50m", "memory": "128Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:28:43Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.2.14",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "postgresql",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:29:07Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:28:48Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "b62b066b-0b73-4af2-a9d8-430fb2e32fc2",
+    "namespace": "watchlog",
+    "name": "watchlog-victoriametrics-0",
+    "node": "watchlog-worker2",
+    "spec": {
+      "pvcs": ["data-watchlog-victoriametrics-0"],
+      "labels": {
+        "helm.sh/chart": "watchlog-0.2.0",
+        "app.kubernetes.io/name": "watchlog",
+        "controller-revision-hash": "watchlog-victoriametrics-756854999b",
+        "app.kubernetes.io/version": "dev",
+        "app.kubernetes.io/instance": "watchlog",
+        "app.kubernetes.io/component": "victoriametrics",
+        "app.kubernetes.io/managed-by": "Helm",
+        "apps.kubernetes.io/pod-index": "0",
+        "statefulset.kubernetes.io/pod-name": "watchlog-victoriametrics-0"
+      },
+      "workload": { "kind": "StatefulSet", "name": "watchlog-victoriametrics" },
+      "containers": [
+        {
+          "name": "victoriametrics",
+          "image": "victoriametrics/victoria-metrics:v1.155.0",
+          "limits": { "memory": "2Gi" },
+          "requests": { "cpu": "100m", "memory": "256Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:28:43Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.2.13",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "victoriametrics",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:28:56Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:28:48Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "6d62c0c5-86e2-4065-a930-4b4060f94334",
+    "namespace": "watchlog",
+    "name": "watchlog-web-7765bb78c6-dlcc8",
+    "node": "watchlog-worker2",
+    "spec": {
+      "labels": {
+        "helm.sh/chart": "watchlog-0.2.0",
+        "pod-template-hash": "7765bb78c6",
+        "app.kubernetes.io/name": "watchlog",
+        "app.kubernetes.io/version": "dev",
+        "app.kubernetes.io/instance": "watchlog",
+        "app.kubernetes.io/component": "web",
+        "app.kubernetes.io/managed-by": "Helm"
+      },
+      "workload": { "kind": "Deployment", "name": "watchlog-web" },
+      "containers": [
+        {
+          "name": "web",
+          "image": "ghcr.io/watchlog-light/web:dev",
+          "limits": { "memory": "128Mi" },
+          "requests": { "cpu": "20m", "memory": "32Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:34:00Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.2.15",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "web",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:34:01Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:34:00Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "c393feca-53b9-4b1a-addd-1589ecb62118",
+    "namespace": "wl-test",
+    "name": "besteffort",
+    "node": "watchlog-worker2",
+    "spec": {
+      "workload": { "kind": "Pod", "name": "besteffort" },
+      "containers": [{ "name": "main", "image": "busybox:1.37" }],
+      "created_at": "2026-10-31T11:27:05Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.2.2",
+      "qos_class": "BestEffort",
+      "containers": [
+        {
+          "name": "main",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:27:15Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:27:05Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "53cf1330-20e7-4770-91fd-68883c931056",
+    "namespace": "wl-test",
+    "name": "crashloop",
+    "node": "watchlog-worker",
+    "spec": {
+      "workload": { "kind": "Pod", "name": "crashloop" },
+      "containers": [{ "name": "main", "image": "busybox:1.37" }],
+      "created_at": "2026-10-31T11:27:05Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": false,
+      "pod_ip": "10.244.1.6",
+      "qos_class": "BestEffort",
+      "containers": [
+        {
+          "name": "main",
+          "ready": false,
+          "state": "waiting",
+          "reason": "CrashLoopBackOff",
+          "message": "back-off 5m0s restarting failed container=main pod=crashloop_wl-test(53cf1330-20e7-4770-91fd-68883c931056)",
+          "restart_count": 9,
+          "last_termination": {
+            "reason": "Error",
+            "exit_code": 1,
+            "finished_at": "2026-10-31T11:48:52Z"
+          }
+        }
+      ],
+      "started_at": "2026-10-31T11:27:05Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "f1bcc80d-105d-4946-9049-1dbd2e592246",
+    "namespace": "wl-test",
+    "name": "db-0",
+    "node": "watchlog-worker",
+    "spec": {
+      "pvcs": ["data-db-0"],
+      "labels": {
+        "app": "db",
+        "controller-revision-hash": "db-69f8dc495",
+        "apps.kubernetes.io/pod-index": "0",
+        "statefulset.kubernetes.io/pod-name": "db-0"
+      },
+      "workload": { "kind": "StatefulSet", "name": "db" },
+      "containers": [{ "name": "main", "image": "busybox:1.37" }],
+      "created_at": "2026-10-31T11:27:05Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.1.7",
+      "qos_class": "BestEffort",
+      "containers": [
+        {
+          "name": "main",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:27:18Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:27:10Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "e21f3917-e7ff-4037-821d-8393198218e9",
+    "namespace": "wl-test",
+    "name": "every-minute-29890792-c7zjf",
+    "node": "watchlog-worker2",
+    "spec": {
+      "labels": {
+        "job-name": "every-minute-29890792",
+        "controller-uid": "ee6eef04-4e75-4705-99f6-467edcfe0761",
+        "batch.kubernetes.io/job-name": "every-minute-29890792",
+        "batch.kubernetes.io/controller-uid": "ee6eef04-4e75-4705-99f6-467edcfe0761"
+      },
+      "workload": { "kind": "CronJob", "name": "every-minute" },
+      "containers": [{ "name": "main", "image": "busybox:1.37" }],
+      "created_at": "2026-10-31T11:52:00Z"
+    },
+    "status": {
+      "phase": "Succeeded",
+      "ready": false,
+      "pod_ip": "10.244.2.33",
+      "qos_class": "BestEffort",
+      "containers": [
+        {
+          "name": "main",
+          "ready": false,
+          "state": "terminated",
+          "reason": "Completed",
+          "exit_code": 0,
+          "started_at": "2026-10-31T11:52:00Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:52:00Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "9a591e2d-3a37-474a-bcd6-36588e03c367",
+    "namespace": "wl-test",
+    "name": "every-minute-29890793-p5fzp",
+    "node": "watchlog-worker",
+    "spec": {
+      "labels": {
+        "job-name": "every-minute-29890793",
+        "controller-uid": "e5987a77-830b-4c58-a69a-0f6bc88f37bc",
+        "batch.kubernetes.io/job-name": "every-minute-29890793",
+        "batch.kubernetes.io/controller-uid": "e5987a77-830b-4c58-a69a-0f6bc88f37bc"
+      },
+      "workload": { "kind": "CronJob", "name": "every-minute" },
+      "containers": [{ "name": "main", "image": "busybox:1.37" }],
+      "created_at": "2026-10-31T11:53:00Z"
+    },
+    "status": {
+      "phase": "Succeeded",
+      "ready": false,
+      "pod_ip": "10.244.1.20",
+      "qos_class": "BestEffort",
+      "containers": [
+        {
+          "name": "main",
+          "ready": false,
+          "state": "terminated",
+          "reason": "Completed",
+          "exit_code": 0,
+          "started_at": "2026-10-31T11:53:00Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:53:00Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "708f1523-1789-4c47-960a-c23ecd465d9a",
+    "namespace": "wl-test",
+    "name": "guaranteed",
+    "node": "watchlog-worker",
+    "spec": {
+      "workload": { "kind": "Pod", "name": "guaranteed" },
+      "containers": [
+        {
+          "name": "main",
+          "image": "busybox:1.37",
+          "limits": { "cpu": "50m", "memory": "32Mi" },
+          "requests": { "cpu": "50m", "memory": "32Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:27:05Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.1.2",
+      "qos_class": "Guaranteed",
+      "containers": [
+        {
+          "name": "main",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:27:17Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:27:05Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "270e26d9-bea5-48b2-9eb4-a3c8d8eecd41",
+    "namespace": "wl-test",
+    "name": "once-86lp4",
+    "node": "watchlog-worker2",
+    "spec": {
+      "labels": {
+        "job-name": "once",
+        "controller-uid": "87641cc7-99c9-4507-9820-4c8c45a39f91",
+        "batch.kubernetes.io/job-name": "once",
+        "batch.kubernetes.io/controller-uid": "87641cc7-99c9-4507-9820-4c8c45a39f91"
+      },
+      "workload": { "kind": "Job", "name": "once" },
+      "containers": [{ "name": "main", "image": "busybox:1.37" }],
+      "created_at": "2026-10-31T11:27:05Z"
+    },
+    "status": {
+      "phase": "Succeeded",
+      "ready": false,
+      "pod_ip": "10.244.2.6",
+      "qos_class": "BestEffort",
+      "containers": [
+        {
+          "name": "main",
+          "ready": false,
+          "state": "terminated",
+          "reason": "Completed",
+          "exit_code": 0,
+          "started_at": "2026-10-31T11:27:16Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:27:05Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "a14799bc-1616-45c5-abcd-3e4d43ff555b",
+    "namespace": "wl-test",
+    "name": "oom",
+    "node": "watchlog-worker2",
+    "spec": {
+      "workload": { "kind": "Pod", "name": "oom" },
+      "containers": [
+        {
+          "name": "main",
+          "image": "busybox:1.37",
+          "limits": { "memory": "32Mi" },
+          "requests": { "memory": "32Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:27:05Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": false,
+      "pod_ip": "10.244.2.4",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "main",
+          "ready": false,
+          "state": "waiting",
+          "reason": "CrashLoopBackOff",
+          "message": "back-off 5m0s restarting failed container=main pod=oom_wl-test(a14799bc-1616-45c5-abcd-3e4d43ff555b)",
+          "restart_count": 9,
+          "last_termination": {
+            "reason": "OOMKilled",
+            "exit_code": 137,
+            "finished_at": "2026-10-31T11:48:44Z"
+          }
+        }
+      ],
+      "started_at": "2026-10-31T11:27:05Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "f63341d0-d308-47a5-b350-2915ab8f8e49",
+    "namespace": "wl-test",
+    "name": "per-node-462wv",
+    "node": "watchlog-control-plane",
+    "spec": {
+      "labels": {
+        "app": "per-node",
+        "pod-template-generation": "1",
+        "controller-revision-hash": "6cdcc8c45c"
+      },
+      "workload": { "kind": "DaemonSet", "name": "per-node" },
+      "containers": [
+        { "name": "main", "image": "busybox:1.37", "requests": { "cpu": "5m", "memory": "8Mi" } }
+      ],
+      "created_at": "2026-10-31T11:27:05Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.0.5",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "main",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:27:15Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:27:05Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "7021d60b-a242-464f-9ce8-ae91f0702fcb",
+    "namespace": "wl-test",
+    "name": "per-node-8xppj",
+    "node": "watchlog-worker",
+    "spec": {
+      "labels": {
+        "app": "per-node",
+        "pod-template-generation": "1",
+        "controller-revision-hash": "6cdcc8c45c"
+      },
+      "workload": { "kind": "DaemonSet", "name": "per-node" },
+      "containers": [
+        { "name": "main", "image": "busybox:1.37", "requests": { "cpu": "5m", "memory": "8Mi" } }
+      ],
+      "created_at": "2026-10-31T11:27:05Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.1.5",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "main",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:27:13Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:27:05Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "af33027a-e3d5-43c4-9cae-701c475e2852",
+    "namespace": "wl-test",
+    "name": "per-node-gmgfp",
+    "node": "watchlog-worker2",
+    "spec": {
+      "labels": {
+        "app": "per-node",
+        "pod-template-generation": "1",
+        "controller-revision-hash": "6cdcc8c45c"
+      },
+      "workload": { "kind": "DaemonSet", "name": "per-node" },
+      "containers": [
+        { "name": "main", "image": "busybox:1.37", "requests": { "cpu": "5m", "memory": "8Mi" } }
+      ],
+      "created_at": "2026-10-31T11:27:05Z"
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.2.5",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "name": "main",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:27:13Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:27:05Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "2c0ede19-d9b9-4d9c-8fde-0502aa40d974",
+    "namespace": "wl-test",
+    "name": "web-674987bb67-b24ww",
+    "node": "watchlog-worker",
+    "spec": {
+      "labels": { "app": "web", "pod-template-hash": "674987bb67" },
+      "workload": { "kind": "Deployment", "name": "web" },
+      "containers": [
+        {
+          "name": "nginx",
+          "image": "nginx:1.29-alpine",
+          "limits": { "cpu": "200m", "memory": "64Mi" },
+          "requests": { "cpu": "50m", "memory": "32Mi" }
+        },
+        {
+          "name": "sidecar",
+          "image": "busybox:1.37",
+          "requests": { "cpu": "10m", "memory": "16Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:27:05Z",
+      "init_containers": [{ "name": "init", "image": "busybox:1.37" }]
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.1.3",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "init": true,
+          "name": "init",
+          "ready": true,
+          "state": "terminated",
+          "reason": "Completed",
+          "exit_code": 0,
+          "started_at": "2026-10-31T11:27:12Z",
+          "restart_count": 0
+        },
+        {
+          "name": "nginx",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:27:25Z",
+          "restart_count": 0
+        },
+        {
+          "name": "sidecar",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:27:25Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:27:05Z"
+    }
+  },
+  {
+    "kind": "Pod",
+    "uid": "4fa05604-f408-4fd8-8c0e-4b4888c61f12",
+    "namespace": "wl-test",
+    "name": "web-674987bb67-zxtdp",
+    "node": "watchlog-worker2",
+    "spec": {
+      "labels": { "app": "web", "pod-template-hash": "674987bb67" },
+      "workload": { "kind": "Deployment", "name": "web" },
+      "containers": [
+        {
+          "name": "nginx",
+          "image": "nginx:1.29-alpine",
+          "limits": { "cpu": "200m", "memory": "64Mi" },
+          "requests": { "cpu": "50m", "memory": "32Mi" }
+        },
+        {
+          "name": "sidecar",
+          "image": "busybox:1.37",
+          "requests": { "cpu": "10m", "memory": "16Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:27:05Z",
+      "init_containers": [{ "name": "init", "image": "busybox:1.37" }]
+    },
+    "status": {
+      "phase": "Running",
+      "ready": true,
+      "pod_ip": "10.244.2.3",
+      "qos_class": "Burstable",
+      "containers": [
+        {
+          "init": true,
+          "name": "init",
+          "ready": true,
+          "state": "terminated",
+          "reason": "Completed",
+          "exit_code": 0,
+          "started_at": "2026-10-31T11:27:12Z",
+          "restart_count": 0
+        },
+        {
+          "name": "nginx",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:27:26Z",
+          "restart_count": 0
+        },
+        {
+          "name": "sidecar",
+          "ready": true,
+          "state": "running",
+          "started_at": "2026-10-31T11:27:26Z",
+          "restart_count": 0
+        }
+      ],
+      "started_at": "2026-10-31T11:27:05Z"
+    }
+  },
+  {
+    "kind": "StatefulSet",
+    "uid": "faf2de9a-9f79-40ca-a8d9-08c0ed3b2d2a",
+    "namespace": "watchlog",
+    "name": "watchlog-postgresql",
+    "node": "",
+    "spec": {
+      "replicas": 1,
+      "containers": [
+        {
+          "name": "postgresql",
+          "image": "postgres:16-alpine",
+          "limits": { "memory": "512Mi" },
+          "requests": { "cpu": "50m", "memory": "128Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:28:43Z",
+      "generation": 1,
+      "service_name": "watchlog-postgresql"
+    },
+    "status": {
+      "ready": 1,
+      "current": 1,
+      "updated": 1,
+      "replicas": 1,
+      "available": 1,
+      "update_revision": "watchlog-postgresql-5d8dbf4bb7",
+      "current_revision": "watchlog-postgresql-5d8dbf4bb7",
+      "observed_generation": 1
+    }
+  },
+  {
+    "kind": "StatefulSet",
+    "uid": "219b5441-fe1f-495f-9fa2-46157540a173",
+    "namespace": "watchlog",
+    "name": "watchlog-victoriametrics",
+    "node": "",
+    "spec": {
+      "replicas": 1,
+      "containers": [
+        {
+          "name": "victoriametrics",
+          "image": "victoriametrics/victoria-metrics:v1.155.0",
+          "limits": { "memory": "2Gi" },
+          "requests": { "cpu": "100m", "memory": "256Mi" }
+        }
+      ],
+      "created_at": "2026-10-31T11:28:43Z",
+      "generation": 1,
+      "service_name": "watchlog-victoriametrics"
+    },
+    "status": {
+      "ready": 1,
+      "current": 1,
+      "updated": 1,
+      "replicas": 1,
+      "available": 1,
+      "update_revision": "watchlog-victoriametrics-756854999b",
+      "current_revision": "watchlog-victoriametrics-756854999b",
+      "observed_generation": 1
+    }
+  },
+  {
+    "kind": "StatefulSet",
+    "uid": "8a6073e8-cf03-4ac5-87c8-15aba3fc289e",
+    "namespace": "wl-test",
+    "name": "db",
+    "node": "",
+    "spec": {
+      "replicas": 1,
+      "containers": [{ "name": "main", "image": "busybox:1.37" }],
+      "created_at": "2026-10-31T11:27:05Z",
+      "generation": 1,
+      "service_name": "db"
+    },
+    "status": {
+      "ready": 1,
+      "current": 1,
+      "updated": 1,
+      "replicas": 1,
+      "available": 1,
+      "update_revision": "db-69f8dc495",
+      "current_revision": "db-69f8dc495",
+      "observed_generation": 1
+    }
+  }
+]

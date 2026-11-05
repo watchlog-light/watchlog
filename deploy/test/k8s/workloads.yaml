@@ -1,0 +1,181 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Phase 2 test workloads: every QoS class, multi-container and init containers,
+# a CrashLoopBackOff pod, an OOMKilled pod, a Job, a CronJob, a StatefulSet with a
+# PVC, a DaemonSet and an HPA.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wl-test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: wl-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: web }
+  template:
+    metadata:
+      labels: { app: web }
+    spec:
+      initContainers:
+        - name: init
+          image: busybox:1.37
+          command: ['sh', '-c', 'echo ready']
+      containers:
+        - name: nginx
+          image: nginx:1.29-alpine
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { cpu: 200m, memory: 64Mi }
+        - name: sidecar
+          image: busybox:1.37
+          command: ['sh', '-c', 'while true; do sleep 30; done']
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: guaranteed
+  namespace: wl-test
+spec:
+  containers:
+    - name: main
+      image: busybox:1.37
+      command: ['sh', '-c', 'while true; do sleep 30; done']
+      resources:
+        requests: { cpu: 50m, memory: 32Mi }
+        limits: { cpu: 50m, memory: 32Mi }
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: besteffort
+  namespace: wl-test
+spec:
+  containers:
+    - name: main
+      image: busybox:1.37
+      command: ['sh', '-c', 'while true; do sleep 30; done']
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: crashloop
+  namespace: wl-test
+spec:
+  containers:
+    - name: main
+      image: busybox:1.37
+      command: ['sh', '-c', 'echo starting; sleep 2; exit 1']
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: oom
+  namespace: wl-test
+spec:
+  containers:
+    - name: main
+      image: busybox:1.37
+      # A short delay before allocating: Docker missed instant OOM kills (ADR-047).
+      command: ['sh', '-c', 'sleep 3; tail /dev/zero']
+      resources:
+        limits: { memory: 32Mi }
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: once
+  namespace: wl-test
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: main
+          image: busybox:1.37
+          command: ['sh', '-c', 'echo done']
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: wl-test
+spec:
+  serviceName: db
+  replicas: 1
+  selector:
+    matchLabels: { app: db }
+  template:
+    metadata:
+      labels: { app: db }
+    spec:
+      containers:
+        - name: main
+          image: busybox:1.37
+          command: ['sh', '-c', 'while true; do sleep 30; done']
+          volumeMounts:
+            - { name: data, mountPath: /data }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests: { storage: 64Mi }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: every-minute
+  namespace: wl-test
+spec:
+  schedule: '* * * * *'
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: main
+              image: busybox:1.37
+              command: ['sh', '-c', 'echo tick']
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: web
+  namespace: wl-test
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: web }
+  minReplicas: 2
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 80 } }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: per-node
+  namespace: wl-test
+spec:
+  selector:
+    matchLabels: { app: per-node }
+  template:
+    metadata:
+      labels: { app: per-node }
+    spec:
+      tolerations: [{ operator: Exists }]
+      containers:
+        - name: main
+          image: busybox:1.37
+          command: ['sh', '-c', 'while true; do sleep 30; done']
+          resources:
+            requests: { cpu: 5m, memory: 8Mi }

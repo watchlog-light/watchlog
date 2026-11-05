@@ -1,0 +1,28 @@
+# Web image (ADR-014): serves the SPA and, in the Community compose stack, proxies
+# the API and agent ingest to the backend so one port serves browsers and agents.
+# WATCHLOG_BACKEND defaults to the compose service name.
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy {$WATCHLOG_BACKEND:backend:4080}
+	}
+	handle /ingest/* {
+		request_body {
+			max_size 8MB
+		}
+		reverse_proxy {$WATCHLOG_BACKEND:backend:4080}
+	}
+
+	handle {
+		root * /srv
+		header /assets/* Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}

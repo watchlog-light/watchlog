@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# WatchLog Community on Kubernetes (SPEC §5.3, ADR-059). From a repository checkout:
+#   helm dependency build deploy/helm/watchlog
+#   helm install watchlog deploy/helm/watchlog -n watchlog --create-namespace
+#   kubectl -n watchlog logs deploy/watchlog-backend | grep "setup code"
+#   kubectl -n watchlog port-forward svc/watchlog-web 8080    # then open http://localhost:8080
+# The agents of this cluster report as soon as setup is complete (ADR-069).
+
+image:
+  registry: ghcr.io/watchlog-light
+  # Defaults to the chart's appVersion. Images are not published before the Phase 4
+  # launch (ADR-043): load locally built images (kind load / k3s ctr images import).
+  tag: ''
+  pullPolicy: IfNotPresent
+
+# The address browsers and outside agents use; shown in install commands.
+publicUrl: ''
+# Optional first admin; without it the backend logs a one-time setup code.
+admin:
+  email: ''
+  password: ''
+# Encrypts alert channel secrets (ADR-079): 32 bytes, base64 (`openssl rand -base64 32`).
+# Generated on install, kept on upgrades and on uninstall (Secret <release>-secret-key).
+# Set it only to restore a backed-up key; back it up, or channel secrets are lost.
+secretKey: ''
+# Name of this cluster in WatchLog; its agents are registered automatically.
+clusterName: kubernetes
+
+backend:
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { memory: 512Mi }
+  eventsRetentionDays: 15
+
+# Evaluates alert rules and sends notifications (ADR-073); more replicas share the work.
+alertWorker:
+  replicas: 1
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 256Mi }
+
+alerting:
+  # SMTP server for email channels, e.g. smtp://user:password@smtp.example.com:587
+  # (stored in a Secret). Without it email channels report an error.
+  smtpUrl: ''
+  smtpFrom: 'WatchLog <alerts@example.com>'
+  # Telegram Bot API base URL; change only to use a mirror (default api.telegram.org).
+  telegramApiUrl: ''
+  # Outbound proxy for Slack, Telegram and webhook deliveries.
+  httpsProxy: ''
+  noProxy: ''
+
+web:
+  replicas: 1
+  resources:
+    requests: { cpu: 20m, memory: 32Mi }
+    limits: { memory: 128Mi }
+  service:
+    type: ClusterIP
+    port: 8080
+
+ingress:
+  enabled: false
+  className: ''
+  host: ''
+  annotations: {}
+  # Secret with the certificate for host; empty serves plain HTTP.
+  tlsSecret: ''
+
+postgresql:
+  image: postgres:16-alpine
+  # Generated on install and kept on upgrades when empty.
+  password: ''
+  storage: 8Gi
+  storageClass: ''
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+
+victoriametrics:
+  image: victoriametrics/victoria-metrics:v1.155.0
+  retention: 15d
+  storage: 20Gi
+  storageClass: ''
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 2Gi }
+
+# The agents of this cluster (the watchlog-agent chart). endpoint and token point at
+# this release; override only to run them elsewhere.
+watchlog-agent:
+  enabled: true
+  fullnameOverride: watchlog-agent
+  watchlog:
+    endpoint: 'http://{{ .Release.Name }}-backend:4080'
+    existingSecret: '{{ .Release.Name }}-cluster-token'
+    existingSecretKey: token

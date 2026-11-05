@@ -1,0 +1,477 @@
+[
+ {
+  "namespace": "kube-system",
+  "name": "coredns-559f6c778d-g5dpf",
+  "uid": "fd672f6a-23ad-4254-b0bd-2e800cc835ff",
+  "node": "watchlog-control-plane",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "coredns",
+    "containerID": "containerd://a86ea3f973859ec09be550d19c3ce611743b262a008d16fa2b282553fa25f042",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "memory": "170Mi"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "coredns-559f6c778d-vs9sx",
+  "uid": "808f70f9-b370-4b75-a498-3bcbbc55be1d",
+  "node": "watchlog-control-plane",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "coredns",
+    "containerID": "containerd://f9ccddd441c3374914f2fa074fa4400c8edcfb7908468ebe030d1aeefbe6f8cf",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "memory": "170Mi"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "etcd-watchlog-control-plane",
+  "uid": "608c7b85-30c8-4a16-a8d3-6735454f216d",
+  "node": "watchlog-control-plane",
+  "mirror": "50e016ba020a6e0412a1eb50fc526de5",
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "etcd",
+    "containerID": "containerd://e24eb4e588f999b6f20c994399d05cee750959c8f2bad3cdb880c15d64851a3c",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "kindnet-6mrc6",
+  "uid": "6a7775c9-1250-4125-80d2-d35716207e7e",
+  "node": "watchlog-worker",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "kindnet-cni",
+    "containerID": "containerd://99e0a0912f58d5e7e84b0cab6ad02d8ae4f7b66e2f8962d9956dac587077ee06",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "kindnet-9wklq",
+  "uid": "4b12255a-74fd-4ba4-871f-aa55255aca3b",
+  "node": "watchlog-worker2",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "kindnet-cni",
+    "containerID": "containerd://3cb327a9b0d42d49b1a2d48b2e22b3244dc27c0f6161c7f28dac994c926ef04c",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "kindnet-mnq8n",
+  "uid": "e41f504a-af3f-4fd3-8bf4-f10376f05eca",
+  "node": "watchlog-control-plane",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "kindnet-cni",
+    "containerID": "containerd://c4bd081a7a07e19deabff935424ee128a0c3375b95d97400469bc430a39b60a2",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "kube-apiserver-watchlog-control-plane",
+  "uid": "4dbcdbca-231c-4708-8d17-03d1d04de9f7",
+  "node": "watchlog-control-plane",
+  "mirror": "cc53b77c84513d0aa997ba80ce241c9e",
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "kube-apiserver",
+    "containerID": "containerd://dadb9d8d45dbdc7c2a656db4d771749ca6b3d7cdcda9e18e3fb289830c2e3d3d",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "kube-controller-manager-watchlog-control-plane",
+  "uid": "cf5c915b-93ce-4fce-b767-a40f7a092a41",
+  "node": "watchlog-control-plane",
+  "mirror": "510cef57815c6de24bfbfb0b4326d919",
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "kube-controller-manager",
+    "containerID": "containerd://be5aefc4318061676aeb4272f416de786530bf082194cf7ded2d4e09278a8fc5",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "kube-proxy-5z87v",
+  "uid": "dcd64634-c840-4660-803f-e25db0aaa979",
+  "node": "watchlog-worker2",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "kube-proxy",
+    "containerID": "containerd://c9dbd26311cc1235500266a397eaeb483a9b25a0149f5d18038e9d4ab4e61a93",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "kube-proxy-7z2nm",
+  "uid": "00693f4e-87b2-4559-9f4c-9df9150e3a79",
+  "node": "watchlog-control-plane",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "kube-proxy",
+    "containerID": "containerd://502dce824acde69cac0420ef98885c48bf81c80cc642694f6d754ae555dad05a",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "kube-proxy-8jrpm",
+  "uid": "9a961c11-d83a-45b1-8adb-4fc58b72c420",
+  "node": "watchlog-worker",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "kube-proxy",
+    "containerID": "containerd://a2e6346996a7c949d2368d51f646135ad4f8d58312fca1ae0a68d7b2bf551518",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "kube-scheduler-watchlog-control-plane",
+  "uid": "9d882eb1-c855-430c-93ff-3cfa16cc88dd",
+  "node": "watchlog-control-plane",
+  "mirror": "645fcbc952b2362d30d2368e89fdb6b1",
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "kube-scheduler",
+    "containerID": "containerd://8986274a014e829f37b78ea07c467ba28e505569e3addca528bbdcb35568f488",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "local-path-storage",
+  "name": "local-path-provisioner-75f7fc7dc5-gw9tr",
+  "uid": "d1138294-9166-4a37-b8f3-84d497af40aa",
+  "node": "watchlog-control-plane",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "local-path-provisioner",
+    "containerID": "containerd://859519cce66b73b712593e90ac4f2d3a3e656d88fefb51e1ad4c518aff69917d",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "besteffort",
+  "uid": "50ffe59f-ba02-4090-9423-6d79ec28ac2c",
+  "node": "watchlog-worker2",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://b6c34d9e2b5fb1558773233a77cb1361d6511ed2ee127a3ec805a19ff13f5a1e",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "crashloop",
+  "uid": "79315c4b-45e0-4755-97e6-833eb80ad509",
+  "node": "watchlog-worker",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://24b19fc1ef58f12c37a06aa3a8dc380a99e7a3ec05dc14888c77011671bd3bd2",
+    "state": "waiting",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "db-0",
+  "uid": "9f71c0ab-6ff4-46f5-b262-8dca51eb20fb",
+  "node": "watchlog-worker2",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://23435575f4ec868ba54fc016aab17e0de878a09207d52b09198473ffa43860b2",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "guaranteed",
+  "uid": "0174cca4-4a65-45e7-b827-6246fc914510",
+  "node": "watchlog-worker",
+  "mirror": null,
+  "qosClass": "Guaranteed",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://367ec24ccb52fd2e0f3e204191d66497cd451fa7c33323613f6df1c4b44609cc",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "cpu": "50m",
+     "memory": "32Mi"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "once-gcch5",
+  "uid": "f0e55b80-caa2-4d50-ba34-2a043f9b2f1a",
+  "node": "watchlog-worker",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Succeeded",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://ade865631d7a7570ea162ff536cd81382aee3d21673e27c57007d6be59891ef2",
+    "state": "terminated",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "oom",
+  "uid": "c296fc71-56e3-48b5-953c-b3d0b0ab31fb",
+  "node": "watchlog-worker2",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://f253b112d1b2ec7cd8f5ddb3d475999331c24b54c02222271150049c994db5a1",
+    "state": "waiting",
+    "init": false,
+    "limits": {
+     "memory": "32Mi"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "per-node-8gzs8",
+  "uid": "e48b4269-89ca-4416-9a24-e11ee1b6208e",
+  "node": "watchlog-worker",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://8ab56cdfd76e0252b253bd0a802b662b2075f23ea96ef21a4c7e5a69a477c312",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "per-node-nzlbj",
+  "uid": "ee411674-ed92-4482-b280-5deee6627f3e",
+  "node": "watchlog-control-plane",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://1b07a4f26579b5ebf95e9a3705068deadbe1dc6f81dad92975f90e5e48442170",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "per-node-zcq6w",
+  "uid": "7a78357b-be2f-4f50-924b-0858f9ff81ff",
+  "node": "watchlog-worker2",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://bd3125832ead4013f7e4931aacd5dc68a6986976a76e1c7ed98bd5ecc4f3703a",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "web-674987bb67-4xqjp",
+  "uid": "d845ef7e-0c3c-415e-84bb-e4982c6d6b83",
+  "node": "watchlog-worker2",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "nginx",
+    "containerID": "containerd://42486e00108fda023792be06e537f9b7d0987b96db6ffee88016ff6ebe3c7b14",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "cpu": "200m",
+     "memory": "64Mi"
+    }
+   },
+   {
+    "name": "sidecar",
+    "containerID": "containerd://363dc6b54fe5375eda6605ecbb3a6bc2e41685d8de99553eed67e3bedc4cd808",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   },
+   {
+    "name": "init",
+    "containerID": "containerd://8e3d72a6971c76ffaf331c3f0c377e50a723fc69ea70912677b8b481f17de7aa",
+    "state": "terminated",
+    "init": true,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "web-674987bb67-ckmwk",
+  "uid": "3fb63643-27dc-44f7-b315-bfec1f81bc6e",
+  "node": "watchlog-worker",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "nginx",
+    "containerID": "containerd://b8955c2b5f25b70a2ac6c4dae307287710aa46c3d9619cec2721bd151328fb97",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "cpu": "200m",
+     "memory": "64Mi"
+    }
+   },
+   {
+    "name": "sidecar",
+    "containerID": "containerd://583a6a5ed03e00b90bbe5cca4a8fa0fb5227621c3e6f2c5a31be27ff4ddb0adf",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   },
+   {
+    "name": "init",
+    "containerID": "containerd://036dad54495410b5d180943ba843b9b60f46d990aefa0a7eedcd0f63ce10ea1e",
+    "state": "terminated",
+    "init": true,
+    "limits": {}
+   }
+  ]
+ }
+]

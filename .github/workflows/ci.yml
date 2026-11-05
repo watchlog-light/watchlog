@@ -1,0 +1,276 @@
+# CI for WatchLog. Runs on push to main, except docs-only changes (ADR-044),
+# and on manual dispatch. Images are built, never pushed (ADR-043).
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go (agent)
+    runs-on: ubuntu-24.04
+    services:
+      # remote_write round-trip test against a real VictoriaMetrics (ADR-021).
+      victoriametrics:
+        image: victoriametrics/victoria-metrics:v1.155.0
+        ports:
+          - 8428:8428
+    env:
+      WATCHLOG_TEST_VM_URL: http://127.0.0.1:8428
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: agent/go.mod
+          cache-dependency-path: agent/go.mod
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+          working-directory: agent
+      - run: go test -race ./...
+      - name: eBPF objects are up to date (ADR-100)
+        working-directory: .
+        run: |
+          agent/internal/ebpf/generate.sh
+          git diff --exit-code -- agent/internal/ebpf
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+      - name: Build static linux/amd64 and linux/arm64 binaries
+        working-directory: .
+        run: make agent-linux
+
+  ts:
+    name: TypeScript (backend, web, site, packages)
+    runs-on: ubuntu-24.04
+    services:
+      # Backend integration tests run against real PostgreSQL (ADR-031).
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: watchlog
+          POSTGRES_PASSWORD: watchlog
+          POSTGRES_DB: watchlog
+        ports:
+          - 54320:5432
+        options: >-
+          --health-cmd "pg_isready -U watchlog -d watchlog"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      # Ingest tests write to and read from a real VictoriaMetrics.
+      victoriametrics:
+        image: victoriametrics/victoria-metrics:v1.155.0
+        ports:
+          - 8428:8428
+      # Alert emails go to Mailpit; no test reaches a real provider (ADR-082).
+      mailpit:
+        image: axllent/mailpit:v1.27
+        ports:
+          - 1025:1025
+          - 8025:8025
+        options: >-
+          --health-cmd "/mailpit readyz"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://watchlog:watchlog@127.0.0.1:54320/watchlog
+      WATCHLOG_TEST_VM_URL: http://127.0.0.1:8428
+      WATCHLOG_TEST_SMTP_URL: smtp://127.0.0.1:1025
+      WATCHLOG_TEST_MAILPIT_URL: http://127.0.0.1:8025
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm check:license
+      - name: Helm charts lint and render
+        run: |
+          helm lint --strict deploy/helm/watchlog-agent \
+            --set watchlog.endpoint=http://watchlog:4080 --set watchlog.clusterToken=wl_ct_ci
+          helm dependency build deploy/helm/watchlog
+          helm lint --strict deploy/helm/watchlog
+          helm template watchlog deploy/helm/watchlog > /dev/null
+      - name: Helm upgrade from a release before Phase 4 turns eBPF on (ADR-107)
+        run: bash deploy/test/helm/upgrade-test.sh
+      - name: Generated API types are up to date
+        run: pnpm api-types:generate && git diff --exit-code packages/api-types
+      - run: pnpm build
+      - name: Website nginx config (redirects, pages, headers) against the generated site
+        run: deploy/site/test/nginx-test.sh
+      - run: pnpm audit --prod --audit-level high
+
+  secrets:
+    name: Secrets (gitleaks, full history)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: No secrets in any commit (reviewed exceptions in .gitleaks.toml)
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" zricethezav/gitleaks:v8.24.0 git /repo \
+            --log-opts=--all --config /repo/.gitleaks.toml --redact --exit-code 1
+
+  images:
+    name: Image (${{ matrix.image }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: agent
+            context: agent
+            dockerfile: agent/Dockerfile
+            target: agent
+            platforms: linux/amd64,linux/arm64
+          # ADR-048: the cluster-agent is a second target of the same Dockerfile.
+          - image: cluster-agent
+            context: agent
+            dockerfile: agent/Dockerfile
+            target: cluster-agent
+            platforms: linux/amd64,linux/arm64
+          - image: backend
+            context: .
+            dockerfile: backend/Dockerfile
+            platforms: linux/amd64
+          - image: web
+            context: .
+            dockerfile: web/Dockerfile
+            platforms: linux/amd64
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: docker/setup-buildx-action@v4
+      - name: Compute version
+        id: version
+        run: echo "version=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
+      - name: Build all platforms (no push)
+        if: matrix.platforms != 'linux/amd64'
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          platforms: ${{ matrix.platforms }}
+          push: false
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+            COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - name: Build linux/amd64 and load into Docker (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ghcr.io/watchlog-light/${{ matrix.image }}:ci
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+            COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - name: Report size and smoke-test
+        run: scripts/ci/smoke-image.sh ${{ matrix.image }} ghcr.io/watchlog-light/${{ matrix.image }}:ci
+      # SPEC §6.1: the agents' images stay within 40 MB on every platform, measured as
+      # the exported filesystem (uncompressed; the same on any Docker image store).
+      - name: Export the agent image filesystems (no push)
+        if: matrix.image == 'agent' || matrix.image == 'cluster-agent'
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          platforms: ${{ matrix.platforms }}
+          outputs: type=tar,dest=/tmp/${{ matrix.image }}-fs.tar
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+            COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+      - name: Image within the 40 MB budget on every platform
+        if: matrix.image == 'agent' || matrix.image == 'cluster-agent'
+        run: scripts/ci/image-budget.sh ${{ matrix.image }} /tmp/${{ matrix.image }}-fs.tar
+      # ADR-026: the backend's native modules (snappy, @node-rs/argon2) must also work on arm64.
+      - name: Set up QEMU for arm64
+        if: matrix.image == 'backend'
+        uses: docker/setup-qemu-action@v4
+      - name: Build backend for linux/arm64 and load into Docker (no push)
+        if: matrix.image == 'backend'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: backend/Dockerfile
+          platforms: linux/arm64
+          push: false
+          load: true
+          tags: ghcr.io/watchlog-light/backend:ci-arm64
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+            COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=backend-arm64
+          cache-to: type=gha,mode=max,scope=backend-arm64
+      - name: Native modules load on linux/arm64
+        if: matrix.image == 'backend'
+        run: |
+          docker run --rm --platform linux/arm64 ghcr.io/watchlog-light/backend:ci-arm64 \
+            --input-type=module -e "$(cat scripts/ci/native-check.mjs)"
+
+  acceptance:
+    name: Acceptance (fresh ubuntu-24.04 runner)
+    # Manual only: builds every image and takes several minutes (ADR-044).
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      # Phase 1 acceptance #1 on a fresh amd64 VM with the real distroless images (ADR-037).
+      - name: Compose up + one docker run → host and container metrics within 60 s
+        run: bash deploy/test/acceptance/fresh-vm.sh
+
+  e2e-kind:
+    name: Kubernetes e2e (kind, helm install)
+    # Manual only, like acceptance (ADR-044, ADR-065). Images are built and `kind load`ed,
+    # never pushed (ADR-043).
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install kind
+        run: |
+          curl -fsSLo kind https://kind.sigs.k8s.io/dl/v0.33.0/kind-linux-amd64
+          sudo install -m 0755 kind /usr/local/bin/kind
+      - name: helm install on kind → P0 views, CrashLoopBackOff and OOMKilled within 30 s
+        run: bash deploy/test/k8s/e2e.sh

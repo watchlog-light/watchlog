@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Does what the node agent will do (ADR-051): call the node's own kubelet with the
+# ServiceAccount CA and token and report whether TLS verification succeeds.
+# Prints "<curl exit> <http code> <ssl verify result>"; curl exit 60 = verification failed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubelet-tls-probe
+  namespace: wl-test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: probe
+      image: curlimages/curl:8.16.0
+      env:
+        - name: HOST_IP
+          valueFrom: { fieldRef: { fieldPath: status.hostIP } }
+      command:
+        - sh
+        - -c
+        - |
+          sa=/var/run/secrets/kubernetes.io/serviceaccount
+          code=$(curl -sS -o /dev/null -w '%{http_code} %{ssl_verify_result}' --cacert $sa/ca.crt \
+            -H "Authorization: Bearer $(cat $sa/token)" "https://$HOST_IP:10250/stats/summary" 2>/tmp/err)
+          echo "verified: exit=$? $code $(cat /tmp/err)"
+          code=$(curl -sk -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $(cat $sa/token)" \
+            "https://$HOST_IP:10250/stats/summary")
+          echo "unverified: http=$code"

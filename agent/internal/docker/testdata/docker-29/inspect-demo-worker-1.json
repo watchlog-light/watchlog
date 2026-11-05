@@ -1,0 +1,221 @@
+{
+ "Id": "2e728c97b320e5899a75812e587dee4e2bc50be3348ce2892d43a832b97d27ad",
+ "Created": "2026-10-31T00:03:00.735915578Z",
+ "Path": "sh",
+ "Args": [
+  "-c",
+  "while true; do dd if=/dev/zero of=/tmp/x bs=1M count=16 2>/dev/null; sleep 2; done"
+ ],
+ "State": {
+  "Status": "running",
+  "Running": true,
+  "Paused": false,
+  "Restarting": false,
+  "OOMKilled": false,
+  "Dead": false,
+  "Pid": 16519,
+  "ExitCode": 0,
+  "Error": "",
+  "StartedAt": "2026-10-31T00:03:00.960960078Z",
+  "FinishedAt": "0001-01-01T00:00:00Z"
+ },
+ "Image": "sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec",
+ "ResolvConfPath": "/var/lib/docker/containers/2e728c97b320e5899a75812e587dee4e2bc50be3348ce2892d43a832b97d27ad/resolv.conf",
+ "HostnamePath": "/var/lib/docker/containers/2e728c97b320e5899a75812e587dee4e2bc50be3348ce2892d43a832b97d27ad/hostname",
+ "HostsPath": "/var/lib/docker/containers/2e728c97b320e5899a75812e587dee4e2bc50be3348ce2892d43a832b97d27ad/hosts",
+ "LogPath": "/var/lib/docker/containers/2e728c97b320e5899a75812e587dee4e2bc50be3348ce2892d43a832b97d27ad/2e728c97b320e5899a75812e587dee4e2bc50be3348ce2892d43a832b97d27ad-json.log",
+ "Name": "/demo-worker-1",
+ "RestartCount": 0,
+ "Driver": "overlayfs",
+ "Platform": "linux",
+ "MountLabel": "",
+ "ProcessLabel": "",
+ "AppArmorProfile": "docker-default",
+ "ExecIDs": null,
+ "HostConfig": {
+  "Binds": null,
+  "ContainerIDFile": "",
+  "LogConfig": {
+   "Type": "json-file",
+   "Config": {}
+  },
+  "NetworkMode": "demo_default",
+  "PortBindings": {},
+  "RestartPolicy": {
+   "Name": "no",
+   "MaximumRetryCount": 0
+  },
+  "AutoRemove": false,
+  "VolumeDriver": "",
+  "VolumesFrom": null,
+  "ConsoleSize": [
+   0,
+   0
+  ],
+  "CapAdd": null,
+  "CapDrop": null,
+  "CgroupnsMode": "private",
+  "Dns": null,
+  "DnsOptions": null,
+  "DnsSearch": null,
+  "ExtraHosts": [],
+  "GroupAdd": null,
+  "IpcMode": "private",
+  "Cgroup": "",
+  "Links": null,
+  "OomScoreAdj": 0,
+  "PidMode": "",
+  "Privileged": false,
+  "PublishAllPorts": false,
+  "ReadonlyRootfs": false,
+  "SecurityOpt": null,
+  "UTSMode": "",
+  "UsernsMode": "",
+  "ShmSize": 67108864,
+  "Runtime": "runc",
+  "Isolation": "",
+  "CpuShares": 0,
+  "Memory": 0,
+  "NanoCpus": 0,
+  "CgroupParent": "",
+  "BlkioWeight": 0,
+  "BlkioWeightDevice": null,
+  "BlkioDeviceReadBps": null,
+  "BlkioDeviceWriteBps": null,
+  "BlkioDeviceReadIOps": null,
+  "BlkioDeviceWriteIOps": null,
+  "CpuPeriod": 0,
+  "CpuQuota": 0,
+  "CpuRealtimePeriod": 0,
+  "CpuRealtimeRuntime": 0,
+  "CpusetCpus": "",
+  "CpusetMems": "",
+  "Devices": null,
+  "DeviceCgroupRules": null,
+  "DeviceRequests": null,
+  "MemoryReservation": 0,
+  "MemorySwap": 0,
+  "MemorySwappiness": null,
+  "OomKillDisable": null,
+  "PidsLimit": null,
+  "Ulimits": null,
+  "CpuCount": 0,
+  "CpuPercent": 0,
+  "IOMaximumIOps": 0,
+  "IOMaximumBandwidth": 0,
+  "MaskedPaths": [
+   "/proc/acpi",
+   "/proc/asound",
+   "/proc/interrupts",
+   "/proc/kcore",
+   "/proc/keys",
+   "/proc/latency_stats",
+   "/proc/sched_debug",
+   "/proc/scsi",
+   "/proc/timer_list",
+   "/proc/timer_stats",
+   "/sys/devices/virtual/powercap",
+   "/sys/firmware"
+  ],
+  "ReadonlyPaths": [
+   "/proc/bus",
+   "/proc/fs",
+   "/proc/irq",
+   "/proc/sys",
+   "/proc/sysrq-trigger"
+  ]
+ },
+ "Storage": {
+  "RootFS": {
+   "Snapshot": {
+    "Name": "overlayfs"
+   }
+  }
+ },
+ "Mounts": [],
+ "Config": {
+  "Hostname": "2e728c97b320",
+  "Domainname": "",
+  "User": "",
+  "AttachStdin": false,
+  "AttachStdout": true,
+  "AttachStderr": true,
+  "Tty": false,
+  "OpenStdin": false,
+  "StdinOnce": false,
+  "Env": [
+   "REDACTED=by-fixture-capture"
+  ],
+  "Cmd": [
+   "sh",
+   "-c",
+   "while true; do dd if=/dev/zero of=/tmp/x bs=1M count=16 2>/dev/null; sleep 2; done"
+  ],
+  "Image": "busybox:1.37",
+  "Volumes": null,
+  "WorkingDir": "",
+  "Entrypoint": null,
+  "Labels": {
+   "com.docker.compose.config-hash": "a035fe9f4fe8c54664678d1e74eca6712de774f4579c79c9846d63f57f7808e1",
+   "com.docker.compose.container-number": "1",
+   "com.docker.compose.depends_on": "",
+   "com.docker.compose.image": "sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c",
+   "com.docker.compose.oneoff": "False",
+   "com.docker.compose.project": "demo",
+   "com.docker.compose.project.config_files": "/tmp/lima/demo/compose.yaml",
+   "com.docker.compose.project.working_dir": "/tmp/lima/demo",
+   "com.docker.compose.service": "worker",
+   "com.docker.compose.version": "5.6.1"
+  }
+ },
+ "NetworkSettings": {
+  "SandboxID": "c9bfa11215e12521f6330222cbf94f1f7d71eaec3a3ff2e3bf363fe9af334fc2",
+  "SandboxKey": "/var/run/docker/netns/c9bfa11215e1",
+  "Ports": {},
+  "Networks": {
+   "demo_default": {
+    "IPAMConfig": null,
+    "Links": null,
+    "Aliases": [
+     "demo-worker-1",
+     "worker"
+    ],
+    "DriverOpts": null,
+    "GwPriority": 0,
+    "NetworkID": "dece44520bae04e0de04066ede24a1b484d6fe507a88e5e0bd519cd46c5e5c7d",
+    "EndpointID": "0e38f43c7baceb5da434b12f0bf19de2f5266232814754312c4ed23f4ebb7822",
+    "Gateway": "172.18.0.1",
+    "IPAddress": "172.18.0.3",
+    "MacAddress": "5e:71:17:84:72:6a",
+    "IPPrefixLen": 16,
+    "IPv6Gateway": "",
+    "GlobalIPv6Address": "",
+    "GlobalIPv6PrefixLen": 0,
+    "DNSNames": [
+     "demo-worker-1",
+     "worker",
+     "2e728c97b320"
+    ]
+   }
+  }
+ },
+ "ImageManifestDescriptor": {
+  "mediaType": "application/vnd.oci.image.manifest.v1+json",
+  "digest": "sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c",
+  "size": 610,
+  "annotations": {
+   "com.docker.official-images.bashbrew.arch": "arm64v8",
+   "org.opencontainers.image.base.name": "scratch",
+   "org.opencontainers.image.created": "2026-09-08T23:04:09Z",
+   "org.opencontainers.image.revision": "b6edf7d5c5200d629d7c3f7758293a3675471dde",
+   "org.opencontainers.image.source": "https://github.com/docker-library/busybox.git",
+   "org.opencontainers.image.url": "https://hub.docker.com/_/busybox",
+   "org.opencontainers.image.version": "1.37.0-glibc"
+  },
+  "platform": {
+   "architecture": "arm64",
+   "os": "linux",
+   "variant": "v8"
+  }
+ }
+}

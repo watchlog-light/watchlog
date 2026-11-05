@@ -1,0 +1,102 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Computed values of a release installed with the chart before Phase 4 (commit 665fcf8),
+# as `helm upgrade --reuse-values` hands them to the new chart (upgrade-test.sh).
+# Generated with `helm install --dry-run=client --debug`; the token is a placeholder.
+admin:
+  email: ''
+  password: ''
+backend:
+  eventsRetentionDays: 15
+  replicas: 1
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 192Mi
+clusterName: kubernetes
+image:
+  pullPolicy: IfNotPresent
+  registry: ghcr.io/watchlog-light
+  tag: ''
+ingress:
+  annotations: {}
+  className: ''
+  enabled: false
+  host: ''
+  tlsSecret: ''
+postgresql:
+  image: postgres:16-alpine
+  password: ''
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  storage: 8Gi
+  storageClass: ''
+publicUrl: ''
+victoriametrics:
+  image: victoriametrics/victoria-metrics:v1.155.0
+  resources:
+    limits:
+      memory: 2Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  retention: 15d
+  storage: 20Gi
+  storageClass: ''
+watchlog-agent:
+  agent:
+    ebpf:
+      enabled: false
+    enabled: true
+    interval: 15s
+    kubeletTLS: auto
+    nodeSelector: {}
+    priorityClassName: ''
+    resources:
+      limits:
+        memory: 128Mi
+      requests:
+        cpu: 20m
+        memory: 48Mi
+    tolerations:
+      - operator: Exists
+  clusterAgent:
+    enabled: true
+    goMemLimit: 400MiB
+    nodeSelector: {}
+    replicas: 1
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
+    tolerations: []
+  enabled: true
+  fullnameOverride: watchlog-agent
+  global: {}
+  image:
+    pullPolicy: IfNotPresent
+    registry: ghcr.io/watchlog-light
+    tag: ''
+  watchlog:
+    clusterToken: ''
+    endpoint: http://{{ .Release.Name }}-backend:4080
+    existingSecret: '{{ .Release.Name }}-cluster-token'
+    existingSecretKey: token
+web:
+  replicas: 1
+  resources:
+    limits:
+      memory: 128Mi
+    requests:
+      cpu: 20m
+      memory: 32Mi
+  service:
+    port: 8080
+    type: ClusterIP

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Phase 2 test cluster (ADR-063): one control plane and two workers on Docker Desktop.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: watchlog
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.37.0
+  - role: worker
+    image: kindest/node:v1.37.0
+  - role: worker
+    image: kindest/node:v1.37.0

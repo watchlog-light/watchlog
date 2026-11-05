@@ -1,0 +1,6 @@
+# Reviews for every change (add maintainers here as the project grows).
+*                       @mohammadnajm
+# What the agent can access on a node, and the commercial modules.
+/agent/                 @mohammadnajm
+/docs/security.md       @mohammadnajm
+/ee/                    @mohammadnajm

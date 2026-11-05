@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// The alert-worker process (SPEC §5.1, ADR-073): `node dist/alert-worker.js`.
+import { pino } from 'pino';
+import { loadConfig, type Config } from './config.js';
+import { createDb, describeDbError } from './db/index.js';
+import { checkSecretKey } from './lib/secrets.js';
+import { VictoriaQueryClient } from './lib/victoria.js';
+import { HttpClient } from './modules/alerts/channels.js';
+import { deliverDue } from './modules/alerts/delivery.js';
+import { pollTelegramVerifications } from './modules/alerts/telegram.js';
+import { SettingsService } from './modules/settings/service.js';
+import { ensureDefaultRules, lookupEvaluator } from './modules/alerts/rules.js';
+import { AlertWorker } from './modules/alerts/worker.js';
+
+let config: Config;
+try {
+  config = loadConfig();
+} catch (err) {
+  console.error(`watchlog alert-worker cannot start: ${(err as Error).message}`);
+  process.exit(1);
+}
+const log = pino({
+  name: 'alert-worker',
+  level: config.logLevel,
+  ...(config.isDevelopment ? { transport: { target: 'pino-pretty' } } : {}),
+});
+const db = createDb(config.databaseUrl);
+
+try {
+  await db.selectFrom('alert_worker_heartbeats').select('worker_id').limit(1).execute();
+} catch (err) {
+  log.error(describeDbError(err, config.databaseUrl));
+  process.exit(1);
+}
+try {
+  await checkSecretKey(db, config.secretKey);
+} catch (err) {
+  log.error(`watchlog alert-worker cannot start: ${(err as Error).message}`);
+  process.exit(1);
+}
+const http = new HttpClient(config.proxy);
+const settings = new SettingsService(db, config);
+const channelDeps = {
+  db,
+  secretKey: config.secretKey,
+  http,
+  settings: () => settings.alerting(),
+  log,
+};
+
+const worker = new AlertWorker({
+  db,
+  databaseUrl: config.databaseUrl,
+  version: config.version,
+  log,
+  evaluators: lookupEvaluator,
+  prepareOrg: (orgId) => ensureDefaultRules(db, orgId),
+  victoria: config.victoriaMetricsUrl
+    ? new VictoriaQueryClient(config.victoriaMetricsUrl)
+    : undefined,
+  retentionDays: config.alertRetentionDays,
+  tasks: [
+    { name: 'deliver', everyMs: 2_000, run: (now) => deliverDue(channelDeps, now) },
+    // Long-polls (20 s) only while a verification is open.
+    { name: 'telegram', everyMs: 3_000, run: (now) => pollTelegramVerifications(channelDeps, now) },
+  ],
+});
+const server = await worker.listen(config.host, config.workerPort).catch((err: Error) => {
+  log.error({ err: err.message }, 'health endpoint failed to start');
+  process.exit(1);
+});
+log.info({ worker: worker.id, port: config.workerPort }, 'alert-worker started');
+worker.start();
+
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, () => {
+    log.info({ signal }, 'shutting down');
+    server.close();
+    worker
+      .stop()
+      .then(() => http.close())
+      .then(() => db.destroy())
+      .then(
+        () => process.exit(0),
+        () => process.exit(1),
+      );
+  });
+}

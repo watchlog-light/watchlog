@@ -1,0 +1,122 @@
+# WatchLog Community for Docker hosts (SPEC §5.3).
+#   cp .env.example .env    # set WATCHLOG_DB_PASSWORD, WATCHLOG_SECRET_KEY (and WATCHLOG_PUBLIC_URL)
+#   docker compose up -d
+#   docker compose logs backend | grep "setup code"    # then open http://<this host>:8080
+# Agents are installed with the command shown in Settings → Clusters.
+# Until images are published, add -f compose.build.yaml to build them from source.
+name: watchlog
+
+# Shared by the backend (send test, Telegram) and the alert-worker (ADR-079, ADR-080).
+x-alerting: &alerting # Encrypts alert channel secrets; back it up with the database.
+  WATCHLOG_SECRET_KEY: ${WATCHLOG_SECRET_KEY:?set WATCHLOG_SECRET_KEY in .env (openssl rand -base64 32)}
+  # Links in alert messages, and the address shown in install commands.
+  WATCHLOG_PUBLIC_URL: ${WATCHLOG_PUBLIC_URL:-}
+  WATCHLOG_SMTP_URL: ${WATCHLOG_SMTP_URL:-}
+  WATCHLOG_SMTP_FROM: ${WATCHLOG_SMTP_FROM:-}
+  WATCHLOG_TELEGRAM_API_URL: ${WATCHLOG_TELEGRAM_API_URL:-}
+  HTTPS_PROXY: ${HTTPS_PROXY:-}
+  NO_PROXY: ${NO_PROXY:-}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: watchlog
+      POSTGRES_PASSWORD: ${WATCHLOG_DB_PASSWORD:?set WATCHLOG_DB_PASSWORD in .env}
+      POSTGRES_DB: watchlog
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U watchlog -d watchlog']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.155.0
+    command:
+      - -storageDataPath=/storage
+      - -retentionPeriod=${WATCHLOG_RETENTION:-15d}
+      - -httpListenAddr=:8428
+      # Agents push every 15 s; the 30 s default hid the first samples (ADR-045).
+      - -search.latencyOffset=5s
+    volumes:
+      - victoriametrics-data:/storage
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8428/health']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    image: ghcr.io/watchlog-light/backend:${WATCHLOG_VERSION:-latest}
+    command: ['dist/migrate.js']
+    environment:
+      DATABASE_URL: postgres://watchlog:${WATCHLOG_DB_PASSWORD}@postgres:5432/watchlog
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  backend:
+    image: ghcr.io/watchlog-light/backend:${WATCHLOG_VERSION:-latest}
+    environment:
+      DATABASE_URL: postgres://watchlog:${WATCHLOG_DB_PASSWORD}@postgres:5432/watchlog
+      VICTORIAMETRICS_URL: http://victoriametrics:8428
+      <<: *alerting
+      # The address agents and browsers use; shown in the install command.
+      # Requests arrive through the web service's Caddy.
+      WATCHLOG_TRUST_PROXY: 'true'
+      WATCHLOG_ADMIN_EMAIL: ${WATCHLOG_ADMIN_EMAIL:-}
+      WATCHLOG_ADMIN_PASSWORD: ${WATCHLOG_ADMIN_PASSWORD:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      victoriametrics:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Evaluates alert rules every 30 s and sends notifications (ADR-073).
+  alert-worker:
+    image: ghcr.io/watchlog-light/backend:${WATCHLOG_VERSION:-latest}
+    command: ['dist/alert-worker.js']
+    environment:
+      DATABASE_URL: postgres://watchlog:${WATCHLOG_DB_PASSWORD}@postgres:5432/watchlog
+      VICTORIAMETRICS_URL: http://victoriametrics:8428
+      <<: *alerting
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      victoriametrics:
+        condition: service_healthy
+    # ADR-088: unhealthy when the evaluation loop stalls.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4081/livez').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/watchlog-light/web:${WATCHLOG_VERSION:-latest}
+    ports:
+      - '${WATCHLOG_PORT:-8080}:8080'
+    depends_on:
+      - backend
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8080/api/v1/health']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  victoriametrics-data:

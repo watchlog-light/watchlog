@@ -1,0 +1,45 @@
+# Real Linux test VM for agent fixtures and Phase 1 acceptance (ADR-037).
+# Docker Desktop does not expose the host's /proc or cgroups, so agent work needs this VM.
+#   limactl create --name=watchlog-test deploy/test/lima/watchlog-test.yaml
+#   limactl start watchlog-test
+# User-mode networking only; from inside the VM the Mac host is host.lima.internal.
+base: template:ubuntu-24.04
+cpus: 4
+memory: 4GiB
+disk: 30GiB
+mounts:
+  - location: '~'
+  - location: '/tmp/lima'
+    writable: true
+containerd:
+  system: false
+  user: false
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      # Docker Engine from Docker's apt repository; Ubuntu's docker.io if that is unreachable.
+      set -eux -o pipefail
+      command -v docker >/dev/null && exit 0
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y ca-certificates curl
+      if curl -fsSL --max-time 30 https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc; then
+        chmod a+r /etc/apt/keyrings/docker.asc
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
+        apt-get update
+        apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        echo docker-ce > /var/lib/watchlog-docker-source
+      else
+        apt-get install -y docker.io docker-compose-v2 docker-buildx
+        echo docker.io > /var/lib/watchlog-docker-source
+      fi
+      usermod -aG docker "{{.User}}"
+      systemctl enable --now docker
+probes:
+  - mode: readiness
+    description: docker is running
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      timeout 600s bash -c "until sudo docker info >/dev/null 2>&1; do sleep 5; done"

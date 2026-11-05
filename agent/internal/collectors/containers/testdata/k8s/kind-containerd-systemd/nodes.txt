@@ -1,0 +1,3 @@
+watchlog-control-plane containerd://2.3.4 6.10.14-linuxkit
+watchlog-worker containerd://2.3.4 6.10.14-linuxkit
+watchlog-worker2 containerd://2.3.4 6.10.14-linuxkit

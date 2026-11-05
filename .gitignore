@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+bin/
+.output/
+.nuxt/
+.nitro/
+.cache/
+coverage/
+*.tsbuildinfo
+
+# Env and local files
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Graphify output
+graphify-out/
+deploy/helm/*/charts/
+__pycache__/
+
+# A Nuxt build symlink to an absolute local path; never commit it.
+site/dist

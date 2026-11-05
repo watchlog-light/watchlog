@@ -1,0 +1,81 @@
+{{/* SPDX-License-Identifier: AGPL-3.0-only */}}
+{{- if .Values.clusterAgent.enabled }}
+{{- $fullname := include "watchlog-agent.fullname" . }}
+{{/*
+Cluster-agent (ADR-052 … ADR-056, ADR-066, ADR-068). Every replica syncs its caches
+and serves the pod map, so a standby is ready; only the Lease holder ships. On
+SIGTERM the leader releases the Lease, so a rolling update hands over at once.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-cluster-agent
+  labels: {{- include "watchlog-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-agent
+spec:
+  replicas: {{ .Values.clusterAgent.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: cluster-agent
+  template:
+    metadata:
+      labels: {{- include "watchlog-agent.labels" . | nindent 8 }}
+        app.kubernetes.io/component: cluster-agent
+    spec:
+      serviceAccountName: {{ $fullname }}-cluster-agent
+      {{- with .Values.clusterAgent.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.clusterAgent.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {{- include "watchlog-agent.podSecurity" . | nindent 8 }}
+      containers:
+        - name: cluster-agent
+          image: {{ include "watchlog-agent.image" (list . "cluster-agent") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --podmap-cert=/etc/watchlog/podmap/tls.crt
+            - --podmap-key=/etc/watchlog/podmap/tls.key
+          env:
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - name: POD_NAMESPACE
+              valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+            - name: WATCHLOG_NODE_AGENT_SA
+              value: {{ $fullname }}
+            - name: GOMEMLIMIT
+              value: {{ .Values.clusterAgent.goMemLimit | quote }}
+            {{- include "watchlog-agent.env" . | nindent 12 }}
+          ports:
+            - { name: podmap, containerPort: 8443 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: podmap, scheme: HTTPS }
+            periodSeconds: 5
+          resources: {{- toYaml .Values.clusterAgent.resources | nindent 12 }}
+          securityContext: {{- include "watchlog-agent.containerSecurity" . | nindent 12 }}
+          volumeMounts:
+            - { name: podmap-tls, mountPath: /etc/watchlog/podmap, readOnly: true }
+            - { name: data, mountPath: /var/lib/watchlog-agent }
+      volumes:
+        - name: podmap-tls
+          secret: { secretName: {{ $fullname }}-podmap-tls }
+        - { name: data, emptyDir: { sizeLimit: 256Mi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "watchlog-agent.clusterAgentService" . }}
+  labels: {{- include "watchlog-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-agent
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: cluster-agent
+  ports:
+    - { name: podmap, port: 8443, targetPort: podmap }
+{{- end }}

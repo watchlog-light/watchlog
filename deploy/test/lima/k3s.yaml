@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# k3s test node for Phase 2 (ADR-063): one VM per node, server or agent chosen by
+# deploy/test/k8s/k3s-up.sh. Lima's user-v2 network connects the VMs to each other
+# without root (measured: vzNAT reached the VMs from the Mac but not VM to VM); the
+# Mac reaches the API server through Lima's port forward on 127.0.0.1:6443. Only
+# /tmp/lima is mounted (a ~/Documents mount can hang on a macOS privacy prompt).
+base: template:ubuntu-24.04
+cpus: 2
+memory: 2GiB
+disk: 15GiB
+mounts:
+  - location: '/tmp/lima'
+    writable: true
+networks:
+  - lima: user-v2
+containerd:
+  system: false
+  user: false

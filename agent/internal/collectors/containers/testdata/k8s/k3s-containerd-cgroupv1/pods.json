@@ -1,0 +1,344 @@
+[
+ {
+  "namespace": "kube-system",
+  "name": "coredns-7cfb7bc9c7-vwqw8",
+  "uid": "27d618b5-3acd-4697-b843-5e6824ec14f6",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "coredns",
+    "containerID": "containerd://4de254adcf80395ad7f69d47e964a76a6b2d874d56147c750e341863a665fe00",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "memory": "170Mi"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "helm-install-traefik-9nxtn",
+  "uid": "1f1684a9-7b00-4df4-8021-071594c0aba1",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Succeeded",
+  "containers": [
+   {
+    "name": "helm",
+    "containerID": "containerd://93a5c664f13a4a41ed5b1044978f09bcca1d5b7e7af351ac4f5537dcd128b771",
+    "state": "terminated",
+    "init": false,
+    "limits": {
+     "cpu": "32",
+     "memory": "32G"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "helm-install-traefik-crd-2qbcj",
+  "uid": "70f08d89-79cc-4aad-8e50-561f529f862b",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Succeeded",
+  "containers": [
+   {
+    "name": "helm",
+    "containerID": "containerd://d61b90a81e69070cf39e20983367d40f1709aa024c841f719585b83368252a84",
+    "state": "terminated",
+    "init": false,
+    "limits": {
+     "cpu": "32",
+     "memory": "32G"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "local-path-provisioner-77b9867795-78s7z",
+  "uid": "efb13de3-12d9-43b3-a168-19228d04f56d",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "local-path-provisioner",
+    "containerID": "containerd://163131d881ca6a55c51dfee620fedc975a8134108ba8ee622b71e99a12c09658",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "metrics-server-6dc596dfb8-c2kbg",
+  "uid": "3af871a7-1ef9-4478-95fb-b5c1e67169de",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "metrics-server",
+    "containerID": "containerd://41ebb7d1e66ab48fc32ca6fe02d850891e9f4e55215b8b339b43e013cc48f66b",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "svclb-traefik-e725fef7-v67wb",
+  "uid": "29ea5f9b-5ebd-44ac-b114-30062f04170b",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "lb-tcp-443",
+    "containerID": "containerd://386251c34142331a02d0f364fb23cfa8f9d03ac9850fa7e21b59ed1dfab66231",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   },
+   {
+    "name": "lb-tcp-80",
+    "containerID": "containerd://26f49f6387b2a45b9d280b9a3f38657b757030a7c8257da202c65bd2fa6e6e96",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "traefik-7c8544f77-68zqs",
+  "uid": "57bee63c-eee0-40c8-8ce7-d97e7313ffe3",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "traefik",
+    "containerID": "containerd://e3c96b3f45ff94b8dd559d92b60aecbaac7f197b9451b4f44ad6b753dfface75",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "besteffort",
+  "uid": "2cf0bbf3-a636-4cc4-b2d9-941fda9fb7a7",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://319ed92df234cdfd1ae134b4b54b6f1bc22ebb5a67feaec3332f93c0807d6784",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "crashloop",
+  "uid": "250d331b-5a43-469f-a5b8-9cbb0fd82d7d",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://348205304f54b823b56a2879ac7cb20470a2f501c327f0670c63cee0bae8c1e8",
+    "state": "terminated",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "db-0",
+  "uid": "e09b58a2-d42e-497e-8627-adc3216312c2",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://6560c84a4d3212b58ea446f11b77a35070a4dfe72fc1b3ad3c32ca2ef2af5c0d",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "guaranteed",
+  "uid": "2bf1a6a9-4fa3-4a6a-b568-3c394a824229",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Guaranteed",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://6d6b32e98ae706ba961107c7d6cd4e15a6331e77191e076063ba3f2631055d44",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "cpu": "50m",
+     "memory": "32Mi"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "once-l27fx",
+  "uid": "db2bfcac-2788-4d75-8034-e6bf348fd237",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Succeeded",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://05bbaa93504d9f35c8f828b05ecb1426f87e172252f63ce80cab72bc215cadd2",
+    "state": "terminated",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "oom",
+  "uid": "2b6afb1c-1d30-47db-8d1b-c09e88827c62",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://e683eaf1acc24ba80a537d426e33e68b3a4f8c50450253c86944ec31fd7d40dc",
+    "state": "waiting",
+    "init": false,
+    "limits": {
+     "memory": "32Mi"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "per-node-2mbwx",
+  "uid": "0eb6635c-0a44-4425-977d-5970a1b527ad",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://e41bea2f181fededa3c57f19e0a0920c36b61f8054c49da6903df6cf75aed275",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "web-fd4c475f7-bw5cv",
+  "uid": "2fd1a88e-1670-4b18-8a3a-9fe6ecc192d6",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "nginx",
+    "containerID": "containerd://59fc5fc52ed8f6731c223771700aa213109ccd99db60b6a566e38293c0a34e68",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "cpu": "200m",
+     "memory": "64Mi"
+    }
+   },
+   {
+    "name": "sidecar",
+    "containerID": "containerd://2a35fb46a9bcb83d66adb66879bfb9dd92346f6ebb4a7af8625426f7dd5c374c",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   },
+   {
+    "name": "init",
+    "containerID": "containerd://39cd7af5144859fda2d94087e985547e2ded93e0c92c2b47c2f04880c2924549",
+    "state": "terminated",
+    "init": true,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "web-fd4c475f7-z628m",
+  "uid": "3e013a92-eb03-4bc6-9d4b-20b459dee5f8",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "nginx",
+    "containerID": "containerd://c399d29e45c1b97265d22e96c82242eebbd3847d1e8360c54e05499718a699e8",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "cpu": "200m",
+     "memory": "64Mi"
+    }
+   },
+   {
+    "name": "sidecar",
+    "containerID": "containerd://40077a53aad4cef813ee4a4174552174cc2e91e949f055257d4f61d1347eae66",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   },
+   {
+    "name": "init",
+    "containerID": "containerd://cade7ec75fb8d412a60740398ac0089846185ab12be6fb193178d9f6e5cf4224",
+    "state": "terminated",
+    "init": true,
+    "limits": {}
+   }
+  ]
+ }
+]

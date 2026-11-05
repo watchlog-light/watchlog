@@ -1,0 +1,29 @@
+[
+  {
+    "labels": {
+      "__name__": "watchlog_node_load1",
+      "host": "web-01"
+    },
+    "value": 0.26,
+    "timestamp": 1793404800000
+  },
+  {
+    "labels": {
+      "__name__": "watchlog_node_cpu_seconds_total",
+      "host": "web-01",
+      "mode": "user"
+    },
+    "value": 18.8,
+    "timestamp": 1793404800000
+  },
+  {
+    "labels": {
+      "__name__": "watchlog_node_filesystem_bytes",
+      "host": "web-01",
+      "mount": "/",
+      "state": "size"
+    },
+    "value": 30083776512,
+    "timestamp": 1793404800000
+  }
+]

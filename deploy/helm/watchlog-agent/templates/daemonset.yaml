@@ -1,0 +1,103 @@
+{{/* SPDX-License-Identifier: AGPL-3.0-only */}}
+{{- if .Values.agent.enabled }}
+{{- $fullname := include "watchlog-agent.fullname" . }}
+{{/*
+Node agent (ADR-049, ADR-060, ADR-105): no hostNetwork, no hostPID; BPF and PERFMON only with eBPF; reads
+/proc, /sys and the host filesystem read-only and talks only to its own kubelet,
+the cluster-agent's pod map and WatchLog.
+*/}}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ $fullname }}
+  labels: {{- include "watchlog-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: node-agent
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: node-agent
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 10%
+  template:
+    metadata:
+      labels: {{- include "watchlog-agent.labels" . | nindent 8 }}
+        app.kubernetes.io/component: node-agent
+    spec:
+      serviceAccountName: {{ $fullname }}
+      automountServiceAccountToken: true
+      hostNetwork: false
+      hostPID: false
+      {{- with .Values.agent.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.agent.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.agent.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {{- include "watchlog-agent.podSecurity" . | nindent 8 }}
+      containers:
+        - name: agent
+          image: {{ include "watchlog-agent.image" (list . "agent") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --mode=node
+            - --interval={{ .Values.agent.interval }}
+          env:
+            - name: NODE_NAME
+              valueFrom: { fieldRef: { fieldPath: spec.nodeName } }
+            - name: HOST_IP
+              valueFrom: { fieldRef: { fieldPath: status.hostIP } }
+            - name: WATCHLOG_KUBELET_TLS
+              value: {{ .Values.agent.kubeletTLS | quote }}
+            - name: WATCHLOG_EBPF
+              value: {{ include "watchlog-agent.ebpfEnabled" . | quote }}
+            # Shown in WatchLog to give the exact upgrade command; the chart is
+            # "watchlog" when installed as its subchart.
+            - name: WATCHLOG_HELM_RELEASE
+              value: {{ printf "%s/%s" .Release.Namespace .Release.Name | quote }}
+            - name: WATCHLOG_HELM_CHART
+              value: {{ first (splitList "/" .Template.BasePath) | quote }}
+            {{- if .Values.clusterAgent.enabled }}
+            - name: WATCHLOG_PODMAP_URL
+              value: https://{{ include "watchlog-agent.clusterAgentService" . }}.{{ .Release.Namespace }}.svc:8443
+            {{- end }}
+            {{- include "watchlog-agent.env" . | nindent 12 }}
+          resources: {{- toYaml .Values.agent.resources | nindent 12 }}
+          securityContext: {{- include "watchlog-agent.nodeAgentSecurity" . | nindent 12 }}
+          volumeMounts:
+            - { name: proc, mountPath: /host/proc, readOnly: true }
+            - { name: sys, mountPath: /host/sys, readOnly: true }
+            - name: root
+              mountPath: /host/root
+              readOnly: true
+              mountPropagation: HostToContainer
+            - { name: data, mountPath: /var/lib/watchlog-agent }
+            {{- if .Values.clusterAgent.enabled }}
+            - { name: podmap-ca, mountPath: /etc/watchlog/podmap, readOnly: true }
+            - { name: podmap-token, mountPath: /var/run/secrets/watchlog/podmap, readOnly: true }
+            {{- end }}
+      volumes:
+        - { name: proc, hostPath: { path: /proc } }
+        - { name: sys, hostPath: { path: /sys } }
+        - { name: root, hostPath: { path: / } }
+        - { name: data, emptyDir: { sizeLimit: 256Mi } }
+        {{- if .Values.clusterAgent.enabled }}
+        # Only the CA certificate of the pod map Secret, never the key.
+        - name: podmap-ca
+          secret:
+            secretName: {{ $fullname }}-podmap-tls
+            items: [{ key: ca.crt, path: ca.crt }]
+        - name: podmap-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: watchlog-cluster-agent
+                  expirationSeconds: 3600
+                  path: token
+        {{- end }}
+{{- end }}

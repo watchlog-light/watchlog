@@ -1,0 +1,52 @@
+{{/* SPDX-License-Identifier: AGPL-3.0-only */}}
+{{/*
+The alert-worker (ADR-073): evaluates rules every 30 s and sends notifications. It
+runs from the backend image; replicas share the work through PostgreSQL advisory
+locks. /livez restarts a stuck loop, /readyz follows its lock connection (ADR-088).
+*/}}
+{{- $name := printf "%s-alert-worker" .Release.Name }}
+{{- $worker := include "watchlog.alertWorker" . | fromYaml }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels: {{- include "watchlog.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alert-worker
+spec:
+  replicas: {{ $worker.replicas }}
+  selector:
+    matchLabels: {{- include "watchlog.selector" (list .Release.Name "alert-worker") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "watchlog.labels" . | nindent 8 }}
+        app.kubernetes.io/component: alert-worker
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {{- include "watchlog.podSecurity" 65532 | nindent 8 }}
+      containers:
+        - name: alert-worker
+          image: {{ include "watchlog.image" (list . "backend") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [dist/alert-worker.js]
+          env:
+            {{- include "watchlog.databaseEnv" . | nindent 12 }}
+            - name: VICTORIAMETRICS_URL
+              value: http://{{ .Release.Name }}-victoriametrics:8428
+            {{- include "watchlog.alertingEnv" . | nindent 12 }}
+            - { name: WATCHLOG_WORKER_PORT, value: '4081' }
+          ports:
+            - { name: health, containerPort: 4081 }
+          readinessProbe:
+            httpGet: { path: /readyz, port: health }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /livez, port: health }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          resources: {{- toYaml $worker.resources | nindent 12 }}
+          securityContext: {{- include "watchlog.containerSecurity" . | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }

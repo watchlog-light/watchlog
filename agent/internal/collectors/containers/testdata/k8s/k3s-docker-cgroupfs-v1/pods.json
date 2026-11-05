@@ -1,0 +1,344 @@
+[
+ {
+  "namespace": "kube-system",
+  "name": "coredns-7cfb7bc9c7-w7lz8",
+  "uid": "ae82b429-7b73-4b75-9a07-c0f70a352b18",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "coredns",
+    "containerID": "docker://7dbb612688bacc819d1c4efdea810636417caa8831c6325d4b82176be0e0228d",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "memory": "170Mi"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "helm-install-traefik-bhcsw",
+  "uid": "16aae729-d640-4c46-8d29-31c86953c33c",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Succeeded",
+  "containers": [
+   {
+    "name": "helm",
+    "containerID": "docker://84f80ab39b21a28d763b1e0b5bf9805930699ab5002ccdc590dd74af7dd9cff7",
+    "state": "terminated",
+    "init": false,
+    "limits": {
+     "cpu": "32",
+     "memory": "32G"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "helm-install-traefik-crd-56jcc",
+  "uid": "814b5c58-e1d5-4075-b163-4a5e568f65b9",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Succeeded",
+  "containers": [
+   {
+    "name": "helm",
+    "containerID": "docker://85ffedab484193bae83f9084bae730d62f3da2f06c4cf88e946784750809405d",
+    "state": "terminated",
+    "init": false,
+    "limits": {
+     "cpu": "32",
+     "memory": "32G"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "local-path-provisioner-77b9867795-xxbkd",
+  "uid": "f0efa897-ca4d-4249-851a-99fc04ec06e1",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "local-path-provisioner",
+    "containerID": "docker://1d52fd0a586bbf41afdf9a477781efef7157480e5eaef3d619773d9a5352a23a",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "metrics-server-6dc596dfb8-lgtkh",
+  "uid": "adc6f59a-cb7b-432b-be95-b7269f7e451b",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "metrics-server",
+    "containerID": "docker://6c2c76eefefb096cbd1bb8ddf4bd42d6e403eef2155552d3b68849f04f028f00",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "svclb-traefik-5650b3db-hpr7j",
+  "uid": "b80437bc-80b0-4f5a-bb71-8b147b671a47",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "lb-tcp-443",
+    "containerID": "docker://d8fc367d6876f81ec578f65870c7c983aa4b4838eb21a825c2248befb0c5846d",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   },
+   {
+    "name": "lb-tcp-80",
+    "containerID": "docker://3a3c3c04f6f4cc771b1dc96daad1d2a2c52d8ada387860f760ee7985a6eccbf4",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "traefik-7c8544f77-7x6nw",
+  "uid": "61a1d25b-630f-44f0-8648-00ad3fcaae85",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "traefik",
+    "containerID": "docker://8bff2264041466a53669f234a0d31a1c61285249c57fdc504ba87ecee0ae26f6",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "besteffort",
+  "uid": "002c5afa-3729-4f2e-942f-f088c9d1500f",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "docker://68d559aeab8738e8d42e4cd823803d5d9a535d04f5fef61b8135eebc06ccc8b9",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "crashloop",
+  "uid": "039105fd-56d9-4116-a2b8-52301bc04775",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "docker://fe769b556a8e91562907f3d8cbbc5c71621f366a6306bbf7ee664ca5cd8e1cee",
+    "state": "terminated",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "db-0",
+  "uid": "6aa18e10-287f-4375-aa3f-0d2f39467aac",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "docker://ec9500bee190bf67a299956dc19b0d5c8596cb911dba7ee627624071dcbdfa2a",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "guaranteed",
+  "uid": "3884a8bd-c088-4386-8da1-68c0aa81a5ae",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Guaranteed",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "docker://8ff7a36410525da164343a1f9980718ddb26aa7c962fa4f72d17c1d85fa0dc11",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "cpu": "50m",
+     "memory": "32Mi"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "once-ghxsd",
+  "uid": "e58321e7-ce49-452a-b3a2-9f53963eeb6e",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Succeeded",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "docker://5df2679efdc5e83fbffb9fbc269b53350a7a943b4abeea87b5f57606f80247dc",
+    "state": "terminated",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "oom",
+  "uid": "4354928a-8ec0-4214-bb4e-cd6c989be2f3",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "docker://76f3b1f94b92c8756288c73a6f085ef03e99874ad9341330fc6ccea9af4187f1",
+    "state": "terminated",
+    "init": false,
+    "limits": {
+     "memory": "32Mi"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "per-node-g95wg",
+  "uid": "4d066105-9816-4f11-996f-d5184f2d7112",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "docker://94a84e8c7914c616d7e7e7d7167e764d76db15c2ccc088170312fa82bf1fe2e3",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "web-fd4c475f7-2h7cm",
+  "uid": "db35452c-a82e-4dee-ba0b-ea37929ced8d",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "nginx",
+    "containerID": "docker://3443bbed40e4811d33b590d0da4d6207835d1e66bef101feafcc6d2eff622134",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "cpu": "200m",
+     "memory": "64Mi"
+    }
+   },
+   {
+    "name": "sidecar",
+    "containerID": "docker://e67d0040b04a5be1d57bd93f5b4b558877a2e3e59d672a304ae389a9ff5bd78b",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   },
+   {
+    "name": "init",
+    "containerID": "docker://2ebf109089d01762872817ad41eeec86119474e5b29246e300b477ae6c1db596",
+    "state": "terminated",
+    "init": true,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "web-fd4c475f7-9t8vx",
+  "uid": "1090faa2-6c76-4f44-8de6-8303c7d19ff3",
+  "node": "lima-watchlog-cgv1",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "nginx",
+    "containerID": "docker://f25281c93d3f5849dbb743b26ceae29b6ba1890b049834b05a9b88ef831ef52d",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "cpu": "200m",
+     "memory": "64Mi"
+    }
+   },
+   {
+    "name": "sidecar",
+    "containerID": "docker://14180e1612d6cda822895fdfa21ad7cc781eac2d44c73758bf65de34ae1fbb7b",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   },
+   {
+    "name": "init",
+    "containerID": "docker://d33f5d378240c337ad85d679a4cae0bf2e43fcd6d2a91ec791a16379f2acd812",
+    "state": "terminated",
+    "init": true,
+    "limits": {}
+   }
+  ]
+ }
+]

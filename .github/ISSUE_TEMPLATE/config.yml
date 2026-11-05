@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/watchlog-light/watchlog/security/advisories/new
+    about: Privately, please — see SECURITY.md.
+  - name: Ask a question
+    url: https://github.com/watchlog-light/watchlog/discussions
+    about: Installation help, ideas and questions.

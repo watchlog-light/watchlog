@@ -1,0 +1,74 @@
+{{/* SPDX-License-Identifier: AGPL-3.0-only */}}
+{{- $name := printf "%s-backend" .Release.Name }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels: {{- include "watchlog.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels: {{- include "watchlog.selector" (list .Release.Name "backend") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "watchlog.labels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {{- include "watchlog.podSecurity" 65532 | nindent 8 }}
+      initContainers:
+        # Forward-only migrations; retried with backoff until PostgreSQL is up.
+        - name: migrate
+          image: {{ include "watchlog.image" (list . "backend") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [dist/migrate.js]
+          env: {{- include "watchlog.databaseEnv" . | nindent 12 }}
+          securityContext: {{- include "watchlog.containerSecurity" . | nindent 12 }}
+      containers:
+        - name: backend
+          image: {{ include "watchlog.image" (list . "backend") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- include "watchlog.databaseEnv" . | nindent 12 }}
+            - name: VICTORIAMETRICS_URL
+              value: http://{{ .Release.Name }}-victoriametrics:8428
+            {{- include "watchlog.alertingEnv" . | nindent 12 }}
+            # Browsers and outside agents arrive through the web service's Caddy.
+            - { name: WATCHLOG_TRUST_PROXY, value: 'true' }
+            - { name: WATCHLOG_EVENTS_RETENTION_DAYS, value: {{ .Values.backend.eventsRetentionDays | quote }} }
+            - { name: WATCHLOG_BOOTSTRAP_CLUSTER_NAME, value: {{ .Values.clusterName | quote }} }
+            - name: WATCHLOG_BOOTSTRAP_CLUSTER_TOKEN
+              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-cluster-token, key: token } }
+            {{- if .Values.admin.email }}
+            - name: WATCHLOG_ADMIN_EMAIL
+              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-admin, key: email } }
+            - name: WATCHLOG_ADMIN_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-admin, key: password } }
+            {{- end }}
+          ports:
+            - { name: http, containerPort: 4080 }
+          readinessProbe:
+            httpGet: { path: /api/v1/health, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /api/v1/health, port: http }
+            periodSeconds: 20
+            failureThreshold: 6
+          resources: {{- toYaml .Values.backend.resources | nindent 12 }}
+          securityContext: {{- include "watchlog.containerSecurity" . | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels: {{- include "watchlog.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  selector: {{- include "watchlog.selector" (list .Release.Name "backend") | nindent 4 }}
+  ports:
+    - { name: http, port: 4080, targetPort: http }

@@ -1,0 +1,17 @@
+# Secret scanning (CI job "Secrets"). Allowed below: findings reviewed on
+# 2026-11-01 as not secret: the published development key and redaction test fixtures.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Reviewed false positives"
+paths = [
+  # Redaction tests: AWS's documented example key, a fake GitHub token, jwt.io's sample.
+  '''agent/internal/redact/redact_test\.go''',
+  # Captured health check of a test container that used a fake password.
+  '''agent/internal/docker/testdata/''',
+]
+regexes = [
+  # DEV_SECRET_KEY: base64 of "watchlog-dev-key-not-secret-32b!", development only.
+  '''d2F0Y2hsb2ctZGV2LWtleS1ub3Qtc2VjcmV0LTMyYiE=''',
+]

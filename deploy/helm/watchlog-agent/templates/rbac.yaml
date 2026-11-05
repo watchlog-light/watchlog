@@ -1,0 +1,107 @@
+{{/* SPDX-License-Identifier: AGPL-3.0-only */}}
+{{/* Read-only RBAC (ADR-060): no Secrets, ConfigMaps or nodes/proxy. */}}
+{{- $fullname := include "watchlog-agent.fullname" . }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $fullname }}
+  labels: {{- include "watchlog-agent.labels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $fullname }}-cluster-agent
+  labels: {{- include "watchlog-agent.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $fullname }}-{{ .Release.Namespace }}
+  labels: {{- include "watchlog-agent.labels" . | nindent 4 }}
+rules:
+  # The node's own kubelet /stats/summary only (ADR-049).
+  - apiGroups: ['']
+    resources: [nodes/stats]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $fullname }}-{{ .Release.Namespace }}
+  labels: {{- include "watchlog-agent.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $fullname }}-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $fullname }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $fullname }}-cluster-agent-{{ .Release.Namespace }}
+  labels: {{- include "watchlog-agent.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ['']
+    resources: [nodes, namespaces, pods, persistentvolumeclaims, services]
+    verbs: [get, list, watch]
+  # Service map (Phase 4, ADR-101): which pods are behind each Service.
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [get, list, watch]
+  - apiGroups: [events.k8s.io]
+    resources: [events]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [deployments, replicasets, statefulsets, daemonsets]
+    verbs: [get, list, watch]
+  - apiGroups: [batch]
+    resources: [jobs, cronjobs]
+    verbs: [get, list, watch]
+  - apiGroups: [autoscaling]
+    resources: [horizontalpodautoscalers]
+    verbs: [get, list, watch]
+  # Authenticates node agents asking for their pod map (ADR-066).
+  - apiGroups: [authentication.k8s.io]
+    resources: [tokenreviews]
+    verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $fullname }}-cluster-agent-{{ .Release.Namespace }}
+  labels: {{- include "watchlog-agent.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $fullname }}-cluster-agent-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $fullname }}-cluster-agent
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $fullname }}-cluster-agent-lease
+  labels: {{- include "watchlog-agent.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [get, create, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $fullname }}-cluster-agent-lease
+  labels: {{- include "watchlog-agent.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $fullname }}-cluster-agent-lease
+subjects:
+  - kind: ServiceAccount
+    name: {{ $fullname }}-cluster-agent
+    namespace: {{ .Release.Namespace }}

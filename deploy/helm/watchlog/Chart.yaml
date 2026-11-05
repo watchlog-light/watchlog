@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+apiVersion: v2
+name: watchlog
+description: WatchLog Community, self-hosted — backend, web, PostgreSQL, VictoriaMetrics and the agents (SPEC §5.3)
+type: application
+version: 0.2.0
+appVersion: dev
+kubeVersion: '>=1.26.0-0'
+dependencies:
+  - name: watchlog-agent
+    version: 0.2.0
+    repository: file://../watchlog-agent
+    condition: watchlog-agent.enabled

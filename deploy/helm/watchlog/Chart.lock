@@ -1,0 +1,6 @@
+dependencies:
+- name: watchlog-agent
+  repository: file://../watchlog-agent
+  version: 0.2.0
+digest: sha256:ed778fc1ced6fe0d12f865fb18b1b02696686bfeb858469f9b7c16cf7a2baa2d
+generated: "2026-10-31T11:26:07.313553Z"

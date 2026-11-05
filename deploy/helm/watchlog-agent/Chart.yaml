@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+apiVersion: v2
+name: watchlog-agent
+description: WatchLog agents for Kubernetes — node agent DaemonSet and cluster-agent (SPEC §5.3, §6.7)
+type: application
+version: 0.2.0
+appVersion: dev
+kubeVersion: '>=1.26.0-0'

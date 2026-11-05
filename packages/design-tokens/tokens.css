@@ -1,0 +1,38 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+/*
+ * WatchLog design tokens (SPEC §11.1; neutrals per ADR-038). Dark theme only in v2.0.
+ * This is the only place where colour values are written; components use the
+ * variables (directly or through the Tailwind theme in theme.css).
+ */
+:root {
+  color-scheme: dark;
+
+  --bg: #0e0f11;
+  --surface-1: #15171a;
+  --surface-2: #1b1e22;
+  --surface-3: #22252a;
+  --border: #2a2e34;
+  --border-strong: #3a3f46;
+  --text: #e8eaed;
+  --text-muted: #9ba1a9;
+  --text-subtle: #6b7179;
+  --primary: #22c55e;
+  --primary-hover: #16a34a;
+  --primary-soft: rgba(34, 197, 94, 0.12);
+  --primary-glow: rgba(34, 197, 94, 0.35);
+  --on-primary: #04140a;
+  --ok: #22c55e;
+  --warning: #f5a524;
+  --critical: #f04438;
+  --info: #3b9eff;
+
+  /* Chart palette, in series order (SPEC §11.1). */
+  --chart-1: #22c55e;
+  --chart-2: #3b9eff;
+  --chart-3: #f5a524;
+  --chart-4: #a78bfa;
+  --chart-5: #2dd4bf;
+  --chart-6: #f472b6;
+  --chart-7: #fb923c;
+  --chart-8: #94a3b8;
+}

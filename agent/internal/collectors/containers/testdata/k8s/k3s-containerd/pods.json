@@ -1,0 +1,387 @@
+[
+ {
+  "namespace": "kube-system",
+  "name": "coredns-7cfb7bc9c7-nrpkm",
+  "uid": "2d21eb6e-33df-4c92-9dcc-8e38f294673e",
+  "node": "lima-watchlog-k3s-server",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "coredns",
+    "containerID": "containerd://e3c08111dc1fa8bef7286f94fbbf22bf8ca4734bb5edec90f0ce9532d377f20c",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "memory": "170Mi"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "helm-install-traefik-crd-q886j",
+  "uid": "962f8254-0bb8-450d-b782-8cf2be9940b5",
+  "node": "lima-watchlog-k3s-server",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Succeeded",
+  "containers": [
+   {
+    "name": "helm",
+    "containerID": "containerd://90f09f1844e504d36b1fed0d2c63830d2b793a2f8cbeba130070501a665d7719",
+    "state": "terminated",
+    "init": false,
+    "limits": {
+     "cpu": "32",
+     "memory": "32G"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "helm-install-traefik-smzsx",
+  "uid": "0d58131c-759a-47ae-a706-6f643d91d95e",
+  "node": "lima-watchlog-k3s-server",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Succeeded",
+  "containers": [
+   {
+    "name": "helm",
+    "containerID": "containerd://526075ee1c47fe477cee7971593a9cae824bbdd668939066e5b370c110b54010",
+    "state": "terminated",
+    "init": false,
+    "limits": {
+     "cpu": "32",
+     "memory": "32G"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "local-path-provisioner-77b9867795-n9gjc",
+  "uid": "c4f48ce0-b361-426f-a04b-11e2db1d9fca",
+  "node": "lima-watchlog-k3s-server",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "local-path-provisioner",
+    "containerID": "containerd://469e72d974ee141d378319a53fb1548fc28335015c2f2237449e42d2fde6c266",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "metrics-server-6dc596dfb8-9rcv9",
+  "uid": "677e6dbd-2358-433f-bdfc-7bc752b51c44",
+  "node": "lima-watchlog-k3s-server",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "metrics-server",
+    "containerID": "containerd://7211acbe9a058b04693d46d9a2254955be7b5a07d38a1821843321f6312ff3ae",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "svclb-traefik-dcb35cc3-nrg8b",
+  "uid": "e64620a8-818a-4701-9651-a5067eefe8c0",
+  "node": "lima-watchlog-k3s-agent",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "lb-tcp-443",
+    "containerID": "containerd://f9fde8d55bf7bad8ffccae449c865eb52a8eed2bf1afb1dd66c99425564e6ea3",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   },
+   {
+    "name": "lb-tcp-80",
+    "containerID": "containerd://7102e802e9f64a7deda32cafc5da262aaf0cd82584781cfb6c4e13ab8e6f92b3",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "svclb-traefik-dcb35cc3-zq4pv",
+  "uid": "30c5e81e-d7e3-4d8c-a5fb-fa02fb7ebf02",
+  "node": "lima-watchlog-k3s-server",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "lb-tcp-443",
+    "containerID": "containerd://7c08ee96b4b0836f0d01bd317e01e8f738792eb4425e87cb11adfa7ec9197174",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   },
+   {
+    "name": "lb-tcp-80",
+    "containerID": "containerd://e0ed40dd6fbbd6d4f820b7a8ea33199dd01e40df8cb3068fbf5001cb99c51dd0",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "kube-system",
+  "name": "traefik-7c8544f77-wppvv",
+  "uid": "f6e40e7b-3dbe-4e67-b566-6ae3c0d35aac",
+  "node": "lima-watchlog-k3s-agent",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Pending",
+  "containers": [
+   {
+    "name": "traefik",
+    "containerID": null,
+    "state": "waiting",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "besteffort",
+  "uid": "b69a5d36-3862-4c68-88e1-3033f6caf238",
+  "node": "lima-watchlog-k3s-agent",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://788f15273b36d6aaf2b36e0a2784ebcf7abebea6545bfc9104fd302a880aceca",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "crashloop",
+  "uid": "69626460-cca6-409a-a171-454fec3fda7b",
+  "node": "lima-watchlog-k3s-agent",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://82e02c5da3c616950188382543dbe05b6089d9c29c1839bc8d81dbefed7252c4",
+    "state": "terminated",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "db-0",
+  "uid": "d31db9fe-9df0-4ec6-981f-c21c60a3ab9b",
+  "node": "lima-watchlog-k3s-agent",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://da94edeb33a5299376f18abe196aaff2fccfaf3d0c30a76029753b2c040c1815",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "guaranteed",
+  "uid": "b5aa09f5-ba02-4260-9da6-01f86b94d412",
+  "node": "lima-watchlog-k3s-agent",
+  "mirror": null,
+  "qosClass": "Guaranteed",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://ec901be4228f0653d9507a4e0dd235a99b2cbc10b1ebcb80b8d4ce93690a7575",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "cpu": "50m",
+     "memory": "32Mi"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "once-km4fj",
+  "uid": "25ea17d6-f5c8-45cc-a4ab-0a48683eec21",
+  "node": "lima-watchlog-k3s-server",
+  "mirror": null,
+  "qosClass": "BestEffort",
+  "phase": "Succeeded",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://cd2f275b45c105b76cae20f9b93fb443c24baac54bc437db05c405ad20096be5",
+    "state": "terminated",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "oom",
+  "uid": "7d1b0b74-a3a9-4776-8444-194ac2b310c3",
+  "node": "lima-watchlog-k3s-agent",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://f124af8524a6b77ea39eddd8ce525e7d1585f36781b958ebc0fb87906b4c53d3",
+    "state": "terminated",
+    "init": false,
+    "limits": {
+     "memory": "32Mi"
+    }
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "per-node-96d22",
+  "uid": "869bf509-049c-4beb-b3d3-89ca8ad638f4",
+  "node": "lima-watchlog-k3s-server",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://5571b3b4a7579cc78bd77a16aca75651612a4841aa0ac1f67f3a5ac636398881",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "per-node-dfm4w",
+  "uid": "27bfc3ac-3bf0-44f9-9506-042e2992e450",
+  "node": "lima-watchlog-k3s-agent",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "main",
+    "containerID": "containerd://5688262281a9f3e23b17713f853e7f88c7ac846d00b1820fb319624ef5dca229",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "web-fd4c475f7-9jbgz",
+  "uid": "1a156ce3-50a9-4217-acc5-3298c7a43f4b",
+  "node": "lima-watchlog-k3s-server",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "nginx",
+    "containerID": "containerd://91f4e2b15a32217c2b896a9d9bfef256d41ce18fe72900828109fee9f1a53810",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "cpu": "200m",
+     "memory": "64Mi"
+    }
+   },
+   {
+    "name": "sidecar",
+    "containerID": "containerd://037e296b8e2f6c67265c09a84d6e63fdcc7787361d2b5f76dfb7ac72b8f85ca2",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   },
+   {
+    "name": "init",
+    "containerID": "containerd://969493755815b1fb074253abd16c4f575974839105d11d984b916b4023d77212",
+    "state": "terminated",
+    "init": true,
+    "limits": {}
+   }
+  ]
+ },
+ {
+  "namespace": "wl-test",
+  "name": "web-fd4c475f7-vmsg9",
+  "uid": "86a5988f-1338-47ea-a4eb-3cab73a36c00",
+  "node": "lima-watchlog-k3s-agent",
+  "mirror": null,
+  "qosClass": "Burstable",
+  "phase": "Running",
+  "containers": [
+   {
+    "name": "nginx",
+    "containerID": "containerd://7ed9347f7cd347b314dcaa376bf918cdbb9ae90f6e703414d08256614a42cdb0",
+    "state": "running",
+    "init": false,
+    "limits": {
+     "cpu": "200m",
+     "memory": "64Mi"
+    }
+   },
+   {
+    "name": "sidecar",
+    "containerID": "containerd://d8e52fb3136489997771de202e23c86fc521357ac3c36ade853ee6121efbfdb3",
+    "state": "running",
+    "init": false,
+    "limits": {}
+   },
+   {
+    "name": "init",
+    "containerID": "containerd://abd82101bdb3791271baae490689af0b1cf9627165d39ba6b128d0baa21df34c",
+    "state": "terminated",
+    "init": true,
+    "limits": {}
+   }
+  ]
+ }
+]

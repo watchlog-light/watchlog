@@ -1,0 +1,88 @@
+{{/* SPDX-License-Identifier: AGPL-3.0-only */}}
+{{- $name := printf "%s-web" .Release.Name }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels: {{- include "watchlog.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector:
+    matchLabels: {{- include "watchlog.selector" (list .Release.Name "web") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "watchlog.labels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {{- include "watchlog.podSecurity" 65532 | nindent 8 }}
+      containers:
+        - name: web
+          image: {{ include "watchlog.image" (list . "web") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - { name: WATCHLOG_BACKEND, value: '{{ .Release.Name }}-backend:4080' }
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 5
+          resources: {{- toYaml .Values.web.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+              # The official caddy binary carries this file capability; exec fails
+              # unless it stays in the bounding set. Port 8080 does not use it.
+              add: [NET_BIND_SERVICE]
+          volumeMounts:
+            # Caddy's config and data directories (XDG_* in the image).
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels: {{- include "watchlog.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  type: {{ .Values.web.service.type }}
+  selector: {{- include "watchlog.selector" (list .Release.Name "web") | nindent 4 }}
+  ports:
+    - { name: http, port: {{ .Values.web.service.port }}, targetPort: http }
+{{- if .Values.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $name }}
+  labels: {{- include "watchlog.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.ingress.tlsSecret }}
+  tls:
+    - hosts: [{{ required "ingress.host is required with ingress.tlsSecret" .Values.ingress.host | quote }}]
+      secretName: {{ .Values.ingress.tlsSecret }}
+  {{- end }}
+  rules:
+    - {{- with .Values.ingress.host }}
+      host: {{ . | quote }}
+      {{- end }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $name }}
+                port: { name: http }
+{{- end }}
