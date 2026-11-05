@@ -1166,3 +1166,23 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - CoreDNS's own row counts the failures it forwards upstream for its clients, so a client's real NXDOMAIN shows on both.
   - Cost: about 180 ns and 3 allocations per NXDOMAIN response (`BenchmarkSearchMisses`).
   - Older agents send no `search_miss`; their NXDOMAIN counts as before. Older backends count `search_miss` as an error, which is the old behaviour. No migration is needed.
+
+## ADR-114: The marketing site moves to a private repository; its docs stay public
+
+- Date: 2026-11-06 · Status: accepted (maintainer, 2026-11-06)
+- Context: The marketing site (watchlog.io: landing, pricing, legal pages, the Cloud waitlist form) was in `site/`, with its deploy files in `deploy/site/`. It is not part of the product: self-hosters never build or run it. Keeping it here made its copy, pricing and legal text part of the AGPL release, and forks would ship a copy of the project's own marketing. The user docs are different: self-hosters need them next to the code, in the same pull requests that change behaviour.
+- Decision:
+  - **The site, its tests, CI and deploy files (nginx config, deploy script, DEPLOY.md) move to a private repository.** `site/` and `deploy/site/` are removed here, and so are the `site` workspace package and the site's CI step.
+  - **What users need stays public here:** the docs (`docs/site/*.md`), the README screenshots (`docs/images/`), the design tokens and logo (`packages/design-tokens/`) and the Docker install's `compose.yaml`.
+  - **The site's build reads them from this repository at a pinned commit.** Locally it reads a checkout next to it; CI checks out the pinned commit; deploys take the pinned commit with `git archive`, so uncommitted local edits are never deployed. `/docs` and `/security` render the same Markdown as before, and the site's build fails when a file it needs is missing.
+  - **The design tokens are copied at build time, not installed as a git dependency.** The build already needs this repository for the docs, so one pinned commit covers docs, screenshots and tokens, and they can't drift apart. A git dependency would add a second fetch at install time, with its own credentials while this repository is private and its own ref to keep in step. `packages/design-tokens` is also a workspace package, and pnpm handles a monorepo subfolder fetched from git less well than a file copy.
+  - **`pnpm check:private` fails if site code comes back:** `site/` or `deploy/site/`, a `nuxt.config` or `site.config` file, a `package.json` that depends on Nuxt, or the private repository's name. `docs/site/` is allowed.
+- Alternatives:
+  - Keep the site here and only keep its content out (rejected: the copy, prices and legal pages are content).
+  - Move the docs to the private repository too (rejected: self-hosters read them in the repository, and the README, the dashboard's help links (`web/src/lib/links.ts`) and the release notes link to `docs/site/`).
+  - A git submodule of this repository in the site's repository (rejected: the same pin as a JSON file, with more steps for every clone).
+- Consequences:
+  - Renaming or moving a file in `docs/site/`, `docs/images/` or `packages/design-tokens/` breaks the site's build at its next pin bump. The commit that does it should say so (CLAUDE.md).
+  - While this repository is private, the site's CI reads it with a read-only deploy key. Remove the key at launch.
+  - The site's files keep their `AGPL-3.0-only` headers from when they were here. That is the maintainer's choice to make in the private repository and changes nothing here.
+  - ADR-012 (Nuxt 4) still applies to the site, now in its own repository. SPEC §9, §11.4 and §12 are updated.

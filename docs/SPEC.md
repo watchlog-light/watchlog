@@ -500,7 +500,7 @@ Responses: `204` OK; `401` bad token (agent logs a clear message and backs off 5
 
 # 9. Website and landing page
 
-Built with Nuxt 4 in static mode (`site/`), dark theme only (§11), English only. Fast: Lighthouse ≥ 95 on performance and SEO, no client-side framework for content pages beyond what Nuxt ships.
+Built with Nuxt 4 in static mode, dark theme only (§11), English only. The marketing site's code lives in a separate private repository, not in this one (ADR-114). What users need from it stays public here: the docs (`docs/site/*.md`, rendered at `/docs` and `/security`), the screenshots (`docs/images/`) and the design tokens (`packages/design-tokens/`). The site's build takes them from this repository at a pinned commit, and fails when one is missing. Fast: Lighthouse ≥ 95 on performance and SEO, no client-side framework for content pages beyond what Nuxt ships.
 
 ## 9.1 Sitemap
 
@@ -508,7 +508,7 @@ Built with Nuxt 4 in static mode (`site/`), dark theme only (§11), English only
 |---|---|
 | `/` | Landing |
 | `/pricing` | Editions & pricing (§3) with node-count calculator |
-| `/docs` | Documentation (Nuxt Content, Markdown in repo) — install, configuration, alerts, security, FAQ |
+| `/docs` | Documentation rendered from `docs/site/*.md` in this repository — install, configuration, alerts, security, FAQ |
 | `/blog` | Blog (English, technical articles on Kubernetes / Docker monitoring for SEO) |
 | `/open-source` | Why open source, license, how to contribute, link to GitHub |
 | `/security` | What the agent can and cannot access (RBAC, capabilities, data sent) |
@@ -642,7 +642,7 @@ The whole product (site + app) is **dark only** in v2.0. Light theme MAY be adde
 
 ## 11.4 Tailwind configuration
 
-Tailwind theme maps directly to the tokens (`colors.bg = 'var(--bg)'`, etc.). Shared token file `packages/design-tokens/tokens.css` is imported by both `web/` and `site/`.
+Tailwind theme maps directly to the tokens (`colors.bg = 'var(--bg)'`, etc.). Shared token file `packages/design-tokens/tokens.css` is imported by `web/` and copied into the marketing site at build time (§9).
 
 # 12. Repository structure
 
@@ -663,7 +663,6 @@ watchlog/
 │   ├── migrations/
 │   └── test/
 ├── web/                    # Vue 3 + Vite dashboard SPA
-├── site/                   # Nuxt 4 static site (landing, docs, blog)
 ├── packages/
 │   ├── design-tokens/      # tokens.css, tailwind preset
 │   └── api-types/          # TS types generated from OpenAPI
@@ -673,12 +672,14 @@ watchlog/
 │   ├── helm/watchlog-agent/# agent-only chart (Cloud)
 │   ├── docker/compose.yaml # self-hosted Community (Docker)
 │   └── cloud/compose.yaml  # Cloud production stack on Ubuntu (§5.5)
-├── docs/                   # SPEC.md, DECISIONS.md, security.md …
+├── docs/                   # SPEC.md, DECISIONS.md, security.md …; site/: the user docs
 ├── .github/workflows/      # CI: lint, test, build, e2e on kind
 ├── CLAUDE.md
 ├── LICENSE                 # AGPL-3.0
 └── README.md
 ```
+
+The marketing site (§9) is not in this repository; it lives in a private one and renders `docs/site/` from here. `pnpm check:private` fails if site code comes back.
 
 The existing v1 repositories (`app_watchlog`, `get_metric`, `watchlog-backend`) are **frozen**: no new features. They stay online for any existing accounts until v2 Cloud launches, then are archived. Code MAY be copied from them only when it fits this spec; never import them as dependencies.
 
@@ -734,7 +735,7 @@ Each phase ends with a demo-able result and explicit acceptance criteria. Durati
 ## Phase 5 — Cloud and launch (≈ 3-4 weeks)
 
 - Multi-tenancy (§5.4), signup / login / GitHub OAuth, orgs, invites, onboarding wizard with live checklist (§10), funnel tracking and admin funnel page, lifecycle emails.
-- `site/` landing, pricing, docs, blog on `watchlog.io`.
+- The marketing site on `watchlog.io` (landing, pricing, docs, blog), in its private repository (§9).
 - Plan limits (Free: 1 cluster, 5 nodes, 3 d). Stripe billing ($1/node, $10 minimum, p95 node count, Customer Portal) in the private Cloud repository.
 - Production deployment on the Ubuntu server with Docker Compose (§5.5), backups, monitoring by WatchLog Community itself.
 

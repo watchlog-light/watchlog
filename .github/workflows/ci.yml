@@ -54,7 +54,7 @@ jobs:
         run: make agent-linux
 
   ts:
-    name: TypeScript (backend, web, site, packages)
+    name: TypeScript (backend, web, packages)
     runs-on: ubuntu-24.04
     services:
       # Backend integration tests run against real PostgreSQL (ADR-031).
@@ -124,8 +124,6 @@ jobs:
       - name: Generated API types are up to date
         run: pnpm api-types:generate && git diff --exit-code packages/api-types
       - run: pnpm build
-      - name: Website nginx config (redirects, pages, headers) against the generated site
-        run: deploy/site/test/nginx-test.sh
       - run: pnpm audit --prod --audit-level high
 
   secrets:

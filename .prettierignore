@@ -1,10 +1,7 @@
 node_modules
 dist
-.nuxt
-.output
 coverage
 pnpm-lock.yaml
 docs/SPEC.md
 agent
 deploy/helm/*/templates
-# Approved design mock-ups are kept exactly as delivered.

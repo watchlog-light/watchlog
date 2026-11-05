@@ -27,5 +27,3 @@ graphify-out/
 deploy/helm/*/charts/
 __pycache__/
 
-# A Nuxt build symlink to an absolute local path; never commit it.
-site/dist

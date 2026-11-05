@@ -54,12 +54,11 @@ The [install guide](docs/site/install.md) covers requirements, PodSecurity, more
 | `agent/`                  | Go agent (node, cluster and Docker modes) and eBPF code |
 | `backend/`                | Node.js 24 + TypeScript + Fastify API and alert worker  |
 | `web/`                    | Vue 3 + Vite dashboard                                  |
-| `site/`                   | Nuxt 4 website, generated to static files               |
 | `packages/design-tokens/` | Colour tokens, Tailwind theme, logo                     |
 | `packages/api-types/`     | API types shared with the dashboard                     |
 | `ee/`                     | Enterprise modules (commercial licence)                 |
 | `deploy/`                 | Docker Compose files, Helm charts and end-to-end tests  |
-| `docs/`                   | Spec, decisions, security, site pages and release notes |
+| `docs/`                   | Spec, decisions, security, user docs and release notes  |
 
 ## Development
 
@@ -74,18 +73,15 @@ make agent            # build the agent into bin/ and print its version
 
 `pnpm dev` applies database migrations first, so run `pnpm infra:up` before it. On a fresh database the backend prints a one-time **setup code** in its log; open http://localhost:4088, enter the code and create the admin account. For headless installs, set `WATCHLOG_ADMIN_EMAIL` and `WATCHLOG_ADMIN_PASSWORD` instead.
 
-| Service                                   | Local address                                           |
-| ----------------------------------------- | ------------------------------------------------------- |
-| Dashboard (Vite)                          | http://localhost:4088 (`WATCHLOG_WEB_PORT`)             |
-| Backend API                               | http://127.0.0.1:4080/api/v1/health                     |
-| Site (`pnpm --filter @watchlog/site dev`) | http://localhost:3100                                   |
-| PostgreSQL                                | `postgres://watchlog:watchlog@127.0.0.1:54320/watchlog` |
-| VictoriaMetrics                           | http://127.0.0.1:8428                                   |
-| Redis                                     | `redis://127.0.0.1:63790`                               |
+| Service          | Local address                                           |
+| ---------------- | ------------------------------------------------------- |
+| Dashboard (Vite) | http://localhost:4088 (`WATCHLOG_WEB_PORT`)             |
+| Backend API      | http://127.0.0.1:4080/api/v1/health                     |
+| PostgreSQL       | `postgres://watchlog:watchlog@127.0.0.1:54320/watchlog` |
+| VictoriaMetrics  | http://127.0.0.1:8428                                   |
+| Redis            | `redis://127.0.0.1:63790`                               |
 
 Infrastructure host ports can be changed with `WATCHLOG_PG_PORT`, `WATCHLOG_VM_PORT` and `WATCHLOG_REDIS_PORT`.
-
-The website builds to plain files with `pnpm --filter @watchlog/site generate` (in `site/.output/public`; the build also checks every page and link). Its settings are in `site/site.config.ts`, and [deploy/site/DEPLOY.md](deploy/site/DEPLOY.md) covers the server.
 
 ### Checks
 

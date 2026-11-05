@@ -1,5 +1,0 @@
-/* SPDX-License-Identifier: AGPL-3.0-only */
-@import 'tailwindcss';
-@import '@watchlog/design-tokens/tokens.css';
-@import '@watchlog/design-tokens/theme.css';
-@import './site.css';
