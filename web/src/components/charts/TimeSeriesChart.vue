@@ -148,7 +148,7 @@ function decorations() {
       name: m.label,
       lineStyle: { color: token(m.colorToken ?? '--text-subtle'), type: 'dashed', width: 1 },
       label: { show: false },
-      emphasis: { label: { show: true, formatter: '{b}', color: muted, fontSize: 11 } },
+      emphasis: { label: { show: true, formatter: '{b}', color: muted, fontSize: 12 } },
     })),
     ...(props.thresholds ?? []).map((t) => ({
       yAxis: t.value,
@@ -159,7 +159,7 @@ function decorations() {
         formatter: '{b}',
         position: 'insideEndTop',
         color: token(t.colorToken),
-        fontSize: 11,
+        fontSize: 12,
       },
     })),
   ];

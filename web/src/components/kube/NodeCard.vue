@@ -119,7 +119,7 @@ const podLink = (p: HeatPod) =>
 
     <div class="grid grid-cols-2 gap-2.5">
       <div v-for="m in mets" :key="m.key" class="met" :data-testid="`met-${m.key}`">
-        <div class="flex justify-between text-11 text-text-muted">
+        <div class="flex justify-between text-12 text-text-muted">
           <span>{{ $t(`kube.nodes.columns.${m.key}`) }}</span>
           <span>{{ $t('kube.nodes.req', { v: pct(m.req) }) }}</span>
         </div>
@@ -147,7 +147,7 @@ const podLink = (p: HeatPod) =>
     </div>
 
     <div v-if="n.heat">
-      <div class="mb-1.5 flex justify-between gap-2 font-mono text-11 text-text-subtle">
+      <div class="mb-1.5 flex justify-between gap-2 font-mono text-12 text-text-subtle">
         <span>{{
           $t(n.kind === 'host' ? 'docker.hosts.containersOf' : 'kube.nodes.podsOf', {
             n: n.pods.count,
@@ -202,7 +202,7 @@ const podLink = (p: HeatPod) =>
   border-radius: 5px;
   background: var(--surface-2);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-12);
 }
 .cond.bad {
   color: var(--critical);

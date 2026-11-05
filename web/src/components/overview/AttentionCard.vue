@@ -50,7 +50,7 @@ defineProps<{ overview: Overview }>();
               ></span
             >
           </span>
-          <span class="font-mono text-11 whitespace-nowrap text-text-subtle">{{
+          <span class="font-mono text-12 whitespace-nowrap text-text-subtle">{{
             p.since ? since(p.since) : ''
           }}</span>
         </RouterLink>
@@ -106,7 +106,7 @@ li:last-child .ai {
   justify-content: center;
   border-radius: 6px;
   margin-top: 1px;
-  font-size: 11px;
+  font-size: var(--text-12);
   font-weight: 700;
 }
 .sv-crit,

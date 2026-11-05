@@ -200,7 +200,7 @@ const podShare = computed(() => pct(c.value.pods.count, c.value.pods.capacity));
   gap: 6px;
   color: var(--text-subtle);
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: var(--text-12);
 }
 .bg-info {
   background: var(--info);

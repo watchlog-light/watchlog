@@ -80,12 +80,12 @@ const podLink = (p: HeatPod & { node?: string | null }) =>
           <RouterLink
             v-if="r.count > r.pods.length && r.name"
             :to="nodeLink(r.name)"
-            class="shrink-0 font-mono text-11 text-text-subtle hover:text-text"
+            class="shrink-0 font-mono text-12 text-text-subtle hover:text-text"
             data-testid="heat-more"
             >+{{ r.count - r.pods.length }}</RouterLink
           >
         </span>
-        <span class="text-right font-mono text-11 text-text-subtle tabular-nums">{{
+        <span class="text-right font-mono text-12 text-text-subtle tabular-nums">{{
           $t(docker ? 'overview.nodes.containers' : 'overview.nodes.pods', { n: r.count }, r.count)
         }}</span>
       </div>

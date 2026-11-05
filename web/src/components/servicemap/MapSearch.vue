@@ -68,7 +68,7 @@ function onKey(e: KeyboardEvent) {
         @mousedown.prevent="pick(r)"
       >
         <span class="min-w-0 truncate">{{ r.node.name }}</span>
-        <span class="shrink-0 font-mono text-11 text-text-subtle">
+        <span class="shrink-0 font-mono text-12 text-text-subtle">
           {{ $t(`serviceMap.search.kind.${r.kind}`)
           }}{{ r.node.namespace ? ` · ${r.node.namespace}` : '' }}
         </span>

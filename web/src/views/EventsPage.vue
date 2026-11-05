@@ -250,7 +250,7 @@ onMounted(page.load);
             >
               {{ $t('kube.events.resetZoom') }}
             </button>
-            <span class="ml-auto flex items-center gap-3 text-11 text-text-subtle">
+            <span class="ml-auto flex items-center gap-3 text-12 text-text-subtle">
               <span class="tabular-nums">{{
                 $t('kube.events.total', { n: summary.total }, summary.total)
               }}</span>

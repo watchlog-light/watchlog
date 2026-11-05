@@ -664,7 +664,7 @@ const nodeAria = (n: DrawNode) => `${n.title}, ${t(`serviceMap.health.${n.health
   stroke-dasharray: 4 5;
 }
 .group-label {
-  font-size: 11px;
+  font-size: var(--text-11);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   fill: var(--text-subtle);

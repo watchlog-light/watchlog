@@ -631,6 +631,7 @@ The whole product (site + app) is **dark only** in v2.0. Light theme MAY be adde
 - UI: **Inter** (variable), 14 px base in the app, 16 px on the site.
 - Code and metric values: **JetBrains Mono**, tabular numbers (`font-variant-numeric: tabular-nums`) everywhere numbers update.
 - Scale: 12 / 13 / 14 / 16 / 20 / 24 / 32 / 48 / 64 px. Headings 600 weight, body 400.
+- 11 px is a step for two uses only: uppercase micro-labels (section labels with letter-spacing, e.g. filter headings) and chart axis labels. Everything else uses 12 px or more (ADR-115).
 
 ## 11.3 Layout and components
 

@@ -1186,3 +1186,18 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - While this repository is private, the site's CI reads it with a read-only deploy key. Remove the key at launch.
   - The site's files keep their `AGPL-3.0-only` headers from when they were here. That is the maintainer's choice to make in the private repository and changes nothing here.
   - ADR-012 (Nuxt 4) still applies to the site, now in its own repository. SPEC §9, §11.4 and §12 are updated.
+
+## ADR-115: An 11 px type step, for uppercase micro-labels and chart axis labels only
+
+- Date: 2026-11-06 · Status: accepted (maintainer, 2026-11-06)
+- Context: SPEC §11.2's scale starts at 12 px, and the Tailwind theme resets the default sizes (`--text-*: initial`). 13 web files still used a `text-11` class, which therefore set no size at all (the text inherited its parent's), and nine scoped style blocks hard-coded `font-size: 11px`. Small text had drifted into secondary values, chips, timestamps and legends.
+- Decision:
+  - **SPEC §11.2 adds 11 px for two uses only:** uppercase micro-labels (letter-spaced section labels such as the service map's filter and panel headings and the events facets) and chart axis labels (ECharts `axisLabel`, the events histogram's ticks). Everything else is 12 px or more.
+  - **`--text-11` is in `packages/design-tokens/theme.css`**, so `text-11` and `var(--text-11)` now work. No raw `11px` is left in `web/src`.
+  - **The audit moved the rest to 12 px:** timestamps, counts, chips, legends, metric captions ("used / requested"), the map footer and search hints, the panel's definition labels, chart marker and threshold labels, and the severity glyph.
+  - **`web/test/design-tokens-guard.test.ts` enforces it:**
+    - `text-11` only on an element that is also `uppercase`;
+    - `var(--text-11)` only in an uppercase rule or the tick labels;
+    - `fontSize: 11` only on axis labels;
+    - no `font-size: 11px`.
+- Consequences: the 11 px labels now really are 11 px, where they inherited 12–14 px before. Some captions grow by 1 px. Charts are unchanged apart from their marker and threshold labels.

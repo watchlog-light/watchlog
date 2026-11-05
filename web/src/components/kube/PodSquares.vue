@@ -34,7 +34,7 @@ const label = computed(() =>
     >
     <span v-if="all.length" class="sq" aria-hidden="true">
       <span v-for="(s, i) in all.slice(0, MAX)" :key="i" :class="`s-${s}`" />
-      <small v-if="all.length > MAX" class="text-11 text-text-subtle"
+      <small v-if="all.length > MAX" class="text-12 text-text-subtle"
         >+{{ all.length - MAX }}</small
       >
     </span>

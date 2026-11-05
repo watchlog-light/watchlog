@@ -83,7 +83,7 @@ const count = (n: number) => new Intl.NumberFormat('en').format(n);
             {{ $t(`overview.events.hints.${e.reason}`) }}
           </span>
         </span>
-        <span class="text-right font-mono text-11 whitespace-nowrap text-text-subtle"
+        <span class="text-right font-mono text-12 whitespace-nowrap text-text-subtle"
           >{{ count(e.count) }}×<br />{{
             $t('overview.events.ago', { t: since(e.lastSeen) })
           }}</span

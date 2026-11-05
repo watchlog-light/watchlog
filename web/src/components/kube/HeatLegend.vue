@@ -5,7 +5,7 @@ defineProps<{ docker?: boolean }>();
 </script>
 
 <template>
-  <ul class="flex flex-wrap gap-x-3 gap-y-1 text-11 text-text-muted" data-testid="heat-legend">
+  <ul class="flex flex-wrap gap-x-3 gap-y-1 text-12 text-text-muted" data-testid="heat-legend">
     <li><i class="h-low" />{{ $t('heat.legend.low') }}</li>
     <li><i class="h-mid" />{{ $t('heat.legend.mid') }}</li>
     <li><i class="h-high" />{{ $t('heat.legend.high') }}</li>

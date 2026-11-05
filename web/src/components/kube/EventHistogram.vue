@@ -179,7 +179,7 @@ const aria = computed(() =>
   overflow: hidden;
   padding-left: 5px;
   color: var(--warning);
-  font-size: 11px;
+  font-size: var(--text-12);
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
@@ -191,7 +191,7 @@ const aria = computed(() =>
   margin-top: 4px;
   color: var(--text-muted);
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: var(--text-11);
   white-space: nowrap;
 }
 @container (max-width: 520px) {

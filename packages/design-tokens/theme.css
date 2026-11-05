@@ -30,8 +30,10 @@
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
 
-  /* Type scale (SPEC §11.2), named by pixel size: text-12 … text-64. */
+  /* Type scale (SPEC §11.2), named by pixel size: text-11 … text-64. text-11 is only for
+     uppercase micro-labels and chart axis labels (ADR-115). */
   --text-*: initial;
+  --text-11: 11px;
   --text-12: 12px;
   --text-13: 13px;
   --text-14: 14px;

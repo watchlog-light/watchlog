@@ -40,7 +40,7 @@ const detail = (details: unknown) => {
         class="tli"
         data-testid="change"
       >
-        <span class="font-mono text-11 text-text-subtle"
+        <span class="font-mono text-12 text-text-subtle"
           >{{ time(m.ts) }}<br v-if="day(m.ts)" />{{ day(m.ts) }}</span
         >
         <span

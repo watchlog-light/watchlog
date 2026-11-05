@@ -131,13 +131,13 @@ const alert = computed(() => series.data.value?.context.alert ?? null);
       </div>
       <dl class="grid grid-cols-2 gap-2">
         <div class="rounded-control bg-surface-2 px-2.5 py-2">
-          <dt class="text-11 text-text-muted">{{ $t('serviceMap.panel.connections') }}</dt>
+          <dt class="text-12 text-text-muted">{{ $t('serviceMap.panel.connections') }}</dt>
           <dd class="font-mono text-16 tabular-nums text-text">
             {{ perSecond(summary.connectionsPerSecond) }}
           </dd>
         </div>
         <div class="rounded-control bg-surface-2 px-2.5 py-2">
-          <dt class="text-11 text-text-muted">{{ $t('serviceMap.panel.failed') }}</dt>
+          <dt class="text-12 text-text-muted">{{ $t('serviceMap.panel.failed') }}</dt>
           <dd
             class="font-mono text-16 tabular-nums"
             :class="(summary.failedRatio ?? 0) >= 0.01 ? 'text-critical' : 'text-text'"
@@ -146,11 +146,11 @@ const alert = computed(() => series.data.value?.context.alert ?? null);
           </dd>
         </div>
         <div class="rounded-control bg-surface-2 px-2.5 py-2">
-          <dt class="text-11 text-text-muted">{{ $t('serviceMap.panel.active') }}</dt>
+          <dt class="text-12 text-text-muted">{{ $t('serviceMap.panel.active') }}</dt>
           <dd class="font-mono text-16 tabular-nums text-text">{{ summary.active }}</dd>
         </div>
         <div class="rounded-control bg-surface-2 px-2.5 py-2">
-          <dt class="text-11 text-text-muted">{{ $t('serviceMap.panel.externals') }}</dt>
+          <dt class="text-12 text-text-muted">{{ $t('serviceMap.panel.externals') }}</dt>
           <dd class="font-mono text-16 tabular-nums text-text">{{ summary.externals }}</dd>
         </div>
       </dl>
@@ -227,11 +227,11 @@ const alert = computed(() => series.data.value?.context.alert ?? null);
       </div>
       <dl class="grid grid-cols-2 gap-2">
         <div class="rounded-control bg-surface-2 px-2.5 py-2">
-          <dt class="text-11 text-text-muted">{{ $t('serviceMap.panel.incoming') }}</dt>
+          <dt class="text-12 text-text-muted">{{ $t('serviceMap.panel.incoming') }}</dt>
           <dd class="font-mono text-16 tabular-nums text-text">{{ perSecond(sum(incoming)) }}</dd>
         </div>
         <div class="rounded-control bg-surface-2 px-2.5 py-2">
-          <dt class="text-11 text-text-muted">{{ $t('serviceMap.panel.outgoing') }}</dt>
+          <dt class="text-12 text-text-muted">{{ $t('serviceMap.panel.outgoing') }}</dt>
           <dd class="font-mono text-16 tabular-nums text-text">{{ perSecond(sum(outgoing)) }}</dd>
         </div>
       </dl>
@@ -334,13 +334,13 @@ const alert = computed(() => series.data.value?.context.alert ?? null);
       </div>
       <dl class="grid grid-cols-2 gap-2">
         <div class="rounded-control bg-surface-2 px-2.5 py-2">
-          <dt class="text-11 text-text-muted">{{ $t('serviceMap.panel.connections') }}</dt>
+          <dt class="text-12 text-text-muted">{{ $t('serviceMap.panel.connections') }}</dt>
           <dd class="font-mono text-16 tabular-nums text-text">
             {{ perSecond(edge.connectionsPerSecond) }}
           </dd>
         </div>
         <div class="rounded-control bg-surface-2 px-2.5 py-2">
-          <dt class="text-11 text-text-muted">{{ $t('serviceMap.panel.failed') }}</dt>
+          <dt class="text-12 text-text-muted">{{ $t('serviceMap.panel.failed') }}</dt>
           <dd
             class="font-mono text-16 tabular-nums"
             :class="(edge.failedRatio ?? 0) >= 0.01 ? 'text-critical' : 'text-text'"
@@ -349,13 +349,13 @@ const alert = computed(() => series.data.value?.context.alert ?? null);
           </dd>
         </div>
         <div class="rounded-control bg-surface-2 px-2.5 py-2">
-          <dt class="text-11 text-text-muted">{{ $t('serviceMap.columns.p95') }}</dt>
+          <dt class="text-12 text-text-muted">{{ $t('serviceMap.columns.p95') }}</dt>
           <dd class="font-mono text-16 tabular-nums text-text">
             {{ latency(edge.latencyP95Seconds) }}
           </dd>
         </div>
         <div class="rounded-control bg-surface-2 px-2.5 py-2">
-          <dt class="text-11 text-text-muted">{{ $t('serviceMap.columns.bytes') }}</dt>
+          <dt class="text-12 text-text-muted">{{ $t('serviceMap.columns.bytes') }}</dt>
           <dd class="font-mono text-16 tabular-nums text-text">
             {{
               edge.bytesSentPerSecond === null

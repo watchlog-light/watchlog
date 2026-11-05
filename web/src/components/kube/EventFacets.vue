@@ -55,7 +55,7 @@ function toggle(f: Facet, value: string) {
         <button
           v-if="selected[f].length"
           type="button"
-          class="text-11 text-primary hover:underline"
+          class="text-12 text-primary hover:underline"
           @click="emit('change', f, [])"
         >
           {{ $t('kube.events.facets.all') }}
@@ -110,7 +110,7 @@ function toggle(f: Facet, value: string) {
 }
 h3 {
   color: var(--text-subtle);
-  font-size: 11px;
+  font-size: var(--text-11);
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;

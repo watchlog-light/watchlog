@@ -263,7 +263,7 @@ const groupMessage = (events: KubeEvent[]) => {
 .c {
   color: var(--text-subtle);
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: var(--text-12);
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;

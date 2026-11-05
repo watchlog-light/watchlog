@@ -285,7 +285,7 @@ const pct = (v: number | null) => (v === null ? '–' : `${Math.round(v * 100)}%
   display: flex;
   justify-content: space-between;
   margin-top: 6px;
-  font-size: 11px;
+  font-size: var(--text-12);
   color: var(--text-subtle);
   font-family: var(--font-mono, ui-monospace, monospace);
 }

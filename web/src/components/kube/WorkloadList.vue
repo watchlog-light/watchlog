@@ -430,7 +430,7 @@ tr.exp td {
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-subtle);
-  font-size: 11px;
+  font-size: var(--text-12);
   font-weight: 400;
 }
 .img {

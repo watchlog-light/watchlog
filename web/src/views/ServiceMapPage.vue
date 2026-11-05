@@ -430,7 +430,7 @@ onBeforeUnmount(() => {
           >
             <template #footer>
               <p
-                class="pointer-events-none absolute bottom-2.5 left-2.5 font-mono text-11 text-text-subtle"
+                class="pointer-events-none absolute bottom-2.5 left-2.5 font-mono text-12 text-text-subtle"
               >
                 {{ $t('serviceMap.footer', { nodes: drawNodes.length, edges: drawEdges.length }) }}
               </p>
