@@ -14,6 +14,8 @@ Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 Before your first pull request is merged, you sign the [CLA](CLA.md) once: the CLA Assistant bot asks in the pull request, and you sign by replying with a comment. You keep the copyright of your contribution. The CLA lets the project offer WatchLog under AGPL-3.0 and, for `ee/`, under a commercial licence ([docs/SPEC.md §3.4](docs/SPEC.md)).
 
+The WatchLog name and logo aren't part of the licence. If you publish a fork, give it its own name and logo; see [TRADEMARKS.md](TRADEMARKS.md).
+
 ## Development setup
 
 Prerequisites: Node.js 24 (`.nvmrc`), corepack (`corepack enable`), Go 1.27, Docker and GNU Make.

@@ -106,3 +106,5 @@ CI keeps Go's default proxy. The eBPF objects are committed; regenerate them wit
 ## License
 
 Everything outside `ee/` is licensed under the [GNU Affero General Public License v3.0 only](LICENSE). The eBPF programs in `agent/internal/ebpf/bpf/` are dual-licensed `GPL-2.0-only OR MIT`, as the kernel requires a GPL-compatible licence. Code in `ee/` is under a separate commercial licence. Contributors sign the [CLA](CLA.md).
+
+The WatchLog name and logo are trademarks and aren't covered by these licences. Forks you distribute need their own name and logo; saying "works with WatchLog" or "based on WatchLog" is fine. See [TRADEMARKS.md](TRADEMARKS.md).
