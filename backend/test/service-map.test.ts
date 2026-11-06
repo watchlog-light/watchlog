@@ -555,6 +555,31 @@ describe('edges', () => {
     ).toBe('ok');
   });
 
+  it('counts failures only while there are some in the last minute (ADR-116)', () => {
+    // A keep-alive client after a startup blip: every new connect in 5 min failed, but
+    // none in the last minute, and bytes flow. Recovered, not red.
+    const blip = {
+      connectionsPerSecond: 0.16,
+      failedRatio: 1,
+      latencyP95Seconds: 0.01,
+      bytesSentPerSecond: 1800,
+    };
+    expect(health({ ...blip, failedLastMinute: 0 })).toBe('ok');
+    expect(health({ ...blip, failedLastMinute: 3 })).toBe('critical');
+    expect(health({ ...blip, failedRatio: 0.02, failedLastMinute: 1 })).toBe('warning');
+    // Slow stays slow, failures or not.
+    expect(
+      health({
+        connectionsPerSecond: 1,
+        failedRatio: 0.5,
+        latencyP95Seconds: 2,
+        failedLastMinute: 0,
+      }),
+    ).toBe('warning');
+    // Without the last-minute series (older callers), the 5-minute share decides, as before.
+    expect(health(blip)).toBe('critical');
+  });
+
   it('turns node ids back into label matchers, IPv6 externals included', () => {
     expect(edgeMatchers('w:shop/Deployment/frontend', 'x:2001:db8:aa::/48:443', 443)).toEqual({
       namespace: 'shop',

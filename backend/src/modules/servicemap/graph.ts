@@ -50,6 +50,11 @@ export interface MapEdge {
   bytesSentPerSecond: number | null;
   bytesReceivedPerSecond: number | null;
   retransmitsPerSecond: number;
+  /**
+   * Failed connects in the last minute. Health counts failures only while there are
+   * recent ones (ADR-116); undefined when not queried.
+   */
+  failedLastMinute?: number;
   health: Health;
 }
 
@@ -146,15 +151,20 @@ const value = (s: QuerySeries | undefined) => {
 
 export function health(
   e: Pick<MapEdge, 'connectionsPerSecond' | 'failedRatio' | 'latencyP95Seconds'> &
-    Partial<Pick<MapEdge, 'bytesSentPerSecond' | 'bytesReceivedPerSecond'>>,
+    Partial<Pick<MapEdge, 'bytesSentPerSecond' | 'bytesReceivedPerSecond' | 'failedLastMinute'>>,
 ): Health {
   // Keep-alive clients (HTTP/1.1 pools, database pools) open no new connections but
   // still move bytes: that edge is in use, not idle (measured on kind with podinfo).
   const bytes = (e.bytesSentPerSecond ?? 0) + (e.bytesReceivedPerSecond ?? 0);
   if (e.connectionsPerSecond === 0 && bytes === 0) return 'idle';
-  if ((e.failedRatio ?? 0) >= FAILED_CRITICAL) return 'critical';
-  if ((e.failedRatio ?? 0) >= FAILED_WARNING || (e.latencyP95Seconds ?? 0) >= P95_WARNING_S)
-    return 'warning';
+  // Failing means failing now (ADR-116): the failed share is over 5 minutes, but an edge
+  // whose last failure is over a minute old has recovered. A keep-alive client opens no
+  // new connections once up, so a startup blip would otherwise read "100 % failed" for
+  // 5 minutes while traffic flows.
+  const failingNow = e.failedLastMinute === undefined || e.failedLastMinute > 0;
+  const ratio = failingNow ? (e.failedRatio ?? 0) : 0;
+  if (ratio >= FAILED_CRITICAL) return 'critical';
+  if (ratio >= FAILED_WARNING || (e.latencyP95Seconds ?? 0) >= P95_WARNING_S) return 'warning';
   return 'ok';
 }
 
@@ -169,6 +179,8 @@ export interface FlowResults {
   /** By `dir` (sent, received); empty when no agent has byte counters. */
   bytes: QuerySeries[];
   retransmits: QuerySeries[];
+  /** Failed connects per edge in the last minute (increase over 1m); see health(). */
+  failedLastMinute?: QuerySeries[];
 }
 
 /** Nodes and edges from the flow queries (rates per second over the last 5 minutes). */
@@ -180,6 +192,7 @@ export function buildGraph(r: FlowResults): { nodes: MapNode[]; edges: MapEdge[]
   const latCount = by(r.latencyCount);
   const p95 = by(r.latencyP95);
   const retrans = by(r.retransmits);
+  const recent = r.failedLastMinute ? by(r.failedLastMinute) : null;
   const sent = by(r.bytes.filter((s) => s.labels.dir === 'sent'));
   const received = by(r.bytes.filter((s) => s.labels.dir === 'received'));
   const nodes = new Map<string, MapNode>();
@@ -212,6 +225,7 @@ export function buildGraph(r: FlowResults): { nodes: MapNode[]; edges: MapEdge[]
       bytesSentPerSecond: value(sent.get(k)),
       bytesReceivedPerSecond: value(received.get(k)),
       retransmitsPerSecond: value(retrans.get(k)) ?? 0,
+      ...(recent ? { failedLastMinute: Math.round(value(recent.get(k)) ?? 0) } : {}),
       health: 'unknown',
     };
     e.health = health(e);

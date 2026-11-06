@@ -8849,6 +8849,9 @@
                           "retransmitsPerSecond": {
                             "type": "number"
                           },
+                          "failedLastMinute": {
+                            "type": "number"
+                          },
                           "health": {
                             "type": "string"
                           }

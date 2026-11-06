@@ -2884,6 +2884,7 @@ export interface paths {
                 bytesSentPerSecond: number | null;
                 bytesReceivedPerSecond: number | null;
                 retransmitsPerSecond: number;
+                failedLastMinute?: number;
                 health: string;
               }[];
               dns: {

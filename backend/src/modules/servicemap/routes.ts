@@ -63,6 +63,8 @@ const EdgeSchema = Type.Object({
   bytesSentPerSecond: N,
   bytesReceivedPerSecond: N,
   retransmitsPerSecond: Type.Number(),
+  /** Failed connects in the last minute: health counts failures only while there are some (ADR-116). */
+  failedLastMinute: Type.Optional(Type.Number()),
   health: Type.String(),
 });
 const ServiceMapSchema = Type.Object({
@@ -418,6 +420,8 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
         `histogram_quantile(0.95, sum by (${by}, le) ${flow('rate', 'watchlog_flow_connect_latency_seconds_bucket', RATE_WINDOW)})`,
         `sum by (${by}, dir) ${flow('rate', 'watchlog_flow_bytes_total', RATE_WINDOW)}`,
         `sum by (${by}) ${flow('rate', 'watchlog_flow_retransmits_total', RATE_WINDOW)}`,
+        // Failures now, for health (ADR-116); the failed share stays over 5 minutes.
+        `sum by (${by}) ${flow('increase', 'watchlog_flow_connect_failed_total', '1m')}`,
         // DNS errors belong to the workload that looked up.
         `sum by (namespace, workload_kind, workload, container, compose_project, compose_service, rcode) (rate(watchlog_dns_requests_total${ns ? `{namespace=~"${ns}"}` : ''}[${RATE_WINDOW}]))`,
       ];
@@ -437,6 +441,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
         latencyP95,
         bytes,
         retransmits,
+        failedLastMinute,
         dns,
       ] = r.map((x) => x ?? []);
       return {
@@ -453,6 +458,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
             latencyP95: latencyP95!,
             bytes: bytes!,
             retransmits: retransmits!,
+            failedLastMinute: failedLastMinute!,
           }),
         )),
         dns: dnsRows(dns!),
