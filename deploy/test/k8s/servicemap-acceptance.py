@@ -96,9 +96,12 @@ def main():
         extra = sorted(k for k in got if k not in EXPECTED and k[0].startswith(f"w:{NS}/"))
         check("no edges the demo app does not make", not extra, str(extra))
         # A fresh edge has one sample of its counters, so no rate yet, and reads "idle"
-        # until the next 15 s drain; give the rates a minute to settle.
+        # until the next 15 s drain. Connections refused while a dependency was still
+        # starting are real and, since ADR-116, on the right edge: they count in the
+        # 5-minute rates, and with keep-alive clients (no new connects once up) the edge
+        # reads failed until they leave the window. So allow the window plus a minute.
         settled = poll(lambda: (lambda now: now if all(now.get(k, {}).get("health") == "ok" for k in EXPECTED)
-                                else None)(edges_now()), 60) or edges_now()
+                                else None)(edges_now()), 360, every=10) or edges_now()
         check("all demo edges are healthy", all(settled.get(k, {}).get("health") == "ok" for k in EXPECTED),
               str({k: settled.get(k, {}).get("health") for k in EXPECTED}))
         via = got[(W("Deployment", "frontend"), W("Deployment", "cart"), 9898)]

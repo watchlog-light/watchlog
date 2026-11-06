@@ -1227,6 +1227,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - A new Service's edges appear correct from their first drain. `deploy/test/k8s/servicemap-latency.py` measures the delay from Service creation to a correct edge.
   - The cluster-agent keeps one encoded map, rebuilt at most once a second during churn. Each node agent holds one idle HTTPS request.
   - A Service with no endpoints and no matching pods or workloads is still drawn as a Service.
+  - Connections refused while a dependency starts used to land on a separate Service or external node. They now count on the right edge. With a keep-alive client, which opens no new connections once it is up, the edge reads failed until they leave the 5-minute window (measured on kind: frontend → cart, 4 s of refusals, "100% failed" for 5 minutes while traffic flowed). The acceptance check waits for the window. Whether health should look at the last minute instead is open.
 
 ## ADR-117: Ingest failures are counted, recorded per cluster, shown and alerted on
 
