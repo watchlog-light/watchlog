@@ -1243,3 +1243,16 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - A backend bug like the namespace marker shows within minutes: a banner, an alert, and a counter per status.
   - Failures the backend never sees (unreachable, a proxy's 502) show only in the agents' counters, and only once their metrics get through. The UI's banner covers what the backend answered.
   - One more table and one conditional update per minute per cluster and endpoint while ingest works.
+
+## ADR-118: Processes wait for PostgreSQL on start instead of exiting
+
+- Date: 2026-11-06 · Status: accepted (maintainer, 2026-11-06)
+- Context: On a fresh install every pod starts at once. The alert-worker queried PostgreSQL before it accepted connections, or before the backend's migrate init container had created the tables, and exited. On kind it restarted 5 times, and the overview's first screen said "watchlog-alert-worker is crash-looping". That is not a first impression we want.
+- Decision:
+  - **Wait, don't exit.** The backend, the alert-worker and `migrate` wait for the database before doing anything else (`waitForDatabase`). They retry with a backoff from 1 s doubling to 10 s, and log "waiting for database" once and then every 30 s. Retries happen while PostgreSQL is not ready yet: refused, not resolvable yet, timed out, starting up (57P03), or its tables are not migrated yet (42P01).
+  - **Misconfiguration fails at once:** a wrong password or a missing database exits as before, with the actionable message. So does still waiting after 5 minutes (`WATCHLOG_DB_WAIT_SECONDS`).
+  - **Helm:** the backend and the alert-worker have a startup probe (6 minutes) that holds their liveness probes off while they wait, so Kubernetes counts no restart.
+  - **Compose:** `migrate` already waited for a healthy PostgreSQL, and the backend and alert-worker for `migrate`. The backend now has a healthcheck, and `web` starts once it is healthy.
+- Consequences:
+  - A fresh install shows no restarts and no crash-looping WatchLog pod.
+  - A database that never comes up is reported after 5 minutes instead of at once, which is still a crash, with the same message.

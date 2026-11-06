@@ -36,6 +36,12 @@ spec:
             - { name: WATCHLOG_WORKER_PORT, value: '4081' }
           ports:
             - { name: health, containerPort: 4081 }
+          # It waits for PostgreSQL and the migrations on a fresh install (ADR-118): the
+          # startup probe holds liveness off for up to 6 minutes, so no restart is counted.
+          startupProbe:
+            httpGet: { path: /livez, port: health }
+            periodSeconds: 5
+            failureThreshold: 72
           readinessProbe:
             httpGet: { path: /readyz, port: health }
             periodSeconds: 10

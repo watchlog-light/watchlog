@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { bootstrapCluster, buildApp } from './app.js';
 import { loadConfig, type Config } from './config.js';
-import { createDb, describeDbError } from './db/index.js';
+import { createDb, describeDbError, waitForDatabase } from './db/index.js';
 import { checkSecretKey } from './lib/secrets.js';
 import { SetupState } from './modules/setup/service.js';
 
@@ -18,6 +18,9 @@ const app = await buildApp(config, { db, setup });
 app.addHook('onClose', () => db.destroy());
 
 try {
+  await waitForDatabase(() => db.selectFrom('users').select('id').limit(1).execute(), {
+    log: (msg) => app.log.info(msg),
+  });
   await setup.initialize(
     db,
     { email: config.adminEmail, password: config.adminPassword },

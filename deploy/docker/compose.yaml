@@ -76,6 +76,16 @@ services:
         condition: service_completed_successfully
       victoriametrics:
         condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4080/api/v1/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
 
   # Evaluates alert rules every 30 s and sends notifications (ADR-073).
@@ -108,8 +118,10 @@ services:
     image: ghcr.io/watchlog-light/web:${WATCHLOG_VERSION:-latest}
     ports:
       - '${WATCHLOG_PORT:-8080}:8080'
+    # Starts once the API answers, so the first page never shows a proxy error.
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8080/api/v1/health']
       interval: 5s

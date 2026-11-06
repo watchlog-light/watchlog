@@ -2,7 +2,7 @@
 // The alert-worker process (SPEC §5.1, ADR-073): `node dist/alert-worker.js`.
 import { pino } from 'pino';
 import { loadConfig, type Config } from './config.js';
-import { createDb, describeDbError } from './db/index.js';
+import { createDb, describeDbError, waitForDatabase } from './db/index.js';
 import { checkSecretKey } from './lib/secrets.js';
 import { VictoriaQueryClient } from './lib/victoria.js';
 import { HttpClient } from './modules/alerts/channels.js';
@@ -27,7 +27,11 @@ const log = pino({
 const db = createDb(config.databaseUrl);
 
 try {
-  await db.selectFrom('alert_worker_heartbeats').select('worker_id').limit(1).execute();
+  // The backend applies the migrations; on a fresh install this may start first.
+  await waitForDatabase(
+    () => db.selectFrom('alert_worker_heartbeats').select('worker_id').limit(1).execute(),
+    { log: (msg) => log.info(msg) },
+  );
 } catch (err) {
   log.error(describeDbError(err, config.databaseUrl));
   process.exit(1);

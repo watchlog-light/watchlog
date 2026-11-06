@@ -48,6 +48,11 @@ spec:
             {{- end }}
           ports:
             - { name: http, containerPort: 4080 }
+          # Waits for PostgreSQL before listening (ADR-118); liveness starts after this.
+          startupProbe:
+            httpGet: { path: /api/v1/health, port: http }
+            periodSeconds: 5
+            failureThreshold: 72
           readinessProbe:
             httpGet: { path: /api/v1/health, port: http }
             periodSeconds: 5
