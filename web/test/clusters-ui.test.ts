@@ -21,6 +21,7 @@ const CLUSTER = {
   firstSeenAt: null,
   lastSeenAt: null,
   createdAt: '2026-10-31T10:00:00.000Z',
+  ingestFailure: null,
 };
 const ISSUED = {
   token: {
@@ -254,5 +255,59 @@ describe('Cluster settings page', () => {
     mockFetch({ [`GET /api/v1/clusters/${CLUSTER_ID}`]: problem(404, 'Cluster not found') });
     const wrapper = await mountAs(ClusterSettingsPage, `/settings/clusters/${CLUSTER_ID}`);
     expect(wrapper.text()).toContain('does not exist');
+  });
+});
+
+describe('Ingest failing (ADR-117)', () => {
+  const FAILING = {
+    ...CLUSTER,
+    status: 'active' as const,
+    ingestFailure: {
+      since: '2026-11-06T09:00:00.000Z',
+      lastErrorAt: '2026-11-06T09:20:00.000Z',
+      endpoints: [
+        { endpoint: 'objects' as const, status: 500, message: 'internal error', failures: 240 },
+      ],
+    },
+  };
+
+  it('says so in the cluster list', async () => {
+    mockFetch({
+      'GET /api/v1/clusters': {
+        status: 200,
+        body: { clusters: [FAILING, { ...CLUSTER, id: 'ok', name: 'staging' }] },
+      },
+    });
+    const wrapper = await mountAs(SettingsPage, '/settings');
+    const marks = wrapper.findAll('[data-testid="cluster-ingest-failing"]');
+    expect(marks).toHaveLength(1);
+    expect(marks[0]!.text()).toMatch(/^Ingest failing since /);
+  });
+
+  it('shows the banner with each failing endpoint on the cluster page', async () => {
+    mockFetch({
+      [`GET /api/v1/clusters/${CLUSTER_ID}`]: {
+        status: 200,
+        body: { cluster: FAILING, tokens: [] },
+      },
+    });
+    const wrapper = await mountAs(ClusterSettingsPage, `/settings/clusters/${CLUSTER_ID}`);
+    const banner = wrapper.get('[data-testid="ingest-failing"]');
+    expect(banner.attributes('role')).toBe('alert');
+    expect(banner.text()).toContain('Data delayed: ingest failing since');
+    expect(wrapper.get('[data-testid="ingest-endpoint"]').text()).toBe(
+      'Kubernetes objects and Docker inventory — HTTP 500: internal error',
+    );
+  });
+
+  it('shows nothing while ingest works', async () => {
+    mockFetch({
+      [`GET /api/v1/clusters/${CLUSTER_ID}`]: {
+        status: 200,
+        body: { cluster: CLUSTER, tokens: [] },
+      },
+    });
+    const wrapper = await mountAs(ClusterSettingsPage, `/settings/clusters/${CLUSTER_ID}`);
+    expect(wrapper.find('[data-testid="ingest-failing"]').exists()).toBe(false);
   });
 });

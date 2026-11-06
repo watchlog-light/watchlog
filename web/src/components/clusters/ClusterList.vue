@@ -203,6 +203,17 @@ onMounted(list.load);
                   : $t('clusters.neverSeen')
               }}
             </p>
+            <p
+              v-if="cluster.ingestFailure"
+              class="text-12 text-critical"
+              data-testid="cluster-ingest-failing"
+            >
+              {{
+                $t('clusters.ingest.short', {
+                  since: formatDateTime(cluster.ingestFailure.since),
+                })
+              }}
+            </p>
           </div>
           <StatusPill :status="cluster.status" />
           <ChevronRight class="size-4 shrink-0 text-text-subtle" aria-hidden="true" />

@@ -5,6 +5,7 @@ import type { Cluster, KubeOverview } from '@watchlog/api-types';
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { api } from '@/api/client';
 import { useClustersStore } from '@/stores/clusters';
+import IngestFailureBanner from '@/components/clusters/IngestFailureBanner.vue';
 import AttentionCard from '@/components/overview/AttentionCard.vue';
 import KpiRow from '@/components/overview/KpiRow.vue';
 import OverviewCard from '@/components/overview/OverviewCard.vue';
@@ -138,6 +139,7 @@ onBeforeUnmount(() => {
     />
 
     <template v-else-if="o && page.data.value">
+      <IngestFailureBanner v-if="o.cluster.ingestFailure" :failure="o.cluster.ingestFailure" />
       <!-- Header: cluster name, facts, live -->
       <div class="flex flex-wrap items-center gap-x-3.5 gap-y-2" data-testid="overview-header">
         <h2 class="text-22 font-semibold text-text">{{ page.data.value.cluster.name }}</h2>

@@ -6,6 +6,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { api, ApiError, hasProblemType, ProblemType } from '@/api/client';
+import IngestFailureBanner from '@/components/clusters/IngestFailureBanner.vue';
 import TokenReveal from '@/components/clusters/TokenReveal.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
@@ -108,6 +109,10 @@ onMounted(page.load);
     </template>
 
     <template v-else-if="detail">
+      <IngestFailureBanner
+        v-if="detail.cluster.ingestFailure"
+        :failure="detail.cluster.ingestFailure"
+      />
       <header class="flex items-center justify-between gap-4">
         <div>
           <h2 class="flex items-center gap-2 text-20 font-semibold text-text">

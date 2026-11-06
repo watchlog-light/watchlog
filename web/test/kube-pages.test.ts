@@ -69,6 +69,35 @@ describe('Cluster overview', () => {
     w.unmount();
   });
 
+  it('says when the data is delayed because ingest is failing (ADR-117)', async () => {
+    const failing = {
+      ...OV,
+      cluster: {
+        ...OV.cluster,
+        ingestFailure: {
+          since: '2026-10-31T11:50:00.000Z',
+          lastErrorAt: '2026-10-31T12:05:00.000Z',
+          endpoints: [
+            { endpoint: 'write', status: 503, message: 'storage unavailable', failures: 9 },
+          ],
+        },
+      },
+    };
+    mockFetch(routes(failing));
+    const { wrapper: w } = await mountPage(OverviewPage, '/');
+    expect(w.get('[data-testid="ingest-failing"]').text()).toContain(
+      'Data delayed: ingest failing since',
+    );
+    expect(w.get('[data-testid="ingest-endpoint"]').text()).toBe(
+      'Metrics — HTTP 503: storage unavailable',
+    );
+    w.unmount();
+    mockFetch(routes(OV));
+    const { wrapper: ok } = await mountPage(OverviewPage, '/');
+    expect(ok.find('[data-testid="ingest-failing"]').exists()).toBe(false);
+    ok.unmount();
+  });
+
   it('shows the facts, KPIs with trends and comparisons, and CPU against requests', async () => {
     mockFetch(routes(OV));
     const { wrapper: w } = await mountPage(OverviewPage, '/');

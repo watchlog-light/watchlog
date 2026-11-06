@@ -180,7 +180,19 @@
       "notFound": "This cluster does not exist or was deleted.",
       "generic": "Something went wrong. Try again."
     },
-    "nodes": "no nodes yet | {n} node | {n} nodes"
+    "nodes": "no nodes yet | {n} node | {n} nodes",
+    "ingest": {
+      "title": "Data delayed: ingest failing since {since}",
+      "description": "WatchLog answers this cluster's agents with errors, so new data is held back or lost until it stops. The agents keep what they can and retry.",
+      "endpoint": "{endpoint} — HTTP {status}",
+      "short": "Ingest failing since {since}",
+      "endpoints": {
+        "write": "Metrics",
+        "heartbeat": "Heartbeats",
+        "objects": "Kubernetes objects and Docker inventory",
+        "events": "Events"
+      }
+    }
   },
   "docker": {
     "hostsTitle": "Hosts",
