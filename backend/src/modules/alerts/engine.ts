@@ -17,6 +17,7 @@ import {
   type Observation,
   type Severity,
 } from './state-machine.js';
+import { INGEST_FAILING_RULE } from './defaults.js';
 
 export type RuleRow = Selectable<AlertRules>;
 export type ClusterKind = 'kubernetes' | 'docker';
@@ -109,7 +110,12 @@ export async function evaluateOrg(
       const reporting = await clusterReporting({ db, cluster, now, memo });
       const hold = holdFor(rule.rule_key, reporting);
       let observations: Observation[] = [];
-      if (!reporting.allSilent || rule.rule_key === 'agent.not_reporting') {
+      // Ingest failing explains silent agents (their heartbeats fail), so it is evaluated too.
+      if (
+        !reporting.allSilent ||
+        rule.rule_key === 'agent.not_reporting' ||
+        rule.rule_key === INGEST_FAILING_RULE
+      ) {
         try {
           observations = await evaluator.evaluate({
             db,

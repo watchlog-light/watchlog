@@ -442,6 +442,26 @@ export const RULE_CHARTS: Record<string, Definition> = {
     };
   },
 
+  // Ingest failing (ADR-117): what the cluster's agents still deliver, per agent.
+  'watchlog.ingest.failing': async (c) => {
+    const step = Math.max(60, c.step);
+    const series = await c.range(
+      `sum by (node, host) (sum_over_time(watchlog_agent_series${selector({})}[${step}s])) / ${step / 60}`,
+      step,
+    );
+    const wide = { ...c, step };
+    return {
+      panels: [
+        linePanel(
+          'samples',
+          'count',
+          lines(wide, series, { name: (s) => s.node || s.host || 'cluster-agent' }),
+        ),
+      ],
+      marks: [],
+    };
+  },
+
   'docker.container.restarts': async (c, t) => {
     const [metric, usage] = await Promise.all([metricPanel(c, t, { step: true }), cpuMemory(c, t)]);
     return { panels: [metric, ...usage], marks: [] };

@@ -59,7 +59,23 @@ const (
 type Stats struct {
 	Requests           sync.Map // Outcome -> *atomic.Int64
 	RejectedByCode     sync.Map // int status -> *atomic.Int64
+	Failed             sync.Map // Failure -> *atomic.Int64, every endpoint
 	LastDurationMicros atomic.Int64
+}
+
+// Failure is a failed ingest request: the endpoint (write, heartbeat, objects, events)
+// and the HTTP status, 0 when the request got no response (network, timeout).
+type Failure struct {
+	Endpoint string
+	Status   int
+}
+
+// Failures returns the failed requests so far by endpoint and status: what the agent
+// saw, including failures the backend never recorded (unreachable, a proxy's 502).
+func (s *Stats) Failures() map[Failure]int64 {
+	out := map[Failure]int64{}
+	s.Failed.Range(func(k, v any) bool { out[k.(Failure)] = v.(*atomic.Int64).Load(); return true })
+	return out
 }
 
 func (s *Stats) inc(m *sync.Map, key any) {
@@ -142,7 +158,7 @@ func (s *Sender) SendOldest(ctx context.Context) (Outcome, time.Duration) {
 	}
 
 	start := time.Now()
-	status, retryAfter, err := s.post(ctx, s.cfg.WriteURL, body, map[string]string{
+	status, retryAfter, err := s.post(ctx, "write", s.cfg.WriteURL, body, map[string]string{
 		"Content-Type":                      remotewrite.ContentType,
 		"Content-Encoding":                  remotewrite.ContentEncoding,
 		"X-Prometheus-Remote-Write-Version": remotewrite.ProtocolVersion,
@@ -249,7 +265,7 @@ type Capabilities struct {
 
 // SendHeartbeat posts one heartbeat and returns its outcome.
 func (s *Sender) SendHeartbeat(ctx context.Context, body []byte) Outcome {
-	status, _, err := s.post(ctx, s.cfg.HeartbeatURL, body, map[string]string{"Content-Type": "application/json"})
+	status, _, err := s.post(ctx, "heartbeat", s.cfg.HeartbeatURL, body, map[string]string{"Content-Type": "application/json"})
 	outcome := Classify(status, err)
 	if outcome != Delivered {
 		s.log.Debug("heartbeat not delivered", "status", status, "err", err)
@@ -260,15 +276,15 @@ func (s *Sender) SendHeartbeat(ctx context.Context, body []byte) Outcome {
 // SendObjects posts an inventory snapshot as gzipped JSON (SPEC §8.2) and
 // returns the outcome and HTTP status (0 on network errors).
 func (s *Sender) SendObjects(ctx context.Context, body []byte) (Outcome, int) {
-	return s.sendJSON(ctx, s.cfg.ObjectsURL, body)
+	return s.sendJSON(ctx, "objects", s.cfg.ObjectsURL, body)
 }
 
 // SendEvents posts a batch of Kubernetes events as gzipped JSON (SPEC §8.2).
 func (s *Sender) SendEvents(ctx context.Context, body []byte) (Outcome, int) {
-	return s.sendJSON(ctx, s.cfg.EventsURL, body)
+	return s.sendJSON(ctx, "events", s.cfg.EventsURL, body)
 }
 
-func (s *Sender) sendJSON(ctx context.Context, url string, body []byte) (Outcome, int) {
+func (s *Sender) sendJSON(ctx context.Context, endpoint, url string, body []byte) (Outcome, int) {
 	var gz bytes.Buffer
 	w := gzip.NewWriter(&gz)
 	if _, err := w.Write(body); err != nil {
@@ -277,12 +293,25 @@ func (s *Sender) sendJSON(ctx context.Context, url string, body []byte) (Outcome
 	if err := w.Close(); err != nil {
 		return Retry, 0
 	}
-	status, _, err := s.post(ctx, url, gz.Bytes(),
+	status, _, err := s.post(ctx, endpoint, url, gz.Bytes(),
 		map[string]string{"Content-Type": "application/json", "Content-Encoding": "gzip"})
 	return Classify(status, err), status
 }
 
-func (s *Sender) post(ctx context.Context, url string, body []byte, headers map[string]string) (int, time.Duration, error) {
+// post sends one request; every response other than 2xx, and every request without a
+// response, counts as a failure of its endpoint (ADR-117).
+func (s *Sender) post(ctx context.Context, endpoint, url string, body []byte, headers map[string]string) (int, time.Duration, error) {
+	status, retryAfter, err := s.do(ctx, url, body, headers)
+	if err != nil || status < 200 || status > 299 {
+		if err != nil {
+			status = 0
+		}
+		s.Stats.inc(&s.Stats.Failed, Failure{Endpoint: endpoint, Status: status})
+	}
+	return status, retryAfter, err
+}
+
+func (s *Sender) do(ctx context.Context, url string, body []byte, headers map[string]string) (int, time.Duration, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))

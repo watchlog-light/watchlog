@@ -593,3 +593,54 @@ describe('the captured kind cluster', () => {
     ]);
   });
 });
+
+describe('watchlog.ingest.failing (ADR-117)', () => {
+  it('fires after 5 min of ingest errors, even while every agent looks silent, and resolves on success', async () => {
+    await setup();
+    const fail = (endpoint: string, sinceMs: number) =>
+      ctx.db
+        .insertInto('ingest_errors')
+        .values({
+          cluster_id: clusterId,
+          endpoint,
+          failing_since: new Date(sinceMs),
+          last_error_at: new Date(clock.now),
+          last_status: 500,
+          last_message: 'internal error',
+          failures: 12,
+        })
+        .onConflict((oc) =>
+          oc
+            .columns(['cluster_id', 'endpoint'])
+            .doUpdateSet({ last_error_at: new Date(clock.now) }),
+        )
+        .execute();
+    // Heartbeats fail too: the cluster looks silent, which holds every other rule.
+    await fail('objects', clock.now);
+    await fail('heartbeat', clock.now);
+    await cycles(1);
+    expect(await states('watchlog.ingest.failing')).toEqual(['pending']);
+    for (let i = 0; i < 10; i++) {
+      await fail('objects', clock.now - 30_000);
+      await cycles(1);
+    }
+    const a = (await alerts('watchlog.ingest.failing'))[0]!;
+    expect([a.fingerprint, a.state, a.severity]).toEqual(['ingest', 'firing', 'critical']);
+    await ctx.db
+      .updateTable('ingest_errors')
+      .set({ failing_since: null })
+      .where('cluster_id', '=', clusterId)
+      .execute();
+    await cycles(2);
+    expect(await states('watchlog.ingest.failing')).toEqual(['resolved']);
+  });
+
+  it('is a default rule: critical, after 5 min', () => {
+    const rule = DEFAULT_RULES.find((r) => r.key === 'watchlog.ingest.failing');
+    expect([rule?.name, rule?.severity, rule?.forSeconds]).toEqual([
+      'WatchLog ingest failing',
+      'critical',
+      300,
+    ]);
+  });
+});

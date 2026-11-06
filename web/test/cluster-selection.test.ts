@@ -25,6 +25,7 @@ const cluster = (id: string, name: string, kind: Cluster['kind']): Cluster => ({
   firstSeenAt: null,
   lastSeenAt: null,
   createdAt: '2026-11-01T00:00:00Z',
+  ingestFailure: null,
 });
 const KIND = cluster('01a191fb-b18c-75a0-be51-47fcaa9eadde', 'kind-demo', 'kubernetes');
 const FLEET = cluster('01a18f2a-22a8-7457-94af-5a66bca41e97', 'my-cluster', 'docker');

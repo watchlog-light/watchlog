@@ -400,6 +400,18 @@ export interface paths {
                 lastSeenAt: string | null;
                 /** Format: date-time */
                 createdAt: string;
+                ingestFailure: {
+                  /** Format: date-time */
+                  since: string;
+                  /** Format: date-time */
+                  lastErrorAt: string;
+                  endpoints: {
+                    endpoint: 'write' | 'heartbeat' | 'objects' | 'events';
+                    status: number;
+                    message: string;
+                    failures: number;
+                  }[];
+                } | null;
               }[];
             };
           };
@@ -458,6 +470,18 @@ export interface paths {
                 lastSeenAt: string | null;
                 /** Format: date-time */
                 createdAt: string;
+                ingestFailure: {
+                  /** Format: date-time */
+                  since: string;
+                  /** Format: date-time */
+                  lastErrorAt: string;
+                  endpoints: {
+                    endpoint: 'write' | 'heartbeat' | 'objects' | 'events';
+                    status: number;
+                    message: string;
+                    failures: number;
+                  }[];
+                } | null;
               };
               token: {
                 /** Format: uuid */
@@ -583,6 +607,18 @@ export interface paths {
                 lastSeenAt: string | null;
                 /** Format: date-time */
                 createdAt: string;
+                ingestFailure: {
+                  /** Format: date-time */
+                  since: string;
+                  /** Format: date-time */
+                  lastErrorAt: string;
+                  endpoints: {
+                    endpoint: 'write' | 'heartbeat' | 'objects' | 'events';
+                    status: number;
+                    message: string;
+                    failures: number;
+                  }[];
+                } | null;
               };
               tokens: {
                 /** Format: uuid */
@@ -734,6 +770,18 @@ export interface paths {
                 lastSeenAt: string | null;
                 /** Format: date-time */
                 createdAt: string;
+                ingestFailure: {
+                  /** Format: date-time */
+                  since: string;
+                  /** Format: date-time */
+                  lastErrorAt: string;
+                  endpoints: {
+                    endpoint: 'write' | 'heartbeat' | 'objects' | 'events';
+                    status: number;
+                    message: string;
+                    failures: number;
+                  }[];
+                } | null;
               };
             };
           };
@@ -2559,6 +2607,18 @@ export interface paths {
               cluster: {
                 id: string;
                 name: string;
+                ingestFailure: {
+                  /** Format: date-time */
+                  since: string;
+                  /** Format: date-time */
+                  lastErrorAt: string;
+                  endpoints: {
+                    endpoint: 'write' | 'heartbeat' | 'objects' | 'events';
+                    status: number;
+                    message: string;
+                    failures: number;
+                  }[];
+                } | null;
               };
               range: number;
               step: number;

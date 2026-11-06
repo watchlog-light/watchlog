@@ -26,6 +26,8 @@ export type CurrentUser = UserEnvelope['user'];
 
 export type ClusterList = JsonBody<Responses<'/api/v1/clusters', 'get'>[200]>;
 export type Cluster = ClusterList['clusters'][number];
+/** Ingest failing now (ADR-117). */
+export type IngestFailure = NonNullable<Cluster['ingestFailure']>;
 export type CreateClusterRequest = RequestBody<'/api/v1/clusters', 'post'>;
 export type CreateClusterResponse = JsonBody<Responses<'/api/v1/clusters', 'post'>[201]>;
 export type ClusterDetail = JsonBody<Responses<'/api/v1/clusters/{id}', 'get'>[200]>;

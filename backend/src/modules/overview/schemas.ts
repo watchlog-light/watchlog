@@ -2,6 +2,7 @@
 // The overview API (ADR-110): everything the page shows in
 // one response.
 import { Type, type TSchema } from 'typebox';
+import { IngestFailureSchema } from '../clusters/schemas.js';
 
 const N = Type.Union([Type.Number(), Type.Null()]);
 const S = Type.Union([Type.String(), Type.Null()]);
@@ -51,7 +52,12 @@ const Top = Type.Object({
 
 export const OverviewSchema = Type.Object({
   kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
-  cluster: Type.Object({ id: Type.String(), name: Type.String() }),
+  cluster: Type.Object({
+    id: Type.String(),
+    name: Type.String(),
+    /** Ingest failing now (ADR-117): the page says its data is delayed. */
+    ingestFailure: Type.Union([IngestFailureSchema, Type.Null()]),
+  }),
   range: Type.Integer(),
   step: Type.Integer(),
   facts: Type.Object({

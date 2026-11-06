@@ -31,6 +31,7 @@ import {
 import { issueClusterToken, type IssuedToken } from './tokens.js';
 import type { SettingsService } from '../settings/service.js';
 import type { TokenCache } from '../ingest/token-cache.js';
+import { ingestFailures } from '../ingest/errors.js';
 
 const NOT_FOUND = 'Cluster not found';
 
@@ -67,7 +68,11 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
     },
     async (request) => {
       const rows = await listClusters(db, request.user!.org.id);
-      return { clusters: rows.map(toClusterView) };
+      const failing = await ingestFailures(
+        db,
+        rows.map((r) => r.id),
+      );
+      return { clusters: rows.map((r) => toClusterView(r, failing.get(r.id) ?? null)) };
     },
   );
 
@@ -141,7 +146,11 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
       const cluster = await findCluster(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, NOT_FOUND);
       const tokens = await listTokens(db, cluster.id);
-      return { cluster: toClusterView(cluster), tokens: tokens.map(toTokenView) };
+      const failing = await ingestFailures(db, [cluster.id]);
+      return {
+        cluster: toClusterView(cluster, failing.get(cluster.id) ?? null),
+        tokens: tokens.map(toTokenView),
+      };
     },
   );
 

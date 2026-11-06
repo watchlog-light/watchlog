@@ -276,6 +276,15 @@ func (r *Runner) selfMetrics() []metrics.Sample {
 	for code, n := range byCode {
 		out = append(out, metrics.New("watchlog_agent_batches_dropped_total", float64(n), "reason", "rejected", "code", strconv.Itoa(code)))
 	}
+	// Failed ingest requests, every endpoint (ADR-117): a backend answering 500 to one
+	// kind of request is visible here, not only in the agent's log.
+	for f, n := range r.Sender.Stats.Failures() {
+		status := strconv.Itoa(f.Status)
+		if f.Status == 0 {
+			status = "network"
+		}
+		out = append(out, metrics.New("watchlog_agent_ingest_failures_total", float64(n), "endpoint", f.Endpoint, "status", status))
+	}
 	if files, bytes, err := r.Buffer.Stats(); err == nil {
 		out = append(out,
 			metrics.New("watchlog_agent_buffer_files", float64(files)),

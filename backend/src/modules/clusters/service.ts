@@ -5,6 +5,7 @@ import type { Database } from '../../db/index.js';
 import type { Clusters, ClusterTokens } from '../../db/types.js';
 import { newId } from '../../lib/ids.js';
 import type { Plan } from '../auth/sessions.js';
+import type { IngestFailure } from '../ingest/errors.js';
 
 /** A cluster is "active" while an agent reported within this window (SPEC §4.7). */
 export const CLUSTER_STALE_MS = 3 * 60 * 1000;
@@ -27,6 +28,7 @@ export interface ClusterView {
   firstSeenAt: string | null;
   lastSeenAt: string | null;
   createdAt: string;
+  ingestFailure: IngestFailure | null;
 }
 
 export interface TokenView {
@@ -44,7 +46,10 @@ export function clusterStatus(lastSeenAt: Date | null, now = Date.now()): Cluste
   return now - lastSeenAt.getTime() > CLUSTER_STALE_MS ? 'inactive' : 'active';
 }
 
-export function toClusterView(row: Selectable<Clusters>): ClusterView {
+export function toClusterView(
+  row: Selectable<Clusters>,
+  ingestFailure: IngestFailure | null = null,
+): ClusterView {
   return {
     id: row.id,
     name: row.name,
@@ -55,6 +60,7 @@ export function toClusterView(row: Selectable<Clusters>): ClusterView {
     firstSeenAt: iso(row.first_seen_at),
     lastSeenAt: iso(row.last_seen_at),
     createdAt: row.created_at.toISOString(),
+    ingestFailure,
   };
 }
 

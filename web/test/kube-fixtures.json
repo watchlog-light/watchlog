@@ -8,13 +8,15 @@
     "agentVersion": "dev",
     "firstSeenAt": "2026-10-31T11:29:29.405Z",
     "lastSeenAt": "2026-10-31T12:05:44.434Z",
-    "createdAt": "2026-10-31T11:29:22.076Z"
+    "createdAt": "2026-10-31T11:29:22.076Z",
+    "ingestFailure": null
   },
   "overview": {
     "kind": "kubernetes",
     "cluster": {
       "id": "01a191b8-ae9d-7373-a09d-8df29bc1a803",
-      "name": "kubernetes"
+      "name": "kubernetes",
+      "ingestFailure": null
     },
     "range": 3600,
     "step": 60,

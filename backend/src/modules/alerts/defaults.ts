@@ -13,6 +13,7 @@ import {
 import type { EvalContext, RuleEvaluator } from './engine.js';
 import { AGENT_SILENT_MS, CLUSTER_FINGERPRINT, clusterReporting } from './holding.js';
 import type { Observation, Severity } from './state-machine.js';
+import { ingestFailures } from '../ingest/errors.js';
 
 export interface Condition {
   op: '>' | '<';
@@ -324,6 +325,28 @@ const agentNotReporting: RuleEvaluator = {
   },
 };
 
+/** The rule key of "WatchLog ingest failing" (ADR-117). */
+export const INGEST_FAILING_RULE = 'watchlog.ingest.failing';
+
+// Ingest failing (ADR-117): the backend answered this cluster's agents with errors since
+// `since`, so its data is delayed or lost. One alert per cluster, firing after 5 min.
+const ingestFailing: RuleEvaluator = {
+  kinds: ['kubernetes', 'docker'],
+  async evaluate(ctx) {
+    const f = (await ingestFailures(ctx.db, [ctx.cluster.id], ctx.now)).get(ctx.cluster.id);
+    if (!f) return [];
+    return [
+      {
+        fingerprint: 'ingest',
+        severity: ctx.rule.severity as Severity,
+        labels: {},
+        details: { since: f.since, lastErrorAt: f.lastErrorAt, endpoints: f.endpoints },
+        since: Date.parse(f.since),
+      },
+    ];
+  },
+};
+
 /** The state rules; metric rules are added by metric-rules.ts. */
 export const STATE_RULES: DefaultRule[] = [
   {
@@ -388,5 +411,12 @@ export const STATE_RULES: DefaultRule[] = [
     severity: 'critical',
     forSeconds: 0,
     evaluator: agentNotReporting,
+  },
+  {
+    key: INGEST_FAILING_RULE,
+    name: 'WatchLog ingest failing',
+    severity: 'critical',
+    forSeconds: 300,
+    evaluator: ingestFailing,
   },
 ];

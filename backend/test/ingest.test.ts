@@ -298,6 +298,64 @@ describe('ingest API', () => {
     expect(await cache.verify(token)).toBeNull();
   });
 
+  it('records ingest errors per cluster and clears them on the next success (ADR-117)', async () => {
+    await closeTestContext(ctx);
+    await start({ victoriaMetricsUrl: 'http://127.0.0.1:1' });
+    const failure = async () =>
+      (
+        await ctx.app.inject({
+          method: 'GET',
+          url: '/api/v1/clusters',
+          cookies: { wl_session: cookie },
+        })
+      ).json().clusters[0].ingestFailure;
+    expect(await failure()).toBeNull();
+
+    // VictoriaMetrics is down: every write is answered 503 and loses nothing yet, but
+    // the data is delayed, and the cluster says so.
+    expect((await write(sample('h'))).statusCode).toBe(503);
+    expect((await write(sample('h'))).statusCode).toBe(503);
+    // A heartbeat the backend refuses (400) is a second failing endpoint.
+    expect((await heartbeat({ node: 'x' })).statusCode).toBe(400);
+    let f = await failure();
+    expect(
+      f.endpoints.map((e: { endpoint: string; status: number; failures: number }) => [
+        e.endpoint,
+        e.status,
+        e.failures,
+      ]),
+    ).toEqual([
+      ['heartbeat', 400, 1],
+      ['write', 503, 2],
+    ]);
+    expect(Date.parse(f.since)).toBeGreaterThan(Date.now() - 60_000);
+    expect(f.endpoints[1].message).toMatch(/VictoriaMetrics|unavailable|storage/i);
+
+    // A good heartbeat ends that endpoint's failure; writes still fail.
+    const ok = {
+      agent_version: '1.2.3',
+      mode: 'docker',
+      node: 'web-01',
+      capabilities: { ebpf: 'disabled', cgroup: 'v2' },
+      series: 1,
+    };
+    expect((await heartbeat(ok)).statusCode).toBe(204);
+    f = await failure();
+    expect(f.endpoints.map((e: { endpoint: string }) => e.endpoint)).toEqual(['write']);
+
+    // An error older than 10 minutes is not "failing now".
+    await ctx.db
+      .updateTable('ingest_errors')
+      .set({ last_error_at: new Date(Date.now() - 11 * 60_000) })
+      .where('cluster_id', '=', clusterId)
+      .execute();
+    expect(await failure()).toBeNull();
+
+    // Rate limiting (429) is backpressure, not an error.
+    const rows = await ctx.db.selectFrom('ingest_errors').select('last_status').execute();
+    expect(rows.map((r) => r.last_status).sort()).toEqual([400, 503]);
+  });
+
   it('validates heartbeat bodies', async () => {
     expect((await heartbeat({ node: 'x' })).statusCode).toBe(400);
     expect(

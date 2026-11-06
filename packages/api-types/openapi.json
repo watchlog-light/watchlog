@@ -595,7 +595,8 @@
                           "agentVersion",
                           "firstSeenAt",
                           "lastSeenAt",
-                          "createdAt"
+                          "createdAt",
+                          "ingestFailure"
                         ],
                         "properties": {
                           "id": {
@@ -672,6 +673,66 @@
                           "createdAt": {
                             "type": "string",
                             "format": "date-time"
+                          },
+                          "ingestFailure": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["since", "lastErrorAt", "endpoints"],
+                                "properties": {
+                                  "since": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "lastErrorAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "endpoints": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "required": ["endpoint", "status", "message", "failures"],
+                                      "properties": {
+                                        "endpoint": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "enum": ["write"]
+                                            },
+                                            {
+                                              "type": "string",
+                                              "enum": ["heartbeat"]
+                                            },
+                                            {
+                                              "type": "string",
+                                              "enum": ["objects"]
+                                            },
+                                            {
+                                              "type": "string",
+                                              "enum": ["events"]
+                                            }
+                                          ]
+                                        },
+                                        "status": {
+                                          "type": "integer"
+                                        },
+                                        "message": {
+                                          "type": "string"
+                                        },
+                                        "failures": {
+                                          "type": "integer",
+                                          "minimum": 0
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         }
                       }
@@ -765,7 +826,8 @@
                         "agentVersion",
                         "firstSeenAt",
                         "lastSeenAt",
-                        "createdAt"
+                        "createdAt",
+                        "ingestFailure"
                       ],
                       "properties": {
                         "id": {
@@ -842,6 +904,66 @@
                         "createdAt": {
                           "type": "string",
                           "format": "date-time"
+                        },
+                        "ingestFailure": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["since", "lastErrorAt", "endpoints"],
+                              "properties": {
+                                "since": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "lastErrorAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "endpoints": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "required": ["endpoint", "status", "message", "failures"],
+                                    "properties": {
+                                      "endpoint": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "enum": ["write"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["heartbeat"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["objects"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["events"]
+                                          }
+                                        ]
+                                      },
+                                      "status": {
+                                        "type": "integer"
+                                      },
+                                      "message": {
+                                        "type": "string"
+                                      },
+                                      "failures": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       }
                     },
@@ -1034,7 +1156,8 @@
                         "agentVersion",
                         "firstSeenAt",
                         "lastSeenAt",
-                        "createdAt"
+                        "createdAt",
+                        "ingestFailure"
                       ],
                       "properties": {
                         "id": {
@@ -1111,6 +1234,66 @@
                         "createdAt": {
                           "type": "string",
                           "format": "date-time"
+                        },
+                        "ingestFailure": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["since", "lastErrorAt", "endpoints"],
+                              "properties": {
+                                "since": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "lastErrorAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "endpoints": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "required": ["endpoint", "status", "message", "failures"],
+                                    "properties": {
+                                      "endpoint": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "enum": ["write"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["heartbeat"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["objects"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["events"]
+                                          }
+                                        ]
+                                      },
+                                      "status": {
+                                        "type": "integer"
+                                      },
+                                      "message": {
+                                        "type": "string"
+                                      },
+                                      "failures": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       }
                     },
@@ -1261,7 +1444,8 @@
                         "agentVersion",
                         "firstSeenAt",
                         "lastSeenAt",
-                        "createdAt"
+                        "createdAt",
+                        "ingestFailure"
                       ],
                       "properties": {
                         "id": {
@@ -1338,6 +1522,66 @@
                         "createdAt": {
                           "type": "string",
                           "format": "date-time"
+                        },
+                        "ingestFailure": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["since", "lastErrorAt", "endpoints"],
+                              "properties": {
+                                "since": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "lastErrorAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "endpoints": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "required": ["endpoint", "status", "message", "failures"],
+                                    "properties": {
+                                      "endpoint": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "enum": ["write"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["heartbeat"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["objects"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["events"]
+                                          }
+                                        ]
+                                      },
+                                      "status": {
+                                        "type": "integer"
+                                      },
+                                      "message": {
+                                        "type": "string"
+                                      },
+                                      "failures": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       }
                     }
@@ -7134,13 +7378,73 @@
                     },
                     "cluster": {
                       "type": "object",
-                      "required": ["id", "name"],
+                      "required": ["id", "name", "ingestFailure"],
                       "properties": {
                         "id": {
                           "type": "string"
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "ingestFailure": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["since", "lastErrorAt", "endpoints"],
+                              "properties": {
+                                "since": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "lastErrorAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "endpoints": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "required": ["endpoint", "status", "message", "failures"],
+                                    "properties": {
+                                      "endpoint": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "enum": ["write"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["heartbeat"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["objects"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["events"]
+                                          }
+                                        ]
+                                      },
+                                      "status": {
+                                        "type": "integer"
+                                      },
+                                      "message": {
+                                        "type": "string"
+                                      },
+                                      "failures": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       }
                     },

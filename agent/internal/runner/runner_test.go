@@ -184,3 +184,23 @@ func TestLargeScrapesAreSplitIntoBatches(t *testing.T) {
 		t.Errorf("buffered batches = %d, want 3", files)
 	}
 }
+
+// Failed ingest requests are self-metrics by endpoint and status (ADR-117).
+func TestSelfMetricsReportIngestFailures(t *testing.T) {
+	r := newRunner(t, "http://127.0.0.1:1") // nothing listens: every request fails
+	r.Sender.SendHeartbeat(context.Background(), []byte(`{}`))
+	found := false
+	for _, s := range r.selfMetrics() {
+		if s.Name != "watchlog_agent_ingest_failures_total" {
+			continue
+		}
+		l := map[string]string{}
+		for _, x := range s.Labels {
+			l[x.Name] = x.Value
+		}
+		found = l["endpoint"] == "heartbeat" && l["status"] == "network" && s.Value == 1
+	}
+	if !found {
+		t.Error("no watchlog_agent_ingest_failures_total{endpoint=heartbeat,status=network} 1")
+	}
+}

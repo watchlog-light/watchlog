@@ -18,6 +18,25 @@ export const TokenParams = Type.Object({
   tokenId: Type.String({ format: 'uuid' }),
 });
 
+/** Ingest failing now (ADR-117): data from this cluster is delayed or lost. */
+export const IngestFailureSchema = Type.Object({
+  since: DateTime,
+  lastErrorAt: DateTime,
+  endpoints: Type.Array(
+    Type.Object({
+      endpoint: Type.Union([
+        Type.Literal('write'),
+        Type.Literal('heartbeat'),
+        Type.Literal('objects'),
+        Type.Literal('events'),
+      ]),
+      status: Type.Integer(),
+      message: Type.String(),
+      failures: Type.Integer({ minimum: 0 }),
+    }),
+  ),
+});
+
 export const ClusterSchema = Type.Object({
   id: Type.String({ format: 'uuid' }),
   name: Type.String(),
@@ -28,6 +47,7 @@ export const ClusterSchema = Type.Object({
   firstSeenAt: Nullable(DateTime),
   lastSeenAt: Nullable(DateTime),
   createdAt: DateTime,
+  ingestFailure: Type.Union([IngestFailureSchema, Type.Null()]),
 });
 
 export const TokenSchema = Type.Object({

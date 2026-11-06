@@ -160,6 +160,20 @@ export function alertText(a: AlertTextInput): AlertText {
             : `The agent on ${l.agent === 'docker' ? 'host' : 'node'} ${l.node} stopped reporting`,
         why: lastSeen ? `last heartbeat ${ago(lastSeen, a.now)}` : null,
       };
+    case 'watchlog.ingest.failing': {
+      const eps = Array.isArray(d.endpoints)
+        ? (d.endpoints as { endpoint?: string; status?: number }[])
+        : [];
+      return {
+        title: `WatchLog cannot store data from ${a.cluster.name}`,
+        why: join(
+          eps.map((e) => `${e.endpoint ?? '?'} answered ${e.status ?? '?'}`).join(', ') || null,
+          str(d.since) && !Number.isNaN(Date.parse(str(d.since)!))
+            ? `failing for ${humanDuration(Math.max(0, (a.now - Date.parse(str(d.since)!)) / 1000))}`
+            : null,
+        ),
+      };
+    }
     case 'node.cpu.high':
       return {
         title: `CPU on ${l.node} is at ${pct(d.value)}`,

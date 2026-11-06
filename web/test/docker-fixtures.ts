@@ -10,6 +10,7 @@ export const FLEET = {
   firstSeenAt: null,
   lastSeenAt: null,
   createdAt: '2026-10-31T00:00:00Z',
+  ingestFailure: null,
 };
 export const HOST = {
   name: 'lima-watchlog-test',

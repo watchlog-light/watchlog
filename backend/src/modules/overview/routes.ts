@@ -11,6 +11,7 @@ import { requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { alertingStatus } from '../alerts/status.js';
 import { CLUSTER_STALE_MS, findCluster } from '../clusters/service.js';
+import { ingestFailures } from '../ingest/errors.js';
 import {
   containerResources,
   needsAttention,
@@ -193,7 +194,12 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
       const end = Math.floor(nowMs / 1000 / step) * step;
       const start = end - range;
       const namespaces = request.query.namespaces?.split(',').filter(Boolean).slice(0, 50);
-      const base = { cluster: { id: cluster.id, name: cluster.name }, range, step };
+      const failing = (await ingestFailures(db, [cluster.id], nowMs)).get(cluster.id) ?? null;
+      const base = {
+        cluster: { id: cluster.id, name: cluster.name, ingestFailure: failing },
+        range,
+        step,
+      };
       if (cluster.kind === 'docker')
         return {
           ...base,

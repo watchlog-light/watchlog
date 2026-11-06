@@ -12,6 +12,12 @@ import { VictoriaError, type VictoriaClient } from '../../lib/victoria.js';
 import type { TokenOwner } from '../clusters/tokens.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { healthSince } from './health.js';
+import {
+  INGEST_ENDPOINTS,
+  IngestErrorRecorder,
+  isIngestError,
+  type IngestEndpoint,
+} from './errors.js';
 import { dockerMarkers } from './docker-markers.js';
 import { EventsBody, storeKubernetesEvents } from './kubernetes-events.js';
 import { KubernetesObjectsBody, storeKubernetesObjects } from './kubernetes-objects.js';
@@ -168,6 +174,17 @@ const HeartbeatBody = Type.Object({
   series: Type.Integer({ minimum: 0, maximum: 1_000_000 }),
 });
 
+/** The detail of a problem+json answer, for the error's message. */
+function problemDetail(payload: unknown): string {
+  if (typeof payload !== 'string') return '';
+  try {
+    const p = JSON.parse(payload) as { detail?: unknown; title?: unknown };
+    return String(p.detail ?? p.title ?? '');
+  } catch {
+    return payload.slice(0, 200);
+  }
+}
+
 export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app, opts) => {
   const { db, tokens, victoria } = opts;
   const agentBuckets = new TokenBuckets(opts.agentBucket ?? AGENT_BUCKET);
@@ -182,6 +199,27 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
   app.addHook('onClose', async () => clearInterval(pruner));
 
   app.decorateRequest('ingestOwner', null);
+
+  // Every answer to an authenticated agent: errors are recorded per cluster and
+  // endpoint, a success ends the failure (ADR-117). Recording never fails the request.
+  const errors = new IngestErrorRecorder(db);
+  app.addHook('onSend', async (request: FastifyRequest, reply: FastifyReply, payload) => {
+    const owner = request.ingestOwner;
+    // The route's own path, without the plugin's prefix: /ingest/v1/write → write.
+    const endpoint = (request.routeOptions.url ?? '').split('/').pop() as IngestEndpoint;
+    if (!owner || !INGEST_ENDPOINTS.includes(endpoint)) return payload;
+    const status = reply.statusCode;
+    try {
+      if (isIngestError(status)) {
+        await errors.failure(owner.clusterId, endpoint, status, problemDetail(payload));
+      } else if (status >= 200 && status < 300) {
+        await errors.success(owner.clusterId, endpoint);
+      }
+    } catch (err) {
+      request.log.warn({ err }, 'recording an ingest error failed');
+    }
+    return payload;
+  });
   // Raw protobuf bodies only on the ingest routes (encapsulated to this plugin).
   app.addContentTypeParser(
     'application/x-protobuf',

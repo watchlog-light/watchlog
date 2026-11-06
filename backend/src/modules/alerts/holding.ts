@@ -84,6 +84,8 @@ export function holdFor(
   if (ruleKey === 'agent.not_reporting') {
     return r.allSilent ? (fp) => fp !== CLUSTER_FINGERPRINT : null;
   }
+  // Failing ingest is why a cluster may look silent: never held (ADR-117).
+  if (ruleKey === 'watchlog.ingest.failing') return null;
   if (r.allSilent) return () => true;
   if (r.notReadyNodes.size === 0) return null;
   return (_fp, labels) => !!labels.pod && !!labels.node && r.notReadyNodes.has(labels.node);

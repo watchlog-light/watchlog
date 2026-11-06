@@ -9,8 +9,10 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -241,5 +243,34 @@ func TestClassifyAndRetryAfterParsing(t *testing.T) {
 	}
 	if parseRetryAfter("soon", now) != 0 || parseRetryAfter("-5", now) != 0 {
 		t.Error("invalid Retry-After should be ignored")
+	}
+}
+
+// Every failed request counts by endpoint and status (ADR-117): a backend that answers
+// 500 to objects only, or is unreachable, shows in the agent's own metrics.
+func TestFailedRequestsAreCountedByEndpointAndStatus(t *testing.T) {
+	var code atomic.Int32
+	code.Store(500)
+	s, buf, _ := setup(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(int(code.Load())) })
+	s.cfg.ObjectsURL = strings.Replace(s.cfg.WriteURL, "/write", "/objects", 1)
+	ctx := context.Background()
+	put(t, buf, "batch")
+	s.SendOldest(ctx)
+	s.SendObjects(ctx, []byte(`{}`))
+	s.SendObjects(ctx, []byte(`{}`))
+	code.Store(204)
+	s.SendHeartbeat(ctx, []byte(`{}`))
+	s.SendObjects(ctx, []byte(`{}`))
+	// No response at all.
+	s.cfg.EventsURL = "http://127.0.0.1:1/ingest/v1/events"
+	s.SendEvents(ctx, []byte(`{}`))
+
+	want := map[Failure]int64{
+		{Endpoint: "write", Status: 500}:   1,
+		{Endpoint: "objects", Status: 500}: 2,
+		{Endpoint: "events", Status: 0}:    1,
+	}
+	if got := s.Stats.Failures(); !reflect.DeepEqual(got, want) {
+		t.Errorf("failures = %v, want %v", got, want)
 	}
 }

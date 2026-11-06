@@ -137,6 +137,19 @@ describe('alert titles and "why" lines', () => {
         'last heartbeat 4 min ago',
       ],
       [
+        'watchlog.ingest.failing',
+        {},
+        {
+          since: min(7),
+          endpoints: [
+            { endpoint: 'objects', status: 500 },
+            { endpoint: 'events', status: 413 },
+          ],
+        },
+        'WatchLog cannot store data from prod-eu',
+        'objects answered 500, events answered 413 · failing for 7 min',
+      ],
+      [
         'node.cpu.high',
         { node: 'worker-07' },
         { value: 0.94, threshold: 0.9, forSeconds: 600 },

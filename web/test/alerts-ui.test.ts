@@ -137,6 +137,7 @@ describe('Alerts page', () => {
     firstSeenAt: null,
     lastSeenAt: null,
     createdAt: '2026-11-01T12:00:00.000Z',
+    ingestFailure: null,
   };
   const page = (alerts: Alert[], counts: object, extra: Routes = {}) => ({
     'GET /api/v1/alerts': {
@@ -439,6 +440,7 @@ describe('rule editor drawer (alerts redesign item 9)', () => {
     firstSeenAt: null,
     lastSeenAt: null,
     createdAt: '2026-11-01T12:00:00.000Z',
+    ingestFailure: null,
   };
   const STATE_RULE: AlertRule = {
     ...RULE,

@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"log/slog"
@@ -25,7 +26,15 @@ const (
 	SnapshotInterval = 10 * time.Minute
 	SnapshotRetry    = 30 * time.Second
 	ChunkSize        = 2000
+	// DeltaFailuresBeforeSnapshot: after this many failed deltas in a row (30 s) the
+	// cluster-agent sends a fresh snapshot instead of retrying the same delta until the
+	// next one (ADR-117). If the snapshot fails too, the count doubles, up to
+	// SnapshotInterval.
+	DeltaFailuresBeforeSnapshot = 6
 )
+
+// errDeltaRejected: the backend refused a delta chunk (4xx); it is not retried.
+var errDeltaRejected = errors.New("objects delta rejected")
 
 // PostFunc sends one gzipped JSON body to /ingest/v1/objects.
 type PostFunc func(ctx context.Context, body []byte) (sender.Outcome, int)
@@ -136,8 +145,11 @@ func (s *Shipper) send(ctx context.Context, body objectsBody) error {
 	case sender.Delivered:
 		return nil
 	case sender.Rejected:
-		// A poison body is not retried; the next snapshot replaces it.
+		// A poison body is not retried; a snapshot replaces it (ADR-117).
 		s.log.Warn("objects rejected by the backend", "kind", body.Kind, "status", status, "objects", len(body.Objects))
+		if body.Kind == "delta" {
+			return errDeltaRejected
+		}
 		return nil
 	default:
 		return fmt.Errorf("objects not delivered: %s (status %d)", outcome, status)
@@ -209,9 +221,14 @@ func (s *Shipper) Flush(ctx context.Context) error {
 	for _, r := range deleted {
 		out = append(out, r)
 	}
+	var rejected error
 	for start := 0; start < len(out); start += s.ChunkSize {
 		chunk := out[start:min(start+s.ChunkSize, len(out))]
 		if err := s.send(ctx, objectsBody{Source: "kubernetes", Kind: "delta", SnapshotID: id, Objects: chunk}); err != nil {
+			if errors.Is(err, errDeltaRejected) {
+				rejected = err // dropped; the rest still goes, the snapshot fixes this chunk
+				continue
+			}
 			s.requeue(chunk)
 			s.requeue(out[min(start+s.ChunkSize, len(out)):])
 			return err
@@ -226,7 +243,7 @@ func (s *Shipper) Flush(ctx context.Context) error {
 		}
 		s.mu.Unlock()
 	}
-	return nil
+	return rejected
 }
 
 func (s *Shipper) requeue(records []Record) {
@@ -264,20 +281,55 @@ func (s *Shipper) Run(ctx context.Context) {
 	defer deltas.Stop()
 	snapshots := time.NewTicker(SnapshotInterval)
 	defer snapshots.Stop()
+	var f deltaFailures
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-deltas.C:
-			if err := s.Flush(ctx); err != nil {
-				s.log.Debug("objects delta not delivered; kept for the next flush", "err", err)
-			}
+			s.flushOrSnapshot(ctx, &f)
 		case <-snapshots.C:
 			if err := s.Snapshot(ctx); err != nil {
 				s.log.Warn("objects snapshot not delivered; the next one follows in 10 minutes", "err", err)
 			}
 		}
 	}
+}
+
+// deltaFailures counts failed deltas in a row and how many trigger a fresh snapshot.
+type deltaFailures struct {
+	n, limit int
+}
+
+// flushOrSnapshot sends a delta. After DeltaFailuresBeforeSnapshot failures in a row
+// (rejected, or not delivered) it sends a fresh snapshot instead (ADR-117): the backend
+// may refuse one object kind or one body forever (a 500 for a new namespace marker
+// once), and retrying the same delta would hold every later change until the next
+// 10-minute snapshot. It returns whether a snapshot was sent and delivered.
+func (s *Shipper) flushOrSnapshot(ctx context.Context, f *deltaFailures) bool {
+	if f.limit == 0 {
+		f.limit = DeltaFailuresBeforeSnapshot
+	}
+	err := s.Flush(ctx)
+	if err == nil {
+		f.n, f.limit = 0, DeltaFailuresBeforeSnapshot
+		return false
+	}
+	f.n++
+	if f.n < f.limit {
+		s.log.Debug("objects delta not delivered; kept for the next flush", "err", err, "failures", f.n)
+		return false
+	}
+	s.log.Warn("objects deltas keep failing; sending a fresh snapshot instead", "failures", f.n, "err", err)
+	f.n = 0
+	if serr := s.Snapshot(ctx); serr != nil {
+		maxLimit := int(SnapshotInterval / DeltaInterval)
+		f.limit = min(f.limit*2, maxLimit)
+		s.log.Warn("fresh objects snapshot not delivered either", "err", serr, "next_after_failures", f.limit)
+		return false
+	}
+	f.limit = DeltaFailuresBeforeSnapshot
+	return true
 }
 
 func (s *Shipper) serviceOfSlice() cache.ResourceEventHandler {

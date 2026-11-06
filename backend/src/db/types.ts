@@ -156,6 +156,17 @@ export interface ClusterTokens {
   updated_at: Generated<Timestamp>;
 }
 
+export interface IngestErrors {
+  cluster_id: string;
+  endpoint: string;
+  failing_since: Timestamp | null;
+  failures: Generated<Int8>;
+  last_error_at: Timestamp;
+  last_message: Generated<string>;
+  last_status: number;
+  last_success_at: Timestamp | null;
+}
+
 export interface K8sEvents {
   cluster_id: string;
   count: number;
@@ -311,6 +322,7 @@ export interface DB {
   change_markers: ChangeMarkers;
   cluster_tokens: ClusterTokens;
   clusters: Clusters;
+  ingest_errors: IngestErrors;
   k8s_events: K8sEvents;
   memberships: Memberships;
   notification_alerts: NotificationAlerts;

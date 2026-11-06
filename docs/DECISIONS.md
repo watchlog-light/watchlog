@@ -1227,3 +1227,18 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - A new Service's edges appear correct from their first drain. `deploy/test/k8s/servicemap-latency.py` measures the delay from Service creation to a correct edge.
   - The cluster-agent keeps one encoded map, rebuilt at most once a second during churn. Each node agent holds one idle HTTPS request.
   - A Service with no endpoints and no matching pods or workloads is still drawn as a Service.
+
+## ADR-117: Ingest failures are counted, recorded per cluster, shown and alerted on
+
+- Date: 2026-11-06 · Status: accepted (maintainer, 2026-11-06)
+- Context: Since the overview redesign, every objects delta with a new namespace failed with 500 (the `namespace` change-marker kind was not allowed). The cluster-agent retried the same delta every 5 seconds, which held back every later pod change until the next 10-minute snapshot. Nothing showed it: the CrashLoopBackOff alert simply didn't fire, and only the cluster-agent's debug log knew.
+- Decision:
+  - **Agents count failures.** Node agents, Docker agents and the cluster-agent count every failed ingest request by endpoint (write, heartbeat, objects, events) and HTTP status (`network` without a response), as `watchlog_agent_ingest_failures_total`.
+  - **The backend records them per cluster.** Every answer of 400 or above to an authenticated agent is recorded in `ingest_errors` per cluster and endpoint, except 429 (backpressure) and 401 (no cluster). The record keeps when the failure began, the last status and message, and a count. The next success clears it; a success is checked against the database at most once a minute per instance.
+  - **The UI says so.** A cluster counts as failing while it has an uncleared error from the last 10 minutes. The overview (in its one API call) and Settings (the cluster list and the cluster page) show "Data delayed: ingest failing since …", with each failing endpoint, its status and message.
+  - **A default rule fires.** "WatchLog ingest failing" (`watchlog.ingest.failing`) is critical after 5 minutes, one alert per cluster. It is evaluated and never held, even while every agent of the cluster looks silent, because failing heartbeats are one way of looking silent. Existing installs get it through `ensureDefaultRules`, with no migration.
+  - **The cluster-agent stops retrying the same delta.** After 6 failed deltas in a row (30 s), rejected or not delivered, it sends a fresh snapshot instead. If that fails too, the number of failures before the next one doubles, up to the 10-minute snapshot interval. A rejected delta chunk is now a failure, not a silent drop.
+- Consequences:
+  - A backend bug like the namespace marker shows within minutes: a banner, an alert, and a counter per status.
+  - Failures the backend never sees (unreachable, a proxy's 502) show only in the agents' counters, and only once their metrics get through. The UI's banner covers what the backend answered.
+  - One more table and one conditional update per minute per cluster and endpoint while ingest works.

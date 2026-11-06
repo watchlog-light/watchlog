@@ -20,6 +20,7 @@ const CLUSTER = {
   firstSeenAt: null,
   lastSeenAt: null,
   createdAt: '2026-11-01T12:00:00.000Z',
+  ingestFailure: null,
 };
 const W = (ns: string, name: string, kind = 'Deployment', watchlog = false): ServiceMapNode => ({
   id: `w:${ns}/${kind}/${name}`,
