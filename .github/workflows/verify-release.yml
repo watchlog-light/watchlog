@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Verifies a published release the way a stranger would, from a clean runner with no
+# registry login: every image pulls anonymously for linux/amd64 and linux/arm64, both
+# charts pull from GHCR, and cosign verifies the signature of all six against this
+# repository's release workflow. Run it after making a release's packages public.
+name: Verify release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the v, e.g. 0.1.1
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      VERSION: ${{ inputs.version }}
+      REGISTRY: ghcr.io/watchlog-light
+    steps:
+      - uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.5.0
+      - name: Images pull anonymously, both platforms
+        run: |
+          for i in agent cluster-agent backend web; do
+            ref="$REGISTRY/$i:$VERSION"
+            docker pull -q "$ref" >/dev/null
+            archs=$(docker manifest inspect "$ref" | jq -r '[.manifests[] | select(.platform.os=="linux") | .platform.architecture] | unique | join(",")')
+            echo "$ref: $archs"
+            [ "$archs" = "amd64,arm64" ] || { echo "missing a platform"; exit 1; }
+          done
+      - name: Charts pull anonymously
+        run: |
+          mkdir -p charts
+          for c in watchlog watchlog-agent; do helm pull "oci://$REGISTRY/charts/$c" --version "$VERSION" -d charts; done
+          ls -l charts
+      - name: cosign verify (images and charts)
+        run: |
+          for ref in agent cluster-agent backend web charts/watchlog charts/watchlog-agent; do
+            cosign verify "$REGISTRY/$ref:$VERSION" \
+              --certificate-identity-regexp '^https://github.com/watchlog-light/watchlog/\.github/workflows/release\.yml@refs/tags/v' \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com > /dev/null
+            echo "verified: $ref:$VERSION"
+          done
