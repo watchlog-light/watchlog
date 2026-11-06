@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -83,6 +84,10 @@ type Client struct {
 
 	ipETag string
 	ipLast *IPMap
+	// ipLive is when a watch last heard from the cluster-agent (ADR-116): while recent,
+	// FetchIPMap answers from memory, already current.
+	ipLive    time.Time
+	watchHTTP *http.Client
 }
 
 // NewClient builds a client that trusts only caFile for the cluster-agent's certificate.
@@ -97,7 +102,8 @@ func NewClient(url, caFile, tokenFile, cacheFile string) (*Client, error) {
 	}
 	tr := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}}
 	c := &Client{URL: strings.TrimRight(url, "/"), TokenFile: tokenFile, CacheFile: cacheFile,
-		HTTP: &http.Client{Transport: tr, Timeout: 10 * time.Second}}
+		HTTP:      &http.Client{Transport: tr, Timeout: 10 * time.Second},
+		watchHTTP: &http.Client{Transport: tr, Timeout: watchTimeout}}
 	c.loadCache()
 	return c, nil
 }
@@ -178,8 +184,13 @@ func CacheFileIn(bufferDir string) string {
 	return filepath.Join(filepath.Dir(filepath.Clean(bufferDir)), "podmap.json")
 }
 
-// IPMapPath serves the cluster-wide address map (ADR-101).
+// IPMapPath serves the cluster-wide address map (ADR-101). With ?watch=1 and the
+// current ETag in If-None-Match, a cluster-agent that pushes changes (WatchHeader in its
+// answers) holds the request until the map changes (ADR-116).
 const IPMapPath = "/v1/ipmap"
+
+// WatchHeader is set by cluster-agents that hold watch requests.
+const WatchHeader = "X-Watchlog-Watch"
 
 // IPMap maps the cluster's addresses to what they belong to.
 type IPMap struct {
@@ -218,12 +229,111 @@ type IPNode struct {
 	Name string `json:"name"`
 }
 
-// FetchIPMap asks the cluster-agent for the cluster-wide address map (ADR-101). On
-// failure or 304 the previous map stays in use.
-func (c *Client) FetchIPMap(ctx context.Context) (*IPMap, error) {
+// watchTimeout is longer than the cluster-agent holds a watch (50 s).
+const watchTimeout = 70 * time.Second
+
+// errNoWatch: the cluster-agent answers watch requests at once (an older version).
+var errNoWatch = errors.New("ip map: cluster-agent does not push changes")
+
+// WatchIPMap keeps the IP map current until ctx ends: the cluster-agent holds each
+// request until the map changes and answers with the new one (ADR-116). FetchIPMap then
+// answers from memory. With an older cluster-agent it returns errNoWatch, and
+// FetchIPMap keeps polling. Errors are logged once per kind and retried with backoff.
+func (c *Client) WatchIPMap(ctx context.Context, log *slog.Logger) error {
+	backoff, lastErr := time.Second, ""
+	for ctx.Err() == nil {
+		err := c.watchOnce(ctx)
+		if errors.Is(err, errNoWatch) {
+			log.Info("cluster-agent does not push IP map changes; polling every interval")
+			return err
+		}
+		if err == nil {
+			backoff, lastErr = time.Second, ""
+			continue
+		}
+		if ctx.Err() != nil {
+			break
+		}
+		if msg := err.Error(); msg != lastErr {
+			lastErr = msg
+			log.Warn("ip map watch failed; retrying, polling meanwhile", "err", err)
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(backoff):
+		}
+		backoff = min(backoff*2, 30*time.Second)
+	}
+	return ctx.Err()
+}
+
+// watchOnce makes one watch request: 200 with a new map, or 304 after the
+// cluster-agent's hold time.
+func (c *Client) watchOnce(ctx context.Context) error {
 	c.mu.Lock()
 	last, etag := c.ipLast, c.ipETag
 	c.mu.Unlock()
+	token, err := os.ReadFile(c.TokenFile) //nolint:gosec // path from configuration
+	if err != nil {
+		return fmt.Errorf("ip map token: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.URL+IPMapPath+"?watch=1", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(token)))
+	if etag != "" && last != nil {
+		req.Header.Set("If-None-Match", etag)
+	}
+	res, err := c.watchHTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = res.Body.Close() }()
+	if res.Header.Get(WatchHeader) == "" && (res.StatusCode == http.StatusOK || res.StatusCode == http.StatusNotModified) {
+		if res.StatusCode == http.StatusOK {
+			_ = c.storeIPMap(res) // still a valid map
+		}
+		return errNoWatch
+	}
+	switch res.StatusCode {
+	case http.StatusNotModified:
+	case http.StatusOK:
+		if err := c.storeIPMap(res); err != nil {
+			return err
+		}
+	default:
+		b, _ := io.ReadAll(io.LimitReader(res.Body, 256))
+		return fmt.Errorf("ip map watch: HTTP %d: %s", res.StatusCode, strings.TrimSpace(string(b)))
+	}
+	c.mu.Lock()
+	c.ipLive = time.Now()
+	c.mu.Unlock()
+	return nil
+}
+
+func (c *Client) storeIPMap(res *http.Response) error {
+	var m IPMap
+	if err := json.NewDecoder(io.LimitReader(res.Body, 64<<20)).Decode(&m); err != nil {
+		return fmt.Errorf("ip map: %w", err)
+	}
+	c.mu.Lock()
+	c.ipLast, c.ipETag = &m, res.Header.Get("ETag")
+	c.mu.Unlock()
+	return nil
+}
+
+// FetchIPMap returns the cluster-wide address map (ADR-101). While a watch is live it
+// is the pushed map, from memory; otherwise it asks the cluster-agent. On failure or
+// 304 the previous map stays in use.
+func (c *Client) FetchIPMap(ctx context.Context) (*IPMap, error) {
+	c.mu.Lock()
+	last, etag := c.ipLast, c.ipETag
+	live := last != nil && time.Since(c.ipLive) < watchTimeout
+	c.mu.Unlock()
+	if live {
+		return last, nil
+	}
 	token, err := os.ReadFile(c.TokenFile) //nolint:gosec // path from configuration
 	if err != nil {
 		return last, fmt.Errorf("ip map token: %w", err)
@@ -249,12 +359,10 @@ func (c *Client) FetchIPMap(ctx context.Context) (*IPMap, error) {
 		b, _ := io.ReadAll(io.LimitReader(res.Body, 256))
 		return last, fmt.Errorf("ip map: HTTP %d: %s", res.StatusCode, strings.TrimSpace(string(b)))
 	}
-	var m IPMap
-	if err := json.NewDecoder(io.LimitReader(res.Body, 64<<20)).Decode(&m); err != nil {
-		return last, fmt.Errorf("ip map: %w", err)
+	if err := c.storeIPMap(res); err != nil {
+		return last, err
 	}
 	c.mu.Lock()
-	c.ipLast, c.ipETag = &m, res.Header.Get("ETag")
-	c.mu.Unlock()
-	return &m, nil
+	defer c.mu.Unlock()
+	return c.ipLast, nil
 }

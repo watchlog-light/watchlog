@@ -184,8 +184,10 @@ func run(args []string, stdout io.Writer) int {
 				names := network.NewNames()
 				netCollector.DNSNames = names
 				// The agent's own search list is the one its node gives every pod (ADR-113).
-				misses := network.NewSearchMisses(network.SearchDomains("/etc/resolv.conf"))
+				search := network.SearchDomains("/etc/resolv.conf")
+				misses := network.NewSearchMisses(search)
 				netCollector.SearchMisses = misses
+				netCollector.ClusterDomain = network.ClusterDomain(search)
 				go func() {
 					err := flows.ReadDNSResponses(func(cgroup uint64, msg []byte) {
 						names.Add(cgroup, msg)
@@ -310,6 +312,11 @@ func run(args []string, stdout io.Writer) int {
 		}
 		go dockerCollector.WatchEvents(ctx)
 		go dockerCollector.ShipEvents(ctx, snd.SendEvents, log)
+	}
+	if podmapClient != nil && netCollector != nil {
+		// The cluster-agent pushes IP map changes; flows resolve against them at the next
+		// drain instead of a map up to an interval old (ADR-116).
+		go func() { _ = podmapClient.WatchIPMap(ctx, slog.Default()) }()
 	}
 	slog.Info("agent started", "mode", mode, "version", version.Version, "host", *hostname,
 		"endpoint", base.String(), "interval", *interval, "health_output", *healthOutput)

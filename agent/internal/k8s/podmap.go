@@ -19,6 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	authclient "k8s.io/client-go/kubernetes/typed/authentication/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/watchlog-light/watchlog/agent/internal/podmap"
 )
@@ -82,9 +83,14 @@ type PodMapServer struct {
 	cache map[[32]byte]review
 	now   func() time.Time
 
-	ipMu   sync.Mutex
-	ipBody []byte
-	ipAt   time.Time
+	ipMu      sync.Mutex
+	ipBody    []byte
+	ipETag    string
+	ipAt      time.Time
+	ipChanged chan struct{} // closed when the map changes (watchers wake up)
+	pushing   bool          // Run is keeping the map current; watch requests may wait
+	stopped   chan struct{} // closed when Run ends
+	dirty     chan struct{}
 }
 
 func (s *PodMapServer) clock() time.Time {
@@ -176,20 +182,35 @@ func (s *PodMapServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var b []byte
+	var etag string
 	var err error
 	if r.URL.Path == podmap.IPMapPath {
 		// Cluster-wide: flow destinations are anywhere in the cluster (ADR-101).
-		b, err = s.ipMap()
+		var changed <-chan struct{}
+		b, etag, changed, err = s.ipMap()
+		if err == nil && s.watching() {
+			w.Header().Set(podmap.WatchHeader, "1")
+			// A watch: hold the request until the map changes (ADR-116), so node agents
+			// learn about new Services, endpoints and pods at once, not at their next poll.
+			if r.URL.Query().Get("watch") != "" && r.Header.Get("If-None-Match") == etag {
+				select {
+				case <-changed:
+					b, etag, _, err = s.ipMap()
+				case <-time.After(ipWatchTimeout):
+				case <-r.Context().Done():
+					return
+				case <-s.stopped:
+				}
+			}
+		}
 	} else {
 		b, err = json.Marshal(s.Cluster.PodMap(node))
+		etag = etagOf(b)
 	}
 	if err != nil {
 		http.Error(w, "encoding", http.StatusInternalServerError)
 		return
 	}
-	h := fnv.New64a()
-	_, _ = h.Write(b)
-	etag := fmt.Sprintf(`"%x"`, h.Sum64())
 	w.Header().Set("ETag", etag)
 	if r.Header.Get("If-None-Match") == etag {
 		w.WriteHeader(http.StatusNotModified)
@@ -199,18 +220,127 @@ func (s *PodMapServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(b)
 }
 
-// ipMap is the encoded IP map, rebuilt at most every ipMapTTL however many node
-// agents ask.
-func (s *PodMapServer) ipMap() ([]byte, error) {
+func etagOf(b []byte) string {
+	h := fnv.New64a()
+	_, _ = h.Write(b)
+	return fmt.Sprintf(`"%x"`, h.Sum64())
+}
+
+// ipWatchTimeout ends a watch with 304 if nothing changed, well under proxies' idle
+// timeouts; the node agent asks again at once.
+const ipWatchTimeout = 50 * time.Second
+
+// ipSettle and ipRebuildMin batch bursts of changes (a rollout, a namespace created):
+// the map is rebuilt 200 ms after the first change, and at most once a second.
+const (
+	ipSettle     = 200 * time.Millisecond
+	ipRebuildMin = time.Second
+)
+
+// Run keeps the IP map current from the informers' change notifications and wakes the
+// node agents' watches when it changes (ADR-116), until ctx ends. Without Run the map
+// is rebuilt on request, at most every ipMapTTL.
+func (s *PodMapServer) Run(ctx context.Context) error {
+	s.ipMu.Lock()
+	s.dirty = make(chan struct{}, 1)
+	s.stopped = make(chan struct{})
+	s.ipMu.Unlock()
+	notify := cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(any) { s.markDirty() },
+		UpdateFunc: func(any, any) { s.markDirty() },
+		DeleteFunc: func(any) { s.markDirty() },
+	}
+	// What the map is built from: addresses (pods, Services, nodes) and the workloads
+	// they belong to.
+	for _, kind := range []string{"Pod", "Service", "EndpointSlice", "Node", "ReplicaSet", "Deployment", "StatefulSet", "DaemonSet"} {
+		if err := s.Cluster.AddHandler(kind, notify); err != nil {
+			return fmt.Errorf("ip map: watch %s: %w", kind, err)
+		}
+	}
+	if _, err := s.rebuild(); err != nil {
+		return err
+	}
+	s.ipMu.Lock()
+	s.pushing = true
+	s.ipMu.Unlock()
+	go func() {
+		defer close(s.stopped)
+		var last time.Time
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-s.dirty:
+			}
+			wait := ipSettle
+			if since := s.clock().Sub(last); since < ipRebuildMin && ipRebuildMin-since > wait {
+				wait = ipRebuildMin - since
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(wait):
+			}
+			select { // changes during the wait are in this rebuild
+			case <-s.dirty:
+			default:
+			}
+			last = s.clock()
+			if _, err := s.rebuild(); err != nil {
+				s.Log.Warn("ip map rebuild", "err", err)
+			}
+		}
+	}()
+	return nil
+}
+
+func (s *PodMapServer) markDirty() {
+	select {
+	case s.dirty <- struct{}{}:
+	default:
+	}
+}
+
+func (s *PodMapServer) watching() bool {
 	s.ipMu.Lock()
 	defer s.ipMu.Unlock()
-	if s.ipBody != nil && s.clock().Sub(s.ipAt) < ipMapTTL {
-		return s.ipBody, nil
-	}
+	return s.pushing
+}
+
+// rebuild encodes the map and, when it differs, wakes the watches.
+func (s *PodMapServer) rebuild() (bool, error) {
 	b, err := json.Marshal(s.Cluster.IPMap())
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	s.ipBody, s.ipAt = b, s.clock()
-	return b, nil
+	etag := etagOf(b)
+	s.ipMu.Lock()
+	defer s.ipMu.Unlock()
+	s.ipAt = s.clock()
+	if etag == s.ipETag {
+		return false, nil
+	}
+	s.ipBody, s.ipETag = b, etag
+	if s.ipChanged != nil {
+		close(s.ipChanged)
+	}
+	s.ipChanged = make(chan struct{})
+	return true, nil
+}
+
+// ipMap is the encoded IP map, its ETag and a channel closed at its next change. With
+// Run it is always current; without, it is rebuilt at most every ipMapTTL however many
+// node agents ask.
+func (s *PodMapServer) ipMap() ([]byte, string, <-chan struct{}, error) {
+	s.ipMu.Lock()
+	fresh := s.ipBody != nil && (s.pushing || s.clock().Sub(s.ipAt) < ipMapTTL)
+	s.ipMu.Unlock()
+	if !fresh {
+		if _, err := s.rebuild(); err != nil {
+			return nil, "", nil, err
+		}
+	}
+	s.ipMu.Lock()
+	defer s.ipMu.Unlock()
+	return s.ipBody, s.ipETag, s.ipChanged, nil
 }

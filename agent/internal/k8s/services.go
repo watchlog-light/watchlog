@@ -7,8 +7,11 @@ import (
 	"sort"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/watchlog-light/watchlog/agent/internal/podmap"
 )
@@ -106,7 +109,7 @@ func (c *Cluster) IPMap() podmap.IPMap {
 		if len(cluster) == 0 {
 			continue // headless: clients connect to pod IPs, resolved as pods
 		}
-		ws, _ := c.ServiceBackends(s.Namespace, s.Name)
+		ws := c.serviceWorkloads(s)
 		svc := podmap.IPService{IPs: cluster, Namespace: s.Namespace, Name: s.Name, Workloads: []podmap.Workload{}}
 		for _, w := range ws {
 			svc.Workloads = append(svc.Workloads, podmap.Workload{Kind: w.Kind, Name: w.Name})
@@ -127,6 +130,79 @@ func (c *Cluster) IPMap() podmap.IPMap {
 	})
 	sort.Slice(m.Nodes, func(i, j int) bool { return m.Nodes[i].IP < m.Nodes[j].IP })
 	return m
+}
+
+// serviceWorkloads names the workloads behind a Service for the IP map, so a flow to its
+// ClusterIP is drawn to the right workload from the first connection (ADR-116). Readiness
+// does not change which workload a Service fronts, so it uses, in order:
+//   - every endpoint, ready or not;
+//   - else the pods its selector matches (pods without an IP yet, or no slice yet);
+//   - else the Deployments, StatefulSets and DaemonSets whose pod template it matches
+//     (scaled to 0: a dependency that is down is still that workload, failing).
+func (c *Cluster) serviceWorkloads(s *corev1.Service) []Workload {
+	seen := map[Workload]bool{}
+	if inf, ok := c.informers["EndpointSlice"]; ok {
+		slices, _ := inf.GetIndexer().ByIndex(byService, s.Namespace+"/"+s.Name)
+		for _, obj := range slices {
+			for _, e := range obj.(*discoveryv1.EndpointSlice).Endpoints {
+				if e.TargetRef == nil || e.TargetRef.Kind != "Pod" {
+					continue
+				}
+				if p, ok := c.pod(e.TargetRef.Namespace, e.TargetRef.Name); ok {
+					seen[PodWorkload(p, c)] = true
+				}
+			}
+		}
+	}
+	if len(seen) == 0 && len(s.Spec.Selector) > 0 {
+		sel := klabels.SelectorFromSet(s.Spec.Selector)
+		for _, obj := range c.inNamespace("Pod", s.Namespace) {
+			p := obj.(*corev1.Pod)
+			if p.Status.Phase != corev1.PodSucceeded && p.Status.Phase != corev1.PodFailed && sel.Matches(klabels.Set(p.Labels)) {
+				seen[PodWorkload(p, c)] = true
+			}
+		}
+		if len(seen) == 0 {
+			for _, kind := range []string{"Deployment", "StatefulSet", "DaemonSet"} {
+				for _, obj := range c.inNamespace(kind, s.Namespace) {
+					if name, tmpl := templateLabels(obj); name != "" && sel.Matches(klabels.Set(tmpl)) {
+						seen[Workload{Kind: kind, Name: name}] = true
+					}
+				}
+			}
+		}
+	}
+	out := make([]Workload, 0, len(seen))
+	for w := range seen {
+		out = append(out, w)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Kind+out[i].Name < out[j].Kind+out[j].Name })
+	return out
+}
+
+// inNamespace lists one kind's objects in a namespace (the informers' namespace index).
+func (c *Cluster) inNamespace(kind, namespace string) []any {
+	inf, ok := c.informers[kind]
+	if !ok {
+		return nil
+	}
+	objs, err := inf.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	if err != nil {
+		return nil
+	}
+	return objs
+}
+
+func templateLabels(obj any) (string, map[string]string) {
+	switch o := obj.(type) {
+	case *appsv1.Deployment:
+		return o.Name, o.Spec.Template.Labels
+	case *appsv1.StatefulSet:
+		return o.Name, o.Spec.Template.Labels
+	case *appsv1.DaemonSet:
+		return o.Name, o.Spec.Template.Labels
+	}
+	return "", nil
 }
 
 // ipMapTTL bounds how often the map is rebuilt for many node agents asking.

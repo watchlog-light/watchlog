@@ -128,9 +128,13 @@ func run(args []string, stdout io.Writer) int {
 		return 0 // stopped before the caches filled
 	}
 	log.Info("caches synced", "after", time.Since(started).Round(time.Millisecond))
-	servePodMap(ctx, log, *podmapAddr, *podmapCert, *podmapKey, &k8s.PodMapServer{
-		Cluster: cluster, Reviews: cs.AuthenticationV1().TokenReviews(),
-		Namespace: *namespace, Account: *nodeAgentSA, Log: log})
+	pm := &k8s.PodMapServer{Cluster: cluster, Reviews: cs.AuthenticationV1().TokenReviews(),
+		Namespace: *namespace, Account: *nodeAgentSA, Log: log}
+	// Push IP map changes to the node agents' watches (ADR-116); without it they poll.
+	if err := pm.Run(ctx); err != nil {
+		log.Warn("ip map changes are not pushed; node agents poll", "err", err)
+	}
+	servePodMap(ctx, log, *podmapAddr, *podmapCert, *podmapKey, pm)
 
 	lead := func(ctx context.Context) {
 		log.Info("leading: shipping objects, events and state metrics", "identity", *identity)

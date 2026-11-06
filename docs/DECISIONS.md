@@ -1201,3 +1201,29 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
     - `fontSize: 11` only on axis labels;
     - no `font-size: 11px`.
 - Consequences: the 11 px labels now really are 11 px, where they inherited 12–14 px before. Some captions grow by 1 px. Charts are unchanged apart from their marker and threshold labels.
+
+## ADR-116: Cluster destinations are never external; the cluster-agent pushes IP map changes
+
+- Date: 2026-11-06 · Status: accepted (maintainer, 2026-11-06)
+- Context: The Phase 4 service map acceptance passed 8/9 on 2026-11-05. For several minutes after the demo app's Services appeared, the first connections showed as externals named from DNS (`x:cart.<ns>.svc.cluster.local:9898`) or as bare Service nodes. There were three causes:
+  - **The node agent pulled the IP map** when it drained (at most every 15 s), and the cluster-agent cached it for 5 s, so a new Service could be unknown for a drain or two.
+  - **The map named a Service's workload only from _ready_ endpoints**, so a Service whose pods were starting (or scaled to 0) had no workload.
+  - **A destination missing from the map fell through to "external"**, named by the client's own DNS lookup.
+    Once such an edge is in the 10-minute window, it stays on the map.
+- Decision:
+  - **Never external.** A destination whose DNS name is under `svc.<cluster domain>` is a Service: `<svc>.<ns>.svc…`, and for headless pods `<pod>.<svc>.<ns>.svc…`. The cluster domain comes from the node agent's search list (the `svc.<domain>` entry, default `cluster.local`). While the map does not know the address, the flow goes to that Service by name. A name under the domain that names no Service is dropped and counted (`watchlog_agent_flow_cluster_unresolved_connections_total`).
+  - **The workload behind a Service, whatever its readiness.** The IP map uses, in order:
+    - every endpoint, ready or not;
+    - else the pods its selector matches;
+    - else the Deployments, StatefulSets and DaemonSets whose pod template it matches.
+      For that, the informer cache now keeps pod template labels.
+  - **Push.** The cluster-agent rebuilds the IP map on every Pod, Service, EndpointSlice, Node and workload change: 200 ms after the first change, at most once a second. It answers `GET /v1/ipmap?watch=1` with `If-None-Match` only when the map changes (or with 304 after 50 s), and marks that support with `X-Watchlog-Watch`. Node agents keep one watch open and resolve each drain against the pushed map.
+  - **Backward compatible.** An older cluster-agent answers at once without the header, and the node agent goes back to polling every interval. An older node agent never asks to watch.
+- Alternatives:
+  - A shorter poll interval (rejected: every node agent multiplies the load, and it only shrinks the window).
+  - A Kubernetes watch from every node agent (rejected: needs list/watch RBAC on Services, EndpointSlices and Pods for the DaemonSet, against ADR-066's single cluster-agent).
+  - Re-mapping `svc.cluster.local` externals in the backend for older agents (rejected: the edge-detail lookup matches the agent's labels, so the edge would lose its detail; agents and backend ship together in the chart, and old series age out of the 10-minute window).
+- Consequences:
+  - A new Service's edges appear correct from their first drain. `deploy/test/k8s/servicemap-latency.py` measures the delay from Service creation to a correct edge.
+  - The cluster-agent keeps one encoded map, rebuilt at most once a second during churn. Each node agent holds one idle HTTPS request.
+  - A Service with no endpoints and no matching pods or workloads is still drawn as a Service.

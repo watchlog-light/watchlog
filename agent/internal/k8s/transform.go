@@ -109,8 +109,10 @@ func trimContainerStatuses(ss []corev1.ContainerStatus) []corev1.ContainerStatus
 	return out
 }
 
+// trimPodTemplate keeps the containers and the template's labels: a Service whose
+// workload is scaled to 0 is matched to it by them (IP map, ADR-116).
 func trimPodTemplate(t corev1.PodTemplateSpec) corev1.PodTemplateSpec {
-	return corev1.PodTemplateSpec{Spec: corev1.PodSpec{
+	return corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: t.Labels}, Spec: corev1.PodSpec{
 		Containers: trimContainers(t.Spec.Containers), InitContainers: trimContainers(t.Spec.InitContainers)}}
 }
 

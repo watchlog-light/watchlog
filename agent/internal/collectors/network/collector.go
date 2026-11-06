@@ -51,6 +51,12 @@ type Collector struct {
 	// SearchMisses takes NXDOMAIN responses under the search domains out of the
 	// errors (ADR-113); nil without the DNS hooks or a search list.
 	SearchMisses *SearchMisses
+	// ClusterDomain: a destination whose DNS name is under svc.<ClusterDomain> is a
+	// Service, never external (ADR-116). Empty means cluster.local.
+	ClusterDomain string
+	// insideUnnamed counts flows to names under svc.<domain> that name no Service; they
+	// are dropped rather than drawn as externals.
+	insideUnnamed float64
 
 	mu           sync.Mutex
 	idx          map[uint64]Owner
@@ -150,7 +156,18 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 		}
 		if dst.Kind == DstExternal && c.DNSNames != nil {
 			if name, ok := c.DNSNames.Lookup(f.Cgroup, f.Addr); ok {
-				dst.Name = name
+				// A cluster Service's name: the IP map does not know this address yet
+				// (a Service created moments ago). Attribute it to the Service by
+				// name; never an external (ADR-116).
+				if svc, ns, under := ClusterService(name, c.ClusterDomain); under {
+					if svc == "" {
+						c.insideUnnamed += float64(f.Connects)
+						continue
+					}
+					dst = Dest{Kind: DstService, Namespace: ns, Service: svc, Port: dst.Port}
+				} else {
+					dst.Name = name
+				}
 			}
 		}
 		dst = c.ext.admit(src.key(), dst, now)
@@ -195,6 +212,7 @@ func (c *Collector) selfMetrics() []metrics.Sample {
 		metrics.New("watchlog_agent_flow_edges", float64(len(c.edges))),
 		metrics.New("watchlog_agent_flow_unattributed_connections_total", c.unattributed),
 		metrics.New("watchlog_agent_flow_unnamed_connections_total", c.unnamed),
+		metrics.New("watchlog_agent_flow_cluster_unresolved_connections_total", c.insideUnnamed),
 	}
 	if c.DNSNames != nil {
 		out = append(out, metrics.New("watchlog_agent_dns_names", float64(c.DNSNames.Len())))
