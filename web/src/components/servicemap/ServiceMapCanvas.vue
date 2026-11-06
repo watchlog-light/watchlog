@@ -376,10 +376,18 @@ watch(
 
 let resize: ResizeObserver | undefined;
 let fitted = false;
+let measured = false;
 onMounted(async () => {
   const measure = () => {
     const r = box.value?.getBoundingClientRect();
-    if (r && r.width > 0) Object.assign(size, { w: r.width, h: r.height });
+    if (!r || r.width === 0) return;
+    Object.assign(size, { w: r.width, h: r.height });
+    // Mounted hidden (phones open the service map on Connections): fit once it first has
+    // a size of its own.
+    if (!measured) {
+      measured = true;
+      if (fitted) void nextTick(() => fit(false));
+    }
   };
   measure();
   if (typeof ResizeObserver !== 'undefined') {
@@ -413,7 +421,14 @@ const nodeAria = (n: DrawNode) => `${n.title}, ${t(`serviceMap.health.${n.health
 </script>
 
 <template>
-  <div ref="box" class="map-box relative h-full w-full overflow-hidden" data-testid="map-canvas">
+  <!-- The graph's nodes and edges scale with the zoom (pinch on touch screens), so they
+       are exempt from the 44 px touch-target check; the Connections view lists them. -->
+  <div
+    ref="box"
+    class="map-box relative h-full w-full overflow-hidden"
+    data-testid="map-canvas"
+    data-layout-exempt="touch-target"
+  >
     <svg
       ref="svg"
       class="block h-full w-full cursor-grab touch-none select-none"
@@ -636,7 +651,8 @@ const nodeAria = (n: DrawNode) => `${n.title}, ${t(`serviceMap.health.${n.health
         ]"
         :key="b.key"
         type="button"
-        class="flex size-8 items-center justify-center rounded-control border border-border-strong bg-surface-2 text-text-muted hover:text-text"
+        class="flex size-8 items-center justify-center rounded-control border border-border-strong bg-surface-2 text-text-muted hover:text-text max-lg:size-11"
+        data-layout-exempt="none"
         :aria-label="$t(`serviceMap.tools.${b.key}`)"
         :title="$t(`serviceMap.tools.${b.key}`)"
         :data-testid="`map-${b.key}`"

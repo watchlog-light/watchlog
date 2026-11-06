@@ -39,7 +39,7 @@ const count = (n: number) => new Intl.NumberFormat('en').format(n);
     </template>
     <template #actions>
       <label
-        class="inline-flex cursor-pointer items-center gap-1.5 text-12 text-text-muted select-none"
+        class="inline-flex cursor-pointer items-center gap-1.5 text-12 text-text-muted select-none max-lg:min-h-11"
       >
         <input v-model="hideOwn" type="checkbox" class="accent-primary" data-testid="hide-own" />
         {{
@@ -50,9 +50,11 @@ const count = (n: number) => new Intl.NumberFormat('en').format(n);
           )
         }}
       </label>
-      <RouterLink :to="{ name: 'events' }" class="text-13 text-primary">{{
-        $t('overview.events.all')
-      }}</RouterLink>
+      <RouterLink
+        :to="{ name: 'events' }"
+        class="text-13 text-primary max-lg:inline-flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center max-lg:justify-center"
+        >{{ $t('overview.events.all') }}</RouterLink
+      >
     </template>
     <ul class="flex flex-col">
       <li

@@ -2,10 +2,13 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 import { RouterLink, type RouteLocationRaw } from 'vue-router';
+import { useCompact } from '@/composables/useNarrow';
 import { exactCores, heatTone } from '@/lib/resources';
 
 // Pods (Docker: containers) as squares coloured by CPU against the request (Docker: the
 // limit); failing pods red with ✕. Hover names the pod and its values; a click opens it.
+// Below 1024 px the squares are too small to tap: they only show, and the node's row and
+// the pod list lead to each pod.
 export interface HeatPod {
   namespace: string | null;
   name: string;
@@ -20,6 +23,7 @@ const props = defineProps<{
   docker?: boolean;
 }>();
 const { t } = useI18n();
+const compact = useCompact();
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 function label(p: HeatPod): string {
@@ -45,10 +49,12 @@ function label(p: HeatPod): string {
 
 <template>
   <div class="heat" data-testid="heatmap">
-    <RouterLink
+    <component
+      :is="compact ? 'span' : RouterLink"
       v-for="p in pods"
       :key="`${p.namespace}/${p.name}`"
-      :to="link(p)"
+      :to="compact ? undefined : link(p)"
+      :role="compact ? 'img' : undefined"
       class="cell"
       :class="`h-${heatTone(p)}`"
       :title="label(p)"
@@ -56,7 +62,7 @@ function label(p: HeatPod): string {
       data-testid="heat-cell"
     >
       <span v-if="p.failing" aria-hidden="true">✕</span>
-    </RouterLink>
+    </component>
   </div>
 </template>
 

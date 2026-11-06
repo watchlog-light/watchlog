@@ -113,6 +113,8 @@ bash deploy/test/helm/upgrade-test.sh   # upgrades from older chart values
 bash deploy/test/k8s/e2e.sh             # kind cluster: helm install and the acceptance checks
 ```
 
+Phones and tablets (ADR-120): with `pnpm dev` and the demo running, `pnpm -C web test:responsive` opens every dashboard route in Google Chrome at 360, 390, 768, 1024 and 1280 px. It fails on horizontal page scroll, text under 12 px or touch targets under 44 px, and saves screenshots at phone and tablet size to `web/e2e/screenshots/`. Sign in with `WATCHLOG_E2E_EMAIL` and `WATCHLOG_E2E_PASSWORD`; `WATCHLOG_E2E_ONLY=overview,nodes` and `WATCHLOG_E2E_WIDTHS=390` narrow a run.
+
 The agent image is built `FROM scratch` (ADR-020). If `gcr.io` is unreachable from your network, override the backend's distroless runtime image:
 `make images BACKEND_RUNTIME_IMAGE=node:24-bookworm-slim`.
 If `proxy.golang.org` is blocked, fetch the agent's Go modules through another proxy:

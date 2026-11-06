@@ -16,7 +16,9 @@
     "expand": "Expand sidebar",
     "events": "Events",
     "hosts": "Hosts",
-    "containers": "Containers"
+    "containers": "Containers",
+    "open": "Open navigation",
+    "close": "Close navigation"
   },
   "clusterSwitcher": {
     "label": "Cluster",
@@ -36,7 +38,10 @@
     },
     "namespacesSelected": "{n} namespaces",
     "noNamespaces": "No namespaces reported yet",
-    "pods": "no pods | {n} pod | {n} pods"
+    "pods": "no pods | {n} pod | {n} pods",
+    "filters": "Filters",
+    "filtersFor": "Cluster and filters: {summary}",
+    "done": "Done"
   },
   "empty": {
     "connectCluster": "Connect a cluster",
@@ -497,6 +502,7 @@
         "none": "None in this range",
         "more": "Show {n} more",
         "less": "Show fewer",
+        "toggle": "Filters | Filters · {n} selected | Filters · {n} selected",
         "hosts": "Host",
         "projects": "Compose project",
         "standalone": "Standalone"
@@ -1315,7 +1321,8 @@
     "noMatches": "No matches",
     "clear": "Clear",
     "remove": "Remove {label}",
-    "open": "Show {label} options"
+    "open": "Show {label} options",
+    "search": "Search"
   },
   "settings": {
     "tabs": {
@@ -1355,6 +1362,7 @@
     }
   },
   "serviceMap": {
+    "openMap": "Open map",
     "title": "Service map",
     "graphLabel": "Service map: workloads, databases and external services, and the TCP connections between them. Use the Connections view for a table.",
     "from": "from {list}",

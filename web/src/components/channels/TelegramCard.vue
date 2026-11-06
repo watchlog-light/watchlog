@@ -332,7 +332,7 @@ const stepClass = (n: number) => [
     <div class="border-t border-dashed border-border pt-3">
       <button
         type="button"
-        class="flex items-center gap-1.5 text-13 text-text-muted hover:text-text"
+        class="flex items-center gap-1.5 text-left text-13 text-text-muted hover:text-text max-lg:min-h-11"
         :aria-expanded="proxyOpen"
         data-testid="telegram-proxy-toggle"
         @click="proxyOpen = !proxyOpen"

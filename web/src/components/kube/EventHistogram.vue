@@ -44,6 +44,13 @@ const ticks = computed(() =>
     };
   }),
 );
+// A label past 60% of the width ends at its marker instead of starting there, so it
+// never runs off the chart.
+const markerStyle = (m: KubeEventSummary['markers'][number]) => {
+  const pct = (x(m.ts) / W) * 100;
+  return pct > 60 ? { right: `${100 - pct}%` } : { left: `${pct}%` };
+};
+const markerEnd = (m: KubeEventSummary['markers'][number]) => (x(m.ts) / W) * 100 > 60;
 const markerLabel = (m: KubeEventSummary['markers'][number]) =>
   t(`kube.events.markers.${m.reason}`, { n: m.objects }, m.objects);
 const barTitle = (b: KubeEventSummary['histogram'][number]) =>
@@ -150,7 +157,8 @@ const aria = computed(() =>
       v-for="m in summary.markers"
       :key="`l-${m.reason}-${m.ts}`"
       class="marker-label"
-      :style="{ left: `${(x(m.ts) / W) * 100}%` }"
+      :class="{ end: markerEnd(m) }"
+      :style="markerStyle(m)"
       data-testid="event-marker"
       >{{ markerLabel(m) }}</span
     >
@@ -183,6 +191,11 @@ const aria = computed(() =>
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
+}
+.marker-label.end {
+  padding-right: 5px;
+  padding-left: 0;
+  text-align: right;
 }
 .ticks {
   display: flex;

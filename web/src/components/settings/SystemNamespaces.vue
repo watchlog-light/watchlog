@@ -98,7 +98,7 @@ onMounted(page.load);
         :disabled="!canManage"
         testid="system-namespaces-input"
       />
-      <label class="inline-flex items-center gap-2 text-13 text-text-muted">
+      <label class="inline-flex items-center gap-2 text-13 text-text-muted max-lg:min-h-11">
         <input
           v-model="watchlog"
           type="checkbox"

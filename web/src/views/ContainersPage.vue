@@ -251,4 +251,11 @@ onBeforeUnmount(() => clearInterval(timer));
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+/* Touch screens: 44 px targets. */
+@media (max-width: 1023px) {
+  .chip {
+    min-height: 44px;
+    padding-inline: 14px;
+  }
+}
 </style>

@@ -22,7 +22,7 @@ const VARIANTS = {
 } as const;
 
 const classes = computed(() => [
-  'inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-control px-4 text-14 font-semibold transition-colors',
+  'inline-flex h-9 shrink-0 max-lg:h-11 items-center justify-center gap-2 whitespace-nowrap rounded-control px-4 text-14 font-semibold transition-colors',
   'disabled:cursor-not-allowed disabled:opacity-60',
   VARIANTS[props.variant],
   props.block ? 'w-full' : '',

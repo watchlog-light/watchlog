@@ -106,7 +106,7 @@ onMounted(list.load);
             v-for="k in ['docker', 'kubernetes'] as const"
             :key="k"
             :class="[
-              'flex cursor-pointer items-center gap-2 rounded-control border px-3 py-2 text-13',
+              'flex cursor-pointer items-center gap-2 rounded-control border px-3 py-2 text-13 max-lg:min-h-11',
               kind === k
                 ? 'border-primary bg-primary-soft text-text'
                 : 'border-border text-text-muted hover:bg-surface-2',

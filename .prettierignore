@@ -5,3 +5,7 @@ pnpm-lock.yaml
 docs/SPEC.md
 agent
 deploy/helm/*/templates
+web/e2e/.auth
+web/e2e/screenshots
+web/test-results
+web/playwright-report

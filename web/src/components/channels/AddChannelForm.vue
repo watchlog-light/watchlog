@@ -83,7 +83,7 @@ async function create() {
       :hint="$t('channels.form.nameHint')"
       :maxlength="100"
     />
-    <label class="flex items-center gap-2 text-13 text-text">
+    <label class="flex items-center gap-2 text-13 text-text max-lg:min-h-11">
       <input v-model="useForAll" type="checkbox" class="accent-primary" />
       {{ $t('channels.form.useForAll') }}
     </label>

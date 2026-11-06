@@ -118,7 +118,7 @@ const podShare = computed(() => pct(c.value.pods.count, c.value.pods.capacity));
           <RouterLink
             v-if="disk.alertId"
             :to="{ name: 'alert', params: { id: disk.alertId } }"
-            class="t-warning hover:underline"
+            class="t-warning hover:underline max-lg:inline-block max-lg:leading-11"
             data-testid="disk-alert"
             >▲ {{ $t('kube.nodes.tiles.alert') }}</RouterLink
           >

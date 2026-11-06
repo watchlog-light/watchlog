@@ -22,5 +22,7 @@ export default defineConfig({
   },
   test: {
     environment: 'happy-dom',
+    // e2e/ is Playwright's (pnpm test:responsive).
+    include: ['test/**/*.test.ts'],
   },
 });

@@ -53,7 +53,7 @@ const podLink = (p: HeatPod & { node?: string | null }) =>
     <template #actions>
       <RouterLink
         :to="{ name: docker ? 'containers' : 'workloads', query: docker ? {} : { view: 'pods' } }"
-        class="text-12 text-text-muted hover:text-text"
+        class="text-12 text-text-muted hover:text-text max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
         >{{
           $t(docker ? 'overview.nodes.containers' : 'overview.nodes.pods', { n: total }, total)
         }}</RouterLink
@@ -68,7 +68,7 @@ const podLink = (p: HeatPod & { node?: string | null }) =>
         <RouterLink
           v-if="r.name"
           :to="nodeLink(r.name)"
-          class="block truncate text-12 text-text hover:underline"
+          class="block truncate text-12 text-text hover:underline max-lg:flex max-lg:min-h-11 max-lg:items-center"
           :title="r.name"
           >{{ r.name }}</RouterLink
         >
@@ -80,7 +80,7 @@ const podLink = (p: HeatPod & { node?: string | null }) =>
           <RouterLink
             v-if="r.count > r.pods.length && r.name"
             :to="nodeLink(r.name)"
-            class="shrink-0 font-mono text-12 text-text-subtle hover:text-text"
+            class="shrink-0 font-mono text-12 text-text-subtle hover:text-text max-lg:flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center max-lg:justify-center"
             data-testid="heat-more"
             >+{{ r.count - r.pods.length }}</RouterLink
           >

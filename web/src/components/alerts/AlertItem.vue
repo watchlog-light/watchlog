@@ -99,7 +99,7 @@ const TONE = { ok: 'text-ok', critical: 'text-critical', neutral: 'text-text-mut
         />
         <RouterLink
           :to="{ name: 'alert', params: { id: alert.id } }"
-          class="inline-flex h-7 items-center rounded-control px-2.5 text-12 text-text-muted hover:bg-surface-2 hover:text-text"
+          class="inline-flex h-7 items-center rounded-control px-2.5 text-12 text-text-muted hover:bg-surface-2 hover:text-text max-lg:h-11 max-lg:px-3.5 max-lg:text-13"
         >
           {{ $t('alerts.open') }}
         </RouterLink>

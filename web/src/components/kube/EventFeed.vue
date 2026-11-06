@@ -286,13 +286,27 @@ const groupMessage = (events: KubeEvent[]) => {
   padding: 3px 0;
   font-family: var(--font-mono, ui-monospace, monospace);
 }
+/* Phones: the reason and the count on one line, the object and message below. */
 @media (max-width: 640px) {
   .er {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
   }
-  .er .tm,
-  .er .c {
+  .er .tm {
     display: none;
+  }
+  .er .rs {
+    justify-self: start;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .er > .min-w-0 {
+    grid-column: 1 / -1;
+  }
+  .er .c {
+    grid-column: 2;
+    grid-row: 1;
   }
   .sub {
     padding-left: 14px;

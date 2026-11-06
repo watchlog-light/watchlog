@@ -111,7 +111,7 @@ const meaning = (code: number) => {
             <td colspan="9">
               <button
                 type="button"
-                class="flex w-full items-center gap-2 text-left"
+                class="flex w-full flex-wrap items-center gap-x-2 gap-y-1 text-left max-lg:min-h-11"
                 :aria-expanded="!collapsed.has(item.namespace)"
                 @click="toggleNs(item.namespace)"
               >
@@ -148,10 +148,10 @@ const meaning = (code: number) => {
             data-testid="container-row"
             @click="toggle(item.c)"
           >
-            <td>
+            <td class="c-name">
               <button
                 type="button"
-                class="block max-w-full truncate text-left font-medium text-text"
+                class="block max-w-full truncate text-left font-medium text-text max-lg:leading-11"
                 :aria-expanded="open === item.key"
                 @click.stop="toggle(item.c)"
               >
@@ -166,7 +166,7 @@ const meaning = (code: number) => {
                 {{ reason(item.c) }}
               </p>
             </td>
-            <td>
+            <td class="c-health">
               <span
                 v-if="item.c.problem"
                 class="pill"
@@ -185,14 +185,18 @@ const meaning = (code: number) => {
                 data-testid="health-dot"
               />
             </td>
-            <td class="num" :class="restartsHigh(item.c.restartsInRange, range) && 'text-critical'">
+            <td
+              class="num c-restarts"
+              :class="restartsHigh(item.c.restartsInRange, range) && 'text-critical'"
+              :data-label="$t('docker.list.columns.restarts')"
+            >
               <template v-if="item.c.restartsInRange === null">{{ item.c.restartCount }}</template>
               <template v-else>
                 <span v-if="restartsHigh(item.c.restartsInRange, range)" aria-hidden="true">▲ </span
                 >{{ item.c.restartsInRange }}
               </template>
             </td>
-            <td>
+            <td class="c-cpu" :data-label="$t('docker.list.columns.cpu')">
               <ResourceBar
                 :usage="item.c.cpuCores"
                 :request="null"
@@ -201,7 +205,7 @@ const meaning = (code: number) => {
                 reference="limit"
               />
             </td>
-            <td>
+            <td class="c-mem" :data-label="$t('docker.list.columns.memory')">
               <ResourceBar
                 :usage="item.c.memoryBytes"
                 :request="null"
@@ -210,7 +214,7 @@ const meaning = (code: number) => {
                 reference="limit"
               />
             </td>
-            <td>
+            <td class="c-trend">
               <SparkLine
                 v-if="item.c.cpuSeries.length"
                 size="row"
@@ -218,15 +222,23 @@ const meaning = (code: number) => {
                 :color-token="item.c.problem?.severity === 'critical' ? '--critical' : '--info'"
               />
             </td>
-            <td class="img" :title="item.c.image">
+            <td
+              class="img c-img"
+              :title="item.c.image"
+              :data-label="$t('docker.list.columns.image')"
+            >
               <span class="block truncate"
                 ><HighlightText :text="shortImage(item.c.image)" :terms="terms"
               /></span>
             </td>
-            <td v-if="showHost" class="truncate text-text-subtle">
+            <td
+              v-if="showHost"
+              class="c-host truncate text-text-subtle"
+              :data-label="$t('docker.list.columns.host')"
+            >
               <HighlightText :text="item.c.host" :terms="terms" />
             </td>
-            <td class="num text-text-subtle">
+            <td class="num c-up text-text-subtle" :data-label="$t('docker.list.columns.up')">
               {{ item.c.startedAt && isRunning(item.c) ? since(item.c.startedAt) : '–' }}
             </td>
           </tr>
@@ -276,7 +288,7 @@ const meaning = (code: number) => {
               </div>
               <RouterLink
                 :to="link(item.c)"
-                class="mt-2 inline-block text-12 text-primary hover:underline"
+                class="mt-2 inline-block text-12 text-primary hover:underline max-lg:leading-11"
                 data-testid="open-container"
                 >{{ $t('docker.list.open', { id: `${item.c.host}/${item.c.name}` }) }} →</RouterLink
               >
@@ -397,5 +409,104 @@ tr.exp td {
 }
 .text-warning {
   color: var(--warning);
+}
+/* Phones: each container is a card (name, status at the top right, then labelled
+   fields); the Compose project rows stay as group headings. */
+@media (max-width: 767px) {
+  .tbl {
+    min-width: 0;
+    table-layout: auto;
+  }
+  .tbl colgroup,
+  .tbl thead {
+    display: none;
+  }
+  .tbl,
+  .tbl tbody,
+  .tbl tr,
+  .tbl td {
+    display: block;
+  }
+  tr.w {
+    position: relative;
+    display: grid;
+    grid-template-areas:
+      'name name'
+      'restarts up'
+      'cpu mem'
+      'img host';
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px 16px;
+    padding: 4px 12px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tbl tr.w td {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+  tr.w td[data-label]::before {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--text-subtle);
+    content: attr(data-label);
+    font-family: var(--font-sans, inherit);
+    font-size: var(--text-11);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .c-name {
+    grid-area: name;
+    padding-right: 128px !important;
+  }
+  .c-health {
+    position: absolute;
+    top: 14px;
+    right: 12px;
+  }
+  .c-restarts {
+    grid-area: restarts;
+  }
+  .c-up {
+    grid-area: up;
+  }
+  .c-cpu {
+    grid-area: cpu;
+  }
+  .c-mem {
+    grid-area: mem;
+  }
+  .c-img {
+    grid-area: img;
+  }
+  .c-host {
+    grid-area: host;
+  }
+  .c-trend {
+    display: none !important;
+  }
+  .tbl .num {
+    text-align: left;
+  }
+  tr.attn td:first-child,
+  tr.warn td:first-child {
+    box-shadow: none;
+  }
+  tr.attn {
+    box-shadow: inset 3px 0 0 var(--critical);
+  }
+  tr.warn {
+    box-shadow: inset 3px 0 0 var(--warning);
+  }
+  tr.exp td {
+    padding: 8px 12px 12px;
+  }
+  .probe {
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 2px 12px;
+  }
+  .probe > :last-child {
+    grid-column: 1 / -1;
+  }
 }
 </style>

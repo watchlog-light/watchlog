@@ -54,7 +54,7 @@ const link = (r: (typeof rows.value)[number]) =>
       <li v-for="r in rows" :key="`${r.namespace}/${r.name}`">
         <RouterLink :to="link(r)" class="twr" data-testid="top-row">
           <span class="block min-w-0 truncate text-13 text-text">
-            {{ r.name }} <small class="text-text-subtle">{{ r.namespace }}</small>
+            {{ r.name }} <small class="text-12 text-text-subtle">{{ r.namespace }}</small>
           </span>
           <span
             class="bar"
@@ -92,7 +92,7 @@ const link = (r: (typeof rows.value)[number]) =>
       }}</span>
       <label
         v-if="hasSystem || !hideSystem"
-        class="ml-auto inline-flex cursor-pointer items-center gap-1.5 text-text-muted"
+        class="ml-auto inline-flex cursor-pointer items-center gap-1.5 text-text-muted max-lg:min-h-11"
       >
         <input
           v-model="hideSystem"
@@ -145,5 +145,11 @@ const link = (r: (typeof rows.value)[number]) =>
 }
 .bg-violet {
   background: var(--chart-4);
+}
+/* Touch screens: 44 px rows. */
+@media (max-width: 1023px) {
+  .twr {
+    min-height: 44px;
+  }
 }
 </style>

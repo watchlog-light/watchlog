@@ -38,14 +38,14 @@ async function silence(minutes: number) {
   }
 }
 const item =
-  'flex cursor-pointer items-center rounded-control px-2 py-1.5 text-13 text-text outline-none data-[highlighted]:bg-surface-3';
+  'flex cursor-pointer items-center rounded-control px-2 py-1.5 text-13 text-text outline-none data-[highlighted]:bg-surface-3 max-lg:min-h-11';
 </script>
 
 <template>
   <DropdownMenuRoot>
     <DropdownMenuTrigger
       :disabled="busy"
-      class="inline-flex h-7 items-center gap-1 rounded-control border border-border-strong bg-surface-2 px-2.5 text-12 text-text hover:bg-surface-3 disabled:opacity-60"
+      class="inline-flex h-7 items-center gap-1 rounded-control border border-border-strong bg-surface-2 px-2.5 text-12 text-text hover:bg-surface-3 disabled:opacity-60 max-lg:h-11 max-lg:px-3.5 max-lg:text-13"
       data-testid="silence-menu"
     >
       {{ $t('alerts.silence.action') }}

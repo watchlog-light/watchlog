@@ -10,7 +10,7 @@ defineProps<{ docker?: boolean }>();
     <li><i class="h-mid" />{{ $t('heat.legend.mid') }}</li>
     <li><i class="h-high" />{{ $t('heat.legend.high') }}</li>
     <li><i class="h-over" />{{ $t(docker ? 'heat.legend.overLimit' : 'heat.legend.over') }}</li>
-    <li><i class="h-fail">✕</i>{{ $t('heat.legend.fail') }}</li>
+    <li><i class="h-fail" aria-hidden="true">✕</i>{{ $t('heat.legend.fail') }}</li>
   </ul>
 </template>
 

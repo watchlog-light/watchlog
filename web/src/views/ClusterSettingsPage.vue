@@ -72,7 +72,7 @@ onMounted(page.load);
   <div class="mx-auto flex max-w-3xl flex-col gap-6">
     <RouterLink
       :to="{ name: 'settings' }"
-      class="inline-flex items-center gap-1.5 self-start text-13 text-text-muted hover:text-text"
+      class="inline-flex items-center gap-1.5 self-start text-13 text-text-muted hover:text-text max-lg:min-h-11"
     >
       <ArrowLeft class="size-4" aria-hidden="true" />
       {{ $t('clusters.back') }}
@@ -144,7 +144,9 @@ onMounted(page.load);
       <p v-if="error" role="alert" class="text-13 text-critical">{{ error }}</p>
 
       <section class="rounded-card border border-border bg-surface-1">
-        <div class="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
+        <div
+          class="flex items-center justify-between gap-4 border-b border-border px-5 py-4 max-md:flex-col max-md:items-stretch max-md:gap-3 max-md:px-4"
+        >
           <div>
             <h3 class="text-14 font-semibold text-text">{{ $t('clusters.tokens.title') }}</h3>
             <p class="mt-1 text-13 text-text-muted">{{ $t('clusters.tokens.intro') }}</p>

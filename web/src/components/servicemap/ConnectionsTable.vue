@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp } from '@lucide/vue';
 import type { ServiceMapEdge } from '@watchlog/api-types';
 import { computed, ref } from 'vue';
 import TonePill from '@/components/kube/TonePill.vue';
+import { useNarrow } from '@/composables/useNarrow';
 import { HEALTH_TONE, latency, perSecond } from '@/lib/servicemap';
 import { tableRows, throughput, type SortKey } from '@/lib/servicemap-model';
 import { formatValue } from '@/lib/units';
@@ -22,8 +23,13 @@ const sort = ref<{ key: SortKey; desc: boolean } | null>(null);
 const rows = computed(() => tableRows(props.edges, props.name, sort.value));
 const ROW_H = 44;
 const VIEW_H = 640;
+// Phones: each connection is a two-line card (name and health, then the numbers) in the
+// page's own scroll, not virtualised, unless the list is very long.
+const narrow = useNarrow();
+const virtual = computed(() => !narrow.value || rows.value.length > 300);
 const scrollTop = ref(0);
 const window_ = computed(() => {
+  if (!virtual.value) return { first: 0, list: rows.value };
   const first = Math.max(0, Math.floor(scrollTop.value / ROW_H) - 6);
   const count = Math.ceil(VIEW_H / ROW_H) + 12;
   return { first, list: rows.value.slice(first, first + count) };
@@ -58,7 +64,7 @@ const failedText = (e: ServiceMapEdge) =>
     data-testid="connections-table"
   >
     <div role="rowgroup" class="border-b border-border">
-      <div role="row" class="conn-grid text-12 font-medium text-text-muted">
+      <div role="row" class="conn-grid conn-head text-12 font-medium text-text-muted">
         <div
           v-for="c in columns"
           :key="c.key"
@@ -69,7 +75,7 @@ const failedText = (e: ServiceMapEdge) =>
         >
           <button
             type="button"
-            class="inline-flex items-center gap-1 rounded-control px-1 py-0.5 hover:text-text"
+            class="inline-flex items-center gap-1 rounded-control px-1 py-0.5 hover:text-text max-lg:min-h-11 max-lg:px-2"
             :data-testid="`sort-${c.key}`"
             @click="sortBy(c.key)"
           >
@@ -87,12 +93,16 @@ const failedText = (e: ServiceMapEdge) =>
     <div
       role="rowgroup"
       class="overflow-y-auto"
-      :style="{ height: `${Math.min(VIEW_H, Math.max(rows.length, 1) * ROW_H)}px` }"
+      :style="
+        virtual ? { height: `${Math.min(VIEW_H, Math.max(rows.length, 1) * ROW_H)}px` } : undefined
+      "
       data-testid="connections-scroll"
       @scroll="scrollTop = ($event.target as HTMLElement).scrollTop"
     >
-      <div :style="{ height: `${rows.length * ROW_H}px`, position: 'relative' }">
-        <div :style="{ transform: `translateY(${window_.first * ROW_H}px)` }">
+      <div
+        :style="virtual ? { height: `${rows.length * ROW_H}px`, position: 'relative' } : undefined"
+      >
+        <div :style="virtual ? { transform: `translateY(${window_.first * ROW_H}px)` } : undefined">
           <template
             v-for="(r, i) in window_.list"
             :key="r.type === 'group' ? `g-${r.group}` : r.edge.id"
@@ -101,8 +111,8 @@ const failedText = (e: ServiceMapEdge) =>
               v-if="r.type === 'group'"
               role="row"
               :aria-rowindex="window_.first + i + 2"
-              class="flex items-center bg-surface-2 px-3 text-12 font-medium text-text-muted"
-              :style="{ height: `${ROW_H}px` }"
+              class="flex items-center bg-surface-2 px-3 text-12 font-medium text-text-muted max-md:min-h-9"
+              :style="virtual ? { height: `${ROW_H}px` } : undefined"
               data-testid="conn-group"
             >
               <span role="cell">{{ $t(`serviceMap.groups.${r.group}`, { n: r.count }) }}</span>
@@ -113,7 +123,7 @@ const failedText = (e: ServiceMapEdge) =>
               tabindex="0"
               :aria-rowindex="window_.first + i + 2"
               class="conn-grid cursor-pointer border-b border-border text-13 hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none"
-              :style="{ height: `${ROW_H}px` }"
+              :style="virtual ? { height: `${ROW_H}px` } : undefined"
               data-testid="conn-row"
               @click="emit('open', r.edge.id)"
               @keydown.enter="emit('open', r.edge.id)"
@@ -136,16 +146,24 @@ const failedText = (e: ServiceMapEdge) =>
                   :label="$t(`serviceMap.health.${r.edge.health}`)"
                 />
               </div>
-              <div role="cell" class="num">{{ perSecond(r.edge.connectionsPerSecond) }}</div>
+              <div role="cell" class="num">
+                <span class="lbl">{{ $t('serviceMap.columns.connections') }}</span>
+                {{ perSecond(r.edge.connectionsPerSecond) }}
+              </div>
               <div
                 role="cell"
                 class="num"
                 :class="(r.edge.failedRatio ?? 0) >= 0.01 ? 'text-critical' : ''"
               >
+                <span class="lbl">{{ $t('serviceMap.columns.failed') }}</span>
                 {{ failedText(r.edge) }}
               </div>
-              <div role="cell" class="num">{{ latency(r.edge.latencyP95Seconds) }}</div>
               <div role="cell" class="num">
+                <span class="lbl">{{ $t('serviceMap.columns.p95') }}</span>
+                {{ latency(r.edge.latencyP95Seconds) }}
+              </div>
+              <div role="cell" class="num">
+                <span class="lbl">{{ $t('serviceMap.columns.bytes') }}</span>
                 {{
                   r.edge.bytesSentPerSecond === null
                     ? '–'
@@ -172,10 +190,44 @@ const failedText = (e: ServiceMapEdge) =>
   padding: 0 12px;
   min-height: 36px;
 }
+.lbl {
+  display: none;
+}
 .num {
   text-align: right;
   font-family: var(--font-mono, ui-monospace, monospace);
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
+}
+/* Phones: a two-line card per connection; the sort buttons wrap above the list. */
+@media (max-width: 767px) {
+  .conn-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: auto auto;
+    row-gap: 6px;
+    padding: 10px 12px;
+  }
+  .conn-grid > :first-child {
+    grid-column: 1 / 4;
+  }
+  .conn-grid > :nth-child(2) {
+    justify-self: end;
+  }
+  .conn-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 4px;
+    padding: 4px 8px;
+  }
+  .num {
+    text-align: left;
+    font-size: 12px;
+  }
+  .lbl {
+    display: block;
+    color: var(--text-subtle);
+    font-family: var(--font-sans, inherit);
+    font-size: 12px;
+  }
 }
 </style>

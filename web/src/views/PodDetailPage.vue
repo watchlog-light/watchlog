@@ -150,7 +150,7 @@ onBeforeUnmount(() => clearInterval(timer));
         name: 'workloads',
         query: { view: 'pods', ...($route.query.ns ? { ns: $route.query.ns } : {}) },
       }"
-      class="inline-flex items-center gap-1.5 self-start text-13 text-text-muted hover:text-text"
+      class="inline-flex items-center gap-1.5 self-start text-13 text-text-muted hover:text-text max-lg:min-h-11"
     >
       <ArrowLeft class="size-4" aria-hidden="true" />
       {{ $t('kube.pod.back') }}

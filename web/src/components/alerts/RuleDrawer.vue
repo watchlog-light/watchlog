@@ -323,7 +323,7 @@ async function resetToDefault() {
 }
 
 const slot =
-  'h-8 w-20 rounded-control border border-border-strong bg-surface-3 px-2 text-center font-mono text-14 text-text tabular focus:border-primary';
+  'h-8 w-20 rounded-control border border-border-strong bg-surface-3 px-2 text-center font-mono text-14 text-text tabular focus:border-primary max-lg:h-11 max-md:text-16';
 const channelOptions = computed(() =>
   props.channels.map((c) => ({
     value: c.id,
@@ -339,10 +339,10 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-40 bg-bg/60" />
       <DialogContent
-        class="fixed inset-y-0 right-0 z-50 flex w-full max-w-[540px] flex-col border-l border-border-strong bg-surface-1 shadow-xl"
+        class="fixed inset-y-0 right-0 z-50 flex w-full max-w-[540px] flex-col border-l border-border-strong bg-surface-1 shadow-xl max-md:border-l-0"
         data-testid="rule-drawer"
       >
-        <header class="flex items-center gap-2.5 border-b border-border px-4 py-3.5">
+        <header class="flex items-center gap-2.5 border-b border-border px-4 py-3.5 max-lg:py-1.5">
           <DialogTitle class="min-w-0 truncate text-16 font-semibold text-text">
             {{ isNew ? $t('alerts.drawer.newTitle') : rule!.name }}
           </DialogTitle>
@@ -356,7 +356,7 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
           />
           <span class="flex-1" />
           <DialogClose
-            class="rounded-control p-1 text-text-muted hover:bg-surface-2 hover:text-text"
+            class="rounded-control p-1 text-text-muted hover:bg-surface-2 hover:text-text max-lg:-mr-2 max-lg:flex max-lg:size-11 max-lg:items-center max-lg:justify-center"
             :aria-label="$t('common.close')"
           >
             <X class="size-4" aria-hidden="true" />
@@ -546,7 +546,7 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
                     v-for="s in ['warning', 'critical'] as const"
                     :key="s"
                     :class="[
-                      'flex cursor-pointer items-center gap-1.5 border-r border-border px-3 py-1 text-13 last:border-r-0',
+                      'flex cursor-pointer items-center gap-1.5 border-r border-border px-3 py-1 text-13 last:border-r-0 max-lg:min-h-11',
                       form.severity === s
                         ? 'bg-surface-3 text-text'
                         : 'text-text-muted hover:bg-surface-2',
@@ -652,7 +652,7 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
             <div class="border-t border-dashed border-border pt-3 text-13 text-text-muted">
               <button
                 type="button"
-                class="flex items-center gap-1.5 hover:text-text"
+                class="flex items-center gap-1.5 text-left hover:text-text max-lg:min-h-11"
                 :aria-expanded="showAdvanced"
                 @click="showAdvanced = !showAdvanced"
               >
@@ -679,7 +679,9 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
             </p>
           </div>
 
-          <footer class="mt-auto flex items-center gap-2 border-t border-border px-4 py-3">
+          <footer
+            class="mt-auto flex items-center gap-2 border-t border-border px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          >
             <BaseButton
               v-if="isDefault"
               variant="ghost"

@@ -19,6 +19,8 @@ function readCollapsed(): boolean {
 export const useUiStore = defineStore('ui', () => {
   const sidebarCollapsed = ref(readCollapsed());
   const timeRange = ref<TimeRange>('1h');
+  /** Below 1024 px the navigation is a drawer: whether it is open. */
+  const navOpen = ref(false);
 
   watch(sidebarCollapsed, (value) => {
     try {
@@ -32,5 +34,5 @@ export const useUiStore = defineStore('ui', () => {
     sidebarCollapsed.value = !sidebarCollapsed.value;
   }
 
-  return { sidebarCollapsed, timeRange, toggleSidebar };
+  return { sidebarCollapsed, timeRange, navOpen, toggleSidebar };
 });

@@ -219,7 +219,7 @@ onBeforeUnmount(() => clearInterval(timer));
           </span>
           <button
             type="button"
-            class="ml-auto rounded p-1 text-text-subtle hover:text-text"
+            class="ml-auto flex shrink-0 items-center justify-center rounded p-1 text-text-subtle hover:text-text max-lg:-my-2 max-lg:size-11"
             :aria-label="$t('kube.nodes.dismiss')"
             data-testid="dismiss-tls"
             @click="dismiss"

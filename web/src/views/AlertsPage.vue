@@ -154,7 +154,7 @@ const tabCount = (v: View) =>
           role="tab"
           :aria-selected="view === v"
           :class="[
-            'flex items-center gap-1.5 border-b-2 px-3 py-2 text-13 whitespace-nowrap transition-colors',
+            'flex items-center gap-1.5 border-b-2 px-3 py-2 text-13 whitespace-nowrap transition-colors max-lg:min-h-11',
             view === v
               ? 'border-primary text-text'
               : 'border-transparent text-text-muted hover:text-text',

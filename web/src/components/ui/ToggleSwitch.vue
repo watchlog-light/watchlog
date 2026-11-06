@@ -55,6 +55,12 @@ const model = defineModel<boolean>({ required: true });
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+/* Phones and tablets: the whole label is the 44 px target. */
+@media (max-width: 1023px) {
+  .sw {
+    min-height: 44px;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .sw input::after {
     transition: none;

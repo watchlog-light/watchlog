@@ -109,7 +109,7 @@ onMounted(() => {
   <div class="mx-auto flex max-w-4xl flex-col gap-6">
     <RouterLink
       :to="{ name: 'alerts' }"
-      class="inline-flex items-center gap-1.5 text-13 text-text-muted hover:text-text"
+      class="inline-flex items-center gap-1.5 text-13 text-text-muted hover:text-text max-lg:min-h-11"
     >
       <ArrowLeft class="size-4" aria-hidden="true" />{{ $t('alerts.detail.back') }}
     </RouterLink>
@@ -135,16 +135,20 @@ onMounted(() => {
     </template>
 
     <template v-else-if="page.data.value">
-      <header class="flex flex-wrap items-start gap-4" data-testid="alert-header">
-        <div class="min-w-0 flex-1">
+      <!-- Phones: the pills and Silence first, then the title at full width. -->
+      <header
+        class="flex flex-wrap items-start gap-4 max-md:flex-col max-md:gap-3"
+        data-testid="alert-header"
+      >
+        <div class="min-w-0 flex-1 max-md:w-full">
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h2 class="text-20 font-semibold text-text" data-testid="alert-title">
+            <h2 class="text-20 font-semibold break-words text-text" data-testid="alert-title">
               {{ page.data.value.alert.title }}
             </h2>
             <RouterLink
               v-if="alertTarget(page.data.value.alert)"
               :to="alertTarget(page.data.value.alert)!"
-              class="inline-flex items-center gap-1 text-13 text-text-muted hover:text-text hover:underline"
+              class="inline-flex items-center gap-1 text-13 text-text-muted hover:text-text hover:underline max-lg:min-h-11"
               data-testid="open-target"
             >
               {{ $t('alerts.detail.openObject', { name: alertTargetName(page.data.value.alert) }) }}
@@ -158,7 +162,7 @@ onMounted(() => {
           >
             {{ page.data.value.alert.why }}
           </p>
-          <p class="mt-1 text-13 text-text-muted">
+          <p class="mt-1 text-13 break-words text-text-muted">
             {{ page.data.value.alert.rule.name }} · {{ alertWhere(page.data.value.alert) }} ·
             {{ page.data.value.alert.cluster.name }}
           </p>
@@ -172,7 +176,7 @@ onMounted(() => {
             }}
           </p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2 max-md:order-first max-md:w-full">
           <TonePill
             :tone="severityTone(page.data.value.alert.severity)"
             :label="$t(`alerts.severity.${page.data.value.alert.severity}`)"
@@ -189,6 +193,7 @@ onMounted(() => {
           <BaseButton
             v-if="canManage && page.data.value.alert.state !== 'resolved' && !silencing"
             variant="secondary"
+            class="max-md:ml-auto"
             data-testid="silence-alert"
             @click="silencing = true"
           >
@@ -212,19 +217,28 @@ onMounted(() => {
         @retry="chart.load"
       />
 
-      <section class="rounded-card border border-border bg-surface-1 p-5">
+      <section class="rounded-card border border-border bg-surface-1 p-5 max-md:p-4">
         <h3 class="mb-3 text-14 font-semibold text-text">{{ $t('alerts.detail.timeline') }}</h3>
         <ol class="flex flex-col gap-3" data-testid="alert-timeline">
-          <li v-for="(s, i) in steps" :key="i" class="flex items-start gap-3 text-13">
+          <!-- Phones: the time next to the icon, what happened below it. -->
+          <li
+            v-for="(s, i) in steps"
+            :key="i"
+            class="flex items-start gap-3 text-13 max-md:flex-wrap max-md:gap-y-0.5"
+          >
             <component
               :is="s.icon"
               class="mt-0.5 size-4 shrink-0 text-text-muted"
               aria-hidden="true"
             />
-            <span class="w-56 shrink-0 text-12 text-text-muted tabular">
+            <span class="w-56 shrink-0 text-12 text-text-muted tabular max-md:w-auto max-md:flex-1">
               {{ when(s.at) }}
             </span>
-            <span v-if="s.gap" class="text-text" data-testid="timeline-gap">
+            <span
+              v-if="s.gap"
+              class="text-text max-md:basis-full max-md:pl-7"
+              data-testid="timeline-gap"
+            >
               {{
                 s.gap.to
                   ? $t('alerts.detail.gap', {
@@ -234,7 +248,7 @@ onMounted(() => {
                   : $t('alerts.detail.gapOpen', { from: formatWhen(s.gap.from) })
               }}
             </span>
-            <span v-else-if="!s.note" class="text-text">
+            <span v-else-if="!s.note" class="text-text max-md:basis-full max-md:pl-7">
               {{ $t(`alerts.detail.steps.${s.text}`) }}
               <template v-if="s.text === 'resolved' && page.data.value.alert.resolvedAt">
                 ·
@@ -248,7 +262,10 @@ onMounted(() => {
                 }}
               </template>
             </span>
-            <span v-else class="flex min-w-0 flex-wrap items-center gap-2 text-text">
+            <span
+              v-else
+              class="flex min-w-0 flex-wrap items-center gap-2 text-text max-md:basis-full max-md:pl-7"
+            >
               {{
                 $t('alerts.detail.message', {
                   kind: $t(`alerts.kinds.${s.note.kind}`),

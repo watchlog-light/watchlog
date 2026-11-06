@@ -185,7 +185,7 @@ onMounted(page.load);
             v-for="s in SECURITY"
             :key="s"
             :class="[
-              'cursor-pointer border-r border-border px-3 py-1.5 text-12 last:border-r-0',
+              'cursor-pointer border-r border-border px-3 py-1.5 text-12 last:border-r-0 max-lg:flex max-lg:min-h-11 max-lg:items-center max-lg:px-3.5 max-lg:text-13',
               form.security === s ? 'bg-surface-3 text-text' : 'text-text-muted hover:bg-surface-2',
               readonly ? 'cursor-default' : '',
             ]"

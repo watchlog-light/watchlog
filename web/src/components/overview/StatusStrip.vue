@@ -83,7 +83,7 @@ const SYMBOL: Record<string, string> = { critical: '✕', warning: '▲' };
     <span class="flex-1" />
     <RouterLink
       :to="{ name: 'alerts' }"
-      class="inline-flex items-center gap-1 text-13 text-primary"
+      class="inline-flex items-center gap-1 text-13 text-primary max-lg:min-h-11"
     >
       {{ $t('overview.status.openAlerts') }} <ArrowRight class="size-3.5" aria-hidden="true" />
     </RouterLink>
@@ -146,5 +146,12 @@ const SYMBOL: Record<string, string> = { critical: '✕', warning: '▲' };
 .chip:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+/* Touch screens: 44 px targets. */
+@media (max-width: 1023px) {
+  .chip {
+    min-height: 44px;
+    padding-inline: 14px;
+  }
 }
 </style>

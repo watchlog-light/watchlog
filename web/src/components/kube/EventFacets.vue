@@ -55,7 +55,7 @@ function toggle(f: Facet, value: string) {
         <button
           v-if="selected[f].length"
           type="button"
-          class="text-12 text-primary hover:underline"
+          class="text-12 text-primary hover:underline max-lg:min-h-11 max-lg:px-2"
           @click="emit('change', f, [])"
         >
           {{ $t('kube.events.facets.all') }}
@@ -85,7 +85,7 @@ function toggle(f: Facet, value: string) {
       <button
         v-if="rows(f).length > TOP"
         type="button"
-        class="mt-1 px-1.5 text-12 text-text-muted hover:text-text"
+        class="mt-1 px-1.5 text-12 text-text-muted hover:text-text max-lg:min-h-11"
         @click="expanded[f] = !expanded[f]"
       >
         {{
@@ -138,5 +138,11 @@ h3 {
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+/* Touch screens: each value is a 44 px row. */
+@media (max-width: 1023px) {
+  .fc {
+    min-height: 44px;
+  }
 }
 </style>

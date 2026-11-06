@@ -24,9 +24,11 @@ defineProps<{ overview: Overview }>();
       >
     </template>
     <template #actions>
-      <RouterLink :to="{ name: 'alerts' }" class="text-13 text-primary">{{
-        $t('overview.attention.all')
-      }}</RouterLink>
+      <RouterLink
+        :to="{ name: 'alerts' }"
+        class="text-13 text-primary max-lg:inline-flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center max-lg:justify-center"
+        >{{ $t('overview.attention.all') }}</RouterLink
+      >
     </template>
     <ul v-if="overview.problems.items.length" class="flex flex-col">
       <li v-for="p in overview.problems.items.slice(0, 8)" :key="p.id">

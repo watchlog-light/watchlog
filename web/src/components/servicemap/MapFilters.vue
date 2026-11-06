@@ -50,7 +50,7 @@ function toggleNs(ns: string, on: boolean) {
       <label
         v-for="k in toggles"
         :key="k"
-        class="flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-13 text-text select-none hover:bg-surface-2"
+        class="flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-13 text-text select-none hover:bg-surface-2 max-lg:min-h-11"
       >
         <input
           type="checkbox"
@@ -83,7 +83,7 @@ function toggleNs(ns: string, on: boolean) {
         <label
           v-for="n in namespaces"
           :key="n.name"
-          class="flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-13 text-text select-none hover:bg-surface-2"
+          class="flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-13 text-text select-none hover:bg-surface-2 max-lg:min-h-11"
           data-testid="filter-namespace"
         >
           <input

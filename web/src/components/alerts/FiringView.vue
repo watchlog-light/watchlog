@@ -129,14 +129,14 @@ if (props.list.counts.held > 0) {
         <div class="flex flex-wrap gap-2">
           <RouterLink
             :to="{ name: 'cluster-settings', params: { id: a.cluster.id } }"
-            class="inline-flex h-7 items-center rounded-control border border-border-strong bg-surface-2 px-2.5 text-12 text-text hover:bg-surface-3"
+            class="inline-flex h-7 items-center rounded-control border border-border-strong bg-surface-2 px-2.5 text-12 text-text hover:bg-surface-3 max-lg:h-11 max-lg:px-3.5 max-lg:text-13"
           >
             {{ $t('alerts.incident.check') }}
           </RouterLink>
           <BaseButton
             v-if="list.counts.held > 0"
             variant="secondary"
-            class="!h-7 !px-2.5 !text-12"
+            class="!h-7 !px-2.5 !text-12 max-lg:!h-11 max-lg:!px-3.5 max-lg:!text-13"
             :loading="loadingHeld"
             data-testid="show-held"
             @click="toggleHeld"

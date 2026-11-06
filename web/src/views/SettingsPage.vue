@@ -36,7 +36,7 @@ function setTab(t: Tab) {
         role="tab"
         :aria-selected="tab === t"
         :class="[
-          '-mb-px border-b-2 px-3 py-2 text-13 whitespace-nowrap transition-colors',
+          '-mb-px border-b-2 px-3 py-2 text-13 whitespace-nowrap transition-colors max-lg:min-h-11',
           tab === t
             ? 'border-primary text-text'
             : 'border-transparent text-text-muted hover:text-text',

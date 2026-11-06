@@ -475,4 +475,10 @@ const alert = computed(() => series.data.value?.context.alert ?? null);
 .close:hover {
   color: var(--text);
 }
+/* Touch screens: 44 px rows. */
+@media (max-width: 1023px) {
+  .lrow {
+    min-height: 44px;
+  }
+}
 </style>

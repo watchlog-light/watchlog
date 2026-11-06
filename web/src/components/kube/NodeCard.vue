@@ -65,7 +65,10 @@ const podLink = (p: HeatPod) =>
     <div class="flex items-start gap-2">
       <div class="min-w-0">
         <h3 class="truncate text-14 font-semibold">
-          <RouterLink :to="n.link" class="hover:underline">
+          <RouterLink
+            :to="n.link"
+            class="hover:underline max-lg:block max-lg:truncate max-lg:leading-11"
+          >
             <HighlightText :text="n.name" :terms="terms" />
           </RouterLink>
         </h3>

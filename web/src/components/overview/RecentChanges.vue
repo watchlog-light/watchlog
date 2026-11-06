@@ -29,9 +29,11 @@ const detail = (details: unknown) => {
 <template>
   <OverviewCard :title="$t('overview.changes.title')" testid="card-changes">
     <template #actions>
-      <RouterLink :to="{ name: 'events' }" class="text-13 text-primary">{{
-        $t('overview.changes.events')
-      }}</RouterLink>
+      <RouterLink
+        :to="{ name: 'events' }"
+        class="text-13 text-primary max-lg:inline-flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center max-lg:justify-center"
+        >{{ $t('overview.changes.events') }}</RouterLink
+      >
     </template>
     <ol v-if="overview.changes.length" class="flex flex-col px-3.5 pt-2 pb-3">
       <li
@@ -49,9 +51,12 @@ const detail = (details: unknown) => {
           aria-hidden="true"
         />
         <span class="min-w-0 text-13">
-          <RouterLink v-if="markerLink(m)" :to="markerLink(m)!" class="text-text hover:underline">{{
-            markerLabel(m, t)
-          }}</RouterLink>
+          <RouterLink
+            v-if="markerLink(m)"
+            :to="markerLink(m)!"
+            class="text-text hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+            >{{ markerLabel(m, t) }}</RouterLink
+          >
           <template v-else>{{ markerLabel(m, t) }}</template>
           <small class="block truncate font-mono text-12 text-text-subtle">
             {{ [m.namespace, detail(m.details)].filter(Boolean).join(' · ') }}

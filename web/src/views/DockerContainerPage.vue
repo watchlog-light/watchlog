@@ -93,7 +93,7 @@ onMounted(page.load);
   <div class="flex flex-col gap-6">
     <RouterLink
       :to="{ name: 'docker-host', params: { host: hostName } }"
-      class="inline-flex items-center gap-1.5 self-start text-13 text-text-muted hover:text-text"
+      class="inline-flex items-center gap-1.5 self-start text-13 text-text-muted hover:text-text max-lg:min-h-11"
     >
       <ArrowLeft class="size-4" aria-hidden="true" />
       {{ hostName }}

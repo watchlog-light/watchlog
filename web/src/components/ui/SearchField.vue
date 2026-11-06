@@ -31,7 +31,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKey));
 </script>
 
 <template>
-  <label class="relative flex h-9 min-w-0 flex-1 items-center sm:max-w-sm">
+  <label class="relative flex h-9 min-w-0 flex-1 items-center max-lg:h-11 sm:max-w-sm">
     <span class="sr-only">{{ label }}</span>
     <Search
       class="pointer-events-none absolute left-3 size-4 text-text-subtle"
@@ -46,12 +46,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKey));
       spellcheck="false"
       aria-keyshortcuts="/"
       data-testid="search"
-      class="h-9 w-full rounded-control border border-border bg-surface-3 pr-8 pl-9 text-14 text-text placeholder:text-text-subtle focus:border-border-strong [&::-webkit-search-cancel-button]:hidden"
+      class="h-9 w-full rounded-control border border-border bg-surface-3 pr-8 pl-9 text-14 max-lg:h-11 max-md:text-16 text-text placeholder:text-text-subtle focus:border-border-strong [&::-webkit-search-cancel-button]:hidden"
       @keydown.esc.prevent="onEscape"
     />
     <kbd
       v-if="model === ''"
-      class="pointer-events-none absolute right-2 rounded border border-border px-1.5 font-mono text-12 text-text-subtle"
+      class="pointer-events-none absolute right-2 max-lg:hidden rounded border border-border px-1.5 font-mono text-12 text-text-subtle"
       aria-hidden="true"
       >/</kbd
     >

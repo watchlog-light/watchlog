@@ -24,7 +24,7 @@ const rows = computed(() =>
 );
 
 const keyed = computed(() => rows.value.map((p) => ({ key: `${p.namespace}/${p.name}`, p })));
-const { body, shown } = useVirtualRows(keyed, () => 50);
+const { body, shown, measure } = useVirtualRows(keyed, () => 50);
 </script>
 
 <template>
@@ -57,15 +57,17 @@ const { body, shown } = useVirtualRows(keyed, () => 50);
           <td colspan="8" class="pad" :style="{ height: `${shown.pad[0]}px` }" />
         </tr>
         <tr
-          v-for="{ item: { p } } in shown.items"
+          v-for="{ item: { p }, index } in shown.items"
           :key="`${p.namespace}/${p.name}`"
+          :ref="measure"
+          :data-index="index"
           :class="{ attn: severityOf(p) === 'critical', warn: severityOf(p) === 'warning' }"
           data-testid="pod-row"
         >
-          <td>
+          <td class="c-name">
             <RouterLink
               :to="{ name: 'pod', params: { namespace: p.namespace, name: p.name } }"
-              class="block truncate font-mono text-12 text-text hover:underline"
+              class="block truncate font-mono text-12 text-text hover:underline max-lg:leading-11"
             >
               <HighlightText :text="`${p.namespace}/${p.name}`" :terms="terms" />
             </RouterLink>
@@ -76,7 +78,7 @@ const { body, shown } = useVirtualRows(keyed, () => 50);
               {{ p.workloadKind }} {{ p.workload }}
             </p>
           </td>
-          <td>
+          <td class="c-status" :data-label="$t('kube.pods.columns.status')">
             <span v-if="p.failing" class="pill crit">✕ {{ p.failing }}</span>
             <span v-else-if="p.phase === 'Pending'" class="pill warn">▲ {{ p.status }}</span>
             <span v-else-if="p.ready || p.phase === 'Succeeded'" class="pill ok"
@@ -84,12 +86,18 @@ const { body, shown } = useVirtualRows(keyed, () => 50);
             >
             <span v-else class="pill neutral">{{ p.status }}</span>
           </td>
-          <td class="truncate text-text-subtle">
+          <td class="c-node truncate text-text-subtle" :data-label="$t('kube.pods.columns.node')">
             <HighlightText v-if="p.node" :text="p.node" :terms="terms" />
             <template v-else>–</template>
           </td>
-          <td class="num" :class="p.restarts > 20 && 'text-critical'">{{ p.restarts }}</td>
-          <td>
+          <td
+            class="num c-restarts"
+            :class="p.restarts > 20 && 'text-critical'"
+            :data-label="$t('kube.pods.columns.restarts')"
+          >
+            {{ p.restarts }}
+          </td>
+          <td class="c-cpu" :data-label="$t('kube.pods.columns.cpu')">
             <ResourceBar
               :usage="p.cpuCores"
               :request="p.cpuRequestCores || null"
@@ -97,7 +105,7 @@ const { body, shown } = useVirtualRows(keyed, () => 50);
               unit="cores"
             />
           </td>
-          <td>
+          <td class="c-mem" :data-label="$t('kube.pods.columns.memory')">
             <ResourceBar
               :usage="p.memoryBytes"
               :request="p.memoryRequestBytes || null"
@@ -105,7 +113,11 @@ const { body, shown } = useVirtualRows(keyed, () => 50);
               unit="bytes"
             />
           </td>
-          <td class="truncate text-12 text-text-subtle" data-testid="last-termination">
+          <td
+            class="c-term truncate text-12 text-text-subtle"
+            data-testid="last-termination"
+            :data-label="$t('kube.pods.columns.lastTermination')"
+          >
             {{
               p.lastTermination
                 ? $t('kube.workloads.lastExit', {
@@ -115,7 +127,9 @@ const { body, shown } = useVirtualRows(keyed, () => 50);
                 : '–'
             }}
           </td>
-          <td class="num text-text-subtle">{{ p.createdAt ? since(p.createdAt) : '–' }}</td>
+          <td class="num c-age text-text-subtle" :data-label="$t('kube.pods.columns.age')">
+            {{ p.createdAt ? since(p.createdAt) : '–' }}
+          </td>
         </tr>
         <tr v-if="shown.pad[1]" aria-hidden="true">
           <td colspan="8" class="pad" :style="{ height: `${shown.pad[1]}px` }" />
@@ -197,5 +211,87 @@ tr.warn td:first-child {
 }
 .text-critical {
   color: var(--critical);
+}
+/* Phones: each pod is a card with labelled fields. */
+@media (max-width: 767px) {
+  .tbl {
+    min-width: 0;
+    table-layout: auto;
+  }
+  .tbl colgroup,
+  .tbl thead {
+    display: none;
+  }
+  .tbl,
+  .tbl tbody,
+  .tbl tr,
+  .tbl td {
+    display: block;
+  }
+  tr[data-testid='pod-row'] {
+    display: grid;
+    grid-template-areas:
+      'name name'
+      'status node'
+      'restarts age'
+      'cpu mem'
+      'term term';
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px 16px;
+    padding: 4px 12px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tbl tr[data-testid='pod-row'] td {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+  td[data-label]::before {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--text-subtle);
+    content: attr(data-label);
+    font-family: var(--font-sans, inherit);
+    font-size: var(--text-11);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .c-name {
+    grid-area: name;
+  }
+  .c-status {
+    grid-area: status;
+  }
+  .c-node {
+    grid-area: node;
+  }
+  .c-restarts {
+    grid-area: restarts;
+  }
+  .c-age {
+    grid-area: age;
+  }
+  .c-cpu {
+    grid-area: cpu;
+  }
+  .c-mem {
+    grid-area: mem;
+  }
+  .c-term {
+    grid-area: term;
+  }
+  .tbl .num {
+    text-align: left;
+  }
+  tr.attn td:first-child,
+  tr.warn td:first-child {
+    box-shadow: none;
+  }
+  tr.attn {
+    box-shadow: inset 3px 0 0 var(--critical);
+  }
+  tr.warn {
+    box-shadow: inset 3px 0 0 var(--warning);
+  }
 }
 </style>

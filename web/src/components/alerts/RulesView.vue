@@ -101,7 +101,7 @@ async function toggle(rule: AlertRule) {
         <BaseButton
           v-if="canManage"
           variant="secondary"
-          class="!h-7 !px-2.5 !text-12"
+          class="!h-7 !px-2.5 !text-12 max-lg:!h-11 max-lg:!px-3.5 max-lg:!text-13"
           data-testid="change-defaults"
           @click="change"
         >
@@ -109,7 +109,7 @@ async function toggle(rule: AlertRule) {
         </BaseButton>
         <BaseButton
           v-if="canManage"
-          class="!h-7 !px-2.5 !text-12"
+          class="!h-7 !px-2.5 !text-12 max-lg:!h-11 max-lg:!px-3.5 max-lg:!text-13"
           data-testid="new-rule"
           @click="emit('create')"
         >
@@ -130,13 +130,13 @@ async function toggle(rule: AlertRule) {
           testid="default-channels-picker"
         />
         <BaseButton
-          class="!h-8"
+          class="!h-8 max-lg:!h-11"
           :loading="saving"
           data-testid="save-defaults"
           @click="saveDefaults"
           >{{ $t('common.save') }}</BaseButton
         >
-        <BaseButton variant="ghost" class="!h-8" @click="changing = false">{{
+        <BaseButton variant="ghost" class="!h-8 max-lg:!h-11" @click="changing = false">{{
           $t('common.cancel')
         }}</BaseButton>
       </template>
@@ -167,7 +167,7 @@ async function toggle(rule: AlertRule) {
         >
           <button
             type="button"
-            class="min-w-0 text-left text-14 text-text-muted"
+            class="min-w-0 text-left text-14 text-text-muted max-lg:min-h-11"
             data-testid="rule-sentence"
             @click.stop="emit('open', r)"
           >
@@ -217,19 +217,24 @@ async function toggle(rule: AlertRule) {
             :aria-checked="r.enabled"
             :aria-label="$t('alerts.rules.enabled', { name: r.name })"
             :disabled="!canManage || toggling === r.id"
-            :class="[
-              'relative h-5 w-9 shrink-0 rounded-full border transition-colors disabled:opacity-60',
-              r.enabled ? 'border-primary bg-primary' : 'border-border-strong bg-surface-3',
-            ]"
+            class="flex shrink-0 items-center justify-center rounded-full disabled:opacity-60 max-lg:-my-2 max-lg:size-11"
             data-testid="rule-toggle"
             @click.stop="toggle(r)"
           >
+            <!-- The visible track; on touch screens the button around it is 44 px. -->
             <span
               :class="[
-                'absolute top-0.5 size-3.5 rounded-full bg-text transition-all',
-                r.enabled ? 'left-[18px]' : 'left-0.5',
+                'relative block h-5 w-9 rounded-full border transition-colors',
+                r.enabled ? 'border-primary bg-primary' : 'border-border-strong bg-surface-3',
               ]"
-            />
+            >
+              <span
+                :class="[
+                  'absolute top-0.5 size-3.5 rounded-full bg-text transition-all',
+                  r.enabled ? 'left-[18px]' : 'left-0.5',
+                ]"
+              />
+            </span>
           </button>
         </li>
       </ul>

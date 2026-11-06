@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import logoUrl from '@watchlog/design-tokens/assets/logo.svg';
-import { LogOut, PanelLeftClose, PanelLeftOpen } from '@lucide/vue';
+import { LogOut, PanelLeftClose, PanelLeftOpen, X } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -10,13 +10,13 @@ import { useAuthStore } from '@/stores/auth';
 import { useClustersStore } from '@/stores/clusters';
 import { useUiStore } from '@/stores/ui';
 import ClusterSwitcher from './ClusterSwitcher.vue';
-import { useNarrow } from '@/composables/useNarrow';
 
+// `drawer`: below 1024 px the shell shows the sidebar as an off-canvas drawer, full width
+// with 44 px rows; the cluster switcher is in the top bar there.
+const props = defineProps<{ drawer?: boolean }>();
 const ui = useUiStore();
 const { sidebarCollapsed } = storeToRefs(ui);
-// Phones get the icon rail whatever the saved preference, so the page keeps its width.
-const narrow = useNarrow();
-const collapsed = computed(() => sidebarCollapsed.value || narrow.value);
+const collapsed = computed(() => !props.drawer && sidebarCollapsed.value);
 const auth = useAuthStore();
 const clusters = useClustersStore();
 // The pages of the selected cluster's kind (Hosts and Containers for a Docker fleet).
@@ -52,7 +52,7 @@ async function signOut() {
     data-testid="sidebar"
     :class="[
       'flex h-full shrink-0 flex-col border-r border-border bg-surface-1 transition-[width] duration-200',
-      collapsed ? 'w-16' : 'w-60',
+      drawer ? 'w-full' : collapsed ? 'w-16' : 'w-60',
     ]"
   >
     <div class="flex h-14 items-center gap-2.5 px-4">
@@ -60,9 +60,19 @@ async function signOut() {
       <span v-if="!collapsed" class="text-16 font-semibold tracking-tight text-text">
         {{ $t('app.name') }}
       </span>
+      <button
+        v-if="drawer"
+        type="button"
+        data-testid="nav-close"
+        :aria-label="$t('nav.close')"
+        class="-mr-2 ml-auto flex size-11 items-center justify-center rounded-control text-text-muted hover:bg-surface-2 hover:text-text"
+        @click="ui.navOpen = false"
+      >
+        <X class="size-5" aria-hidden="true" />
+      </button>
     </div>
 
-    <div class="px-3 pb-3">
+    <div v-if="!drawer" class="px-3 pb-3">
       <ClusterSwitcher :collapsed="collapsed" />
     </div>
 
@@ -75,7 +85,8 @@ async function signOut() {
               :title="collapsed ? $t(item.titleKey) : undefined"
               :aria-current="isCurrent(item) ? 'page' : undefined"
               :class="[
-                'relative flex h-9 items-center gap-3 rounded-control px-2.5 text-14 transition-colors',
+                'relative flex items-center gap-3 rounded-control px-2.5 text-14 transition-colors',
+                drawer ? 'h-11' : 'h-9',
                 isCurrent(item)
                   ? 'bg-surface-2 font-medium text-text before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary'
                   : 'text-text-muted hover:bg-surface-2 hover:text-text',
@@ -108,7 +119,10 @@ async function signOut() {
         data-testid="sign-out"
         :aria-label="$t('account.signOut')"
         :title="collapsed ? $t('account.signOut') : undefined"
-        class="mt-2 flex h-9 w-full items-center gap-3 rounded-control px-2.5 text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+        :class="[
+          'mt-2 flex w-full items-center gap-3 rounded-control px-2.5 text-text-muted transition-colors hover:bg-surface-2 hover:text-text',
+          drawer ? 'h-11' : 'h-9',
+        ]"
         @click="signOut"
       >
         <LogOut class="size-4.5 shrink-0" aria-hidden="true" />
@@ -116,7 +130,7 @@ async function signOut() {
       </button>
     </div>
 
-    <div v-if="!narrow" class="border-t border-border p-3">
+    <div v-if="!drawer" class="border-t border-border p-3">
       <button
         type="button"
         data-testid="sidebar-toggle"

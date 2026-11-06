@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { Filter, Network } from '@lucide/vue';
+import { ChevronDown, Filter, Network } from '@lucide/vue';
 import type { Cluster, ServiceMap } from '@watchlog/api-types';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -25,6 +25,7 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import Skeleton from '@/components/ui/Skeleton.vue';
 import { useLoader } from '@/composables/useLoader';
+import { useNarrow } from '@/composables/useNarrow';
 import { useNamespaceFilter } from '@/composables/useNamespaceFilter';
 import { latency } from '@/lib/servicemap';
 import { layoutStore, placeNodes, type Layout, type Pos } from '@/lib/servicemap-layout';
@@ -122,8 +123,11 @@ const namespaces = computed(() =>
 // ── Views, selection and search (in the URL so they can be shared) ──────────────
 type View = 'map' | 'connections' | 'external' | 'dns';
 const VIEWS: View[] = ['map', 'connections', 'external', 'dns'];
+// Phones open on the Connections list (a map needs room); "Open map" switches.
+const narrow = useNarrow();
+const defaultView = computed<View>(() => (narrow.value ? 'connections' : 'map'));
 const view = computed<View>(() =>
-  VIEWS.includes(route.query.view as View) ? (route.query.view as View) : 'map',
+  VIEWS.includes(route.query.view as View) ? (route.query.view as View) : defaultView.value,
 );
 const selection = computed<Selection>(() =>
   typeof route.query.edge === 'string'
@@ -135,7 +139,7 @@ const selection = computed<Selection>(() =>
 function go(next: { view?: View; sel?: Selection }) {
   const q: Record<string, string | undefined> = {};
   for (const [k, v] of Object.entries(route.query)) if (typeof v === 'string') q[k] = v;
-  if (next.view) q.view = next.view === 'map' ? undefined : next.view;
+  if (next.view) q.view = next.view === defaultView.value ? undefined : next.view;
   if (next.sel !== undefined) {
     q.edge = next.sel?.type === 'edge' ? next.sel.id : undefined;
     q.node = next.sel?.type === 'node' ? next.sel.id : undefined;
@@ -361,7 +365,7 @@ onBeforeUnmount(() => {
           v-for="v in VIEWS"
           :key="v"
           type="button"
-          class="rounded-[6px] px-3 py-1 text-13"
+          class="rounded-[6px] px-3 py-1 text-13 max-lg:min-h-11"
           :class="view === v ? 'bg-surface-3 text-text' : 'text-text-muted hover:text-text'"
           :aria-pressed="view === v"
           :data-testid="`view-${v}`"
@@ -404,7 +408,27 @@ onBeforeUnmount(() => {
     />
 
     <div v-else-if="map && page.data.value" class="work">
+      <!-- Phones: the filters fold away so the list or the map comes first. -->
+      <details v-if="narrow" class="group" data-testid="map-filters-disclosure">
+        <summary
+          class="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-card border border-border bg-surface-1 px-3.5 text-14 font-medium text-text group-open:rounded-b-none group-open:border-b-0"
+        >
+          <Filter class="size-4 text-text-subtle" aria-hidden="true" />
+          {{ $t('serviceMap.filters.label') }}
+          <ChevronDown
+            class="ml-auto size-4 text-text-subtle transition-transform group-open:rotate-180"
+            aria-hidden="true"
+          />
+        </summary>
+        <MapFilters
+          v-model="filters"
+          :namespaces="namespaces"
+          :docker="page.data.value?.cluster.kind === 'docker'"
+          class="rounded-t-none"
+        />
+      </details>
       <MapFilters
+        v-else
         v-model="filters"
         :namespaces="namespaces"
         :docker="page.data.value?.cluster.kind === 'docker'"
@@ -413,7 +437,7 @@ onBeforeUnmount(() => {
       <div class="min-w-0">
         <section
           v-show="view === 'map'"
-          class="relative h-[640px] overflow-hidden rounded-card border border-border bg-surface-1"
+          class="relative h-[640px] overflow-hidden rounded-card border border-border bg-surface-1 max-md:h-[70dvh]"
           data-testid="view-map-panel"
         >
           <ServiceMapCanvas
@@ -461,6 +485,17 @@ onBeforeUnmount(() => {
             />
           </div>
         </section>
+        <BaseButton
+          v-if="narrow && view === 'connections' && drawNodes.length"
+          variant="secondary"
+          block
+          class="mb-3"
+          data-testid="open-map"
+          @click="go({ view: 'map' })"
+        >
+          <Network class="size-4" aria-hidden="true" />
+          {{ $t('serviceMap.openMap') }}
+        </BaseButton>
         <ConnectionsTable
           v-if="view === 'connections'"
           :edges="tableEdges"

@@ -28,7 +28,7 @@ defineProps<{
     <RouterLink
       v-else-if="actionLabel && actionTo"
       :to="actionTo"
-      class="mt-6 inline-flex h-9 items-center rounded-control bg-primary px-4 text-14 font-semibold text-on-primary transition-colors hover:bg-primary-hover"
+      class="mt-6 inline-flex h-9 items-center rounded-control bg-primary px-4 max-lg:h-11 text-14 font-semibold text-on-primary transition-colors hover:bg-primary-hover"
     >
       {{ actionLabel }}
     </RouterLink>

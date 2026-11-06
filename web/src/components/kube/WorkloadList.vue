@@ -145,7 +145,7 @@ const runLabel = (w: KubeWorkload) => {
             <td colspan="9">
               <button
                 type="button"
-                class="flex w-full items-center gap-2 text-left"
+                class="flex w-full flex-wrap items-center gap-x-2 gap-y-1 text-left max-lg:min-h-11"
                 :aria-expanded="!collapsed.has(item.namespace)"
                 @click="toggleNs(item.namespace)"
               >
@@ -180,10 +180,10 @@ const runLabel = (w: KubeWorkload) => {
             data-testid="workload-row"
             @click="toggle(item.w)"
           >
-            <td>
+            <td class="c-name">
               <button
                 type="button"
-                class="block max-w-full truncate text-left font-medium text-text"
+                class="block max-w-full truncate text-left font-medium text-text max-lg:leading-11"
                 :aria-expanded="open === item.key"
                 @click.stop="toggle(item.w)"
               >
@@ -200,7 +200,7 @@ const runLabel = (w: KubeWorkload) => {
                 {{ item.w.problem.reason }}
               </p>
             </td>
-            <td>
+            <td class="c-health">
               <span
                 v-if="item.w.problem?.severity === 'critical'"
                 class="pill crit"
@@ -226,7 +226,7 @@ const runLabel = (w: KubeWorkload) => {
                 data-testid="health-dot"
               />
             </td>
-            <td>
+            <td class="c-ready" :data-label="$t('kube.workloads.columns.ready')">
               <span
                 v-if="item.w.kind === 'CronJob'"
                 class="text-12 text-text-muted"
@@ -251,14 +251,18 @@ const runLabel = (w: KubeWorkload) => {
                 :desired="item.w.desired ?? item.w.podStates.length"
               />
             </td>
-            <td class="num" :class="restartsHigh(item.w.restartsInRange, range) && 'text-critical'">
+            <td
+              class="num c-restarts"
+              :class="restartsHigh(item.w.restartsInRange, range) && 'text-critical'"
+              :data-label="$t('kube.workloads.columns.restarts')"
+            >
               <template v-if="item.w.restartsInRange === null">–</template>
               <template v-else>
                 <span v-if="restartsHigh(item.w.restartsInRange, range)" aria-hidden="true">▲ </span
                 >{{ item.w.restartsInRange }}
               </template>
             </td>
-            <td>
+            <td class="c-cpu" :data-label="$t('kube.workloads.columns.cpu')">
               <ResourceBar
                 :usage="item.w.cpuCores"
                 :request="item.w.cpuRequestCores * scale(item.w) || null"
@@ -266,7 +270,7 @@ const runLabel = (w: KubeWorkload) => {
                 unit="cores"
               />
             </td>
-            <td>
+            <td class="c-mem" :data-label="$t('kube.workloads.columns.memory')">
               <ResourceBar
                 :usage="item.w.memoryBytes"
                 :request="item.w.memoryRequestBytes * scale(item.w) || null"
@@ -276,7 +280,7 @@ const runLabel = (w: KubeWorkload) => {
                 unit="bytes"
               />
             </td>
-            <td>
+            <td class="c-trend">
               <SparkLine
                 v-if="item.w.cpuSeries.length"
                 size="row"
@@ -284,7 +288,11 @@ const runLabel = (w: KubeWorkload) => {
                 :color-token="item.w.problem?.severity === 'critical' ? '--critical' : '--info'"
               />
             </td>
-            <td class="img" :title="imageTitle(item.w)">
+            <td
+              class="img c-img"
+              :title="imageTitle(item.w)"
+              :data-label="$t('kube.workloads.columns.images')"
+            >
               <span class="block truncate">
                 <HighlightText :text="shortImage(item.w.images[0] ?? '')" :terms="terms" />
                 <span v-if="item.w.images.length > 1" class="text-text-subtle">
@@ -292,7 +300,10 @@ const runLabel = (w: KubeWorkload) => {
                 >
               </span>
             </td>
-            <td class="num text-text-subtle">
+            <td
+              class="num c-changed text-text-subtle"
+              :data-label="$t('kube.workloads.columns.changed')"
+            >
               {{ changed(item.w) ? since(changed(item.w)!) : '–' }}
             </td>
           </tr>
@@ -313,7 +324,7 @@ const runLabel = (w: KubeWorkload) => {
                 >
                   <RouterLink
                     :to="{ name: 'pod', params: { namespace: p.namespace, name: p.name } }"
-                    class="truncate font-mono text-text hover:underline"
+                    class="truncate font-mono text-text hover:underline max-lg:leading-11"
                     >{{ p.name }}</RouterLink
                   >
                   <span>
@@ -346,7 +357,7 @@ const runLabel = (w: KubeWorkload) => {
               </div>
               <RouterLink
                 :to="workloadLink(item.w)"
-                class="mt-2 inline-block text-12 text-primary hover:underline"
+                class="mt-2 inline-block text-12 text-primary hover:underline max-lg:leading-11"
                 data-testid="open-workload"
                 >{{
                   $t('kube.workloads.open', {
@@ -487,5 +498,106 @@ tr.exp td {
 }
 .text-warning {
   color: var(--warning);
+}
+/* Phones: each workload is a card (name, health at the top right, then labelled
+   fields); the namespace rows stay as group headings. */
+@media (max-width: 767px) {
+  .tbl {
+    min-width: 0;
+    table-layout: auto;
+  }
+  .tbl colgroup,
+  .tbl thead {
+    display: none;
+  }
+  .tbl,
+  .tbl tbody,
+  .tbl tr,
+  .tbl td {
+    display: block;
+  }
+  tr.w {
+    position: relative;
+    display: grid;
+    grid-template-areas:
+      'name name'
+      'ready restarts'
+      'cpu mem'
+      'img changed';
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px 16px;
+    padding: 4px 12px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tbl tr.w td {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+  tr.w td[data-label]::before {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--text-subtle);
+    content: attr(data-label);
+    font-family: var(--font-sans, inherit);
+    font-size: var(--text-11);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .c-name {
+    grid-area: name;
+    padding-right: 112px !important;
+  }
+  .c-health {
+    position: absolute;
+    top: 14px;
+    right: 12px;
+  }
+  .c-ready {
+    grid-area: ready;
+  }
+  .c-restarts {
+    grid-area: restarts;
+  }
+  .c-cpu {
+    grid-area: cpu;
+  }
+  .c-mem {
+    grid-area: mem;
+  }
+  .c-img {
+    grid-area: img;
+  }
+  .c-changed {
+    grid-area: changed;
+  }
+  .c-trend {
+    display: none !important;
+  }
+  .tbl .num {
+    text-align: left;
+  }
+  tr.attn td:first-child,
+  tr.warn td:first-child {
+    box-shadow: none;
+  }
+  tr.attn {
+    box-shadow: inset 3px 0 0 var(--critical);
+  }
+  tr.warn {
+    box-shadow: inset 3px 0 0 var(--warning);
+  }
+  tr.exp td {
+    padding: 8px 12px 12px;
+  }
+  .pr {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .pr > :nth-child(n + 3) {
+    grid-column: 1 / -1;
+  }
 }
 </style>

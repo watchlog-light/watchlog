@@ -17,6 +17,7 @@ import SearchField from '@/components/ui/SearchField.vue';
 import Skeleton from '@/components/ui/Skeleton.vue';
 import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
 import { useListFilter } from '@/composables/useListFilter';
+import { useNarrow } from '@/composables/useNarrow';
 import { useLoader } from '@/composables/useLoader';
 import { useNamespaceFilter, withQuery } from '@/composables/useNamespaceFilter';
 import { groupEvents, ungrouped } from '@/lib/events';
@@ -46,6 +47,13 @@ const csv = (v: unknown) => str(v).split(',').filter(Boolean);
 
 const type = computed(() =>
   route.query.type === 'all' ? 'all' : route.query.type === 'Normal' ? 'Normal' : 'Warning',
+);
+// Phones: the facets fold into one "Filters" row above the feed, closed at first.
+const narrow = useNarrow();
+const facetsOpen = ref(!narrow.value);
+watch(narrow, (n) => (facetsOpen.value = !n));
+const selectedCount = computed(() =>
+  Object.values(selected.value).reduce((n, v) => n + v.length, 0),
 );
 const selected = computed<Record<Facet, string[]>>(() => ({
   // ?kind= is the single-kind link other pages use.
@@ -216,7 +224,7 @@ onMounted(page.load);
           />
           <SearchField
             v-model="filter.input.value"
-            class="min-w-48"
+            class="min-w-48 max-md:basis-full"
             :label="$t('kube.events.search.label')"
             :placeholder="$t('kube.events.search.placeholder')"
             @clear="filter.clearText"
@@ -269,12 +277,21 @@ onMounted(page.load);
         </section>
 
         <div class="evwrap">
-          <EventFacets
-            :facets="summary?.facets ?? null"
-            :selected="selected"
-            :docker="kube.cluster.kind === 'docker'"
-            @change="setFacet"
-          />
+          <details
+            class="fold"
+            :open="facetsOpen"
+            @toggle="facetsOpen = ($event.target as HTMLDetailsElement).open"
+          >
+            <summary data-testid="facets-toggle">
+              {{ $t('kube.events.facets.toggle', { n: selectedCount }, selectedCount) }}
+            </summary>
+            <EventFacets
+              :facets="summary?.facets ?? null"
+              :selected="selected"
+              :docker="kube.cluster.kind === 'docker'"
+              @change="setFacet"
+            />
+          </details>
           <div class="flex min-w-0 flex-col gap-3">
             <EventFeed
               v-if="items.length"
@@ -365,6 +382,31 @@ onMounted(page.load);
 @container (max-width: 900px) {
   .evwrap {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+.fold > summary {
+  display: none;
+}
+@media (max-width: 767px) {
+  .fold {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-1);
+  }
+  .fold > summary {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    padding: 0 14px;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .fold[open] > summary {
+    border-bottom: 1px solid var(--border);
+  }
+  .fold > :not(summary) {
+    border: 0;
   }
 }
 .text-critical {

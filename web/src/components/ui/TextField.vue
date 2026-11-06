@@ -36,7 +36,8 @@ const id = useId();
       :aria-invalid="error ? 'true' : undefined"
       :aria-describedby="error || hint ? `${id}-help` : undefined"
       :class="[
-        'h-9 rounded-control border bg-surface-3 px-3 text-14 text-text placeholder:text-text-subtle',
+        // 44 px to tap below 1024 px; 16 px text on phones so iOS doesn't zoom in on focus.
+        'h-9 rounded-control border bg-surface-3 px-3 text-14 text-text placeholder:text-text-subtle max-lg:h-11 max-md:text-16',
         'focus:border-border-strong',
         error ? 'border-critical' : 'border-border',
         mono ? 'font-mono tracking-wider uppercase' : '',

@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { onBeforeUnmount, ref } from 'vue';
 
-/** True below 768 px (phones): the shell collapses the sidebar to icons. */
+/**
+ * True below 768 px (phones): wide tables become cards, the top bar's filters move into
+ * a sheet and pickers open as sheets.
+ */
 export function useNarrow(query = '(max-width: 767px)') {
   const mq = typeof window !== 'undefined' ? window.matchMedia?.(query) : undefined;
   const narrow = ref(!!mq?.matches);
@@ -10,3 +13,6 @@ export function useNarrow(query = '(max-width: 767px)') {
   onBeforeUnmount(() => mq?.removeEventListener?.('change', on));
   return narrow;
 }
+
+/** True below 1024 px (phones and tablets): the sidebar becomes a drawer. */
+export const useCompact = () => useNarrow('(max-width: 1023px)');

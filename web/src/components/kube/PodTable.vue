@@ -20,7 +20,7 @@ const linked = router.hasRoute('pod');
 
 <template>
   <div class="overflow-x-auto rounded-card border border-border bg-surface-1">
-    <table class="w-full min-w-[880px] text-left text-13" data-testid="pod-table">
+    <table class="rt w-full min-w-[880px] text-left text-13" data-testid="pod-table">
       <thead class="bg-surface-2 text-12 text-text-muted">
         <tr>
           <th class="px-4 py-2 font-medium">{{ $t('kube.pods.columns.name') }}</th>
@@ -40,7 +40,7 @@ const linked = router.hasRoute('pod');
           class="border-t border-border align-top"
           data-testid="pod-row"
         >
-          <td class="max-w-80 px-4 py-2.5">
+          <td class="c-name max-w-80 px-4 py-2.5">
             <component
               :is="linked ? 'RouterLink' : 'span'"
               :to="
@@ -48,7 +48,7 @@ const linked = router.hasRoute('pod');
                   ? { name: 'pod', params: { namespace: p.namespace, name: p.name } }
                   : undefined
               "
-              class="block truncate font-medium text-text hover:underline"
+              class="block truncate font-medium text-text hover:underline max-lg:leading-11"
             >
               <HighlightText :text="p.name" :terms="terms" />
             </component>
@@ -59,11 +59,16 @@ const linked = router.hasRoute('pod');
               >
             </p>
           </td>
-          <td class="px-4 py-2.5"><TonePill :tone="podTone(p.status)" :label="p.status" /></td>
-          <td class="px-4 py-2.5 text-right font-mono tabular">
+          <td class="px-4 py-2.5" :data-label="$t('kube.pods.columns.status')">
+            <TonePill :tone="podTone(p.status)" :label="p.status" />
+          </td>
+          <td
+            class="px-4 py-2.5 text-right font-mono tabular"
+            :data-label="$t('kube.pods.columns.ready')"
+          >
             {{ p.readyContainers }}/{{ p.totalContainers }}
           </td>
-          <td class="px-4 py-2.5">
+          <td class="px-4 py-2.5" :data-label="$t('kube.pods.columns.restarts')">
             <span class="font-mono tabular">{{ p.restarts }}</span>
             <p
               v-if="p.lastTermination"
@@ -78,7 +83,10 @@ const linked = router.hasRoute('pod');
               }}
             </p>
           </td>
-          <td class="px-4 py-2.5 text-right font-mono tabular">
+          <td
+            class="px-4 py-2.5 text-right font-mono tabular"
+            :data-label="$t('kube.pods.columns.cpu')"
+          >
             {{ formatValue(p.cpuCores, 'cores') }}
             <p class="text-12 text-text-subtle">
               {{
@@ -89,7 +97,10 @@ const linked = router.hasRoute('pod');
               }}
             </p>
           </td>
-          <td class="px-4 py-2.5 text-right font-mono tabular">
+          <td
+            class="px-4 py-2.5 text-right font-mono tabular"
+            :data-label="$t('kube.pods.columns.memory')"
+          >
             {{ formatValue(p.memoryBytes, 'bytes') }}
             <p class="text-12 text-text-subtle">
               {{
@@ -100,16 +111,19 @@ const linked = router.hasRoute('pod');
               }}
             </p>
           </td>
-          <td v-if="showNode" class="px-4 py-2.5">
+          <td v-if="showNode" class="px-4 py-2.5" :data-label="$t('kube.pods.columns.node')">
             <RouterLink
               v-if="p.node"
               :to="{ name: 'node', params: { name: p.node } }"
-              class="text-text-muted hover:underline"
+              class="text-text-muted hover:underline max-lg:inline-block max-lg:leading-11"
               >{{ p.node }}</RouterLink
             >
             <span v-else class="text-text-subtle">–</span>
           </td>
-          <td class="px-4 py-2.5 text-right font-mono text-text-muted tabular">
+          <td
+            class="px-4 py-2.5 text-right font-mono text-text-muted tabular"
+            :data-label="$t('kube.pods.columns.age')"
+          >
             {{ p.createdAt ? since(p.createdAt) : '–' }}
           </td>
         </tr>
@@ -117,3 +131,48 @@ const linked = router.hasRoute('pod');
     </table>
   </div>
 </template>
+
+<style scoped>
+/* Phones: each pod is a card (name, then labelled fields in two columns). */
+@media (max-width: 767px) {
+  .rt {
+    min-width: 0;
+  }
+  .rt thead {
+    display: none;
+  }
+  .rt,
+  .rt tbody,
+  .rt td {
+    display: block;
+  }
+  .rt tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px 16px;
+    padding: 4px 12px 12px;
+  }
+  .rt tr:first-child {
+    border-top: 0;
+  }
+  .rt td {
+    min-width: 0;
+    max-width: none;
+    padding: 0;
+    text-align: left;
+  }
+  .rt td.c-name {
+    grid-column: 1 / -1;
+  }
+  .rt td[data-label]::before {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--text-subtle);
+    content: attr(data-label);
+    font-family: var(--font-sans, inherit);
+    font-size: var(--text-11);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+}
+</style>
