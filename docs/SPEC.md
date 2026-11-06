@@ -541,7 +541,7 @@ Built with Nuxt 4 in static mode, dark theme only (§11), English only. The mark
 ## 9.3 SEO and analytics
 
 - Each page: unique `<title>`, meta description, Open Graph image (dark, green accent), JSON-LD (`SoftwareApplication`, `FAQPage`).
-- Privacy-friendly analytics (self-hosted Plausible or Umami). UTM parameters captured into `users.signup_source` on signup.
+- Site analytics: Microsoft Clarity on the marketing site only, loaded only after the visitor accepts, form fields masked, never on token pages; never in the product (ADR-119). UTM parameters captured into `users.signup_source` on signup.
 
 # 10. Signup and onboarding
 
@@ -636,6 +636,7 @@ The whole product (site + app) is **dark only** in v2.0. Light theme MAY be adde
 ## 11.3 Layout and components
 
 - App shell: left sidebar (240 px, collapsible to 64 px) with cluster switcher at top; top bar with time range, namespace filter, search (⌘K command palette, P1).
+- Phones and tablets (ADR-120): below 1024 px the sidebar is an off-canvas drawer and the cluster switcher sits in the top bar; below 768 px the cluster, filters and time range share one sheet, wide tables become cards and pickers open as sheets. Touch targets are at least 44 px; no page scrolls sideways.
 - Radius: 6 px (inputs, buttons), 10 px (cards). Spacing scale 4 px base.
 - Components (built in `web/src/components/ui`, Tailwind-based, no heavy UI kit): Button (primary / secondary / ghost / danger), Input, Select, Combobox, Tabs, Table (virtualised for > 500 rows), Card, StatTile, Badge/StatusPill, Tooltip, Drawer, Modal, Toast, EmptyState, CodeBlock with copy, TimeRangePicker, Sparkline, TimeSeriesChart (ECharts), ServiceMapGraph (ECharts graph or Cytoscape.js — decide in Phase 4).
 - Empty states always explain what to do next, never just "No data".

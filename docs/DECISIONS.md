@@ -1256,3 +1256,31 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 - Consequences:
   - A fresh install shows no restarts and no crash-looping WatchLog pod.
   - A database that never comes up is reported after 5 minutes instead of at once, which is still a crash, with the same message.
+
+## ADR-119: Microsoft Clarity on the marketing site only, with consent; never in the product
+
+- Date: 2026-11-07 · Status: accepted (maintainer, 2026-11-07)
+- Context: SPEC §9.3 planned self-hosted Plausible or Umami for the marketing site. The maintainer wants session recordings and heatmaps of the site to see where visitors get stuck, and chose Microsoft Clarity. The product is self-hosted and promises that nothing leaves the user's infrastructure unless they configure it; the Cloud admin panel holds subscribers' addresses.
+- Decision:
+  - **Site only.** Clarity runs on watchlog.io: in the production build, on the canonical host, never in development or preview builds. The dashboard (`web/`), the agents, the backend and the Cloud admin panel never load it. `web/test/no-analytics-guard.test.ts` fails if "clarity" appears anywhere in `web/`.
+  - **Consent first.** Nothing is requested from Microsoft until the visitor clicks Accept. Clarity's own "no-consent" mode was measured and not used: it keeps cookies off watchlog.io, but loading its tag lets Microsoft set third-party cookies on its domains before any choice. Accept loads the tag and grants analytics storage only (no ads). Decline, or no choice, means Clarity never loads; Decline after an Accept erases its cookies. A small bar with two equal buttons asks once; the choice is remembered and can be changed from the footer.
+  - **Masking.** Every form field, including the waitlist email, is masked in recordings. The waitlist pages and any URL carrying a token never load it.
+  - **CSP.** The site's CSP allows exactly the Clarity hosts it needs, in script-src, connect-src and img-src.
+  - **Disclosure.** The site's privacy page says what Clarity collects, why, how to opt out, and that Microsoft processes it.
+- Consequences:
+  - SPEC §9.3 now names Clarity for the site, with these limits; UTM capture on signup is unchanged.
+  - The site makes third-party requests to Microsoft; the product still makes none.
+
+## ADR-120: The dashboard works on phones and tablets
+
+- Date: 2026-11-07 · Status: accepted (maintainer, 2026-11-07)
+- Context: An alert arrives on a phone, and the link opens the dashboard there. The layout assumed a desktop: below 768 px the sidebar shrank to an icon rail that couldn't switch clusters, wide tables scrolled sideways, and many controls were 20–36 px tall.
+- Decision:
+  - **Breakpoints:** 360, 390, 768, 1024 and 1280 px are tested. At 1024 px and above the layout is unchanged.
+  - **Below 1024 px:** the sidebar is an off-canvas drawer behind a menu button, closed on every navigation. The cluster switcher moves into the top bar. Touch targets are at least 44 px; links inside running text are exempt, and a checkbox or radio counts through its label. Pod heatmap squares are too small to tap there, so they only show, and the node's row and the pod list lead to each pod.
+  - **Below 768 px:** the cluster, the namespace or host filter and the time range share one sheet behind a button that shows the cluster and the range. Wide tables become stacked cards. Pickers (ComboBox) open as a full-width bottom sheet with their own search field. The rule editor is a full-screen sheet. The service map opens on Connections, with an "Open map" button; the map pans with one finger and zooms with two. Its nodes scale with the zoom, so they are exempt from the 44 px rule.
+  - **Everywhere:** no horizontal page scroll; a code block, a table inside its card or a chart may scroll inside itself. Text is never below 12 px, except the 11 px uppercase micro-labels (ADR-115).
+  - **Tests:** `pnpm -C web test:responsive` (Playwright, the installed Google Chrome) visits every route at each breakpoint against a running dashboard with data. It fails on horizontal page scroll, text under 12 px or a touch target under 44 px, takes screenshots at 390×844 and 768×1024, and checks touch pan and pinch on the map. It needs a dashboard with data, so it is not in CI.
+- Consequences:
+  - SPEC §11.3's app shell describes the drawer and the sheet.
+  - New UI keeps to the same rules; the responsive suite catches regressions when it runs.
