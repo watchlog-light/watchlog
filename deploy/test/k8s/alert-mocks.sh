@@ -57,4 +57,7 @@ spec:
   selector: { app: mailpit }
   ports: [{ name: smtp, port: 1025 }, { name: http, port: 8025 }]
 YAML
+# Both keep messages in memory: on a reused cluster, start each run empty, or the
+# earlier run's firing and resolve messages count again.
+k -n wl-alert-mocks rollout restart deploy/mock-channels deploy/mailpit >/dev/null
 for d in mock-channels mailpit; do k -n wl-alert-mocks rollout status deploy/$d --timeout 180s >/dev/null; done
