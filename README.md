@@ -83,6 +83,22 @@ make agent            # build the agent into bin/ and print its version
 
 Infrastructure host ports can be changed with `WATCHLOG_PG_PORT`, `WATCHLOG_VM_PORT` and `WATCHLOG_REDIS_PORT`.
 
+### Demo environment
+
+Real data for the dev stack: one [Lima](https://lima-vm.io) VM with a kind cluster (`kind-demo`: the demo app in namespace `shop`, failing pods in `wl-test`) and a Docker host (containers that are unhealthy, exited, OOM-killed, crash-looping and CPU-limited, plus a small Compose app). Their agents are built from your checkout and report to `pnpm dev`.
+
+```bash
+mkdir -p ~/.config/watchlog && touch ~/.config/watchlog/demo.env && chmod 600 ~/.config/watchlog/demo.env
+# In ~/.config/watchlog/demo.env, tokens from Settings → Clusters (a Kubernetes cluster and a Docker fleet):
+#   WATCHLOG_DEMO_KUBE_TOKEN=wl_ct_…
+#   WATCHLOG_DEMO_DOCKER_TOKEN=wl_ct_…
+pnpm dev                          # in another terminal
+deploy/test/demo-up.sh            # creates or updates the VM watchlog-demo; run it again any time
+deploy/test/demo-down.sh          # removes the demo (add --vm to delete the VM too)
+```
+
+`VM=<name>` uses another Lima VM. Once installed, the agents keep their tokens, so the file can be removed. `GOPROXY` works as for `make images`.
+
 ### Checks
 
 ```bash
