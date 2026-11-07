@@ -51,7 +51,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Whether first-run setup is still required */
+    /** Whether first-run setup is still required, and whether this is a read-only demo */
     get: {
       parameters: {
         query?: never;
@@ -69,6 +69,8 @@ export interface paths {
           content: {
             'application/json': {
               required: boolean;
+              /** @description A read-only demo: sign in with POST /demo/session; changes answer 403 */
+              demoMode: boolean;
             };
           };
         };
@@ -358,6 +360,103 @@ export interface paths {
     };
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/demo/session': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Start a read-only session as the demo viewer (demo mode only) */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              user: {
+                /** Format: uuid */
+                id: string;
+                email: string;
+                name: string;
+                locale: string;
+                role: 'owner' | 'admin' | 'viewer';
+                org: {
+                  /** Format: uuid */
+                  id: string;
+                  name: string;
+                  slug: string;
+                  plan: 'community' | 'free' | 'pro' | 'enterprise';
+                };
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        429: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        503: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
     delete?: never;
     options?: never;
     head?: never;
@@ -6398,7 +6497,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Telegram's outbound proxy */
+    /** Telegram's outbound proxy; a password in it is never returned */
     get: {
       parameters: {
         query?: never;

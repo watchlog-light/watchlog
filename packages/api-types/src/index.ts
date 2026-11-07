@@ -21,6 +21,7 @@ export type HealthResponse = JsonBody<Responses<'/api/v1/health', 'get'>[200]>;
 export type SetupStatus = JsonBody<Responses<'/api/v1/setup', 'get'>[200]>;
 export type SetupRequest = RequestBody<'/api/v1/setup', 'post'>;
 export type LoginRequest = RequestBody<'/api/v1/auth/login', 'post'>;
+export type DemoSessionResponse = JsonBody<Responses<'/api/v1/demo/session', 'post'>[200]>;
 export type UserEnvelope = JsonBody<Responses<'/api/v1/me', 'get'>[200]>;
 export type CurrentUser = UserEnvelope['user'];
 
@@ -79,6 +80,9 @@ export interface Problem {
   status: number;
   detail?: string;
   instance?: string;
+  /** Read-only demo mode (ADR-122): `demo_read_only`, with `message` for the visitor. */
+  code?: string;
+  message?: string;
 }
 
 export type AlertingStatus = JsonBody<Responses<'/api/v1/alerting/status', 'get'>[200]>;

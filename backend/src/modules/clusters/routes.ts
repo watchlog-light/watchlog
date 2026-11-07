@@ -145,7 +145,8 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
     async (request, reply) => {
       const cluster = await findCluster(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, NOT_FOUND);
-      const tokens = await listTokens(db, cluster.id);
+      // Read-only demo (ADR-122): not even token prefixes.
+      const tokens = config.demoMode ? [] : await listTokens(db, cluster.id);
       const failing = await ingestFailures(db, [cluster.id]);
       return {
         cluster: toClusterView(cluster, failing.get(cluster.id) ?? null),

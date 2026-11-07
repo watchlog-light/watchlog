@@ -28,7 +28,7 @@ export const authRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (ap
           hook: 'preHandler',
           keyGenerator: (request) => {
             const email = (request.body as { email?: unknown } | undefined)?.email;
-            return `login:${request.ip}:${typeof email === 'string' ? email.toLowerCase() : ''}`;
+            return `login:${request.clientIp}:${typeof email === 'string' ? email.toLowerCase() : ''}`;
           },
         },
       },

@@ -1,0 +1,11 @@
+{{/* SPDX-License-Identifier: AGPL-3.0-only */}}
+{{- /* The seed file the backend applies at start (ADR-122). */ -}}
+{{- if .Values.seed }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-seed
+  labels: {{- include "watchlog.labels" . | nindent 4 }}
+data:
+  seed.json: {{ toJson .Values.seed | quote }}
+{{- end }}

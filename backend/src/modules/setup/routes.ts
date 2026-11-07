@@ -12,17 +12,26 @@ export const setupRoutes: FastifyPluginAsyncTypebox<{
   setup: SetupState;
   /** Runs once the org exists (Helm cluster bootstrap, ADR-069); errors are logged. */
   afterSetup?: () => Promise<void>;
-}> = async (app, { db, setup, afterSetup }) => {
+  /** Read-only demo (ADR-122): setup is never offered, the web shows the demo entry. */
+  demoMode?: boolean;
+}> = async (app, { db, setup, afterSetup, demoMode = false }) => {
   app.get(
     '/setup',
     {
       schema: {
-        summary: 'Whether first-run setup is still required',
+        summary: 'Whether first-run setup is still required, and whether this is a read-only demo',
         tags: ['setup'],
-        response: { 200: Type.Object({ required: Type.Boolean() }) },
+        response: {
+          200: Type.Object({
+            required: Type.Boolean(),
+            demoMode: Type.Boolean({
+              description: 'A read-only demo: sign in with POST /demo/session; changes answer 403',
+            }),
+          }),
+        },
       },
     },
-    async () => ({ required: await setup.isRequired(db) }),
+    async () => ({ required: !demoMode && (await setup.isRequired(db)), demoMode }),
   );
 
   app.post(

@@ -20,6 +20,8 @@ declare module 'fastify' {
 /** preHandler that rejects requests without a valid session with 401. */
 export function requireUser(db: Database): preHandlerAsyncHookHandler {
   return async function (this: unknown, request: FastifyRequest, reply: FastifyReply) {
+    // Already signed in by a demo cookie (ADR-122).
+    if (request.user) return;
     const token = request.cookies[SESSION_COOKIE];
     const user = token ? await findSessionUser(db, token) : null;
     if (!user) {

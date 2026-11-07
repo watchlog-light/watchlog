@@ -4,19 +4,33 @@
 {
 	admin off
 	auto_https off
+	# A TLS proxy in front (nginx, an ingress) on a private network says the visitor came
+	# over https: X-Forwarded-Proto passes through, and the backend marks the session
+	# cookie Secure (ADR-123). Without this Caddy would overwrite it with http.
+	servers {
+		trusted_proxies static private_ranges
+	}
 }
 
 :8080 {
 	encode zstd gzip
 
 	handle /api/* {
-		reverse_proxy {$WATCHLOG_BACKEND:backend:4080}
+		# X-Forwarded-For stays Caddy's own peer, as without trusted_proxies: a client must
+		# not name its own address (Caddy calls this header_up unnecessary; measured, it is
+		# not). The visitor's address for rate limits comes from WATCHLOG_CLIENT_IP_HEADER.
+		reverse_proxy {$WATCHLOG_BACKEND:backend:4080} {
+			header_up X-Forwarded-For {remote_host}
+		}
 	}
 	handle /ingest/* {
 		request_body {
 			max_size 8MB
 		}
-		reverse_proxy {$WATCHLOG_BACKEND:backend:4080}
+		# As for /api: X-Forwarded-For is Caddy's own peer.
+		reverse_proxy {$WATCHLOG_BACKEND:backend:4080} {
+			header_up X-Forwarded-For {remote_host}
+		}
 	}
 
 	handle {

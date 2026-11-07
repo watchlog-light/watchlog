@@ -26,6 +26,17 @@ spec:
             - -httpListenAddr=:8428
             # Agents push every 15 s; the 30 s default hid the first samples (ADR-045).
             - -search.latencyOffset=5s
+            {{- with .Values.victoriametrics.extraArgs }}
+            {{- if kindIs "map" . }}
+            {{- range $flag, $value := . }}
+            - {{ printf "-%s=%v" (trimPrefix "-" $flag) $value | quote }}
+            {{- end }}
+            {{- else }}
+            {{- range . }}
+            - {{ . | quote }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
           ports:
             - { name: http, containerPort: 8428 }
           readinessProbe:

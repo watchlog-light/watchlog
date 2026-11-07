@@ -13,11 +13,12 @@ import type { VictoriaQueryClient } from '../../lib/victoria.js';
 import { newId } from '../../lib/ids.js';
 import { ProblemType, sendProblem } from '../../lib/problem.js';
 import { decryptJson, encryptJson } from '../../lib/secrets.js';
+import { redactUrl } from '../../lib/redact.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { UnreachableError, type HttpClient } from './channels.js';
 import { sendTest, type DeliveryDeps } from './delivery.js';
-import { DEFAULT_RULES, ensureDefaultRules } from './rules.js';
+import { DEFAULT_RULES, ensureDefaultRules, insertThresholdRule } from './rules.js';
 import {
   AlertChartSchema,
   AlertDetailSchema,
@@ -177,6 +178,8 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
 ) => {
   const signedIn = requireUser(db);
   const canManage = [signedIn, requireRole('owner', 'admin')];
+  // Read-only demo (ADR-122): channels show their type and name, never where they send.
+  const demoMode = config.demoMode;
   const delivery: DeliveryDeps = {
     db,
     secretKey: config.secretKey,
@@ -224,7 +227,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
         name: r.name,
         type: r.type,
         status: r.status,
-        error: r.error,
+        error: demoMode ? null : r.error,
       });
       out.set(r.alert_state_id, list);
     }
@@ -448,7 +451,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
           id: n.id,
           kind: n.kind,
           status: n.status,
-          error: n.error,
+          error: demoMode ? null : n.error,
           attempts: n.attempts,
           createdAt: iso(n.created_at)!,
           sentAt: iso(n.sent_at),
@@ -478,6 +481,8 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
       try {
         const chart = await alertChart({ db, victoria }, request.user!.org.id, request.params.id, {
           rangeSeconds: request.query.range,
+          // The demo charts at most a day, however long the alert (ADR-122).
+          ...(demoMode ? { maxSpanSeconds: 86_400 } : {}),
         });
         if (!chart) return sendProblem(reply, 404, 'Alert not found');
         return chart;
@@ -739,25 +744,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
           .execute();
         if (found.length !== channels.length) return sendProblem(reply, 400, 'Unknown channel');
       }
-      const id = newId();
-      await db
-        .insertInto('alert_rules')
-        .values({
-          id,
-          org_id: orgId,
-          cluster_id: b.clusterId,
-          name: b.name,
-          type: 'threshold',
-          metric: b.metric,
-          scope: JSON.stringify(b.scope),
-          condition: JSON.stringify(b.condition),
-          for_seconds: b.forSeconds,
-          renotify_seconds: b.renotifySeconds ?? 14400,
-          severity: b.severity,
-          enabled: b.enabled ?? true,
-          channel_ids: channels,
-        })
-        .execute();
+      const id = await insertThresholdRule(db, orgId, { ...b, channelIds: channels });
       return reply.code(201).send((await ruleViews(orgId, id))[0]!);
     },
   );
@@ -1007,6 +994,21 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
   function channelView(row: Selectable<AlertChannels>, ruleCount: number) {
     const cfg = row.config as Record<string, unknown>;
     let secrets: Record<string, string> = {};
+    if (demoMode) {
+      return {
+        id: row.id,
+        type: row.type as 'slack' | 'telegram' | 'email' | 'webhook',
+        name: row.name,
+        config: row.type === 'telegram' ? { connected: cfg.chatId !== undefined } : {},
+        secrets,
+        verifiedAt: iso(row.verified_at),
+        lastSentAt: iso(row.last_sent_at),
+        lastError: null,
+        lastErrorAt: null,
+        createdAt: iso(row.created_at)!,
+        ruleCount,
+      };
+    }
     if (row.secret) {
       try {
         secrets = Object.fromEntries(
@@ -1022,7 +1024,8 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
       name: row.name,
       config: {
         ...(Array.isArray(cfg.recipients) ? { recipients: cfg.recipients as string[] } : {}),
-        ...(typeof cfg.url === 'string' ? { url: cfg.url } : {}),
+        // A password or token inside the webhook's address is not shown (ADR-122).
+        ...(typeof cfg.url === 'string' ? { url: redactUrl(cfg.url) } : {}),
         ...(typeof cfg.botName === 'string' ? { botName: cfg.botName } : {}),
         ...(typeof cfg.chatName === 'string' ? { chatName: cfg.chatName } : {}),
         ...(row.type === 'telegram' ? { connected: cfg.chatId !== undefined } : {}),

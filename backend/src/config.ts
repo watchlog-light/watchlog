@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { parseSecretKey } from './lib/secrets.js';
+import {
+  DEFAULT_TRUSTED_PROXIES,
+  parseTrustedProxies,
+  type CookieSecure,
+} from './plugins/client-ip.js';
 
 export interface Config {
   host: string;
@@ -37,6 +42,18 @@ export interface Config {
   telegramApiUrl: string;
   /** Outbound proxy for channel deliveries (HTTPS_PROXY / HTTP_PROXY / NO_PROXY). */
   proxy: { http?: string; https?: string; no?: string };
+  /** Read-only public demo (ADR-122): passwordless viewer sessions, every change refused. */
+  demoMode: boolean;
+  /** Timeout of one VictoriaMetrics query from the API, in ms (10 s in demo mode). */
+  queryTimeoutMs: number;
+  /** A header a trusted proxy sets to the visitor's address, e.g. X-Real-IP (rate limits). */
+  clientIpHeader?: string;
+  /** Peers whose client-IP header and X-Forwarded-Proto are believed (CIDRs, ADR-123). */
+  trustedProxies: string[];
+  /** The session cookie's Secure attribute: per request (auto), always or never. */
+  cookieSecure: CookieSecure;
+  /** Alert rules applied once at start (WATCHLOG_SEED_FILE, ADR-122). */
+  seedFile?: string;
 }
 
 const DEV_DATABASE_URL = 'postgres://watchlog:watchlog@127.0.0.1:54320/watchlog';
@@ -100,6 +117,30 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   );
   const smtpUrl = env.WATCHLOG_SMTP_URL ?? (isDevelopment ? DEV_SMTP_URL : undefined);
   const smtpFrom = env.WATCHLOG_SMTP_FROM ?? 'WatchLog <alerts@watchlog.local>';
+  const demoMode = env.WATCHLOG_DEMO_MODE;
+  if (demoMode !== undefined && demoMode !== 'true' && demoMode !== 'false') {
+    throw new Error(`Invalid WATCHLOG_DEMO_MODE: ${demoMode} (expected true or false)`);
+  }
+  if (
+    env.WATCHLOG_CLIENT_IP_HEADER !== undefined &&
+    !/^[A-Za-z0-9-]{1,64}$/.test(env.WATCHLOG_CLIENT_IP_HEADER)
+  ) {
+    throw new Error(`Invalid WATCHLOG_CLIENT_IP_HEADER: ${env.WATCHLOG_CLIENT_IP_HEADER}`);
+  }
+  const trustedProxies = env.WATCHLOG_TRUSTED_PROXIES
+    ? env.WATCHLOG_TRUSTED_PROXIES.split(',')
+        .map((c) => c.trim())
+        .filter(Boolean)
+    : DEFAULT_TRUSTED_PROXIES;
+  try {
+    parseTrustedProxies(trustedProxies);
+  } catch (err) {
+    throw new Error(`Invalid WATCHLOG_TRUSTED_PROXIES: ${(err as Error).message}`, { cause: err });
+  }
+  const cookieSecure = env.WATCHLOG_COOKIE_SECURE ?? 'auto';
+  if (cookieSecure !== 'auto' && cookieSecure !== 'always' && cookieSecure !== 'never') {
+    throw new Error(`Invalid WATCHLOG_COOKIE_SECURE: ${cookieSecure} (auto, always or never)`);
+  }
   const bootstrapToken = env.WATCHLOG_BOOTSTRAP_CLUSTER_TOKEN;
   if (bootstrapToken !== undefined && !/^wl_ct_[A-Za-z0-9_-]{43}$/.test(bootstrapToken)) {
     throw new Error('Invalid WATCHLOG_BOOTSTRAP_CLUSTER_TOKEN: expected wl_ct_ and 43 characters');
@@ -133,5 +174,11 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
       https: env.HTTPS_PROXY ?? env.https_proxy,
       no: env.NO_PROXY ?? env.no_proxy,
     },
+    demoMode: demoMode === 'true',
+    clientIpHeader: env.WATCHLOG_CLIENT_IP_HEADER,
+    trustedProxies,
+    cookieSecure,
+    queryTimeoutMs: demoMode === 'true' ? 10_000 : 15_000,
+    seedFile: env.WATCHLOG_SEED_FILE,
   };
 }

@@ -12,6 +12,11 @@ spec:
     matchLabels: {{- include "watchlog.selector" (list .Release.Name "backend") | nindent 6 }}
   template:
     metadata:
+      {{- if .Values.seed }}
+      annotations:
+        # A changed seed restarts the backend, which applies it at start (ADR-122).
+        checksum/seed: {{ toJson .Values.seed | sha256sum }}
+      {{- end }}
       labels: {{- include "watchlog.labels" . | nindent 8 }}
         app.kubernetes.io/component: backend
     spec:
@@ -40,6 +45,23 @@ spec:
             - { name: WATCHLOG_BOOTSTRAP_CLUSTER_NAME, value: {{ .Values.clusterName | quote }} }
             - name: WATCHLOG_BOOTSTRAP_CLUSTER_TOKEN
               valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-cluster-token, key: token } }
+            {{- if .Values.seed }}
+            - { name: WATCHLOG_SEED_FILE, value: /etc/watchlog/seed/seed.json }
+            {{- end }}
+            {{- with .Values.backend.trustedProxies }}
+            - { name: WATCHLOG_TRUSTED_PROXIES, value: {{ join "," . | quote }} }
+            {{- end }}
+            {{- with .Values.cookieSecure }}
+            - { name: WATCHLOG_COOKIE_SECURE, value: {{ . | quote }} }
+            {{- end }}
+            {{- with .Values.backend.clientIpHeader }}
+            # Rate limits per visitor behind a proxy that names the visitor in this header.
+            - { name: WATCHLOG_CLIENT_IP_HEADER, value: {{ . | quote }} }
+            {{- end }}
+            {{- if .Values.demoMode }}
+            # A read-only public demo (ADR-122): passwordless viewer sessions, changes refused.
+            - { name: WATCHLOG_DEMO_MODE, value: 'true' }
+            {{- end }}
             {{- if .Values.admin.email }}
             - name: WATCHLOG_ADMIN_EMAIL
               valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-admin, key: email } }
@@ -64,8 +86,15 @@ spec:
           securityContext: {{- include "watchlog.containerSecurity" . | nindent 12 }}
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
+            {{- if .Values.seed }}
+            - { name: seed, mountPath: /etc/watchlog/seed, readOnly: true }
+            {{- end }}
       volumes:
         - { name: tmp, emptyDir: {} }
+        {{- if .Values.seed }}
+        - name: seed
+          configMap: { name: {{ .Release.Name }}-seed }
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

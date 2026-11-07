@@ -34,11 +34,14 @@ export function chartWindow(
   forSeconds: number,
   now: number,
   rangeSeconds?: number,
+  /** The longest window, whatever the alert's length (24 h in the demo, ADR-122). */
+  maxSpanSeconds?: number,
 ): ChartWindow {
   const to = Math.floor((a.resolvedAt ?? now) / 1000);
   let from = Math.floor(a.startedAt / 1000) - Math.max(2 * forSeconds, MIN_LEAD_S);
   const range = Math.min(rangeSeconds ?? 0, MAX_RANGE_S);
   if (range > to - from) from = to - range;
+  if (maxSpanSeconds !== undefined && to - from > maxSpanSeconds) from = to - maxSpanSeconds;
   return { from, to };
 }
 
@@ -82,7 +85,7 @@ export async function alertChart(
   deps: { db: Database; victoria?: VictoriaQueryClient },
   orgId: string,
   alertId: string,
-  opts: { now?: number; rangeSeconds?: number } = {},
+  opts: { now?: number; rangeSeconds?: number; maxSpanSeconds?: number } = {},
 ): Promise<AlertChartView | null> {
   const { db, victoria } = deps;
   const now = opts.now ?? Date.now();
@@ -126,6 +129,7 @@ export async function alertChart(
     forSeconds,
     now,
     opts.rangeSeconds,
+    opts.maxSpanSeconds,
   );
   const clip = (w: { from: number; to: number }) => ({
     from: Math.max(window.from, w.from),

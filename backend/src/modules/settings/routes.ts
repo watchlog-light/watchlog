@@ -10,6 +10,7 @@ import { requireRole, requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import nodemailer from 'nodemailer';
 import { encryptJson } from '../../lib/secrets.js';
+import { redactUrl, restoreUrlPassword } from '../../lib/redact.js';
 import type { HttpClient } from '../alerts/channels.js';
 import { smtpTransport, type SettingsService, type SmtpConfig } from './service.js';
 
@@ -72,6 +73,8 @@ export const settingsRoutes: FastifyPluginAsyncTypebox<{
   http: HttpClient;
 }> = async (app, { db, settings, http }) => {
   const signedIn = requireUser(db);
+  // Read-only demo (ADR-122): no mail server or proxy details at all.
+  const demoMode = settings.config.demoMode;
   const canManage = [signedIn, requireRole('owner', 'admin')];
 
   async function general() {
@@ -182,7 +185,7 @@ export const settingsRoutes: FastifyPluginAsyncTypebox<{
         response: { 200: Type.Object({ smtp: Nullable(SmtpSchema) }), 401: ProblemSchema },
       },
     },
-    async () => ({ smtp: await settings.smtp() }),
+    async () => ({ smtp: demoMode ? null : await settings.smtp() }),
   );
 
   /** The stored password when the request leaves it out. */
@@ -308,17 +311,24 @@ export const settingsRoutes: FastifyPluginAsyncTypebox<{
 
   const TelegramSchema = Type.Object({ proxyUrl: Nullable(Type.String()), source: SourceSchema });
 
+  /** The proxy as the API shows it: never its password (in any mode), nothing in a demo. */
+  async function telegramView() {
+    if (demoMode) return { proxyUrl: null, source: 'none' as const };
+    const t = await settings.telegram();
+    return { ...t, proxyUrl: t.proxyUrl === null ? null : redactUrl(t.proxyUrl) };
+  }
+
   app.get(
     '/settings/telegram',
     {
       preHandler: signedIn,
       schema: {
-        summary: "Telegram's outbound proxy",
+        summary: "Telegram's outbound proxy; a password in it is never returned",
         tags: ['settings'],
         response: { 200: TelegramSchema, 401: ProblemSchema },
       },
     },
-    () => settings.telegram(),
+    telegramView,
   );
 
   app.put(
@@ -336,10 +346,13 @@ export const settingsRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      if ((await settings.telegram()).source === 'env') {
+      const current = await settings.telegram();
+      if (current.source === 'env') {
         return sendProblem(reply, 409, FROM_ENVIRONMENT);
       }
-      const raw = request.body.proxyUrl?.trim();
+      // The form shows the password masked; saving it unchanged keeps the stored one.
+      const given = request.body.proxyUrl?.trim();
+      const raw = given ? restoreUrlPassword(given, current.proxyUrl ?? undefined) : given;
       if (!raw) await settings.remove('telegram');
       else {
         const u = URL.canParse(raw) ? new URL(raw) : null;
@@ -352,7 +365,7 @@ export const settingsRoutes: FastifyPluginAsyncTypebox<{
         }
         await settings.save('telegram', { proxyUrl: raw }, null, request.user!.id);
       }
-      return settings.telegram();
+      return telegramView();
     },
   );
 

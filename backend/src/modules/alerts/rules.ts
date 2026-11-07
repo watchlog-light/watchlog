@@ -6,7 +6,8 @@ import { newId } from '../../lib/ids.js';
 import { STATE_RULES, type DefaultRule } from './defaults.js';
 import type { EvaluatorLookup } from './engine.js';
 import { METRIC_RULES } from './metric-rules.js';
-import { thresholdEvaluator } from './threshold.js';
+import { thresholdEvaluator, type ThresholdScope } from './threshold.js';
+import type { Condition } from './defaults.js';
 
 export const DEFAULT_RULES: DefaultRule[] = [...STATE_RULES, ...METRIC_RULES];
 const BY_KEY = new Map(DEFAULT_RULES.map((r) => [r.key, r]));
@@ -46,4 +47,46 @@ export async function ensureDefaultRules(
       oc.columns(['org_id', 'rule_key']).where('rule_key', 'is not', null).doNothing(),
     )
     .execute();
+}
+
+/** A custom threshold rule as POST /alert-rules and the seed file (ADR-122) give it. */
+export interface ThresholdRuleInput {
+  name: string;
+  metric: string;
+  clusterId: string | null;
+  scope: ThresholdScope;
+  condition: Condition;
+  forSeconds: number;
+  renotifySeconds?: number;
+  severity: 'warning' | 'critical';
+  enabled?: boolean;
+  channelIds: string[];
+}
+
+/** Inserts a threshold rule that is already validated; returns its id. */
+export async function insertThresholdRule(
+  db: Database,
+  orgId: string,
+  b: ThresholdRuleInput,
+): Promise<string> {
+  const id = newId();
+  await db
+    .insertInto('alert_rules')
+    .values({
+      id,
+      org_id: orgId,
+      cluster_id: b.clusterId,
+      name: b.name,
+      type: 'threshold',
+      metric: b.metric,
+      scope: JSON.stringify(b.scope),
+      condition: JSON.stringify(b.condition),
+      for_seconds: b.forSeconds,
+      renotify_seconds: b.renotifySeconds ?? 14400,
+      severity: b.severity,
+      enabled: b.enabled ?? true,
+      channel_ids: b.channelIds,
+    })
+    .execute();
+  return id;
 }

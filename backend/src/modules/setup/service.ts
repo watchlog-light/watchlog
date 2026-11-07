@@ -6,6 +6,7 @@ import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
 import { hashPassword } from '../../lib/passwords.js';
 import { safeEqual } from '../../lib/tokens.js';
+import { DEMO_USER_EMAIL } from '../demo/constants.js';
 
 // Crockford base32 without ambiguous characters (no I, L, O, U).
 const CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -25,26 +26,48 @@ export interface AdminInput {
   password: string;
 }
 
+/** Whether a real user exists; the demo viewer (ADR-122) does not count. */
 export async function hasUsers(db: Database): Promise<boolean> {
-  const row = await db.selectFrom('users').select('id').limit(1).executeTakeFirst();
+  const row = await db
+    .selectFrom('users')
+    .select('id')
+    .where('email', '!=', DEMO_USER_EMAIL)
+    .limit(1)
+    .executeTakeFirst();
   return row !== undefined;
 }
 
-/** Creates the default org, the admin user and an owner membership in one transaction. */
+/**
+ * Creates the default org, the admin user and an owner membership in one transaction.
+ * An org made earlier for the demo viewer (ADR-122) is reused.
+ */
 export async function createAdmin(db: Database, input: AdminInput): Promise<string> {
   const passwordHash = await hashPassword(input.password);
   return db.transaction().execute(async (trx) => {
     // Serialise concurrent setup attempts; the second one sees the first user.
     await sql`SELECT pg_advisory_xact_lock(hashtext('watchlog:setup'))`.execute(trx);
-    const existing = await trx.selectFrom('users').select('id').limit(1).executeTakeFirst();
+    const existing = await trx
+      .selectFrom('users')
+      .select('id')
+      .where('email', '!=', DEMO_USER_EMAIL)
+      .limit(1)
+      .executeTakeFirst();
     if (existing) throw new SetupAlreadyCompleteError();
 
-    const orgId = newId();
+    const demoOrg = await trx
+      .selectFrom('orgs')
+      .select('id')
+      .orderBy('created_at')
+      .limit(1)
+      .executeTakeFirst();
+    const orgId = demoOrg?.id ?? newId();
     const userId = newId();
-    await trx
-      .insertInto('orgs')
-      .values({ id: orgId, name: 'Default', slug: 'default', plan: 'community' })
-      .execute();
+    if (!demoOrg) {
+      await trx
+        .insertInto('orgs')
+        .values({ id: orgId, name: 'Default', slug: 'default', plan: 'community' })
+        .execute();
+    }
     await trx
       .insertInto('users')
       .values({ id: userId, email: input.email, name: input.name, password_hash: passwordHash })

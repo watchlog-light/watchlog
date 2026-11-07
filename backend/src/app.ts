@@ -4,7 +4,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type RouteOptions } from 'fastify';
 import type { Config } from './config.js';
 import type { Database } from './db/index.js';
 import { registerProblemHandlers } from './lib/problem.js';
@@ -21,6 +21,14 @@ import { healthRoutes } from './modules/health/routes.js';
 import { setupRoutes } from './modules/setup/routes.js';
 import type { SetupState } from './modules/setup/service.js';
 import { registerCsrfProtection } from './plugins/csrf.js';
+import {
+  registerDemoGuard,
+  registerDemoQueryLimits,
+  registerDemoSessions,
+} from './plugins/demo.js';
+import { DemoSessions } from './modules/demo/service.js';
+import { parseTrustedProxies, registerClientIp } from './plugins/client-ip.js';
+import { demoRoutes } from './modules/demo/routes.js';
 import { VictoriaQueryClient } from './lib/victoria.js';
 import { dockerRoutes } from './modules/docker/routes.js';
 import { queryRoutes } from './modules/query/routes.js';
@@ -29,6 +37,7 @@ import { HttpClient } from './modules/alerts/channels.js';
 import { settingsRoutes } from './modules/settings/routes.js';
 import { SettingsService } from './modules/settings/service.js';
 import type { BucketSpec } from './modules/ingest/rate-limit.js';
+import { applySeed, type Seed } from './modules/seed/seed.js';
 
 export const API_PREFIX = '/api/v1';
 
@@ -37,6 +46,10 @@ export interface AppDeps {
   setup: SetupState;
   /** Test overrides for the ingest rate limits (ADR-027). */
   ingestBuckets?: { agent?: BucketSpec; clusterAgent?: BucketSpec; cluster?: BucketSpec };
+  /** Alert rules from WATCHLOG_SEED_FILE, applied again once first-run setup made an org. */
+  seed?: Seed;
+  /** Test hook: sees every route as it is registered (the demo guard's route test). */
+  onRoute?: (route: RouteOptions) => void;
 }
 
 export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyInstance> {
@@ -48,15 +61,30 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     },
   }).withTypeProvider<TypeBoxTypeProvider>();
 
+  if (deps.onRoute) app.addHook('onRoute', deps.onRoute);
   registerProblemHandlers(app);
   // JSON only: text/plain is a CORS "simple" content type usable for CSRF (ADR-034).
   app.removeContentTypeParser('text/plain');
   app.decorateRequest('user', null);
+  registerClientIp(app, {
+    clientIpHeader: config.clientIpHeader,
+    trustedProxies: parseTrustedProxies(config.trustedProxies),
+    cookieSecure: config.cookieSecure,
+  });
   registerCsrfProtection(app, config.publicUrl);
+  // Read-only demo (ADR-122): every change is refused here, before any route runs.
+  registerDemoGuard(app, config.demoMode);
 
   await app.register(helmet);
   await app.register(cookie);
-  await app.register(rateLimit, { global: false });
+  // Per visitor, also behind a proxy (WATCHLOG_CLIENT_IP_HEADER); routes may key otherwise.
+  await app.register(rateLimit, { global: false, keyGenerator: (request) => request.clientIp });
+  // Read-only demo (ADR-122): signed sessions without database rows, and small queries.
+  const demoSessions = new DemoSessions(config.secretKey);
+  if (config.demoMode) {
+    registerDemoSessions(app, { db: deps.db, sessions: demoSessions });
+    registerDemoQueryLimits(app);
+  }
   await app.register(swagger, {
     openapi: {
       openapi: '3.1.0',
@@ -66,7 +94,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
 
   const tokens = new TokenCache(deps.db);
   const victoria = config.victoriaMetricsUrl
-    ? new VictoriaQueryClient(config.victoriaMetricsUrl)
+    ? new VictoriaQueryClient(config.victoriaMetricsUrl, 10_000, config.queryTimeoutMs)
     : undefined;
   if (!victoria) app.log.warn('VICTORIAMETRICS_URL is not set; ingest will answer 503');
   // Send test and Telegram's getMe go out through the outbound proxy (ADR-080).
@@ -79,9 +107,18 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(healthRoutes, { version: config.version });
       await api.register(setupRoutes, {
         ...deps,
-        afterSetup: () => bootstrapCluster(app, config, deps.db),
+        demoMode: config.demoMode,
+        afterSetup: async () => {
+          await bootstrapCluster(app, config, deps.db);
+          if (deps.seed) await applySeed(deps.db, deps.seed, app.log);
+        },
       });
       await api.register(authRoutes, deps);
+      await api.register(demoRoutes, {
+        db: deps.db,
+        demoMode: config.demoMode,
+        sessions: demoSessions,
+      });
       await api.register(clusterRoutes, { db: deps.db, config, tokens, settings });
       await api.register(queryRoutes, { db: deps.db, victoria });
       await api.register(dockerRoutes, { db: deps.db, victoria });

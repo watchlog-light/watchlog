@@ -31,7 +31,7 @@ describe('generated API types', () => {
   it('request bodies match the backend schemas', () => {
     expectTypeOf<LoginRequest>().toEqualTypeOf<{ email: string; password: string }>();
     expectTypeOf<SetupRequest>().toHaveProperty('code').toBeString();
-    expectTypeOf<SetupStatus>().toEqualTypeOf<{ required: boolean }>();
+    expectTypeOf<SetupStatus>().toEqualTypeOf<{ required: boolean; demoMode: boolean }>();
   });
 
   it('cluster types expose status unions and the one-time token value', () => {

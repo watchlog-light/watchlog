@@ -101,7 +101,8 @@ export function setSessionCookie(
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
-    secure: request.protocol === 'https',
+    // Per request, from the socket or a trusted proxy (ADR-123).
+    secure: request.secureCookie,
     expires: expiresAt,
   });
 }
@@ -111,6 +112,7 @@ export function clearSessionCookie(request: FastifyRequest, reply: FastifyReply)
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
-    secure: request.protocol === 'https',
+    // Per request, from the socket or a trusted proxy (ADR-123).
+    secure: request.secureCookie,
   });
 }

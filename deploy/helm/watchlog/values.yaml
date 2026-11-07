@@ -25,6 +25,20 @@ admin:
 secretKey: ''
 # Name of this cluster in WatchLog; its agents are registered automatically.
 clusterName: kubernetes
+# A read-only public demo (ADR-122): anyone can open the dashboard as a viewer without a
+# password, and every change is refused, admins included. Not for a real installation.
+demoMode: false
+# The session cookie's Secure attribute: auto (when the request came over https, from
+# the socket or a trusted proxy's X-Forwarded-Proto), always, or never.
+cookieSecure: auto
+# Configuration applied at every backend start (ADR-122), e.g. a demo's alert rules:
+#   seed:
+#     alertRules:
+#       - { name: Node memory above 75%, metric: node.memory.utilization, clusterId: null,
+#           scope: {}, condition: { op: '>', value: 0.75 }, forSeconds: 300, severity: warning }
+# Each rule is created once, matched by name, and never overwritten. clusterId is null
+# (every cluster) or a cluster's name or id. Rules only: no channels, nothing secret.
+seed: {}
 
 backend:
   replicas: 1
@@ -32,6 +46,12 @@ backend:
     requests: { cpu: 100m, memory: 192Mi }
     limits: { memory: 512Mi }
   eventsRetentionDays: 15
+  # A header the proxy in front sets to the visitor's address (nginx: X-Real-IP), so rate
+  # limits count each visitor. Leave empty unless that proxy always sets it.
+  clientIpHeader: ''
+  # The proxies whose client-IP header and X-Forwarded-Proto are believed, as CIDRs.
+  # Empty: loopback and private ranges (the web pod).
+  trustedProxies: []
 
 # Evaluates alert rules and sends notifications (ADR-073); more replicas share the work.
 alertWorker:
@@ -86,6 +106,10 @@ victoriametrics:
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { memory: 2Gi }
+  # More VictoriaMetrics flags, e.g. query limits for a public demo; unset by default so
+  # either form can be given without a type warning:
+  #   extraArgs: [-search.maxQueryDuration=10s, -search.maxConcurrentRequests=4]
+  #   extraArgs: { search.maxQueryDuration: 10s, search.maxConcurrentRequests: 4 }
 
 # The agents of this cluster (the watchlog-agent chart). endpoint and token point at
 # this release; override only to run them elsewhere.

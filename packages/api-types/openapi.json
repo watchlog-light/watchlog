@@ -38,7 +38,7 @@
     },
     "/api/v1/setup": {
       "get": {
-        "summary": "Whether first-run setup is still required",
+        "summary": "Whether first-run setup is still required, and whether this is a read-only demo",
         "tags": ["setup"],
         "responses": {
           "200": {
@@ -47,10 +47,14 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["required"],
+                  "required": ["required", "demoMode"],
                   "properties": {
                     "required": {
                       "type": "boolean"
+                    },
+                    "demoMode": {
+                      "type": "boolean",
+                      "description": "A read-only demo: sign in with POST /demo/session; changes answer 403"
                     }
                   }
                 }
@@ -539,6 +543,182 @@
             }
           },
           "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/demo/session": {
+      "post": {
+        "summary": "Start a read-only session as the demo viewer (demo mode only)",
+        "tags": ["auth"],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["user"],
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "required": ["id", "email", "name", "locale", "role", "org"],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "locale": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["owner"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["admin"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["viewer"]
+                            }
+                          ]
+                        },
+                        "org": {
+                          "type": "object",
+                          "required": ["id", "name", "slug", "plan"],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "slug": {
+                              "type": "string"
+                            },
+                            "plan": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": ["community"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["free"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["pro"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["enterprise"]
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -17445,7 +17625,7 @@
     },
     "/api/v1/settings/telegram": {
       "get": {
-        "summary": "Telegram's outbound proxy",
+        "summary": "Telegram's outbound proxy; a password in it is never returned",
         "tags": ["settings"],
         "responses": {
           "200": {
