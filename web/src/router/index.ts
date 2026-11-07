@@ -99,6 +99,13 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/LoginPage.vue'),
     meta: { titleKey: 'auth.login.title', public: true },
   },
+  // Read-only demo (ADR-122): opens a demo session at once (the sign-in page has a button).
+  {
+    name: 'demo',
+    path: '/demo',
+    component: () => import('@/views/LoginPage.vue'),
+    meta: { titleKey: 'auth.demo.title', public: true },
+  },
   {
     path: '/',
     component: () => import('@/layouts/AppShell.vue'),

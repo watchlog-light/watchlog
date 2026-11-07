@@ -44,7 +44,7 @@ import { useUiStore } from '@/stores/ui';
 // episodes of the same rule and scope.
 const route = useRoute();
 const ui = useUiStore();
-const canManage = useAuthStore().user?.role !== 'viewer';
+const canManage = useAuthStore().canManage;
 const { t } = useI18n();
 const id = computed(() => String(route.params.id));
 const page = useLoader(() => api<AlertDetail>(`/alerts/${id.value}`));

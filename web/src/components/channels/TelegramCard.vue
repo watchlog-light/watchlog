@@ -167,7 +167,8 @@ function openSetup() {
 
 onMounted(() => {
   void loadProxy();
-  if (props.channels.length === 0) void checkReach();
+  // Only for those who can set Telegram up (the read-only demo refuses the check, ADR-122).
+  if (props.channels.length === 0 && props.canManage) void checkReach();
 });
 onBeforeUnmount(() => {
   clearInterval(poll);

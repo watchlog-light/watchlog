@@ -15,7 +15,7 @@ import { useServerSettingsStore } from '@/stores/serverSettings';
 // commands. When the server's environment sets it, it is shown read-only.
 const { t } = useI18n();
 const store = useServerSettingsStore();
-const canManage = useAuthStore().user?.role !== 'viewer';
+const canManage = useAuthStore().canManage;
 const origin = window.location.origin;
 const value = ref('');
 const page = useLoader(async () => {

@@ -9,7 +9,7 @@ import { useServerSettingsStore } from '@/stores/serverSettings';
 // Alert messages link to WatchLog only when its address is known (ADR-081, ADR-093):
 // offer the address in the browser with one click.
 const store = useServerSettingsStore();
-const canManage = useAuthStore().user?.role !== 'viewer';
+const canManage = useAuthStore().canManage;
 const origin = window.location.origin;
 const saving = ref(false);
 async function use() {

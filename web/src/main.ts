@@ -5,12 +5,13 @@ import './styles/main.css';
 
 import { createPinia } from 'pinia';
 import { createApp } from 'vue';
-import { setUnauthorizedHandler } from './api/client';
+import { setReadOnlyHandler, setUnauthorizedHandler } from './api/client';
 import App from './App.vue';
 import { createAppI18n } from './i18n';
 import { createAppRouter } from './router';
 import { useAuthStore } from './stores/auth';
 import { useClustersStore } from './stores/clusters';
+import { useToastStore } from './stores/toast';
 
 const pinia = createPinia();
 const auth = () => useAuthStore(pinia);
@@ -26,4 +27,8 @@ setUnauthorizedHandler(() => {
   }
 });
 
-createApp(App).use(pinia).use(router).use(createAppI18n()).mount('#app');
+const i18n = createAppI18n();
+// The read-only demo refused a change (ADR-122): say so wherever it happened.
+setReadOnlyHandler(() => useToastStore(pinia).show(i18n.global.t('demo.readOnly'), 'warning'));
+
+createApp(App).use(pinia).use(router).use(i18n).mount('#app');

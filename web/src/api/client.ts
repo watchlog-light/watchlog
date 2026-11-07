@@ -15,10 +15,16 @@ export class ApiError extends Error {
 }
 
 let unauthorizedHandler: (() => void) | undefined;
+let readOnlyHandler: ((message: string) => void) | undefined;
 
 /** Called when an authenticated request returns 401 (for example an expired session). */
 export function setUnauthorizedHandler(handler: () => void): void {
   unauthorizedHandler = handler;
+}
+
+/** Called with the server's message when a change is refused by the read-only demo (ADR-122). */
+export function setReadOnlyHandler(handler: (message: string) => void): void {
+  readOnlyHandler = handler;
 }
 
 export interface RequestOptions {
@@ -44,7 +50,9 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   const data: unknown = res.status === 204 || !isJson ? undefined : await res.json();
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith('/auth/')) unauthorizedHandler?.();
-    throw new ApiError(res.status, data as Problem | undefined);
+    const err = new ApiError(res.status, data as Problem | undefined);
+    if (isDemoReadOnly(err)) readOnlyHandler?.(err.problem?.message ?? err.message);
+    throw err;
   }
   return data as T;
 }
@@ -55,8 +63,21 @@ export const ProblemType = {
   nameTaken: 'urn:watchlog:problem:name-taken',
   tokenLimit: 'urn:watchlog:problem:token-limit',
   telegramUnreachable: 'urn:watchlog:problem:telegram-unreachable',
+  demoReadOnly: 'urn:watchlog:problem:demo-read-only',
 } as const;
+
+/** The read-only demo refused a change (ADR-122). */
+export const DEMO_READ_ONLY_CODE = 'demo_read_only';
 
 export function hasProblemType(err: unknown, type: string): boolean {
   return err instanceof ApiError && err.problem?.type === type;
+}
+
+/** A change the read-only demo refused (403 `demo_read_only`, ADR-122). */
+export function isDemoReadOnly(err: unknown): boolean {
+  return (
+    err instanceof ApiError &&
+    err.status === 403 &&
+    (err.problem?.code === DEMO_READ_ONLY_CODE || err.problem?.type === ProblemType.demoReadOnly)
+  );
 }

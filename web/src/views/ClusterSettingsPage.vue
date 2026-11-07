@@ -21,7 +21,7 @@ import { useAuthStore } from '@/stores/auth';
 const { t } = useI18n();
 const route = useRoute();
 const auth = useAuthStore();
-const canManage = auth.user?.role !== 'viewer';
+const canManage = auth.canManage;
 const id = String(route.params.id);
 
 const page = useLoader(() => api<ClusterDetail>(`/clusters/${id}`));
@@ -143,7 +143,8 @@ onMounted(page.load);
 
       <p v-if="error" role="alert" class="text-13 text-critical">{{ error }}</p>
 
-      <section class="rounded-card border border-border bg-surface-1">
+      <!-- The read-only demo shows no tokens, not even their prefixes (ADR-122). -->
+      <section v-if="!auth.demoMode" class="rounded-card border border-border bg-surface-1">
         <div
           class="flex items-center justify-between gap-4 border-b border-border px-5 py-4 max-md:flex-col max-md:items-stretch max-md:gap-3 max-md:px-4"
         >

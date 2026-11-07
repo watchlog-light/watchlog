@@ -35,7 +35,7 @@ type View = (typeof VIEWS)[number];
 const REFRESH_MS = 30_000;
 const route = useRoute();
 const router = useRouter();
-const canManage = useAuthStore().user?.role !== 'viewer';
+const canManage = useAuthStore().canManage;
 
 const view = computed<View>(() =>
   VIEWS.includes(route.query.view as View) ? (route.query.view as View) : 'firing',

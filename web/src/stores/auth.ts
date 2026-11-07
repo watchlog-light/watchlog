@@ -1,24 +1,30 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type {
   CurrentUser,
+  DemoSessionResponse,
   LoginRequest,
   SetupRequest,
   SetupStatus,
   UserEnvelope,
 } from '@watchlog/api-types';
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { api, ApiError } from '@/api/client';
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<CurrentUser | null>(null);
   const setupRequired = ref(false);
+  /** A read-only public demo (ADR-122): passwordless entry, every change refused. */
+  const demoMode = ref(false);
   const loaded = ref(false);
+  /** Whether the UI offers changes: not to viewers, and never in the demo. */
+  const canManage = computed(() => user.value?.role !== 'viewer' && !demoMode.value);
   let pending: Promise<void> | null = null;
 
   async function load(): Promise<void> {
     const status = await api<SetupStatus>('/setup');
     setupRequired.value = status.required;
+    demoMode.value = status.demoMode;
     user.value = null;
     if (!status.required) {
       try {
@@ -43,6 +49,11 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = (await api<UserEnvelope>('/auth/login', { method: 'POST', body: request })).user;
   }
 
+  /** Starts a read-only demo session (demo mode only). */
+  async function enterDemo(): Promise<void> {
+    user.value = (await api<DemoSessionResponse>('/demo/session', { method: 'POST' })).user;
+  }
+
   async function completeSetup(request: SetupRequest): Promise<void> {
     user.value = (await api<UserEnvelope>('/setup', { method: 'POST', body: request })).user;
     setupRequired.value = false;
@@ -61,5 +72,17 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null;
   }
 
-  return { user, setupRequired, loaded, ensureLoaded, login, completeSetup, logout, clear };
+  return {
+    user,
+    setupRequired,
+    demoMode,
+    canManage,
+    loaded,
+    ensureLoaded,
+    login,
+    enterDemo,
+    completeSetup,
+    logout,
+    clear,
+  };
 });

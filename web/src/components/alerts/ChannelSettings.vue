@@ -15,7 +15,7 @@ import { useAuthStore } from '@/stores/auth';
 
 // Settings → Alert channels (alerts redesign): one card per kind of channel — the email
 // server with its recipients, Telegram's guided setup, Slack and webhooks.
-const canManage = useAuthStore().user?.role !== 'viewer';
+const canManage = useAuthStore().canManage;
 const list = useLoader(async () => (await api<AlertChannelList>('/alert-channels')).channels);
 const channels = computed(() => list.data.value ?? []);
 const of = (type: AlertChannel['type']) => channels.value.filter((c) => c.type === type);

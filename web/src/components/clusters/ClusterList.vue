@@ -20,7 +20,7 @@ import { useAuthStore } from '@/stores/auth';
 
 const { t } = useI18n();
 const auth = useAuthStore();
-const canManage = auth.user?.role !== 'viewer';
+const canManage = auth.canManage;
 
 const selection = useClustersStore();
 const list = useLoader(async () => (await api<ClusterList>('/clusters')).clusters);

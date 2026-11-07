@@ -4,6 +4,8 @@ import { ref, watch } from 'vue';
 
 export const TIME_RANGES = ['15m', '1h', '6h', '24h', '7d'] as const;
 export type TimeRange = (typeof TIME_RANGES)[number];
+/** The read-only demo answers at most the last 24 hours (ADR-122). */
+export const DEMO_TIME_RANGES = TIME_RANGES.filter((r) => r !== '7d');
 
 const SIDEBAR_KEY = 'watchlog.sidebarCollapsed';
 

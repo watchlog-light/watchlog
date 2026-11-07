@@ -95,6 +95,13 @@
       "intro": "Sign in to your WatchLog installation.",
       "submit": "Sign in"
     },
+    "demo": {
+      "title": "Live demo",
+      "intro": "Look around WatchLog with a sample cluster. The demo is read-only: you can open every page, but nothing you do changes it.",
+      "enter": "Enter live demo",
+      "install": "Install WatchLog on your cluster",
+      "unavailable": "The demo is not available right now. Try again in a minute."
+    },
     "errors": {
       "invalidCredentials": "Invalid email or password.",
       "invalidCode": "That setup code is not valid. Copy it from the backend log; it changes when the backend restarts.",
@@ -104,6 +111,12 @@
       "unavailable": "The WatchLog backend cannot be reached. Check that it is running.",
       "generic": "Something went wrong. Try again."
     }
+  },
+  "demo": {
+    "label": "Live demo",
+    "sample": "sample cluster",
+    "install": "Install yours in 5 minutes",
+    "readOnly": "This is a read-only demo. Install WatchLog to try this on your cluster."
   },
   "account": {
     "signOut": "Sign out",

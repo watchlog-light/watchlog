@@ -2,12 +2,16 @@
 <script setup lang="ts">
 import { Clock } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
-import { TIME_RANGES, useUiStore } from '@/stores/ui';
+import { computed } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { DEMO_TIME_RANGES, TIME_RANGES, useUiStore } from '@/stores/ui';
 
 // The time range of the charts: a compact segmented control in the top bar, or a
 // full-width one with 44 px buttons in the filter sheet (phones).
 defineProps<{ sheet?: boolean }>();
 const { timeRange } = storeToRefs(useUiStore());
+const auth = useAuthStore();
+const ranges = computed(() => (auth.demoMode ? DEMO_TIME_RANGES : TIME_RANGES));
 </script>
 
 <template>
@@ -22,7 +26,7 @@ const { timeRange } = storeToRefs(useUiStore());
   >
     <Clock v-if="!sheet" class="mx-2 size-3.5 text-text-subtle" aria-hidden="true" />
     <button
-      v-for="range in TIME_RANGES"
+      v-for="range in ranges"
       :key="range"
       type="button"
       :aria-pressed="timeRange === range"

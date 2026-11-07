@@ -5,7 +5,8 @@
 // e2e/screenshots/ (git-ignored).
 //
 // Needs a running dashboard with data (`pnpm dev` and deploy/test/demo-up.sh) and an
-// account: WATCHLOG_E2E_EMAIL and WATCHLOG_E2E_PASSWORD. It picks the first Kubernetes
+// account: WATCHLOG_E2E_EMAIL and WATCHLOG_E2E_PASSWORD, or WATCHLOG_E2E_DEMO=true against a
+// read-only demo (WATCHLOG_DEMO_MODE=true, ADR-122), which enters through /demo. It picks the first Kubernetes
 // cluster and the first Docker fleet (or WATCHLOG_E2E_KUBE / WATCHLOG_E2E_DOCKER, by name).
 // While working on a page: WATCHLOG_E2E_ONLY=overview,nodes and WATCHLOG_E2E_WIDTHS=390.
 import { existsSync, mkdirSync } from 'node:fs';
@@ -14,9 +15,10 @@ import { layoutProblems, report, SHOTS, viewportFor, WIDTHS } from './layout-che
 
 const email = process.env.WATCHLOG_E2E_EMAIL;
 const password = process.env.WATCHLOG_E2E_PASSWORD;
+const demo = process.env.WATCHLOG_E2E_DEMO === 'true';
 const SHOT_DIR = new URL('./screenshots/', import.meta.url).pathname;
 // The session is reused between runs (sign-in is rate-limited); git-ignored.
-const AUTH_FILE = new URL('./.auth/session.json', import.meta.url).pathname;
+const AUTH_FILE = new URL(`./.auth/session${demo ? '-demo' : ''}.json`, import.meta.url).pathname;
 
 interface Cluster {
   id: string;
@@ -42,6 +44,11 @@ const get = async <T>(api: APIRequestContext, path: string): Promise<T> => {
 };
 
 async function signIn(api: APIRequestContext) {
+  if (demo) {
+    const res = await api.post('/api/v1/demo/session');
+    expect(res.ok(), `demo session: ${res.status()}`).toBeTruthy();
+    return;
+  }
   if (!email || !password) throw new Error('set WATCHLOG_E2E_EMAIL and WATCHLOG_E2E_PASSWORD');
   const res = await api.post('/api/v1/auth/login', { data: { email, password } });
   expect(res.ok(), `sign-in: ${res.status()}`).toBeTruthy();
@@ -143,7 +150,9 @@ async function discover(api: APIRequestContext): Promise<Route[]> {
   ];
   if (alerts[0]) routes.push({ name: 'alert', path: `/alerts/${alerts[0].id}${k}`, shot: true });
   const only = process.env.WATCHLOG_E2E_ONLY?.split(',');
-  return only ? routes.filter((r) => only.includes(r.name)) : routes;
+  // The read-only demo has no rule editor to open.
+  const available = demo ? routes.filter((r) => r.name !== 'rule-editor') : routes;
+  return only ? available.filter((r) => only.includes(r.name)) : available;
 }
 
 /** Waits until the page has drawn its data: no skeletons or loading indicators left. */

@@ -16,7 +16,7 @@ import { useKubeStore } from '@/stores/kube';
 // workloads hide by default, and whether WatchLog's own namespace counts as one.
 const { t } = useI18n();
 const kube = useKubeStore();
-const canManage = useAuthStore().user?.role !== 'viewer';
+const canManage = useAuthStore().canManage;
 const system = ref<string[]>([]);
 const watchlog = ref(true);
 const known = ref<string[]>([]);

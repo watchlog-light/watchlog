@@ -3,6 +3,7 @@
 import { watchEffect } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
+import ToastHost from '@/components/ui/ToastHost.vue';
 
 const route = useRoute();
 const { t } = useI18n();
@@ -15,4 +16,5 @@ watchEffect(() => {
 
 <template>
   <RouterView />
+  <ToastHost />
 </template>

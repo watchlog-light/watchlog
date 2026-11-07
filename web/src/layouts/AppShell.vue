@@ -15,7 +15,9 @@ import { useRoute } from 'vue-router';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import AppTopBar from '@/components/layout/AppTopBar.vue';
 import AlertingStatusBanner from '@/components/alerts/AlertingStatusBanner.vue';
+import DemoBanner from '@/components/layout/DemoBanner.vue';
 import { useCompact } from '@/composables/useNarrow';
+import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 
 const route = useRoute();
@@ -24,6 +26,7 @@ const title = computed(() => (route.meta.titleKey ? t(route.meta.titleKey) : t('
 // Below 1024 px the sidebar is an off-canvas drawer, closed on every navigation.
 const compact = useCompact();
 const { navOpen } = storeToRefs(useUiStore());
+const auth = useAuthStore();
 watch([() => route.fullPath, compact], () => (navOpen.value = false));
 </script>
 
@@ -50,6 +53,7 @@ watch([() => route.fullPath, compact], () => (navOpen.value = false));
       </DialogPortal>
     </DialogRoot>
     <div class="flex min-w-0 flex-1 flex-col">
+      <DemoBanner v-if="auth.demoMode" />
       <AppTopBar :title="title" />
       <AlertingStatusBanner />
       <main id="main" class="flex-1 overflow-y-auto p-4 md:p-6">
