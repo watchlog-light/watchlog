@@ -363,6 +363,26 @@ export interface AgentInfo {
   active: boolean;
 }
 
+/**
+ * A node's CPU and memory capacity. The Node object's allocatable, unless the node's
+ * agent measures its node from its cgroup (`node_scope: cgroup`, ADR-121): nodes that are
+ * containers on a shared kernel (kind, k3d) report the host's CPUs and memory to the API
+ * server, so the agent's measurement of the node container's limits is used instead.
+ */
+export function nodeCapacity(
+  allocatable: Record<string, string> | undefined,
+  capabilities: unknown,
+): { cores: number | null; bytes: number | null } {
+  const alloc = allocatable ?? {};
+  const caps = (capabilities ?? {}) as Record<string, unknown>;
+  const measured = (v: unknown) =>
+    caps.node_scope === 'cgroup' && typeof v === 'number' && v > 0 ? v : null;
+  return {
+    cores: measured(caps.node_cpu_cores) ?? parseQuantity(alloc.cpu),
+    bytes: measured(caps.node_memory_bytes) ?? parseQuantity(alloc.memory),
+  };
+}
+
 export function nodeView(
   row: ObjectRow,
   pods: ObjectRow[],
@@ -384,6 +404,7 @@ export function nodeView(
     requestsBytes += r.memoryRequestBytes;
   }
   const caps = (agent?.capabilities ?? {}) as Record<string, unknown>;
+  const capacity = nodeCapacity(alloc, agent?.capabilities);
   return {
     name: row.name,
     status: nodeStatus(st),
@@ -400,12 +421,12 @@ export function nodeView(
     cpu: {
       usageCores: metrics?.cpuCores ?? null,
       requestsCores,
-      allocatableCores: parseQuantity(alloc.cpu),
+      allocatableCores: capacity.cores,
     },
     memory: {
       usageBytes: metrics?.memoryBytes ?? null,
       requestsBytes,
-      allocatableBytes: parseQuantity(alloc.memory),
+      allocatableBytes: capacity.bytes,
     },
     diskUtilization: metrics?.diskUtilization ?? null,
     pods: { count, capacity: parseQuantity(alloc.pods) },

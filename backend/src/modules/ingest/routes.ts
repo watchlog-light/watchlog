@@ -168,6 +168,11 @@ const HeartbeatBody = Type.Object({
       kubelet_tls: Type.Optional(
         Type.Union([Type.Literal('verified'), Type.Literal('unverified')]),
       ),
+      /** Where node metrics come from (ADR-121): the host's /proc or the node's cgroup. */
+      node_scope: Type.Optional(Type.Union([Type.Literal('host'), Type.Literal('cgroup')])),
+      /** cgroup scope: the node's capacity measured from its cgroup limits (ADR-121). */
+      node_cpu_cores: Type.Optional(Type.Number({ minimum: 0, maximum: 1_000_000 })),
+      node_memory_bytes: Type.Optional(Type.Number({ minimum: 0, maximum: 2 ** 60 })),
     },
     { additionalProperties: false },
   ),

@@ -15,8 +15,8 @@ import { ingestFailures } from '../ingest/errors.js';
 import {
   containerResources,
   needsAttention,
+  nodeCapacity,
   nodeStatus,
-  parseQuantity,
   podFailing,
   podIsActive,
   type ObjectRow,
@@ -361,12 +361,18 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
     let version: string | null = null;
     const nodeCpuBy = byLabels(nodeCpu!, 'node');
     const nodeMemBy = byLabels(nodeMem!, 'node');
+    const nodeCaps = new Map(
+      agents.filter((a) => a.mode === 'node').map((a) => [a.node, a.capabilities] as const),
+    );
     const nodeCards = nodes
       .map((n) => {
         const st = n.status_summary as Record<string, unknown>;
-        const alloc = (st.allocatable as Record<string, string>) ?? {};
-        const cores = parseQuantity(alloc.cpu) ?? 0;
-        const bytes = parseQuantity(alloc.memory) ?? 0;
+        const capacity = nodeCapacity(
+          st.allocatable as Record<string, string> | undefined,
+          nodeCaps.get(n.name),
+        );
+        const cores = capacity.cores ?? 0;
+        const bytes = capacity.bytes ?? 0;
         allocCores += cores;
         allocBytes += bytes;
         const isReady = nodeStatus(st) === 'Ready';

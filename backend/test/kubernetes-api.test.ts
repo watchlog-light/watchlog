@@ -322,6 +322,73 @@ describe('Kubernetes read API', () => {
     expect((await api(`/clusters/${clusterId}/nodes/nope`)).statusCode).toBe(404);
   });
 
+  // kind and k3d nodes are containers on one kernel: their Node objects carry the host's
+  // CPUs and memory. A node agent in cgroup scope measures the node container's limits,
+  // and those are the node's capacity everywhere (ADR-121).
+  it('takes a cgroup-scope node capacity from its agent, not the Node object', async () => {
+    const before = await get(`/clusters/${clusterId}/overview`);
+    const memBefore = before.kpis.memory.allocatable as number;
+    const objWorker = (await get(`/clusters/${clusterId}/nodes/watchlog-worker`)).node;
+    const gib3 = 3 * 2 ** 30;
+    const hb = await heartbeat(
+      {
+        agent_version: '2.0.0',
+        mode: 'node',
+        node: 'watchlog-worker',
+        capabilities: {
+          ebpf: 'enabled',
+          cgroup: 'v2',
+          node_scope: 'cgroup',
+          node_cpu_cores: 2,
+          node_memory_bytes: gib3,
+        },
+        series: 120,
+      },
+      'watchlog-worker',
+    );
+    expect(hb.statusCode, hb.body).toBe(204);
+    // Host scope: the Node object stays the source even if numbers are sent.
+    await heartbeat(
+      {
+        agent_version: '2.0.0',
+        mode: 'node',
+        node: 'watchlog-worker2',
+        capabilities: { ebpf: 'enabled', node_scope: 'host', node_cpu_cores: 1 },
+        series: 120,
+      },
+      'watchlog-worker2',
+    );
+
+    const { nodes } = await get(`/clusters/${clusterId}/nodes`);
+    const byName = (n: string) => nodes.find((x: { name: string }) => x.name === n);
+    expect(byName('watchlog-worker').cpu.allocatableCores).toBe(2);
+    expect(byName('watchlog-worker').memory.allocatableBytes).toBe(gib3);
+    expect(byName('watchlog-worker2').cpu.allocatableCores).toBe(4);
+    const detail = (await get(`/clusters/${clusterId}/nodes/watchlog-worker`)).node;
+    expect(detail.cpu.allocatableCores).toBe(2);
+    expect(detail.memory.allocatableBytes).toBe(gib3);
+
+    const after = await get(`/clusters/${clusterId}/overview`);
+    expect(after.kpis.cpu.allocatable).toBe(12 - 4 + 2);
+    expect(after.resources.cpu.allocatable).toBe(10);
+    expect(after.kpis.memory.allocatable).toBe(
+      memBefore - (objWorker.memory.allocatableBytes as number) + gib3,
+    );
+
+    // A value outside the schema fails the heartbeat, as for every capability.
+    const bad = await heartbeat(
+      {
+        agent_version: '2.0.0',
+        mode: 'node',
+        node: 'watchlog-worker',
+        capabilities: { node_scope: 'container' },
+        series: 1,
+      },
+      'watchlog-worker',
+    );
+    expect(bad.statusCode).toBe(400);
+  });
+
   it('lists pods and a pod with containers, termination and events', async () => {
     const now = Date.now();
     const web = {
