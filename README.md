@@ -111,7 +111,16 @@ make agent-lint agent-test
 make images           # build agent, backend and web images locally (never pushed)
 bash deploy/test/helm/upgrade-test.sh   # upgrades from older chart values
 bash deploy/test/k8s/e2e.sh             # kind cluster: helm install and the acceptance checks
+bash deploy/test/k8s/isolation-test.sh  # kind nodes as limited containers: nothing of the host leaks
 ```
+
+Host isolation (ADR-121): `deploy/test/k8s/isolation-test.sh` runs where Docker, kind, kubectl, helm and
+python3 are, e.g. in a Lima VM (`limactl shell <vm> bash deploy/test/k8s/isolation-test.sh`). It limits the kind
+node containers to 2 CPUs and 3 GiB, installs the `watchlog` chart with `nodeMetricsScope=cgroup`, makes TCP
+connections and DNS lookups from the VM and from a plain Docker container, and checks through the API that none
+of them appears, that the agents' pod filter counts them, that the demo app's edges are there, and that node
+capacity, disks, interfaces and boot time are the node containers' own. `KEEP=1` keeps the cluster; it honours
+`GOPROXY` and `BACKEND_RUNTIME_IMAGE` like `e2e.sh`.
 
 Phones and tablets (ADR-120): with `pnpm dev` and the demo running, `pnpm -C web test:responsive` opens every dashboard route in Google Chrome at 360, 390, 768, 1024 and 1280 px. It fails on horizontal page scroll, text under 12 px or touch targets under 44 px, and saves screenshots at phone and tablet size to `web/e2e/screenshots/`. Sign in with `WATCHLOG_E2E_EMAIL` and `WATCHLOG_E2E_PASSWORD`; `WATCHLOG_E2E_ONLY=overview,nodes` and `WATCHLOG_E2E_WIDTHS=390` narrow a run.
 
@@ -119,7 +128,8 @@ The agent image is built `FROM scratch` (ADR-020). If `gcr.io` is unreachable fr
 `make images BACKEND_RUNTIME_IMAGE=node:24-bookworm-slim`.
 If `proxy.golang.org` is blocked, fetch the agent's Go modules through another proxy:
 `GOPROXY=https://goproxy.io,direct make images` (the e2e script `deploy/test/k8s/e2e.sh` honours `GOPROXY` too).
-CI keeps Go's default proxy. The eBPF objects are committed; regenerate them with `make bpf` after changing `agent/internal/ebpf/bpf/`.
+CI keeps Go's default proxy. The eBPF objects are committed; regenerate them with `make bpf` after changing `agent/internal/ebpf/bpf/`
+(`DEBIAN_MIRROR=https://cdn-aws.deb.debian.org` if `deb.debian.org` is unreachable for the builder's apt).
 
 ## License
 

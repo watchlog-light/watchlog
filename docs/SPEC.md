@@ -354,6 +354,8 @@ Only the cluster-agent links client-go (it adds ~21 MB to the binary and ~11 MB 
 | kubelet | `/stats/summary` (node-local, authenticated with ServiceAccount; TLS `auto`/`verify`/`skip`, ADR-051) | ephemeral storage, volume (PVC) usage, pod network |
 | network (eBPF) | §6.4 | `flow_connections_total`, `flow_connect_failed_total`, `flow_connect_latency_seconds` (histogram), `flow_bytes_total{dir}`, `flow_retransmits_total`, `dns_requests_total{rcode}` |
 
+**Nodes that are containers** (kind, k3d, LXC; ADR-121): `agent.nodeMetricsScope` is `host`, `cgroup` or `auto` (default). In cgroup scope the host collector reads the node container's own cgroup: CPU count from `cpu.max`, memory total from `memory.max`, CPU and memory use from `cpu.stat` and `memory.stat`, disk I/O from `io.stat` as `dev="all"`, the node container's start as boot time; no load average and no filesystem sizes, so nothing of the machine underneath appears. The backend then takes the node's capacity from the agent, not from the Node object.
+
 Labels on container series: `cluster_id` (server-injected), `node`, `namespace`, `pod`, `container`, `workload_kind`, `workload`. Docker mode: `host`, `container`, `image`, `compose_project`, `compose_service`.
 
 **Cardinality rules (MUST):** no pod UID, no container ID, no IPs, no ports above the well-known range as labels except on flow series where the destination is aggregated (see §6.4). Agent hard cap: 20,000 active series per node; beyond that, drop lowest-priority collectors and emit `watchlog_agent_series_dropped_total`.
@@ -362,6 +364,7 @@ Labels on container series: `cluster_id` (server-injected), `node`, `namespace`,
 
 - Library: `github.com/cilium/ebpf` with CO-RE; programs compiled at build time via `bpf2go`.
 - Hooks: `tcp_connect` / `inet_sock_set_state` tracepoint (connection lifecycle, latency, failures), `tcp_retransmit_skb`, `tcp_sendmsg` / `tcp_cleanup_rbuf` (bytes), UDP 53 kprobes or socket filter for DNS rcode.
+- **Pod filter** (Kubernetes mode, default on, ADR-121): the kernel records a connection or DNS query only when the task's cgroup is below one of the node's kubepods cgroups; anything else on the same kernel (host daemons, plain containers, another cluster's pods) is only counted. User space still drops flows of unknown cgroups as a second line.
 - Per-connection state is aggregated **in user space every 15 s** into edges keyed by `(src_workload, dst_workload | dst_external, dst_port)`.
 - IP → workload resolution uses the pod/service cache received from the cluster-agent (node agents subscribe to a lightweight endpoint on the cluster-agent, not to the API server directly, to protect the API server at scale).
 - External destinations are aggregated by DNS name when known (from the DNS collector), otherwise by `/24` network + port, and collapsed into "Internet" beyond 50 distinct externals per workload.
@@ -485,6 +488,7 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `GET/POST/PATCH/DELETE /alert-channels` · `POST /alert-channels/:id/test` | |
 | `GET /alerts` (firing & history) · `POST /silences` | |
 | `POST /funnel` | Client-side funnel events (§10.4) |
+| `POST /demo/session` | Demo mode only (ADR-122): a passwordless, read-only viewer session (a signed cookie, no row); 404 otherwise |
 
 ## 8.2 Ingest API (agent → backend)
 

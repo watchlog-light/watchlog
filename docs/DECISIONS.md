@@ -1284,3 +1284,145 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 - Consequences:
   - SPEC §11.3's app shell describes the drawer and the sheet.
   - New UI keeps to the same rules; the responsive suite catches regressions when it runs.
+
+## ADR-121: Nothing of a shared host leaks: the eBPF pod filter, node metrics scope and node capacity
+
+- Date: 2026-11-08 · Status: accepted (maintainer, 2026-11-08)
+- Context:
+  - With kind or k3d each Kubernetes node is a container, and all nodes share the kernel of the machine they run on. The target is a production machine that also runs MicroK8s, plain Docker containers and other sites; nothing about that machine may appear in WatchLog.
+  - **Flows.** The flow programs (ADR-099) ran for every task on the kernel. User space dropped flows whose cgroup is no known pod container (`watchlog_agent_flow_unattributed_connections_total`, ADR-106), so nothing reached the service map, but every connection and DNS query of the machine was recorded in the kernel's maps first, and on kind every node agent recorded the whole machine's traffic three times.
+  - **Node metrics.** The host collector reads `/proc/stat`, `/proc/meminfo`, `/proc/loadavg`, `/proc/diskstats` and `statfs`, which are host-wide whatever the node's namespaces: a kind node reported the machine's CPUs, memory, load, block devices, filesystem sizes and boot time.
+  - **Capacity.** Kubernetes Node objects of kind and k3d nodes report the machine's capacity (measured: 16 CPU / 61 GiB on every node, whatever the node container's limits), and the UI showed it as each node's allocatable.
+- Decision:
+  - **The pod filter (Kubernetes mode, default on, `agent.networkFlows.podFilter`, `--ebpf-pod-filter`).**
+    - Kernel: a `roots` hash map (cgroup id → 1, 16 entries), a `filter` array map (on/off) and a per-CPU `filtered` counter array. At the only three places the cgroup is taken in process context (SYN_SENT in `on_state`, `known_or_adopt`, `dns_query`), with the filter on, the event is recorded only if the current task's cgroup or one of its ancestors is in `roots`; otherwise it is counted (connections and DNS queries; adoption attempts are not counted, since they run on every send and receive) and nothing enters any map. Later hooks (ESTABLISHED, CLOSE, retransmits, bytes, DNS responses and the ring buffer) only look up sockets recorded there, so they need no check.
+    - **Why a CO-RE walk:** `bpf_get_current_ancestor_cgroup_id()` is not allowed in tracing programs on the 5.8 minimum (SPEC §6.1). The walk reads `bpf_get_current_task()->cgroups->dfl_cgrp`, compares `cgrp->kn->id` with the map and moves to `cgrp->self.parent` (`self` is struct cgroup's first member), at most 16 levels. `kn->id` is what `bpf_get_current_cgroup_id()` returns and the cgroup directory's inode, the key user space already uses (ADR-099); measured equal on kernel 6.10 (`TestKernelPodFilter`, privileged container on Docker Desktop: a task one cgroup below a root is recorded under its own directory's inode) and on kernel 6.8 (kind on Ubuntu 24.04, `isolation-test.sh`). The verifier accepts the walk on both; 5.8 itself was not available to test.
+    - User space: the roots are the inodes of the node's kubepods cgroups (`kubepods.slice`, `kubepods`, kind's `kubelet.slice/kubelet-kubepods.slice`), found where `PodContainers` looks. They are looked up again every interval (the kubelet may start after the agent); a scan that finds none keeps the last roots. The filter turns on only once a root is known, so an agent never records nothing by mistake. Docker mode is unchanged (no filter).
+    - Self-metrics: `watchlog_agent_flow_pod_filter` (0/1), `watchlog_agent_flow_filtered_connections_total`, `watchlog_agent_dns_filtered_queries_total`; also `watchlog_agent_dns_unattributed_queries_total` for the user-space drop of DNS stats, which was silent.
+    - The user-space drop stays as defence in depth (unit test: an unknown cgroup gives no edge and no DNS series, only the counters).
+  - **Node metrics scope (`agent.nodeMetricsScope`, `--node-metrics-scope`, `WATCHLOG_NODE_METRICS_SCOPE`: `host` | `cgroup` | `auto`, default `auto`).**
+    - `cgroup` reads the root of the cgroup namespace the agent sees (`<sys>/fs/cgroup`, the node container's cgroup):
+      - CPU count: `cpu.max` quota / period, else the size of `cpuset.cpus.effective`, else the kernel's count. CPU seconds: `user` and `system` from `cpu.stat`, and an `idle` counter that grows by (cores × elapsed − usage) between scrapes and never backwards, so the backend's CPU % (non-idle over all modes) is usage over the limit. The first value is (cores × time since the node started − usage), so an agent restart continues about where it was.
+      - Memory: total is `memory.max`; when it is `max`, the machine's `MemTotal`, and the agent logs it. Available is total − (`memory.current` − `inactive_file`), the working set as for containers; free is total − `memory.current`; cached is `file`. The backend's used = total − available is unchanged.
+      - No load average (host-wide). Boot time is the node container's start: the kernel's `btime` plus `/proc/1/stat` start time of the node's PID 1 (neither is sent on its own).
+      - Disks: `io.stat` summed over devices with `dev="all"`; no device names, no filesystem sizes (statfs of the node's mounts gives the machine's disks). The disk usage column and the disk usage rule stay empty for such nodes; documented.
+      - Network: unchanged, `/proc/1/net/dev` of the node's network namespace (the node container's interfaces; `lo` and `veth*` skipped).
+    - `auto` picks `cgroup` in node mode when the node looks like a container: `/.dockerenv`, `/run/.containerenv` or `/kind` in the node's root filesystem, or a cgroup v2 root that has `cpu.max` or `memory.max` (only non-root cgroups have them, so the node runs in a cgroup namespace below the kernel's root: a container or an LXC guest). Only files are read; never another process's environment. A Docker host's `auto` is `host`. `cgroup` without cgroup v2 falls back to `host` with a warning.
+  - **The capacity rule.** The heartbeat carries `node_scope` and, in cgroup scope, `node_cpu_cores` and `node_memory_bytes` measured by the agent. When a node's agent reports `node_scope: cgroup`, the backend uses those as the node's capacity everywhere the UI shows it: the nodes list, the node page and the overview's CPU and memory totals and node cards (`nodeCapacity()` in `kubernetes/views.ts`). Otherwise the Node object's allocatable is used as before. Pods capacity still comes from the Node object.
+  - Host names: the node agent's name is `NODE_NAME` (the Node's name, i.e. the node container's name on kind); the machine's host name is never read in Kubernetes mode.
+- Cost (measured on a Lima VM, Ubuntu 24.04 arm64, kernel 6.8, 4 vCPUs; kind with 3 nodes, so 3 node agents attach their programs to the one kernel; the demo app running; a Python process on the VM making about 870 TCP connections a second to a local listener plus 100 DNS queries a second; per-program cost from `kernel.bpf_stats_enabled` and `bpftool prog show`, summed over the 3 agents; 60 s per phase):
+
+    | | filter on | filter off | no agent |
+    |---|---|---|---|
+    | node agents' CPU, all 3 together | 0.60–0.72 % of a core | 1.63 % of a core | — |
+    | `on_state` (≈ 30 calls per outsider connection across 3 agents) | 142–168 ns/call | 190 ns/call | — |
+    | `on_dns_send` | 519–679 ns/call | 507 ns/call | — |
+    | `on_dns_recv` | 305–365 ns/call | 3,521 ns/call (host NXDOMAIN responses copied to the ring buffer) | — |
+    | connect loop at full speed, 3 × 15 s | 15,669–16,677/s | 15,841–16,249/s | 15,730–16,717/s |
+
+  - The walk costs less than the map updates it saves: per outsider connection the three agents' `on_state` time drops from about 5.7 µs to about 4.5 µs, and the agents no longer drain, attribute and drop the host's flows and DNS responses in user space (agent CPU halves). A host DNS lookup no longer costs a 512-byte ring-buffer copy per agent.
+  - The connect loop's throughput is the same in all three phases within run-to-run noise (about ±3 %): at 16,000 connections a second the client, not the hooks, is the limit, so the hooks' total (a few µs per connection, as above) is the better measure.
+- Alternatives:
+  - `bpf_get_current_ancestor_cgroup_id()` (rejected: not available to tracing programs on the minimum kernel).
+  - A per-cgroup verdict cache in the kernel (rejected for now: with the walk the hook is already cheaper than without the filter, 142–168 vs 190 ns per call; a cache would hold host cgroup ids in the kernel and need invalidation when roots change).
+  - Only the user-space drop (rejected: host traffic was still recorded in the kernel's maps, three times on kind).
+  - LXCFS-style reading of `/proc` through the node's view (rejected: not present on kind or k3d nodes, and not every runtime offers it).
+  - Correcting capacity in the cluster-agent from the Node object (rejected: the API server reports the machine's capacity; only the node's own agent can measure its limits).
+- Consequences:
+  - On kind, k3d or LXC nodes the service map, DNS rows and node pages show only the cluster; a process or container next to the cluster never appears and is only counted.
+  - A node in cgroup scope has no load average, no filesystem sizes and no per-device disk I/O.
+  - Upgrades need nothing: both values are read nil-safe (`deploy/test/helm/upgrade-test.sh` checks old values give the defaults); an older backend rejects heartbeats with the new capability fields (`additionalProperties: false`), which ships together with the agent in the chart.
+  - The BPF builder takes `DEBIAN_MIRROR` (empty in CI) where `deb.debian.org` is unreachable; the builder reproduced the committed objects bit for bit before the change.
+
+## ADR-122: A read-only demo mode, for a public demo of a sample cluster
+
+- Date: 2026-11-08 · Status: accepted (maintainer, 2026-11-08)
+- Context: The launch needs a live demo (demo.watchlog.io) where anyone can click through a real dashboard with a sample cluster, without signing up or installing anything. A normal installation can't be shared that way: every visitor would need an account, and an admin's session could change rules, channels and tokens, or read alert channel targets. Hiding buttons doesn't make it safe; the server has to refuse.
+- Decision:
+  - **One switch.** `WATCHLOG_DEMO_MODE=true` on the backend (the Helm value `demoMode`, default `false`, read nil-safe per ADR-107; `WATCHLOG_DEMO_MODE` in the Compose file). Only the backend reads it. The alert-worker, the web image and the agents are unchanged.
+  - **Passwordless viewer sessions.**
+    - `POST /api/v1/demo/session` signs the visitor in as one shared viewer account, `demo@watchlog.invalid` (`.invalid` is reserved, RFC 2606). It answers 404 when demo mode is off.
+    - The account is made, or put back to a viewer, at start, in the installation's org. If there is no org yet, demo mode creates the default one, so the Helm bootstrap cluster has an org to join.
+    - The account's password hash isn't an argon2 hash, so password sign-in always fails. `POST /auth/login` is refused in demo mode anyway.
+    - **Demo sessions are stateless:** a cookie `wl_demo.<issued>.<expires>.<HMAC-SHA256>`, signed with a key derived from `WATCHLOG_SECRET_KEY` (HKDF, its own label). There is no database row, so visitors cost nothing to keep and nothing has to be cleaned up. A demo session ends 2 hours after the last request: it is renewed at most every 10 minutes. Sign-out clears the cookie; a copied cookie stays valid until it expires, which a read-only viewer session can afford. Out of demo mode a demo cookie is refused (401). We chose this over short-lived rows plus periodic cleanup because rows need a cap, a cleanup job and a decision about which visitors to drop under load; a signed cookie needs none of them.
+    - The cookie has the normal session's name and attributes (HttpOnly, SameSite=Lax, path /), and Secure by the same per-request rule as the normal session cookie (ADR-123): over https, from the socket or a trusted proxy's `X-Forwarded-Proto`.
+    - Starting a demo session is rate-limited to 20 a minute per visitor; a visitor with a valid demo cookie keeps it.
+    - The account doesn't count as a user for first-run setup. Setup can still run after demo mode is turned off, and it joins the demo's org. At a start without demo mode, every demo session is ended.
+  - **Every change is refused in one place.** An `onRequest` hook (`backend/src/plugins/demo.ts`) answers 403 to any request that isn't GET, HEAD or OPTIONS, for every user including admins and anonymous callers. It runs before authentication, rate limits and body parsing. The answer is an RFC 9457 problem: type `urn:watchlog:problem:demo-read-only`, and as `detail` the message "This is a read-only demo. Install WatchLog to try this on your cluster." It also carries `code: "demo_read_only"` and that text as `message`. It goes by the route pattern and lets through only:
+    - `POST /api/v1/demo/session`: starts a demo session;
+    - `POST /api/v1/auth/logout`: ends the caller's own session;
+    - `POST /api/v1/query/range`: a read; chart queries are POSTed for their JSON body;
+    - `/ingest/*`: the agents' token-authenticated writes. Agents also call the cluster-agent's `/v1/ipmap` and `/v1/podmap`, but those are served by the cluster-agent, not the backend.
+  - **Queries stay small (demo mode only):**
+    - every `range`, `from`/`to` and `step` a request can carry, in its query string or JSON body, is checked in one hook: at most the last 24 hours (400 "The demo shows at most the last 24 hours."), and at most 1,000 points per series for an explicit `step` (400). The UI drops its 7-day choice in the demo. An alert's chart spans at most a day.
+    - one rate limit per visitor, 120 requests a minute, is shared by every route that queries VictoriaMetrics (`POST /query/range`, the cluster pages, the alert chart). Above it the answer is 429 with `Retry-After`. 120 rather than 60 because one page load issues up to about 10 such requests.
+    - each VictoriaMetrics query from the API is aborted after 10 s (15 s otherwise).
+    - the chart's `victoriametrics.extraArgs` (list or map, unset by default) lets the demo set VictoriaMetrics' own limits (`-search.maxQueryDuration`, `-search.maxUniqueTimeseries`, `-search.maxConcurrentRequests`).
+  - **Per-visitor limits need the visitor's address.** Caddy also replaces `X-Forwarded-For` with its own peer, so behind a proxy in front of Caddy every visitor has the same `request.ip`. That also affects the existing sign-in and setup limits. `WATCHLOG_CLIENT_IP_HEADER` (Helm `backend.clientIpHeader`, unset by default) names a header the front proxy sets to the visitor's address, e.g. nginx's `X-Real-IP`, which Caddy passes through. Every rate limit keys on it when it holds an IP address and comes from a trusted proxy (ADR-123). Set it only when the front proxy always overwrites that header.
+  - **Configuration without the API: a seed file.** `WATCHLOG_SEED_FILE` (Helm `seed`, rendered to a ConfigMap mounted read-only, with a checksum annotation that restarts the backend on change) holds alert rules in the shape of `POST /alert-rules`. The cluster is given by name or id, or null for every cluster. There are no channels, so nothing secret goes in.
+    - At every start, after the bootstrap cluster, each rule is created if the org has no threshold rule with that name. A rule is never overwritten, so edits survive and a changed rule needs a new name. The work runs under an advisory lock, so several replicas apply it once.
+    - A rule that can't be created (unknown metric, unknown cluster, invalid scope) is logged and skipped. An unreadable or invalid file stops the backend at start with the path and the problem.
+    - With no org yet, it waits and is applied when first-run setup completes.
+    - It works with or without demo mode. It is how the demo gets its rules, and demo mode never has to be turned off.
+  - **GETs with side effects are refused too:** `GET /settings/telegram/reachability`, which calls the Telegram Bot API on every request. `GET /alert-rules` still writes missing default rules (`ensureDefaultRules`), which is the server's own idempotent seeding, not a visitor's change.
+  - **No secret-adjacent data in demo mode:**
+    - the cluster page lists no tokens, not even prefixes;
+    - `GET /settings/smtp` answers `null`;
+    - the Telegram proxy answers none;
+    - alert channels show only type, name, rule count, times and whether a Telegram chat is connected: no recipients, URLs, bot or chat names, secret endings or last errors;
+    - alert deliveries and notifications have no error text.
+  - **In every mode, a URL never shows a password.** The Telegram proxy and the webhook URL hide a password in the userinfo, and the values of query parameters whose names look secret (token, key, secret, signature, …), behind `****`. Saving the proxy form unchanged keeps the stored password. Before this change, any signed-in user, viewers included, could read a proxy password that had been set in the UI or through `HTTPS_PROXY`.
+  - **The web:**
+    - `GET /setup` now also returns `demoMode`, and `required` is false in demo mode.
+    - The sign-in page shows one "Enter live demo" button instead of the form. `/` and every page lead there for anonymous visitors, and `/demo` enters at once, for links from the site.
+    - Every page has a banner: "Live demo · sample cluster · Install yours in 5 minutes →", linking to https://watchlog.io/docs/install/.
+    - The controls that change something are hidden: `canManage` is false in demo mode whatever the role, and the cluster page has no token section. Sign-out stays.
+    - A 403 `demo_read_only` from any call shows as a toast, a new `Toast` component (SPEC §11.3).
+    - Nothing in demo mode loads analytics or makes a request to a third party (ADR-119).
+- Alternatives:
+  - A normal installation with a published viewer password (rejected: one shared password gets changed or locked out, and a viewer still saw channel targets).
+  - Hiding the controls only (rejected: the API stays writable).
+  - One session token for every visitor (rejected: one visitor's sign-out would sign out everyone).
+  - Read-only per role, using the existing viewer role alone (not enough: an admin session on the demo server could still change everything; demo mode refuses for every role).
+  - A separate demo build of the web with fixture data (rejected: it would drift from the product; the demo should be the real thing on a real cluster).
+- Consequences:
+  - Running the demo takes no write access. Its rules come from the seed file, so demo mode is never turned off. While it's on, no admin can sign in.
+  - `backend/test/demo.test.ts` registers every route and checks that each non-GET route outside the allowlist answers 403 with the code and message, for an admin, a demo visitor and an anonymous caller. A new changing route is refused without anyone having to remember it.
+  - `web/e2e/demo.spec.ts` checks the demo end to end against `WATCHLOG_DEMO_MODE=true pnpm dev`, and skips otherwise. `pnpm -C web test:responsive` takes `WATCHLOG_E2E_DEMO=true` and then enters through the demo instead of a password.
+  - Demo visitors add no database rows. Rotating `WATCHLOG_SECRET_KEY` signs every demo visitor out.
+  - `backend/test/demo.test.ts` also covers ingest. Every `/ingest/*` route answers 401 without a valid cluster token, whatever cookie comes with it (a demo cookie, an admin's session), in both modes.
+  - The normal session cookie's Secure attribute is decided in ADR-123.
+  - SPEC §8.1 gains `POST /demo/session`. SPEC §11.3's Toast now exists in `web/src/components/ui/ToastHost.vue`.
+
+## ADR-123: Trusted proxies decide the visitor's address and the session cookie's Secure attribute
+
+- Date: 2026-11-08 · Status: accepted (maintainer, 2026-11-08)
+- Context: Measured with caddy 2.11, as in the web image: Caddy replaces `X-Forwarded-For` with its own peer and `X-Forwarded-Proto` with its own scheme (http), and passes `X-Real-IP` through unchanged. With nginx, an ingress or Cloudflare terminating TLS in front of Caddy, the backend therefore saw every visitor at the same address and every request as http:
+  - the per-IP rate limits (sign-in, setup, the demo's session and query limits) were effectively global;
+  - the session cookie was never Secure (`request.protocol === 'https'`).
+
+  ADR-122's `WATCHLOG_CLIENT_IP_HEADER` fixed the address, but trusted the header from any peer.
+- Decision:
+  - **A trust list.** `WATCHLOG_TRUSTED_PROXIES` (Helm `backend.trustedProxies`, nil-safe; Compose passes it through) lists comma-separated CIDRs or addresses. The default is loopback and private ranges (`127.0.0.0/8`, `::1`, `10/8`, `172.16/12`, `192.168/16`, `fc00::/7`), which covers the web container in Compose and Kubernetes. The backend judges the socket's peer address (an IPv4-mapped IPv6 address counts as IPv4). An invalid entry stops the backend at start.
+  - **The visitor's address** (`plugins/client-ip.ts`, used by every rate limit):
+    - with a client-IP header configured and a trusted peer, the header's first value if it is an IP address;
+    - from an untrusted peer, the socket address, so a client that reaches the backend another way cannot pick its bucket;
+    - with no header configured, unchanged (`request.ip`).
+  - **The session cookie's Secure attribute is decided per request.** `WATCHLOG_COOKIE_SECURE` (Helm `cookieSecure`, nil-safe; Compose passes it through) is `auto` by default. Under `auto`:
+    - Secure when the socket is TLS, or a trusted peer sent `X-Forwarded-Proto: https` (first value);
+    - otherwise not, so plain-http installs (LAN, local development) keep a cookie they can use.
+
+    `always` and `never` override. The same rule applies to sign-in, setup, sign-out and the demo cookie (ADR-122), replacing the demo's "Secure unless `NODE_ENV=development`".
+  - **The web image's Caddy trusts private ranges** (`servers { trusted_proxies static private_ranges }`), so a TLS proxy's `X-Forwarded-Proto` reaches the backend. Measured: `X-Forwarded-Proto: https` and `X-Real-IP` pass through. `X-Forwarded-For` keeps Caddy's own peer, as before, by `header_up X-Forwarded-For {remote_host}` on both `/api` and `/ingest`. Without that header_up, Caddy appends the client's own `X-Forwarded-For`, and the backend's `request.ip` (trustProxy) would take the client-supplied leftmost address. Caddy logs that this header_up is "unnecessary"; measured, it isn't.
+- Alternatives:
+  - Secure whenever `WATCHLOG_PUBLIC_URL` is https (rejected: it breaks sign-in for anyone who opens an https-configured install over plain http).
+  - Fastify's `trustProxy` with a CIDR list instead of `true` (not enough: Caddy still overwrote `X-Forwarded-Proto` and `X-Forwarded-For`, and the visitor's address arrives in `X-Real-IP`, which `trustProxy` doesn't read).
+  - Trusting the client-IP header from any peer (ADR-122's first version; rejected: spoofable when the backend is reachable other than through the proxy).
+- Consequences:
+  - Behind a TLS proxy that sets `X-Forwarded-Proto` (the demo's nginx does), session cookies become Secure with no configuration. Existing sessions get the attribute at their next sign-in.
+  - A client on a private network that connects to Caddy directly can send `X-Forwarded-Proto: https` and get a Secure cookie over http, which only breaks its own sign-in. It cannot choose its address: `X-Forwarded-For` stays Caddy's peer, and the client-IP header is off unless configured.
+  - With `WATCHLOG_CLIENT_IP_HEADER` set, anyone who can reach Caddy without passing the front proxy can name any address, because Caddy itself is a trusted peer. Set the header only where the front proxy is the only way in. For the demo, Caddy is published on 127.0.0.1 behind nginx.
+  - Docs: `docs/site/configuration.md` gains "Behind a reverse proxy".
+  - Tests:
+    - `backend/test/proxy.test.ts`: trusted and untrusted peers, separate buckets per visitor behind a trusted proxy, one bucket per untrusted peer, and `auto`/`always`/`never` for unit and end-to-end cookies, including the demo cookie;
+    - the Caddyfile was checked in a throwaway caddy:2-alpine container.
