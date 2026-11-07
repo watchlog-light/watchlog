@@ -51,7 +51,7 @@ case "$name" in
     wait_http "http://127.0.0.1:$port/api/v1/health"
     curl -fsS "http://127.0.0.1:$port/api/v1/health"
     echo
-    test "$(curl -fsS "http://127.0.0.1:$port/api/v1/setup")" = '{"required":true}'
+    test "$(curl -fsS "http://127.0.0.1:$port/api/v1/setup")" = '{"required":true,"demoMode":false}'
     # Capture first: `docker logs | grep -q` fails under pipefail when grep exits early (SIGPIPE).
     backend_logs=$(docker logs smoke-backend 2>&1)
     grep -q 'setup code' <<<"$backend_logs" || { echo "setup code not logged"; exit 1; }

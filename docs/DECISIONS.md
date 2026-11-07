@@ -1312,16 +1312,16 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - Host names: the node agent's name is `NODE_NAME` (the Node's name, i.e. the node container's name on kind); the machine's host name is never read in Kubernetes mode.
 - Cost (measured on a Lima VM, Ubuntu 24.04 arm64, kernel 6.8, 4 vCPUs; kind with 3 nodes, so 3 node agents attach their programs to the one kernel; the demo app running; a Python process on the VM making about 870 TCP connections a second to a local listener plus 100 DNS queries a second; per-program cost from `kernel.bpf_stats_enabled` and `bpftool prog show`, summed over the 3 agents; 60 s per phase):
 
-    | | filter on | filter off | no agent |
-    |---|---|---|---|
-    | node agents' CPU, all 3 together | 0.60–0.72 % of a core | 1.63 % of a core | — |
-    | `on_state` (≈ 30 calls per outsider connection across 3 agents) | 142–168 ns/call | 190 ns/call | — |
-    | `on_dns_send` | 519–679 ns/call | 507 ns/call | — |
-    | `on_dns_recv` | 305–365 ns/call | 3,521 ns/call (host NXDOMAIN responses copied to the ring buffer) | — |
-    | connect loop at full speed, 3 × 15 s | 15,669–16,677/s | 15,841–16,249/s | 15,730–16,717/s |
-
+  |                                                                 | filter on             | filter off                                                        | no agent        |
+  | --------------------------------------------------------------- | --------------------- | ----------------------------------------------------------------- | --------------- |
+  | node agents' CPU, all 3 together                                | 0.60–0.72 % of a core | 1.63 % of a core                                                  | —               |
+  | `on_state` (≈ 30 calls per outsider connection across 3 agents) | 142–168 ns/call       | 190 ns/call                                                       | —               |
+  | `on_dns_send`                                                   | 519–679 ns/call       | 507 ns/call                                                       | —               |
+  | `on_dns_recv`                                                   | 305–365 ns/call       | 3,521 ns/call (host NXDOMAIN responses copied to the ring buffer) | —               |
+  | connect loop at full speed, 3 × 15 s                            | 15,669–16,677/s       | 15,841–16,249/s                                                   | 15,730–16,717/s |
   - The walk costs less than the map updates it saves: per outsider connection the three agents' `on_state` time drops from about 5.7 µs to about 4.5 µs, and the agents no longer drain, attribute and drop the host's flows and DNS responses in user space (agent CPU halves). A host DNS lookup no longer costs a 512-byte ring-buffer copy per agent.
   - The connect loop's throughput is the same in all three phases within run-to-run noise (about ±3 %): at 16,000 connections a second the client, not the hooks, is the limit, so the hooks' total (a few µs per connection, as above) is the better measure.
+
 - Alternatives:
   - `bpf_get_current_ancestor_cgroup_id()` (rejected: not available to tracing programs on the minimum kernel).
   - A per-cgroup verdict cache in the kernel (rejected for now: with the walk the hook is already cheaper than without the filter, 142–168 vs 190 ns per call; a cache would hold host cgroup ids in the kernel and need invalidation when roots change).
@@ -1402,6 +1402,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - the session cookie was never Secure (`request.protocol === 'https'`).
 
   ADR-122's `WATCHLOG_CLIENT_IP_HEADER` fixed the address, but trusted the header from any peer.
+
 - Decision:
   - **A trust list.** `WATCHLOG_TRUSTED_PROXIES` (Helm `backend.trustedProxies`, nil-safe; Compose passes it through) lists comma-separated CIDRs or addresses. The default is loopback and private ranges (`127.0.0.0/8`, `::1`, `10/8`, `172.16/12`, `192.168/16`, `fc00::/7`), which covers the web container in Compose and Kubernetes. The backend judges the socket's peer address (an IPv4-mapped IPv6 address counts as IPv4). An invalid entry stops the backend at start.
   - **The visitor's address** (`plugins/client-ip.ts`, used by every rate limit):
@@ -1413,6 +1414,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
     - otherwise not, so plain-http installs (LAN, local development) keep a cookie they can use.
 
     `always` and `never` override. The same rule applies to sign-in, setup, sign-out and the demo cookie (ADR-122), replacing the demo's "Secure unless `NODE_ENV=development`".
+
   - **The web image's Caddy trusts private ranges** (`servers { trusted_proxies static private_ranges }`), so a TLS proxy's `X-Forwarded-Proto` reaches the backend. Measured: `X-Forwarded-Proto: https` and `X-Real-IP` pass through. `X-Forwarded-For` keeps Caddy's own peer, as before, by `header_up X-Forwarded-For {remote_host}` on both `/api` and `/ingest`. Without that header_up, Caddy appends the client's own `X-Forwarded-For`, and the backend's `request.ip` (trustProxy) would take the client-supplied leftmost address. Caddy logs that this header_up is "unnecessary"; measured, it isn't.
 - Alternatives:
   - Secure whenever `WATCHLOG_PUBLIC_URL` is https (rejected: it breaks sign-in for anyone who opens an https-configured install over plain http).
