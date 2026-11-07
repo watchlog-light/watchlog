@@ -56,6 +56,10 @@ spec:
               value: {{ .Values.agent.kubeletTLS | quote }}
             - name: WATCHLOG_EBPF
               value: {{ include "watchlog-agent.ebpfEnabled" . | quote }}
+            - name: WATCHLOG_EBPF_POD_FILTER
+              value: {{ include "watchlog-agent.podFilter" . | quote }}
+            - name: WATCHLOG_NODE_METRICS_SCOPE
+              value: {{ include "watchlog-agent.nodeMetricsScope" . | quote }}
             # Shown in WatchLog to give the exact upgrade command; the chart is
             # "watchlog" when installed as its subchart.
             - name: WATCHLOG_HELM_RELEASE

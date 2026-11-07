@@ -261,6 +261,13 @@ type Capabilities struct {
 	HelmChart   string `json:"helm_chart,omitempty"`
 	// ContainerID is the Docker agent's own container, named in its upgrade command.
 	ContainerID string `json:"container_id,omitempty"`
+	// NodeScope is where node metrics come from: host or cgroup (ADR-121).
+	NodeScope string `json:"node_scope,omitempty"`
+	// NodeCPUCores and NodeMemoryBytes are the node's capacity measured from its cgroup
+	// in cgroup scope; the backend shows them instead of the Node object's, which are
+	// the host's when nodes are containers on a shared kernel.
+	NodeCPUCores    float64 `json:"node_cpu_cores,omitempty"`
+	NodeMemoryBytes float64 `json:"node_memory_bytes,omitempty"`
 }
 
 // SendHeartbeat posts one heartbeat and returns its outcome.

@@ -9,10 +9,13 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/watchlog-light/watchlog/agent/internal/metrics"
 )
@@ -26,6 +29,11 @@ type Config struct {
 	SysRoot string
 	// RootFS is the host root filesystem used for statfs, e.g. /host/root.
 	RootFS string
+	// Scope is ScopeHost (the default) or ScopeCgroup (ADR-121); resolve ScopeAuto
+	// with DetectScope first.
+	Scope string
+	// Log, if set, gets the cgroup scope's warnings.
+	Log *slog.Logger
 }
 
 type fsUsage struct {
@@ -37,6 +45,10 @@ type Collector struct {
 	cfg    Config
 	fsys   fs.FS // rooted at "/" so tests can substitute fixtures
 	statfs func(path string) (fsUsage, error)
+	now    func() time.Time
+
+	mu sync.Mutex
+	cg cgroupState
 }
 
 // New returns a collector reading the real filesystem. Relative paths are
@@ -47,12 +59,15 @@ func New(cfg Config) *Collector {
 			*p = abs
 		}
 	}
-	return &Collector{cfg: cfg, fsys: os.DirFS("/"), statfs: statfs}
+	return &Collector{cfg: cfg, fsys: os.DirFS("/"), statfs: statfs, now: time.Now}
 }
 
 // Collect returns one scrape of host metrics. Partial results are returned
 // together with an error describing the sources that failed.
 func (c *Collector) Collect() ([]metrics.Sample, error) {
+	if c.cfg.Scope == ScopeCgroup {
+		return c.collectCgroup()
+	}
 	var samples []metrics.Sample
 	var errs []error
 	for _, collect := range []func() ([]metrics.Sample, error){

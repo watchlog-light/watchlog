@@ -12,6 +12,8 @@
  * Hooks: BTF raw tracepoints (tp_btf) for state changes and retransmits, fentry/fexit
  * for bytes (no tracepoint exists). None needs tracefs or pt_regs, so one little-endian
  * object serves amd64 and arm64.
+ *
+ * In Kubernetes mode only this node's pods are recorded (the pod filter, ADR-121).
  */
 #include "types.h"
 #include <bpf/bpf_helpers.h>
@@ -72,6 +74,70 @@ struct {
 	__type(key, __u32);
 	__type(value, __u32);
 } active SEC(".maps");
+
+/*
+ * Pod filter (ADR-121): with `filter` on, a connection or DNS query is recorded only
+ * when the task's cgroup or one of its ancestors is in `roots`, the node's kubepods
+ * cgroups that user space fills. Everything else on the kernel (host daemons, plain
+ * Docker containers, other nodes' pods when nodes are containers on one kernel) never
+ * enters a map; it is only counted. Checked where the cgroup is taken in process
+ * context: SYN_SENT, adoption and DNS queries.
+ */
+#define ROOTS_MAX 16
+#define CGROUP_DEPTH_MAX 16
+#define FILTERED_CONNECTS 0
+#define FILTERED_DNS 1
+#define FILTERED_UNCOUNTED 2
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, ROOTS_MAX);
+	__type(key, __u64);
+	__type(value, __u8);
+} roots SEC(".maps");
+
+/* 1: record only tasks below `roots`; 0 (default): record every task. */
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, __u32);
+	__type(value, __u32);
+} filter SEC(".maps");
+
+/* Events left out by the filter: [0] connections (SYN_SENT), [1] DNS queries. */
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 2);
+	__type(key, __u32);
+	__type(value, __u64);
+} filtered SEC(".maps");
+
+/*
+ * in_scope says whether the current task may be recorded. The ancestors are walked
+ * with CO-RE reads instead of bpf_get_current_ancestor_cgroup_id(), which tracing
+ * programs may call only on newer kernels than the 5.8 minimum.
+ */
+static __always_inline int in_scope(__u32 what)
+{
+	__u32 zero = 0;
+	__u32 *on = bpf_map_lookup_elem(&filter, &zero);
+	if (!on || !*on)
+		return 1;
+	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+	struct cgroup *cg = BPF_CORE_READ(task, cgroups, dfl_cgrp);
+	for (int i = 0; i < CGROUP_DEPTH_MAX && cg; i++) {
+		__u64 id = BPF_CORE_READ(cg, kn, id);
+		if (bpf_map_lookup_elem(&roots, &id))
+			return 1;
+		cg = (struct cgroup *)BPF_CORE_READ(cg, self.parent);
+	}
+	if (what == FILTERED_UNCOUNTED)
+		return 0;
+	__u64 *n = bpf_map_lookup_elem(&filtered, &what);
+	if (n)
+		(*n)++;
+	return 0;
+}
 
 static __always_inline struct flow_val *flow_in(void *map, struct flow_key *k)
 {
@@ -136,6 +202,8 @@ int BPF_PROG(on_state, const struct sock *sk, const int oldstate, const int news
 	if (newstate == TCP_SYN_SENT) {
 		struct sock_info si = {};
 		if (read_dest(sk, &si.key) < 0)
+			return 0;
+		if (!in_scope(FILTERED_CONNECTS))
 			return 0;
 		si.key.cgroup = bpf_get_current_cgroup_id();
 		si.start_ns = bpf_ktime_get_ns();
@@ -206,6 +274,9 @@ static __always_inline struct sock_info *known_or_adopt(struct sock *sk)
 	__u16 rport = bpf_ntohs(BPF_CORE_READ(sk, __sk_common.skc_dport));
 	if (lport < EPHEMERAL_LO || lport > EPHEMERAL_HI ||
 	    (rport >= EPHEMERAL_LO && rport <= EPHEMERAL_HI))
+		return 0;
+	/* Not counted: this runs on every send and receive of such a socket. */
+	if (!in_scope(FILTERED_UNCOUNTED))
 		return 0;
 	struct sock_info fresh = {};
 	if (read_dest(sk, &fresh.key) < 0)
@@ -335,8 +406,10 @@ static __always_inline int dns_query(struct sock *sk, struct msghdr *msg)
 	if (port != 53)
 		return 0;
 	__u64 skp = (__u64)sk;
-	__u64 cg = bpf_get_current_cgroup_id();
 	struct dns_sock *ds = bpf_map_lookup_elem(&dns_socks, &skp);
+	if (!ds && !in_scope(FILTERED_DNS))
+		return 0;
+	__u64 cg = bpf_get_current_cgroup_id();
 	if (ds) {
 		ds->outstanding++;
 	} else {

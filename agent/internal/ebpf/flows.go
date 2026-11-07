@@ -92,6 +92,7 @@ func Load() (*Flows, error) {
 			Flows1: coll.Maps["flows1"], Socks: coll.Maps["socks"],
 			Dns0: coll.Maps["dns0"], Dns1: coll.Maps["dns1"], DnsSocks: coll.Maps["dns_socks"],
 			DnsAnswers: coll.Maps["dns_answers"],
+			Roots:      coll.Maps["roots"], Filter: coll.Maps["filter"], Filtered: coll.Maps["filtered"],
 		},
 		flowsPrograms: flowsPrograms{OnState: coll.Programs["on_state"], OnRetransmit: coll.Programs["on_retransmit"]},
 	}
@@ -119,6 +120,7 @@ func (f *Flows) attachOptional(spec *ebpf.CollectionSpec, names ...string) (bool
 	coll, err := ebpf.NewCollectionWithOptions(opt, ebpf.CollectionOptions{MapReplacements: map[string]*ebpf.Map{
 		"active": f.objs.Active, "flows0": f.objs.Flows0, "flows1": f.objs.Flows1, "socks": f.objs.Socks,
 		"dns0": f.objs.Dns0, "dns1": f.objs.Dns1, "dns_socks": f.objs.DnsSocks, "dns_answers": f.objs.DnsAnswers,
+		"roots": f.objs.Roots, "filter": f.objs.Filter, "filtered": f.objs.Filtered,
 	}})
 	if err != nil {
 		return false, explain(err).Error()
@@ -300,4 +302,72 @@ func (f *Flows) DrainDNS() ([]DNSStat, error) {
 		_ = m.Delete(&keys[i])
 	}
 	return out, nil
+}
+
+// SetRoots replaces the cgroups whose tasks the pod filter records (ADR-121): the node's
+// kubepods cgroup ids. At most RootsMax; the rest are ignored.
+func (f *Flows) SetRoots(ids []uint64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	want := map[uint64]bool{}
+	for _, id := range ids {
+		if len(want) < RootsMax {
+			want[id] = true
+		}
+	}
+	var (
+		id    uint64
+		v     uint8
+		stale []uint64
+	)
+	it := f.objs.Roots.Iterate()
+	for it.Next(&id, &v) {
+		if !want[id] {
+			stale = append(stale, id)
+		}
+	}
+	if err := it.Err(); err != nil {
+		return err
+	}
+	// Add before removing, so a root that moves never leaves the map empty.
+	for id := range want {
+		if err := f.objs.Roots.Put(id, uint8(1)); err != nil {
+			return err
+		}
+	}
+	for i := range stale {
+		_ = f.objs.Roots.Delete(&stale[i])
+	}
+	return nil
+}
+
+// SetFilter turns the pod filter on or off. On with no roots records nothing, so the
+// caller turns it on only once a root is known.
+func (f *Flows) SetFilter(on bool) error {
+	var v uint32
+	if on {
+		v = 1
+	}
+	return f.objs.Filter.Put(uint32(0), v)
+}
+
+// Filtered returns how many connections and DNS queries the pod filter left out since
+// the programs were loaded.
+func (f *Flows) Filtered() (connects, dns uint64, err error) {
+	read := func(slot uint32) (uint64, error) {
+		var per []uint64
+		if err := f.objs.Filtered.Lookup(slot, &per); err != nil {
+			return 0, err
+		}
+		var n uint64
+		for _, v := range per {
+			n += v
+		}
+		return n, nil
+	}
+	if connects, err = read(0); err != nil {
+		return 0, 0, err
+	}
+	dns, err = read(1)
+	return connects, dns, err
 }

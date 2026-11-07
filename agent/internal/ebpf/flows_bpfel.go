@@ -62,8 +62,11 @@ const (
 	flowsMapDns1          = "dns1"
 	flowsMapDnsAnswers    = "dns_answers"
 	flowsMapDnsSocks      = "dns_socks"
+	flowsMapFilter        = "filter"
+	flowsMapFiltered      = "filtered"
 	flowsMapFlows0        = "flows0"
 	flowsMapFlows1        = "flows1"
+	flowsMapRoots         = "roots"
 	flowsMapSocks         = "socks"
 	flowsProgOnDnsClose   = "on_dns_close"
 	flowsProgOnDnsRecv    = "on_dns_recv"
@@ -136,8 +139,11 @@ type flowsMapSpecs struct {
 	Dns1       *ebpf.MapSpec `ebpf:"dns1"`
 	DnsAnswers *ebpf.MapSpec `ebpf:"dns_answers"`
 	DnsSocks   *ebpf.MapSpec `ebpf:"dns_socks"`
+	Filter     *ebpf.MapSpec `ebpf:"filter"`
+	Filtered   *ebpf.MapSpec `ebpf:"filtered"`
 	Flows0     *ebpf.MapSpec `ebpf:"flows0"`
 	Flows1     *ebpf.MapSpec `ebpf:"flows1"`
+	Roots      *ebpf.MapSpec `ebpf:"roots"`
 	Socks      *ebpf.MapSpec `ebpf:"socks"`
 }
 
@@ -172,8 +178,11 @@ type flowsMaps struct {
 	Dns1       *ebpf.Map `ebpf:"dns1"`
 	DnsAnswers *ebpf.Map `ebpf:"dns_answers"`
 	DnsSocks   *ebpf.Map `ebpf:"dns_socks"`
+	Filter     *ebpf.Map `ebpf:"filter"`
+	Filtered   *ebpf.Map `ebpf:"filtered"`
 	Flows0     *ebpf.Map `ebpf:"flows0"`
 	Flows1     *ebpf.Map `ebpf:"flows1"`
+	Roots      *ebpf.Map `ebpf:"roots"`
 	Socks      *ebpf.Map `ebpf:"socks"`
 }
 
@@ -184,8 +193,11 @@ func (m *flowsMaps) Close() error {
 		m.Dns1,
 		m.DnsAnswers,
 		m.DnsSocks,
+		m.Filter,
+		m.Filtered,
 		m.Flows0,
 		m.Flows1,
+		m.Roots,
 		m.Socks,
 	)
 }

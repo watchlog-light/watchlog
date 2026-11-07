@@ -102,6 +102,10 @@ func run(args []string, stdout io.Writer) int {
 	dockerSocket := fs.String("docker-socket", envOr("WATCHLOG_DOCKER_SOCKET", "/var/run/docker.sock"), "Docker socket (docker mode, read-only use)")
 	ebpfFlag := fs.Bool("ebpf", envOr("WATCHLOG_EBPF", "true") != "false",
 		"eBPF network flows (node and docker modes); needs the BPF and PERFMON capabilities")
+	podFilter := fs.Bool("ebpf-pod-filter", envOr("WATCHLOG_EBPF_POD_FILTER", "true") != "false",
+		"node mode: record only this node's pods in the kernel (ADR-121); false records every task and drops the rest in user space")
+	scopeFlag := fs.String("node-metrics-scope", envOr("WATCHLOG_NODE_METRICS_SCOPE", host.ScopeAuto),
+		"node metrics from the host's /proc (host), the node's own cgroup when the node is a container on a shared kernel (cgroup), or detected (auto)")
 	healthOutput := fs.Bool("health-output", envOr("WATCHLOG_HEALTH_OUTPUT", "true") != "false",
 		"send health probe output (redacted, one line, at most 512 bytes); false sends exit codes only")
 	if err := fs.Parse(args); err != nil {
@@ -127,7 +131,18 @@ func run(args []string, stdout io.Writer) int {
 		*hostname = config.Hostname(paths)
 	}
 
-	collector := host.New(host.Config{ProcRoot: paths.Proc, SysRoot: paths.Sys, RootFS: paths.RootFS})
+	hostCfg := host.Config{ProcRoot: paths.Proc, SysRoot: paths.Sys, RootFS: paths.RootFS, Log: slog.Default()}
+	scope, err := host.ParseScope(*scopeFlag)
+	if err != nil {
+		slog.Error("invalid configuration", "err", err)
+		return 2
+	}
+	hostCfg.Scope, err = resolveScope(scope, mode, hostCfg, paths)
+	if err != nil {
+		slog.Error("invalid configuration", "err", err)
+		return 2
+	}
+	collector := host.New(hostCfg)
 	sources := []runner.Source{{Name: "host", Collect: collector.Collect}}
 	var kubelet *kubepods.Kubelet
 	var podmapClient *podmap.Client
@@ -180,6 +195,10 @@ func run(args []string, stdout io.Writer) int {
 			}
 			netCollector = network.New(flows, owners, slog.Default())
 			netCollector.Bytes = flows.Bytes
+			if mode == config.ModeNode && *podFilter {
+				netCollector.PodFilter = network.NewPodFilter(flows, func() []uint64 { return kubepodsRoots(reader) }, slog.Default())
+				netCollector.PodFilter.Refresh()
+			}
 			if flows.DNS {
 				names := network.NewNames()
 				netCollector.DNSNames = names
@@ -287,14 +306,21 @@ func run(args []string, stdout io.Writer) int {
 			HelmRelease: helmRelease(os.Getenv("WATCHLOG_HELM_RELEASE")),
 			HelmChart:   helmRelease(os.Getenv("WATCHLOG_HELM_CHART")),
 			ContainerID: selfContainerID(mode),
+			NodeScope:   hostCfg.Scope,
 		},
 	}
 
-	if kubelet != nil {
+	if kubelet != nil || hostCfg.Scope == host.ScopeCgroup {
 		caps := r.Capabilities
 		r.CapabilitiesFunc = func() sender.Capabilities {
 			c := caps
-			c.KubeletTLS = kubelet.TLS()
+			if kubelet != nil {
+				c.KubeletTLS = kubelet.TLS()
+			}
+			// The node's capacity is its cgroup's limits, not the host's (ADR-121).
+			if cores, mem, ok := collector.Capacity(); ok {
+				c.NodeCPUCores, c.NodeMemoryBytes = cores, mem
+			}
 			return c
 		}
 	}
@@ -323,6 +349,39 @@ func run(args []string, stdout io.Writer) int {
 	r.Run(ctx)
 	slog.Info("agent stopped; undelivered batches stay buffered")
 	return 0
+}
+
+// resolveScope turns auto into host or cgroup. Auto detects only in node mode; a
+// Docker host is the host unless cgroup is asked for. cgroup needs cgroup v2.
+func resolveScope(scope string, mode config.Mode, cfg host.Config, paths config.HostPaths) (string, error) {
+	if scope == host.ScopeAuto {
+		if mode != config.ModeNode {
+			return host.ScopeHost, nil
+		}
+		var why string
+		scope, why = host.DetectScope(cfg)
+		slog.Info("node metrics scope detected", "scope", scope, "signal", why)
+	}
+	if scope == host.ScopeCgroup && config.CgroupVersion(paths) != "v2" {
+		if mode == config.ModeNode {
+			slog.Warn("node metrics scope cgroup needs cgroup v2; reading the host's /proc")
+			return host.ScopeHost, nil
+		}
+		return "", fmt.Errorf("node metrics scope cgroup needs cgroup v2")
+	}
+	return scope, nil
+}
+
+// kubepodsRoots are the cgroup ids of the node's kubepods cgroups, the pod filter's
+// roots (ADR-121).
+func kubepodsRoots(r *containers.Reader) []uint64 {
+	var ids []uint64
+	for _, dir := range r.KubepodsRoots() {
+		if id, ok := network.Inode(dir); ok {
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }
 
 // kubeletDefault is the node's own kubelet, from the downward API's status.hostIP.

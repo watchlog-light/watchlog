@@ -51,6 +51,22 @@ that chart's values, which have agent.ebpf.enabled=false and no networkFlows (AD
 {{- ne (toString (dig "networkFlows" "enabled" true (.Values.agent | default dict))) "false" -}}
 {{- end -}}
 
+{{/* The eBPF pod filter (ADR-121): on unless agent.networkFlows.podFilter is false; a missing key means on. */}}
+{{- define "watchlog-agent.podFilter" -}}
+{{- ne (toString (dig "networkFlows" "podFilter" true (.Values.agent | default dict))) "false" -}}
+{{- end -}}
+
+{{/* Node metrics scope (ADR-121): host, cgroup or auto; a missing or empty key means auto. */}}
+{{- define "watchlog-agent.nodeMetricsScope" -}}
+{{- $s := toString (dig "nodeMetricsScope" "auto" (.Values.agent | default dict)) -}}
+{{- if not (has $s (list "host" "cgroup" "auto")) -}}
+{{- if $s -}}{{- fail (printf "agent.nodeMetricsScope must be host, cgroup or auto, not %q" $s) -}}{{- end -}}
+auto
+{{- else -}}
+{{- $s -}}
+{{- end -}}
+{{- end -}}
+
 {{/*
 Node agent container with eBPF (ADR-105): uid 0 because Linux gives added capabilities
 to non-root processes only as ambient capabilities, which Kubernetes cannot set; every

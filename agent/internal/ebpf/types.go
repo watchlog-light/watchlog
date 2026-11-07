@@ -50,6 +50,9 @@ type Support struct {
 	Reason string
 }
 
+// RootsMax is the size of the pod filter's root cgroup map (ROOTS_MAX in bpf/flows.bpf.c).
+const RootsMax = 16
+
 // MinKernel is the oldest kernel the programs support: BTF raw tracepoints and
 // BPF/PERFMON capabilities (SPEC §6.1, ADR-102).
 var MinKernel = [2]int{5, 8}

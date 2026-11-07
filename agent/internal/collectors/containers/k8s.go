@@ -121,6 +121,41 @@ func (r *Reader) PodContainers() ([]PodContainer, []string, error) {
 	return out, unrecognized, err
 }
 
+// KubepodsRoots lists the kubelet's kubepods cgroup directories (cgroup v2 only): at
+// the top of the hierarchy (kubepods.slice, kubepods) or one level down (kind:
+// kubelet.slice/kubelet-kubepods.slice), the same places PodContainers looks. Their
+// inodes are the eBPF pod filter's roots (ADR-121).
+func (r *Reader) KubepodsRoots() []string {
+	if !r.exists(path.Join(r.cgroup, "cgroup.controllers")) {
+		return nil
+	}
+	top, err := fs.ReadDir(r.fsys, r.rel(r.cgroup))
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, e := range top {
+		if !e.IsDir() {
+			continue
+		}
+		dir := path.Join(r.cgroup, e.Name())
+		if strings.Contains(e.Name(), "kubepods") {
+			out = append(out, dir)
+			continue
+		}
+		sub, err := fs.ReadDir(r.fsys, r.rel(dir))
+		if err != nil {
+			continue
+		}
+		for _, s := range sub {
+			if s.IsDir() && strings.Contains(s.Name(), "kubepods") {
+				out = append(out, path.Join(dir, s.Name()))
+			}
+		}
+	}
+	return out
+}
+
 // PodContainerDir is the container's cgroup directory (cgroup v2: its inode is the
 // cgroup id that eBPF programs see, ADR-099).
 func (r *Reader) PodContainerDir(pc PodContainer) string { return path.Join(r.cgroup, pc.rel) }

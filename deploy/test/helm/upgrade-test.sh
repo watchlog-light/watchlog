@@ -76,6 +76,29 @@ expect "watchlog chart, --reuse-values from before Phase 4" on \
 expect "watchlog chart, explicit opt-out" off \
   "$(ds "$UMBRELLA" "$SUB_DS" --set watchlog-agent.agent.networkFlows.enabled=false)"
 
+# Values added later (ADR-121) read nil-safe: values without them get the defaults.
+# isolation <name> <want pod filter> <want scope> <rendered DaemonSet>
+isolation() {
+  local name="$1" filter="$2" scope="$3" out="$4" got
+  got="$(grep -A1 'name: WATCHLOG_EBPF_POD_FILTER$' <<<"$out" | sed -n 's/.*value: "\(.*\)"/\1/p')/$(
+    grep -A1 'name: WATCHLOG_NODE_METRICS_SCOPE$' <<<"$out" | sed -n 's/.*value: "\(.*\)"/\1/p')"
+  if [[ "$got" == "$filter/$scope" ]]; then
+    echo "PASS  $name: pod filter and scope $got"
+  else
+    echo "FAIL  $name: pod filter and scope $got, want $filter/$scope"
+    fails=$((fails + 1))
+  fi
+}
+isolation "agent chart, defaults" true auto "$(ds "$AGENT" "$AGENT_DS" "${USER_VALUES[@]}")"
+isolation "agent chart, --reuse-values from before Phase 4" true auto \
+  "$(ds "$(reused "$AGENT" "$FIX/watchlog-agent.values.yaml")" "$AGENT_DS")"
+isolation "agent chart, set" false cgroup "$(ds "$AGENT" "$AGENT_DS" "${USER_VALUES[@]}" \
+  --set agent.networkFlows.podFilter=false --set agent.nodeMetricsScope=cgroup)"
+isolation "watchlog chart, --reuse-values from before Phase 4" true auto \
+  "$(ds "$(reused "$UMBRELLA" "$FIX/watchlog.values.yaml")" "$SUB_DS")"
+isolation "watchlog chart, set through the subchart" true cgroup \
+  "$(ds "$UMBRELLA" "$SUB_DS" --set watchlog-agent.agent.nodeMetricsScope=cgroup)"
+
 # Every template of both charts renders from the old values (no nil-map errors).
 for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
   chart="${pair%%:*}" fixture="${pair##*:}"

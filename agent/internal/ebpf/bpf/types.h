@@ -25,6 +25,7 @@ enum bpf_map_type {
 	BPF_MAP_TYPE_HASH = 1,
 	BPF_MAP_TYPE_ARRAY = 2,
 	BPF_MAP_TYPE_PERCPU_HASH = 5,
+	BPF_MAP_TYPE_PERCPU_ARRAY = 6,
 	BPF_MAP_TYPE_LRU_HASH = 9,
 	BPF_MAP_TYPE_RINGBUF = 27,
 };
@@ -69,6 +70,33 @@ struct sockaddr_in {
 	unsigned short sin_family;
 	__be16 sin_port;
 };
+
+/*
+ * The pod filter (ADR-121) walks the current task's cgroup v2 ancestors:
+ * task->cgroups->dfl_cgrp, then cgroup->self.parent (self is struct cgroup's first
+ * member, so the parent css is its cgroup). kn->id is the cgroup id
+ * bpf_get_current_cgroup_id() returns and the cgroup directory's inode (5.5+).
+ */
+struct kernfs_node {
+	__u64 id;
+} __attribute__((preserve_access_index));
+
+struct cgroup_subsys_state {
+	struct cgroup_subsys_state *parent;
+} __attribute__((preserve_access_index));
+
+struct cgroup {
+	struct cgroup_subsys_state self;
+	struct kernfs_node *kn;
+} __attribute__((preserve_access_index));
+
+struct css_set {
+	struct cgroup *dfl_cgrp;
+} __attribute__((preserve_access_index));
+
+struct task_struct {
+	struct css_set *cgroups;
+} __attribute__((preserve_access_index));
 
 #define AF_INET 2
 #define AF_INET6 10

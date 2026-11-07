@@ -54,6 +54,9 @@ type Collector struct {
 	// ClusterDomain: a destination whose DNS name is under svc.<ClusterDomain> is a
 	// Service, never external (ADR-116). Empty means cluster.local.
 	ClusterDomain string
+	// PodFilter, in Kubernetes mode, keeps the kernel recording only this node's pods
+	// (ADR-121); nil in Docker mode or when turned off.
+	PodFilter *PodFilter
 	// insideUnnamed counts flows to names under svc.<domain> that name no Service; they
 	// are dropped rather than drawn as externals.
 	insideUnnamed float64
@@ -62,12 +65,14 @@ type Collector struct {
 	idx          map[uint64]Owner
 	built        time.Time
 	unattributed float64
-	unnamed      float64
-	keys         int
-	edges        map[edgeKey]*edge
-	ext          externals
-	dns          map[Source]*dnsCounters
-	pendingDNS   []ebpf.DNSStat
+	// unattributedDNS counts DNS queries of cgroups that are no known container.
+	unattributedDNS float64
+	unnamed         float64
+	keys            int
+	edges           map[edgeKey]*edge
+	ext             externals
+	dns             map[Source]*dnsCounters
+	pendingDNS      []ebpf.DNSStat
 }
 
 // New returns a collector over loaded flow programs; owners rebuilds the cgroup index.
@@ -115,6 +120,9 @@ func (c *Collector) rebuild() {
 // Collect drains this interval's flows, adds them to their edges and returns every
 // edge's series. Flows of containers not yet named (pod map not refreshed) are counted.
 func (c *Collector) Collect() ([]metrics.Sample, error) {
+	if c.PodFilter != nil {
+		c.PodFilter.Refresh()
+	}
 	flows, err := c.Drain()
 	if err != nil {
 		return nil, err
@@ -217,6 +225,12 @@ func (c *Collector) selfMetrics() []metrics.Sample {
 	if c.DNSNames != nil {
 		out = append(out, metrics.New("watchlog_agent_dns_names", float64(c.DNSNames.Len())))
 	}
+	if _, ok := c.flows.(DNSDrainer); ok {
+		out = append(out, metrics.New("watchlog_agent_dns_unattributed_queries_total", c.unattributedDNS))
+	}
+	if c.PodFilter != nil {
+		out = append(out, c.PodFilter.samples()...)
+	}
 	return out
 }
 
@@ -246,7 +260,12 @@ func (c *Collector) addDNS(now time.Time) {
 			c.rebuild()
 			o, ok = c.idx[d.Cgroup]
 		}
-		if !ok || c.Names == nil {
+		if !ok {
+			// Not a container (a host process): counted, never a series (ADR-121).
+			c.unattributedDNS += float64(d.Queries)
+			continue
+		}
+		if c.Names == nil {
 			continue
 		}
 		src, ok := c.Names(o)

@@ -31,6 +31,18 @@ agent:
     # docs/security.md); disabled, it runs as uid 65532 with none. Replaces
     # agent.ebpf.enabled, which charts before Phase 4 set to false and is ignored (ADR-107).
     enabled: true
+    # Pod filter (ADR-121): the kernel records only connections and DNS queries of this
+    # node's pods (below its kubepods cgroup). Processes outside the cluster on the same
+    # kernel (host daemons, plain Docker containers, other kind/k3d nodes' pods) are never
+    # recorded, only counted. false records every task and drops the rest in the agent.
+    podFilter: true
+  # Where node metrics come from (ADR-121): host reads the kernel's host-wide /proc;
+  # cgroup reads the node's own cgroup, for nodes that are containers on a shared kernel
+  # (kind, k3d): capacity from cpu.max and memory.max, no load average, no host disks or
+  # filesystems, the node container's start as boot time. auto picks cgroup when the node
+  # looks like a container (/.dockerenv, /run/.containerenv, kind, or a cgroup root with
+  # limits).
+  nodeMetricsScope: auto
   # Kubelet TLS (ADR-051): auto tries the cluster CA, then falls back and reports it.
   kubeletTLS: auto
   resources:

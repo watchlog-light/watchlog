@@ -34,3 +34,12 @@ func (f *Flows) DrainDNS() ([]DNSStat, error) { return nil, nil }
 
 // ReadDNSResponses returns at once outside Linux.
 func (f *Flows) ReadDNSResponses(func(cgroup uint64, msg []byte)) error { return nil }
+
+// SetRoots does nothing outside Linux.
+func (f *Flows) SetRoots([]uint64) error { return nil }
+
+// SetFilter does nothing outside Linux.
+func (f *Flows) SetFilter(bool) error { return nil }
+
+// Filtered is zero outside Linux.
+func (f *Flows) Filtered() (connects, dns uint64, err error) { return 0, 0, nil }

@@ -246,3 +246,32 @@ func TestUnknownLayoutsAreReportedNotGuessed(t *testing.T) {
 		t.Fatalf("found=%v unrecognized=%v err=%v", found, unrecognized, err)
 	}
 }
+
+// The pod filter's roots (ADR-121) on every captured layout: the kubepods cgroup at the
+// top or, on kind, one level down; none on cgroup v1 (eBPF needs v2).
+func TestKubepodsRoots(t *testing.T) {
+	want := map[string][]string{
+		"k3s-containerd":          {"kubepods.slice"},
+		"k3s-containerd-cgroupv1": nil,
+		"k3s-docker-cgroupfs-v1":  nil,
+		"kind-containerd-systemd": {"kubelet.slice/kubelet-kubepods.slice"},
+		"kubeadm-crio-systemd":    {"kubepods.slice"},
+	}
+	for layout, roots := range want {
+		nodes, _ := filepath.Glob(filepath.Join("testdata/k8s", layout, "*", "sys"))
+		if len(nodes) == 0 {
+			t.Fatalf("%s: no nodes captured", layout)
+		}
+		for _, sys := range nodes {
+			r := NewReader(filepath.Join(filepath.Dir(sys), "proc"), sys)
+			var got []string
+			for _, d := range r.KubepodsRoots() {
+				rel, _ := filepath.Rel(r.cgroup, d)
+				got = append(got, rel)
+			}
+			if strings.Join(got, ",") != strings.Join(roots, ",") {
+				t.Errorf("%s/%s: roots = %v, want %v", layout, filepath.Base(filepath.Dir(sys)), got, roots)
+			}
+		}
+	}
+}
