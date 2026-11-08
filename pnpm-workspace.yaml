@@ -5,3 +5,12 @@ packages:
 # Dependencies allowed to run install scripts (pnpm blocks all others).
 allowBuilds:
   esbuild: true
+# Security fixes the parents' ranges don't reach yet (eslint's config-array and
+# typescript-estree pin minimatch ^10, node-pg-migrate pins glob ~13, js-beautify ^13).
+# The first patched releases; the parents use only minimatch(), Minimatch#match(), glob()
+# and globSync(), which the new majors keep. Remove each once its parents move.
+overrides:
+  # GHSA-g3hv-75wg-m249: denial of service through globparts amplification.
+  'minimatch@>=7.0.0 <11.0.1': 11.0.1
+  # GHSA-3g3m-2fjr-6pw4: AbortSignal cancellation bypass.
+  'glob@>=9.0.0 <14.0.2': 14.0.2
