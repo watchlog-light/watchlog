@@ -16,6 +16,8 @@ declare module 'fastify' {
     clientIp: string;
     /** Whether the session cookie gets the Secure attribute (WATCHLOG_COOKIE_SECURE). */
     secureCookie: boolean;
+    /** The visitor's country from a trusted proxy's header (CF-IPCountry style), else null. */
+    clientCountry: string | null;
   }
 }
 
@@ -65,6 +67,8 @@ const firstValue = (request: FastifyRequest, header: string) => {
 export interface ProxyOptions {
   /** A header a trusted proxy sets to the visitor's address (WATCHLOG_CLIENT_IP_HEADER). */
   clientIpHeader?: string;
+  /** A header a trusted proxy sets to the visitor's country (WATCHLOG_CLIENT_COUNTRY_HEADER). */
+  clientCountryHeader?: string;
   trustedProxies: BlockList;
   cookieSecure: CookieSecure;
 }
@@ -76,6 +80,17 @@ export function clientIpOf(request: FastifyRequest, opts: ProxyOptions): string 
   if (!isTrusted(opts.trustedProxies, peer)) return peer || request.ip;
   const named = firstValue(request, opts.clientIpHeader);
   return named && isIP(named) ? named : request.ip;
+}
+
+/**
+ * The visitor's two-letter country code from a trusted proxy (Cloudflare's CF-IPCountry),
+ * or null: no header configured, an untrusted peer, or no usable value ("XX" is unknown).
+ */
+export function clientCountryOf(request: FastifyRequest, opts: ProxyOptions): string | null {
+  if (!opts.clientCountryHeader) return null;
+  if (!isTrusted(opts.trustedProxies, peerAddress(request))) return null;
+  const code = firstValue(request, opts.clientCountryHeader)?.toUpperCase();
+  return code && /^[A-Z0-9]{2}$/.test(code) && code !== 'XX' ? code : null;
 }
 
 /**
@@ -94,8 +109,10 @@ export function secureCookieFor(request: FastifyRequest, opts: ProxyOptions): bo
 export function registerClientIp(app: FastifyInstance, opts: ProxyOptions): void {
   app.decorateRequest('clientIp', '');
   app.decorateRequest('secureCookie', false);
+  app.decorateRequest('clientCountry', null);
   app.addHook('onRequest', async (request) => {
     request.clientIp = clientIpOf(request, opts);
     request.secureCookie = secureCookieFor(request, opts);
+    request.clientCountry = clientCountryOf(request, opts);
   });
 }

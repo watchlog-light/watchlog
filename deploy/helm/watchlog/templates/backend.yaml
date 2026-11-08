@@ -58,6 +58,10 @@ spec:
             # Rate limits per visitor behind a proxy that names the visitor in this header.
             - { name: WATCHLOG_CLIENT_IP_HEADER, value: {{ . | quote }} }
             {{- end }}
+            {{- with .Values.backend.clientCountryHeader }}
+            # The visitor's country, shown with an API token's last use (CF-IPCountry).
+            - { name: WATCHLOG_CLIENT_COUNTRY_HEADER, value: {{ . | quote }} }
+            {{- end }}
             {{- if .Values.demoMode }}
             # A read-only public demo (ADR-122): passwordless viewer sessions, changes refused.
             - { name: WATCHLOG_DEMO_MODE, value: 'true' }

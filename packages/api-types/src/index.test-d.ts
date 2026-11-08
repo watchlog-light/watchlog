@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { describe, expectTypeOf, it } from 'vitest';
 import type {
+  ApiToken,
+  ApiTokenEvent,
+  ApiTokenStatus,
   Cluster,
   ClusterToken,
+  CreateApiTokenRequest,
+  CreateApiTokenResponse,
   CreateClusterResponse,
   CurrentUser,
   DockerContainer,
@@ -48,6 +53,20 @@ describe('generated API types', () => {
     expectTypeOf<'container.cpu.usage'>().toExtend<MetricKey>();
     expectTypeOf<RangeQueryResponse['series'][number]['points']>().toEqualTypeOf<
       (number | null)[][]
+    >();
+  });
+
+  it('API token types show the value only when a token is created', () => {
+    expectTypeOf<CreateApiTokenResponse['value']>().toBeString();
+    expectTypeOf<ApiToken>().not.toHaveProperty('value');
+    expectTypeOf<ApiTokenStatus>().toEqualTypeOf<
+      'active' | 'expires_soon' | 'never' | 'expired' | 'revoked'
+    >();
+    expectTypeOf<CreateApiTokenRequest['expiresInDays']>().toEqualTypeOf<
+      30 | 90 | 365 | null | undefined
+    >();
+    expectTypeOf<ApiTokenEvent['kind']>().toEqualTypeOf<
+      'created' | 'first_use' | 'new_ip' | 'expired' | 'revoked' | 'reminder_sent'
     >();
   });
 });

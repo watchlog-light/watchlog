@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // CSRF defence for cookie-authenticated routes: Fetch Metadata + Origin check (ADR-034).
+// Requests with an API token skip it (ADR-125).
 import type { FastifyInstance } from 'fastify';
 import { sendProblem } from '../lib/problem.js';
+import { bearerToken } from './api-token.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -27,6 +29,9 @@ export function isCrossSiteRequest(req: RequestOrigin, publicUrl?: string): bool
 export function registerCsrfProtection(app: FastifyInstance, publicUrl?: string): void {
   app.addHook('onRequest', async (request, reply) => {
     if (SAFE_METHODS.has(request.method) || !request.url.startsWith('/api/')) return;
+    // API tokens (ADR-125): a browser cannot add this header to a cross-site request, and
+    // a token request carrying a session cookie is refused (plugins/api-token.ts).
+    if (bearerToken(request) !== undefined) return;
     const header = (name: string) => {
       const value = request.headers[name];
       return Array.isArray(value) ? value[0] : value;

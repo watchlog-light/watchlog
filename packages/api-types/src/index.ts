@@ -130,3 +130,12 @@ export type ServiceMapEdge = ServiceMap['edges'][number];
 export type ServiceMapEdgeSeries = JsonBody<
   Responses<'/api/v1/clusters/{id}/service-map/edge', 'get'>[200]
 >;
+
+// Personal API tokens (ADR-125): Settings → API tokens.
+export type ApiTokenList = JsonBody<Responses<'/api/v1/api-tokens', 'get'>[200]>;
+export type ApiToken = ApiTokenList['tokens'][number];
+export type ApiTokenStatus = ApiToken['status'];
+export type CreateApiTokenRequest = RequestBody<'/api/v1/api-tokens', 'post'>;
+export type CreateApiTokenResponse = JsonBody<Responses<'/api/v1/api-tokens', 'post'>[201]>;
+export type ApiTokenDetail = JsonBody<Responses<'/api/v1/api-tokens/{id}', 'get'>[200]>;
+export type ApiTokenEvent = ApiTokenDetail['history'][number];

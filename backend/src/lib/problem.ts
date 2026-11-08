@@ -17,7 +17,12 @@ export interface Problem {
 export const ProblemType = {
   clusterLimit: 'urn:watchlog:problem:cluster-limit',
   nameTaken: 'urn:watchlog:problem:name-taken',
+  /** A cluster's 5 active tokens (ADR-040), or a user's 10 active API tokens (ADR-125). */
   tokenLimit: 'urn:watchlog:problem:token-limit',
+  /** An API token used outside its scope (ADR-125). */
+  tokenScope: 'urn:watchlog:problem:token-scope',
+  /** An API token and a session cookie on one request (ADR-125). */
+  tokenWithSession: 'urn:watchlog:problem:token-with-session',
   telegramUnreachable: 'urn:watchlog:problem:telegram-unreachable',
   /** Read-only demo mode (ADR-122); the body also has `code: "demo_read_only"`. */
   demoReadOnly: 'urn:watchlog:problem:demo-read-only',

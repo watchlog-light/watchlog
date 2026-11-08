@@ -11,6 +11,7 @@ import { pollTelegramVerifications } from './modules/alerts/telegram.js';
 import { SettingsService } from './modules/settings/service.js';
 import { ensureDefaultRules, lookupEvaluator } from './modules/alerts/rules.js';
 import { AlertWorker } from './modules/alerts/worker.js';
+import { runApiTokenJobs, TOKEN_JOBS_EVERY_MS } from './modules/api-tokens/jobs.js';
 
 let config: Config;
 try {
@@ -67,6 +68,12 @@ const worker = new AlertWorker({
     { name: 'deliver', everyMs: 2_000, run: (now) => deliverDue(channelDeps, now) },
     // Long-polls (20 s) only while a verification is open.
     { name: 'telegram', everyMs: 3_000, run: (now) => pollTelegramVerifications(channelDeps, now) },
+    // API tokens (ADR-125): expiry, deletion after 30 days, the reminder 7 days before.
+    {
+      name: 'api-tokens',
+      everyMs: TOKEN_JOBS_EVERY_MS,
+      run: (now) => runApiTokenJobs({ db, settings: () => settings.alerting(), log }, now),
+    },
   ],
 });
 const server = await worker.listen(config.host, config.workerPort).catch((err: Error) => {

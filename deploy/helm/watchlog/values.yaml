@@ -49,6 +49,9 @@ backend:
   # A header the proxy in front sets to the visitor's address (nginx: X-Real-IP), so rate
   # limits count each visitor. Leave empty unless that proxy always sets it.
   clientIpHeader: ''
+  # A header the proxy in front sets to the visitor's country (Cloudflare: CF-IPCountry),
+  # shown with an API token's last use. Empty: no country.
+  clientCountryHeader: ''
   # The proxies whose client-IP header and X-Forwarded-Proto are believed, as CIDRs.
   # Empty: loopback and private ranges (the web pod).
   trustedProxies: []

@@ -120,6 +120,36 @@ export interface AlertWorkerHeartbeats {
   worker_id: string;
 }
 
+export interface ApiTokenEvents {
+  at: Generated<Timestamp>;
+  country: string | null;
+  detail: Json | null;
+  id: string;
+  ip: string | null;
+  kind: string;
+  token_id: string;
+}
+
+export interface ApiTokens {
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp | null;
+  id: string;
+  last_used_at: Timestamp | null;
+  last_used_country: string | null;
+  last_used_ip: string | null;
+  name: string;
+  org_id: string;
+  prefix: string;
+  reminded_at: Timestamp | null;
+  revoked_at: Timestamp | null;
+  revoked_by: string | null;
+  scope: Generated<string>;
+  token_hash: Buffer;
+  updated_at: Generated<Timestamp>;
+  used_rest_at: Timestamp | null;
+  user_id: string;
+}
+
 export interface ChangeMarkers {
   cluster_id: string;
   created_at: Generated<Timestamp>;
@@ -319,6 +349,8 @@ export interface DB {
   alert_states: AlertStates;
   alert_worker_heartbeats: AlertWorkerHeartbeats;
   alerting_periods: AlertingPeriods;
+  api_token_events: ApiTokenEvents;
+  api_tokens: ApiTokens;
   change_markers: ChangeMarkers;
   cluster_tokens: ClusterTokens;
   clusters: Clusters;

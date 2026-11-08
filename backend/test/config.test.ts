@@ -24,6 +24,18 @@ describe('loadConfig', () => {
     expect(c.telegramApiUrl).toBe('https://api.telegram.org');
   });
 
+  it('reads the country header and the fixed API token limits (ADR-125)', () => {
+    const base = { DATABASE_URL: 'x', WATCHLOG_SECRET_KEY: KEY };
+    expect(loadConfig(base).clientCountryHeader).toBeUndefined();
+    expect(loadConfig({ ...base, WATCHLOG_CLIENT_COUNTRY_HEADER: 'CF-IPCountry' })).toMatchObject({
+      clientCountryHeader: 'CF-IPCountry',
+      apiTokenLimits: { restPerMinute: 300, mcpCallsPerMinute: 60 },
+    });
+    expect(() => loadConfig({ ...base, WATCHLOG_CLIENT_COUNTRY_HEADER: 'a b' })).toThrow(
+      /WATCHLOG_CLIENT_COUNTRY_HEADER/,
+    );
+  });
+
   it('rejects invalid URLs and ports', () => {
     const base = { DATABASE_URL: 'x', WATCHLOG_SECRET_KEY: KEY };
     expect(() => loadConfig({ ...base, WATCHLOG_PUBLIC_URL: 'not a url' })).toThrow(

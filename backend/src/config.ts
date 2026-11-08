@@ -48,13 +48,24 @@ export interface Config {
   queryTimeoutMs: number;
   /** A header a trusted proxy sets to the visitor's address, e.g. X-Real-IP (rate limits). */
   clientIpHeader?: string;
+  /**
+   * A header a trusted proxy sets to the visitor's country (Cloudflare's CF-IPCountry),
+   * shown with an API token's last use. Unset: no country. There is no GeoIP lookup.
+   */
+  clientCountryHeader?: string;
   /** Peers whose client-IP header and X-Forwarded-Proto are believed (CIDRs, ADR-123). */
   trustedProxies: string[];
   /** The session cookie's Secure attribute: per request (auto), always or never. */
   cookieSecure: CookieSecure;
   /** Alert rules applied once at start (WATCHLOG_SEED_FILE, ADR-122). */
   seedFile?: string;
+  /** Per API token and minute (ADR-125): REST requests, and MCP tool calls (v0.2 slice 4). */
+  apiTokenLimits: { restPerMinute: number; mcpCallsPerMinute: number };
 }
+
+/** ADR-125's rate limits per API token; fixed by the decision, not by an environment variable. */
+export const API_TOKEN_REST_PER_MINUTE = 300;
+export const API_TOKEN_MCP_CALLS_PER_MINUTE = 60;
 
 const DEV_DATABASE_URL = 'postgres://watchlog:watchlog@127.0.0.1:54320/watchlog';
 const DEV_VICTORIAMETRICS_URL = 'http://127.0.0.1:8428';
@@ -127,6 +138,14 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   ) {
     throw new Error(`Invalid WATCHLOG_CLIENT_IP_HEADER: ${env.WATCHLOG_CLIENT_IP_HEADER}`);
   }
+  if (
+    env.WATCHLOG_CLIENT_COUNTRY_HEADER !== undefined &&
+    !/^[A-Za-z0-9-]{1,64}$/.test(env.WATCHLOG_CLIENT_COUNTRY_HEADER)
+  ) {
+    throw new Error(
+      `Invalid WATCHLOG_CLIENT_COUNTRY_HEADER: ${env.WATCHLOG_CLIENT_COUNTRY_HEADER}`,
+    );
+  }
   const trustedProxies = env.WATCHLOG_TRUSTED_PROXIES
     ? env.WATCHLOG_TRUSTED_PROXIES.split(',')
         .map((c) => c.trim())
@@ -176,9 +195,14 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     },
     demoMode: demoMode === 'true',
     clientIpHeader: env.WATCHLOG_CLIENT_IP_HEADER,
+    clientCountryHeader: env.WATCHLOG_CLIENT_COUNTRY_HEADER,
     trustedProxies,
     cookieSecure,
     queryTimeoutMs: demoMode === 'true' ? 10_000 : 15_000,
     seedFile: env.WATCHLOG_SEED_FILE,
+    apiTokenLimits: {
+      restPerMinute: API_TOKEN_REST_PER_MINUTE,
+      mcpCallsPerMinute: API_TOKEN_MCP_CALLS_PER_MINUTE,
+    },
   };
 }

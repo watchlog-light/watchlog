@@ -38,6 +38,8 @@ import { settingsRoutes } from './modules/settings/routes.js';
 import { SettingsService } from './modules/settings/service.js';
 import type { BucketSpec } from './modules/ingest/rate-limit.js';
 import { applySeed, type Seed } from './modules/seed/seed.js';
+import { apiTokenRoutes } from './modules/api-tokens/routes.js';
+import { registerApiTokenAuth } from './plugins/api-token.js';
 
 export const API_PREFIX = '/api/v1';
 
@@ -50,6 +52,8 @@ export interface AppDeps {
   seed?: Seed;
   /** Test hook: sees every route as it is registered (the demo guard's route test). */
   onRoute?: (route: RouteOptions) => void;
+  /** Test hook: where the log goes (the API token test reads it for token values). */
+  logStream?: { write(line: string): void };
 }
 
 export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyInstance> {
@@ -57,7 +61,13 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     trustProxy: config.trustProxy,
     logger: {
       level: config.logLevel,
-      ...(config.isDevelopment ? { transport: { target: 'pino-pretty' } } : {}),
+      // Credentials never reach the log, whatever a serializer adds later (ADR-125).
+      redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
+      ...(deps.logStream
+        ? { stream: deps.logStream }
+        : config.isDevelopment
+          ? { transport: { target: 'pino-pretty' } }
+          : {}),
     },
   }).withTypeProvider<TypeBoxTypeProvider>();
 
@@ -68,6 +78,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   app.decorateRequest('user', null);
   registerClientIp(app, {
     clientIpHeader: config.clientIpHeader,
+    clientCountryHeader: config.clientCountryHeader,
     trustedProxies: parseTrustedProxies(config.trustedProxies),
     cookieSecure: config.cookieSecure,
   });
@@ -77,8 +88,15 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
 
   await app.register(helmet);
   await app.register(cookie);
-  // Per visitor, also behind a proxy (WATCHLOG_CLIENT_IP_HEADER); routes may key otherwise.
-  await app.register(rateLimit, { global: false, keyGenerator: (request) => request.clientIp });
+  // Per visitor, also behind a proxy (WATCHLOG_CLIENT_IP_HEADER), or per API token when a
+  // request has one; routes may key otherwise.
+  await app.register(rateLimit, {
+    global: false,
+    keyGenerator: (request) =>
+      request.apiToken ? `api-token:${request.apiToken.id}` : request.clientIp,
+  });
+  // Personal API tokens (ADR-125): before the session cookie and the demo's sessions.
+  registerApiTokenAuth(app, { db: deps.db, restPerMinute: config.apiTokenLimits.restPerMinute });
   // Read-only demo (ADR-122): signed sessions without database rows, and small queries.
   const demoSessions = new DemoSessions(config.secretKey);
   if (config.demoMode) {
@@ -127,6 +145,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(serviceMapRoutes, { db: deps.db, victoria, config, settings });
       await api.register(alertRoutes, { db: deps.db, config, http: alertHttp, settings, victoria });
       await api.register(settingsRoutes, { db: deps.db, settings, http: alertHttp });
+      await api.register(apiTokenRoutes, { db: deps.db });
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: API_PREFIX },
