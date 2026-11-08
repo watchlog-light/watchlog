@@ -29,6 +29,7 @@ import type { SetupState } from './modules/setup/service.js';
 import { registerCsrfProtection } from './plugins/csrf.js';
 import {
   registerDemoGuard,
+  registerDemoHiddenFacts,
   registerDemoQueryLimits,
   registerDemoSessions,
 } from './plugins/demo.js';
@@ -112,6 +113,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   if (config.demoMode) {
     registerDemoSessions(app, { db: deps.db, sessions: demoSessions });
     registerDemoQueryLimits(app);
+    registerDemoHiddenFacts(app);
   }
   await app.register(swagger, {
     openapi: {

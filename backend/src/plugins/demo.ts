@@ -196,3 +196,22 @@ export function registerDemoQueryLimits(app: FastifyInstance): void {
     if (why) return sendProblem(reply, 400, why);
   });
 }
+
+// ---------------------------------------------------------------- hidden facts
+
+/**
+ * Facts the demo never shows (ADR-122): the kernel version. The demo's nodes are
+ * containers on a shared host, so their kernel is the host's, and its exact version tells
+ * a visitor the host's patch level. Blanked in every JSON answer: the dashboard, the REST
+ * API and the MCP tools, which read through the API.
+ */
+export const DEMO_HIDDEN_KEYS = ['kernelVersion'] as const;
+const HIDDEN = new RegExp(`"(${DEMO_HIDDEN_KEYS.join('|')})":"(?:[^"\\\\]|\\\\.)*"`, 'g');
+
+export function registerDemoHiddenFacts(app: FastifyInstance): void {
+  app.addHook('onSend', async (_request, reply, payload) => {
+    if (typeof payload !== 'string') return payload;
+    if (!String(reply.getHeader('content-type') ?? '').includes('json')) return payload;
+    return payload.replace(HIDDEN, '"$1":null');
+  });
+}
