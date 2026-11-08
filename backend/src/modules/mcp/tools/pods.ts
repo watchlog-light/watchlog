@@ -170,14 +170,35 @@ export async function findContainer(
       { name: name(container), ...(host ? { host: name(host) } : {}) },
     );
   }
-  if (matches.length > 1) {
-    throw new ToolError(
-      'Containers with this name run on several hosts: say which with `host`.',
-      'Pass one of the hosts listed.',
-      { name: name(container), hosts: matches.slice(0, 20).map((c) => name(c.host)) },
-    );
-  }
-  return matches[0]!;
+  if (matches.length === 1) return matches[0]!;
+  // A host that stopped reporting keeps its last inventory: its copy is stale, as the
+  // overview treats it. One copy on a reporting host is the one meant.
+  const { hosts } = await api.get<{ hosts: { name: string; status: string }[] }>(
+    `/clusters/${cluster.id}/docker/hosts`,
+  );
+  const live = new Set(hosts.filter((h) => h.status === 'active').map((h) => h.name));
+  const current = matches.filter((c) => live.has(c.host));
+  if (current.length === 1) return current[0]!;
+  throw new ToolError(
+    'Containers with this name run on several hosts: say which with `host`.',
+    'Pass one of the hosts listed.',
+    {
+      name: name(container),
+      hosts: matches.slice(0, 20).map((c) => ({ host: name(c.host), reporting: live.has(c.host) })),
+    },
+  );
+}
+
+/** The hosts that also list a container of this name, for the answer to say so. */
+export async function staleCopies(
+  api: ApiReader,
+  cluster: ClusterRef,
+  c: ApiContainer,
+): Promise<string[]> {
+  const { containers } = await api.get<{ containers: ApiContainer[] }>(
+    `/clusters/${cluster.id}/docker/containers`,
+  );
+  return containers.filter((x) => x.name === c.name && x.host !== c.host).map((x) => x.host);
 }
 
 export const containerField = (c: ApiContainer) => ({
@@ -291,8 +312,18 @@ export const getPodTool = defineTool({
       );
     }
     const c = await findContainer(api, cluster, args.name, args.host);
+    const others = args.host ? [] : await staleCopies(api, cluster, c);
     return {
-      body: { cluster: clusterField(cluster), container: containerField(c) },
+      body: {
+        cluster: clusterField(cluster),
+        container: containerField(c),
+        ...(others.length
+          ? {
+              note: 'Hosts that stopped reporting also list a container of this name; this is the one on a reporting host.',
+              staleOn: others.slice(0, 20).map(name),
+            }
+          : {}),
+      },
       list: eventsList(await containerEvents(api, cluster, c)),
     };
   },

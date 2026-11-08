@@ -145,7 +145,7 @@ describe('MCP tools on a Docker fleet', () => {
   it('names hosts and containers, and explains a crashing or OOM-killed container', async () => {
     ctx = await createTestContext();
     const cookie = await setupAdmin(ctx.app);
-    await dockerFleet(ctx, cookie, {
+    const fleet = await dockerFleet(ctx, cookie, {
       'docker-01': [
         container('a', 'shop-web-1'),
         container('b', 'shop-api-1', {
@@ -206,7 +206,10 @@ describe('MCP tools on a Docker fleet', () => {
       isError: true,
       data: {
         error: 'Containers with this name run on several hosts: say which with `host`.',
-        hosts: expect.arrayContaining(['docker-01', 'docker-02']),
+        hosts: expect.arrayContaining([
+          { host: 'docker-01', reporting: true },
+          { host: 'docker-02', reporting: true },
+        ]),
       },
     });
     const one = await mcp.call('get_pod', {
@@ -215,6 +218,18 @@ describe('MCP tools on a Docker fleet', () => {
       host: 'docker-02',
     });
     expect(one.data.container).toMatchObject({ host: 'docker-02', state: 'running' });
+    // A host that stopped reporting keeps a stale copy: the reporting host's is meant.
+    await fleet.heartbeat('docker-old');
+    await fleet.snapshot('docker-old', [container('9', 'shop-api-1')]);
+    await ctx.db
+      .updateTable('agent_instances')
+      .set({ last_seen_at: new Date(Date.now() - 86_400_000) })
+      .where('node', '=', 'docker-old')
+      .execute();
+    const stale = await mcp.call('get_pod', { cluster: 'fleet', name: 'shop-api-1' });
+    expect(stale.isError, stale.text).toBe(false);
+    expect(stale.data.container).toMatchObject({ host: 'docker-01', state: 'restarting' });
+    expect(stale.data).toMatchObject({ staleOn: ['docker-old'] });
     // Kubernetes words on a Docker fleet.
     const ns = await mcp.call('get_problems', { cluster: 'fleet', namespace: 'shop' });
     expect(ns.data.error).toBe(

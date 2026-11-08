@@ -193,11 +193,13 @@ describe('slice 5 tools on a Kubernetes cluster', () => {
     });
     expect(load.isError, load.text).toBe(false);
     expect(load.data).toMatchObject({ metric: 'node.load1', unit: 'load' });
-    expect(load.data.series[0]).toMatchObject({
-      labels: { node: 'watchlog-worker2' },
-      min: 1,
-      max: 4,
-    });
+    // Values cycle 1–4 every 15 s; a 30 s step samples every other one.
+    const s0 = load.data.series[0];
+    expect(s0.labels).toEqual({ node: 'watchlog-worker2' });
+    expect(s0.min).toBeGreaterThanOrEqual(1);
+    expect(s0.max).toBeLessThanOrEqual(4);
+    expect(s0.max).toBeGreaterThan(s0.min);
+    expect(load.data.stepSeconds).toBe(30);
     expect(load.data.series[0]).not.toHaveProperty('points');
     const withPoints = await mcp.call('query_metric', {
       metric: 'node.load1',
