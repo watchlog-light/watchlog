@@ -25,6 +25,11 @@ admin:
 secretKey: ''
 # Name of this cluster in WatchLog; its agents are registered automatically.
 clusterName: kubernetes
+# The MCP server at /mcp (ADR-127): Claude, Cursor and other AI assistants read your
+# clusters with a personal API token (Settings → API tokens). It needs a token, so it is
+# on by default; false turns it off (404), and tokens still read the REST API.
+mcp:
+  enabled: true
 # A read-only public demo (ADR-122): anyone can open the dashboard as a viewer without a
 # password, and every change is refused, admins included. Not for a real installation.
 demoMode: false

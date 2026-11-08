@@ -14,8 +14,11 @@ afterEach(() => closeTestContext(ctx));
 
 const SAMPLE_ID = '01a18f0e-a6c2-71ef-a7b4-42d765746d40';
 
-/** Everything a read token may call, besides the MCP server: the public API and its spec. */
+/** Everything a read token may call: the public API, its spec and the MCP server. */
 const ALLOWED = [
+  'DELETE /mcp',
+  'GET /mcp',
+  'POST /mcp',
   'GET /api/v1/alert-rules',
   'GET /api/v1/alerts',
   'GET /api/v1/alerts/:id',

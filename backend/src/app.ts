@@ -3,6 +3,7 @@ import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
+import { registerMcpRoutes } from './modules/mcp/routes.js';
 import { publicSpec } from './openapi/public.js';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import Fastify, { type FastifyInstance, type RouteOptions } from 'fastify';
@@ -157,6 +158,14 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     },
     { prefix: API_PREFIX },
   );
+  // The MCP server (ADR-127): API tokens only, on by default (WATCHLOG_MCP_ENABLED).
+  if (config.mcpEnabled) {
+    await registerMcpRoutes(app, {
+      db: deps.db,
+      version: config.version,
+      callsPerMinute: config.apiTokenLimits.mcpCallsPerMinute,
+    });
+  }
   await app.register(ingestRoutes, {
     prefix: '/ingest/v1',
     db: deps.db,

@@ -62,6 +62,10 @@ spec:
             # The visitor's country, shown with an API token's last use (CF-IPCountry).
             - { name: WATCHLOG_CLIENT_COUNTRY_HEADER, value: {{ . | quote }} }
             {{- end }}
+            {{- if eq (toString (.Values.mcp | default dict).enabled) "false" }}
+            # The MCP server at /mcp is off (ADR-127); API tokens still read the REST API.
+            - { name: WATCHLOG_MCP_ENABLED, value: 'false' }
+            {{- end }}
             {{- if .Values.demoMode }}
             # A read-only public demo (ADR-122): passwordless viewer sessions, changes refused.
             - { name: WATCHLOG_DEMO_MODE, value: 'true' }

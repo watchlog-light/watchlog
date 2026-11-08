@@ -218,6 +218,18 @@ export interface K8sEvents {
   updated_at: Generated<Timestamp>;
 }
 
+export interface McpCalls {
+  args: Generated<string>;
+  at: Generated<Timestamp>;
+  bytes: number;
+  duration_ms: number;
+  id: string;
+  org_id: string;
+  status: string;
+  token_id: string;
+  tool: string;
+}
+
 export interface Memberships {
   created_at: Generated<Timestamp>;
   id: string;
@@ -356,6 +368,7 @@ export interface DB {
   clusters: Clusters;
   ingest_errors: IngestErrors;
   k8s_events: K8sEvents;
+  mcp_calls: McpCalls;
   memberships: Memberships;
   notification_alerts: NotificationAlerts;
   notifications: Notifications;

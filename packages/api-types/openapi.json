@@ -18719,7 +18719,47 @@
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "properties": {}
+                        "required": ["at", "tool", "args", "status", "durationMs", "bytes"],
+                        "properties": {
+                          "at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "tool": {
+                            "type": "string"
+                          },
+                          "args": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["ok"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["truncated"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["rate_limited"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["error"]
+                              }
+                            ]
+                          },
+                          "durationMs": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
                       }
                     }
                   }

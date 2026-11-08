@@ -119,7 +119,7 @@ export const apiTokenRoutes: FastifyPluginAsyncTypebox<{
       const user = request.user!;
       const found = await getApiToken(db, user.id, user.org.id, request.params.id, now());
       if (!found) return sendProblem(reply, 404, NOT_FOUND);
-      return { ...found, activity: [] };
+      return found;
     },
   );
 

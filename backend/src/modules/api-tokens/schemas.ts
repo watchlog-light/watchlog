@@ -75,6 +75,21 @@ export const ApiTokenDetailSchema = Type.Object({
   token: ApiTokenSchema,
   /** Newest first. */
   history: Type.Array(ApiTokenEventSchema),
-  /** MCP tool calls, the last 50 (v0.2 slice 4); empty until then. */
-  activity: Type.Array(Type.Object({})),
+  /** MCP tool calls, the last 50, newest first; never their output (ADR-127). */
+  activity: Type.Array(
+    Type.Object({
+      at: DateTime,
+      tool: Type.String(),
+      /** A short summary of the arguments, written by WatchLog. */
+      args: Type.String(),
+      status: Type.Union([
+        Type.Literal('ok'),
+        Type.Literal('truncated'),
+        Type.Literal('rate_limited'),
+        Type.Literal('error'),
+      ]),
+      durationMs: Type.Integer({ minimum: 0 }),
+      bytes: Type.Integer({ minimum: 0 }),
+    }),
+  ),
 });

@@ -6942,7 +6942,15 @@ export interface paths {
                   name: string;
                 } | null;
               }[];
-              activity: Record<string, never>[];
+              activity: {
+                /** Format: date-time */
+                at: string;
+                tool: string;
+                args: string;
+                status: 'ok' | 'truncated' | 'rate_limited' | 'error';
+                durationMs: number;
+                bytes: number;
+              }[];
             };
           };
         };

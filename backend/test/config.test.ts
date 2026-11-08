@@ -26,6 +26,11 @@ describe('loadConfig', () => {
 
   it('reads the country header and the fixed API token limits (ADR-125)', () => {
     const base = { DATABASE_URL: 'x', WATCHLOG_SECRET_KEY: KEY };
+    expect(loadConfig(base).mcpEnabled).toBe(true);
+    expect(loadConfig({ ...base, WATCHLOG_MCP_ENABLED: 'false' }).mcpEnabled).toBe(false);
+    expect(() => loadConfig({ ...base, WATCHLOG_MCP_ENABLED: 'no' })).toThrow(
+      /WATCHLOG_MCP_ENABLED/,
+    );
     expect(loadConfig(base).clientCountryHeader).toBeUndefined();
     expect(loadConfig({ ...base, WATCHLOG_CLIENT_COUNTRY_HEADER: 'CF-IPCountry' })).toMatchObject({
       clientCountryHeader: 'CF-IPCountry',

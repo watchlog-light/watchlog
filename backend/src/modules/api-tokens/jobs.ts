@@ -5,11 +5,13 @@
 //   - 30 days after a token expired or was revoked, it is deleted with its history;
 //   - 7 days before a token expires, its owner gets one email through the email server of
 //     the email alert channels. Without one the reminder waits; a failed send is retried
-//     the next hour.
+//     the next hour;
+//   - MCP calls older than 30 days leave the call log (ADR-127).
 // Every step is idempotent and safe with several workers.
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
 import { transport } from '../alerts/channels.js';
+import { deleteOldMcpCalls } from '../mcp/calls.js';
 import type { AlertingSettings } from '../settings/service.js';
 import { DEAD_TOKEN_KEPT_MS, EXPIRES_SOON_MS, shortIp } from './tokens.js';
 
@@ -33,12 +35,19 @@ export interface TokenJobReport {
   deleted: number;
   reminded: number;
   failed: number;
+  mcpCallsDeleted: number;
 }
 
-/** Runs the three steps; one that fails is logged and does not stop the others. */
+/** Runs the steps; one that fails is logged and does not stop the others. */
 export async function runApiTokenJobs(deps: TokenJobDeps, nowMs: number): Promise<TokenJobReport> {
   const now = new Date(nowMs);
-  const report: TokenJobReport = { expired: 0, deleted: 0, reminded: 0, failed: 0 };
+  const report: TokenJobReport = {
+    expired: 0,
+    deleted: 0,
+    reminded: 0,
+    failed: 0,
+    mcpCallsDeleted: 0,
+  };
   const step = async (name: string, run: () => Promise<void>) => {
     try {
       await run();
@@ -57,7 +66,16 @@ export async function runApiTokenJobs(deps: TokenJobDeps, nowMs: number): Promis
     report.reminded = r.sent;
     report.failed = r.failed;
   });
-  if (report.expired || report.deleted || report.reminded || report.failed) {
+  await step('mcp-calls', async () => {
+    report.mcpCallsDeleted = await deleteOldMcpCalls(deps.db, now);
+  });
+  if (
+    report.expired ||
+    report.deleted ||
+    report.reminded ||
+    report.failed ||
+    report.mcpCallsDeleted
+  ) {
     deps.log.info({ ...report }, 'API token upkeep');
   }
   return report;

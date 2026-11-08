@@ -4,6 +4,7 @@
 import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
+import { countMcpCalls, recentMcpCalls, type McpCallView } from '../mcp/calls.js';
 import { sha256 } from '../../lib/tokens.js';
 import type { CurrentUser, Plan, Role } from '../auth/sessions.js';
 import {
@@ -84,16 +85,8 @@ function tokenRows(db: Database) {
 }
 type TokenRow = Awaited<ReturnType<ReturnType<typeof tokenRows>['executeTakeFirstOrThrow']>>;
 
-/**
- * Hook for the MCP call counts (v0.2 slice 4): tool calls per token in the last 30 days.
- * Until the call log exists, every token has 0.
- */
-export type McpCallCounts = (
-  db: Database,
-  tokenIds: string[],
-  now: Date,
-) => Promise<Map<string, number>>;
-export const mcpCallCounts: McpCallCounts = async () => new Map();
+/** Tool calls per token in the last 30 days (the MCP call log, ADR-127). */
+const mcpCallCounts = countMcpCalls;
 
 export function toTokenView(row: TokenRow, now: Date, mcpCalls = 0): ApiTokenView {
   const status = tokenStatus(row, now);
@@ -172,7 +165,7 @@ export async function getApiToken(
   orgId: string,
   id: string,
   now: Date,
-): Promise<{ token: ApiTokenView; history: ApiTokenEventView[] } | null> {
+): Promise<{ token: ApiTokenView; history: ApiTokenEventView[]; activity: McpCallView[] } | null> {
   const row = await findOwnRow(db, userId, orgId, id);
   if (!row) return null;
   const calls = await mcpCallCounts(db, [row.id], now);
@@ -208,7 +201,7 @@ export async function getApiToken(
         : {}),
     };
   });
-  return { token, history };
+  return { token, history, activity: await recentMcpCalls(db, row.id) };
 }
 
 /**

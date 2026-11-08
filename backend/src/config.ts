@@ -59,6 +59,8 @@ export interface Config {
   cookieSecure: CookieSecure;
   /** Alert rules applied once at start (WATCHLOG_SEED_FILE, ADR-122). */
   seedFile?: string;
+  /** The MCP server at /mcp (ADR-127); on by default, it needs an API token anyway. */
+  mcpEnabled: boolean;
   /** Per API token and minute (ADR-125): REST requests, and MCP tool calls (v0.2 slice 4). */
   apiTokenLimits: { restPerMinute: number; mcpCallsPerMinute: number };
 }
@@ -132,6 +134,10 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   if (demoMode !== undefined && demoMode !== 'true' && demoMode !== 'false') {
     throw new Error(`Invalid WATCHLOG_DEMO_MODE: ${demoMode} (expected true or false)`);
   }
+  const mcpEnabled = env.WATCHLOG_MCP_ENABLED;
+  if (mcpEnabled !== undefined && mcpEnabled !== 'true' && mcpEnabled !== 'false') {
+    throw new Error(`Invalid WATCHLOG_MCP_ENABLED: ${mcpEnabled} (expected true or false)`);
+  }
   if (
     env.WATCHLOG_CLIENT_IP_HEADER !== undefined &&
     !/^[A-Za-z0-9-]{1,64}$/.test(env.WATCHLOG_CLIENT_IP_HEADER)
@@ -200,6 +206,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     cookieSecure,
     queryTimeoutMs: demoMode === 'true' ? 10_000 : 15_000,
     seedFile: env.WATCHLOG_SEED_FILE,
+    mcpEnabled: mcpEnabled !== 'false',
     apiTokenLimits: {
       restPerMinute: API_TOKEN_REST_PER_MINUTE,
       mcpCallsPerMinute: API_TOKEN_MCP_CALLS_PER_MINUTE,

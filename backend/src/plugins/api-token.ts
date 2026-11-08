@@ -4,11 +4,13 @@
 //   - a token and a session cookie on one request: 400, so it is never ambiguous which applies;
 //   - unknown, expired or revoked: 401 with WWW-Authenticate: Bearer;
 //   - outside the token's scope: 403 `token-scope` (modules/api-tokens/scope.ts);
-//   - above 300 requests a minute per token: 429 with Retry-After.
+//   - above 300 requests a minute per token (REST and /mcp): 429 with Retry-After;
+//   - in-process reads of an MCP tool (lib/internal-call.ts) are neither limited nor recorded.
 // Otherwise the request acts as the token's user in the token's org. Token requests skip
 // the cookie CSRF check (plugins/csrf.ts): they carry no cookie a browser could add.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/index.js';
+import { isInternalCall } from '../lib/internal-call.js';
 import { ProblemType, sendProblem } from '../lib/problem.js';
 import { SESSION_COOKIE } from '../modules/auth/sessions.js';
 import { isTokenPath, MCP_PATH, tokenAllows } from '../modules/api-tokens/scope.js';
@@ -79,17 +81,18 @@ export function registerApiTokenAuth(app: FastifyInstance, opts: ApiTokenAuthOpt
     request.apiToken = found.token;
     request.user = found.user;
 
+    // An MCP tool reading through the API in-process: the MCP call is counted and logged.
+    if (isInternalCall(request)) return;
     const rest = !request.url.startsWith(MCP_PATH);
-    if (rest) {
-      const limit = await restLimit(request);
-      if (!limit.isAllowed && limit.isExceeded) {
-        reply.header('retry-after', String(limit.ttlInSeconds));
-        return sendProblem(
-          reply,
-          429,
-          `An API token may make ${opts.restPerMinute} requests a minute. Retry in ${limit.ttlInSeconds} s.`,
-        );
-      }
+    // Every request, REST or MCP: tool calls have their own, lower limit on top (ADR-127).
+    const limit = await restLimit(request);
+    if (!limit.isAllowed && limit.isExceeded) {
+      reply.header('retry-after', String(limit.ttlInSeconds));
+      return sendProblem(
+        reply,
+        429,
+        `An API token may make ${opts.restPerMinute} requests a minute. Retry in ${limit.ttlInSeconds} s.`,
+      );
     }
     try {
       await usage.record(
