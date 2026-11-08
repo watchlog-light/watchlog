@@ -1459,6 +1459,12 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Demo mode:** creating a token is refused like every write (ADR-122). The demo's public MCP token is the only exception (ADR-130).
   - **Upgrades:** a new table; nothing to do on existing installs (ADR-107).
 - Consequences: Settings gets an "API tokens" tab. The UI waits for a mock-up.
+- Amended 2026-11-08, after the mock-up review:
+  - **Expiry reminder:** an email 7 days before a token expires, through the SMTP settings already used for email alerts. It is skipped silently when SMTP isn't configured.
+  - **Listing:** expired and revoked tokens stay listed for 30 days with their history, their last-used IP shortened (/24, /48), then are deleted.
+  - **The list** shows the prefix (`wl_pat_` and 4 characters) followed by "…", never more of the value.
+  - **The one-time reveal** offers setup for Claude Code, Claude Desktop (`mcp-remote`), Cursor and the REST API, with the address taken from the instance's public URL. "Done" stays disabled until the user confirms they have copied and stored the token.
+  - **In demo mode** the page shows the demo's public MCP token (ADR-130) with a ready Claude Code command, and "Install WatchLog" instead of token creation.
 
 ## ADR-126: A public, stable REST API for tokens
 
