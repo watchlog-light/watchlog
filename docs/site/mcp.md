@@ -1,6 +1,6 @@
 ---
 title: Ask your cluster (MCP)
-description: Connect Claude Code, Claude Desktop or Cursor to WatchLog and ask about your Kubernetes clusters and Docker hosts.
+description: Connect Claude Code, Claude Desktop, ChatGPT or Cursor to WatchLog and ask about your Kubernetes clusters and Docker hosts.
 ---
 
 # Ask your cluster
@@ -79,6 +79,34 @@ which needs Node.js. Open **Settings → Developer → Edit config** and add:
 
 Restart Claude Desktop. The token stays in the environment variable, out of the
 command line.
+
+### ChatGPT
+
+The ChatGPT desktop app and the Codex CLI read their MCP servers from
+`~/.codex/config.toml`. Add:
+
+```toml
+[mcp_servers.watchlog]
+url = "https://watchlog.example.com/mcp"
+bearer_token_env_var = "WATCHLOG_TOKEN"
+```
+
+Then set `WATCHLOG_TOKEN` to your token in the environment the app starts from. If the app
+doesn't see the variable, put the header in the file instead:
+
+```toml
+[mcp_servers.watchlog]
+url = "https://watchlog.example.com/mcp"
+http_headers = { "Authorization" = "Bearer wl_pat_..." }
+```
+
+Restart the app, and WatchLog shows up under **Settings → MCP servers**.
+
+ChatGPT on the web adds MCP apps in developer mode. Those apps sign in with OAuth, which
+WatchLog doesn't offer yet, so use the desktop app or Codex for now.
+
+From your own code, OpenAI's Responses API takes WatchLog as a remote MCP server:
+`{"type": "mcp", "server_label": "watchlog", "server_url": "https://watchlog.example.com/mcp", "authorization": "wl_pat_..."}`.
 
 ### Cursor
 
