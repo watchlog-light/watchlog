@@ -1465,6 +1465,12 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **The list** shows the prefix (`wl_pat_` and 4 characters) followed by "…", never more of the value.
   - **The one-time reveal** offers setup for Claude Code, Claude Desktop (`mcp-remote`), Cursor and the REST API, with the address taken from the instance's public URL. "Done" stays disabled until the user confirms they have copied and stored the token.
   - **In demo mode** the page shows the demo's public MCP token (ADR-130) with a ready Claude Code command, and "Install WatchLog" instead of token creation.
+- Amended 2026-11-08, as built (v0.2 slice 1):
+  - **What `read` allows:** every `GET`/`HEAD` under `/api/v1` except settings, alert channels, token management, auth, setup and demo; plus `POST /query/range` and `/mcp`. A route-walk test pins the exact set for a Kubernetes cluster and a Docker fleet, so any new GET route needs a decision. Slice 3 may narrow this to the routes tagged `public` (ADR-126).
+  - **Errors:** a token sent with a session cookie answers 400 `urn:watchlog:problem:token-with-session`. 401 and 403 carry `WWW-Authenticate: Bearer` with `invalid_token` or `insufficient_scope`.
+  - **Country:** the last-used country is taken only from a trusted proxy's header named in `WATCHLOG_CLIENT_COUNTRY_HEADER` (Helm `backend.clientCountryHeader`, empty by default); there is no GeoIP.
+  - **History cap:** at most 50 "new IP" events per token.
+  - **Hidden from tokens:** cluster-token prefixes are not returned to token requests, as in demo mode.
 
 ## ADR-126: A public, stable REST API for tokens
 
