@@ -248,14 +248,18 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
 
 - **Personal API tokens (ADR-125):**
   - `wl_pat_` + 256 random bits, stored as SHA-256, shown once;
-  - scope `read` only;
+  - scope `read` only: an allowlist of the routes tagged `public` (ADR-126), plus `/mcp`; every other route answers 403 `token-scope`;
   - expiry chosen at creation (default 90 days, "never" allowed);
   - revocable at once, with the last-used time and IP;
   - at most 10 active per user; 300 REST requests and 60 MCP tool calls a minute per token;
   - a token history on each row (created, revoked, expired, first use from a new IP);
   - created and revoked in Settings → API tokens;
   - refused in demo mode.
-- **Public REST API (ADR-126):** the documented GET routes (and `POST /query/range`) are stable under `/api/v1`. The spec at `/api/v1/openapi.json` has a `bearerAuth` scheme; a breaking change needs `/api/v2` or two minor versions of deprecation. Docs: `docs/site/api.md`.
+- **Public REST API (ADR-126):** the routes tagged `public` (24 reads, `POST /query/range` among them) are stable under `/api/v1`, for Kubernetes clusters and Docker fleets.
+  - `/api/v1/openapi.json` serves only them, with a `bearerAuth` scheme, and needs no token.
+  - A committed snapshot (`packages/api-types/openapi.public.json`) must match the served spec. A test names any breaking change; `pnpm -C backend openapi:snapshot` writes additions and refuses a breaking change without `--breaking`.
+  - Additions are allowed at any time. A breaking change needs `/api/v2` or two minor versions of deprecation.
+  - Docs: `docs/site/api.md`, with examples for both kinds of cluster.
 - **MCP server (ADR-127):**
   - `POST /mcp` in the backend, Streamable HTTP, a read token in the `Authorization` header;
   - the official MCP TypeScript SDK, negotiating the current and the 2025 protocol versions;
@@ -516,7 +520,7 @@ Migrations: `node-pg-migrate` (or Drizzle migrations — decide in Phase 0), for
 
 # 8. API
 
-REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the web app; `Authorization: Bearer wl_pat_...` for personal API tokens (read scope, ADR-125; never both on one request). The MCP server is `POST /mcp` with the same tokens (§4.11, ADR-127). Errors follow RFC 9457 (`application/problem+json`). OpenAPI 3.1 spec generated from Fastify schemas at `/api/v1/openapi.json`.
+REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the web app; `Authorization: Bearer wl_pat_...` for personal API tokens (read scope, ADR-125; never both on one request). The MCP server is `POST /mcp` with the same tokens (§4.11, ADR-127). Errors follow RFC 9457 (`application/problem+json`). OpenAPI 3.1 spec generated from Fastify schemas; `/api/v1/openapi.json` serves its public part (ADR-126), and `packages/api-types/openapi.json` holds the full spec for the dashboard.
 
 ## 8.1 Public API (excerpt)
 
@@ -525,7 +529,7 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `POST /auth/signup` · `POST /auth/login` · `POST /auth/logout` | Email + password |
 | `GET /auth/oauth/github` · `/google` | OAuth login (P0 GitHub, P1 Google) |
 | `POST /auth/verify-email` · `POST /auth/forgot` · `POST /auth/reset` | |
-| `GET /me` · `PATCH /me` | Profile, locale |
+| `GET /me` · `PATCH /me` | Profile, locale; `GET /me` also names the API token a request came with (null with a session) |
 | `GET/POST /orgs` · `GET/PATCH /orgs/:id` · `POST /orgs/:id/invites` | |
 | `GET/POST /clusters` · `GET/PATCH/DELETE /clusters/:id` | Create returns install commands + token (shown once) |
 | `POST /clusters/:id/tokens` · `DELETE /clusters/:id/tokens/:tid` | Rotate / revoke |

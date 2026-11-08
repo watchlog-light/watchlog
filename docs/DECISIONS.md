@@ -1486,6 +1486,13 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **The spec:** `GET /api/v1/openapi.json` serves the public routes with a `bearerAuth` security scheme. A committed snapshot of the public spec fails CI on a breaking change.
   - **Docs:** `docs/site/api.md` covers tokens, curl examples, errors and limits, and links the spec. No interactive reference on the site in v0.2.
 - Consequences: changing a public route's response is a deliberate act: update the snapshot, and the ADR if it breaks.
+- Amended 2026-11-08, as built (v0.2 slice 3):
+  - **The tag:** a route is public when its schema's tags include `public` (`PUBLIC_TAG`, `backend/src/openapi/public.ts`). The same tag opens it to API tokens (ADR-125's allowlist), so the spec and what a token can read can't drift apart. The route-walk test pins the set for a Kubernetes cluster and a Docker fleet.
+  - **The set:** the 24 operations listed above. `GET /alerting/status`, readable by tokens under the old deny list, is internal: it reports the server's own setup (SMTP, the public address).
+  - **`GET /me`** also returns the token a request came with (name, prefix, scope, expiry), null with a session, so a script can check its token.
+  - **The spec** is served without a token: it describes routes, not data. Its `info.version` is the release; the snapshot stores `v1`.
+  - **The snapshot** is `packages/api-types/openapi.public.json`, written by `pnpm -C backend openapi:snapshot`. A test fails when the served spec differs from it, naming each breaking change. The command writes additions, and refuses a breaking change unless `--breaking` is given.
+  - **Breaking:** an operation or a response field removed, a response field made optional or given a new type (null included), a new required parameter or body field, a parameter removed, a narrower type or range, or fewer accepted values. New routes, optional parameters, response fields and enum values are additions; the docs tell clients to tolerate them.
 
 ## ADR-127: An MCP server built into the backend
 
