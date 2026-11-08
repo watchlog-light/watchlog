@@ -16,6 +16,8 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': { target: process.env.WATCHLOG_API_URL ?? 'http://127.0.0.1:4080' },
+      // MCP clients may use the dashboard origin, as the token reveal's snippets do.
+      '/mcp': { target: process.env.WATCHLOG_API_URL ?? 'http://127.0.0.1:4080' },
       // Agents may use the dashboard origin as WATCHLOG_ENDPOINT in development.
       '/ingest': { target: process.env.WATCHLOG_API_URL ?? 'http://127.0.0.1:4080' },
     },

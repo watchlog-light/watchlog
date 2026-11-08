@@ -1,5 +1,6 @@
 # Web image (ADR-014): serves the SPA and, in the Community compose stack, proxies
-# the API and agent ingest to the backend so one port serves browsers and agents.
+# the API, the MCP server and agent ingest to the backend so one port serves browsers,
+# AI assistants and agents.
 # WATCHLOG_BACKEND defaults to the compose service name.
 {
 	admin off
@@ -21,6 +22,14 @@
 		# not). The visitor's address for rate limits comes from WATCHLOG_CLIENT_IP_HEADER.
 		reverse_proxy {$WATCHLOG_BACKEND:backend:4080} {
 			header_up X-Forwarded-For {remote_host}
+		}
+	}
+	# The MCP server (ADR-127): AI assistants connect to <public address>/mcp. Streamed
+	# (SSE) answers go out as they come.
+	handle /mcp {
+		reverse_proxy {$WATCHLOG_BACKEND:backend:4080} {
+			header_up X-Forwarded-For {remote_host}
+			flush_interval -1
 		}
 	}
 	handle /ingest/* {

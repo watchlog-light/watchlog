@@ -16,10 +16,7 @@ export const useAuthStore = defineStore('auth', () => {
   const setupRequired = ref(false);
   /** A read-only public demo (ADR-122): passwordless entry, every change refused. */
   const demoMode = ref(false);
-  /**
-   * The demo's public read-only MCP token (ADR-130), offered on Settings → API tokens.
-   * GET /setup carries it once the demo has one (v0.2 slice 7); null until then.
-   */
+  /** The demo's public read-only MCP token (ADR-130), offered on Settings → API tokens. */
   const demoMcpToken = ref<string | null>(null);
   const loaded = ref(false);
   /** Whether the UI offers changes: not to viewers, and never in the demo. */
@@ -30,8 +27,7 @@ export const useAuthStore = defineStore('auth', () => {
     const status = await api<SetupStatus>('/setup');
     setupRequired.value = status.required;
     demoMode.value = status.demoMode;
-    const withToken = status as SetupStatus & { demoMcpToken?: string | null };
-    demoMcpToken.value = (status.demoMode && withToken.demoMcpToken) || null;
+    demoMcpToken.value = (status.demoMode && status.demoMcpToken) || null;
     user.value = null;
     if (!status.required) {
       try {
