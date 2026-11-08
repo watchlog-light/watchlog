@@ -87,19 +87,8 @@ export const EVENT_DOT: Record<ApiTokenEvent['kind'], string> = {
   reminder_sent: 'bg-info',
 };
 
-/**
- * One MCP tool call in a token's activity (v0.2 slice 4 fills it): never the output,
- * only what was asked, how it went and how big the answer was.
- */
-export interface McpCall {
-  at: string;
-  tool: string;
-  /** A short summary of the arguments, e.g. "prod-eu · shop/api". */
-  args: string;
-  status: 'ok' | 'truncated' | 'rate_limited' | 'error';
-  durationMs: number;
-  bytes: number;
-}
+/** One MCP tool call in a token's activity: never the output (ADR-127). */
+export type McpCall = ApiTokenDetail['activity'][number];
 
 export const CALL_TONE: Record<McpCall['status'], string> = {
   ok: 'text-ok',
@@ -108,8 +97,8 @@ export const CALL_TONE: Record<McpCall['status'], string> = {
   error: 'text-critical',
 };
 
-/** The detail's activity rows; the schema is open until slice 4 fixes it. */
-export const mcpCalls = (d: ApiTokenDetail) => d.activity as unknown as McpCall[];
+/** The detail's activity rows, newest first. */
+export const mcpCalls = (d: ApiTokenDetail): McpCall[] => d.activity;
 
 export type SnippetTab = 'code' | 'desktop' | 'cursor' | 'rest';
 export const SNIPPET_TABS: SnippetTab[] = ['code', 'desktop', 'cursor', 'rest'];

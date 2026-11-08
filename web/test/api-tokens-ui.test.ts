@@ -421,7 +421,7 @@ describe('API token detail', () => {
         by: { id: USER.id, name: USER.name },
       },
     ],
-    activity: calls as unknown as ApiTokenDetail['activity'],
+    activity: calls,
     ...over,
   });
 
