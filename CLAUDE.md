@@ -4,6 +4,7 @@
   the private notes repository; the workspace CLAUDE.md says where) at session start.
 - This is the open-source product repository; see "What belongs here" below before committing.
 - Work only on the current phase (the phase checklists in the notes repository). Do not build P1/P2 items early.
+- Every feature ships for both Kubernetes and Docker (ADR-124), with tests and docs for both, unless an ADR says why one side can't have it.
 - Non-goals in SPEC §2.5 are hard limits. If a task seems to need one, stop and ask.
 - Measure before changing: inspect real data (API responses, metrics, DB rows) before
   changing query or ingest code. Never infer data shapes from code alone.
