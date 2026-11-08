@@ -32,6 +32,14 @@
 			flush_interval -1
 		}
 	}
+	# MCP clients look for OAuth metadata when a token is refused. WatchLog uses bearer
+	# tokens (no OAuth yet, ADR-127): answer 404, not the dashboard's HTML.
+	handle /.well-known/oauth-* {
+		respond 404
+	}
+	handle /.well-known/openid-configuration* {
+		respond 404
+	}
 	handle /ingest/* {
 		request_body {
 			max_size 8MB
