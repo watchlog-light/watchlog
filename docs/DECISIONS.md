@@ -1471,6 +1471,9 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Country:** the last-used country is taken only from a trusted proxy's header named in `WATCHLOG_CLIENT_COUNTRY_HEADER` (Helm `backend.clientCountryHeader`, empty by default); there is no GeoIP.
   - **History cap:** at most 50 "new IP" events per token.
   - **Hidden from tokens:** cluster-token prefixes are not returned to token requests, as in demo mode.
+- Amended 2026-11-08, v0.2 slice 2:
+  - **No error text for tokens:** `GET /alerts` and `GET /alerts/:id` leave out notification and delivery error text for token requests, as in demo mode. That text can carry an SMTP host or user, or part of a webhook URL, and a token's reader may pass it on. Sessions still see it.
+  - **`read` becomes an allowlist (built in slice 3):** a token may read only the routes tagged `public` (ADR-126), plus `/mcp`, instead of every GET minus a deny list. A new route is closed to tokens until it is tagged. The route-walk test stays as the guard, for a Kubernetes cluster and a Docker fleet.
 
 ## ADR-126: A public, stable REST API for tokens
 
