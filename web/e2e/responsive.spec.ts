@@ -4,13 +4,20 @@
 // 1024 px. Screenshots of the priority pages at 390×844 and 768×1024 go to
 // e2e/screenshots/ (git-ignored).
 //
-// Needs a running dashboard with data (`pnpm dev` and deploy/test/demo-up.sh) and an
+// Needs a running dashboard with stored data (`pnpm dev`; deploy/test/demo-up.sh fills it) and an
 // account: WATCHLOG_E2E_EMAIL and WATCHLOG_E2E_PASSWORD, or WATCHLOG_E2E_DEMO=true against a
 // read-only demo (WATCHLOG_DEMO_MODE=true, ADR-122), which enters through /demo. It picks the first Kubernetes
 // cluster and the first Docker fleet (or WATCHLOG_E2E_KUBE / WATCHLOG_E2E_DOCKER, by name).
 // While working on a page: WATCHLOG_E2E_ONLY=overview,nodes and WATCHLOG_E2E_WIDTHS=390.
 import { existsSync, mkdirSync } from 'node:fs';
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type BrowserContext,
+  type Page,
+} from '@playwright/test';
+import { SERVICE_MAPS } from './fixtures/service-map';
 import { layoutProblems, report, SHOTS, viewportFor, WIDTHS } from './layout-checks';
 
 const email = process.env.WATCHLOG_E2E_EMAIL;
@@ -24,7 +31,24 @@ interface Cluster {
   id: string;
   name: string;
   kind: 'kubernetes' | 'docker';
+  lastSeenAt: string | null;
 }
+
+/** An API response answered by a fixture while a route is checked. */
+interface Answer {
+  url: RegExp;
+  json: unknown;
+}
+
+/** The service map of a cluster, from a fixture: the checks don't need a live cluster. */
+const serviceMapAnswer = (c: Cluster): Answer => ({
+  url: new RegExp(`/api/v1/clusters/${c.id}/service-map\\?`),
+  json: SERVICE_MAPS[c.kind],
+});
+
+/** A cluster that reported in the last 10 minutes, for the optional live-data check. */
+const LIVE_MS = 10 * 60_000;
+const isLive = (c: Cluster) => !!c.lastSeenAt && Date.now() - Date.parse(c.lastSeenAt) < LIVE_MS;
 
 interface Route {
   name: string;
@@ -35,6 +59,8 @@ interface Route {
   prepare?: (page: Page) => Promise<void>;
   /** Public page: checked signed out. */
   public?: boolean;
+  /** API responses answered by fixtures while it is checked. */
+  answer?: Answer;
 }
 
 const get = async <T>(api: APIRequestContext, path: string): Promise<T> => {
@@ -71,6 +97,11 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
   if (!kube || !docker) throw new Error('needs a Kubernetes cluster and a Docker fleet with data');
   const k = `?cluster=${kube.id}`;
   const d = `?cluster=${docker.id}`;
+  clustersByKind = { kubernetes: kube, docker };
+  liveClusters = {
+    kubernetes: clusters.find((c) => c.kind === 'kubernetes' && isLive(c)),
+    docker: clusters.find((c) => c.kind === 'docker' && isLive(c)),
+  };
 
   const { nodes } = await get<{ nodes: { name: string }[] }>(api, `/clusters/${kube.id}/nodes`);
   const { pods } = await get<{ pods: { namespace: string; name: string; phase?: string }[] }>(
@@ -120,14 +151,28 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
     },
     { name: 'events', path: `/events${k}`, shot: true },
     { name: 'events-docker', path: `/events${d}` },
-    { name: 'service-map', path: `/service-map${k}`, shot: true },
+    // The service map from fixtures, for a Kubernetes cluster and a Docker host: these
+    // checks hold whether or not a cluster is reporting right now.
+    { name: 'service-map', path: `/service-map${k}`, shot: true, answer: serviceMapAnswer(kube) },
     {
       name: 'service-map-graph',
       path: `/service-map${k}`,
       shot: true,
-      // Phones open on Connections with an "Open map" button; wider screens on the map.
-      prepare: (page) =>
-        page.getByTestId((page.viewportSize()?.width ?? 0) < 768 ? 'open-map' : 'view-map').click(),
+      answer: serviceMapAnswer(kube),
+      prepare: openMap,
+    },
+    {
+      name: 'service-map-docker',
+      path: `/service-map${d}`,
+      shot: true,
+      answer: serviceMapAnswer(docker),
+    },
+    {
+      name: 'service-map-docker-graph',
+      path: `/service-map${d}`,
+      shot: true,
+      answer: serviceMapAnswer(docker),
+      prepare: openMap,
     },
     { name: 'hosts', path: `/hosts${d}`, shot: true },
     { name: 'host', path: `/hosts/${encodeURIComponent(hosts[0]!.name)}${d}`, shot: true },
@@ -282,6 +327,10 @@ function tokenRoutes(k: string, id: string): Route[] {
   ];
 }
 
+/** Phones open the service map on Connections with an "Open map" button; wider screens on the map. */
+const openMap = (page: Page) =>
+  page.getByTestId((page.viewportSize()?.width ?? 0) < 768 ? 'open-map' : 'view-map').click();
+
 /** Waits until the page has drawn its data: no skeletons or loading indicators left. */
 async function settle(page: Page) {
   await page.waitForLoadState('networkidle');
@@ -294,6 +343,8 @@ async function settle(page: Page) {
 }
 
 let routes: Route[] = [];
+let clustersByKind: Record<Cluster['kind'], Cluster> | undefined;
+let liveClusters: Partial<Record<Cluster['kind'], Cluster>> = {};
 let storage: Awaited<ReturnType<APIRequestContext['storageState']>>;
 
 test.beforeAll(async ({ playwright, baseURL }) => {
@@ -326,32 +377,12 @@ for (const width of widths) {
       });
       const page = await context.newPage();
       for (const route of routes.filter((r) => !!r.public !== signedIn)) {
-        await page.goto(route.path);
-        await settle(page);
-        if (route.prepare) {
-          try {
-            await route.prepare(page);
-          } catch (err) {
-            failures.push(`${route.name} at ${width}px: ${String(err).split('\n')[0]}`);
-            continue;
-          }
-          await page.waitForTimeout(400);
-        }
-        const problems = await layoutProblems(page);
-        if (problems.length) failures.push(report(route.name, width, problems));
-        const shot = SHOTS.find((s) => s.width === width);
-        if (route.shot && shot) {
-          await page.setViewportSize({ width: shot.width, height: shot.height });
-          // The shell scrolls <main>, not the page: let it grow for a full-page picture.
-          if (!route.prepare)
-            await page.addStyleTag({
-              content:
-                '.h-dvh { height: auto !important; overflow: visible !important } main { overflow: visible !important }',
-            });
-          await page.screenshot({
-            path: `${SHOT_DIR}${route.name}-${shot.name}.png`,
-            fullPage: !route.prepare,
-          });
+        const answer = route.answer;
+        if (answer) await page.route(answer.url, (r) => r.fulfill({ json: answer.json }));
+        try {
+          await checkRoute(page, route, width, failures);
+        } finally {
+          if (answer) await page.unroute(answer.url);
         }
       }
       await context.close();
@@ -360,17 +391,84 @@ for (const width of widths) {
   });
 }
 
-test('service map on a phone: Connections first, then the map pans and pinch-zooms by touch', async ({
-  browser,
-}) => {
-  const context = await browser.newContext({ ...viewportFor(390), storageState: storage });
-  const page = await context.newPage();
-  const map = routes.find((r) => r.name === 'service-map');
-  test.skip(!map, 'service map not in this run');
-  await page.goto(map!.path);
+/** Loads a route, prepares it, checks the layout rules and takes its screenshots. */
+async function checkRoute(page: Page, route: Route, width: number, failures: string[]) {
+  await page.goto(route.path);
   await settle(page);
-  await expect(page.getByTestId('connections-table')).toBeVisible();
-  await page.getByTestId('open-map').click();
+  if (route.prepare) {
+    try {
+      await route.prepare(page);
+    } catch (err) {
+      failures.push(`${route.name} at ${width}px: ${String(err).split('\n')[0]}`);
+      return;
+    }
+    await page.waitForTimeout(400);
+  }
+  const problems = await layoutProblems(page);
+  if (problems.length) failures.push(report(route.name, width, problems));
+  const shot = SHOTS.find((s) => s.width === width);
+  if (route.shot && shot) {
+    await page.setViewportSize({ width: shot.width, height: shot.height });
+    // The shell scrolls <main>, not the page: let it grow for a full-page picture.
+    if (!route.prepare)
+      await page.addStyleTag({
+        content:
+          '.h-dvh { height: auto !important; overflow: visible !important } main { overflow: visible !important }',
+      });
+    await page.screenshot({
+      path: `${SHOT_DIR}${route.name}-${shot.name}.png`,
+      fullPage: !route.prepare,
+    });
+  }
+}
+
+for (const kind of ['kubernetes', 'docker'] as const) {
+  test(`service map on a phone (${kind}): Connections first, then the map pans and pinch-zooms by touch`, async ({
+    browser,
+  }) => {
+    const route = routes.find(
+      (r) => r.name === (kind === 'docker' ? 'service-map-docker' : 'service-map'),
+    );
+    test.skip(!route, 'service map not in this run');
+    const context = await browser.newContext({ ...viewportFor(390), storageState: storage });
+    const page = await context.newPage();
+    const answer = route!.answer!;
+    await page.route(answer.url, (r) => r.fulfill({ json: answer.json }));
+    await page.goto(route!.path);
+    await settle(page);
+    await expect(page.getByTestId('connections-table')).toBeVisible();
+    await page.getByTestId('open-map').click();
+    await panAndPinch(page, context);
+    await context.close();
+  });
+}
+
+// Optional: the same on a phone with the cluster's own data, when one reported in the last
+// 10 minutes (deploy/test/demo-up.sh). The checks above never need it.
+for (const kind of ['kubernetes', 'docker'] as const) {
+  test(`service map on a phone with live data (${kind})`, async ({ browser }) => {
+    const live = liveClusters[kind];
+    const last = clustersByKind?.[kind]?.lastSeenAt;
+    test.skip(
+      !live,
+      `no ${kind === 'docker' ? 'Docker host' : 'Kubernetes cluster'} reported in the last 10 minutes` +
+        ` (last report: ${last ?? 'never'}); start one with deploy/test/demo-up.sh to run this check`,
+    );
+    const context = await browser.newContext({ ...viewportFor(390), storageState: storage });
+    const page = await context.newPage();
+    await page.goto(`/service-map?cluster=${live!.id}`);
+    await settle(page);
+    await expect(page.getByTestId('connections-table')).toBeVisible();
+    await page.getByTestId('open-map').click();
+    await expect(page.getByTestId('map-canvas').locator('svg').first()).toBeVisible();
+    const problems = await layoutProblems(page);
+    expect(problems, report(`service-map-live-${kind}`, 390, problems)).toEqual([]);
+    await context.close();
+  });
+}
+
+/** One finger pans the map; two fingers spreading zoom it in. */
+async function panAndPinch(page: Page, context: BrowserContext) {
   const svg = page.getByTestId('map-canvas').locator('svg').first();
   await expect(svg).toBeVisible();
   await page.waitForTimeout(800); // the fit animation
@@ -385,7 +483,10 @@ test('service map on a phone: Connections first, then the map pans and pinch-zoo
   const y = box.y + box.height - 60;
   const x = box.x + 40;
   const cdp = await context.newCDPSession(page);
-  const touch = (type: string, points: { x: number; y: number }[]) =>
+  const touch = (
+    type: 'touchStart' | 'touchMove' | 'touchEnd',
+    points: { x: number; y: number }[],
+  ) =>
     cdp.send('Input.dispatchTouchEvent', {
       type,
       touchPoints: points.map((p, id) => ({ ...p, id })),
@@ -411,5 +512,4 @@ test('service map on a phone: Connections first, then the map pans and pinch-zoo
   await touch('touchEnd', []);
   const pinched = await transform();
   expect(pinched.k).toBeGreaterThan(panned.k * 1.5);
-  await context.close();
-});
+}
