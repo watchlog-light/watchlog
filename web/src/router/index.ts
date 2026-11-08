@@ -172,6 +172,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { titleKey: 'clusters.detailTitle' },
       },
       {
+        name: 'api-token',
+        path: 'settings/api-tokens/:id',
+        component: () => import('@/views/ApiTokenPage.vue'),
+        meta: { titleKey: 'apiTokens.detailTitle' },
+      },
+      {
         name: 'not-found',
         path: ':pathMatch(.*)*',
         component: () => import('@/views/NotFoundPage.vue'),

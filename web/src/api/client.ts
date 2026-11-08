@@ -62,6 +62,10 @@ export const ProblemType = {
   clusterLimit: 'urn:watchlog:problem:cluster-limit',
   nameTaken: 'urn:watchlog:problem:name-taken',
   tokenLimit: 'urn:watchlog:problem:token-limit',
+  /** An API token used outside its read scope (ADR-125). */
+  tokenScope: 'urn:watchlog:problem:token-scope',
+  /** An API token and a session cookie on one request (ADR-125). */
+  tokenWithSession: 'urn:watchlog:problem:token-with-session',
   telegramUnreachable: 'urn:watchlog:problem:telegram-unreachable',
   demoReadOnly: 'urn:watchlog:problem:demo-read-only',
 } as const;

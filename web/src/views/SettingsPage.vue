@@ -4,13 +4,14 @@ import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ChannelSettings from '@/components/alerts/ChannelSettings.vue';
 import ClusterList from '@/components/clusters/ClusterList.vue';
+import ApiTokens from '@/components/settings/ApiTokens.vue';
 import GeneralSettings from '@/components/settings/GeneralSettings.vue';
 import SystemNamespaces from '@/components/settings/SystemNamespaces.vue';
 
 // Settings (alerts redesign): clusters, alert channels with the email server and
-// Telegram, and general settings: the public address and the system namespaces. ?tab=
-// keeps the view.
-const TABS = ['clusters', 'channels', 'general'] as const;
+// Telegram, general settings (the public address and the system namespaces) and the
+// user's API tokens (ADR-125). ?tab= keeps the view.
+const TABS = ['clusters', 'channels', 'general', 'tokens'] as const;
 type Tab = (typeof TABS)[number];
 const route = useRoute();
 const router = useRouter();
@@ -49,6 +50,7 @@ function setTab(t: Tab) {
     </nav>
     <ClusterList v-if="tab === 'clusters'" class="max-w-3xl" />
     <ChannelSettings v-else-if="tab === 'channels'" />
+    <ApiTokens v-else-if="tab === 'tokens'" />
     <template v-else>
       <GeneralSettings />
       <SystemNamespaces />

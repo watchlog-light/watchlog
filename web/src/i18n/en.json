@@ -1341,7 +1341,8 @@
     "tabs": {
       "clusters": "Clusters",
       "channels": "Alert channels",
-      "general": "General"
+      "general": "General",
+      "tokens": "API tokens"
     },
     "fromEnvironment": "Set by the server's environment",
     "saved": "Saved.",
@@ -1756,5 +1757,157 @@
     "noData": "no usage data yet",
     "reqShort": "req {v}",
     "limitShort": "limit {v}"
+  },
+  "apiTokens": {
+    "title": "API tokens",
+    "detailTitle": "API token",
+    "intro": "Personal tokens let Claude, Cursor or your own scripts read WatchLog as you, through the REST API and MCP. They see the clusters you can see.",
+    "chips": {
+      "readOnly": "Read only",
+      "restAndMcp": "REST API + MCP",
+      "bothKinds": "Kubernetes and Docker"
+    },
+    "guide": "MCP setup guide →",
+    "loadFailed": "Could not load your API tokens.",
+    "loadOneFailed": "Could not load this API token.",
+    "notFound": "This token doesn't exist, or it was deleted 30 days after it expired or was revoked.",
+    "footnote": "Expired and revoked tokens stay in the list for 30 days so you can see their history. A token's value is shown only once, when you create it.",
+    "never": "Never",
+    "neverUsed": "Never",
+    "activity": "Activity",
+    "columns": {
+      "name": "Name",
+      "token": "Token",
+      "expires": "Expires",
+      "lastUsed": "Last used",
+      "calls": "MCP · 30 days",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "active": "Active",
+      "expires_soon": "Expires soon",
+      "never": "No expiry",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    },
+    "note": {
+      "inDays": "today | in {n} day | in {n} days",
+      "never": "no expiry set",
+      "expired": "expired",
+      "revoked": "revoked {date}"
+    },
+    "calls": {
+      "mcp": "{n} call | {n} calls",
+      "restOnly": "REST only",
+      "none": "—"
+    },
+    "card": {
+      "expires": "Expires {date}",
+      "lastUsed": "Last used {when}"
+    },
+    "empty": {
+      "title": "No API tokens yet",
+      "text": "Create one to ask Claude or Cursor about your clusters, or to read WatchLog from a script. Tokens are read only and you can revoke them at any time.",
+      "action": "Create your first token"
+    },
+    "create": {
+      "open": "Create token",
+      "title": "Create API token",
+      "intro": "For one app or script. Make a separate token for each, so you can revoke one without breaking the others.",
+      "name": "Name",
+      "namePlaceholder": "e.g. Claude Code on my laptop",
+      "nameHint": "Shown in the list so you know where the token is used.",
+      "expires": "Expires",
+      "choice": {
+        "30": "30 days",
+        "90": "90 days",
+        "365": "1 year",
+        "never": "Never"
+      },
+      "expiresOn": "Expires on {date}. You get an email 7 days before.",
+      "neverExpires": "This token never expires.",
+      "neverWarning": "A token without expiry works until you revoke it. It is flagged “No expiry” in the list.",
+      "scopeTitle": "Scope: read only",
+      "scopeText": "Reads clusters, nodes, workloads, pods, containers, metrics, events, alerts and the service map, on Kubernetes clusters and Docker hosts. It can't change anything and never sees secrets.",
+      "submit": "Create token",
+      "failed": "Could not create the token. Try again."
+    },
+    "reveal": {
+      "title": "Token created: {name}",
+      "once": "Copy it now. It won't be shown again.",
+      "connect": "Connect an app",
+      "tabs": {
+        "code": "Claude Code",
+        "desktop": "Claude Desktop",
+        "cursor": "Cursor",
+        "rest": "REST API"
+      },
+      "hints": {
+        "code": "Run in your terminal.",
+        "desktop": "Add to claude_desktop_config.json (Claude Desktop → Settings → Developer → Edit config). Needs Node.js for npx.",
+        "cursor": "Add to ~/.cursor/mcp.json, or .cursor/mcp.json in a project.",
+        "rest": "Any HTTP client. The full API is described in /api/v1/openapi.json."
+      },
+      "address": "The address comes from Settings → General → Public address.",
+      "copySnippet": "Copy snippet",
+      "ack": "I've copied and stored the token",
+      "done": "Done"
+    },
+    "revoke": {
+      "open": "Revoke",
+      "openLong": "Revoke token",
+      "title": "Revoke “{name}”?",
+      "text": "Apps using this token lose access immediately. Its history stays in the list for 30 days. This can't be undone.",
+      "confirm": "Revoke token",
+      "failed": "Could not revoke the token. Try again."
+    },
+    "detail": {
+      "meta": "read only · created {created} · expires {expires}"
+    },
+    "history": {
+      "title": "History",
+      "you": "you",
+      "unknownPlace": "an unknown address",
+      "created": "Created by {who} · read only · expires {date}",
+      "createdNever": "Created by {who} · read only · no expiry",
+      "firstUse": "First use · from {place}",
+      "newIp": "First use from a new IP · {place}",
+      "expired": "Expired",
+      "revoked": "Revoked by {who}",
+      "reminder": "Expiry reminder sent by email"
+    },
+    "mcp": {
+      "title": "MCP activity",
+      "note": "Last 50 calls · kept 30 days · outputs are never stored",
+      "none": "No MCP calls with this token yet.",
+      "restOnly": "No MCP calls with this token. It has only been used with the REST API.",
+      "ms": "{n} ms",
+      "columns": {
+        "time": "Time",
+        "tool": "Tool",
+        "args": "Arguments",
+        "status": "Status",
+        "duration": "Duration",
+        "size": "Size"
+      },
+      "status": {
+        "ok": "OK",
+        "truncated": "Truncated",
+        "rate_limited": "Rate limited",
+        "error": "Error"
+      }
+    },
+    "demo": {
+      "intro": "You can't create tokens in the live demo. When you install WatchLog, this page is where you make them.",
+      "tryIt": "Try it",
+      "askTitle": "Ask Claude about this demo cluster",
+      "askText": "The demo has a public read-only MCP token. Add it to Claude Code, then ask “why is the api pod restarting?”.",
+      "limits": "30 calls a minute per visitor · read only · sample data only",
+      "otherApps": "Claude Desktop and Cursor →",
+      "ownTitle": "Your own tokens",
+      "ownText": "Install WatchLog on a Kubernetes cluster or a Docker host, then create tokens here.",
+      "install": "Install WatchLog →"
+    }
   }
 }

@@ -55,7 +55,14 @@ async function signIn(api: APIRequestContext) {
 }
 
 /** The routes, with real names and ids from the API. */
-async function discover(api: APIRequestContext): Promise<Route[]> {
+/** A local dev dashboard, outside CI: the only place the suite may make an API token. */
+function mayCreateToken(baseURL: string | undefined): boolean {
+  if (process.env.CI || !baseURL) return false;
+  const host = new URL(baseURL).hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+}
+
+async function discover(api: APIRequestContext, baseURL: string | undefined): Promise<Route[]> {
   const { clusters } = await get<{ clusters: Cluster[] }>(api, '/clusters');
   const pick = (kind: Cluster['kind'], name?: string) =>
     clusters.find((c) => c.kind === kind && (!name || c.name === name));
@@ -79,6 +86,22 @@ async function discover(api: APIRequestContext): Promise<Route[]> {
     `/clusters/${docker.id}/docker/containers`,
   );
   const { alerts } = await get<{ alerts: { id: string }[] }>(api, '/alerts');
+  // API tokens (ADR-125): one usable token, so the list, its dialogs and the detail have a
+  // row. Made once and reused; the reveal below answers its POST without making another.
+  // Made only against a dev dashboard on this machine, never in CI or on a shared install:
+  // elsewhere, without a usable token, the token routes are left out.
+  let tokenId: string | undefined;
+  if (!demo) {
+    const { tokens } = await get<{ tokens: { id: string; status: string }[] }>(api, '/api-tokens');
+    tokenId = tokens.find((t) => t.status !== 'expired' && t.status !== 'revoked')?.id;
+    if (!tokenId && mayCreateToken(baseURL)) {
+      const res = await api.post('/api/v1/api-tokens', {
+        data: { name: 'Responsive check', expiresInDays: 30 },
+      });
+      expect(res.ok(), `POST /api-tokens: ${res.status()}`).toBeTruthy();
+      tokenId = ((await res.json()) as { token: { id: string } }).token.id;
+    }
+  }
   const pod = pods.find((p) => p.namespace === 'shop') ?? pods[0];
   const container = containers.find((c) => c.name.startsWith('storefront')) ?? containers[0];
 
@@ -128,6 +151,20 @@ async function discover(api: APIRequestContext): Promise<Route[]> {
     { name: 'settings-channels', path: `/settings${k}&tab=channels`, shot: true },
     { name: 'settings-general', path: `/settings${k}&tab=general`, shot: true },
     { name: 'cluster-settings', path: `/settings/clusters/${kube.id}${k}`, shot: true },
+    { name: 'settings-tokens', path: `/settings${k}&tab=tokens`, shot: true },
+    {
+      // The read-only demo's state, with the public MCP token it gets in slice 7.
+      name: 'settings-tokens-demo',
+      path: `/settings${k}&tab=tokens`,
+      shot: true,
+      prepare: (page) =>
+        answerOnce(page, '**/api/v1/setup', {
+          required: false,
+          demoMode: true,
+          demoMcpToken: 'wl_demo_public_readonly',
+        }),
+    },
+    ...(tokenId ? tokenRoutes(k, tokenId) : []),
     {
       name: 'nav-drawer',
       path: `/${k}`,
@@ -150,9 +187,99 @@ async function discover(api: APIRequestContext): Promise<Route[]> {
   ];
   if (alerts[0]) routes.push({ name: 'alert', path: `/alerts/${alerts[0].id}${k}`, shot: true });
   const only = process.env.WATCHLOG_E2E_ONLY?.split(',');
-  // The read-only demo has no rule editor to open.
-  const available = demo ? routes.filter((r) => r.name !== 'rule-editor') : routes;
+  // The read-only demo has no rule editor to open, and its own tokens state.
+  const available = demo
+    ? routes.filter((r) => r.name !== 'rule-editor' && r.name !== 'settings-tokens-demo')
+    : routes;
   return only ? available.filter((r) => only.includes(r.name)) : available;
+}
+
+/** Reloads the page with one API path answered by `json`, then lets it through again. */
+async function answerOnce(page: Page, url: string, json: unknown) {
+  await page.route(url, (r) =>
+    r.request().method() === 'GET' ? r.fulfill({ json }) : r.fallback(),
+  );
+  await page.reload();
+  await settle(page);
+  await page.unroute(url);
+}
+
+/** Settings → API tokens: create, the one-time reveal, revoke and the detail (ADR-125). */
+function tokenRoutes(k: string, id: string): Route[] {
+  const list = `/settings${k}&tab=tokens`;
+  const openCreate = (page: Page) => page.getByTestId('api-token-create').click();
+  return [
+    { name: 'api-token-create', path: list, shot: true, prepare: openCreate },
+    {
+      name: 'api-token-reveal',
+      path: list,
+      shot: true,
+      prepare: async (page) => {
+        // Answered here: the reveal is checked without making a token each run.
+        const now = new Date().toISOString();
+        const json = {
+          value: 'wl_pat_9fK2mQ7xTb4LhR8vN3cZ1sWd6YpE0aGuXyZ1234567',
+          token: {
+            id: '01a1a000-0000-7000-8000-00000000e2e0',
+            name: 'Claude Code on my laptop',
+            prefix: 'wl_pat_9fK2',
+            scope: 'read',
+            createdAt: now,
+            expiresAt: new Date(Date.now() + 90 * 86_400_000).toISOString(),
+            status: 'active',
+            lastUsedAt: null,
+            lastUsedIp: null,
+            lastUsedCountry: null,
+            usedRest: false,
+            mcpCalls30d: 0,
+            revokedAt: null,
+          },
+        };
+        const url = '**/api/v1/api-tokens';
+        await page.route(url, (r) =>
+          r.request().method() === 'POST' ? r.fulfill({ status: 201, json }) : r.fallback(),
+        );
+        await openCreate(page);
+        await page.getByTestId('api-token-name').locator('input').fill(json.token.name);
+        await page.getByTestId('api-token-create-submit').click();
+        await page.getByTestId('api-token-reveal').waitFor();
+        await page.unroute(url);
+      },
+    },
+    {
+      name: 'api-token-revoke',
+      path: list,
+      shot: true,
+      prepare: (page) => page.getByTestId('api-token-revoke').first().click(),
+    },
+    { name: 'api-token', path: `/settings/api-tokens/${id}${k}`, shot: true },
+    {
+      // MCP calls arrive in slice 4: the activity table and cards with sample rows.
+      name: 'api-token-activity',
+      path: `/settings/api-tokens/${id}${k}`,
+      shot: true,
+      prepare: async (page) => {
+        const res = await page.request.get(`/api/v1/api-tokens/${id}`);
+        const detail = (await res.json()) as Record<string, unknown>;
+        const at = (s: number) => new Date(Date.now() - s * 1000).toISOString();
+        const activity = [
+          ['get_problems', 'cluster prod-eu', 'ok', 182, 3174],
+          ['get_workload', 'prod-eu · shop/api', 'ok', 95, 2458],
+          ['query_metric', 'shop/api · cpu · last 1h', 'truncated', 410, 16384],
+          ['list_containers', 'docker-01 · project billing', 'ok', 77, 2253],
+          ['get_events', 'prod-eu · last 30 min', 'rate_limited', 2, 102],
+        ].map(([tool, args, status, durationMs, bytes], i) => ({
+          at: at(60 * i),
+          tool,
+          args,
+          status,
+          durationMs,
+          bytes,
+        }));
+        await answerOnce(page, `**/api/v1/api-tokens/${id}`, { ...detail, activity });
+      },
+    },
+  ];
 }
 
 /** Waits until the page has drawn its data: no skeletons or loading indicators left. */
@@ -181,7 +308,7 @@ test.beforeAll(async ({ playwright, baseURL }) => {
     mkdirSync(new URL('./.auth/', import.meta.url).pathname, { recursive: true });
     await api.storageState({ path: AUTH_FILE });
   }
-  routes = await discover(api);
+  routes = await discover(api, baseURL);
   storage = await api.storageState();
   await api.dispose();
 });
