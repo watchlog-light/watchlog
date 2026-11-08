@@ -125,6 +125,8 @@ _Not part of the public specification._
 
 Priority labels: **P0** = MVP / launch, **P1** = shortly after launch, **P2** = later. Edition is Community (C), Cloud Free (CF), Pro (P), Enterprise (E). "All" = every edition.
 
+**Kubernetes and Docker (standing rule, ADR-124):** every feature ships for both Kubernetes clusters and Docker fleets in the same release, with each side's vocabulary (Kubernetes: namespaces, workloads, pods; Docker: hosts, Compose projects, containers), and is tested and documented for both. Only an ADR that explains why one side cannot have a feature makes an exception. Docker is a first-class target.
+
 ## 4.1 Cluster overview (home screen) — P0, All
 
 The first screen after login. Answers "is anything wrong right now?" in 5 seconds.
@@ -238,7 +240,58 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 | Fine-grained RBAC (per cluster / namespace) | P2 | E |
 | SSO (OIDC, SAML), LDAP | P2 | E |
 | Audit log (who changed which rule, who silenced what) | P2 | E |
-| API tokens for automation | P1 | All |
+| API tokens for automation (§4.11) | v0.2 | All |
+
+## 4.11 API tokens and AI assistants (MCP) — v0.2, All
+
+Let people ask their own AI assistant about their cluster ("why is payments-api crash-looping?"). WatchLog supplies facts; the assistant does the talking. No LLM runs in WatchLog.
+
+- **Personal API tokens (ADR-125):**
+  - `wl_pat_` + 256 random bits, stored as SHA-256, shown once;
+  - scope `read` only;
+  - expiry chosen at creation (default 90 days, "never" allowed);
+  - revocable at once, with the last-used time and IP;
+  - at most 10 active per user; 300 REST requests and 60 MCP tool calls a minute per token;
+  - a token history on each row (created, revoked, expired, first use from a new IP);
+  - created and revoked in Settings → API tokens;
+  - refused in demo mode.
+- **Public REST API (ADR-126):** the documented GET routes (and `POST /query/range`) are stable under `/api/v1`. The spec at `/api/v1/openapi.json` has a `bearerAuth` scheme; a breaking change needs `/api/v2` or two minor versions of deprecation. Docs: `docs/site/api.md`.
+- **MCP server (ADR-127):**
+  - `POST /mcp` in the backend, Streamable HTTP, a read token in the `Authorization` header;
+  - the official MCP TypeScript SDK, negotiating the current and the 2025 protocol versions;
+  - stateless;
+  - `mcp.enabled` in Helm and Compose, default on;
+  - every call logged with the tool, a short argument summary, the status, the duration and the size, never the output; kept 30 days, the last 50 shown per token;
+  - OAuth for native "custom connectors" in a later version.
+- **Tools (ADR-128), read-only, for Kubernetes and Docker alike:** each takes a cluster and returns its kind with that kind's vocabulary.
+
+  | Tool | Kubernetes | Docker |
+  |---|---|---|
+  | `list_clusters` | clusters with health, nodes, eBPF | fleets with hosts |
+  | `get_problems` | Needs attention: workloads and pods with reasons, firing alerts first | containers that are unhealthy, restarting, OOM-killed or exited non-zero, firing alerts |
+  | `list_alerts` | firing or recent alerts | the same |
+  | `explain_alert` | the alert, its rule, the object's state, last terminations, events and changes before it (v0.3 adds the likely cause) | the same for containers and hosts |
+  | `get_workload` | replicas, images, restarts, terminations, use vs requests and limits | a Compose service: its containers, the same facts |
+  | `get_pod` | containers, states, exit codes, OOM, conditions, events | a container |
+  | `get_node` | conditions, capacity vs use, top pods | a host |
+  | `get_service_map` | edges of a workload or the failing edges, DNS errors | the same between containers |
+  | `get_events` | grouped warning events, at most 24 h | container die / OOM / restart / health events |
+  | `get_recent_changes` | rollouts, image changes, scaling, nodes | container re-creations and image changes |
+  | `query_metric` | catalog keys only, at most 24 h, 10 series, 60 points; statistics by default | the Docker catalog keys |
+
+  Prompts: `investigate_problem`, `why_is_it_crashing`.
+- **Caps:** every tool has a maximum number of items and at most 16 KB of output. Beyond it the result says `truncated`, how many more, and which argument narrows the query.
+- **Safety:**
+  - never Secrets, env values, payloads, channel targets, SMTP or Telegram settings, or tokens;
+  - cluster-controlled text (names, labels, messages) only in delimited data fields, capped and stripped of control characters, never inside WatchLog's own sentences (ADR-129);
+  - read-only scope bounds the effect of prompt injection.
+- **Live demo (ADR-130):** a public read token for demo.watchlog.io: 30 tool calls a minute per visitor and 600 in total, plus the demo's query caps.
+- **Docs:** `docs/site/mcp.md` with setup for Claude Code (`claude mcp add --transport http … --header`), Claude Desktop (`mcp-remote`) and Cursor, examples for a Kubernetes cluster and a Docker fleet, and the security notes. The site's "Ask your cluster" section stays behind a flag.
+
+**Accept when:**
+- on the kind demo, Claude Code connected through MCP correctly explains the crash-looping and OOM pods from WatchLog data alone; the same works on a Docker host for an OOM-killed and a restarting container;
+- revoking the token stops access at the next call;
+- the protocol works with Claude Code, Claude Desktop through `mcp-remote`, Cursor where it can be scripted, and the SDK's own client.
 
 # 5. System architecture
 
@@ -463,7 +516,7 @@ Migrations: `node-pg-migrate` (or Drizzle migrations — decide in Phase 0), for
 
 # 8. API
 
-REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the web app; `Authorization: Bearer wl_pat_...` for personal API tokens. Errors follow RFC 9457 (`application/problem+json`). OpenAPI 3.1 spec generated from Fastify schemas at `/api/v1/openapi.json`.
+REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the web app; `Authorization: Bearer wl_pat_...` for personal API tokens (read scope, ADR-125; never both on one request). The MCP server is `POST /mcp` with the same tokens (§4.11, ADR-127). Errors follow RFC 9457 (`application/problem+json`). OpenAPI 3.1 spec generated from Fastify schemas at `/api/v1/openapi.json`.
 
 ## 8.1 Public API (excerpt)
 
@@ -488,6 +541,8 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `GET/POST/PATCH/DELETE /alert-channels` · `POST /alert-channels/:id/test` | |
 | `GET /alerts` (firing & history) · `POST /silences` | |
 | `POST /funnel` | Client-side funnel events (§10.4) |
+| `GET/POST /api-tokens` · `DELETE /api-tokens/:id` | Personal API tokens (§4.11): list, create (value shown once), revoke; session only, never with a token |
+| `POST /mcp` | MCP server, Streamable HTTP (§4.11); read token |
 | `POST /demo/session` | Demo mode only (ADR-122): a passwordless, read-only viewer session (a signed cookie, no row); 404 otherwise |
 
 ## 8.2 Ingest API (agent → backend)

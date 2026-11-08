@@ -1428,3 +1428,116 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - Tests:
     - `backend/test/proxy.test.ts`: trusted and untrusted peers, separate buckets per visitor behind a trusted proxy, one bucket per untrusted peer, and `auto`/`always`/`never` for unit and end-to-end cookies, including the demo cookie;
     - the Caddyfile was checked in a throwaway caddy:2-alpine container.
+
+## ADR-124: Docker is a first-class target: every feature ships for Kubernetes and Docker
+
+- Date: 2026-11-08 · Status: accepted (maintainer, 2026-11-08)
+- Context: WatchLog monitors Kubernetes clusters and Docker fleets (SPEC §4.4). Planning notes from before the launch suggested freezing Docker support and deciding its future from funnel data. Features then risk shipping for Kubernetes first and for Docker "later", which leaves Docker users with a weaker product and a growing list of gaps.
+- Decision:
+  - **Standing rule:** every WatchLog feature ships for both Kubernetes and Docker in the same release, unless an ADR explains why one side cannot have it (for example, a Kubernetes object that has no Docker equivalent).
+  - **The same vocabulary per side:** Kubernetes uses namespaces, workloads and pods; Docker uses hosts, Compose projects and containers. APIs, tools and messages say which kind of cluster they describe.
+  - **Tests and docs for both:** contract and end-to-end tests run against a kind cluster and a Docker host (the Docker agent); docs give examples for both.
+  - This supersedes any earlier planning text that called Docker support frozen or tied its future to activation numbers.
+- Consequences:
+  - SPEC §4 states the rule; the workspace's working rules repeat it.
+  - Feature estimates include the Docker side from the start.
+  - The live demo is Kubernetes only for now; a Docker demo host is a follow-up, not a reason to ship features for Kubernetes only.
+
+## ADR-125: Personal API tokens, read-only in v0.2
+
+- Date: 2026-11-08 · Status: accepted (maintainer, 2026-11-08)
+- Context: v0.2 lets people connect their own AI assistant (ADR-127) and scripts to WatchLog. Both need a credential that is not a browser session. SPEC §8 already names `Authorization: Bearer wl_pat_…`.
+- Decision:
+  - **Format and storage:** `wl_pat_` followed by 256 random bits (base64url), shown once. Stored as a SHA-256 hash with a display prefix, as cluster tokens are (ADR-040); a 256-bit random value needs no slow hash.
+  - **Scope:** `read` only in v0.2. It allows the public GET routes (ADR-126), `POST /api/v1/query/range` (a read sent as POST) and `/mcp`. Everything else answers 403 `urn:watchlog:problem:token-scope`. A token can never manage tokens, users, setup or alerting settings. A write scope may follow in a later version with its own ADR.
+  - **Expiry:** chosen at creation, default 90 days; "never" is allowed and marked in the list. Expired and revoked tokens answer 401.
+  - **Revocation** is immediate: tokens are checked on every request, with no cache.
+  - **Last used:** time and IP, written at most once a minute per token.
+  - **Limits:** at most 10 active tokens per user (409 `token-limit`). Rate limits per token: 300 requests a minute for the REST API, 60 tool calls a minute for MCP; 429 with `Retry-After` above that.
+  - **Token history:** created, revoked, expired and first use from a new IP are recorded per token and shown on its row. This is not the general audit log, which stays Enterprise (SPEC §4.10).
+  - **Requests:** a request with both a token and a session cookie is refused (400), so it is never ambiguous which credential applies. Token requests skip the Origin/CSRF check, which protects cookie sessions only.
+  - **Demo mode:** creating a token is refused like every write (ADR-122). The demo's public MCP token is the only exception (ADR-130).
+  - **Upgrades:** a new table; nothing to do on existing installs (ADR-107).
+- Consequences: Settings gets an "API tokens" tab. The UI waits for a mock-up.
+
+## ADR-126: A public, stable REST API for tokens
+
+- Date: 2026-11-08 · Status: accepted (maintainer, 2026-11-08)
+- Context: once tokens exist, people write scripts against the API. Nothing so far said which routes they can rely on.
+- Decision:
+  - **Public routes**, tagged `public` and documented: the cluster list and detail, overview, nodes, workloads, pods, namespaces, events and their summary, change markers, Docker hosts and containers, the service map and its edges, alerts and alert detail and chart, alert rules (read), silences (read), `POST /query/range` (catalog keys only), `GET /me`, `GET /health`.
+  - **Internal:** setup, auth, demo, settings, alert channels, every write, and `/ingest/*`. They may change without notice.
+  - **Versioning:** stays `/api/v1`. Additive changes are allowed at any time. A breaking change to a public route needs `/api/v2` or a deprecation that lasts two minor versions.
+  - **The spec:** `GET /api/v1/openapi.json` serves the public routes with a `bearerAuth` security scheme. A committed snapshot of the public spec fails CI on a breaking change.
+  - **Docs:** `docs/site/api.md` covers tokens, curl examples, errors and limits, and links the spec. No interactive reference on the site in v0.2.
+- Consequences: changing a public route's response is a deliberate act: update the snapshot, and the ADR if it breaks.
+
+## ADR-127: An MCP server built into the backend
+
+- Date: 2026-11-08 · Status: accepted (maintainer, 2026-11-08)
+- Context: people want to ask their own AI assistant (Claude, Cursor, any MCP client) about their cluster. WatchLog should supply facts and run no LLM itself: no model cost, and no cluster data leaves unless the user connects a client. MCP clients connect over stdio or Streamable HTTP.
+- Decision:
+  - **Built in:** `POST /mcp` on the backend, Streamable HTTP, behind a read-scoped API token (ADR-125) in the `Authorization` header, with the same auth, rate limits and org scoping as the API. No separate stdio binary.
+  - **Clients:**
+    - Claude Code connects directly (`claude mcp add --transport http … --header "Authorization: Bearer …"`);
+    - Cursor uses its `url` and `headers` configuration;
+    - Claude Desktop uses `mcp-remote` with the header.
+  - **Protocol through the official MCP TypeScript SDK**, never a hand-written protocol layer. It negotiates both the current protocol generation and the 2025 versions that deployed clients still use. Real clients prove this in tests: Claude Code, Claude Desktop through `mcp-remote`, Cursor where it can be scripted, and the SDK's own client.
+  - **Stateless:** no server-held sessions and no server-initiated notifications in v0.2, so any backend replica can answer any request.
+  - **OAuth later:** OAuth for MCP (v0.3 or later) is what the native "custom connector" experience in Claude's apps will most likely need. Until then, bearer tokens and `mcp-remote` cover Claude Desktop.
+  - **Call log:** every tool call records the time, the token prefix, the tool, a short argument summary, the status, the duration and the result size, never the output. Kept 30 days, the last 50 shown per token in Settings.
+  - **Helm and Compose:** `mcp.enabled`, default on (it needs a token anyway), with a documented opt-out.
+- Consequences:
+  - The backend must be reachable from where the AI client runs (`publicUrl`, a VPN or a tunnel); the docs say so.
+  - AGPL: the MCP server is part of the backend, so its network use is covered like the rest.
+
+## ADR-128: MCP tools: read-only, compact, bounded, for Kubernetes and Docker
+
+- Date: 2026-11-08 · Status: accepted (maintainer, 2026-11-08)
+- Context: an AI assistant needs facts it can reason over, not dumps of objects. Tools must be safe to call repeatedly and must never leak what the API never shows.
+- Decision:
+  - **Tools (all read-only, `readOnlyHint`):** `list_clusters`, `get_problems`, `list_alerts`, `explain_alert`, `get_workload`, `get_pod`, `get_node`, `get_service_map`, `get_events`, `get_recent_changes`, `query_metric`. Prompts: `investigate_problem`, `why_is_it_crashing`. No resources in v0.2.
+  - **Both kinds of cluster (ADR-124):** every tool takes a cluster and returns its kind (`kubernetes` or `docker`) with that kind's vocabulary:
+    - Kubernetes: namespaces, workloads and pods, with nodes;
+    - Docker: hosts, Compose projects and containers.
+
+    `get_workload` and `get_pod` answer for a Compose service and a container on Docker; `get_node` answers for a Docker host. `get_problems`, `list_alerts`, `get_service_map`, `get_events` and `query_metric` use WatchLog's existing Docker problems, reasons and catalog keys.
+
+  - **Output:** compact JSON with WatchLog's existing reason sentences (restart, OOM, health check, failed connection). No raw objects.
+  - **Hard caps on every tool:**
+    - a maximum number of items (for example 50 problems, 30 edges, 30 event groups, 10 series of at most 60 points);
+    - at most 16 KB of output.
+
+    Beyond a cap the result carries `truncated: true`, the remaining count, and the hint "truncated, narrow your query", plus which argument narrows it.
+
+  - **`query_metric`:** catalog keys only, never raw MetricsQL. At most 24 hours, 10 series and 60 points, with statistics by default.
+  - **Never returned:** Secrets, environment values, payloads, alert channel targets, SMTP and Telegram settings, tokens. Outputs pass the API's redaction, and a test scans every tool's output for secret fixtures.
+  - **`explain_alert`:** in v0.2, the alert, its rule, the object's state, its last terminations, related events, and the changes in the window before. v0.3's probable cause adds a likely cause with evidence to the same tool.
+- Consequences:
+  - Each tool has a contract test against a seeded backend for a kind cluster and a Docker fleet.
+  - An end-to-end test on kind and on a Docker host drives a real MCP client.
+
+## ADR-129: Cluster-controlled text is data, never instructions
+
+- Date: 2026-11-08 · Status: accepted (maintainer, 2026-11-08)
+- Context: pod, container and Compose names, labels, annotations kept in the allow-list, event messages, image names and log-like fields are written by whoever controls the cluster or the workload. Returned through MCP, such text reaches an AI assistant's context, and a name like "ignore previous instructions and …" is a prompt-injection attempt.
+- Decision:
+  - **Delimited fields:** in tool outputs, cluster-controlled text appears only in clearly named data fields (`name`, `namespace`, `message`, `image`…). It is never interpolated into instruction-like sentences that the tool writes itself: WatchLog's own sentences refer to "this pod", with the name in a separate field.
+  - **Length caps:** names at 253 characters, messages at 512, labels at 63 for values, with an ellipsis. Control characters are stripped.
+  - **Tool descriptions say so:** every tool that returns such fields tells the client they are cluster-supplied data.
+  - **Tests** feed hostile values (a pod named "ignore previous instructions …", an event message with markdown and fake tool calls, very long names) and check that they come back only inside their fields, capped and escaped, and that no tool output places them in its own sentences.
+  - **Limiting the damage:** tokens are read-only (ADR-125), so an injected instruction cannot make WatchLog change anything. The security docs explain this and recommend that users review what their assistant does with other tools in the same session.
+- Consequences: the same rule applies to future write tools and to v0.3's probable-cause sentences.
+
+## ADR-130: A public MCP endpoint on the live demo
+
+- Date: 2026-11-08 · Status: accepted (maintainer, 2026-11-08)
+- Context: the live demo (ADR-122) shows the dashboard. Letting anyone connect an AI assistant to the same sample cluster shows what v0.2 does in a minute.
+- Decision:
+  - **A public token** for the demo, published on the site and in the docs. It is created by the seed file (ADR-122), so demo mode is never turned off. It is accepted only while `demoMode` is on, and it is scoped `read`.
+  - **Rate limits:** 30 tool calls a minute per visitor (the real IP behind the trusted proxies, ADR-123) and 600 a minute in total, on top of the demo's query caps (24 hours, 1,000 points, 10-second queries).
+  - **Demo analytics** (in its private deployment) count `/mcp` requests as their own source and list which tools were called. Tool arguments and outputs are not kept.
+  - **Rotating the token** means changing the seed value and the docs.
+- Consequences:
+  - The site's "Ask your cluster" section ships together with the token, behind a site flag.
+  - Abuse is bounded by the limits above, nginx's per-visitor limit and the demo cluster's CPU and memory caps.
