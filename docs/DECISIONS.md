@@ -1393,6 +1393,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - `backend/test/demo.test.ts` also covers ingest. Every `/ingest/*` route answers 401 without a valid cluster token, whatever cookie comes with it (a demo cookie, an admin's session), in both modes.
   - The normal session cookie's Secure attribute is decided in ADR-123.
   - SPEC §8.1 gains `POST /demo/session`. SPEC §11.3's Toast now exists in `web/src/components/ui/ToastHost.vue`.
+- Amended 2026-11-08 (release 0.2.0): demo mode blanks `kernelVersion` in every JSON answer, and with it in the REST API and MCP. A demo's nodes may share their host's kernel, whose exact version reveals the host's patch level.
 
 ## ADR-123: Trusted proxies decide the visitor's address and the session cookie's Secure attribute
 
@@ -1592,3 +1593,10 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 - Consequences:
   - The site's "Ask your cluster" section ships together with the token, behind a site flag.
   - Abuse is bounded by the limits above, nginx's per-visitor limit and the demo cluster's CPU and memory caps.
+- Amended 2026-11-08, as built (v0.2 slice 7, release 0.2.0):
+  - **The token** is `seed.demoMcp.token` in the seed file, any value of an API token's shape. At start, in demo mode, it becomes a read token of the demo viewer account; a new value replaces the old. Without demo mode the account has no token, and the token plugin refuses it anyway. `GET /setup` returns it as `demoMcpToken` in demo mode, for Settings → API tokens.
+  - **Limits:** 30 tool calls a minute per visitor and 600 in all (`seed.demoMcp.visitorCallsPerMinute` and `totalCallsPerMinute`), answered in-band and saying which limit was hit. Its REST requests are limited per visitor, not per token.
+  - **Nothing about visitors is kept** in WatchLog: no last use, no address, no history event, no call log.
+  - **Demo mode's guard** lets `POST /mcp` through: its tools only read.
+  - **Analytics:** every `/mcp` answer carries `x-watchlog-mcp` (the JSON-RPC method and tool, never arguments). The demo's nginx logs it, and the waitlist's Demo page shows MCP visits, their client and the tools called.
+  - **The web image's Caddy** forwards `/mcp` with streaming unbuffered, and answers 404 for OAuth metadata paths, which MCP clients probe when a token is refused. The demo's nginx does the same.

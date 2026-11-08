@@ -17,7 +17,7 @@ Defaults work for most installs. This page lists what you can change.
 | `clusterName`                                                                                      | `kubernetes`                            | Name of this cluster in WatchLog.                                                                                                                                                                       |
 | `demoMode`                                                                                         | `false`                                 | A read-only public demo: visitors enter as a viewer without a password, and every change is refused, even for admins. Secrets, tokens and channel targets are never shown. Not for a real installation. |
 | `mcp.enabled`                                                                                      | `true`                                  | The MCP server at `/mcp`, so AI assistants (Claude, Cursor) can read your clusters with a personal API token. It needs a token anyway; `false` turns it off, and tokens still read the REST API.        |
-| `seed`                                                                                             | `{}`                                    | Alert rules created at every backend start, once each, matched by name and never overwritten. See [Seed file](#seed-file).                                                                              |
+| `seed`                                                                                             | `{}`                                    | Alert rules created at every backend start, once each, matched by name and never overwritten, and a demo's public MCP token. See [Seed file](#seed-file).                                               |
 | `cookieSecure`                                                                                     | `auto`                                  | The session cookie's Secure attribute: `auto` when the request came over https, or `always` or `never`. See [Behind a reverse proxy](#behind-a-reverse-proxy).                                          |
 | `image.registry`, `image.tag`                                                                      | `ghcr.io/watchlog-light`, chart version | Where WatchLog images come from: use a mirror for air-gapped installs.                                                                                                                                  |
 | `backend.replicas`, `backend.resources`                                                            | 1, 192Mi–512Mi                          | API server.                                                                                                                                                                                             |
@@ -60,7 +60,7 @@ Defaults work for most installs. This page lists what you can change.
 | `WATCHLOG_DB_PASSWORD`                               | required   | PostgreSQL password.                                                             |
 | `WATCHLOG_SECRET_KEY`                                | required   | Key for alert channel secrets: `openssl rand -base64 32`. Back it up.            |
 | `WATCHLOG_PUBLIC_URL`                                | `''`       | How agents and browsers reach the server.                                        |
-| `WATCHLOG_VERSION`                                   | `latest`   | Image version; pin it, e.g. `0.1.2`.                                             |
+| `WATCHLOG_VERSION`                                   | `latest`   | Image version; pin it, e.g. `0.2.0`.                                             |
 | `WATCHLOG_PORT`                                      | 8080       | The only published port.                                                         |
 | `WATCHLOG_RETENTION`                                 | `15d`      | Metrics retention.                                                               |
 | `WATCHLOG_SMTP_URL`, `WATCHLOG_SMTP_FROM`            | unset      | Email alerts.                                                                    |
@@ -103,6 +103,20 @@ WatchLog's web container (Caddy) serves the dashboard and passes `/api` and `/in
 ```
 
 The fields are those of a custom rule in the API. `clusterId` is `null` for every cluster, or a cluster's name or id. `enabled` and `renotifySeconds` are optional. A seed file can't hold channels, so it never holds secrets.
+
+A public demo can also publish a read-only MCP token, which only works in demo mode (`demoMode: true`). Its value is public on purpose:
+
+```json
+{
+  "demoMcp": {
+    "token": "wl_pat_…",
+    "visitorCallsPerMinute": 30,
+    "totalCallsPerMinute": 600
+  }
+}
+```
+
+`token` is any value of an API token's shape: `wl_pat_` and 43 letters, digits, `-` or `_`. The limits are optional, and these are their defaults. Settings → API tokens shows the token to the demo's visitors, and they leave no trace in WatchLog: no last use, no address, no call log.
 
 ## Agent options
 

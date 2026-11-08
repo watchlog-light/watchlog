@@ -83,13 +83,13 @@ Health-check commands and probe output can contain credentials. The agent redact
 ## API tokens and MCP
 
 - **Personal API tokens** (Settings → API tokens) are `wl_pat_` plus 256 random bits. The server keeps only a SHA-256 hash. The value is shown once, when you create the token.
-- **Read only:** a token reads only the documented [REST API](/docs/api/) routes and the [MCP server](/docs/mcp/), and only what its user can see. It can't change anything: no setting, rule, channel or cluster.
+- **Read only:** a token reads only the documented [REST API](api.md) routes and the [MCP server](mcp.md), and only what its user can see. It can't change anything: no setting, rule, channel or cluster.
 - **Never returned to a token:** Secrets, environment values, payloads, alert channel targets, email and Telegram settings, other tokens, and the error text of a failed alert delivery, which can name your mail server or part of a webhook address.
 - **Expiry and revocation:** tokens expire after 30 days, 90 days or a year, or never if you choose. You get an email 7 days before. Revoking stops a token at the next request.
 - **Each token's history:** when it was created, its first use, use from a new address, and its expiry or revocation.
 - **MCP call log:** each tool call's tool, a short argument summary, status, time and answer size, never the answer itself. Kept 30 days.
 - **Limits:** 300 requests and 60 tool calls a minute per token.
-- **Prompt injection:** names and messages from your cluster reach an AI assistant only as data, in their own fields, cleaned and cut to a fixed length. Since every tool only reads, an injected instruction can't make WatchLog do anything. See [Ask your cluster](/docs/mcp/#security).
+- **Prompt injection:** names and messages from your cluster reach an AI assistant only as data, in their own fields, cleaned and cut to a fixed length. Since every tool only reads, an injected instruction can't make WatchLog do anything. See [Ask your cluster](mcp.md#security).
 - **Turning MCP off:** set `mcp.enabled: false` (Helm) or `WATCHLOG_MCP_ENABLED=false` (Compose).
 
 ## Reporting a vulnerability

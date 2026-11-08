@@ -18,7 +18,7 @@ WatchLog has two parts: the **server** (backend, web UI, PostgreSQL, VictoriaMet
 One chart installs the server and the agents for this cluster:
 
 ```bash
-helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version 0.1.2 \
+helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version 0.2.0 \
   --namespace watchlog --create-namespace
 ```
 
@@ -53,8 +53,8 @@ In the UI, go to **Settings → Clusters → Add cluster → Kubernetes**. Run t
 
 ```bash
 mkdir watchlog && cd watchlog
-curl -fsSLO https://raw.githubusercontent.com/watchlog-light/watchlog/v0.1.2/deploy/docker/compose.yaml
-curl -fsSL -o .env https://raw.githubusercontent.com/watchlog-light/watchlog/v0.1.2/deploy/docker/.env.example
+curl -fsSLO https://raw.githubusercontent.com/watchlog-light/watchlog/v0.2.0/deploy/docker/compose.yaml
+curl -fsSL -o .env https://raw.githubusercontent.com/watchlog-light/watchlog/v0.2.0/deploy/docker/.env.example
 ```
 
 Edit `.env` and set:
@@ -62,7 +62,7 @@ Edit `.env` and set:
 - `WATCHLOG_DB_PASSWORD`: any strong password.
 - `WATCHLOG_SECRET_KEY`: from `openssl rand -base64 32`. Back it up with the database.
 - `WATCHLOG_PUBLIC_URL`: how agents and browsers reach this host, for example `http://10.0.0.5:8080`.
-- `WATCHLOG_VERSION=0.1.2`.
+- `WATCHLOG_VERSION=0.2.0`.
 
 Then start it and get the setup code:
 

@@ -155,7 +155,7 @@ Two prompts start an investigation for you: `investigate_problem` and `why_is_it
 
 The MCP server is on by default, since it needs a token anyway. To turn it off, set
 `mcp.enabled: false` in the Helm chart, or `WATCHLOG_MCP_ENABLED=false` with Docker Compose.
-`/mcp` then answers 404. Tokens still work with the [REST API](/docs/api/).
+`/mcp` then answers 404. Tokens still work with the [REST API](api.md).
 
 ## Troubleshooting
 
