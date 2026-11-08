@@ -4,13 +4,12 @@
 // (an ingested inventory): shapes, helpful errors, caps with their hints, the 16 KB limit,
 // hostile cluster text kept in its fields, and no secret in any answer.
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ensureDefaultRules, lookupEvaluator } from '../src/modules/alerts/rules.js';
 import { MAX_OUTPUT_BYTES } from '../src/modules/mcp/output.js';
 import { closeTestContext, createTestContext, setupAdmin, type TestContext } from './helpers.js';
 import { testWorker } from './support/alerts.js';
+import { container, dockerFleet, kindCluster, strings } from './support/mcp-fixtures.js';
 import { mcpClient, type McpTestClient } from './support/mcp.js';
 
 let ctx: TestContext | undefined;
@@ -22,130 +21,11 @@ afterEach(async () => {
   ctx = undefined;
 });
 
-const objects = JSON.parse(
-  readFileSync(new URL('./fixtures/kind-objects.json', import.meta.url), 'utf8'),
-) as { kind: string }[];
-const rawEvents = JSON.parse(
-  readFileSync(new URL('./fixtures/kind-events.json', import.meta.url), 'utf8'),
-) as { first_ts: string; last_ts: string }[];
-const shift = Date.now() - Math.max(...rawEvents.map((e) => Date.parse(e.last_ts))) - 60_000;
-const events = rawEvents.map((e) => ({
-  ...e,
-  first_ts: new Date(Date.parse(e.first_ts) + shift).toISOString(),
-  last_ts: new Date(Date.parse(e.last_ts) + shift).toISOString(),
-}));
-
-/** A cluster of a kind with its ingest token, made through the API. */
-async function addCluster(cookie: string, name: string, kind: 'kubernetes' | 'docker') {
-  const res = await ctx!.app.inject({
-    method: 'POST',
-    url: '/api/v1/clusters',
-    cookies: { wl_session: cookie },
-    payload: { name, kind },
-  });
-  if (res.statusCode !== 201) throw new Error(res.body);
-  const token = res.json().token.value as string;
-  const ingest = async (path: string, body: object, agent = 'cluster-agent') => {
-    const r = await ctx!.app.inject({
-      method: 'POST',
-      url: `/ingest/v1/${path}`,
-      headers: {
-        authorization: `Bearer ${token}`,
-        'x-watchlog-agent': agent,
-        'content-type': 'application/json',
-        'content-encoding': 'gzip',
-      },
-      payload: gzipSync(JSON.stringify(body)),
-    });
-    if (r.statusCode !== 204) throw new Error(`${path}: ${r.statusCode} ${r.body}`);
-  };
-  const heartbeat = (agent: string) =>
-    ctx!.app.inject({
-      method: 'POST',
-      url: '/ingest/v1/heartbeat',
-      headers: { authorization: `Bearer ${token}`, 'x-watchlog-agent': agent },
-      payload: {
-        agent_version: 'dev',
-        mode: kind === 'docker' ? 'docker' : 'cluster',
-        node: agent,
-        capabilities: {},
-        series: 10,
-      },
-    });
-  return { id: res.json().cluster.id as string, ingest, heartbeat };
-}
-
-async function kindCluster(cookie: string) {
-  const c = await addCluster(cookie, 'kind', 'kubernetes');
-  await c.ingest('objects', {
-    source: 'kubernetes',
-    kind: 'snapshot',
-    snapshot_id: 's1',
-    objects,
-    final: true,
-    kinds: [...new Set(objects.map((o) => o.kind))],
-  });
-  await c.ingest('events', { events });
-  return c;
-}
-
-const container = (id: string, name: string, extra: object = {}) => ({
-  id: id.repeat(64).slice(0, 64),
-  name,
-  image: 'nginx:1.29',
-  state: 'running',
-  status: 'Up 5 minutes',
-  restart_count: 0,
-  exit_code: 0,
-  oom_killed: false,
-  created_at: 1793400000,
-  compose_project: 'shop',
-  compose_service: name,
-  ...extra,
-});
-
-async function dockerFleet(cookie: string, hosts: Record<string, object[]>) {
-  const c = await addCluster(cookie, 'fleet', 'docker');
-  for (const [host, containers] of Object.entries(hosts)) {
-    await c.heartbeat(host);
-    await c.ingest(
-      'objects',
-      {
-        kind: 'snapshot',
-        source: 'docker',
-        node: host,
-        inventory: {
-          host: {
-            docker_version: '29.9.2',
-            api_version: '1.56',
-            os: 'linux',
-            arch: 'arm64',
-            kernel_version: '6.8',
-          },
-          containers,
-        },
-      },
-      host,
-    );
-  }
-  return c;
-}
-
-/** Every string in a value, with the key it sits under. */
-function strings(value: unknown, key = ''): { key: string; value: string }[] {
-  if (typeof value === 'string') return [{ key, value }];
-  if (Array.isArray(value)) return value.flatMap((v) => strings(v, key));
-  if (value && typeof value === 'object') {
-    return Object.entries(value).flatMap(([k, v]) => strings(v, k));
-  }
-  return [];
-}
-
 describe('MCP tools on a Kubernetes cluster', () => {
   it('lists the cluster, its problems, a pod and the alerts', async () => {
     ctx = await createTestContext();
     const cookie = await setupAdmin(ctx.app);
-    await kindCluster(cookie);
+    await kindCluster(ctx, cookie);
     mcp = await mcpClient(ctx, cookie);
 
     const clusters = await mcp.call('list_clusters');
@@ -265,7 +145,7 @@ describe('MCP tools on a Docker fleet', () => {
   it('names hosts and containers, and explains a crashing or OOM-killed container', async () => {
     ctx = await createTestContext();
     const cookie = await setupAdmin(ctx.app);
-    await dockerFleet(cookie, {
+    await dockerFleet(ctx, cookie, {
       'docker-01': [
         container('a', 'shop-web-1'),
         container('b', 'shop-api-1', {
@@ -355,7 +235,7 @@ describe('MCP tools on a Docker fleet', () => {
         compose_project: undefined,
       }),
     );
-    await dockerFleet(cookie, { 'docker-01': crashing });
+    await dockerFleet(ctx, cookie, { 'docker-01': crashing });
     mcp = await mcpClient(ctx, cookie);
     const res = await mcp.call('get_problems', { cluster: 'fleet' });
     expect(res.isError).toBe(false);
@@ -387,7 +267,7 @@ describe('cluster-controlled text (ADR-129)', () => {
     ctx = await createTestContext();
     const cookie = await setupAdmin(ctx.app);
     const hostileName = `${INJECTION}\u0007\u202e\r\nnow`; // bell, right-to-left override, a line break
-    const fleet = await dockerFleet(cookie, {
+    const fleet = await dockerFleet(ctx, cookie, {
       'docker-01': [
         container('e', hostileName, {
           state: 'restarting',
@@ -488,7 +368,7 @@ describe('secrets', () => {
       },
     });
     expect(put.statusCode, put.body).toBe(200);
-    const kind = await kindCluster(cookie);
+    const kind = await kindCluster(ctx, cookie);
     const orgId = (
       await ctx.app.inject({ method: 'GET', url: '/api/v1/me', cookies: { wl_session: cookie } })
     ).json().user.org.id as string;

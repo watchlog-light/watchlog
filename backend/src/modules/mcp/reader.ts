@@ -24,6 +24,17 @@ export class ApiReader {
     private readonly authorization: string,
   ) {}
 
+  /** A read sent as POST (the chart query, ADR-125). */
+  async post<T>(path: string, body: object): Promise<T> {
+    const res = await this.app.inject({
+      method: 'POST',
+      url: `/api/v1${path}`,
+      headers: { ...internalCallHeaders(this.authorization), 'content-type': 'application/json' },
+      payload: body,
+    });
+    return this.answer<T>(res);
+  }
+
   async get<T>(path: string, query: Query = {}): Promise<T> {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(query)) {
@@ -35,6 +46,10 @@ export class ApiReader {
       url: `/api/v1${path}${qs ? `?${qs}` : ''}`,
       headers: internalCallHeaders(this.authorization),
     });
+    return this.answer<T>(res);
+  }
+
+  private answer<T>(res: Awaited<ReturnType<FastifyInstance['inject']>>): T {
     if (res.statusCode !== 200) {
       let detail = res.statusMessage;
       try {
