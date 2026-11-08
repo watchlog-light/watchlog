@@ -159,7 +159,11 @@ describe('demo mode guard', () => {
     expect((await api('PUT', '/settings/general', cookie, { publicUrl: null })).statusCode).toBe(
       200,
     );
-    expect((await api('GET', '/setup')).json()).toEqual({ required: false, demoMode: false });
+    expect((await api('GET', '/setup')).json()).toEqual({
+      required: false,
+      demoMode: false,
+      demoMcpToken: null,
+    });
     expect((await api('POST', '/demo/session')).statusCode).toBe(404);
   });
 });
@@ -171,7 +175,11 @@ describe('demo sessions', () => {
 
   it('signs a visitor in as the demo viewer: a signed cookie, no database row', async () => {
     await demoContext();
-    expect((await api('GET', '/setup')).json()).toEqual({ required: false, demoMode: true });
+    expect((await api('GET', '/setup')).json()).toEqual({
+      required: false,
+      demoMode: true,
+      demoMcpToken: null,
+    });
     const before = Date.now();
     const { res, cookie } = await enterDemo();
     expect(res.json().user).toMatchObject({ email: DEMO_USER_EMAIL, role: 'viewer' });

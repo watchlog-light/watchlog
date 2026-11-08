@@ -26,7 +26,7 @@ describe('first-run setup', () => {
 
   it('reports setup as required while no user exists', async () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/api/v1/setup' });
-    expect(res.json()).toEqual({ required: true, demoMode: false });
+    expect(res.json()).toEqual({ required: true, demoMode: false, demoMcpToken: null });
   });
 
   it('rejects a wrong setup code with 403', async () => {
@@ -77,7 +77,7 @@ describe('first-run setup', () => {
     const second = await post({ code: TEST_SETUP_CODE, ...ADMIN, email: 'other@example.com' });
     expect(second.statusCode).toBe(409);
     const status = await ctx.app.inject({ method: 'GET', url: '/api/v1/setup' });
-    expect(status.json()).toEqual({ required: false, demoMode: false });
+    expect(status.json()).toEqual({ required: false, demoMode: false, demoMcpToken: null });
   });
 
   it('validates the password length and email format', async () => {

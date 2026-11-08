@@ -40,6 +40,8 @@ export interface ApiTokenAuthOptions {
   db: Database;
   /** REST requests per token and minute (ADR-125: 300). */
   restPerMinute: number;
+  /** The demo's public token works only in demo mode (ADR-130). */
+  demoMode?: boolean;
   now?: () => Date;
 }
 
@@ -51,7 +53,11 @@ export function registerApiTokenAuth(app: FastifyInstance, opts: ApiTokenAuthOpt
   const restLimit = app.createRateLimit({
     max: opts.restPerMinute,
     timeWindow: 60_000,
-    keyGenerator: (request) => `api-token:${request.apiToken!.id}`,
+    // The demo's public token is everyone's: one bucket per visitor (ADR-130).
+    keyGenerator: (request) =>
+      request.apiToken!.public
+        ? `api-token:${request.apiToken!.id}:${request.clientIp}`
+        : `api-token:${request.apiToken!.id}`,
   });
 
   app.decorateRequest('apiToken', null);
@@ -64,7 +70,7 @@ export function registerApiTokenAuth(app: FastifyInstance, opts: ApiTokenAuthOpt
     }
     const at = now();
     const found = await verifyApiToken(opts.db, value, at);
-    if (!found) {
+    if (!found || (found.token.public && !opts.demoMode)) {
       reply.header('www-authenticate', 'Bearer error="invalid_token"');
       return sendProblem(reply, 401, TOKEN_INVALID_MESSAGE);
     }
@@ -94,6 +100,8 @@ export function registerApiTokenAuth(app: FastifyInstance, opts: ApiTokenAuthOpt
         `An API token may make ${opts.restPerMinute} requests a minute. Retry in ${limit.ttlInSeconds} s.`,
       );
     }
+    // The public token's visitors leave no address or use behind (ADR-130).
+    if (found.token.public) return;
     try {
       await usage.record(
         found.token,

@@ -14,7 +14,9 @@ export const setupRoutes: FastifyPluginAsyncTypebox<{
   afterSetup?: () => Promise<void>;
   /** Read-only demo (ADR-122): setup is never offered, the web shows the demo entry. */
   demoMode?: boolean;
-}> = async (app, { db, setup, afterSetup, demoMode = false }) => {
+  /** The demo's public MCP token (ADR-130), offered on Settings → API tokens. */
+  demoMcpToken?: string;
+}> = async (app, { db, setup, afterSetup, demoMode = false, demoMcpToken }) => {
   app.get(
     '/setup',
     {
@@ -27,11 +29,18 @@ export const setupRoutes: FastifyPluginAsyncTypebox<{
             demoMode: Type.Boolean({
               description: 'A read-only demo: sign in with POST /demo/session; changes answer 403',
             }),
+            demoMcpToken: Type.Union([Type.String(), Type.Null()], {
+              description: "The live demo's public, read-only MCP token; null elsewhere",
+            }),
           }),
         },
       },
     },
-    async () => ({ required: !demoMode && (await setup.isRequired(db)), demoMode }),
+    async () => ({
+      required: !demoMode && (await setup.isRequired(db)),
+      demoMode,
+      demoMcpToken: demoMode ? (demoMcpToken ?? null) : null,
+    }),
   );
 
   app.post(

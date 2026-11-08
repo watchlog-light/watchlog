@@ -476,6 +476,7 @@ describe('authenticating with a token', () => {
       scope: 'read' as const,
       expiresAt: null,
       lastUsedAt: null,
+      public: false,
     };
     const use = (ip: string) => ({ ip, country: null, rest: true });
     await new TokenUsage(ctx.db).record(req, use('203.0.113.1'), t0);

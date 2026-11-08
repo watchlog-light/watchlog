@@ -27,6 +27,11 @@ export const DEMO_ALLOWED: readonly { method: string; url: string; why: string }
     url: '/api/v1/query/range',
     why: 'a read: chart queries are POSTed for their JSON body',
   },
+  {
+    method: 'POST',
+    url: '/mcp',
+    why: 'the MCP server: its tools only read (ADR-127), the public demo token uses it (ADR-130)',
+  },
 ];
 /** Every route under this prefix is the agents' (token-authenticated) ingest. */
 export const DEMO_ALLOWED_PREFIX = '/ingest/';

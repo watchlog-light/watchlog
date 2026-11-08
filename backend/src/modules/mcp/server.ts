@@ -55,8 +55,12 @@ export interface McpRequestContext {
   token: RequestToken;
   orgId: string;
   api: ApiReader;
-  /** Takes one tool call from the token's budget (60 a minute). */
-  takeCall: () => Promise<{ allowed: true } | { allowed: false; retryAfterSeconds: number }>;
+  /** Takes one tool call from the budget: the token's, or the demo visitor's and the demo's. */
+  takeCall: () => Promise<
+    { allowed: true } | { allowed: false; retryAfterSeconds: number; limit: string }
+  >;
+  /** Calls go to the call log; not the demo's public token's (ADR-130). */
+  logCalls: boolean;
 }
 
 export interface McpServerDeps {
@@ -120,11 +124,9 @@ async function callTool(
   if (!budget.allowed) {
     status = 'rate_limited';
     json = errorJson(
-      new ToolError(
-        `Rate limited: an API token may make ${deps.callsPerMinute} tool calls a minute.`,
-        `Wait ${budget.retryAfterSeconds} s, then call again.`,
-        { retryAfterSeconds: budget.retryAfterSeconds },
-      ),
+      new ToolError(budget.limit, `Wait ${budget.retryAfterSeconds} s, then call again.`, {
+        retryAfterSeconds: budget.retryAfterSeconds,
+      }),
     );
   } else {
     try {
@@ -137,20 +139,22 @@ async function callTool(
     }
   }
   const bytes = Buffer.byteLength(json, 'utf8');
-  try {
-    await recordMcpCall(deps.db, {
-      tokenId: ctx.token.id,
-      orgId: ctx.orgId,
-      tool: tool.name,
-      args: tool.summarize(args as never),
-      status,
-      durationMs: performance.now() - started,
-      bytes,
-      at,
-    });
-  } catch (err) {
-    // The call log is bookkeeping: the answer goes out anyway.
-    deps.log.warn({ tool: tool.name, err: (err as Error).message }, 'could not log an MCP call');
+  if (ctx.logCalls) {
+    try {
+      await recordMcpCall(deps.db, {
+        tokenId: ctx.token.id,
+        orgId: ctx.orgId,
+        tool: tool.name,
+        args: tool.summarize(args as never),
+        status,
+        durationMs: performance.now() - started,
+        bytes,
+        at,
+      });
+    } catch (err) {
+      // The call log is bookkeeping: the answer goes out anyway.
+      deps.log.warn({ tool: tool.name, err: (err as Error).message }, 'could not log an MCP call');
+    }
   }
   return {
     content: [{ type: 'text', text: json }],

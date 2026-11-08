@@ -71,6 +71,8 @@ export interface paths {
               required: boolean;
               /** @description A read-only demo: sign in with POST /demo/session; changes answer 403 */
               demoMode: boolean;
+              /** @description The live demo's public, read-only MCP token; null elsewhere */
+              demoMcpToken: string | null;
             };
           };
         };

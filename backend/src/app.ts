@@ -3,6 +3,10 @@ import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
+import {
+  DEMO_MCP_TOTAL_CALLS_PER_MINUTE,
+  DEMO_MCP_VISITOR_CALLS_PER_MINUTE,
+} from './modules/demo/mcp-token.js';
 import { registerMcpRoutes } from './modules/mcp/routes.js';
 import { publicSpec } from './openapi/public.js';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
@@ -98,7 +102,11 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       request.apiToken ? `api-token:${request.apiToken.id}` : request.clientIp,
   });
   // Personal API tokens (ADR-125): before the session cookie and the demo's sessions.
-  registerApiTokenAuth(app, { db: deps.db, restPerMinute: config.apiTokenLimits.restPerMinute });
+  registerApiTokenAuth(app, {
+    db: deps.db,
+    restPerMinute: config.apiTokenLimits.restPerMinute,
+    demoMode: config.demoMode,
+  });
   // Read-only demo (ADR-122): signed sessions without database rows, and small queries.
   const demoSessions = new DemoSessions(config.secretKey);
   if (config.demoMode) {
@@ -128,6 +136,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(setupRoutes, {
         ...deps,
         demoMode: config.demoMode,
+        demoMcpToken: config.demoMode ? deps.seed?.demoMcp?.token : undefined,
         afterSetup: async () => {
           await bootstrapCluster(app, config, deps.db);
           if (deps.seed) await applySeed(deps.db, deps.seed, app.log);
@@ -164,6 +173,16 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       db: deps.db,
       version: config.version,
       callsPerMinute: config.apiTokenLimits.mcpCallsPerMinute,
+      ...(config.demoMode
+        ? {
+            demo: {
+              visitorCallsPerMinute:
+                deps.seed?.demoMcp?.visitorCallsPerMinute ?? DEMO_MCP_VISITOR_CALLS_PER_MINUTE,
+              totalCallsPerMinute:
+                deps.seed?.demoMcp?.totalCallsPerMinute ?? DEMO_MCP_TOTAL_CALLS_PER_MINUTE,
+            },
+          }
+        : {}),
     });
   }
   await app.register(ingestRoutes, {

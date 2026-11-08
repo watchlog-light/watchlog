@@ -47,7 +47,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["required", "demoMode"],
+                  "required": ["required", "demoMode", "demoMcpToken"],
                   "properties": {
                     "required": {
                       "type": "boolean"
@@ -55,6 +55,17 @@
                     "demoMode": {
                       "type": "boolean",
                       "description": "A read-only demo: sign in with POST /demo/session; changes answer 403"
+                    },
+                    "demoMcpToken": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The live demo's public, read-only MCP token; null elsewhere"
                     }
                   }
                 }

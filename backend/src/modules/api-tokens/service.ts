@@ -4,6 +4,7 @@
 import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
+import { DEMO_USER_EMAIL } from '../demo/constants.js';
 import { countMcpCalls, recentMcpCalls, type McpCallView } from '../mcp/calls.js';
 import { sha256 } from '../../lib/tokens.js';
 import type { CurrentUser, Plan, Role } from '../auth/sessions.js';
@@ -29,6 +30,8 @@ export interface RequestToken {
   scope: ApiTokenScope;
   expiresAt: Date | null;
   lastUsedAt: Date | null;
+  /** The live demo's published token (ADR-130): limited per visitor, its use not kept. */
+  public: boolean;
 }
 
 export interface ApiTokenView {
@@ -335,6 +338,7 @@ export async function verifyApiToken(
       scope: row.scope as ApiTokenScope,
       expiresAt: row.expires_at,
       lastUsedAt: row.last_used_at,
+      public: row.email === DEMO_USER_EMAIL,
     },
     user: {
       id: row.id,

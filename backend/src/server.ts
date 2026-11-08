@@ -4,6 +4,7 @@ import { loadConfig, type Config } from './config.js';
 import { createDb, describeDbError, waitForDatabase } from './db/index.js';
 import { checkSecretKey } from './lib/secrets.js';
 import { SetupState } from './modules/setup/service.js';
+import { syncDemoMcpToken } from './modules/demo/mcp-token.js';
 import { ensureDemoUser } from './modules/demo/service.js';
 import { applySeed, loadSeedFile, type Seed } from './modules/seed/seed.js';
 
@@ -62,6 +63,12 @@ if (config.demoMode) {
 await bootstrapCluster(app, config, db).catch((err: Error) =>
   app.log.error({ err: err.message }, 'cluster bootstrap failed'),
 );
+// The demo's public MCP token (ADR-130): in demo mode the seed's, otherwise none.
+await syncDemoMcpToken(
+  db,
+  { demoMode: config.demoMode, token: seed?.demoMcp?.token },
+  app.log,
+).catch((err: Error) => app.log.error({ err: err.message }, 'demo MCP token setup failed'));
 // After the bootstrap cluster, which a seeded rule may name. A rule that fails is logged.
 if (seed) {
   await applySeed(db, seed, app.log).catch((err: Error) =>

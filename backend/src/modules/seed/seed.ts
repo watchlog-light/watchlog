@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Configuration applied at start from a file (WATCHLOG_SEED_FILE, ADR-122), not through
-// the API: how the read-only demo, which refuses every change, gets its alert rules.
+// the API: how the read-only demo, which refuses every change, gets its alert rules and
+// its public MCP token (ADR-130, modules/demo/mcp-token.ts).
 // Each rule is created once, matched by name, and never overwritten.
 import { readFile } from 'node:fs/promises';
 import { sql } from 'kysely';
@@ -28,8 +29,22 @@ const SeedRuleSchema = Type.Object(
   { additionalProperties: false },
 );
 
+/** The live demo's public MCP token and its limits (ADR-130); used only in demo mode. */
+const SeedDemoMcpSchema = Type.Object(
+  {
+    /** A token value as API tokens have it: published, so any value of that shape. */
+    token: Type.String({ pattern: '^wl_pat_[A-Za-z0-9_-]{43}$' }),
+    visitorCallsPerMinute: Type.Optional(Type.Integer({ minimum: 1, maximum: 10_000 })),
+    totalCallsPerMinute: Type.Optional(Type.Integer({ minimum: 1, maximum: 100_000 })),
+  },
+  { additionalProperties: false },
+);
+
 export const SeedSchema = Type.Object(
-  { alertRules: Type.Optional(Type.Array(SeedRuleSchema, { maxItems: 200 })) },
+  {
+    alertRules: Type.Optional(Type.Array(SeedRuleSchema, { maxItems: 200 })),
+    demoMcp: Type.Optional(SeedDemoMcpSchema),
+  },
   { additionalProperties: false },
 );
 export type Seed = Static<typeof SeedSchema>;
