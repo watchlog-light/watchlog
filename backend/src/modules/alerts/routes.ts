@@ -2,7 +2,7 @@
 // Alerting API (SPEC §8.1): alerts, silences, rules, channels and whether alerting
 // runs (ADR-088). Reads for every member, changes for owners and admins.
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import type { FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { sql, type ExpressionBuilder, type Selectable } from 'kysely';
 import { randomBytes } from 'node:crypto';
 import { Type, type Static } from 'typebox';
@@ -207,7 +207,14 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
   }
 
   /** Each alert's latest firing message per channel: ✓ or ✕ with the error. */
-  async function deliveriesOf(ids: string[]): Promise<Map<string, Delivery[]>> {
+  /**
+   * Delivery and notification error text can carry an SMTP host or user, or part of a
+   * webhook URL. It is left out in demo mode (ADR-122) and for API-token requests
+   * (ADR-125), which a script or an AI assistant may pass on.
+   */
+  const hideErrors = (request: FastifyRequest) => demoMode || request.apiToken !== null;
+
+  async function deliveriesOf(ids: string[], hide: boolean): Promise<Map<string, Delivery[]>> {
     const out = new Map<string, Delivery[]>();
     if (!ids.length) return out;
     const rows = await db
@@ -227,7 +234,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
         name: r.name,
         type: r.type,
         status: r.status,
-        error: demoMode ? null : r.error,
+        error: hide ? null : r.error,
       });
       out.set(r.alert_state_id, list);
     }
@@ -382,7 +389,10 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
       const counts = await cq.executeTakeFirstOrThrow();
       return {
         alerts: await (async () => {
-          const d = await deliveriesOf(rows.map((r) => r.id));
+          const d = await deliveriesOf(
+            rows.map((r) => r.id),
+            hideErrors(request),
+          );
           return rows.map((r) => toAlert(r, d.get(r.id)));
         })(),
         nextCursor,
@@ -446,12 +456,12 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
         alertingGaps(db, row.started_at, row.resolved_at ?? new Date()),
       ]);
       return {
-        alert: toAlert(row, (await deliveriesOf([row.id])).get(row.id)),
+        alert: toAlert(row, (await deliveriesOf([row.id], hideErrors(request))).get(row.id)),
         notifications: notes.map((n) => ({
           id: n.id,
           kind: n.kind,
           status: n.status,
-          error: demoMode ? null : n.error,
+          error: hideErrors(request) ? null : n.error,
           attempts: n.attempts,
           createdAt: iso(n.created_at)!,
           sentAt: iso(n.sent_at),
