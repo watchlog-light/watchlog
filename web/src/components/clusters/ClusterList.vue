@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import { ChevronRight, Container, Plus } from '@lucide/vue';
+import { KIND_LOGO } from '@/components/ui/kindLogos';
 import type { Cluster, ClusterList, CreateClusterResponse } from '@watchlog/api-types';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -113,6 +114,7 @@ onMounted(list.load);
             ]"
           >
             <input v-model="kind" type="radio" name="kind" :value="k" class="accent-primary" />
+            <component :is="KIND_LOGO[k]" class="size-4 shrink-0" aria-hidden="true" />
             {{ $t(`clusters.kind.${k}`) }}
           </label>
         </div>
@@ -184,7 +186,7 @@ onMounted(list.load);
           :to="{ name: 'cluster-settings', params: { id: cluster.id } }"
           class="flex items-center gap-4 rounded-card border border-border bg-surface-1 px-4 py-3 transition-colors hover:bg-surface-2"
         >
-          <Container class="size-5 shrink-0 text-text-muted" aria-hidden="true" />
+          <component :is="KIND_LOGO[cluster.kind]" class="size-5 shrink-0" aria-hidden="true" />
           <div class="min-w-0 flex-1">
             <p class="truncate text-14 font-medium text-text">{{ cluster.name }}</p>
             <p class="text-12 text-text-muted">

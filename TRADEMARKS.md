@@ -34,6 +34,23 @@ To do this with a fork, change the name in the UI, the image and chart names, an
 logo. The logo is in `packages/design-tokens/assets/` and the name in
 `web/src/i18n/en.json`.
 
+## Other marks
+
+Kubernetes and Docker are trademarks of their respective owners. WatchLog is not affiliated
+with them, and they don't sponsor or endorse it. The dashboard shows their logos only to name
+the kind of cluster it monitors:
+
+- **Kubernetes logo** (`web/src/assets/brands/kubernetes.svg`): © The Linux Foundation, from
+  [cncf/artwork](https://github.com/cncf/artwork/tree/main/projects/kubernetes), licensed
+  under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and used under the
+  [Linux Foundation trademark usage guidelines](https://www.linuxfoundation.org/legal/trademark-usage).
+- **Docker logo** (`web/src/assets/brands/docker.svg`): the Docker mark from Docker's
+  [brand resources](https://www.docker.com/company/newsroom/media-resources/), unchanged, used
+  under Docker's [trademark guidelines](https://www.docker.com/legal/trademark-guidelines/).
+
+Both files are the owners' artwork as published, not changed or recoloured. Forks keep these
+notices with the files.
+
 ## Questions
 
 If you're unsure whether a use is fine, or want permission for one not listed here, ask

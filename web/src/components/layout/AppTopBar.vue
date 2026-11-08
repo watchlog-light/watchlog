@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { ChevronDown, Container, Layers, Menu, Network, X } from '@lucide/vue';
+import { ChevronDown, Layers, Menu, X } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import {
   DialogClose,
@@ -17,6 +17,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import DockerScopeFilter from '@/components/docker/DockerScopeFilter.vue';
 import NamespaceFilter from '@/components/kube/NamespaceFilter.vue';
+import { KIND_LOGO } from '@/components/ui/kindLogos';
 import { useCompact, useNarrow } from '@/composables/useNarrow';
 import { useClustersStore } from '@/stores/clusters';
 import { useUiStore } from '@/stores/ui';
@@ -57,9 +58,8 @@ watch(
   () => route.path,
   () => (sheetOpen.value = false),
 );
-const KIND_ICON = { docker: Container, kubernetes: Network } as const;
 const clusterIcon = computed(() =>
-  clusters.selected ? KIND_ICON[clusters.selected.kind] : Layers,
+  clusters.selected ? KIND_LOGO[clusters.selected.kind] : Layers,
 );
 const summary = computed(() =>
   [

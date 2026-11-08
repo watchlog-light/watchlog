@@ -107,6 +107,11 @@ describe('Settings → Clusters', () => {
     });
     const wrapper = await mountAs(SettingsPage, '/settings');
     await wrapper.get('[data-testid="add-first-cluster"]').trigger('click');
+    // Each kind is offered with its logo.
+    const logos = wrapper
+      .findAll('[data-testid="kind-choice"] img')
+      .map((i) => i.attributes('data-logo'));
+    expect(logos).toEqual(['docker', 'kubernetes']);
     await wrapper.get('[data-testid="kind-choice"] input[value="kubernetes"]').setValue(true);
     await wrapper.get('[data-testid="create-form"] input[type="text"]').setValue('kind');
     await wrapper.get('[data-testid="create-form"]').trigger('submit');
@@ -120,6 +125,9 @@ describe('Settings → Clusters', () => {
     expect(reveal.text()).toContain('where helm reaches the cluster');
     expect(wrapper.get('[data-testid="cluster-list"]').text()).toContain('Kubernetes cluster');
     expect(wrapper.get('[data-testid="cluster-list"]').text()).toContain('no nodes yet');
+    expect(wrapper.get('[data-testid="cluster-list"] img').attributes('data-logo')).toBe(
+      'kubernetes',
+    );
   });
 
   it('creates the first Docker fleet and shows the token and command once', async () => {
