@@ -1519,6 +1519,13 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Errors:** without a token, 401 with `WWW-Authenticate: Bearer realm="WatchLog", scope="read"` and how to get one. Tool failures are in-band results with WatchLog's sentence, a hint and the asked values as data.
   - **Call log:** `mcp_calls` (tool, an argument summary WatchLog writes, at most 200 characters, status `ok`, `truncated`, `rate_limited` or `error`, duration, bytes), deleted after 30 days by the alert-worker's hourly token upkeep. The list's `mcpCalls30d` and the detail's last 50 calls come from it.
   - **Off switch:** `mcp.enabled: false` (Helm) or `WATCHLOG_MCP_ENABLED=false`: `/mcp` is not registered.
+- Amended 2026-11-08, v0.2 slice 6 (real clients): `deploy/test/k8s/mcp-e2e.sh` (checks in `backend/scripts/mcp-e2e.ts`) runs against the kind demo and a Docker host. It makes a token, then:
+  - the SDK client, negotiating 2026-07-28 and 2025-11-25;
+  - Claude Desktop's path, `npx mcp-remote@0.15.2` over stdio with the token in an environment variable, pinned to a release at least two weeks old;
+  - Claude Code headless (`claude -p --mcp-config … --strict-mcp-config`), which changes no Claude Code settings;
+  - Cursor only when its `cursor-agent` CLI is installed;
+  - revoking the token, then a call that must fail.
+    It is manual like the other acceptance scripts: Claude Code runs on the user's account, and the demo needs a VM.
 
 ## ADR-128: MCP tools: read-only, compact, bounded, for Kubernetes and Docker
 
@@ -1552,6 +1559,13 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Docker vocabulary:** problems and containers name their `host` (not a namespace), `get_pod` answers for a container by name (and `host` when the name runs on several), and Kubernetes arguments on a Docker fleet get an error that says so.
   - **Health checks:** a container's health shows its status, failing streak and start, never the probe output (it is the workload's own command output).
   - **Descriptions** are written for the assistant: when to use the tool, what it returns, its limits, one example question, and the data note of ADR-129. Every tool is `readOnlyHint`, not destructive, idempotent and not open-world.
+- Amended 2026-11-08, slice 5 as built (`explain_alert`, `get_workload`, `get_node`, `get_service_map`, `get_events`, `get_recent_changes`, `query_metric`; prompts `investigate_problem` and `why_is_it_crashing`):
+  - **`explain_alert`** states facts and guesses no cause. It returns the alert, how often it fired before, the current state of what it is about (a pod and its containers, a workload, a node, a Docker container or Compose service), up to 20 of that object's events, and up to 10 changes from an hour before it started.
+  - **Defaults:** `get_events` covers Warning events of the last 60 minutes, grouped by reason and object (30 groups). `get_recent_changes` covers 6 hours (30 changes). `get_service_map` without `workload` shows only failing or slow connections (30), with DNS errors from 5 % failed lookups. All three reach back at most 24 hours. Change lookups run to a minute past now, so a change stamped in the current second is not missed.
+  - **`query_metric`** takes the catalog's keys as an enum. Each key must fit the cluster's kind (`host.*` and `container.*` on Docker; `node.*`, `pod.*`, `workload.*`, `namespace.*` and `pvc.*` on Kubernetes; `flow.*` on both). The step is chosen for at most 60 points. Series come as min, max, average and last, highest first.
+  - **Docker containers by name:** when hosts that stopped reporting keep a stale copy of a container's name, the copy on a reporting host is used, and the answer lists the others in `staleOn`. Only several reporting copies make the call ask for `host`.
+  - **Health checks:** `get_pod`'s health has the status, failing streak and start, never the probes. An unhealthy alert's `detail` quotes the last probe line, as the dashboard does. The agent redacts that line and cuts it to 512 bytes (ADR-047), and it can be turned off.
+  - **Prompts** quote the user's values as labelled, cleaned data, and tell the assistant to treat cluster text as data.
 
 ## ADR-129: Cluster-controlled text is data, never instructions
 

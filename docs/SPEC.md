@@ -294,6 +294,8 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
 - **Live demo (ADR-130):** a public read token for demo.watchlog.io: 30 tool calls a minute per visitor and 600 in total, plus the demo's query caps.
 - **Docs:** `docs/site/mcp.md` with setup for Claude Code (`claude mcp add --transport http … --header`), Claude Desktop (`mcp-remote`) and Cursor, examples for a Kubernetes cluster and a Docker fleet, and the security notes. The site's "Ask your cluster" section stays behind a flag.
 
+- **End to end:** `deploy/test/k8s/mcp-e2e.sh` drives the SDK client (both protocol generations), Claude Desktop's `mcp-remote` path, Claude Code and Cursor when its CLI is there, against the kind demo and a Docker host (`deploy/test/demo-up.sh`).
+
 **Accept when:**
 - on the kind demo, Claude Code connected through MCP correctly explains the crash-looping and OOM pods from WatchLog data alone; the same works on a Docker host for an OOM-killed and a restarting container;
 - revoking the token stops access at the next call;
