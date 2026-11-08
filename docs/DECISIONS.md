@@ -1512,6 +1512,13 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 - Consequences:
   - The backend must be reachable from where the AI client runs (`publicUrl`, a VPN or a tunnel); the docs say so.
   - AGPL: the MCP server is part of the backend, so its network use is covered like the rest.
+- Amended 2026-11-08, as built (v0.2 slice 4):
+  - **SDK:** `@modelcontextprotocol/server` 2.4.0, the SDK's v2 line, pinned exactly. v1 (`@modelcontextprotocol/sdk` 1.32.2, the newest v1) speaks only up to 2025-11-25. v2 implements 2026-07-28 and serves 2025-era clients through `createMcpHandler`'s stateless fallback (`legacy: 'stateless'`). The tests drive the SDK's v2 client (`@modelcontextprotocol/client` 2.4.0, dev only) pinned to 2026-07-28 and in its plain 2025 handshake (negotiated 2025-11-25). No Hono or Express: the handler's web-standard `fetch` is called from the Fastify route.
+  - **Reads through the API:** a tool calls the public REST routes in-process (`app.inject`) with the caller's own token, so it never sees more than the API shows that token: org, allowlist, demo limits and redaction all apply. A secret made at start marks these calls, so they neither count against the REST limit nor count as REST use; the MCP call is counted and logged instead.
+  - **Limits:** 60 tool calls a minute per token, answered in-band (`isError`, `retryAfterSeconds`) and logged as `rate_limited`. Every `/mcp` request, tool listing included, also counts toward the token's 300 requests a minute.
+  - **Errors:** without a token, 401 with `WWW-Authenticate: Bearer realm="WatchLog", scope="read"` and how to get one. Tool failures are in-band results with WatchLog's sentence, a hint and the asked values as data.
+  - **Call log:** `mcp_calls` (tool, an argument summary WatchLog writes, at most 200 characters, status `ok`, `truncated`, `rate_limited` or `error`, duration, bytes), deleted after 30 days by the alert-worker's hourly token upkeep. The list's `mcpCalls30d` and the detail's last 50 calls come from it.
+  - **Off switch:** `mcp.enabled: false` (Helm) or `WATCHLOG_MCP_ENABLED=false`: `/mcp` is not registered.
 
 ## ADR-128: MCP tools: read-only, compact, bounded, for Kubernetes and Docker
 
@@ -1538,6 +1545,13 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 - Consequences:
   - Each tool has a contract test against a seeded backend for a kind cluster and a Docker fleet.
   - An end-to-end test on kind and on a Docker host drives a real MCP client.
+- Amended 2026-11-08, slice 4 as built (`list_clusters`, `get_problems`, `list_alerts`, `get_pod`):
+  - **`cluster`** takes a name or an id and may be left out when the token sees one cluster; otherwise the error lists the clusters.
+  - **Caps:** 50 clusters, 50 problems, 30 alerts, 10 containers and 10 events per pod or container, then 16 KB. A cut answer carries `truncated`, `shown`, `total` and a hint naming the argument that narrows it ("Pass `namespace` to see one namespace.").
+  - **No rendered titles:** the dashboard's problem and alert titles put names inside sentences, so tools leave them out. A problem has `type`, WatchLog's `reason` for that type, the `object` as data, and the dashboard's line as `detail`. An alert has its rule and its labels as `object`.
+  - **Docker vocabulary:** problems and containers name their `host` (not a namespace), `get_pod` answers for a container by name (and `host` when the name runs on several), and Kubernetes arguments on a Docker fleet get an error that says so.
+  - **Health checks:** a container's health shows its status, failing streak and start, never the probe output (it is the workload's own command output).
+  - **Descriptions** are written for the assistant: when to use the tool, what it returns, its limits, one example question, and the data note of ADR-129. Every tool is `readOnlyHint`, not destructive, idempotent and not open-world.
 
 ## ADR-129: Cluster-controlled text is data, never instructions
 
@@ -1550,6 +1564,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Tests** feed hostile values (a pod named "ignore previous instructions …", an event message with markdown and fake tool calls, very long names) and check that they come back only inside their fields, capped and escaped, and that no tool output places them in its own sentences.
   - **Limiting the damage:** tokens are read-only (ADR-125), so an injected instruction cannot make WatchLog change anything. The security docs explain this and recommend that users review what their assistant does with other tools in the same session.
 - Consequences: the same rule applies to future write tools and to v0.3's probable-cause sentences.
+- Amended 2026-11-08, as built (v0.2 slice 4): one output layer (`backend/src/modules/mcp/output.ts`) cleans every cluster-supplied value. C0 and C1 controls, zero-width and bidirectional formatting characters are removed, and line breaks become spaces. Names are capped at 253 characters, messages at 512, label keys and values at 63, by characters, with an ellipsis. The server's instructions and every tool description say these values are data. The tests feed a container named "ignore previous instructions…" with control characters, a 300-character image, an event message with a fake tool call, and a 253-character name. They check that each comes back only in its own field, cleaned and capped, never in `reason`, `summary`, `hint` or `error`.
 
 ## ADR-130: A public MCP endpoint on the live demo
 

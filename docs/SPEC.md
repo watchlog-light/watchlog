@@ -262,8 +262,10 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
   - Docs: `docs/site/api.md`, with examples for both kinds of cluster.
 - **MCP server (ADR-127):**
   - `POST /mcp` in the backend, Streamable HTTP, a read token in the `Authorization` header;
-  - the official MCP TypeScript SDK, negotiating the current and the 2025 protocol versions;
+  - the official MCP TypeScript SDK (v2: `@modelcontextprotocol/server`), serving the 2026-07-28 protocol and, through its stateless fallback, clients still on the 2025 versions;
   - stateless;
+  - tools read through the public REST API in-process, as the same token: never more than the API shows it;
+  - 60 tool calls a minute per token; `/mcp` requests also count toward the token's 300 requests a minute;
   - `mcp.enabled` in Helm and Compose, default on;
   - every call logged with the tool, a short argument summary, the status, the duration and the size, never the output; kept 30 days, the last 50 shown per token;
   - OAuth for native "custom connectors" in a later version.
@@ -546,7 +548,7 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `GET /alerts` (firing & history) · `POST /silences` | |
 | `POST /funnel` | Client-side funnel events (§10.4) |
 | `GET/POST /api-tokens` · `DELETE /api-tokens/:id` | Personal API tokens (§4.11): list, create (value shown once), revoke; session only, never with a token |
-| `POST /mcp` | MCP server, Streamable HTTP (§4.11); read token |
+| `POST /mcp` | MCP server, Streamable HTTP (§4.11); read token. 401 with `WWW-Authenticate: Bearer` without one; `GET` and `DELETE` (2025 session operations) answer 405 |
 | `POST /demo/session` | Demo mode only (ADR-122): a passwordless, read-only viewer session (a signed cookie, no row); 404 otherwise |
 
 ## 8.2 Ingest API (agent → backend)
