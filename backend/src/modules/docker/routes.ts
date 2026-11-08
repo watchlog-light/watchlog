@@ -14,6 +14,7 @@ import { watchlogComponents } from '../servicemap/graph.js';
 import { firingAlerts } from '../overview/problems.js';
 import { sparkStep } from '../overview/step.js';
 import { buildQuery } from '../query/catalog.js';
+import { PUBLIC_TAG } from '../../openapi/public.js';
 
 const Nullable = <T extends ReturnType<typeof Type.Number>>(t: T) => Type.Union([t, Type.Null()]);
 const NullableString = Type.Union([Type.String(), Type.Null()]);
@@ -236,7 +237,7 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'Docker hosts of a fleet with container counts, usage, disks and trends',
-        tags: ['docker'],
+        tags: ['docker', PUBLIC_TAG],
         params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
         querystring: Type.Object({
           /** Seconds of history for the sparklines (default 1 h). */
@@ -458,7 +459,7 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'Containers of a fleet (optionally one host) with current usage',
-        tags: ['docker'],
+        tags: ['docker', PUBLIC_TAG],
         params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
         querystring: Type.Object({
           host: Type.Optional(Type.String({ minLength: 1, maxLength: 253 })),

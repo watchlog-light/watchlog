@@ -26,6 +26,7 @@ import {
   type MapEdge,
   type MapNode,
 } from './graph.js';
+import { PUBLIC_TAG } from '../../openapi/public.js';
 
 export interface ServiceMapDeps {
   db: Database;
@@ -365,7 +366,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
       preHandler: signedIn,
       schema: {
         summary: 'Service map: workloads and the TCP connections between them (SPEC §4.5)',
-        tags: ['service map'],
+        tags: ['service map', PUBLIC_TAG],
         params: Params,
         querystring: Type.Object({
           namespaces: Type.Optional(
@@ -472,7 +473,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
       preHandler: signedIn,
       schema: {
         summary: "One edge's time series: connections, failures, p95 connect latency, bytes",
-        tags: ['service map'],
+        tags: ['service map', PUBLIC_TAG],
         params: Params,
         querystring: Type.Object({
           source: Type.String({ minLength: 3, maxLength: 600 }),

@@ -67,8 +67,12 @@ export function registerApiTokenAuth(app: FastifyInstance, opts: ApiTokenAuthOpt
       return sendProblem(reply, 401, TOKEN_INVALID_MESSAGE);
     }
     const route = request.routeOptions.url;
+    const tags = (request.routeOptions.schema as { tags?: string[] } | undefined)?.tags;
     // No route: the 404 handler answers.
-    if (route !== undefined && !tokenAllows(found.token.scope, request.method, route)) {
+    if (
+      route !== undefined &&
+      !tokenAllows(found.token.scope, { method: request.method, url: route, tags })
+    ) {
       reply.header('www-authenticate', 'Bearer error="insufficient_scope", scope="read"');
       return sendProblem(reply, 403, TOKEN_SCOPE_MESSAGE, ProblemType.tokenScope);
     }

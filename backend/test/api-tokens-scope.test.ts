@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// The read scope of API tokens (ADR-125), route by route. Every route the app registers is
-// called with a token: a change answers 403 `token-scope` unless it is a read sent as POST,
-// and the reads a token may make are pinned below, so a new route needs a decision here.
+// The read scope of API tokens (ADR-125), route by route. It is an allowlist: the routes
+// tagged `public` (ADR-126). Every route the app registers is called with a token, for a
+// Kubernetes cluster and a Docker fleet: anything not public answers 403 `token-scope`, and
+// the public set is pinned below, so making a route public is a decision made here too.
 import type { RouteOptions } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 import { insertCluster } from '../src/modules/clusters/service.js';
-import { tokenAllows, TOKEN_DENIED_PREFIXES } from '../src/modules/api-tokens/scope.js';
+import { tokenAllows } from '../src/modules/api-tokens/scope.js';
 import { closeTestContext, createTestContext, setupAdmin, type TestContext } from './helpers.js';
 
 let ctx: TestContext;
@@ -13,10 +14,9 @@ afterEach(() => closeTestContext(ctx));
 
 const SAMPLE_ID = '01a18f0e-a6c2-71ef-a7b4-42d765746d40';
 
-/** Everything a read token may call, besides the MCP server. */
+/** Everything a read token may call, besides the MCP server: the public API and its spec. */
 const ALLOWED = [
   'GET /api/v1/alert-rules',
-  'GET /api/v1/alerting/status',
   'GET /api/v1/alerts',
   'GET /api/v1/alerts/:id',
   'GET /api/v1/alerts/:id/chart',
@@ -44,9 +44,10 @@ const ALLOWED = [
 ];
 
 async function walk(kind: 'kubernetes' | 'docker') {
-  const routes: { method: string; url: string }[] = [];
+  const routes: { method: string; url: string; tags?: string[] }[] = [];
   const onRoute = (r: RouteOptions) => {
-    for (const method of [r.method].flat()) routes.push({ method, url: r.url });
+    const tags = (r.schema as { tags?: string[] } | undefined)?.tags;
+    for (const method of [r.method].flat()) routes.push({ method, url: r.url, tags });
   };
   ctx = await createTestContext(
     { apiTokenLimits: { restPerMinute: 10_000, mcpCallsPerMinute: 60 } },
@@ -87,7 +88,7 @@ async function walk(kind: 'kubernetes' | 'docker') {
     const scopeRefusal =
       res.statusCode === 403 &&
       String(res.headers['www-authenticate'] ?? '').includes('insufficient_scope');
-    if (tokenAllows('read', r.method, r.url)) {
+    if (tokenAllows('read', r)) {
       expect(scopeRefusal, `${name}: ${res.body}`).toBe(false);
       // Signed in as the token's user: never 401, never a server error.
       expect(res.statusCode, `${name}: ${res.body}`).not.toBe(401);
@@ -118,18 +119,29 @@ describe('API token read scope', () => {
     });
   }
 
-  it('never lets a token read token, settings, channel, setup, auth or demo routes', () => {
-    for (const { prefix } of TOKEN_DENIED_PREFIXES) {
-      for (const method of ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE']) {
-        expect(tokenAllows('read', method, prefix), `${method} ${prefix}`).toBe(false);
-        expect(tokenAllows('read', method, `${prefix}/:id`), `${method} ${prefix}/:id`).toBe(false);
-      }
+  it('allows only public reads: an untagged route or a public write stays closed', () => {
+    const pub = ['public'];
+    // A new GET route is closed until it is tagged public.
+    expect(tokenAllows('read', { method: 'GET', url: '/api/v1/clusters/:id/new-page' })).toBe(
+      false,
+    );
+    expect(
+      tokenAllows('read', { method: 'GET', url: '/api/v1/settings/general', tags: ['settings'] }),
+    ).toBe(false);
+    expect(tokenAllows('read', { method: 'GET', url: '/api/v1/x', tags: pub })).toBe(true);
+    expect(tokenAllows('read', { method: 'HEAD', url: '/api/v1/x', tags: pub })).toBe(true);
+    // Public or not, a change is refused; only the chart query is read with POST.
+    for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+      expect(tokenAllows('read', { method, url: '/api/v1/x', tags: pub }), method).toBe(false);
     }
-    // A prefix is a path segment, not a string prefix.
-    expect(tokenAllows('read', 'GET', '/api/v1/settingsx')).toBe(true);
-    // The MCP server is reserved for the read scope (v0.2 slice 4).
-    expect(tokenAllows('read', 'POST', '/mcp')).toBe(true);
-    expect(tokenAllows('read', 'GET', '/ingest/v1/write')).toBe(false);
+    expect(tokenAllows('read', { method: 'POST', url: '/api/v1/query/range', tags: pub })).toBe(
+      true,
+    );
+    expect(tokenAllows('read', { method: 'POST', url: '/api/v1/query/range' })).toBe(false);
+    // The spec itself, and the MCP server reserved for the read scope (v0.2 slice 4).
+    expect(tokenAllows('read', { method: 'GET', url: '/api/v1/openapi.json' })).toBe(true);
+    expect(tokenAllows('read', { method: 'POST', url: '/mcp' })).toBe(true);
+    expect(tokenAllows('read', { method: 'GET', url: '/ingest/v1/write', tags: pub })).toBe(false);
   });
 
   it('shows no cluster token prefixes to an API token', async () => {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from 'typebox';
+import { PUBLIC_TAG } from '../../openapi/public.js';
 
 const HealthResponse = Type.Object({
   status: Type.Literal('ok'),
@@ -16,7 +17,7 @@ export const healthRoutes: FastifyPluginAsyncTypebox<{ version: string }> = asyn
     {
       schema: {
         summary: 'Liveness check',
-        tags: ['system'],
+        tags: ['system', PUBLIC_TAG],
         response: { 200: HealthResponse },
       },
     },

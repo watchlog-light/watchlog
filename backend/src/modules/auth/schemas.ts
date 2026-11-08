@@ -29,6 +29,21 @@ export const CurrentUserSchema = Type.Object({
 
 export const UserEnvelope = Type.Object({ user: CurrentUserSchema });
 
+/** GET /me: the user, and the API token the request came with (null with a session). */
+export const MeResponse = Type.Object({
+  user: CurrentUserSchema,
+  token: Type.Union([
+    Type.Object({
+      name: Type.String(),
+      /** "wl_pat_" and the first 4 characters of the random part. */
+      prefix: Type.String(),
+      scope: Type.Literal('read'),
+      expiresAt: Type.Union([Type.String({ format: 'date-time' }), Type.Null()]),
+    }),
+    Type.Null(),
+  ]),
+});
+
 /** RFC 9457 problem body, for documenting error responses. */
 export const ProblemSchema = Type.Object({
   type: Type.String(),

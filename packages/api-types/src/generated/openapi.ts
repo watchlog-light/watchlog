@@ -306,7 +306,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** The signed-in user and their organisation */
+    /** The signed-in user and their organisation, and the API token used */
     get: {
       parameters: {
         query?: never;
@@ -338,6 +338,13 @@ export interface paths {
                   plan: 'community' | 'free' | 'pro' | 'enterprise';
                 };
               };
+              token: {
+                name: string;
+                prefix: string;
+                /** @enum {string} */
+                scope: 'read';
+                expiresAt: string | null;
+              } | null;
             };
           };
         };

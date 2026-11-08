@@ -31,6 +31,7 @@ import { groupEvents } from './events.js';
 import { FAILING, dockerProblem, dockerProblems } from './docker-problems.js';
 import { buildProblems, firingAlerts, type Problems } from './problems.js';
 import { OverviewSchema } from './schemas.js';
+import { PUBLIC_TAG } from '../../openapi/public.js';
 
 const MAX_RANGE_S = 7 * 86400;
 const CHANGES_WINDOW_MS = 7 * 86400_000;
@@ -173,7 +174,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'Overview: status, KPIs, resources, problems, changes, events, nodes (SPEC §4.1)',
-        tags: ['overview'],
+        tags: ['overview', PUBLIC_TAG],
         params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
         querystring: Type.Object({
           /** Seconds; the KPIs compare with the period before. */

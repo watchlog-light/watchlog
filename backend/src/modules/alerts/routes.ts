@@ -63,6 +63,7 @@ import {
 } from '../query/catalog.js';
 import type { SettingsService } from '../settings/service.js';
 import { ruleView, validateRuleChange, type RuleRowView } from './rule-views.js';
+import { PUBLIC_TAG } from '../../openapi/public.js';
 
 const Errors = { 400: ProblemSchema, 401: ProblemSchema, 403: ProblemSchema, 404: ProblemSchema };
 const iso = (d: Date | string | null) => (d === null ? null : new Date(d).toISOString());
@@ -280,7 +281,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
       preHandler: signedIn,
       schema: {
         summary: 'Firing and pending alerts, or the history of resolved ones (paged)',
-        tags: ['alerts'],
+        tags: ['alerts', PUBLIC_TAG],
         querystring: Type.Object({
           view: Type.Optional(Type.Union([Type.Literal('firing'), Type.Literal('history')])),
           clusterId: Type.Optional(Type.String({ format: 'uuid' })),
@@ -414,7 +415,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
       preHandler: signedIn,
       schema: {
         summary: 'One alert with the messages sent for it and its earlier episodes',
-        tags: ['alerts'],
+        tags: ['alerts', PUBLIC_TAG],
         params: IdParams,
         response: { 200: AlertDetailSchema, ...Errors },
       },
@@ -481,7 +482,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
       preHandler: signedIn,
       schema: {
         summary: "An alert's chart: its object's series around the alert, thresholds and markers",
-        tags: ['alerts'],
+        tags: ['alerts', PUBLIC_TAG],
         params: IdParams,
         querystring: ChartQuerySchema,
         response: { 200: AlertChartSchema, 502: ProblemSchema, ...Errors },
@@ -562,7 +563,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
       preHandler: signedIn,
       schema: {
         summary: 'Active silences (or all of the last ones with all=true)',
-        tags: ['alerts'],
+        tags: ['alerts', PUBLIC_TAG],
         querystring: Type.Object({ all: Type.Optional(Type.Boolean()) }),
         response: { 200: Type.Object({ silences: Type.Array(SilenceSchema) }), ...Errors },
       },
@@ -676,7 +677,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
       preHandler: signedIn,
       schema: {
         summary: 'Default and custom alert rules',
-        tags: ['alerts'],
+        tags: ['alerts', PUBLIC_TAG],
         response: { 200: Type.Object({ rules: Type.Array(RuleSchema) }), ...Errors },
       },
     },

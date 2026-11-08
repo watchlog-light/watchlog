@@ -43,6 +43,7 @@ import {
   type PodStatus,
   type Usage,
 } from './views.js';
+import { PUBLIC_TAG } from '../../openapi/public.js';
 
 const Params = Type.Object({ id: Type.String({ format: 'uuid' }) });
 const Name = Type.String({ minLength: 1, maxLength: 253 });
@@ -279,7 +280,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'Nodes with status, usage, requests, allocatable, disks and trends (SPEC §4.2)',
-        tags: ['kubernetes'],
+        tags: ['kubernetes', PUBLIC_TAG],
         params: Params,
         querystring: Type.Object({
           /** Seconds of history for the CPU and memory sparklines (default 1 h). */
@@ -416,7 +417,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'One node with its pods and events (SPEC §4.2)',
-        tags: ['kubernetes'],
+        tags: ['kubernetes', PUBLIC_TAG],
         params: Type.Object({ id: Type.String({ format: 'uuid' }), name: Name }),
         response: {
           200: Type.Object({
@@ -467,7 +468,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'Deployments, StatefulSets, DaemonSets, Jobs and CronJobs (SPEC §4.3)',
-        tags: ['kubernetes'],
+        tags: ['kubernetes', PUBLIC_TAG],
         params: Params,
         querystring: Type.Object({
           namespaces: Namespaces,
@@ -620,7 +621,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'Pods with status, last termination and usage (SPEC §4.3)',
-        tags: ['kubernetes'],
+        tags: ['kubernetes', PUBLIC_TAG],
         params: Params,
         querystring: Type.Object({
           namespaces: Namespaces,
@@ -671,7 +672,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'One pod with containers, termination reasons and events (SPEC §4.3)',
-        tags: ['kubernetes'],
+        tags: ['kubernetes', PUBLIC_TAG],
         params: Type.Object({
           id: Type.String({ format: 'uuid' }),
           namespace: Type.String({ minLength: 1, maxLength: 63 }),
@@ -781,7 +782,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'Kubernetes events, newest first, paged and filterable (SPEC §4.6)',
-        tags: ['kubernetes'],
+        tags: ['kubernetes', PUBLIC_TAG],
         params: Params,
         querystring: Type.Object({
           ...EventQuery,
@@ -835,7 +836,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'Events per bucket, facet counts and notable events for the Events page',
-        tags: ['kubernetes'],
+        tags: ['kubernetes', PUBLIC_TAG],
         params: Params,
         querystring: Type.Object(EventQuery),
         response: {
@@ -886,7 +887,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'Rollouts, image changes, scaling and node changes for charts (SPEC §4.6)',
-        tags: ['kubernetes'],
+        tags: ['kubernetes', PUBLIC_TAG],
         params: Params,
         querystring: Type.Object({
           from: Type.Number({ description: 'Unix seconds' }),
@@ -944,7 +945,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'Namespaces with pod counts, for the namespace filter',
-        tags: ['kubernetes'],
+        tags: ['kubernetes', PUBLIC_TAG],
         params: Params,
         response: {
           200: Type.Object({

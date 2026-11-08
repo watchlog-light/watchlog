@@ -469,7 +469,14 @@ describe('authenticating with a token', () => {
     const cookie = await setupAdmin(ctx.app);
     const { token } = await createToken(cookie);
     const t0 = new Date('2026-11-08T12:00:00Z');
-    const req = { id: token.id, prefix: token.prefix, scope: 'read' as const, lastUsedAt: null };
+    const req = {
+      id: token.id,
+      name: 'replicas',
+      prefix: token.prefix,
+      scope: 'read' as const,
+      expiresAt: null,
+      lastUsedAt: null,
+    };
     const use = (ip: string) => ({ ip, country: null, rest: true });
     await new TokenUsage(ctx.db).record(req, use('203.0.113.1'), t0);
     // A second replica that has not seen the token: the database condition holds it back.

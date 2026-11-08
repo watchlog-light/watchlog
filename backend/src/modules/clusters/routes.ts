@@ -32,6 +32,7 @@ import { issueClusterToken, type IssuedToken } from './tokens.js';
 import type { SettingsService } from '../settings/service.js';
 import type { TokenCache } from '../ingest/token-cache.js';
 import { ingestFailures } from '../ingest/errors.js';
+import { PUBLIC_TAG } from '../../openapi/public.js';
 
 const NOT_FOUND = 'Cluster not found';
 
@@ -62,7 +63,7 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: "List the org's clusters and Docker fleets",
-        tags: ['clusters'],
+        tags: ['clusters', PUBLIC_TAG],
         response: { 200: ClusterListSchema, 401: ProblemSchema },
       },
     },
@@ -137,7 +138,7 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'A cluster and its tokens (prefixes only)',
-        tags: ['clusters'],
+        tags: ['clusters', PUBLIC_TAG],
         params: ClusterIdParams,
         response: { 200: ClusterDetailSchema, 401: ProblemSchema, 404: ProblemSchema },
       },

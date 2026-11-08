@@ -8,6 +8,7 @@ import { requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { findCluster } from '../clusters/service.js';
 import { buildQuery, chooseStep, METRIC_KEYS, type MetricKey } from './catalog.js';
+import { PUBLIC_TAG } from '../../openapi/public.js';
 
 const MAX_RANGE_S = 31 * 86400;
 const ScopeValue = Type.String({ minLength: 1, maxLength: 253 });
@@ -38,7 +39,7 @@ export const queryRoutes: FastifyPluginAsyncTypebox<{
       preHandler: requireUser(db),
       schema: {
         summary: 'Curated metric query over a time range (no raw MetricsQL)',
-        tags: ['query'],
+        tags: ['query', PUBLIC_TAG],
         body: Type.Object({
           clusterId: Type.String({ format: 'uuid' }),
           metric: Type.Union(METRIC_KEYS.map((k) => Type.Literal(k))),

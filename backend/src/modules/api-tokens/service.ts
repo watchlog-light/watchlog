@@ -23,8 +23,10 @@ import {
 /** The token a request was authenticated with. */
 export interface RequestToken {
   id: string;
+  name: string;
   prefix: string;
   scope: ApiTokenScope;
+  expiresAt: Date | null;
   lastUsedAt: Date | null;
 }
 
@@ -312,8 +314,10 @@ export async function verifyApiToken(
     .innerJoin('orgs as o', 'o.id', 't.org_id')
     .select([
       't.id as token_id',
+      't.name as token_name',
       't.prefix',
       't.scope',
+      't.expires_at',
       't.last_used_at',
       'u.id',
       'u.email',
@@ -333,8 +337,10 @@ export async function verifyApiToken(
   return {
     token: {
       id: row.token_id,
+      name: row.token_name,
       prefix: row.prefix,
       scope: row.scope as ApiTokenScope,
+      expiresAt: row.expires_at,
       lastUsedAt: row.last_used_at,
     },
     user: {

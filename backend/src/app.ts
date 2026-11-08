@@ -3,6 +3,7 @@ import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
+import { publicSpec } from './openapi/public.js';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import Fastify, { type FastifyInstance, type RouteOptions } from 'fastify';
 import type { Config } from './config.js';
@@ -146,7 +147,13 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(alertRoutes, { db: deps.db, config, http: alertHttp, settings, victoria });
       await api.register(settingsRoutes, { db: deps.db, settings, http: alertHttp });
       await api.register(apiTokenRoutes, { db: deps.db });
-      api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
+      // The public API only (ADR-126): routes tagged `public`, with the bearer scheme.
+      let spec: Record<string, unknown> | undefined;
+      api.get(
+        '/openapi.json',
+        { schema: { hide: true } },
+        async () => (spec ??= publicSpec(app.swagger() as unknown as Record<string, unknown>)),
+      );
     },
     { prefix: API_PREFIX },
   );

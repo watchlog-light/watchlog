@@ -5,7 +5,7 @@ import type { Database } from '../../db/index.js';
 import { MAX_PASSWORD_LENGTH, verifyDummyPassword, verifyPassword } from '../../lib/passwords.js';
 import { sendProblem } from '../../lib/problem.js';
 import { requireUser } from '../../plugins/auth.js';
-import { Email, ProblemSchema, UserEnvelope } from './schemas.js';
+import { Email, MeResponse, ProblemSchema, UserEnvelope } from './schemas.js';
 import {
   clearSessionCookie,
   createSession,
@@ -14,6 +14,7 @@ import {
   SESSION_COOKIE,
   setSessionCookie,
 } from './sessions.js';
+import { PUBLIC_TAG } from '../../openapi/public.js';
 
 const INVALID_CREDENTIALS = 'Invalid email or password';
 
@@ -92,11 +93,24 @@ export const authRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (ap
     {
       preHandler: requireUser(db),
       schema: {
-        summary: 'The signed-in user and their organisation',
-        tags: ['auth'],
-        response: { 200: UserEnvelope, 401: ProblemSchema },
+        summary: 'The signed-in user and their organisation, and the API token used',
+        tags: ['auth', PUBLIC_TAG],
+        response: { 200: MeResponse, 401: ProblemSchema },
       },
     },
-    async (request) => ({ user: request.user! }),
+    async (request) => {
+      const t = request.apiToken;
+      return {
+        user: request.user!,
+        token: t
+          ? {
+              name: t.name,
+              prefix: t.prefix,
+              scope: t.scope,
+              expiresAt: t.expiresAt?.toISOString() ?? null,
+            }
+          : null,
+      };
+    },
   );
 };
