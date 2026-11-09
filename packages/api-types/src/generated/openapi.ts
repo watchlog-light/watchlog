@@ -8120,12 +8120,15 @@ export interface paths {
                 attempts: number;
                 result: {
                   ok: boolean;
+                  /** @description ok, unreachable, auth_failed, permission_missing, credential_unavailable, login_untested or error */
+                  code: string;
                   error: string | null;
                   version: string | null;
                   facts: {
                     [key: string]: number | boolean | string;
                   };
                   excess: string[];
+                  missing: string[];
                 } | null;
                 expiresAt: string;
               };
@@ -8237,12 +8240,15 @@ export interface paths {
                 attempts: number;
                 result: {
                   ok: boolean;
+                  /** @description ok, unreachable, auth_failed, permission_missing, credential_unavailable, login_untested or error */
+                  code: string;
                   error: string | null;
                   version: string | null;
                   facts: {
                     [key: string]: number | boolean | string;
                   };
                   excess: string[];
+                  missing: string[];
                 } | null;
                 expiresAt: string;
               };
@@ -8340,12 +8346,15 @@ export interface paths {
                 attempts: number;
                 result: {
                   ok: boolean;
+                  /** @description ok, unreachable, auth_failed, permission_missing, credential_unavailable, login_untested or error */
+                  code: string;
                   error: string | null;
                   version: string | null;
                   facts: {
                     [key: string]: number | boolean | string;
                   };
                   excess: string[];
+                  missing: string[];
                 } | null;
                 expiresAt: string;
               };

@@ -110,6 +110,10 @@ export function checkAccess(
 
 const ProbeResult = Type.Object({
   ok: Type.Boolean(),
+  code: Type.String({
+    description:
+      'ok, unreachable, auth_failed, permission_missing, credential_unavailable, login_untested or error',
+  }),
   error: Type.Union([Type.String(), Type.Null()]),
   version: Type.Union([Type.String(), Type.Null()]),
   facts: Type.Record(
@@ -117,6 +121,7 @@ const ProbeResult = Type.Object({
     Type.Unsafe<string | number | boolean>({ type: ['number', 'boolean', 'string'] }),
   ),
   excess: Type.Array(Type.String()),
+  missing: Type.Array(Type.String()),
 });
 export const ProbeSchema = Type.Object({
   id: Type.String(),
@@ -291,10 +296,12 @@ export function probeView(
     result: r
       ? {
           ok: r.ok,
+          code: r.code ?? (r.ok ? 'ok' : 'error'),
           error: r.error ?? null,
           version: r.version ?? null,
           facts: r.facts ?? {},
           excess: r.excess ?? [],
+          missing: r.missing ?? [],
         }
       : null,
     expiresAt: row.expires_at.toISOString(),

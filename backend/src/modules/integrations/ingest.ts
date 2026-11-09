@@ -97,6 +97,9 @@ export const ProbesBody = Type.Object(
         {
           id: Type.String({ format: 'uuid' }),
           ok: Type.Boolean(),
+          // What kind of outcome: ok, unreachable, auth_failed, permission_missing,
+          // credential_unavailable, login_untested, error (the drawer's fix depends on it).
+          code: Type.Optional(Type.String({ maxLength: 32, pattern: '^[a-z_]*$' })),
           error: Type.Optional(Type.String({ maxLength: 512 })),
           version: Type.Optional(Type.String({ maxLength: 64 })),
           facts: Type.Optional(
@@ -104,6 +107,8 @@ export const ProbesBody = Type.Object(
           ),
           // Privileges beyond what WatchLog needs (superuser, +@all), ADR-134.
           excess: Type.Optional(Type.Array(Type.String({ maxLength: 128 }), { maxItems: 16 })),
+          // Privileges or settings a logged-in user lacks.
+          missing: Type.Optional(Type.Array(Type.String({ maxLength: 128 }), { maxItems: 16 })),
         },
         { additionalProperties: false },
       ),
@@ -264,10 +269,12 @@ export function registerIntegrationIngest(
             status: r.ok ? 'ok' : 'pending',
             result: JSON.stringify({
               ok: r.ok,
+              code: r.code || (r.ok ? 'ok' : 'error'),
               error: r.error ?? null,
               version: r.version ?? null,
               facts: r.facts ?? {},
               excess: r.excess ?? [],
+              missing: r.missing ?? [],
             }),
           }))
           .where('id', '=', r.id)

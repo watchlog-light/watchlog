@@ -179,14 +179,21 @@ describe('connect flow', () => {
       (
         await ingest(k8s.token, 'POST', 'probes', {
           host: '',
-          results: [{ id: probe.id, ok: false, error: 'password authentication failed' }],
+          results: [
+            {
+              id: probe.id,
+              ok: false,
+              code: 'auth_failed',
+              error: 'password authentication failed',
+            },
+          ],
         })
       ).statusCode,
     ).toBe(204);
     expect((await api('GET', `/applications/probes/${probe.id}`)).json().probe).toMatchObject({
       status: 'pending',
       attempts: 1,
-      result: { ok: false, error: 'password authentication failed' },
+      result: { ok: false, code: 'auth_failed', error: 'password authentication failed' },
     });
     // Another cluster can't report on it.
     await ingest(other.token, 'POST', 'probes', {
@@ -205,7 +212,16 @@ describe('connect flow', () => {
 
     await ingest(k8s.token, 'POST', 'probes', {
       host: '',
-      results: [{ id: probe.id, ok: true, version: '16.4', facts: { databases: 3 }, excess: [] }],
+      results: [
+        {
+          id: probe.id,
+          ok: true,
+          code: 'ok',
+          version: '16.4',
+          facts: { databases: 3 },
+          excess: [],
+        },
+      ],
     });
     expect((await api('GET', `/applications/probes/${probe.id}`)).json().probe).toMatchObject({
       status: 'ok',

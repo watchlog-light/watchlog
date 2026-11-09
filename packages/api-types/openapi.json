@@ -22369,10 +22369,22 @@
                           "anyOf": [
                             {
                               "type": "object",
-                              "required": ["ok", "error", "version", "facts", "excess"],
+                              "required": [
+                                "ok",
+                                "code",
+                                "error",
+                                "version",
+                                "facts",
+                                "excess",
+                                "missing"
+                              ],
                               "properties": {
                                 "ok": {
                                   "type": "boolean"
+                                },
+                                "code": {
+                                  "type": "string",
+                                  "description": "ok, unreachable, auth_failed, permission_missing, credential_unavailable, login_untested or error"
                                 },
                                 "error": {
                                   "anyOf": [
@@ -22401,6 +22413,12 @@
                                   }
                                 },
                                 "excess": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "missing": {
                                   "type": "array",
                                   "items": {
                                     "type": "string"
@@ -22625,10 +22643,22 @@
                           "anyOf": [
                             {
                               "type": "object",
-                              "required": ["ok", "error", "version", "facts", "excess"],
+                              "required": [
+                                "ok",
+                                "code",
+                                "error",
+                                "version",
+                                "facts",
+                                "excess",
+                                "missing"
+                              ],
                               "properties": {
                                 "ok": {
                                   "type": "boolean"
+                                },
+                                "code": {
+                                  "type": "string",
+                                  "description": "ok, unreachable, auth_failed, permission_missing, credential_unavailable, login_untested or error"
                                 },
                                 "error": {
                                   "anyOf": [
@@ -22657,6 +22687,12 @@
                                   }
                                 },
                                 "excess": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "missing": {
                                   "type": "array",
                                   "items": {
                                     "type": "string"
@@ -22841,10 +22877,22 @@
                           "anyOf": [
                             {
                               "type": "object",
-                              "required": ["ok", "error", "version", "facts", "excess"],
+                              "required": [
+                                "ok",
+                                "code",
+                                "error",
+                                "version",
+                                "facts",
+                                "excess",
+                                "missing"
+                              ],
                               "properties": {
                                 "ok": {
                                   "type": "boolean"
+                                },
+                                "code": {
+                                  "type": "string",
+                                  "description": "ok, unreachable, auth_failed, permission_missing, credential_unavailable, login_untested or error"
                                 },
                                 "error": {
                                   "anyOf": [
@@ -22873,6 +22921,12 @@
                                   }
                                 },
                                 "excess": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "missing": {
                                   "type": "array",
                                   "items": {
                                     "type": "string"
