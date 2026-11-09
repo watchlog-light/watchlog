@@ -235,6 +235,10 @@ func TestInventory(t *testing.T) {
 	if len(web.Ports) != 1 || web.Ports[0] != (PortObject{PublicPort: 8081, PrivatePort: 80, Protocol: "tcp"}) {
 		t.Errorf("ports = %+v (IPv4 and IPv6 bindings should collapse)", web.Ports)
 	}
+	// Where the integrations collector reaches it, and what it listens on (ADR-131, ADR-132).
+	if strings.Join(web.IPs, ",") != "172.18.0.2" || len(web.Exposed) != 1 || web.Exposed[0] != 80 {
+		t.Errorf("ips = %v, exposed = %v", web.IPs, web.Exposed)
+	}
 	if byName["fx-crashloop"].RestartCount != 9 || byName["fx-exited"].State != "exited" {
 		t.Errorf("crashloop/exited = %+v %+v", byName["fx-crashloop"], byName["fx-exited"])
 	}

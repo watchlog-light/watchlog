@@ -363,7 +363,12 @@ type ContainerObject struct {
 	ComposeService string       `json:"compose_service,omitempty"`
 	// Networks are the user-defined networks the container is on (not bridge, host or
 	// none): the service map's topology without eBPF.
-	Networks     []string      `json:"networks,omitempty"`
+	Networks []string `json:"networks,omitempty"`
+	// IPs are the container's addresses on its networks, by network name, and Exposed
+	// the TCP ports it listens on, published or not: the integrations collector reaches
+	// it there, and discovery reads the ports (ADR-131, ADR-132).
+	IPs          []string      `json:"ips,omitempty"`
+	Exposed      []int         `json:"exposed,omitempty"`
 	SizeRw       *int64        `json:"size_rw,omitempty"`
 	Restarting   bool          `json:"restarting,omitempty"`
 	Error        string        `json:"error,omitempty"`
@@ -412,14 +417,27 @@ func (c *Collector) containerObject(s docker.ContainerSummary, st *inspected) Co
 	if s.Health != nil && s.Health.Status != "none" {
 		o.Health = s.Health.Status
 	}
+	netNames := make([]string, 0, len(s.NetworkSettings.Networks))
 	for name := range s.NetworkSettings.Networks {
+		netNames = append(netNames, name)
 		if name != "bridge" && name != "host" && name != "none" {
 			o.Networks = append(o.Networks, name)
 		}
 	}
 	sort.Strings(o.Networks)
+	sort.Strings(netNames)
+	for _, name := range netNames {
+		if ip := s.NetworkSettings.Networks[name].IPAddress; ip != "" {
+			o.IPs = append(o.IPs, ip)
+		}
+	}
 	seenPorts := map[PortObject]bool{}
+	seenExposed := map[int]bool{}
 	for _, p := range s.Ports {
+		if port := int(p.PrivatePort); p.Type == "tcp" && port > 0 && !seenExposed[port] {
+			seenExposed[port] = true
+			o.Exposed = append(o.Exposed, port)
+		}
 		if p.PublicPort == 0 {
 			continue // only published ports
 		}
@@ -432,6 +450,7 @@ func (c *Collector) containerObject(s docker.ContainerSummary, st *inspected) Co
 			o.Ports = append(o.Ports, po)
 		}
 	}
+	sort.Ints(o.Exposed)
 	if size, ok := c.sizes[s.ID]; ok {
 		o.SizeRw = &size
 	}

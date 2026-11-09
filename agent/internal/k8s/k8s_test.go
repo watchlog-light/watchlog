@@ -348,3 +348,11 @@ func TestGzipBodyFitsTheBackendLimit(t *testing.T) {
 	_ = w.Close()
 	t.Logf("largest pod summary %d B; %d-pod chunk %d KiB, %d KiB gzipped", size, ChunkSize, len(b)>>10, gz.Len()>>10)
 }
+
+func TestContainerSpecsKeepDeclaredPorts(t *testing.T) {
+	got := containerSpecs([]corev1.Container{{Name: "db", Image: "postgres:16",
+		Ports: []corev1.ContainerPort{{Name: "pg", ContainerPort: 5432, Protocol: corev1.ProtocolTCP}, {ContainerPort: 0}}}})
+	if len(got) != 1 || len(got[0].Ports) != 1 || got[0].Ports[0] != (containerPort{Name: "pg", Port: 5432, Protocol: "TCP"}) {
+		t.Fatalf("specs = %+v", got)
+	}
+}

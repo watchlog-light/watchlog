@@ -59,8 +59,10 @@ func PodWorkload(p *corev1.Pod, owners Owners) Workload {
 }
 
 type containerSpec struct {
-	Name     string            `json:"name"`
-	Image    string            `json:"image"`
+	Name  string `json:"name"`
+	Image string `json:"image"`
+	// Ports the container declares: discovery of services (ADR-132).
+	Ports    []containerPort   `json:"ports,omitempty"`
 	Requests map[string]string `json:"requests,omitempty"`
 	Limits   map[string]string `json:"limits,omitempty"`
 }
@@ -76,11 +78,23 @@ func quantities(l corev1.ResourceList) map[string]string {
 	return out
 }
 
+type containerPort struct {
+	Name     string `json:"name,omitempty"`
+	Port     int32  `json:"port"`
+	Protocol string `json:"protocol,omitempty"`
+}
+
 func containerSpecs(cs []corev1.Container) []containerSpec {
 	out := make([]containerSpec, 0, len(cs))
 	for _, c := range cs {
-		out = append(out, containerSpec{Name: c.Name, Image: c.Image,
-			Requests: quantities(c.Resources.Requests), Limits: quantities(c.Resources.Limits)})
+		spec := containerSpec{Name: c.Name, Image: c.Image,
+			Requests: quantities(c.Resources.Requests), Limits: quantities(c.Resources.Limits)}
+		for _, p := range c.Ports {
+			if p.ContainerPort > 0 {
+				spec.Ports = append(spec.Ports, containerPort{Name: p.Name, Port: p.ContainerPort, Protocol: string(p.Protocol)})
+			}
+		}
+		out = append(out, spec)
 	}
 	return out
 }
