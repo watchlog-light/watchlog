@@ -79,6 +79,45 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
       forSeconds: 120,
     },
   ],
+  postgres: [
+    {
+      key: 'postgres_connections_high',
+      name: 'PostgreSQL connections above 90 % of max_connections',
+      metric: 'postgres.connections.ratio',
+      condition: { op: '>', value: 0.9 },
+      forSeconds: 300,
+    },
+    {
+      key: 'postgres_long_query',
+      name: 'PostgreSQL query running over 5 minutes',
+      metric: 'postgres.query.longest',
+      condition: { op: '>', value: 300 },
+      forSeconds: 0,
+      severity: 'critical',
+    },
+    {
+      key: 'postgres_replication_lag',
+      name: 'PostgreSQL replication lag above 30 s',
+      metric: 'postgres.replication.lag',
+      condition: { op: '>', value: 30 },
+      forSeconds: 120,
+    },
+    {
+      key: 'postgres_xid_age',
+      name: 'PostgreSQL transaction ID age above 1,500 M',
+      metric: 'postgres.xid.age',
+      condition: { op: '>', value: 1_500_000_000 },
+      forSeconds: 0,
+      severity: 'critical',
+    },
+    {
+      key: 'postgres_deadlocks',
+      name: 'PostgreSQL deadlocks detected',
+      metric: 'postgres.deadlocks.rate',
+      condition: { op: '>', value: 0 },
+      forSeconds: 0,
+    },
+  ],
 };
 
 /** A default by its key, for "Reset to default". */

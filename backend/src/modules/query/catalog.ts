@@ -380,6 +380,73 @@ const ENTRIES = {
     expr: (s) =>
       `max by (service, service_type) ((1 - watchlog_redis_rdb_last_save_ok${s()}) or (1 - watchlog_redis_aof_last_write_ok${s()}))`,
   },
+  // PostgreSQL (v0.3 slice 8, SPEC §4.12).
+  'postgres.connections': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, member) (watchlog_postgres_backends${s()})`,
+  },
+  'postgres.connections.ratio': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s) =>
+      `sum by (service, service_type, member) (watchlog_postgres_backends${s()}) / on (service, service_type, member) (max by (service, service_type, member) (watchlog_postgres_setting${s('name="max_connections"')}) > 0)`,
+  },
+  'postgres.transactions.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (service, service_type) (rate(watchlog_postgres_xact_commit_total${s()}[${r}]) + rate(watchlog_postgres_xact_rollback_total${s()}[${r}]))`,
+  },
+  'postgres.cache_hit.ratio': {
+    unit: 'ratio',
+    agg: 'avg',
+    expr: (s, r) =>
+      `sum by (service, service_type) (rate(watchlog_postgres_blks_hit_total${s()}[${r}])) / (sum by (service, service_type) (rate(watchlog_postgres_blks_hit_total${s()}[${r}])) + sum by (service, service_type) (rate(watchlog_postgres_blks_read_total${s()}[${r}])) > 0)`,
+  },
+  /** The longest-running active query of client backends (not autovacuum or walsenders). */
+  'postgres.query.longest': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, member) (watchlog_postgres_backend_max_seconds${s('kind="active"')})`,
+  },
+  'postgres.idle_in_transaction.longest': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, member) (watchlog_postgres_backend_max_seconds${s('kind="idle_in_transaction"')})`,
+  },
+  /** A primary's replicas' replay lag, or a replica's own. */
+  'postgres.replication.lag': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type) (watchlog_postgres_replica_lag_seconds${s()} or watchlog_postgres_replay_lag_seconds${s()})`,
+  },
+  'postgres.xid.age': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) => `max by (service, service_type, db) (watchlog_postgres_xid_age${s()})`,
+  },
+  'postgres.deadlocks.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (service, service_type) (rate(watchlog_postgres_deadlocks_total${s()}[${r}]))`,
+  },
+  'postgres.database.size': {
+    unit: 'bytes',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, db) (watchlog_postgres_database_size_bytes${s()})`,
+  },
+  'postgres.lock_waits': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) => `${a} by (service, service_type) (watchlog_postgres_lock_waits${s()})`,
+  },
 } satisfies Record<string, Entry>;
 
 export type MetricKey = keyof typeof ENTRIES;

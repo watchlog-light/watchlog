@@ -16,6 +16,7 @@ export interface HealthReason {
     | 'collector_missing' // no collector has ever reported for it
     | 'collector_silent' // its collector stopped reporting
     | 'unreachable' // the collector can't connect
+    | 'login_failed' // it connects, but the user or password is refused
     | 'connected' // the collector connects; the integration's pages come with it
     | 'paused';
   facts: Record<string, string | number | null>;
@@ -123,10 +124,17 @@ export function healthOf(
   }
   const details = (row.status_details ?? {}) as {
     error?: string;
+    code?: string;
     members?: { up: boolean }[];
   };
   const members = details.members ?? [];
   const up = members.filter((m) => m.up).length;
+  if (row.status === 'error' && details.code === 'auth_failed') {
+    return {
+      health: 'critical',
+      reason: { code: 'login_failed', facts: { error: details.error ?? null } },
+    };
+  }
   if (row.status === 'error') {
     return {
       health: 'critical',

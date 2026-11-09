@@ -5915,7 +5915,18 @@
                       { "type": "string", "enum": ["redis.connected_clients"] },
                       { "type": "string", "enum": ["redis.blocked_clients"] },
                       { "type": "string", "enum": ["redis.replica.down"] },
-                      { "type": "string", "enum": ["redis.save.failed"] }
+                      { "type": "string", "enum": ["redis.save.failed"] },
+                      { "type": "string", "enum": ["postgres.connections"] },
+                      { "type": "string", "enum": ["postgres.connections.ratio"] },
+                      { "type": "string", "enum": ["postgres.transactions.rate"] },
+                      { "type": "string", "enum": ["postgres.cache_hit.ratio"] },
+                      { "type": "string", "enum": ["postgres.query.longest"] },
+                      { "type": "string", "enum": ["postgres.idle_in_transaction.longest"] },
+                      { "type": "string", "enum": ["postgres.replication.lag"] },
+                      { "type": "string", "enum": ["postgres.xid.age"] },
+                      { "type": "string", "enum": ["postgres.deadlocks.rate"] },
+                      { "type": "string", "enum": ["postgres.database.size"] },
+                      { "type": "string", "enum": ["postgres.lock_waits"] }
                     ]
                   },
                   "scope": {

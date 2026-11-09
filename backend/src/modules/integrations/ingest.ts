@@ -48,6 +48,8 @@ export const StatusBody = Type.Object(
             Type.Literal('connecting'),
           ]),
           error: Type.Optional(Type.String({ maxLength: 512 })),
+          // "auth_failed": the user or password was refused.
+          code: Type.Optional(Type.Literal('auth_failed')),
           service_version: Type.Optional(Type.String({ maxLength: 64 })),
           members: Type.Optional(
             Type.Array(
@@ -232,12 +234,14 @@ export function registerIntegrationIngest(
               status_details: t.extra
                 ? JSON.stringify({
                     error: t.error,
+                    code: t.code,
                     members: t.members ?? [],
                     permissions: t.permissions ?? [],
                     extra: t.extra,
                   })
                 : sql`${JSON.stringify({
                     error: t.error,
+                    code: t.code,
                     members: t.members ?? [],
                     permissions: t.permissions ?? [],
                   })}::jsonb || case when status_details ? 'extra' then jsonb_build_object('extra', status_details -> 'extra') else '{}'::jsonb end`,

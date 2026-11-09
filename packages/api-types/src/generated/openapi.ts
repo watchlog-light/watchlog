@@ -1248,7 +1248,18 @@ export interface paths {
               | 'redis.connected_clients'
               | 'redis.blocked_clients'
               | 'redis.replica.down'
-              | 'redis.save.failed';
+              | 'redis.save.failed'
+              | 'postgres.connections'
+              | 'postgres.connections.ratio'
+              | 'postgres.transactions.rate'
+              | 'postgres.cache_hit.ratio'
+              | 'postgres.query.longest'
+              | 'postgres.idle_in_transaction.longest'
+              | 'postgres.replication.lag'
+              | 'postgres.xid.age'
+              | 'postgres.deadlocks.rate'
+              | 'postgres.database.size'
+              | 'postgres.lock_waits';
             scope?: {
               host?: string;
               container?: string;

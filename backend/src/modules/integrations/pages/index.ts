@@ -3,10 +3,14 @@
 // its own as it lands (Redis, PostgreSQL, Nginx, RabbitMQ; MongoDB in v0.3.1).
 import type { IntegrationType } from '../collector-config.js';
 import { genericPage } from './generic.js';
+import { postgresPage } from './postgres.js';
 import { redisPage } from './redis.js';
 import type { IntegrationPage } from './types.js';
 
-const PAGES: Partial<Record<IntegrationType, IntegrationPage>> = { redis: redisPage };
+const PAGES: Partial<Record<IntegrationType, IntegrationPage>> = {
+  postgres: postgresPage,
+  redis: redisPage,
+};
 
 export function pageOf(type: IntegrationType): IntegrationPage {
   return PAGES[type] ?? genericPage;
