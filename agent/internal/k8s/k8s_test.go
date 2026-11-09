@@ -136,6 +136,35 @@ func TestTransformDropsSecretsAndBulk(t *testing.T) {
 	}
 }
 
+// The informer keeps the ports a container declares: discovery picks the port to
+// connect to from them (ADR-132), e.g. an ingress controller listening on 8080.
+func TestTransformKeepsContainerPorts(t *testing.T) {
+	pod := &corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{
+		Name: "controller", Image: "registry.k8s.io/ingress-nginx/controller:v1.12.1",
+		Ports: []corev1.ContainerPort{{Name: "http", ContainerPort: 8080, Protocol: corev1.ProtocolTCP}, {Name: "https", ContainerPort: 8443}},
+		Env:   []corev1.EnvVar{{Name: "SECRET", Value: "x"}},
+	}}}}
+	out, err := Transform(pod)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := out.(*corev1.Pod).Spec.Containers[0]
+	if len(c.Ports) != 2 || c.Ports[0].ContainerPort != 8080 || c.Ports[0].Name != "http" || c.Ports[1].ContainerPort != 8443 {
+		t.Errorf("ports %+v", c.Ports)
+	}
+	if len(c.Env) != 0 {
+		t.Error("env kept")
+	}
+	rec, ok := toRecord(out, nil)
+	if !ok {
+		t.Fatal("no record")
+	}
+	b, _ := json.Marshal(rec.Spec)
+	if !strings.Contains(string(b), `"ports":[{"name":"http","port":8080,"protocol":"TCP"},{"name":"https","port":8443}]`) {
+		t.Errorf("record spec %s", b)
+	}
+}
+
 func TestRecordsCarryWhatTheViewsNeed(t *testing.T) {
 	c, _ := startCluster(t)
 

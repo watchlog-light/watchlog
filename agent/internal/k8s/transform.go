@@ -76,6 +76,10 @@ func trimContainers(cs []corev1.Container) []corev1.Container {
 	for i, c := range cs {
 		out[i] = corev1.Container{Name: c.Name, Image: c.Image,
 			Resources: corev1.ResourceRequirements{Requests: c.Resources.Requests, Limits: c.Resources.Limits}}
+		// Declared ports: discovery picks the port to connect to from them (ADR-132).
+		for _, p := range c.Ports {
+			out[i].Ports = append(out[i].Ports, corev1.ContainerPort{Name: p.Name, ContainerPort: p.ContainerPort, Protocol: p.Protocol})
+		}
 	}
 	return out
 }
