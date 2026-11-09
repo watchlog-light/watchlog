@@ -44,6 +44,7 @@ The kernel programs read:
 
 - **TCP connections:** destination address and port, local port and state, state changes, retransmits and byte counts. Never the data itself. Counters are added up in the kernel per container, destination and port, and read every 15 seconds.
 - **DNS outcomes:** the 12-byte header of DNS responses, for NXDOMAIN, SERVFAIL and timeouts per workload.
+- **HTTP requests and responses (plain HTTP/1.x only):** the first 16 bytes of each message, enough to see `GET /` or `HTTP/1.1 503`. The kernel keeps a count per method class and status code, and the response time; the bytes themselves never leave the kernel, so no path, header or body is read or sent. HTTPS is never decrypted and shows as connections only. Turn it off with `agent.networkFlows.http: false`.
 - **DNS names of external services:** for a successful DNS response, the agent reads the question and the A, AAAA and CNAME answers. That lets an external edge show `api.stripe.com:443` instead of `104.18.0.0/24:443`. The names stay in agent memory (at most 10,000, for the record's TTL), are never written to disk, and are sent only as that edge's destination name.
 
 Edges carry workload names, never pod IPs. An external destination is a DNS name or a `/24` network.

@@ -1829,6 +1829,14 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
     - The Nginx page reads these series for plain Nginx.
 - Consequences: an eBPF change in both modes; kernel and verifier tests on the CI kernels; docs/security.md describes the 16-byte peek.
 - Amended 2026-11-09: **Accepted.** Exact status codes are kept (capped to the common set) for the Errors tab.
+- Amended 2026-11-10 (as built, v0.3 slice 9):
+  - **Hooks:** `fentry/tcp_sendmsg` peeks at the message it sends. A receive is two hooks: `fentry/tcp_recvmsg` saves the iov_iter's first word per thread, and `fentry/tcp_cleanup_rbuf` peeks once data was copied (`copied > 0`; a blocking read calls it with 0 before it waits). The word is told apart (one user buffer, `ubuf`, or the kernel's iovec array, first non-empty segment) only after the copy: a freshly allocated receive buffer isn't paged in before it, and a non-sleeping program can't fault it in. Checking at entry lost about one fresh server connection in ten.
+  - **Sides:** a client socket is one already tracked as an edge (ADR-099/108). A server socket is an accepted one: its local port isn't ephemeral and the pod filter (ADR-121) applies. Its stats are per (cgroup, local port): `watchlog_http_server_*` with the workload or container and `port`, next to the edge series `watchlog_http_*` with the flow labels (SPEC §6.3).
+  - **Series:** `requests_total{code,class}` (21 slots: 200, 201, 204, 301, 302, 304, 400, 401, 403, 404, 409, 429, 500, 502, 503, 504, and 1xx–5xx for the rest; a code appears once seen), `requests_by_method_total{method=read|write}` (GET, HEAD and OPTIONS read; POST, PUT, PATCH and DELETE write), and `request_duration_seconds` with 15 buckets from 0.5 ms to 10 s.
+  - **Edge cases:** a status line split across short reads is gathered up to 12 bytes. A server read shorter than 8 bytes is joined with the next one (Go's server reads 1 byte in the background on keep-alive connections). While a request waits for its response (up to 30 s), what looks like another request is its body; pipelining is practically unused, so this costs nothing real.
+  - **Measured:** exact counts on both sides for Go's client and busybox wget (a new connection each time) in the kernel tests, on kernel 6.8 (x86_64 in CI, arm64 in Lima). The 1,000 connections/s count test passes with the HTTP hooks loaded. A tight loopback request loop costs about 0.5 µs more per request (+7.8 %).
+  - **Kernels:** arm64 before 6.0 has no BPF trampoline, so these hooks (like the byte counters) don't attach there. The programs still load, so the verifier accepts them on 5.15. The agent then reports "no HTTP stats" with the reason, and flows and DNS work as before.
+  - **Helm:** `agent.networkFlows.http` (default true, read nil-safe); Docker: `--ebpf-http` / `WATCHLOG_EBPF_HTTP`.
 
 ## ADR-140: Multi-user with Owner, Admin and Viewer, and email invites (Community)
 
