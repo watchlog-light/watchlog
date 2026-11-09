@@ -20,6 +20,7 @@ import { ensureBootstrapCluster } from './modules/clusters/bootstrap.js';
 import { ensureEventPartitions } from './modules/events/partitions.js';
 import { ingestRoutes } from './modules/ingest/routes.js';
 import { TokenCache } from './modules/ingest/token-cache.js';
+import { ConfigNotifier } from './modules/integrations/notifier.js';
 import { kubernetesRoutes } from './modules/kubernetes/routes.js';
 import { overviewRoutes } from './modules/overview/routes.js';
 import { serviceMapRoutes } from './modules/servicemap/routes.js';
@@ -123,6 +124,9 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   });
 
   const tokens = new TokenCache(deps.db);
+  // Wakes integrations collectors waiting on their configuration (ADR-131).
+  const collectors = new ConfigNotifier();
+  app.decorate('collectorNotifier', collectors);
   const victoria = config.victoriaMetricsUrl
     ? new VictoriaQueryClient(config.victoriaMetricsUrl, 10_000, config.queryTimeoutMs)
     : undefined;
@@ -196,6 +200,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     clusterAgentBucket: deps.ingestBuckets?.clusterAgent,
     clusterBucket: deps.ingestBuckets?.cluster,
     eventsRetentionDays: config.eventsRetentionDays,
+    notifier: collectors,
   });
 
   // Event partitions (ADR-061): on start, then every 6 hours.

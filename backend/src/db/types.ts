@@ -197,6 +197,38 @@ export interface IngestErrors {
   last_success_at: Timestamp | null;
 }
 
+export interface IntegrationCollectors {
+  cluster_id: string;
+  config_etag: string | null;
+  created_at: Generated<Timestamp>;
+  host: string;
+  id: string;
+  last_seen_at: Timestamp;
+  mode: string;
+  self: Generated<Json>;
+  updated_at: Generated<Timestamp>;
+  version: string;
+}
+
+export interface Integrations {
+  cluster_id: string;
+  collector_host: Generated<string>;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: string;
+  last_report_at: Timestamp | null;
+  monitored_since: Generated<Timestamp>;
+  name: string;
+  org_id: string;
+  settings: Generated<Json>;
+  status: Generated<string>;
+  status_details: Generated<Json>;
+  target: Json;
+  type: string;
+  updated_at: Generated<Timestamp>;
+  version: string | null;
+}
+
 export interface K8sEvents {
   cluster_id: string;
   count: number;
@@ -367,6 +399,8 @@ export interface DB {
   cluster_tokens: ClusterTokens;
   clusters: Clusters;
   ingest_errors: IngestErrors;
+  integration_collectors: IntegrationCollectors;
+  integrations: Integrations;
   k8s_events: K8sEvents;
   mcp_calls: McpCalls;
   memberships: Memberships;

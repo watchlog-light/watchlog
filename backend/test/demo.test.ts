@@ -541,10 +541,15 @@ describe('ingest stays token-only', () => {
   for (const demoMode of [true, false]) {
     it(`answers 401 without a valid cluster token, cookies or not (demo mode ${demoMode ? 'on' : 'off'})`, async () => {
       const routes = await demoContext(demoMode);
-      const ingest = routes.filter((r) => r.url.startsWith('/ingest/') && !SAFE.has(r.method));
+      // Reads too: the integrations collector's configuration carries its targets (ADR-131).
+      const ingest = routes.filter(
+        (r) => r.url.startsWith('/ingest/') && r.method !== 'HEAD' && r.method !== 'OPTIONS',
+      );
       expect(ingest.map((r) => r.url).sort()).toEqual([
         '/ingest/v1/events',
         '/ingest/v1/heartbeat',
+        '/ingest/v1/integrations/config',
+        '/ingest/v1/integrations/status',
         '/ingest/v1/objects',
         '/ingest/v1/write',
       ]);

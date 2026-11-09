@@ -11,6 +11,8 @@ import { sendProblem } from '../../lib/problem.js';
 import { VictoriaError, type VictoriaClient } from '../../lib/victoria.js';
 import type { TokenOwner } from '../clusters/tokens.js';
 import { ProblemSchema } from '../auth/schemas.js';
+import { registerIntegrationIngest } from '../integrations/ingest.js';
+import { ConfigNotifier } from '../integrations/notifier.js';
 import { healthSince } from './health.js';
 import {
   INGEST_ENDPOINTS,
@@ -57,6 +59,8 @@ export interface IngestOptions {
   clusterBucket?: BucketSpec;
   /** Days of Kubernetes events kept (ADR-061). */
   eventsRetentionDays?: number;
+  /** Wakes integrations collectors waiting on their configuration (ADR-131). */
+  notifier?: ConfigNotifier;
 }
 
 const Str = (max: number) => Type.String({ maxLength: max });
@@ -542,6 +546,8 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
       return reply.code(204).send(null);
     },
   );
+
+  registerIntegrationIngest(app, { db, notifier: opts.notifier ?? new ConfigNotifier() });
 
   app.post(
     '/heartbeat',
