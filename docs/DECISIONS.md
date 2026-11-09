@@ -1856,6 +1856,37 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 - Alternatives: Admin and Viewer only (rejected: someone must be able to remove an Admin); per-cluster roles (Enterprise, Phase 7).
 - Consequences: SPEC §4.10 moves Owner/Admin/Viewer and invites to Community, v0.3.
 - Amended 2026-11-09: **Accepted** (owner). Viewers are strictly read-only and cannot silence alerts.
+- Amended 2026-11-09 (owner, with the Users and invites mock-ups, `design/v0.3-users`):
+  - **Roles, as the mock-up shows them:**
+
+    | Can                                                                               | Owner | Admin | Viewer |
+    | --------------------------------------------------------------------------------- | ----- | ----- | ------ |
+    | See every cluster, service, alert, the service map and query text                 | ✓     | ✓     | ✓      |
+    | Personal read-only API tokens (MCP)                                               | ✓     | ✓     | ✓      |
+    | Alert rules, channels and silences                                                | ✓     | ✓     |        |
+    | Connect services and set their credentials (never read back)                      | ✓     | ✓     |        |
+    | Add clusters, rotate their tokens, server settings                                | ✓     | ✓     |        |
+    | Invite Admins and Viewers, change their roles, reset their passwords, remove them | ✓     | ✓     |        |
+    | Hand ownership to an Admin; delete clusters and their data                        | ✓     |       |        |
+    | Reset their own password from the command line when locked out                    | ✓     |       |        |
+
+    There is exactly **one Owner**, whoever installed WatchLog, until they hand it over to an Admin (they become an Admin). Nobody can remove or demote the Owner; Admins can't reset the Owner's password.
+
+  - **Invites never depend on SMTP:**
+    - Creating one always shows a single-use link, valid for 7 days. The token is 256 bits, stored as SHA-256 for checking. So that "Copy link" works from the row while the invite is pending, the link is also kept encrypted with `WATCHLOG_SECRET_KEY` (ADR-133), bound to the invite, and deleted when it is used, revoked or expires.
+    - The row shows "Pending invite" with Copy link and Revoke; an expired one shows "Invite expired" with New link (a new token, 7 more days) and Remove.
+    - With SMTP the invite is also emailed; without, the dialog says nothing was sent and offers to set up SMTP.
+    - Accepting (`/invite/<token>`) sets a name and a password of at least 12 characters and signs in; an expired or used link says so and names who to ask.
+  - **Password reset links:**
+    - Owners and Admins can create a single-use reset link for a user (Admins: for Admins and Viewers), valid for one hour. With SMTP it is also emailed.
+    - The old password keeps working until a new one is set. Setting it signs the user out everywhere (every session ends).
+    - With SMTP, "Forgot your password?" on the sign-in page emails a reset link to an existing account and answers the same either way.
+  - **A locked-out Owner:** `watchlog admin reset-password [--email <address>] [--url <public URL>]`, run inside the backend container (`kubectl exec` / `docker exec`), prints a reset link. Without `--email` it resets the Owner. The link uses the Public URL setting, else `--url`. Anyone who can run a command in the backend container already controls the install, so printing the link there is safe. When SMTP is off, "Forgot your password?" shows this command.
+  - **Removing a user** signs them out at once and revokes their API tokens. Alert rules, silences, channels and services they set up stay and keep working.
+  - **Locked controls stay visible** to Viewers, with "Viewers can't change this. Ask an Admin." on hover or tap. The server refuses the same changes (`requireRole` on every mutating route, the route-walking test).
+  - **Links** in invites and resets use the Public URL setting, falling back to the request's origin.
+  - **Audit:** user changes (invite created, copied again, revoked, accepted; role changed; reset link created, by whom or by the command line; password set; user removed; ownership handed over) go to an `audit_events` log, shown to Owners and Admins on the Users page. Never a token or password.
+  - **Demo mode:** the Users page is read-only, like every write (ADR-122).
 
 ## ADR-141: v0.3 build order and what moves to v0.5
 
