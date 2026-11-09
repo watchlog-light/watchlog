@@ -1842,7 +1842,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
     6. the site, docs and the demo;
     7. release 0.3.0.
   - **Estimate:** 27.5 sessions with all six integrations. MongoDB is 2 of them, RabbitMQ 1.5 and Elasticsearch 1.5.
-  - **Time:** the big launch (early December, 3 December assumed) needs v0.4 (about 6 sessions) and launch preparation (about 2) after v0.3. At about 1.5 sessions a day, v0.3 must be released by 24 November, which leaves room for about 24 sessions.
+  - **Time:** the big launch (early December, 3 December assumed) needs v0.4 (about 6 sessions) and launch preparation (about 2) after v0.3. At about 1.5 sessions a day, v0.3 must be released by 25 November, which leaves room for about 24 sessions (from 10 November).
   - **What moves:**
     - Elasticsearch moves to v0.5 now.
     - One more integration has to move too, or v0.3 lands about two sessions late. **Recommended:** move MongoDB and keep RabbitMQ (24 sessions). RabbitMQ is the cheapest (no credentials) and its "queue without consumers" reason is v0.4's best cross-signal example. In the owner's order (MongoDB before RabbitMQ), RabbitMQ would be the one to move.
