@@ -423,7 +423,7 @@ Access: nothing; the plugin ships with RabbitMQ. If it is off, the generated com
   - a dead-letter queue is growing (warning).
 - ⚑ **Dead-letter counters** exist only on 3.12+ (`rabbitmq_global_messages_dead_lettered_*`). Closest on older versions: queues named `*dead*letter*`, `*.dlq` or `*.dlx` that grow.
 - ⚑ **Network partitions** aren't exported by the plugin. Closest: a member whose endpoint stops answering.
-- **Reasons:** `queue_no_consumers` (linked to the workloads or containers that consumed it in the last 24 h and their last termination), `queue_growing`, `memory_alarm` and `disk_alarm` (publishers blocked), `unacked_high`, `node_down`, `dead_letters_growing`.
+- **Reasons:** `queue_no_consumers` (linked to the workloads or containers that were connected to RabbitMQ in the last 24 h, from eBPF flows, and ended since, closest to when the queue lost its consumers: the plugin doesn't say which client consumed which queue; ADR-145), `queue_growing`, `memory_alarm` and `disk_alarm` (publishers blocked), `unacked_high`, `dead_letters_growing`, `prometheus_plugin_off` (with the command per node). A node down is a member down, as for every service.
 
 ### MongoDB — v0.3.1, about a week after the launch (ADR-141)
 

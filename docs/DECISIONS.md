@@ -1970,3 +1970,15 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - Each service fires its own alert, named after the service, as one-service rules do.
   - The rule drawer on a service's page offers "this service" or "every <type> service"; the rule list says "every Redis service".
 - Consequences: default rules stay per service (created when monitoring starts, ADR-136); a type-wide rule is something people add.
+
+## ADR-145: RabbitMQ as built: the plugin's series, and the consumer that was lost
+
+- Date: 2026-11-10 · Status: accepted (v0.3 slice 11; defaults in pending-review)
+- Measured: RabbitMQ 4.1.8 (official image, with and without `-management`) has `rabbitmq_prometheus` on by default. `/metrics` gives each node's totals without labels; `/metrics/detailed` gives per-queue families on request (`queue_coarse_metrics`, `queue_consumer_count`, `queue_delivery_metrics`, `queue_exchange_metrics`).
+- Decision:
+  - **What is read:** each node's `/metrics` every scrape (messages, consumers, connections, the `rabbitmq_global_messages_*_total` counters, memory and its watermark, disk and its limit, file descriptors, Erlang processes, alarms; version and node names from the info series), and on the heavy scrape the four detailed families. Names are the plugin's own; per queue `rabbitmq_detailed_queue_*` with `vhost` and `queue` (the exchange label summed away). The 200 deepest queues per node, plus every queue with messages and no consumer. The light scrapes repeat the last per-queue values.
+  - **The plugin check:** a node whose AMQP port answers and whose :15692 doesn't is up with its plugin off; the reason `prometheus_plugin_off` carries the command per node (`kubectl exec -n <ns> <pod> -- rabbitmq-plugins enable rabbitmq_prometheus`, `docker exec <container> …`). The e2e runs it as shown.
+  - **The lost consumer:** the plugin doesn't say which client consumes which queue (that needs the management API and a user). So `queue_no_consumers` links the clients that were connected to RabbitMQ's AMQP port in the last 24 hours (eBPF flows, WatchLog's own excluded) and ended since: a pod crash-looping or with a recent last termination (its reason: OOMKilled, Error…), a container that exited (OOMKilled when Docker says so), restarted, or is gone; closest first to the moment the queue last had a consumer. The words say "connected to RabbitMQ until then", not "consumed it".
+  - **Node down:** a member that doesn't answer is the generic `member_down`; the default rule "RabbitMQ node down" uses `service.reachable.ratio < 1` (critical after a minute).
+  - **Rules:** `rabbitmq.queue.unconsumed` is per queue (ready messages of a queue with no consumer that grew over 5 minutes), so each queue fires its own alert.
+- Consequences: the link is only as good as the flows: with network flows off, the reason names the queue and when it lost its consumers, without a client.
