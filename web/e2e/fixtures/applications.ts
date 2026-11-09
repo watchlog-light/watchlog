@@ -195,7 +195,8 @@ export function probe(over: Record<string, unknown> = {}) {
   };
 }
 
-const PASSWORD = 'wl_mon_Qx7fK2mT9bLr4Wc8Nz3Hd5Vp1';
+// Made up, in the generated format (wl_mon_ and 25 characters).
+const PASSWORD = 'wl_mon_EXAMPLExEXAMPLExEXAMPLEx';
 export const generatedCommand =
   `kubectl exec -n shop deployment/orders -- psql -U postgres -v ON_ERROR_STOP=1 ` +
   `-c "CREATE ROLE watchlog LOGIN PASSWORD '${PASSWORD}'" -c "GRANT pg_monitor TO watchlog"`;

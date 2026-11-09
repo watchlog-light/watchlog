@@ -14,4 +14,7 @@ paths = [
 regexes = [
   # DEV_SECRET_KEY: base64 of "watchlog-dev-key-not-secret-32b!", development only.
   '''d2F0Y2hsb2ctZGV2LWtleS1ub3Qtc2VjcmV0LTMyYiE=''',
+  # Reviewed 2026-11-09: a made-up generated password in the responsive suite's fixture
+  # (web/e2e/fixtures/applications.ts, commit f6ef503); it was never a real credential.
+  '''wl_mon_Qx7fK2mT9bLr4Wc8Nz3Hd5Vp1''',
 ]
