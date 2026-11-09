@@ -986,7 +986,8 @@
         "labels": "{labels} pods",
         "network_connections_failed": "A workload's **connections fail** more than **{value}**",
         "service": "{name}",
-        "serviceRemoved": "a service no longer monitored"
+        "serviceRemoved": "a service no longer monitored",
+        "serviceType": "every {type} service"
       }
     },
     "detail": {
@@ -1163,7 +1164,8 @@
         "k8s_container_throttling": "every container",
         "docker_container_restarts": "every container",
         "network_connections_failed": "every workload and destination"
-      }
+      },
+      "everyOfType": "every {type} service"
     },
     "chart": {
       "panels": {
@@ -1367,7 +1369,12 @@
     "postgres_xid_age": "PostgreSQL transaction ID age",
     "postgres_deadlocks_rate": "PostgreSQL deadlocks/s",
     "postgres_database_size": "PostgreSQL database size",
-    "postgres_lock_waits": "PostgreSQL lock waits"
+    "postgres_lock_waits": "PostgreSQL lock waits",
+    "nginx_requests_rate": "Nginx requests/s",
+    "nginx_5xx_ratio": "Nginx 5xx share",
+    "nginx_latency_p95": "Nginx p95 response time",
+    "nginx_upstream_down": "Nginx upstreams without a healthy endpoint",
+    "nginx_certificate_expiry": "Time until a certificate expires (ingress-nginx)"
   },
   "combobox": {
     "noMatches": "No matches",
@@ -2081,7 +2088,11 @@
         "postgres_long_query": "When a query runs longer than 5 minutes (critical)",
         "postgres_replication_lag": "When a replica is more than 30 s behind for 2 minutes",
         "postgres_xid_age": "When the transaction ID age passes 1,500 M (critical)",
-        "postgres_deadlocks": "When a deadlock happens"
+        "postgres_deadlocks": "When a deadlock happens",
+        "nginx_5xx_high": "When more than 5 % of requests answer 5xx for 5 minutes (critical)",
+        "nginx_latency_high": "When p95 is above 1 s for 5 minutes",
+        "nginx_upstream_down": "When an upstream has no healthy endpoint (critical)",
+        "nginx_certificate_expiring": "When a certificate expires within 14 days (ingress-nginx)"
       }
     },
     "metricsError": "Key metrics couldn't be loaded.",
@@ -2211,7 +2222,9 @@
       "named": "{name} {version}",
       "nameOnly": "{name}",
       "valkey": "Valkey {version} (Redis-compatible)",
-      "valkeyNoVersion": "Valkey (Redis-compatible)"
+      "valkeyNoVersion": "Valkey (Redis-compatible)",
+      "ingressNginx": "ingress-nginx {version}",
+      "ingressNginxNoVersion": "ingress-nginx"
     }
   },
   "integrations": {
@@ -2244,7 +2257,18 @@
       "wraparound_risk": "Transaction ID age in {db} is {n}: at 2,000 M PostgreSQL stops accepting writes. Vacuum is falling behind.",
       "cache_hit_low": "Only {pct} % of reads come from the cache: shared_buffers may be too small for the working set.",
       "autovacuum_not_finishing": "Autovacuum isn't finishing on {n} tables (for example {table}): dead rows rose for 24 hours with no autovacuum completed.",
-      "statements_unavailable": "pg_stat_statements isn't installed: the query tables stay empty until it is."
+      "statements_unavailable": "pg_stat_statements isn't installed: the query tables stay empty until it is.",
+      "errors_high": "{pct} % of requests answer 5xx. Most come from {upstream} ({upstreamPct} %), last rolled out {rollout}.",
+      "upstream_no_endpoints": "{upstream} has no ready endpoint: requests to it fail.",
+      "latency_high": "p95 response time is {p95}.",
+      "connections_dropped": "{n} connections were dropped in the last 15 minutes: worker_connections is reached.",
+      "certificate_expiring": "The certificate for {host} expires in {days} days.",
+      "ingress_metrics_off": "ingress-nginx doesn't serve its metrics, so requests, errors and latency come from eBPF (plain HTTP only) and connections are missing. Turn them on (the controller pods restart):",
+      "stub_status_missing": "Nginx has no stub_status, so connections are missing. Requests, errors and latency need nothing. Add this to its configuration and reload; WatchLog finds it on port 8080 or the service's port:",
+      "no_http_source": "Requests, errors and latency come from the agents on the same host or cluster; this service, added by address, has none.",
+      "errors_high_plain": "{pct} % of requests answer 5xx.",
+      "errors_high_upstream": "{pct} % of requests answer 5xx. Most come from {upstream} ({upstreamPct} %).",
+      "stub_status_missing_tried": "Nginx has no stub_status, so connections are missing. Requests, errors and latency need nothing. WatchLog looked at {tried}. Add this to its configuration and reload; WatchLog finds it on port 8080 or the service's port:"
     },
     "page": {
       "since": "monitored since {at}",
@@ -2287,7 +2311,6 @@
         "howTo": "An Owner or Admin can resume it here or in its settings."
       },
       "genericWhat": {
-        "nginx": "WatchLog checks that its collector reaches every member of this Nginx and how fast it connects. Requests, errors, latency and connections come with its integration.",
         "rabbitmq": "WatchLog checks that its collector reaches every member of this RabbitMQ and how fast it connects. Queues, message rates, consumers and resources come with its integration.",
         "mongodb": "WatchLog checks that its collector reaches every member of this MongoDB and how fast it connects. Operations, replication and collections come with its integration (v0.3.1).",
         "elasticsearch": "WatchLog checks that its collector reaches every member of this Elasticsearch and how fast it connects. Cluster health, indices and search latency come with its integration (v0.5)."
@@ -2543,6 +2566,64 @@
         },
         "replication": {
           "wal": "Grant {missing} to WatchLog's user to read the WAL directory's size."
+        }
+      }
+    },
+    "nginx": {
+      "tabs": {
+        "overview": "Overview",
+        "errors": "Errors",
+        "latency": "Latency",
+        "connections": "Connections"
+      },
+      "panels": {
+        "summary": "At a glance",
+        "requests": "Requests/s",
+        "peak": "peak {peak}/s",
+        "errors15m": "5xx (15 min)",
+        "p95": "p95",
+        "p50Sub": "p50 {p50}",
+        "connections": "Active connections",
+        "waitingSub": "{n} waiting",
+        "noConnections": "needs stub_status",
+        "upstreams": "Upstreams ready",
+        "bandwidth": "Bandwidth out",
+        "bandwidthIngressOnly": "ingress-nginx only",
+        "byClass": "Requests by status class",
+        "ebpfNote": "seen on the wire by eBPF, plain HTTP only",
+        "latency": "Response time",
+        "ttfbNote": "time to the first response byte, as eBPF sees it",
+        "busiest": "Busiest upstreams",
+        "errorsByUpstream": "5xx by upstream",
+        "codes": "Status codes, last hour",
+        "codesIngressNote": "from ingress-nginx's log; 499 is a client that gave up",
+        "codesEbpfNote": "codes sent on the wire; 499 is never sent, so it is not here",
+        "bursts": "Error bursts",
+        "burstsNote": "an upstream at 5 % 5xx or more",
+        "duration": "Request duration",
+        "durationIngressNote": "ingress-nginx's request time",
+        "slowest": "Slowest upstreams (p95)",
+        "p95ByUpstream": "p95 by upstream",
+        "connectionStates": "Connections by state",
+        "acceptedDropped": "Accepted and dropped connections",
+        "droppedNote": "dropped: accepted but not handled (worker_connections reached)",
+        "missingStubStatus": "Add stub_status to Nginx to see its connections: the snippet is under \"What WatchLog sees\".",
+        "missingIngressMetrics": "ingress-nginx serves its metrics only with --enable-metrics: the command is under \"What WatchLog sees\".",
+        "series": {
+          "p50": "p50",
+          "p95": "p95",
+          "p99": "p99",
+          "waiting": "Waiting",
+          "reading": "Reading",
+          "writing": "Writing",
+          "accepted": "Accepted",
+          "dropped": "Dropped"
+        },
+        "cols": {
+          "upstream": "Upstream",
+          "when": "When",
+          "duration": "For",
+          "peak": "Peak 5xx"
         }
       }
     }

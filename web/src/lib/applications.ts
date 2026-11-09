@@ -38,6 +38,11 @@ export function productText(s: { type: string; version: string | null; product?:
       ? { key: 'applications.product.valkey', values: { version: s.version } }
       : { key: 'applications.product.valkeyNoVersion', values: {} };
   }
+  if (s.product === 'ingress-nginx') {
+    return s.version
+      ? { key: 'applications.product.ingressNginx', values: { version: s.version } }
+      : { key: 'applications.product.ingressNginxNoVersion', values: {} };
+  }
   return s.version
     ? {
         key: 'applications.product.named',
@@ -159,6 +164,23 @@ export function reasonLine(
     case 'connected':
     case 'paused':
       return reasonText({ reason: r, cluster }, formatTime);
+    case 'errors_high':
+      // Which words depend on what is known: the upstream, and its last rollout.
+      return {
+        key: f.upstream
+          ? f.rollout
+            ? 'integrations.reasons.errors_high'
+            : 'integrations.reasons.errors_high_upstream'
+          : 'integrations.reasons.errors_high_plain',
+        values: { ...f },
+      };
+    case 'stub_status_missing':
+      return {
+        key: f.tried
+          ? 'integrations.reasons.stub_status_missing_tried'
+          : 'integrations.reasons.stub_status_missing',
+        values: { ...f },
+      };
     default:
       // An integration's own reasons (slices 7+): integrations.reasons.<code>.
       return { key: `integrations.reasons.${r.code}`, values: { ...f } };

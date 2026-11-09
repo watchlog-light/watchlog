@@ -2,13 +2,13 @@
 // Alerts for a service (v0.3 slice 5): the block on the service page lists the rules
 // scoped to it, switches them in place, and "+ Add rule" opens the rule editor with the
 // service chosen and its metrics only; Viewers read.
-import { flushPromises, mount } from '@vue/test-utils';
+import { DOMWrapper, flushPromises, mount } from '@vue/test-utils';
 import type { AlertRule, Application } from '@watchlog/api-types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ServiceAlerts from '@/components/applications/ServiceAlerts.vue';
 import { useAuthStore } from '@/stores/auth';
 import { mockFetch, USER } from './fetch-mock';
-import { createPlugins } from './helpers';
+import { chooseOption, createPlugins } from './helpers';
 
 vi.mock('echarts/core', () => ({
   use: vi.fn(),
@@ -145,7 +145,10 @@ describe('alerts for a service', () => {
 
     await w.get('[data-testid="add-rule"]').trigger('click');
     await flushPromises();
-    expect(document.body.querySelector('[data-testid="drawer-service"]')!.textContent).toBe(
+    // This service, or every Redis: this one by default.
+    const scopeBox = document.body.querySelector('[data-testid="drawer-service-scope"]')!;
+    const shown = scopeBox.querySelector('input')?.getAttribute('placeholder') ?? '';
+    expect(`${scopeBox.textContent} ${scopeBox.querySelector('input')?.value} ${shown}`).toContain(
       'shop/redis',
     );
     expect(document.body.querySelector('[data-testid="drawer-cluster"]')).toBeNull();
@@ -163,6 +166,27 @@ describe('alerts for a service', () => {
       clusterId: K8S.id,
       scope: { service: APP.id },
     });
+
+    // The same rule for every Redis service, in every cluster.
+    calls.length = 0;
+    await w.get('[data-testid="add-rule"]').trigger('click');
+    await flushPromises();
+    await chooseOption(
+      new DOMWrapper(document.body),
+      'drawer-service-scope',
+      'every Redis service',
+    );
+    (document.body.querySelector('[data-testid="drawer-threshold"]') as HTMLInputElement).value =
+      '100';
+    document.body
+      .querySelector('[data-testid="drawer-threshold"]')!
+      .dispatchEvent(new Event('input'));
+    await flushPromises();
+    (document.body.querySelector('[data-testid="drawer-save"]') as HTMLButtonElement).click();
+    await flushPromises();
+    expect(
+      calls.find((c) => c.method === 'POST' && c.path === '/api/v1/alert-rules')?.body,
+    ).toMatchObject({ clusterId: null, scope: { serviceType: 'redis' } });
     w.unmount();
   });
 

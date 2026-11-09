@@ -429,6 +429,58 @@ describe('Application page', () => {
     wrapper.unmount();
   });
 
+  it("gives Nginx's setup hint with its snippet, and words 5xx by what is known", async () => {
+    mockFetch({
+      [`GET /api/v1/applications/${ID}?range=3600`]: {
+        status: 200,
+        body: detail(
+          {
+            type: 'nginx',
+            name: 'store/web',
+            reason: { code: 'connected', facts: { up: 1, members: 1 } },
+          },
+          {
+            reasons: [
+              {
+                severity: 'critical',
+                code: 'errors_high',
+                facts: { pct: 12.5, upstream: 'shop/api', upstreamPct: 80, rollout: '12 min ago' },
+              },
+              {
+                severity: 'warning',
+                code: 'errors_high',
+                facts: { pct: 2, upstream: null, upstreamPct: null, rollout: null },
+              },
+              {
+                severity: 'info',
+                code: 'stub_status_missing',
+                facts: { command: 'server {\n    listen 8080;\n}' },
+              },
+            ],
+            page: {
+              id: 'nginx',
+              tabs: [{ id: 'overview', title: 'integrations.nginx.tabs.overview' }],
+            },
+          },
+        ),
+      },
+      [`GET /api/v1/applications/${ID}/panels?tab=overview&range=3600`]: {
+        status: 200,
+        body: { tab: 'overview', range: 3600, panels: [PANELS[9]] },
+      },
+    });
+    const { wrapper } = await mountPage(`/applications/${ID}?cluster=${K8S.id}`);
+    const rs = wrapper.findAll('[data-testid="reason"]').map((r) => r.text().replace(/\s+/g, ' '));
+    expect(rs[0]).toContain(
+      '12.5 % of requests answer 5xx. Most come from shop/api (80 %), last rolled out 12 min ago.',
+    );
+    expect(rs[1]).toContain('2 % of requests answer 5xx.');
+    expect(rs[1]).not.toContain('null');
+    expect(rs[2]).toContain('Nginx has no stub_status');
+    expect(wrapper.get('[data-testid="reason-command"]').text()).toContain('listen 8080;');
+    wrapper.unmount();
+  });
+
   it('says a paused service is paused, by whom, and resumes it', async () => {
     const paused = detail(
       {

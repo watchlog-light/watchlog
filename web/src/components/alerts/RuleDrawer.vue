@@ -29,6 +29,7 @@ import BaseButton from '@/components/ui/BaseButton.vue';
 import ComboBox from '@/components/ui/ComboBox.vue';
 import TextField from '@/components/ui/TextField.vue';
 import { CUSTOM_METRICS, fromInput, SERVICE_METRICS, serviceMetrics, toInput } from '@/lib/alerts';
+import { serviceName } from '@/lib/applications';
 import type { Unit } from '@/lib/units';
 import RuleSentence from './RuleSentence.vue';
 
@@ -65,6 +66,8 @@ const form = reactive({
   clusterId: null as string | null,
   metric: '' as string,
   scopeKind: 'cluster' as ScopeKind,
+  /** A service rule for every service of its type, in every cluster. */
+  everyOfType: false,
   scopeText: '',
   workload: { namespace: '', kind: 'Deployment', name: '' },
   op: '>' as '>' | '<',
@@ -90,14 +93,21 @@ const unit = computed<string | null>(() =>
     : (props.rule?.unit ?? null),
 );
 // The service's type, for its own metrics (a Redis has redis.*).
-const serviceType = computed(() => props.service?.type ?? props.rule?.service?.type);
+const serviceType = computed(
+  () =>
+    props.service?.type ??
+    props.rule?.service?.type ??
+    (props.rule?.scope as { serviceType?: string } | undefined)?.serviceType,
+);
 // A rule about one monitored service: its metrics only, its cluster and scope fixed.
 const serviceScope = computed(() =>
   form.scopeKind === 'service'
     ? (props.service ??
       (props.rule?.service
         ? { ...props.rule.service, clusterId: props.rule.clusterId ?? '' }
-        : null))
+        : serviceType.value
+          ? { id: '', name: '', clusterId: '', type: serviceType.value }
+          : null))
     : null,
 );
 const metricOptions = computed(() =>
@@ -124,6 +134,7 @@ function reset() {
     container?: string;
     labels?: Record<string, string>;
     service?: string;
+    serviceType?: string;
   };
   const u = r?.unit ?? null;
   const preset = !r && props.service ? props.service : null;
@@ -146,8 +157,9 @@ function reset() {
     renotify: r?.renotifySeconds ?? 14400,
     workload: s.workload ? { ...s.workload } : { namespace: '', kind: 'Deployment', name: '' },
   });
+  form.everyOfType = !!s.serviceType;
   form.scopeKind =
-    s.service || preset
+    s.service || s.serviceType || preset
       ? 'service'
       : s.labels
         ? 'labels'
@@ -192,6 +204,7 @@ function scope(): CreateAlertRuleRequest['scope'] {
   const text = form.scopeText.trim();
   switch (form.scopeKind) {
     case 'service':
+      if (form.everyOfType && serviceType.value) return { serviceType: serviceType.value };
       return serviceScope.value ? { service: serviceScope.value.id } : {};
     case 'namespaces':
       return { namespaces: text.split(/[\s,]+/).filter(Boolean) };
@@ -250,7 +263,13 @@ async function loadPreview() {
       method: 'POST',
       body: {
         ...(props.rule ? { ruleId: props.rule.id } : {}),
-        ...(custom ? { metric: form.metric, clusterId: form.clusterId, scope: scope() } : {}),
+        ...(custom
+          ? {
+              metric: form.metric,
+              clusterId: form.everyOfType ? null : form.clusterId,
+              scope: scope(),
+            }
+          : {}),
         ...(cond ? { condition: cond } : {}),
         forSeconds: Math.round(form.forMinutes * 60),
       },
@@ -325,7 +344,7 @@ async function save() {
           condition: cond!,
           name: form.name.trim() || metricName(form.metric),
           metric: form.metric,
-          clusterId: form.clusterId,
+          clusterId: form.everyOfType ? null : form.clusterId,
           scope: scope(),
         } satisfies CreateAlertRuleRequest,
       });
@@ -335,7 +354,7 @@ async function save() {
         Object.assign(body, {
           name: form.name.trim() || props.rule!.name,
           scope: scope(),
-          clusterId: form.clusterId,
+          clusterId: form.everyOfType ? null : form.clusterId,
         });
       }
       await api(`/alert-rules/${props.rule!.id}`, { method: 'PATCH', body });
@@ -441,11 +460,30 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
                     @update:model-value="form.metric = $event ?? form.metric"
                   />
                   <span class="text-text-muted">{{ $t('alerts.drawer.on') }}</span>
+                  <ComboBox
+                    v-if="serviceScope && isNew && serviceScope.name && serviceType"
+                    :model-value="form.everyOfType ? 'every' : 'one'"
+                    :options="[
+                      { value: 'one', label: serviceScope.name },
+                      {
+                        value: 'every',
+                        label: $t('alerts.drawer.everyOfType', { type: serviceName(serviceType) }),
+                      },
+                    ]"
+                    :label="$t('alerts.custom.scope')"
+                    class="w-56"
+                    testid="drawer-service-scope"
+                    @update:model-value="form.everyOfType = $event === 'every'"
+                  />
                   <span
-                    v-if="serviceScope"
+                    v-else-if="serviceScope"
                     class="rounded-control border border-border-strong bg-surface-3 px-2.5 py-0.5 font-mono text-14 text-text"
                     data-testid="drawer-service"
-                    >{{ serviceScope.name }}</span
+                    >{{
+                      form.everyOfType && serviceType
+                        ? $t('alerts.drawer.everyOfType', { type: serviceName(serviceType) })
+                        : serviceScope.name
+                    }}</span
                   >
                   <ComboBox
                     v-else

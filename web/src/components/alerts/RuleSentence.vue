@@ -4,6 +4,7 @@ import type { AlertRule } from '@watchlog/api-types';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { boldParts, formatValueIn, humanSeconds } from '@/lib/alerts';
+import { serviceName } from '@/lib/applications';
 
 // A rule as one plain sentence with its real values (alerts redesign item 8):
 // "A pod is **crash-looping** for **2 min**", "Node **disk** above **85%** (critical above **95%**)".
@@ -13,6 +14,7 @@ const { t, te } = useI18n();
 function scopeText(scope: AlertRule['scope'], service?: AlertRule['service']): string {
   const s = scope as {
     service?: string;
+    serviceType?: string;
     namespaces?: string[];
     workload?: { name: string };
     node?: string;
@@ -22,6 +24,7 @@ function scopeText(scope: AlertRule['scope'], service?: AlertRule['service']): s
   };
   const k = 'alerts.rules.sentence';
   if (s.service) return t(`${k}.service`, { name: service?.name ?? t(`${k}.serviceRemoved`) });
+  if (s.serviceType) return t(`${k}.serviceType`, { type: serviceName(s.serviceType) });
   if (s.labels && Object.keys(s.labels).length) {
     return t(`${k}.labels`, {
       labels: Object.entries(s.labels)

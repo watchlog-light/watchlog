@@ -106,6 +106,8 @@ const reasons = computed(() =>
   (page.data.value?.reasons ?? []).map((r) => ({
     severity: r.severity,
     text: reasonLine(r, app.value!.cluster, (iso) => formatDateTime(iso)),
+    // A command or configuration to apply (stub_status, ingress-nginx's metrics).
+    command: typeof r.facts.command === 'string' && r.facts.command ? r.facts.command : null,
   })),
 );
 const connected = computed(() => page.data.value?.connected ?? null);
@@ -281,9 +283,18 @@ async function resume() {
               }"
               aria-hidden="true"
             />
-            <span class="text-14 leading-relaxed text-text">
-              <span class="sr-only">{{ $t(`integrations.severity.${r.severity}`) }}: </span>
-              {{ $t(r.text.key, r.text.values) }}
+            <span class="flex min-w-0 flex-col gap-2 text-14 leading-relaxed text-text">
+              <span>
+                <span class="sr-only">{{ $t(`integrations.severity.${r.severity}`) }}: </span>
+                {{ $t(r.text.key, r.text.values) }}
+              </span>
+              <CodeBlock
+                v-if="r.command"
+                wrap
+                :code="r.command"
+                :label="$t('applications.access.commandLabel')"
+                data-testid="reason-command"
+              />
             </span>
           </li>
         </ul>
