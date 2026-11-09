@@ -23,6 +23,7 @@ import (
 	"github.com/watchlog-light/watchlog/agent/internal/integrations"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/nginx"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/postgres"
+	"github.com/watchlog-light/watchlog/agent/internal/integrations/rabbitmq"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/redis"
 	"github.com/watchlog-light/watchlog/agent/internal/runner"
 	"github.com/watchlog-light/watchlog/agent/internal/sender"
@@ -130,11 +131,13 @@ func run(args []string, stdout io.Writer) int {
 			UserAgent: userAgent,
 		},
 		// Integrations that read a service themselves; the others get the TCP check.
-		Registry: integrations.Registry{"nginx": nginx.New(), "postgres": postgres.New(), "redis": redis.New()},
-		Buffer:   buf,
-		Sender:   snd,
-		Log:      log,
-		Self:     runner.SelfUsage,
+		Registry: integrations.Registry{
+			"nginx": nginx.New(), "postgres": postgres.New(), "rabbitmq": rabbitmq.New(), "redis": redis.New(),
+		},
+		Buffer: buf,
+		Sender: snd,
+		Log:    log,
+		Self:   runner.SelfUsage,
 		// Passwords in Secrets (Kubernetes) or under /etc/watchlog/secrets (Docker),
 		// ADR-134: read only when a service names one.
 		Credentials: &integrations.Credentials{},
