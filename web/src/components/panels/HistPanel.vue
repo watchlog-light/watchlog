@@ -33,11 +33,14 @@ const pct = (v: number) => `${(v * 100).toFixed(v < 0.01 && v > 0 ? 1 : 0)}%`;
         b.label
       }}</span>
     </div>
-    <table class="sr-only">
-      <tr v-for="b in panel.buckets" :key="b.label">
-        <th>{{ b.label }}</th>
-        <td>{{ pct(b.share) }}</td>
-      </tr>
-    </table>
+    <!-- sr-only on a clipping box: a table is never narrower than its cells. -->
+    <div class="sr-only">
+      <table>
+        <tr v-for="b in panel.buckets" :key="b.label">
+          <th>{{ b.label }}</th>
+          <td>{{ pct(b.share) }}</td>
+        </tr>
+      </table>
+    </div>
   </div>
 </template>

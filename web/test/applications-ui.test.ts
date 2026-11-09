@@ -4,6 +4,7 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import type { Application, DiscoveredService } from '@watchlog/api-types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import en from '@/i18n/en.json';
 import { reasonText, sortApplications, whereText } from '@/lib/applications';
 import { useAuthStore } from '@/stores/auth';
 import ApplicationsPage from '@/views/ApplicationsPage.vue';
@@ -341,5 +342,51 @@ describe('applications lib', () => {
         fmt,
       ).key,
     ).toBe('applications.reason.someDown');
+    // A refused password reads "can't log in", not "can't connect".
+    expect(
+      reasonText(
+        app({
+          id: 'x',
+          type: 'postgres',
+          name: 'p',
+          reason: { code: 'login_failed', facts: { error: 'password authentication failed' } },
+        }),
+        fmt,
+      ),
+    ).toEqual({
+      key: 'applications.reason.loginFailed',
+      values: { error: 'password authentication failed' },
+    });
+  });
+
+  it('has the words for every PostgreSQL reason and tab', () => {
+    const reasons = (en as { integrations: { reasons: Record<string, string> } }).integrations
+      .reasons;
+    for (const code of [
+      'connections_near_max',
+      'long_query',
+      'idle_in_transaction',
+      'lock_waits',
+      'deadlocks',
+      'replica_lag',
+      'slot_retains_wal',
+      'wraparound_risk',
+      'cache_hit_low',
+      'autovacuum_not_finishing',
+      'statements_unavailable',
+    ]) {
+      expect(reasons[code], code).toBeTruthy();
+    }
+    const pg = (en as { integrations: { postgres: { tabs: Record<string, string> } } }).integrations
+      .postgres;
+    expect(Object.keys(pg.tabs)).toEqual([
+      'overview',
+      'connections',
+      'queries',
+      'locks',
+      'replication',
+      'tables',
+      'vacuum',
+    ]);
   });
 });

@@ -317,7 +317,7 @@ const settingsOpen = ref(false);
           :window="window"
           :loading="panels.loading.value"
           :error="!!panels.error.value"
-          :class="p.span === 2 ? 'md:col-span-2' : ''"
+          :class="['min-w-0', p.span === 2 ? 'md:col-span-2' : '']"
           @retry="panels.load"
         />
       </div>

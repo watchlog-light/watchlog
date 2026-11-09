@@ -46,11 +46,15 @@ const opacity = (v: number | null) =>
         (h - 1) % 6 === 0 ? String(h - 1).padStart(2, '0') : ''
       }}</span>
     </div>
-    <table class="sr-only">
-      <tr v-for="(row, d) in grid.cells" :key="d">
-        <th>{{ day(d) }}</th>
-        <td v-for="(v, h) in row" :key="h">{{ h }}:00 {{ formatValue(v, panel.unit) }}</td>
-      </tr>
-    </table>
+    <!-- A table is never narrower than its cells, so sr-only goes on a box that clips it:
+         on the table itself it would widen the page. -->
+    <div class="sr-only">
+      <table>
+        <tr v-for="(row, d) in grid.cells" :key="d">
+          <th>{{ day(d) }}</th>
+          <td v-for="(v, h) in row" :key="h">{{ h }}:00 {{ formatValue(v, panel.unit) }}</td>
+        </tr>
+      </table>
+    </div>
   </div>
 </template>

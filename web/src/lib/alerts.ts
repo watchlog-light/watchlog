@@ -252,6 +252,23 @@ export const SERVICE_METRICS_BY_TYPE: Record<string, typeof SERVICE_METRICS> = {
     { key: 'redis.replica.down', unit: 'count', start: { op: '>', value: 0 } },
     { key: 'redis.save.failed', unit: 'count', start: { op: '>', value: 0 } },
   ],
+  postgres: [
+    { key: 'postgres.connections.ratio', unit: 'ratio', start: { op: '>', value: 0.9 } },
+    { key: 'postgres.connections', unit: 'count', start: { op: '>', value: 100 } },
+    { key: 'postgres.transactions.rate', unit: 'per_second', start: { op: '>', value: 5000 } },
+    { key: 'postgres.cache_hit.ratio', unit: 'ratio', start: { op: '<', value: 0.9 } },
+    { key: 'postgres.query.longest', unit: 'seconds', start: { op: '>', value: 300 } },
+    {
+      key: 'postgres.idle_in_transaction.longest',
+      unit: 'seconds',
+      start: { op: '>', value: 300 },
+    },
+    { key: 'postgres.replication.lag', unit: 'seconds', start: { op: '>', value: 30 } },
+    { key: 'postgres.xid.age', unit: 'count', start: { op: '>', value: 1_500_000_000 } },
+    { key: 'postgres.deadlocks.rate', unit: 'per_second', start: { op: '>', value: 0 } },
+    { key: 'postgres.database.size', unit: 'bytes', start: { op: '>', value: 50 * 2 ** 30 } },
+    { key: 'postgres.lock_waits', unit: 'count', start: { op: '>', value: 0 } },
+  ],
 };
 export const serviceMetrics = (type?: string) => [
   ...SERVICE_METRICS,

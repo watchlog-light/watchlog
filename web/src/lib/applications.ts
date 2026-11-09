@@ -68,6 +68,8 @@ export function reasonText(
       return f.error
         ? { key: 'applications.reason.unreachableError', values: { error: f.error } }
         : { key: 'applications.reason.unreachable', values: {} };
+    case 'login_failed':
+      return { key: 'applications.reason.loginFailed', values: { error: f.error ?? '' } };
     case 'connected':
       return Number(f.up) < Number(f.members)
         ? { key: 'applications.reason.someDown', values: { up: f.up, members: f.members } }
@@ -127,6 +129,7 @@ export function reasonLine(
     case 'collector_missing':
     case 'collector_silent':
     case 'unreachable':
+    case 'login_failed':
     case 'connected':
     case 'paused':
       return reasonText({ reason: r, cluster }, formatTime);

@@ -488,6 +488,23 @@ function applicationRoutes(
     },
     // A monitored service's page, its settings and a rule scoped to it.
     { name: 'application', path: fixture, shot: true, answers: fixtureAnswers },
+    // The PostgreSQL page (slice 8): six tiles and two gauges; a six-column table.
+    ...(['overview', 'locks'] as const).map((tab) => ({
+      name: `application-postgres-${tab}`,
+      path: tab === 'overview' ? fixture : `${fixture}&tab=${tab}`,
+      shot: true,
+      answers: [
+        {
+          url: new RegExp(`/api/v1/applications/${apps.FIXTURE_APP_ID}(\\?|$)`),
+          json: apps.postgresDetail(kube),
+        },
+        {
+          url: new RegExp(`/api/v1/applications/${apps.FIXTURE_APP_ID}/panels`),
+          json: apps.postgresPanels(tab),
+        },
+        ...fixtureAnswers.slice(2),
+      ],
+    })),
     {
       name: 'service-rule-editor',
       path: fixture,

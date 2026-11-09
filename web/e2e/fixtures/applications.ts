@@ -131,6 +131,238 @@ export function applicationPanels() {
   };
 }
 
+/** The same service with the PostgreSQL page (slice 8). */
+export function postgresDetail(kube: Cluster) {
+  const T = 'integrations.postgres.tabs';
+  return {
+    ...applicationDetail(kube),
+    page: {
+      id: 'postgres',
+      tabs: [
+        ...['overview', 'connections', 'queries', 'locks', 'replication', 'tables', 'vacuum'].map(
+          (id) => ({ id, title: `${T}.${id}` }),
+        ),
+        { id: 'connection', title: 'integrations.tabs.connection' },
+      ],
+    },
+  };
+}
+
+/** The PostgreSQL page's widest tabs: Overview (six tiles, two gauges) and Locks (six columns). */
+export function postgresPanels(tab: 'overview' | 'locks') {
+  const P = 'integrations.postgres.panels';
+  const GB = 2 ** 30;
+  const query =
+    'UPDATE orders SET status = $1, updated_at = now() WHERE customer_id = $2 AND status IN ($3, $4)';
+  if (tab === 'overview')
+    return {
+      tab,
+      range: 3600,
+      panels: [
+        {
+          id: 'summary',
+          title: `${P}.summary`,
+          kind: 'stat',
+          span: 2,
+          state: 'ok',
+          tiles: [
+            {
+              id: 'connections',
+              labelKey: `${P}.connections`,
+              value: 92,
+              unit: 'count',
+              sub: { key: `${P}.ofMax`, values: { max: 100 } },
+              severity: 'warning',
+            },
+            {
+              id: 'tps',
+              labelKey: `${P}.tps`,
+              value: 1840,
+              unit: 'per_second',
+              sub: { key: `${P}.commitPct`, values: { pct: 99 } },
+            },
+            { id: 'cache', labelKey: `${P}.cacheHit`, value: 0.984, unit: 'ratio' },
+            { id: 'lag', labelKey: `${P}.replicationLag`, value: 0.4, unit: 'seconds' },
+            {
+              id: 'size',
+              labelKey: `${P}.size`,
+              value: 48.2 * GB,
+              unit: 'bytes',
+              sub: { key: `${P}.perDay`, values: { growth: '310 MB' } },
+            },
+            {
+              id: 'longest',
+              labelKey: `${P}.longestQuery`,
+              value: 412,
+              unit: 'seconds',
+              severity: 'critical',
+            },
+          ],
+        },
+        {
+          id: 'connections',
+          title: `${P}.connectionsOverTime`,
+          kind: 'line',
+          span: 1,
+          unit: 'count',
+          state: 'ok',
+          series: [
+            { nameKey: `${P}.series.connections`, points: series(80, 12) },
+            { nameKey: `${P}.maxConnections`, points: series(100, 0), dashed: true },
+          ],
+        },
+        {
+          id: 'transactions',
+          title: `${P}.transactions`,
+          kind: 'stack',
+          span: 1,
+          unit: 'per_second',
+          state: 'ok',
+          series: [
+            { nameKey: `${P}.series.commits`, points: series(1800, 300), severity: 'ok' },
+            { nameKey: `${P}.series.rollbacks`, points: series(20, 10), severity: 'warning' },
+          ],
+        },
+        {
+          id: 'slowest',
+          title: `${P}.slowest`,
+          kind: 'table',
+          span: 2,
+          state: 'ok',
+          note: { key: `${P}.statementsNote` },
+          columns: [`${P}.cols.query`, `${P}.cols.mean`, `${P}.cols.calls1h`, `${P}.cols.total`],
+          rows: [
+            { cells: [query, '1.84 s', 1210, '2226.40 s'], severity: 'warning' },
+            {
+              cells: ['SELECT * FROM carts WHERE session_id = $1', '12.4 ms', 88_410, '1096.28 s'],
+            },
+          ],
+        },
+        {
+          id: 'busiest',
+          title: `${P}.busiest`,
+          kind: 'bars',
+          span: 1,
+          unit: 'per_second',
+          state: 'ok',
+          items: [
+            { label: 'orders', value: 1420 },
+            { label: 'catalog_and_inventory_reporting', value: 380 },
+          ],
+        },
+        {
+          id: 'capacity',
+          title: `${P}.capacity`,
+          kind: 'gauge',
+          span: 1,
+          state: 'ok',
+          items: [
+            {
+              labelKey: `${P}.maxConnections`,
+              value: 92,
+              max: 100,
+              unit: 'count',
+              warnAt: 0.9,
+              note: { key: `${P}.reserved`, values: { n: 3 } },
+            },
+            {
+              label: 'data-orders-postgres-0',
+              value: 82 * GB,
+              max: 100 * GB,
+              unit: 'bytes',
+              warnAt: 0.85,
+              note: { key: `${P}.daysLeft`, values: { days: 58 } },
+            },
+          ],
+        },
+      ],
+    };
+  return {
+    tab,
+    range: 3600,
+    panels: [
+      {
+        id: 'waits',
+        title: `${P}.waits`,
+        kind: 'stack',
+        span: 2,
+        unit: 'count',
+        state: 'ok',
+        series: [
+          { name: 'Lock', points: series(3, 2), severity: 'warning' },
+          { name: 'Client', points: series(40, 8) },
+          { name: 'IO', points: series(2, 1) },
+        ],
+      },
+      {
+        id: 'blocking',
+        title: `${P}.blocking`,
+        kind: 'table',
+        span: 2,
+        state: 'ok',
+        note: { key: `${P}.blockingNote` },
+        columns: [
+          `${P}.cols.blocked`,
+          `${P}.cols.waitingFor`,
+          `${P}.cols.for`,
+          `${P}.cols.blockedBy`,
+          `${P}.cols.blockedQuery`,
+          `${P}.cols.blockingQuery`,
+        ],
+        rows: [
+          {
+            cells: [
+              'payments/settlement-worker (active)',
+              'Lock transactionid',
+              '4 min',
+              'payments/api (idle in transaction)',
+              query,
+              'SELECT * FROM orders WHERE id = $1 FOR UPDATE',
+            ],
+            severity: 'warning',
+          },
+        ],
+      },
+      {
+        id: 'heat',
+        title: `${P}.lockHeat`,
+        kind: 'heat',
+        span: 2,
+        unit: 'count',
+        state: 'ok',
+        note: { key: `${P}.lockHeatNote` },
+        points: Array.from({ length: 168 }, (_, i) => [
+          Math.floor(Date.now() / 3_600_000 - 168 + i) * 3600,
+          Math.max(0, Math.round(4 + Math.sin(i / 4) * 4)),
+        ]),
+      },
+      {
+        id: 'deadlocks',
+        title: `${P}.deadlocks`,
+        kind: 'line',
+        span: 1,
+        unit: 'count',
+        state: 'ok',
+        series: [
+          { nameKey: `${P}.series.deadlocks`, points: series(0.2, 0.2), severity: 'critical' },
+        ],
+      },
+      {
+        id: 'locked',
+        title: `${P}.lockedTables`,
+        kind: 'bars',
+        span: 1,
+        unit: 'count',
+        state: 'ok',
+        items: [
+          { label: 'orders', value: 14 },
+          { label: 'order_line_items_archive_2026', value: 3 },
+        ],
+      },
+    ],
+  };
+}
+
 /** Found and not monitored: a PostgreSQL on Kubernetes, a Redis on a Docker host. */
 export function discovered(kube: Cluster, docker: Cluster, host: string) {
   return {
