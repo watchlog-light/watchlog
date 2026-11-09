@@ -24,7 +24,7 @@
 # A token can be left out once its agent is installed: the installed one is kept.
 #   VM                           the Lima VM's name; unset: the running VM that has the kind
 #                                cluster "demo", else watchlog-demo
-#   GOPROXY                      for the agent build (e.g. https://goproxy.io,direct)
+#   GOPROXY                      for the agent build; default proxy.golang.org, then goproxy.io
 # Commands in single quotes run in the VM and expand there.
 # shellcheck disable=SC2016
 set -euo pipefail
@@ -82,9 +82,14 @@ if ! in_vm "curl -s -o /dev/null -m 5 $endpoint/api/v1/health"; then
 fi
 
 say "agent images from this checkout"
-in_vm "cd '$repo/agent' && docker build -q ${GOPROXY:+--build-arg GOPROXY=$GOPROXY} -t ghcr.io/watchlog-light/agent:demo --target agent . >/dev/null \
-  && docker build -q ${GOPROXY:+--build-arg GOPROXY=$GOPROXY} -t ghcr.io/watchlog-light/cluster-agent:demo --target cluster-agent . >/dev/null \
-  && docker build -q ${GOPROXY:+--build-arg GOPROXY=$GOPROXY} -t ghcr.io/watchlog-light/integrations:demo --target integrations . >/dev/null"
+# The Go module proxy: proxy.golang.org, and goproxy.io when it fails ("|": on any error).
+# Some networks get 403 for the zips proxy.golang.org serves from Google Cloud Storage;
+# a build that needs a new module then fails at `go mod download`, while one with every
+# module in Docker's cache still works, so an older VM breaks first.
+GOPROXY=${GOPROXY:-https://proxy.golang.org|https://goproxy.io,direct}
+in_vm "cd '$repo/agent' && docker build -q --build-arg GOPROXY='$GOPROXY' -t ghcr.io/watchlog-light/agent:demo --target agent . >/dev/null \
+  && docker build -q --build-arg GOPROXY='$GOPROXY' -t ghcr.io/watchlog-light/cluster-agent:demo --target cluster-agent . >/dev/null \
+  && docker build -q --build-arg GOPROXY='$GOPROXY' -t ghcr.io/watchlog-light/integrations:demo --target integrations . >/dev/null"
 
 say "kind cluster demo (context kind-demo)"
 in_vm "kind get clusters 2>/dev/null | grep -qx demo || sed 's/^name: watchlog\$/name: demo/' '$repo/deploy/test/k8s/kind.yaml' | kind create cluster --config - --wait 180s"

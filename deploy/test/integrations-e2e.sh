@@ -11,7 +11,7 @@
 #   WATCHLOG_E2E_KUBE_TOKEN and WATCHLOG_E2E_DOCKER_TOKEN
 #                          tokens of a Kubernetes cluster and a Docker fleet in that backend
 #   VM                     the Lima VM (default watchlog-demo)
-#   GOPROXY                for the image builds (e.g. https://goproxy.io,direct)
+#   GOPROXY                for the image builds; default proxy.golang.org, then goproxy.io
 # The agents run beside the demo's own (release watchlog-e2e in namespace watchlog-e2e,
 # container watchlog-agent-e2e), without eBPF; `integrations-e2e.sh down` removes them.
 # The Docker collector mounts ~/watchlog-e2e-secrets on the VM as /etc/watchlog/secrets:
@@ -47,7 +47,9 @@ say "the demo's services running (kind and the Compose app on the VM)"
 in_vm '[ -f ~/demo-compose/compose.yaml ] && docker compose -f ~/demo-compose/compose.yaml up -d --quiet-pull >/dev/null 2>&1 || true'
 
 say "images from this checkout"
-in_vm "cd '$repo/agent' && for t in agent cluster-agent integrations; do docker build -q ${GOPROXY:+--build-arg GOPROXY=$GOPROXY} --build-arg VERSION=e2e -t ghcr.io/watchlog-light/\$t:e2e --target \$t . >/dev/null; done"
+# proxy.golang.org, then goproxy.io on any error (some networks get 403 for its downloads).
+GOPROXY=${GOPROXY:-https://proxy.golang.org|https://goproxy.io,direct}
+in_vm "cd '$repo/agent' && for t in agent cluster-agent integrations; do docker build -q --build-arg GOPROXY='$GOPROXY' --build-arg VERSION=e2e -t ghcr.io/watchlog-light/\$t:e2e --target \$t . >/dev/null; done"
 in_vm 'for t in agent cluster-agent integrations; do kind load docker-image --name demo ghcr.io/watchlog-light/$t:e2e >/dev/null; done'
 
 say "Kubernetes: agents and collector → $endpoint"
