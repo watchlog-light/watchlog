@@ -167,3 +167,13 @@ export type CreateProbeResponse = JsonBody<Responses<'/api/v1/applications/probe
 export type Probe = CreateProbeResponse['probe'];
 export type ApplicationAccess = JsonBody<Responses<'/api/v1/applications/{id}/access', 'get'>[200]>;
 export type ApplicationEvent = ApplicationAccess['events'][number];
+// Multi-user (ADR-140).
+export type UserList = JsonBody<Responses<'/api/v1/users', 'get'>[200]>;
+export type UserRow = UserList['users'][number];
+export type InviteRow = UserList['invites'][number];
+export type AuditRow = UserList['audit'][number];
+export type CreateInviteRequest = RequestBody<'/api/v1/users/invites', 'post'>;
+export type CreatedInvite = JsonBody<Responses<'/api/v1/users/invites', 'post'>[201]>;
+export type IssuedLink = JsonBody<Responses<'/api/v1/users/{id}/reset-link', 'post'>[200]>;
+export type InviteInfo = JsonBody<Responses<'/api/v1/invites/{token}', 'get'>[200]>;
+export type ResetInfo = JsonBody<Responses<'/api/v1/password-resets/{token}', 'get'>[200]>;

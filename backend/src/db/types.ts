@@ -150,6 +150,18 @@ export interface ApiTokens {
   user_id: string;
 }
 
+export interface AuditEvents {
+  action: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  at: Generated<Timestamp>;
+  details: Generated<Json>;
+  id: string;
+  ip: string | null;
+  org_id: string;
+  subject_email: string | null;
+}
+
 export interface ChangeMarkers {
   cluster_id: string;
   created_at: Generated<Timestamp>;
@@ -274,6 +286,22 @@ export interface Integrations {
   version: string | null;
 }
 
+export interface Invites {
+  accepted_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  email: string;
+  emailed_at: Timestamp | null;
+  expires_at: Timestamp;
+  id: string;
+  invited_by: string | null;
+  invited_by_name: string | null;
+  org_id: string;
+  revoked_at: Timestamp | null;
+  role: string;
+  token_ciphertext: string | null;
+  token_hash: Buffer;
+}
+
 export interface K8sEvents {
   cluster_id: string;
   count: number;
@@ -369,6 +397,17 @@ export interface Orgs {
   updated_at: Generated<Timestamp>;
 }
 
+export interface PasswordResets {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  expires_at: Timestamp;
+  id: string;
+  token_hash: Buffer;
+  used_at: Timestamp | null;
+  user_id: string;
+  via: string;
+}
+
 export interface RetiredClusterTokens {
   retired_at: Generated<Timestamp>;
   token_hash: Buffer;
@@ -440,6 +479,7 @@ export interface DB {
   alerting_periods: AlertingPeriods;
   api_token_events: ApiTokenEvents;
   api_tokens: ApiTokens;
+  audit_events: AuditEvents;
   change_markers: ChangeMarkers;
   cluster_tokens: ClusterTokens;
   clusters: Clusters;
@@ -449,6 +489,7 @@ export interface DB {
   integration_events: IntegrationEvents;
   integration_probes: IntegrationProbes;
   integrations: Integrations;
+  invites: Invites;
   k8s_events: K8sEvents;
   mcp_calls: McpCalls;
   memberships: Memberships;
@@ -456,6 +497,7 @@ export interface DB {
   notifications: Notifications;
   objects: Objects;
   orgs: Orgs;
+  password_resets: PasswordResets;
   retired_cluster_tokens: RetiredClusterTokens;
   secret_key_check: SecretKeyCheck;
   server_settings: ServerSettings;

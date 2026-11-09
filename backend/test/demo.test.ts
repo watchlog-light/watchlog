@@ -88,7 +88,7 @@ describe('demo mode guard', () => {
   it('refuses every non-GET route outside the allowlist, for admins and visitors alike', async () => {
     const routes = await demoContext();
     const { orgId } = await createUserSession(ctx.db, { role: 'owner' });
-    const admin = (await createUserSession(ctx.db, { role: 'owner', orgId })).cookie;
+    const admin = (await createUserSession(ctx.db, { role: 'admin', orgId })).cookie;
     const { cookie: visitor } = await enterDemo();
 
     const writes = routes.filter((r) => !SAFE.has(r.method));
@@ -163,6 +163,7 @@ describe('demo mode guard', () => {
       required: false,
       demoMode: false,
       demoMcpToken: null,
+      smtp: false,
     });
     expect((await api('POST', '/demo/session')).statusCode).toBe(404);
   });
@@ -179,6 +180,7 @@ describe('demo sessions', () => {
       required: false,
       demoMode: true,
       demoMcpToken: null,
+      smtp: false,
     });
     const before = Date.now();
     const { res, cookie } = await enterDemo();

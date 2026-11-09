@@ -61,6 +61,7 @@ describe('the demo public MCP token', () => {
       required: false,
       demoMode: true,
       demoMcpToken: TOKEN,
+      smtp: false,
     });
     const me = await ctx!.app.inject({
       method: 'GET',

@@ -59,7 +59,13 @@ case "$name" in
     wait_http "http://127.0.0.1:$port/api/v1/health"
     curl -fsS "http://127.0.0.1:$port/api/v1/health"
     echo
-    test "$(curl -fsS "http://127.0.0.1:$port/api/v1/setup")" = '{"required":true,"demoMode":false,"demoMcpToken":null}'
+    test "$(curl -fsS "http://127.0.0.1:$port/api/v1/setup")" = '{"required":true,"demoMode":false,"demoMcpToken":null,"smtp":false}'
+    # ADR-140: the `watchlog` command runs in the image (no shell there) and reaches the
+    # database; before setup there is no Owner to reset.
+    cli=$(docker run --rm --network smoke-net --entrypoint watchlog -e DATABASE_URL="$db_url" \
+      -e WATCHLOG_SECRET_KEY="$(head -c 32 /dev/urandom | base64)" "$image" \
+      admin reset-password --url https://watchlog.example.com 2>&1 || true)
+    grep -q 'There is no Owner yet' <<<"$cli" || { echo "watchlog admin reset-password: $cli"; exit 1; }
     # Capture first: `docker logs | grep -q` fails under pipefail when grep exits early (SIGPIPE).
     backend_logs=$(docker logs smoke-backend 2>&1)
     grep -q 'setup code' <<<"$backend_logs" || { echo "setup code not logged"; exit 1; }

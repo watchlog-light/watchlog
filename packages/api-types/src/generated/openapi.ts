@@ -73,6 +73,8 @@ export interface paths {
               demoMode: boolean;
               /** @description The live demo's public, read-only MCP token; null elsewhere */
               demoMcpToken: string | null;
+              /** @description Email is set up: "Forgot your password?" emails a reset link */
+              smtp: boolean;
             };
           };
         };
@@ -9038,6 +9040,1249 @@ export interface paths {
         };
       };
     };
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/users': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The people who can open this WatchLog, open invites, and (Owners and Admins) the log */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              users: {
+                id: string;
+                name: string;
+                email: string;
+                role: 'owner' | 'admin' | 'viewer';
+                you: boolean;
+                lastActiveAt: string | null;
+                /** @description Active API tokens */
+                tokens: number;
+              }[];
+              invites: {
+                id: string;
+                email: string;
+                role: 'admin' | 'viewer';
+                status: 'pending' | 'expired';
+                invitedBy: string | null;
+                createdAt: string;
+                expiresAt: string;
+                emailed: boolean;
+              }[];
+              smtp: boolean;
+              audit: {
+                action: string;
+                actor: string | null;
+                subject: string | null;
+                ip: string | null;
+                at: string;
+                details: {
+                  [key: string]: unknown;
+                };
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/users/invites': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Invite someone: a single-use link for 7 days, also emailed when SMTP is set up */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** Format: email */
+            email: string;
+            role: 'admin' | 'viewer';
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              invite: {
+                id: string;
+                email: string;
+                role: 'admin' | 'viewer';
+                status: 'pending' | 'expired';
+                invitedBy: string | null;
+                createdAt: string;
+                expiresAt: string;
+                emailed: boolean;
+              };
+              /** @description Single-use; shown to the person who made it */
+              link: string;
+              expiresAt: string;
+              /** @description Also sent by email (SMTP is set up) */
+              emailed: boolean;
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/users/invites/{id}/link': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Copy a pending invite's link again */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              link: string;
+              expiresAt: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/users/invites/{id}/renew': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** New link for an invite: a new token, valid for 7 more days */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              /** @description Single-use; shown to the person who made it */
+              link: string;
+              expiresAt: string;
+              /** @description Also sent by email (SMTP is set up) */
+              emailed: boolean;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/users/invites/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Revoke a pending invite, or remove an expired one */
+    delete: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        204: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/users/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Remove a user: signed out at once, API tokens revoked; what they set up stays */
+    delete: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        204: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    options?: never;
+    head?: never;
+    /** Change an Admin's or a Viewer's role */
+    patch: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            role: 'admin' | 'viewer';
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        204: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    trace?: never;
+  };
+  '/api/v1/users/{id}/reset-link': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** A single-use password reset link for one hour, also emailed when SMTP is set up */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              /** @description Single-use; shown to the person who made it */
+              link: string;
+              expiresAt: string;
+              /** @description Also sent by email (SMTP is set up) */
+              emailed: boolean;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/users/{id}/owner': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Hand ownership to an Admin; the Owner becomes an Admin */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        204: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/invites/{token}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** What an invite link is for, and whether it still works */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          token: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              email: string;
+              role: 'admin' | 'viewer';
+              invitedBy: string | null;
+              expiresAt: string;
+              status: 'pending' | 'expired' | 'accepted' | 'revoked';
+              site: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        429: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/invites/{token}/accept': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Accept an invite: create the account and sign in */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          token: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            name: string;
+            password: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              user: {
+                /** Format: uuid */
+                id: string;
+                email: string;
+                name: string;
+                locale: string;
+                role: 'owner' | 'admin' | 'viewer';
+                org: {
+                  /** Format: uuid */
+                  id: string;
+                  name: string;
+                  slug: string;
+                  plan: 'community' | 'free' | 'pro' | 'enterprise';
+                };
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        410: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        429: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/password-resets/{token}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Whether a password reset link still works */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          token: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              email: string;
+              status: 'valid' | 'expired' | 'used';
+              expiresAt: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        429: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    /** Set a new password: every session ends, then this one signs in */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          token: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            password: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              user: {
+                /** Format: uuid */
+                id: string;
+                email: string;
+                name: string;
+                locale: string;
+                role: 'owner' | 'admin' | 'viewer';
+                org: {
+                  /** Format: uuid */
+                  id: string;
+                  name: string;
+                  slug: string;
+                  plan: 'community' | 'free' | 'pro' | 'enterprise';
+                };
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        410: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        429: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/forgot-password': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Email a reset link (SMTP set up); the same answer whether the account exists or not */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** Format: email */
+            email: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        202: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              emailed: boolean;
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        429: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;

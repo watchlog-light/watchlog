@@ -32,11 +32,34 @@ export function requireUser(db: Database): preHandlerAsyncHookHandler {
   };
 }
 
-/** preHandler (after requireUser) that allows only the given roles; others get 403. */
+/** Marks a role guard, so the route walk (ADR-140) can tell a route declared its roles. */
+export const ROLE_GUARD = Symbol.for('watchlog.roleGuard');
+
+/** The roles a route's preHandlers allow, or undefined when none declares them. */
+export function declaredRoles(preHandler: unknown): Role[] | undefined {
+  for (const h of [preHandler].flat(3)) {
+    const roles = (h as { [ROLE_GUARD]?: Role[] } | undefined)?.[ROLE_GUARD];
+    if (roles) return roles;
+  }
+  return undefined;
+}
+
+/**
+ * preHandler (after requireUser) that allows only the given roles; others get 403 with
+ * the words the dashboard shows on locked controls (ADR-140).
+ */
 export function requireRole(...roles: Role[]): preHandlerAsyncHookHandler {
-  return async function (this: unknown, request: FastifyRequest, reply: FastifyReply) {
+  const guard = async function (this: unknown, request: FastifyRequest, reply: FastifyReply) {
     if (!request.user || !roles.includes(request.user.role)) {
-      return sendProblem(reply, 403, 'Your role does not allow this action');
+      return sendProblem(
+        reply,
+        403,
+        request.user?.role === 'viewer'
+          ? "Viewers can't change this. Ask an Admin."
+          : 'Your role does not allow this action',
+      );
     }
   };
+  Object.defineProperty(guard, ROLE_GUARD, { value: roles });
+  return guard;
 }

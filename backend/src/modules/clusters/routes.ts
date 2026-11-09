@@ -203,7 +203,8 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
   app.delete(
     '/clusters/:id',
     {
-      preHandler: canManage,
+      // Deleting a cluster and its data is the Owner's (ADR-140).
+      preHandler: [signedIn, requireRole('owner')],
       schema: {
         summary: 'Delete a cluster and revoke all its tokens',
         tags: ['clusters'],

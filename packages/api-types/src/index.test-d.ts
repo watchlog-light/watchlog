@@ -40,6 +40,7 @@ describe('generated API types', () => {
       required: boolean;
       demoMode: boolean;
       demoMcpToken: string | null;
+      smtp: boolean;
     }>();
   });
 

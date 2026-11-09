@@ -46,6 +46,7 @@ import { queryRoutes } from './modules/query/routes.js';
 import { alertRoutes } from './modules/alerts/routes.js';
 import { HttpClient } from './modules/alerts/channels.js';
 import { settingsRoutes } from './modules/settings/routes.js';
+import { userRoutes } from './modules/users/routes.js';
 import { SettingsService } from './modules/settings/service.js';
 import type { BucketSpec } from './modules/ingest/rate-limit.js';
 import { applySeed, type Seed } from './modules/seed/seed.js';
@@ -146,6 +147,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         ...deps,
         demoMode: config.demoMode,
         demoMcpToken: config.demoMode ? deps.seed?.demoMcp?.token : undefined,
+        smtpConfigured: async () => !!(await settings.alerting()).smtp,
         afterSetup: async () => {
           await bootstrapCluster(app, config, deps.db);
           if (deps.seed) await applySeed(deps.db, deps.seed, app.log);
@@ -178,6 +180,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         secretKey: config.secretKey,
       });
       await api.register(apiTokenRoutes, { db: deps.db });
+      await api.register(userRoutes, { db: deps.db, settings, secretKey: config.secretKey });
       // The public API only (ADR-126): routes tagged `public`, with the bearer scheme.
       let spec: Record<string, unknown> | undefined;
       api.get(

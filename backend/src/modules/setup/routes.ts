@@ -16,7 +16,9 @@ export const setupRoutes: FastifyPluginAsyncTypebox<{
   demoMode?: boolean;
   /** The demo's public MCP token (ADR-130), offered on Settings → API tokens. */
   demoMcpToken?: string;
-}> = async (app, { db, setup, afterSetup, demoMode = false, demoMcpToken }) => {
+  /** Whether email is set up: "Forgot your password?" emails a link, else shows the command (ADR-140). */
+  smtpConfigured?: () => Promise<boolean>;
+}> = async (app, { db, setup, afterSetup, demoMode = false, demoMcpToken, smtpConfigured }) => {
   app.get(
     '/setup',
     {
@@ -32,6 +34,9 @@ export const setupRoutes: FastifyPluginAsyncTypebox<{
             demoMcpToken: Type.Union([Type.String(), Type.Null()], {
               description: "The live demo's public, read-only MCP token; null elsewhere",
             }),
+            smtp: Type.Boolean({
+              description: 'Email is set up: "Forgot your password?" emails a reset link',
+            }),
           }),
         },
       },
@@ -40,6 +45,7 @@ export const setupRoutes: FastifyPluginAsyncTypebox<{
       required: !demoMode && (await setup.isRequired(db)),
       demoMode,
       demoMcpToken: demoMode ? (demoMcpToken ?? null) : null,
+      smtp: !demoMode && !!(await smtpConfigured?.().catch(() => false)),
     }),
   );
 

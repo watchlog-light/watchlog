@@ -864,7 +864,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
   app.post(
     '/alert-rules/preview',
     {
-      preHandler: signedIn,
+      preHandler: canManage,
       schema: {
         summary:
           'How often a rule would have fired: a 24 h backtest for metric rules, the last 7 days of history for state rules',

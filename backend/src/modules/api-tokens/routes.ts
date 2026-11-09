@@ -8,7 +8,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { ProblemType, sendProblem } from '../../lib/problem.js';
-import { requireUser } from '../../plugins/auth.js';
+import { requireRole, requireUser } from '../../plugins/auth.js';
 import { TOKEN_SCOPE_MESSAGE } from '../../plugins/api-token.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import {
@@ -33,7 +33,8 @@ export const apiTokenRoutes: FastifyPluginAsyncTypebox<{
       return sendProblem(reply, 403, TOKEN_SCOPE_MESSAGE, ProblemType.tokenScope);
     }
   };
-  const preHandler = [requireUser(db), sessionOnly];
+  // Personal tokens (ADR-125): every role makes and revokes its own (ADR-140).
+  const preHandler = [requireUser(db), requireRole('owner', 'admin', 'viewer'), sessionOnly];
 
   app.get(
     '/api-tokens',

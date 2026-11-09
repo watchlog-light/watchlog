@@ -4,7 +4,7 @@ import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { sendProblem } from '../../lib/problem.js';
 import { VictoriaError, type VictoriaQueryClient } from '../../lib/victoria.js';
-import { requireUser } from '../../plugins/auth.js';
+import { requireRole, requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { findCluster } from '../clusters/service.js';
 import { buildQuery, chooseStep, METRIC_KEYS, type MetricKey } from './catalog.js';
@@ -36,7 +36,8 @@ export const queryRoutes: FastifyPluginAsyncTypebox<{
   app.post(
     '/query/range',
     {
-      preHandler: requireUser(db),
+      // A read sent as POST: every role (ADR-140).
+      preHandler: [requireUser(db), requireRole('owner', 'admin', 'viewer')],
       schema: {
         summary: 'Curated metric query over a time range (no raw MetricsQL)',
         tags: ['query', PUBLIC_TAG],
