@@ -168,3 +168,27 @@ export function serviceMapLink(a: Pick<Application, 'cluster' | 'target'>): Rout
         : undefined;
   return { name: 'service-map', query: { cluster: a.cluster.id, ...(node ? { node } : {}) } };
 }
+
+/** A service to connect: one that was found, or one added by hand (an address). */
+export interface ConnectTarget {
+  cluster: Application['cluster'];
+  type: string;
+  name: string;
+  version: string | null;
+  image: string | null;
+  port: number | null;
+  host: string | null;
+  group: string | null;
+  target: Application['target'];
+  /** Docker, an address added by hand: the host whose collector reaches it. */
+  collectorHost?: string;
+}
+
+export type AccessMethod = 'none' | 'generated' | 'entered' | 'reference';
+
+/** The ways to connect each type (ADR-134): a user for PostgreSQL, optional for Redis. */
+export function accessOptions(type: string): AccessMethod[] {
+  if (type === 'postgres') return ['generated', 'entered', 'reference'];
+  if (type === 'redis') return ['none', 'generated', 'entered', 'reference'];
+  return ['none'];
+}

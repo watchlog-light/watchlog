@@ -1,12 +1,14 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { ArrowLeft, Database, Network } from '@lucide/vue';
+import { ArrowLeft, Database, Network, Settings2 } from '@lucide/vue';
 import type { ApplicationDetail, ApplicationPanels } from '@watchlog/api-types';
-import { computed, onMounted, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError, api } from '@/api/client';
+import SettingsDrawer from '@/components/applications/SettingsDrawer.vue';
 import ServicePanel from '@/components/panels/ServicePanel.vue';
+import CodeBlock from '@/components/ui/CodeBlock.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import SkeletonChart from '@/components/ui/SkeletonChart.vue';
@@ -17,6 +19,7 @@ import { useLoader } from '@/composables/useLoader';
 import { connectedLink, reasonLine, serviceMapLink, serviceName } from '@/lib/applications';
 import { formatDateTime } from '@/lib/format';
 import { PAGE_RANGES, rangeOf, SEVERITY_TOKEN } from '@/lib/panels';
+import { useAuthStore } from '@/stores/auth';
 
 // A monitored service (SPEC §4.12, ADR-135; the mock-up's detail): the header with its
 // own time range, "What WatchLog sees" (ADR-137), the integration's tabs (?tab=) with
@@ -25,6 +28,7 @@ import { PAGE_RANGES, rangeOf, SEVERITY_TOKEN } from '@/lib/panels';
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const auth = useAuthStore();
 
 const id = computed(() => String(route.params.id));
 const range = computed(() => rangeOf(route.query.range));
@@ -95,6 +99,7 @@ const reasons = computed(() =>
   })),
 );
 const connected = computed(() => page.data.value?.connected ?? null);
+const settingsOpen = ref(false);
 </script>
 
 <template>
@@ -186,6 +191,14 @@ const connected = computed(() => page.data.value?.connected ?? null);
           >
             <Network class="size-4" aria-hidden="true" />{{ $t('integrations.page.openMap') }}
           </RouterLink>
+          <button
+            type="button"
+            class="inline-flex h-10 items-center gap-2 rounded-control border border-border-strong bg-surface-1 px-3.5 text-13 font-medium text-text hover:bg-surface-2"
+            data-testid="open-settings"
+            @click="settingsOpen = true"
+          >
+            <Settings2 class="size-4" aria-hidden="true" />{{ $t('integrations.page.settings') }}
+          </button>
         </div>
       </header>
 
@@ -218,6 +231,21 @@ const connected = computed(() => page.data.value?.connected ?? null);
             </span>
           </li>
         </ul>
+      </section>
+
+      <section
+        v-if="page.data.value?.collectorCommand && auth.canManage"
+        class="flex flex-col gap-2 rounded-card border border-border bg-surface-1 px-4 py-3.5 sm:px-5"
+        data-testid="collector-command"
+      >
+        <h3 class="text-14 font-semibold text-text">
+          {{ $t('integrations.page.startCollector', { host: app.where.host }) }}
+        </h3>
+        <p class="text-13 text-text-muted">{{ $t('integrations.page.startCollectorHint') }}</p>
+        <CodeBlock
+          :code="page.data.value.collectorCommand"
+          :label="$t('applications.access.commandLabel')"
+        />
       </section>
 
       <div
@@ -349,6 +377,12 @@ const connected = computed(() => page.data.value?.connected ?? null);
           </span>
         </div>
       </section>
+      <SettingsDrawer
+        v-if="settingsOpen"
+        v-model:open="settingsOpen"
+        :app="app"
+        @changed="page.load"
+      />
     </template>
   </div>
 </template>

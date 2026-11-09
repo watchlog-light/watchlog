@@ -1,29 +1,40 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import type { DiscoveredService } from '@watchlog/api-types';
+import type { Probe } from '@watchlog/api-types';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError, api } from '@/api/client';
+import AccessStep from '@/components/applications/AccessStep.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import ModalDialog from '@/components/ui/ModalDialog.vue';
+import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
 import { KIND_LOGO } from '@/components/ui/kindLogos';
 import { ServiceLogo } from '@/components/ui/serviceLogos';
-import { serviceName } from '@/lib/applications';
+import { serviceName, type ConnectTarget } from '@/lib/applications';
 import { useToastStore } from '@/stores/toast';
 
-// Monitor a discovered service (SPEC §4.12, the mock-up's connect drawer): what was
-// detected, then Start monitoring. The access step for services that need a user, the
-// probe and the default alerts arrive with slice 4 (ADR-134).
-const props = defineProps<{ service: DiscoveredService }>();
+// Monitor a service (SPEC §4.12, the mock-up's connect drawer, ADR-134): what was
+// detected, how WatchLog logs in and the test that proves it, the query-text switch
+// (PostgreSQL, ADR-138), then Start monitoring. A failed test doesn't block Start: the
+// service page keeps saying why it can't connect.
+const props = defineProps<{ service: ConnectTarget }>();
 const emit = defineEmits<{ started: [] }>();
 const open = defineModel<boolean>('open', { required: true });
 const { t } = useI18n();
 const toast = useToastStore();
 const saving = ref(false);
+const probe = ref<Probe | null>(null);
+const queryText = ref(true);
 
 const s = computed(() => props.service);
 const detected = computed(() => {
   const d = s.value;
+  if (d.target.kind === 'address') {
+    return t('applications.monitor.detectedAddress', {
+      address: d.target.address,
+      cluster: d.cluster.name,
+    });
+  }
   if (d.cluster.kind === 'kubernetes') {
     return t('applications.monitor.detectedK8s', {
       image: d.image ?? '—',
@@ -39,13 +50,24 @@ const detected = computed(() => {
     project: d.group ? t('applications.monitor.detectedProject', { project: d.group }) : '',
   });
 });
+// A user's access needs its probe first (the password lives with it); "nothing to set up"
+// can start while the test runs.
+const ready = computed(() => probe.value !== null);
 
 async function start() {
   saving.value = true;
   try {
     await api('/applications', {
       method: 'POST',
-      body: { clusterId: s.value.cluster.id, type: s.value.type, target: s.value.target },
+      body: {
+        clusterId: s.value.cluster.id,
+        type: s.value.type,
+        target: s.value.target,
+        ...(s.value.collectorHost ? { collectorHost: s.value.collectorHost } : {}),
+        ...(s.value.target.kind === 'address' ? { name: s.value.name } : {}),
+        ...(probe.value ? { probeId: probe.value.id } : {}),
+        ...(s.value.type === 'postgres' ? { queryText: queryText.value } : {}),
+      },
     });
     toast.show(t('applications.monitor.started', { name: s.value.name }));
     emit('started');
@@ -84,16 +106,33 @@ async function start() {
         <h3 class="text-14 font-semibold text-text">{{ $t('applications.monitor.detected') }}</h3>
         <p class="text-13 leading-relaxed text-text-muted">{{ detected }}</p>
       </section>
-      <p class="text-13 leading-relaxed text-text-muted">
-        {{ $t('applications.monitor.accessSoon') }}
-      </p>
+
+      <AccessStep :service="s" @probe="(p) => (probe = p)" />
+
+      <label v-if="s.type === 'postgres'" class="flex items-start justify-between gap-4">
+        <span class="flex flex-col gap-0.5">
+          <span class="text-13 font-medium text-text">{{
+            $t('applications.monitor.queryText')
+          }}</span>
+          <span class="text-12 text-text-muted">{{
+            $t('applications.monitor.queryTextHint')
+          }}</span>
+        </span>
+        <ToggleSwitch v-model="queryText" data-testid="query-text" />
+      </label>
+
       <div class="flex justify-end gap-2 border-t border-border pt-4">
         <BaseButton variant="secondary" @click="open = false">{{
           $t('applications.monitor.cancel')
         }}</BaseButton>
-        <BaseButton :loading="saving" data-testid="start-monitoring" @click="start">{{
-          $t('applications.monitor.start')
-        }}</BaseButton>
+        <BaseButton
+          :loading="saving"
+          :disabled="!ready"
+          data-testid="start-monitoring"
+          @click="start"
+        >
+          {{ $t('applications.monitor.start') }}
+        </BaseButton>
       </div>
     </div>
   </ModalDialog>

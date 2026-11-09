@@ -6,6 +6,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
+import AddServiceDialog from '@/components/applications/AddServiceDialog.vue';
 import MonitorDrawer from '@/components/applications/MonitorDrawer.vue';
 import SparkLine from '@/components/overview/SparkLine.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
@@ -22,6 +23,7 @@ import {
   familyCounts,
   familyOf,
   NEEDS_USER,
+  type ConnectTarget,
   reasonText,
   serviceName,
   sortApplications,
@@ -103,7 +105,12 @@ const REASON_STYLE: Record<Application['health'], string> = {
 };
 
 // Monitor: the drawer shows what was detected and starts it (slice 4 adds the access step).
-const monitoring = ref<DiscoveredService | null>(null);
+const monitoring = ref<ConnectTarget | null>(null);
+const adding = ref(false);
+function connectManual(service: ConnectTarget) {
+  adding.value = false;
+  monitoring.value = service;
+}
 const drawerOpen = computed({
   get: () => monitoring.value !== null,
   set: (v: boolean) => {
@@ -119,7 +126,17 @@ async function started() {
 
 <template>
   <div class="flex flex-col gap-5" data-testid="applications">
-    <p class="text-14 text-text-muted">{{ $t('applications.subtitle') }}</p>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <p class="text-14 text-text-muted">{{ $t('applications.subtitle') }}</p>
+      <BaseButton
+        v-if="auth.canManage"
+        variant="secondary"
+        data-testid="add-manually"
+        @click="adding = true"
+      >
+        {{ $t('applications.addManually') }}
+      </BaseButton>
+    </div>
 
     <ErrorState
       v-if="page.error.value"
@@ -359,6 +376,7 @@ async function started() {
       </template>
     </template>
 
+    <AddServiceDialog v-if="adding" v-model:open="adding" @connect="connectManual" />
     <MonitorDrawer
       v-if="monitoring"
       v-model:open="drawerOpen"

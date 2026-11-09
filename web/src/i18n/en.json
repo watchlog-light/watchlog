@@ -1984,13 +1984,109 @@
       "detectedK8s": "Image {image} on port {port} in namespace {namespace} of {cluster}. Its version and settings are read on first connect.",
       "detectedDocker": "Image {image} on port {port} on {host}{project}. Its version and settings are read on first connect.",
       "detectedProject": ", Compose project {project}",
-      "accessSoon": "The connect flow for services that need a user comes next; this one can start now.",
       "start": "Start monitoring",
       "cancel": "Cancel",
       "started": "Monitoring {name}.",
-      "failed": "{name} couldn't be added: {error}"
+      "failed": "{name} couldn't be added: {error}",
+      "detectedAddress": "Added by hand: {address}, reached by the integrations collector of {cluster}.",
+      "queryText": "Collect query text",
+      "queryTextHint": "The statements of the slowest queries, as PostgreSQL normalizes them. Turn it off if even normalized statements shouldn't leave the database."
     },
-    "metricsError": "Key metrics couldn't be loaded."
+    "metricsError": "Key metrics couldn't be loaded.",
+    "access": {
+      "title": "Access",
+      "recommended": "recommended",
+      "none": {
+        "label": "Nothing to set up",
+        "hint": "It needs no password; WatchLog tests the connection now."
+      },
+      "generated": {
+        "label": "Create a read-only user for WatchLog",
+        "hint": "WatchLog writes the command with a new password; you run it once."
+      },
+      "entered": {
+        "label": "Use an existing user",
+        "hint": "Its name and password, stored encrypted. A dedicated read-only user is safer."
+      },
+      "reference": {
+        "label": "Keep the password yourself",
+        "k8s": "In a Secret in the collector's namespace; WatchLog stores only its name and grants the collector that one Secret.",
+        "docker": "In a file under /etc/watchlog/secrets on the host; WatchLog stores only its name."
+      },
+      "username": "User",
+      "usernameOptional": "User (optional)",
+      "password": "Password",
+      "secretName": "Secret name",
+      "secretKey": "Key in the Secret",
+      "file": "File name",
+      "fileHint": "Under /etc/watchlog/secrets on the Docker host.",
+      "makeCommand": "Create the command",
+      "test": "Test the connection",
+      "runOnce": "Run this once. It creates the user with only the rights WatchLog needs:",
+      "commandLabel": "Command",
+      "shownOnce": "The password is shown only here. WatchLog keeps it encrypted.",
+      "grantSecret": "Let the collector read that one Secret:",
+      "writeFile": "Write the password into the file on the host:",
+      "mount": "And mount the folder, read-only, into the collector:",
+      "trying": "Trying to connect every 5 seconds…",
+      "retrying": "Not yet: {error} (try {n})",
+      "ok": "Connected: {service}",
+      "failed": "Couldn't connect: {error}",
+      "checkNow": "Check now",
+      "checkAgain": "Check again",
+      "excess": "This user can do more than WatchLog needs ({privileges}). It works; a dedicated read-only user is safer."
+    },
+    "settings": {
+      "title": "Settings · {name}",
+      "access": "Access",
+      "method": {
+        "generated": "A user WatchLog created ({user})",
+        "entered": "An existing user ({user})",
+        "reference": "A password you keep, in {where}"
+      },
+      "setBy": "set by {name} on {at}",
+      "verified": "last verified {at}",
+      "notVerified": "not verified yet",
+      "noAccess": "No password stored: WatchLog connects without one.",
+      "change": "Change access",
+      "removeAccess": "Remove access",
+      "accessSaved": "Access saved.",
+      "accessRemoved": "Access removed.",
+      "switches": "Monitoring",
+      "paused": "Paused",
+      "pausedHint": "The collector stops reading it; its history and alerts stay.",
+      "on": "On",
+      "off": "Off",
+      "saved": "Saved.",
+      "log": "Log",
+      "logEmpty": "Nothing yet.",
+      "action": {
+        "monitored": "Monitoring started",
+        "credential_set": "Access set",
+        "credential_replaced": "Access replaced",
+        "credential_removed": "Access removed",
+        "verified": "Access verified",
+        "paused": "Paused",
+        "resumed": "Resumed",
+        "settings_changed": "Settings changed",
+        "removed": "Monitoring stopped"
+      },
+      "remove": "Stop monitoring",
+      "removed": "{name} is no longer monitored."
+    },
+    "add": {
+      "title": "Add a service",
+      "description": "One the agents can't see, such as a managed database, by its address.",
+      "cluster": "Cluster or fleet",
+      "type": "Type",
+      "address": "Address",
+      "addressHint": "host:port, as the collector reaches it",
+      "addressError": "host:port, for example db.internal:5432",
+      "host": "Docker host",
+      "hostHint": "The host whose integrations collector reaches this address.",
+      "name": "Name (optional)",
+      "continue": "Continue"
+    }
   },
   "integrations": {
     "tabs": {
@@ -2031,7 +2127,10 @@
       "mcp": {
         "title": "Your AI can read this too",
         "body": "Through MCP, with the same reasons:"
-      }
+      },
+      "settings": "Settings",
+      "startCollector": "Start the integrations collector on {host}",
+      "startCollectorHint": "Run this on that host. It reuses the token of the WatchLog agent already running there, reads with read-only access, and mounts /etc/watchlog/secrets read-only for passwords you keep in files."
     },
     "panel": {
       "empty": "No data yet in this time range.",
@@ -2046,7 +2145,8 @@
         "fri": "Fri",
         "sat": "Sat",
         "sun": "Sun"
-      }
+      },
+      "missing": "It needs {missing}."
     },
     "generic": {
       "panels": {

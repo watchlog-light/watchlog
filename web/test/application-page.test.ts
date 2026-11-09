@@ -398,6 +398,7 @@ describe('Application page', () => {
               id: 'generic',
               tabs: [{ id: 'overview', title: 'integrations.tabs.overview' }],
             },
+            collectorCommand: 'docker run -d --name watchlog-integrations …',
           },
         ),
       },
@@ -412,6 +413,9 @@ describe('Application page', () => {
       'Note: No integrations collector runs on docker-01 yet.',
     );
     expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="collector-command"]').text()).toContain(
+      'Start the integrations collector on docker-01',
+    );
     expect(wrapper.get('[data-testid="generic-note"]').text()).toContain('The Redis pages');
     expect(wrapper.get('[data-testid="open-service-map"]').attributes('href')).toBe(
       `/service-map?cluster=${DOCKER.id}`,

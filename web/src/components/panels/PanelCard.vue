@@ -45,7 +45,9 @@ defineEmits<{ retry: [] }>();
       <span>
         {{ $t('integrations.panel.needsPermission') }}
         <template v-if="panel.missing">{{
-          $t(panel.missing.key, panel.missing.values ?? {})
+          $te(panel.missing.key)
+            ? $t(panel.missing.key, panel.missing.values ?? {})
+            : $t('integrations.panel.missing', panel.missing.values ?? {})
         }}</template>
       </span>
     </div>

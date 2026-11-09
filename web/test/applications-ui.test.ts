@@ -116,6 +116,16 @@ const DISCOVERED: DiscoveredService[] = [
   },
 ];
 
+const PROBE = {
+  id: '01a1c000-0000-7000-8000-0000000000p1',
+  status: 'ok' as const,
+  method: 'none',
+  username: null,
+  attempts: 1,
+  result: { ok: true, error: null, version: '7.2', facts: {}, excess: [] },
+  expiresAt: '2026-11-09T10:15:00.000Z',
+};
+
 async function mountPage(role = 'owner', query = '') {
   const plugins = await createPlugins(`/applications${query}`);
   useAuthStore().user = { ...USER, role: role as typeof USER.role };
@@ -196,6 +206,10 @@ describe('Applications page', () => {
         status: 201,
         body: { application: app({ id: 'n', type: 'redis', name: 'analytics/redis' }) },
       },
+      'POST /api/v1/applications/probes': {
+        status: 201,
+        body: { probe: PROBE },
+      },
     });
     const { wrapper } = await mountPage();
     await wrapper.findAll('[data-testid="monitor"]')[1]!.trigger('click');
@@ -204,10 +218,20 @@ describe('Applications page', () => {
     expect(drawer.textContent).toContain('on docker-01, Compose project analytics');
     (document.body.querySelector('[data-testid="start-monitoring"]') as HTMLButtonElement).click();
     await flushPromises();
-    expect(calls.find((c) => c.method === 'POST')!.body).toEqual({
+    // Redis needs nothing: the drawer tested the connection when it opened.
+    expect(calls.find((c) => c.path === '/api/v1/applications/probes')!.body).toEqual({
       clusterId: DOCKER.id,
       type: 'redis',
       target: DISCOVERED[1]!.target,
+      access: { method: 'none' },
+    });
+    expect(
+      calls.find((c) => c.path === '/api/v1/applications' && c.method === 'POST')!.body,
+    ).toEqual({
+      clusterId: DOCKER.id,
+      type: 'redis',
+      target: DISCOVERED[1]!.target,
+      probeId: PROBE.id,
     });
     expect(wrapper.findAll('[data-testid="application-row"]')).toHaveLength(1);
     expect(wrapper.findAll('[data-testid="discovered-row"]')).toHaveLength(1);
