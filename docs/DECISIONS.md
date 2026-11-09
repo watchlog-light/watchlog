@@ -1600,3 +1600,263 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Demo mode's guard** lets `POST /mcp` through: its tools only read.
   - **Analytics:** every `/mcp` answer carries `x-watchlog-mcp` (the JSON-RPC method and tool, never arguments). The demo's nginx logs it, and the waitlist's Demo page shows MCP visits, their client and the tools called.
   - **The web image's Caddy** forwards `/mcp` with streaming unbuffered, and answers 404 for OAuth metadata paths, which MCP clients probe when a token is refused. The demo's nginx does the same.
+
+## ADR-131: A separate integrations collector, one per Kubernetes cluster or Docker host
+
+- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Context: v0.3 monitors services that run next to the workloads: Redis, PostgreSQL, Nginx, MongoDB, RabbitMQ and Elasticsearch (SPEC §4.12). Reading them needs network clients and, for some, credentials. The node agent must stay within its budgets (SPEC §6.1) and never read secrets (SPEC §6.6).
+- Decision:
+  - **A third binary and image**, `integrations`, in the agent's Go module (ADR-048), published as `ghcr.io/watchlog-light/integrations`. It reuses the agent's remote_write encoder, disk buffer and sender (ADR-021, ADR-022). Budgets: image ≤ 40 MB compressed, ≤ 128 MB RSS and ≤ 5 % of a core with all six integrations on one instance each. These are measured in the release test and are hard limits like the agent's.
+  - **Kubernetes:** one Deployment per cluster (1 replica), `integrations.enabled: true` by default in both charts (nil-safe, ADR-107). It needs no ClusterRole. It reaches services over the pod network by Service name or pod IP, and the backend names the targets. A NetworkPolicy that blocks it is reported as "can't connect", with the policy fix in the message.
+  - **Docker:** one container per host that runs a monitored service, started with `--network host` so it reaches the containers' bridge addresses on that host. The connect flow shows its `docker run` command the first time a service on a host without a collector is monitored. Hosts without monitored services run nothing extra.
+  - **Push only, like the agents:** the collector authenticates with the cluster's token. It pulls its configuration from `GET /ingest/v1/integrations/config` every 30 s (ETag), pushes metrics through remote_write and status and snapshots through `POST /ingest/v1/integrations`. The backend still never connects into a cluster (SPEC §5.2).
+  - **Read-only by construction:** each integration runs a fixed list of statements or commands, written in the code and tested; there is no way to send it a query. Connections are opened with read-only session settings where the service has them (PostgreSQL `default_transaction_read_only`, short `statement_timeout` and `lock_timeout`).
+  - **Load on the monitored service** is bounded: one connection per instance, a 30 s scrape for heavy views (tables, statements, queues) and 15 s for the rest, and a 5 s timeout per call.
+- Alternatives: integrations inside the node agent (rejected: database clients break the agent's budget, and credentials would reach every node); inside the backend (rejected: the backend never connects into clusters, and in Cloud it cannot); a Prometheus exporter per service (rejected: one exporter image per service to install and wire up, and no discovery, connect flow or reasons).
+- Consequences: a third image in the release and verify workflows; the upgrade test covers the new chart values. Docker users may run one more container per host that has services.
+
+## ADR-132: Services are discovered from what the agents already see
+
+- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Decision:
+  - **Signals:**
+    - container images from the cluster-agent's pods and from the Docker agent;
+    - container ports: the pod spec summary gains `ports` (a trimmed list, ADR-053), and Docker already has them;
+    - Service ports;
+    - eBPF flows into a workload on a well-known port.
+  - **Matching:** a small table per integration of image names and ports. Some examples:
+    - `redis`, `bitnami/redis`, `valkey/valkey` on 6379;
+    - `postgres`, `bitnami/postgresql`, `cloudnative-pg` on 5432;
+    - `nginx` on 80/443, and `ingress-nginx/controller` with its metrics on 10254;
+    - `mongo` on 27017;
+    - `rabbitmq` on 5672 and 15692;
+    - `elasticsearch` on 9200.
+
+    The image wins over the port. A port alone gives "maybe PostgreSQL", shown with a lower confidence and never monitored without a click.
+
+  - **Identity:** a service instance is a workload (StatefulSet, Deployment) on Kubernetes, or a Compose service or container on Docker. Its targets are its pods or containers, so replicas and replica sets are one service with several members.
+  - **The list:** discoveries are kept in `discovered_services` and shown on the Applications page as "Found N services that aren't monitored yet". **Ignore** hides one until its image changes. **Add manually** takes a host and port for a service the agents can't see, such as a managed database.
+  - **Nothing is contacted** until someone presses Monitor; discovery reads only what the agents already send.
+- Consequences: one small cluster-agent change (container ports in the pod summary) and a backend matcher with fixtures for both kinds of cluster.
+
+## ADR-133: Integration credentials are stored encrypted (replaces "named Secrets only")
+
+- Date: 2026-11-09 · Status: proposed (v0.3 planning; the owner decided that stored credentials are allowed, this ADR records how)
+- Context: roadmap v1.2 allowed only Kubernetes Secrets named in Helm values. The owner decided that WatchLog may store generated or entered credentials, so connecting a database takes one command and no Helm upgrade. The user's own Secret or file stays as an option (ADR-134).
+- Decision:
+  - **At rest:**
+    - AES-256-GCM with the installation's `WATCHLOG_SECRET_KEY` (ADR-079), in `integration_credentials`: one row per service instance, the ciphertext, the key id prefix (`v1:`), the method (`generated`/`entered`/`reference`), the user name and when it was set and verified.
+    - Each ciphertext is bound to its row with associated data (the instance id), so a ciphertext copied to another row does not decrypt.
+    - The secret-key canary (ADR-079) covers these rows too: the backend refuses to start with a key that can't decrypt them.
+  - **Key rotation:**
+    - `backend rotate-secret-key` takes the old and the new key. It re-encrypts channel, SMTP and integration secrets in one transaction under a new key id, then updates the canary.
+    - The backend accepts both keys during the switch through `WATCHLOG_SECRET_KEY_PREVIOUS`, so a rolling restart never fails.
+    - Documented with a test.
+  - **Who can do what (ADR-140):**
+    - Owners and Admins can set, replace or remove a credential. Viewers see only "set by <name> on <date>, last verified <time>".
+    - Nobody can read a password back, through the UI, the REST API or MCP. The API is write-only, like channel secrets.
+  - **What the collector receives:**
+    - The configuration endpoint returns the decrypted credential only to the collector of that service's cluster (its cluster token), and only for the instances assigned to it, over TLS.
+    - The collector keeps it in memory, never writes it to disk or logs, and drops it when the integration is removed.
+    - Responses carrying credentials are `Cache-Control: no-store` and never written to the ingest debug log.
+  - **Audit:** `integration_events` records who set, replaced, verified, paused or removed a credential, with time and IP. It never records the value, and it is shown on the service's settings drawer. This is a log for this feature, not the Enterprise audit log.
+  - **Demo mode:** the connect flow and credential routes are refused, like every write (ADR-122). The demo's own integrations come from the seed file with `reference` credentials.
+- Alternatives: Secrets only (rejected by the owner: a Helm upgrade or a hand-made Secret for every database); storing credentials in a Kubernetes Secret that WatchLog creates (rejected: needs write access to Secrets, against SPEC §6.6, and has no Docker equivalent).
+- Consequences: backups of the database without the key cannot reveal credentials; losing the key means re-entering them (docs say so). Security docs and `/security` gain a section.
+
+## ADR-134: Three ways to connect a service that needs a user
+
+- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Decision:
+  - **Nothing needed:** Redis without a password, Nginx (eBPF; ingress-nginx metrics), RabbitMQ with the Prometheus plugin, and Elasticsearch or MongoDB with security off start when Monitor is pressed.
+  - **a. Recommended, a generated user:**
+    - WatchLog generates a 32-character password (`wl_mon_…`) and writes the exact one-time command with the names the agents saw. Kubernetes: `kubectl exec -n <ns> <pod or statefulset/x> -- psql …`. Docker: `docker exec <container> …`.
+    - Each command creates the least-privileged role: `pg_monitor`; Redis ACL `+info +slowlog +latency +config|get +client|list +ping`; MongoDB `clusterMonitor`; an Elasticsearch API key with `monitor`.
+    - The collector tries to log in every 5 s for 15 minutes and the drawer turns green as soon as it can. After that, a "Check again" button.
+  - **b. An existing user:**
+    - Name and password, stored encrypted (ADR-133).
+    - The collector checks the user's privileges on the first connect. If it has more than needed (superuser, write grants, `+@all`), the page says so and suggests a dedicated user. It still connects: it is the user's choice.
+  - **c. Your own Secret or file:**
+    - Kubernetes: the user names a Secret and key. WatchLog writes the `kubectl create role … --resource-name=<secret>` and `rolebinding` commands that let only the collector's ServiceAccount read that one Secret. The collector reads it through the API with its ServiceAccount token, without client-go.
+    - Docker: a file under `/etc/watchlog/secrets/` on the host, mounted read-only into the collector.
+    - WatchLog stores only the reference.
+  - **Missing permissions later:** each integration knows which tab needs which privilege or setting. The service page names the affected tab and the fix, for example pg_stat_statements not installed → the Queries tab shows `CREATE EXTENSION` and the `shared_preload_libraries` line. The other tabs keep working.
+- Consequences: the generated commands are tested against real services on kind and Docker (they are run by the tests, not only shown).
+
+## ADR-135: The Applications page, one service-page template and shared panels
+
+- Date: 2026-11-09 · Status: proposed (v0.3 planning; layout per the owner's mock-up)
+- Decision:
+  - **Applications** is a main navigation entry with a problems count.
+    - **The list:** one row per service instance, with type logo, name and where it runs, health and its one-line reason, three key metrics, a 6 h sparkline and the firing alerts. Problems come first, filters by type.
+    - **Discovery:** "Found N services that aren't monitored yet" sits above the list.
+    - **Phones:** the rows become cards.
+  - **The service page** is one template filled per integration:
+    - the header (logo, name, version, where, monitored since, "Open in service map", settings);
+    - "What WatchLog sees" (the reasons, ADR-137) and stat tiles;
+    - tabs by metric family, each a grid of panels;
+    - "Alerts for this service";
+    - the workloads or containers connected to it, from the service map;
+    - the MCP hint.
+
+    The tab is in the URL (`?tab=locks`).
+
+  - **Shared panels, built once** in `web/src/components/panels/` on the ECharts wrapper (ADR-036):
+    - a line with a limit line;
+    - a stacked area;
+    - horizontal bars;
+    - a histogram;
+    - a capacity gauge with a threshold mark;
+    - an hour × day heatmap over 7 days;
+    - a table;
+    - stat tiles.
+
+    Each panel takes a catalog query and a small options object, follows the page's time range, and has loading, empty, error and "needs a permission" states.
+
+  - **Overview and MCP:** a service problem joins the overview's Needs attention list with its reason (ADR-110).
+- Consequences: integrations add panel definitions, not components; a new integration is mostly a catalog, reasons and tests.
+
+## ADR-136: Integration metrics, caps and alert rules
+
+- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Decision:
+  - **Series:**
+    - `watchlog_<service>_<metric>`, with `cluster_id` (server-injected), `service` (the instance id), `member` (pod or container) and only the family labels the catalog lists (`db`, `table`, `queue`, `node`, `command`, `state`, `status`).
+    - Statement and slow-log fingerprints are labelled by a stable id. Their normalised text is kept in PostgreSQL (`integration_texts`), not as a label.
+  - **Caps per instance:**
+    - 50 databases;
+    - 100 tables, by size;
+    - 200 queues, by depth;
+    - 50 statements, by total time;
+    - 50 indices;
+    - 20 commands.
+
+    The rest are summed into `other`. A cap that cuts something is shown on the panel ("top 100 of 340 tables").
+
+  - **Catalog keys:** every metric on a service page is a query catalog key (ADR-028), so it can be charted, alerted on (ADR-072 metric rules), queried through MCP and served by the public API.
+  - **Rule scope:** the rule editor (ADR-096) gains a "service" scope (one instance or every instance of a type) and lists that service's metrics in the metric slot. "+ Add rule" on a service page opens the editor with the scope set.
+  - **Default rules per integration** (SPEC §4.12) are created disabled, and the connect flow's checkboxes enable them for that instance. Like ADR-084's defaults, they can be edited and reset.
+  - **State-like conditions** ("replica set has no primary", "last save failed", "cluster red") are metric rules on 0/1 gauges, so there is still one rule model.
+- Consequences: a cardinality test per integration with a large fixture (500 tables, 1,000 queues) checks the caps.
+
+## ADR-137: Service reasons are structured facts, ready for probable cause
+
+- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Decision:
+  - **Each integration has reason rules** that turn the latest values into `{ severity, code, facts, links }`:
+    - `code` is stable, such as `pg.connections_near_max` or `rabbitmq.queue_no_consumers`;
+    - `facts` are typed values (counts, percentages, durations, times);
+    - `links` point to workloads, containers, edges or alerts.
+
+    The sentence is rendered from the code and facts by the web and by MCP. Names stay in fields (ADR-129).
+
+  - **Cross-signal links:**
+    - A reason may link to a workload or container problem found through the service map. For example, a queue with no consumers links to the clients that consumed it in the last 24 h (eBPF edges to its port) and to their state: "billing-worker, its only consumer, stopped at 14:02 with exit code 137 (OOMKilled)".
+    - These links are the inputs v0.4's probable cause ranks. v0.3 shows them but does not rank them.
+  - **Reasons are evaluated by the backend** on read, cached for 15 s, and stored only when they back a firing alert (in its details).
+  - **MCP:**
+    - `list_applications`;
+    - `get_application`: the reasons, key metrics, the tabs' latest values, connected workloads and firing alerts, within ADR-128's caps;
+    - `query_metric` accepts the new catalog keys.
+  - **The public API** gains `GET /applications` and `GET /applications/:id`, tagged `public`.
+- Consequences: each reason has a unit test with its facts, and one end-to-end case per integration produces it on a real service.
+
+## ADR-138: Query text is kept normalised, or not at all
+
+- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Decision:
+  - **PostgreSQL:** pg_stat_statements text is already normalised by PostgreSQL (`$1`). WatchLog adds nothing.
+  - **Redis:** SLOWLOG keeps the command name and the key shape. Parts that look like ids (digits, UUIDs, hashes) become `{id}`. Values and other arguments become `…`.
+  - **MongoDB:** slow operations from `getLog` keep the operation, the namespace and the query shape. Every value becomes `?`.
+  - **Elasticsearch:** no query text at all.
+  - **Nginx:** request paths are not collected (ADR-139).
+  - **A setting per instance:** "Collect query text" is on by default and shown in the connect flow. Off, only fingerprints, counts and timings are kept, and the texts already stored are deleted.
+  - **Bounds:** texts are capped at 1 KB, kept for the metric retention, and never sent in alert messages.
+  - **Docs:** `docs/site/security.md` and `/security` explain what is kept.
+- Consequences: normalisation has tests with secrets in literals, emails, tokens and UUIDs.
+
+## ADR-139: HTTP stats on the service map, from eBPF, headers only
+
+- Date: 2026-11-09 · Status: proposed (v0.3 planning; SPEC §4.5 P1 moves into v0.3 for Nginx)
+- Decision:
+  - **What:**
+    - For plain-text HTTP/1.x on a traced connection, the agent records requests per edge: method class, status code and latency (request's first byte to response's first byte), in a histogram with ADR-106's buckets extended to 10 s.
+    - No paths, no query strings, no other headers, no bodies.
+    - TLS is never decrypted, and HTTP/2 and gRPC are not parsed in v0.3.
+  - **How:**
+    - `fentry` on `tcp_sendmsg` and `tcp_recvmsg` reads at most the first 16 bytes of each message on sockets already tracked as edges. That is enough to recognise `GET /…` and `HTTP/1.1 503`.
+    - Counts are kept in the same per-CPU maps (ADR-099).
+    - Both sides are observed, so server-side stats exist for workloads with outside clients, such as an ingress.
+  - **Budget:** measured with the 1,000 connections/s load test; it must stay within SPEC §6.1. Off with `agent.networkFlows.http: false`.
+  - **Use:**
+    - The service map's edge panel shows requests/s, 4xx/5xx and p50/p95.
+    - The edge health (ADR-106) also turns warning at ≥ 1 % 5xx and critical at ≥ 5 %.
+    - The Nginx page reads these series for plain Nginx.
+- Consequences: an eBPF change in both modes; kernel and verifier tests on the CI kernels; docs/security.md describes the 16-byte peek.
+
+## ADR-140: Multi-user with Owner, Admin and Viewer, and email invites (Community)
+
+- Date: 2026-11-09 · Status: proposed (v0.3 planning; scope decided in roadmap v1.3)
+- Decision:
+  - **Roles** (one per user in the installation's org, ADR-035):
+
+    | Can                                                                           | Owner | Admin | Viewer |
+    | ----------------------------------------------------------------------------- | ----- | ----- | ------ |
+    | See every page, alert, application and query text                             | ✓     | ✓     | ✓      |
+    | Own API tokens (read) and MCP                                                 | ✓     | ✓     | ✓      |
+    | Silence alerts, edit rules and channels                                       | ✓     | ✓     |        |
+    | Add clusters, rotate cluster tokens                                           | ✓     | ✓     |        |
+    | Monitor services; set, replace or remove integration credentials (never read) | ✓     | ✓     |        |
+    | Server settings (address, email, Telegram)                                    | ✓     | ✓     |        |
+    | Invite and remove Viewers and Admins, change their roles                      | ✓     | ✓     |        |
+    | Change or remove an Owner, transfer ownership                                 | ✓     |       |        |
+
+  - **Owners:** there is always at least one Owner, and the last one cannot leave or be demoted.
+  - **Invites:**
+    - An email with a link valid for 7 days, through the existing SMTP setup. Without SMTP, the inviter copies the link.
+    - The link carries a 256-bit token stored as SHA-256.
+    - Accepting sets a name and password (argon2id, ADR-025); an existing account just joins.
+    - Pending invites can be revoked and resent.
+  - **Enforcement:**
+    - Every mutating route declares the roles it allows (`requireRole`).
+    - A route-walking test, like the demo guard's, fails if a non-GET route has no role declared.
+    - The web hides what a role cannot do and explains why when a link leads there.
+  - **Tokens follow the user:**
+    - A token acts with its user's current role, checked on every request.
+    - Removing a user revokes their sessions and tokens at once. Demoting a user changes what their tokens can reach at the next request.
+    - Tokens stay read-only (ADR-125), so a Viewer's token and an Owner's token read the same data.
+  - **Demo mode:** the Users page shows the demo visitor as Viewer and refuses changes.
+- Alternatives: Admin and Viewer only (rejected: someone must be able to remove an Admin); per-cluster roles (Enterprise, Phase 7).
+- Consequences: SPEC §4.10 moves Owner/Admin/Viewer and invites to Community, v0.3.
+
+## ADR-141: v0.3 build order and what moves to v0.5
+
+- Date: 2026-11-09 · Status: proposed (v0.3 planning; the integration order is the owner's to confirm)
+- Decision:
+  - **Order:**
+    1. foundation: the collector, discovery, the service page and panels, credentials and the connect flow, integration alerts;
+    2. multi-user;
+    3. Redis, then PostgreSQL;
+    4. eBPF HTTP stats with Nginx;
+    5. the remaining integrations;
+    6. the site, docs and the demo;
+    7. release 0.3.0.
+  - **Estimate:** 27.5 sessions with all six integrations. MongoDB is 2 of them, RabbitMQ 1.5 and Elasticsearch 1.5.
+  - **Time:** the big launch (early December, 3 December assumed) needs v0.4 (about 6 sessions) and launch preparation (about 2) after v0.3. At about 1.5 sessions a day, v0.3 must be released by 24 November, which leaves room for about 24 sessions.
+  - **What moves:**
+    - Elasticsearch moves to v0.5 now.
+    - One more integration has to move too, or v0.3 lands about two sessions late. **Recommended:** move MongoDB and keep RabbitMQ (24 sessions). RabbitMQ is the cheapest (no credentials) and its "queue without consumers" reason is v0.4's best cross-signal example. In the owner's order (MongoDB before RabbitMQ), RabbitMQ would be the one to move.
+  - **Checkpoint on 20 November:** if Redis, PostgreSQL, Nginx and the HTTP stats are not all done, the remaining integration moves to v0.5 as well. The launch date does not move.
+- Consequences: the landing site's Applications section lists only what shipped. The catalogs of whatever moves stay in SPEC §4.12 for v0.5.
+
+## ADR-142: The demo shows Applications with real services and a real failure
+
+- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Decision:
+  - **The live demo's sample app** (its private deployment kit) gains PostgreSQL, Redis, RabbitMQ and an ingress-nginx in the `shop` namespace, monitored through the seed file with `reference` credentials (ADR-133). The demo's chaos script adds service failures:
+    - a consumer that gets OOM-killed every 30 minutes, so the queue grows without consumers;
+    - a connection leak that pushes PostgreSQL near `max_connections`;
+    - a burst of 5xx behind the ingress.
+  - **Demo visitors** see Applications and every service page, read-only. Monitor and the connect flow are refused there, with the usual demo message.
+  - **The kind e2e demo** (`deploy/test/k8s`) and the Docker demo host (`demo-up.sh`) get the same services, so tests and screenshots use the same failures.
+- Consequences: the demo cluster needs about 600 MB more memory; the demo kit's limits grow accordingly.

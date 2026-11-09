@@ -169,7 +169,7 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 - **P0:** external dependencies shown as grouped nodes (e.g. `db.example.com:5432`, "Internet").
 - **P0:** DNS errors per workload (NXDOMAIN, timeout).
 - **P1:** TCP retransmits and resets per edge; "connection refused" detection; per-namespace map filter.
-- **P1:** HTTP-level stats (status codes, latency) for plain-text HTTP/1.1 where detectable. TLS payloads are never decrypted.
+- **v0.3:** HTTP-level stats (method, status code, latency) for plain-text HTTP/1.x, from the first bytes of each message on traced connections; no paths or bodies; TLS payloads are never decrypted (ADR-139).
 - Fallback when eBPF is unavailable: map built from Kubernetes Services/Endpoints only, clearly labelled "topology only, no traffic data".
 
 ## 4.6 Kubernetes events and change tracking — P0, All
@@ -235,8 +235,9 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 | Feature | Priority | Edition |
 |---|---|---|
 | Organisations, invite users by email | P0 | Cloud |
+| Invite users by email into the installation | v0.3 | All (ADR-140) |
 | Multiple clusters per org, cluster switcher, unified "all clusters" overview | P1 | Pro, E |
-| Roles: Owner, Admin, Viewer | P1 | Pro, E |
+| Roles: Owner, Admin, Viewer | v0.3 | All (ADR-140) |
 | Fine-grained RBAC (per cluster / namespace) | P2 | E |
 | SSO (OIDC, SAML), LDAP | P2 | E |
 | Audit log (who changed which rule, who silenced what) | P2 | E |
@@ -301,6 +302,180 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
 - revoking the token stops access at the next call;
 - the protocol works with Claude Code, Claude Desktop through `mcp-remote`, Cursor where it can be scripted, and the SDK's own client.
 
+## 4.12 Applications (service integrations) and multi-user — v0.3, All
+
+Monitor the services people run next to their workloads (databases, caches, queues, proxies) with the same quality as the rest of WatchLog. Services are discovered automatically and get opinionated pages, default alerts and plain-language reasons. These are service metrics, not APM: no code instrumentation, no tracing, never table data (SPEC §2.5). Community edition: monitoring is never paywalled (§3.1). Decisions: ADR-131 to ADR-142.
+
+**Architecture:**
+- **The collector:** a separate `integrations` collector, one per Kubernetes cluster and one per Docker host that runs a monitored service. It pushes like the agents and pulls its targets from the backend. The node agent stays small and never reads secrets (ADR-131).
+- **Discovery:** from images, container and Service ports, and eBPF flows the agents already report. "Found N services that aren't monitored yet" with Monitor, Ignore and Add manually. Nothing is contacted before Monitor (ADR-132).
+- **Connecting:** services that need nothing start at once. Those that need a read-only user offer three ways: a generated user and the one-time command, an existing user (its privileges checked), or the user's own Secret or file (ADR-134). Stored credentials are AES-256-GCM encrypted, write-only, and sent only to that cluster's collector (ADR-133).
+- **Pages:**
+  - Applications is a list with problems first and filters by type.
+  - One service-page template: header, "What WatchLog sees", stat tiles, tabs by metric family, a panel grid, "Alerts for this service", the connected workloads from the service map, and the MCP hint.
+  - Eight shared panel types: line with limit, stacked area, horizontal bars, histogram, capacity gauge, hour × day heatmap, table, stat tiles (ADR-135).
+- **Metrics:** catalog keys with per-instance caps. Any of them can be used in a rule with a "service" scope, and each integration ships default rules (ADR-136).
+- **Reasons:** structured facts with links to workloads, containers and edges, the inputs to v0.4's probable cause. They are returned by MCP `list_applications` and `get_application` and by `GET /applications` (ADR-137).
+- **Query text:** normalised only, with a per-service switch (ADR-138).
+- **HTTP stats on the service map:** from eBPF, plain HTTP/1.x, method, status and latency only (ADR-139).
+- **The landing site's "Applications" section** stays behind a site flag until 0.3.0 ships.
+
+**An integration is done when it has:**
+1. discovery;
+2. the full tabbed page;
+3. default alerts;
+4. reasons;
+5. an MCP view through `get_application`;
+6. install docs (`docs/site/integrations/<service>.md`);
+7. the landing entry;
+8. tests against the real service on Kubernetes **and** Docker (ADR-124), the generated setup command included.
+
+**Order:** foundation → multi-user → Redis → PostgreSQL → eBPF HTTP + Nginx → RabbitMQ / MongoDB → (Elasticsearch moved to v0.5). ADR-141 explains the cut.
+
+**Panel types:** L line with limit line · SA stacked area · HB horizontal bars · H histogram · G capacity gauge · HM hour × day heatmap · T table · S stat tiles.
+
+**Not collectable as the mock-up implies:** each catalog below flags (⚑) where a metric can't come from the named source, with the closest alternative.
+
+### Redis (INFO, CONFIG GET, SLOWLOG, LATENCY, CLIENT LIST)
+
+Access: nothing without a password; otherwise the password or a small ACL user (`+info +slowlog +latency +config|get +client|list +ping`).
+
+| Tab | Panels and sources |
+|---|---|
+| Overview | **S** memory vs maxmemory, hit rate, commands/s, clients (blocked), evicted keys 24 h, replication · **L** `used_memory` vs `maxmemory` · **L** commands/s (`total_commands_processed`) with misses (`keyspace_misses`) |
+| Memory | **G** used / maxmemory, with `maxmemory-policy` · **L** `used_memory`, `used_memory_rss`, `mem_fragmentation_ratio` · **L** `evicted_keys`/s, `expired_keys`/s · **HB** keys per db (`INFO keyspace`) |
+| Commands | **SA** calls/s by command (`INFO commandstats`, top 20) · **HB** `usec_per_call` by command · **H** latency per command (`LATENCY HISTOGRAM`, Redis 7+; ⚑ older versions only have the mean, so the panel shows means) · **HM** commands/s hour × day · **T** slow log (`SLOWLOG GET`, normalised, ADR-138) · **T** latency events (`LATENCY LATEST`; needs `latency-monitor-threshold` > 0, else the tab says how) |
+| Clients | **L** `connected_clients` vs `maxclients` · **L** `blocked_clients`, `rejected_connections`/s · **HB** connections by client workload (`CLIENT LIST` addresses mapped by the IP map). ⚑ Commands per client workload aren't in `CLIENT LIST`; closest: eBPF bytes/s and connections per workload. |
+| Replication & persistence | **T** replicas (`INFO replication`: state, offset, ack age) · **L** ⚑ lag as offset difference in bytes and seconds since the replica's last ack: Redis has no lag in seconds · **S** `rdb_last_bgsave_status`, `rdb_changes_since_last_save`, age of the last save, `aof_last_write_status` |
+
+- **Default rules:**
+  - memory > 90 % of maxmemory for 5 min (warning);
+  - keys are being evicted (warning);
+  - replica disconnected (critical);
+  - last RDB/AOF save failed (critical).
+- **Reasons:** `memory_near_max`, `evicting`, `no_maxmemory` (memory can grow to the container limit; linked to the container), `slow_keys_command`, `replica_down`, `save_failed`, `clients_rejected`, `clients_blocked`.
+
+### PostgreSQL (pg_stat_*, pg_locks, pg_stat_statements; versions 12+)
+
+Access: a login role with `pg_monitor`, which reads statistics views and never table data. `pg_stat_statements` is optional and unlocks Queries.
+
+| Tab | Panels and sources |
+|---|---|
+| Overview | **S** connections / max, transactions/s, cache hit, replication lag, lock waits, deadlocks · **L** connections vs `max_connections` · **L** commits and rollbacks/s (`pg_stat_database`) |
+| Connections | **SA** backends by state (`pg_stat_activity`: active, idle, idle in transaction, waiting) · **L** total vs `max_connections` − `superuser_reserved_connections` · **HB** by client workload (`client_addr` via the IP map) and by `application_name` · **T** longest transactions and idle-in-transaction sessions. ⚑ `pg_stat_activity.query` carries literals; the table shows the normalised text of its `query_id` (PostgreSQL 14+ with `compute_query_id`), otherwise no text. |
+| Queries | **T** statements by total time: mean, calls, rows, hit % (`pg_stat_statements`, top 50) · **HB** mean time, top 10 · **L** calls/s and mean time, top 5 · **L** tuples returned, inserted, updated, deleted/s, temp bytes · ⚑ no per-execution histogram exists: closest is each statement's mean, stddev and max |
+| Locks | **SA** waiting backends by lock type (`pg_locks` × `pg_stat_activity`) · **T** blocking chains (`pg_blocking_pids()`, wait time, both clients' workloads) · **L** deadlocks/min · **HM** lock waits hour × day |
+| Replication | **T** replicas (`pg_stat_replication`: state, sync, write/flush/replay lag) · **L** replay lag in seconds and bytes (`pg_wal_lsn_diff`); on a replica `now() − pg_last_xact_replay_timestamp()` · **T** slots and retained WAL (`pg_replication_slots`, `wal_status`) · **G** retained WAL vs `max_slot_wal_keep_size` |
+| Storage | **HB** database sizes · **HB** largest tables (`pg_total_relation_size`, top 100) · **T** dead tuples and a statistics-based bloat estimate, labelled "estimate". ⚑ Exact bloat needs `pgstattuple`, which reads every page and is not run. · **L** WAL bytes/s (`pg_stat_wal`, 14+; older: LSN difference) · **L** checkpoints timed vs requested (`pg_stat_bgwriter`, `pg_stat_checkpointer` on 17+) |
+| Vacuum | **G** transaction ID age per database (`age(datfrozenxid)`) vs `autovacuum_freeze_max_age` and the wraparound limit · **T** tables by dead tuples with last autovacuum and autoanalyze · **T** running vacuums (`pg_stat_progress_vacuum`) |
+
+- **Default rules:**
+  - connections > 90 % of max for 5 min (warning);
+  - a query runs longer than 5 min (critical; active backends, excluding autovacuum and walsenders);
+  - replication lag > 30 s for 2 min (warning);
+  - transaction ID age > 1.5 billion (critical).
+- **Reasons:** `connections_near_max` (with the workloads holding most), `long_query`, `idle_in_transaction`, `lock_waits` (the blocking client's workload), `deadlocks`, `replica_lag`, `slot_retains_wal`, `wraparound_risk`, `cache_hit_low`, `statements_unavailable` (hint).
+
+### Nginx (ingress-nginx metrics; stub_status; eBPF HTTP)
+
+Access:
+- **ingress-nginx:** nothing; its metrics on :10254 are read as they are.
+- **Plain Nginx:** nothing for requests, errors and latency (eBPF). `stub_status` (one location block) adds the Connections tab.
+
+| Tab | Panels and sources |
+|---|---|
+| Overview | **S** requests/s, 5xx %, p95, active connections, upstreams with ready endpoints, 4xx % · **L** requests/s with 5xx · **L** p95 and p50 |
+| Traffic | **SA** requests/s by status class · **HB** by ingress and host (`nginx_ingress_controller_requests`) or by upstream workload (eBPF) · **HM** requests/s hour × day |
+| Errors | **L** 5xx and 4xx % · **HB** 5xx by upstream · **T** status codes |
+| Latency | **L** p50/p95/p99 · **H** latency (`nginx_ingress_controller_request_duration_seconds` or eBPF) · **HB** p95 by upstream. ⚑ For plain Nginx, latency is time to the first response byte as eBPF sees it, not `$request_time`. |
+| Connections | **SA** active, reading, writing, waiting (`stub_status` or `nginx_ingress_controller_nginx_process_connections`) · **L** accepts vs handled (dropped) |
+| Upstreams | **T** upstream workloads: requests/s, 5xx, p95, ready endpoints. ⚑ Upstream health is an NGINX Plus API; closest: the backend Service's ready endpoints (Kubernetes) and eBPF connect failures (Docker). |
+| TLS (ingress-nginx) | **T** certificate expiry per host (`nginx_ingress_controller_ssl_expire_time_seconds`) |
+
+- **Not collected:** request paths (privacy and cardinality, ADR-139).
+- **Default rules:**
+  - 5xx > 5 % for 5 min (critical);
+  - p95 > 1 s for 5 min (warning);
+  - an upstream has no ready endpoint (critical);
+  - certificate expires within 14 days (warning, ingress-nginx).
+- **Reasons:** `errors_high` (top upstream, linked to its workload's state and last rollout), `upstream_no_endpoints`, `latency_high`, `connections_dropped`, `certificate_expiring`, `stub_status_missing` (hint).
+
+### MongoDB (serverStatus, replSetGetStatus, dbStats, $currentOp, getLog; versions 5.0+)
+
+Access: nothing with authentication off; otherwise a user with `clusterMonitor`.
+
+| Tab | Panels and sources |
+|---|---|
+| Overview | **S** operations/s (reads %), connections / available, replication lag, slow operations (1 h), WiredTiger cache %, page faults/s · **L** operations by type · **L** lag per secondary |
+| Operations | **SA** `opcounters` by type · **L** mean latency for reads, writes and commands (`opLatencies`) · **H** latency (`opLatencies` histograms) · **T** slow operations (`getLog global` "Slow query" entries: operation, namespace, shape, duration, plan; COLLSCAN marked) |
+| Connections | **L** current vs available · **HB** by client workload (`$currentOp` with idle connections, addresses via the IP map) · **L** connections created/s |
+| Replication | **T** members (state, health, lag, ping) · **L** lag per secondary · **S** oplog window. ⚑ The oplog window needs `read` on `local`, which `clusterMonitor` lacks; the generated command adds it as an optional line, otherwise the tile explains. |
+| Storage & cache | **G** WiredTiger cache used vs maximum · **L** dirty bytes and evictions/s · **HB** database sizes (`dbStats`) · **L** page faults/s |
+| Queues | **L** queued readers and writers (`globalLock.currentQueue`) and available tickets (`wiredTiger.concurrentTransactions`; `queues.execution` on 7.0+) |
+
+- **Default rules:**
+  - replica set has no primary (critical);
+  - replication lag > 30 s for 2 min (warning);
+  - a member is down (critical);
+  - slow operations > 20/min for 5 min (warning).
+- **Reasons:** `no_primary`, `member_down`, `replica_lag`, `slow_collscan` (namespace and shape), `cache_pressure`, `connections_near_max`, `operations_queued`.
+
+### RabbitMQ (rabbitmq_prometheus on 15692; versions 3.10+)
+
+Access: nothing; the plugin ships with RabbitMQ. If it is off, the generated command enables it, with no restart.
+
+| Tab | Panels and sources |
+|---|---|
+| Overview | **S** ready, unacked, publish/s, deliver/s, consumers, memory % of watermark · **L** queue depth (ready, unacked) · **L** publish vs deliver |
+| Queues | **T** queues by depth: ready, unacked, consumers, growth/min (`/metrics/detailed`, families `queue_coarse_metrics` and `queue_consumer_count`, top 200) · **SA** depth of the top 5 · **HB** fastest-growing queues |
+| Rates | **L** published, delivered, acknowledged and redelivered/s (`rabbitmq_global_messages_*`) · **L** unroutable returned or dropped · **HM** publish hour × day |
+| Consumers & connections | **L** connections, channels, consumers · **L** connections opened and closed/s · **HB** connections by client workload (eBPF edges to 5672). ⚑ Per-connection client names need the management API; closest: eBPF. |
+| Resources | **G** memory vs the high watermark (`rabbitmq_process_resident_memory_bytes`, `rabbitmq_resident_memory_limit_bytes`) · **G** free disk vs its limit · **L** file descriptors vs limit · **S** alarms (memory, disk, file descriptors) |
+| Nodes | **T** members (each scraped: uptime, memory, disk, Erlang processes vs limit). ⚑ Network partitions aren't exported by the plugin; closest: a member whose endpoint stops answering. The management API's partitions view is v0.5, with an optional monitoring user. |
+
+- **Default rules:**
+  - a queue grows with no consumers for 5 min (critical);
+  - memory or disk alarm (critical);
+  - unacked messages > 10,000 (warning);
+  - a node is down (critical).
+- **Reasons:** `queue_no_consumers` (linked to the workloads or containers that consumed it in the last 24 h and their last termination), `queue_growing`, `memory_alarm` and `disk_alarm` (publishers blocked), `unacked_high`, `node_down`, `fd_near_limit`.
+
+### Elasticsearch — moved to v0.5 (ADR-141); catalog kept
+
+Access: nothing with security off; otherwise an API key with the `monitor` privilege.
+
+| Tab | Panels and sources |
+|---|---|
+| Overview | **S** status, nodes, heap, unassigned shards, index rate, search mean latency · **L** heap · **L** disk on the fullest node |
+| Shards | **S** active, relocating, initializing, unassigned (`_cluster/health`) · **T** unassigned shards with the reason (`_cat/shards`, `_cluster/allocation/explain`) · **T** index health (`_cat/indices`) |
+| Indexing & search | **L** index rate and mean latency · **L** search rate and mean latency (`_nodes/stats` indices). ⚑ No p95 exists in `_nodes/stats`, only totals; closest: the mean. |
+| JVM | **L** heap % per node with the 85 % line · **L** GC count and time/s · **L** circuit breakers tripped |
+| Nodes & disk | **T** nodes (heap, CPU, disk, roles) · **G** disk vs low/high/flood watermarks (`_cluster/settings`, defaults 85/90/95 %) |
+| Thread pools | **L** write and search queue, rejected/s |
+
+- **Default rules:**
+  - cluster red (critical) or yellow for 10 min (warning);
+  - heap > 85 % for 5 min (warning);
+  - a node near the disk watermark (warning);
+  - a node left (critical).
+
+### Multi-user (ADR-140)
+
+- **Roles:** Owner, Admin and Viewer in Community, with email invites. Without SMTP, the inviter copies the link.
+- **What each role may do** is in ADR-140's table. Admins set integration credentials; nobody can read them back.
+- **Tokens and MCP** act with their user's current role. Removing a user revokes their sessions and tokens.
+
+**Accept when:**
+- Redis, PostgreSQL, Nginx and the shipped queue/database integrations are each discovered, connected through the recommended path and shown with every tab, on a kind cluster and a Docker host.
+- The demo's scripted failures each produce the right reason and alert:
+  - a consumer OOM-killed while its queue grows;
+  - PostgreSQL near `max_connections`;
+  - 5xx behind the ingress.
+- Claude Code, through MCP, explains each of those from WatchLog data alone.
+- A Viewer can see everything and change nothing; a removed user's token stops at the next call.
+- The collector stays within its budget with every integration on.
+
+
 # 5. System architecture
 
 ## 5.1 Components
@@ -310,6 +485,7 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
 | `agent` | Go | DaemonSet on every K8s node, or one container per Docker host | Node, container and eBPF network metrics; push to ingest |
 | `cluster-agent` | Go (same binary, `--mode=cluster`) | Deployment, 1 replica per K8s cluster | Watch the Kubernetes API: objects, events, state metrics |
 | `backend` | Node.js 24 LTS, TypeScript, Fastify | Server / Cloud | Auth, REST API, ingest gateway, metadata, alert rules, query proxy |
+| `integrations` | Go (third binary of the agent module, ADR-131) | Deployment, 1 per K8s cluster; one container per Docker host with monitored services | Read monitored services (Redis, PostgreSQL, Nginx, …) with read-only access; push metrics and status (§4.12) |
 | `alert-worker` | Node.js (same codebase, separate process) | Server / Cloud | Evaluate rules every 30 s, manage state, send notifications |
 | `anomaly-worker` | Node.js (P1) | Server / Cloud | Baselines and anomaly scoring (§4.8) |
 | `web` | Vue 3, Vite, TypeScript, Tailwind, Pinia, Apache ECharts | Browser | Dashboard SPA |
@@ -498,7 +674,7 @@ All tables have `id` (UUID v7), `created_at`, `updated_at`. Tenant tables have `
 | `sessions` | user_id, token_hash (SHA-256), expires_at, last_seen_at | Web sessions (ADR-033) |
 | `orgs` | name, slug, plan (`community`/`free`/`pro`/`enterprise`), stripe_customer_id, stripe_subscription_id, trial_ends_at | |
 | `memberships` | org_id, user_id, role (`owner`/`admin`/`viewer`) | |
-| `invites` | org_id, email, role, token_hash, expires_at | |
+| `invites` | org_id, email, role, token_hash, invited_by, expires_at, accepted_at, revoked_at | v0.3 (ADR-140): 7-day links, SHA-256 token |
 | `clusters` | org_id, name, kind (`kubernetes`/`docker`), status, first_seen_at, last_seen_at, agent_version, k8s_version, node_count | |
 | `cluster_tokens` | cluster_id, token_hash, prefix (first 8 chars shown in UI), revoked_at | |
 | `agent_instances` | cluster_id, node, mode, agent_version, capabilities (jsonb), last_seen_at | One row per agent (node / Docker host), updated by heartbeats (ADR-029) |
@@ -516,6 +692,11 @@ All tables have `id` (UUID v7), `created_at`, `updated_at`. Tenant tables have `
 | `notifications` | org_id, channel_id, kind (`firing`/`resolved`/`renotify`/`escalated`/`flapping`/`test`), payload (jsonb), status (`pending`/`sending`/`sent`/`failed`/`dropped`), attempts, next_attempt_at, dedupe_key, error, sent_at | The outbox: one row per channel and message (ADR-074); `notification_alerts` links a message to the alerts it covers |
 | `silences` | org_id, matchers (jsonb), starts_at, ends_at, created_by, comment | |
 | `anomaly_baselines` (P1) | series_key, hour_of_week, median, mad, samples, updated_at | |
+| `discovered_services` | org_id, cluster_id, type, target (jsonb: workload / Compose service / container / host:port), image, ports, confidence, ignored_at, ignored_image | From images, ports and flows (ADR-132) |
+| `integrations` | org_id, cluster_id, type, name, target (jsonb), version, status, status_details (jsonb: per-tab permission states, last error), settings (jsonb: query text on/off), collector (host for Docker), created_by, monitored_since | One row per monitored service instance (§4.12) |
+| `integration_credentials` | integration_id, method (`generated`/`entered`/`reference`), username, secret (AES-256-GCM, bound to the row), reference (jsonb: Secret name/key or file path), set_by, set_at, verified_at | Write-only (ADR-133) |
+| `integration_events` | integration_id, actor_id, action, ip, ts, details (jsonb, never a secret) | Credential and settings changes (ADR-133) |
+| `integration_texts` | integration_id, fingerprint, text (normalised, ≤ 1 KB), first_seen, last_seen | Statement and slow-log texts; deleted when query text is turned off (ADR-138) |
 | `funnel_events` | user_id, org_id, name, props (jsonb), ts | §10.4 |
 | `subscriptions` (Cloud repo) | org_id, plan, stripe_subscription_id, nodes_billed_p95, period_start, period_end, status | Private Cloud repository; source of truth is Stripe, synced via webhooks |
 | `audit_log` (E) | org_id, actor_id, action, target, diff (jsonb), ip, ts | `ee/` |
