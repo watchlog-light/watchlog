@@ -1140,6 +1140,909 @@
         "security": [{ "bearerAuth": [] }]
       }
     },
+    "/api/v1/applications": {
+      "get": {
+        "summary": "Monitored services, problems first",
+        "tags": ["applications"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "query",
+            "name": "cluster",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["applications"],
+                  "properties": {
+                    "applications": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "type",
+                          "name",
+                          "version",
+                          "cluster",
+                          "where",
+                          "target",
+                          "health",
+                          "reason",
+                          "members",
+                          "monitoredSince",
+                          "lastReportAt"
+                        ],
+                        "properties": {
+                          "id": { "type": "string" },
+                          "type": { "type": "string" },
+                          "name": { "type": "string" },
+                          "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "cluster": {
+                            "type": "object",
+                            "required": ["id", "name", "kind"],
+                            "properties": {
+                              "id": { "type": "string" },
+                              "name": { "type": "string" },
+                              "kind": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["kubernetes"] },
+                                  { "type": "string", "enum": ["docker"] }
+                                ]
+                              }
+                            }
+                          },
+                          "where": {
+                            "type": "object",
+                            "required": ["group", "host", "address"],
+                            "properties": {
+                              "group": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                              "host": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                              "address": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                            }
+                          },
+                          "target": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "namespace",
+                                  "workload_kind",
+                                  "workload",
+                                  "port"
+                                ],
+                                "properties": {
+                                  "kind": { "type": "string", "enum": ["workload"] },
+                                  "namespace": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+                                  },
+                                  "workload_kind": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 64,
+                                    "pattern": "^[A-Za-z]+$"
+                                  },
+                                  "workload": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+                                  },
+                                  "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "host",
+                                  "compose_project",
+                                  "compose_service",
+                                  "port"
+                                ],
+                                "properties": {
+                                  "kind": { "type": "string", "enum": ["compose"] },
+                                  "host": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "compose_project": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "compose_service": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "required": ["kind", "host", "container", "port"],
+                                "properties": {
+                                  "kind": { "type": "string", "enum": ["container"] },
+                                  "host": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "container": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "required": ["kind", "address"],
+                                "properties": {
+                                  "kind": { "type": "string", "enum": ["address"] },
+                                  "address": {
+                                    "type": "string",
+                                    "maxLength": 260,
+                                    "pattern": "^(\\[[0-9a-fA-F:.]+\\]|[A-Za-z0-9][A-Za-z0-9.-]*):[0-9]{1,5}$"
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
+                          "health": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["ok"] },
+                              { "type": "string", "enum": ["warning"] },
+                              { "type": "string", "enum": ["critical"] },
+                              { "type": "string", "enum": ["unknown"] }
+                            ]
+                          },
+                          "reason": {
+                            "type": "object",
+                            "required": ["code", "facts"],
+                            "properties": {
+                              "code": { "type": "string" },
+                              "facts": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    { "type": "string" },
+                                    { "type": "number" },
+                                    { "type": "null" }
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          "members": {
+                            "type": "object",
+                            "required": ["up", "total"],
+                            "properties": {
+                              "up": { "type": "integer" },
+                              "total": { "type": "integer" }
+                            }
+                          },
+                          "monitoredSince": { "type": "string" },
+                          "lastReportAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/v1/applications/{id}": {
+      "get": {
+        "summary": "One monitored service: its health, what WatchLog sees, who connects to it",
+        "tags": ["applications"],
+        "parameters": [
+          {
+            "schema": { "type": "integer", "minimum": 3600, "maximum": 604800 },
+            "in": "query",
+            "name": "range",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["application", "reasons", "connected", "page", "range"],
+                  "properties": {
+                    "application": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "type",
+                        "name",
+                        "version",
+                        "cluster",
+                        "where",
+                        "target",
+                        "health",
+                        "reason",
+                        "members",
+                        "monitoredSince",
+                        "lastReportAt"
+                      ],
+                      "properties": {
+                        "id": { "type": "string" },
+                        "type": { "type": "string" },
+                        "name": { "type": "string" },
+                        "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                        "cluster": {
+                          "type": "object",
+                          "required": ["id", "name", "kind"],
+                          "properties": {
+                            "id": { "type": "string" },
+                            "name": { "type": "string" },
+                            "kind": {
+                              "anyOf": [
+                                { "type": "string", "enum": ["kubernetes"] },
+                                { "type": "string", "enum": ["docker"] }
+                              ]
+                            }
+                          }
+                        },
+                        "where": {
+                          "type": "object",
+                          "required": ["group", "host", "address"],
+                          "properties": {
+                            "group": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                            "host": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                            "address": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                          }
+                        },
+                        "target": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "namespace",
+                                "workload_kind",
+                                "workload",
+                                "port"
+                              ],
+                              "properties": {
+                                "kind": { "type": "string", "enum": ["workload"] },
+                                "namespace": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+                                },
+                                "workload_kind": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z]+$"
+                                },
+                                "workload": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+                                },
+                                "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "host",
+                                "compose_project",
+                                "compose_service",
+                                "port"
+                              ],
+                              "properties": {
+                                "kind": { "type": "string", "enum": ["compose"] },
+                                "host": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "compose_project": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "compose_service": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "required": ["kind", "host", "container", "port"],
+                              "properties": {
+                                "kind": { "type": "string", "enum": ["container"] },
+                                "host": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "container": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "required": ["kind", "address"],
+                              "properties": {
+                                "kind": { "type": "string", "enum": ["address"] },
+                                "address": {
+                                  "type": "string",
+                                  "maxLength": 260,
+                                  "pattern": "^(\\[[0-9a-fA-F:.]+\\]|[A-Za-z0-9][A-Za-z0-9.-]*):[0-9]{1,5}$"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "health": {
+                          "anyOf": [
+                            { "type": "string", "enum": ["ok"] },
+                            { "type": "string", "enum": ["warning"] },
+                            { "type": "string", "enum": ["critical"] },
+                            { "type": "string", "enum": ["unknown"] }
+                          ]
+                        },
+                        "reason": {
+                          "type": "object",
+                          "required": ["code", "facts"],
+                          "properties": {
+                            "code": { "type": "string" },
+                            "facts": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "anyOf": [
+                                  { "type": "string" },
+                                  { "type": "number" },
+                                  { "type": "null" }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "members": {
+                          "type": "object",
+                          "required": ["up", "total"],
+                          "properties": {
+                            "up": { "type": "integer" },
+                            "total": { "type": "integer" }
+                          }
+                        },
+                        "monitoredSince": { "type": "string" },
+                        "lastReportAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                      }
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["severity", "code", "facts"],
+                        "properties": {
+                          "severity": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["ok"] },
+                              { "type": "string", "enum": ["info"] },
+                              { "type": "string", "enum": ["warning"] },
+                              { "type": "string", "enum": ["critical"] }
+                            ]
+                          },
+                          "code": { "type": "string" },
+                          "facts": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                { "type": "string" },
+                                { "type": "number" },
+                                { "type": "null" }
+                              ]
+                            }
+                          },
+                          "links": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["kind", "id", "name"],
+                              "properties": {
+                                "kind": {
+                                  "anyOf": [
+                                    { "type": "string", "enum": ["workload"] },
+                                    { "type": "string", "enum": ["container"] },
+                                    { "type": "string", "enum": ["alert"] }
+                                  ]
+                                },
+                                "id": { "type": "string" },
+                                "name": { "type": "string" }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "connected": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": ["flows", "items"],
+                          "properties": {
+                            "flows": {
+                              "type": "boolean",
+                              "description": "Whether the agents report network flows at all"
+                            },
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "name",
+                                  "namespace",
+                                  "workloadKind",
+                                  "composeService",
+                                  "connections",
+                                  "failed"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "anyOf": [
+                                      { "type": "string", "enum": ["workload"] },
+                                      { "type": "string", "enum": ["container"] }
+                                    ]
+                                  },
+                                  "name": { "type": "string" },
+                                  "namespace": {
+                                    "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                  },
+                                  "workloadKind": {
+                                    "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                  },
+                                  "composeService": {
+                                    "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                  },
+                                  "connections": { "type": "integer" },
+                                  "failed": { "type": "integer" }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        { "type": "null" }
+                      ],
+                      "description": "Null when the metrics store is unavailable"
+                    },
+                    "page": {
+                      "type": "object",
+                      "required": ["id", "tabs"],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "'generic' until the type's own pages land"
+                        },
+                        "tabs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["id", "title"],
+                            "properties": {
+                              "id": { "type": "string" },
+                              "title": { "type": "string" }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "range": {
+                      "type": "integer",
+                      "description": "Seconds back from now: 1h, 6h, 24h or 7d"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/v1/applications/collectors": {
+      "get": {
+        "summary": "The integrations collectors and whether they report (ADR-131)",
+        "tags": ["applications"],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["collectors"],
+                  "properties": {
+                    "collectors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["cluster", "host", "version", "lastSeenAt", "reporting"],
+                        "properties": {
+                          "cluster": {
+                            "type": "object",
+                            "required": ["id", "name", "kind"],
+                            "properties": {
+                              "id": { "type": "string" },
+                              "name": { "type": "string" },
+                              "kind": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["kubernetes"] },
+                                  { "type": "string", "enum": ["docker"] }
+                                ]
+                              }
+                            }
+                          },
+                          "host": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "version": { "type": "string" },
+                          "lastSeenAt": { "type": "string" },
+                          "reporting": { "type": "boolean" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/v1/applications/discovered": {
+      "get": {
+        "summary": "Services the agents see that aren't monitored yet (ADR-132)",
+        "tags": ["applications"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "query",
+            "name": "cluster",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["discovered"],
+                  "properties": {
+                    "discovered": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "key",
+                          "cluster",
+                          "type",
+                          "name",
+                          "image",
+                          "version",
+                          "port",
+                          "confidence",
+                          "members",
+                          "host",
+                          "group",
+                          "target"
+                        ],
+                        "properties": {
+                          "key": { "type": "string" },
+                          "cluster": {
+                            "type": "object",
+                            "required": ["id", "name", "kind"],
+                            "properties": {
+                              "id": { "type": "string" },
+                              "name": { "type": "string" },
+                              "kind": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["kubernetes"] },
+                                  { "type": "string", "enum": ["docker"] }
+                                ]
+                              }
+                            }
+                          },
+                          "type": { "type": "string" },
+                          "name": { "type": "string" },
+                          "image": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "port": { "type": "integer" },
+                          "confidence": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["image"] },
+                              { "type": "string", "enum": ["port"] }
+                            ]
+                          },
+                          "members": { "type": "integer" },
+                          "host": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "group": { "type": "string" },
+                          "target": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "namespace",
+                                  "workload_kind",
+                                  "workload",
+                                  "port"
+                                ],
+                                "properties": {
+                                  "kind": { "type": "string", "enum": ["workload"] },
+                                  "namespace": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+                                  },
+                                  "workload_kind": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 64,
+                                    "pattern": "^[A-Za-z]+$"
+                                  },
+                                  "workload": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+                                  },
+                                  "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "host",
+                                  "compose_project",
+                                  "compose_service",
+                                  "port"
+                                ],
+                                "properties": {
+                                  "kind": { "type": "string", "enum": ["compose"] },
+                                  "host": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "compose_project": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "compose_service": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "required": ["kind", "host", "container", "port"],
+                                "properties": {
+                                  "kind": { "type": "string", "enum": ["container"] },
+                                  "host": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "container": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "required": ["kind", "address"],
+                                "properties": {
+                                  "kind": { "type": "string", "enum": ["address"] },
+                                  "address": {
+                                    "type": "string",
+                                    "maxLength": 260,
+                                    "pattern": "^(\\[[0-9a-fA-F:.]+\\]|[A-Za-z0-9][A-Za-z0-9.-]*):[0-9]{1,5}$"
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
     "/api/v1/clusters": {
       "get": {
         "summary": "List the org's clusters and Docker fleets",

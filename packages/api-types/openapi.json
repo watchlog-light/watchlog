@@ -17990,7 +17990,7 @@
     "/api/v1/applications": {
       "get": {
         "summary": "Monitored services, problems first",
-        "tags": ["applications"],
+        "tags": ["applications", "public"],
         "parameters": [
           {
             "schema": {
@@ -18022,6 +18022,7 @@
                           "version",
                           "cluster",
                           "where",
+                          "target",
                           "health",
                           "reason",
                           "members",
@@ -18107,6 +18108,134 @@
                                 ]
                               }
                             }
+                          },
+                          "target": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "namespace",
+                                  "workload_kind",
+                                  "workload",
+                                  "port"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": ["workload"]
+                                  },
+                                  "namespace": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+                                  },
+                                  "workload_kind": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 64,
+                                    "pattern": "^[A-Za-z]+$"
+                                  },
+                                  "workload": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+                                  },
+                                  "port": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 65535
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "host",
+                                  "compose_project",
+                                  "compose_service",
+                                  "port"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": ["compose"]
+                                  },
+                                  "host": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "compose_project": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "compose_service": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "port": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 65535
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "required": ["kind", "host", "container", "port"],
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": ["container"]
+                                  },
+                                  "host": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "container": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "port": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 65535
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "required": ["kind", "address"],
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": ["address"]
+                                  },
+                                  "address": {
+                                    "type": "string",
+                                    "maxLength": 260,
+                                    "pattern": "^(\\[[0-9a-fA-F:.]+\\]|[A-Za-z0-9][A-Za-z0-9.-]*):[0-9]{1,5}$"
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            ]
                           },
                           "health": {
                             "anyOf": [
@@ -18410,6 +18539,7 @@
                         "version",
                         "cluster",
                         "where",
+                        "target",
                         "health",
                         "reason",
                         "members",
@@ -18495,6 +18625,134 @@
                               ]
                             }
                           }
+                        },
+                        "target": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "namespace",
+                                "workload_kind",
+                                "workload",
+                                "port"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": ["workload"]
+                                },
+                                "namespace": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+                                },
+                                "workload_kind": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z]+$"
+                                },
+                                "workload": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+                                },
+                                "port": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 65535
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "host",
+                                "compose_project",
+                                "compose_service",
+                                "port"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": ["compose"]
+                                },
+                                "host": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "compose_project": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "compose_service": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "port": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 65535
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "required": ["kind", "host", "container", "port"],
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": ["container"]
+                                },
+                                "host": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "container": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "port": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 65535
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "required": ["kind", "address"],
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": ["address"]
+                                },
+                                "address": {
+                                  "type": "string",
+                                  "maxLength": 260,
+                                  "pattern": "^(\\[[0-9a-fA-F:.]+\\]|[A-Za-z0-9][A-Za-z0-9.-]*):[0-9]{1,5}$"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          ]
                         },
                         "health": {
                           "anyOf": [
@@ -18719,7 +18977,7 @@
     "/api/v1/applications/discovered": {
       "get": {
         "summary": "Services the agents see that aren't monitored yet (ADR-132)",
-        "tags": ["applications"],
+        "tags": ["applications", "public"],
         "parameters": [
           {
             "schema": {
@@ -19013,7 +19271,7 @@
     "/api/v1/applications/collectors": {
       "get": {
         "summary": "The integrations collectors and whether they report (ADR-131)",
-        "tags": ["applications"],
+        "tags": ["applications", "public"],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -19111,11 +19369,218 @@
         }
       }
     },
-    "/api/v1/applications/{id}": {
+    "/api/v1/applications/metrics": {
       "get": {
-        "summary": "One monitored service",
+        "summary": "The list rows' key numbers and 6-hour sparklines",
         "tags": ["applications"],
         "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "query",
+            "name": "cluster",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["metrics"],
+                  "properties": {
+                    "metrics": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": ["keyMetrics", "spark"],
+                        "properties": {
+                          "keyMetrics": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["id", "labelKey", "value", "unit"],
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "labelKey": {
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "unit": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["ratio"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["bytes"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["bytes_per_second"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["cores"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["load"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["count"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["seconds"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["per_second"]
+                                    }
+                                  ],
+                                  "description": "The dashboard's unit names"
+                                },
+                                "severity": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["ok"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["info"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["warning"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["critical"]
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          "spark": {
+                            "type": "array",
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "minItems": 2,
+                              "maxItems": 2
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/applications/{id}": {
+      "get": {
+        "summary": "One monitored service: its health, what WatchLog sees, who connects to it",
+        "tags": ["applications", "public"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 3600,
+              "maximum": 604800
+            },
+            "in": "query",
+            "name": "range",
+            "required": false
+          },
           {
             "schema": {
               "type": "string",
@@ -19133,7 +19598,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["application"],
+                  "required": ["application", "reasons", "connected", "page", "range"],
                   "properties": {
                     "application": {
                       "type": "object",
@@ -19144,6 +19609,7 @@
                         "version",
                         "cluster",
                         "where",
+                        "target",
                         "health",
                         "reason",
                         "members",
@@ -19230,6 +19696,134 @@
                             }
                           }
                         },
+                        "target": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "namespace",
+                                "workload_kind",
+                                "workload",
+                                "port"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": ["workload"]
+                                },
+                                "namespace": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+                                },
+                                "workload_kind": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z]+$"
+                                },
+                                "workload": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+                                },
+                                "port": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 65535
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "host",
+                                "compose_project",
+                                "compose_service",
+                                "port"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": ["compose"]
+                                },
+                                "host": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "compose_project": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "compose_service": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "port": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 65535
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "required": ["kind", "host", "container", "port"],
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": ["container"]
+                                },
+                                "host": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "container": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "port": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 65535
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "required": ["kind", "address"],
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": ["address"]
+                                },
+                                "address": {
+                                  "type": "string",
+                                  "maxLength": 260,
+                                  "pattern": "^(\\[[0-9a-fA-F:.]+\\]|[A-Za-z0-9][A-Za-z0-9.-]*):[0-9]{1,5}$"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
                         "health": {
                           "anyOf": [
                             {
@@ -19301,6 +19895,228 @@
                           ]
                         }
                       }
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["severity", "code", "facts"],
+                        "properties": {
+                          "severity": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["ok"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["info"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["warning"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["critical"]
+                              }
+                            ]
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "facts": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "links": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["kind", "id", "name"],
+                              "properties": {
+                                "kind": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["workload"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["container"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["alert"]
+                                    }
+                                  ]
+                                },
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "connected": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": ["flows", "items"],
+                          "properties": {
+                            "flows": {
+                              "type": "boolean",
+                              "description": "Whether the agents report network flows at all"
+                            },
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "name",
+                                  "namespace",
+                                  "workloadKind",
+                                  "composeService",
+                                  "connections",
+                                  "failed"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": ["workload"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["container"]
+                                      }
+                                    ]
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "namespace": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "workloadKind": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "composeService": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "connections": {
+                                    "type": "integer"
+                                  },
+                                  "failed": {
+                                    "type": "integer"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Null when the metrics store is unavailable"
+                    },
+                    "page": {
+                      "type": "object",
+                      "required": ["id", "tabs"],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "'generic' until the type's own pages land"
+                        },
+                        "tabs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["id", "title"],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "range": {
+                      "type": "integer",
+                      "description": "Seconds back from now: 1h, 6h, 24h or 7d"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
                     }
                   }
                 }
@@ -19440,6 +20256,1366 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/applications/{id}/panels": {
+      "get": {
+        "summary": "One tab of a service's page: its panels, filled",
+        "tags": ["applications"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "query",
+            "name": "tab",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 3600,
+              "maximum": 604800
+            },
+            "in": "query",
+            "name": "range",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["tab", "range", "panels"],
+                  "properties": {
+                    "tab": {
+                      "type": "string"
+                    },
+                    "range": {
+                      "type": "integer",
+                      "description": "Seconds back from now: 1h, 6h, 24h or 7d"
+                    },
+                    "panels": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": ["id", "title", "span", "state", "kind", "unit", "series"],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "An i18n key"
+                              },
+                              "span": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "enum": [1]
+                                  },
+                                  {
+                                    "type": "number",
+                                    "enum": [2]
+                                  }
+                                ]
+                              },
+                              "state": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["ok"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["empty"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["needs_permission"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["error"]
+                                  }
+                                ]
+                              },
+                              "missing": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "note": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "kind": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["line"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["stack"]
+                                  }
+                                ]
+                              },
+                              "unit": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["ratio"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["bytes"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["bytes_per_second"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["cores"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["load"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["count"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["seconds"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["per_second"]
+                                  }
+                                ],
+                                "description": "The dashboard's unit names"
+                              },
+                              "series": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": ["points"],
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "nameKey": {
+                                      "type": "string"
+                                    },
+                                    "points": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "array",
+                                        "items": {
+                                          "anyOf": [
+                                            {
+                                              "type": "number"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "minItems": 2,
+                                        "maxItems": 2
+                                      }
+                                    },
+                                    "dashed": {
+                                      "type": "boolean"
+                                    },
+                                    "severity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["ok"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["info"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["warning"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["critical"]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["id", "title", "span", "state", "kind", "unit", "items"],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "An i18n key"
+                              },
+                              "span": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "enum": [1]
+                                  },
+                                  {
+                                    "type": "number",
+                                    "enum": [2]
+                                  }
+                                ]
+                              },
+                              "state": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["ok"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["empty"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["needs_permission"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["error"]
+                                  }
+                                ]
+                              },
+                              "missing": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "note": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": ["bars"]
+                              },
+                              "unit": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["ratio"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["bytes"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["bytes_per_second"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["cores"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["load"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["count"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["seconds"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["per_second"]
+                                  }
+                                ],
+                                "description": "The dashboard's unit names"
+                              },
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": ["label", "value"],
+                                  "properties": {
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "severity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["ok"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["info"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["warning"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["critical"]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["id", "title", "span", "state", "kind", "buckets"],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "An i18n key"
+                              },
+                              "span": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "enum": [1]
+                                  },
+                                  {
+                                    "type": "number",
+                                    "enum": [2]
+                                  }
+                                ]
+                              },
+                              "state": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["ok"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["empty"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["needs_permission"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["error"]
+                                  }
+                                ]
+                              },
+                              "missing": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "note": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": ["hist"]
+                              },
+                              "buckets": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": ["label", "share"],
+                                  "properties": {
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "share": {
+                                      "type": "number"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["id", "title", "span", "state", "kind", "items"],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "An i18n key"
+                              },
+                              "span": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "enum": [1]
+                                  },
+                                  {
+                                    "type": "number",
+                                    "enum": [2]
+                                  }
+                                ]
+                              },
+                              "state": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["ok"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["empty"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["needs_permission"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["error"]
+                                  }
+                                ]
+                              },
+                              "missing": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "note": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": ["gauge"]
+                              },
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": ["value", "max", "unit"],
+                                  "properties": {
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "labelKey": {
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "max": {
+                                      "type": "number"
+                                    },
+                                    "unit": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["ratio"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["bytes"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["bytes_per_second"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["cores"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["load"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["count"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["seconds"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["per_second"]
+                                        }
+                                      ],
+                                      "description": "The dashboard's unit names"
+                                    },
+                                    "warnAt": {
+                                      "type": "number"
+                                    },
+                                    "note": {
+                                      "type": "object",
+                                      "required": ["key"],
+                                      "properties": {
+                                        "key": {
+                                          "type": "string"
+                                        },
+                                        "values": {
+                                          "type": "object",
+                                          "additionalProperties": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string"
+                                              },
+                                              {
+                                                "type": "number"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["id", "title", "span", "state", "kind", "unit", "points"],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "An i18n key"
+                              },
+                              "span": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "enum": [1]
+                                  },
+                                  {
+                                    "type": "number",
+                                    "enum": [2]
+                                  }
+                                ]
+                              },
+                              "state": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["ok"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["empty"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["needs_permission"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["error"]
+                                  }
+                                ]
+                              },
+                              "missing": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "note": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": ["heat"]
+                              },
+                              "unit": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["ratio"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["bytes"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["bytes_per_second"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["cores"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["load"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["count"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["seconds"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["per_second"]
+                                  }
+                                ],
+                                "description": "The dashboard's unit names"
+                              },
+                              "points": {
+                                "type": "array",
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "minItems": 2,
+                                  "maxItems": 2
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["id", "title", "span", "state", "kind", "columns", "rows"],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "An i18n key"
+                              },
+                              "span": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "enum": [1]
+                                  },
+                                  {
+                                    "type": "number",
+                                    "enum": [2]
+                                  }
+                                ]
+                              },
+                              "state": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["ok"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["empty"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["needs_permission"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["error"]
+                                  }
+                                ]
+                              },
+                              "missing": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "note": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": ["table"]
+                              },
+                              "columns": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "rows": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": ["cells"],
+                                  "properties": {
+                                    "cells": {
+                                      "type": "array",
+                                      "items": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "number"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "severity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["ok"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["info"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["warning"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["critical"]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["id", "title", "span", "state", "kind", "tiles"],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "An i18n key"
+                              },
+                              "span": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "enum": [1]
+                                  },
+                                  {
+                                    "type": "number",
+                                    "enum": [2]
+                                  }
+                                ]
+                              },
+                              "state": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["ok"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["empty"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["needs_permission"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["error"]
+                                  }
+                                ]
+                              },
+                              "missing": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "note": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": ["stat"]
+                              },
+                              "tiles": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": ["id", "labelKey", "value"],
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "labelKey": {
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "unit": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["ratio"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["bytes"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["bytes_per_second"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["cores"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["load"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["count"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["seconds"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["per_second"]
+                                        }
+                                      ],
+                                      "description": "The dashboard's unit names"
+                                    },
+                                    "sub": {
+                                      "type": "object",
+                                      "required": ["key"],
+                                      "properties": {
+                                        "key": {
+                                          "type": "string"
+                                        },
+                                        "values": {
+                                          "type": "object",
+                                          "additionalProperties": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string"
+                                              },
+                                              {
+                                                "type": "number"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "severity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["ok"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["info"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["warning"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["critical"]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
             "description": "Default Response",
             "content": {
               "application/json": {

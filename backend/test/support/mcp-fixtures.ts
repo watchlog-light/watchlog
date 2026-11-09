@@ -92,7 +92,7 @@ export async function addCluster(
     if (r.statusCode !== 204) throw new Error(`write: ${r.statusCode} ${r.body}`);
     await fetch(`${TEST_VM_URL}/internal/force_flush`);
   };
-  return { id: res.json().cluster.id as string, ingest, heartbeat, write };
+  return { id: res.json().cluster.id as string, token, ingest, heartbeat, write };
 }
 
 /** The kind cluster: the wl-test failure pods (crashloop, oom), the web Deployment, 3 nodes. */

@@ -17,6 +17,7 @@ afterEach(async () => {
 
 const TOOLS = [
   'explain_alert',
+  'get_application',
   'get_events',
   'get_node',
   'get_pod',
@@ -25,6 +26,7 @@ const TOOLS = [
   'get_service_map',
   'get_workload',
   'list_alerts',
+  'list_applications',
   'list_clusters',
   'query_metric',
 ];

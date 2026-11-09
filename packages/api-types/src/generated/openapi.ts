@@ -6737,6 +6737,35 @@ export interface paths {
                   host: string | null;
                   address: string | null;
                 };
+                target:
+                  | {
+                      /** @enum {string} */
+                      kind: 'workload';
+                      namespace: string;
+                      workload_kind: string;
+                      workload: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'compose';
+                      host: string;
+                      compose_project: string;
+                      compose_service: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'container';
+                      host: string;
+                      container: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'address';
+                      address: string;
+                    };
                 health: 'ok' | 'warning' | 'critical' | 'unknown';
                 reason: {
                   code: string;
@@ -6843,6 +6872,35 @@ export interface paths {
                   host: string | null;
                   address: string | null;
                 };
+                target:
+                  | {
+                      /** @enum {string} */
+                      kind: 'workload';
+                      namespace: string;
+                      workload_kind: string;
+                      workload: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'compose';
+                      host: string;
+                      compose_project: string;
+                      compose_service: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'container';
+                      host: string;
+                      container: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'address';
+                      address: string;
+                    };
                 health: 'ok' | 'warning' | 'critical' | 'unknown';
                 reason: {
                   code: string;
@@ -7106,6 +7164,96 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/applications/metrics': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The list rows' key numbers and 6-hour sparklines */
+    get: {
+      parameters: {
+        query?: {
+          cluster?: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              metrics: {
+                [key: string]: {
+                  keyMetrics: {
+                    id: string;
+                    labelKey: string;
+                    value: number | null;
+                    /** @description The dashboard's unit names */
+                    unit:
+                      | 'ratio'
+                      | 'bytes'
+                      | 'bytes_per_second'
+                      | 'cores'
+                      | 'load'
+                      | 'count'
+                      | 'seconds'
+                      | 'per_second';
+                    severity?: 'ok' | 'info' | 'warning' | 'critical';
+                  }[];
+                  spark: (number | null)[][];
+                };
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        502: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/applications/{id}': {
     parameters: {
       query?: never;
@@ -7113,10 +7261,12 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** One monitored service */
+    /** One monitored service: its health, what WatchLog sees, who connects to it */
     get: {
       parameters: {
-        query?: never;
+        query?: {
+          range?: number;
+        };
         header?: never;
         path: {
           id: string;
@@ -7147,6 +7297,35 @@ export interface paths {
                   host: string | null;
                   address: string | null;
                 };
+                target:
+                  | {
+                      /** @enum {string} */
+                      kind: 'workload';
+                      namespace: string;
+                      workload_kind: string;
+                      workload: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'compose';
+                      host: string;
+                      compose_project: string;
+                      compose_service: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'container';
+                      host: string;
+                      container: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'address';
+                      address: string;
+                    };
                 health: 'ok' | 'warning' | 'critical' | 'unknown';
                 reason: {
                   code: string;
@@ -7161,6 +7340,57 @@ export interface paths {
                 monitoredSince: string;
                 lastReportAt: string | null;
               };
+              reasons: {
+                severity: 'ok' | 'info' | 'warning' | 'critical';
+                code: string;
+                facts: {
+                  [key: string]: string | number | null;
+                };
+                links?: {
+                  kind: 'workload' | 'container' | 'alert';
+                  id: string;
+                  name: string;
+                }[];
+              }[];
+              /** @description Null when the metrics store is unavailable */
+              connected: {
+                /** @description Whether the agents report network flows at all */
+                flows: boolean;
+                items: {
+                  kind: 'workload' | 'container';
+                  name: string;
+                  namespace: string | null;
+                  workloadKind: string | null;
+                  composeService: string | null;
+                  connections: number;
+                  failed: number;
+                }[];
+              } | null;
+              page: {
+                /** @description 'generic' until the type's own pages land */
+                id: string;
+                tabs: {
+                  id: string;
+                  title: string;
+                }[];
+              };
+              /** @description Seconds back from now: 1h, 6h, 24h or 7d */
+              range: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
             };
           };
         };
@@ -7264,6 +7494,356 @@ export interface paths {
         };
       };
     };
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/applications/{id}/panels': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** One tab of a service's page: its panels, filled */
+    get: {
+      parameters: {
+        query?: {
+          tab?: string;
+          range?: number;
+        };
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              tab: string;
+              /** @description Seconds back from now: 1h, 6h, 24h or 7d */
+              range: number;
+              panels: (
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    kind: 'line' | 'stack';
+                    /** @description The dashboard's unit names */
+                    unit:
+                      | 'ratio'
+                      | 'bytes'
+                      | 'bytes_per_second'
+                      | 'cores'
+                      | 'load'
+                      | 'count'
+                      | 'seconds'
+                      | 'per_second';
+                    series: {
+                      name?: string;
+                      nameKey?: string;
+                      points: (number | null)[][];
+                      dashed?: boolean;
+                      severity?: 'ok' | 'info' | 'warning' | 'critical';
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'bars';
+                    /** @description The dashboard's unit names */
+                    unit:
+                      | 'ratio'
+                      | 'bytes'
+                      | 'bytes_per_second'
+                      | 'cores'
+                      | 'load'
+                      | 'count'
+                      | 'seconds'
+                      | 'per_second';
+                    items: {
+                      label: string;
+                      value: number;
+                      severity?: 'ok' | 'info' | 'warning' | 'critical';
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'hist';
+                    buckets: {
+                      label: string;
+                      share: number;
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'gauge';
+                    items: {
+                      label?: string;
+                      labelKey?: string;
+                      value: number;
+                      max: number;
+                      /** @description The dashboard's unit names */
+                      unit:
+                        | 'ratio'
+                        | 'bytes'
+                        | 'bytes_per_second'
+                        | 'cores'
+                        | 'load'
+                        | 'count'
+                        | 'seconds'
+                        | 'per_second';
+                      warnAt?: number;
+                      note?: {
+                        key: string;
+                        values?: {
+                          [key: string]: string | number | null;
+                        };
+                      };
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'heat';
+                    /** @description The dashboard's unit names */
+                    unit:
+                      | 'ratio'
+                      | 'bytes'
+                      | 'bytes_per_second'
+                      | 'cores'
+                      | 'load'
+                      | 'count'
+                      | 'seconds'
+                      | 'per_second';
+                    points: (number | null)[][];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'table';
+                    columns: string[];
+                    rows: {
+                      cells: (string | number | null)[];
+                      severity?: 'ok' | 'info' | 'warning' | 'critical';
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'stat';
+                    tiles: {
+                      id: string;
+                      labelKey: string;
+                      value: string | number | null;
+                      /** @description The dashboard's unit names */
+                      unit?:
+                        | 'ratio'
+                        | 'bytes'
+                        | 'bytes_per_second'
+                        | 'cores'
+                        | 'load'
+                        | 'count'
+                        | 'seconds'
+                        | 'per_second';
+                      sub?: {
+                        key: string;
+                        values?: {
+                          [key: string]: string | number | null;
+                        };
+                      };
+                      severity?: 'ok' | 'info' | 'warning' | 'critical';
+                    }[];
+                  }
+              )[];
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        502: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;

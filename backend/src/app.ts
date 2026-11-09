@@ -163,7 +163,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(serviceMapRoutes, { db: deps.db, victoria, config, settings });
       await api.register(alertRoutes, { db: deps.db, config, http: alertHttp, settings, victoria });
       await api.register(settingsRoutes, { db: deps.db, settings, http: alertHttp });
-      await api.register(applicationRoutes, { db: deps.db, notifier: collectors });
+      await api.register(applicationRoutes, { db: deps.db, notifier: collectors, victoria });
       await api.register(apiTokenRoutes, { db: deps.db });
       // The public API only (ADR-126): routes tagged `public`, with the bearer scheme.
       let spec: Record<string, unknown> | undefined;

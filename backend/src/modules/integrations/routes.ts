@@ -6,11 +6,31 @@ import { Type, type Static } from 'typebox';
 import { isUniqueViolation, type Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
 import { sendProblem } from '../../lib/problem.js';
+import { VictoriaError, type VictoriaQueryClient } from '../../lib/victoria.js';
+import { PUBLIC_TAG } from '../../openapi/public.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { INTEGRATION_TYPES, type IntegrationTarget } from './collector-config.js';
 import { discover, SERVICE_KINDS, targetKey } from './discovery.js';
 import type { ConfigNotifier } from './notifier.js';
+import {
+  connectedTo,
+  pageOf,
+  PAGE_RANGES,
+  sortReasons,
+  statusReasons,
+  type ConnectedResult,
+  type PageContext,
+  type Reason,
+  type RowMetrics,
+} from './pages/index.js';
+import {
+  ConnectedSchema,
+  PanelSchema,
+  ReasonSchema,
+  RowMetricsSchema,
+  TabSchema,
+} from './pages/schema.js';
 import {
   collectorOf,
   COLLECTOR_STALE_MS,
@@ -99,6 +119,8 @@ export const ApplicationSchema = Type.Object({
     host: Type.Union([Type.String(), Type.Null()]),
     address: Type.Union([Type.String(), Type.Null()]),
   }),
+  /** What the collector connects to: a workload, a Compose service, a container or an address. */
+  target: TargetSchema,
   health: Health,
   reason: Reason,
   members: Type.Object({ up: Type.Integer(), total: Type.Integer() }),
@@ -160,6 +182,7 @@ function toView(
       kind: row.cluster_kind as 'kubernetes' | 'docker',
     },
     where: whereOf(row.target),
+    target: row.target,
     health,
     reason,
     members: { up: members.filter((m) => m.up).length, total: members.length },
@@ -169,13 +192,41 @@ function toView(
 }
 
 const ORDER: Record<string, number> = { critical: 0, warning: 1, unknown: 2, ok: 3 };
+const PAGE_CACHE_MS = 15_000;
+
+const RangeQuery = Type.Integer({ description: 'Seconds back from now: 1h, 6h, 24h or 7d' });
+// Query strings arrive as text; coerce, then check against the four ranges.
+const RangeParam = Type.Optional(Type.Integer({ minimum: 3600, maximum: 604800 }));
+const rangeOf = (v: number | undefined): number | null =>
+  v === undefined ? 3600 : (PAGE_RANGES as readonly number[]).includes(v) ? v : null;
 
 export const applicationRoutes: FastifyPluginAsyncTypebox<{
   db: Database;
   notifier: ConfigNotifier;
-}> = async (app, { db, notifier }) => {
+  victoria?: VictoriaQueryClient;
+}> = async (app, { db, notifier, victoria }) => {
   const signedIn = requireUser(db);
   const canManage = [signedIn, requireRole('owner', 'admin')];
+  const pageCache = new Map<
+    string,
+    { at: number; own: Reason[]; connected: ConnectedResult | null }
+  >();
+
+  /** One service the caller's organization monitors, with what its page needs. */
+  async function contextOf(orgId: string, id: string, range: number) {
+    const [row] = await listApplicationRows(db, orgId, { id });
+    if (!row) return null;
+    const collectors = await listCollectors(db, [row.cluster_id]);
+    const ctx: PageContext = {
+      db,
+      vm: victoria,
+      row,
+      collector: collectorOf(row, collectors),
+      range,
+      now: Date.now(),
+    };
+    return { ctx, view: toView(row, collectors, ctx.now) };
+  }
 
   app.get(
     '/applications',
@@ -183,7 +234,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'Monitored services, problems first',
-        tags: ['applications'],
+        tags: ['applications', PUBLIC_TAG],
         querystring: Type.Object({ cluster: Type.Optional(Type.String({ format: 'uuid' })) }),
         response: {
           200: Type.Object({ applications: Type.Array(ApplicationSchema) }),
@@ -211,7 +262,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: "Services the agents see that aren't monitored yet (ADR-132)",
-        tags: ['applications'],
+        tags: ['applications', PUBLIC_TAG],
         querystring: Type.Object({ cluster: Type.Optional(Type.String({ format: 'uuid' })) }),
         response: {
           200: Type.Object({ discovered: Type.Array(DiscoveredSchema) }),
@@ -246,7 +297,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
       preHandler: signedIn,
       schema: {
         summary: 'The integrations collectors and whether they report (ADR-131)',
-        tags: ['applications'],
+        tags: ['applications', PUBLIC_TAG],
         response: {
           200: Type.Object({ collectors: Type.Array(CollectorSchema) }),
           401: ProblemSchema,
@@ -281,25 +332,167 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
   );
 
   app.get(
+    '/applications/metrics',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary: "The list rows' key numbers and 6-hour sparklines",
+        tags: ['applications'],
+        querystring: Type.Object({ cluster: Type.Optional(Type.String({ format: 'uuid' })) }),
+        response: {
+          200: Type.Object({ metrics: Type.Record(Type.String(), RowMetricsSchema) }),
+          401: ProblemSchema,
+          502: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const rows = await listApplicationRows(db, request.user!.org.id, {
+        clusterId: request.query.cluster,
+      });
+      if (!victoria || rows.length === 0) return { metrics: {} };
+      // One batch per cluster and page: a few queries for the whole list.
+      const groups = new Map<
+        string,
+        { page: ReturnType<typeof pageOf>; clusterId: string; ids: string[] }
+      >();
+      for (const r of rows) {
+        const page = pageOf(r.type);
+        const key = `${r.cluster_id}\u0000${page.id}\u0000${r.type}`;
+        const g = groups.get(key) ?? { page, clusterId: r.cluster_id, ids: [] };
+        g.ids.push(r.id);
+        groups.set(key, g);
+      }
+      const now = Date.now();
+      try {
+        const maps = await Promise.all(
+          [...groups.values()].map((g) =>
+            g.page.listMetrics({ vm: victoria, clusterId: g.clusterId, ids: g.ids, now }),
+          ),
+        );
+        const metrics: Record<string, RowMetrics> = {};
+        for (const m of maps) for (const [id, v] of m) metrics[id] = v;
+        return { metrics };
+      } catch (err) {
+        if (err instanceof VictoriaError) return sendProblem(reply, 502, 'Metrics are unavailable');
+        throw err;
+      }
+    },
+  );
+
+  app.get(
     '/applications/:id',
     {
       preHandler: signedIn,
       schema: {
-        summary: 'One monitored service',
-        tags: ['applications'],
+        summary: 'One monitored service: its health, what WatchLog sees, who connects to it',
+        tags: ['applications', PUBLIC_TAG],
         params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+        querystring: Type.Object({ range: RangeParam }),
         response: {
-          200: Type.Object({ application: ApplicationSchema }),
+          200: Type.Object({
+            application: ApplicationSchema,
+            reasons: Type.Array(ReasonSchema),
+            connected: Type.Union([ConnectedSchema, Type.Null()], {
+              description: 'Null when the metrics store is unavailable',
+            }),
+            page: Type.Object({
+              id: Type.String({ description: "'generic' until the type's own pages land" }),
+              tabs: Type.Array(TabSchema),
+            }),
+            range: RangeQuery,
+          }),
+          400: ProblemSchema,
           401: ProblemSchema,
           404: ProblemSchema,
         },
       },
     },
     async (request, reply) => {
-      const [row] = await listApplicationRows(db, request.user!.org.id, { id: request.params.id });
-      if (!row) return sendProblem(reply, 404, 'Service not found');
-      const collectors = await listCollectors(db, [row.cluster_id]);
-      return { application: toView(row, collectors) };
+      const range = rangeOf(request.query.range);
+      if (range === null)
+        return sendProblem(reply, 400, 'range is one of 3600, 21600, 86400, 604800');
+      const found = await contextOf(request.user!.org.id, request.params.id, range);
+      if (!found) return sendProblem(reply, 404, 'Service not found');
+      const { ctx, view } = found;
+      const page = pageOf(ctx.row.type);
+      const soft = <T>(p: Promise<T>, fallback: T) =>
+        p.catch((err: Error) => {
+          request.log.warn({ err: err.message }, 'service page query failed');
+          return fallback;
+        });
+      // The metric-backed parts are cached for 15 s (after the organization check above).
+      const key = `${ctx.row.id}:${range}:${view.reason.code}`;
+      let cached = pageCache.get(key);
+      if (!cached || ctx.now - cached.at > PAGE_CACHE_MS) {
+        const [own, connected] = await Promise.all([
+          view.reason.code === 'connected' ? soft(page.reasons(ctx), []) : Promise.resolve([]),
+          soft(connectedTo(ctx), null),
+        ]);
+        cached = { at: ctx.now, own, connected };
+        pageCache.set(key, cached);
+        if (pageCache.size > 500) {
+          for (const [k, v] of pageCache) if (ctx.now - v.at > PAGE_CACHE_MS) pageCache.delete(k);
+        }
+      }
+      const { own, connected } = cached;
+      const reasons = sortReasons([
+        ...statusReasons(view.health, view.reason, ctx.row.status_details, ctx.row.target),
+        ...own,
+      ]);
+      return {
+        application: view,
+        reasons,
+        connected,
+        page: { id: page.id, tabs: page.tabs.map((t) => ({ id: t.id, title: t.title })) },
+        range,
+      };
+    },
+  );
+
+  app.get(
+    '/applications/:id/panels',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary: "One tab of a service's page: its panels, filled",
+        tags: ['applications'],
+        params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+        querystring: Type.Object({
+          tab: Type.Optional(Type.String({ maxLength: 64 })),
+          range: RangeParam,
+        }),
+        response: {
+          200: Type.Object({
+            tab: Type.String(),
+            range: RangeQuery,
+            panels: Type.Array(PanelSchema),
+          }),
+          400: ProblemSchema,
+          401: ProblemSchema,
+          404: ProblemSchema,
+          502: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const range = rangeOf(request.query.range);
+      if (range === null)
+        return sendProblem(reply, 400, 'range is one of 3600, 21600, 86400, 604800');
+      const found = await contextOf(request.user!.org.id, request.params.id, range);
+      if (!found) return sendProblem(reply, 404, 'Service not found');
+      const page = pageOf(found.ctx.row.type);
+      const tab = request.query.tab
+        ? page.tabs.find((t) => t.id === request.query.tab)
+        : page.tabs[0];
+      if (!tab) return sendProblem(reply, 404, 'No such tab');
+      try {
+        const panels = await tab.panels(found.ctx);
+        return { tab: tab.id, range, panels };
+      } catch (err) {
+        if (err instanceof VictoriaError) return sendProblem(reply, 502, 'Metrics are unavailable');
+        throw err;
+      }
     },
   );
 

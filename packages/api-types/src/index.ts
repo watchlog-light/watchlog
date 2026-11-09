@@ -150,3 +150,13 @@ export type IntegrationTarget = DiscoveredService['target'];
 export type CollectorList = JsonBody<Responses<'/api/v1/applications/collectors', 'get'>[200]>;
 export type IntegrationCollector = CollectorList['collectors'][number];
 export type CreateApplicationRequest = RequestBody<'/api/v1/applications', 'post'>;
+// The service page (ADR-135, ADR-137).
+export type ApplicationDetail = JsonBody<Responses<'/api/v1/applications/{id}', 'get'>[200]>;
+export type ApplicationReason = ApplicationDetail['reasons'][number];
+export type ApplicationConnected = NonNullable<ApplicationDetail['connected']>;
+export type ApplicationPanels = JsonBody<Responses<'/api/v1/applications/{id}/panels', 'get'>[200]>;
+export type Panel = ApplicationPanels['panels'][number];
+export type PanelKind = Panel['kind'];
+export type ApplicationMetrics = JsonBody<Responses<'/api/v1/applications/metrics', 'get'>[200]>;
+export type RowMetrics = ApplicationMetrics['metrics'][string];
+export type KeyMetric = RowMetrics['keyMetrics'][number];
