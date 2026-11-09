@@ -12,8 +12,10 @@
 #                          tokens of a Kubernetes cluster and a Docker fleet in that backend
 #   VM                     the Lima VM (default watchlog-demo)
 #   GOPROXY                for the image builds; default proxy.golang.org, then goproxy.io
+#   WATCHLOG_E2E_FLOWS     true: the agents run with eBPF (network flows and HTTP), for
+#                          the e2e scripts that need them (nginx, rabbitmq); default false
 # The agents run beside the demo's own (release watchlog-e2e in namespace watchlog-e2e,
-# container watchlog-agent-e2e), without eBPF; `integrations-e2e.sh down` removes them.
+# container watchlog-agent-e2e); `integrations-e2e.sh down` removes them.
 # The Docker collector mounts ~/watchlog-e2e-secrets on the VM as /etc/watchlog/secrets:
 # the host-file path, root-owned and 0700 like the documented `sudo install -d`, made by a
 # root container instead of sudo. deploy/test/redis-e2e.sh and postgres-e2e.sh run after this.
@@ -35,6 +37,7 @@ if [ "${1:-}" = down ]; then
 fi
 : "${WATCHLOG_E2E_EMAIL:?}" "${WATCHLOG_E2E_PASSWORD:?}" "${WATCHLOG_E2E_KUBE_TOKEN:?}" "${WATCHLOG_E2E_DOCKER_TOKEN:?}"
 
+flows=${WATCHLOG_E2E_FLOWS:-false}
 port=${url##*:}
 host_ip=$(in_vm 'getent ahostsv4 host.lima.internal | awk "NR==1{print \$1}"')
 endpoint="http://$host_ip:$port"
@@ -56,7 +59,7 @@ say "Kubernetes: agents and collector → $endpoint"
 printf '%s' "$WATCHLOG_E2E_KUBE_TOKEN" | limactl shell "$vm" bash -c "cd ~ && export PATH=\$HOME/bin:\$PATH && t=\$(cat) && \
   helm --kube-context kind-demo upgrade --install watchlog-e2e '$repo/deploy/helm/watchlog-agent' -n watchlog-e2e --create-namespace \
   --set watchlog.endpoint=$endpoint --set-string watchlog.clusterToken=\"\$t\" --set image.tag=e2e --set image.pullPolicy=Never \
-  --set agent.networkFlows.enabled=false --wait --timeout 5m >/dev/null"
+  --set agent.networkFlows.enabled=$flows --wait --timeout 5m >/dev/null"
 # A new token or image doesn't restart the pods by itself: they read both at start.
 in_vm 'kubectl --context kind-demo -n watchlog-e2e rollout restart deployment,daemonset >/dev/null \
   && kubectl --context kind-demo -n watchlog-e2e rollout status deployment,daemonset --timeout 180s >/dev/null'
@@ -66,10 +69,10 @@ vm_host=$(in_vm 'hostname')
 printf '%s' "$WATCHLOG_E2E_DOCKER_TOKEN" | limactl shell "$vm" bash -c "cd ~ && t=\$(cat) && \
   docker rm -f watchlog-agent-e2e watchlog-integrations-e2e >/dev/null 2>&1; \
   docker run --rm -v \$HOME:/h redis:7.2-alpine sh -c 'mkdir -p /h/watchlog-e2e-secrets && chown 0:0 /h/watchlog-e2e-secrets && chmod 0700 /h/watchlog-e2e-secrets'; \
-  docker run -d --name watchlog-agent-e2e --pid host --user 0:65532 --cap-drop ALL --security-opt no-new-privileges \
+  docker run -d --name watchlog-agent-e2e --pid host --user 0:65532 --cap-drop ALL $([ "$flows" = true ] && echo --cap-add BPF --cap-add PERFMON) --security-opt no-new-privileges \
     -v /var/run/docker.sock:/var/run/docker.sock:ro -v /proc:/host/proc:ro -v /sys:/host/sys:ro -v /:/host/root:ro,rslave \
     -v watchlog-agent-e2e-state:/var/lib/watchlog-agent -e WATCHLOG_TOKEN=\"\$t\" -e WATCHLOG_ENDPOINT=$endpoint \
-    -e WATCHLOG_HOSTNAME=$vm_host -e WATCHLOG_EBPF=false ghcr.io/watchlog-light/agent:e2e --mode=docker >/dev/null && \
+    -e WATCHLOG_HOSTNAME=$vm_host -e WATCHLOG_EBPF=$flows ghcr.io/watchlog-light/agent:e2e --mode=docker >/dev/null && \
   docker run -d --name watchlog-integrations-e2e --network host --user 0:0 --cap-drop ALL --read-only \
     --tmpfs /var/lib/watchlog-integrations --security-opt no-new-privileges \
     -v \$HOME/watchlog-e2e-secrets:/etc/watchlog/secrets:ro \
