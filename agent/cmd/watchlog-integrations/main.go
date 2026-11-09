@@ -21,6 +21,7 @@ import (
 
 	"github.com/watchlog-light/watchlog/agent/internal/buffer"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations"
+	"github.com/watchlog-light/watchlog/agent/internal/integrations/redis"
 	"github.com/watchlog-light/watchlog/agent/internal/runner"
 	"github.com/watchlog-light/watchlog/agent/internal/sender"
 	"github.com/watchlog-light/watchlog/agent/internal/version"
@@ -126,7 +127,8 @@ func run(args []string, stdout io.Writer) int {
 			AgentID:   agentID,
 			UserAgent: userAgent,
 		},
-		Registry: integrations.Registry{},
+		// Integrations that read a service themselves; the others get the TCP check.
+		Registry: integrations.Registry{"redis": redis.New()},
 		Buffer:   buf,
 		Sender:   snd,
 		Log:      log,

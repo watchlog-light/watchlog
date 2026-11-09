@@ -237,7 +237,7 @@ func (c *Collector) scrapeOne(ctx context.Context, t Target, heavy bool) ([]metr
 	out = append(out, metrics.New("watchlog_integration_scrape_seconds", elapsed).WithLabels(labels...))
 
 	st := TargetStatus{ID: t.ID, State: res.State, Error: res.Error, ServiceVersion: res.ServiceVersion,
-		Members: res.Members, Permissions: res.Permissions}
+		Members: res.Members, Permissions: res.Permissions, Extra: res.Extra}
 	if st.State == "" {
 		st.State = StateOK
 	}

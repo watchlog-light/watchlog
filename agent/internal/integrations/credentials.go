@@ -118,7 +118,7 @@ func (c *Credentials) readFile(name string) (string, error) {
 	case errors.Is(err, os.ErrNotExist):
 		return "", fmt.Errorf("%s/%s doesn't exist: create it on the host and mount %s read-only into the collector", SecretsDir, name, SecretsDir)
 	case errors.Is(err, os.ErrPermission):
-		return "", fmt.Errorf("%s/%s can't be read by the collector", SecretsDir, name)
+		return "", fmt.Errorf("%s/%s can't be read by the collector: it runs as root without extra capabilities, so the folder and the file must belong to root (sudo install -d -m 0700 %s)", SecretsDir, name, SecretsDir)
 	case err != nil:
 		return "", fmt.Errorf("reading %s/%s failed", SecretsDir, name)
 	}

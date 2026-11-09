@@ -38,6 +38,8 @@ type Result struct {
 	Facts map[string]any
 	// Excess lists privileges beyond what WatchLog needs (superuser, +@all), ADR-134.
 	Excess []string
+	// Extra goes in the status as TargetStatus.Extra.
+	Extra map[string]any
 }
 
 // Registry maps a service type to its integration. Types without one get the TCP

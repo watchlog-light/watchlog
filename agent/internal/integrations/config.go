@@ -162,6 +162,9 @@ type TargetStatus struct {
 	ServiceVersion string         `json:"service_version,omitempty"`
 	Members        []MemberStatus `json:"members,omitempty"`
 	Permissions    []Permission   `json:"permissions,omitempty"`
+	// Extra is what a page shows that isn't a metric: slow log entries (normalised,
+	// ADR-138), client addresses to map to workloads. Bounded by each integration.
+	Extra map[string]any `json:"extra,omitempty"`
 }
 
 // MemberStatus says whether one member answered.
@@ -171,7 +174,8 @@ type MemberStatus struct {
 	Error string `json:"error,omitempty"`
 }
 
-// Permission is a tab that can't be filled and the privilege or setting it needs (ADR-134).
+// Permission is a tab (or "tab/panel") that can't be filled and the privilege or setting
+// it needs (ADR-134).
 type Permission struct {
 	Tab     string `json:"tab"`
 	Missing string `json:"missing"`
