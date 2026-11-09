@@ -65,6 +65,7 @@ export interface AlertRules {
   cluster_id: string | null;
   condition: Generated<Json>;
   created_at: Generated<Timestamp>;
+  default_key: string | null;
   enabled: Generated<boolean>;
   eval_error: string | null;
   for_seconds: Generated<number>;

@@ -6,8 +6,13 @@ import type { Condition } from './defaults.js';
  * Cluster kinds a catalog metric exists for: host and container keys are Docker's;
  * a monitored service's are both kinds' (ADR-124).
  */
+/** A monitored service's metrics: the generic ones and each integration's (SPEC §4.12). */
+export const SERVICE_METRIC_PREFIXES = ['service.', 'redis.'] as const;
+export const isServiceMetric = (metric: string) =>
+  SERVICE_METRIC_PREFIXES.some((p) => metric.startsWith(p));
+
 export function metricKinds(metric: string): ('kubernetes' | 'docker')[] {
-  if (metric.startsWith('service.')) return ['kubernetes', 'docker'];
+  if (isServiceMetric(metric)) return ['kubernetes', 'docker'];
   return metric.startsWith('host.') || metric.startsWith('container.')
     ? ['docker']
     : ['kubernetes'];

@@ -15,6 +15,7 @@ import { ProblemType, sendProblem } from '../../lib/problem.js';
 import { decryptJson, encryptJson } from '../../lib/secrets.js';
 import { redactUrl } from '../../lib/redact.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
+import { alertDefaultByKey } from '../integrations/alert-defaults.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { UnreachableError, type HttpClient } from './channels.js';
 import { sendTest, type DeliveryDeps } from './delivery.js';
@@ -837,11 +838,29 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
       const orgId = request.user!.org.id;
       const rule = await db
         .selectFrom('alert_rules')
-        .select(['id', 'rule_key'])
+        .select(['id', 'rule_key', 'default_key'])
         .where('id', '=', request.params.id)
         .where('org_id', '=', orgId)
         .executeTakeFirst();
       if (!rule) return sendProblem(reply, 404, 'Rule not found');
+      // A monitored service's default (slice 7): its condition, duration, severity and
+      // name come back; whether it is on and its channels stay as they are.
+      const serviceDefault = rule.default_key ? alertDefaultByKey(rule.default_key) : undefined;
+      if (serviceDefault) {
+        await db
+          .updateTable('alert_rules')
+          .set({
+            name: serviceDefault.name,
+            condition: JSON.stringify(serviceDefault.condition),
+            for_seconds: serviceDefault.forSeconds,
+            severity: serviceDefault.severity ?? 'warning',
+            renotify_seconds: 14400,
+            eval_error: null,
+          })
+          .where('id', '=', rule.id)
+          .execute();
+        return (await ruleViews(orgId, rule.id))[0]!;
+      }
       const def = DEFAULT_RULES.find((r) => r.key === rule.rule_key);
       if (!def) return sendProblem(reply, 409, 'Only default rules can be reset');
       await db

@@ -43,6 +43,8 @@ export function ruleView(r: RuleRowView, firing: number) {
     channelIds: r.channel_ids,
     firing,
     evalError: r.eval_error,
+    /** A monitored service's default this rule came from: it can be reset. */
+    defaultKey: r.default_key,
   };
 }
 

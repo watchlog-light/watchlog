@@ -507,19 +507,21 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         const missing = (
           (found.ctx.row.status_details as { permissions?: { tab: string; missing: string }[] })
             .permissions ?? []
-        ).find((p) => p.tab === tab.id);
-        const panels = (await tab.panels(found.ctx)).map((p) =>
-          missing && p.state !== 'error'
+        ).filter((p) => p.tab === tab.id || p.tab.startsWith(`${tab.id}/`));
+        const panels = (await tab.panels(found.ctx)).map((p) => {
+          // A whole tab ("memory"), or one panel of it ("memory/prefixes").
+          const m = missing.find((x) => x.tab === tab.id || x.tab === `${tab.id}/${p.id}`);
+          return m && p.state !== 'error'
             ? {
                 ...p,
                 state: 'needs_permission' as const,
                 missing: {
-                  key: `integrations.${found.ctx.row.type}.missing.${tab.id}`,
-                  values: { missing: missing.missing },
+                  key: `integrations.${found.ctx.row.type}.missing.${m.tab.replace('/', '.')}`,
+                  values: { missing: m.missing },
                 },
               }
-            : p,
-        );
+            : p;
+        });
         return { tab: tab.id, range, panels };
       } catch (err) {
         if (err instanceof VictoriaError) return sendProblem(reply, 502, 'Metrics are unavailable');

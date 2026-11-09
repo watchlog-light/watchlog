@@ -1239,7 +1239,16 @@ export interface paths {
               | 'pvc.utilization'
               | 'flow.failed.ratio'
               | 'service.reachable.ratio'
-              | 'service.connect.time';
+              | 'service.connect.time'
+              | 'redis.memory.used'
+              | 'redis.memory.ratio'
+              | 'redis.hit.ratio'
+              | 'redis.ops.rate'
+              | 'redis.evicted.rate'
+              | 'redis.connected_clients'
+              | 'redis.blocked_clients'
+              | 'redis.replica.down'
+              | 'redis.save.failed';
             scope?: {
               host?: string;
               container?: string;
@@ -4204,6 +4213,7 @@ export interface paths {
                 channelIds: string[];
                 firing: number;
                 evalError: string | null;
+                defaultKey: string | null;
                 service?: {
                   id: string;
                   name: string;
@@ -4365,6 +4375,7 @@ export interface paths {
               channelIds: string[];
               firing: number;
               evalError: string | null;
+              defaultKey: string | null;
               service?: {
                 id: string;
                 name: string;
@@ -4639,6 +4650,7 @@ export interface paths {
               channelIds: string[];
               firing: number;
               evalError: string | null;
+              defaultKey: string | null;
               service?: {
                 id: string;
                 name: string;
@@ -4781,6 +4793,7 @@ export interface paths {
                 channelIds: string[];
                 firing: number;
                 evalError: string | null;
+                defaultKey: string | null;
                 service?: {
                   id: string;
                   name: string;
@@ -4925,6 +4938,7 @@ export interface paths {
               channelIds: string[];
               firing: number;
               evalError: string | null;
+              defaultKey: string | null;
               service?: {
                 id: string;
                 name: string;

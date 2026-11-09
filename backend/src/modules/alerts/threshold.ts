@@ -9,7 +9,7 @@ import { METRIC_KEYS, metricUnit, type MetricKey, type QueryScope } from '../que
 import type { Condition } from './defaults.js';
 import type { EvalContext, RuleEvaluator } from './engine.js';
 import { queryThreshold } from './metric-rules.js';
-import { conditionError, metricKinds } from './conditions.js';
+import { conditionError, isServiceMetric, metricKinds } from './conditions.js';
 import type { Observation } from './state-machine.js';
 
 export const MAX_SELECTOR_PODS = 500;
@@ -97,6 +97,7 @@ const UNITS: Record<string, (v: number) => string> = {
     v >= 2 ** 20 ? `${(v / 2 ** 20).toFixed(1)} MiB/s` : `${Math.round(v / 2 ** 10)} KiB/s`,
   cores: (v) => `${v.toFixed(2)} cores`,
   seconds: (v) => (v < 1 ? `${Math.round(v * 1000)} ms` : `${Math.round(v * 100) / 100} s`),
+  per_second: (v) => `${Math.round(v * 100) / 100}/s`,
 };
 export function formatMetricValue(v: number, unit: string | null): string {
   return (unit && UNITS[unit]?.(v)) ?? String(Math.round(v * 100) / 100);
@@ -189,7 +190,7 @@ export async function validateThreshold(
 ): Promise<string | null> {
   if (!(METRIC_KEYS as string[]).includes(rule.metric)) return `Unknown metric "${rule.metric}"`;
   const kinds = metricKinds(rule.metric);
-  const isService = rule.metric.startsWith('service.');
+  const isService = isServiceMetric(rule.metric);
   const allowed: readonly string[] = isService
     ? SERVICE_FIELDS
     : kinds.includes('docker')

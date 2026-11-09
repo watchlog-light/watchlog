@@ -3,7 +3,8 @@
 // user input only ever becomes escaped label values. cluster_id is enforced by
 // VictoriaMetrics (extra_label), never by these templates.
 
-export type Unit = 'ratio' | 'bytes' | 'bytes_per_second' | 'cores' | 'load' | 'count' | 'seconds';
+export type Unit =
+  'ratio' | 'bytes' | 'bytes_per_second' | 'cores' | 'load' | 'count' | 'seconds' | 'per_second';
 export type Agg = 'sum' | 'avg' | 'max' | 'min';
 
 export interface QueryScope {
@@ -323,6 +324,61 @@ const ENTRIES = {
     agg: 'max',
     expr: (s, _r, a) =>
       `${a} by (service, service_type) (watchlog_integration_connect_seconds${s()})`,
+  },
+  // Redis (v0.3 slice 7, SPEC §4.12): per member where a member can differ.
+  'redis.memory.used': {
+    unit: 'bytes',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, member) (watchlog_redis_memory_used_bytes${s()})`,
+  },
+  'redis.memory.ratio': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, member) (watchlog_redis_memory_used_bytes${s()}) / (max by (service, service_type, member) (watchlog_redis_memory_max_bytes${s()}) > 0)`,
+  },
+  'redis.hit.ratio': {
+    unit: 'ratio',
+    agg: 'avg',
+    expr: (s, r) =>
+      `sum by (service, service_type) (rate(watchlog_redis_keyspace_hits_total${s()}[${r}])) / (sum by (service, service_type) (rate(watchlog_redis_keyspace_hits_total${s()}[${r}])) + sum by (service, service_type) (rate(watchlog_redis_keyspace_misses_total${s()}[${r}])) > 0)`,
+  },
+  'redis.ops.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (service, service_type) (rate(watchlog_redis_commands_processed_total${s()}[${r}]))`,
+  },
+  'redis.evicted.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (service, service_type) (rate(watchlog_redis_evicted_keys_total${s()}[${r}]))`,
+  },
+  'redis.connected_clients': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) => `${a} by (service, service_type) (watchlog_redis_connected_clients${s()})`,
+  },
+  'redis.blocked_clients': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) => `${a} by (service, service_type) (watchlog_redis_blocked_clients${s()})`,
+  },
+  /** 1 when a replica's link to its primary is down, or a primary sees a replica offline. */
+  'redis.replica.down': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type) ((1 - watchlog_redis_master_link_up${s()}) or (1 - watchlog_redis_replica_online${s()}))`,
+  },
+  /** 1 when the last RDB save or AOF write failed. */
+  'redis.save.failed': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type) ((1 - watchlog_redis_rdb_last_save_ok${s()}) or (1 - watchlog_redis_aof_last_write_ok${s()}))`,
   },
 } satisfies Record<string, Entry>;
 

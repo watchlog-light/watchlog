@@ -6,6 +6,7 @@
 //   POST /ingest/v1/integrations/probes  what its connection tests found (ADR-134)
 // Metrics go through /ingest/v1/write like every agent's.
 import type { FastifyInstance } from 'fastify';
+import { sql } from 'kysely';
 import { Type, type Static } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
@@ -66,12 +67,35 @@ export const StatusBody = Type.Object(
             Type.Array(
               Type.Object(
                 {
-                  tab: Type.String({ maxLength: 32 }),
+                  // A tab, or "tab/panel".
+                  tab: Type.String({ maxLength: 64 }),
                   missing: Type.String({ maxLength: 128 }),
                 },
                 { additionalProperties: false },
               ),
               { maxItems: 16 },
+            ),
+          ),
+          // What a page shows that isn't a metric (a slow log, client addresses), sent with
+          // the heavy scrape: a few lists of small rows, bounded here.
+          extra: Type.Optional(
+            Type.Record(
+              Type.String({ maxLength: 32 }),
+              Type.Union([
+                Type.Array(
+                  Type.Record(
+                    Type.String({ maxLength: 32 }),
+                    Type.Unsafe<string | number | boolean>({
+                      type: ['number', 'boolean', 'string'],
+                      maxLength: 256,
+                    }),
+                    { maxProperties: 12 },
+                  ),
+                  { maxItems: 100 },
+                ),
+                Type.Null(),
+              ]),
+              { maxProperties: 8 },
             ),
           ),
         },
@@ -204,11 +228,19 @@ export function registerIntegrationIngest(
             .updateTable('integrations')
             .set({
               status: t.state,
-              status_details: JSON.stringify({
-                error: t.error,
-                members: t.members ?? [],
-                permissions: t.permissions ?? [],
-              }),
+              // A light scrape sends no extra: the last heavy scrape's stays.
+              status_details: t.extra
+                ? JSON.stringify({
+                    error: t.error,
+                    members: t.members ?? [],
+                    permissions: t.permissions ?? [],
+                    extra: t.extra,
+                  })
+                : sql`${JSON.stringify({
+                    error: t.error,
+                    members: t.members ?? [],
+                    permissions: t.permissions ?? [],
+                  })}::jsonb || case when status_details ? 'extra' then jsonb_build_object('extra', status_details -> 'extra') else '{}'::jsonb end`,
               version: t.service_version ?? null,
               last_report_at: now,
             })

@@ -51,7 +51,8 @@
                           "enabled",
                           "channelIds",
                           "firing",
-                          "evalError"
+                          "evalError",
+                          "defaultKey"
                         ],
                         "properties": {
                           "id": { "type": "string", "format": "uuid" },
@@ -141,6 +142,7 @@
                           },
                           "firing": { "type": "integer" },
                           "evalError": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "defaultKey": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                           "service": {
                             "anyOf": [
                               {
@@ -5904,7 +5906,16 @@
                       { "type": "string", "enum": ["pvc.utilization"] },
                       { "type": "string", "enum": ["flow.failed.ratio"] },
                       { "type": "string", "enum": ["service.reachable.ratio"] },
-                      { "type": "string", "enum": ["service.connect.time"] }
+                      { "type": "string", "enum": ["service.connect.time"] },
+                      { "type": "string", "enum": ["redis.memory.used"] },
+                      { "type": "string", "enum": ["redis.memory.ratio"] },
+                      { "type": "string", "enum": ["redis.hit.ratio"] },
+                      { "type": "string", "enum": ["redis.ops.rate"] },
+                      { "type": "string", "enum": ["redis.evicted.rate"] },
+                      { "type": "string", "enum": ["redis.connected_clients"] },
+                      { "type": "string", "enum": ["redis.blocked_clients"] },
+                      { "type": "string", "enum": ["redis.replica.down"] },
+                      { "type": "string", "enum": ["redis.save.failed"] }
                     ]
                   },
                   "scope": {

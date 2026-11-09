@@ -76,7 +76,8 @@ describe('the service page', () => {
   async function monitor(clusterId: string, target: object, name?: string) {
     const res = await api('POST', '/applications', {
       clusterId,
-      type: 'redis',
+      // RabbitMQ keeps the generic page in this version: the page framework is what's tested.
+      type: 'rabbitmq',
       target,
       ...(name ? { name } : {}),
     });
@@ -333,7 +334,7 @@ describe('the service page', () => {
       expect(panel).toMatchObject({
         state: 'needs_permission',
         missing: {
-          key: 'integrations.redis.missing.overview',
+          key: 'integrations.rabbitmq.missing.overview',
           values: { missing: '+memory|usage' },
         },
       });
@@ -390,7 +391,7 @@ describe('the service page', () => {
     const missing = await mcp.call('get_application', { cluster: 'prod-eu', name: 'nope' });
     expect(missing.data).toMatchObject({
       error: 'No monitored service with this name in this cluster.',
-      services: [{ name: 'shop/redis', type: 'redis' }],
+      services: [{ name: 'shop/redis', type: 'rabbitmq' }],
     });
 
     const hostile = await mcp.call('get_application', { cluster: 'docker-01', name: HOSTILE });

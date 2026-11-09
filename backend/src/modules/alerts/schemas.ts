@@ -263,6 +263,7 @@ export const RuleSchema = Type.Object({
   channelIds: Type.Array(Id),
   firing: Type.Integer(),
   evalError: NullableString,
+  defaultKey: NullableString,
   /** The monitored service a rule is scoped to; null when it was removed. */
   service: Type.Optional(
     Type.Union([

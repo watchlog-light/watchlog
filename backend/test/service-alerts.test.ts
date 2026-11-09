@@ -85,7 +85,21 @@ describe('alert rules for services', () => {
   it('creates the defaults when monitoring starts, on or off as chosen', async () => {
     const k8s = await cluster('prod', 'kubernetes');
     const defaults = (await api('GET', '/applications/alert-defaults?type=redis')).json().defaults;
-    expect(defaults.map((d: { key: string }) => d.key)).toEqual(['unreachable', 'slow_connect']);
+    expect(defaults.map((d: { key: string }) => d.key)).toEqual([
+      'unreachable',
+      'slow_connect',
+      'redis_memory_high',
+      'redis_evicting',
+      'redis_replica_down',
+      'redis_save_failed',
+      'redis_blocked_clients',
+    ]);
+    // A type without its own defaults gets the generic two.
+    expect(
+      (await api('GET', '/applications/alert-defaults?type=rabbitmq'))
+        .json()
+        .defaults.map((d: { key: string }) => d.key),
+    ).toEqual(['unreachable', 'slow_connect']);
     const created = await api('POST', '/applications', {
       clusterId: k8s.id,
       type: 'redis',
@@ -97,7 +111,18 @@ describe('alert rules for services', () => {
     const rules = (await api('GET', '/alert-rules'))
       .json()
       .rules.filter((r: { service?: unknown }) => r.service);
-    expect(rules).toHaveLength(2);
+    expect(rules).toHaveLength(7);
+    expect(
+      rules
+        .filter((r: { enabled: boolean }) => r.enabled)
+        .map((r: { defaultKey: string }) => r.defaultKey),
+    ).toEqual(['unreachable']);
+    expect(
+      rules.find((r: { defaultKey: string }) => r.defaultKey === 'redis_replica_down'),
+    ).toMatchObject({
+      severity: 'critical',
+      metric: 'redis.replica.down',
+    });
     expect(
       rules.find((r: { metric: string }) => r.metric === 'service.reachable.ratio'),
     ).toMatchObject({

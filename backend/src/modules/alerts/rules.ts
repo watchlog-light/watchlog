@@ -61,6 +61,8 @@ export interface ThresholdRuleInput {
   severity: 'warning' | 'critical';
   enabled?: boolean;
   channelIds: string[];
+  /** A monitored service's default this rule came from, for "Reset to default". */
+  defaultKey?: string;
 }
 
 /** Inserts a threshold rule that is already validated; returns its id. */
@@ -86,6 +88,7 @@ export async function insertThresholdRule(
       severity: b.severity,
       enabled: b.enabled ?? true,
       channel_ids: b.channelIds,
+      default_key: b.defaultKey ?? null,
     })
     .execute();
   return id;

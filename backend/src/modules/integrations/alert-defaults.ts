@@ -10,11 +10,13 @@ import type { Condition } from '../alerts/defaults.js';
 import type { IntegrationType } from './collector-config.js';
 
 export interface ServiceAlertDefault {
+  /** Unique across types; stored on the rule (default_key) so it can be reset. */
   key: string;
   name: string;
   metric: string;
   condition: Condition;
   forSeconds: number;
+  severity?: 'warning' | 'critical';
 }
 
 /** Every service, whatever its type: reachable, and quick to connect. */
@@ -36,8 +38,53 @@ const GENERIC: ServiceAlertDefault[] = [
   },
 ];
 
-/** Per type: the generic ones until the type's integration adds its own. */
-const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {};
+/** Per type (SPEC §4.12): added to the generic ones. */
+const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
+  redis: [
+    {
+      key: 'redis_memory_high',
+      name: 'Redis memory above 90 % of maxmemory',
+      metric: 'redis.memory.ratio',
+      condition: { op: '>', value: 0.9 },
+      forSeconds: 300,
+    },
+    {
+      key: 'redis_evicting',
+      name: 'Redis evicting keys',
+      metric: 'redis.evicted.rate',
+      condition: { op: '>', value: 0 },
+      forSeconds: 0,
+    },
+    {
+      key: 'redis_replica_down',
+      name: 'Redis replica disconnected',
+      metric: 'redis.replica.down',
+      condition: { op: '>', value: 0 },
+      forSeconds: 60,
+      severity: 'critical',
+    },
+    {
+      key: 'redis_save_failed',
+      name: 'Redis save failed',
+      metric: 'redis.save.failed',
+      condition: { op: '>', value: 0 },
+      forSeconds: 0,
+      severity: 'critical',
+    },
+    {
+      key: 'redis_blocked_clients',
+      name: 'Redis clients blocked',
+      metric: 'redis.blocked_clients',
+      condition: { op: '>', value: 0 },
+      forSeconds: 120,
+    },
+  ],
+};
+
+/** A default by its key, for "Reset to default". */
+export function alertDefaultByKey(key: string): ServiceAlertDefault | undefined {
+  return [...GENERIC, ...Object.values(BY_TYPE).flat()].find((d) => d.key === key);
+}
 
 export function alertDefaultsFor(type: IntegrationType): ServiceAlertDefault[] {
   return [...GENERIC, ...(BY_TYPE[type] ?? [])];
@@ -67,8 +114,9 @@ export async function createServiceRules(
       scope: { service: svc.id },
       condition: d.condition,
       forSeconds: d.forSeconds,
-      severity: 'warning',
+      severity: d.severity ?? 'warning',
       enabled: enabled.includes(d.key),
+      defaultKey: d.key,
       channelIds: channels.map((c) => c.id),
     });
   }

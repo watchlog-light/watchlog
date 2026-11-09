@@ -11,7 +11,7 @@ const MAX_SERIES = 10;
 const MAX_POINTS = 60;
 const MAX_MINUTES = 24 * 60;
 
-const DOCKER_PREFIXES = ['host.', 'container.', 'flow.', 'service.'];
+const DOCKER_PREFIXES = ['host.', 'container.', 'flow.', 'service.', 'redis.'];
 const KUBERNETES_PREFIXES = [
   'node.',
   'pod.',
@@ -37,7 +37,7 @@ export const queryMetricTool = defineTool({
   title: 'Query a metric',
   description: describe(
     "One metric from WatchLog's catalog over the last `minutes` (60 by default, at most 24 hours), as statistics per series: min, max, avg and last, with the unit. Pass `points: true` for the values over time (at most 60 per series).",
-    'Kubernetes metrics: node.* (cpu.usage, cpu.utilization, memory.used, memory.utilization, load1, network.bytes, disk.io, filesystem.utilization, condition), pod.* (cpu.usage, memory.working_set, network.bytes, restarts, and per container), workload.* (cpu.usage, memory.working_set, container.cpu.throttling), namespace.* and pvc.utilization. Docker metrics: host.* (cpu.utilization, memory.used, memory.utilization, load1, network.bytes, disk.io, filesystem.utilization) and container.* (cpu.usage, cpu.throttled, memory.working_set, memory.limit, network.bytes, fs.io, restarts). Both: flow.failed.ratio, and for monitored services (list_applications) service.reachable.ratio (share of its pods or containers the collector reaches) and service.connect.time.',
+    'Kubernetes metrics: node.* (cpu.usage, cpu.utilization, memory.used, memory.utilization, load1, network.bytes, disk.io, filesystem.utilization, condition), pod.* (cpu.usage, memory.working_set, network.bytes, restarts, and per container), workload.* (cpu.usage, memory.working_set, container.cpu.throttling), namespace.* and pvc.utilization. Docker metrics: host.* (cpu.utilization, memory.used, memory.utilization, load1, network.bytes, disk.io, filesystem.utilization) and container.* (cpu.usage, cpu.throttled, memory.working_set, memory.limit, network.bytes, fs.io, restarts). Both: flow.failed.ratio, and for monitored services (list_applications) service.reachable.ratio (share of its pods or containers the collector reaches) and service.connect.time; for Redis, redis.* (memory.used, memory.ratio, hit.ratio, ops.rate, evicted.rate, connected_clients, blocked_clients, replica.down, save.failed).',
     `Narrow with \`scope\`: namespace, workload and workloadKind, pod or node on Kubernetes; host, container or composeProject on Docker; service (its id from list_applications) for service.* metrics. At most ${MAX_SERIES} series, the highest first; the result says when there were more.`,
     'Example question: "How much memory did the api containers use over the last 6 hours?"',
   ),
