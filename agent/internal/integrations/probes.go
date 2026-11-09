@@ -59,21 +59,45 @@ func (c *Collector) RunProbes(ctx context.Context, probes []Probe) []ProbeResult
 	return results
 }
 
-func (c *Collector) probe(ctx context.Context, p Probe) ProbeResult {
+func (c *Collector) probe(ctx context.Context, p Probe) (out ProbeResult) {
 	ctx, cancel := context.WithTimeout(ctx, ScrapeTimeout)
 	defer cancel()
-	out := ProbeResult{ID: p.ID}
 	auth, err := c.resolve(ctx, p.Credential)
 	if err != nil {
-		out.Error = trim(err.Error())
+		return ProbeResult{ID: p.ID, Code: ProbeCredential, Error: trim(err.Error())}
+	}
+	t := Target{ID: p.ID, Type: p.Type, Name: p.ID, Members: p.Members, Auth: auth}
+	integ := c.Registry.For(p.Type)
+	defer func() {
+		if r := recover(); r != nil {
+			c.Log.Error("integration probe failed", "type", p.Type, "panic", r)
+			out = ProbeResult{ID: p.ID, Code: ProbeError, Error: "the collector failed testing this service; see its log"}
+		}
+	}()
+	if prober, ok := integ.(Prober); ok {
+		out = prober.Probe(ctx, t)
+		out.ID = p.ID
+		out.OK = out.Code == ProbeOK
+		out.Error = trim(out.Error)
 		return out
 	}
-	res := c.safeScrape(ctx, Target{ID: p.ID, Type: p.Type, Name: p.ID, Members: p.Members, Auth: auth}, false)
-	out.OK = res.State == StateOK || res.State == ""
-	out.Error = trim(res.Error)
-	out.Version = res.ServiceVersion
-	out.Facts = res.Facts
-	out.Excess = res.Excess
+	// No login for this type yet: reachability only. With a password to test, that
+	// isn't enough to pass: the drawer keeps waiting and says why.
+	res := integ.Scrape(ctx, t, false)
+	out = ProbeResult{ID: p.ID, Version: res.ServiceVersion, Facts: res.Facts}
+	up := false
+	for _, m := range res.Members {
+		up = up || m.Up
+	}
+	switch {
+	case !up:
+		out.Code, out.Error = ProbeUnreachable, trim(res.Error)
+	case auth != nil:
+		out.Code = ProbeLoginUntested
+		out.Error = "the port answers; this collector can't log in to " + p.Type + " yet"
+	default:
+		out.Code, out.OK = ProbeOK, true
+	}
 	return out
 }
 

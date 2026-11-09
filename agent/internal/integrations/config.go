@@ -91,13 +91,35 @@ type ProbeResults struct {
 // ProbeResult is what one try found: whether it could connect (and log in), the
 // service's version, a few facts for the drawer, and privileges beyond what's needed.
 type ProbeResult struct {
-	ID      string         `json:"id"`
-	OK      bool           `json:"ok"`
+	ID string `json:"id"`
+	OK bool   `json:"ok"`
+	// Code says what kind of outcome it is, so the drawer can give the fix (Probe* below).
+	Code    string         `json:"code"`
 	Error   string         `json:"error,omitempty"`
 	Version string         `json:"version,omitempty"`
 	Facts   map[string]any `json:"facts,omitempty"`
 	Excess  []string       `json:"excess,omitempty"`
+	// Missing lists the privileges or settings a logged-in user lacks (ProbePermission).
+	Missing []string `json:"missing,omitempty"`
 }
+
+// Probe outcome codes. A probe passes only with ProbeOK: for a service with a user, that
+// means the integration logged in and checked the user's privileges.
+const (
+	ProbeOK = "ok"
+	// No member accepted a connection.
+	ProbeUnreachable = "unreachable"
+	// The user or password was refused.
+	ProbeAuthFailed = "auth_failed"
+	// Logged in, but the user lacks privileges (Missing names them).
+	ProbePermission = "permission_missing"
+	// The password couldn't be read from its Secret or file.
+	ProbeCredential = "credential_unavailable" //nolint:gosec // G101: an outcome code, not a credential
+	// The port answers, but this type can't log in yet (no integration for it).
+	ProbeLoginUntested = "login_untested"
+	// Anything else; Error says what.
+	ProbeError = "error"
+)
 
 // Member is one pod or container of a service, or the address of a service added by hand.
 type Member struct {

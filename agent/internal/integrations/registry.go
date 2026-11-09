@@ -20,6 +20,12 @@ type Integration interface {
 	Scrape(ctx context.Context, t Target, heavy bool) Result
 }
 
+// Prober is implemented by integrations that can test access: connect, log in with the
+// target's Auth and check the user's privileges, as the connect drawer's test does.
+type Prober interface {
+	Probe(ctx context.Context, t Target) ProbeResult
+}
+
 // Result is what one scrape of one target produced.
 type Result struct {
 	Samples        []metrics.Sample
