@@ -55,7 +55,20 @@ export interface MapEdge {
    * recent ones (ADR-116); undefined when not queried.
    */
   failedLastMinute?: number;
+  /** HTTP/1.x on this edge, from the 16-byte peek (ADR-139); null when none was seen. */
+  http: EdgeHttp | null;
   health: Health;
+}
+
+export interface EdgeHttp {
+  requestsPerSecond: number;
+  clientErrorsPerSecond: number;
+  serverErrorsPerSecond: number;
+  /** 5xx share of the requests: edge health turns warning at 1 %, critical at 5 %. */
+  serverErrorRatio: number | null;
+  p50Seconds: number | null;
+  p95Seconds: number | null;
+  p99Seconds: number | null;
 }
 
 /** Failed share at which an edge is critical: the default rule's threshold (§4.7). */
@@ -151,7 +164,9 @@ const value = (s: QuerySeries | undefined) => {
 
 export function health(
   e: Pick<MapEdge, 'connectionsPerSecond' | 'failedRatio' | 'latencyP95Seconds'> &
-    Partial<Pick<MapEdge, 'bytesSentPerSecond' | 'bytesReceivedPerSecond' | 'failedLastMinute'>>,
+    Partial<
+      Pick<MapEdge, 'bytesSentPerSecond' | 'bytesReceivedPerSecond' | 'failedLastMinute' | 'http'>
+    >,
 ): Health {
   // Keep-alive clients (HTTP/1.1 pools, database pools) open no new connections but
   // still move bytes: that edge is in use, not idle (measured on kind with podinfo).
@@ -163,8 +178,15 @@ export function health(
   // 5 minutes while traffic flows.
   const failingNow = e.failedLastMinute === undefined || e.failedLastMinute > 0;
   const ratio = failingNow ? (e.failedRatio ?? 0) : 0;
-  if (ratio >= FAILED_CRITICAL) return 'critical';
-  if (ratio >= FAILED_WARNING || (e.latencyP95Seconds ?? 0) >= P95_WARNING_S) return 'warning';
+  // HTTP 5xx count like failed connects (ADR-139): the same 1 % and 5 % lines.
+  const errors = e.http?.serverErrorRatio ?? 0;
+  if (ratio >= FAILED_CRITICAL || errors >= FAILED_CRITICAL) return 'critical';
+  if (
+    ratio >= FAILED_WARNING ||
+    errors >= FAILED_WARNING ||
+    (e.latencyP95Seconds ?? 0) >= P95_WARNING_S
+  )
+    return 'warning';
   return 'ok';
 }
 
@@ -181,6 +203,8 @@ export interface FlowResults {
   retransmits: QuerySeries[];
   /** Failed connects per edge in the last minute (increase over 1m); see health(). */
   failedLastMinute?: QuerySeries[];
+  /** HTTP requests per second by edge and status class, and latency quantiles. */
+  http?: { byClass: QuerySeries[]; p50: QuerySeries[]; p95: QuerySeries[]; p99: QuerySeries[] };
 }
 
 /** Nodes and edges from the flow queries (rates per second over the last 5 minutes). */
@@ -193,6 +217,31 @@ export function buildGraph(r: FlowResults): { nodes: MapNode[]; edges: MapEdge[]
   const p95 = by(r.latencyP95);
   const retrans = by(r.retransmits);
   const recent = r.failedLastMinute ? by(r.failedLastMinute) : null;
+  const httpClasses = new Map<string, Record<string, number>>();
+  for (const s of r.http?.byClass ?? []) {
+    const k = edgeKey(s.labels);
+    const m = httpClasses.get(k) ?? {};
+    m[s.labels.class ?? ''] = (m[s.labels.class ?? ''] ?? 0) + (value(s) ?? 0);
+    httpClasses.set(k, m);
+  }
+  const q50 = by(r.http?.p50 ?? []);
+  const q95 = by(r.http?.p95 ?? []);
+  const q99 = by(r.http?.p99 ?? []);
+  const httpOf = (k: string): EdgeHttp | null => {
+    const m = httpClasses.get(k);
+    if (!m) return null;
+    const total = Object.values(m).reduce((a, b) => a + b, 0);
+    const e5 = m['5xx'] ?? 0;
+    return {
+      requestsPerSecond: total,
+      clientErrorsPerSecond: m['4xx'] ?? 0,
+      serverErrorsPerSecond: e5,
+      serverErrorRatio: total > 0 ? e5 / total : null,
+      p50Seconds: value(q50.get(k)),
+      p95Seconds: value(q95.get(k)),
+      p99Seconds: value(q99.get(k)),
+    };
+  };
   const sent = by(r.bytes.filter((s) => s.labels.dir === 'sent'));
   const received = by(r.bytes.filter((s) => s.labels.dir === 'received'));
   const nodes = new Map<string, MapNode>();
@@ -226,6 +275,7 @@ export function buildGraph(r: FlowResults): { nodes: MapNode[]; edges: MapEdge[]
       bytesReceivedPerSecond: value(received.get(k)),
       retransmitsPerSecond: value(retrans.get(k)) ?? 0,
       ...(recent ? { failedLastMinute: Math.round(value(recent.get(k)) ?? 0) } : {}),
+      http: httpOf(k),
       health: 'unknown',
     };
     e.health = health(e);

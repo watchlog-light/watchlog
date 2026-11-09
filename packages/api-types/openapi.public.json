@@ -5205,6 +5205,7 @@
                           "bytesSentPerSecond",
                           "bytesReceivedPerSecond",
                           "retransmitsPerSecond",
+                          "http",
                           "health"
                         ],
                         "properties": {
@@ -5230,6 +5231,40 @@
                           },
                           "retransmitsPerSecond": { "type": "number" },
                           "failedLastMinute": { "type": "number" },
+                          "http": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": [
+                                  "requestsPerSecond",
+                                  "clientErrorsPerSecond",
+                                  "serverErrorsPerSecond",
+                                  "serverErrorRatio",
+                                  "p50Seconds",
+                                  "p95Seconds",
+                                  "p99Seconds"
+                                ],
+                                "properties": {
+                                  "requestsPerSecond": { "type": "number" },
+                                  "clientErrorsPerSecond": { "type": "number" },
+                                  "serverErrorsPerSecond": { "type": "number" },
+                                  "serverErrorRatio": {
+                                    "anyOf": [{ "type": "number" }, { "type": "null" }]
+                                  },
+                                  "p50Seconds": {
+                                    "anyOf": [{ "type": "number" }, { "type": "null" }]
+                                  },
+                                  "p95Seconds": {
+                                    "anyOf": [{ "type": "number" }, { "type": "null" }]
+                                  },
+                                  "p99Seconds": {
+                                    "anyOf": [{ "type": "number" }, { "type": "null" }]
+                                  }
+                                }
+                              },
+                              { "type": "null" }
+                            ]
+                          },
                           "health": { "type": "string" }
                         }
                       }
@@ -5323,7 +5358,7 @@
     },
     "/api/v1/clusters/{id}/service-map/edge": {
       "get": {
-        "summary": "One edge's time series: connections, failures, p95 connect latency, bytes",
+        "summary": "One edge's time series: connections, failures, p95 connect latency, bytes, HTTP requests, errors and latency",
         "tags": ["service map"],
         "parameters": [
           {
@@ -5371,6 +5406,11 @@
                     "latencyP95",
                     "bytesSent",
                     "bytesReceived",
+                    "httpRequests",
+                    "http4xx",
+                    "http5xx",
+                    "httpP50",
+                    "httpP95",
                     "context"
                   ],
                   "properties": {
@@ -5404,6 +5444,41 @@
                       }
                     },
                     "bytesReceived": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                      }
+                    },
+                    "httpRequests": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                      }
+                    },
+                    "http4xx": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                      }
+                    },
+                    "http5xx": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                      }
+                    },
+                    "httpP50": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                      }
+                    },
+                    "httpP95": {
                       "type": "array",
                       "items": {
                         "type": "array",

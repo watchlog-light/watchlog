@@ -66,6 +66,19 @@ const EdgeSchema = Type.Object({
   retransmitsPerSecond: Type.Number(),
   /** Failed connects in the last minute: health counts failures only while there are some (ADR-116). */
   failedLastMinute: Type.Optional(Type.Number()),
+  /** HTTP/1.x on this edge (ADR-139): headers only, from a 16-byte peek; null when none. */
+  http: Type.Union([
+    Type.Object({
+      requestsPerSecond: Type.Number(),
+      clientErrorsPerSecond: Type.Number(),
+      serverErrorsPerSecond: Type.Number(),
+      serverErrorRatio: N,
+      p50Seconds: N,
+      p95Seconds: N,
+      p99Seconds: N,
+    }),
+    Type.Null(),
+  ]),
   health: Type.String(),
 });
 const ServiceMapSchema = Type.Object({
@@ -113,6 +126,12 @@ const EdgeSeriesSchema = Type.Object({
   latencyP95: Type.Array(Type.Array(N)),
   bytesSent: Type.Array(Type.Array(N)),
   bytesReceived: Type.Array(Type.Array(N)),
+  /** HTTP/1.x (ADR-139): requests/s, 4xx/s and 5xx/s, p50 and p95; empty without HTTP. */
+  httpRequests: Type.Array(Type.Array(N)),
+  http4xx: Type.Array(Type.Array(N)),
+  http5xx: Type.Array(Type.Array(N)),
+  httpP50: Type.Array(Type.Array(N)),
+  httpP95: Type.Array(Type.Array(N)),
   /** What explains the edge's health: the target's ready pods and the related alert. */
   context: Type.Object({
     target: Type.Union([
@@ -301,6 +320,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
           bytesSentPerSecond: null,
           bytesReceivedPerSecond: null,
           retransmitsPerSecond: 0,
+          http: null,
           health: 'unknown',
         });
       }
@@ -353,6 +373,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
           bytesSentPerSecond: null,
           bytesReceivedPerSecond: null,
           retransmitsPerSecond: 0,
+          http: null,
           health: 'unknown',
         });
       }
@@ -423,6 +444,12 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
         `sum by (${by}) ${flow('rate', 'watchlog_flow_retransmits_total', RATE_WINDOW)}`,
         // Failures now, for health (ADR-116); the failed share stays over 5 minutes.
         `sum by (${by}) ${flow('increase', 'watchlog_flow_connect_failed_total', '1m')}`,
+        // HTTP/1.x per edge (ADR-139): by status class, and latency quantiles.
+        `sum by (${by}, class) ${flow('rate', 'watchlog_http_requests_total', RATE_WINDOW)}`,
+        ...[0.5, 0.95, 0.99].map(
+          (q) =>
+            `histogram_quantile(${q}, sum by (${by}, le) ${flow('rate', 'watchlog_http_request_duration_seconds_bucket', RATE_WINDOW)})`,
+        ),
         // DNS errors belong to the workload that looked up.
         `sum by (namespace, workload_kind, workload, container, compose_project, compose_service, rcode) (rate(watchlog_dns_requests_total${ns ? `{namespace=~"${ns}"}` : ''}[${RATE_WINDOW}]))`,
       ];
@@ -443,6 +470,10 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
         bytes,
         retransmits,
         failedLastMinute,
+        httpByClass,
+        httpP50,
+        httpP95,
+        httpP99,
         dns,
       ] = r.map((x) => x ?? []);
       return {
@@ -460,6 +491,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
             bytes: bytes!,
             retransmits: retransmits!,
             failedLastMinute: failedLastMinute!,
+            http: { byClass: httpByClass!, p50: httpP50!, p95: httpP95!, p99: httpP99! },
           }),
         )),
         dns: dnsRows(dns!),
@@ -472,7 +504,8 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
     {
       preHandler: signedIn,
       schema: {
-        summary: "One edge's time series: connections, failures, p95 connect latency, bytes",
+        summary:
+          "One edge's time series: connections, failures, p95 connect latency, bytes, HTTP requests, errors and latency",
         tags: ['service map', PUBLIC_TAG],
         params: Params,
         querystring: Type.Object({
@@ -510,7 +543,22 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
           .queryRange({ clusterId: cluster.id }, e, end - range, end, step)
           .then((r) => r[0]?.points ?? []);
       try {
-        const [connections, failed, latencyP95, bytesSent, bytesReceived] = await Promise.all([
+        const httpRate = (cls?: string) =>
+          `sum(rate(watchlog_http_requests_total${cls ? s.replace('}', `,class="${cls}"}`) : s}[${win}]))`;
+        const httpQ = (q: number) =>
+          `histogram_quantile(${q}, sum by (le) (rate(watchlog_http_request_duration_seconds_bucket${s}[${win}])))`;
+        const [
+          connections,
+          failed,
+          latencyP95,
+          bytesSent,
+          bytesReceived,
+          httpRequests,
+          http4xx,
+          http5xx,
+          httpP50,
+          httpP95,
+        ] = await Promise.all([
           run(`sum(rate(watchlog_flow_connections_total${s}[${win}]))`),
           run(`sum(rate(watchlog_flow_connect_failed_total${s}[${win}]))`),
           run(
@@ -518,6 +566,11 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
           ),
           run(`sum(rate(watchlog_flow_bytes_total${s.replace('}', ',dir="sent"}')}[${win}]))`),
           run(`sum(rate(watchlog_flow_bytes_total${s.replace('}', ',dir="received"}')}[${win}]))`),
+          run(httpRate()),
+          run(httpRate('4xx')),
+          run(httpRate('5xx')),
+          run(httpQ(0.5)),
+          run(httpQ(0.95)),
         ]);
         return {
           step,
@@ -526,6 +579,11 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
           latencyP95,
           bytesSent,
           bytesReceived,
+          httpRequests,
+          http4xx,
+          http5xx,
+          httpP50,
+          httpP95,
           context: await edgeContext(cluster.id, q.target, m),
         };
       } catch (err) {

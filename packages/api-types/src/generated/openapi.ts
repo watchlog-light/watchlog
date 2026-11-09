@@ -3019,6 +3019,15 @@ export interface paths {
                 bytesReceivedPerSecond: number | null;
                 retransmitsPerSecond: number;
                 failedLastMinute?: number;
+                http: {
+                  requestsPerSecond: number;
+                  clientErrorsPerSecond: number;
+                  serverErrorsPerSecond: number;
+                  serverErrorRatio: number | null;
+                  p50Seconds: number | null;
+                  p95Seconds: number | null;
+                  p99Seconds: number | null;
+                } | null;
                 health: string;
               }[];
               dns: {
@@ -3095,7 +3104,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** One edge's time series: connections, failures, p95 connect latency, bytes */
+    /** One edge's time series: connections, failures, p95 connect latency, bytes, HTTP requests, errors and latency */
     get: {
       parameters: {
         query: {
@@ -3125,6 +3134,11 @@ export interface paths {
               latencyP95: (number | null)[][];
               bytesSent: (number | null)[][];
               bytesReceived: (number | null)[][];
+              httpRequests: (number | null)[][];
+              http4xx: (number | null)[][];
+              http5xx: (number | null)[][];
+              httpP50: (number | null)[][];
+              httpP95: (number | null)[][];
               context: {
                 target: {
                   ready: number;

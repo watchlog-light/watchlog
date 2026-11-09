@@ -3,7 +3,12 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
 import { VictoriaQueryClient } from '../src/lib/victoria.js';
-import { edgeMatchers, health, watchlogComponents } from '../src/modules/servicemap/graph.js';
+import {
+  buildGraph,
+  edgeMatchers,
+  health,
+  watchlogComponents,
+} from '../src/modules/servicemap/graph.js';
 import {
   TEST_VM_URL,
   closeTestContext,
@@ -553,6 +558,70 @@ describe('edges', () => {
         bytesSentPerSecond: 900,
       }),
     ).toBe('ok');
+  });
+
+  it('reads HTTP per edge, and 5xx turn it warning at 1 % and critical at 5 % (ADR-139)', () => {
+    const l = {
+      namespace: 'shop',
+      workload_kind: 'Deployment',
+      workload: 'frontend',
+      dst_kind: 'workload',
+      dst_namespace: 'shop',
+      dst_workload_kind: 'Deployment',
+      dst_workload: 'cart',
+      dst_port: '8080',
+    };
+    const at = (v: number, extra: Record<string, string> = {}) => ({
+      labels: { ...l, ...extra },
+      points: [[1793440000, v]] as [number, number | null][],
+    });
+    const graph = (fiveXX: number) =>
+      buildGraph({
+        seen: [at(1)],
+        connections: [at(0.2)],
+        failed: [at(0)],
+        latencySum: [],
+        latencyCount: [],
+        latencyP95: [at(0.002)],
+        bytes: [],
+        retransmits: [],
+        http: {
+          byClass: [
+            at(97 - fiveXX, { class: '2xx' }),
+            at(3, { class: '4xx' }),
+            at(fiveXX, { class: '5xx' }),
+          ],
+          p50: [at(0.01)],
+          p95: [at(0.2)],
+          p99: [at(0.8)],
+        },
+      }).edges[0]!;
+    const e = graph(0.5);
+    expect(e.http).toEqual({
+      requestsPerSecond: 100,
+      clientErrorsPerSecond: 3,
+      serverErrorsPerSecond: 0.5,
+      serverErrorRatio: 0.005,
+      p50Seconds: 0.01,
+      p95Seconds: 0.2,
+      p99Seconds: 0.8,
+    });
+    expect(e.health).toBe('ok');
+    expect(graph(2).health).toBe('warning');
+    expect(graph(6).health).toBe('critical');
+    // An edge with no HTTP seen has none.
+    expect(
+      buildGraph({
+        seen: [at(1)],
+        connections: [at(1)],
+        failed: [],
+        latencySum: [],
+        latencyCount: [],
+        latencyP95: [],
+        bytes: [],
+        retransmits: [],
+      }).edges[0]!.http,
+    ).toBeNull();
   });
 
   it('counts failures only while there are some in the last minute (ADR-116)', () => {
