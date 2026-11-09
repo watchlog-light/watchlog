@@ -1,0 +1,21 @@
+{
+  "services": [
+    { "clusterKind": "kubernetes", "type": "redis", "name": "shop/redis" },
+    {
+      "clusterKind": "kubernetes",
+      "type": "postgres",
+      "name": "shop/postgres",
+      "access": {
+        "username": "watchlog",
+        "secret": { "name": "shop-postgres-watchlog", "key": "password" }
+      }
+    },
+    { "clusterKind": "docker", "type": "redis", "name": "storefront/cache" },
+    {
+      "clusterKind": "docker",
+      "type": "postgres",
+      "name": "storefront/db",
+      "access": { "username": "watchlog", "file": "storefront-db" }
+    }
+  ]
+}

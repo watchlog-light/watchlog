@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-only
 # Removes the demo environment of demo-up.sh from its Lima VM: the kind cluster "demo",
-# the Docker agent and its state volume, the fx-* containers and the Compose app.
+# the Docker agent and its state volume, the integrations collector, the fx-* containers,
+# the Compose app and its password file.
 # The VM stays (it may hold other test clusters); --vm deletes the VM as well.
 #   VM=watchlog-demo   the Lima VM's name
 # Commands in single quotes run in the VM and expand there.
@@ -23,5 +24,7 @@ limactl shell "$vm" bash -c 'cd ~ && export PATH=$HOME/bin:$PATH
   docker rm -f watchlog-agent fx-unhealthy fx-exited fx-oom fx-crashloop fx-limited >/dev/null 2>&1 || true
   docker volume rm watchlog-agent-state >/dev/null 2>&1 || true
   [ -f ~/demo-compose/compose.yaml ] && docker compose -f ~/demo-compose/compose.yaml down -v >/dev/null 2>&1 || true
-  rm -rf ~/demo-compose'
+  rm -rf ~/demo-compose
+  docker rm -f watchlog-integrations >/dev/null 2>&1 || true
+  docker run --rm -v /etc/watchlog/secrets:/s busybox:latest rm -f /s/storefront-db 2>/dev/null || true'
 echo "demo removed from $vm (the VM stays; --vm deletes it)"
