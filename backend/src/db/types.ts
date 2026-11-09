@@ -210,6 +210,51 @@ export interface IntegrationCollectors {
   version: string;
 }
 
+export interface IntegrationCredentials {
+  ciphertext: string | null;
+  integration_id: string;
+  method: string;
+  reference: Json | null;
+  set_at: Generated<Timestamp>;
+  set_by: string | null;
+  username: string | null;
+  verified_at: Timestamp | null;
+}
+
+export interface IntegrationEvents {
+  action: string;
+  at: Generated<Timestamp>;
+  details: Generated<Json>;
+  id: string;
+  integration_id: string;
+  ip: string | null;
+  org_id: string;
+  user_id: string | null;
+  user_name: string | null;
+}
+
+export interface IntegrationProbes {
+  attempts: Generated<number>;
+  ciphertext: string | null;
+  cluster_id: string;
+  collector_host: Generated<string>;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  expires_at: Timestamp;
+  id: string;
+  integration_id: string | null;
+  method: string;
+  org_id: string;
+  reference: Json | null;
+  requested_at: Generated<Timestamp>;
+  result: Json | null;
+  status: Generated<string>;
+  target: Json;
+  type: string;
+  updated_at: Generated<Timestamp>;
+  username: string | null;
+}
+
 export interface Integrations {
   cluster_id: string;
   collector_host: Generated<string>;
@@ -400,6 +445,9 @@ export interface DB {
   clusters: Clusters;
   ingest_errors: IngestErrors;
   integration_collectors: IntegrationCollectors;
+  integration_credentials: IntegrationCredentials;
+  integration_events: IntegrationEvents;
+  integration_probes: IntegrationProbes;
   integrations: Integrations;
   k8s_events: K8sEvents;
   mcp_calls: McpCalls;

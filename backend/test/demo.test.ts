@@ -549,6 +549,7 @@ describe('ingest stays token-only', () => {
         '/ingest/v1/events',
         '/ingest/v1/heartbeat',
         '/ingest/v1/integrations/config',
+        '/ingest/v1/integrations/probes',
         '/ingest/v1/integrations/status',
         '/ingest/v1/objects',
         '/ingest/v1/write',

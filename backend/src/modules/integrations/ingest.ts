@@ -3,6 +3,7 @@
 // ingest plugin so it shares its token auth, rate limits and error recording:
 //   GET  /ingest/v1/integrations/config  its targets, long-polled with If-None-Match
 //   POST /ingest/v1/integrations/status  its health and each target's state; also its heartbeat
+//   POST /ingest/v1/integrations/probes  what its connection tests found (ADR-134)
 // Metrics go through /ingest/v1/write like every agent's.
 import type { FastifyInstance } from 'fastify';
 import { Type, type Static } from 'typebox';
@@ -11,6 +12,7 @@ import { newId } from '../../lib/ids.js';
 import { sendProblem } from '../../lib/problem.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { buildCollectorConfig } from './collector-config.js';
+import { recordEvent } from './credentials.js';
 import type { ConfigNotifier } from './notifier.js';
 
 /** The longest a config request waits for a change (ADR-131). */
@@ -29,6 +31,9 @@ export const StatusBody = Type.Object(
         rss_bytes: Type.Optional(Type.Number({ minimum: 0 })),
         cpu_seconds: Type.Optional(Type.Number({ minimum: 0 })),
         series: Type.Optional(Type.Integer({ minimum: 0 })),
+        // Kubernetes: where the collector runs, for the Secret role commands (ADR-134).
+        namespace: Type.Optional(Type.String({ maxLength: 63, pattern: '^[a-z0-9-]*$' })),
+        service_account: Type.Optional(Type.String({ maxLength: 253, pattern: '^[a-z0-9.-]*$' })),
       },
       { additionalProperties: false },
     ),
@@ -79,11 +84,41 @@ export const StatusBody = Type.Object(
 );
 export type StatusBody = Static<typeof StatusBody>;
 
+// Several types without a union: the validator would coerce a number to the first type.
+const Fact = Type.Unsafe<string | number | boolean>({
+  type: ['number', 'boolean', 'string'],
+  maxLength: 256,
+});
+export const ProbesBody = Type.Object(
+  {
+    host: Host,
+    results: Type.Array(
+      Type.Object(
+        {
+          id: Type.String({ format: 'uuid' }),
+          ok: Type.Boolean(),
+          error: Type.Optional(Type.String({ maxLength: 512 })),
+          version: Type.Optional(Type.String({ maxLength: 64 })),
+          facts: Type.Optional(
+            Type.Record(Type.String({ maxLength: 64 }), Fact, { maxProperties: 16 }),
+          ),
+          // Privileges beyond what WatchLog needs (superuser, +@all), ADR-134.
+          excess: Type.Optional(Type.Array(Type.String({ maxLength: 128 }), { maxItems: 16 })),
+        },
+        { additionalProperties: false },
+      ),
+      { maxItems: 100 },
+    ),
+  },
+  { additionalProperties: false },
+);
+type ProbesBody = Static<typeof ProbesBody>;
+
 export function registerIntegrationIngest(
   app: FastifyInstance,
-  opts: { db: Database; notifier: ConfigNotifier },
+  opts: { db: Database; notifier: ConfigNotifier; secretKey: Buffer },
 ): void {
-  const { db, notifier } = opts;
+  const { db, notifier, secretKey } = opts;
 
   app.get(
     '/integrations/config',
@@ -103,13 +138,13 @@ export function registerIntegrationIngest(
       const owner = request.ingestOwner!;
       const { host = '', wait = 0 } = request.query as { host?: string; wait?: number };
       const known = (request.headers['if-none-match'] ?? '').replace(/^W\/|"/g, '');
-      let config = await buildCollectorConfig(db, owner.clusterId, host);
+      let config = await buildCollectorConfig(db, owner.clusterId, host, secretKey);
       if (wait > 0 && known && known === config.version) {
         const aborted = new AbortController();
         request.raw.on('close', () => aborted.abort());
         await notifier.wait(owner.clusterId, wait * 1000, aborted.signal);
         if (aborted.signal.aborted) return reply;
-        config = await buildCollectorConfig(db, owner.clusterId, host);
+        config = await buildCollectorConfig(db, owner.clusterId, host, secretKey);
       }
       reply.header('etag', `"${config.version}"`).header('cache-control', 'no-store');
       if (known && known === config.version) return reply.code(304).send(null);
@@ -178,7 +213,73 @@ export function registerIntegrationIngest(
             .where('status', '<>', 'paused')
             .execute();
         }
+        // A credential set since the last good report works now: say so once (ADR-133).
+        const ok = body.targets.filter((t) => t.state === 'ok').map((t) => t.id);
+        if (ok.length) {
+          const verified = await trx
+            .updateTable('integration_credentials as c')
+            .from('integrations as i')
+            .set({ verified_at: now })
+            .whereRef('i.id', '=', 'c.integration_id')
+            .where('c.integration_id', 'in', ok)
+            .where('c.verified_at', 'is', null)
+            .where('i.cluster_id', '=', owner.clusterId)
+            .where('i.collector_host', '=', body.host)
+            .returning(['c.integration_id', 'i.org_id'])
+            .execute();
+          for (const v of verified) {
+            await recordEvent(trx, {
+              orgId: v.org_id,
+              integrationId: v.integration_id,
+              action: 'verified',
+            });
+          }
+        }
       });
+      return reply.code(204).send(null);
+    },
+  );
+
+  app.post(
+    '/integrations/probes',
+    {
+      schema: {
+        summary: "Integrations collector's connection tests",
+        tags: ['ingest'],
+        hide: true,
+        body: ProbesBody,
+        response: { 204: Type.Null(), 400: ProblemSchema, 401: ProblemSchema, 429: ProblemSchema },
+      },
+    },
+    async (request, reply) => {
+      const owner = request.ingestOwner!;
+      const body = request.body as ProbesBody;
+      let done = false;
+      for (const r of body.results) {
+        // Only this collector's own pending probes; one that works is done.
+        const row = await db
+          .updateTable('integration_probes')
+          .set((eb) => ({
+            attempts: eb('attempts', '+', 1),
+            status: r.ok ? 'ok' : 'pending',
+            result: JSON.stringify({
+              ok: r.ok,
+              error: r.error ?? null,
+              version: r.version ?? null,
+              facts: r.facts ?? {},
+              excess: r.excess ?? [],
+            }),
+          }))
+          .where('id', '=', r.id)
+          .where('cluster_id', '=', owner.clusterId)
+          .where('collector_host', '=', body.host)
+          .where('status', '=', 'pending')
+          .returning('id')
+          .executeTakeFirst();
+        if (row && r.ok) done = true;
+      }
+      // The configuration drops the probes that worked.
+      if (done) notifier.notify(owner.clusterId);
       return reply.code(204).send(null);
     },
   );

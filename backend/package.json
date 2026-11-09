@@ -12,6 +12,7 @@
     "start": "node dist/server.js",
     "start:worker": "node dist/alert-worker.js",
     "migrate": "tsx src/migrate.ts",
+    "rotate-secret-key": "tsx src/rotate-secret-key.ts",
     "db:codegen": "kysely-codegen --dialect postgres --exclude-pattern pgmigrations --out-file src/db/types.ts && prettier --write src/db/types.ts",
     "openapi:export": "tsx scripts/export-openapi.ts",
     "openapi:snapshot": "tsx scripts/openapi-snapshot.ts",

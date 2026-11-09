@@ -160,3 +160,10 @@ export type PanelKind = Panel['kind'];
 export type ApplicationMetrics = JsonBody<Responses<'/api/v1/applications/metrics', 'get'>[200]>;
 export type RowMetrics = ApplicationMetrics['metrics'][string];
 export type KeyMetric = RowMetrics['keyMetrics'][number];
+// The connect flow (ADR-133, ADR-134).
+export type CreateProbeRequest = RequestBody<'/api/v1/applications/probes', 'post'>;
+export type AccessRequest = CreateProbeRequest['access'];
+export type CreateProbeResponse = JsonBody<Responses<'/api/v1/applications/probes', 'post'>[201]>;
+export type Probe = CreateProbeResponse['probe'];
+export type ApplicationAccess = JsonBody<Responses<'/api/v1/applications/{id}/access', 'get'>[200]>;
+export type ApplicationEvent = ApplicationAccess['events'][number];

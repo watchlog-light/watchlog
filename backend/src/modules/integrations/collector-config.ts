@@ -4,6 +4,7 @@
 // versioned by a hash so a collector long-polls for changes (ETag / If-None-Match).
 import { createHash } from 'node:crypto';
 import type { Database } from '../../db/index.js';
+import { openAccess, type CollectorCredential } from './credentials.js';
 
 export const INTEGRATION_TYPES = [
   'redis',
@@ -41,12 +42,25 @@ export interface CollectorTarget {
   name: string;
   members: CollectorMember[];
   settings: { query_text: boolean };
+  /** How to log in (ADR-133): only to this service's own collector, never stored by it. */
+  credential?: CollectorCredential;
+}
+
+/** A connection test the connect drawer asked for (ADR-134). */
+export interface CollectorProbe {
+  id: string;
+  type: string;
+  members: CollectorMember[];
+  credential?: CollectorCredential;
+  /** Changes on "Check now", so the collector tries at once. */
+  requested: string;
 }
 
 export interface CollectorConfig {
   version: string;
   scrape: { interval_s: number; heavy_every: number };
   targets: CollectorTarget[];
+  probes: CollectorProbe[];
 }
 
 /** Scrape tiers (ADR-131): 15 s, heavy views (tables, statements, queues) every 30 s. */
@@ -131,18 +145,54 @@ export async function buildCollectorConfig(
   db: Database,
   clusterId: string,
   host: string,
+  key: Buffer,
+  now = new Date(),
 ): Promise<CollectorConfig> {
-  const rows = await db
-    .selectFrom('integrations')
-    .select(['id', 'type', 'name', 'target', 'settings', 'status'])
-    .where('cluster_id', '=', clusterId)
-    .where('collector_host', '=', host)
-    .where('status', '<>', 'paused')
-    .orderBy('id')
-    .execute();
+  const [rows, probeRows] = await Promise.all([
+    db
+      .selectFrom('integrations as i')
+      .leftJoin('integration_credentials as c', 'c.integration_id', 'i.id')
+      .select([
+        'i.id',
+        'i.type',
+        'i.name',
+        'i.target',
+        'i.settings',
+        'i.status',
+        'c.method',
+        'c.username',
+        'c.ciphertext',
+        'c.reference',
+      ])
+      .where('i.cluster_id', '=', clusterId)
+      .where('i.collector_host', '=', host)
+      .where('i.status', '<>', 'paused')
+      .orderBy('i.id')
+      .execute(),
+    db
+      .selectFrom('integration_probes')
+      .select([
+        'id',
+        'type',
+        'target',
+        'method',
+        'username',
+        'ciphertext',
+        'reference',
+        'requested_at',
+      ])
+      .where('cluster_id', '=', clusterId)
+      .where('collector_host', '=', host)
+      .where('status', '=', 'pending')
+      .where('expires_at', '>', now)
+      .orderBy('id')
+      .execute(),
+  ]);
   const targets = rows.map((r) => ({ ...r, target: r.target as IntegrationTarget }));
-  const needsPods = targets.some((t) => t.target.kind === 'workload');
-  const needsContainers = targets.some(
+  const probes = probeRows.map((r) => ({ ...r, target: r.target as IntegrationTarget }));
+  const all = [...targets, ...probes];
+  const needsPods = all.some((t) => t.target.kind === 'workload');
+  const needsContainers = all.some(
     (t) => t.target.kind === 'compose' || t.target.kind === 'container',
   );
   const [pods, containers] = await Promise.all([
@@ -156,7 +206,7 @@ export async function buildCollectorConfig(
           .where(
             'namespace',
             'in',
-            targets.flatMap((t) => (t.target.kind === 'workload' ? [t.target.namespace] : [])),
+            all.flatMap((t) => (t.target.kind === 'workload' ? [t.target.namespace] : [])),
           )
           .execute()
       : Promise.resolve([] as PodRow[]),
@@ -172,30 +222,58 @@ export async function buildCollectorConfig(
       : Promise.resolve([] as ContainerRow[]),
   ]);
 
-  const out: CollectorTarget[] = targets.map((t) => {
-    let members: CollectorMember[];
-    switch (t.target.kind) {
+  const membersOf = (target: IntegrationTarget): CollectorMember[] => {
+    switch (target.kind) {
       case 'workload':
-        members = podMembers(pods as PodRow[], t.target);
-        break;
+        return podMembers(pods as PodRow[], target).slice(0, MAX_MEMBERS);
       case 'address':
-        members = [{ name: t.target.address, address: t.target.address }];
-        break;
+        return [{ name: target.address, address: target.address }];
       default:
-        members = containerMembers(containers as ContainerRow[], t.target);
+        return containerMembers(containers as ContainerRow[], target).slice(0, MAX_MEMBERS);
     }
+  };
+  // A credential that can't be opened (a key mismatch) is left out: the service reports
+  // that it can't log in, and the others keep working.
+  const credentialOf = (
+    id: string,
+    r: {
+      method: string | null;
+      username: string | null;
+      ciphertext: string | null;
+      reference: unknown;
+    },
+  ): { credential?: CollectorCredential } => {
+    if (!r.method || r.method === 'none')
+      return r.username ? { credential: { username: r.username } } : {};
+    try {
+      return { credential: openAccess(key, id, { ...r, method: r.method }) };
+    } catch {
+      return {};
+    }
+  };
+
+  const out: CollectorTarget[] = targets.map((t) => {
     const settings = t.settings as { query_text?: boolean };
     return {
       id: t.id,
       type: t.type as IntegrationType,
       name: t.name,
-      members: members.slice(0, MAX_MEMBERS),
+      members: membersOf(t.target),
       settings: { query_text: settings.query_text !== false },
+      ...credentialOf(t.id, t),
     };
   });
+  const probeOut: CollectorProbe[] = probes.map((p) => ({
+    id: p.id,
+    type: p.type,
+    members: membersOf(p.target),
+    requested: p.requested_at.toISOString(),
+    ...credentialOf(p.id, p),
+  }));
   const body = {
     scrape: { interval_s: SCRAPE_INTERVAL_S, heavy_every: HEAVY_EVERY },
     targets: out,
+    probes: probeOut,
   };
   const version = createHash('sha256').update(JSON.stringify(body)).digest('hex').slice(0, 32);
   return { version, ...body };

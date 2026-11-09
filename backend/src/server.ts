@@ -2,7 +2,7 @@
 import { bootstrapCluster, buildApp } from './app.js';
 import { loadConfig, type Config } from './config.js';
 import { createDb, describeDbError, waitForDatabase } from './db/index.js';
-import { checkSecretKey } from './lib/secrets.js';
+import { checkSecretKey, usePreviousSecretKey } from './lib/secrets.js';
 import { SetupState } from './modules/setup/service.js';
 import { syncDemoMcpToken } from './modules/demo/mcp-token.js';
 import { ensureDemoUser } from './modules/demo/service.js';
@@ -44,6 +44,7 @@ try {
   await app.close();
   process.exit(1);
 }
+usePreviousSecretKey(config.previousSecretKey);
 try {
   await checkSecretKey(db, config.secretKey);
 } catch (err) {

@@ -160,6 +160,42 @@ export function dockerRecreateCommand({
   ].join('\n');
 }
 
+/**
+ * Starts the integrations collector on a Docker host (ADR-131, ADR-134), with the token
+ * of the agent already running there: host network, uid 0 with every capability
+ * dropped, read-only, and /etc/watchlog/secrets mounted read-only for passwords kept in
+ * files. Running it again replaces it.
+ */
+export function dockerCollectorCommand({
+  endpoint,
+  image,
+  host,
+  agent = 'watchlog-agent',
+}: {
+  endpoint: string;
+  image: string;
+  host: string;
+  agent?: string;
+}): string {
+  return [
+    `export WATCHLOG_TOKEN="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' ${shellQuote(agent)} | sed -n 's/^WATCHLOG_TOKEN=//p')" && \\`,
+    'docker rm -f watchlog-integrations 2>/dev/null; \\',
+    'docker run -d --name watchlog-integrations --restart unless-stopped \\',
+    '  --network host --user 0:0 --cap-drop ALL --read-only \\',
+    '  --tmpfs /var/lib/watchlog-integrations --security-opt no-new-privileges \\',
+    '  -v /etc/watchlog/secrets:/etc/watchlog/secrets:ro \\',
+    '  -e WATCHLOG_TOKEN \\',
+    `  -e WATCHLOG_ENDPOINT=${shellQuote(endpoint)} \\`,
+    `  -e WATCHLOG_HOSTNAME=${shellQuote(host)} \\`,
+    `  ${shellQuote(image)} --mode=docker`,
+  ].join('\n');
+}
+
+/** The collector's image next to the agent's: same registry and tag. */
+export function integrationsImage(agent: string): string {
+  return agent.replace(/\/agent(?=[:@]|$)/, '/integrations');
+}
+
 /** Where agents push to and which image they run, for install and upgrade commands. */
 export function installTarget(config: Config, settings: SettingsService) {
   return {

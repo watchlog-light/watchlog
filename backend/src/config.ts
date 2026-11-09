@@ -34,8 +34,10 @@ export interface Config {
   alertRetentionDays: number;
   /** Port of the alert-worker's /livez and /readyz (ADR-088). */
   workerPort: number;
-  /** AES-256-GCM key for alert channel secrets (ADR-079). */
+  /** AES-256-GCM key for alert channel, SMTP and integration secrets (ADR-079, ADR-133). */
   secretKey: Buffer;
+  /** The key before a rotation, still accepted for decrypting (ADR-133). */
+  previousSecretKey?: Buffer;
   /** One SMTP server for email channels (ADR-080); email channels fail without it. */
   smtp?: { url: string; from: string };
   /** Telegram Bot API base URL (ADR-080). */
@@ -128,6 +130,9 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   const secretKey = parseSecretKey(
     env.WATCHLOG_SECRET_KEY ?? (isDevelopment ? DEV_SECRET_KEY : undefined),
   );
+  const previousSecretKey = env.WATCHLOG_SECRET_KEY_PREVIOUS
+    ? parseSecretKey(env.WATCHLOG_SECRET_KEY_PREVIOUS)
+    : undefined;
   const smtpUrl = env.WATCHLOG_SMTP_URL ?? (isDevelopment ? DEV_SMTP_URL : undefined);
   const smtpFrom = env.WATCHLOG_SMTP_FROM ?? 'WatchLog <alerts@watchlog.local>';
   const demoMode = env.WATCHLOG_DEMO_MODE;
@@ -192,6 +197,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     alertRetentionDays,
     workerPort,
     secretKey,
+    previousSecretKey,
     smtp: smtpUrl ? { url: smtpUrl, from: smtpFrom } : undefined,
     telegramApiUrl: env.WATCHLOG_TELEGRAM_API_URL ?? 'https://api.telegram.org',
     proxy: {

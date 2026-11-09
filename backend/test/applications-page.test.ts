@@ -290,6 +290,12 @@ describe('the service page', () => {
     expect(d.reasons).toEqual([
       { severity: 'info', code: 'collector_missing', facts: { host: 'docker-01' } },
     ]);
+    // The command that starts a collector there, with the token of the host's agent.
+    expect(d.collectorCommand).toContain('docker run -d --name watchlog-integrations');
+    expect(d.collectorCommand).toContain('-e WATCHLOG_HOSTNAME=docker-01');
+    expect(d.collectorCommand).toContain('-v /etc/watchlog/secrets:/etc/watchlog/secrets:ro');
+    expect(d.collectorCommand).toMatch(/ghcr\.io\/watchlog-light\/integrations:\S+ --mode=docker$/);
+    expect(d.collectorCommand).not.toMatch(/wl_ct_/);
     expect(d.connected.items).toEqual([
       expect.objectContaining({
         kind: 'container',
@@ -303,6 +309,35 @@ describe('the service page', () => {
     // Before any series: the panels say they're empty, not an error.
     const p = (await api('GET', `/applications/${id}/panels`)).json();
     expect(p.panels.map((x: { state: string }) => x.state)).toEqual(['empty', 'empty', 'empty']);
+  });
+
+  it('marks a tab whose privilege is missing, and says what to grant', async () => {
+    const k8s = await addCluster(ctx, cookie, 'prod-eu', 'kubernetes');
+    const id = await monitor(k8s.id, {
+      kind: 'workload',
+      namespace: 'shop',
+      workload_kind: 'StatefulSet',
+      workload: 'redis',
+      port: 6379,
+    });
+    await report(k8s.token, '', [
+      {
+        id,
+        state: 'ok',
+        members: [],
+        permissions: [{ tab: 'overview', missing: '+memory|usage' }],
+      },
+    ]);
+    const p = (await api('GET', `/applications/${id}/panels`)).json();
+    for (const panel of p.panels) {
+      expect(panel).toMatchObject({
+        state: 'needs_permission',
+        missing: {
+          key: 'integrations.redis.missing.overview',
+          values: { missing: '+memory|usage' },
+        },
+      });
+    }
   });
 
   it('answers list_applications and get_application over MCP, hostile names cleaned', async () => {

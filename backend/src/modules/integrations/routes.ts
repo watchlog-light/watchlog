@@ -8,10 +8,20 @@ import { newId } from '../../lib/ids.js';
 import { sendProblem } from '../../lib/problem.js';
 import { VictoriaError, type VictoriaQueryClient } from '../../lib/victoria.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
+import {
+  dockerCollectorCommand,
+  integrationsImage,
+  type installTarget,
+} from '../clusters/install.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { INTEGRATION_TYPES, type IntegrationTarget } from './collector-config.js';
-import { discover, SERVICE_KINDS, targetKey } from './discovery.js';
+import { adoptProbe, placementOf } from './connect.js';
+import { recordEvent } from './credentials.js';
+import { DockerName, Name, TargetSchema } from './schemas.js';
+
+export { TargetSchema };
+import { discover, targetKey } from './discovery.js';
 import type { ConfigNotifier } from './notifier.js';
 import {
   connectedTo,
@@ -41,57 +51,6 @@ import {
   type ApplicationRow,
   type CollectorRow,
 } from './service.js';
-
-const Name = Type.String({ minLength: 1, maxLength: 253 });
-const K8sName = Type.String({
-  minLength: 1,
-  maxLength: 253,
-  pattern: '^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$',
-});
-const DockerName = Type.String({
-  minLength: 1,
-  maxLength: 253,
-  pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]*$',
-});
-const Port = Type.Integer({ minimum: 1, maximum: 65535 });
-
-export const TargetSchema = Type.Union([
-  Type.Object(
-    {
-      kind: Type.Literal('workload'),
-      namespace: K8sName,
-      workload_kind: Type.String({ minLength: 1, maxLength: 64, pattern: '^[A-Za-z]+$' }),
-      workload: K8sName,
-      port: Port,
-    },
-    { additionalProperties: false },
-  ),
-  Type.Object(
-    {
-      kind: Type.Literal('compose'),
-      host: DockerName,
-      compose_project: DockerName,
-      compose_service: DockerName,
-      port: Port,
-    },
-    { additionalProperties: false },
-  ),
-  Type.Object(
-    { kind: Type.Literal('container'), host: DockerName, container: DockerName, port: Port },
-    { additionalProperties: false },
-  ),
-  Type.Object(
-    {
-      kind: Type.Literal('address'),
-      // host:port, a name or an IPv4 address, or [IPv6]:port.
-      address: Type.String({
-        maxLength: 260,
-        pattern: '^(\\[[0-9a-fA-F:.]+\\]|[A-Za-z0-9][A-Za-z0-9.-]*):[0-9]{1,5}$',
-      }),
-    },
-    { additionalProperties: false },
-  ),
-]);
 
 const Health = Type.Union([
   Type.Literal('ok'),
@@ -160,6 +119,10 @@ const CreateBody = Type.Object(
     /** Docker, an address added by hand: which host's collector reaches it. */
     collectorHost: Type.Optional(DockerName),
     name: Type.Optional(Name),
+    /** The connect drawer's tested access (ADR-134); its credential moves to the service. */
+    probeId: Type.Optional(Type.String({ format: 'uuid' })),
+    /** Collect query text (ADR-138); on by default. */
+    queryText: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );
@@ -203,8 +166,10 @@ const rangeOf = (v: number | undefined): number | null =>
 export const applicationRoutes: FastifyPluginAsyncTypebox<{
   db: Database;
   notifier: ConfigNotifier;
+  secretKey: Buffer;
   victoria?: VictoriaQueryClient;
-}> = async (app, { db, notifier, victoria }) => {
+  install?: ReturnType<typeof installTarget>;
+}> = async (app, { db, notifier, secretKey, victoria, install }) => {
   const signedIn = requireUser(db);
   const canManage = [signedIn, requireRole('owner', 'admin')];
   const pageCache = new Map<
@@ -401,6 +366,8 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
               tabs: Type.Array(TabSchema),
             }),
             range: RangeQuery,
+            /** Docker, no collector on the service's host yet: the command that starts one. */
+            collectorCommand: Type.Optional(Type.String()),
           }),
           400: ProblemSchema,
           401: ProblemSchema,
@@ -446,6 +413,18 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         connected,
         page: { id: page.id, tabs: page.tabs.map((t) => ({ id: t.id, title: t.title })) },
         range,
+        ...(install &&
+        view.cluster.kind === 'docker' &&
+        ctx.row.collector_host &&
+        (view.reason.code === 'collector_missing' || view.reason.code === 'collector_silent')
+          ? {
+              collectorCommand: dockerCollectorCommand({
+                endpoint: await install.endpointFor(request),
+                image: integrationsImage(install.image),
+                host: ctx.row.collector_host,
+              }),
+            }
+          : {}),
       };
     },
   );
@@ -487,7 +466,24 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         : page.tabs[0];
       if (!tab) return sendProblem(reply, 404, 'No such tab');
       try {
-        const panels = await tab.panels(found.ctx);
+        // A tab the collector's user can't read (ADR-134): its panels say what is missing
+        // and how to grant it, instead of showing empty charts. The other tabs still work.
+        const missing = (
+          (found.ctx.row.status_details as { permissions?: { tab: string; missing: string }[] })
+            .permissions ?? []
+        ).find((p) => p.tab === tab.id);
+        const panels = (await tab.panels(found.ctx)).map((p) =>
+          missing && p.state !== 'error'
+            ? {
+                ...p,
+                state: 'needs_permission' as const,
+                missing: {
+                  key: `integrations.${found.ctx.row.type}.missing.${tab.id}`,
+                  values: { missing: missing.missing },
+                },
+              }
+            : p,
+        );
         return { tab: tab.id, range, panels };
       } catch (err) {
         if (err instanceof VictoriaError) return sendProblem(reply, 502, 'Metrics are unavailable');
@@ -517,46 +513,11 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
     async (request, reply) => {
       const body = request.body;
       const orgId = request.user!.org.id;
-      const cluster = await db
-        .selectFrom('clusters')
-        .select(['id', 'kind'])
-        .where('id', '=', body.clusterId)
-        .where('org_id', '=', orgId)
-        .executeTakeFirst();
-      if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
-      const kind = SERVICE_KINDS.find((k) => k.type === body.type)!;
-      if (!kind.available) {
-        return sendProblem(
-          reply,
-          400,
-          `${body.type} monitoring isn't available in this version yet`,
-        );
-      }
       const target = body.target as IntegrationTarget;
-      const k8sTarget = target.kind === 'workload';
-      const dockerTarget = target.kind === 'compose' || target.kind === 'container';
-      if (
-        (k8sTarget && cluster.kind !== 'kubernetes') ||
-        (dockerTarget && cluster.kind !== 'docker')
-      ) {
-        return sendProblem(
-          reply,
-          400,
-          `A ${target.kind} target doesn't belong to a ${cluster.kind} cluster`,
-        );
-      }
-      let collectorHost = '';
-      if (dockerTarget) collectorHost = target.host;
-      if (target.kind === 'address' && cluster.kind === 'docker') {
-        if (!body.collectorHost) {
-          return sendProblem(
-            reply,
-            400,
-            'Name the Docker host whose collector reaches this address',
-          );
-        }
-        collectorHost = body.collectorHost;
-      }
+      const placed = await placementOf(db, orgId, { ...body, target });
+      if (!placed.ok) return sendProblem(reply, placed.status, placed.message);
+      const cluster = { id: body.clusterId };
+      const collectorHost = placed.collectorHost;
       const existing = await db
         .selectFrom('integrations')
         .select(['type', 'target', 'cluster_id'])
@@ -590,6 +551,9 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
             target: JSON.stringify(target),
             collector_host: collectorHost,
             created_by: request.user!.id,
+            ...(body.queryText === false
+              ? { settings: JSON.stringify({ query_text: false }) }
+              : {}),
           })
           .execute();
       } catch (err) {
@@ -601,6 +565,32 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
           );
         }
         throw err;
+      }
+      const who = {
+        user: { id: request.user!.id, name: request.user!.name, email: request.user!.email },
+        ip: request.ip,
+      };
+      await recordEvent(db, { orgId, integrationId: id, action: 'monitored', ...who });
+      if (body.probeId) {
+        const adopted = await adoptProbe(db, secretKey, {
+          orgId,
+          integrationId: id,
+          probeId: body.probeId,
+          userId: request.user!.id,
+        });
+        if (!adopted.ok) {
+          await db.deleteFrom('integrations').where('id', '=', id).execute();
+          return sendProblem(reply, adopted.status, adopted.message);
+        }
+        if (adopted.method !== 'none') {
+          await recordEvent(db, {
+            orgId,
+            integrationId: id,
+            action: 'credential_set',
+            details: { method: adopted.method },
+            ...who,
+          });
+        }
       }
       notifier.notify(cluster.id);
       const [row] = await listApplicationRows(db, orgId, { id });
@@ -625,9 +615,17 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         .deleteFrom('integrations')
         .where('id', '=', request.params.id)
         .where('org_id', '=', request.user!.org.id)
-        .returning('cluster_id')
+        .returning(['cluster_id', 'name', 'type'])
         .executeTakeFirst();
       if (!row) return sendProblem(reply, 404, 'Service not found');
+      await recordEvent(db, {
+        orgId: request.user!.org.id,
+        integrationId: request.params.id,
+        action: 'removed',
+        user: { id: request.user!.id, name: request.user!.name, email: request.user!.email },
+        ip: request.ip,
+        details: { name: row.name, type: row.type },
+      });
       notifier.notify(row.cluster_id);
       return reply.code(204).send(null);
     },

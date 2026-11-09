@@ -21,6 +21,8 @@ import { ensureEventPartitions } from './modules/events/partitions.js';
 import { ingestRoutes } from './modules/ingest/routes.js';
 import { TokenCache } from './modules/ingest/token-cache.js';
 import { ConfigNotifier } from './modules/integrations/notifier.js';
+import { installTarget } from './modules/clusters/install.js';
+import { connectRoutes } from './modules/integrations/connect.js';
 import { applicationRoutes } from './modules/integrations/routes.js';
 import { kubernetesRoutes } from './modules/kubernetes/routes.js';
 import { overviewRoutes } from './modules/overview/routes.js';
@@ -163,7 +165,18 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(serviceMapRoutes, { db: deps.db, victoria, config, settings });
       await api.register(alertRoutes, { db: deps.db, config, http: alertHttp, settings, victoria });
       await api.register(settingsRoutes, { db: deps.db, settings, http: alertHttp });
-      await api.register(applicationRoutes, { db: deps.db, notifier: collectors, victoria });
+      await api.register(applicationRoutes, {
+        db: deps.db,
+        notifier: collectors,
+        secretKey: config.secretKey,
+        victoria,
+        install: installTarget(config, settings),
+      });
+      await api.register(connectRoutes, {
+        db: deps.db,
+        notifier: collectors,
+        secretKey: config.secretKey,
+      });
       await api.register(apiTokenRoutes, { db: deps.db });
       // The public API only (ADR-126): routes tagged `public`, with the bearer scheme.
       let spec: Record<string, unknown> | undefined;
@@ -203,6 +216,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     clusterBucket: deps.ingestBuckets?.cluster,
     eventsRetentionDays: config.eventsRetentionDays,
     notifier: collectors,
+    secretKey: config.secretKey,
   });
 
   // Event partitions (ADR-061): on start, then every 6 hours.

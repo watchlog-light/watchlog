@@ -61,6 +61,8 @@ export interface IngestOptions {
   eventsRetentionDays?: number;
   /** Wakes integrations collectors waiting on their configuration (ADR-131). */
   notifier?: ConfigNotifier;
+  /** Opens integration credentials for their collector (ADR-133). */
+  secretKey: Buffer;
 }
 
 const Str = (max: number) => Type.String({ maxLength: max });
@@ -555,7 +557,11 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
     },
   );
 
-  registerIntegrationIngest(app, { db, notifier: opts.notifier ?? new ConfigNotifier() });
+  registerIntegrationIngest(app, {
+    db,
+    notifier: opts.notifier ?? new ConfigNotifier(),
+    secretKey: opts.secretKey,
+  });
 
   app.post(
     '/heartbeat',

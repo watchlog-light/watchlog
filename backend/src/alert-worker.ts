@@ -3,7 +3,7 @@
 import { pino } from 'pino';
 import { loadConfig, type Config } from './config.js';
 import { createDb, describeDbError, waitForDatabase } from './db/index.js';
-import { checkSecretKey } from './lib/secrets.js';
+import { checkSecretKey, usePreviousSecretKey } from './lib/secrets.js';
 import { VictoriaQueryClient } from './lib/victoria.js';
 import { HttpClient } from './modules/alerts/channels.js';
 import { deliverDue } from './modules/alerts/delivery.js';
@@ -37,6 +37,7 @@ try {
   log.error(describeDbError(err, config.databaseUrl));
   process.exit(1);
 }
+usePreviousSecretKey(config.previousSecretKey);
 try {
   await checkSecretKey(db, config.secretKey);
 } catch (err) {
