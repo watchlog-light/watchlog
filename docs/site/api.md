@@ -173,6 +173,17 @@ curl -H "$H" $WATCHLOG/api/v1/alerts/$ALERT/chart
 # Alert rules and silences
 curl -H "$H" $WATCHLOG/api/v1/alert-rules
 curl -H "$H" $WATCHLOG/api/v1/silences
+
+# Monitored services (Redis, PostgreSQL, Nginx, RabbitMQ), problems first, on every
+# cluster or one; the ones found but not monitored yet; the integrations collectors
+curl -H "$H" $WATCHLOG/api/v1/applications
+curl -H "$H" "$WATCHLOG/api/v1/applications?cluster=$FLEET"
+curl -H "$H" $WATCHLOG/api/v1/applications/discovered
+curl -H "$H" $WATCHLOG/api/v1/applications/collectors
+
+# One service: its health, what WatchLog sees (reasons with a code and facts), and the
+# workloads or containers that connect to it over the range (1h, 6h, 24h or 7d)
+curl -H "$H" "$WATCHLOG/api/v1/applications/$SERVICE?range=21600"
 ```
 
 ### Metrics

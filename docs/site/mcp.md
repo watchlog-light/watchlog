@@ -144,6 +144,8 @@ on Docker.
 | `get_workload`       | A Deployment, StatefulSet, DaemonSet, Job or CronJob and its pods        | A Compose service and its containers                          |
 | `get_pod`            | A pod: containers, exit codes, OOM kills, restarts, events               | A container                                                   |
 | `get_node`           | A node: conditions, capacity against use, the heaviest pods              | A host                                                        |
+| `list_applications`  | Monitored services (Redis, PostgreSQL, Nginx, RabbitMQ), problems first  | The same, by host and Compose project                         |
+| `get_application`    | A service: its health, every reason, the workloads that connect to it    | The same, with the containers that connect to it              |
 | `get_service_map`    | Failing connections, or one workload's connections and DNS errors        | The same between containers                                   |
 | `get_events`         | Warning events, grouped                                                  | Container deaths, OOM kills, health changes                   |
 | `get_recent_changes` | Rollouts, image changes, scaling, nodes                                  | Re-created containers, image changes                          |
