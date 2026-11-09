@@ -199,6 +199,17 @@ export interface ClusterTokens {
   updated_at: Generated<Timestamp>;
 }
 
+export interface DiscoveryIgnores {
+  cluster_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  group_name: string | null;
+  id: string;
+  label: string;
+  org_id: string;
+  service_key: string | null;
+}
+
 export interface IngestErrors {
   cluster_id: string;
   endpoint: string;
@@ -420,6 +431,13 @@ export interface SecretKeyCheck {
   id: Generated<number>;
 }
 
+export interface SeedServices {
+  applied_at: Generated<Timestamp>;
+  integration_id: string | null;
+  org_id: string;
+  seed_key: string;
+}
+
 export interface ServerSettings {
   key: string;
   secret: string | null;
@@ -484,6 +502,7 @@ export interface DB {
   change_markers: ChangeMarkers;
   cluster_tokens: ClusterTokens;
   clusters: Clusters;
+  discovery_ignores: DiscoveryIgnores;
   ingest_errors: IngestErrors;
   integration_collectors: IntegrationCollectors;
   integration_credentials: IntegrationCredentials;
@@ -501,6 +520,7 @@ export interface DB {
   password_resets: PasswordResets;
   retired_cluster_tokens: RetiredClusterTokens;
   secret_key_check: SecretKeyCheck;
+  seed_services: SeedServices;
   server_settings: ServerSettings;
   sessions: Sessions;
   silences: Silences;

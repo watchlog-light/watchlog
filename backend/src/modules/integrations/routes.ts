@@ -22,7 +22,7 @@ import { recordEvent } from './credentials.js';
 import { DockerName, Name, TargetSchema } from './schemas.js';
 
 export { TargetSchema };
-import { discover, targetKey } from './discovery.js';
+import { discover, listIgnored, targetKey } from './discovery.js';
 import type { ConfigNotifier } from './notifier.js';
 import {
   connectedTo,
@@ -73,6 +73,8 @@ export const ApplicationSchema = Type.Object({
   type: Type.String(),
   name: Type.String(),
   version: Type.Union([Type.String(), Type.Null()]),
+  /** What answers when it isn't the type's own server: "valkey" for a Redis-compatible Valkey. */
+  product: Type.Union([Type.String(), Type.Null()]),
   cluster: ClusterRef,
   where: Type.Object({
     group: Type.Union([Type.String(), Type.Null()]),
@@ -96,12 +98,22 @@ const DiscoveredSchema = Type.Object({
   name: Type.String(),
   image: Type.Union([Type.String(), Type.Null()]),
   version: Type.Union([Type.String(), Type.Null()]),
+  /** "valkey" for a Valkey image (the Redis integration reads it), else null. */
+  product: Type.Union([Type.String(), Type.Null()]),
   port: Type.Integer(),
   confidence: Type.Union([Type.Literal('image'), Type.Literal('port')]),
   members: Type.Integer(),
   host: Type.Union([Type.String(), Type.Null()]),
   group: Type.String(),
   target: TargetSchema,
+});
+
+const IgnoredSchema = Type.Object({
+  id: Type.String(),
+  cluster: ClusterRef,
+  scope: Type.Union([Type.Literal('service'), Type.Literal('group')]),
+  label: Type.String(),
+  createdAt: Type.String(),
 });
 
 const CollectorSchema = Type.Object({
@@ -142,6 +154,7 @@ function toView(
     type: row.type,
     name: row.name,
     version: row.version,
+    product: (row.status_details as { product?: string }).product ?? null,
     cluster: {
       id: row.cluster_id,
       name: row.cluster_name,
@@ -233,14 +246,28 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         tags: ['applications', PUBLIC_TAG],
         querystring: Type.Object({ cluster: Type.Optional(Type.String({ format: 'uuid' })) }),
         response: {
-          200: Type.Object({ discovered: Type.Array(DiscoveredSchema) }),
+          200: Type.Object({
+            discovered: Type.Array(DiscoveredSchema),
+            /** What people chose to ignore (one service, or a namespace or project). */
+            ignored: Type.Array(IgnoredSchema),
+          }),
           401: ProblemSchema,
         },
       },
     },
     async (request) => {
-      const found = await discover(db, request.user!.org.id, request.query.cluster);
+      const [found, ignored] = await Promise.all([
+        discover(db, request.user!.org.id, request.query.cluster),
+        listIgnored(db, request.user!.org.id, request.query.cluster),
+      ]);
       return {
+        ignored: ignored.map((i) => ({
+          id: i.id,
+          cluster: { id: i.clusterId, name: i.clusterName, kind: i.clusterKind },
+          scope: i.scope,
+          label: i.label,
+          createdAt: i.createdAt.toISOString(),
+        })),
         discovered: found.map((d) => ({
           key: d.key,
           cluster: { id: d.clusterId, name: d.clusterName, kind: d.clusterKind },
@@ -248,6 +275,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
           name: d.name,
           image: d.image,
           version: d.version,
+          product: d.product,
           port: d.port,
           confidence: d.confidence,
           members: d.members,
@@ -256,6 +284,97 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
           target: d.target,
         })),
       };
+    },
+  );
+
+  app.post(
+    '/applications/discovered/ignore',
+    {
+      preHandler: canManage,
+      schema: {
+        summary: 'Ignore a discovered service, or every one in a namespace or Compose project',
+        tags: ['applications'],
+        body: Type.Object(
+          {
+            clusterId: Type.String({ format: 'uuid' }),
+            /** One candidate's key, as GET /applications/discovered gives it. */
+            key: Type.Optional(Type.String({ minLength: 1, maxLength: 600 })),
+            /** A Kubernetes namespace or a Compose project. */
+            group: Type.Optional(Type.String({ minLength: 1, maxLength: 253 })),
+          },
+          { additionalProperties: false },
+        ),
+        response: {
+          201: Type.Object({ ignored: IgnoredSchema }),
+          400: ProblemSchema,
+          401: ProblemSchema,
+          403: ProblemSchema,
+          404: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const orgId = request.user!.org.id;
+      const { clusterId, key, group } = request.body;
+      if ((key === undefined) === (group === undefined)) {
+        return sendProblem(
+          reply,
+          400,
+          'Name one service (key) or one namespace or project (group)',
+        );
+      }
+      const found = await discover(db, orgId, clusterId);
+      const match = key ? found.find((d) => d.key === key) : found.find((d) => d.group === group);
+      if (!match) return sendProblem(reply, 404, 'No discovered service matches');
+      const what = match.clusterKind === 'kubernetes' ? 'namespace' : 'Compose project';
+      const label = key ? `${match.type} ${match.name}` : `${what} ${group}`;
+      const id = newId();
+      const row = await db
+        .insertInto('discovery_ignores')
+        .values({
+          id,
+          org_id: orgId,
+          cluster_id: clusterId,
+          service_key: key ?? null,
+          group_name: key ? null : group!,
+          label,
+          created_by: request.user!.id,
+        })
+        .onConflict((oc) => oc.doNothing())
+        .returning(['id', 'created_at'])
+        .executeTakeFirst();
+      reply.code(201);
+      return {
+        ignored: {
+          id: row?.id ?? id,
+          cluster: { id: clusterId, name: match.clusterName, kind: match.clusterKind },
+          scope: key ? ('service' as const) : ('group' as const),
+          label,
+          createdAt: (row?.created_at ?? new Date()).toISOString(),
+        },
+      };
+    },
+  );
+
+  app.delete(
+    '/applications/discovered/ignore/:id',
+    {
+      preHandler: canManage,
+      schema: {
+        summary: 'Show an ignored service, namespace or project in the discovered list again',
+        tags: ['applications'],
+        params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+        response: { 204: Type.Null(), 401: ProblemSchema, 403: ProblemSchema, 404: ProblemSchema },
+      },
+    },
+    async (request, reply) => {
+      const r = await db
+        .deleteFrom('discovery_ignores')
+        .where('id', '=', request.params.id)
+        .where('org_id', '=', request.user!.org.id)
+        .executeTakeFirst();
+      if (!r.numDeletedRows) return sendProblem(reply, 404, 'Not ignored');
+      return reply.code(204).send(null);
     },
   );
 
@@ -455,7 +574,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         (view.reason.code === 'collector_missing' || view.reason.code === 'collector_silent')
           ? {
               collectorCommand: dockerCollectorCommand({
-                endpoint: await install.endpointFor(request),
+                fallback: await install.configuredEndpoint(),
                 image: integrationsImage(install.image),
                 host: ctx.row.collector_host,
               }),

@@ -77,6 +77,11 @@ export function imagePath(ref: string): string {
   return parts.join('/').toLowerCase();
 }
 
+/** A compatible server that isn't the type's own: Valkey answers as Redis. */
+export function productOfImage(ref: string): string | null {
+  return /(^|\/)valkey$/.test(imagePath(ref)) ? 'valkey' : null;
+}
+
 /** The image's tag, as a version hint ("16.4" from "postgres:16.4-alpine"). */
 export function imageVersion(ref: string): string | null {
   const noDigest = ref.split('@')[0]!;
@@ -107,6 +112,8 @@ export interface Discovered {
   name: string;
   image: string | null;
   version: string | null;
+  /** "valkey" when the image is Valkey (read by the Redis integration), else null. */
+  product: string | null;
   port: number;
   /** image: the image says what it is; port: only a well-known port does. */
   confidence: 'image' | 'port';
@@ -160,7 +167,7 @@ export async function discover(
   const clusters = await q.execute();
   if (clusters.length === 0) return [];
   const ids = clusters.map((c) => c.id);
-  const [objects, monitored] = await Promise.all([
+  const [objects, monitored, ignores] = await Promise.all([
     db
       .selectFrom('objects')
       .select(['cluster_id', 'kind', 'namespace', 'name', 'node', 'spec_summary', 'status_summary'])
@@ -173,7 +180,16 @@ export async function discover(
       .select(['cluster_id', 'type', 'target'])
       .where('cluster_id', 'in', ids)
       .execute(),
+    db
+      .selectFrom('discovery_ignores')
+      .select(['cluster_id', 'service_key', 'group_name'])
+      .where('cluster_id', 'in', ids)
+      .execute(),
   ]);
+  const ignoredKeys = new Set(ignores.flatMap((i) => (i.service_key ? [i.service_key] : [])));
+  const ignoredGroups = new Set(
+    ignores.flatMap((i) => (i.group_name !== null ? [`${i.cluster_id}/${i.group_name}`] : [])),
+  );
   const taken = new Set(
     monitored.map((m) => targetKey(m.cluster_id, m.type, m.target as IntegrationTarget)),
   );
@@ -256,7 +272,8 @@ export async function discover(
     }
     if (!kind.available) continue;
     const key = targetKey(o.cluster_id, kind.type, target);
-    if (taken.has(key)) continue;
+    if (taken.has(key) || ignoredKeys.has(key)) continue;
+    if (group && ignoredGroups.has(`${o.cluster_id}/${group}`)) continue;
     const seen = found.get(key);
     if (seen) {
       seen.members++;
@@ -271,6 +288,7 @@ export async function discover(
       name,
       image: image ?? null,
       version: image ? imageVersion(image) : null,
+      product: image ? productOfImage(image) : null,
       port: target.port,
       confidence,
       members: 1,
@@ -285,4 +303,47 @@ export async function discover(
       (a.confidence === b.confidence ? 0 : a.confidence === 'image' ? -1 : 1) ||
       a.name.localeCompare(b.name),
   );
+}
+
+export interface Ignored {
+  id: string;
+  clusterId: string;
+  clusterName: string;
+  clusterKind: 'kubernetes' | 'docker';
+  /** One candidate (by its key) or a namespace or Compose project. */
+  scope: 'service' | 'group';
+  label: string;
+  createdAt: Date;
+}
+
+/** What the org's people chose to ignore, newest first, for the restore list. */
+export async function listIgnored(
+  db: Database,
+  orgId: string,
+  clusterId?: string,
+): Promise<Ignored[]> {
+  let q = db
+    .selectFrom('discovery_ignores as d')
+    .innerJoin('clusters as c', 'c.id', 'd.cluster_id')
+    .select([
+      'd.id',
+      'd.cluster_id',
+      'c.name',
+      'c.kind',
+      'd.service_key',
+      'd.label',
+      'd.created_at',
+    ])
+    .where('d.org_id', '=', orgId);
+  if (clusterId) q = q.where('d.cluster_id', '=', clusterId);
+  const rows = await q.orderBy('d.created_at', 'desc').execute();
+  return rows.map((r) => ({
+    id: r.id,
+    clusterId: r.cluster_id,
+    clusterName: r.name,
+    clusterKind: r.kind as 'kubernetes' | 'docker',
+    scope: r.service_key ? 'service' : 'group',
+    label: r.label,
+    createdAt: r.created_at,
+  }));
 }

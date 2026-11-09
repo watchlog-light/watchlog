@@ -102,7 +102,7 @@ export function reasonSentence(r: { code: string; facts: Record<string, unknown>
         ? 'The collector reaches some of its members, not all.'
         : 'The collector connects to it.';
     case 'paused':
-      return 'Monitoring is paused.';
+      return 'Monitoring is paused (facts.by, facts.at): nothing is read until someone resumes it in the service settings.';
     case 'member_down':
       return "One member can't be reached.";
     case 'needs_permission':

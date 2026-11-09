@@ -297,6 +297,9 @@ describe('the service page', () => {
     expect(d.collectorCommand).toContain('-v /etc/watchlog/secrets:/etc/watchlog/secrets:ro');
     expect(d.collectorCommand).toMatch(/ghcr\.io\/watchlog-light\/integrations:\S+ --mode=docker$/);
     expect(d.collectorCommand).not.toMatch(/wl_ct_/);
+    // Where it reports: the host's agent's endpoint, never the browser's address.
+    expect(d.collectorCommand).toContain("s/^WATCHLOG_ENDPOINT=//p'");
+    expect(d.collectorCommand).not.toMatch(/localhost|127\.0\.0\.1/);
     expect(d.connected.items).toEqual([
       expect.objectContaining({
         kind: 'container',

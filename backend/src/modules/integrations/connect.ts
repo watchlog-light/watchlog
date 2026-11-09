@@ -237,7 +237,7 @@ export async function placementOf(
 }
 
 /** The collector's namespace and ServiceAccount, as it reported them (Kubernetes). */
-async function collectorIdentity(db: Database, clusterId: string) {
+export async function collectorIdentity(db: Database, clusterId: string) {
   const row = await db
     .selectFrom('integration_collectors')
     .select('self')

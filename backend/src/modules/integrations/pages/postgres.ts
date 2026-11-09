@@ -88,7 +88,8 @@ const duration = (s: number) =>
 /**
  * The data volume and its capacity: the pod's PVC (kubelet volume stats) on Kubernetes;
  * on Docker the host filesystem that holds Docker's data (ADR-124's closest: a volume has
- * no capacity of its own). Growth per day from the last 7 days.
+ * no capacity of its own). Growth per day from the last 7 days, once a day of history
+ * exists (null before).
  */
 async function volumeOf(
   ctx: PageContext,
@@ -107,7 +108,7 @@ async function volumeOf(
       ),
       instant(
         ctx,
-        `max by (persistentvolumeclaim) (deriv(watchlog_pod_volume_bytes{${sel}, state="used"}[7d])) * 86400`,
+        `max by (persistentvolumeclaim) (deriv(watchlog_pod_volume_bytes{${sel}, state="used"}[7d]) and last_over_time(watchlog_pod_volume_bytes{${sel}, state="used"}[1h] offset 1d)) * 86400`,
       ),
     ]);
     // The fullest claim (a StatefulSet's replicas each have one).
@@ -132,7 +133,7 @@ async function volumeOf(
     instant(ctx, `max by (mount) (watchlog_node_filesystem_bytes{${sel}, state="avail"})`),
     instant(
       ctx,
-      `-max by (mount) (deriv(watchlog_node_filesystem_bytes{${sel}, state="avail"}[7d])) * 86400`,
+      `-max by (mount) (deriv(watchlog_node_filesystem_bytes{${sel}, state="avail"}[7d]) and last_over_time(watchlog_node_filesystem_bytes{${sel}, state="avail"}[1h] offset 1d)) * 86400`,
     ),
   ]);
   // The mount that holds /var/lib/docker: the longest mount point that prefixes it.
@@ -196,7 +197,7 @@ async function overview(ctx: PageContext): Promise<Panel[]> {
     instant(ctx, `sum(max by (db) (watchlog_postgres_database_size_bytes{${s}}))`),
     instant(
       ctx,
-      `sum(max by (db) (deriv(watchlog_postgres_database_size_bytes{${s}}[7d]))) * 86400`,
+      `sum(max by (db) (deriv(watchlog_postgres_database_size_bytes{${s}}[7d]) and last_over_time(watchlog_postgres_database_size_bytes{${s}}[1h] offset 1d))) * 86400`,
     ),
     instant(ctx, `max(watchlog_postgres_backend_max_seconds{${s}, kind="active"})`),
     range(ctx, `sum(watchlog_postgres_backends{${s}})`),
@@ -363,10 +364,14 @@ async function overview(ctx: PageContext): Promise<Panel[]> {
                 max: volume.capacity,
                 unit: 'bytes' as const,
                 warnAt: 0.85,
+                // Growth needs a day of history: minutes of it would read an image pull as
+                // the week's trend.
                 note:
                   days !== null
                     ? { key: `${P}.daysLeft`, values: { days } }
-                    : { key: `${P}.notGrowing` },
+                    : volume.perDay === null
+                      ? { key: `${P}.growthUnknown` }
+                      : { key: `${P}.notGrowing` },
               },
             ]
           : []),

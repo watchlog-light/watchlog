@@ -283,14 +283,20 @@ describe('the PostgreSQL page', () => {
         svc({ db: 'shop', table: 'public.orders' }),
         () => 400_000,
       ),
-      write(
-        k8s.id,
-        'watchlog_pod_volume_bytes',
-        { ...pvc, state: 'used' },
-        (i) => 8 * GB + i * 2 ** 22,
-      ),
       write(k8s.id, 'watchlog_pod_volume_bytes', { ...pvc, state: 'capacity' }, () => 10 * GB),
     ]);
+    // The PVC over two days, 1 GiB a day, at 8 GiB now: about 2 days left.
+    const used: TestSeries[] = [];
+    // Every 10 minutes, then every 15 s for the last half hour, as the kubelet reports:
+    // an instant query looks back only a few minutes.
+    for (let t = NOW - 48 * 60 * MIN; t <= NOW; t += t < NOW - 30 * MIN ? 10 * MIN : 15_000) {
+      used.push({
+        labels: { __name__: 'watchlog_pod_volume_bytes', run: RUN, ...pvc, state: 'used' },
+        value: 8 * GB - ((NOW - t) / (24 * 60 * MIN)) * GB,
+        timestampMs: t,
+      });
+    }
+    await vm.write({ clusterId: k8s.id }, encode(used));
     // Lock waits over 3 hours: the heatmap's hourly cells end at the last full hour.
     const waits: TestSeries[] = [];
     for (let t = NOW - 180 * MIN; t <= NOW; t += 60_000) {
@@ -384,9 +390,11 @@ describe('the PostgreSQL page', () => {
       note?: { key: string; values?: Record<string, unknown> };
     }[];
     expect(cap[0]).toMatchObject({ value: 92, max: 100, note: { values: { n: 3 } } });
-    // The PVC: 8 GB of 10 GB, growing; days left at that growth.
+    // The PVC: 8 GB of 10 GB, growing 1 GiB a day: about 2 days left.
     expect(cap[1]).toMatchObject({ label: 'data-postgres-0', max: 10 * GB });
-    expect(cap[1]!.note!.key).toMatch(/daysLeft|notGrowing/);
+    expect(cap[1]!.note).toMatchObject({ key: 'integrations.postgres.panels.daysLeft' });
+    expect(cap[1]!.note!.values!.days).toBeGreaterThanOrEqual(1);
+    expect(cap[1]!.note!.values!.days).toBeLessThanOrEqual(2);
 
     const conns = await tab('connections');
     expect(panel(conns, 'by-client').items).toEqual([
@@ -545,6 +553,10 @@ describe('the PostgreSQL page', () => {
       value: 400 * GB,
       max: 500 * GB,
     });
+    // Half an hour of history: no days left yet, and the page says why.
+    expect((cap[1] as { note?: { key: string } }).note?.key).toBe(
+      'integrations.postgres.panels.growthUnknown',
+    );
 
     await status(fleet.token, 'docker-01', [
       {

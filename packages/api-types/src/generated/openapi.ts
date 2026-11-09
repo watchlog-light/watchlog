@@ -6799,6 +6799,7 @@ export interface paths {
                 type: string;
                 name: string;
                 version: string | null;
+                product: string | null;
                 cluster: {
                   id: string;
                   name: string;
@@ -6938,6 +6939,7 @@ export interface paths {
                 type: string;
                 name: string;
                 version: string | null;
+                product: string | null;
                 cluster: {
                   id: string;
                   name: string;
@@ -7114,6 +7116,7 @@ export interface paths {
                 name: string;
                 image: string | null;
                 version: string | null;
+                product: string | null;
                 port: number;
                 confidence: 'image' | 'port';
                 members: number;
@@ -7149,6 +7152,17 @@ export interface paths {
                       address: string;
                     };
               }[];
+              ignored: {
+                id: string;
+                cluster: {
+                  id: string;
+                  name: string;
+                  kind: 'kubernetes' | 'docker';
+                };
+                scope: 'service' | 'group';
+                label: string;
+                createdAt: string;
+              }[];
             };
           };
         };
@@ -7172,6 +7186,204 @@ export interface paths {
     put?: never;
     post?: never;
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/applications/discovered/ignore': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Ignore a discovered service, or every one in a namespace or Compose project */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** Format: uuid */
+            clusterId: string;
+            key?: string;
+            group?: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              ignored: {
+                id: string;
+                cluster: {
+                  id: string;
+                  name: string;
+                  kind: 'kubernetes' | 'docker';
+                };
+                scope: 'service' | 'group';
+                label: string;
+                createdAt: string;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/applications/discovered/ignore/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Show an ignored service, namespace or project in the discovered list again */
+    delete: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        204: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
     options?: never;
     head?: never;
     patch?: never;
@@ -7428,6 +7640,7 @@ export interface paths {
                 type: string;
                 name: string;
                 version: string | null;
+                product: string | null;
                 cluster: {
                   id: string;
                   name: string;

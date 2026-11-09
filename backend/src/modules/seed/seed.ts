@@ -11,6 +11,7 @@ import type { Database } from '../../db/index.js';
 import { ConditionSchema, Severity, ThresholdScopeSchema } from '../alerts/schemas.js';
 import { insertThresholdRule } from '../alerts/rules.js';
 import { validateThreshold } from '../alerts/threshold.js';
+import { SeedServiceSchema } from './services.js';
 
 /** A threshold rule as POST /alert-rules takes it; the cluster by id or by name, no channels. */
 const SeedRuleSchema = Type.Object(
@@ -43,6 +44,8 @@ const SeedDemoMcpSchema = Type.Object(
 export const SeedSchema = Type.Object(
   {
     alertRules: Type.Optional(Type.Array(SeedRuleSchema, { maxItems: 200 })),
+    /** Services to monitor once the agents report them (ADR-142): seed/services.ts. */
+    services: Type.Optional(Type.Array(SeedServiceSchema, { maxItems: 100 })),
     demoMcp: Type.Optional(SeedDemoMcpSchema),
   },
   { additionalProperties: false },

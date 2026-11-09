@@ -38,6 +38,9 @@ export const StatusBody = Type.Object(
       },
       { additionalProperties: false },
     ),
+    // Generous outer bounds: a report is refused only when it is not a status at all.
+    // Values over the stored limits (LIMITS) are cut short by fitStatus, with a warning,
+    // so one long statement or error never costs a whole report.
     targets: Type.Array(
       Type.Object(
         {
@@ -47,21 +50,23 @@ export const StatusBody = Type.Object(
             Type.Literal('error'),
             Type.Literal('connecting'),
           ]),
-          error: Type.Optional(Type.String({ maxLength: 512 })),
+          error: Type.Optional(Type.String({ maxLength: 16_384 })),
           // "auth_failed": the user or password was refused.
           code: Type.Optional(Type.Literal('auth_failed')),
-          service_version: Type.Optional(Type.String({ maxLength: 64 })),
+          service_version: Type.Optional(Type.String({ maxLength: 1024 })),
+          // What answered when it isn't the type's own server: "valkey" for a Redis target.
+          product: Type.Optional(Type.String({ maxLength: 32, pattern: '^[a-z0-9-]*$' })),
           members: Type.Optional(
             Type.Array(
               Type.Object(
                 {
-                  name: Type.String({ maxLength: 253 }),
+                  name: Type.String({ maxLength: 1024 }),
                   up: Type.Boolean(),
-                  error: Type.Optional(Type.String({ maxLength: 512 })),
+                  error: Type.Optional(Type.String({ maxLength: 16_384 })),
                 },
                 { additionalProperties: false },
               ),
-              { maxItems: 16 },
+              { maxItems: 1000 },
             ),
           ),
           // A tab that can't be filled and the missing privilege or setting (ADR-134).
@@ -70,34 +75,34 @@ export const StatusBody = Type.Object(
               Type.Object(
                 {
                   // A tab, or "tab/panel".
-                  tab: Type.String({ maxLength: 64 }),
-                  missing: Type.String({ maxLength: 128 }),
+                  tab: Type.String({ maxLength: 1024 }),
+                  missing: Type.String({ maxLength: 1024 }),
                 },
                 { additionalProperties: false },
               ),
-              { maxItems: 16 },
+              { maxItems: 1000 },
             ),
           ),
           // What a page shows that isn't a metric (a slow log, client addresses), sent with
-          // the heavy scrape: a few lists of small rows, bounded here.
+          // the heavy scrape: a few lists of small rows.
           extra: Type.Optional(
             Type.Record(
-              Type.String({ maxLength: 32 }),
+              Type.String({ maxLength: 1024 }),
               Type.Union([
                 Type.Array(
                   Type.Record(
-                    Type.String({ maxLength: 32 }),
+                    Type.String({ maxLength: 1024 }),
                     Type.Unsafe<string | number | boolean>({
                       type: ['number', 'boolean', 'string'],
-                      maxLength: 256,
+                      maxLength: 65_536,
                     }),
-                    { maxProperties: 12 },
+                    { maxProperties: 1000 },
                   ),
-                  { maxItems: 100 },
+                  { maxItems: 10_000 },
                 ),
                 Type.Null(),
               ]),
-              { maxProperties: 8 },
+              { maxProperties: 1000 },
             ),
           ),
         },
@@ -109,6 +114,97 @@ export const StatusBody = Type.Object(
   { additionalProperties: false },
 );
 export type StatusBody = Static<typeof StatusBody>;
+
+/** What is stored of a status report; fitStatus cuts anything longer. */
+export const LIMITS = {
+  error: 512,
+  version: 64,
+  members: 16,
+  memberName: 253,
+  permissions: 16,
+  tab: 64,
+  missing: 128,
+  lists: 8,
+  rows: 100,
+  fields: 12,
+  key: 32,
+  value: 256,
+} as const;
+
+/**
+ * Cuts a status report to LIMITS in place and says what it cut ("extra.statements[3].query
+ * 300 → 256"), at most a few lines, for one warning per report.
+ */
+export function fitStatus(body: StatusBody): string[] {
+  const cut: string[] = [];
+  const note = (what: string) => {
+    if (cut.length < 10) cut.push(what);
+  };
+  const text = (v: string, max: number, where: string) => {
+    if ([...v].length <= max) return v;
+    note(`${where} ${[...v].length} → ${max} characters`);
+    return [...v].slice(0, max).join('');
+  };
+  for (const [ti, t] of body.targets.entries()) {
+    const at = `targets[${ti}]`;
+    if (t.error !== undefined) t.error = text(t.error, LIMITS.error, `${at}.error`);
+    if (t.service_version !== undefined) {
+      t.service_version = text(t.service_version, LIMITS.version, `${at}.service_version`);
+    }
+    if (t.members) {
+      if (t.members.length > LIMITS.members) {
+        note(`${at}.members ${t.members.length} → ${LIMITS.members}`);
+        t.members = t.members.slice(0, LIMITS.members);
+      }
+      for (const [mi, m] of t.members.entries()) {
+        m.name = text(m.name, LIMITS.memberName, `${at}.members[${mi}].name`);
+        if (m.error !== undefined)
+          m.error = text(m.error, LIMITS.error, `${at}.members[${mi}].error`);
+      }
+    }
+    if (t.permissions) {
+      if (t.permissions.length > LIMITS.permissions) {
+        note(`${at}.permissions ${t.permissions.length} → ${LIMITS.permissions}`);
+        t.permissions = t.permissions.slice(0, LIMITS.permissions);
+      }
+      for (const [pi, p] of t.permissions.entries()) {
+        p.tab = text(p.tab, LIMITS.tab, `${at}.permissions[${pi}].tab`);
+        p.missing = text(p.missing, LIMITS.missing, `${at}.permissions[${pi}].missing`);
+      }
+    }
+    if (t.extra) {
+      const lists = Object.entries(t.extra);
+      const kept: typeof t.extra = {};
+      for (const [li, [name, rows]] of lists.entries()) {
+        if (li >= LIMITS.lists || name.length > LIMITS.key) {
+          note(`${at}.extra.${name.slice(0, LIMITS.key)} dropped`);
+          continue;
+        }
+        if (rows === null) {
+          kept[name] = null;
+          continue;
+        }
+        if (rows.length > LIMITS.rows)
+          note(`${at}.extra.${name} ${rows.length} → ${LIMITS.rows} rows`);
+        kept[name] = rows.slice(0, LIMITS.rows).map((row, ri) => {
+          const fields = Object.entries(row);
+          const out: Record<string, string | number | boolean> = {};
+          for (const [fi, [k, v]] of fields.entries()) {
+            if (fi >= LIMITS.fields || k.length > LIMITS.key) {
+              note(`${at}.extra.${name}[${ri}].${k.slice(0, LIMITS.key)} dropped`);
+              continue;
+            }
+            out[k] =
+              typeof v === 'string' ? text(v, LIMITS.value, `${at}.extra.${name}[${ri}].${k}`) : v;
+          }
+          return out;
+        });
+      }
+      t.extra = kept;
+    }
+  }
+  return cut;
+}
 
 // Several types without a union: the validator would coerce a number to the first type.
 const Fact = Type.Unsafe<string | number | boolean>({
@@ -200,6 +296,13 @@ export function registerIntegrationIngest(
       if (body.mode === 'kubernetes' && body.host !== '') {
         return sendProblem(reply, 400, 'A Kubernetes collector reports with an empty host');
       }
+      const cut = fitStatus(body);
+      if (cut.length) {
+        request.log.warn(
+          { cluster: owner.clusterId, host: body.host, version: body.version, cut },
+          'integrations status: values over the limits were cut short',
+        );
+      }
       const now = new Date();
       await db.transaction().execute(async (trx) => {
         await trx
@@ -235,6 +338,7 @@ export function registerIntegrationIngest(
                 ? JSON.stringify({
                     error: t.error,
                     code: t.code,
+                    product: t.product,
                     members: t.members ?? [],
                     permissions: t.permissions ?? [],
                     extra: t.extra,
@@ -242,6 +346,7 @@ export function registerIntegrationIngest(
                 : sql`${JSON.stringify({
                     error: t.error,
                     code: t.code,
+                    product: t.product,
                     members: t.members ?? [],
                     permissions: t.permissions ?? [],
                   })}::jsonb || case when status_details ? 'extra' then jsonb_build_object('extra', status_details -> 'extra') else '{}'::jsonb end`,

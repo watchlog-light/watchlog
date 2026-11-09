@@ -271,6 +271,57 @@ describe('integrations collector ingest', () => {
     expect(byId.get(elsewhere)).toMatchObject({ status: 'pending', last_report_at: null });
   });
 
+  it('cuts an oversized value short instead of refusing the report', async () => {
+    const c = await cluster('docker');
+    const id = await addIntegration(c, {
+      type: 'postgres',
+      name: 'shop/db',
+      collector_host: 'docker-01',
+      target: { kind: 'address', address: '127.0.0.1:5432' },
+    });
+    const long = 'select ' + 'x, '.repeat(400) + 'y from t';
+    const res = await status(c.token, {
+      host: 'docker-01',
+      mode: 'docker',
+      version: '0.3.0',
+      config_version: '',
+      self: {},
+      targets: [
+        {
+          id,
+          state: 'error',
+          error: 'e'.repeat(2000),
+          product: 'valkey',
+          members: Array.from({ length: 20 }, (_, i) => ({ name: `m${i}`, up: true })),
+          extra: {
+            statements: [
+              { queryid: '1', calls: 3, query: long },
+              ...Array.from({ length: 150 }, (_, i) => ({ queryid: String(i + 2), calls: 1 })),
+            ],
+          },
+        },
+      ],
+    });
+    expect(res.statusCode, res.body).toBe(204);
+    const row = await ctx.db
+      .selectFrom('integrations')
+      .select(['status', 'status_details'])
+      .where('id', '=', id)
+      .executeTakeFirstOrThrow();
+    const d = row.status_details as {
+      error: string;
+      product: string;
+      members: unknown[];
+      extra: { statements: { query?: string }[] };
+    };
+    expect(row.status).toBe('error');
+    expect(d.error).toHaveLength(512);
+    expect(d.product).toBe('valkey');
+    expect(d.members).toHaveLength(16);
+    expect(d.extra.statements).toHaveLength(100);
+    expect(d.extra.statements[0]!.query).toBe(long.slice(0, 256));
+  });
+
   it('refuses a Kubernetes report that names a host', async () => {
     const c = await cluster('kubernetes');
     const res = await status(c.token, {

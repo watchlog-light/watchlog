@@ -388,6 +388,98 @@ describe('Applications API', () => {
     );
   });
 
+  it('ignores one discovered service or a whole namespace or project, and restores them', async () => {
+    const k8s = await cluster('prod', 'kubernetes');
+    const docker = await cluster('docker-01', 'docker');
+    await pod(k8s.id, 'shop', 'redis-0', ['StatefulSet', 'redis'], [{ image: 'redis:7.2' }]);
+    await pod(k8s.id, 'pg-e2e', 'pg-0', ['StatefulSet', 'pg'], [{ image: 'postgres:17' }]);
+    await pod(k8s.id, 'pg-e2e', 'pg2-0', ['StatefulSet', 'pg2'], [{ image: 'postgres:13' }]);
+    await container(docker.id, 'docker-01', 'cache-1', 'valkey/valkey:8.0', {
+      project: 'storefront',
+      service: 'cache',
+    });
+    const list = async () =>
+      (await api('GET', '/applications/discovered')).json() as {
+        discovered: { key: string; name: string; product: string | null; version: string }[];
+        ignored: { id: string; scope: string; label: string }[];
+      };
+    const first = await list();
+    expect(first.discovered.map((d) => d.name).sort()).toEqual([
+      'pg-e2e/pg',
+      'pg-e2e/pg2',
+      'shop/redis',
+      'storefront/cache',
+    ]);
+    // Valkey is read by the Redis integration and says so.
+    expect(first.discovered.find((d) => d.name === 'storefront/cache')).toMatchObject({
+      product: 'valkey',
+      version: '8.0',
+    });
+    expect(first.discovered.find((d) => d.name === 'shop/redis')!.product).toBeNull();
+
+    const viewer = await createUserSession(ctx.db, { role: 'viewer', orgId });
+    const shop = first.discovered.find((d) => d.name === 'shop/redis')!;
+    expect(
+      (
+        await api(
+          'POST',
+          '/applications/discovered/ignore',
+          { clusterId: k8s.id, key: shop.key },
+          viewer.cookie,
+        )
+      ).statusCode,
+    ).toBe(403);
+    const one = await api('POST', '/applications/discovered/ignore', {
+      clusterId: k8s.id,
+      key: shop.key,
+    });
+    expect(one.statusCode, one.body).toBe(201);
+    const ns = await api('POST', '/applications/discovered/ignore', {
+      clusterId: k8s.id,
+      group: 'pg-e2e',
+    });
+    expect(ns.json().ignored).toMatchObject({ scope: 'group', label: 'namespace pg-e2e' });
+    expect(
+      (await api('POST', '/applications/discovered/ignore', { clusterId: k8s.id, group: 'nope' }))
+        .statusCode,
+    ).toBe(404);
+    expect(
+      (await api('POST', '/applications/discovered/ignore', { clusterId: k8s.id })).statusCode,
+    ).toBe(400);
+    const after = await list();
+    expect(after.discovered.map((d) => d.name)).toEqual(['storefront/cache']);
+    expect(after.ignored.map((i) => i.label).sort()).toEqual([
+      'namespace pg-e2e',
+      'redis shop/redis',
+    ]);
+    // A new pod in an ignored namespace stays out too.
+    await pod(k8s.id, 'pg-e2e', 'pg3-0', ['StatefulSet', 'pg3'], [{ image: 'postgres:16' }]);
+    expect((await list()).discovered.map((d) => d.name)).toEqual(['storefront/cache']);
+    // Restored: back in the list.
+    expect(
+      (await api('DELETE', `/applications/discovered/ignore/${ns.json().ignored.id}`)).statusCode,
+    ).toBe(204);
+    expect((await list()).discovered.map((d) => d.name)).toEqual([
+      'pg-e2e/pg',
+      'pg-e2e/pg2',
+      'pg-e2e/pg3',
+      'storefront/cache',
+    ]);
+  });
+
+  it('says who paused a service and when', async () => {
+    const docker = await cluster('docker-01', 'docker');
+    const target = { kind: 'container', host: 'docker-01', container: 'redis', port: 6379 };
+    const id = (
+      await api('POST', '/applications', { clusterId: docker.id, type: 'redis', target })
+    ).json().application.id as string;
+    expect((await api('PATCH', `/applications/${id}`, { paused: true })).statusCode).toBe(204);
+    const a = (await api('GET', `/applications/${id}`)).json().application;
+    expect(a.reason.code).toBe('paused');
+    expect(a.reason.facts.by).toBeTruthy();
+    expect(Date.parse(a.reason.facts.at)).toBeGreaterThan(Date.now() - 60_000);
+  });
+
   it('lets viewers read and only owners and admins change', async () => {
     const docker = await cluster('docker-01', 'docker');
     const viewer = await createUserSession(ctx.db, { role: 'viewer', orgId });

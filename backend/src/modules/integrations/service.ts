@@ -36,6 +36,9 @@ export interface ApplicationRow {
   cluster_id: string;
   cluster_name: string;
   cluster_kind: string;
+  /** Paused: who paused it and when (its last "paused" event). */
+  paused_by?: string | null;
+  paused_at?: Date | null;
 }
 
 export interface CollectorRow {
@@ -68,6 +71,24 @@ export async function listApplicationRows(
       'i.cluster_id',
       'c.name as cluster_name',
       'c.kind as cluster_kind',
+      (eb) =>
+        eb
+          .selectFrom('integration_events as e')
+          .select('e.user_name')
+          .whereRef('e.integration_id', '=', 'i.id')
+          .where('e.action', '=', 'paused')
+          .orderBy('e.at', 'desc')
+          .limit(1)
+          .as('paused_by'),
+      (eb) =>
+        eb
+          .selectFrom('integration_events as e')
+          .select('e.at')
+          .whereRef('e.integration_id', '=', 'i.id')
+          .where('e.action', '=', 'paused')
+          .orderBy('e.at', 'desc')
+          .limit(1)
+          .as('paused_at'),
     ])
     .where('i.org_id', '=', orgId);
   if (filter.clusterId) q = q.where('i.cluster_id', '=', filter.clusterId);
@@ -103,7 +124,16 @@ export function healthOf(
   collector: CollectorRow | undefined,
   now = Date.now(),
 ): { health: Health; reason: HealthReason } {
-  if (row.status === 'paused') return { health: 'unknown', reason: { code: 'paused', facts: {} } };
+  if (row.status === 'paused') {
+    // Paused by a person in its settings: nothing is read until someone resumes it.
+    return {
+      health: 'unknown',
+      reason: {
+        code: 'paused',
+        facts: { by: row.paused_by ?? null, at: row.paused_at?.toISOString() ?? null },
+      },
+    };
+  }
   if (!collector) {
     return {
       health: 'unknown',

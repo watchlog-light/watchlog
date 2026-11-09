@@ -1187,6 +1187,7 @@
                           "type",
                           "name",
                           "version",
+                          "product",
                           "cluster",
                           "where",
                           "target",
@@ -1201,6 +1202,7 @@
                           "type": { "type": "string" },
                           "name": { "type": "string" },
                           "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "product": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                           "cluster": {
                             "type": "object",
                             "required": ["id", "name", "kind"],
@@ -1427,6 +1429,7 @@
                         "type",
                         "name",
                         "version",
+                        "product",
                         "cluster",
                         "where",
                         "target",
@@ -1441,6 +1444,7 @@
                         "type": { "type": "string" },
                         "name": { "type": "string" },
                         "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                        "product": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                         "cluster": {
                           "type": "object",
                           "required": ["id", "name", "kind"],
@@ -1877,7 +1881,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["discovered"],
+                  "required": ["discovered", "ignored"],
                   "properties": {
                     "discovered": {
                       "type": "array",
@@ -1890,6 +1894,7 @@
                           "name",
                           "image",
                           "version",
+                          "product",
                           "port",
                           "confidence",
                           "members",
@@ -1917,6 +1922,7 @@
                           "name": { "type": "string" },
                           "image": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                           "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "product": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                           "port": { "type": "integer" },
                           "confidence": {
                             "anyOf": [
@@ -2031,6 +2037,38 @@
                               }
                             ]
                           }
+                        }
+                      }
+                    },
+                    "ignored": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["id", "cluster", "scope", "label", "createdAt"],
+                        "properties": {
+                          "id": { "type": "string" },
+                          "cluster": {
+                            "type": "object",
+                            "required": ["id", "name", "kind"],
+                            "properties": {
+                              "id": { "type": "string" },
+                              "name": { "type": "string" },
+                              "kind": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["kubernetes"] },
+                                  { "type": "string", "enum": ["docker"] }
+                                ]
+                              }
+                            }
+                          },
+                          "scope": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["service"] },
+                              { "type": "string", "enum": ["group"] }
+                            ]
+                          },
+                          "label": { "type": "string" },
+                          "createdAt": { "type": "string" }
                         }
                       }
                     }

@@ -162,32 +162,44 @@ export function dockerRecreateCommand({
 
 /**
  * Starts the integrations collector on a Docker host (ADR-131, ADR-134), with the token
- * of the agent already running there: host network, uid 0 with every capability
+ * and the endpoint of the agent already running there: the collector reports where that
+ * agent does, which the host can reach (the browser's address may be `localhost`).
+ * `fallback`, the ingest or Public URL, is used when the agent has no endpoint set; with
+ * neither, the command stops and says so. The image is the agent's with /integrations
+ * for /agent (same registry and tag), else `image`. Host network, uid 0 with every capability
  * dropped, read-only, and /etc/watchlog/secrets mounted read-only for passwords kept in
  * files. Running it again replaces it.
  */
 export function dockerCollectorCommand({
-  endpoint,
+  fallback,
   image,
   host,
   agent = 'watchlog-agent',
 }: {
-  endpoint: string;
+  fallback: string | null;
   image: string;
   host: string;
   agent?: string;
 }): string {
+  const env = (name: string) =>
+    `"$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' ${shellQuote(agent)} | sed -n 's/^${name}=//p')"`;
+  const missing = fallback
+    ? `export WATCHLOG_ENDPOINT="\${WATCHLOG_ENDPOINT:-${fallback.replace(/["$`\\]/g, '\\$&')}}" && \\`
+    : `: "\${WATCHLOG_ENDPOINT:?the ${agent} container has no WATCHLOG_ENDPOINT: set the Public URL in Settings → General}" && \\`;
+  // The collector image next to the agent's (same registry and tag), else the server's.
+  const sameAsAgent = `"$(docker inspect --format '{{.Config.Image}}' ${shellQuote(agent)} | sed -n 's#/agent\\([:@]\\)#/integrations\\1#p')"`;
   return [
-    `export WATCHLOG_TOKEN="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' ${shellQuote(agent)} | sed -n 's/^WATCHLOG_TOKEN=//p')" && \\`,
+    `export WATCHLOG_TOKEN=${env('WATCHLOG_TOKEN')} WATCHLOG_ENDPOINT=${env('WATCHLOG_ENDPOINT')} && \\`,
+    missing,
+    `image=${sameAsAgent} && \\`,
     'docker rm -f watchlog-integrations 2>/dev/null; \\',
     'docker run -d --name watchlog-integrations --restart unless-stopped \\',
     '  --network host --user 0:0 --cap-drop ALL --read-only \\',
     '  --tmpfs /var/lib/watchlog-integrations --security-opt no-new-privileges \\',
     '  -v /etc/watchlog/secrets:/etc/watchlog/secrets:ro \\',
-    '  -e WATCHLOG_TOKEN \\',
-    `  -e WATCHLOG_ENDPOINT=${shellQuote(endpoint)} \\`,
+    '  -e WATCHLOG_TOKEN -e WATCHLOG_ENDPOINT \\',
     `  -e WATCHLOG_HOSTNAME=${shellQuote(host)} \\`,
-    `  ${shellQuote(image)} --mode=docker`,
+    `  "\${image:-${image.replace(/["$`\\]/g, '\\$&')}}" --mode=docker`,
   ].join('\n');
 }
 
@@ -201,6 +213,11 @@ export function installTarget(config: Config, settings: SettingsService) {
   return {
     image: config.agentImage ?? agentImage('ghcr.io/watchlog-light/agent', config.version),
     version: config.version,
+    /** The ingest or Public URL when one is set: what a host can reach for sure. */
+    async configuredEndpoint(): Promise<string | null> {
+      const base = config.ingestUrl ?? (await settings.publicUrl()).value;
+      return base ? base.replace(/\/+$/, '') : null;
+    },
     async endpointFor(request: FastifyRequest): Promise<string> {
       const base =
         config.ingestUrl ??

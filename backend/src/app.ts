@@ -50,6 +50,7 @@ import { userRoutes } from './modules/users/routes.js';
 import { SettingsService } from './modules/settings/service.js';
 import type { BucketSpec } from './modules/ingest/rate-limit.js';
 import { applySeed, type Seed } from './modules/seed/seed.js';
+import { applySeedServices } from './modules/seed/services.js';
 import { apiTokenRoutes } from './modules/api-tokens/routes.js';
 import { registerApiTokenAuth } from './plugins/api-token.js';
 
@@ -221,6 +222,23 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     notifier: collectors,
     secretKey: config.secretKey,
   });
+
+  // Seeded services (ADR-142): monitored as soon as the agents report them, so tried on
+  // start and every minute while any is still missing.
+  const seededServices = deps.seed?.services ?? [];
+  let seeding: ReturnType<typeof setInterval> | undefined;
+  if (seededServices.length) {
+    const seedServices = () =>
+      applySeedServices(deps.db, seededServices, collectors, app.log).catch((err: Error) =>
+        app.log.error({ err: err.message }, 'seed: services not applied'),
+      );
+    app.addHook('onReady', async () => {
+      await seedServices();
+      seeding = setInterval(() => void seedServices(), 60_000);
+      seeding.unref();
+    });
+    app.addHook('onClose', async () => clearInterval(seeding));
+  }
 
   // Event partitions (ADR-061): on start, then every 6 hours.
   const maintain = () =>
