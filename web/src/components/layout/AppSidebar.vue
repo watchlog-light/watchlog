@@ -6,6 +6,7 @@ import { storeToRefs } from 'pinia';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { navFor, type NavItem } from '@/router';
+import { useApplicationsStore } from '@/stores/applications';
 import { useAuthStore } from '@/stores/auth';
 import { useClustersStore } from '@/stores/clusters';
 import { useUiStore } from '@/stores/ui';
@@ -25,6 +26,9 @@ const items = computed(() =>
 );
 const router = useRouter();
 const route = useRoute();
+// Applications shows how many monitored services have a problem (SPEC §4.12).
+const applications = useApplicationsStore();
+const badge = (item: NavItem) => (item.name === 'applications' ? applications.problems : 0);
 
 /** Exact match for Overview; path prefix for sections with nested pages (e.g. Settings). */
 function isCurrent(item: NavItem): boolean {
@@ -43,6 +47,7 @@ function target(path: string) {
 async function signOut() {
   await auth.logout();
   clusters.reset();
+  applications.reset();
   await router.replace({ name: 'login' });
 }
 </script>
@@ -95,6 +100,17 @@ async function signOut() {
             >
               <component :is="item.icon" class="size-4.5 shrink-0" aria-hidden="true" />
               <span :class="collapsed ? 'sr-only' : 'truncate'">{{ $t(item.titleKey) }}</span>
+              <span
+                v-if="badge(item) > 0"
+                data-testid="nav-badge"
+                :class="[
+                  'flex h-5 min-w-5 items-center justify-center rounded-full bg-critical/15 px-1.5 text-12 font-semibold text-critical',
+                  collapsed ? 'absolute -top-0.5 right-0.5 h-4 min-w-4 px-1' : 'ml-auto',
+                ]"
+              >
+                <span class="sr-only">{{ $t('nav.problems', { n: badge(item) }) }}</span>
+                <span aria-hidden="true">{{ badge(item) }}</span>
+              </span>
             </a>
           </RouterLink>
         </li>

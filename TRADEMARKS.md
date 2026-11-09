@@ -36,9 +36,10 @@ logo. The logo is in `packages/design-tokens/assets/` and the name in
 
 ## Other marks
 
-Kubernetes and Docker are trademarks of their respective owners. WatchLog is not affiliated
-with them, and they don't sponsor or endorse it. The dashboard shows their logos only to name
-the kind of cluster it monitors:
+Kubernetes, Docker, Redis, PostgreSQL, NGINX, RabbitMQ, MongoDB and Elasticsearch are
+trademarks of their respective owners. WatchLog is not affiliated with them, and they don't
+sponsor or endorse it. The dashboard shows their logos only to name what it monitors: the
+kind of cluster, and the services on the Applications page.
 
 - **Kubernetes logo** (`web/src/assets/brands/kubernetes.svg`): © The Linux Foundation, from
   [cncf/artwork](https://github.com/cncf/artwork/tree/main/projects/kubernetes), licensed
@@ -48,8 +49,15 @@ the kind of cluster it monitors:
   [brand resources](https://www.docker.com/company/newsroom/media-resources/), unchanged, used
   under Docker's [trademark guidelines](https://www.docker.com/legal/trademark-guidelines/).
 
-Both files are the owners' artwork as published, not changed or recoloured. Forks keep these
-notices with the files.
+- **Service logos** (`web/src/assets/brands/redis.svg`, `postgres.svg`, `nginx.svg`,
+  `rabbitmq.svg`, `mongodb.svg`, `elasticsearch.svg`): the icons from
+  [Simple Icons](https://simpleicons.org) 16.36.0 (CC0 1.0), filled with each brand's colour,
+  used under each owner's guidelines ([PostgreSQL](https://www.postgresql.org/about/policies/trademarks/),
+  [Redis](https://redis.io/legal/trademark-policy/), [RabbitMQ](https://www.rabbitmq.com/trademark-guidelines),
+  [NGINX](https://www.f5.com/company/policies/trademarks)).
+
+The Kubernetes and Docker files are the owners' artwork as published, not changed or
+recoloured. Forks keep these notices with the files.
 
 ## Questions
 

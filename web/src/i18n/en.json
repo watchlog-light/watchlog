@@ -18,7 +18,9 @@
     "hosts": "Hosts",
     "containers": "Containers",
     "open": "Open navigation",
-    "close": "Close navigation"
+    "close": "Close navigation",
+    "applications": "Applications",
+    "problems": "{n} with a problem | {n} with problems"
   },
   "clusterSwitcher": {
     "label": "Cluster",
@@ -1908,6 +1910,82 @@
       "ownTitle": "Your own tokens",
       "ownText": "Install WatchLog on a Kubernetes cluster or a Docker host, then create tokens here.",
       "install": "Install WatchLog →"
+    }
+  },
+  "applications": {
+    "title": "Applications",
+    "subtitle": "Databases, caches, queues and proxies running next to your workloads, on Kubernetes and Docker.",
+    "addManually": "Add manually",
+    "filters": {
+      "all": "All",
+      "databases": "Databases",
+      "caches": "Caches",
+      "queues": "Queues",
+      "proxies": "Proxies",
+      "search": "Search",
+      "label": "Filter by type"
+    },
+    "sort": {
+      "label": "Sort",
+      "problems": "Problems first",
+      "name": "Name",
+      "cluster": "Cluster"
+    },
+    "columns": {
+      "service": "Service",
+      "where": "Where",
+      "health": "Health",
+      "metrics": "Key metrics",
+      "last6h": "Last 6 h"
+    },
+    "health": {
+      "ok": "Healthy",
+      "warning": "Warning",
+      "critical": "Critical",
+      "unknown": "Waiting"
+    },
+    "reason": {
+      "waiting": "Waiting for the first report from the collector.",
+      "collectorMissing": "The integrations collector isn't running in {cluster} yet.",
+      "collectorMissingHost": "No integrations collector runs on {host} yet.",
+      "collectorSilent": "The collector stopped reporting at {since}.",
+      "unreachable": "WatchLog can't connect to it.",
+      "unreachableError": "Can't connect: {error}",
+      "connected": "Connected. Its pages arrive with its integration.",
+      "someDown": "{up} of {members} members answer.",
+      "paused": "Paused."
+    },
+    "firing": "{n} firing",
+    "members": "{up} of {total} members",
+    "open": "Open {name}",
+    "discovered": {
+      "title": "Found {n} service that isn't monitored yet | Found {n} services that aren't monitored yet",
+      "from": "from images and ports the agents already see",
+      "on": "{service} on {name}",
+      "byImage": "image {image}, port {port}",
+      "byImageCompose": "image {image}, Compose project {project}, port {port}",
+      "byPort": "port {port} only: the image doesn't say what it is",
+      "needsUser": "needs a read-only user",
+      "ready": "nothing to set up",
+      "monitor": "Monitor",
+      "monitorName": "Monitor {name}"
+    },
+    "empty": {
+      "title": "No services found yet",
+      "description": "WatchLog looks for Redis, PostgreSQL, Nginx and RabbitMQ in the images and ports your agents report. When one appears it is offered here; you can also add one by hand."
+    },
+    "error": "Applications couldn't be loaded.",
+    "monitor": {
+      "title": "Monitor {service}",
+      "detected": "Detected",
+      "detectedK8s": "Image {image} on port {port} in namespace {namespace} of {cluster}. Its version and settings are read on first connect.",
+      "detectedDocker": "Image {image} on port {port} on {host}{project}. Its version and settings are read on first connect.",
+      "detectedProject": ", Compose project {project}",
+      "accessSoon": "The connect flow for services that need a user comes next; this one can start now.",
+      "start": "Start monitoring",
+      "cancel": "Cancel",
+      "started": "Monitoring {name}.",
+      "failed": "{name} couldn't be added: {error}"
     }
   }
 }

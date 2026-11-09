@@ -150,6 +150,9 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
       shot: true,
     },
     { name: 'events', path: `/events${k}`, shot: true },
+    // Applications (v0.3 slice 2): whatever the dev stack monitors and discovers.
+    { name: 'applications', path: `/applications${k}`, shot: true },
+    { name: 'applications-docker', path: `/applications${d}` },
     { name: 'events-docker', path: `/events${d}` },
     // The service map from fixtures, for a Kubernetes cluster and a Docker host: these
     // checks hold whether or not a cluster is reporting right now.
