@@ -13,7 +13,8 @@ Defaults work for most installs. This page lists what you can change.
 | -------------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `publicUrl`                                                                                        | `''`                                    | The URL people use to open WatchLog, used in alert links and install commands.                                                                                                                          |
 | `admin.email`, `admin.password`                                                                    | `''`                                    | Create the admin at install time instead of using the setup code.                                                                                                                                       |
-| `secretKey`                                                                                        | generated                               | Key for alert channel secrets (32 bytes, base64). Set it only to restore a backup.                                                                                                                      |
+| `secretKey`                                                                                        | generated                               | Key for stored secrets (32 bytes, base64). Set it only to restore a backup or rotate.                                                                                                                   |
+| `secretKeyPrevious`                                                                                | empty                                   | The key before a rotation, while servers restart.                                                                                                                                                       |
 | `clusterName`                                                                                      | `kubernetes`                            | Name of this cluster in WatchLog.                                                                                                                                                                       |
 | `demoMode`                                                                                         | `false`                                 | A read-only public demo: visitors enter as a viewer without a password, and every change is refused, even for admins. Secrets, tokens and channel targets are never shown. Not for a real installation. |
 | `mcp.enabled`                                                                                      | `true`                                  | The MCP server at `/mcp`, so AI assistants (Claude, Cursor) can read your clusters with a personal API token. It needs a token anyway; `false` turns it off, and tokens still read the REST API.        |
@@ -56,23 +57,43 @@ Defaults work for most installs. This page lists what you can change.
 
 ## Docker Compose server (`.env`)
 
-| Variable                                             | Default    | What it does                                                                     |
-| ---------------------------------------------------- | ---------- | -------------------------------------------------------------------------------- |
-| `WATCHLOG_DB_PASSWORD`                               | required   | PostgreSQL password.                                                             |
-| `WATCHLOG_SECRET_KEY`                                | required   | Key for alert channel secrets: `openssl rand -base64 32`. Back it up.            |
-| `WATCHLOG_PUBLIC_URL`                                | `''`       | How agents and browsers reach the server.                                        |
-| `WATCHLOG_VERSION`                                   | `latest`   | Image version; pin it, e.g. `0.2.0`.                                             |
-| `WATCHLOG_PORT`                                      | 8080       | The only published port.                                                         |
-| `WATCHLOG_RETENTION`                                 | `15d`      | Metrics retention.                                                               |
-| `WATCHLOG_SMTP_URL`, `WATCHLOG_SMTP_FROM`            | unset      | Email alerts.                                                                    |
-| `HTTPS_PROXY`, `NO_PROXY`                            | unset      | Outbound proxy for alert deliveries.                                             |
-| `WATCHLOG_TELEGRAM_API_URL`                          | Telegram's | Telegram Bot API mirror.                                                         |
-| `WATCHLOG_ADMIN_EMAIL`, `WATCHLOG_ADMIN_PASSWORD`    | unset      | Create the admin at startup instead of the setup code.                           |
-| `WATCHLOG_DEMO_MODE`                                 | unset      | `true` makes the server a read-only public demo, like the Helm value `demoMode`. |
-| `WATCHLOG_MCP_ENABLED`                               | `true`     | `false` turns the MCP server off, like the Helm value `mcp.enabled`.             |
-| `WATCHLOG_CLIENT_IP_HEADER`                          | unset      | Like the Helm value `backend.clientIpHeader`.                                    |
-| `WATCHLOG_CLIENT_COUNTRY_HEADER`                     | unset      | Like the Helm value `backend.clientCountryHeader`.                               |
-| `WATCHLOG_TRUSTED_PROXIES`, `WATCHLOG_COOKIE_SECURE` | unset      | Like the Helm values `backend.trustedProxies` and `cookieSecure`.                |
+| Variable                                             | Default    | What it does                                                                        |
+| ---------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------- |
+| `WATCHLOG_DB_PASSWORD`                               | required   | PostgreSQL password.                                                                |
+| `WATCHLOG_SECRET_KEY`                                | required   | Key for stored secrets: `openssl rand -base64 32`. Back it up with the database.    |
+| `WATCHLOG_SECRET_KEY_PREVIOUS`                       |            | The key before a rotation; still decrypts until every server runs with the new one. |
+| `WATCHLOG_PUBLIC_URL`                                | `''`       | How agents and browsers reach the server.                                           |
+| `WATCHLOG_VERSION`                                   | `latest`   | Image version; pin it, e.g. `0.2.0`.                                                |
+| `WATCHLOG_PORT`                                      | 8080       | The only published port.                                                            |
+| `WATCHLOG_RETENTION`                                 | `15d`      | Metrics retention.                                                                  |
+| `WATCHLOG_SMTP_URL`, `WATCHLOG_SMTP_FROM`            | unset      | Email alerts.                                                                       |
+| `HTTPS_PROXY`, `NO_PROXY`                            | unset      | Outbound proxy for alert deliveries.                                                |
+| `WATCHLOG_TELEGRAM_API_URL`                          | Telegram's | Telegram Bot API mirror.                                                            |
+| `WATCHLOG_ADMIN_EMAIL`, `WATCHLOG_ADMIN_PASSWORD`    | unset      | Create the admin at startup instead of the setup code.                              |
+| `WATCHLOG_DEMO_MODE`                                 | unset      | `true` makes the server a read-only public demo, like the Helm value `demoMode`.    |
+| `WATCHLOG_MCP_ENABLED`                               | `true`     | `false` turns the MCP server off, like the Helm value `mcp.enabled`.                |
+| `WATCHLOG_CLIENT_IP_HEADER`                          | unset      | Like the Helm value `backend.clientIpHeader`.                                       |
+| `WATCHLOG_CLIENT_COUNTRY_HEADER`                     | unset      | Like the Helm value `backend.clientCountryHeader`.                                  |
+| `WATCHLOG_TRUSTED_PROXIES`, `WATCHLOG_COOKIE_SECURE` | unset      | Like the Helm values `backend.trustedProxies` and `cookieSecure`.                   |
+
+## Rotating the secret key
+
+`WATCHLOG_SECRET_KEY` encrypts alert channel secrets, the email server password and service credentials. To replace it without downtime:
+
+1. Generate a new key: `openssl rand -base64 32`.
+2. Re-encrypt everything with both keys set, from the backend image:
+
+   ```bash
+   # Docker Compose
+   docker compose run --rm -e WATCHLOG_SECRET_KEY_PREVIOUS=<old> -e WATCHLOG_SECRET_KEY=<new> backend dist/rotate-secret-key.js
+   # Kubernetes
+   kubectl -n watchlog exec deploy/watchlog-backend -- env WATCHLOG_SECRET_KEY_PREVIOUS=<old> WATCHLOG_SECRET_KEY=<new> node dist/rotate-secret-key.js
+   ```
+
+   It changes every secret in one transaction, and refuses an old key that isn't this installation's.
+
+3. Set the new key and keep the old one as `WATCHLOG_SECRET_KEY_PREVIOUS` (Compose: `WATCHLOG_SECRET_KEY` and `WATCHLOG_SECRET_KEY_PREVIOUS` in `.env`; Helm: `--set secretKey=<new> --set secretKeyPrevious=<old>`), then restart. Servers still on the old key keep working during the restart.
+4. Once every backend and alert-worker runs with the new key, remove `WATCHLOG_SECRET_KEY_PREVIOUS`.
 
 ## Behind a reverse proxy
 

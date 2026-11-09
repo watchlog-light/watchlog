@@ -82,7 +82,9 @@ Services you monitor on the Applications page (Redis, PostgreSQL, Nginx, RabbitM
 
   It mounts no Docker socket and no host filesystem other than that secrets directory, read-only.
 
-- **Credentials:** a password WatchLog generates or you type in is stored encrypted with AES-256-GCM under the same key as alert channel secrets. The API never returns it. Only the collector of that service's cluster receives it, over TLS, and keeps it in memory. Who set or changed a credential is recorded, never the value.
+- **Credentials:** a password WatchLog generates or you type in is stored encrypted with AES-256-GCM under the same key as alert channel secrets, tied to that one service: copied to another, it can't be decrypted. The API never returns it; the generated password appears once, inside the command you run to create the user. Only the collector of that service's cluster receives it, over TLS, and keeps it in memory. Who set or changed a credential, and when, is recorded, never the value.
+- **Or keep the password yourself:** in a Kubernetes Secret, which the collector may read only after you run the two `kubectl create role/rolebinding` lines WatchLog shows for that one Secret; or in a file under `/etc/watchlog/secrets/` on the Docker host. WatchLog then stores only the name.
+- **Least privilege, checked:** the user WatchLog creates gets monitoring rights only (PostgreSQL's `pg_monitor`; a Redis ACL of read-only commands). If you use an existing user that can do more, such as a superuser, the connect drawer says so.
 - **Push only:** like the agents, the collector connects out to your WatchLog server. The server never connects into your cluster or hosts.
 
 ## What is sent, and how
@@ -94,7 +96,7 @@ Services you monitor on the Applications page (Redis, PostgreSQL, Nginx, RabbitM
 
 ## The server
 
-- **Secrets at rest:** alert channel secrets (Slack webhooks, Telegram tokens, webhook signing secrets) are encrypted with AES-256-GCM under a key you keep. The API never returns them.
+- **Secrets at rest:** alert channel secrets (Slack webhooks, Telegram tokens, webhook signing secrets), the email server password and service credentials are encrypted with AES-256-GCM under a key you keep. The API never returns them. You can rotate the key without downtime (see [Configuration](configuration.md#rotating-the-secret-key)).
 - **Passwords:** hashed with argon2id. Sessions use secure cookies behind HTTPS, with CSRF protection and rate-limited sign-in.
 - **Containers:** all server containers run as non-root with every capability dropped.
 - **Images:** the agent image is `FROM scratch` with one static binary.

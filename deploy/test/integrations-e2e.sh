@@ -66,6 +66,7 @@ printf '%s' "$WATCHLOG_E2E_DOCKER_TOKEN" | limactl shell "$vm" bash -c "cd ~ && 
     -e WATCHLOG_HOSTNAME=$vm_host -e WATCHLOG_EBPF=false ghcr.io/watchlog-light/agent:e2e --mode=docker >/dev/null && \
   docker run -d --name watchlog-integrations-e2e --network host --user 0:0 --cap-drop ALL --read-only \
     --tmpfs /var/lib/watchlog-integrations --security-opt no-new-privileges \
+    -v /etc/watchlog/secrets:/etc/watchlog/secrets:ro \
     -e WATCHLOG_TOKEN=\"\$t\" -e WATCHLOG_ENDPOINT=$endpoint -e WATCHLOG_HOSTNAME=$vm_host \
     ghcr.io/watchlog-light/integrations:e2e >/dev/null"
 

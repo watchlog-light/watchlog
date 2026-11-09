@@ -58,6 +58,9 @@ secret key, the public URL for links, SMTP, the Telegram API and the outbound pr
 {{- $alerting := include "watchlog.alerting" . | fromYaml -}}
 - name: WATCHLOG_SECRET_KEY
   valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secret-key, key: key } }
+{{- with .Values.secretKeyPrevious }}
+- { name: WATCHLOG_SECRET_KEY_PREVIOUS, value: {{ . | quote }} }
+{{- end }}
 {{- with .Values.publicUrl }}
 - { name: WATCHLOG_PUBLIC_URL, value: {{ . | quote }} }
 {{- end }}

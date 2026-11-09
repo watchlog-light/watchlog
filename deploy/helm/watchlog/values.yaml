@@ -23,6 +23,9 @@ admin:
 # Generated on install, kept on upgrades and on uninstall (Secret <release>-secret-key).
 # Set it only to restore a backed-up key; back it up, or channel secrets are lost.
 secretKey: ''
+# The key before a rotation (docs/site/configuration.md, ADR-133): still decrypts until
+# every backend and worker runs with the new secretKey; remove it afterwards.
+secretKeyPrevious: ''
 # Name of this cluster in WatchLog; its agents are registered automatically.
 clusterName: kubernetes
 # The MCP server at /mcp (ADR-127): Claude, Cursor and other AI assistants read your

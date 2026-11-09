@@ -9,6 +9,8 @@ name: watchlog
 # Shared by the backend (send test, Telegram) and the alert-worker (ADR-079, ADR-080).
 x-alerting: &alerting # Encrypts alert channel secrets; back it up with the database.
   WATCHLOG_SECRET_KEY: ${WATCHLOG_SECRET_KEY:?set WATCHLOG_SECRET_KEY in .env (openssl rand -base64 32)}
+  # Only while rotating the key (docs/site/configuration.md): the key before.
+  WATCHLOG_SECRET_KEY_PREVIOUS: ${WATCHLOG_SECRET_KEY_PREVIOUS:-}
   # Links in alert messages, and the address shown in install commands.
   WATCHLOG_PUBLIC_URL: ${WATCHLOG_PUBLIC_URL:-}
   WATCHLOG_SMTP_URL: ${WATCHLOG_SMTP_URL:-}
