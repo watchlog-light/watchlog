@@ -33,6 +33,14 @@ export function byteAxisStep(max: number, ticks = 4): number {
   return Math.max(1, nice * base);
 }
 
+/**
+ * A step for counts (members, connections, keys): a whole number, at least 1, so an axis
+ * up to 2 reads 0, 1, 2 rather than 0, 0.5, 1, 1.5, 2 printed as "0 1 1 2 2".
+ */
+export function integerStep(max: number, ticks = 4): number {
+  return Math.max(1, Math.round(niceStep(max, ticks)));
+}
+
 /** A decimal axis step: 1, 2 or 5 × a power of ten, about `ticks` steps up to `max`. */
 export function niceStep(max: number, ticks = 4): number {
   if (!(max > 0)) return 1;

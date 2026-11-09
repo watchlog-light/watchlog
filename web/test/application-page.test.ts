@@ -417,7 +417,9 @@ describe('Application page', () => {
     expect(wrapper.get('[data-testid="collector-command"]').text()).toContain(
       'Start the integrations collector on docker-01',
     );
-    expect(wrapper.get('[data-testid="generic-note"]').text()).toContain('The Redis pages');
+    // Neutral for a type without its own words; never another type's tabs.
+    expect(wrapper.get('[data-testid="generic-note"]').text()).toContain("Redis's own tabs");
+    expect(wrapper.get('[data-testid="generic-note"]').text()).not.toContain('keys');
     expect(wrapper.get('[data-testid="open-service-map"]').attributes('href')).toBe(
       `/service-map?cluster=${DOCKER.id}`,
     );

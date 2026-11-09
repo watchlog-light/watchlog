@@ -272,6 +272,36 @@ describe('TimeSeriesChart', () => {
     expect([1, 2, 5]).toContain(+(interval / 10 ** Math.floor(Math.log10(interval))).toFixed(9));
   });
 
+  it('gives count axes whole ticks: members reachable 0, 1, 2, never 0.5', () => {
+    mountChart({
+      unit: 'count',
+      series: [
+        {
+          name: 'reachable',
+          points: [
+            [1793400000, 1],
+            [1793400060, 2],
+          ],
+        },
+        {
+          name: 'members',
+          points: [
+            [1793400000, 2],
+            [1793400060, 2],
+          ],
+        },
+      ],
+    });
+    const yAxis = setOption.mock.calls.at(-1)![0].yAxis;
+    expect(yAxis).toMatchObject({ interval: 1, max: 2 });
+    for (const n of [7, 37, 1234]) {
+      mountChart({ unit: 'count', series: [{ name: 'c', points: [[1793400000, n]] }] });
+      const y = setOption.mock.calls.at(-1)![0].yAxis;
+      expect(Number.isInteger(y.interval), `max ${n}`).toBe(true);
+      expect(y.max).toBeGreaterThanOrEqual(n);
+    }
+  });
+
   it('gives an all-zero byte series a 0–1 B axis', () => {
     mountChart({ unit: 'bytes', series: [{ name: 'read', points: [[1793400000, 0]] }] });
     const yAxis = setOption.mock.calls.at(-1)![0].yAxis;

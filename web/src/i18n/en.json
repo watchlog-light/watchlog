@@ -2237,7 +2237,7 @@
       "openMap": "Open in service map",
       "sees": "What WatchLog sees",
       "sections": "Sections",
-      "generic": "WatchLog checks that its collector reaches every member of this {service} and how fast it connects. The {service} pages (memory, commands, keys and the rest) come with its integration.",
+      "generic": "WatchLog checks that its collector reaches every member of this {service} and how fast it connects. {service}'s own tabs come with its integration.",
       "error": "This service couldn't be loaded.",
       "notFound": {
         "title": "Service not found",
@@ -2267,6 +2267,12 @@
         "resume": "Resume monitoring",
         "resumed": "{name} is monitored again.",
         "howTo": "An Owner or Admin can resume it here or in its settings."
+      },
+      "genericWhat": {
+        "nginx": "WatchLog checks that its collector reaches every member of this Nginx and how fast it connects. Requests, errors, latency and connections come with its integration.",
+        "rabbitmq": "WatchLog checks that its collector reaches every member of this RabbitMQ and how fast it connects. Queues, message rates, consumers and resources come with its integration.",
+        "mongodb": "WatchLog checks that its collector reaches every member of this MongoDB and how fast it connects. Operations, replication and collections come with its integration (v0.3.1).",
+        "elasticsearch": "WatchLog checks that its collector reaches every member of this Elasticsearch and how fast it connects. Cluster health, indices and search latency come with its integration (v0.5)."
       }
     },
     "panel": {

@@ -334,7 +334,11 @@ async function resume() {
         class="text-13 text-text-muted"
         data-testid="generic-note"
       >
-        {{ $t('integrations.page.generic', { service: serviceName(app.type) }) }}
+        {{
+          $te(`integrations.page.genericWhat.${app.type}`)
+            ? $t(`integrations.page.genericWhat.${app.type}`)
+            : $t('integrations.page.generic', { service: serviceName(app.type) })
+        }}
       </p>
 
       <ErrorState

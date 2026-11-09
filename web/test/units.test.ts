@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { describe, expect, it } from 'vitest';
 import { rangeWindow, since } from '@/lib/time';
-import { byteAxisStep, formatBytes, formatValue } from '@/lib/units';
+import { byteAxisStep, formatBytes, formatValue, integerStep } from '@/lib/units';
 
 describe('formatting', () => {
   it('formats bytes with binary units', () => {
@@ -55,5 +55,9 @@ describe('formatting', () => {
     expect(since('2026-10-31T11:18:00Z', now)).toBe('42m');
     expect(since('2026-10-31T06:48:00Z', now)).toBe('5h 12m');
     expect(since('2026-10-28T08:00:00Z', now)).toBe('3d 4h');
+  });
+
+  it('steps counts by whole numbers', () => {
+    expect([2, 4, 10, 37, 1234].map((m) => integerStep(m))).toEqual([1, 1, 5, 10, 500]);
   });
 });

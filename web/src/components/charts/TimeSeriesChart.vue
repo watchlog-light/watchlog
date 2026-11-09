@@ -19,7 +19,7 @@ import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
 import SkeletonChart from '@/components/ui/SkeletonChart.vue';
 import { useDelayedFlag } from '@/composables/useDelayedFlag';
 import { rangeWindow } from '@/lib/time';
-import { byteAxisStep, formatValue, niceStep, type Unit } from '@/lib/units';
+import { byteAxisStep, formatValue, integerStep, niceStep, type Unit } from '@/lib/units';
 import { useUiStore } from '@/stores/ui';
 
 use([
@@ -123,12 +123,14 @@ function token(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-// Byte axes get binary-round ticks. With threshold lines, other units get round
+// Byte axes get binary-round ticks, count axes whole ones. With threshold lines, other units get round
 // decimal ticks with the top one above the highest line, so no odd label ("13.20")
 // is printed over a round one ("12.00").
 function yAxisTicks(): { interval: number; max: number } | undefined {
   const bytes = props.unit === 'bytes' || props.unit === 'bytes_per_second';
-  if (!bytes && !props.thresholds?.length) return undefined;
+  // Counts are whole numbers: whole ticks only.
+  const count = props.unit === 'count';
+  if (!bytes && !count && !props.thresholds?.length) return undefined;
   const lines = (props.thresholds ?? []).map((t) => t.value);
   const max = Math.max(
     0,
@@ -138,7 +140,7 @@ function yAxisTicks(): { interval: number; max: number } | undefined {
   );
   // All-zero series (an idle disk) get 0–1 B rather than ECharts' 0.2 steps, which
   // round to repeated "0 B" / "1 B" labels.
-  const interval = bytes ? byteAxisStep(max) : niceStep(max);
+  const interval = bytes ? byteAxisStep(max) : count ? integerStep(max) : niceStep(max);
   return { interval, max: Math.max(interval, Math.ceil(max / interval) * interval) };
 }
 
