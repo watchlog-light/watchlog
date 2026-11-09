@@ -1618,6 +1618,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Accepted.**
   - **Docker:** the collector runs with `--network host`, as uid 0 with every capability dropped and a read-only root filesystem, so it can read root-owned `0600` files under `/etc/watchlog/secrets/` (ADR-134). The install docs and `/security` say so.
   - **Long-poll:** the config endpoint long-polls (`?wait=25`, answering early on a change). A probe started in the connect drawer reaches the collector within a second instead of 30 s.
+- Amended 2026-11-09 (as built, slice 1): collectors are kept in their own table, `integration_collectors` (cluster, host, mode, version, footprint, last config), not in `agent_instances`, which counts nodes and hosts. The configuration is a long-poll (`GET /ingest/v1/integrations/config?wait=25`, ETag), woken when a service, probe or access changes; status at `POST /ingest/v1/integrations/status` is also the heartbeat. On Docker the collector runs as uid 0 with every capability dropped, so it can read root-owned `0600` files in `/etc/watchlog/secrets`.
 
 ## ADR-132: Services are discovered from what the agents already see
 
@@ -1643,6 +1644,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Nothing is contacted** until someone presses Monitor; discovery reads only what the agents already send.
 - Consequences: one small cluster-agent change (container ports in the pod summary) and a backend matcher with fixtures for both kinds of cluster.
 - Amended 2026-11-09 (owner's mock-up): **Accepted.** The discovered rows offer Monitor only. Ignore is not in v0.3's UI; the backend keeps the field for later.
+- Amended 2026-11-09 (as built, slice 2): discovery is computed on read from the objects (running pods and containers; image first, then port); there is no `discovered_services` table, so there is no Ignore state to keep (the mock-up has no Ignore). eBPF destination ports aren't used for discovery yet.
 
 ## ADR-133: Integration credentials are stored encrypted (replaces "named Secrets only")
 
@@ -1669,6 +1671,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 - Alternatives: Secrets only (rejected by the owner: a Helm upgrade or a hand-made Secret for every database); storing credentials in a Kubernetes Secret that WatchLog creates (rejected: needs write access to Secrets, against SPEC §6.6, and has no Docker equivalent).
 - Consequences: backups of the database without the key cannot reveal credentials; losing the key means re-entering them (docs say so). Security docs and `/security` gain a section.
 - Amended 2026-11-09: **Accepted** (owner).
+- Amended 2026-11-09 (as built, slice 4): ciphertexts are bound to their row with AES-GCM associated data (the service's id; a probe's id until it becomes a service, then re-encrypted). `rotate-secret-key` re-encrypts alert channel, SMTP, integration and probe secrets and the key check in one transaction. During a rolling restart, decryption falls back to `WATCHLOG_SECRET_KEY_PREVIOUS` (Compose variable, Helm `secretKeyPrevious`). A credential that can't be opened is left out of the collector's configuration, so the service reports it can't log in and the others keep working. The log (`integration_events`) keeps `removed` after the service is gone; Viewers see it without IP addresses.
 
 ## ADR-134: Three ways to connect a service that needs a user
 
@@ -1694,6 +1697,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Secret option:** the user's Secret lives in the `watchlog` namespace. WatchLog writes the `kubectl create role … --resource-name=<secret>` and `rolebinding` lines for that one Secret.
   - **Redis's ACL** adds `+memory|stats +memory|usage +scan` for the Memory tab.
   - **"Check now":** besides the 5 s polling, "Check now" probes at once.
+- Amended 2026-11-09 (as built, slice 4): the test before Start monitoring is a probe (`integration_probes`), tried by the service's own collector every 5 s for 15 minutes, at once when new or on "Check now", which also gives it 15 more minutes. "Nothing to set up" types probe as the drawer opens. The Secret's namespace and the ServiceAccount in the role commands are the ones the collector reports (downward API), defaulting to `watchlog`. A Docker password file must be a plain name directly under `/etc/watchlog/secrets`. A Docker host without a collector gets a `docker run` command that takes the token from the host's `watchlog-agent` container, so no token is shown. Until each integration lands (slices 7+), probes and scrapes are a TCP check: they prove reachability, not the login.
 
 ## ADR-135: The Applications page, one service-page template and shared panels
 
@@ -1731,6 +1735,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Accepted.**
   - **The list:** columns Service, Where, Health with its one-line reason, three key metrics, the last 6 h, firing alerts; a Sort control (problems first, name, cluster).
   - **The service page:** its own time range (1 h, 6 h, 24 h, 7 d); the panel grid has two columns (one on phones) and a panel may span both. "Alerts for this service" and the connected workloads show on the Overview tab.
+- Amended 2026-11-09 (as built, slice 3): the backend describes each type's tabs and panels and fills them (`GET /applications/:id/panels?tab=&range=`); the web draws panels by kind. Panel and tab titles are i18n keys. Until a type's integration lands it gets a generic Overview (members reachable, connect time, read time). A tab whose privilege the collector reports missing has its panels marked "needs a permission" with what to grant. The list's key numbers and 6-hour sparklines come from their own route (`GET /applications/metrics`), so a slow metrics store never holds the list back. `GET /applications`, `/:id`, `/discovered` and `/collectors` are public (ADR-126); the panels route is the dashboard's own.
 
 ## ADR-136: Integration metrics, caps and alert rules
 
@@ -1755,6 +1760,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **State-like conditions** ("replica set has no primary", "last save failed", "cluster red") are metric rules on 0/1 gauges, so there is still one rule model.
 - Consequences: a cardinality test per integration with a large fixture (500 tables, 1,000 queues) checks the caps.
 - Amended 2026-11-09: **Accepted.** The default rules per integration follow the mock-up (SPEC §4.12).
+- Amended 2026-11-09 (as built, slice 5): the generic keys `service.reachable.ratio` and `service.connect.time` exist for every type, on both kinds of cluster; the query API and `query_metric` take a `service` scope. The rule editor's service scope is one instance (from its page); "every instance of a type" isn't built. The defaults so far are generic (unreachable, slow to connect); each integration adds its own. They notify the organization's channels. Reset to default isn't built for these per-service rules. Removing a service removes its rules.
 
 ## ADR-137: Service reasons are structured facts, ready for probable cause
 
@@ -1778,6 +1784,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **The public API** gains `GET /applications` and `GET /applications/:id`, tagged `public`.
 - Consequences: each reason has a unit test with its facts, and one end-to-end case per integration produces it on a real service.
 - Amended 2026-11-09: **Accepted.**
+- Amended 2026-11-09 (as built, slices 3 and 5): `GET /applications/:id` returns the reasons, most severe first: the health reason, each member that doesn't answer (linked to its workload or container), and each tab that lacks a privilege, then the integration's own. Metric-backed parts are cached 15 s. Alerts on a service carry `service_name` and the collector's last error as their reason, and link to the service page.
 
 ## ADR-138: Query text is kept normalised, or not at all
 
