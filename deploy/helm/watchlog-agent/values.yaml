@@ -63,3 +63,16 @@ clusterAgent:
   goMemLimit: 400MiB
   nodeSelector: {}
   tolerations: []
+
+# Integrations collector (SPEC §4.12, ADR-131): one per cluster, reads the services
+# monitored on the Applications page (Redis, PostgreSQL, Nginx, RabbitMQ) with read-only
+# access. Idle until a service is monitored. No ClusterRole, no Secrets.
+integrations:
+  enabled: true
+  resources:
+    requests: { cpu: 20m, memory: 48Mi }
+    limits: { memory: 128Mi }
+  # Go heap target below the memory limit.
+  goMemLimit: 100MiB
+  nodeSelector: {}
+  tolerations: []

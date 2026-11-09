@@ -338,3 +338,11 @@ func readCPUSeconds(path string) (float64, bool) {
 	stime, err2 := strconv.ParseFloat(f[12], 64)
 	return (utime + stime) / 100, err1 == nil && err2 == nil
 }
+
+// SelfUsage returns this process's resident memory in bytes and CPU seconds, from
+// /proc/self; zero where unavailable (not Linux).
+func SelfUsage() (rss, cpu float64) {
+	rss, _ = readRSS("/proc/self/status")
+	cpu, _ = readCPUSeconds("/proc/self/stat")
+	return rss, cpu
+}

@@ -2,8 +2,9 @@
 # Build context: agent/
 # Runtime images are `scratch` (ADR-020): static binary, CA certificates and a
 # nonroot passwd entry only, so no base image needs to be pulled at runtime.
-# Two images from one build (ADR-048): `--target cluster-agent` for the
-# cluster-agent; the default (last) target is the node/Docker agent.
+# Three images from one build (ADR-048, ADR-131): `--target cluster-agent` for the
+# cluster-agent, `--target integrations` for the integrations collector; the default
+# (last) target is the node/Docker agent.
 FROM --platform=$BUILDPLATFORM golang:1.27-bookworm AS build
 ARG TARGETOS TARGETARCH
 ARG VERSION=dev
@@ -15,14 +16,15 @@ COPY go.mod go.sum ./
 ARG GOPROXY
 RUN go mod download
 COPY . .
-RUN for cmd in watchlog-agent watchlog-cluster-agent; do \
+RUN for cmd in watchlog-agent watchlog-cluster-agent watchlog-integrations; do \
       CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
       -ldflags "-s -w -X github.com/watchlog-light/watchlog/agent/internal/version.Version=${VERSION} -X github.com/watchlog-light/watchlog/agent/internal/version.Commit=${COMMIT}" \
       -o /out/$cmd ./cmd/$cmd || exit 1; \
     done \
  && echo 'nonroot:x:65532:65532:nonroot:/nonexistent:/sbin/nologin' > /out/passwd \
  && echo 'nonroot:x:65532:' > /out/group \
- && mkdir -p /out/data/buffer && chmod -R 0770 /out/data
+ && mkdir -p /out/data/buffer && chmod -R 0770 /out/data \
+ && mkdir -p /out/integrations/buffer && chmod -R 0770 /out/integrations
 
 FROM scratch AS cluster-agent
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
@@ -32,6 +34,19 @@ COPY --from=build /out/watchlog-cluster-agent /usr/local/bin/watchlog-cluster-ag
 COPY --from=build --chown=65532:65532 /out/data /var/lib/watchlog-agent
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/watchlog-cluster-agent"]
+
+# The integrations collector (ADR-131). Kubernetes runs it as 65532 with an emptyDir at
+# /var/lib/watchlog-integrations; on Docker it runs with --user 0:0, every capability
+# dropped and a tmpfs there, so it can read root-owned 0600 files in
+# /etc/watchlog/secrets (ADR-134).
+FROM scratch AS integrations
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /out/passwd /etc/passwd
+COPY --from=build /out/group /etc/group
+COPY --from=build /out/watchlog-integrations /usr/local/bin/watchlog-integrations
+COPY --from=build --chown=65532:65532 /out/integrations /var/lib/watchlog-integrations
+USER 65532:65532
+ENTRYPOINT ["/usr/local/bin/watchlog-integrations"]
 
 FROM scratch AS agent
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt

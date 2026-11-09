@@ -5,7 +5,7 @@
 # `--output type=tar` (one directory per platform for a multi-platform build): the
 # uncompressed size of what runs, the same on every Docker setup. Docker's own
 # `.Size` differs between image stores (the containerd store adds the compressed blobs).
-# Usage: scripts/ci/image-budget.sh <agent|cluster-agent> <exported.tar>
+# Usage: scripts/ci/image-budget.sh <agent|cluster-agent|integrations> <exported.tar>
 set -euo pipefail
 name="$1"
 tar="$2"

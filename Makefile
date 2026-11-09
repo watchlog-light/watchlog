@@ -14,7 +14,7 @@ BACKEND_RUNTIME_IMAGE ?= gcr.io/distroless/nodejs24-debian12:nonroot
 # proxy.golang.org is blocked:  GOPROXY=https://goproxy.io,direct make images
 GOPROXY_ARG := $(if $(GOPROXY),--build-arg GOPROXY='$(GOPROXY)')
 
-.PHONY: agent agent-linux agent-test agent-lint bpf images image-agent image-cluster-agent image-backend image-web clean
+.PHONY: agent agent-linux agent-test agent-lint bpf images image-agent image-cluster-agent image-integrations image-backend image-web clean
 
 ## agent: build a static agent binary for this machine into bin/
 agent:
@@ -38,14 +38,17 @@ agent-lint:
 bpf:
 	agent/internal/ebpf/generate.sh
 
-## images: build (never push) the agent, cluster-agent, backend and web images
-images: image-agent image-cluster-agent image-backend image-web
+## images: build (never push) the agent, cluster-agent, integrations, backend and web images
+images: image-agent image-cluster-agent image-integrations image-backend image-web
 
 image-agent:
 	docker build $(GOPROXY_ARG) --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) --target agent -t $(IMAGE_PREFIX)/agent:$(IMAGE_TAG) agent
 
 image-cluster-agent:
 	docker build $(GOPROXY_ARG) --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) --target cluster-agent -t $(IMAGE_PREFIX)/cluster-agent:$(IMAGE_TAG) agent
+
+image-integrations:
+	docker build $(GOPROXY_ARG) --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) --target integrations -t $(IMAGE_PREFIX)/integrations:$(IMAGE_TAG) agent
 
 image-backend:
 	docker build -f backend/Dockerfile --build-arg RUNTIME_IMAGE=$(BACKEND_RUNTIME_IMAGE) --build-arg VERSION=$(VERSION) -t $(IMAGE_PREFIX)/backend:$(IMAGE_TAG) .

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-only
 # Reports the size of a locally loaded image and smoke-tests it.
-# Usage: scripts/ci/smoke-image.sh <agent|cluster-agent|backend|web> <image-ref>
+# Usage: scripts/ci/smoke-image.sh <agent|cluster-agent|integrations|backend|web> <image-ref>
 # SMOKE_PORT sets the backend's host port (default 14080).
 set -euo pipefail
 name="$1"
@@ -28,6 +28,14 @@ case "$name" in
   agent | cluster-agent)
     # The 40 MB budget is checked per platform by image-budget.sh.
     docker run --rm "$image" --version
+    ;;
+  integrations)
+    # ADR-131: the collector's version, and it refuses to start without a token.
+    docker run --rm "$image" --version | grep -q '^watchlog-integrations '
+    no_token=$(docker run --rm "$image" --mode docker --hostname smoke 2>&1 || true)
+    grep -q 'WATCHLOG_TOKEN and WATCHLOG_ENDPOINT are required' <<<"$no_token" || { echo "collector started without a token: $no_token"; exit 1; }
+    test "$(docker inspect "$image" --format '{{.Config.User}}')" = "65532:65532"
+    echo "integrations collector runs, as 65532, and asks for its token"
     ;;
   backend)
     # PostgreSQL for the backend, the one-shot migration, a native-module check, then the API.

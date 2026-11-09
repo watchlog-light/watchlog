@@ -99,6 +99,30 @@ isolation "watchlog chart, --reuse-values from before Phase 4" true auto \
 isolation "watchlog chart, set through the subchart" true cgroup \
   "$(ds "$UMBRELLA" "$SUB_DS" --set watchlog-agent.agent.nodeMetricsScope=cgroup)"
 
+# The integrations collector (ADR-131) comes on with an upgrade from values that predate it,
+# and stays off when turned off.
+# collector <name> <want present|absent> <helm template output of the chart>
+collector() {
+  local name="$1" want="$2" out="$3" got=absent
+  if grep -q 'app.kubernetes.io/component: integrations' <<<"$out" &&
+    grep -q 'image: .*/integrations:' <<<"$out"; then got=present; fi
+  if [[ "$got" == "$want" ]]; then
+    echo "PASS  $name: integrations collector $got"
+  else
+    echo "FAIL  $name: integrations collector $got, want $want"
+    fails=$((fails + 1))
+  fi
+}
+collector "agent chart, fresh install" present "$(helm template rel "$AGENT" -n ns "${USER_VALUES[@]}")"
+collector "agent chart, --reuse-values from before Phase 4" present \
+  "$(helm template rel "$(reused "$AGENT" "$FIX/watchlog-agent.values.yaml")" -n ns)"
+collector "agent chart, turned off" absent \
+  "$(helm template rel "$AGENT" -n ns "${USER_VALUES[@]}" --set integrations.enabled=false)"
+collector "watchlog chart, --reuse-values from before Phase 4" present \
+  "$(helm template rel "$(reused "$UMBRELLA" "$FIX/watchlog.values.yaml")" -n ns)"
+collector "watchlog chart, turned off through the subchart" absent \
+  "$(helm template rel "$UMBRELLA" -n ns --set watchlog-agent.integrations.enabled=false)"
+
 # Every template of both charts renders from the old values (no nil-map errors).
 for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
   chart="${pair%%:*}" fixture="${pair##*:}"

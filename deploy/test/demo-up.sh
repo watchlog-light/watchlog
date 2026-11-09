@@ -59,12 +59,13 @@ fi
 
 say "agent images from this checkout"
 in_vm "cd '$repo/agent' && docker build -q ${GOPROXY:+--build-arg GOPROXY=$GOPROXY} -t ghcr.io/watchlog-light/agent:demo --target agent . >/dev/null \
-  && docker build -q ${GOPROXY:+--build-arg GOPROXY=$GOPROXY} -t ghcr.io/watchlog-light/cluster-agent:demo --target cluster-agent . >/dev/null"
+  && docker build -q ${GOPROXY:+--build-arg GOPROXY=$GOPROXY} -t ghcr.io/watchlog-light/cluster-agent:demo --target cluster-agent . >/dev/null \
+  && docker build -q ${GOPROXY:+--build-arg GOPROXY=$GOPROXY} -t ghcr.io/watchlog-light/integrations:demo --target integrations . >/dev/null"
 
 say "kind cluster demo (context kind-demo)"
 in_vm "kind get clusters 2>/dev/null | grep -qx demo || sed 's/^name: watchlog\$/name: demo/' '$repo/deploy/test/k8s/kind.yaml' | kind create cluster --config - --wait 180s"
 in_vm 'kubectl --context kind-demo wait --for=condition=Ready node --all --timeout=180s >/dev/null'
-in_vm 'for i in agent cluster-agent; do kind load docker-image --name demo ghcr.io/watchlog-light/$i:demo >/dev/null; done'
+in_vm 'for i in agent cluster-agent integrations; do kind load docker-image --name demo ghcr.io/watchlog-light/$i:demo >/dev/null; done'
 
 say "workloads: the demo app (shop) and the failure pods (wl-test)"
 in_vm "sed 's/wl-demo/shop/g' '$repo/deploy/test/k8s/demo/demo.yaml' | kubectl --context kind-demo apply -f - >/dev/null"

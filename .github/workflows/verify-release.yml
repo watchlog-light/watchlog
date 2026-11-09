@@ -27,7 +27,7 @@ jobs:
           cosign-release: v2.5.0
       - name: Images pull anonymously, both platforms
         run: |
-          for i in agent cluster-agent backend web; do
+          for i in agent cluster-agent integrations backend web; do
             ref="$REGISTRY/$i:$VERSION"
             docker pull -q "$ref" >/dev/null
             archs=$(docker manifest inspect "$ref" | jq -r '[.manifests[] | select(.platform.os=="linux") | .platform.architecture] | unique | join(",")')
@@ -41,7 +41,7 @@ jobs:
           ls -l charts
       - name: cosign verify (images and charts)
         run: |
-          for ref in agent cluster-agent backend web charts/watchlog charts/watchlog-agent; do
+          for ref in agent cluster-agent integrations backend web charts/watchlog charts/watchlog-agent; do
             cosign verify "$REGISTRY/$ref:$VERSION" \
               --certificate-identity-regexp '^https://github.com/watchlog-light/watchlog/\.github/workflows/release\.yml@refs/tags/v' \
               --certificate-oidc-issuer https://token.actions.githubusercontent.com > /dev/null

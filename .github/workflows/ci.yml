@@ -172,6 +172,12 @@ jobs:
             dockerfile: agent/Dockerfile
             target: cluster-agent
             platforms: linux/amd64,linux/arm64
+          # ADR-131: the integrations collector is a third target of the same Dockerfile.
+          - image: integrations
+            context: agent
+            dockerfile: agent/Dockerfile
+            target: integrations
+            platforms: linux/amd64,linux/arm64
           - image: backend
             context: .
             dockerfile: backend/Dockerfile
@@ -222,7 +228,7 @@ jobs:
       # SPEC §6.1: the agents' images stay within 40 MB on every platform, measured as
       # the exported filesystem (uncompressed; the same on any Docker image store).
       - name: Export the agent image filesystems (no push)
-        if: matrix.image == 'agent' || matrix.image == 'cluster-agent'
+        if: matrix.image == 'agent' || matrix.image == 'cluster-agent' || matrix.image == 'integrations'
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
@@ -235,7 +241,7 @@ jobs:
             COMMIT=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image }}
       - name: Image within the 40 MB budget on every platform
-        if: matrix.image == 'agent' || matrix.image == 'cluster-agent'
+        if: matrix.image == 'agent' || matrix.image == 'cluster-agent' || matrix.image == 'integrations'
         run: scripts/ci/image-budget.sh ${{ matrix.image }} /tmp/${{ matrix.image }}-fs.tar
       # ADR-026: the backend's native modules (snappy, @node-rs/argon2) must also work on arm64.
       - name: Set up QEMU for arm64

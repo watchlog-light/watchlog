@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-only
-# End-to-end test on kind (ADR-065, ADR-086): build the four images, load them into a
+# End-to-end test on kind (ADR-065, ADR-086): build the five images, load them into a
 # kind cluster, `helm install` the watchlog chart with alert channels pointing at
 # in-cluster mocks (alert-mocks.sh), apply the test workloads and run
 # acceptance.py (Phase 2: P0 views against kubectl, CrashLoopBackOff and OOMKilled
@@ -19,7 +19,7 @@ ctx=kind-$name
 ns=watchlog
 email=admin@example.com
 password=${E2E_PASSWORD:-$(head -c 18 /dev/urandom | base64 | tr -d '/+=')}
-images=(backend web agent cluster-agent)
+images=(backend web agent cluster-agent integrations)
 
 if [ "${SKIP_BUILD:-}" != 1 ]; then
   docker build -q -t ghcr.io/watchlog-light/backend:dev -f backend/Dockerfile \
@@ -27,6 +27,7 @@ if [ "${SKIP_BUILD:-}" != 1 ]; then
   docker build -q -t ghcr.io/watchlog-light/web:dev -f web/Dockerfile . >/dev/null
   docker build -q ${GOPROXY:+--build-arg GOPROXY="$GOPROXY"} -t ghcr.io/watchlog-light/agent:dev --target agent agent >/dev/null
   docker build -q ${GOPROXY:+--build-arg GOPROXY="$GOPROXY"} -t ghcr.io/watchlog-light/cluster-agent:dev --target cluster-agent agent >/dev/null
+  docker build -q ${GOPROXY:+--build-arg GOPROXY="$GOPROXY"} -t ghcr.io/watchlog-light/integrations:dev --target integrations agent >/dev/null
 fi
 created=0
 if ! kind get clusters | grep -qx "$name"; then

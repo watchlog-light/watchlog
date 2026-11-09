@@ -1,0 +1,61 @@
+{{/* SPDX-License-Identifier: AGPL-3.0-only */}}
+{{/*
+Integrations collector (SPEC §4.12, ADR-131): one per cluster. It reads the services
+WatchLog monitors (Redis, PostgreSQL, …) over the pod network with read-only access and
+pushes like the agents. It has no ClusterRole and reads no Secrets: a user who keeps a
+service's password in a Secret grants this ServiceAccount that one Secret (ADR-134).
+On unless integrations.enabled is false; a missing key means on (ADR-107).
+*/}}
+{{- $values := .Values.integrations | default dict }}
+{{- if ne (toString (dig "enabled" true $values)) "false" }}
+{{- $fullname := include "watchlog-agent.fullname" . }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $fullname }}-integrations
+  labels: {{- include "watchlog-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: integrations
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-integrations
+  labels: {{- include "watchlog-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: integrations
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: integrations
+  template:
+    metadata:
+      labels: {{- include "watchlog-agent.labels" . | nindent 8 }}
+        app.kubernetes.io/component: integrations
+    spec:
+      serviceAccountName: {{ $fullname }}-integrations
+      {{- with (dig "tolerations" list $values) }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (dig "nodeSelector" dict $values) }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {{- include "watchlog-agent.podSecurity" . | nindent 8 }}
+      containers:
+        - name: integrations
+          image: {{ include "watchlog-agent.image" (list . "integrations") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [--mode=kubernetes]
+          env:
+            - name: GOMEMLIMIT
+              value: {{ dig "goMemLimit" "100MiB" $values | quote }}
+            {{- include "watchlog-agent.env" . | nindent 12 }}
+          resources: {{- toYaml (dig "resources" (dict "requests" (dict "cpu" "20m" "memory" "48Mi") "limits" (dict "memory" "128Mi")) $values) | nindent 12 }}
+          securityContext: {{- include "watchlog-agent.containerSecurity" . | nindent 12 }}
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/watchlog-integrations }
+      volumes:
+        - { name: data, emptyDir: { sizeLimit: 128Mi } }
+{{- end }}

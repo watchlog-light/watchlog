@@ -16,7 +16,7 @@ trap 'rm -rf "$work"' EXIT
 k() { kubectl --context "$ctx" "$@"; }
 
 cd "$here/../../../agent"
-for cmd in watchlog-agent watchlog-cluster-agent; do
+for cmd in watchlog-agent watchlog-cluster-agent watchlog-integrations; do
   CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -ldflags "-s -w" -o "$work/$cmd" "./cmd/$cmd"
 done
 echo 'nonroot:x:65532:65532:nonroot:/nonexistent:/sbin/nologin' >"$work/passwd"
@@ -30,7 +30,7 @@ COPY ${BIN} /usr/local/bin/entry
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/entry"]
 DOCKERFILE
-for pair in agent:watchlog-agent cluster-agent:watchlog-cluster-agent; do
+for pair in agent:watchlog-agent cluster-agent:watchlog-cluster-agent integrations:watchlog-integrations; do
   docker build -q -t "ghcr.io/watchlog-light/${pair%%:*}:dev" --build-arg "BIN=${pair#*:}" "$work" >/dev/null
   kind load docker-image "ghcr.io/watchlog-light/${pair%%:*}:dev" --name "$cluster" >/dev/null
 done
