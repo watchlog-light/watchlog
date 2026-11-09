@@ -974,7 +974,9 @@
         "host": "host {name}",
         "container": "container {name}",
         "labels": "{labels} pods",
-        "network_connections_failed": "A workload's **connections fail** more than **{value}**"
+        "network_connections_failed": "A workload's **connections fail** more than **{value}**",
+        "service": "{name}",
+        "serviceRemoved": "a service no longer monitored"
       }
     },
     "detail": {
@@ -1029,7 +1031,8 @@
         "node": "Node",
         "labels": "Pod labels",
         "host": "Host",
-        "container": "Container"
+        "container": "Container",
+        "service": "Service"
       },
       "scopeInput": {
         "namespaces": "Namespaces",
@@ -1054,7 +1057,8 @@
         "bytes_per_second": "bytes/s",
         "cores": "cores",
         "load": "load",
-        "count": "count"
+        "count": "count",
+        "seconds": "ms"
       },
       "preview": "Last hour",
       "previewEmpty": "No data for this metric and scope in the last hour.",
@@ -1330,7 +1334,9 @@
     "host_load1": "Host load (1 min)",
     "container_cpu_usage": "Container CPU usage",
     "container_memory_working_set": "Container memory (working set)",
-    "container_restarts_increase": "Container restarts (10 min)"
+    "container_restarts_increase": "Container restarts (10 min)",
+    "service_reachable_ratio": "Members reachable",
+    "service_connect_time": "Connect time"
   },
   "combobox": {
     "noMatches": "No matches",
@@ -1990,7 +1996,13 @@
       "failed": "{name} couldn't be added: {error}",
       "detectedAddress": "Added by hand: {address}, reached by the integrations collector of {cluster}.",
       "queryText": "Collect query text",
-      "queryTextHint": "The statements of the slowest queries, as PostgreSQL normalizes them. Turn it off if even normalized statements shouldn't leave the database."
+      "queryTextHint": "The statements of the slowest queries, as PostgreSQL normalizes them. Turn it off if even normalized statements shouldn't leave the database.",
+      "defaultAlerts": "Default alerts",
+      "defaultAlertsHint": "They notify your alert channels. Unticked ones are created off; switch them on later on the service page.",
+      "alert": {
+        "unreachable": "When a member can't be reached (critical when none can)",
+        "slow_connect": "When connecting takes longer than 500 ms"
+      }
     },
     "metricsError": "Key metrics couldn't be loaded.",
     "access": {
@@ -2161,6 +2173,15 @@
           "members": "Members"
         }
       }
+    },
+    "alerts": {
+      "title": "Alerts for this service",
+      "add": "+ Add rule",
+      "none": "No rules for this service yet.",
+      "error": "Its alert rules couldn't be loaded.",
+      "enable": "Enable {name}",
+      "off": "off",
+      "anyMetric": "Any metric on this page can be used in a rule."
     }
   }
 }

@@ -6,6 +6,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError, api } from '@/api/client';
+import ServiceAlerts from '@/components/applications/ServiceAlerts.vue';
 import SettingsDrawer from '@/components/applications/SettingsDrawer.vue';
 import ServicePanel from '@/components/panels/ServicePanel.vue';
 import CodeBlock from '@/components/ui/CodeBlock.vue';
@@ -320,63 +321,66 @@ const settingsOpen = ref(false);
         />
       </div>
 
-      <section
-        class="flex flex-col gap-3 rounded-card border border-border bg-surface-1 px-4 py-4 sm:px-5"
-        data-testid="connected"
-      >
-        <h3 class="text-14 font-semibold text-text">
-          {{ $t(`integrations.page.connected.${app.cluster.kind}`) }}
-        </h3>
-        <span class="text-12 text-text-muted">{{ $t('integrations.page.connected.from') }}</span>
-        <p v-if="connected === null" class="text-13 text-text-subtle">
-          {{ $t('integrations.page.connected.unavailable') }}
-        </p>
-        <p v-else-if="!connected.flows" class="text-13 text-text-subtle">
-          {{ $t('integrations.page.connected.noFlows') }}
-        </p>
-        <p v-else-if="connected.items.length === 0" class="text-13 text-text-subtle">
-          {{ $t('integrations.page.connected.none') }}
-        </p>
-        <ul v-else class="flex flex-col gap-2">
-          <li v-for="c in connected.items" :key="`${c.namespace}/${c.name}`">
-            <component
-              :is="connectedLink(c, app.cluster.id) ? 'RouterLink' : 'div'"
-              :to="connectedLink(c, app.cluster.id)"
-              class="flex items-center justify-between gap-3 rounded-control border border-border bg-bg px-3 py-2.5 hover:bg-surface-2"
-              data-testid="connected-item"
-            >
-              <span class="truncate font-mono text-13 text-text">{{
-                c.namespace ? `${c.namespace}/${c.name}` : c.name
-              }}</span>
-              <span
-                :class="['shrink-0 text-12', c.failed > 0 ? 'text-warning' : 'text-text-muted']"
+      <div class="flex flex-wrap items-start gap-3.5">
+        <ServiceAlerts :app="app" />
+        <section
+          class="flex min-w-0 flex-[1_1_18rem] flex-col gap-3 rounded-card border border-border bg-surface-1 px-4 py-4 sm:px-5"
+          data-testid="connected"
+        >
+          <h3 class="text-14 font-semibold text-text">
+            {{ $t(`integrations.page.connected.${app.cluster.kind}`) }}
+          </h3>
+          <span class="text-12 text-text-muted">{{ $t('integrations.page.connected.from') }}</span>
+          <p v-if="connected === null" class="text-13 text-text-subtle">
+            {{ $t('integrations.page.connected.unavailable') }}
+          </p>
+          <p v-else-if="!connected.flows" class="text-13 text-text-subtle">
+            {{ $t('integrations.page.connected.noFlows') }}
+          </p>
+          <p v-else-if="connected.items.length === 0" class="text-13 text-text-subtle">
+            {{ $t('integrations.page.connected.none') }}
+          </p>
+          <ul v-else class="flex flex-col gap-2">
+            <li v-for="c in connected.items" :key="`${c.namespace}/${c.name}`">
+              <component
+                :is="connectedLink(c, app.cluster.id) ? 'RouterLink' : 'div'"
+                :to="connectedLink(c, app.cluster.id)"
+                class="flex items-center justify-between gap-3 rounded-control border border-border bg-bg px-3 py-2.5 hover:bg-surface-2"
+                data-testid="connected-item"
               >
-                {{
-                  $t(
-                    'integrations.page.connected.connections',
-                    { n: c.connections },
-                    c.connections,
-                  )
-                }}<template v-if="c.failed > 0">
-                  ·
-                  {{
-                    $t('integrations.page.connected.failed', { n: c.failed }, c.failed)
-                  }}</template
+                <span class="truncate font-mono text-13 text-text">{{
+                  c.namespace ? `${c.namespace}/${c.name}` : c.name
+                }}</span>
+                <span
+                  :class="['shrink-0 text-12', c.failed > 0 ? 'text-warning' : 'text-text-muted']"
                 >
-              </span>
-            </component>
-          </li>
-        </ul>
-        <div class="mt-1 flex flex-col gap-1 border-t border-border pt-3">
-          <span class="text-12 font-semibold text-text">{{
-            $t('integrations.page.mcp.title')
-          }}</span>
-          <span class="text-12 text-text-muted">
-            {{ $t('integrations.page.mcp.body') }}
-            <code class="font-mono text-text">get_application</code>
-          </span>
-        </div>
-      </section>
+                  {{
+                    $t(
+                      'integrations.page.connected.connections',
+                      { n: c.connections },
+                      c.connections,
+                    )
+                  }}<template v-if="c.failed > 0">
+                    ·
+                    {{
+                      $t('integrations.page.connected.failed', { n: c.failed }, c.failed)
+                    }}</template
+                  >
+                </span>
+              </component>
+            </li>
+          </ul>
+          <div class="mt-1 flex flex-col gap-1 border-t border-border pt-3">
+            <span class="text-12 font-semibold text-text">{{
+              $t('integrations.page.mcp.title')
+            }}</span>
+            <span class="text-12 text-text-muted">
+              {{ $t('integrations.page.mcp.body') }}
+              <code class="font-mono text-text">get_application</code>
+            </span>
+          </div>
+        </section>
+      </div>
       <SettingsDrawer
         v-if="settingsOpen"
         v-model:open="settingsOpen"

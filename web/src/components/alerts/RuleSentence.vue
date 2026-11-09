@@ -10,8 +10,9 @@ import { boldParts, formatValueIn, humanSeconds } from '@/lib/alerts';
 const props = defineProps<{ rule: AlertRule }>();
 const { t, te } = useI18n();
 
-function scopeText(scope: AlertRule['scope']): string {
+function scopeText(scope: AlertRule['scope'], service?: AlertRule['service']): string {
   const s = scope as {
+    service?: string;
     namespaces?: string[];
     workload?: { name: string };
     node?: string;
@@ -20,6 +21,7 @@ function scopeText(scope: AlertRule['scope']): string {
     labels?: Record<string, string>;
   };
   const k = 'alerts.rules.sentence';
+  if (s.service) return t(`${k}.service`, { name: service?.name ?? t(`${k}.serviceRemoved`) });
   if (s.labels && Object.keys(s.labels).length) {
     return t(`${k}.labels`, {
       labels: Object.entries(s.labels)
@@ -45,7 +47,7 @@ const parts = computed(() => {
     const mk = `metricNames.${(r.metric ?? '').replaceAll('.', '_')}`;
     text = t(`${k}.custom`, {
       metric: te(mk) ? t(mk) : (r.metric ?? ''),
-      scope: scopeText(r.scope),
+      scope: scopeText(r.scope, r.service),
       op: t(c?.op === '<' ? `${k}.below` : `${k}.above`),
       value,
     });

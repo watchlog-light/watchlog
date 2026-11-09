@@ -210,12 +210,40 @@ describe('Applications page', () => {
         status: 201,
         body: { probe: PROBE },
       },
+      'GET /api/v1/applications/alert-defaults?type=redis': {
+        status: 200,
+        body: {
+          defaults: [
+            {
+              key: 'unreachable',
+              name: 'Service unreachable',
+              metric: 'service.reachable.ratio',
+              condition: { op: '<', value: 1 },
+              forSeconds: 120,
+            },
+            {
+              key: 'slow_connect',
+              name: 'Service slow to connect',
+              metric: 'service.connect.time',
+              condition: { op: '>', value: 0.5 },
+              forSeconds: 300,
+            },
+          ],
+        },
+      },
     });
     const { wrapper } = await mountPage();
     await wrapper.findAll('[data-testid="monitor"]')[1]!.trigger('click');
     await flushPromises();
     const drawer = document.body.querySelector('[data-testid="monitor-drawer"]')!;
     expect(drawer.textContent).toContain('on docker-01, Compose project analytics');
+    // Both default alerts start ticked; untick the slow-connect one.
+    const slow = document.body.querySelector(
+      '[data-default="slow_connect"] input',
+    ) as HTMLInputElement;
+    expect(slow.checked).toBe(true);
+    slow.click();
+    await flushPromises();
     (document.body.querySelector('[data-testid="start-monitoring"]') as HTMLButtonElement).click();
     await flushPromises();
     // Redis needs nothing: the drawer tested the connection when it opened.
@@ -232,6 +260,7 @@ describe('Applications page', () => {
       type: 'redis',
       target: DISCOVERED[1]!.target,
       probeId: PROBE.id,
+      defaultAlerts: ['unreachable'],
     });
     expect(wrapper.findAll('[data-testid="application-row"]')).toHaveLength(1);
     expect(wrapper.findAll('[data-testid="discovered-row"]')).toHaveLength(1);

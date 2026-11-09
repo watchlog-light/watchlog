@@ -28,7 +28,7 @@ import TonePill from '@/components/kube/TonePill.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import ComboBox from '@/components/ui/ComboBox.vue';
 import TextField from '@/components/ui/TextField.vue';
-import { CUSTOM_METRICS, fromInput, toInput } from '@/lib/alerts';
+import { CUSTOM_METRICS, fromInput, SERVICE_METRICS, toInput } from '@/lib/alerts';
 import type { Unit } from '@/lib/units';
 import RuleSentence from './RuleSentence.vue';
 
@@ -42,6 +42,8 @@ const props = defineProps<{
   rule: AlertRule | null;
   channels: AlertChannel[];
   clusters: Cluster[];
+  /** A new rule for this monitored service ("+ Add rule" on its page). */
+  service?: { id: string; name: string; clusterId: string };
 }>();
 const open = defineModel<boolean>('open', { required: true });
 const emit = defineEmits<{ saved: [] }>();
@@ -54,7 +56,8 @@ const SCOPES = {
   kubernetes: ['cluster', 'namespaces', 'workload', 'node', 'labels'],
   docker: ['cluster', 'host', 'container'],
 } as const;
-type ScopeKind = 'cluster' | 'namespaces' | 'workload' | 'node' | 'labels' | 'host' | 'container';
+type ScopeKind =
+  'cluster' | 'namespaces' | 'workload' | 'node' | 'labels' | 'host' | 'container' | 'service';
 const REMIND = [0, 3600, 14400, 86400] as const;
 
 const form = reactive({
@@ -81,8 +84,24 @@ const kind = computed<'kubernetes' | 'docker'>(() =>
 );
 const unit = computed<string | null>(() =>
   isNew.value || props.rule?.type === 'threshold'
-    ? (CUSTOM_METRICS[kind.value].find((m) => m.key === form.metric)?.unit ?? null)
+    ? ([...CUSTOM_METRICS[kind.value], ...SERVICE_METRICS].find((m) => m.key === form.metric)
+        ?.unit ?? null)
     : (props.rule?.unit ?? null),
+);
+// A rule about one monitored service: its metrics only, its cluster and scope fixed.
+const serviceScope = computed(() =>
+  form.scopeKind === 'service'
+    ? (props.service ??
+      (props.rule?.service
+        ? { ...props.rule.service, clusterId: props.rule.clusterId ?? '' }
+        : null))
+    : null,
+);
+const metricOptions = computed(() =>
+  (serviceScope.value ? SERVICE_METRICS : CUSTOM_METRICS[kind.value]).map((m) => ({
+    value: m.key,
+    label: metricName(m.key),
+  })),
 );
 const unitLabel = computed(() => (unit.value ? t(`alerts.custom.units.${unit.value}`) : ''));
 const metricName = (key: string) => {
@@ -99,12 +118,14 @@ function reset() {
     host?: string;
     container?: string;
     labels?: Record<string, string>;
+    service?: string;
   };
   const u = r?.unit ?? null;
+  const preset = !r && props.service ? props.service : null;
   Object.assign(form, {
     name: r?.name ?? '',
-    clusterId: r?.clusterId ?? props.clusters[0]?.id ?? null,
-    metric: r?.metric ?? CUSTOM_METRICS.kubernetes[0]!.key,
+    clusterId: r?.clusterId ?? preset?.clusterId ?? props.clusters[0]?.id ?? null,
+    metric: r?.metric ?? (preset ? SERVICE_METRICS[0]!.key : CUSTOM_METRICS.kubernetes[0]!.key),
     op: r?.condition?.op ?? '>',
     value: r?.condition ? toInput(r.condition.value, u) : '',
     // A custom rule saved as all-critical becomes "critical from the same threshold".
@@ -120,19 +141,22 @@ function reset() {
     renotify: r?.renotifySeconds ?? 14400,
     workload: s.workload ? { ...s.workload } : { namespace: '', kind: 'Deployment', name: '' },
   });
-  form.scopeKind = s.labels
-    ? 'labels'
-    : s.workload
-      ? 'workload'
-      : s.node
-        ? 'node'
-        : s.host
-          ? 'host'
-          : s.container
-            ? 'container'
-            : s.namespaces
-              ? 'namespaces'
-              : 'cluster';
+  form.scopeKind =
+    s.service || preset
+      ? 'service'
+      : s.labels
+        ? 'labels'
+        : s.workload
+          ? 'workload'
+          : s.node
+            ? 'node'
+            : s.host
+              ? 'host'
+              : s.container
+                ? 'container'
+                : s.namespaces
+                  ? 'namespaces'
+                  : 'cluster';
   form.scopeText = s.labels
     ? Object.entries(s.labels)
         .map(([k, v]) => `${k}=${v}`)
@@ -150,6 +174,8 @@ watch(
 function scope(): CreateAlertRuleRequest['scope'] {
   const text = form.scopeText.trim();
   switch (form.scopeKind) {
+    case 'service':
+      return serviceScope.value ? { service: serviceScope.value.id } : {};
     case 'namespaces':
       return { namespaces: text.split(/[\s,]+/).filter(Boolean) };
     case 'workload':
@@ -374,7 +400,7 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
               <div v-if="isMetric" class="flex flex-wrap items-center gap-2 text-14 leading-loose">
                 <template v-if="isNew || rule?.type === 'threshold'">
                   <ComboBox
-                    v-if="isNew"
+                    v-if="isNew && !serviceScope"
                     :model-value="form.clusterId"
                     :options="
                       clusters.map((c) => ({
@@ -390,9 +416,7 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
                   />
                   <ComboBox
                     :model-value="form.metric"
-                    :options="
-                      CUSTOM_METRICS[kind].map((m) => ({ value: m.key, label: metricName(m.key) }))
-                    "
+                    :options="metricOptions"
                     :label="$t('alerts.custom.metric')"
                     :disabled="!isNew"
                     class="w-60"
@@ -400,7 +424,14 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
                     @update:model-value="form.metric = $event ?? form.metric"
                   />
                   <span class="text-text-muted">{{ $t('alerts.drawer.on') }}</span>
+                  <span
+                    v-if="serviceScope"
+                    class="rounded-control border border-border-strong bg-surface-3 px-2.5 py-0.5 font-mono text-14 text-text"
+                    data-testid="drawer-service"
+                    >{{ serviceScope.name }}</span
+                  >
                   <ComboBox
+                    v-else
                     :model-value="form.scopeKind"
                     :options="
                       SCOPES[kind].map((s) => ({
@@ -480,7 +511,11 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
                 <span class="text-text-muted">{{ $t('alerts.drawer.min') }}</span>
               </div>
               <div
-                v-if="(isNew || rule?.type === 'threshold') && form.scopeKind !== 'cluster'"
+                v-if="
+                  (isNew || rule?.type === 'threshold') &&
+                  form.scopeKind !== 'cluster' &&
+                  form.scopeKind !== 'service'
+                "
                 class="flex flex-wrap gap-2"
               >
                 <template v-if="form.scopeKind === 'workload'">

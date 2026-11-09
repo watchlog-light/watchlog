@@ -164,6 +164,9 @@ export function formatValueIn(value: number, unit: string | null): string {
       : `${Math.round(value / 2 ** 20)} MiB`;
   }
   if (unit === 'cores') return `${Math.round(value * 100) / 100} cores`;
+  if (unit === 'seconds') {
+    return value < 1 ? `${Math.round(value * 1000)} ms` : `${Math.round(value * 100) / 100} s`;
+  }
   return String(Math.round(value * 100) / 100);
 }
 
@@ -225,8 +228,14 @@ export const CUSTOM_METRICS: Record<'kubernetes' | 'docker', { key: string; unit
   ],
 };
 
-/** Thresholds are typed in the unit people read: percent and MiB. */
-export const INPUT_FACTOR: Record<string, number> = { ratio: 0.01, bytes: 2 ** 20 };
+/** A monitored service's metrics (SPEC §4.12), the same on both kinds of cluster. */
+export const SERVICE_METRICS: { key: string; unit: string }[] = [
+  { key: 'service.reachable.ratio', unit: 'ratio' },
+  { key: 'service.connect.time', unit: 'seconds' },
+];
+
+/** Thresholds are typed in the unit people read: percent, MiB and milliseconds. */
+export const INPUT_FACTOR: Record<string, number> = { ratio: 0.01, bytes: 2 ** 20, seconds: 0.001 };
 export const toInput = (v: number, unit: string | null) =>
   Math.round((v / (INPUT_FACTOR[unit ?? ''] ?? 1)) * 100) / 100;
 /** Percent back to a ratio by division (95 / 100 is 0.95; 95 * 0.01 is not). */

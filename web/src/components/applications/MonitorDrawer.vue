@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import type { Probe } from '@watchlog/api-types';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError, api } from '@/api/client';
 import AccessStep from '@/components/applications/AccessStep.vue';
@@ -25,6 +25,33 @@ const toast = useToastStore();
 const saving = ref(false);
 const probe = ref<Probe | null>(null);
 const queryText = ref(true);
+
+// Default alerts (slice 5): the rules a service of this type gets, on unless unticked;
+// unticked ones are created off, ready to enable on the service page.
+interface AlertDefault {
+  key: string;
+  name: string;
+  metric: string;
+  condition: { op: '>' | '<'; value: number; critical?: number };
+  forSeconds: number;
+}
+const defaults = ref<AlertDefault[]>([]);
+const chosen = ref<string[]>([]);
+onMounted(async () => {
+  try {
+    defaults.value = (
+      await api<{ defaults: AlertDefault[] }>(
+        `/applications/alert-defaults?type=${props.service.type}`,
+      )
+    ).defaults;
+    chosen.value = defaults.value.map((d) => d.key);
+  } catch {
+    defaults.value = [];
+  }
+});
+function toggleDefault(key: string, on: boolean) {
+  chosen.value = on ? [...new Set([...chosen.value, key])] : chosen.value.filter((k) => k !== key);
+}
 
 const s = computed(() => props.service);
 const detected = computed(() => {
@@ -67,6 +94,7 @@ async function start() {
         ...(s.value.target.kind === 'address' ? { name: s.value.name } : {}),
         ...(probe.value ? { probeId: probe.value.id } : {}),
         ...(s.value.type === 'postgres' ? { queryText: queryText.value } : {}),
+        defaultAlerts: chosen.value,
       },
     });
     toast.show(t('applications.monitor.started', { name: s.value.name }));
@@ -120,6 +148,29 @@ async function start() {
         </span>
         <ToggleSwitch v-model="queryText" data-testid="query-text" />
       </label>
+
+      <section v-if="defaults.length" class="flex flex-col gap-2" data-testid="default-alerts">
+        <h3 class="text-14 font-semibold text-text">
+          {{ $t('applications.monitor.defaultAlerts') }}
+        </h3>
+        <label
+          v-for="d in defaults"
+          :key="d.key"
+          class="flex items-start gap-2.5 text-13"
+          :data-default="d.key"
+        >
+          <input
+            type="checkbox"
+            class="mt-0.5"
+            :checked="chosen.includes(d.key)"
+            @change="toggleDefault(d.key, ($event.target as HTMLInputElement).checked)"
+          />
+          <span class="flex flex-col gap-0.5">
+            <span class="text-text">{{ $t(`applications.monitor.alert.${d.key}`) }}</span>
+          </span>
+        </label>
+        <p class="text-12 text-text-muted">{{ $t('applications.monitor.defaultAlertsHint') }}</p>
+      </section>
 
       <div class="flex justify-end gap-2 border-t border-border pt-4">
         <BaseButton variant="secondary" @click="open = false">{{
