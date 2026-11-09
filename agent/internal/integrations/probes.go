@@ -88,10 +88,18 @@ func (c *Collector) resolve(ctx context.Context, cred *Credential) (*Auth, error
 	if cred == nil {
 		return nil, nil
 	}
-	if c.Credentials == nil {
-		c.Credentials = &Credentials{}
-	}
-	return c.Credentials.Resolve(ctx, cred)
+	return c.creds().Resolve(ctx, cred)
+}
+
+// creds returns the credential resolver, made once: probes and scrapes call it from
+// several goroutines at a time.
+func (c *Collector) creds() *Credentials {
+	c.credsOnce.Do(func() {
+		if c.Credentials == nil {
+			c.Credentials = &Credentials{}
+		}
+	})
+	return c.Credentials
 }
 
 // probesChanged tells whether cfg has a probe that is new or was asked again.

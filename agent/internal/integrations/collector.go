@@ -56,6 +56,7 @@ type Collector struct {
 	readyOnce  sync.Once
 	probeWake  chan struct{}
 	probeSeen  map[string]string
+	credsOnce  sync.Once
 }
 
 // Run watches the configuration and scrapes until ctx is cancelled.
