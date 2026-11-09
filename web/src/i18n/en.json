@@ -1068,7 +1068,8 @@
         "cores": "cores",
         "load": "load",
         "count": "count",
-        "seconds": "ms"
+        "seconds": "ms",
+        "per_second": "/s"
       },
       "preview": "Last hour",
       "previewEmpty": "No data for this metric and scope in the last hour.",
@@ -1346,7 +1347,16 @@
     "container_memory_working_set": "Container memory (working set)",
     "container_restarts_increase": "Container restarts (10 min)",
     "service_reachable_ratio": "Members reachable",
-    "service_connect_time": "Connect time"
+    "service_connect_time": "Connect time",
+    "redis_memory_used": "Redis memory used",
+    "redis_memory_ratio": "Redis memory of maxmemory",
+    "redis_hit_ratio": "Redis hit rate",
+    "redis_ops_rate": "Redis commands/s",
+    "redis_evicted_rate": "Redis evicted keys/s",
+    "redis_connected_clients": "Redis clients",
+    "redis_blocked_clients": "Redis blocked clients",
+    "redis_replica_down": "Redis replica down",
+    "redis_save_failed": "Redis save failed"
   },
   "combobox": {
     "noMatches": "No matches",
@@ -2141,7 +2151,8 @@
   },
   "integrations": {
     "tabs": {
-      "overview": "Overview"
+      "overview": "Overview",
+      "connection": "Connection"
     },
     "severity": {
       "ok": "Healthy",
@@ -2149,7 +2160,16 @@
       "warning": "Warning",
       "critical": "Critical"
     },
-    "reasons": {},
+    "reasons": {
+      "memory_near_max": "Memory is at {pct} % of maxmemory.",
+      "evicting": "Keys are being evicted: {n} in the last 15 minutes. Writes push out old data.",
+      "no_maxmemory": "No maxmemory is set: memory can grow until the container's limit, and then it is OOM-killed.",
+      "slow_keys_command": "KEYS appears in the slow log ({n}×): it blocks the server while it walks every key. Use SCAN.",
+      "replica_down": "A replica is disconnected from its primary.",
+      "save_failed": "The last save to disk failed: a restart would lose data written since.",
+      "clients_rejected": "{n} connections were refused in the last 15 minutes: maxclients is reached.",
+      "clients_blocked": "{n} clients are blocked waiting (BLPOP, XREAD, WAIT…)."
+    },
     "page": {
       "since": "monitored since {at}",
       "namespace": "namespace {namespace}",
@@ -2221,6 +2241,93 @@
       "enable": "Enable {name}",
       "off": "off",
       "anyMetric": "Any metric on this page can be used in a rule."
+    },
+    "redis": {
+      "tabs": {
+        "overview": "Overview",
+        "memory": "Memory",
+        "commands": "Commands",
+        "clients": "Clients",
+        "persistence": "Persistence and replication"
+      },
+      "panels": {
+        "summary": "At a glance",
+        "memory": "Memory",
+        "memoryPct": "Memory",
+        "ofMax": "of {max} ({pct} %)",
+        "noMax": "no maxmemory set",
+        "hitRate": "Hit rate",
+        "ops": "Commands/s",
+        "peak": "peak {peak}/s",
+        "clients": "Clients",
+        "blocked": "{n} blocked",
+        "evicted24h": "Evicted, 24 h",
+        "keys": "Keys",
+        "withTtl": "{pct} % with a TTL",
+        "memoryOverTime": "Memory used",
+        "maxmemory": "maxmemory",
+        "hitsMisses": "Hits and misses",
+        "slowlog": "Slow log",
+        "slowlogNote": "normalised: command and key prefix, no values",
+        "cols": {
+          "command": "Command",
+          "duration": "Duration",
+          "client": "Client",
+          "member": "Member",
+          "when": "When"
+        },
+        "breakdown": "Memory breakdown",
+        "capacity": "Capacity",
+        "policy": "policy {policy}",
+        "fragmentation": "Fragmentation ratio",
+        "fragmentationNote": "Healthy below 1.5.",
+        "prefixes": "Biggest key prefixes",
+        "prefixesNote": "estimated from a sample of key names every 10 min",
+        "churn": "Expired and evicted keys",
+        "calls": "Calls by command",
+        "slowest": "Slowest commands (mean)",
+        "latency": "Command latency",
+        "noHistogram": "Redis {version} has no latency histogram (Redis 7+).",
+        "connections": "Connected and blocked clients",
+        "byWorkload": "Clients by workload",
+        "clientsCapacity": "Clients against maxclients",
+        "maxclients": "maxclients",
+        "persistence": "Persistence",
+        "lastSave": "Last RDB save",
+        "savedAgo": "{ago}",
+        "aof": "AOF",
+        "replication": "Replication",
+        "changes": "Changes since the last save",
+        "replicationLag": "Replication offset lag",
+        "lagNote": "bytes behind the primary; Redis has no lag in seconds",
+        "series": {
+          "hits": "Hits",
+          "misses": "Misses",
+          "dataset": "Dataset",
+          "overhead": "Overhead",
+          "fragmentation": "Fragmentation",
+          "expired": "Expired",
+          "evicted": "Evicted",
+          "connected": "Connected",
+          "blocked": "Blocked"
+        }
+      },
+      "missing": {
+        "overview": {
+          "slowlog": "Add {missing} to the user's ACL."
+        },
+        "memory": {
+          "capacity": "Add {missing} to the user's ACL to read maxmemory and its policy.",
+          "breakdown": "Add {missing} to the user's ACL.",
+          "prefixes": "Add {missing} to the user's ACL (key names only; values are never read)."
+        },
+        "commands": {
+          "latency": "Add {missing} to the user's ACL."
+        },
+        "clients": {
+          "by-workload": "Add {missing} to the user's ACL."
+        }
+      }
     }
   },
   "roles": {

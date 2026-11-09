@@ -65,6 +65,7 @@ const RULE: AlertRule = {
   channelIds: [],
   firing: 0,
   evalError: null,
+  defaultKey: null,
 };
 const CHANNEL: AlertChannel = {
   id: '01a19300-0000-7000-8000-0000000000cc',

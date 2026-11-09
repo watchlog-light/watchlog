@@ -28,7 +28,7 @@ import TonePill from '@/components/kube/TonePill.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import ComboBox from '@/components/ui/ComboBox.vue';
 import TextField from '@/components/ui/TextField.vue';
-import { CUSTOM_METRICS, fromInput, SERVICE_METRICS, toInput } from '@/lib/alerts';
+import { CUSTOM_METRICS, fromInput, SERVICE_METRICS, serviceMetrics, toInput } from '@/lib/alerts';
 import type { Unit } from '@/lib/units';
 import RuleSentence from './RuleSentence.vue';
 
@@ -43,7 +43,7 @@ const props = defineProps<{
   channels: AlertChannel[];
   clusters: Cluster[];
   /** A new rule for this monitored service ("+ Add rule" on its page). */
-  service?: { id: string; name: string; clusterId: string };
+  service?: { id: string; name: string; clusterId: string; type?: string };
 }>();
 const open = defineModel<boolean>('open', { required: true });
 const emit = defineEmits<{ saved: [] }>();
@@ -84,10 +84,13 @@ const kind = computed<'kubernetes' | 'docker'>(() =>
 );
 const unit = computed<string | null>(() =>
   isNew.value || props.rule?.type === 'threshold'
-    ? ([...CUSTOM_METRICS[kind.value], ...SERVICE_METRICS].find((m) => m.key === form.metric)
-        ?.unit ?? null)
+    ? ([...CUSTOM_METRICS[kind.value], ...serviceMetrics(serviceType.value)].find(
+        (m) => m.key === form.metric,
+      )?.unit ?? null)
     : (props.rule?.unit ?? null),
 );
+// The service's type, for its own metrics (a Redis has redis.*).
+const serviceType = computed(() => props.service?.type ?? props.rule?.service?.type);
 // A rule about one monitored service: its metrics only, its cluster and scope fixed.
 const serviceScope = computed(() =>
   form.scopeKind === 'service'
@@ -98,10 +101,12 @@ const serviceScope = computed(() =>
     : null,
 );
 const metricOptions = computed(() =>
-  (serviceScope.value ? SERVICE_METRICS : CUSTOM_METRICS[kind.value]).map((m) => ({
-    value: m.key,
-    label: metricName(m.key),
-  })),
+  (serviceScope.value ? serviceMetrics(serviceType.value) : CUSTOM_METRICS[kind.value]).map(
+    (m) => ({
+      value: m.key,
+      label: metricName(m.key),
+    }),
+  ),
 );
 const unitLabel = computed(() => (unit.value ? t(`alerts.custom.units.${unit.value}`) : ''));
 const metricName = (key: string) => {
@@ -173,7 +178,7 @@ watch(
 );
 // A new rule on a service metric starts from that metric's usual condition.
 function startFor(metric: string) {
-  const m = SERVICE_METRICS.find((x) => x.key === metric);
+  const m = serviceMetrics(serviceType.value).find((x) => x.key === metric);
   if (!m || !isNew.value) return;
   form.op = m.start.op;
   form.value = toInput(m.start.value, m.unit);
@@ -730,7 +735,7 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
             class="mt-auto flex items-center gap-2 border-t border-border px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
           >
             <BaseButton
-              v-if="isDefault"
+              v-if="isDefault || !!rule?.defaultKey"
               variant="ghost"
               :disabled="saving"
               data-testid="drawer-reset"

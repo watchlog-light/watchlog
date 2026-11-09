@@ -69,6 +69,7 @@ const rule = (over: Partial<AlertRule>): AlertRule => ({
   channelIds: [],
   firing: 1,
   evalError: null,
+  defaultKey: null,
   service: { id: APP.id, name: APP.name, type: 'redis' },
   ...over,
 });
@@ -175,6 +176,36 @@ describe('alerts for a service', () => {
     const switches = w.findAll('input[type="checkbox"]');
     expect(switches).toHaveLength(2);
     expect(switches.every((s) => s.element.closest('fieldset')?.disabled)).toBe(true);
+    w.unmount();
+  });
+});
+
+describe('a service default rule', () => {
+  it('can be reset to its default from the rule editor', async () => {
+    const { calls } = mockFetch({
+      'GET /api/v1/alert-rules': {
+        status: 200,
+        body: { rules: [rule({ defaultKey: 'unreachable', condition: { op: '<', value: 0.5 } })] },
+      },
+      'GET /api/v1/alert-channels': { status: 200, body: { channels: [] } },
+      'GET /api/v1/clusters': { status: 200, body: CLUSTERS },
+      'POST /api/v1/alert-rules/preview': {
+        status: 200,
+        body: { samples: [], series: [], firing: [], thresholds: [] },
+      },
+      'POST /api/v1/alert-rules/r1/reset': {
+        status: 200,
+        body: rule({ defaultKey: 'unreachable' }),
+      },
+    });
+    const w = await mountBlock();
+    await w.get('[data-testid="service-rule"] button').trigger('click');
+    await flushPromises();
+    (document.body.querySelector('[data-testid="drawer-reset"]') as HTMLButtonElement).click();
+    await flushPromises();
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toContain(
+      'POST /api/v1/alert-rules/r1/reset',
+    );
     w.unmount();
   });
 });

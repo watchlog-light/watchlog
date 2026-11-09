@@ -239,6 +239,25 @@ export const SERVICE_METRICS: {
   { key: 'service.connect.time', unit: 'seconds', start: { op: '>', value: 0.5 } },
 ];
 
+/** Each integration's own metrics, after the generic ones (SPEC §4.12). */
+export const SERVICE_METRICS_BY_TYPE: Record<string, typeof SERVICE_METRICS> = {
+  redis: [
+    { key: 'redis.memory.ratio', unit: 'ratio', start: { op: '>', value: 0.9 } },
+    { key: 'redis.memory.used', unit: 'bytes', start: { op: '>', value: 2 ** 30 } },
+    { key: 'redis.hit.ratio', unit: 'ratio', start: { op: '<', value: 0.8 } },
+    { key: 'redis.ops.rate', unit: 'per_second', start: { op: '>', value: 10_000 } },
+    { key: 'redis.evicted.rate', unit: 'per_second', start: { op: '>', value: 0 } },
+    { key: 'redis.connected_clients', unit: 'count', start: { op: '>', value: 1000 } },
+    { key: 'redis.blocked_clients', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'redis.replica.down', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'redis.save.failed', unit: 'count', start: { op: '>', value: 0 } },
+  ],
+};
+export const serviceMetrics = (type?: string) => [
+  ...SERVICE_METRICS,
+  ...(type ? (SERVICE_METRICS_BY_TYPE[type] ?? []) : []),
+];
+
 /** Thresholds are typed in the unit people read: percent, MiB and milliseconds. */
 export const INPUT_FACTOR: Record<string, number> = { ratio: 0.01, bytes: 2 ** 20, seconds: 0.001 };
 export const toInput = (v: number, unit: string | null) =>

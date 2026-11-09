@@ -124,7 +124,7 @@ async function toggle(rule: AlertRule, enabled: boolean) {
       :rule="editing"
       :channels="data.data.value.channels"
       :clusters="data.data.value.clusters"
-      :service="{ id: app.id, name: app.name, clusterId: app.cluster.id }"
+      :service="{ id: app.id, name: app.name, clusterId: app.cluster.id, type: app.type }"
       @saved="data.load"
     />
   </section>
