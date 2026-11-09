@@ -102,6 +102,16 @@ Services you monitor on the Applications page (Redis, PostgreSQL, Nginx, RabbitM
 - **Images:** the agent image is `FROM scratch` with one static binary.
 - **Signing:** release images and charts are signed with cosign (keyless). How to verify is in each release's notes.
 
+## Users and roles
+
+- **Three roles.** Viewers see everything and change nothing: no settings, rules, integrations or silences; they can make personal read-only API tokens. Admins run the clusters: rules, channels, silences, services and their credentials, and they invite and manage Admins and Viewers. There is one Owner, who can also hand ownership to an Admin and delete clusters.
+- **Enforced by the server.** Every route that changes something names the roles it allows, and a test fails if one doesn't. The dashboard shows locked controls to Viewers with the reason; the server refuses the same change.
+- **Invites and password resets are links.** An invite works once, for 7 days; a password reset works once, for an hour. The server keeps only a SHA-256 hash of each token (and, while an invite is pending, an encrypted copy so it can be copied again). With email set up they are also sent by email; without it you share the link yourself.
+- **Resetting signs out everywhere.** The old password keeps working until a new one is set; setting it ends every session of that account.
+- **Removing a user** signs them out and revokes their API tokens at once. What they set up stays.
+- **Locked out?** The Owner can print a reset link inside the backend container with `watchlog admin reset-password` (see [Configuration](configuration.md#a-locked-out-owner)). Anyone who can run a command there already controls the install.
+- **Audit:** invites, role changes, reset links (including from the command line), removals and the ownership handover are logged with who, when and from which address, shown to Owners and Admins. Never a token or a password.
+
 ## API tokens and MCP
 
 - **Personal API tokens** (Settings → API tokens) are `wl_pat_` plus 256 random bits. The server keeps only a SHA-256 hash. The value is shown once, when you create the token.

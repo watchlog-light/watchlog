@@ -76,6 +76,19 @@ Defaults work for most installs. This page lists what you can change.
 | `WATCHLOG_CLIENT_COUNTRY_HEADER`                     | unset      | Like the Helm value `backend.clientCountryHeader`.                                  |
 | `WATCHLOG_TRUSTED_PROXIES`, `WATCHLOG_COOKIE_SECURE` | unset      | Like the Helm values `backend.trustedProxies` and `cookieSecure`.                   |
 
+## A locked-out Owner
+
+When nobody can sign in as the Owner and email isn't set up, print a reset link inside the backend container:
+
+```bash
+# Kubernetes
+kubectl exec -n watchlog deploy/watchlog-backend -- watchlog admin reset-password
+# Docker Compose
+docker exec watchlog-backend-1 watchlog admin reset-password
+```
+
+It prints a link that works once and for one hour. Without `--email` it resets the Owner; `--email you@example.com` resets another account. The link uses the Public URL setting; if that isn't set, add `--url https://your-watchlog-address`. Every use is logged on Settings → Users. With email set up, "Forgot your password?" on the sign-in page sends the link instead.
+
 ## Rotating the secret key
 
 `WATCHLOG_SECRET_KEY` encrypts alert channel secrets, the email server password and service credentials. To replace it without downtime:
