@@ -28,9 +28,12 @@ type Prober interface {
 
 // Result is what one scrape of one target produced.
 type Result struct {
-	Samples        []metrics.Sample
-	State          string
-	Error          string
+	Samples []metrics.Sample
+	State   string
+	Error   string
+	// ErrorCode classifies Error where the page needs it: ProbeAuthFailed when no member
+	// accepted the user and password.
+	ErrorCode      string
 	ServiceVersion string
 	Members        []MemberStatus
 	Permissions    []Permission

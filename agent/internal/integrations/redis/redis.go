@@ -66,10 +66,13 @@ func (r *Redis) Scrape(ctx context.Context, t integrations.Target, heavy bool) i
 	var slow []map[string]any
 	var clients []map[string]any
 	perms := map[string]string{}
-	up := 0
+	up, authFailed := 0, 0
 	for _, m := range t.Members {
 		ms, out := r.member(ctx, t, m, heavy)
 		res.Members = append(res.Members, ms)
+		if out.authFailed {
+			authFailed++
+		}
 		if !ms.Up {
 			continue
 		}
@@ -115,6 +118,9 @@ func (r *Redis) Scrape(ctx context.Context, t integrations.Target, heavy bool) i
 	case up == 0:
 		res.State = integrations.StateError
 		res.Error = res.Members[0].Error
+		if authFailed > 0 {
+			res.ErrorCode = integrations.ProbeAuthFailed
+		}
 	}
 	return res
 }
@@ -125,6 +131,8 @@ type memberOut struct {
 	slow    []map[string]any
 	clients []map[string]any
 	perms   map[string]string
+	// authFailed: the user or password was refused.
+	authFailed bool
 }
 
 // login connects to a member and authenticates with the target's user, if any.
@@ -162,6 +170,7 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 	c, connect, err := login(ctx, m, t.Auth)
 	if err != nil {
 		ms.Error = short(err)
+		out.authFailed = isAuth(err)
 		return ms, out
 	}
 	defer func() { _ = c.Close() }()
@@ -174,6 +183,8 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 	if err != nil {
 		if resp.IsCode(err, "NOPERM") {
 			ms.Error = "the user may not run INFO: add +info to its ACL"
+		} else if isAuth(err) {
+			ms.Error, out.authFailed = "the server needs a password", true
 		} else {
 			ms.Error = short(err)
 		}

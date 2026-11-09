@@ -156,9 +156,12 @@ type SelfStatus struct {
 
 // TargetStatus is one target's outcome.
 type TargetStatus struct {
-	ID             string         `json:"id"`
-	State          string         `json:"state"` // ok, error, connecting
-	Error          string         `json:"error,omitempty"`
+	ID    string `json:"id"`
+	State string `json:"state"` // ok, error, connecting
+	Error string `json:"error,omitempty"`
+	// Code is "auth_failed" when the user or password was refused (the page says so
+	// instead of "unreachable").
+	Code           string         `json:"code,omitempty"`
 	ServiceVersion string         `json:"service_version,omitempty"`
 	Members        []MemberStatus `json:"members,omitempty"`
 	Permissions    []Permission   `json:"permissions,omitempty"`

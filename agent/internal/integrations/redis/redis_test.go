@@ -231,4 +231,12 @@ func TestNeedsAPassword(t *testing.T) {
 	if p.Code != integrations.ProbeAuthFailed || p.Error != "the server needs a password" {
 		t.Errorf("probe = %+v", p)
 	}
+	// A scrape says the same, so the page reads "can't log in", not "unreachable".
+	tg := integrations.Target{ID: "t", Type: "redis", Members: []integrations.Member{{Name: "r", Address: addr}}}
+	for _, auth := range []*integrations.Auth{nil, {Password: "wrong"}} {
+		tg.Auth = auth
+		if res := New().Scrape(context.Background(), tg, true); res.ErrorCode != integrations.ProbeAuthFailed {
+			t.Errorf("scrape with %v: %s %q", auth, res.ErrorCode, res.Error)
+		}
+	}
 }
