@@ -22,7 +22,7 @@ import {
 // and "Check now" asks for a try at once. Used by the connect and settings drawers.
 const props = defineProps<{ service: ConnectTarget; integrationId?: string }>();
 const emit = defineEmits<{ probe: [probe: Probe | null] }>();
-const { t } = useI18n();
+const { t, te } = useI18n();
 
 const options = computed(() => accessOptions(props.service.type));
 const method = ref<AccessMethod>(options.value[0]!);
@@ -150,19 +150,55 @@ const facts = computed(() =>
     .map(([k, v]) => `${k} ${v}`)
     .join(' · '),
 );
+// What the last try found, in words, and how to fix it (ADR-134): amber while waiting,
+// red once it gave up, green only when the collector logged in (or, for a service that
+// needs no user, connected).
+const service = computed(() => serviceName(props.service.type));
+const reason = computed(() => {
+  const r = probe.value?.result;
+  if (!r || r.ok) return '';
+  const values = {
+    service: service.value,
+    missing: r.missing.join(', '),
+    error: r.error ?? '',
+  };
+  return te(`applications.access.reason.${r.code}`)
+    ? t(`applications.access.reason.${r.code}`, values)
+    : (r.error ?? r.code);
+});
+const fix = computed(() => {
+  const p = probe.value;
+  const r = p?.result;
+  if (!p || !r || r.ok) return '';
+  const values = {
+    service: service.value,
+    user: p.username ?? 'watchlog',
+    missing: r.missing.join(' '),
+    host: props.service.host ?? props.service.cluster.name,
+  };
+  const keys = [
+    `applications.access.fix.${props.service.type}.${r.code}`,
+    `applications.access.fix.${r.code}.${p.method}`,
+    `applications.access.fix.${r.code}`,
+  ];
+  const key = keys.find((k) => te(k));
+  return key ? t(key, values) : '';
+});
 const statusText = computed(() => {
   const p = probe.value;
   if (!p) return '';
   if (p.status === 'ok') {
-    const what = `${serviceName(props.service.type)}${p.result?.version ? ` ${p.result.version}` : ''}`;
+    const what = `${service.value}${p.result?.version ? ` ${p.result.version}` : ''}`;
     return (
-      t('applications.access.ok', { service: what }) + (facts.value ? ` · ${facts.value}` : '')
+      t(p.method === 'none' ? 'applications.access.connected' : 'applications.access.loggedIn', {
+        service: what,
+      }) + (facts.value ? ` · ${facts.value}` : '')
     );
   }
   if (p.status === 'failed')
-    return t('applications.access.failed', { error: p.result?.error ?? '—' });
-  return p.result?.error
-    ? t('applications.access.retrying', { error: p.result.error, n: p.attempts })
+    return t('applications.access.failed', { reason: reason.value || '—' });
+  return reason.value
+    ? t('applications.access.retrying', { reason: reason.value, n: p.attempts })
     : t('applications.access.trying');
 });
 </script>
@@ -195,9 +231,11 @@ const statusText = computed(() => {
         <span class="flex flex-col gap-0.5">
           <span class="text-13 font-medium text-text">
             {{ $t(`applications.access.${o}.label`) }}
-            <span v-if="o === 'generated'" class="ml-1 text-12 font-normal text-ok">{{
-              $t('applications.access.recommended')
-            }}</span>
+            <span
+              v-if="o === 'generated'"
+              class="ml-1 inline-block rounded-full bg-ok/15 px-2 text-12 font-normal whitespace-nowrap text-ok"
+              >{{ $t('applications.access.recommended') }}</span
+            >
           </span>
           <span class="text-12 text-text-muted">{{
             $t(`applications.access.${o}.${o === 'reference' ? (k8s ? 'k8s' : 'docker') : 'hint'}`)
@@ -255,17 +293,17 @@ const statusText = computed(() => {
 
     <div v-if="command" class="flex flex-col gap-1.5" data-testid="access-command">
       <p class="text-13 text-text-muted">{{ $t('applications.access.runOnce') }}</p>
-      <CodeBlock :code="command" :label="$t('applications.access.commandLabel')" />
+      <CodeBlock wrap :code="command" :label="$t('applications.access.commandLabel')" />
       <p class="text-12 text-text-subtle">{{ $t('applications.access.shownOnce') }}</p>
     </div>
     <div v-if="commands.length" class="flex flex-col gap-1.5" data-testid="access-commands">
       <p class="text-13 text-text-muted">
         {{ k8s ? $t('applications.access.grantSecret') : $t('applications.access.writeFile') }}
       </p>
-      <CodeBlock :code="commands.join('\n')" :label="$t('applications.access.commandLabel')" />
+      <CodeBlock wrap :code="commands.join('\n')" :label="$t('applications.access.commandLabel')" />
       <template v-if="mount">
         <p class="text-13 text-text-muted">{{ $t('applications.access.mount') }}</p>
-        <CodeBlock :code="mount" :label="$t('applications.access.commandLabel')" />
+        <CodeBlock wrap :code="mount" :label="$t('applications.access.commandLabel')" />
       </template>
     </div>
 
@@ -278,7 +316,7 @@ const statusText = computed(() => {
           ? 'border-ok/40 bg-ok/5 text-text'
           : probe.status === 'failed'
             ? 'border-critical/40 bg-critical/5 text-text'
-            : 'border-border bg-surface-2 text-text-muted',
+            : 'border-warning/40 bg-warning/5 text-text',
       ]"
       role="status"
       data-testid="probe-status"
@@ -294,8 +332,11 @@ const statusText = computed(() => {
         class="size-4 shrink-0 text-critical"
         aria-hidden="true"
       />
-      <Loader2 v-else class="size-4 shrink-0 animate-spin" aria-hidden="true" />
-      <span class="min-w-0 flex-1">{{ statusText }}</span>
+      <Loader2 v-else class="size-4 shrink-0 animate-spin text-warning" aria-hidden="true" />
+      <span class="flex min-w-0 flex-1 flex-col gap-1">
+        <span>{{ statusText }}</span>
+        <span v-if="fix" class="text-12 text-text-muted" data-testid="probe-fix">{{ fix }}</span>
+      </span>
       <BaseButton
         v-if="probe.status !== 'ok'"
         variant="secondary"

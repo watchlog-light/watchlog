@@ -156,7 +156,7 @@ async function start() {
         <label
           v-for="d in defaults"
           :key="d.key"
-          class="flex items-start gap-2.5 text-13"
+          class="flex items-start gap-2.5 text-13 max-lg:min-h-11 max-lg:items-center"
           :data-default="d.key"
         >
           <input

@@ -174,7 +174,7 @@ const settingsOpen = ref(false);
               type="button"
               :aria-pressed="range === r.seconds"
               :class="[
-                'h-8 rounded-[6px] border px-2.5 text-12 font-medium max-lg:min-h-11',
+                'h-8 rounded-[6px] border px-2.5 text-12 font-medium max-lg:min-h-11 max-lg:min-w-11',
                 range === r.seconds
                   ? 'border-border-strong bg-surface-3 text-text'
                   : 'border-transparent text-text-muted hover:text-text',
@@ -187,14 +187,14 @@ const settingsOpen = ref(false);
           </div>
           <RouterLink
             :to="serviceMapLink(app)"
-            class="inline-flex h-10 items-center gap-2 rounded-control border border-border-strong bg-surface-1 px-3.5 text-13 font-medium text-text hover:bg-surface-2"
+            class="inline-flex h-10 items-center gap-2 rounded-control border border-border-strong bg-surface-1 px-3.5 text-13 font-medium text-text hover:bg-surface-2 max-lg:h-11"
             data-testid="open-service-map"
           >
             <Network class="size-4" aria-hidden="true" />{{ $t('integrations.page.openMap') }}
           </RouterLink>
           <button
             type="button"
-            class="inline-flex h-10 items-center gap-2 rounded-control border border-border-strong bg-surface-1 px-3.5 text-13 font-medium text-text hover:bg-surface-2"
+            class="inline-flex h-10 items-center gap-2 rounded-control border border-border-strong bg-surface-1 px-3.5 text-13 font-medium text-text hover:bg-surface-2 max-lg:h-11"
             data-testid="open-settings"
             @click="settingsOpen = true"
           >
@@ -244,6 +244,7 @@ const settingsOpen = ref(false);
         </h3>
         <p class="text-13 text-text-muted">{{ $t('integrations.page.startCollectorHint') }}</p>
         <CodeBlock
+          wrap
           :code="page.data.value.collectorCommand"
           :label="$t('applications.access.commandLabel')"
         />
@@ -345,7 +346,7 @@ const settingsOpen = ref(false);
               <component
                 :is="connectedLink(c, app.cluster.id) ? 'RouterLink' : 'div'"
                 :to="connectedLink(c, app.cluster.id)"
-                class="flex items-center justify-between gap-3 rounded-control border border-border bg-bg px-3 py-2.5 hover:bg-surface-2"
+                class="flex items-center justify-between gap-3 rounded-control border border-border bg-bg px-3 py-2.5 hover:bg-surface-2 max-lg:min-h-11"
                 data-testid="connected-item"
               >
                 <span class="truncate font-mono text-13 text-text">{{

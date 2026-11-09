@@ -32,6 +32,8 @@ onMounted(data.load);
 const changing = ref(false);
 const probe = ref<Probe | null>(null);
 const saving = ref(false);
+// Stopping removes the service, its access and its rules: asked once more.
+const confirming = ref(false);
 
 const target = computed<ConnectTarget>(() => ({
   cluster: props.app.cluster,
@@ -225,14 +227,29 @@ const settings = computed(() => data.data.value?.settings);
         </ul>
       </section>
 
-      <div v-if="auth.canManage" class="flex justify-between gap-2 border-t border-border pt-4">
-        <BaseButton
-          variant="danger"
-          :loading="saving"
-          data-testid="remove-service"
-          @click="remove"
-          >{{ $t('applications.settings.remove') }}</BaseButton
-        >
+      <p v-if="confirming" class="text-13 text-text" data-testid="remove-confirm-text">
+        {{ $t('applications.settings.removeConfirm', { name: app.name }) }}
+      </p>
+      <div
+        v-if="auth.canManage"
+        class="flex flex-wrap justify-between gap-2 border-t border-border pt-4"
+      >
+        <span class="flex flex-wrap gap-2">
+          <BaseButton
+            variant="danger"
+            :loading="saving"
+            data-testid="remove-service"
+            @click="confirming ? remove() : (confirming = true)"
+            >{{
+              confirming
+                ? $t('applications.settings.removeYes')
+                : $t('applications.settings.remove')
+            }}</BaseButton
+          >
+          <BaseButton v-if="confirming" variant="secondary" @click="confirming = false">{{
+            $t('common.cancel')
+          }}</BaseButton>
+        </span>
         <BaseButton variant="secondary" @click="open = false">{{ $t('common.close') }}</BaseButton>
       </div>
     </div>

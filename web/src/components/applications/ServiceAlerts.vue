@@ -96,7 +96,7 @@ async function toggle(rule: AlertRule, enabled: boolean) {
         />
         <button
           type="button"
-          class="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left"
+          class="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left max-lg:min-h-11 max-lg:justify-center"
           :disabled="!auth.canManage"
           @click="open(r)"
         >

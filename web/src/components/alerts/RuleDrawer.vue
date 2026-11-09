@@ -164,11 +164,23 @@ function reset() {
     : (s.node ?? s.host ?? s.container ?? s.namespaces?.join(', ') ?? '');
   error.value = undefined;
   showAdvanced.value = false;
+  if (preset) startFor(form.metric);
 }
 watch(
   () => [open.value, props.rule?.id],
   () => open.value && reset(),
   { immediate: true },
+);
+// A new rule on a service metric starts from that metric's usual condition.
+function startFor(metric: string) {
+  const m = SERVICE_METRICS.find((x) => x.key === metric);
+  if (!m || !isNew.value) return;
+  form.op = m.start.op;
+  form.value = toInput(m.start.value, m.unit);
+}
+watch(
+  () => form.metric,
+  (m) => startFor(m),
 );
 
 function scope(): CreateAlertRuleRequest['scope'] {

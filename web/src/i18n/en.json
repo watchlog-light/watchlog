@@ -2040,13 +2040,39 @@
       "grantSecret": "Let the collector read that one Secret:",
       "writeFile": "Write the password into the file on the host:",
       "mount": "And mount the folder, read-only, into the collector:",
-      "trying": "Trying to connect every 5 seconds…",
-      "retrying": "Not yet: {error} (try {n})",
-      "ok": "Connected: {service}",
-      "failed": "Couldn't connect: {error}",
+      "trying": "Waiting for the first try; WatchLog tries every 5 seconds…",
+      "retrying": "Not yet (try {n}): {reason}",
+      "ok": "Logged in: {service}",
+      "failed": "Gave up after 15 minutes: {reason}",
       "checkNow": "Check now",
       "checkAgain": "Check again",
-      "excess": "This user can do more than WatchLog needs ({privileges}). It works; a dedicated read-only user is safer."
+      "excess": "This user can do more than WatchLog needs ({privileges}). It works; a dedicated read-only user is safer.",
+      "loggedIn": "Logged in: {service}",
+      "connected": "Connected: {service}",
+      "reason": {
+        "auth_failed": "the user or password was refused ({error})",
+        "permission_missing": "logged in, but the user lacks {missing}",
+        "unreachable": "no member answered on its port ({error})",
+        "credential_unavailable": "{error}",
+        "login_untested": "the port answers, but this version can't log in to {service} yet",
+        "error": "{error}"
+      },
+      "fix": {
+        "auth_failed": {
+          "generated": "Run the command above once, as an admin of {service}: it creates the user with this password. Then Check now.",
+          "entered": "Check the user and the password, then Check now.",
+          "reference": "Check the password in the Secret or the file, then Check now."
+        },
+        "permission_missing": "Grant {missing} to {user}, or use the read-only user WatchLog creates. Then Check now.",
+        "unreachable": "Check that {service} runs, and that the integrations collector runs where it can reach it ({host}).",
+        "login_untested": "Logging in is checked once WatchLog reads {service} itself. Until then this test only shows that the port answers.",
+        "postgres": {
+          "permission_missing": "Grant it as an admin: GRANT pg_monitor TO {user};"
+        },
+        "redis": {
+          "permission_missing": "Add the commands to its ACL as an admin: ACL SETUSER {user} {missing}"
+        }
+      }
     },
     "settings": {
       "title": "Settings · {name}",
@@ -2084,7 +2110,9 @@
         "removed": "Monitoring stopped"
       },
       "remove": "Stop monitoring",
-      "removed": "{name} is no longer monitored."
+      "removed": "{name} is no longer monitored.",
+      "removeConfirm": "Stop monitoring {name}? Its stored access and its alert rules are removed too; its history stays until it ages out.",
+      "removeYes": "Yes, stop monitoring"
     },
     "add": {
       "title": "Add a service",

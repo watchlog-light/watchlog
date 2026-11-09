@@ -3,7 +3,8 @@
 import { Check, Copy } from '@lucide/vue';
 import { ref } from 'vue';
 
-const props = defineProps<{ code: string; label: string }>();
+// `wrap`: long one-line commands wrap instead of scrolling sideways.
+const props = defineProps<{ code: string; label: string; wrap?: boolean }>();
 const state = ref<'idle' | 'copied' | 'failed'>('idle');
 let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -26,7 +27,7 @@ async function copy() {
       <button
         type="button"
         data-testid="copy"
-        class="inline-flex items-center gap-1.5 rounded-control px-2 py-1 text-12 text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+        class="inline-flex items-center justify-center gap-1.5 rounded-control px-2 py-1 text-12 text-text-muted transition-colors hover:bg-surface-2 hover:text-text max-lg:min-h-11 max-lg:min-w-11"
         @click="copy"
       >
         <Check v-if="state === 'copied'" class="size-3.5 text-ok" aria-hidden="true" />
@@ -43,7 +44,10 @@ async function copy() {
       </button>
     </div>
     <pre
-      class="overflow-x-auto px-3 py-2.5 font-mono text-13 leading-relaxed text-text"
+      :class="[
+        'px-3 py-2.5 font-mono text-13 leading-relaxed text-text',
+        wrap ? 'break-all whitespace-pre-wrap' : 'overflow-x-auto',
+      ]"
     ><code>{{ code }}</code></pre>
   </div>
 </template>

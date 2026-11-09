@@ -229,9 +229,14 @@ export const CUSTOM_METRICS: Record<'kubernetes' | 'docker', { key: string; unit
 };
 
 /** A monitored service's metrics (SPEC §4.12), the same on both kinds of cluster. */
-export const SERVICE_METRICS: { key: string; unit: string }[] = [
-  { key: 'service.reachable.ratio', unit: 'ratio' },
-  { key: 'service.connect.time', unit: 'seconds' },
+export const SERVICE_METRICS: {
+  key: string;
+  unit: string;
+  /** Where a new rule starts: below 100 % reachable, above 500 ms to connect. */
+  start: { op: '>' | '<'; value: number };
+}[] = [
+  { key: 'service.reachable.ratio', unit: 'ratio', start: { op: '<', value: 1 } },
+  { key: 'service.connect.time', unit: 'seconds', start: { op: '>', value: 0.5 } },
 ];
 
 /** Thresholds are typed in the unit people read: percent, MiB and milliseconds. */

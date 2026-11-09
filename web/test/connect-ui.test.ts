@@ -84,10 +84,12 @@ describe('access step', () => {
               attempts: 2,
               result: {
                 ok: false,
+                code: 'auth_failed',
                 error: 'role "watchlog" does not exist',
                 version: null,
                 facts: {},
                 excess: [],
+                missing: [],
               },
             }),
           },
@@ -100,10 +102,12 @@ describe('access step', () => {
               attempts: 3,
               result: {
                 ok: true,
+                code: 'ok',
                 error: null,
                 version: '16.4',
                 facts: { databases: 3 },
                 excess: ['superuser'],
+                missing: [],
               },
             }),
           },
@@ -127,13 +131,18 @@ describe('access step', () => {
     await flushPromises();
     expect(calls[0]!.body).toMatchObject({ access: { method: 'generated' } });
     expect(w.get('[data-testid="access-command"]').text()).toContain('CREATE ROLE watchlog');
-    expect(w.get('[data-testid="probe-status"]').text()).toContain('Trying to connect');
+    // Amber while waiting for the first try.
+    expect(w.get('[data-testid="probe-status"]').text()).toContain('Waiting for the first try');
+    expect(w.get('[data-testid="probe-status"]').classes()).toContain('border-warning/40');
 
     await vi.advanceTimersByTimeAsync(5000);
     await flushPromises();
+    // A refused login: still amber, with the reason and the fix for a generated user.
     expect(w.get('[data-testid="probe-status"]').text()).toContain(
-      'role "watchlog" does not exist (try 2)',
+      'Not yet (try 2): the user or password was refused (role "watchlog" does not exist)',
     );
+    expect(w.get('[data-testid="probe-fix"]').text()).toContain('Run the command above once');
+    expect(w.get('[data-testid="probe-status"]').classes()).toContain('border-warning/40');
     await w.get('[data-testid="check-now"]').trigger('click');
     await flushPromises();
     expect(calls.map((c) => c.path)).toContain(`/api/v1/applications/probes/${probe().id}/check`);
@@ -141,7 +150,8 @@ describe('access step', () => {
     await flushPromises();
     const status = w.get('[data-testid="probe-status"]');
     expect(status.attributes('data-status')).toBe('ok');
-    expect(status.text()).toContain('Connected: PostgreSQL 16.4 · databases 3');
+    expect(status.text()).toContain('Logged in: PostgreSQL 16.4 · databases 3');
+    expect(status.classes()).toContain('border-ok/40');
     expect(w.get('[data-testid="excess"]').text()).toContain('superuser');
     expect(w.find('[data-testid="check-now"]').exists()).toBe(false);
     const events = w.emitted('probe')!;
@@ -364,6 +374,58 @@ describe('add manually', () => {
       target: { kind: 'address', address: 'db.internal:5432' },
       collectorHost: 'docker-01',
     });
+    w.unmount();
+  });
+});
+
+describe('probe outcomes', () => {
+  const result = (code: string, over: Record<string, unknown> = {}) => ({
+    ok: code === 'ok',
+    code,
+    error: null,
+    version: null,
+    facts: {},
+    excess: [],
+    missing: [],
+    ...over,
+  });
+  it.each([
+    [
+      'permission_missing',
+      { missing: ['pg_monitor'] },
+      'logged in, but the user lacks pg_monitor',
+      'GRANT pg_monitor TO watchlog;',
+    ],
+    [
+      'unreachable',
+      { error: 'connection refused' },
+      'no member answered',
+      'Check that PostgreSQL runs',
+    ],
+    [
+      'login_untested',
+      {},
+      "the port answers, but this version can't log in to PostgreSQL yet",
+      'Until then this test only shows that the port answers',
+    ],
+  ])('%s: says why and how to fix it, in red once it gave up', async (code, over, why, how) => {
+    mockFetch({
+      'POST /api/v1/applications/probes': {
+        status: 201,
+        body: {
+          probe: probe({ status: 'failed', attempts: 180, result: result(code, over) }),
+          command: 'x',
+        },
+      },
+    });
+    const w = await mountWith(AccessStep, { service: PG });
+    await w.get('[data-testid="access-start"]').trigger('click');
+    await flushPromises();
+    const status = w.get('[data-testid="probe-status"]');
+    expect(status.text()).toContain(`Gave up after 15 minutes: ${why}`);
+    expect(status.classes()).toContain('border-critical/40');
+    expect(w.get('[data-testid="probe-fix"]').text()).toContain(how);
+    expect(w.get('[data-testid="check-now"]').text()).toBe('Check again');
     w.unmount();
   });
 });
