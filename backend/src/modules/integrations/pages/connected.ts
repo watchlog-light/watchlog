@@ -3,8 +3,50 @@
 // flows reach it, from the agents' eBPF flow series. On Kubernetes the destination is
 // the service's workload; on Docker, its containers by name. An address added by hand
 // is an external destination (its host and port).
+import { sql } from 'kysely';
 import { anyOf, escapeLabelValue } from '../../query/catalog.js';
+import { imagePath } from '../discovery.js';
 import type { PageContext } from './types.js';
+
+/**
+ * WatchLog's own images (agent, cluster-agent, integrations collector, backend, web), from
+ * any registry that keeps a path naming WatchLog: its collector and agents connect to every
+ * service they read, and are not that service's clients.
+ */
+export function isWatchlogImage(ref: string): boolean {
+  return /(^|\/)[^/]*watchlog[^/]*\/(agent|cluster-agent|integrations|backend|web)$/.test(
+    imagePath(ref),
+  );
+}
+
+/** WatchLog's own workloads ("namespace/name") and containers in this cluster. */
+async function ownComponents(ctx: PageContext) {
+  const rows = await ctx.db
+    .selectFrom('objects')
+    .select(['kind', 'namespace', 'name', 'spec_summary'])
+    .where('cluster_id', '=', ctx.row.cluster_id)
+    .where('kind', 'in', ['Pod', 'DockerContainer'])
+    .where('deleted_at', 'is', null)
+    .where(sql<boolean>`spec_summary::text ilike '%watchlog%'`)
+    .execute();
+  const workloads = new Set<string>();
+  const containers = new Set<string>();
+  for (const r of rows) {
+    const spec = r.spec_summary as {
+      image?: string;
+      containers?: { image?: string }[];
+      workload?: { name?: string };
+    };
+    if (r.kind === 'Pod') {
+      if ((spec.containers ?? []).some((c) => c.image && isWatchlogImage(c.image))) {
+        workloads.add(`${r.namespace}/${spec.workload?.name ?? r.name}`);
+      }
+    } else if (spec.image && isWatchlogImage(spec.image)) {
+      containers.add(r.name);
+    }
+  }
+  return { workloads, containers };
+}
 
 export interface Connected {
   kind: 'workload' | 'container';
@@ -65,7 +107,7 @@ export async function connectedTo(ctx: PageContext, limit = 20): Promise<Connect
   const scope = { clusterId: ctx.row.cluster_id };
   const at = Math.floor(ctx.now / 1000);
   const dst = await destination(ctx);
-  const [any, conns, failed] = await Promise.all([
+  const [any, conns, failed, own] = await Promise.all([
     ctx.vm.query(scope, 'count(last_over_time(watchlog_flow_connections_total[15m]))', at),
     dst
       ? ctx.vm.query(
@@ -81,6 +123,7 @@ export async function connectedTo(ctx: PageContext, limit = 20): Promise<Connect
           at,
         )
       : Promise.resolve([]),
+    ownComponents(ctx),
   ]);
   const key = (l: Record<string, string>) =>
     [l.namespace, l.workload_kind, l.workload, l.container, l.compose_project, l.compose_service]
@@ -91,6 +134,9 @@ export async function connectedTo(ctx: PageContext, limit = 20): Promise<Connect
     const l = c.labels;
     const n = Math.round(c.points[0]?.[1] ?? 0);
     const f = Math.round(failedBy.get(key(l)) ?? 0);
+    // WatchLog's collector and agents reach every service they read: not its clients.
+    if (l.workload && own.workloads.has(`${l.namespace}/${l.workload}`)) return [];
+    if (!l.workload && l.container && own.containers.has(l.container)) return [];
     if (l.workload) {
       return [
         {

@@ -5,6 +5,7 @@
 // get_application over MCP, on a Kubernetes cluster and a Docker fleet.
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
+import { isWatchlogImage } from '../src/modules/integrations/pages/connected.js';
 import { MAX_OUTPUT_BYTES } from '../src/modules/mcp/output.js';
 import { closeTestContext, createTestContext, setupAdmin, type TestContext } from './helpers.js';
 import { mcpClient, type McpTestClient } from './support/mcp.js';
@@ -119,6 +120,19 @@ describe('the service page', () => {
         status_summary: { pod_ip: ip, phase: 'Running' },
       });
     }
+    // WatchLog's own integrations collector, which connects to every service it reads.
+    await object(k8s.id, {
+      source: 'kubernetes',
+      kind: 'Pod',
+      namespace: 'watchlog',
+      name: 'watchlog-agent-integrations-7ff8d-mrgf9',
+      node: 'w1',
+      spec_summary: {
+        workload: { kind: 'Deployment', name: 'watchlog-agent-integrations' },
+        containers: [{ name: 'integrations', image: 'ghcr.io/watchlog-light/integrations:0.3.0' }],
+      },
+      status_summary: { pod_ip: '10.244.1.9', phase: 'Running' },
+    });
     const id = await monitor(k8s.id, {
       kind: 'workload',
       namespace: 'shop',
@@ -157,6 +171,21 @@ describe('the service page', () => {
           dst_port: '6379',
         },
         2,
+      ),
+      // WatchLog's collector reading it: not a client.
+      ...counter(
+        'watchlog_flow_connections_total',
+        {
+          namespace: 'watchlog',
+          workload_kind: 'Deployment',
+          workload: 'watchlog-agent-integrations',
+          dst_kind: 'workload',
+          dst_namespace: 'shop',
+          dst_workload_kind: 'StatefulSet',
+          dst_workload: 'redis',
+          dst_port: '6379',
+        },
+        3,
       ),
       // Another destination: not this service.
       ...counter(
@@ -409,5 +438,19 @@ describe('the service page', () => {
         }
       }
     }
+  });
+});
+
+describe("WatchLog's own images", () => {
+  it.each([
+    ['ghcr.io/watchlog-light/integrations:0.3.0', true],
+    ['ghcr.io/watchlog-light/agent:demo', true],
+    ['registry.example.com/mirror/watchlog/backend:0.3.0', true],
+    ['watchlog-light/web@sha256:abc', true],
+    ['ghcr.io/acme/agent:1', false],
+    ['redis:7.2', false],
+    ['ghcr.io/watchlog-light/demo-shop:1', false],
+  ])('%s is WatchLog: %s', (ref, own) => {
+    expect(isWatchlogImage(ref)).toBe(own);
   });
 });
