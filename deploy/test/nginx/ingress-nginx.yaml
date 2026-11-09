@@ -1,0 +1,121 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# A minimal ingress-nginx controller for deploy/test/nginx-e2e.sh: the controller's own
+# RBAC (as its chart grants it), no admission webhook, metrics on :10254 as the chart
+# leaves them by default (served, not declared as a container port). IMAGE is replaced by
+# the script: registry.k8s.io/ingress-nginx/controller, or a build of the same controller
+# from another registry where registry.k8s.io isn't reachable.
+apiVersion: v1
+kind: Namespace
+metadata: { name: ingress-nginx-e2e }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: ingress-nginx, namespace: ingress-nginx-e2e }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: ingress-nginx-e2e }
+rules:
+  - apiGroups: ['']
+    resources: [configmaps, endpoints, nodes, pods, secrets, namespaces]
+    verbs: [list, watch]
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [list, watch]
+  - apiGroups: ['']
+    resources: [nodes]
+    verbs: [get]
+  - apiGroups: ['']
+    resources: [services]
+    verbs: [get, list, watch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses, ingressclasses]
+    verbs: [get, list, watch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses/status]
+    verbs: [update]
+  - apiGroups: ['']
+    resources: [events]
+    verbs: [create, patch]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [list, watch, get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: { name: ingress-nginx-e2e }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: ingress-nginx-e2e }
+subjects: [{ kind: ServiceAccount, name: ingress-nginx, namespace: ingress-nginx-e2e }]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: ingress-nginx, namespace: ingress-nginx-e2e }
+rules:
+  - apiGroups: ['']
+    resources: [namespaces]
+    verbs: [get]
+  - apiGroups: ['']
+    resources: [configmaps, pods, secrets, endpoints]
+    verbs: [get, list, watch]
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [get, create, update]
+  - apiGroups: ['']
+    resources: [events]
+    verbs: [create, patch]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [list, watch, get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: ingress-nginx, namespace: ingress-nginx-e2e }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: ingress-nginx }
+subjects: [{ kind: ServiceAccount, name: ingress-nginx, namespace: ingress-nginx-e2e }]
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata: { name: nginx-e2e }
+spec: { controller: k8s.io/ingress-nginx-e2e }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: ingress-nginx-controller, namespace: ingress-nginx-e2e }
+spec:
+  selector: { matchLabels: { app: ingress-nginx } }
+  template:
+    metadata: { labels: { app: ingress-nginx } }
+    spec:
+      serviceAccountName: ingress-nginx
+      containers:
+        - name: controller
+          image: IMAGE
+          args:
+            - /nginx-ingress-controller
+            - --election-id=ingress-nginx-e2e-leader
+            - --controller-class=k8s.io/ingress-nginx-e2e
+            - --ingress-class=nginx-e2e
+            - --watch-ingress-without-class=false
+            - --http-port=8080
+            - --https-port=8443
+          env:
+            - { name: POD_NAME, valueFrom: { fieldRef: { fieldPath: metadata.name } } }
+            - { name: POD_NAMESPACE, valueFrom: { fieldRef: { fieldPath: metadata.namespace } } }
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: https, containerPort: 8443 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 10254 }
+          securityContext:
+            allowPrivilegeEscalation: false
+          # The official image creates it; other builds of the controller may not.
+          volumeMounts: [{ name: telemetry, mountPath: /etc/ingress-controller/telemetry }]
+      volumes: [{ name: telemetry, emptyDir: {} }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: ingress-nginx-controller, namespace: ingress-nginx-e2e }
+spec:
+  selector: { app: ingress-nginx }
+  ports:
+    - { name: http, port: 80, targetPort: 8080 }
