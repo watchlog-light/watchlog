@@ -18,6 +18,7 @@ import {
   type Page,
 } from '@playwright/test';
 import * as apps from './fixtures/applications';
+import * as people from './fixtures/users';
 import { SERVICE_MAPS } from './fixtures/service-map';
 import { layoutProblems, report, SHOTS, viewportFor, WIDTHS } from './layout-checks';
 
@@ -216,6 +217,7 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
     { name: 'settings', path: `/settings${k}`, shot: true },
     { name: 'settings-channels', path: `/settings${k}&tab=channels`, shot: true },
     { name: 'settings-general', path: `/settings${k}&tab=general`, shot: true },
+    ...userRoutes(k),
     { name: 'cluster-settings', path: `/settings/clusters/${kube.id}${k}`, shot: true },
     { name: 'settings-tokens', path: `/settings${k}&tab=tokens`, shot: true },
     {
@@ -523,6 +525,113 @@ function applicationRoutes(
     );
   }
   return routes;
+}
+
+/**
+ * Settings → Users and its dialogs, as an Owner (with and without SMTP) and a Viewer, and
+ * the public pages of the links (v0.3 slice 6, ADR-140). All answered by fixtures: the
+ * suite makes no user, invite or reset link.
+ */
+function userRoutes(k: string): Route[] {
+  const path = `/settings${k}&tab=users`;
+  const list = (json: unknown): Answer => ({ url: /\/api\/v1\/users$/, json });
+  const owner = list(people.users(false));
+  const prepareInvite = async (page: Page) => {
+    await page.getByTestId('invite').click();
+    await page.getByTestId('invite-form').waitFor();
+  };
+  return [
+    { name: 'settings-users', path, shot: true, answers: [owner] },
+    { name: 'settings-users-smtp', path, answers: [list(people.users(true))] },
+    {
+      // Signed in as a Viewer: the session's user is answered too.
+      name: 'settings-users-viewer',
+      path,
+      shot: true,
+      answers: [list(people.viewerUsers()), { url: /\/api\/v1\/me$/, json: people.viewerMe }],
+    },
+    { name: 'users-invite', path, shot: true, answers: [owner], prepare: prepareInvite },
+    {
+      name: 'users-invited',
+      path,
+      shot: true,
+      answers: [
+        owner,
+        {
+          url: /\/api\/v1\/users\/invites$/,
+          method: 'POST',
+          status: 201,
+          json: people.createdInvite,
+        },
+      ],
+      prepare: async (page) => {
+        await prepareInvite(page);
+        await page
+          .getByTestId('invite-form')
+          .locator('input[type="email"]')
+          .fill('dev@example.com');
+        await page.getByTestId('invite-submit').click();
+        await page.getByTestId('link-dialog').waitFor();
+      },
+    },
+    {
+      name: 'users-reset',
+      path,
+      shot: true,
+      answers: [
+        owner,
+        { url: /\/api\/v1\/users\/[^/]+\/reset-link$/, method: 'POST', json: people.resetLink },
+      ],
+      prepare: async (page) => {
+        await page.getByTestId('reset-link').first().click();
+        await page.getByTestId('link-dialog').waitFor();
+      },
+    },
+    {
+      name: 'users-remove',
+      path,
+      shot: true,
+      answers: [owner],
+      prepare: async (page) => {
+        await page.getByTestId('remove').first().click();
+        await page.getByTestId('remove-dialog').waitFor();
+      },
+    },
+    {
+      name: 'accept-invite',
+      path: `/invite/${people.TOKEN}`,
+      public: true,
+      shot: true,
+      answers: [{ url: /\/api\/v1\/invites\/[^/]+$/, json: people.invite('pending') }],
+    },
+    {
+      name: 'accept-invite-expired',
+      path: `/invite/${people.TOKEN}`,
+      public: true,
+      shot: true,
+      answers: [{ url: /\/api\/v1\/invites\/[^/]+$/, json: people.invite('expired') }],
+    },
+    {
+      name: 'reset-password',
+      path: `/reset/${people.TOKEN}`,
+      public: true,
+      shot: true,
+      answers: [{ url: /\/api\/v1\/password-resets\/[^/]+$/, json: people.reset }],
+    },
+    {
+      name: 'forgot-password',
+      path: '/login',
+      public: true,
+      shot: true,
+      prepare: async (page) => {
+        await page.getByTestId('forgot').click();
+        await page
+          .locator('[data-testid="forgot-cli"], [data-testid="forgot-email"]')
+          .first()
+          .waitFor();
+      },
+    },
+  ];
 }
 
 /** Reloads the page with one API path answered by `json`, then lets it through again. */
