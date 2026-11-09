@@ -135,21 +135,21 @@ Every tool is read-only. Each takes the cluster by name, and answers in that clu
 words: namespaces, workloads and pods on Kubernetes; hosts, Compose projects and containers
 on Docker.
 
-| Tool                 | Kubernetes                                                               | Docker                                                        |
-| -------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| `list_clusters`      | Your clusters, their kind and whether they report                        | The same                                                      |
-| `get_problems`       | What needs attention: crash loops, OOM kills, nodes, connections, alerts | Restarting, unhealthy, OOM-killed or exited containers, hosts |
-| `list_alerts`        | Firing or recent alerts                                                  | The same                                                      |
-| `explain_alert`      | An alert with its pod's state, events and the changes before it          | The same for a container or Compose service                   |
-| `get_workload`       | A Deployment, StatefulSet, DaemonSet, Job or CronJob and its pods        | A Compose service and its containers                          |
-| `get_pod`            | A pod: containers, exit codes, OOM kills, restarts, events               | A container                                                   |
-| `get_node`           | A node: conditions, capacity against use, the heaviest pods              | A host                                                        |
-| `list_applications`  | Monitored services (Redis, PostgreSQL, Nginx, RabbitMQ), problems first  | The same, by host and Compose project                         |
-| `get_application`    | A service: its health, every reason, the workloads that connect to it    | The same, with the containers that connect to it              |
-| `get_service_map`    | Failing connections, or one workload's connections and DNS errors        | The same between containers                                   |
-| `get_events`         | Warning events, grouped                                                  | Container deaths, OOM kills, health changes                   |
-| `get_recent_changes` | Rollouts, image changes, scaling, nodes                                  | Re-created containers, image changes                          |
-| `query_metric`       | A metric over up to 24 hours, as statistics                              | The same                                                      |
+| Tool                 | Kubernetes                                                                   | Docker                                                        |
+| -------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `list_clusters`      | Your clusters, their kind and whether they report                            | The same                                                      |
+| `get_problems`       | What needs attention: crash loops, OOM kills, nodes, connections, alerts     | Restarting, unhealthy, OOM-killed or exited containers, hosts |
+| `list_alerts`        | Firing or recent alerts                                                      | The same                                                      |
+| `explain_alert`      | An alert with its pod's state, events and the changes before it              | The same for a container or Compose service                   |
+| `get_workload`       | A Deployment, StatefulSet, DaemonSet, Job or CronJob and its pods            | A Compose service and its containers                          |
+| `get_pod`            | A pod: containers, exit codes, OOM kills, restarts, events                   | A container                                                   |
+| `get_node`           | A node: conditions, capacity against use, the heaviest pods                  | A host                                                        |
+| `list_applications`  | Monitored services (Redis, PostgreSQL, Nginx, RabbitMQ), problems first      | The same, by host and Compose project                         |
+| `get_application`    | A service: its health, every reason, the workloads that connect to it        | The same, with the containers that connect to it              |
+| `get_service_map`    | Failing connections, or one workload's connections and DNS errors            | The same between containers                                   |
+| `get_events`         | Warning events, grouped                                                      | Container deaths, OOM kills, health changes                   |
+| `get_recent_changes` | Rollouts, image changes, scaling, nodes                                      | Re-created containers, image changes                          |
+| `query_metric`       | A metric over up to 24 hours, as statistics, including a monitored service's | The same                                                      |
 
 Two prompts start an investigation for you: `investigate_problem` and `why_is_it_crashing`.
 
