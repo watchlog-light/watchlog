@@ -28,6 +28,31 @@ type Flow struct {
 	Retransmits uint64
 }
 
+// HTTPBuckets are the upper bounds of the HTTP latency histogram in seconds, matching
+// http_bucket() in bpf/flows.bpf.c (ADR-106's buckets extended to 10 s); the last
+// bucket is +Inf.
+var HTTPBuckets = []float64{0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10}
+
+// HTTPStatusCodes name the status slots of status_slot() in bpf/flows.bpf.c: the
+// common codes exactly, then the rest of each class (ADR-139 amended).
+var HTTPStatusCodes = []string{"200", "201", "204", "301", "302", "304", "400", "401", "403", "404",
+	"409", "429", "500", "502", "503", "504", "1xx", "2xx", "3xx", "4xx", "5xx"}
+
+// HTTPStat is one (cgroup, peer, port, side) aggregate of HTTP/1.x requests since the
+// previous drain (ADR-139). Client side: the cgroup sent requests to Addr:Port. Server
+// side: the cgroup answered requests from Addr on its local Port.
+type HTTPStat struct {
+	Cgroup   uint64
+	Addr     netip.Addr
+	Port     uint16
+	Server   bool
+	Reads    uint64 // GET, HEAD, OPTIONS
+	Writes   uint64 // POST, PUT, PATCH, DELETE
+	Status   [21]uint64
+	Latency  [15]uint64 // per bucket, not cumulative
+	LatSumNs uint64
+}
+
 // DNSStat is one container's DNS outcomes since the previous drain: rcodes from the
 // response header only, timeouts for queries unanswered when the socket closed.
 type DNSStat struct {

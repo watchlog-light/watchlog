@@ -62,21 +62,35 @@ type Flows struct {
 	// DNS is false when the DNS hooks could not attach (same reason as bytes).
 	DNS       bool
 	DNSReason string
+	// HTTP is false when the HTTP hooks are off (agent.networkFlows.http) or could not
+	// attach; HTTPReason says why.
+	HTTP       bool
+	HTTPReason string
 	// drained is the map index the last Drain read; DrainDNS reads the same one.
 	drained uint32
 	extra   []*ebpf.Collection
 	answers *ringbuf.Reader
 }
 
-// Load loads the programs and attaches them. Errors say what is missing in words
+// Options choose the optional hooks.
+type Options struct {
+	// HTTP peeks at the first 16 bytes of TCP messages for HTTP/1.x stats (ADR-139).
+	HTTP bool
+}
+
+// Load loads the programs with every hook on and attaches them.
+func Load() (*Flows, error) { return LoadWith(Options{HTTP: true}) }
+
+// LoadWith loads the programs and attaches them. Errors say what is missing in words
 // (a capability, a hook).
-func Load() (*Flows, error) {
+func LoadWith(o Options) (*Flows, error) {
 	spec, err := loadFlows()
 	if err != nil {
 		return nil, err
 	}
 	optional := map[string]bool{"on_send": true, "on_recv": true,
-		"on_dns_send": true, "on_dns_send6": true, "on_dns_recv": true, "on_dns_close": true}
+		"on_dns_send": true, "on_dns_send6": true, "on_dns_recv": true, "on_dns_close": true,
+		"on_http_send": true, "on_http_recv_buf": true, "on_http_recv": true}
 	core := spec.Copy()
 	for name := range optional {
 		delete(core.Programs, name)
@@ -93,6 +107,8 @@ func Load() (*Flows, error) {
 			Dns0: coll.Maps["dns0"], Dns1: coll.Maps["dns1"], DnsSocks: coll.Maps["dns_socks"],
 			DnsAnswers: coll.Maps["dns_answers"],
 			Roots:      coll.Maps["roots"], Filter: coll.Maps["filter"], Filtered: coll.Maps["filtered"],
+			HttpSocks: coll.Maps["http_socks"], Http0: coll.Maps["http0"], Http1: coll.Maps["http1"],
+			RecvBufs: coll.Maps["recv_bufs"], HttpZero: coll.Maps["http_zero"],
 		},
 		flowsPrograms: flowsPrograms{OnState: coll.Programs["on_state"], OnRetransmit: coll.Programs["on_retransmit"]},
 	}
@@ -106,6 +122,11 @@ func Load() (*Flows, error) {
 	}
 	f.Bytes, f.BytesReason = f.attachOptional(spec, "on_send", "on_recv")
 	f.DNS, f.DNSReason = f.attachOptional(spec, "on_dns_send", "on_dns_send6", "on_dns_recv", "on_dns_close")
+	if o.HTTP {
+		f.HTTP, f.HTTPReason = f.attachOptional(spec, "on_http_send", "on_http_recv_buf", "on_http_recv")
+	} else {
+		f.HTTPReason = "off (agent.networkFlows.http)"
+	}
 	return f, nil
 }
 
@@ -121,6 +142,8 @@ func (f *Flows) attachOptional(spec *ebpf.CollectionSpec, names ...string) (bool
 		"active": f.objs.Active, "flows0": f.objs.Flows0, "flows1": f.objs.Flows1, "socks": f.objs.Socks,
 		"dns0": f.objs.Dns0, "dns1": f.objs.Dns1, "dns_socks": f.objs.DnsSocks, "dns_answers": f.objs.DnsAnswers,
 		"roots": f.objs.Roots, "filter": f.objs.Filter, "filtered": f.objs.Filtered,
+		"http_socks": f.objs.HttpSocks, "http0": f.objs.Http0, "http1": f.objs.Http1,
+		"recv_bufs": f.objs.RecvBufs, "http_zero": f.objs.HttpZero,
 	}})
 	if err != nil {
 		return false, explain(err).Error()
@@ -294,6 +317,50 @@ func (f *Flows) DrainDNS() ([]DNSStat, error) {
 			d.Timeouts += v.Timeouts
 		}
 		out = append(out, d)
+	}
+	if err := it.Err(); err != nil {
+		return nil, err
+	}
+	for i := range keys {
+		_ = m.Delete(&keys[i])
+	}
+	return out, nil
+}
+
+// DrainHTTP returns and clears the HTTP counters of the map the last Drain read
+// (ADR-139). Empty when the HTTP hooks are not attached.
+func (f *Flows) DrainHTTP() ([]HTTPStat, error) {
+	if !f.HTTP {
+		return nil, nil
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	m := f.objs.Http0
+	if f.drained == 1 {
+		m = f.objs.Http1
+	}
+	var (
+		key  flowsHttpKey
+		vals []flowsHttpVal
+		keys []flowsHttpKey
+		out  []HTTPStat
+	)
+	it := m.Iterate()
+	for it.Next(&key, &vals) {
+		keys = append(keys, key)
+		h := HTTPStat{Cgroup: key.Cgroup, Addr: netip.AddrFrom16(key.Addr).Unmap(), Port: key.Port, Server: key.Side == 1}
+		for _, v := range vals {
+			h.Reads += v.Reads
+			h.Writes += v.Writes
+			for i := range h.Status {
+				h.Status[i] += v.Status[i]
+			}
+			for i := range h.Latency {
+				h.Latency[i] += v.Lat[i]
+			}
+			h.LatSumNs += v.LatSumNs
+		}
+		out = append(out, h)
 	}
 	if err := it.Err(); err != nil {
 		return nil, err

@@ -36,6 +36,10 @@ agent:
     # kernel (host daemons, plain Docker containers, other kind/k3d nodes' pods) are never
     # recorded, only counted. false records every task and drops the rest in the agent.
     podFilter: true
+    # HTTP stats on service-map edges (ADR-139): the first 16 bytes of each TCP message
+    # tell an HTTP/1.x request or response apart; only the method's class, the status code
+    # and the latency are kept, never paths, headers or bodies, and TLS is never decrypted.
+    http: true
   # Where node metrics come from (ADR-121): host reads the kernel's host-wide /proc;
   # cgroup reads the node's own cgroup, for nodes that are containers on a shared kernel
   # (kind, k3d): capacity from cpu.max and memory.max, no load average, no host disks or

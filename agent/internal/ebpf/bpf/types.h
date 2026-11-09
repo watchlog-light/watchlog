@@ -61,9 +61,32 @@ struct sk_buff {
 	__u16 transport_header;
 } __attribute__((preserve_access_index));
 
+/*
+ * HTTP (ADR-139): the first bytes of a message's user buffer. The buffer pointer is the
+ * first word of iov_iter's union on every kernel: an iovec array (`iov`, renamed `__iov`
+ * in 6.4) or, for one buffer on 6.0+, the buffer itself (`ubuf`). The ___flavours let
+ * CO-RE take whichever name the running kernel has.
+ */
+struct iovec {
+	void *iov_base;
+	__u64 iov_len;
+} __attribute__((preserve_access_index));
+
+struct iov_iter {
+} __attribute__((preserve_access_index));
+
+struct iov_iter___old {
+	const struct iovec *iov;
+} __attribute__((preserve_access_index));
+
+struct iov_iter___new {
+	const struct iovec *__iov;
+} __attribute__((preserve_access_index));
+
 struct msghdr {
 	void *msg_name;
 	int msg_namelen;
+	struct iov_iter msg_iter;
 } __attribute__((preserve_access_index));
 
 struct sockaddr_in {

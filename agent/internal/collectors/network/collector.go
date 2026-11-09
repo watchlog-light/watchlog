@@ -4,6 +4,7 @@ package network
 
 import (
 	"log/slog"
+	"net/netip"
 	"sync"
 	"time"
 
@@ -60,6 +61,7 @@ type Collector struct {
 	// insideUnnamed counts flows to names under svc.<domain> that name no Service; they
 	// are dropped rather than drawn as externals.
 	insideUnnamed float64
+	insideName    bool
 
 	mu           sync.Mutex
 	idx          map[uint64]Owner
@@ -70,6 +72,9 @@ type Collector struct {
 	unnamed         float64
 	keys            int
 	edges           map[edgeKey]*edge
+	httpEdges       map[edgeKey]*httpCounters
+	httpServers     map[serverKey]*httpCounters
+	pendingHTTP     []ebpf.HTTPStat
 	ext             externals
 	dns             map[Source]*dnsCounters
 	pendingDNS      []ebpf.DNSStat
@@ -136,6 +141,15 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 		c.pendingDNS = stats
 		c.mu.Unlock()
 	}
+	if d, ok := c.flows.(HTTPDrainer); ok {
+		stats, err := d.DrainHTTP()
+		if err != nil {
+			c.log.Warn("http counters", "err", err)
+		}
+		c.mu.Lock()
+		c.pendingHTTP = stats
+		c.mu.Unlock()
+	}
 	var res *Resolver
 	if c.Resolver != nil {
 		res = c.Resolver()
@@ -158,27 +172,13 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 			c.unnamed += float64(f.Connects)
 			continue
 		}
-		dst, ok := res.Resolve(f.Addr, f.Port)
+		dst, ok := c.destination(f.Cgroup, src, f.Addr, f.Port, res, now)
 		if !ok {
+			if c.insideName {
+				c.insideUnnamed += float64(f.Connects)
+			}
 			continue
 		}
-		if dst.Kind == DstExternal && c.DNSNames != nil {
-			if name, ok := c.DNSNames.Lookup(f.Cgroup, f.Addr); ok {
-				// A cluster Service's name: the IP map does not know this address yet
-				// (a Service created moments ago). Attribute it to the Service by
-				// name; never an external (ADR-116).
-				if svc, ns, under := ClusterService(name, c.ClusterDomain); under {
-					if svc == "" {
-						c.insideUnnamed += float64(f.Connects)
-						continue
-					}
-					dst = Dest{Kind: DstService, Namespace: ns, Service: svc, Port: dst.Port}
-				} else {
-					dst.Name = name
-				}
-			}
-		}
-		dst = c.ext.admit(src.key(), dst, now)
 		k := edgeKey{src: src, dst: dst}
 		e := c.edges[k]
 		if e == nil {
@@ -187,6 +187,8 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 		}
 		e.add(f.Flow, now)
 	}
+	c.addHTTP(c.pendingHTTP, res, now)
+	c.pendingHTTP = nil
 	c.addDNS(now)
 	var out []metrics.Sample
 	for src, d := range c.dns {
@@ -203,8 +205,38 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 		}
 		out = append(out, e.samples(k, c.Bytes)...)
 	}
+	out = append(out, c.httpSamples(now)...)
 	out = append(out, c.selfMetrics()...)
 	return out, nil
+}
+
+// destination is where a container's connection to addr:port goes: a workload, a
+// Service, a container or an external, named by what the container looked up when the
+// IP map doesn't know it (ADR-104, ADR-116). false drops it; insideName says it was a
+// cluster name that names no Service.
+func (c *Collector) destination(cgroup uint64, src Source, addr netip.Addr, port uint16, res *Resolver, now time.Time) (Dest, bool) {
+	c.insideName = false
+	dst, ok := res.Resolve(addr, port)
+	if !ok {
+		return Dest{}, false
+	}
+	if dst.Kind == DstExternal && c.DNSNames != nil {
+		if name, ok := c.DNSNames.Lookup(cgroup, addr); ok {
+			// A cluster Service's name: the IP map does not know this address yet (a
+			// Service created moments ago). Attribute it to the Service by name; never
+			// an external (ADR-116).
+			if svc, ns, under := ClusterService(name, c.ClusterDomain); under {
+				if svc == "" {
+					c.insideName = true
+					return Dest{}, false
+				}
+				dst = Dest{Kind: DstService, Namespace: ns, Service: svc, Port: dst.Port}
+			} else {
+				dst.Name = name
+			}
+		}
+	}
+	return c.ext.admit(src.key(), dst, now), true
 }
 
 // SelfMetrics describe the collector itself.

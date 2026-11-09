@@ -102,6 +102,8 @@ func run(args []string, stdout io.Writer) int {
 	dockerSocket := fs.String("docker-socket", envOr("WATCHLOG_DOCKER_SOCKET", "/var/run/docker.sock"), "Docker socket (docker mode, read-only use)")
 	ebpfFlag := fs.Bool("ebpf", envOr("WATCHLOG_EBPF", "true") != "false",
 		"eBPF network flows (node and docker modes); needs the BPF and PERFMON capabilities")
+	httpStats := fs.Bool("ebpf-http", envOr("WATCHLOG_EBPF_HTTP", "true") != "false",
+		"HTTP/1.x requests, status codes and latency on network edges (ADR-139): a 16-byte peek, no paths or bodies")
 	podFilter := fs.Bool("ebpf-pod-filter", envOr("WATCHLOG_EBPF_POD_FILTER", "true") != "false",
 		"node mode: record only this node's pods in the kernel (ADR-121); false records every task and drops the rest in user space")
 	scopeFlag := fs.String("node-metrics-scope", envOr("WATCHLOG_NODE_METRICS_SCOPE", host.ScopeAuto),
@@ -180,7 +182,7 @@ func run(args []string, stdout io.Writer) int {
 	if mode != config.ModeCluster && *ebpfFlag {
 		// Unsupported or not permitted: reported in the heartbeat, everything else runs.
 		var flows *ebpf.Flows
-		flows, ebpfState = network.Start(paths.Sys, slog.Default())
+		flows, ebpfState = network.Start(paths.Sys, *httpStats, slog.Default())
 		if flows != nil {
 			defer flows.Close()
 			reader := containers.NewReader(paths.Proc, paths.Sys)

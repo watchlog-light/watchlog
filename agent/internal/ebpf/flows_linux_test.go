@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"syscall"
@@ -282,5 +284,128 @@ func TestAdoptsConnectionsOpenBeforeLoad(t *testing.T) {
 	}
 	if adopted == nil || adopted.BytesSent != 300 || adopted.BytesRecv != 200 || adopted.Connects != 0 {
 		t.Fatalf("adopted flow = %+v", adopted)
+	}
+}
+
+// HTTP stats (ADR-139), WATCHLOG_EBPF_TEST=1: a real HTTP/1.1 server and client in this
+// process, with scripted status codes and delays. Both sides of the same requests are
+// counted: the client's per destination, the server's per local port.
+func TestHTTPStats(t *testing.T) {
+	if os.Getenv("WATCHLOG_EBPF_TEST") != "1" {
+		t.Skip("set WATCHLOG_EBPF_TEST=1 to load eBPF programs")
+	}
+	f, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if !f.HTTP {
+		// arm64 before 6.0 has no BPF trampoline: no fentry hook attaches (the programs
+		// still load, so the verifier accepted them), as for the byte counters.
+		if strings.Contains(f.HTTPReason, "does not support this hook") {
+			t.Skipf("HTTP hooks not attached on this kernel: %s", f.HTTPReason)
+		}
+		t.Fatalf("HTTP hooks not attached: %s", f.HTTPReason)
+	}
+	// A fixed port below the ephemeral range, as a real server listens on: an accepted
+	// socket's local port tells the server side from a client's (ADR-139).
+	var ln net.Listener
+	for p := 18080; p < 18180 && ln == nil; p++ {
+		ln, _ = net.Listen("tcp4", fmt.Sprintf("127.0.0.1:%d", p))
+	}
+	if ln == nil {
+		t.Fatal("no free port in 18080-18179")
+	}
+	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/fail":
+			w.WriteHeader(http.StatusServiceUnavailable)
+		case "/slow":
+			time.Sleep(300 * time.Millisecond)
+		case "/missing":
+			w.WriteHeader(http.StatusNotFound)
+		}
+		_, _ = w.Write([]byte("body that starts like HTTP/1.1 999 but is no status line"))
+	})}
+	go func() { _ = srv.Serve(ln) }()
+	defer func() { _ = srv.Close() }()
+	port := uint16(ln.Addr().(*net.TCPAddr).Port)
+	base := "http://" + ln.Addr().String()
+	client := &http.Client{Timeout: 5 * time.Second}
+	do := func(method, path string, n int) {
+		for range n {
+			req, _ := http.NewRequest(method, base+path, strings.NewReader("GET / HTTP/1.1"))
+			res, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _ = io.Copy(io.Discard, res.Body)
+			_ = res.Body.Close()
+		}
+	}
+	do("GET", "/ok", 10)
+	do("POST", "/fail", 5)
+	do("GET", "/slow", 3)
+	do("DELETE", "/missing", 2)
+	// busybox wget, as the demo's callers use: a new process and connection each time,
+	// stdio on the socket. Counted on both sides like Go's client; the server reads each
+	// into a freshly allocated buffer, not yet paged in when the receive starts.
+	wgets := 0
+	if _, err := exec.LookPath("wget"); err == nil {
+		for range 10 {
+			_ = exec.Command("wget", "-q", "-O", "/dev/null", "-T", "2", base+"/ok").Run()
+			wgets++
+		}
+	}
+
+	if _, err := f.Drain(); err != nil {
+		t.Fatal(err)
+	}
+	stats, err := f.DrainHTTP()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var client_, server *HTTPStat
+	for i := range stats {
+		s := &stats[i]
+		if s.Port != port {
+			continue
+		}
+		if s.Server {
+			server = s
+		} else {
+			client_ = s
+		}
+	}
+	slot := func(code string) int {
+		for i, c := range HTTPStatusCodes {
+			if c == code {
+				return i
+			}
+		}
+		return -1
+	}
+	for name, s := range map[string]*HTTPStat{"client": client_, "server": server} {
+		if s == nil {
+			t.Errorf("no %s side for port %d: %+v", name, port, stats)
+			continue
+		}
+		if s.Reads != uint64(13+wgets) || s.Writes != 7 {
+			t.Errorf("%s: reads %d writes %d, want %d and 7", name, s.Reads, s.Writes, 13+wgets)
+		}
+		if s.Status[slot("200")] != uint64(13+wgets) || s.Status[slot("503")] != 5 || s.Status[slot("404")] != 2 {
+			t.Errorf("%s: status %v", name, s.Status)
+		}
+		// The three slow ones: above 250 ms (bucket 9 is ≤500 ms).
+		slow := uint64(0)
+		for i := 9; i < len(s.Latency); i++ {
+			slow += s.Latency[i]
+		}
+		if slow != 3 {
+			t.Errorf("%s: %d responses above 250 ms, want 3: %v", name, slow, s.Latency)
+		}
+		if s.LatSumNs < uint64(900*time.Millisecond) {
+			t.Errorf("%s: latency sum %v", name, time.Duration(s.LatSumNs))
+		}
 	}
 }

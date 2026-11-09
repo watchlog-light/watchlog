@@ -47,6 +47,40 @@ type flowsFlowVal struct {
 	Retransmits uint64
 }
 
+type flowsHttpKey struct {
+	_      structs.HostLayout
+	Cgroup uint64
+	Addr   [16]uint8
+	Port   uint16
+	Side   uint8
+	Pad    [5]uint8
+}
+
+type flowsHttpSock struct {
+	_       structs.HostLayout
+	Key     flowsHttpKey
+	ReqNs   uint64
+	Method  uint8
+	RespLen uint8
+	Pad     [6]uint8
+	Resp    [16]uint8
+}
+
+type flowsHttpVal struct {
+	_        structs.HostLayout
+	Reads    uint64
+	Writes   uint64
+	Status   [32]uint64
+	Lat      [16]uint64
+	LatSumNs uint64
+}
+
+type flowsRecvBuf struct {
+	_   structs.HostLayout
+	Sk  uint64
+	Buf uint64
+}
+
 type flowsSockInfo struct {
 	_       structs.HostLayout
 	Key     flowsFlowKey
@@ -57,25 +91,33 @@ type flowsSockInfo struct {
 //
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
-	flowsMapActive        = "active"
-	flowsMapDns0          = "dns0"
-	flowsMapDns1          = "dns1"
-	flowsMapDnsAnswers    = "dns_answers"
-	flowsMapDnsSocks      = "dns_socks"
-	flowsMapFilter        = "filter"
-	flowsMapFiltered      = "filtered"
-	flowsMapFlows0        = "flows0"
-	flowsMapFlows1        = "flows1"
-	flowsMapRoots         = "roots"
-	flowsMapSocks         = "socks"
-	flowsProgOnDnsClose   = "on_dns_close"
-	flowsProgOnDnsRecv    = "on_dns_recv"
-	flowsProgOnDnsSend    = "on_dns_send"
-	flowsProgOnDnsSend6   = "on_dns_send6"
-	flowsProgOnRecv       = "on_recv"
-	flowsProgOnRetransmit = "on_retransmit"
-	flowsProgOnSend       = "on_send"
-	flowsProgOnState      = "on_state"
+	flowsMapActive         = "active"
+	flowsMapDns0           = "dns0"
+	flowsMapDns1           = "dns1"
+	flowsMapDnsAnswers     = "dns_answers"
+	flowsMapDnsSocks       = "dns_socks"
+	flowsMapFilter         = "filter"
+	flowsMapFiltered       = "filtered"
+	flowsMapFlows0         = "flows0"
+	flowsMapFlows1         = "flows1"
+	flowsMapHttp0          = "http0"
+	flowsMapHttp1          = "http1"
+	flowsMapHttpSocks      = "http_socks"
+	flowsMapHttpZero       = "http_zero"
+	flowsMapRecvBufs       = "recv_bufs"
+	flowsMapRoots          = "roots"
+	flowsMapSocks          = "socks"
+	flowsProgOnDnsClose    = "on_dns_close"
+	flowsProgOnDnsRecv     = "on_dns_recv"
+	flowsProgOnDnsSend     = "on_dns_send"
+	flowsProgOnDnsSend6    = "on_dns_send6"
+	flowsProgOnHttpRecv    = "on_http_recv"
+	flowsProgOnHttpRecvBuf = "on_http_recv_buf"
+	flowsProgOnHttpSend    = "on_http_send"
+	flowsProgOnRecv        = "on_recv"
+	flowsProgOnRetransmit  = "on_retransmit"
+	flowsProgOnSend        = "on_send"
+	flowsProgOnState       = "on_state"
 )
 
 // loadFlows returns the embedded CollectionSpec for flows.
@@ -120,14 +162,17 @@ type flowsSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type flowsProgramSpecs struct {
-	OnDnsClose   *ebpf.ProgramSpec `ebpf:"on_dns_close"`
-	OnDnsRecv    *ebpf.ProgramSpec `ebpf:"on_dns_recv"`
-	OnDnsSend    *ebpf.ProgramSpec `ebpf:"on_dns_send"`
-	OnDnsSend6   *ebpf.ProgramSpec `ebpf:"on_dns_send6"`
-	OnRecv       *ebpf.ProgramSpec `ebpf:"on_recv"`
-	OnRetransmit *ebpf.ProgramSpec `ebpf:"on_retransmit"`
-	OnSend       *ebpf.ProgramSpec `ebpf:"on_send"`
-	OnState      *ebpf.ProgramSpec `ebpf:"on_state"`
+	OnDnsClose    *ebpf.ProgramSpec `ebpf:"on_dns_close"`
+	OnDnsRecv     *ebpf.ProgramSpec `ebpf:"on_dns_recv"`
+	OnDnsSend     *ebpf.ProgramSpec `ebpf:"on_dns_send"`
+	OnDnsSend6    *ebpf.ProgramSpec `ebpf:"on_dns_send6"`
+	OnHttpRecv    *ebpf.ProgramSpec `ebpf:"on_http_recv"`
+	OnHttpRecvBuf *ebpf.ProgramSpec `ebpf:"on_http_recv_buf"`
+	OnHttpSend    *ebpf.ProgramSpec `ebpf:"on_http_send"`
+	OnRecv        *ebpf.ProgramSpec `ebpf:"on_recv"`
+	OnRetransmit  *ebpf.ProgramSpec `ebpf:"on_retransmit"`
+	OnSend        *ebpf.ProgramSpec `ebpf:"on_send"`
+	OnState       *ebpf.ProgramSpec `ebpf:"on_state"`
 }
 
 // flowsMapSpecs contains maps before they are loaded into the kernel.
@@ -143,6 +188,11 @@ type flowsMapSpecs struct {
 	Filtered   *ebpf.MapSpec `ebpf:"filtered"`
 	Flows0     *ebpf.MapSpec `ebpf:"flows0"`
 	Flows1     *ebpf.MapSpec `ebpf:"flows1"`
+	Http0      *ebpf.MapSpec `ebpf:"http0"`
+	Http1      *ebpf.MapSpec `ebpf:"http1"`
+	HttpSocks  *ebpf.MapSpec `ebpf:"http_socks"`
+	HttpZero   *ebpf.MapSpec `ebpf:"http_zero"`
+	RecvBufs   *ebpf.MapSpec `ebpf:"recv_bufs"`
 	Roots      *ebpf.MapSpec `ebpf:"roots"`
 	Socks      *ebpf.MapSpec `ebpf:"socks"`
 }
@@ -182,6 +232,11 @@ type flowsMaps struct {
 	Filtered   *ebpf.Map `ebpf:"filtered"`
 	Flows0     *ebpf.Map `ebpf:"flows0"`
 	Flows1     *ebpf.Map `ebpf:"flows1"`
+	Http0      *ebpf.Map `ebpf:"http0"`
+	Http1      *ebpf.Map `ebpf:"http1"`
+	HttpSocks  *ebpf.Map `ebpf:"http_socks"`
+	HttpZero   *ebpf.Map `ebpf:"http_zero"`
+	RecvBufs   *ebpf.Map `ebpf:"recv_bufs"`
 	Roots      *ebpf.Map `ebpf:"roots"`
 	Socks      *ebpf.Map `ebpf:"socks"`
 }
@@ -197,6 +252,11 @@ func (m *flowsMaps) Close() error {
 		m.Filtered,
 		m.Flows0,
 		m.Flows1,
+		m.Http0,
+		m.Http1,
+		m.HttpSocks,
+		m.HttpZero,
+		m.RecvBufs,
 		m.Roots,
 		m.Socks,
 	)
@@ -212,14 +272,17 @@ type flowsVariables struct {
 //
 // It can be passed to loadFlowsObjects or ebpf.CollectionSpec.LoadAndAssign.
 type flowsPrograms struct {
-	OnDnsClose   *ebpf.Program `ebpf:"on_dns_close"`
-	OnDnsRecv    *ebpf.Program `ebpf:"on_dns_recv"`
-	OnDnsSend    *ebpf.Program `ebpf:"on_dns_send"`
-	OnDnsSend6   *ebpf.Program `ebpf:"on_dns_send6"`
-	OnRecv       *ebpf.Program `ebpf:"on_recv"`
-	OnRetransmit *ebpf.Program `ebpf:"on_retransmit"`
-	OnSend       *ebpf.Program `ebpf:"on_send"`
-	OnState      *ebpf.Program `ebpf:"on_state"`
+	OnDnsClose    *ebpf.Program `ebpf:"on_dns_close"`
+	OnDnsRecv     *ebpf.Program `ebpf:"on_dns_recv"`
+	OnDnsSend     *ebpf.Program `ebpf:"on_dns_send"`
+	OnDnsSend6    *ebpf.Program `ebpf:"on_dns_send6"`
+	OnHttpRecv    *ebpf.Program `ebpf:"on_http_recv"`
+	OnHttpRecvBuf *ebpf.Program `ebpf:"on_http_recv_buf"`
+	OnHttpSend    *ebpf.Program `ebpf:"on_http_send"`
+	OnRecv        *ebpf.Program `ebpf:"on_recv"`
+	OnRetransmit  *ebpf.Program `ebpf:"on_retransmit"`
+	OnSend        *ebpf.Program `ebpf:"on_send"`
+	OnState       *ebpf.Program `ebpf:"on_state"`
 }
 
 func (p *flowsPrograms) Close() error {
@@ -228,6 +291,9 @@ func (p *flowsPrograms) Close() error {
 		p.OnDnsRecv,
 		p.OnDnsSend,
 		p.OnDnsSend6,
+		p.OnHttpRecv,
+		p.OnHttpRecvBuf,
+		p.OnHttpSend,
 		p.OnRecv,
 		p.OnRetransmit,
 		p.OnSend,

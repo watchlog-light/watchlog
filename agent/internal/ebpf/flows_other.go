@@ -12,7 +12,18 @@ type Flows struct {
 	BytesReason string
 	DNS         bool
 	DNSReason   string
+	HTTP        bool
+	HTTPReason  string
 }
+
+// Options choose the optional hooks.
+type Options struct{ HTTP bool }
+
+// LoadWith fails outside Linux.
+func LoadWith(Options) (*Flows, error) { return nil, errors.New("eBPF needs Linux") }
+
+// DrainHTTP returns nothing outside Linux.
+func (f *Flows) DrainHTTP() ([]HTTPStat, error) { return nil, nil }
 
 // CheckSupport: eBPF needs Linux.
 func CheckSupport(release, sys string) Support { return Support{Reason: "eBPF needs Linux"} }

@@ -5,7 +5,9 @@
 package ebpf
 
 import (
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -148,5 +150,77 @@ func TestCountsMatchTheClientSustained(t *testing.T) {
 	t.Logf("kernel connects=%d established=%d failures=%d", total.Connects, total.Established, total.Failures)
 	if int64(total.Established) != ok.Load() || int64(total.Failures) != failed.Load() {
 		t.Errorf("counters differ from the client")
+	}
+}
+
+// The cost of the HTTP peek (ADR-139) on the applications' sends and receives:
+// 20,000 keep-alive requests with the HTTP hooks off, then on (WATCHLOG_EBPF_LOAD=1).
+// Logged for the record; fails above 25 % more time per request.
+func TestHTTPPeekOverhead(t *testing.T) {
+	if os.Getenv("WATCHLOG_EBPF_LOAD") != "1" {
+		t.Skip("set WATCHLOG_EBPF_LOAD=1")
+	}
+	ln, err := net.Listen("tcp4", "127.0.0.1:18280")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	})}
+	go func() { _ = srv.Serve(ln) }()
+	defer func() { _ = srv.Close() }()
+	client := &http.Client{Transport: &http.Transport{MaxIdleConnsPerHost: 8}}
+	const n = 20000
+	run := func() time.Duration {
+		start := time.Now()
+		var wg sync.WaitGroup
+		for w := 0; w < 8; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for i := 0; i < n/8; i++ {
+					res, err := client.Get("http://127.0.0.1:18280/")
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					_, _ = io.Copy(io.Discard, res.Body)
+					_ = res.Body.Close()
+				}
+			}()
+		}
+		wg.Wait()
+		return time.Since(start)
+	}
+	measure := func(httpOn bool) time.Duration {
+		f, err := LoadWith(Options{HTTP: httpOn})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		run() // warm up
+		best := time.Duration(1 << 62)
+		for range 3 {
+			best = min(best, run())
+		}
+		if httpOn {
+			_, _ = f.Drain()
+			stats, _ := f.DrainHTTP()
+			total := uint64(0)
+			for _, s := range stats {
+				if s.Port == 18280 {
+					total += s.Reads
+				}
+			}
+			t.Logf("HTTP requests counted in the last interval: %d (both sides)", total)
+		}
+		return best
+	}
+	off, on := measure(false), measure(true)
+	per := func(d time.Duration) time.Duration { return d / n }
+	t.Logf("%d keep-alive requests: hooks off %v (%v each), HTTP peek on %v (%v each), %+.1f %%",
+		n, off, per(off), on, per(on), 100*(float64(on)/float64(off)-1))
+	if float64(on) > 1.25*float64(off) {
+		t.Errorf("the HTTP peek adds more than 25 %% per request")
 	}
 }

@@ -32,13 +32,13 @@ var Disabled = State{State: "disabled", Reason: "turned off by configuration (WA
 
 // Start checks the kernel and loads the flow programs. Any failure is a reason, never
 // fatal: the agent's other collectors keep working (ADR-102).
-func Start(sys string, log *slog.Logger) (*ebpf.Flows, State) {
+func Start(sys string, http bool, log *slog.Logger) (*ebpf.Flows, State) {
 	release := ebpf.KernelRelease()
 	if s := ebpf.CheckSupport(release, sys); !s.OK {
 		log.Warn("eBPF network flows unsupported", "kernel", release, "reason", s.Reason)
 		return nil, State{State: "unsupported", Reason: s.Reason, Cause: CauseKernel}
 	}
-	flows, err := ebpf.Load()
+	flows, err := ebpf.LoadWith(ebpf.Options{HTTP: http})
 	if err != nil {
 		log.Warn("eBPF network flows could not load", "kernel", release, "err", err)
 		return nil, failed(err)
@@ -51,8 +51,11 @@ func Start(sys string, log *slog.Logger) (*ebpf.Flows, State) {
 	if !flows.DNS {
 		missing = append(missing, "no DNS errors: "+flows.DNSReason)
 	}
+	if http && !flows.HTTP {
+		missing = append(missing, "no HTTP stats: "+flows.HTTPReason)
+	}
 	st.Reason = clip(strings.Join(missing, "; "))
-	log.Info("eBPF network flows enabled", "kernel", release, "bytes", flows.Bytes, "dns", flows.DNS)
+	log.Info("eBPF network flows enabled", "kernel", release, "bytes", flows.Bytes, "dns", flows.DNS, "http", flows.HTTP)
 	return flows, st
 }
 

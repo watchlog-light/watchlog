@@ -56,6 +56,11 @@ that chart's values, which have agent.ebpf.enabled=false and no networkFlows (AD
 {{- ne (toString (dig "networkFlows" "podFilter" true (.Values.agent | default dict))) "false" -}}
 {{- end -}}
 
+{{/* HTTP stats on the service map (ADR-139): on unless agent.networkFlows.http is false; a missing key means on. */}}
+{{- define "watchlog-agent.httpStats" -}}
+{{- ne (toString (dig "networkFlows" "http" true (.Values.agent | default dict))) "false" -}}
+{{- end -}}
+
 {{/* Node metrics scope (ADR-121): host, cgroup or auto; a missing or empty key means auto. */}}
 {{- define "watchlog-agent.nodeMetricsScope" -}}
 {{- $s := toString (dig "nodeMetricsScope" "auto" (.Values.agent | default dict)) -}}
