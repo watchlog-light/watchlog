@@ -1431,7 +1431,8 @@
       "failed": "{pct} failed",
       "slow": "p95 {p95}",
       "p95": "p95 {v}",
-      "via": "via Service {service}"
+      "via": "via Service {service}",
+      "errors": "{pct} 5xx"
     },
     "columns": {
       "edge": "Connection",
@@ -1447,7 +1448,12 @@
       "connections": "connections/s",
       "failed": "failed/s",
       "empty": "No connections on this edge in this range",
-      "error": "The edge's series couldn't be loaded"
+      "error": "The edge's series couldn't be loaded",
+      "httpRequests": "HTTP requests and errors",
+      "httpLatency": "HTTP latency",
+      "requests": "Requests",
+      "clientErrors": "4xx",
+      "serverErrors": "5xx"
     },
     "topology": {
       "title": "Topology only, no traffic data",
@@ -1595,7 +1601,19 @@
       "noneReady": "{name} has 0 ready pods since {time}.",
       "scaledToZero": "{name} is scaled to 0 since {time}.",
       "someReady": "{name} has {ready} of {desired} pods ready.",
-      "alert": "Alert: failed connections, firing since {time}"
+      "alert": "Alert: failed connections, firing since {time}",
+      "errors": {
+        "critical": "{pct} of HTTP requests answer 5xx.",
+        "warning": "{pct} of HTTP requests answer 5xx (warning at 1 %)."
+      }
+    },
+    "http": {
+      "title": "HTTP",
+      "requests": "Requests/s",
+      "errors": "5xx",
+      "clientErrors": "4xx/s",
+      "latency": "p50 · p95 · p99",
+      "note": "HTTP/1.x from the first bytes of each message: method, status and timing only, never paths or bodies; TLS stays encrypted."
     }
   },
   "overview": {

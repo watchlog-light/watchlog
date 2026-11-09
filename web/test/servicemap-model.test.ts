@@ -67,6 +67,7 @@ const E = (s: string, t: string, over: Partial<ServiceMapEdge> = {}): ServiceMap
   bytesSentPerSecond: 900,
   bytesReceivedPerSecond: 1200,
   retransmitsPerSecond: 0,
+  http: null,
   health: 'ok',
   ...over,
 });

@@ -47,10 +47,13 @@ export function edgeReason(
 ): { lead: string; detail: string | null } | null {
   if (e.health !== 'critical' && e.health !== 'warning') return null;
   const failed = e.failedRatio ?? 0;
+  const errors = e.http?.serverErrorRatio ?? 0;
   const lead =
     failed >= 0.01
       ? t(`serviceMap.reason.failed.${e.health}`, { pct: pct(failed) })
-      : t('serviceMap.reason.slow', { p95: latency(e.latencyP95Seconds) });
+      : errors >= 0.01
+        ? t(`serviceMap.reason.errors.${e.health}`, { pct: pct(errors) })
+        : t('serviceMap.reason.slow', { p95: latency(e.latencyP95Seconds) });
   const tg = ctx?.target;
   let detail: string | null = null;
   if (tg && tg.desired === 0)

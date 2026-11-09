@@ -76,7 +76,9 @@ function rowText(e: ServiceMapEdge): string {
   if (e.health === 'critical' || e.health === 'warning')
     return (e.failedRatio ?? 0) >= 0.01
       ? t('serviceMap.edge.failed', { pct: formatValue(e.failedRatio, 'ratio') })
-      : t('serviceMap.edge.slow', { p95: latency(e.latencyP95Seconds) });
+      : (e.http?.serverErrorRatio ?? 0) >= 0.01
+        ? t('serviceMap.edge.errors', { pct: formatValue(e.http!.serverErrorRatio, 'ratio') })
+        : t('serviceMap.edge.slow', { p95: latency(e.latencyP95Seconds) });
   if (e.health === 'idle' || e.health === 'unknown') return t(`serviceMap.health.${e.health}`);
   return e.connectionsPerSecond > 0
     ? perSecond(e.connectionsPerSecond)
@@ -101,8 +103,27 @@ watch(
   () => void series.load(),
   { immediate: true },
 );
-const pts = (k: 'connections' | 'failed' | 'latencyP95') =>
-  (series.data.value?.[k] ?? []) as (number | null)[][];
+const pts = (
+  k:
+    | 'connections'
+    | 'failed'
+    | 'latencyP95'
+    | 'httpRequests'
+    | 'http4xx'
+    | 'http5xx'
+    | 'httpP50'
+    | 'httpP95',
+) => (series.data.value?.[k] ?? []) as (number | null)[][];
+// HTTP on this edge (ADR-139): requests and errors, and latency, when any was seen.
+const httpTraffic = computed(() => [
+  { name: t('serviceMap.charts.requests'), points: pts('httpRequests'), colorToken: '--ok' },
+  { name: t('serviceMap.charts.clientErrors'), points: pts('http4xx'), colorToken: '--warning' },
+  { name: t('serviceMap.charts.serverErrors'), points: pts('http5xx'), colorToken: '--critical' },
+]);
+const httpLatency = computed(() => [
+  { name: 'p50', points: pts('httpP50'), colorToken: '--info' },
+  { name: 'p95', points: pts('httpP95'), colorToken: '--warning' },
+]);
 const traffic = computed(() => [
   { name: t('serviceMap.charts.connections'), points: pts('connections'), colorToken: '--ok' },
   { name: t('serviceMap.charts.failed'), points: pts('failed'), colorToken: '--critical' },
@@ -365,6 +386,63 @@ const alert = computed(() => series.data.value?.context.alert ?? null);
           </dd>
         </div>
       </dl>
+      <section v-if="edge.http" class="flex flex-col gap-2" data-testid="edge-http">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-2">
+          <h4 class="text-13 font-semibold text-text">{{ $t('serviceMap.http.title') }}</h4>
+          <span class="text-12 text-text-subtle">{{ $t('serviceMap.http.note') }}</span>
+        </div>
+        <dl class="grid grid-cols-2 gap-2">
+          <div class="rounded-control bg-surface-2 px-2.5 py-2">
+            <dt class="text-12 text-text-muted">{{ $t('serviceMap.http.requests') }}</dt>
+            <dd class="font-mono text-16 tabular-nums text-text">
+              {{ formatValue(edge.http.requestsPerSecond, 'per_second') }}
+            </dd>
+          </div>
+          <div class="rounded-control bg-surface-2 px-2.5 py-2">
+            <dt class="text-12 text-text-muted">{{ $t('serviceMap.http.errors') }}</dt>
+            <dd
+              class="font-mono text-16 tabular-nums"
+              :class="(edge.http.serverErrorRatio ?? 0) >= 0.01 ? 'text-critical' : 'text-text'"
+              data-testid="edge-http-5xx"
+            >
+              {{ formatValue(edge.http.serverErrorRatio, 'ratio') }}
+            </dd>
+          </div>
+          <div class="rounded-control bg-surface-2 px-2.5 py-2">
+            <dt class="text-12 text-text-muted">{{ $t('serviceMap.http.clientErrors') }}</dt>
+            <dd class="font-mono text-16 tabular-nums text-text">
+              {{ formatValue(edge.http.clientErrorsPerSecond, 'per_second') }}
+            </dd>
+          </div>
+          <div class="rounded-control bg-surface-2 px-2.5 py-2">
+            <dt class="text-12 text-text-muted">{{ $t('serviceMap.http.latency') }}</dt>
+            <dd class="font-mono text-14 tabular-nums text-text">
+              {{ latency(edge.http.p50Seconds) }} · {{ latency(edge.http.p95Seconds) }} ·
+              {{ latency(edge.http.p99Seconds) }}
+            </dd>
+          </div>
+        </dl>
+        <TimeSeriesChart
+          :title="$t('serviceMap.charts.httpRequests')"
+          unit="per_second"
+          :series="httpTraffic"
+          :loading="series.loading.value && !series.data.value"
+          :error="!!series.error.value"
+          :empty-text="$t('serviceMap.charts.empty')"
+          :error-text="$t('serviceMap.charts.error')"
+          @retry="series.load"
+        />
+        <TimeSeriesChart
+          :title="$t('serviceMap.charts.httpLatency')"
+          unit="seconds"
+          :series="httpLatency"
+          :loading="series.loading.value && !series.data.value"
+          :error="!!series.error.value"
+          :empty-text="$t('serviceMap.charts.empty')"
+          :error-text="$t('serviceMap.charts.error')"
+          @retry="series.load"
+        />
+      </section>
       <TimeSeriesChart
         :title="$t('serviceMap.charts.traffic')"
         unit="per_second"

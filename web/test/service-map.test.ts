@@ -48,6 +48,7 @@ const edge = (
   bytesSentPerSecond: 900,
   bytesReceivedPerSecond: 1200,
   retransmitsPerSecond: 0,
+  http: null,
   health: 'ok',
   ...over,
 });
@@ -194,6 +195,60 @@ describe('service map page', () => {
       'Connections and failures per second (per_second)',
       'Connect latency (p95) (seconds)',
     ]);
+    w.unmount();
+  });
+
+  it("shows an edge's HTTP: requests, 5xx share and latency, and says when 5xx make it critical", async () => {
+    const http = edge(fe.id, cart.id, {
+      health: 'critical',
+      connectionsPerSecond: 0.1,
+      http: {
+        requestsPerSecond: 40,
+        clientErrorsPerSecond: 1.5,
+        serverErrorsPerSecond: 2.4,
+        serverErrorRatio: 0.06,
+        p50Seconds: 0.012,
+        p95Seconds: 0.18,
+        p99Seconds: 0.9,
+      },
+    });
+    const map = { ...MAP, edges: [http, ...MAP.edges.slice(1)] };
+    mockFetch({
+      ...routes(map),
+      [`GET /api/v1/clusters/${CLUSTER.id}/service-map/edge?source=${encodeURIComponent(fe.id)}&target=${encodeURIComponent(cart.id)}&range=3600&port=8080`]:
+        {
+          status: 200,
+          body: {
+            ...SERIES,
+            context: { target: null, alert: null },
+            httpRequests: [[1793440000, 40]],
+            http4xx: [[1793440000, 1.5]],
+            http5xx: [[1793440000, 2.4]],
+            httpP50: [[1793440000, 0.012]],
+            httpP95: [[1793440000, 0.18]],
+          },
+        },
+    });
+    const { wrapper: w } = await mountPage();
+    await w.get(`[data-edge="${http.id}"] .edge-hit`).trigger('click');
+    await flushPromises();
+    expect(w.get('[data-testid="edge-reason"]').text()).toContain(
+      '6.0% of HTTP requests answer 5xx.',
+    );
+    const section = w.get('[data-testid="edge-http"]');
+    expect(section.text()).toContain('40/s');
+    expect(section.get('[data-testid="edge-http-5xx"]').classes()).toContain('text-critical');
+    expect(section.text()).toContain('12 ms · 180 ms · 900 ms');
+    expect(w.findAll('.chart-stub').map((c) => c.text())).toEqual([
+      'HTTP requests and errors (per_second)',
+      'HTTP latency (seconds)',
+      'Connections and failures per second (per_second)',
+      'Connect latency (p95) (seconds)',
+    ]);
+    // An edge with no HTTP has no HTTP section.
+    await w.get(`[data-edge="${MAP.edges[2]!.id}"] .edge-hit`).trigger('click');
+    await flushPromises();
+    expect(w.find('[data-testid="edge-http"]').exists()).toBe(false);
     w.unmount();
   });
 

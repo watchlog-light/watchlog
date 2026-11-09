@@ -54,6 +54,7 @@ function edge(
     bytesSentPerSecond: cps * 900,
     bytesReceivedPerSecond: cps * 4200,
     retransmitsPerSecond: 0,
+    http: null,
     health: opts.health ?? (failed > 0 ? 'critical' : p95 > 0.25 ? 'warning' : 'ok'),
     failedLastMinute: Math.round(failed * 60),
   };
