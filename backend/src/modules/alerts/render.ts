@@ -54,7 +54,18 @@ export function duration(ms: number): string {
   return `${Math.floor(h / 24)} d`;
 }
 
+const SERVICE_NAMES: Record<string, string> = {
+  redis: 'Redis',
+  postgres: 'PostgreSQL',
+  nginx: 'Nginx',
+  rabbitmq: 'RabbitMQ',
+  mongodb: 'MongoDB',
+  elasticsearch: 'Elasticsearch',
+};
+
 function where(l: Record<string, string>): string {
+  if (l.service_name)
+    return `${SERVICE_NAMES[l.service_type ?? ''] ?? l.service_type ?? 'service'} ${l.service_name}`;
   if (l.pvc) return `${l.namespace}/${l.pvc} (PVC)`;
   if (l.workload) {
     const base = `${l.namespace}/${l.workload} (${l.workload_kind})`;
@@ -77,7 +88,8 @@ function link(
   const q = `?cluster=${encodeURIComponent(cluster.id)}`;
   const e = encodeURIComponent;
   let path: string;
-  if (l.pod) path = `/pods/${e(l.namespace!)}/${e(l.pod)}`;
+  if (l.service) path = `/applications/${e(l.service)}`;
+  else if (l.pod) path = `/pods/${e(l.namespace!)}/${e(l.pod)}`;
   else if (l.workload || l.pvc) path = `/workloads${q}&ns=${e(l.namespace!)}`;
   else if (cluster.kind === 'docker' && l.container)
     path = `/docker/hosts/${e(l.node!)}/containers/${e(l.container)}`;

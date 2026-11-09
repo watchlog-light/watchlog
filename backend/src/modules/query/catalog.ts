@@ -3,7 +3,7 @@
 // user input only ever becomes escaped label values. cluster_id is enforced by
 // VictoriaMetrics (extra_label), never by these templates.
 
-export type Unit = 'ratio' | 'bytes' | 'bytes_per_second' | 'cores' | 'load' | 'count';
+export type Unit = 'ratio' | 'bytes' | 'bytes_per_second' | 'cores' | 'load' | 'count' | 'seconds';
 export type Agg = 'sum' | 'avg' | 'max' | 'min';
 
 export interface QueryScope {
@@ -20,6 +20,8 @@ export interface QueryScope {
   workload?: string;
   /** Exactly these pods (a resolved label selector, ADR-085). */
   pods?: string[];
+  /** A monitored service (SPEC §4.12): the collector labels its series service=<id>. */
+  service?: string;
 }
 
 interface Entry {
@@ -305,6 +307,23 @@ const ENTRIES = {
       return `sum by (${by}) (rate(watchlog_flow_connect_failed_total${s()}[${r}])) / (sum by (${by}) (rate(watchlog_flow_connections_total${s()}[${r}])) > 0.05)`;
     },
   },
+  /**
+   * Monitored services (v0.3, SPEC §4.12), on Kubernetes and Docker alike: the share of a
+   * service's members its collector reaches, and how long it takes to connect. Each
+   * integration adds its own keys (redis.*, postgres.*) as it lands.
+   */
+  'service.reachable.ratio': {
+    unit: 'ratio',
+    agg: 'avg',
+    expr: (s) =>
+      `sum by (service, service_type) (watchlog_integration_up${s()}) / count by (service, service_type) (watchlog_integration_up${s()})`,
+  },
+  'service.connect.time': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type) (watchlog_integration_connect_seconds${s()})`,
+  },
 } satisfies Record<string, Entry>;
 
 export type MetricKey = keyof typeof ENTRIES;
@@ -344,6 +363,7 @@ function matchers(scope: QueryScope): string[] {
   }
   if (scope.namespaces?.length) out.push(`namespace=~"${anyOf(scope.namespaces)}"`);
   if (scope.pods?.length) out.push(`pod=~"${anyOf(scope.pods)}"`);
+  if (scope.service !== undefined) out.push(`service="${escapeLabelValue(scope.service)}"`);
   return out;
 }
 

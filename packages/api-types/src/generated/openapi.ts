@@ -1235,7 +1235,9 @@ export interface paths {
               | 'namespace.cpu.usage'
               | 'namespace.memory.working_set'
               | 'pvc.utilization'
-              | 'flow.failed.ratio';
+              | 'flow.failed.ratio'
+              | 'service.reachable.ratio'
+              | 'service.connect.time';
             scope?: {
               host?: string;
               container?: string;
@@ -1246,6 +1248,8 @@ export interface paths {
               pod?: string;
               workloadKind?: string;
               workload?: string;
+              /** Format: uuid */
+              service?: string;
             };
             agg?: 'sum' | 'avg' | 'max' | 'min';
             step?: number;
@@ -4180,6 +4184,8 @@ export interface paths {
                   node?: string;
                   host?: string;
                   container?: string;
+                  /** Format: uuid */
+                  service?: string;
                   labels?: {
                     [key: string]: string;
                   };
@@ -4196,6 +4202,11 @@ export interface paths {
                 channelIds: string[];
                 firing: number;
                 evalError: string | null;
+                service?: {
+                  id: string;
+                  name: string;
+                  type: string;
+                } | null;
               }[];
             };
           };
@@ -4287,6 +4298,8 @@ export interface paths {
               node?: string;
               host?: string;
               container?: string;
+              /** Format: uuid */
+              service?: string;
               labels?: {
                 [key: string]: string;
               };
@@ -4332,6 +4345,8 @@ export interface paths {
                 node?: string;
                 host?: string;
                 container?: string;
+                /** Format: uuid */
+                service?: string;
                 labels?: {
                   [key: string]: string;
                 };
@@ -4348,6 +4363,11 @@ export interface paths {
               channelIds: string[];
               firing: number;
               evalError: string | null;
+              service?: {
+                id: string;
+                name: string;
+                type: string;
+              } | null;
             };
           };
         };
@@ -4562,6 +4582,8 @@ export interface paths {
               node?: string;
               host?: string;
               container?: string;
+              /** Format: uuid */
+              service?: string;
               labels?: {
                 [key: string]: string;
               };
@@ -4597,6 +4619,8 @@ export interface paths {
                 node?: string;
                 host?: string;
                 container?: string;
+                /** Format: uuid */
+                service?: string;
                 labels?: {
                   [key: string]: string;
                 };
@@ -4613,6 +4637,11 @@ export interface paths {
               channelIds: string[];
               firing: number;
               evalError: string | null;
+              service?: {
+                id: string;
+                name: string;
+                type: string;
+              } | null;
             };
           };
         };
@@ -4732,6 +4761,8 @@ export interface paths {
                   node?: string;
                   host?: string;
                   container?: string;
+                  /** Format: uuid */
+                  service?: string;
                   labels?: {
                     [key: string]: string;
                   };
@@ -4748,6 +4779,11 @@ export interface paths {
                 channelIds: string[];
                 firing: number;
                 evalError: string | null;
+                service?: {
+                  id: string;
+                  name: string;
+                  type: string;
+                } | null;
               }[];
             };
           };
@@ -4869,6 +4905,8 @@ export interface paths {
                 node?: string;
                 host?: string;
                 container?: string;
+                /** Format: uuid */
+                service?: string;
                 labels?: {
                   [key: string]: string;
                 };
@@ -4885,6 +4923,11 @@ export interface paths {
               channelIds: string[];
               firing: number;
               evalError: string | null;
+              service?: {
+                id: string;
+                name: string;
+                type: string;
+              } | null;
             };
           };
         };
@@ -5005,6 +5048,8 @@ export interface paths {
               node?: string;
               host?: string;
               container?: string;
+              /** Format: uuid */
+              service?: string;
               labels?: {
                 [key: string]: string;
               };
@@ -6849,6 +6894,7 @@ export interface paths {
             /** Format: uuid */
             probeId?: string;
             queryText?: boolean;
+            defaultAlerts?: string[];
           };
         };
       };
@@ -7138,6 +7184,71 @@ export interface paths {
                 version: string;
                 lastSeenAt: string;
                 reporting: boolean;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/applications/alert-defaults': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The default alert rules a service of this type gets */
+    get: {
+      parameters: {
+        query: {
+          type: 'redis' | 'postgres' | 'nginx' | 'rabbitmq' | 'mongodb' | 'elasticsearch';
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              defaults: {
+                key: string;
+                name: string;
+                metric: string;
+                condition: {
+                  op: '>' | '<';
+                  value: number;
+                  critical?: number;
+                };
+                forSeconds: number;
               }[];
             };
           };

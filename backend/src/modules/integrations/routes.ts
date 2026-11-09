@@ -16,6 +16,7 @@ import {
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { INTEGRATION_TYPES, type IntegrationTarget } from './collector-config.js';
+import { alertDefaultsFor, createServiceRules, deleteServiceRules } from './alert-defaults.js';
 import { adoptProbe, placementOf } from './connect.js';
 import { recordEvent } from './credentials.js';
 import { DockerName, Name, TargetSchema } from './schemas.js';
@@ -123,6 +124,8 @@ const CreateBody = Type.Object(
     probeId: Type.Optional(Type.String({ format: 'uuid' })),
     /** Collect query text (ADR-138); on by default. */
     queryText: Type.Optional(Type.Boolean()),
+    /** The default alert rules to turn on (GET /applications/alert-defaults); the rest are created off. */
+    defaultAlerts: Type.Optional(Type.Array(Type.String({ maxLength: 64 }), { maxItems: 32 })),
   },
   { additionalProperties: false },
 );
@@ -294,6 +297,39 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         }),
       };
     },
+  );
+
+  app.get(
+    '/applications/alert-defaults',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary: 'The default alert rules a service of this type gets',
+        tags: ['applications'],
+        querystring: Type.Object({
+          type: Type.Union(INTEGRATION_TYPES.map((t) => Type.Literal(t))),
+        }),
+        response: {
+          200: Type.Object({
+            defaults: Type.Array(
+              Type.Object({
+                key: Type.String(),
+                name: Type.String(),
+                metric: Type.String(),
+                condition: Type.Object({
+                  op: Type.Union([Type.Literal('>'), Type.Literal('<')]),
+                  value: Type.Number(),
+                  critical: Type.Optional(Type.Number()),
+                }),
+                forSeconds: Type.Integer(),
+              }),
+            ),
+          }),
+          401: ProblemSchema,
+        },
+      },
+    },
+    async (request) => ({ defaults: alertDefaultsFor(request.query.type) }),
   );
 
   app.get(
@@ -592,6 +628,12 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
           });
         }
       }
+      await createServiceRules(
+        db,
+        orgId,
+        { id, clusterId: cluster.id, type: body.type },
+        body.defaultAlerts ?? [],
+      );
       notifier.notify(cluster.id);
       const [row] = await listApplicationRows(db, orgId, { id });
       const collectors = await listCollectors(db, [cluster.id]);
@@ -618,6 +660,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         .returning(['cluster_id', 'name', 'type'])
         .executeTakeFirst();
       if (!row) return sendProblem(reply, 404, 'Service not found');
+      await deleteServiceRules(db, request.user!.org.id, request.params.id);
       await recordEvent(db, {
         orgId: request.user!.org.id,
         integrationId: request.params.id,

@@ -229,6 +229,8 @@ export const ThresholdScopeSchema = Type.Object(
     node: Type.Optional(Type.String({ minLength: 1, maxLength: 253 })),
     host: Type.Optional(Type.String({ minLength: 1, maxLength: 253 })),
     container: Type.Optional(Type.String({ minLength: 1, maxLength: 253 })),
+    /** A monitored service (SPEC §4.12): its id on the Applications page. */
+    service: Type.Optional(Type.String({ format: 'uuid' })),
     /** Pod label selector (equality); resolved to at most 500 pods (ADR-085). */
     labels: Type.Optional(
       Type.Record(Type.String({ maxLength: 317 }), Type.String({ maxLength: 63 }), {
@@ -261,6 +263,13 @@ export const RuleSchema = Type.Object({
   channelIds: Type.Array(Id),
   firing: Type.Integer(),
   evalError: NullableString,
+  /** The monitored service a rule is scoped to; null when it was removed. */
+  service: Type.Optional(
+    Type.Union([
+      Type.Object({ id: Type.String(), name: Type.String(), type: Type.String() }),
+      Type.Null(),
+    ]),
+  ),
 });
 
 export const PatchRuleSchema = Type.Object(

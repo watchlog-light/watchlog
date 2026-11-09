@@ -97,6 +97,7 @@
                               "node": { "type": "string", "minLength": 1, "maxLength": 253 },
                               "host": { "type": "string", "minLength": 1, "maxLength": 253 },
                               "container": { "type": "string", "minLength": 1, "maxLength": 253 },
+                              "service": { "type": "string", "format": "uuid" },
                               "labels": {
                                 "type": "object",
                                 "maxProperties": 10,
@@ -139,7 +140,21 @@
                             "items": { "type": "string", "format": "uuid" }
                           },
                           "firing": { "type": "integer" },
-                          "evalError": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                          "evalError": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "service": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["id", "name", "type"],
+                                "properties": {
+                                  "id": { "type": "string" },
+                                  "name": { "type": "string" },
+                                  "type": { "type": "string" }
+                                }
+                              },
+                              { "type": "null" }
+                            ]
+                          }
                         }
                       }
                     }
@@ -5887,7 +5902,9 @@
                       { "type": "string", "enum": ["namespace.cpu.usage"] },
                       { "type": "string", "enum": ["namespace.memory.working_set"] },
                       { "type": "string", "enum": ["pvc.utilization"] },
-                      { "type": "string", "enum": ["flow.failed.ratio"] }
+                      { "type": "string", "enum": ["flow.failed.ratio"] },
+                      { "type": "string", "enum": ["service.reachable.ratio"] },
+                      { "type": "string", "enum": ["service.connect.time"] }
                     ]
                   },
                   "scope": {
@@ -5906,7 +5923,8 @@
                       },
                       "pod": { "type": "string", "minLength": 1, "maxLength": 253 },
                       "workloadKind": { "type": "string", "minLength": 1, "maxLength": 253 },
-                      "workload": { "type": "string", "minLength": 1, "maxLength": 253 }
+                      "workload": { "type": "string", "minLength": 1, "maxLength": 253 },
+                      "service": { "type": "string", "format": "uuid" }
                     },
                     "additionalProperties": false
                   },

@@ -2,8 +2,12 @@
 // Checks shared by rule views and custom rules (ADR-083, ADR-085).
 import type { Condition } from './defaults.js';
 
-/** Cluster kinds a catalog metric exists for: host and container keys are Docker's. */
+/**
+ * Cluster kinds a catalog metric exists for: host and container keys are Docker's;
+ * a monitored service's are both kinds' (ADR-124).
+ */
 export function metricKinds(metric: string): ('kubernetes' | 'docker')[] {
+  if (metric.startsWith('service.')) return ['kubernetes', 'docker'];
   return metric.startsWith('host.') || metric.startsWith('container.')
     ? ['docker']
     : ['kubernetes'];

@@ -21,10 +21,13 @@ export interface ThresholdScope {
   host?: string;
   container?: string;
   labels?: Record<string, string>;
+  /** A monitored service's id (SPEC §4.12). */
+  service?: string;
 }
 
 const KUBE_FIELDS = ['namespaces', 'workload', 'node', 'labels'] as const;
 const DOCKER_FIELDS = ['host', 'container'] as const;
+const SERVICE_FIELDS = ['service'] as const;
 
 export class SelectorTooBroad extends Error {
   constructor(readonly pods: number) {
@@ -75,6 +78,7 @@ export async function resolveScope(
   if (scope.node) q.node = scope.node;
   if (scope.host) q.host = scope.host;
   if (scope.container) q.container = scope.container;
+  if (scope.service) q.service = scope.service;
   if (scope.labels && Object.keys(scope.labels).length) {
     const pods = await podsMatching(db, clusterId, scope.labels, scope.namespaces);
     if (pods.length > MAX_SELECTOR_PODS) throw new SelectorTooBroad(pods.length);
@@ -92,6 +96,7 @@ const UNITS: Record<string, (v: number) => string> = {
   bytes_per_second: (v) =>
     v >= 2 ** 20 ? `${(v / 2 ** 20).toFixed(1)} MiB/s` : `${Math.round(v / 2 ** 10)} KiB/s`,
   cores: (v) => `${v.toFixed(2)} cores`,
+  seconds: (v) => (v < 1 ? `${Math.round(v * 1000)} ms` : `${Math.round(v * 100) / 100} s`),
 };
 export function formatMetricValue(v: number, unit: string | null): string {
   return (unit && UNITS[unit]?.(v)) ?? String(Math.round(v * 100) / 100);
@@ -118,8 +123,14 @@ export function thresholdEvaluator(metric: string): RuleEvaluator | undefined {
       const scope = await resolveScope(ctx.db, ctx.cluster.id, ctx.rule.scope as ThresholdScope);
       if (!scope) return [];
       const out: Observation[] = [];
-      for (const hit of await queryThreshold(ctx, metric as MetricKey, scope)) {
+      const hits = await queryThreshold(ctx, metric as MetricKey, scope);
+      const services = await servicesOf(ctx, hits);
+      for (const hit of hits) {
         const labels = alertLabels(hit.labels);
+        // A monitored service is named in its alert, with what its collector last said.
+        const svc = labels.service ? services.get(labels.service) : undefined;
+        if (labels.service && !svc) continue; // removed since the series was written
+        if (svc) labels.service_name = svc.name;
         out.push({
           fingerprint: `m:${Object.entries(labels)
             .sort(([a], [b]) => a.localeCompare(b))
@@ -134,12 +145,36 @@ export function thresholdEvaluator(metric: string): RuleEvaluator | undefined {
             threshold: (ctx.rule.condition as { value?: number }).value ?? null,
             unit,
             forSeconds: ctx.rule.for_seconds,
+            ...(svc?.reason ? { reason: svc.reason } : {}),
           },
         });
       }
       return out;
     },
   };
+}
+
+/** The monitored services behind these series: name and the collector's last error. */
+async function servicesOf(ctx: EvalContext, hits: { labels: Record<string, string> }[]) {
+  const ids = [...new Set(hits.map((h) => h.labels.service).filter((v): v is string => !!v))];
+  const out = new Map<string, { name: string; reason: string | null }>();
+  if (ids.length === 0) return out;
+  const rows = await ctx.db
+    .selectFrom('integrations')
+    .select(['id', 'name', 'status_details'])
+    .where('cluster_id', '=', ctx.cluster.id)
+    .where('id', 'in', ids)
+    .execute();
+  for (const r of rows) {
+    const d = (r.status_details ?? {}) as {
+      error?: string;
+      members?: { name: string; up: boolean; error?: string }[];
+    };
+    const down = d.members?.find((m) => !m.up && m.error);
+    const reason = d.error ?? (down ? `${down.name}: ${down.error}` : null);
+    out.set(r.id, { name: r.name, reason: reason ? reason.slice(0, 200) : null });
+  }
+  return out;
 }
 
 /**
@@ -154,12 +189,29 @@ export async function validateThreshold(
 ): Promise<string | null> {
   if (!(METRIC_KEYS as string[]).includes(rule.metric)) return `Unknown metric "${rule.metric}"`;
   const kinds = metricKinds(rule.metric);
-  const allowed: readonly string[] = kinds.includes('docker') ? DOCKER_FIELDS : KUBE_FIELDS;
+  const isService = rule.metric.startsWith('service.');
+  const allowed: readonly string[] = isService
+    ? SERVICE_FIELDS
+    : kinds.includes('docker')
+      ? DOCKER_FIELDS
+      : KUBE_FIELDS;
   const extra = Object.keys(rule.scope).filter(
     (k) => rule.scope[k as keyof ThresholdScope] !== undefined && !allowed.includes(k),
   );
   if (extra.length) {
-    return `Scope "${extra[0]}" does not apply to a ${kinds[0] === 'docker' ? 'Docker' : 'Kubernetes'} metric`;
+    return `Scope "${extra[0]}" does not apply to a ${isService ? 'service' : kinds[0] === 'docker' ? 'Docker' : 'Kubernetes'} metric`;
+  }
+  if (rule.scope.service) {
+    const svc = await db
+      .selectFrom('integrations')
+      .select('cluster_id')
+      .where('id', '=', rule.scope.service)
+      .where('org_id', '=', orgId)
+      .executeTakeFirst();
+    if (!svc) return 'The service is not monitored';
+    if (rule.clusterId && rule.clusterId !== svc.cluster_id) {
+      return 'The service is not in this cluster';
+    }
   }
   if (rule.condition) {
     const err = conditionError(rule.condition, metricUnit(rule.metric));

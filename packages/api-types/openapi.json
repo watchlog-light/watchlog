@@ -2548,6 +2548,14 @@
                       {
                         "type": "string",
                         "enum": ["flow.failed.ratio"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["service.reachable.ratio"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["service.connect.time"]
                       }
                     ]
                   },
@@ -2603,6 +2611,10 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 253
+                      },
+                      "service": {
+                        "type": "string",
+                        "format": "uuid"
                       }
                     },
                     "additionalProperties": false
@@ -12119,6 +12131,10 @@
                                 "minLength": 1,
                                 "maxLength": 253
                               },
+                              "service": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
                               "labels": {
                                 "type": "object",
                                 "maxProperties": 10,
@@ -12197,6 +12213,28 @@
                             "anyOf": [
                               {
                                 "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "service": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["id", "name", "type"],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "type": {
+                                    "type": "string"
+                                  }
+                                }
                               },
                               {
                                 "type": "null"
@@ -12413,6 +12451,10 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 253
+                      },
+                      "service": {
+                        "type": "string",
+                        "format": "uuid"
                       },
                       "labels": {
                         "type": "object",
@@ -12642,6 +12684,10 @@
                           "minLength": 1,
                           "maxLength": 253
                         },
+                        "service": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
                         "labels": {
                           "type": "object",
                           "maxProperties": 10,
@@ -12720,6 +12766,28 @@
                       "anyOf": [
                         {
                           "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "service": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": ["id", "name", "type"],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            }
+                          }
                         },
                         {
                           "type": "null"
@@ -12979,6 +13047,10 @@
                         "minLength": 1,
                         "maxLength": 253
                       },
+                      "service": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
                       "labels": {
                         "type": "object",
                         "maxProperties": 10,
@@ -13160,6 +13232,10 @@
                           "minLength": 1,
                           "maxLength": 253
                         },
+                        "service": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
                         "labels": {
                           "type": "object",
                           "maxProperties": 10,
@@ -13238,6 +13314,28 @@
                       "anyOf": [
                         {
                           "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "service": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": ["id", "name", "type"],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            }
+                          }
                         },
                         {
                           "type": "null"
@@ -13709,6 +13807,10 @@
                                 "minLength": 1,
                                 "maxLength": 253
                               },
+                              "service": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
                               "labels": {
                                 "type": "object",
                                 "maxProperties": 10,
@@ -13787,6 +13889,28 @@
                             "anyOf": [
                               {
                                 "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "service": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["id", "name", "type"],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "type": {
+                                    "type": "string"
+                                  }
+                                }
                               },
                               {
                                 "type": "null"
@@ -14084,6 +14208,10 @@
                           "minLength": 1,
                           "maxLength": 253
                         },
+                        "service": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
                         "labels": {
                           "type": "object",
                           "maxProperties": 10,
@@ -14162,6 +14290,28 @@
                       "anyOf": [
                         {
                           "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "service": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": ["id", "name", "type"],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            }
+                          }
                         },
                         {
                           "type": "null"
@@ -14393,6 +14543,10 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 253
+                      },
+                      "service": {
+                        "type": "string",
+                        "format": "uuid"
                       },
                       "labels": {
                         "type": "object",
@@ -18521,6 +18675,14 @@
                   },
                   "queryText": {
                     "type": "boolean"
+                  },
+                  "defaultAlerts": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "maxItems": 32
                   }
                 },
                 "additionalProperties": false
@@ -19336,6 +19498,135 @@
                           },
                           "reporting": {
                             "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/applications/alert-defaults": {
+      "get": {
+        "summary": "The default alert rules a service of this type gets",
+        "tags": ["applications"],
+        "parameters": [
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["redis"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["postgres"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["nginx"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["rabbitmq"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["mongodb"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["elasticsearch"]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "type",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["defaults"],
+                  "properties": {
+                    "defaults": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["key", "name", "metric", "condition", "forSeconds"],
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "metric": {
+                            "type": "string"
+                          },
+                          "condition": {
+                            "type": "object",
+                            "required": ["op", "value"],
+                            "properties": {
+                              "op": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [">"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["<"]
+                                  }
+                                ]
+                              },
+                              "value": {
+                                "type": "number"
+                              },
+                              "critical": {
+                                "type": "number"
+                              }
+                            }
+                          },
+                          "forSeconds": {
+                            "type": "integer"
                           }
                         }
                       }

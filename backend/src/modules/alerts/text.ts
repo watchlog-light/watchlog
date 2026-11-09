@@ -219,13 +219,22 @@ export function alertText(a: AlertTextInput): AlertText {
   if (a.metric && num(d.value) !== null) {
     const unit = metricUnit(a.metric);
     const who =
-      l.workload ?? l.pod ?? l.container ?? l.node ?? l.pvc ?? l.namespace ?? a.cluster.name;
+      l.service_name ??
+      l.workload ??
+      l.pod ??
+      l.container ??
+      l.node ??
+      l.pvc ??
+      l.namespace ??
+      a.cluster.name;
     return {
       title: `${a.ruleName}: ${who} at ${formatMetricValue(num(d.value)!, unit)}`,
       why: join(
         num(d.threshold) !== null &&
           `${d.op === '<' ? 'below' : 'above'} ${formatMetricValue(num(d.threshold)!, unit)}`,
         num(d.forSeconds) ? `for ${humanDuration(num(d.forSeconds)!)}` : null,
+        // A service: what its collector last said (ADR-137).
+        str(d.reason),
       ),
     };
   }

@@ -55,6 +55,8 @@ export const queryRoutes: FastifyPluginAsyncTypebox<{
                 pod: Type.Optional(ScopeValue),
                 workloadKind: Type.Optional(ScopeValue),
                 workload: Type.Optional(ScopeValue),
+                /** A monitored service's id (GET /applications), for service.* metrics. */
+                service: Type.Optional(Type.String({ format: 'uuid' })),
               },
               { additionalProperties: false },
             ),

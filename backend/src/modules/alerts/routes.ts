@@ -668,7 +668,31 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
         .execute(),
     ]);
     const counts = new Map(firing.map((f) => [f.rule_id, Number(f.n)]));
-    return rows.map((r) => ruleView(r as RuleRowView, counts.get(r.id) ?? 0));
+    // Rules scoped to a monitored service name it (SPEC §4.12).
+    const serviceIds = [
+      ...new Set(
+        rows
+          .map((r) => (r.scope as { service?: string } | null)?.service)
+          .filter((v): v is string => !!v),
+      ),
+    ];
+    const services = serviceIds.length
+      ? await db
+          .selectFrom('integrations')
+          .select(['id', 'name', 'type'])
+          .where('org_id', '=', orgId)
+          .where('id', 'in', serviceIds)
+          .execute()
+      : [];
+    const byId = new Map(services.map((s) => [s.id, s]));
+    return rows.map((r) => {
+      const sid = (r.scope as { service?: string } | null)?.service;
+      const svc = sid ? byId.get(sid) : undefined;
+      return {
+        ...ruleView(r as RuleRowView, counts.get(r.id) ?? 0),
+        ...(sid ? { service: svc ? { id: svc.id, name: svc.name, type: svc.type } : null } : {}),
+      };
+    });
   }
 
   app.get(
