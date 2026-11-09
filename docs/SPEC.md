@@ -330,95 +330,79 @@ Monitor the services people run next to their workloads (databases, caches, queu
 7. the landing entry;
 8. tests against the real service on Kubernetes **and** Docker (ADR-124), the generated setup command included.
 
-**Order:** foundation → multi-user → Redis → PostgreSQL → eBPF HTTP + Nginx → RabbitMQ / MongoDB → (Elasticsearch moved to v0.5). ADR-141 explains the cut.
+**Order:** foundation → multi-user → Redis → PostgreSQL → eBPF HTTP + Nginx → RabbitMQ. MongoDB ships in v0.3.1, about a week after the launch; Elasticsearch moves to v0.5 (ADR-141).
 
 **Panel types:** L line with limit line · SA stacked area · HB horizontal bars · H histogram · G capacity gauge · HM hour × day heatmap · T table · S stat tiles.
 
 **Not collectable as the mock-up implies:** each catalog below flags (⚑) where a metric can't come from the named source, with the closest alternative.
 
-### Redis (INFO, CONFIG GET, SLOWLOG, LATENCY, CLIENT LIST)
+The catalog follows the owner's mock-up (`design/v0.3-integrations/Main.dc.html`, its `data()`): tabs and panels per service, each with its real source.
 
-Access: nothing without a password; otherwise the password or a small ACL user (`+info +slowlog +latency +config|get +client|list +ping`).
+### Redis (INFO, CONFIG GET, MEMORY STATS, SLOWLOG, LATENCY, CLIENT LIST)
+
+Access: nothing without a password; otherwise the password or a small ACL user (`+info +slowlog +latency +config|get +client|list +memory|stats +memory|usage +scan +ping`).
 
 | Tab | Panels and sources |
 |---|---|
-| Overview | **S** memory vs maxmemory, hit rate, commands/s, clients (blocked), evicted keys 24 h, replication · **L** `used_memory` vs `maxmemory` · **L** commands/s (`total_commands_processed`) with misses (`keyspace_misses`) |
-| Memory | **G** used / maxmemory, with `maxmemory-policy` · **L** `used_memory`, `used_memory_rss`, `mem_fragmentation_ratio` · **L** `evicted_keys`/s, `expired_keys`/s · **HB** keys per db (`INFO keyspace`) |
-| Commands | **SA** calls/s by command (`INFO commandstats`, top 20) · **HB** `usec_per_call` by command · **H** latency per command (`LATENCY HISTOGRAM`, Redis 7+; ⚑ older versions only have the mean, so the panel shows means) · **HM** commands/s hour × day · **T** slow log (`SLOWLOG GET`, normalised, ADR-138) · **T** latency events (`LATENCY LATEST`; needs `latency-monitor-threshold` > 0, else the tab says how) |
-| Clients | **L** `connected_clients` vs `maxclients` · **L** `blocked_clients`, `rejected_connections`/s · **HB** connections by client workload (`CLIENT LIST` addresses mapped by the IP map). ⚑ Commands per client workload aren't in `CLIENT LIST`; closest: eBPF bytes/s and connections per workload. |
-| Replication & persistence | **T** replicas (`INFO replication`: state, offset, ack age) · **L** ⚑ lag as offset difference in bytes and seconds since the replica's last ack: Redis has no lag in seconds · **S** `rdb_last_bgsave_status`, `rdb_changes_since_last_save`, age of the last save, `aof_last_write_status` |
+| Overview | **S** memory / maxmemory, hit rate, commands/s (peak), clients (blocked), evicted keys 24 h, keys with the share that has a TTL (`INFO keyspace` keys, expires) · **L** `used_memory` vs `maxmemory` · **SA** hits and misses/s (`keyspace_hits`, `keyspace_misses`) · **T** slow log: command (normalised, ADR-138), duration, client workload (the entry's client address via the IP map), when |
+| Memory | **SA** dataset, overhead, fragmentation (`MEMORY STATS` `dataset.bytes`, `overhead.total`; `used_memory_rss` − `used_memory`) · **G** maxmemory with its policy; fragmentation ratio (healthy below 1.5) · **HB** biggest key prefixes. ⚑ Redis has no such statistic; closest: every 10 min, sample 2,000 keys with `SCAN` and `MEMORY USAGE`, group by the prefix before the first `:` or `{`, and extrapolate. Only prefixes are kept; values are never read. · **L** expired and evicted keys/s |
+| Commands | **SA** calls/s by command (`INFO commandstats`, top 20) · **HB** slowest commands by mean (`usec_per_call`) · **H** command latency (`LATENCY HISTOGRAM`, Redis 7+). ⚑ Older versions have no histogram; the panel says so. |
+| Clients | **L** connected and blocked clients · **HB** clients by workload (`CLIENT LIST` addresses via the IP map) · **G** clients vs `maxclients` |
+| Persistence and replication | **S** last RDB save (status, age), AOF (off / status), replica state, changes since the last save · **L** replication offset lag in bytes. ⚑ Redis has no lag in seconds; closest: offset difference and the replica's ack age. |
 
 - **Default rules:**
   - memory > 90 % of maxmemory for 5 min (warning);
   - keys are being evicted (warning);
   - replica disconnected (critical);
-  - last RDB/AOF save failed (critical).
-- **Reasons:** `memory_near_max`, `evicting`, `no_maxmemory` (memory can grow to the container limit; linked to the container), `slow_keys_command`, `replica_down`, `save_failed`, `clients_rejected`, `clients_blocked`.
+  - last RDB/AOF save failed (critical);
+  - blocked clients for 2 min (warning).
+- **Reasons:** `memory_near_max`, `evicting`, `no_maxmemory` (memory can grow to the container limit; linked to it), `slow_keys_command`, `replica_down`, `save_failed`, `clients_rejected`, `clients_blocked`.
+- ⚑ **The connected-workloads card's ops/s per client:** commands per client aren't in `CLIENT LIST`; closest: eBPF bytes/s and connections per client workload.
 
-### PostgreSQL (pg_stat_*, pg_locks, pg_stat_statements; versions 12+)
+### PostgreSQL (pg_stat_*, pg_locks, pg_ls_waldir, pg_stat_statements; versions 12+)
 
-Access: a login role with `pg_monitor`, which reads statistics views and never table data. `pg_stat_statements` is optional and unlocks Queries.
+Access: a login role with `pg_monitor`. It reads statistics views and the WAL directory listing, never table data. `pg_stat_statements` is optional and unlocks the query tables.
 
 | Tab | Panels and sources |
 |---|---|
-| Overview | **S** connections / max, transactions/s, cache hit, replication lag, lock waits, deadlocks · **L** connections vs `max_connections` · **L** commits and rollbacks/s (`pg_stat_database`) |
-| Connections | **SA** backends by state (`pg_stat_activity`: active, idle, idle in transaction, waiting) · **L** total vs `max_connections` − `superuser_reserved_connections` · **HB** by client workload (`client_addr` via the IP map) and by `application_name` · **T** longest transactions and idle-in-transaction sessions. ⚑ `pg_stat_activity.query` carries literals; the table shows the normalised text of its `query_id` (PostgreSQL 14+ with `compute_query_id`), otherwise no text. |
-| Queries | **T** statements by total time: mean, calls, rows, hit % (`pg_stat_statements`, top 50) · **HB** mean time, top 10 · **L** calls/s and mean time, top 5 · **L** tuples returned, inserted, updated, deleted/s, temp bytes · ⚑ no per-execution histogram exists: closest is each statement's mean, stddev and max |
-| Locks | **SA** waiting backends by lock type (`pg_locks` × `pg_stat_activity`) · **T** blocking chains (`pg_blocking_pids()`, wait time, both clients' workloads) · **L** deadlocks/min · **HM** lock waits hour × day |
-| Replication | **T** replicas (`pg_stat_replication`: state, sync, write/flush/replay lag) · **L** replay lag in seconds and bytes (`pg_wal_lsn_diff`); on a replica `now() − pg_last_xact_replay_timestamp()` · **T** slots and retained WAL (`pg_replication_slots`, `wal_status`) · **G** retained WAL vs `max_slot_wal_keep_size` |
-| Storage | **HB** database sizes · **HB** largest tables (`pg_total_relation_size`, top 100) · **T** dead tuples and a statistics-based bloat estimate, labelled "estimate". ⚑ Exact bloat needs `pgstattuple`, which reads every page and is not run. · **L** WAL bytes/s (`pg_stat_wal`, 14+; older: LSN difference) · **L** checkpoints timed vs requested (`pg_stat_bgwriter`, `pg_stat_checkpointer` on 17+) |
-| Vacuum | **G** transaction ID age per database (`age(datfrozenxid)`) vs `autovacuum_freeze_max_age` and the wraparound limit · **T** tables by dead tuples with last autovacuum and autoanalyze · **T** running vacuums (`pg_stat_progress_vacuum`) |
+| Overview | **S** connections / max, transactions/s with commit %, cache hit, replication lag, database size with growth per day, longest query · **L** connections vs `max_connections` · **SA** commits and rollbacks/s (`pg_stat_database`) · **T** slowest queries by mean: mean, calls (1 h), total time (`pg_stat_statements`) · **HB** busiest databases by transactions/s · **G** capacity: connections vs `max_connections` (`superuser_reserved_connections` noted); data volume vs its capacity with days left at the 7-day growth. The capacity comes from the pod's PVC (kubelet volume stats). ⚑ On Docker, the data directory's volume has no capacity of its own; closest: the host filesystem that holds it, from the agent. |
+| Connections | **SA** backends by state: active, idle, idle in transaction, waiting (`pg_stat_activity`) · **HB** by client: workload from `client_addr` via the IP map, or `application_name` for manual sessions · **G** limits: `max_connections`; idle-in-transaction count with `idle_in_transaction_session_timeout` · **L** new connections/s (`pg_stat_database.sessions`, 14+). ⚑ Older versions lack it; closest: the eBPF connection rate into 5432. |
+| Queries | **SA** rows/s by operation (`tup_fetched`, `tup_inserted`, `tup_updated`, `tup_deleted`) · **H** query duration. ⚑ PostgreSQL keeps no per-execution histogram; closest: each statement's calls bucketed by its mean time, labelled "by statement mean". · **L** temporary files written (`temp_bytes`) · **T** top queries by total time: total, mean, rows per call |
+| Locks and waits | **SA** what sessions wait on (`pg_stat_activity.wait_event_type`: Lock, LWLock, IO, Client) · **T** blocking right now: blocked and blocking queries, both clients' workloads and states, what is waited for, how long (`pg_blocking_pids()`, `pg_locks`, normalised text by `query_id`) · **HM** lock waits by hour and day · **L** deadlocks · **HB** most locked tables. ⚑ Waits aren't counted by PostgreSQL; closest: `pg_locks` sampled every 15 s, so very short waits are missed. |
+| Replication | **L** replay lag per replica with the 30 s line (`pg_stat_replication`; on a replica `now() − pg_last_xact_replay_timestamp()`) · **T** replicas (state, sync, lag) · **G** WAL: `pg_wal` size vs `max_wal_size` (`pg_ls_waldir()`); replication slots active and inactive (`pg_replication_slots`) · **L** WAL generated (`pg_stat_wal.wal_bytes`, 14+; older: LSN difference) |
+| Tables and storage | **HB** largest tables (`pg_total_relation_size`, top 100) · **HB** estimated bloat. ⚑ Exact bloat needs `pgstattuple`, which reads every page and is not run; closest: a statistics-based estimate from `pg_stats`, labelled "estimate". · **T** indexes never used (`pg_stat_user_indexes.idx_scan`, unchanged over 30 days of WatchLog's history). ⚑ Until 30 days of history exist, the table shows "no scans since statistics were reset on <date>". · **L** database size |
+| Vacuum | **T** tables waiting for vacuum: dead rows and ratio, last autovacuum, a note (`pg_stat_user_tables`). ⚑ "autovacuum keeps getting cancelled" appears only in the server log; closest: "autovacuum isn't finishing" when dead rows rise for 24 h while `autovacuum_count` stays the same. · **L** dead rows of the top tables · **G** transaction ID age per database vs 2,000 M, with `autovacuum_freeze_max_age` noted |
 
 - **Default rules:**
   - connections > 90 % of max for 5 min (warning);
-  - a query runs longer than 5 min (critical; active backends, excluding autovacuum and walsenders);
+  - a query runs longer than 5 min (critical; active backends, not autovacuum or walsenders);
   - replication lag > 30 s for 2 min (warning);
-  - transaction ID age > 1.5 billion (critical).
-- **Reasons:** `connections_near_max` (with the workloads holding most), `long_query`, `idle_in_transaction`, `lock_waits` (the blocking client's workload), `deadlocks`, `replica_lag`, `slot_retains_wal`, `wraparound_risk`, `cache_hit_low`, `statements_unavailable` (hint).
+  - transaction ID age > 1,500 M (critical);
+  - deadlocks detected (warning).
+- **Reasons:** `connections_near_max` (with the workloads holding most), `long_query`, `idle_in_transaction`, `lock_waits` (the blocking client's workload), `deadlocks`, `replica_lag`, `slot_retains_wal`, `wraparound_risk`, `cache_hit_low`, `autovacuum_not_finishing`, `statements_unavailable` (hint).
 
 ### Nginx (ingress-nginx metrics; stub_status; eBPF HTTP)
 
 Access:
 - **ingress-nginx:** nothing; its metrics on :10254 are read as they are.
-- **Plain Nginx:** nothing for requests, errors and latency (eBPF). `stub_status` (one location block) adds the Connections tab.
+- **Plain Nginx:** nothing for requests, errors and latency (eBPF, ADR-139). `stub_status` (one location block) adds the Connections tab.
 
 | Tab | Panels and sources |
 |---|---|
-| Overview | **S** requests/s, 5xx %, p95, active connections, upstreams with ready endpoints, 4xx % · **L** requests/s with 5xx · **L** p95 and p50 |
-| Traffic | **SA** requests/s by status class · **HB** by ingress and host (`nginx_ingress_controller_requests`) or by upstream workload (eBPF) · **HM** requests/s hour × day |
-| Errors | **L** 5xx and 4xx % · **HB** 5xx by upstream · **T** status codes |
-| Latency | **L** p50/p95/p99 · **H** latency (`nginx_ingress_controller_request_duration_seconds` or eBPF) · **HB** p95 by upstream. ⚑ For plain Nginx, latency is time to the first response byte as eBPF sees it, not `$request_time`. |
-| Connections | **SA** active, reading, writing, waiting (`stub_status` or `nginx_ingress_controller_nginx_process_connections`) · **L** accepts vs handled (dropped) |
-| Upstreams | **T** upstream workloads: requests/s, 5xx, p95, ready endpoints. ⚑ Upstream health is an NGINX Plus API; closest: the backend Service's ready endpoints (Kubernetes) and eBPF connect failures (Docker). |
-| TLS (ingress-nginx) | **T** certificate expiry per host (`nginx_ingress_controller_ssl_expire_time_seconds`) |
+| Overview | **S** requests/s (peak), 5xx (15 min), p95 (p50), active connections (waiting), upstreams ready / total, bandwidth out · **SA** requests/s by status class (`nginx_ingress_controller_requests`, or eBPF) · **L** p50, p95, p99 · **HB** busiest upstreams |
+| Errors | **L** 5xx by upstream · **HB** status codes in the last hour. ⚑ 499 is logged by Nginx but never sent, so only ingress-nginx's metrics have it; eBPF sees the codes on the wire. · **T** error bursts: periods where an upstream's 5xx rate was ≥ 5 % for ≥ 10 s, derived by WatchLog, with the upstream's rollouts ("during rollout") |
+| Latency | **H** request duration (`nginx_ingress_controller_request_duration_seconds`, or eBPF) · **HB** slowest upstreams by p95 · **L** p95 by upstream. ⚑ For plain Nginx, latency is time to the first response byte as eBPF sees it, not `$request_time`. |
+| Connections | **SA** waiting, reading, writing (`stub_status` or `nginx_ingress_controller_nginx_process_connections`) · **L** accepted vs dropped/s (accepts − handled) |
 
-- **Not collected:** request paths (privacy and cardinality, ADR-139).
+- ⚑ **Upstream health** is an NGINX Plus API. Closest: the backend Service's ready endpoints (Kubernetes) and eBPF connect failures (Docker).
+- **Not collected:** request paths (ADR-139).
 - **Default rules:**
   - 5xx > 5 % for 5 min (critical);
   - p95 > 1 s for 5 min (warning);
-  - an upstream has no ready endpoint (critical);
-  - certificate expires within 14 days (warning, ingress-nginx).
+  - an upstream has no healthy endpoint (critical);
+  - a certificate expires within 14 days (warning, ingress-nginx: `nginx_ingress_controller_ssl_expire_time_seconds`).
+- ⚑ **Plain Nginx certificates:** TLS terminates inside Nginx and WatchLog doesn't read its files, so there is no expiry rule for plain Nginx.
 - **Reasons:** `errors_high` (top upstream, linked to its workload's state and last rollout), `upstream_no_endpoints`, `latency_high`, `connections_dropped`, `certificate_expiring`, `stub_status_missing` (hint).
-
-### MongoDB (serverStatus, replSetGetStatus, dbStats, $currentOp, getLog; versions 5.0+)
-
-Access: nothing with authentication off; otherwise a user with `clusterMonitor`.
-
-| Tab | Panels and sources |
-|---|---|
-| Overview | **S** operations/s (reads %), connections / available, replication lag, slow operations (1 h), WiredTiger cache %, page faults/s · **L** operations by type · **L** lag per secondary |
-| Operations | **SA** `opcounters` by type · **L** mean latency for reads, writes and commands (`opLatencies`) · **H** latency (`opLatencies` histograms) · **T** slow operations (`getLog global` "Slow query" entries: operation, namespace, shape, duration, plan; COLLSCAN marked) |
-| Connections | **L** current vs available · **HB** by client workload (`$currentOp` with idle connections, addresses via the IP map) · **L** connections created/s |
-| Replication | **T** members (state, health, lag, ping) · **L** lag per secondary · **S** oplog window. ⚑ The oplog window needs `read` on `local`, which `clusterMonitor` lacks; the generated command adds it as an optional line, otherwise the tile explains. |
-| Storage & cache | **G** WiredTiger cache used vs maximum · **L** dirty bytes and evictions/s · **HB** database sizes (`dbStats`) · **L** page faults/s |
-| Queues | **L** queued readers and writers (`globalLock.currentQueue`) and available tickets (`wiredTiger.concurrentTransactions`; `queues.execution` on 7.0+) |
-
-- **Default rules:**
-  - replica set has no primary (critical);
-  - replication lag > 30 s for 2 min (warning);
-  - a member is down (critical);
-  - slow operations > 20/min for 5 min (warning).
-- **Reasons:** `no_primary`, `member_down`, `replica_lag`, `slow_collscan` (namespace and shape), `cache_pressure`, `connections_near_max`, `operations_queued`.
 
 ### RabbitMQ (rabbitmq_prometheus on 15692; versions 3.10+)
 
@@ -426,19 +410,39 @@ Access: nothing; the plugin ships with RabbitMQ. If it is off, the generated com
 
 | Tab | Panels and sources |
 |---|---|
-| Overview | **S** ready, unacked, publish/s, deliver/s, consumers, memory % of watermark · **L** queue depth (ready, unacked) · **L** publish vs deliver |
-| Queues | **T** queues by depth: ready, unacked, consumers, growth/min (`/metrics/detailed`, families `queue_coarse_metrics` and `queue_consumer_count`, top 200) · **SA** depth of the top 5 · **HB** fastest-growing queues |
-| Rates | **L** published, delivered, acknowledged and redelivered/s (`rabbitmq_global_messages_*`) · **L** unroutable returned or dropped · **HM** publish hour × day |
-| Consumers & connections | **L** connections, channels, consumers · **L** connections opened and closed/s · **HB** connections by client workload (eBPF edges to 5672). ⚑ Per-connection client names need the management API; closest: eBPF. |
-| Resources | **G** memory vs the high watermark (`rabbitmq_process_resident_memory_bytes`, `rabbitmq_resident_memory_limit_bytes`) · **G** free disk vs its limit · **L** file descriptors vs limit · **S** alarms (memory, disk, file descriptors) |
-| Nodes | **T** members (each scraped: uptime, memory, disk, Erlang processes vs limit). ⚑ Network partitions aren't exported by the plugin; closest: a member whose endpoint stops answering. The management API's partitions view is v0.5, with an optional monitoring user. |
+| Overview | **S** ready (with its rate), unacked, publish/s, deliver/s with its value before a drop, consumers (was), memory % of the high watermark · **L** queue depth: ready, unacked · **L** publish vs deliver · **T** queues: ready, consumers, rate (`/metrics/detailed` families `queue_coarse_metrics` and `queue_consumer_count`, top 200) |
+| Queues | **HB** depth by queue · **HB** consumers by queue · **L** ready messages of the top queues |
+| Message rates | **SA** publish, deliver, redeliver, ack/s (`rabbitmq_global_messages_*_total`) · **L** publisher confirms/s (`rabbitmq_global_messages_confirmed_total`) |
+| Resources | **G** node limits: memory vs the high watermark (`rabbitmq_process_resident_memory_bytes`, `rabbitmq_resident_memory_limit_bytes`), free disk vs the alarm limit, file descriptors, Erlang processes (`rabbitmq_erlang_processes_used`/`_limit`) · **L** memory with the watermark |
 
 - **Default rules:**
   - a queue grows with no consumers for 5 min (critical);
   - memory or disk alarm (critical);
   - unacked messages > 10,000 (warning);
-  - a node is down (critical).
-- **Reasons:** `queue_no_consumers` (linked to the workloads or containers that consumed it in the last 24 h and their last termination), `queue_growing`, `memory_alarm` and `disk_alarm` (publishers blocked), `unacked_high`, `node_down`, `fd_near_limit`.
+  - a node is down (critical);
+  - a dead-letter queue is growing (warning).
+- ⚑ **Dead-letter counters** exist only on 3.12+ (`rabbitmq_global_messages_dead_lettered_*`). Closest on older versions: queues named `*dead*letter*`, `*.dlq` or `*.dlx` that grow.
+- ⚑ **Network partitions** aren't exported by the plugin. Closest: a member whose endpoint stops answering.
+- **Reasons:** `queue_no_consumers` (linked to the workloads or containers that consumed it in the last 24 h and their last termination), `queue_growing`, `memory_alarm` and `disk_alarm` (publishers blocked), `unacked_high`, `node_down`, `dead_letters_growing`.
+
+### MongoDB — v0.3.1, about a week after the launch (ADR-141)
+
+Access: nothing with authentication off; otherwise a user with `clusterMonitor`. An optional `read` on `local` adds the oplog window.
+
+| Tab | Panels and sources |
+|---|---|
+| Overview | **S** operations/s (reads %), connections of available, replication lag, slow operations (1 h), WiredTiger cache %, oplog window · **SA** operations by type (`opcounters`) · **L** lag per secondary (`replSetGetStatus`) · **T** replica set members: state, health, lag |
+| Operations | **H** operation latency (`serverStatus` `opLatencies` histograms) · **HB** busiest collections (`top`) · **T** slow operations: shape, collection, duration, plan, COLLSCAN marked (`getLog global` "Slow query" entries) |
+| Cache and storage | **G** WiredTiger cache used vs maximum (dirty %); disk (`dbStats` `fsUsedSize`/`fsTotalSize`) · **L** read and write tickets available (`wiredTiger.concurrentTransactions`; `queues.execution` on 7.0+) · **HB** largest collections (`$collStats`) |
+
+- ⚑ **The oplog window** needs `read` on `local`, which `clusterMonitor` lacks. The generated command adds it as an optional line; otherwise the tile and the rule explain.
+- **Default rules:**
+  - no primary (critical);
+  - replication lag > 30 s for 2 min (warning);
+  - a member is down (critical);
+  - slow operations > 20/min for 5 min (warning);
+  - oplog window < 24 h (warning).
+- **Reasons:** `no_primary`, `member_down`, `replica_lag`, `slow_collscan`, `cache_pressure`, `connections_near_max`, `operations_queued`, `oplog_window_short`.
 
 ### Elasticsearch — moved to v0.5 (ADR-141); catalog kept
 
@@ -446,15 +450,14 @@ Access: nothing with security off; otherwise an API key with the `monitor` privi
 
 | Tab | Panels and sources |
 |---|---|
-| Overview | **S** status, nodes, heap, unassigned shards, index rate, search mean latency · **L** heap · **L** disk on the fullest node |
-| Shards | **S** active, relocating, initializing, unassigned (`_cluster/health`) · **T** unassigned shards with the reason (`_cat/shards`, `_cluster/allocation/explain`) · **T** index health (`_cat/indices`) |
-| Indexing & search | **L** index rate and mean latency · **L** search rate and mean latency (`_nodes/stats` indices). ⚑ No p95 exists in `_nodes/stats`, only totals; closest: the mean. |
-| JVM | **L** heap % per node with the 85 % line · **L** GC count and time/s · **L** circuit breakers tripped |
-| Nodes & disk | **T** nodes (heap, CPU, disk, roles) · **G** disk vs low/high/flood watermarks (`_cluster/settings`, defaults 85/90/95 %) |
-| Thread pools | **L** write and search queue, rejected/s |
+| Overview | **S** status, nodes, JVM heap, unassigned shards, index rate, search latency · **L** heap per node with the 85 % line · **L** index and search rate · **T** nodes: role, heap, disk vs watermarks |
+| Cluster and shards | **S** active, relocating, initializing, unassigned (`_cluster/health`) · **T** unassigned shards with the reason (`_cat/shards`, `_cluster/allocation/explain`) · **HB** shards per node · **G** disk vs low/high watermarks (`_cluster/settings`, defaults 85/90/95 %) |
+| Indexing and search | **L** indexing rate · **H** search latency · **HB** busiest indices (`_nodes/stats`, `_stats`) |
+| JVM and GC | **L** heap used · **L** GC time per minute, young and old · **G** heap per node |
 
+- ⚑ **Search latency:** `_nodes/stats` and `_stats` keep only totals, so there is no p95 or histogram. Closest: the mean, and a per-index distribution of means.
 - **Default rules:**
-  - cluster red (critical) or yellow for 10 min (warning);
+  - red (critical) or yellow for 10 min (warning);
   - heap > 85 % for 5 min (warning);
   - a node near the disk watermark (warning);
   - a node left (critical).
@@ -466,7 +469,7 @@ Access: nothing with security off; otherwise an API key with the `monitor` privi
 - **Tokens and MCP** act with their user's current role. Removing a user revokes their sessions and tokens.
 
 **Accept when:**
-- Redis, PostgreSQL, Nginx and the shipped queue/database integrations are each discovered, connected through the recommended path and shown with every tab, on a kind cluster and a Docker host.
+- Redis, PostgreSQL, Nginx and RabbitMQ are each discovered, connected through the recommended path and shown with every tab, on a kind cluster and a Docker host.
 - The demo's scripted failures each produce the right reason and alert:
   - a consumer OOM-killed while its queue grows;
   - PostgreSQL near `max_connections`;

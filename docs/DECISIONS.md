@@ -1603,7 +1603,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 
 ## ADR-131: A separate integrations collector, one per Kubernetes cluster or Docker host
 
-- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Date: 2026-11-09 · Status: accepted (owner, 2026-11-09)
 - Context: v0.3 monitors services that run next to the workloads: Redis, PostgreSQL, Nginx, MongoDB, RabbitMQ and Elasticsearch (SPEC §4.12). Reading them needs network clients and, for some, credentials. The node agent must stay within its budgets (SPEC §6.1) and never read secrets (SPEC §6.6).
 - Decision:
   - **A third binary and image**, `integrations`, in the agent's Go module (ADR-048), published as `ghcr.io/watchlog-light/integrations`. It reuses the agent's remote_write encoder, disk buffer and sender (ADR-021, ADR-022). Budgets: image ≤ 40 MB compressed, ≤ 128 MB RSS and ≤ 5 % of a core with all six integrations on one instance each. These are measured in the release test and are hard limits like the agent's.
@@ -1614,10 +1614,14 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Load on the monitored service** is bounded: one connection per instance, a 30 s scrape for heavy views (tables, statements, queues) and 15 s for the rest, and a 5 s timeout per call.
 - Alternatives: integrations inside the node agent (rejected: database clients break the agent's budget, and credentials would reach every node); inside the backend (rejected: the backend never connects into clusters, and in Cloud it cannot); a Prometheus exporter per service (rejected: one exporter image per service to install and wire up, and no discovery, connect flow or reasons).
 - Consequences: a third image in the release and verify workflows; the upgrade test covers the new chart values. Docker users may run one more container per host that has services.
+- Amended 2026-11-09 (owner's answers):
+  - **Accepted.**
+  - **Docker:** the collector runs with `--network host`, as uid 0 with every capability dropped and a read-only root filesystem, so it can read root-owned `0600` files under `/etc/watchlog/secrets/` (ADR-134). The install docs and `/security` say so.
+  - **Long-poll:** the config endpoint long-polls (`?wait=25`, answering early on a change). A probe started in the connect drawer reaches the collector within a second instead of 30 s.
 
 ## ADR-132: Services are discovered from what the agents already see
 
-- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Date: 2026-11-09 · Status: accepted (owner, 2026-11-09)
 - Decision:
   - **Signals:**
     - container images from the cluster-agent's pods and from the Docker agent;
@@ -1638,10 +1642,11 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **The list:** discoveries are kept in `discovered_services` and shown on the Applications page as "Found N services that aren't monitored yet". **Ignore** hides one until its image changes. **Add manually** takes a host and port for a service the agents can't see, such as a managed database.
   - **Nothing is contacted** until someone presses Monitor; discovery reads only what the agents already send.
 - Consequences: one small cluster-agent change (container ports in the pod summary) and a backend matcher with fixtures for both kinds of cluster.
+- Amended 2026-11-09 (owner's mock-up): **Accepted.** The discovered rows offer Monitor only. Ignore is not in v0.3's UI; the backend keeps the field for later.
 
 ## ADR-133: Integration credentials are stored encrypted (replaces "named Secrets only")
 
-- Date: 2026-11-09 · Status: proposed (v0.3 planning; the owner decided that stored credentials are allowed, this ADR records how)
+- Date: 2026-11-09 · Status: accepted (owner, 2026-11-09)
 - Context: roadmap v1.2 allowed only Kubernetes Secrets named in Helm values. The owner decided that WatchLog may store generated or entered credentials, so connecting a database takes one command and no Helm upgrade. The user's own Secret or file stays as an option (ADR-134).
 - Decision:
   - **At rest:**
@@ -1663,10 +1668,11 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Demo mode:** the connect flow and credential routes are refused, like every write (ADR-122). The demo's own integrations come from the seed file with `reference` credentials.
 - Alternatives: Secrets only (rejected by the owner: a Helm upgrade or a hand-made Secret for every database); storing credentials in a Kubernetes Secret that WatchLog creates (rejected: needs write access to Secrets, against SPEC §6.6, and has no Docker equivalent).
 - Consequences: backups of the database without the key cannot reveal credentials; losing the key means re-entering them (docs say so). Security docs and `/security` gain a section.
+- Amended 2026-11-09: **Accepted** (owner).
 
 ## ADR-134: Three ways to connect a service that needs a user
 
-- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Date: 2026-11-09 · Status: accepted (owner, 2026-11-09)
 - Decision:
   - **Nothing needed:** Redis without a password, Nginx (eBPF; ingress-nginx metrics), RabbitMQ with the Prometheus plugin, and Elasticsearch or MongoDB with security off start when Monitor is pressed.
   - **a. Recommended, a generated user:**
@@ -1682,10 +1688,16 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
     - WatchLog stores only the reference.
   - **Missing permissions later:** each integration knows which tab needs which privilege or setting. The service page names the affected tab and the fix, for example pg_stat_statements not installed → the Queries tab shows `CREATE EXTENSION` and the `shared_preload_libraries` line. The other tabs keep working.
 - Consequences: the generated commands are tested against real services on kind and Docker (they are run by the tests, not only shown).
+- Amended 2026-11-09 (owner's mock-up):
+  - **Accepted.**
+  - **Probe before Start monitoring:** for services that need nothing, the drawer probes when it opens and shows what it found ("Redis 7.2, 312 MB used, no replicas").
+  - **Secret option:** the user's Secret lives in the `watchlog` namespace. WatchLog writes the `kubectl create role … --resource-name=<secret>` and `rolebinding` lines for that one Secret.
+  - **Redis's ACL** adds `+memory|stats +memory|usage +scan` for the Memory tab.
+  - **"Check now":** besides the 5 s polling, "Check now" probes at once.
 
 ## ADR-135: The Applications page, one service-page template and shared panels
 
-- Date: 2026-11-09 · Status: proposed (v0.3 planning; layout per the owner's mock-up)
+- Date: 2026-11-09 · Status: accepted (owner, 2026-11-09)
 - Decision:
   - **Applications** is a main navigation entry with a problems count.
     - **The list:** one row per service instance, with type logo, name and where it runs, health and its one-line reason, three key metrics, a 6 h sparkline and the firing alerts. Problems come first, filters by type.
@@ -1715,10 +1727,14 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 
   - **Overview and MCP:** a service problem joins the overview's Needs attention list with its reason (ADR-110).
 - Consequences: integrations add panel definitions, not components; a new integration is mostly a catalog, reasons and tests.
+- Amended 2026-11-09 (owner's mock-up):
+  - **Accepted.**
+  - **The list:** columns Service, Where, Health with its one-line reason, three key metrics, the last 6 h, firing alerts; a Sort control (problems first, name, cluster).
+  - **The service page:** its own time range (1 h, 6 h, 24 h, 7 d); the panel grid has two columns (one on phones) and a panel may span both. "Alerts for this service" and the connected workloads show on the Overview tab.
 
 ## ADR-136: Integration metrics, caps and alert rules
 
-- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Date: 2026-11-09 · Status: accepted (owner, 2026-11-09)
 - Decision:
   - **Series:**
     - `watchlog_<service>_<metric>`, with `cluster_id` (server-injected), `service` (the instance id), `member` (pod or container) and only the family labels the catalog lists (`db`, `table`, `queue`, `node`, `command`, `state`, `status`).
@@ -1738,10 +1754,11 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Default rules per integration** (SPEC §4.12) are created disabled, and the connect flow's checkboxes enable them for that instance. Like ADR-084's defaults, they can be edited and reset.
   - **State-like conditions** ("replica set has no primary", "last save failed", "cluster red") are metric rules on 0/1 gauges, so there is still one rule model.
 - Consequences: a cardinality test per integration with a large fixture (500 tables, 1,000 queues) checks the caps.
+- Amended 2026-11-09: **Accepted.** The default rules per integration follow the mock-up (SPEC §4.12).
 
 ## ADR-137: Service reasons are structured facts, ready for probable cause
 
-- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Date: 2026-11-09 · Status: accepted (owner, 2026-11-09)
 - Decision:
   - **Each integration has reason rules** that turn the latest values into `{ severity, code, facts, links }`:
     - `code` is stable, such as `pg.connections_near_max` or `rabbitmq.queue_no_consumers`;
@@ -1760,10 +1777,11 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
     - `query_metric` accepts the new catalog keys.
   - **The public API** gains `GET /applications` and `GET /applications/:id`, tagged `public`.
 - Consequences: each reason has a unit test with its facts, and one end-to-end case per integration produces it on a real service.
+- Amended 2026-11-09: **Accepted.**
 
 ## ADR-138: Query text is kept normalised, or not at all
 
-- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Date: 2026-11-09 · Status: accepted (owner, 2026-11-09)
 - Decision:
   - **PostgreSQL:** pg_stat_statements text is already normalised by PostgreSQL (`$1`). WatchLog adds nothing.
   - **Redis:** SLOWLOG keeps the command name and the key shape. Parts that look like ids (digits, UUIDs, hashes) become `{id}`. Values and other arguments become `…`.
@@ -1774,10 +1792,11 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Bounds:** texts are capped at 1 KB, kept for the metric retention, and never sent in alert messages.
   - **Docs:** `docs/site/security.md` and `/security` explain what is kept.
 - Consequences: normalisation has tests with secrets in literals, emails, tokens and UUIDs.
+- Amended 2026-11-09: **Accepted.** Redis key prefixes for the Memory tab are sampled names reduced to prefixes; values are never read (SPEC §4.12).
 
 ## ADR-139: HTTP stats on the service map, from eBPF, headers only
 
-- Date: 2026-11-09 · Status: proposed (v0.3 planning; SPEC §4.5 P1 moves into v0.3 for Nginx)
+- Date: 2026-11-09 · Status: accepted (owner, 2026-11-09)
 - Decision:
   - **What:**
     - For plain-text HTTP/1.x on a traced connection, the agent records requests per edge: method class, status code and latency (request's first byte to response's first byte), in a histogram with ADR-106's buckets extended to 10 s.
@@ -1793,10 +1812,11 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
     - The edge health (ADR-106) also turns warning at ≥ 1 % 5xx and critical at ≥ 5 %.
     - The Nginx page reads these series for plain Nginx.
 - Consequences: an eBPF change in both modes; kernel and verifier tests on the CI kernels; docs/security.md describes the 16-byte peek.
+- Amended 2026-11-09: **Accepted.** Exact status codes are kept (capped to the common set) for the Errors tab.
 
 ## ADR-140: Multi-user with Owner, Admin and Viewer, and email invites (Community)
 
-- Date: 2026-11-09 · Status: proposed (v0.3 planning; scope decided in roadmap v1.3)
+- Date: 2026-11-09 · Status: accepted (owner, 2026-11-09)
 - Decision:
   - **Roles** (one per user in the installation's org, ADR-035):
 
@@ -1828,10 +1848,11 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Demo mode:** the Users page shows the demo visitor as Viewer and refuses changes.
 - Alternatives: Admin and Viewer only (rejected: someone must be able to remove an Admin); per-cluster roles (Enterprise, Phase 7).
 - Consequences: SPEC §4.10 moves Owner/Admin/Viewer and invites to Community, v0.3.
+- Amended 2026-11-09: **Accepted** (owner). Viewers are strictly read-only and cannot silence alerts.
 
 ## ADR-141: v0.3 build order and what moves to v0.5
 
-- Date: 2026-11-09 · Status: proposed (v0.3 planning; the integration order is the owner's to confirm)
+- Date: 2026-11-09 · Status: accepted (owner, 2026-11-09)
 - Decision:
   - **Order:**
     1. foundation: the collector, discovery, the service page and panels, credentials and the connect flow, integration alerts;
@@ -1848,10 +1869,14 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
     - One more integration has to move too, or v0.3 lands about two sessions late. **Recommended:** move MongoDB and keep RabbitMQ (24 sessions). RabbitMQ is the cheapest (no credentials) and its "queue without consumers" reason is v0.4's best cross-signal example. In the owner's order (MongoDB before RabbitMQ), RabbitMQ would be the one to move.
   - **Checkpoint on 20 November:** if Redis, PostgreSQL, Nginx and the HTTP stats are not all done, the remaining integration moves to v0.5 as well. The launch date does not move.
 - Consequences: the landing site's Applications section lists only what shipped. The catalogs of whatever moves stay in SPEC §4.12 for v0.5.
+- Amended 2026-11-09 (owner's answers):
+  - **Accepted.** Elasticsearch **and** MongoDB move out of v0.3: MongoDB ships as **v0.3.1** about a week after the launch, Elasticsearch in v0.5. RabbitMQ stays.
+  - **Launch:** Wednesday 2 December if the timeline allows, otherwise 3 December. At 1.5 sessions a day, v0.3 is about 24 sessions (released about 25 November), v0.4 about 6 and launch preparation about 2: that ends on 1 December, so 2 December fits with no slack.
+  - **The 20 November checkpoint** recalculates the pace and the date.
 
 ## ADR-142: The demo shows Applications with real services and a real failure
 
-- Date: 2026-11-09 · Status: proposed (v0.3 planning)
+- Date: 2026-11-09 · Status: accepted (owner, 2026-11-09)
 - Decision:
   - **The live demo's sample app** (its private deployment kit) gains PostgreSQL, Redis, RabbitMQ and an ingress-nginx in the `shop` namespace, monitored through the seed file with `reference` credentials (ADR-133). The demo's chaos script adds service failures:
     - a consumer that gets OOM-killed every 30 minutes, so the queue grows without consumers;
@@ -1860,3 +1885,4 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Demo visitors** see Applications and every service page, read-only. Monitor and the connect flow are refused there, with the usual demo message.
   - **The kind e2e demo** (`deploy/test/k8s`) and the Docker demo host (`demo-up.sh`) get the same services, so tests and screenshots use the same failures.
 - Consequences: the demo cluster needs about 600 MB more memory; the demo kit's limits grow accordingly.
+- Amended 2026-11-09: **Accepted.** The demo gets PostgreSQL, Redis, RabbitMQ and an ingress-nginx; MongoDB joins with v0.3.1.
