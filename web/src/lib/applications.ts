@@ -174,6 +174,21 @@ export function reasonLine(
           : 'integrations.reasons.errors_high_plain',
         values: { ...f },
       };
+    case 'queue_no_consumers':
+      return {
+        key: f.consumer
+          ? 'integrations.reasons.queue_no_consumers'
+          : 'integrations.reasons.queue_no_consumers_unknown',
+        values: { ...f },
+      };
+    case 'dead_letters_growing':
+      return {
+        key:
+          f.n === null || f.n === undefined
+            ? 'integrations.reasons.dead_letters_growing_queue'
+            : 'integrations.reasons.dead_letters_growing',
+        values: { ...f },
+      };
     case 'stub_status_missing':
       return {
         key: f.tried

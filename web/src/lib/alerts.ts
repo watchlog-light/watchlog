@@ -269,6 +269,24 @@ export const SERVICE_METRICS_BY_TYPE: Record<string, typeof SERVICE_METRICS> = {
     { key: 'postgres.database.size', unit: 'bytes', start: { op: '>', value: 50 * 2 ** 30 } },
     { key: 'postgres.lock_waits', unit: 'count', start: { op: '>', value: 0 } },
   ],
+  nginx: [
+    { key: 'nginx.5xx.ratio', unit: 'ratio', start: { op: '>', value: 0.05 } },
+    { key: 'nginx.latency.p95', unit: 'seconds', start: { op: '>', value: 1 } },
+    { key: 'nginx.requests.rate', unit: 'per_second', start: { op: '>', value: 1000 } },
+    { key: 'nginx.upstream.down', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'nginx.certificate.expiry', unit: 'seconds', start: { op: '<', value: 14 * 86_400 } },
+  ],
+  rabbitmq: [
+    { key: 'rabbitmq.queue.unconsumed', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'rabbitmq.messages.ready', unit: 'count', start: { op: '>', value: 10_000 } },
+    { key: 'rabbitmq.messages.unacked', unit: 'count', start: { op: '>', value: 10_000 } },
+    { key: 'rabbitmq.publish.rate', unit: 'per_second', start: { op: '>', value: 1000 } },
+    { key: 'rabbitmq.deliver.rate', unit: 'per_second', start: { op: '<', value: 1 } },
+    { key: 'rabbitmq.consumers', unit: 'count', start: { op: '<', value: 1 } },
+    { key: 'rabbitmq.memory.ratio', unit: 'ratio', start: { op: '>', value: 0.8 } },
+    { key: 'rabbitmq.alarms', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'rabbitmq.dead_lettered.rate', unit: 'per_second', start: { op: '>', value: 0 } },
+  ],
 };
 export const serviceMetrics = (type?: string) => [
   ...SERVICE_METRICS,

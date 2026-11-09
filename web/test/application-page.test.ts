@@ -481,6 +481,80 @@ describe('Application page', () => {
     wrapper.unmount();
   });
 
+  it('names the consumer a RabbitMQ queue lost, and how to enable its plugin', async () => {
+    mockFetch({
+      [`GET /api/v1/applications/${ID}?range=3600`]: {
+        status: 200,
+        body: detail(
+          { type: 'rabbitmq', name: 'shop/rabbitmq' },
+          {
+            reasons: [
+              {
+                severity: 'critical',
+                code: 'queue_no_consumers',
+                facts: {
+                  queue: 'orders',
+                  queues: 1,
+                  ready: 4200,
+                  perMin: 600,
+                  since: '6 min ago',
+                  consumer: 'shop/worker',
+                  how: 'OOMKilled, CrashLoopBackOff',
+                  when: '6 min ago',
+                },
+                links: [{ kind: 'workload', id: 'shop/Deployment/worker', name: 'shop/worker' }],
+              },
+              {
+                severity: 'critical',
+                code: 'queue_no_consumers',
+                facts: {
+                  queue: 'emails',
+                  queues: 1,
+                  ready: 3,
+                  perMin: 1,
+                  since: null,
+                  consumer: null,
+                  how: null,
+                  when: null,
+                },
+              },
+              {
+                severity: 'info',
+                code: 'prometheus_plugin_off',
+                facts: {
+                  n: 1,
+                  command:
+                    'docker exec shop-rabbitmq-2 rabbitmq-plugins enable rabbitmq_prometheus',
+                },
+              },
+            ],
+            page: {
+              id: 'rabbitmq',
+              tabs: [{ id: 'overview', title: 'integrations.rabbitmq.tabs.overview' }],
+            },
+          },
+        ),
+      },
+      [`GET /api/v1/applications/${ID}/panels?tab=overview&range=3600`]: {
+        status: 200,
+        body: { tab: 'overview', range: 3600, panels: [PANELS[9]] },
+      },
+    });
+    const { wrapper } = await mountPage(`/applications/${ID}?cluster=${K8S.id}`);
+    const rs = wrapper.findAll('[data-testid="reason"]').map((r) => r.text().replace(/\s+/g, ' '));
+    expect(rs[0]).toContain(
+      'orders has no consumers since 6 min ago and grows by 600 a minute (4200 ready). shop/worker, connected to RabbitMQ until then, was OOMKilled, CrashLoopBackOff 6 min ago.',
+    );
+    expect(rs[1]).toContain(
+      'No client that was connected to RabbitMQ in the last 24 hours ended since.',
+    );
+    expect(rs[1]).not.toContain('null');
+    expect(wrapper.get('[data-testid="reason-command"]').text()).toContain(
+      'rabbitmq-plugins enable rabbitmq_prometheus',
+    );
+    wrapper.unmount();
+  });
+
   it('says a paused service is paused, by whom, and resumes it', async () => {
     const paused = detail(
       {

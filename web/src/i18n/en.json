@@ -1374,7 +1374,16 @@
     "nginx_5xx_ratio": "Nginx 5xx share",
     "nginx_latency_p95": "Nginx p95 response time",
     "nginx_upstream_down": "Nginx upstreams without a healthy endpoint",
-    "nginx_certificate_expiry": "Time until a certificate expires (ingress-nginx)"
+    "nginx_certificate_expiry": "Time until a certificate expires (ingress-nginx)",
+    "rabbitmq_messages_ready": "RabbitMQ ready messages",
+    "rabbitmq_messages_unacked": "RabbitMQ unacked messages",
+    "rabbitmq_publish_rate": "RabbitMQ publish/s",
+    "rabbitmq_deliver_rate": "RabbitMQ deliver/s",
+    "rabbitmq_consumers": "RabbitMQ consumers",
+    "rabbitmq_memory_ratio": "RabbitMQ memory of the high watermark",
+    "rabbitmq_alarms": "RabbitMQ memory or disk alarm",
+    "rabbitmq_queue_unconsumed": "RabbitMQ queue growing with no consumers",
+    "rabbitmq_dead_lettered_rate": "RabbitMQ dead-lettered/s"
   },
   "combobox": {
     "noMatches": "No matches",
@@ -2092,7 +2101,12 @@
         "nginx_5xx_high": "When more than 5 % of requests answer 5xx for 5 minutes (critical)",
         "nginx_latency_high": "When p95 is above 1 s for 5 minutes",
         "nginx_upstream_down": "When an upstream has no healthy endpoint (critical)",
-        "nginx_certificate_expiring": "When a certificate expires within 14 days (ingress-nginx)"
+        "nginx_certificate_expiring": "When a certificate expires within 14 days (ingress-nginx)",
+        "rabbitmq_queue_unconsumed": "When a queue grows with no consumers for 5 minutes (critical)",
+        "rabbitmq_alarm": "When a node is in a memory or disk alarm (critical)",
+        "rabbitmq_unacked_high": "When more than 10,000 messages are unacked for 5 minutes",
+        "rabbitmq_node_down": "When a node is down for a minute (critical)",
+        "rabbitmq_dead_letters": "When messages are dead-lettered for 5 minutes"
       }
     },
     "metricsError": "Key metrics couldn't be loaded.",
@@ -2268,7 +2282,16 @@
       "no_http_source": "Requests, errors and latency come from the agents on the same host or cluster; this service, added by address, has none.",
       "errors_high_plain": "{pct} % of requests answer 5xx.",
       "errors_high_upstream": "{pct} % of requests answer 5xx. Most come from {upstream} ({upstreamPct} %).",
-      "stub_status_missing_tried": "Nginx has no stub_status, so connections are missing. Requests, errors and latency need nothing. WatchLog looked at {tried}. Add this to its configuration and reload; WatchLog finds it on port 8080 or the service's port:"
+      "stub_status_missing_tried": "Nginx has no stub_status, so connections are missing. Requests, errors and latency need nothing. WatchLog looked at {tried}. Add this to its configuration and reload; WatchLog finds it on port 8080 or the service's port:",
+      "queue_no_consumers": "{queue} has no consumers since {since} and grows by {perMin} a minute ({ready} ready). {consumer}, connected to RabbitMQ until then, was {how} {when}.",
+      "queue_no_consumers_unknown": "{queue} has no consumers and grows by {perMin} a minute ({ready} ready). No client that was connected to RabbitMQ in the last 24 hours ended since.",
+      "queue_growing": "{queue} grows by {perMin} a minute although it has consumers: they are slower than the publishers.",
+      "memory_alarm": "{member} is in a memory alarm: publishers are blocked until memory drops below the high watermark.",
+      "disk_alarm": "{member} is in a disk alarm: publishers are blocked until free disk is above the limit.",
+      "unacked_high": "{n} messages are delivered but not acknowledged: consumers hold them without acking.",
+      "dead_letters_growing": "{n} messages were dead-lettered in the last 15 minutes.",
+      "dead_letters_growing_queue": "The dead-letter queue {queue} is growing.",
+      "prometheus_plugin_off": "The rabbitmq_prometheus plugin is off on {n} node(s), so WatchLog only sees whether RabbitMQ answers. Enable it (no restart needed):"
     },
     "page": {
       "since": "monitored since {at}",
@@ -2311,7 +2334,6 @@
         "howTo": "An Owner or Admin can resume it here or in its settings."
       },
       "genericWhat": {
-        "rabbitmq": "WatchLog checks that its collector reaches every member of this RabbitMQ and how fast it connects. Queues, message rates, consumers and resources come with its integration.",
         "mongodb": "WatchLog checks that its collector reaches every member of this MongoDB and how fast it connects. Operations, replication and collections come with its integration (v0.3.1).",
         "elasticsearch": "WatchLog checks that its collector reaches every member of this Elasticsearch and how fast it connects. Cluster health, indices and search latency come with its integration (v0.5)."
       }
@@ -2624,6 +2646,66 @@
           "when": "When",
           "duration": "For",
           "peak": "Peak 5xx"
+        }
+      }
+    },
+    "rabbitmq": {
+      "tabs": {
+        "overview": "Overview",
+        "queues": "Queues",
+        "rates": "Message rates",
+        "resources": "Resources"
+      },
+      "panels": {
+        "summary": "At a glance",
+        "ready": "Ready",
+        "growing": "+{n} a minute",
+        "draining": "−{n} a minute",
+        "unacked": "Unacked",
+        "publish": "Publish/s",
+        "deliver": "Deliver/s",
+        "wasRate": "was {n}/s",
+        "consumers": "Consumers",
+        "was": "was {n}",
+        "memory": "Memory",
+        "ofWatermark": "of the high watermark",
+        "depth": "Queue depth",
+        "publishDeliver": "Publish and deliver",
+        "queues": "Queues",
+        "queuesNote": "the 200 deepest, and every queue with messages and no consumer",
+        "depthByQueue": "Depth by queue",
+        "consumersByQueue": "Consumers by queue",
+        "readyTop": "Ready messages of the deepest queues",
+        "messageRates": "Messages per second",
+        "confirms": "Publisher confirms",
+        "unroutable": "Dropped, returned and dead-lettered",
+        "deadLetterNote": "dead-letter counters need RabbitMQ 3.12+",
+        "limits": "Node limits",
+        "watermarkNote": "publishers are blocked at the memory watermark",
+        "disk": "Free disk",
+        "diskFree": "Free disk",
+        "diskLimit": "{member}: alarm below {limit}",
+        "memoryOverTime": "Memory",
+        "watermark": "High watermark",
+        "series": {
+          "ready": "Ready",
+          "unacked": "Unacked",
+          "publish": "Publish",
+          "deliver": "Deliver",
+          "redeliver": "Redeliver",
+          "ack": "Ack",
+          "confirm": "Confirm",
+          "dropped": "Unroutable, dropped",
+          "returned": "Unroutable, returned",
+          "deadLettered": "Dead-lettered"
+        },
+        "cols": {
+          "queue": "Queue",
+          "ready": "Ready",
+          "unacked": "Unacked",
+          "consumers": "Consumers",
+          "publish": "Publish",
+          "deliver": "Deliver"
         }
       }
     }
