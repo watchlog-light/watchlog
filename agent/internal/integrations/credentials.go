@@ -23,7 +23,7 @@ import (
 
 // SecretsDir is where a Docker host keeps passwords for the collector (ADR-134), mounted
 // read-only: `-v /etc/watchlog/secrets:/etc/watchlog/secrets:ro`.
-const SecretsDir = "/etc/watchlog/secrets"
+const SecretsDir = "/etc/watchlog/secrets" //nolint:gosec // G101: a directory path, not a credential
 
 // CredentialTTL is how long a password read from a Secret or a file is reused.
 const CredentialTTL = time.Minute
@@ -111,7 +111,9 @@ func (c *Credentials) readFile(name string) (string, error) {
 	if dir == "" {
 		dir = SecretsDir
 	}
-	b, err := os.ReadFile(filepath.Join(dir, name))
+	// G304: name matched fileName above (no separator, no dot file), so the path stays
+	// directly under dir.
+	b, err := os.ReadFile(filepath.Join(dir, name)) //nolint:gosec // see above
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		return "", fmt.Errorf("%s/%s doesn't exist: create it on the host and mount %s read-only into the collector", SecretsDir, name, SecretsDir)
@@ -187,7 +189,7 @@ func (k *KubeSecrets) Read(ctx context.Context, namespace, name, key string) (st
 	if err != nil {
 		return "", fmt.Errorf("reading the Secret %s: the API server didn't answer", where)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	switch res.StatusCode {
 	case http.StatusOK:
 	case http.StatusForbidden:
