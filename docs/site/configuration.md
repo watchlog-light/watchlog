@@ -18,7 +18,7 @@ Defaults work for most installs. This page lists what you can change.
 | `clusterName`                                                                                      | `kubernetes`                            | Name of this cluster in WatchLog.                                                                                                                                                                       |
 | `demoMode`                                                                                         | `false`                                 | A read-only public demo: visitors enter as a viewer without a password, and every change is refused, even for admins. Secrets, tokens and channel targets are never shown. Not for a real installation. |
 | `mcp.enabled`                                                                                      | `true`                                  | The MCP server at `/mcp`, so AI assistants (Claude, Cursor) can read your clusters with a personal API token. It needs a token anyway; `false` turns it off, and tokens still read the REST API.        |
-| `seed`                                                                                             | `{}`                                    | Alert rules created at every backend start, once each, matched by name and never overwritten, and a demo's public MCP token. See [Seed file](#seed-file).                                               |
+| `seed`                                                                                             | `{}`                                    | Alert rules created at every backend start, once each, matched by name and never overwritten; services to monitor once they're found; and a demo's public MCP token. See [Seed file](#seed-file).       |
 | `cookieSecure`                                                                                     | `auto`                                  | The session cookie's Secure attribute: `auto` when the request came over https, or `always` or `never`. See [Behind a reverse proxy](#behind-a-reverse-proxy).                                          |
 | `image.registry`, `image.tag`                                                                      | `ghcr.io/watchlog-light`, chart version | Where WatchLog images come from: use a mirror for air-gapped installs.                                                                                                                                  |
 | `backend.replicas`, `backend.resources`                                                            | 1, 192Mi–512Mi                          | API server.                                                                                                                                                                                             |
@@ -138,6 +138,34 @@ WatchLog's web container (Caddy) serves the dashboard and passes `/api` and `/in
 ```
 
 The fields are those of a custom rule in the API. `clusterId` is `null` for every cluster, or a cluster's name or id. `enabled` and `renotifySeconds` are optional. A seed file can't hold channels, so it never holds secrets.
+
+It can also list services to monitor. Each is monitored as soon as an agent reports it, once per cluster: if you stop monitoring one, it isn't added back. A password is only ever referenced, from a Secret in the collector's namespace or a file under `/etc/watchlog/secrets` on the Docker host, never written in the file:
+
+```json
+{
+  "services": [
+    { "clusterKind": "kubernetes", "type": "redis", "name": "shop/redis" },
+    {
+      "clusterKind": "kubernetes",
+      "type": "postgres",
+      "name": "shop/postgres",
+      "access": {
+        "username": "watchlog",
+        "secret": { "name": "shop-postgres-watchlog", "key": "password" }
+      },
+      "defaultAlerts": ["postgres_connections_high"]
+    },
+    {
+      "clusterKind": "docker",
+      "type": "postgres",
+      "name": "storefront/db",
+      "access": { "username": "watchlog", "file": "storefront-db" }
+    }
+  ]
+}
+```
+
+`name` is the service as the Applications page lists it. `cluster` (a name or id) limits it to one cluster. The collector still needs the Role and RoleBinding for that Secret, as the connect drawer shows them. A service already monitored keeps its access, unless it has none.
 
 A public demo can also publish a read-only MCP token, which only works in demo mode (`demoMode: true`). Its value is public on purpose:
 

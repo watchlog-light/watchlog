@@ -52,7 +52,9 @@ CREATE EXTENSION pg_stat_statements;  -- in the postgres database
 
 Query text is on by default: WatchLog shows the normalised text from
 `pg_stat_statements` (values replaced by `$1`, `$2`, …), never the text of a running query
-from `pg_stat_activity`. Turn it off in the service's settings to keep only each
+from `pg_stat_activity`. Statements PostgreSQL doesn't normalise, such as
+`CREATE ROLE … PASSWORD`, keep only their command (`CREATE ROLE …`), so a password never
+leaves the server. Turn query text off in the service's settings to keep only each
 statement's id, calls and timings.
 
 ## What you see

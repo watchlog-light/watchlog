@@ -81,6 +81,9 @@ Services you monitor on the Applications page (Redis, PostgreSQL, Nginx, RabbitM
   | `--security-opt no-new-privileges`                   | No privilege gain through setuid binaries.                                                                                                      |
 
   It mounts no Docker socket and no host filesystem other than that secrets directory, read-only.
+  The command WatchLog shows takes the token and the WatchLog address from the agent already
+  running on that host (`docker inspect watchlog-agent`), so it reports where the agent does;
+  no token is shown on screen.
 
 - **Credentials:** a password WatchLog generates or you type in is stored encrypted with AES-256-GCM under the same key as alert channel secrets, tied to that one service: copied to another, it can't be decrypted. The API never returns it; the generated password appears once, inside the command you run to create the user. Only the collector of that service's cluster receives it, over TLS, and keeps it in memory. Who set or changed a credential, and when, is recorded, never the value.
 - **Or keep the password yourself:** in a Kubernetes Secret, which the collector may read only after you run the two `kubectl create role/rolebinding` lines WatchLog shows for that one Secret; or in a file under `/etc/watchlog/secrets/` on the Docker host. WatchLog then stores only the name.

@@ -1619,6 +1619,10 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Docker:** the collector runs with `--network host`, as uid 0 with every capability dropped and a read-only root filesystem, so it can read root-owned `0600` files under `/etc/watchlog/secrets/` (ADR-134). The install docs and `/security` say so.
   - **Long-poll:** the config endpoint long-polls (`?wait=25`, answering early on a change). A probe started in the connect drawer reaches the collector within a second instead of 30 s.
 - Amended 2026-11-09 (as built, slice 1): collectors are kept in their own table, `integration_collectors` (cluster, host, mode, version, footprint, last config), not in `agent_instances`, which counts nodes and hosts. The configuration is a long-poll (`GET /ingest/v1/integrations/config?wait=25`, ETag), woken when a service, probe or access changes; status at `POST /ingest/v1/integrations/status` is also the heartbeat. On Docker the collector runs as uid 0 with every capability dropped, so it can read root-owned `0600` files in `/etc/watchlog/secrets`.
+- Amended 2026-11-09 (owner, after testing v0.3 on the dev stack):
+  - **The Docker collector reports where the host's agent does.** The command WatchLog shows takes `WATCHLOG_ENDPOINT`, like `WATCHLOG_TOKEN`, from the `watchlog-agent` container; when the agent has none, the ingest or Public URL; with neither, the command stops and says to set the Public URL. The browser's address (often `localhost`) is never used. A test runs the command in bash against a stand-in `docker`; the demo starts its collector the same way.
+  - **A status report is not refused for one long value.** The schema keeps only generous outer bounds; values over the stored limits (an error 512 characters, an `extra` value 256, 100 rows, 16 members) are cut short and a warning names what was cut.
+  - **Dev and demo start the collectors themselves:** `demo-up.sh` runs the collector on the demo's Docker host, and the agent chart already runs one in the cluster; `./dev.sh product` runs `demo-up.sh --existing` once the backend answers.
 
 ## ADR-132: Services are discovered from what the agents already see
 
@@ -1645,6 +1649,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 - Consequences: one small cluster-agent change (container ports in the pod summary) and a backend matcher with fixtures for both kinds of cluster.
 - Amended 2026-11-09 (owner's mock-up): **Accepted.** The discovered rows offer Monitor only. Ignore is not in v0.3's UI; the backend keeps the field for later.
 - Amended 2026-11-09 (as built, slice 2): discovery is computed on read from the objects (running pods and containers; image first, then port); there is no `discovered_services` table, so there is no Ignore state to keep (the mock-up has no Ignore). eBPF destination ports aren't used for discovery yet.
+- Amended 2026-11-09 (owner, after testing v0.3): **Ignore** after all, as a table of what people chose (`discovery_ignores`): one candidate by its key, or every candidate in a namespace or Compose project, including ones found later. Ignored ones are listed under the found services, to restore. Owners and Admins only. The Applications page lists the monitored services first; the found ones come below, three at first, with "Show all N" grouped by namespace or project. A Valkey image is found as Redis with `product: "valkey"`, and a monitored Valkey says so through the collector (`server_name:valkey` in INFO, with Valkey's own version): "Valkey 8.0 (Redis-compatible)".
 
 ## ADR-133: Integration credentials are stored encrypted (replaces "named Secrets only")
 
@@ -1803,6 +1808,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Docs:** `docs/site/security.md` and `/security` explain what is kept.
 - Consequences: normalisation has tests with secrets in literals, emails, tokens and UUIDs.
 - Amended 2026-11-09: **Accepted.** Redis key prefixes for the Memory tab are sampled names reduced to prefixes; values are never read (SPEC §4.12).
+- Amended 2026-11-09 (found testing the dev demo): **PostgreSQL's text isn't always normalised.** `pg_stat_statements` replaces constants only in queries (SELECT, INSERT, UPDATE, DELETE, WITH, MERGE, …). Utility statements keep their literals: the `CREATE ROLE watchlog LOGIN PASSWORD '…'` WatchLog asks people to run showed in Slowest queries with its password. The collector now keeps a utility statement's command only (`ALTER ROLE …`, `DO …`), and redacts `PASSWORD '…'` in any text as a second guard; a real-server test runs `CREATE ROLE`/`ALTER ROLE … PASSWORD` and checks no password leaves the server. Redis keeps only the command for AUTH, HELLO, MIGRATE, `ACL …` and `CONFIG …`, whatever the server's own slow-log redaction does.
 
 ## ADR-139: HTTP stats on the service map, from eBPF, headers only
 
@@ -1927,3 +1933,6 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **The kind e2e demo** (`deploy/test/k8s`) and the Docker demo host (`demo-up.sh`) get the same services, so tests and screenshots use the same failures.
 - Consequences: the demo cluster needs about 600 MB more memory; the demo kit's limits grow accordingly.
 - Amended 2026-11-09: **Accepted.** The demo gets PostgreSQL, Redis, RabbitMQ and an ingress-nginx; MongoDB joins with v0.3.1.
+- Amended 2026-11-09 (as built, owner's request that a fresh dev stack shows live data with no manual step):
+  - **Services in the seed file** (`services`: cluster kind and optionally name, type, the name as discovered, a `reference` access, default alerts on). The backend tries them at start and every minute, and monitors each one once its agents report it, once per cluster (`seed_services`), so a service someone stops monitoring isn't added back. One monitored by hand already keeps its access, unless it has none.
+  - **The dev demo** (`deploy/test/demo-up.sh`): a `watchlog` role with `pg_monitor` in the kind `shop/postgres` (password in the Secret `watchlog/shop-postgres-watchlog`, with the Role and RoleBinding WatchLog writes for one Secret) and in a new Compose `storefront/db` (password in a root-owned file under the folder mounted as `/etc/watchlog/secrets`); both preload `pg_stat_statements`. `deploy/test/demo/seed.json` monitors `shop/redis`, `shop/postgres`, `storefront/cache` and `storefront/db`; `./dev.sh product` passes it to the backend.

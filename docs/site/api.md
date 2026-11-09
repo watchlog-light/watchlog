@@ -175,7 +175,8 @@ curl -H "$H" $WATCHLOG/api/v1/alert-rules
 curl -H "$H" $WATCHLOG/api/v1/silences
 
 # Monitored services (Redis, PostgreSQL, Nginx, RabbitMQ), problems first, on every
-# cluster or one; the ones found but not monitored yet; the integrations collectors
+# cluster or one; the ones found but not monitored yet (and those you chose to ignore);
+# the integrations collectors
 curl -H "$H" $WATCHLOG/api/v1/applications
 curl -H "$H" "$WATCHLOG/api/v1/applications?cluster=$FLEET"
 curl -H "$H" $WATCHLOG/api/v1/applications/discovered
