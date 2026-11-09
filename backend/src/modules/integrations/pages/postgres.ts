@@ -929,16 +929,14 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
   const c = valueOf(conns);
   const m = valueOf(maxConn);
   if (c !== null && m && c / m > 0.9) {
-    // The workloads holding most connections.
-    const by = new Map<string, { n: number; owner?: Owner }>();
+    // The clients holding most connections, by name only: the address map doesn't know a
+    // workload's kind, so no link is guessed.
+    const by = new Map<string, number>();
     for (const x of extra(ctx).clients ?? []) {
-      const owner = x.addr ? owners.get(x.addr) : undefined;
       const name = clientName(owners, x.addr, x.app);
-      const cur = by.get(name) ?? { n: 0, owner };
-      cur.n += x.connections;
-      by.set(name, cur);
+      by.set(name, (by.get(name) ?? 0) + x.connections);
     }
-    const top = [...by].sort((a, b) => b[1].n - a[1].n).slice(0, 3);
+    const top = [...by].sort((a, b) => b[1] - a[1]).slice(0, 3);
     out.push({
       severity: c / m > 0.97 ? 'critical' : 'warning',
       code: 'connections_near_max',
@@ -946,14 +944,8 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
         n: c,
         max: m,
         pct: Math.round((c / m) * 100),
-        top: top.map(([name, v]) => `${name} (${v.n})`).join(', ') || 'clients WatchLog can’t see',
+        top: top.map(([name, n]) => `${name} (${n})`).join(', ') || 'clients WatchLog can’t see',
       },
-      links: top
-        .filter(([, v]) => v.owner?.kind === 'workload')
-        .map(([name]) => {
-          const [ns, w] = name.split('/');
-          return { kind: 'workload' as const, id: `${ns}/Deployment/${w}`, name };
-        }),
     });
   }
   const long = valueOf(longest);
