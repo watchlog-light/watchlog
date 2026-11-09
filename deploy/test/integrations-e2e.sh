@@ -148,11 +148,14 @@ for a in apps:
         "clusterId": a["cluster"]["id"], "type": a["type"], "target": a["target"], "integrationId": a["id"],
         "access": {"method": "entered", "username": "e2e", "password": "e2e-not-a-real-password"}})["probe"]
     deadline = time.time() + 60
-    while time.time() < deadline and probe["status"] == "pending":
+    while time.time() < deadline and probe["status"] == "pending" and not probe["result"]:
         time.sleep(3)
         probe = call("GET", f"/applications/probes/{probe['id']}")["probe"]
-    check(f"{a['cluster']['kind']} {a['name']}: its collector tried the probe and reached it",
-          probe["status"] == "ok" and probe["attempts"] >= 1, json.dumps(probe))
+    # Until each integration logs in (slices 7 and 8), a password can't be proven: the
+    # test reaches the port and stays waiting, saying so; it never passes on the port alone.
+    check(f"{a['cluster']['kind']} {a['name']}: its collector tried the probe, reached it, and didn't pass it on the port alone",
+          probe["status"] == "pending" and (probe["result"] or {}).get("code") == "login_untested",
+          json.dumps(probe))
     call("PUT", f"/applications/{a['id']}/access", {"probeId": probe["id"]})
     acc = call("GET", f"/applications/{a['id']}/access")
     check(f"{a['cluster']['kind']} {a['name']}: the access is stored, never shown",

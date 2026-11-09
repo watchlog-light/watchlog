@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Every dashboard route at 360, 390, 768, 1024 and 1280 px: no horizontal page scroll,
 // no text under 12 px (11 px uppercase micro-labels aside), touch targets of 44 px below
-// 1024 px. Screenshots of the priority pages at 390×844 and 768×1024 go to
-// e2e/screenshots/ (git-ignored).
+// 1024 px. Screenshots of the priority pages at 390×844, 768×1024 and 1280×800 go to
+// e2e/screenshots/ (git-ignored), or to WATCHLOG_E2E_SHOT_DIR.
 //
 // Needs a running dashboard with stored data (`pnpm dev`; deploy/test/demo-up.sh fills it) and an
 // account: WATCHLOG_E2E_EMAIL and WATCHLOG_E2E_PASSWORD, or WATCHLOG_E2E_DEMO=true against a
@@ -17,13 +17,17 @@ import {
   type BrowserContext,
   type Page,
 } from '@playwright/test';
+import * as apps from './fixtures/applications';
 import { SERVICE_MAPS } from './fixtures/service-map';
 import { layoutProblems, report, SHOTS, viewportFor, WIDTHS } from './layout-checks';
 
 const email = process.env.WATCHLOG_E2E_EMAIL;
 const password = process.env.WATCHLOG_E2E_PASSWORD;
 const demo = process.env.WATCHLOG_E2E_DEMO === 'true';
-const SHOT_DIR = new URL('./screenshots/', import.meta.url).pathname;
+// WATCHLOG_E2E_SHOT_DIR puts the screenshots elsewhere (a review folder).
+const SHOT_DIR = process.env.WATCHLOG_E2E_SHOT_DIR
+  ? `${process.env.WATCHLOG_E2E_SHOT_DIR.replace(/\/+$/, '')}/`
+  : new URL('./screenshots/', import.meta.url).pathname;
 // The session is reused between runs (sign-in is rate-limited); git-ignored.
 const AUTH_FILE = new URL(`./.auth/session${demo ? '-demo' : ''}.json`, import.meta.url).pathname;
 
@@ -38,6 +42,9 @@ interface Cluster {
 interface Answer {
   url: RegExp;
   json: unknown;
+  /** GET unless set; other methods pass through. */
+  method?: string;
+  status?: number;
 }
 
 /** The service map of a cluster, from a fixture: the checks don't need a live cluster. */
@@ -61,6 +68,8 @@ interface Route {
   public?: boolean;
   /** API responses answered by fixtures while it is checked. */
   answer?: Answer;
+  /** More of them (the connect flow's probes, a fixture service's page). */
+  answers?: Answer[];
 }
 
 const get = async <T>(api: APIRequestContext, path: string): Promise<T> => {
@@ -117,6 +126,14 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
     `/clusters/${docker.id}/docker/containers`,
   );
   const { alerts } = await get<{ alerts: { id: string }[] }>(api, '/alerts');
+  const { applications: monitored } = await get<{
+    applications: {
+      id: string;
+      cluster: { kind: string };
+      health: string;
+      reason: { code: string };
+    }[];
+  }>(api, '/applications');
   // API tokens (ADR-125): one usable token, so the list, its dialogs and the detail have a
   // row. Made once and reused; the reveal below answers its POST without making another.
   // Made only against a dev dashboard on this machine, never in CI or on a shared install:
@@ -153,6 +170,7 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
     // Applications (v0.3 slice 2): whatever the dev stack monitors and discovers.
     { name: 'applications', path: `/applications${k}`, shot: true },
     { name: 'applications-docker', path: `/applications${d}` },
+    ...applicationRoutes(kube, docker, k, d, monitored, hosts[0]?.name ?? 'docker-01'),
     { name: 'events-docker', path: `/events${d}` },
     // The service map from fixtures, for a Kubernetes cluster and a Docker host: these
     // checks hold whether or not a cluster is reporting right now.
@@ -240,6 +258,271 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
     ? routes.filter((r) => r.name !== 'rule-editor' && r.name !== 'settings-tokens-demo')
     : routes;
   return only ? available.filter((r) => only.includes(r.name)) : available;
+}
+
+/**
+ * The v0.3 pages (Applications, the service page, the connect flow, a service's settings
+ * and rules) on both kinds. The connect flow's tests and saves are answered by fixtures,
+ * so the suite writes nothing: no probe, credential or service is created.
+ */
+function applicationRoutes(
+  kube: Cluster,
+  docker: Cluster,
+  k: string,
+  d: string,
+  monitored: { id: string; cluster: { kind: string }; health: string; reason: { code: string } }[],
+  host: string,
+): Route[] {
+  const list = `/applications${k}`;
+  const found: Answer = {
+    url: /\/api\/v1\/applications\/discovered$/,
+    json: apps.discovered(kube, docker, host),
+  };
+  const created = (json: Record<string, unknown>): Answer => ({
+    url: /\/api\/v1\/applications\/probes$/,
+    method: 'POST',
+    status: 201,
+    json,
+  });
+  const polled = (json: Record<string, unknown>): Answer => ({
+    url: apps.PROBE_URL,
+    json: { probe: apps.probe(json) },
+  });
+  const monitor = (name: string) => async (page: Page) => {
+    await page.getByRole('button', { name: `Monitor ${name}` }).click();
+    await page.getByTestId('monitor-drawer').waitFor();
+  };
+  const choose = async (page: Page, method: string) => {
+    await page.locator(`[data-access="${method}"] input`).check();
+  };
+  const fields = (page: Page) =>
+    page.getByTestId('access-step').locator('input:not([type="radio"])');
+  const fixture = `/applications/${apps.FIXTURE_APP_ID}${k}`;
+  const fixtureAnswers: Answer[] = [
+    {
+      url: new RegExp(`/api/v1/applications/${apps.FIXTURE_APP_ID}(\\?|$)`),
+      json: apps.applicationDetail(kube),
+    },
+    {
+      url: new RegExp(`/api/v1/applications/${apps.FIXTURE_APP_ID}/panels`),
+      json: apps.applicationPanels(),
+    },
+    { url: /\/api\/v1\/alert-rules$/, json: { rules: apps.serviceRules(kube) } },
+  ];
+  const dockerApp = monitored.find(
+    (a) => a.cluster.kind === 'docker' && a.reason.code === 'collector_missing',
+  );
+  const routes: Route[] = [
+    // Connect option a, generated user: the command and "trying", then a failed try, then
+    // the probe expired (failed) with Check again.
+    {
+      name: 'connect-generated',
+      path: list,
+      shot: true,
+      answers: [found, created({ probe: apps.probe(), command: apps.generatedCommand })],
+      prepare: async (page) => {
+        await monitor('shop/orders')(page);
+        await page.getByTestId('access-start').click();
+        await page.getByTestId('probe-status').waitFor();
+      },
+    },
+    {
+      name: 'connect-generated-retrying',
+      path: list,
+      shot: true,
+      answers: [
+        found,
+        created({ probe: apps.probe(), command: apps.generatedCommand }),
+        polled({
+          attempts: 4,
+          result: apps.failure('auth_failed', 'password authentication failed for user "watchlog"'),
+        }),
+      ],
+      prepare: async (page) => {
+        await monitor('shop/orders')(page);
+        await page.getByTestId('access-start').click();
+        await page.waitForTimeout(5_600);
+      },
+    },
+    {
+      name: 'connect-generated-failed',
+      path: list,
+      shot: true,
+      answers: [
+        found,
+        created({ probe: apps.probe(), command: apps.generatedCommand }),
+        polled({
+          status: 'failed',
+          attempts: 180,
+          result: apps.failure('auth_failed', 'password authentication failed for user "watchlog"'),
+        }),
+      ],
+      prepare: async (page) => {
+        await monitor('shop/orders')(page);
+        await page.getByTestId('access-start').click();
+        await page.waitForTimeout(5_600);
+      },
+    },
+    // Option b, an existing user that can do more than needed.
+    {
+      name: 'connect-entered',
+      path: list,
+      shot: true,
+      answers: [
+        found,
+        created({
+          probe: apps.probe({
+            method: 'entered',
+            username: 'postgres',
+            status: 'ok',
+            attempts: 1,
+            result: apps.success('16.4', { databases: 3 }, ['superuser']),
+          }),
+        }),
+      ],
+      prepare: async (page) => {
+        await monitor('shop/orders')(page);
+        await choose(page, 'entered');
+        await fields(page).nth(0).fill('postgres');
+        await fields(page).nth(1).fill('not-a-real-password');
+        await page.getByTestId('access-start').click();
+        await page.getByTestId('probe-status').waitFor();
+      },
+    },
+    // Option b again: logged in, but the user lacks a privilege; the fix names the grant.
+    {
+      name: 'connect-entered-missing',
+      path: list,
+      shot: true,
+      answers: [
+        found,
+        created({
+          probe: apps.probe({
+            method: 'entered',
+            username: 'app',
+            attempts: 3,
+            result: apps.failure('permission_missing', null, ['pg_monitor']),
+          }),
+        }),
+      ],
+      prepare: async (page) => {
+        await monitor('shop/orders')(page);
+        await choose(page, 'entered');
+        await fields(page).nth(0).fill('app');
+        await fields(page).nth(1).fill('not-a-real-password');
+        await page.getByTestId('access-start').click();
+        await page.getByTestId('probe-fix').waitFor();
+      },
+    },
+    // Option c on Kubernetes: a Secret, with the Role and RoleBinding to run.
+    {
+      name: 'connect-secret',
+      path: list,
+      shot: true,
+      answers: [
+        found,
+        created({
+          probe: apps.probe({ method: 'reference', username: 'monitor' }),
+          commands: apps.roleCommands,
+        }),
+      ],
+      prepare: async (page) => {
+        await monitor('shop/orders')(page);
+        await choose(page, 'reference');
+        await fields(page).nth(0).fill('monitor');
+        await fields(page).nth(1).fill('orders-db');
+        await page.getByTestId('access-start').click();
+        await page.getByTestId('access-commands').waitFor();
+      },
+    },
+    // Docker: Redis needs nothing and is tested as the drawer opens; or a file on the host.
+    {
+      name: 'connect-docker-none',
+      path: `/applications${d}`,
+      shot: true,
+      answers: [
+        found,
+        created({
+          probe: apps.probe({
+            method: 'none',
+            username: null,
+            status: 'ok',
+            attempts: 1,
+            result: apps.success('7.2.5', { used_memory: '312 MB', clients: 14 }),
+          }),
+        }),
+      ],
+      prepare: async (page) => {
+        await monitor('storefront/sessions')(page);
+        await page.getByTestId('probe-status').waitFor();
+      },
+    },
+    {
+      name: 'connect-docker-file',
+      path: `/applications${d}`,
+      shot: true,
+      answers: [
+        found,
+        created({
+          probe: apps.probe({ method: 'reference', username: 'default' }),
+          commands: apps.fileCommands,
+          mount: '-v /etc/watchlog/secrets:/etc/watchlog/secrets:ro',
+        }),
+      ],
+      prepare: async (page) => {
+        await monitor('storefront/sessions')(page);
+        await choose(page, 'reference');
+        await fields(page).nth(1).fill('sessions-redis');
+        await page.getByTestId('access-start').click();
+        await page.getByTestId('access-commands').waitFor();
+      },
+    },
+    {
+      name: 'add-service',
+      path: list,
+      shot: true,
+      answers: [found],
+      prepare: (page) => page.getByTestId('add-manually').click(),
+    },
+    // A monitored service's page, its settings and a rule scoped to it.
+    { name: 'application', path: fixture, shot: true, answers: fixtureAnswers },
+    {
+      name: 'service-rule-editor',
+      path: fixture,
+      shot: true,
+      answers: fixtureAnswers,
+      prepare: (page) => page.getByTestId('add-rule').click(),
+    },
+  ];
+  if (dockerApp) {
+    const path = `/applications/${dockerApp.id}${d}`;
+    const accessAnswer: Answer = {
+      url: new RegExp(`/api/v1/applications/${dockerApp.id}/access$`),
+      json: apps.access(),
+    };
+    routes.push(
+      // A Docker host without a collector: the docker run card.
+      { name: 'application-docker', path, shot: true },
+      {
+        name: 'service-settings',
+        path,
+        shot: true,
+        answers: [accessAnswer],
+        prepare: (page) => page.getByTestId('open-settings').click(),
+      },
+      {
+        name: 'service-settings-change',
+        path,
+        shot: true,
+        answers: [accessAnswer],
+        prepare: async (page) => {
+          await page.getByTestId('open-settings').click();
+          await page.getByTestId('change-access').click();
+        },
+      },
+    );
+  }
+  return routes;
 }
 
 /** Reloads the page with one API path answered by `json`, then lets it through again. */
@@ -382,10 +665,18 @@ for (const width of widths) {
       for (const route of routes.filter((r) => !!r.public !== signedIn)) {
         const answer = route.answer;
         if (answer) await page.route(answer.url, (r) => r.fulfill({ json: answer.json }));
+        for (const a of route.answers ?? []) {
+          await page.route(a.url, (r) =>
+            r.request().method() === (a.method ?? 'GET')
+              ? r.fulfill({ status: a.status ?? 200, json: a.json })
+              : r.fallback(),
+          );
+        }
         try {
           await checkRoute(page, route, width, failures);
         } finally {
           if (answer) await page.unroute(answer.url);
+          for (const a of route.answers ?? []) await page.unroute(a.url);
         }
       }
       await context.close();
@@ -411,7 +702,13 @@ async function checkRoute(page: Page, route: Route, width: number, failures: str
   if (problems.length) failures.push(report(route.name, width, problems));
   const shot = SHOTS.find((s) => s.width === width);
   if (route.shot && shot) {
-    await page.setViewportSize({ width: shot.width, height: shot.height });
+    // WATCHLOG_E2E_SHOT_TALL: drawers and dialogs whole in one picture, for review.
+    const tall = process.env.WATCHLOG_E2E_SHOT_TALL === 'true' && !!route.prepare;
+    await page.setViewportSize({
+      width: shot.width,
+      height: tall ? Math.max(shot.height, shot.width < 768 ? 2100 : 1500) : shot.height,
+    });
+    if (tall) await page.waitForTimeout(300);
     // The shell scrolls <main>, not the page: let it grow for a full-page picture.
     if (!route.prepare)
       await page.addStyleTag({

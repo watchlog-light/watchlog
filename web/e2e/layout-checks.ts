@@ -22,6 +22,7 @@ export const WIDTHS = [360, 390, 768, 1024, 1280] as const;
 export const SHOTS = [
   { name: 'phone', width: 390, height: 844 },
   { name: 'tablet', width: 768, height: 1024 },
+  { name: 'desktop', width: 1280, height: 800 },
 ] as const;
 
 /** Viewport options for a width: phones and tablets get touch emulation. */
