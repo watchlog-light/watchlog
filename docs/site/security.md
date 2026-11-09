@@ -65,6 +65,26 @@ Docker's inspect response contains a container's environment variables. The agen
 
 Health-check commands and probe output can contain credentials. The agent redacts passwords, tokens, auth headers and keys before sending, folds output to one line of at most 512 bytes, and `WATCHLOG_HEALTH_OUTPUT=false` turns output off entirely.
 
+## Integrations collector (Applications)
+
+Services you monitor on the Applications page (Redis, PostgreSQL, Nginx, RabbitMQ) are read by a separate collector, never by the node agent, which still reads no secrets.
+
+- **Read-only by construction.** It runs a fixed list of statements and commands for each kind of service, written in the code. Nothing the server sends is ever executed. The users WatchLog asks you to create get monitoring roles only, such as PostgreSQL's `pg_monitor`, which reads statistics, never table data.
+- **Kubernetes:** one Deployment per cluster, as uid 65532 with every capability dropped and a read-only root filesystem. It has no ClusterRole. It reads a Secret only if you name one, and only after you grant its ServiceAccount that one Secret. WatchLog shows the exact `kubectl create role … --resource-name` command.
+- **Docker:** one container on each host that runs a monitored service, started with:
+
+  | Setting                                              | Why                                                                                                                                             |
+  | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `--network host`                                     | It reaches each container at its address on the host's bridge networks, without joining them.                                                   |
+  | `--user 0:0 --cap-drop ALL`                          | It reads root-owned `0600` files under `/etc/watchlog/secrets/` when you keep a password there. Every capability is dropped; no `--privileged`. |
+  | `--read-only --tmpfs /var/lib/watchlog-integrations` | Nothing is written outside a small buffer in memory.                                                                                            |
+  | `--security-opt no-new-privileges`                   | No privilege gain through setuid binaries.                                                                                                      |
+
+  It mounts no Docker socket and no host filesystem other than that secrets directory, read-only.
+
+- **Credentials:** a password WatchLog generates or you type in is stored encrypted with AES-256-GCM under the same key as alert channel secrets. The API never returns it. Only the collector of that service's cluster receives it, over TLS, and keeps it in memory. Who set or changed a credential is recorded, never the value.
+- **Push only:** like the agents, the collector connects out to your WatchLog server. The server never connects into your cluster or hosts.
+
 ## What is sent, and how
 
 - **Every 15 seconds over HTTPS:** metrics (CPU, memory, disk, network; container and pod resource use; connection counts), heartbeats (agent version, mode, node name and whether eBPF runs, with the reason if not), and object summaries (names, states, restart and exit reasons).

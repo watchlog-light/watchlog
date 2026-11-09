@@ -110,6 +110,16 @@ docker run -d --name watchlog-agent --restart unless-stopped \
 
 Measured on Ubuntu 24.04 (Lima VM, kernel 6.8, cgroup v2) by running the exact generated command (Phase 4): eBPF flows enabled with byte counts, the buffer volume writable, container metrics from the Docker socket; every mount above is used. Without BPF and PERFMON the agent reports `ebpf: unsupported` with the reason and everything else works. An install made before Phase 4 used the volume `watchlog-agent-data` (mode 0755, which uid 0 without `DAC_OVERRIDE` cannot write); the command uses a new volume, so re-running it is the whole upgrade (ADR-107). Docker socket reads are verified with the Docker client in slice 6.
 
+## Integrations collector — v0.3 (ADR-131, ADR-133, ADR-134)
+
+A third binary and image, `integrations`, reads the services monitored on the Applications page. The node agent and the cluster-agent are unchanged: no database clients, no Secrets.
+
+- **What it runs:** for each kind of service, a fixed list of read-only statements or commands in the code (`agent/internal/integrations/`). The backend sends targets (addresses and, where needed, a credential), never statements. PostgreSQL sessions are opened with `default_transaction_read_only` and short statement and lock timeouts. One connection per member, 5 s per call; heavy views every 30 s.
+- **Kubernetes** (`templates/integrations.yaml`): one Deployment, uid 65532, `runAsNonRoot`, every capability dropped, read-only root filesystem, an emptyDir buffer. Its ServiceAccount has no binding by default. For a password kept in the user's own Secret in the release namespace, WatchLog shows a Role with `get` on that one Secret (`--resource-name`) and its RoleBinding; the collector reads it through the API with its ServiceAccount token.
+- **Docker:** one container per host that runs a monitored service: `--network host` to reach the containers' bridge addresses; `--user 0:0` with `--cap-drop ALL` to read root-owned `0600` files under `/etc/watchlog/secrets/` (mounted read-only); `--read-only`, a tmpfs buffer, `no-new-privileges`. No Docker socket.
+- **Credentials:** generated or entered passwords are AES-256-GCM encrypted with `WATCHLOG_SECRET_KEY` (ADR-079), bound to their row, write-only in the API. They are sent only to the collector of the service's cluster, over the config endpoint (`Cache-Control: no-store`), kept in memory, never logged. Changes are recorded in `integration_events` without the value.
+- **Network:** push only, like the agents (config long-poll, remote_write, status). The backend never connects into a cluster.
+
 ## Agent tokens
 
 - Format `wl_ct_` + 256 random bits; the backend stores only SHA-256 and an 8-character prefix (ADR-025). The value is shown once.
