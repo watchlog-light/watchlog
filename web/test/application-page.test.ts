@@ -247,6 +247,7 @@ function detail(
       type: 'redis',
       name: 'shop/redis',
       version: '7.2.5',
+      product: null,
       cluster: K8S,
       where: { group: 'shop', host: null, address: null },
       target: {
@@ -423,6 +424,44 @@ describe('Application page', () => {
     const conn = wrapper.get('[data-testid="connected"]');
     expect(conn.text()).toContain('Connected containers');
     expect(conn.text()).toContain('Network flows are off');
+    wrapper.unmount();
+  });
+
+  it('says a paused service is paused, by whom, and resumes it', async () => {
+    const paused = detail(
+      {
+        health: 'unknown',
+        reason: { code: 'paused', facts: { by: 'Mohammad', at: '2026-11-09T10:00:00.000Z' } },
+      },
+      {
+        reasons: [
+          {
+            severity: 'info',
+            code: 'paused',
+            facts: { by: 'Mohammad', at: '2026-11-09T10:00:00.000Z' },
+          },
+        ],
+      },
+    );
+    const { calls } = mockFetch({
+      [`GET /api/v1/applications/${ID}?range=3600`]: [
+        { status: 200, body: paused },
+        { status: 200, body: detail({}) },
+      ],
+      [`GET /api/v1/applications/${ID}/panels?tab=overview&range=3600`]: {
+        status: 200,
+        body: { tab: 'overview', range: 3600, panels: [PANELS[9]] },
+      },
+      [`PATCH /api/v1/applications/${ID}`]: { status: 204 },
+    });
+    const { wrapper } = await mountPage(`/applications/${ID}?cluster=${K8S.id}`);
+    const banner = wrapper.get('[data-testid="paused"]');
+    expect(banner.text()).toContain('Monitoring is paused');
+    expect(banner.text()).toContain('Paused by Mohammad on');
+    await banner.get('[data-testid="resume"]').trigger('click');
+    await flushPromises();
+    expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ paused: false });
+    expect(wrapper.find('[data-testid="paused"]').exists()).toBe(false);
     wrapper.unmount();
   });
 

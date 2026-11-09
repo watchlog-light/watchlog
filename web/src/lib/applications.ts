@@ -25,6 +25,27 @@ export const FAMILIES: Family[] = ['databases', 'caches', 'queues', 'proxies', '
 export const serviceName = (type: string) => SERVICE_TYPES[type]?.name ?? type;
 export const familyOf = (type: string): Family => SERVICE_TYPES[type]?.family ?? 'databases';
 
+/**
+ * What runs, with its version: "Redis 7.2", or "Valkey 8.0 (Redis-compatible)" when a
+ * compatible server answers for the type (the collector or the image says which).
+ */
+export function productText(s: { type: string; version: string | null; product?: string | null }): {
+  key: string;
+  values: Record<string, unknown>;
+} {
+  if (s.product === 'valkey') {
+    return s.version
+      ? { key: 'applications.product.valkey', values: { version: s.version } }
+      : { key: 'applications.product.valkeyNoVersion', values: {} };
+  }
+  return s.version
+    ? {
+        key: 'applications.product.named',
+        values: { name: serviceName(s.type), version: s.version },
+      }
+    : { key: 'applications.product.nameOnly', values: { name: serviceName(s.type) } };
+}
+
 /** Types that need a read-only user before WatchLog can read them (ADR-134). */
 export const NEEDS_USER = new Set(['postgres']);
 
@@ -75,7 +96,12 @@ export function reasonText(
         ? { key: 'applications.reason.someDown', values: { up: f.up, members: f.members } }
         : { key: 'applications.reason.connected', values: {} };
     case 'paused':
-      return { key: 'applications.reason.paused', values: {} };
+      return f.by && f.at
+        ? {
+            key: 'applications.reason.pausedBy',
+            values: { by: f.by, at: formatTime(String(f.at)) },
+          }
+        : { key: 'applications.reason.paused', values: {} };
     default:
       return { key: 'applications.reason.waiting', values: {} };
   }
@@ -178,6 +204,8 @@ export interface ConnectTarget {
   type: string;
   name: string;
   version: string | null;
+  /** "valkey" when a compatible server answers for the type. */
+  product?: string | null;
   image: string | null;
   port: number | null;
   host: string | null;

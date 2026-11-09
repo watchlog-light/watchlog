@@ -10,7 +10,7 @@ import ModalDialog from '@/components/ui/ModalDialog.vue';
 import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
 import { KIND_LOGO } from '@/components/ui/kindLogos';
 import { ServiceLogo } from '@/components/ui/serviceLogos';
-import { serviceName, type ConnectTarget } from '@/lib/applications';
+import { productText, type ConnectTarget } from '@/lib/applications';
 import { useToastStore } from '@/stores/toast';
 
 // Monitor a service (SPEC §4.12, the mock-up's connect drawer, ADR-134): what was
@@ -118,7 +118,7 @@ async function start() {
     v-model:open="open"
     :title="
       $t('applications.monitor.title', {
-        service: `${serviceName(s.type)} ${s.version ?? ''}`.trim(),
+        service: t(productText(s).key, productText(s).values),
       })
     "
     size="lg"

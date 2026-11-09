@@ -2,12 +2,13 @@
 <script setup lang="ts">
 import LockedControl from '@/components/ui/LockedControl.vue';
 import { ChevronRight, Database } from '@lucide/vue';
-import type { Application, ApplicationMetrics, DiscoveredService } from '@watchlog/api-types';
+import type { Application, ApplicationMetrics, DiscoveredList } from '@watchlog/api-types';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import AddServiceDialog from '@/components/applications/AddServiceDialog.vue';
+import DiscoveredServices from '@/components/applications/DiscoveredServices.vue';
 import MonitorDrawer from '@/components/applications/MonitorDrawer.vue';
 import SparkLine from '@/components/overview/SparkLine.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
@@ -20,13 +21,11 @@ import { ServiceLogo } from '@/components/ui/serviceLogos';
 import { useLoader } from '@/composables/useLoader';
 import { useNarrow } from '@/composables/useNarrow';
 import {
-  discoveredHint,
   familyCounts,
   familyOf,
-  NEEDS_USER,
   type ConnectTarget,
+  productText,
   reasonText,
-  serviceName,
   sortApplications,
   whereText,
   type Family,
@@ -36,9 +35,9 @@ import { formatDateTime } from '@/lib/format';
 import { formatValue } from '@/lib/units';
 import { useApplicationsStore } from '@/stores/applications';
 
-// Applications (SPEC §4.12, ADR-135): services found but not monitored yet, then every
-// monitored service, problems first, filtered by type (?type=) and sorted (?sort=).
-// Phones get one card per service instead of the table's columns.
+// Applications (SPEC §4.12, ADR-135): every monitored service, problems first, filtered by
+// type (?type=) and sorted (?sort=), then the services found but not monitored yet
+// (DiscoveredServices). Phones get one card per service instead of the table's columns.
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
@@ -48,9 +47,9 @@ const narrow = useNarrow();
 const page = useLoader(async () => {
   const [, discovered] = await Promise.all([
     store.load(),
-    api<{ discovered: DiscoveredService[] }>('/applications/discovered'),
+    api<DiscoveredList>('/applications/discovered'),
   ]);
-  return { discovered: discovered.discovered };
+  return { discovered: discovered.discovered, ignored: discovered.ignored ?? [] };
 });
 // Key numbers and sparklines come from the metrics store: loaded beside the list, so a
 // slow or missing store never holds the list back.
@@ -62,6 +61,7 @@ onMounted(() => {
 const rowMetrics = (id: string) => metrics.data.value?.metrics[id];
 
 const discovered = computed(() => page.data.value?.discovered ?? []);
+const ignored = computed(() => page.data.value?.ignored ?? []);
 const family = computed<Family | 'all'>(() => {
   const v = route.query.type;
   return typeof v === 'string' && v ? (v as Family) : 'all';
@@ -149,69 +149,6 @@ async function started() {
     />
 
     <template v-else-if="page.loaded.value">
-      <!-- Found, not monitored yet (ADR-132). -->
-      <section
-        v-if="discovered.length > 0"
-        :aria-label="
-          $t('applications.discovered.title', { n: discovered.length }, discovered.length)
-        "
-        class="flex flex-col gap-3 rounded-card border border-ok/30 bg-ok/5 px-4 py-4 sm:px-5"
-        data-testid="discovered"
-      >
-        <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-          <span class="size-2 shrink-0 rounded-full bg-ok" aria-hidden="true" />
-          <span class="text-14 font-semibold text-text">{{
-            $t('applications.discovered.title', { n: discovered.length }, discovered.length)
-          }}</span>
-          <span class="text-13 text-text-muted">{{ $t('applications.discovered.from') }}</span>
-        </div>
-        <ul class="flex flex-col gap-2">
-          <li
-            v-for="d in discovered"
-            :key="d.key"
-            class="flex flex-wrap items-center gap-3 rounded-[10px] border border-border bg-surface-1 px-3 py-2.5"
-            data-testid="discovered-row"
-          >
-            <ServiceLogo :type="d.type" class="size-7.5 shrink-0" />
-            <div class="flex min-w-0 flex-[1_1_16rem] flex-col gap-0.5">
-              <span class="text-14 font-medium text-text">
-                {{ serviceName(d.type) }}{{ d.version ? ` ${d.version}` : '' }}
-                <span class="text-text-muted">·</span>
-                <span class="font-mono">{{ d.name }}</span>
-              </span>
-              <span class="flex min-w-0 items-center gap-1.5 text-12 text-text-muted">
-                <component
-                  :is="KIND_LOGO[d.cluster.kind]"
-                  class="size-3.5 shrink-0"
-                  aria-hidden="true"
-                />
-                <span class="truncate">
-                  {{ d.cluster.name
-                  }}{{ d.host && d.cluster.kind === 'docker' ? ` · ${d.host}` : '' }} ·
-                  {{ $t(discoveredHint(d).key, discoveredHint(d).values) }}
-                </span>
-              </span>
-            </div>
-            <span :class="['text-12', NEEDS_USER.has(d.type) ? 'text-warning' : 'text-ok']">
-              {{
-                NEEDS_USER.has(d.type)
-                  ? $t('applications.discovered.needsUser')
-                  : $t('applications.discovered.ready')
-              }}
-            </span>
-            <LockedControl>
-              <BaseButton
-                :aria-label="$t('applications.discovered.monitorName', { name: d.name })"
-                data-testid="monitor"
-                @click="monitoring = d"
-              >
-                {{ $t('applications.discovered.monitor') }}
-              </BaseButton>
-            </LockedControl>
-          </li>
-        </ul>
-      </section>
-
       <EmptyState
         v-if="store.list.length === 0 && discovered.length === 0"
         :icon="Database"
@@ -297,7 +234,7 @@ async function started() {
                       a.name
                     }}</span>
                     <span class="truncate text-12 text-text-muted">
-                      {{ serviceName(a.type) }}{{ a.version ? ` ${a.version}` : '' }}
+                      {{ $t(productText(a).key, productText(a).values) }}
                     </span>
                   </span>
                 </span>
@@ -371,6 +308,15 @@ async function started() {
           </ul>
         </section>
       </template>
+
+      <!-- Found, not monitored yet (ADR-132): below the monitored ones, three at first. -->
+      <DiscoveredServices
+        v-if="discovered.length > 0 || ignored.length > 0"
+        :discovered="discovered"
+        :ignored="ignored"
+        @monitor="(d) => (monitoring = d)"
+        @changed="page.load"
+      />
     </template>
 
     <AddServiceDialog v-if="adding" v-model:open="adding" @connect="connectManual" />

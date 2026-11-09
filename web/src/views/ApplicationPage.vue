@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { ArrowLeft, Database, Network, Settings2 } from '@lucide/vue';
+import { ArrowLeft, Database, Network, PauseCircle, Settings2 } from '@lucide/vue';
 import type { ApplicationDetail, ApplicationPanels } from '@watchlog/api-types';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -9,18 +9,27 @@ import { ApiError, api } from '@/api/client';
 import ServiceAlerts from '@/components/applications/ServiceAlerts.vue';
 import SettingsDrawer from '@/components/applications/SettingsDrawer.vue';
 import ServicePanel from '@/components/panels/ServicePanel.vue';
+import BaseButton from '@/components/ui/BaseButton.vue';
 import CodeBlock from '@/components/ui/CodeBlock.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import SkeletonChart from '@/components/ui/SkeletonChart.vue';
 import SkeletonDetailHeader from '@/components/ui/SkeletonDetailHeader.vue';
+import LockedControl from '@/components/ui/LockedControl.vue';
 import { KIND_LOGO } from '@/components/ui/kindLogos';
 import { ServiceLogo } from '@/components/ui/serviceLogos';
 import { useLoader } from '@/composables/useLoader';
-import { connectedLink, reasonLine, serviceMapLink, serviceName } from '@/lib/applications';
+import {
+  connectedLink,
+  productText,
+  reasonLine,
+  serviceMapLink,
+  serviceName,
+} from '@/lib/applications';
 import { formatDateTime } from '@/lib/format';
 import { PAGE_RANGES, rangeOf, SEVERITY_TOKEN } from '@/lib/panels';
 import { useAuthStore } from '@/stores/auth';
+import { useToastStore } from '@/stores/toast';
 
 // A monitored service (SPEC §4.12, ADR-135; the mock-up's detail): the header with its
 // own time range, "What WatchLog sees" (ADR-137), the integration's tabs (?tab=) with
@@ -101,6 +110,22 @@ const reasons = computed(() =>
 );
 const connected = computed(() => page.data.value?.connected ?? null);
 const settingsOpen = ref(false);
+
+const toast = useToastStore();
+const resuming = ref(false);
+async function resume() {
+  resuming.value = true;
+  try {
+    await api(`/applications/${id.value}`, { method: 'PATCH', body: { paused: false } });
+    toast.show(t('integrations.page.paused.resumed', { name: app.value!.name }));
+    await page.load();
+    void panels.load();
+  } catch (err) {
+    toast.show(err instanceof ApiError ? err.message : String(err), 'warning');
+  } finally {
+    resuming.value = false;
+  }
+}
 </script>
 
 <template>
@@ -155,7 +180,7 @@ const settingsOpen = ref(false);
               >
             </div>
             <span class="flex flex-wrap items-center gap-1.5 text-13 text-text-muted">
-              {{ serviceName(app.type) }}{{ app.version ? ` ${app.version}` : '' }} ·
+              {{ $t(productText(app).key, productText(app).values) }} ·
               <component :is="KIND_LOGO[app.cluster.kind]" class="size-3.5" aria-hidden="true" />
               {{ app.cluster.name }} · {{ where }} ·
               {{ $t('integrations.page.since', { at: formatDateTime(app.monitoredSince) }) }}
@@ -202,6 +227,36 @@ const settingsOpen = ref(false);
           </button>
         </div>
       </header>
+
+      <!-- Paused: why nothing new arrives, and the way back (on the list too). -->
+      <section
+        v-if="app.reason.code === 'paused'"
+        class="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-card border border-warning/40 bg-warning/5 px-4 py-3.5 sm:px-5"
+        data-testid="paused"
+      >
+        <PauseCircle class="size-5 shrink-0 text-warning" aria-hidden="true" />
+        <div class="flex min-w-0 flex-[1_1_18rem] flex-col gap-0.5">
+          <span class="text-14 font-semibold text-text">{{
+            $t('integrations.page.paused.title')
+          }}</span>
+          <span class="text-13 text-text-muted">{{
+            app.reason.facts.by && app.reason.facts.at
+              ? $t('integrations.page.paused.by', {
+                  by: app.reason.facts.by,
+                  at: formatDateTime(String(app.reason.facts.at)),
+                })
+              : $t('integrations.page.paused.unknown')
+          }}</span>
+          <span v-if="!auth.canManage" class="text-13 text-text-muted">{{
+            $t('integrations.page.paused.howTo')
+          }}</span>
+        </div>
+        <LockedControl>
+          <BaseButton :loading="resuming" data-testid="resume" @click="resume">
+            {{ $t('integrations.page.paused.resume') }}
+          </BaseButton>
+        </LockedControl>
+      </section>
 
       <section
         :aria-label="$t('integrations.page.sees')"

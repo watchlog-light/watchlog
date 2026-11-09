@@ -128,6 +128,7 @@ export function applicationPanels() {
         ],
       },
     ],
+    ignored: [],
   };
 }
 
@@ -360,6 +361,7 @@ export function postgresPanels(tab: 'overview' | 'locks') {
         ],
       },
     ],
+    ignored: [],
   };
 }
 
@@ -374,6 +376,7 @@ export function discovered(kube: Cluster, docker: Cluster, host: string) {
         name: 'shop/orders',
         image: 'postgres:16-alpine',
         version: '16',
+        product: null,
         port: 5432,
         confidence: 'image',
         members: 1,
@@ -394,6 +397,7 @@ export function discovered(kube: Cluster, docker: Cluster, host: string) {
         name: 'storefront/sessions',
         image: 'redis:7.2-alpine',
         version: '7.2',
+        product: null,
         port: 6379,
         confidence: 'image',
         members: 1,
@@ -408,6 +412,7 @@ export function discovered(kube: Cluster, docker: Cluster, host: string) {
         },
       },
     ],
+    ignored: [],
   };
 }
 
@@ -527,3 +532,109 @@ export function serviceRules(kube: Cluster) {
     },
   ];
 }
+
+/**
+ * A busy host: 19 services found, Valkey among them, two ignored. The monitored list
+ * must stay on top, the found ones fold to three, and "needs a read-only user" must never
+ * be cut.
+ */
+export function manyDiscovered(kube: Cluster, docker: Cluster, host: string) {
+  const k8s = (ns: string, workload: string, type: 'redis' | 'postgres', image: string) => ({
+    key: `k-${ns}-${workload}`,
+    cluster: kube,
+    type,
+    name: `${ns}/${workload}`,
+    image,
+    version: image.split(':')[1]!.replace(/-alpine$/, ''),
+    product: null,
+    port: type === 'redis' ? 6379 : 5432,
+    confidence: 'image',
+    members: 1,
+    host: null,
+    group: ns,
+    target: {
+      kind: 'workload',
+      namespace: ns,
+      workload_kind: 'StatefulSet',
+      workload,
+      port: type === 'redis' ? 6379 : 5432,
+    },
+  });
+  const box = (
+    name: string,
+    type: 'redis' | 'postgres',
+    image: string,
+    product: string | null = null,
+  ) => ({
+    key: `d-${name}`,
+    cluster: docker,
+    type,
+    name,
+    image,
+    version: image.split(':')[1]!.replace(/-alpine$/, ''),
+    product,
+    port: type === 'redis' ? 6379 : 5432,
+    confidence: 'image',
+    members: 1,
+    host,
+    group: '',
+    target: { kind: 'container', host, container: name, port: type === 'redis' ? 6379 : 5432 },
+  });
+  return {
+    discovered: [
+      k8s('shop', 'orders', 'postgres', 'postgres:16-alpine'),
+      box('cache-valkey', 'redis', 'valkey/valkey:8.0', 'valkey'),
+      k8s('shop', 'sessions', 'redis', 'redis:7-alpine'),
+      k8s('pg-e2e', 'pg-gen', 'postgres', 'postgres:17-alpine'),
+      k8s('pg-e2e', 'pg-ref', 'postgres', 'postgres:13-alpine'),
+      k8s('redis-e2e', 'redis-acl', 'redis', 'redis:7.2-alpine'),
+      k8s('redis-e2e', 'redis-auth', 'redis', 'redis:7.2-alpine'),
+      k8s(
+        'billing-and-invoicing-reporting',
+        'ledger-postgres-primary',
+        'postgres',
+        'postgres:16-alpine',
+      ),
+      box('e2e-pg-file', 'postgres', 'postgres:16-alpine'),
+      box('e2e-pg-gen', 'postgres', 'postgres:17-alpine'),
+      box('e2e-redis-acl', 'redis', 'redis:7.2-alpine'),
+      box('e2e-redis-file', 'redis', 'redis:7.2-alpine'),
+      box('test-pg13', 'postgres', 'postgres:13-alpine'),
+      box('test-pg17', 'postgres', 'postgres:17-alpine'),
+      box('test-redis62', 'redis', 'redis:6.2-alpine'),
+      box('test-redis72', 'redis', 'redis:7.2-alpine'),
+      box('test-redisauth', 'redis', 'redis:7.2-alpine'),
+      box('test-valkey8', 'redis', 'valkey/valkey:8.0', 'valkey'),
+      box('test-postgres-1', 'postgres', 'postgres:16-alpine'),
+    ],
+    ignored: [
+      {
+        id: '01a1c000-0000-7000-8000-00000000e2f1',
+        cluster: kube,
+        scope: 'group',
+        label: 'namespace load-test',
+        createdAt: new Date(Date.now() - 3_600_000).toISOString(),
+      },
+      {
+        id: '01a1c000-0000-7000-8000-00000000e2f2',
+        cluster: docker,
+        scope: 'service',
+        label: 'redis scratch-redis',
+        createdAt: new Date(Date.now() - 7_200_000).toISOString(),
+      },
+    ],
+  };
+}
+
+/** The Redis default alerts, as GET /applications/alert-defaults?type=redis answers. */
+export const redisAlertDefaults = {
+  defaults: [
+    'unreachable',
+    'slow_connect',
+    'redis_memory_high',
+    'redis_evicting',
+    'redis_replica_down',
+    'redis_save_failed',
+    'redis_blocked_clients',
+  ].map((key) => ({ key, name: key, severity: 'warning' })),
+};

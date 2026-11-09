@@ -1990,9 +1990,10 @@
       "unreachable": "WatchLog can't connect to it.",
       "unreachableError": "Can't connect: {error}",
       "loginFailed": "WatchLog connects, but the user or password is refused: {error}. Change the access in its settings.",
-      "connected": "Connected. Its pages arrive with its integration.",
+      "connected": "Connected: every member answers.",
       "someDown": "{up} of {members} members answer.",
-      "paused": "Paused.",
+      "paused": "Paused: WatchLog isn't reading it. Open it to resume.",
+      "pausedBy": "Paused by {by} on {at}: WatchLog isn't reading it. Open it to resume.",
       "memberDown": "{member} doesn't answer.",
       "memberDownError": "{member} doesn't answer: {error}",
       "needsPermission": "The {tab} tab needs {missing}."
@@ -2010,7 +2011,25 @@
       "needsUser": "needs a read-only user",
       "ready": "nothing to set up",
       "monitor": "Monitor",
-      "monitorName": "Monitor {name}"
+      "monitorName": "Monitor {name}",
+      "showAll": "Show all {n}",
+      "showFewer": "Show fewer",
+      "ignore": "Ignore",
+      "ignoreName": "Ignore {name}",
+      "ignoreGroupKubernetes": "Ignore all from this namespace",
+      "ignoreGroupDocker": "Ignore all from this project",
+      "ignored": "{n} ignored | {n} ignored",
+      "showIgnored": "Show",
+      "hideIgnored": "Hide",
+      "restore": "Restore",
+      "restoreName": "Restore {name}",
+      "ignoredDone": "{name} won't be offered again. Restore it below the list.",
+      "restoredDone": "{name} is back in the list.",
+      "groupKubernetes": "namespace {group}",
+      "groupDocker": "project {group}",
+      "standalone": "containers without a project",
+      "ignoreGroupNameKubernetes": "Ignore all from namespace {group}",
+      "ignoreGroupNameDocker": "Ignore all from project {group}"
     },
     "empty": {
       "title": "No services found yet",
@@ -2034,7 +2053,17 @@
       "defaultAlertsHint": "They notify your alert channels. Unticked ones are created off; switch them on later on the service page.",
       "alert": {
         "unreachable": "When a member can't be reached (critical when none can)",
-        "slow_connect": "When connecting takes longer than 500 ms"
+        "slow_connect": "When connecting takes longer than 500 ms",
+        "redis_memory_high": "When memory is above 90 % of maxmemory for 5 minutes",
+        "redis_evicting": "When keys are being evicted",
+        "redis_replica_down": "When a replica disconnects (critical)",
+        "redis_save_failed": "When saving to disk fails (critical)",
+        "redis_blocked_clients": "When clients stay blocked for 2 minutes",
+        "postgres_connections_high": "When connections are above 90 % of max_connections for 5 minutes",
+        "postgres_long_query": "When a query runs longer than 5 minutes (critical)",
+        "postgres_replication_lag": "When a replica is more than 30 s behind for 2 minutes",
+        "postgres_xid_age": "When the transaction ID age passes 1,500 M (critical)",
+        "postgres_deadlocks": "When a deadlock happens"
       }
     },
     "metricsError": "Key metrics couldn't be loaded.",
@@ -2159,6 +2188,12 @@
       "hostHint": "The host whose integrations collector reaches this address.",
       "name": "Name (optional)",
       "continue": "Continue"
+    },
+    "product": {
+      "named": "{name} {version}",
+      "nameOnly": "{name}",
+      "valkey": "Valkey {version} (Redis-compatible)",
+      "valkeyNoVersion": "Valkey (Redis-compatible)"
     }
   },
   "integrations": {
@@ -2224,7 +2259,15 @@
       },
       "settings": "Settings",
       "startCollector": "Start the integrations collector on {host}",
-      "startCollectorHint": "Run this on that host. It reuses the token of the WatchLog agent already running there, reads with read-only access, and mounts /etc/watchlog/secrets read-only for passwords you keep in files."
+      "startCollectorHint": "Run this on that host. It reuses the token of the WatchLog agent already running there, reads with read-only access, and mounts /etc/watchlog/secrets read-only for passwords you keep in files.",
+      "paused": {
+        "title": "Monitoring is paused",
+        "by": "Paused by {by} on {at}. WatchLog isn't reading this service: its tabs show data up to then, and its alerts don't fire.",
+        "unknown": "WatchLog isn't reading this service: its tabs show data up to when it was paused, and its alerts don't fire.",
+        "resume": "Resume monitoring",
+        "resumed": "{name} is monitored again.",
+        "howTo": "An Owner or Admin can resume it here or in its settings."
+      }
     },
     "panel": {
       "empty": "No data yet in this time range.",
@@ -2463,7 +2506,8 @@
           "temp": "Temporary files",
           "deadlocks": "Deadlocks",
           "wal": "WAL"
-        }
+        },
+        "growthUnknown": "days left appear after a day of history"
       },
       "missing": {
         "overview": {

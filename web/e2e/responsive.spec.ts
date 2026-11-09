@@ -29,8 +29,14 @@ const demo = process.env.WATCHLOG_E2E_DEMO === 'true';
 const SHOT_DIR = process.env.WATCHLOG_E2E_SHOT_DIR
   ? `${process.env.WATCHLOG_E2E_SHOT_DIR.replace(/\/+$/, '')}/`
   : new URL('./screenshots/', import.meta.url).pathname;
-// The session is reused between runs (sign-in is rate-limited); git-ignored.
-const AUTH_FILE = new URL(`./.auth/session${demo ? '-demo' : ''}.json`, import.meta.url).pathname;
+// The session is reused between runs (sign-in is rate-limited); git-ignored. One per
+// dashboard, so a run against another backend doesn't sign the usual one out.
+const TARGET = (process.env.WATCHLOG_E2E_URL ?? 'http://localhost:4088').replace(
+  /[^a-z0-9]+/gi,
+  '-',
+);
+const AUTH_FILE = new URL(`./.auth/session${demo ? '-demo' : ''}-${TARGET}.json`, import.meta.url)
+  .pathname;
 
 interface Cluster {
   id: string;
@@ -314,7 +320,40 @@ function applicationRoutes(
   const dockerApp = monitored.find(
     (a) => a.cluster.kind === 'docker' && a.reason.code === 'collector_missing',
   );
+  const many: Answer = {
+    url: /\/api\/v1\/applications\/discovered$/,
+    json: apps.manyDiscovered(kube, docker, host),
+  };
   const routes: Route[] = [
+    // A busy host (item 4): monitored first, three found ones, "Show all 19"; Valkey named.
+    { name: 'applications-many', path: list, shot: true, answers: [many] },
+    {
+      name: 'applications-many-all',
+      path: list,
+      shot: true,
+      answers: [many],
+      prepare: async (page) => {
+        await page.getByTestId('discovered-toggle').click();
+        await page.getByTestId('ignored-toggle').click();
+      },
+    },
+    // Redis's default alerts in the connect drawer, each with its words.
+    {
+      name: 'connect-redis-alerts',
+      path: list,
+      shot: true,
+      answers: [
+        found,
+        {
+          url: /\/api\/v1\/applications\/alert-defaults\?type=redis$/,
+          json: apps.redisAlertDefaults,
+        },
+      ],
+      prepare: async (page) => {
+        await monitor('storefront/sessions')(page);
+        await page.getByTestId('default-alerts').waitFor();
+      },
+    },
     // Connect option a, generated user: the command and "trying", then a failed try, then
     // the probe expired (failed) with Check again.
     {
@@ -811,8 +850,39 @@ for (const width of widths) {
   });
 }
 
+/**
+ * i18n keys the page asked for and en.json lacks: vue-i18n says so in the console in
+ * development ("Not found 'a.b' key"), where the key itself would show on screen.
+ */
+function watchMissingKeys(page: Page): () => string[] {
+  const keys = new Set<string>();
+  const listener = (msg: { text(): string }) => {
+    const m = /Not found '([^']+)' key/.exec(msg.text());
+    if (m) keys.add(m[1]!);
+  };
+  page.on('console', listener);
+  return () => {
+    page.off('console', listener);
+    return [...keys];
+  };
+}
+
 /** Loads a route, prepares it, checks the layout rules and takes its screenshots. */
 async function checkRoute(page: Page, route: Route, width: number, failures: string[]) {
+  const missingKeys = watchMissingKeys(page);
+  try {
+    await checkRouteLayout(page, route, width, failures);
+  } finally {
+    const keys = missingKeys();
+    if (keys.length) {
+      failures.push(
+        `${route.name} at ${width}px: i18n keys missing from en.json: ${keys.join(', ')}`,
+      );
+    }
+  }
+}
+
+async function checkRouteLayout(page: Page, route: Route, width: number, failures: string[]) {
   await page.goto(route.path);
   await settle(page);
   if (route.prepare) {

@@ -244,6 +244,7 @@ const APP: Application = {
   type: 'postgres',
   name: 'billing/postgres',
   version: '16.4',
+  product: null,
   cluster: K8S,
   where: { group: 'billing', host: null, address: null },
   target: PG.target,

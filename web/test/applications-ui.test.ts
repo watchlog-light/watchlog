@@ -27,6 +27,7 @@ const DOCKER = {
 function app(over: Partial<Application> & Pick<Application, 'id' | 'type' | 'name'>): Application {
   return {
     version: null,
+    product: null,
     cluster: K8S,
     where: { group: 'payments', host: null, address: null },
     target: {
@@ -82,6 +83,7 @@ const DISCOVERED: DiscoveredService[] = [
     name: 'staging/postgres',
     image: 'postgres:16.4',
     version: '16.4',
+    product: null,
     port: 5432,
     confidence: 'image',
     members: 1,
@@ -102,6 +104,7 @@ const DISCOVERED: DiscoveredService[] = [
     name: 'analytics/redis',
     image: 'redis:7.2',
     version: '7.2',
+    product: null,
     port: 6379,
     confidence: 'image',
     members: 1,
@@ -266,6 +269,108 @@ describe('Applications page', () => {
     expect(wrapper.findAll('[data-testid="application-row"]')).toHaveLength(1);
     expect(wrapper.findAll('[data-testid="discovered-row"]')).toHaveLength(1);
     wrapper.unmount();
+  });
+
+  it('puts monitored services first and folds a long found list to three', async () => {
+    const many: DiscoveredService[] = Array.from({ length: 19 }, (_, i) => ({
+      ...DISCOVERED[i % 2]!,
+      key: `k${i}`,
+      name: i < 5 ? `pg-e2e/pg${i}` : `box-${i}`,
+      group: i < 5 ? 'pg-e2e' : '',
+      cluster: i < 5 ? K8S : DOCKER,
+      ...(i === 0 ? { type: 'redis', version: '8.0', product: 'valkey' } : {}),
+    }));
+    const { calls } = mockFetch({
+      'GET /api/v1/applications': { status: 200, body: { applications: APPS } },
+      'GET /api/v1/applications/discovered': {
+        status: 200,
+        body: {
+          discovered: many,
+          ignored: [
+            {
+              id: '01a1c000-0000-7000-8000-00000000ig01',
+              cluster: K8S,
+              scope: 'group',
+              label: 'namespace load-test',
+              createdAt: '2026-11-09T10:00:00.000Z',
+            },
+          ],
+        },
+      },
+      'POST /api/v1/applications/discovered/ignore': {
+        status: 201,
+        body: { ignored: { id: 'x', cluster: K8S, scope: 'service', label: 'l', createdAt: '' } },
+      },
+      'DELETE /api/v1/applications/discovered/ignore/01a1c000-0000-7000-8000-00000000ig01': {
+        status: 204,
+      },
+    });
+    const { wrapper } = await mountPage();
+    // The monitored list comes first in the page, the found ones after it.
+    const html = wrapper.html();
+    expect(html.indexOf('data-testid="application-list"')).toBeLessThan(
+      html.indexOf('data-testid="discovered"'),
+    );
+    const found = wrapper.get('[data-testid="discovered"]');
+    expect(found.findAll('[data-testid="discovered-row"]')).toHaveLength(3);
+    // Valkey is named as Valkey, read by the Redis integration.
+    expect(found.findAll('[data-testid="discovered-row"]')[0]!.text()).toContain(
+      'Valkey 8.0 (Redis-compatible)',
+    );
+    // "needs a read-only user" has a line of its own, never wrapped into the buttons.
+    const need = found.findAll('[data-testid="needs-user"]');
+    expect(need.every((n) => n.classes().includes('whitespace-nowrap'))).toBe(true);
+    expect(found.get('[data-testid="discovered-toggle"]').text()).toBe('Show all 19');
+
+    await found.findAll('[data-testid="ignore"]')[1]!.trigger('click');
+    await flushPromises();
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
+      clusterId: K8S.id,
+      key: 'k1',
+    });
+
+    await found.get('[data-testid="discovered-toggle"]').trigger('click');
+    expect(found.findAll('[data-testid="discovered-row"]')).toHaveLength(19);
+    const group = found.findAll('[data-testid="ignore-group"]')[0]!;
+    expect(group.text()).toBe('Ignore all from this namespace');
+    expect(group.attributes('aria-label')).toBe('Ignore all from namespace pg-e2e');
+    await group.trigger('click');
+    await flushPromises();
+    expect(calls.filter((c) => c.method === 'POST').at(-1)?.body).toEqual({
+      clusterId: K8S.id,
+      group: 'pg-e2e',
+    });
+
+    expect(found.text()).toContain('1 ignored');
+    await found.get('[data-testid="ignored-toggle"]').trigger('click');
+    expect(found.get('[data-testid="ignored-list"]').text()).toContain('namespace load-test');
+    await found.get('[data-testid="restore"]').trigger('click');
+    await flushPromises();
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(true);
+  });
+
+  it('says who paused a service and how to resume it', async () => {
+    mockFetch({
+      'GET /api/v1/applications': {
+        status: 200,
+        body: {
+          applications: [
+            app({
+              id: 'p',
+              type: 'nginx',
+              name: 'wl-test/web',
+              reason: { code: 'paused', facts: { by: 'Mohammad', at: '2026-11-09T10:00:00.000Z' } },
+            }),
+          ],
+        },
+      },
+      'GET /api/v1/applications/discovered': { status: 200, body: { discovered: [], ignored: [] } },
+    });
+    const { wrapper } = await mountPage();
+    const reason = wrapper.get('[data-testid="reason"]').text();
+    expect(reason).toMatch(
+      /^Paused by Mohammad on .+: WatchLog isn't reading it\. Open it to resume\.$/,
+    );
   });
 
   it('shows viewers what was found, with Monitor locked', async () => {

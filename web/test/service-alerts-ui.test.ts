@@ -35,6 +35,7 @@ const APP: Application = {
   type: 'redis',
   name: 'shop/redis',
   version: '7.2',
+  product: null,
   cluster: K8S,
   where: { group: 'shop', host: null, address: null },
   target: {

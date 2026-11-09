@@ -26,5 +26,7 @@ export default defineConfig({
     environment: 'happy-dom',
     // e2e/ is Playwright's (pnpm test:responsive).
     include: ['test/**/*.test.ts'],
+    // Fails a test that renders an i18n key en.json doesn't have.
+    setupFiles: ['test/setup.ts'],
   },
 });
