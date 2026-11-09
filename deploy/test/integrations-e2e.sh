@@ -14,6 +14,9 @@
 #   GOPROXY                for the image builds (e.g. https://goproxy.io,direct)
 # The agents run beside the demo's own (release watchlog-e2e in namespace watchlog-e2e,
 # container watchlog-agent-e2e), without eBPF; `integrations-e2e.sh down` removes them.
+# The Docker collector mounts ~/watchlog-e2e-secrets on the VM as /etc/watchlog/secrets:
+# the host-file path, root-owned and 0700 like the documented `sudo install -d`, made by a
+# root container instead of sudo. deploy/test/redis-e2e.sh runs after this.
 # shellcheck disable=SC2016
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -60,13 +63,14 @@ say "Docker: agent and collector → $endpoint"
 vm_host=$(in_vm 'hostname')
 printf '%s' "$WATCHLOG_E2E_DOCKER_TOKEN" | limactl shell "$vm" bash -c "cd ~ && t=\$(cat) && \
   docker rm -f watchlog-agent-e2e watchlog-integrations-e2e >/dev/null 2>&1; \
+  docker run --rm -v \$HOME:/h redis:7.2-alpine sh -c 'mkdir -p /h/watchlog-e2e-secrets && chown 0:0 /h/watchlog-e2e-secrets && chmod 0700 /h/watchlog-e2e-secrets'; \
   docker run -d --name watchlog-agent-e2e --pid host --user 0:65532 --cap-drop ALL --security-opt no-new-privileges \
     -v /var/run/docker.sock:/var/run/docker.sock:ro -v /proc:/host/proc:ro -v /sys:/host/sys:ro -v /:/host/root:ro,rslave \
     -v watchlog-agent-e2e-state:/var/lib/watchlog-agent -e WATCHLOG_TOKEN=\"\$t\" -e WATCHLOG_ENDPOINT=$endpoint \
     -e WATCHLOG_HOSTNAME=$vm_host -e WATCHLOG_EBPF=false ghcr.io/watchlog-light/agent:e2e --mode=docker >/dev/null && \
   docker run -d --name watchlog-integrations-e2e --network host --user 0:0 --cap-drop ALL --read-only \
     --tmpfs /var/lib/watchlog-integrations --security-opt no-new-privileges \
-    -v /etc/watchlog/secrets:/etc/watchlog/secrets:ro \
+    -v \$HOME/watchlog-e2e-secrets:/etc/watchlog/secrets:ro \
     -e WATCHLOG_TOKEN=\"\$t\" -e WATCHLOG_ENDPOINT=$endpoint -e WATCHLOG_HOSTNAME=$vm_host \
     ghcr.io/watchlog-light/integrations:e2e >/dev/null"
 
@@ -136,10 +140,13 @@ check("a collector reports for the cluster and one for the Docker host",
 for a in apps:
     d = call("GET", f"/applications/{a['id']}")
     check(f"{a['cluster']['kind']} {a['name']}: the page says it's connected",
-          d["reasons"][0]["code"] == "connected", json.dumps(d["reasons"]))
+          # Most severe first: an integration's own notes (no maxmemory) may come before it.
+          "connected" in [r["code"] for r in d["reasons"]], json.dumps(d["reasons"]))
     p = call("GET", f"/applications/{a['id']}/panels")
+    # Redis has its own page (slice 7, filled in redis-e2e.sh); the others the generic one.
+    want_panels = ["summary", "memory", "hits", "slowlog"] if a["type"] == "redis" else ["summary", "connect", "reachable"]
     check(f"{a['cluster']['kind']} {a['name']}: the Overview has its panels",
-          [x["id"] for x in p["panels"]] == ["summary", "connect", "reachable"], json.dumps(p)[:300])
+          [x["id"] for x in p["panels"]] == want_panels, json.dumps(p)[:300])
 
 # The connect flow (slice 4): each collector tries a probe and reports; the tested
 # access becomes the service's, and its collector receives it.
@@ -151,10 +158,11 @@ for a in apps:
     while time.time() < deadline and probe["status"] == "pending" and not probe["result"]:
         time.sleep(3)
         probe = call("GET", f"/applications/probes/{probe['id']}")["probe"]
-    # Until each integration logs in (slices 7 and 8), a password can't be proven: the
-    # test reaches the port and stays waiting, saying so; it never passes on the port alone.
-    check(f"{a['cluster']['kind']} {a['name']}: its collector tried the probe, reached it, and didn't pass it on the port alone",
-          probe["status"] == "pending" and (probe["result"] or {}).get("code") == "login_untested",
+    # Redis logs in (slice 7): the made-up password is refused. A type that can't log in
+    # yet reaches the port and stays waiting, saying so; it never passes on the port alone.
+    want_code = "auth_failed" if a["type"] == "redis" else "login_untested"
+    check(f"{a['cluster']['kind']} {a['name']}: its collector tried the probe and didn't pass it ({want_code})",
+          probe["status"] == "pending" and (probe["result"] or {}).get("code") == want_code,
           json.dumps(probe))
     call("PUT", f"/applications/{a['id']}/access", {"probeId": probe["id"]})
     acc = call("GET", f"/applications/{a['id']}/access")
@@ -164,8 +172,10 @@ for a in apps:
 
 # Alert rules for services (slice 5): each got its two default rules, off.
 rules = [r for r in call("GET", "/alert-rules")["rules"] if (r.get("service") or {}).get("id") in monitored]
+# Two for every service, five more for each Redis (SPEC §4.12).
+want_rules = sum(7 if a["type"] == "redis" else 2 for a in apps)
 check("every monitored service has its default rules",
-      len(rules) == 2 * len(monitored), json.dumps([r["name"] for r in rules]))
+      len(rules) == want_rules, json.dumps([r["name"] for r in rules]))
 for a in monitored:
     call("DELETE", f"/applications/{a}")
 left = [r for r in call("GET", "/alert-rules")["rules"] if (r.get("scope") or {}).get("service") in monitored]
