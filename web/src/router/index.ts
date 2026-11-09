@@ -168,6 +168,13 @@ export const routes: RouteRecordRaw[] = [
         path: 'docker/hosts/:host/containers/:name',
         redirect: (to) => ({ name: 'docker-container', params: to.params, query: to.query }),
       },
+      // A monitored service (SPEC §4.12); it has its own time range (ADR-135).
+      {
+        name: 'application',
+        path: 'applications/:id',
+        component: () => import('@/views/ApplicationPage.vue'),
+        meta: { titleKey: 'nav.applications' },
+      },
       {
         name: 'alert',
         path: 'alerts/:id',

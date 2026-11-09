@@ -1953,7 +1953,10 @@
       "unreachableError": "Can't connect: {error}",
       "connected": "Connected. Its pages arrive with its integration.",
       "someDown": "{up} of {members} members answer.",
-      "paused": "Paused."
+      "paused": "Paused.",
+      "memberDown": "{member} doesn't answer.",
+      "memberDownError": "{member} doesn't answer: {error}",
+      "needsPermission": "The {tab} tab needs {missing}."
     },
     "firing": "{n} firing",
     "members": "{up} of {total} members",
@@ -1986,6 +1989,78 @@
       "cancel": "Cancel",
       "started": "Monitoring {name}.",
       "failed": "{name} couldn't be added: {error}"
+    },
+    "metricsError": "Key metrics couldn't be loaded."
+  },
+  "integrations": {
+    "tabs": {
+      "overview": "Overview"
+    },
+    "severity": {
+      "ok": "Healthy",
+      "info": "Note",
+      "warning": "Warning",
+      "critical": "Critical"
+    },
+    "reasons": {},
+    "page": {
+      "since": "monitored since {at}",
+      "namespace": "namespace {namespace}",
+      "host": "on {host}",
+      "hostProject": "on {host}, Compose project {project}",
+      "range": "Time range",
+      "openMap": "Open in service map",
+      "sees": "What WatchLog sees",
+      "sections": "Sections",
+      "generic": "WatchLog checks that its collector reaches every member of this {service} and how fast it connects. The {service} pages (memory, commands, keys and the rest) come with its integration.",
+      "error": "This service couldn't be loaded.",
+      "notFound": {
+        "title": "Service not found",
+        "description": "It may have been removed from monitoring."
+      },
+      "connected": {
+        "kubernetes": "Connected workloads",
+        "docker": "Connected containers",
+        "from": "From the service map (eBPF), no setup needed.",
+        "none": "Nothing connected to it in this time range.",
+        "noFlows": "Network flows are off for this cluster, so WatchLog can't see who connects.",
+        "unavailable": "Connections couldn't be loaded.",
+        "connections": "{n} connection | {n} connections",
+        "failed": "{n} failed | {n} failed"
+      },
+      "mcp": {
+        "title": "Your AI can read this too",
+        "body": "Through MCP, with the same reasons:"
+      }
+    },
+    "panel": {
+      "empty": "No data yet in this time range.",
+      "error": "This panel couldn't be loaded.",
+      "needsPermission": "WatchLog's user can't read this yet.",
+      "ofLimit": "{value} of {max}",
+      "days": {
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun"
+      }
+    },
+    "generic": {
+      "panels": {
+        "summary": "At a glance",
+        "membersUp": "Members reachable",
+        "connectTime": "Connect time",
+        "scrapeTime": "Read time",
+        "connect": "Connect time by member",
+        "reachable": "Members reachable",
+        "series": {
+          "reachable": "Reachable",
+          "members": "Members"
+        }
+      }
     }
   }
 }

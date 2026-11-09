@@ -28,6 +28,13 @@ function app(over: Partial<Application> & Pick<Application, 'id' | 'type' | 'nam
     version: null,
     cluster: K8S,
     where: { group: 'payments', host: null, address: null },
+    target: {
+      kind: 'workload',
+      namespace: 'payments',
+      workload_kind: 'StatefulSet',
+      workload: 'postgres',
+      port: 5432,
+    },
     health: 'ok',
     reason: { code: 'connected', facts: { up: 1, members: 1 } },
     members: { up: 1, total: 1 },

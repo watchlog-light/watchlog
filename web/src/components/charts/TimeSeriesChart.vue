@@ -90,6 +90,8 @@ const props = defineProps<{
   areas?: ChartArea[];
   /** Inside another card: no border or background of its own, and a taller plot. */
   plain?: boolean;
+  /** Stacked areas (parts of a whole); dashed and dotted series stay lines on top. */
+  stacked?: boolean;
 }>();
 defineEmits<{ retry: [] }>();
 
@@ -245,6 +247,9 @@ function render() {
         connectNulls: false,
         ...(s.step ? { step: 'end' } : {}),
         ...(s.colorToken ? { color: token(s.colorToken) } : {}),
+        ...(props.stacked && !s.dashed && !s.dotted
+          ? { stack: 'total', areaStyle: { opacity: 0.35 } }
+          : {}),
         lineStyle: {
           width: s.dashed || s.dotted ? 1 : 1.5,
           type: s.dashed ? 'dashed' : s.dotted ? 'dotted' : 'solid',
@@ -286,6 +291,7 @@ watch(
     props.window,
     props.thresholds,
     props.areas,
+    props.stacked,
     ui.timeRange,
   ],
   render,

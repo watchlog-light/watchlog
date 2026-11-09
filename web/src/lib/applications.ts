@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Applications (SPEC §4.12): what the list shows for each monitored or discovered service.
-import type { Application, ApplicationHealth, DiscoveredService } from '@watchlog/api-types';
+import type {
+  Application,
+  ApplicationConnected,
+  ApplicationHealth,
+  ApplicationReason,
+  DiscoveredService,
+} from '@watchlog/api-types';
+import type { RouteLocationRaw } from 'vue-router';
 
 export type Family = 'databases' | 'caches' | 'queues' | 'proxies' | 'search';
 
@@ -94,4 +101,70 @@ export function discoveredHint(d: DiscoveredService): {
         values: { image: d.image, project: d.group, port: d.port },
       }
     : { key: 'applications.discovered.byImage', values: { image: d.image, port: d.port } };
+}
+
+/** A line of "What WatchLog sees": health codes as in the list, the rest by their code. */
+export function reasonLine(
+  r: ApplicationReason,
+  cluster: Application['cluster'],
+  formatTime: (iso: string) => string,
+): { key: string; values: Record<string, unknown> } {
+  const f = r.facts;
+  switch (r.code) {
+    case 'member_down':
+      return f.error
+        ? {
+            key: 'applications.reason.memberDownError',
+            values: { member: f.member, error: f.error },
+          }
+        : { key: 'applications.reason.memberDown', values: { member: f.member } };
+    case 'needs_permission':
+      return {
+        key: 'applications.reason.needsPermission',
+        values: { tab: f.tab, missing: f.missing },
+      };
+    case 'waiting':
+    case 'collector_missing':
+    case 'collector_silent':
+    case 'unreachable':
+    case 'connected':
+    case 'paused':
+      return reasonText({ reason: r, cluster }, formatTime);
+    default:
+      // An integration's own reasons (slices 7+): integrations.reasons.<code>.
+      return { key: `integrations.reasons.${r.code}`, values: { ...f } };
+  }
+}
+
+/** Where a workload or container that connects to the service is shown. */
+export function connectedLink(
+  c: ApplicationConnected['items'][number],
+  clusterId: string,
+): RouteLocationRaw | undefined {
+  if (c.kind === 'workload' && c.namespace && c.workloadKind)
+    return {
+      name: 'workloads',
+      query: {
+        cluster: clusterId,
+        view: 'pods',
+        wkind: c.workloadKind,
+        wns: c.namespace,
+        wname: c.name,
+      },
+    };
+  if (c.kind === 'container' && c.namespace)
+    return { name: 'containers', query: { cluster: clusterId, project: c.namespace } };
+  return undefined;
+}
+
+/** The service's node on the service map, when it is one node there. */
+export function serviceMapLink(a: Pick<Application, 'cluster' | 'target'>): RouteLocationRaw {
+  const t = a.target;
+  const node =
+    t.kind === 'workload'
+      ? `w:${t.namespace}/${t.workload_kind}/${t.workload}`
+      : t.kind === 'container'
+        ? `c:${t.container}`
+        : undefined;
+  return { name: 'service-map', query: { cluster: a.cluster.id, ...(node ? { node } : {}) } };
 }

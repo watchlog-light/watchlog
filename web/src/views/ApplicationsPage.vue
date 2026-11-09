@@ -1,12 +1,13 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import { ChevronRight, Database } from '@lucide/vue';
-import type { Application, DiscoveredService } from '@watchlog/api-types';
+import type { Application, ApplicationMetrics, DiscoveredService } from '@watchlog/api-types';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import MonitorDrawer from '@/components/applications/MonitorDrawer.vue';
+import SparkLine from '@/components/overview/SparkLine.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import ComboBox from '@/components/ui/ComboBox.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
@@ -29,6 +30,7 @@ import {
   type SortKey,
 } from '@/lib/applications';
 import { formatDateTime } from '@/lib/format';
+import { formatValue } from '@/lib/units';
 import { useApplicationsStore } from '@/stores/applications';
 import { useAuthStore } from '@/stores/auth';
 
@@ -49,7 +51,14 @@ const page = useLoader(async () => {
   ]);
   return { discovered: discovered.discovered };
 });
-onMounted(page.load);
+// Key numbers and sparklines come from the metrics store: loaded beside the list, so a
+// slow or missing store never holds the list back.
+const metrics = useLoader(() => api<ApplicationMetrics>('/applications/metrics'));
+onMounted(() => {
+  void page.load();
+  void metrics.load();
+});
+const rowMetrics = (id: string) => metrics.data.value?.metrics[id];
 
 const discovered = computed(() => page.data.value?.discovered ?? []);
 const family = computed<Family | 'all'>(() => {
@@ -104,6 +113,7 @@ const drawerOpen = computed({
 async function started() {
   monitoring.value = null;
   await page.load();
+  void metrics.load();
 }
 </script>
 
@@ -236,12 +246,13 @@ async function started() {
         <section class="overflow-hidden rounded-card border border-border bg-surface-1">
           <div
             v-if="!narrow"
-            class="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_minmax(0,2.6fr)_minmax(0,1fr)_1.5rem] gap-4 border-b border-border px-4 py-2.5 text-11 font-medium tracking-wider text-text-muted uppercase"
+            class="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.5fr)_minmax(0,2.4fr)_minmax(0,1.4fr)_5.75rem_1.5rem] gap-4 border-b border-border px-4 py-2.5 text-11 font-medium tracking-wider text-text-muted uppercase"
           >
             <span>{{ $t('applications.columns.service') }}</span>
             <span>{{ $t('applications.columns.where') }}</span>
             <span>{{ $t('applications.columns.health') }}</span>
             <span>{{ $t('applications.columns.metrics') }}</span>
+            <span>{{ $t('applications.columns.last6h') }}</span>
             <span />
           </div>
           <ul data-testid="application-list">
@@ -254,12 +265,16 @@ async function started() {
               ]"
               data-testid="application-row"
             >
-              <div
-                :class="
+              <RouterLink
+                :to="{ name: 'application', params: { id: a.id } }"
+                :aria-label="$t('applications.open', { name: a.name })"
+                :class="[
+                  'hover:bg-surface-2',
                   narrow
                     ? 'flex flex-col gap-2.5 px-4 py-3.5'
-                    : 'grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_minmax(0,2.6fr)_minmax(0,1fr)_1.5rem] items-center gap-4 px-4 py-3.5'
-                "
+                    : 'grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.5fr)_minmax(0,2.4fr)_minmax(0,1.4fr)_5.75rem_1.5rem] items-center gap-4 px-4 py-3.5',
+                ]"
+                data-testid="application-link"
               >
                 <span class="flex min-w-0 items-center gap-3">
                   <ServiceLogo :type="a.type" class="size-8 shrink-0" />
@@ -295,13 +310,49 @@ async function started() {
                     >{{ $t(reason(a).key, reason(a).values) }}</span
                   >
                 </span>
-                <span class="text-13 text-text-muted">
-                  <template v-if="a.members.total > 0">{{
+                <span
+                  class="flex min-w-0 flex-col gap-0.5 text-13 text-text-muted"
+                  data-testid="key-metrics"
+                >
+                  <template v-if="rowMetrics(a.id)?.keyMetrics.length">
+                    <span
+                      v-for="m in rowMetrics(a.id)!.keyMetrics"
+                      :key="m.id"
+                      class="truncate"
+                      :class="
+                        m.severity === 'warning'
+                          ? 'text-warning'
+                          : m.severity === 'critical'
+                            ? 'text-critical'
+                            : ''
+                      "
+                    >
+                      {{ $t(m.labelKey) }}
+                      <span class="font-medium text-text tabular-nums">{{
+                        formatValue(m.value, m.unit)
+                      }}</span>
+                    </span>
+                  </template>
+                  <template v-else-if="a.members.total > 0">{{
                     $t('applications.members', { up: a.members.up, total: a.members.total })
                   }}</template>
                 </span>
+                <span v-if="!narrow" class="flex items-center">
+                  <SparkLine
+                    v-if="rowMetrics(a.id)?.spark.length"
+                    :values="rowMetrics(a.id)!.spark.map((p) => p[1] ?? null)"
+                    size="row"
+                    :color-token="
+                      a.health === 'critical'
+                        ? '--critical'
+                        : a.health === 'warning'
+                          ? '--warning'
+                          : '--info'
+                    "
+                  />
+                </span>
                 <ChevronRight v-if="!narrow" class="size-4 text-text-subtle" aria-hidden="true" />
-              </div>
+              </RouterLink>
             </li>
           </ul>
         </section>
