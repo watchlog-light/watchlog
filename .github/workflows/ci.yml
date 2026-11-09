@@ -98,6 +98,16 @@ jobs:
           for i in $(seq 1 60); do docker exec pg17 pg_isready -U postgres -h 127.0.0.1 && exit 0; sleep 1; done
           docker logs pg17; exit 1
       - run: go test -race ./...
+      # The eBPF programs on the runner's kernel (verifier, hooks, flows, DNS and HTTP
+      # counts), in a container set up like the agent: BPF and PERFMON only, read-only.
+      - name: eBPF kernel tests
+        run: |
+          uname -r
+          CGO_ENABLED=0 go test -c -o /tmp/ebpf.test ./internal/ebpf
+          docker run --rm --user 0:0 --cap-drop ALL --cap-add BPF --cap-add PERFMON \
+            --read-only --tmpfs /tmp --security-opt no-new-privileges \
+            -e WATCHLOG_EBPF_TEST=1 -e WATCHLOG_DNS_TEST_NAME=github.com \
+            -v /tmp/ebpf.test:/ebpf.test:ro busybox:latest /ebpf.test -test.v -test.count=1
       - name: eBPF objects are up to date (ADR-100)
         working-directory: .
         run: |
