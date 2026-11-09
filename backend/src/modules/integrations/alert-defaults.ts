@@ -150,6 +150,46 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
       forSeconds: 0,
     },
   ],
+  rabbitmq: [
+    {
+      key: 'rabbitmq_queue_unconsumed',
+      name: 'RabbitMQ queue growing with no consumers',
+      metric: 'rabbitmq.queue.unconsumed',
+      condition: { op: '>', value: 0 },
+      forSeconds: 300,
+      severity: 'critical',
+    },
+    {
+      key: 'rabbitmq_alarm',
+      name: 'RabbitMQ memory or disk alarm',
+      metric: 'rabbitmq.alarms',
+      condition: { op: '>', value: 0 },
+      forSeconds: 0,
+      severity: 'critical',
+    },
+    {
+      key: 'rabbitmq_unacked_high',
+      name: 'RabbitMQ unacked messages above 10,000',
+      metric: 'rabbitmq.messages.unacked',
+      condition: { op: '>', value: 10_000 },
+      forSeconds: 300,
+    },
+    {
+      key: 'rabbitmq_node_down',
+      name: 'RabbitMQ node down',
+      metric: 'service.reachable.ratio',
+      condition: { op: '<', value: 1 },
+      forSeconds: 60,
+      severity: 'critical',
+    },
+    {
+      key: 'rabbitmq_dead_letters',
+      name: 'RabbitMQ dead letters growing',
+      metric: 'rabbitmq.dead_lettered.rate',
+      condition: { op: '>', value: 0 },
+      forSeconds: 300,
+    },
+  ],
 };
 
 /** A default by its key, for "Reset to default". */

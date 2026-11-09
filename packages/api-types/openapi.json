@@ -2643,6 +2643,42 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["rabbitmq.messages.ready"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["rabbitmq.messages.unacked"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["rabbitmq.publish.rate"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["rabbitmq.deliver.rate"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["rabbitmq.consumers"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["rabbitmq.memory.ratio"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["rabbitmq.alarms"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["rabbitmq.queue.unconsumed"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["rabbitmq.dead_lettered.rate"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["nginx.requests.rate"]
                       },
                       {

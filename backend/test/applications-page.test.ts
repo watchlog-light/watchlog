@@ -77,7 +77,7 @@ describe('the service page', () => {
   async function monitor(clusterId: string, target: object, name?: string) {
     const res = await api('POST', '/applications', {
       clusterId,
-      // RabbitMQ keeps the generic page in this version: the page framework is what's tested.
+      // Any type will do: the page framework is what's tested (RabbitMQ: no user needed).
       type: 'rabbitmq',
       target,
       ...(name ? { name } : {}),
@@ -212,9 +212,9 @@ describe('the service page', () => {
       version: '7.2.5',
       members: { up: 1, total: 2 },
     });
-    expect(d.page).toEqual({
-      id: 'generic',
-      tabs: [{ id: 'overview', title: 'integrations.tabs.overview' }],
+    expect(d.page).toMatchObject({
+      id: 'rabbitmq',
+      tabs: expect.arrayContaining([{ id: 'connection', title: 'integrations.tabs.connection' }]),
     });
     expect(d.reasons.map((r: { code: string }) => r.code)).toEqual([
       'connected',
@@ -239,7 +239,8 @@ describe('the service page', () => {
     ]);
     expect(d.connected.items[0].connections).toBeGreaterThan(1000);
 
-    const panels = await api('GET', `/applications/${id}/panels?tab=overview&range=3600`);
+    // Reachability, on every service's page (its last tab).
+    const panels = await api('GET', `/applications/${id}/panels?tab=connection&range=3600`);
     expect(panels.statusCode, panels.body).toBe(200);
     const p = panels.json();
     expect(p.panels.map((x: { id: string; kind: string }) => `${x.id}:${x.kind}`)).toEqual([
@@ -259,11 +260,12 @@ describe('the service page', () => {
 
     const metrics = await api('GET', '/applications/metrics');
     expect(metrics.statusCode, metrics.body).toBe(200);
-    expect(metrics.json().metrics[id].keyMetrics).toEqual([
-      expect.objectContaining({ id: 'connect', unit: 'seconds' }),
-      expect.objectContaining({ id: 'reachable', value: 1, severity: 'warning' }),
+    // The type's own numbers (RabbitMQ's; none reported here).
+    expect(metrics.json().metrics[id].keyMetrics.map((m: { id: string }) => m.id)).toEqual([
+      'ready',
+      'publish',
+      'consumers',
     ]);
-    expect(metrics.json().metrics[id].spark.length).toBeGreaterThan(0);
 
     // Bad input, a missing tab, and a service of another organization.
     expect((await api('GET', `/applications/${id}?range=999`)).statusCode).toBe(400);
@@ -341,7 +343,12 @@ describe('the service page', () => {
 
     // Before any series: the panels say they're empty, not an error.
     const p = (await api('GET', `/applications/${id}/panels`)).json();
-    expect(p.panels.map((x: { state: string }) => x.state)).toEqual(['empty', 'empty', 'empty']);
+    expect(p.panels.map((x: { state: string }) => x.state)).toEqual([
+      'empty',
+      'empty',
+      'empty',
+      'empty',
+    ]);
   });
 
   it('marks a tab whose privilege is missing, and says what to grant', async () => {
@@ -416,7 +423,10 @@ describe('the service page', () => {
 
     const one = await mcp.call('get_application', { cluster: 'prod-eu', name: 'shop/redis' });
     expect(one.isError, one.text).toBe(false);
-    expect(one.data.application).toMatchObject({ name: 'shop/redis', pages: 'reachability only' });
+    expect(one.data.application).toMatchObject({
+      name: 'shop/redis',
+      pages: ['overview', 'queues', 'rates', 'resources', 'connection'],
+    });
     expect(one.data.reasons[0]).toMatchObject({ severity: 'critical', code: 'unreachable' });
     expect(one.data.connected).toMatchObject({ window: '1h', items: [] });
 

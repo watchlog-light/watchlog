@@ -7,7 +7,13 @@ import type { Condition } from './defaults.js';
  * a monitored service's are both kinds' (ADR-124).
  */
 /** A monitored service's metrics: the generic ones and each integration's (SPEC §4.12). */
-export const SERVICE_METRIC_PREFIXES = ['service.', 'redis.', 'postgres.', 'nginx.'] as const;
+export const SERVICE_METRIC_PREFIXES = [
+  'service.',
+  'redis.',
+  'postgres.',
+  'nginx.',
+  'rabbitmq.',
+] as const;
 export const isServiceMetric = (metric: string) =>
   SERVICE_METRIC_PREFIXES.some((p) => metric.startsWith(p));
 

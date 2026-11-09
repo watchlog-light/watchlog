@@ -94,6 +94,17 @@ const INTEGRATION_SENTENCES: Record<string, string> = {
   stub_status_missing:
     'Plain Nginx has no stub_status, so its connections are missing; facts.command is the configuration to add.',
   no_http_source: 'Added by address: no agent sees its HTTP traffic.',
+  // RabbitMQ
+  queue_no_consumers:
+    'A queue (facts.queue, facts.ready messages, +facts.perMin a minute) has no consumers since facts.since; facts.consumer, a client that was connected to RabbitMQ, ended facts.how facts.when (links: the likely former consumers, ranked by when they ended).',
+  queue_growing: 'A queue (facts.queue) grows although it has consumers (+facts.perMin a minute).',
+  memory_alarm: 'A node (facts.member) is in a memory alarm: publishers are blocked.',
+  disk_alarm: 'A node (facts.member) is in a disk alarm: publishers are blocked.',
+  unacked_high: 'Many messages are delivered but not acknowledged (facts.n).',
+  dead_letters_growing:
+    'Messages are being dead-lettered (facts.n in 15 minutes, or facts.queue grows).',
+  prometheus_plugin_off:
+    'The rabbitmq_prometheus plugin is off on facts.n nodes; facts.command enables it, with no restart.',
 };
 
 /** WatchLog's sentence for a reason code; the facts come with it, cleaned. */

@@ -5,12 +5,14 @@ import type { IntegrationType } from '../collector-config.js';
 import { genericPage } from './generic.js';
 import { nginxPage } from './nginx.js';
 import { postgresPage } from './postgres.js';
+import { rabbitmqPage } from './rabbitmq.js';
 import { redisPage } from './redis.js';
 import type { IntegrationPage } from './types.js';
 
 const PAGES: Partial<Record<IntegrationType, IntegrationPage>> = {
   nginx: nginxPage,
   postgres: postgresPage,
+  rabbitmq: rabbitmqPage,
   redis: redisPage,
 };
 

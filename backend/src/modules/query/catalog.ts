@@ -455,6 +455,65 @@ const ENTRIES = {
     agg: 'max',
     expr: (s, _r, a) => `${a} by (service, service_type) (watchlog_postgres_lock_waits${s()})`,
   },
+  // RabbitMQ (v0.3 slice 11): the rabbitmq_prometheus series of every node.
+  'rabbitmq.messages.ready': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) => `${a} by (service, service_type) (rabbitmq_queue_messages_ready${s()})`,
+  },
+  'rabbitmq.messages.unacked': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) => `${a} by (service, service_type) (rabbitmq_queue_messages_unacked${s()})`,
+  },
+  'rabbitmq.publish.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r) =>
+      `sum by (service, service_type) (rate(rabbitmq_global_messages_received_total${s()}[${r}]))`,
+  },
+  'rabbitmq.deliver.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r) =>
+      `sum by (service, service_type) (rate(rabbitmq_global_messages_delivered_total${s()}[${r}]))`,
+  },
+  'rabbitmq.consumers': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) => `${a} by (service, service_type) (rabbitmq_consumers${s()})`,
+  },
+  'rabbitmq.memory.ratio': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, member) (rabbitmq_process_resident_memory_bytes${s()}) / (max by (service, service_type, member) (rabbitmq_resident_memory_limit_bytes${s()}) > 0)`,
+  },
+  /** A node in a memory or disk alarm: publishers are blocked. */
+  'rabbitmq.alarms': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, member) (rabbitmq_alarms_memory_used_watermark${s()}) + max by (service, service_type, member) (rabbitmq_alarms_free_disk_space_watermark${s()})`,
+  },
+  /** Ready messages of each queue with no consumer that keeps growing (5 min). */
+  'rabbitmq.queue.unconsumed': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) => {
+      const by = 'service, service_type, vhost, queue';
+      return `(sum by (${by}) (rabbitmq_detailed_queue_messages_ready${s()}) > 0) and (sum by (${by}) (rabbitmq_detailed_queue_consumers${s()}) == 0) and (sum by (${by}) (deriv(rabbitmq_detailed_queue_messages_ready${s()}[5m])) > 0)`;
+    },
+  },
+  /** Messages dead-lettered per second (3.12+). */
+  'rabbitmq.dead_lettered.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r) => {
+      const m = s().slice(1, -1);
+      return `sum by (service, service_type) (rate({__name__=~"rabbitmq_global_messages_dead_lettered_.*_total"${m ? `,${m}` : ''}}[${r}]))`;
+    },
+  },
   // Nginx (v0.3 slice 10): ingress-nginx's own series, or eBPF for the others (nginx.ts).
   'nginx.requests.rate': {
     unit: 'per_second',

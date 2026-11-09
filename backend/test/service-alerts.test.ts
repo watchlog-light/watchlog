@@ -94,9 +94,9 @@ describe('alert rules for services', () => {
       'redis_save_failed',
       'redis_blocked_clients',
     ]);
-    // A type without its own defaults gets the generic two.
+    // A type without its own defaults (MongoDB, v0.3.1) gets the generic two.
     expect(
-      (await api('GET', '/applications/alert-defaults?type=rabbitmq'))
+      (await api('GET', '/applications/alert-defaults?type=mongodb'))
         .json()
         .defaults.map((d: { key: string }) => d.key),
     ).toEqual(['unreachable', 'slow_connect']);

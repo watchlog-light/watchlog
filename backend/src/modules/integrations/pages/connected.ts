@@ -20,7 +20,7 @@ export function isWatchlogImage(ref: string): boolean {
 }
 
 /** WatchLog's own workloads ("namespace/name") and containers in this cluster. */
-async function ownComponents(ctx: PageContext) {
+export async function ownComponents(ctx: PageContext) {
   const rows = await ctx.db
     .selectFrom('objects')
     .select(['kind', 'namespace', 'name', 'spec_summary'])
@@ -66,11 +66,12 @@ export interface ConnectedResult {
   items: Connected[];
 }
 
-const SOURCE = 'namespace, workload_kind, workload, container, compose_project, compose_service';
+export const SOURCE =
+  'namespace, workload_kind, workload, container, compose_project, compose_service';
 const q = escapeLabelValue;
 
 /** The destination matcher for the service's target; null when nothing can match yet. */
-async function destination(ctx: PageContext): Promise<string | null> {
+export async function destination(ctx: PageContext): Promise<string | null> {
   const t = ctx.row.target;
   switch (t.kind) {
     case 'workload':
