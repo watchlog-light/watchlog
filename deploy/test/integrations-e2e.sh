@@ -110,7 +110,8 @@ for kind, typ, name in sorted(want):
 docker = [d for d in found if d["cluster"]["kind"] == "docker" and d["type"] == "redis"]
 check("discovered a Redis container on the Docker host", bool(docker), str(sorted(seen)))
 
-# Monitor them; their collectors connect.
+# Monitor them; their collectors connect. (Slices 3 to 5 below: the page, the connect
+# flow's probes through the real collectors, and the services' alert rules.)
 monitored = []
 for d in [x for x in found if (x["cluster"]["kind"], x["type"], x["name"]) in want] + docker[:1]:
     res = call("POST", "/applications", {"clusterId": d["cluster"]["id"], "type": d["type"], "target": d["target"]})
@@ -130,8 +131,42 @@ collectors = call("GET", "/applications/collectors")["collectors"]
 check("a collector reports for the cluster and one for the Docker host",
       {c["cluster"]["kind"] for c in collectors if c["reporting"]} == {"kubernetes", "docker"},
       json.dumps(collectors))
+
+# The service page (slice 3): reasons and the generic Overview's panels.
+for a in apps:
+    d = call("GET", f"/applications/{a['id']}")
+    check(f"{a['cluster']['kind']} {a['name']}: the page says it's connected",
+          d["reasons"][0]["code"] == "connected", json.dumps(d["reasons"]))
+    p = call("GET", f"/applications/{a['id']}/panels")
+    check(f"{a['cluster']['kind']} {a['name']}: the Overview has its panels",
+          [x["id"] for x in p["panels"]] == ["summary", "connect", "reachable"], json.dumps(p)[:300])
+
+# The connect flow (slice 4): each collector tries a probe and reports; the tested
+# access becomes the service's, and its collector receives it.
+for a in apps:
+    probe = call("POST", "/applications/probes", {
+        "clusterId": a["cluster"]["id"], "type": a["type"], "target": a["target"], "integrationId": a["id"],
+        "access": {"method": "entered", "username": "e2e", "password": "e2e-not-a-real-password"}})["probe"]
+    deadline = time.time() + 60
+    while time.time() < deadline and probe["status"] == "pending":
+        time.sleep(3)
+        probe = call("GET", f"/applications/probes/{probe['id']}")["probe"]
+    check(f"{a['cluster']['kind']} {a['name']}: its collector tried the probe and reached it",
+          probe["status"] == "ok" and probe["attempts"] >= 1, json.dumps(probe))
+    call("PUT", f"/applications/{a['id']}/access", {"probeId": probe["id"]})
+    acc = call("GET", f"/applications/{a['id']}/access")
+    check(f"{a['cluster']['kind']} {a['name']}: the access is stored, never shown",
+          acc["access"]["method"] == "entered" and "e2e-not-a-real-password" not in json.dumps(acc),
+          json.dumps(acc)[:300])
+
+# Alert rules for services (slice 5): each got its two default rules, off.
+rules = [r for r in call("GET", "/alert-rules")["rules"] if (r.get("service") or {}).get("id") in monitored]
+check("every monitored service has its default rules",
+      len(rules) == 2 * len(monitored), json.dumps([r["name"] for r in rules]))
 for a in monitored:
     call("DELETE", f"/applications/{a}")
+left = [r for r in call("GET", "/alert-rules")["rules"] if (r.get("scope") or {}).get("service") in monitored]
+check("removing the services removed their rules", not left, json.dumps(left)[:300])
 print(f"\n{failures} failed" if failures else "\nall passed")
 sys.exit(1 if failures else 0)
 PY
