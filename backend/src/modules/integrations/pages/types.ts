@@ -131,6 +131,8 @@ export interface ListContext {
   clusterId: string;
   /** The services of this type in this cluster. */
   ids: string[];
+  /** Their rows, for pages whose series are found by target (Nginx's eBPF). */
+  rows?: ApplicationRow[];
   now: number;
 }
 

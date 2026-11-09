@@ -79,6 +79,21 @@ const INTEGRATION_SENTENCES: Record<string, string> = {
   autovacuum_not_finishing:
     'Autovacuum is not finishing on some tables (facts.n, for example facts.table).',
   statements_unavailable: 'pg_stat_statements is not installed, so query statistics are missing.',
+  // Nginx
+  errors_high:
+    'Requests answer 5xx (facts.pct %); facts.upstream sends most of them (facts.upstreamPct %), facts.rollout its last rollout.',
+  upstream_no_endpoints:
+    'An upstream (facts.upstream) has no ready endpoint, so requests to it fail.',
+  latency_high: 'The p95 response time is high (facts.p95).',
+  connections_dropped:
+    'Nginx dropped connections (facts.n in 15 minutes): worker_connections is reached.',
+  certificate_expiring:
+    'A certificate ingress-nginx serves (facts.host) expires soon (facts.days days).',
+  ingress_metrics_off:
+    "ingress-nginx doesn't serve its metrics (--enable-metrics): requests come from eBPF and connections are missing; facts.command turns them on.",
+  stub_status_missing:
+    'Plain Nginx has no stub_status, so its connections are missing; facts.command is the configuration to add.',
+  no_http_source: 'Added by address: no agent sees its HTTP traffic.',
 };
 
 /** WatchLog's sentence for a reason code; the facts come with it, cleaned. */

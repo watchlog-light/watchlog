@@ -1259,7 +1259,12 @@ export interface paths {
               | 'postgres.xid.age'
               | 'postgres.deadlocks.rate'
               | 'postgres.database.size'
-              | 'postgres.lock_waits';
+              | 'postgres.lock_waits'
+              | 'nginx.requests.rate'
+              | 'nginx.5xx.ratio'
+              | 'nginx.latency.p95'
+              | 'nginx.upstream.down'
+              | 'nginx.certificate.expiry';
             scope?: {
               host?: string;
               container?: string;
@@ -4222,6 +4227,8 @@ export interface paths {
                   container?: string;
                   /** Format: uuid */
                   service?: string;
+                  /** @description A service type */
+                  serviceType?: string;
                   labels?: {
                     [key: string]: string;
                   };
@@ -4337,6 +4344,8 @@ export interface paths {
               container?: string;
               /** Format: uuid */
               service?: string;
+              /** @description A service type */
+              serviceType?: string;
               labels?: {
                 [key: string]: string;
               };
@@ -4384,6 +4393,8 @@ export interface paths {
                 container?: string;
                 /** Format: uuid */
                 service?: string;
+                /** @description A service type */
+                serviceType?: string;
                 labels?: {
                   [key: string]: string;
                 };
@@ -4622,6 +4633,8 @@ export interface paths {
               container?: string;
               /** Format: uuid */
               service?: string;
+              /** @description A service type */
+              serviceType?: string;
               labels?: {
                 [key: string]: string;
               };
@@ -4659,6 +4672,8 @@ export interface paths {
                 container?: string;
                 /** Format: uuid */
                 service?: string;
+                /** @description A service type */
+                serviceType?: string;
                 labels?: {
                   [key: string]: string;
                 };
@@ -4802,6 +4817,8 @@ export interface paths {
                   container?: string;
                   /** Format: uuid */
                   service?: string;
+                  /** @description A service type */
+                  serviceType?: string;
                   labels?: {
                     [key: string]: string;
                   };
@@ -4947,6 +4964,8 @@ export interface paths {
                 container?: string;
                 /** Format: uuid */
                 service?: string;
+                /** @description A service type */
+                serviceType?: string;
                 labels?: {
                   [key: string]: string;
                 };
@@ -5091,6 +5110,8 @@ export interface paths {
               container?: string;
               /** Format: uuid */
               service?: string;
+              /** @description A service type */
+              serviceType?: string;
               labels?: {
                 [key: string]: string;
               };

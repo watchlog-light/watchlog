@@ -99,6 +99,12 @@
                               "host": { "type": "string", "minLength": 1, "maxLength": 253 },
                               "container": { "type": "string", "minLength": 1, "maxLength": 253 },
                               "service": { "type": "string", "format": "uuid" },
+                              "serviceType": {
+                                "type": "string",
+                                "pattern": "^[a-z]+$",
+                                "maxLength": 32,
+                                "description": "A service type"
+                              },
                               "labels": {
                                 "type": "object",
                                 "maxProperties": 10,
@@ -6039,7 +6045,12 @@
                       { "type": "string", "enum": ["postgres.xid.age"] },
                       { "type": "string", "enum": ["postgres.deadlocks.rate"] },
                       { "type": "string", "enum": ["postgres.database.size"] },
-                      { "type": "string", "enum": ["postgres.lock_waits"] }
+                      { "type": "string", "enum": ["postgres.lock_waits"] },
+                      { "type": "string", "enum": ["nginx.requests.rate"] },
+                      { "type": "string", "enum": ["nginx.5xx.ratio"] },
+                      { "type": "string", "enum": ["nginx.latency.p95"] },
+                      { "type": "string", "enum": ["nginx.upstream.down"] },
+                      { "type": "string", "enum": ["nginx.certificate.expiry"] }
                     ]
                   },
                   "scope": {

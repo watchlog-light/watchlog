@@ -2640,6 +2640,26 @@
                       {
                         "type": "string",
                         "enum": ["postgres.lock_waits"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["nginx.requests.rate"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["nginx.5xx.ratio"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["nginx.latency.p95"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["nginx.upstream.down"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["nginx.certificate.expiry"]
                       }
                     ]
                   },
@@ -12376,6 +12396,12 @@
                                 "type": "string",
                                 "format": "uuid"
                               },
+                              "serviceType": {
+                                "type": "string",
+                                "pattern": "^[a-z]+$",
+                                "maxLength": 32,
+                                "description": "A service type"
+                              },
                               "labels": {
                                 "type": "object",
                                 "maxProperties": 10,
@@ -12707,6 +12733,12 @@
                         "type": "string",
                         "format": "uuid"
                       },
+                      "serviceType": {
+                        "type": "string",
+                        "pattern": "^[a-z]+$",
+                        "maxLength": 32,
+                        "description": "A service type"
+                      },
                       "labels": {
                         "type": "object",
                         "maxProperties": 10,
@@ -12939,6 +12971,12 @@
                         "service": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "serviceType": {
+                          "type": "string",
+                          "pattern": "^[a-z]+$",
+                          "maxLength": 32,
+                          "description": "A service type"
                         },
                         "labels": {
                           "type": "object",
@@ -13313,6 +13351,12 @@
                         "type": "string",
                         "format": "uuid"
                       },
+                      "serviceType": {
+                        "type": "string",
+                        "pattern": "^[a-z]+$",
+                        "maxLength": 32,
+                        "description": "A service type"
+                      },
                       "labels": {
                         "type": "object",
                         "maxProperties": 10,
@@ -13498,6 +13542,12 @@
                         "service": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "serviceType": {
+                          "type": "string",
+                          "pattern": "^[a-z]+$",
+                          "maxLength": 32,
+                          "description": "A service type"
                         },
                         "labels": {
                           "type": "object",
@@ -14085,6 +14135,12 @@
                                 "type": "string",
                                 "format": "uuid"
                               },
+                              "serviceType": {
+                                "type": "string",
+                                "pattern": "^[a-z]+$",
+                                "maxLength": 32,
+                                "description": "A service type"
+                              },
                               "labels": {
                                 "type": "object",
                                 "maxProperties": 10,
@@ -14497,6 +14553,12 @@
                           "type": "string",
                           "format": "uuid"
                         },
+                        "serviceType": {
+                          "type": "string",
+                          "pattern": "^[a-z]+$",
+                          "maxLength": 32,
+                          "description": "A service type"
+                        },
                         "labels": {
                           "type": "object",
                           "maxProperties": 10,
@@ -14842,6 +14904,12 @@
                       "service": {
                         "type": "string",
                         "format": "uuid"
+                      },
+                      "serviceType": {
+                        "type": "string",
+                        "pattern": "^[a-z]+$",
+                        "maxLength": 32,
+                        "description": "A service type"
                       },
                       "labels": {
                         "type": "object",

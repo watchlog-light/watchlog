@@ -79,7 +79,11 @@ export function imagePath(ref: string): string {
 
 /** A compatible server that isn't the type's own: Valkey answers as Redis. */
 export function productOfImage(ref: string): string | null {
-  return /(^|\/)valkey$/.test(imagePath(ref)) ? 'valkey' : null;
+  const path = imagePath(ref);
+  if (/(^|\/)valkey$/.test(path)) return 'valkey';
+  if (/(^|\/)(ingress-nginx\/controller|nginx-ingress-controller)$/.test(path))
+    return 'ingress-nginx';
+  return null;
 }
 
 /** The image's tag, as a version hint ("16.4" from "postgres:16.4-alpine"). */

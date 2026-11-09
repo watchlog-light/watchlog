@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { createHash } from 'node:crypto';
 // Applications API (SPEC §4.12, ADR-132, ADR-135): monitored services, discovered ones,
 // the collectors, Monitor and remove. Credentials and the connect flow are slice 4.
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
@@ -474,20 +475,27 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
       // One batch per cluster and page: a few queries for the whole list.
       const groups = new Map<
         string,
-        { page: ReturnType<typeof pageOf>; clusterId: string; ids: string[] }
+        { page: ReturnType<typeof pageOf>; clusterId: string; ids: string[]; rows: typeof rows }
       >();
       for (const r of rows) {
         const page = pageOf(r.type);
         const key = `${r.cluster_id}\u0000${page.id}\u0000${r.type}`;
-        const g = groups.get(key) ?? { page, clusterId: r.cluster_id, ids: [] };
+        const g = groups.get(key) ?? { page, clusterId: r.cluster_id, ids: [], rows: [] };
         g.ids.push(r.id);
+        g.rows.push(r);
         groups.set(key, g);
       }
       const now = Date.now();
       try {
         const maps = await Promise.all(
           [...groups.values()].map((g) =>
-            g.page.listMetrics({ vm: victoria, clusterId: g.clusterId, ids: g.ids, now }),
+            g.page.listMetrics({
+              vm: victoria,
+              clusterId: g.clusterId,
+              ids: g.ids,
+              rows: g.rows,
+              now,
+            }),
           ),
         );
         const metrics: Record<string, RowMetrics> = {};
@@ -544,7 +552,14 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
           return fallback;
         });
       // The metric-backed parts are cached for 15 s (after the organization check above).
-      const key = `${ctx.row.id}:${range}:${view.reason.code}`;
+      // A new report of what the collector found (stub_status, metrics on) shows at once.
+      const found_ = createHash('sha1')
+        .update(
+          JSON.stringify((ctx.row.status_details as { extra?: unknown } | null)?.extra ?? null),
+        )
+        .digest('base64url')
+        .slice(0, 12);
+      const key = `${ctx.row.id}:${range}:${view.reason.code}:${found_}`;
       let cached = pageCache.get(key);
       if (!cached || ctx.now - cached.at > PAGE_CACHE_MS) {
         const [own, connected] = await Promise.all([

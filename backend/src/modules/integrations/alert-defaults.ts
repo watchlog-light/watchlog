@@ -118,6 +118,38 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
       forSeconds: 0,
     },
   ],
+  nginx: [
+    {
+      key: 'nginx_5xx_high',
+      name: 'Nginx 5xx above 5 %',
+      metric: 'nginx.5xx.ratio',
+      condition: { op: '>', value: 0.05 },
+      forSeconds: 300,
+      severity: 'critical',
+    },
+    {
+      key: 'nginx_latency_high',
+      name: 'Nginx p95 above 1 s',
+      metric: 'nginx.latency.p95',
+      condition: { op: '>', value: 1 },
+      forSeconds: 300,
+    },
+    {
+      key: 'nginx_upstream_down',
+      name: 'Nginx upstream without a healthy endpoint',
+      metric: 'nginx.upstream.down',
+      condition: { op: '>', value: 0 },
+      forSeconds: 60,
+      severity: 'critical',
+    },
+    {
+      key: 'nginx_certificate_expiring',
+      name: 'Certificate expires within 14 days (ingress-nginx)',
+      metric: 'nginx.certificate.expiry',
+      condition: { op: '<', value: 14 * 86_400 },
+      forSeconds: 0,
+    },
+  ],
 };
 
 /** A default by its key, for "Reset to default". */

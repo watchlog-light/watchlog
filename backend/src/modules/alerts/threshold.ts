@@ -9,6 +9,8 @@ import { METRIC_KEYS, metricUnit, type MetricKey, type QueryScope } from '../que
 import type { Condition } from './defaults.js';
 import type { EvalContext, RuleEvaluator } from './engine.js';
 import { queryThreshold } from './metric-rules.js';
+import { nginxSources } from '../query/nginx.js';
+import { INTEGRATION_TYPES } from '../integrations/collector-config.js';
 import { conditionError, isServiceMetric, metricKinds } from './conditions.js';
 import type { Observation } from './state-machine.js';
 
@@ -23,11 +25,13 @@ export interface ThresholdScope {
   labels?: Record<string, string>;
   /** A monitored service's id (SPEC §4.12). */
   service?: string;
+  /** Every monitored service of a type. */
+  serviceType?: string;
 }
 
 const KUBE_FIELDS = ['namespaces', 'workload', 'node', 'labels'] as const;
 const DOCKER_FIELDS = ['host', 'container'] as const;
-const SERVICE_FIELDS = ['service'] as const;
+const SERVICE_FIELDS = ['service', 'serviceType'] as const;
 
 export class SelectorTooBroad extends Error {
   constructor(readonly pods: number) {
@@ -67,6 +71,7 @@ export async function resolveScope(
   db: Database,
   clusterId: string,
   scope: ThresholdScope,
+  metric?: string,
 ): Promise<QueryScope | null> {
   const q: QueryScope = {};
   if (scope.namespaces?.length) q.namespaces = scope.namespaces;
@@ -79,6 +84,14 @@ export async function resolveScope(
   if (scope.host) q.host = scope.host;
   if (scope.container) q.container = scope.container;
   if (scope.service) q.service = scope.service;
+  if (scope.serviceType) q.serviceType = scope.serviceType;
+  // Nginx's eBPF series name the workload, not the service: resolve which (nginx.ts).
+  if (metric?.startsWith('nginx.')) {
+    q.nginx =
+      scope.serviceType && scope.serviceType !== 'nginx'
+        ? []
+        : await nginxSources(db, clusterId, scope.service);
+  }
   if (scope.labels && Object.keys(scope.labels).length) {
     const pods = await podsMatching(db, clusterId, scope.labels, scope.namespaces);
     if (pods.length > MAX_SELECTOR_PODS) throw new SelectorTooBroad(pods.length);
@@ -121,7 +134,12 @@ export function thresholdEvaluator(metric: string): RuleEvaluator | undefined {
   return {
     kinds: metricKinds(metric),
     async evaluate(ctx: EvalContext) {
-      const scope = await resolveScope(ctx.db, ctx.cluster.id, ctx.rule.scope as ThresholdScope);
+      const scope = await resolveScope(
+        ctx.db,
+        ctx.cluster.id,
+        ctx.rule.scope as ThresholdScope,
+        metric,
+      );
       if (!scope) return [];
       const out: Observation[] = [];
       const hits = await queryThreshold(ctx, metric as MetricKey, scope);
@@ -201,6 +219,15 @@ export async function validateThreshold(
   );
   if (extra.length) {
     return `Scope "${extra[0]}" does not apply to a ${isService ? 'service' : kinds[0] === 'docker' ? 'Docker' : 'Kubernetes'} metric`;
+  }
+  if (rule.scope.service && rule.scope.serviceType) {
+    return 'A rule is about one service or every service of a type, not both';
+  }
+  if (rule.scope.serviceType) {
+    const t = rule.scope.serviceType;
+    if (!(INTEGRATION_TYPES as readonly string[]).includes(t)) return `Unknown service type "${t}"`;
+    const own = rule.metric.split('.')[0];
+    if (own !== 'service' && own !== t) return `${rule.metric} is not a ${t} metric`;
   }
   if (rule.scope.service) {
     const svc = await db

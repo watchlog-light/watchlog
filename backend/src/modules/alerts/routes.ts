@@ -980,7 +980,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
         unit = metricUnit(key);
         let q: QueryScope | null;
         try {
-          q = custom ? await resolveScope(db, c.id, scope) : {};
+          q = custom ? await resolveScope(db, c.id, scope, custom) : {};
         } catch (err) {
           return sendProblem(reply, 400, (err as Error).message);
         }

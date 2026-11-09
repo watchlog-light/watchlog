@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { nginxExpr, type NginxSource } from './nginx.js';
 // Curated metrics for POST /query/range (ADR-028). Templates are fixed MetricsQL;
 // user input only ever becomes escaped label values. cluster_id is enforced by
 // VictoriaMetrics (extra_label), never by these templates.
@@ -23,13 +24,20 @@ export interface QueryScope {
   pods?: string[];
   /** A monitored service (SPEC §4.12): the collector labels its series service=<id>. */
   service?: string;
+  /** Every monitored service of a type: the collector labels them service_type=<type>. */
+  serviceType?: string;
+  /**
+   * Nginx services whose numbers come from eBPF (resolved from the database by
+   * resolveScope): their series carry the workload, not the service id.
+   */
+  nginx?: NginxSource[];
 }
 
 interface Entry {
   unit: Unit;
   /** Aggregation used when the request does not choose one. */
   agg: Agg;
-  expr: (sel: (...extra: string[]) => string, rate: string, agg: Agg) => string;
+  expr: (sel: (...extra: string[]) => string, rate: string, agg: Agg, scope: QueryScope) => string;
 }
 
 const ENTRIES = {
@@ -447,6 +455,34 @@ const ENTRIES = {
     agg: 'max',
     expr: (s, _r, a) => `${a} by (service, service_type) (watchlog_postgres_lock_waits${s()})`,
   },
+  // Nginx (v0.3 slice 10): ingress-nginx's own series, or eBPF for the others (nginx.ts).
+  'nginx.requests.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r, _a, scope) => nginxExpr('requests', scope.nginx ?? [], s, r),
+  },
+  'nginx.5xx.ratio': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s, r, _a, scope) => nginxExpr('5xx_ratio', scope.nginx ?? [], s, r),
+  },
+  'nginx.latency.p95': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s, r, _a, scope) => nginxExpr('p95', scope.nginx ?? [], s, r),
+  },
+  /** Upstreams with no ready endpoint (ingress-nginx), or every connection failing. */
+  'nginx.upstream.down': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, r, _a, scope) => nginxExpr('upstream_down', scope.nginx ?? [], s, r),
+  },
+  /** Seconds until a certificate ingress-nginx serves expires. */
+  'nginx.certificate.expiry': {
+    unit: 'seconds',
+    agg: 'min',
+    expr: (s, r, _a, scope) => nginxExpr('cert_expiry', scope.nginx ?? [], s, r),
+  },
 } satisfies Record<string, Entry>;
 
 export type MetricKey = keyof typeof ENTRIES;
@@ -487,6 +523,9 @@ function matchers(scope: QueryScope): string[] {
   if (scope.namespaces?.length) out.push(`namespace=~"${anyOf(scope.namespaces)}"`);
   if (scope.pods?.length) out.push(`pod=~"${anyOf(scope.pods)}"`);
   if (scope.service !== undefined) out.push(`service="${escapeLabelValue(scope.service)}"`);
+  if (scope.serviceType !== undefined) {
+    out.push(`service_type="${escapeLabelValue(scope.serviceType)}"`);
+  }
   return out;
 }
 
@@ -524,5 +563,5 @@ export function buildQuery(
   const entry: Entry = ENTRIES[metric];
   const base = matchers(scope);
   const sel = (...extra: string[]) => `{${[...extra, ...base].join(',')}}`;
-  return { expr: entry.expr(sel, rateWindow(step), agg ?? entry.agg), unit: entry.unit };
+  return { expr: entry.expr(sel, rateWindow(step), agg ?? entry.agg, scope), unit: entry.unit };
 }

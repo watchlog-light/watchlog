@@ -231,6 +231,10 @@ export const ThresholdScopeSchema = Type.Object(
     container: Type.Optional(Type.String({ minLength: 1, maxLength: 253 })),
     /** A monitored service (SPEC §4.12): its id on the Applications page. */
     service: Type.Optional(Type.String({ format: 'uuid' })),
+    /** Every monitored service of this type (redis, postgres, nginx…), in its clusters. */
+    serviceType: Type.Optional(
+      Type.String({ pattern: '^[a-z]+$', maxLength: 32, description: 'A service type' }),
+    ),
     /** Pod label selector (equality); resolved to at most 500 pods (ADR-085). */
     labels: Type.Optional(
       Type.Record(Type.String({ maxLength: 317 }), Type.String({ maxLength: 63 }), {

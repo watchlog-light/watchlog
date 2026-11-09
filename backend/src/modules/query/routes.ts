@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
+import { nginxSources } from './nginx.js';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { sendProblem } from '../../lib/problem.js';
@@ -93,7 +94,11 @@ export const queryRoutes: FastifyPluginAsyncTypebox<{
       if (!victoria) return sendProblem(reply, 503, 'Metrics storage is not configured');
 
       const step = chooseStep(to - from, request.body.step);
-      const q = buildQuery(metric as MetricKey, scope, step, agg);
+      // Nginx's eBPF series name the workload, not the service (nginx.ts).
+      const resolved = (metric as string).startsWith('nginx.')
+        ? { ...scope, nginx: await nginxSources(db, cluster.id, scope.service) }
+        : scope;
+      const q = buildQuery(metric as MetricKey, resolved, step, agg);
       try {
         const series = await victoria.queryRange({ clusterId: cluster.id }, q.expr, from, to, step);
         return { metric, unit: q.unit, step, series };
