@@ -66,6 +66,7 @@ interface ContainerRow {
   name: string;
   node: string | null;
   spec_summary: unknown;
+  status_summary: unknown;
 }
 
 function joinHostPort(host: string, port: number): string {
@@ -83,8 +84,10 @@ function podMembers(
       return p.namespace === t.namespace && w?.kind === t.workload_kind && w?.name === t.workload;
     })
     .flatMap((p) => {
-      const ip = (p.status_summary as { pod_ip?: string }).pod_ip;
-      return ip ? [{ name: p.name, address: joinHostPort(ip, t.port) }] : [];
+      const st = p.status_summary as { pod_ip?: string; phase?: string };
+      return st.pod_ip && st.phase === 'Running'
+        ? [{ name: p.name, address: joinHostPort(st.pod_ip, t.port) }]
+        : [];
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -110,6 +113,8 @@ function containerMembers(rows: ContainerRow[], t: IntegrationTarget): Collector
   return rows
     .filter((c) => {
       if (c.node !== t.host) return false;
+      // A stopped container has no address to connect to.
+      if ((c.status_summary as { state?: string }).state !== 'running') return false;
       if (t.kind === 'container') return c.name === t.container;
       const svc = (c.spec_summary as { compose_service?: string }).compose_service;
       return c.namespace === t.compose_project && svc === t.compose_service;
@@ -158,7 +163,7 @@ export async function buildCollectorConfig(
     needsContainers
       ? db
           .selectFrom('objects')
-          .select(['namespace', 'name', 'node', 'spec_summary'])
+          .select(['namespace', 'name', 'node', 'spec_summary', 'status_summary'])
           .where('cluster_id', '=', clusterId)
           .where('kind', '=', 'DockerContainer')
           .where('deleted_at', 'is', null)

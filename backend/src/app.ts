@@ -21,6 +21,7 @@ import { ensureEventPartitions } from './modules/events/partitions.js';
 import { ingestRoutes } from './modules/ingest/routes.js';
 import { TokenCache } from './modules/ingest/token-cache.js';
 import { ConfigNotifier } from './modules/integrations/notifier.js';
+import { applicationRoutes } from './modules/integrations/routes.js';
 import { kubernetesRoutes } from './modules/kubernetes/routes.js';
 import { overviewRoutes } from './modules/overview/routes.js';
 import { serviceMapRoutes } from './modules/servicemap/routes.js';
@@ -162,6 +163,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(serviceMapRoutes, { db: deps.db, victoria, config, settings });
       await api.register(alertRoutes, { db: deps.db, config, http: alertHttp, settings, victoria });
       await api.register(settingsRoutes, { db: deps.db, settings, http: alertHttp });
+      await api.register(applicationRoutes, { db: deps.db, notifier: collectors });
       await api.register(apiTokenRoutes, { db: deps.db });
       // The public API only (ADR-126): routes tagged `public`, with the bearer scheme.
       let spec: Record<string, unknown> | undefined;

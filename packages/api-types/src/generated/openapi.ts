@@ -6696,6 +6696,579 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/applications': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Monitored services, problems first */
+    get: {
+      parameters: {
+        query?: {
+          cluster?: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              applications: {
+                id: string;
+                type: string;
+                name: string;
+                version: string | null;
+                cluster: {
+                  id: string;
+                  name: string;
+                  kind: 'kubernetes' | 'docker';
+                };
+                where: {
+                  group: string | null;
+                  host: string | null;
+                  address: string | null;
+                };
+                health: 'ok' | 'warning' | 'critical' | 'unknown';
+                reason: {
+                  code: string;
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                };
+                members: {
+                  up: number;
+                  total: number;
+                };
+                monitoredSince: string;
+                lastReportAt: string | null;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    /** Monitor a service (Monitor, or Add manually) */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** Format: uuid */
+            clusterId: string;
+            type: 'redis' | 'postgres' | 'nginx' | 'rabbitmq' | 'mongodb' | 'elasticsearch';
+            target:
+              | {
+                  /** @enum {string} */
+                  kind: 'workload';
+                  namespace: string;
+                  workload_kind: string;
+                  workload: string;
+                  port: number;
+                }
+              | {
+                  /** @enum {string} */
+                  kind: 'compose';
+                  host: string;
+                  compose_project: string;
+                  compose_service: string;
+                  port: number;
+                }
+              | {
+                  /** @enum {string} */
+                  kind: 'container';
+                  host: string;
+                  container: string;
+                  port: number;
+                }
+              | {
+                  /** @enum {string} */
+                  kind: 'address';
+                  address: string;
+                };
+            collectorHost?: string;
+            name?: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              application: {
+                id: string;
+                type: string;
+                name: string;
+                version: string | null;
+                cluster: {
+                  id: string;
+                  name: string;
+                  kind: 'kubernetes' | 'docker';
+                };
+                where: {
+                  group: string | null;
+                  host: string | null;
+                  address: string | null;
+                };
+                health: 'ok' | 'warning' | 'critical' | 'unknown';
+                reason: {
+                  code: string;
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                };
+                members: {
+                  up: number;
+                  total: number;
+                };
+                monitoredSince: string;
+                lastReportAt: string | null;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/applications/discovered': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Services the agents see that aren't monitored yet (ADR-132) */
+    get: {
+      parameters: {
+        query?: {
+          cluster?: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              discovered: {
+                key: string;
+                cluster: {
+                  id: string;
+                  name: string;
+                  kind: 'kubernetes' | 'docker';
+                };
+                type: string;
+                name: string;
+                image: string | null;
+                version: string | null;
+                port: number;
+                confidence: 'image' | 'port';
+                members: number;
+                host: string | null;
+                group: string;
+                target:
+                  | {
+                      /** @enum {string} */
+                      kind: 'workload';
+                      namespace: string;
+                      workload_kind: string;
+                      workload: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'compose';
+                      host: string;
+                      compose_project: string;
+                      compose_service: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'container';
+                      host: string;
+                      container: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'address';
+                      address: string;
+                    };
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/applications/collectors': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The integrations collectors and whether they report (ADR-131) */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              collectors: {
+                cluster: {
+                  id: string;
+                  name: string;
+                  kind: 'kubernetes' | 'docker';
+                };
+                host: string | null;
+                version: string;
+                lastSeenAt: string;
+                reporting: boolean;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/applications/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** One monitored service */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              application: {
+                id: string;
+                type: string;
+                name: string;
+                version: string | null;
+                cluster: {
+                  id: string;
+                  name: string;
+                  kind: 'kubernetes' | 'docker';
+                };
+                where: {
+                  group: string | null;
+                  host: string | null;
+                  address: string | null;
+                };
+                health: 'ok' | 'warning' | 'critical' | 'unknown';
+                reason: {
+                  code: string;
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                };
+                members: {
+                  up: number;
+                  total: number;
+                };
+                monitoredSince: string;
+                lastReportAt: string | null;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    /** Stop monitoring a service */
+    delete: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        204: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/api-tokens': {
     parameters: {
       query?: never;

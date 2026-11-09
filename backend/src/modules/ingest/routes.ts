@@ -104,6 +104,12 @@ const DockerObjectsBody = Type.Object({
         compose_project: Type.Optional(Str(253)),
         compose_service: Type.Optional(Str(253)),
         networks: Type.Optional(Type.Array(Str(253), { maxItems: 32 })),
+        // Its addresses and listening TCP ports, for the integrations collector and
+        // discovery (ADR-131, ADR-132).
+        ips: Type.Optional(Type.Array(Str(64), { maxItems: 32 })),
+        exposed: Type.Optional(
+          Type.Array(Type.Integer({ minimum: 1, maximum: 65535 }), { maxItems: 64 }),
+        ),
         size_rw: Type.Optional(Type.Integer({ minimum: 0 })),
         restarting: Type.Optional(Type.Boolean()),
         // Redacted and cut to 512 bytes by the agent (ADR-047); limits leave room for UTF-8.
@@ -444,6 +450,8 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
               ports: c.ports ?? [],
               compose_service: c.compose_service,
               networks: c.networks ?? [],
+              ips: c.ips ?? [],
+              exposed: c.exposed ?? [],
             },
             status: {
               state: c.state,

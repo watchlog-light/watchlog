@@ -1,0 +1,288 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Discovery (ADR-132): services the agents already see, by image first and port second,
+// that aren't monitored yet. Read-only: nothing is contacted until someone presses
+// Monitor. Computed on read from the stored objects, so it is always current.
+import type { Database } from '../../db/index.js';
+import type { IntegrationTarget, IntegrationType } from './collector-config.js';
+
+export interface ServiceKind {
+  type: IntegrationType;
+  /** Matches the image's repository path (without registry tag or digest). */
+  image: RegExp;
+  /** Images that look like it but aren't it (exporters, sidecars, proxies). */
+  not?: RegExp;
+  /** Ports, the first one being where the collector connects. */
+  ports: number[];
+  /** Shipped in this version; the others are discovered later (ADR-141). */
+  available: boolean;
+}
+
+/** ADR-132's table. Image paths are matched after the registry host is removed. */
+export const SERVICE_KINDS: ServiceKind[] = [
+  {
+    type: 'redis',
+    image: /(^|\/)(redis|redis-stack-server|redis-stack|valkey)$/,
+    not: /(exporter|sentinel|commander|insight)/,
+    ports: [6379],
+    available: true,
+  },
+  {
+    type: 'postgres',
+    image: /(^|\/)(postgres|postgresql|postgis|timescaledb|timescaledb-ha|postgresql-repmgr)$/,
+    not: /(exporter|pgbouncer|pgpool|operator|backup)/,
+    ports: [5432],
+    available: true,
+  },
+  {
+    // ingress-nginx is matched first: its metrics port tells it apart from plain Nginx.
+    type: 'nginx',
+    image:
+      /(^|\/)(ingress-nginx\/controller|nginx-ingress-controller|nginx|nginx-unprivileged|openresty)$/,
+    not: /(exporter)/,
+    ports: [80, 8080, 443],
+    available: true,
+  },
+  {
+    type: 'rabbitmq',
+    image: /(^|\/)rabbitmq$/,
+    not: /(exporter|operator)/,
+    ports: [5672, 15692],
+    available: true,
+  },
+  {
+    type: 'mongodb',
+    image: /(^|\/)(mongo|mongodb|mongodb-community-server)$/,
+    not: /(exporter|express|operator)/,
+    ports: [27017],
+    available: false,
+  },
+  {
+    type: 'elasticsearch',
+    image: /(^|\/)elasticsearch$/,
+    not: /(exporter|operator)/,
+    ports: [9200],
+    available: false,
+  },
+];
+
+/** The repository path of an image reference: no registry host, tag or digest. */
+export function imagePath(ref: string): string {
+  let path = ref.split('@')[0]!;
+  const slash = path.lastIndexOf('/');
+  const colon = path.lastIndexOf(':');
+  if (colon > slash) path = path.slice(0, colon);
+  const parts = path.split('/');
+  // The first part is a registry when it looks like a host (has a dot or a port, or is localhost).
+  if (parts.length > 1 && /[.:]|^localhost$/.test(parts[0]!)) parts.shift();
+  return parts.join('/').toLowerCase();
+}
+
+/** The image's tag, as a version hint ("16.4" from "postgres:16.4-alpine"). */
+export function imageVersion(ref: string): string | null {
+  const noDigest = ref.split('@')[0]!;
+  const slash = noDigest.lastIndexOf('/');
+  const colon = noDigest.lastIndexOf(':');
+  if (colon <= slash) return null;
+  const tag = noDigest.slice(colon + 1);
+  const m = /^v?(\d+(?:\.\d+){0,2})/.exec(tag);
+  return m ? m[1]! : null;
+}
+
+export function kindOfImage(ref: string): ServiceKind | undefined {
+  const path = imagePath(ref);
+  return SERVICE_KINDS.find((k) => k.image.test(path) && !(k.not && k.not.test(path)));
+}
+
+export function kindOfPorts(ports: number[]): ServiceKind | undefined {
+  return SERVICE_KINDS.find((k) => k.ports.slice(0, 1).some((p) => ports.includes(p)));
+}
+
+export interface Discovered {
+  /** Stable key of the candidate, for the web's lists. */
+  key: string;
+  clusterId: string;
+  clusterName: string;
+  clusterKind: 'kubernetes' | 'docker';
+  type: IntegrationType;
+  name: string;
+  image: string | null;
+  version: string | null;
+  port: number;
+  /** image: the image says what it is; port: only a well-known port does. */
+  confidence: 'image' | 'port';
+  /** Pods or containers behind it. */
+  members: number;
+  /** Docker: the host the collector runs on. */
+  host: string | null;
+  /** Kubernetes namespace or Compose project. */
+  group: string;
+  target: IntegrationTarget;
+}
+
+interface Container {
+  image?: string;
+  ports?: { port?: number; protocol?: string }[];
+}
+
+/** The port to connect to: one the container declares, else the kind's default. */
+function pickPort(kind: ServiceKind, declared: number[]): number {
+  return kind.ports.find((p) => declared.includes(p)) ?? kind.ports[0]!;
+}
+
+/** The identity of an integration's target, to tell monitored services apart. */
+export function targetKey(clusterId: string, type: string, t: IntegrationTarget): string {
+  switch (t.kind) {
+    case 'workload':
+      return `${clusterId}/${type}/w/${t.namespace}/${t.workload_kind}/${t.workload}`;
+    case 'compose':
+      return `${clusterId}/${type}/c/${t.host}/${t.compose_project}/${t.compose_service}`;
+    case 'container':
+      return `${clusterId}/${type}/k/${t.host}/${t.container}`;
+    case 'address':
+      return `${clusterId}/${type}/a/${t.address}`;
+  }
+}
+
+/** A pod in phase Running, or a running container. */
+export function isRunning(kind: string, status: unknown): boolean {
+  const st = (status ?? {}) as { phase?: string; state?: string };
+  return kind === 'Pod' ? st.phase === 'Running' : st.state === 'running';
+}
+
+/** Discovered services of the org's clusters that aren't monitored yet. */
+export async function discover(
+  db: Database,
+  orgId: string,
+  clusterId?: string,
+): Promise<Discovered[]> {
+  let q = db.selectFrom('clusters').select(['id', 'name', 'kind']).where('org_id', '=', orgId);
+  if (clusterId) q = q.where('id', '=', clusterId);
+  const clusters = await q.execute();
+  if (clusters.length === 0) return [];
+  const ids = clusters.map((c) => c.id);
+  const [objects, monitored] = await Promise.all([
+    db
+      .selectFrom('objects')
+      .select(['cluster_id', 'kind', 'namespace', 'name', 'node', 'spec_summary', 'status_summary'])
+      .where('cluster_id', 'in', ids)
+      .where('kind', 'in', ['Pod', 'DockerContainer'])
+      .where('deleted_at', 'is', null)
+      .execute(),
+    db
+      .selectFrom('integrations')
+      .select(['cluster_id', 'type', 'target'])
+      .where('cluster_id', 'in', ids)
+      .execute(),
+  ]);
+  const taken = new Set(
+    monitored.map((m) => targetKey(m.cluster_id, m.type, m.target as IntegrationTarget)),
+  );
+  const byCluster = new Map(clusters.map((c) => [c.id, c]));
+  const found = new Map<string, Discovered>();
+
+  for (const o of objects) {
+    // Only what runs now: a stopped container or a finished pod isn't a service to offer.
+    if (!isRunning(o.kind, o.status_summary)) continue;
+    const cluster = byCluster.get(o.cluster_id)!;
+    const spec = o.spec_summary as Record<string, unknown>;
+    let image: string | undefined;
+    let declared: number[] = [];
+    let target: IntegrationTarget | undefined;
+    let name: string;
+    let group: string;
+    let host: string | null = null;
+    let kind: ServiceKind | undefined;
+    let confidence: Discovered['confidence'] = 'image';
+
+    if (o.kind === 'Pod') {
+      const workload = spec.workload as { kind?: string; name?: string } | undefined;
+      if (!workload?.kind || !workload.name) continue;
+      const containers = (spec.containers as Container[] | undefined) ?? [];
+      for (const c of containers) {
+        const k = c.image ? kindOfImage(c.image) : undefined;
+        if (k) {
+          kind = k;
+          image = c.image;
+          declared = (c.ports ?? []).flatMap((p) => (p.port ? [p.port] : []));
+          break;
+        }
+      }
+      if (!kind) {
+        const ports = containers.flatMap((c) =>
+          (c.ports ?? []).flatMap((p) => (p.port ? [p.port] : [])),
+        );
+        kind = kindOfPorts(ports);
+        if (!kind) continue;
+        confidence = 'port';
+        declared = ports;
+        image = containers[0]?.image;
+      }
+      const port = pickPort(kind, declared);
+      target = {
+        kind: 'workload',
+        namespace: o.namespace,
+        workload_kind: workload.kind,
+        workload: workload.name,
+        port,
+      };
+      name = `${o.namespace}/${workload.name}`;
+      group = o.namespace;
+    } else {
+      image = spec.image as string | undefined;
+      declared = (spec.exposed as number[] | undefined) ?? [];
+      kind = image ? kindOfImage(image) : undefined;
+      if (!kind) {
+        kind = kindOfPorts(declared);
+        if (!kind) continue;
+        confidence = 'port';
+      }
+      host = o.node ?? '';
+      const port = pickPort(kind, declared);
+      const service = spec.compose_service as string | undefined;
+      if (o.namespace && service) {
+        target = {
+          kind: 'compose',
+          host,
+          compose_project: o.namespace,
+          compose_service: service,
+          port,
+        };
+        name = `${o.namespace}/${service}`;
+      } else {
+        target = { kind: 'container', host, container: o.name, port };
+        name = o.name;
+      }
+      group = o.namespace;
+    }
+    if (!kind.available) continue;
+    const key = targetKey(o.cluster_id, kind.type, target);
+    if (taken.has(key)) continue;
+    const seen = found.get(key);
+    if (seen) {
+      seen.members++;
+      continue;
+    }
+    found.set(key, {
+      key,
+      clusterId: o.cluster_id,
+      clusterName: cluster.name,
+      clusterKind: cluster.kind as 'kubernetes' | 'docker',
+      type: kind.type,
+      name,
+      image: image ?? null,
+      version: image ? imageVersion(image) : null,
+      port: target.port,
+      confidence,
+      members: 1,
+      host,
+      group,
+      target,
+    });
+  }
+  // The image tells more than a port: image matches first, then by name.
+  return [...found.values()].sort(
+    (a, b) =>
+      (a.confidence === b.confidence ? 0 : a.confidence === 'image' ? -1 : 1) ||
+      a.name.localeCompare(b.name),
+  );
+}

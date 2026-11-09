@@ -101,6 +101,7 @@ describe('integrations collector ingest', () => {
         compose_service: 'redis',
         ports: [{ ip: '127.0.0.1', public_port: 16379, private_port: 6379, protocol: 'tcp' }],
       },
+      status: { state: 'running' },
     });
     // The same service name on another host is not this collector's.
     await addObject(c.id, {
@@ -110,6 +111,7 @@ describe('integrations collector ingest', () => {
       name: 'shop-redis-1',
       node: 'docker-02',
       spec: { image: 'redis:7.2', compose_service: 'redis', ips: ['172.18.0.9'] },
+      status: { state: 'running' },
     });
     const id = await addIntegration(c, {
       type: 'redis',
@@ -157,7 +159,7 @@ describe('integrations collector ingest', () => {
         name,
         node: 'kind-worker',
         spec: { workload: { kind: 'StatefulSet', name: 'postgres' } },
-        status: ip ? { pod_ip: ip } : {},
+        status: ip ? { pod_ip: ip, phase: 'Running' } : { phase: 'Pending' },
       });
     }
     await addObject(c.id, {
@@ -167,7 +169,7 @@ describe('integrations collector ingest', () => {
       name: 'api-5d9c',
       node: 'kind-worker',
       spec: { workload: { kind: 'Deployment', name: 'api' } },
-      status: { pod_ip: '10.244.0.8' },
+      status: { pod_ip: '10.244.0.8', phase: 'Running' },
     });
     await addIntegration(c, {
       type: 'postgres',

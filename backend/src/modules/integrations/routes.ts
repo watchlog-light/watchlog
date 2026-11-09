@@ -1,0 +1,442 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Applications API (SPEC §4.12, ADR-132, ADR-135): monitored services, discovered ones,
+// the collectors, Monitor and remove. Credentials and the connect flow are slice 4.
+import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
+import { Type, type Static } from 'typebox';
+import { isUniqueViolation, type Database } from '../../db/index.js';
+import { newId } from '../../lib/ids.js';
+import { sendProblem } from '../../lib/problem.js';
+import { requireRole, requireUser } from '../../plugins/auth.js';
+import { ProblemSchema } from '../auth/schemas.js';
+import { INTEGRATION_TYPES, type IntegrationTarget } from './collector-config.js';
+import { discover, SERVICE_KINDS, targetKey } from './discovery.js';
+import type { ConfigNotifier } from './notifier.js';
+import {
+  collectorOf,
+  COLLECTOR_STALE_MS,
+  healthOf,
+  listApplicationRows,
+  listCollectors,
+  whereOf,
+  type ApplicationRow,
+  type CollectorRow,
+} from './service.js';
+
+const Name = Type.String({ minLength: 1, maxLength: 253 });
+const K8sName = Type.String({
+  minLength: 1,
+  maxLength: 253,
+  pattern: '^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$',
+});
+const DockerName = Type.String({
+  minLength: 1,
+  maxLength: 253,
+  pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]*$',
+});
+const Port = Type.Integer({ minimum: 1, maximum: 65535 });
+
+export const TargetSchema = Type.Union([
+  Type.Object(
+    {
+      kind: Type.Literal('workload'),
+      namespace: K8sName,
+      workload_kind: Type.String({ minLength: 1, maxLength: 64, pattern: '^[A-Za-z]+$' }),
+      workload: K8sName,
+      port: Port,
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('compose'),
+      host: DockerName,
+      compose_project: DockerName,
+      compose_service: DockerName,
+      port: Port,
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    { kind: Type.Literal('container'), host: DockerName, container: DockerName, port: Port },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('address'),
+      // host:port, a name or an IPv4 address, or [IPv6]:port.
+      address: Type.String({
+        maxLength: 260,
+        pattern: '^(\\[[0-9a-fA-F:.]+\\]|[A-Za-z0-9][A-Za-z0-9.-]*):[0-9]{1,5}$',
+      }),
+    },
+    { additionalProperties: false },
+  ),
+]);
+
+const Health = Type.Union([
+  Type.Literal('ok'),
+  Type.Literal('warning'),
+  Type.Literal('critical'),
+  Type.Literal('unknown'),
+]);
+const Reason = Type.Object({
+  code: Type.String(),
+  facts: Type.Record(Type.String(), Type.Union([Type.String(), Type.Number(), Type.Null()])),
+});
+const ClusterRef = Type.Object({
+  id: Type.String(),
+  name: Type.String(),
+  kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
+});
+export const ApplicationSchema = Type.Object({
+  id: Type.String(),
+  type: Type.String(),
+  name: Type.String(),
+  version: Type.Union([Type.String(), Type.Null()]),
+  cluster: ClusterRef,
+  where: Type.Object({
+    group: Type.Union([Type.String(), Type.Null()]),
+    host: Type.Union([Type.String(), Type.Null()]),
+    address: Type.Union([Type.String(), Type.Null()]),
+  }),
+  health: Health,
+  reason: Reason,
+  members: Type.Object({ up: Type.Integer(), total: Type.Integer() }),
+  monitoredSince: Type.String(),
+  lastReportAt: Type.Union([Type.String(), Type.Null()]),
+});
+export type ApplicationView = Static<typeof ApplicationSchema>;
+
+const DiscoveredSchema = Type.Object({
+  key: Type.String(),
+  cluster: ClusterRef,
+  type: Type.String(),
+  name: Type.String(),
+  image: Type.Union([Type.String(), Type.Null()]),
+  version: Type.Union([Type.String(), Type.Null()]),
+  port: Type.Integer(),
+  confidence: Type.Union([Type.Literal('image'), Type.Literal('port')]),
+  members: Type.Integer(),
+  host: Type.Union([Type.String(), Type.Null()]),
+  group: Type.String(),
+  target: TargetSchema,
+});
+
+const CollectorSchema = Type.Object({
+  cluster: ClusterRef,
+  host: Type.Union([Type.String(), Type.Null()]),
+  version: Type.String(),
+  lastSeenAt: Type.String(),
+  reporting: Type.Boolean(),
+});
+
+const CreateBody = Type.Object(
+  {
+    clusterId: Type.String({ format: 'uuid' }),
+    type: Type.Union(INTEGRATION_TYPES.map((t) => Type.Literal(t))),
+    target: TargetSchema,
+    /** Docker, an address added by hand: which host's collector reaches it. */
+    collectorHost: Type.Optional(DockerName),
+    name: Type.Optional(Name),
+  },
+  { additionalProperties: false },
+);
+
+function toView(
+  row: ApplicationRow,
+  collectors: CollectorRow[],
+  now = Date.now(),
+): ApplicationView {
+  const { health, reason } = healthOf(row, collectorOf(row, collectors), now);
+  const members = (row.status_details as { members?: { up: boolean }[] }).members ?? [];
+  return {
+    id: row.id,
+    type: row.type,
+    name: row.name,
+    version: row.version,
+    cluster: {
+      id: row.cluster_id,
+      name: row.cluster_name,
+      kind: row.cluster_kind as 'kubernetes' | 'docker',
+    },
+    where: whereOf(row.target),
+    health,
+    reason,
+    members: { up: members.filter((m) => m.up).length, total: members.length },
+    monitoredSince: row.monitored_since.toISOString(),
+    lastReportAt: row.last_report_at?.toISOString() ?? null,
+  };
+}
+
+const ORDER: Record<string, number> = { critical: 0, warning: 1, unknown: 2, ok: 3 };
+
+export const applicationRoutes: FastifyPluginAsyncTypebox<{
+  db: Database;
+  notifier: ConfigNotifier;
+}> = async (app, { db, notifier }) => {
+  const signedIn = requireUser(db);
+  const canManage = [signedIn, requireRole('owner', 'admin')];
+
+  app.get(
+    '/applications',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary: 'Monitored services, problems first',
+        tags: ['applications'],
+        querystring: Type.Object({ cluster: Type.Optional(Type.String({ format: 'uuid' })) }),
+        response: {
+          200: Type.Object({ applications: Type.Array(ApplicationSchema) }),
+          401: ProblemSchema,
+        },
+      },
+    },
+    async (request) => {
+      const rows = await listApplicationRows(db, request.user!.org.id, {
+        clusterId: request.query.cluster,
+      });
+      const collectors = await listCollectors(db, [...new Set(rows.map((r) => r.cluster_id))]);
+      const now = Date.now();
+      const applications = rows.map((r) => toView(r, collectors, now));
+      applications.sort(
+        (a, b) => ORDER[a.health]! - ORDER[b.health]! || a.name.localeCompare(b.name),
+      );
+      return { applications };
+    },
+  );
+
+  app.get(
+    '/applications/discovered',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary: "Services the agents see that aren't monitored yet (ADR-132)",
+        tags: ['applications'],
+        querystring: Type.Object({ cluster: Type.Optional(Type.String({ format: 'uuid' })) }),
+        response: {
+          200: Type.Object({ discovered: Type.Array(DiscoveredSchema) }),
+          401: ProblemSchema,
+        },
+      },
+    },
+    async (request) => {
+      const found = await discover(db, request.user!.org.id, request.query.cluster);
+      return {
+        discovered: found.map((d) => ({
+          key: d.key,
+          cluster: { id: d.clusterId, name: d.clusterName, kind: d.clusterKind },
+          type: d.type,
+          name: d.name,
+          image: d.image,
+          version: d.version,
+          port: d.port,
+          confidence: d.confidence,
+          members: d.members,
+          host: d.host,
+          group: d.group,
+          target: d.target,
+        })),
+      };
+    },
+  );
+
+  app.get(
+    '/applications/collectors',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary: 'The integrations collectors and whether they report (ADR-131)',
+        tags: ['applications'],
+        response: {
+          200: Type.Object({ collectors: Type.Array(CollectorSchema) }),
+          401: ProblemSchema,
+        },
+      },
+    },
+    async (request) => {
+      const clusters = await db
+        .selectFrom('clusters')
+        .select(['id', 'name', 'kind'])
+        .where('org_id', '=', request.user!.org.id)
+        .execute();
+      const byId = new Map(clusters.map((c) => [c.id, c]));
+      const rows = await listCollectors(
+        db,
+        clusters.map((c) => c.id),
+      );
+      const now = Date.now();
+      return {
+        collectors: rows.map((r) => {
+          const c = byId.get(r.cluster_id)!;
+          return {
+            cluster: { id: c.id, name: c.name, kind: c.kind as 'kubernetes' | 'docker' },
+            host: r.host || null,
+            version: r.version,
+            lastSeenAt: r.last_seen_at.toISOString(),
+            reporting: now - r.last_seen_at.getTime() <= COLLECTOR_STALE_MS,
+          };
+        }),
+      };
+    },
+  );
+
+  app.get(
+    '/applications/:id',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary: 'One monitored service',
+        tags: ['applications'],
+        params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+        response: {
+          200: Type.Object({ application: ApplicationSchema }),
+          401: ProblemSchema,
+          404: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const [row] = await listApplicationRows(db, request.user!.org.id, { id: request.params.id });
+      if (!row) return sendProblem(reply, 404, 'Service not found');
+      const collectors = await listCollectors(db, [row.cluster_id]);
+      return { application: toView(row, collectors) };
+    },
+  );
+
+  app.post(
+    '/applications',
+    {
+      preHandler: canManage,
+      schema: {
+        summary: 'Monitor a service (Monitor, or Add manually)',
+        tags: ['applications'],
+        body: CreateBody,
+        response: {
+          201: Type.Object({ application: ApplicationSchema }),
+          400: ProblemSchema,
+          401: ProblemSchema,
+          403: ProblemSchema,
+          404: ProblemSchema,
+          409: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body;
+      const orgId = request.user!.org.id;
+      const cluster = await db
+        .selectFrom('clusters')
+        .select(['id', 'kind'])
+        .where('id', '=', body.clusterId)
+        .where('org_id', '=', orgId)
+        .executeTakeFirst();
+      if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
+      const kind = SERVICE_KINDS.find((k) => k.type === body.type)!;
+      if (!kind.available) {
+        return sendProblem(
+          reply,
+          400,
+          `${body.type} monitoring isn't available in this version yet`,
+        );
+      }
+      const target = body.target as IntegrationTarget;
+      const k8sTarget = target.kind === 'workload';
+      const dockerTarget = target.kind === 'compose' || target.kind === 'container';
+      if (
+        (k8sTarget && cluster.kind !== 'kubernetes') ||
+        (dockerTarget && cluster.kind !== 'docker')
+      ) {
+        return sendProblem(
+          reply,
+          400,
+          `A ${target.kind} target doesn't belong to a ${cluster.kind} cluster`,
+        );
+      }
+      let collectorHost = '';
+      if (dockerTarget) collectorHost = target.host;
+      if (target.kind === 'address' && cluster.kind === 'docker') {
+        if (!body.collectorHost) {
+          return sendProblem(
+            reply,
+            400,
+            'Name the Docker host whose collector reaches this address',
+          );
+        }
+        collectorHost = body.collectorHost;
+      }
+      const existing = await db
+        .selectFrom('integrations')
+        .select(['type', 'target', 'cluster_id'])
+        .where('cluster_id', '=', cluster.id)
+        .execute();
+      const key = targetKey(cluster.id, body.type, target);
+      if (
+        existing.some((e) => targetKey(e.cluster_id, e.type, e.target as IntegrationTarget) === key)
+      ) {
+        return sendProblem(reply, 409, 'This service is already monitored');
+      }
+      const name =
+        body.name ??
+        (target.kind === 'workload'
+          ? `${target.namespace}/${target.workload}`
+          : target.kind === 'compose'
+            ? `${target.compose_project}/${target.compose_service}`
+            : target.kind === 'container'
+              ? target.container
+              : target.address);
+      const id = newId();
+      try {
+        await db
+          .insertInto('integrations')
+          .values({
+            id,
+            org_id: orgId,
+            cluster_id: cluster.id,
+            type: body.type,
+            name,
+            target: JSON.stringify(target),
+            collector_host: collectorHost,
+            created_by: request.user!.id,
+          })
+          .execute();
+      } catch (err) {
+        if (isUniqueViolation(err)) {
+          return sendProblem(
+            reply,
+            409,
+            `A ${body.type} service named ${name} is already monitored`,
+          );
+        }
+        throw err;
+      }
+      notifier.notify(cluster.id);
+      const [row] = await listApplicationRows(db, orgId, { id });
+      const collectors = await listCollectors(db, [cluster.id]);
+      return reply.code(201).send({ application: toView(row!, collectors) });
+    },
+  );
+
+  app.delete(
+    '/applications/:id',
+    {
+      preHandler: canManage,
+      schema: {
+        summary: 'Stop monitoring a service',
+        tags: ['applications'],
+        params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+        response: { 204: Type.Null(), 401: ProblemSchema, 403: ProblemSchema, 404: ProblemSchema },
+      },
+    },
+    async (request, reply) => {
+      const row = await db
+        .deleteFrom('integrations')
+        .where('id', '=', request.params.id)
+        .where('org_id', '=', request.user!.org.id)
+        .returning('cluster_id')
+        .executeTakeFirst();
+      if (!row) return sendProblem(reply, 404, 'Service not found');
+      notifier.notify(row.cluster_id);
+      return reply.code(204).send(null);
+    },
+  );
+};

@@ -139,3 +139,14 @@ export type CreateApiTokenRequest = RequestBody<'/api/v1/api-tokens', 'post'>;
 export type CreateApiTokenResponse = JsonBody<Responses<'/api/v1/api-tokens', 'post'>[201]>;
 export type ApiTokenDetail = JsonBody<Responses<'/api/v1/api-tokens/{id}', 'get'>[200]>;
 export type ApiTokenEvent = ApiTokenDetail['history'][number];
+
+// Applications (v0.3, SPEC §4.12).
+export type ApplicationList = JsonBody<Responses<'/api/v1/applications', 'get'>[200]>;
+export type Application = ApplicationList['applications'][number];
+export type ApplicationHealth = Application['health'];
+export type DiscoveredList = JsonBody<Responses<'/api/v1/applications/discovered', 'get'>[200]>;
+export type DiscoveredService = DiscoveredList['discovered'][number];
+export type IntegrationTarget = DiscoveredService['target'];
+export type CollectorList = JsonBody<Responses<'/api/v1/applications/collectors', 'get'>[200]>;
+export type IntegrationCollector = CollectorList['collectors'][number];
+export type CreateApplicationRequest = RequestBody<'/api/v1/applications', 'post'>;
