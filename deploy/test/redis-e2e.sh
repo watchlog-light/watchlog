@@ -35,6 +35,11 @@ if [ "${1:-}" = down ]; then
 fi
 : "${WATCHLOG_E2E_EMAIL:?}" "${WATCHLOG_E2E_PASSWORD:?}"
 
+# A previous run's servers, Secret grants and files would make this one pass or fail for
+# the wrong reason (a Role left over, a pod still on the old password): start clean.
+down
+in_vm "kubectl --context kind-demo wait --for=delete namespace/$ns --timeout 180s >/dev/null 2>&1 || true"
+
 say "Redis on kind (namespace $ns) and on the VM's Docker host"
 password=$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 24)
 printf '%s' "$password" | limactl shell "$vm" bash -c "cd ~ && export PATH=\$HOME/bin:\$PATH && p=\$(cat) && \
@@ -131,6 +136,11 @@ want = {("kubernetes", f"{ns}/redis-acl"), ("kubernetes", f"{ns}/redis-auth"), (
 def found():
     d = {(x["cluster"]["kind"], x["name"]): x for x in call("GET", "/applications/discovered")["discovered"] if x["type"] == "redis"}
     return d if want <= set(d) else None
+# A previous run that stopped early may have left its services monitored, so they aren't
+# "discovered" any more: remove them first.
+for x in call("GET", "/applications")["applications"]:
+    if x["type"] == "redis" and (x["cluster"]["kind"], x["name"]) in want:
+        call("DELETE", f"/applications/{x['id']}")
 d = wait(found, 180, 5) or {}
 check("the four Redis servers are discovered", bool(d), str(sorted(d)))
 if not d:
@@ -150,6 +160,11 @@ def settle(p, timeout=90):
     return wait(done, timeout) or call("GET", f"/applications/probes/{pid}")["probe"]
 
 monitored = []
+import atexit
+@atexit.register
+def unmonitor():
+    for m in monitored:
+        call("DELETE", f"/applications/{m}", ok=False)
 def monitor(svc, probe_id):
     a = call("POST", "/applications", {"clusterId": svc["cluster"]["id"], "type": "redis", "target": svc["target"],
                                          "probeId": probe_id, "defaultAlerts": ["redis_memory_high", "redis_evicting"]})["application"]
@@ -240,8 +255,6 @@ def reasons():
 got = wait(reasons, 150, 5)
 check("eviction and memory near maxmemory are reasons", bool(got), str({r['code'] for r in call('GET', f'/applications/{k_app}')['reasons']}))
 
-for m in monitored:
-    call("DELETE", f"/applications/{m}")
 print(f"\n{failures} failed" if failures else "\nall passed")
 sys.exit(1 if failures else 0)
 PY

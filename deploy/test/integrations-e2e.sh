@@ -16,7 +16,7 @@
 # container watchlog-agent-e2e), without eBPF; `integrations-e2e.sh down` removes them.
 # The Docker collector mounts ~/watchlog-e2e-secrets on the VM as /etc/watchlog/secrets:
 # the host-file path, root-owned and 0700 like the documented `sudo install -d`, made by a
-# root container instead of sudo. deploy/test/redis-e2e.sh runs after this.
+# root container instead of sudo. deploy/test/redis-e2e.sh and postgres-e2e.sh run after this.
 # shellcheck disable=SC2016
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -97,6 +97,12 @@ def check(name, ok, detail=""):
     print(("PASS  " if ok else "FAIL  ") + name + (f": {detail}" if detail and not ok else ""))
     failures += 0 if ok else 1
 
+# The demo's own Redis on the Docker host (a Compose service, no password) before any
+# other container (redis-e2e.sh's have passwords).
+def redis_on_docker(found):
+    rs = [d for d in found if d["cluster"]["kind"] == "docker" and d["type"] == "redis" and not d["name"].startswith("e2e-")]
+    return sorted(rs, key=lambda d: (not d.get("group"), d["name"]))
+
 # The agents' first inventories arrive within a minute.
 want = {("kubernetes", "redis", "shop/redis"), ("kubernetes", "postgres", "shop/postgres")}
 deadline = time.time() + 180
@@ -104,14 +110,14 @@ found = []
 while time.time() < deadline:
     found = call("GET", "/applications/discovered")["discovered"]
     seen = {(d["cluster"]["kind"], d["type"], d["name"]) for d in found}
-    docker = [d for d in found if d["cluster"]["kind"] == "docker" and d["type"] == "redis"]
+    docker = redis_on_docker(found)
     if want <= seen and docker:
         break
     time.sleep(5)
 seen = {(d["cluster"]["kind"], d["type"], d["name"]) for d in found}
 for kind, typ, name in sorted(want):
     check(f"discovered {typ} {name} on Kubernetes", (kind, typ, name) in seen, str(sorted(seen)))
-docker = [d for d in found if d["cluster"]["kind"] == "docker" and d["type"] == "redis"]
+docker = redis_on_docker(found)
 check("discovered a Redis container on the Docker host", bool(docker), str(sorted(seen)))
 
 # Monitor them; their collectors connect. (Slices 3 to 5 below: the page, the connect
@@ -120,16 +126,19 @@ monitored = []
 for d in [x for x in found if (x["cluster"]["kind"], x["type"], x["name"]) in want] + docker[:1]:
     res = call("POST", "/applications", {"clusterId": d["cluster"]["id"], "type": d["type"], "target": d["target"]})
     monitored.append(res["application"]["id"])
+# PostgreSQL logs in (slice 8): the demo's server has a password and none is set yet, so
+# its collector reaches it and says it can't log in; the others connect.
+expect = lambda a: "login_failed" if a["type"] == "postgres" else "connected"
 deadline = time.time() + 120
 apps = []
 while time.time() < deadline:
     apps = [a for a in call("GET", "/applications")["applications"] if a["id"] in monitored]
-    if apps and all(a["reason"]["code"] == "connected" for a in apps):
+    if apps and all(a["reason"]["code"] == expect(a) for a in apps):
         break
     time.sleep(5)
 for a in apps:
-    check(f"{a['cluster']['kind']} {a['type']} {a['name']} reports through its collector",
-          a["reason"]["code"] == "connected" and a["members"]["up"] >= 1,
+    check(f"{a['cluster']['kind']} {a['type']} {a['name']} reports through its collector ({expect(a)})",
+          a["reason"]["code"] == expect(a) and (a["members"]["up"] >= 1 or a["type"] == "postgres"),
           json.dumps({"reason": a["reason"], "members": a["members"]}))
 collectors = call("GET", "/applications/collectors")["collectors"]
 check("a collector reports for the cluster and one for the Docker host",
@@ -139,12 +148,16 @@ check("a collector reports for the cluster and one for the Docker host",
 # The service page (slice 3): reasons and the generic Overview's panels.
 for a in apps:
     d = call("GET", f"/applications/{a['id']}")
-    check(f"{a['cluster']['kind']} {a['name']}: the page says it's connected",
+    check(f"{a['cluster']['kind']} {a['name']}: the page says {expect(a)}",
           # Most severe first: an integration's own notes (no maxmemory) may come before it.
-          "connected" in [r["code"] for r in d["reasons"]], json.dumps(d["reasons"]))
+          expect(a) in [r["code"] for r in d["reasons"]], json.dumps(d["reasons"]))
     p = call("GET", f"/applications/{a['id']}/panels")
-    # Redis has its own page (slice 7, filled in redis-e2e.sh); the others the generic one.
-    want_panels = ["summary", "memory", "hits", "slowlog"] if a["type"] == "redis" else ["summary", "connect", "reachable"]
+    # Redis and PostgreSQL have their own pages (slices 7 and 8, filled in redis-e2e.sh and
+    # postgres-e2e.sh); the others the generic one.
+    want_panels = {
+        "redis": ["summary", "memory", "hits", "slowlog"],
+        "postgres": ["summary", "connections", "transactions", "slowest", "busiest", "capacity"],
+    }.get(a["type"], ["summary", "connect", "reachable"])
     check(f"{a['cluster']['kind']} {a['name']}: the Overview has its panels",
           [x["id"] for x in p["panels"]] == want_panels, json.dumps(p)[:300])
 
@@ -158,9 +171,10 @@ for a in apps:
     while time.time() < deadline and probe["status"] == "pending" and not probe["result"]:
         time.sleep(3)
         probe = call("GET", f"/applications/probes/{probe['id']}")["probe"]
-    # Redis logs in (slice 7): the made-up password is refused. A type that can't log in
-    # yet reaches the port and stays waiting, saying so; it never passes on the port alone.
-    want_code = "auth_failed" if a["type"] == "redis" else "login_untested"
+    # Redis and PostgreSQL log in (slices 7 and 8): the made-up password is refused. A type
+    # that can't log in yet reaches the port and stays waiting, saying so; it never passes
+    # on the port alone.
+    want_code = "auth_failed" if a["type"] in ("redis", "postgres") else "login_untested"
     check(f"{a['cluster']['kind']} {a['name']}: its collector tried the probe and didn't pass it ({want_code})",
           probe["status"] == "pending" and (probe["result"] or {}).get("code") == want_code,
           json.dumps(probe))
@@ -172,8 +186,8 @@ for a in apps:
 
 # Alert rules for services (slice 5): each got its two default rules, off.
 rules = [r for r in call("GET", "/alert-rules")["rules"] if (r.get("service") or {}).get("id") in monitored]
-# Two for every service, five more for each Redis (SPEC §4.12).
-want_rules = sum(7 if a["type"] == "redis" else 2 for a in apps)
+# Two for every service, five more for each Redis and PostgreSQL (SPEC §4.12).
+want_rules = sum(7 if a["type"] in ("redis", "postgres") else 2 for a in apps)
 check("every monitored service has its default rules",
       len(rules) == want_rules, json.dumps([r["name"] for r in rules]))
 for a in monitored:
