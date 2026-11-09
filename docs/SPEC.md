@@ -384,7 +384,7 @@ Access: a login role with `pg_monitor`. It reads statistics views and the WAL di
 ### Nginx (ingress-nginx metrics; stub_status; eBPF HTTP)
 
 Access:
-- **ingress-nginx:** nothing; its metrics on :10254 are read as they are.
+- **ingress-nginx:** its metrics on :10254, read as they are (labels renamed where they'd collide, ADR-143). The controller serves them only with `--enable-metrics` (the chart's `controller.metrics.enabled`, off by default): until then requests, errors and latency come from eBPF and the page gives the one command (ADR-143).
 - **Plain Nginx:** nothing for requests, errors and latency (eBPF, ADR-139). `stub_status` (one location block) adds the Connections tab.
 
 | Tab | Panels and sources |
@@ -402,7 +402,7 @@ Access:
   - an upstream has no healthy endpoint (critical);
   - a certificate expires within 14 days (warning, ingress-nginx: `nginx_ingress_controller_ssl_expire_time_seconds`).
 - ⚑ **Plain Nginx certificates:** TLS terminates inside Nginx and WatchLog doesn't read its files, so there is no expiry rule for plain Nginx.
-- **Reasons:** `errors_high` (top upstream, linked to its workload's state and last rollout), `upstream_no_endpoints`, `latency_high`, `connections_dropped`, `certificate_expiring`, `stub_status_missing` (hint).
+- **Reasons:** `errors_high` (top upstream, linked to its workload's state and last rollout), `upstream_no_endpoints`, `latency_high`, `connections_dropped`, `certificate_expiring`, `stub_status_missing` and `ingress_metrics_off` (hints, with the snippet or command).
 
 ### RabbitMQ (rabbitmq_prometheus on 15692; versions 3.10+)
 
