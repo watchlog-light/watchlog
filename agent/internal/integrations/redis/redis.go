@@ -79,7 +79,7 @@ func (r *Redis) Scrape(ctx context.Context, t integrations.Target, heavy bool) i
 		up++
 		res.Samples = append(res.Samples, out.samples...)
 		if res.ServiceVersion == "" {
-			res.ServiceVersion = out.version
+			res.ServiceVersion, res.Product = out.version, out.product
 		}
 		slow = append(slow, out.slow...)
 		clients = append(clients, out.clients...)
@@ -133,6 +133,7 @@ type memberOut struct {
 	perms   map[string]string
 	// authFailed: the user or password was refused.
 	authFailed bool
+	product    string
 }
 
 // login connects to a member and authenticates with the target's user, if any.
@@ -193,6 +194,7 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 	ms.Up = true
 	info := ParseInfo(text)
 	out.version = info.Version()
+	out.product = info.Product()
 	out.samples = append(out.samples, InfoSamples(info, m.Name)...)
 
 	// CONFIG GET: the limits (memory, clients).
@@ -326,6 +328,9 @@ func (r *Redis) Probe(ctx context.Context, t integrations.Target) integrations.P
 		}
 		used, _ := strconv.ParseFloat(info["used_memory"], 64)
 		out.Facts = map[string]any{"role": info["role"]}
+		if p := info.Product(); p != "" {
+			out.Facts["product"] = p
+		}
 		if used > 0 {
 			out.Facts["used_memory"] = humanBytes(used)
 		}
@@ -381,6 +386,14 @@ func ParseInfo(s string) Info {
 }
 
 // Version is the server's version: Valkey's own when it is Valkey.
+// Product is "valkey" when Valkey answers (the Redis integration reads it as Redis), else "".
+func (i Info) Product() string {
+	if i["server_name"] == "valkey" || i["valkey_version"] != "" {
+		return "valkey"
+	}
+	return ""
+}
+
 func (i Info) Version() string {
 	if v := i["valkey_version"]; v != "" {
 		return v
@@ -595,6 +608,15 @@ func normalise(args []any, queryText bool) string {
 	if !queryText || len(args) == 1 {
 		return name
 	}
+	// Commands whose arguments can be credentials: only the command (and its subcommand),
+	// whatever the server's own slow-log redaction does.
+	switch name {
+	case "AUTH", "HELLO", "MIGRATE":
+		return name
+	case "ACL", "CONFIG":
+		sub, _ := args[1].(string)
+		return name + " " + strings.ToUpper(trimTo(sub, 16))
+	}
 	key, _ := args[1].(string)
 	out := name + " " + Prefix(key) + "*"
 	if len(args) > 2 {
@@ -738,4 +760,11 @@ func SamplePrefixes(ctx context.Context, c *resp.Conn, limit int, total float64)
 		out = append(out[:TopPrefixes], rest)
 	}
 	return out, nil
+}
+
+func trimTo(s string, n int) string {
+	if len(s) > n {
+		return s[:n]
+	}
+	return s
 }

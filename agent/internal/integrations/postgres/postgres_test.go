@@ -21,7 +21,26 @@ func TestNormalise(t *testing.T) {
 	if got != "select * from orders where id = $1" {
 		t.Fatalf("normalise: %q", got)
 	}
-	if len(normalise(strings.Repeat("x ", 400))) != textLen {
+	// Utility statements keep their literals in pg_stat_statements: only the command is
+	// kept, so a password never leaves the server.
+	for q, want := range map[string]string{
+		"ALTER ROLE watchlog PASSWORD 'zlaPe0eQUJ'":                           "ALTER ROLE …",
+		"CREATE ROLE watchlog LOGIN PASSWORD 'wl_mon_abc'":                    "CREATE ROLE …",
+		"create user app with encrypted password 's3cret'":                    "CREATE USER …",
+		"DO $$ BEGIN CREATE ROLE x PASSWORD 'p'; END $$":                      "DO …",
+		"GRANT pg_monitor TO watchlog":                                        "GRANT …",
+		"set password_encryption = 'scram-sha-256'":                           "SET …",
+		"COPY orders FROM '/tmp/secret.csv'":                                  "COPY …",
+		"(select 1)":                                                          "(select 1)",
+		"WITH x AS (select password from users where password = $1) select 1": "WITH x AS (select password from users where password = $1) select 1",
+		"select 'a' as password, $1":                                          "select 'a' as password, $1",
+		"select pg_catalog.set_config($1, $2, $3), password 'p'":              "select pg_catalog.set_config($1, $2, $3), password '…'",
+	} {
+		if got := normalise(q); got != want {
+			t.Errorf("normalise(%q) = %q, want %q", q, got, want)
+		}
+	}
+	if len(normalise("select "+strings.Repeat("x, ", 400)+"y")) != textLen {
 		t.Fatal("normalise must cap the text")
 	}
 }
@@ -163,6 +182,7 @@ func realServer(t *testing.T, addr string) {
 	exec(t, a, "CREATE ROLE watchlog LOGIN PASSWORD '"+pass+"'")
 	exec(t, a, "GRANT pg_monitor TO watchlog")
 	exec(t, a, "CREATE ROLE watchlog_nomon LOGIN PASSWORD '"+pass+"'")
+	exec(t, a, "ALTER ROLE watchlog_nomon PASSWORD '"+pass+"'")
 	exec(t, a, "create database shop")
 	stmts := false
 	if _, err := a.Exec(ctx, "create extension if not exists pg_stat_statements"); err == nil {
@@ -359,6 +379,12 @@ func realServer(t *testing.T, addr string) {
 			}
 			if !withText {
 				t.Errorf("query text on, but no statement text: %+v", statements)
+			}
+			// The roles above were made with passwords in pg_stat_statements' view.
+			for _, st := range statements {
+				if q, _ := st["query"].(string); strings.Contains(q, pass) || strings.Contains(strings.ToUpper(q), "PASSWORD '") {
+					t.Fatalf("a password left the server: %q", q)
+				}
 			}
 		}
 	})

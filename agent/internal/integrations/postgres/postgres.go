@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -503,10 +504,46 @@ func (s *scrape) textOf(ctx context.Context, id any) string {
 	return normalise(q)
 }
 
-// normalise keeps pg_stat_statements' text ($1 placeholders already), one line, short.
-func normalise(q string) string {
-	return trimText(strings.Join(strings.Fields(q), " "), textLen)
+// dml are the statements pg_stat_statements normalises: their constants are $1, $2, ….
+var dml = map[string]bool{
+	"SELECT": true, "INSERT": true, "UPDATE": true, "DELETE": true, "WITH": true,
+	"VALUES": true, "TABLE": true, "MERGE": true,
 }
+
+// password is a password literal in any statement, redacted whatever its kind.
+var password = regexp.MustCompile(`(?i)(password\s+)('(?:[^']|'')*'|\$[a-z0-9_]*\$[\s\S]*?\$[a-z0-9_]*\$)`)
+
+// normalise is a statement's text as WatchLog keeps it (ADR-138): pg_stat_statements
+// normalises only queries (SELECT, INSERT, UPDATE, DELETE, …); a utility statement keeps
+// its literals (CREATE ROLE … PASSWORD 'x', a DO block), so only its command is kept
+// ("ALTER ROLE …"). Passwords are redacted in any case. One line, short.
+func normalise(q string) string {
+	words := strings.Fields(q)
+	if len(words) == 0 {
+		return ""
+	}
+	if first := strings.ToUpper(strings.TrimLeft(words[0], "(")); !dml[first] {
+		kept := []string{first}
+		if len(words) > 1 && isWord(words[1]) {
+			kept = append(kept, strings.ToUpper(words[1]))
+		}
+		return strings.Join(kept, " ") + " …"
+	}
+	return trimText(password.ReplaceAllString(strings.Join(words, " "), "${1}'…'"), textLen)
+}
+
+// objectKinds are the second words kept after a utility command (ALTER ROLE, CREATE
+// TABLE); anything else may be a name and is dropped.
+var objectKinds = map[string]bool{
+	"ROLE": true, "USER": true, "GROUP": true, "TABLE": true, "INDEX": true, "VIEW": true,
+	"MATERIALIZED": true, "SEQUENCE": true, "SCHEMA": true, "DATABASE": true, "EXTENSION": true,
+	"FUNCTION": true, "PROCEDURE": true, "TRIGGER": true, "TYPE": true, "DOMAIN": true,
+	"POLICY": true, "PUBLICATION": true, "SUBSCRIPTION": true, "SERVER": true, "TABLESPACE": true,
+	"UNIQUE": true, "TEMP": true, "TEMPORARY": true, "UNLOGGED": true, "OR": true,
+}
+
+// isWord: a keyword naming the kind of object, never a name or a literal.
+func isWord(w string) bool { return objectKinds[strings.ToUpper(w)] }
 
 func (s *scrape) statements(ctx context.Context) {
 	exec := "total_exec_time"

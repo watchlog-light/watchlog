@@ -171,6 +171,18 @@ func TestAgainstRealServers(t *testing.T) {
 			if def.Code != integrations.ProbeOK || len(def.Excess) == 0 || def.Version == "" {
 				t.Errorf("default user probe = %+v", def)
 			}
+			// Valkey says it is Valkey, with its own version (8.x, not the Redis 7.2 it
+			// emulates); Redis says nothing.
+			if strings.HasPrefix(name, "valkey") {
+				if def.Facts["product"] != "valkey" || !strings.HasPrefix(def.Version, "8.") {
+					t.Errorf("valkey probe = %+v", def)
+				}
+				if res := r.Scrape(ctx, target("", ""), false); res.Product != "valkey" || !strings.HasPrefix(res.ServiceVersion, "8.") {
+					t.Errorf("valkey scrape: product %q version %q", res.Product, res.ServiceVersion)
+				}
+			} else if def.Facts["product"] != nil {
+				t.Errorf("redis probe names a product: %+v", def.Facts)
+			}
 			gen := r.Probe(ctx, target("watchlog", "wl_mon_EXAMPLExEXAMPLExEXAMPLEx"))
 			if gen.Code != integrations.ProbeOK || len(gen.Excess) != 0 || len(gen.Missing) != 0 {
 				t.Errorf("generated user probe = %+v", gen)
@@ -238,5 +250,26 @@ func TestNeedsAPassword(t *testing.T) {
 		if res := New().Scrape(context.Background(), tg, true); res.ErrorCode != integrations.ProbeAuthFailed {
 			t.Errorf("scrape with %v: %s %q", auth, res.ErrorCode, res.Error)
 		}
+	}
+}
+
+// Commands whose arguments can be credentials keep only their name in the slow log,
+// whatever the server redacts itself (a password with ':' would look like a key prefix).
+func TestSlowlogCredentials(t *testing.T) {
+	for _, args := range [][]any{
+		{"AUTH", "app:s3cret"},
+		{"AUTH", "app", "s3cret:x"},
+		{"HELLO", "3", "AUTH", "app", "s3cret"},
+		{"MIGRATE", "h", "6379", "k", "0", "5000", "AUTH", "s3cret"},
+		{"ACL", "SETUSER", "watchlog", "on", ">s3cret:x"},
+		{"CONFIG", "SET", "requirepass", "s3cret:x"},
+	} {
+		got := normalise(args, true)
+		if strings.Contains(got, "s3cret") || strings.Contains(got, "app") || strings.Contains(got, "watchlog") {
+			t.Errorf("normalise(%v) = %q", args, got)
+		}
+	}
+	if got := normalise([]any{"ACL", "SETUSER", "watchlog"}, true); got != "ACL SETUSER" {
+		t.Errorf("ACL: %q", got)
 	}
 }

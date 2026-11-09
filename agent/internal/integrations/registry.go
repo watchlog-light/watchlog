@@ -35,8 +35,10 @@ type Result struct {
 	// accepted the user and password.
 	ErrorCode      string
 	ServiceVersion string
-	Members        []MemberStatus
-	Permissions    []Permission
+	// Product names a compatible server that isn't the type's own ("valkey" for Redis).
+	Product     string
+	Members     []MemberStatus
+	Permissions []Permission
 	// Facts are a few numbers or words for the connect drawer ("312 MB used").
 	Facts map[string]any
 	// Excess lists privileges beyond what WatchLog needs (superuser, +@all), ADR-134.

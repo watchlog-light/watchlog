@@ -163,6 +163,7 @@ type TargetStatus struct {
 	// instead of "unreachable").
 	Code           string         `json:"code,omitempty"`
 	ServiceVersion string         `json:"service_version,omitempty"`
+	Product        string         `json:"product,omitempty"`
 	Members        []MemberStatus `json:"members,omitempty"`
 	Permissions    []Permission   `json:"permissions,omitempty"`
 	// Extra is what a page shows that isn't a metric: slow log entries (normalised,
