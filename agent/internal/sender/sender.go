@@ -280,6 +280,13 @@ func (s *Sender) SendHeartbeat(ctx context.Context, body []byte) Outcome {
 	return outcome
 }
 
+// PostJSON posts a small JSON body to url (integrations probe results) and returns the
+// outcome; endpoint names it in the failure counts (ADR-117).
+func (s *Sender) PostJSON(ctx context.Context, endpoint, url string, body []byte) Outcome {
+	status, _, err := s.post(ctx, endpoint, url, body, map[string]string{"Content-Type": "application/json"})
+	return Classify(status, err)
+}
+
 // SendObjects posts an inventory snapshot as gzipped JSON (SPEC §8.2) and
 // returns the outcome and HTTP status (0 on network errors).
 func (s *Sender) SendObjects(ctx context.Context, body []byte) (Outcome, int) {

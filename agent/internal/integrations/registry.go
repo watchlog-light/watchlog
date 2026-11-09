@@ -28,6 +28,10 @@ type Result struct {
 	ServiceVersion string
 	Members        []MemberStatus
 	Permissions    []Permission
+	// Facts are a few numbers or words for the connect drawer ("312 MB used").
+	Facts map[string]any
+	// Excess lists privileges beyond what WatchLog needs (superuser, +@all), ADR-134.
+	Excess []string
 }
 
 // Registry maps a service type to its integration. Types without one get the TCP

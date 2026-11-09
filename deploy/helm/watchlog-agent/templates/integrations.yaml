@@ -3,7 +3,8 @@
 Integrations collector (SPEC §4.12, ADR-131): one per cluster. It reads the services
 WatchLog monitors (Redis, PostgreSQL, …) over the pod network with read-only access and
 pushes like the agents. It has no ClusterRole and reads no Secrets: a user who keeps a
-service's password in a Secret grants this ServiceAccount that one Secret (ADR-134).
+service's password in a Secret grants this ServiceAccount that one Secret with a Role
+WatchLog writes for them (ADR-134).
 On unless integrations.enabled is false; a missing key means on (ADR-107).
 */}}
 {{- $values := .Values.integrations | default dict }}
@@ -51,6 +52,11 @@ spec:
           env:
             - name: GOMEMLIMIT
               value: {{ dig "goMemLimit" "100MiB" $values | quote }}
+            # Named in the commands that grant it one Secret (ADR-134).
+            - name: WATCHLOG_POD_NAMESPACE
+              valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+            - name: WATCHLOG_SERVICE_ACCOUNT
+              valueFrom: { fieldRef: { fieldPath: spec.serviceAccountName } }
             {{- include "watchlog-agent.env" . | nindent 12 }}
           resources: {{- toYaml (dig "resources" (dict "requests" (dict "cpu" "20m" "memory" "48Mi") "limits" (dict "memory" "128Mi")) $values) | nindent 12 }}
           securityContext: {{- include "watchlog-agent.containerSecurity" . | nindent 12 }}

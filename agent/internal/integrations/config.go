@@ -5,11 +5,17 @@
 // statements, and pushes metrics and status like the agents do.
 package integrations
 
-// Config is what the backend serves at /ingest/v1/integrations/config.
+import "log/slog"
+
+// Config is what the backend serves at /ingest/v1/integrations/config. It may carry
+// credentials (ADR-133): it is kept in memory only and never logged.
 type Config struct {
 	Version string   `json:"version"`
 	Scrape  Scrape   `json:"scrape"`
 	Targets []Target `json:"targets"`
+	// Probes are connection tests the connect drawer asked for (ADR-134): each is tried
+	// every 5 s, and at once when it is new or "Check now" was pressed.
+	Probes []Probe `json:"probes,omitempty"`
 }
 
 // Scrape holds the scrape tiers: every IntervalS seconds, heavy views every HeavyEvery scrapes.
@@ -25,6 +31,72 @@ type Target struct {
 	Name     string   `json:"name"`
 	Members  []Member `json:"members"`
 	Settings Settings `json:"settings"`
+	// Credential is how to log in, when the service needs a user (ADR-133, ADR-134).
+	Credential *Credential `json:"credential,omitempty"`
+	// Auth is the credential resolved for this scrape (a Secret or file read); never sent.
+	Auth *Auth `json:"-"`
+}
+
+// Credential is a user and its password, or where the password lives: a key of a
+// Kubernetes Secret the collector was granted, or a file under SecretsDir on the
+// Docker host.
+type Credential struct {
+	Username string     `json:"username,omitempty"`
+	Password string     `json:"password,omitempty"`
+	Secret   *SecretRef `json:"secret,omitempty"`
+	File     string     `json:"file,omitempty"`
+}
+
+// String keeps a credential out of any log line or error built with %v.
+func (Credential) String() string { return "credential(redacted)" }
+
+// LogValue keeps a credential out of structured logs.
+func (Credential) LogValue() slog.Value { return slog.StringValue("credential(redacted)") }
+
+// SecretRef names one key of one Secret.
+type SecretRef struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Key       string `json:"key"`
+}
+
+// Auth is a resolved user and password, in memory only.
+type Auth struct {
+	Username string
+	Password string
+}
+
+// String keeps a password out of any log line.
+func (Auth) String() string { return "auth(redacted)" }
+
+// LogValue keeps a password out of structured logs.
+func (Auth) LogValue() slog.Value { return slog.StringValue("auth(redacted)") }
+
+// Probe is one connection test: the service's members and the access to try.
+type Probe struct {
+	ID         string      `json:"id"`
+	Type       string      `json:"type"`
+	Members    []Member    `json:"members"`
+	Credential *Credential `json:"credential,omitempty"`
+	// Requested changes when "Check now" is pressed.
+	Requested string `json:"requested"`
+}
+
+// ProbeResults is posted to /ingest/v1/integrations/probes.
+type ProbeResults struct {
+	Host    string        `json:"host"`
+	Results []ProbeResult `json:"results"`
+}
+
+// ProbeResult is what one try found: whether it could connect (and log in), the
+// service's version, a few facts for the drawer, and privileges beyond what's needed.
+type ProbeResult struct {
+	ID      string         `json:"id"`
+	OK      bool           `json:"ok"`
+	Error   string         `json:"error,omitempty"`
+	Version string         `json:"version,omitempty"`
+	Facts   map[string]any `json:"facts,omitempty"`
+	Excess  []string       `json:"excess,omitempty"`
 }
 
 // Member is one pod or container of a service, or the address of a service added by hand.
@@ -49,11 +121,15 @@ type Status struct {
 	Targets       []TargetStatus `json:"targets"`
 }
 
-// SelfStatus is the collector's own footprint, for the budget (ADR-131).
+// SelfStatus is the collector's own footprint, for the budget (ADR-131), and on
+// Kubernetes its namespace and ServiceAccount, for the commands that grant it one
+// Secret (ADR-134).
 type SelfStatus struct {
-	RSSBytes   float64 `json:"rss_bytes,omitempty"`
-	CPUSeconds float64 `json:"cpu_seconds,omitempty"`
-	Series     int     `json:"series"`
+	RSSBytes       float64 `json:"rss_bytes,omitempty"`
+	CPUSeconds     float64 `json:"cpu_seconds,omitempty"`
+	Series         int     `json:"series"`
+	Namespace      string  `json:"namespace,omitempty"`
+	ServiceAccount string  `json:"service_account,omitempty"`
 }
 
 // TargetStatus is one target's outcome.

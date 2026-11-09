@@ -131,6 +131,19 @@ func run(args []string, stdout io.Writer) int {
 		Sender:   snd,
 		Log:      log,
 		Self:     runner.SelfUsage,
+		// Passwords in Secrets (Kubernetes) or under /etc/watchlog/secrets (Docker),
+		// ADR-134: read only when a service names one.
+		Credentials: &integrations.Credentials{},
+		ProbesURL:   base.String() + "/ingest/v1/integrations/probes",
+	}
+	if *mode == "kubernetes" {
+		c.Namespace = integrations.Namespace()
+		c.ServiceAccount = os.Getenv("WATCHLOG_SERVICE_ACCOUNT")
+		if secrets, err := integrations.InClusterSecrets(); err == nil {
+			c.Credentials.Secrets = secrets
+		} else {
+			log.Warn("passwords kept in Secrets can't be read", "err", err)
+		}
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

@@ -41,19 +41,30 @@ type Collector struct {
 	Log      *slog.Logger
 	// Self returns the process's RSS and CPU seconds; replaced in tests.
 	Self func() (rss, cpu float64)
+	// Credentials resolves passwords kept in Secrets or files (ADR-134).
+	Credentials *Credentials
+	// ProbesURL receives probe results; Namespace and ServiceAccount (Kubernetes) go in
+	// the status for the commands that grant the collector one Secret.
+	ProbesURL      string
+	Namespace      string
+	ServiceAccount string
 
 	cfg        atomic.Pointer[Config]
 	scrapes    atomic.Int64
 	lastSeries atomic.Int64
 	ready      chan struct{}
 	readyOnce  sync.Once
+	probeWake  chan struct{}
+	probeSeen  map[string]string
 }
 
 // Run watches the configuration and scrapes until ctx is cancelled.
 func (c *Collector) Run(ctx context.Context) {
 	c.ready = make(chan struct{})
+	c.probeWake = make(chan struct{}, 1)
 	go c.watchConfig(ctx)
 	go c.Sender.Run(ctx)
+	go c.probeLoop(ctx)
 	// The first scrape waits for the first configuration, at most one interval.
 	select {
 	case <-ctx.Done():
@@ -77,6 +88,13 @@ func (c *Collector) Current() *Config { return c.cfg.Load() }
 // SetConfig replaces the configuration (the watcher, and tests).
 func (c *Collector) SetConfig(cfg *Config) {
 	c.cfg.Store(cfg)
+	// A new probe, or "Check now" on one: try at once.
+	if c.probeWake != nil && c.probesChanged(cfg) {
+		select {
+		case c.probeWake <- struct{}{}:
+		default:
+		}
+	}
 	c.readyOnce.Do(func() {
 		if c.ready != nil {
 			close(c.ready)
@@ -194,7 +212,13 @@ func (c *Collector) scrapeOne(ctx context.Context, t Target, heavy bool) ([]metr
 	ctx, cancel := context.WithTimeout(ctx, ScrapeTimeout)
 	defer cancel()
 	start := time.Now()
-	res := c.safeScrape(ctx, t, heavy)
+	var res Result
+	if auth, err := c.resolve(ctx, t.Credential); err != nil {
+		res = Result{State: StateError, Error: err.Error()}
+	} else {
+		t.Auth = auth
+		res = c.safeScrape(ctx, t, heavy)
+	}
 	elapsed := time.Since(start).Seconds()
 
 	labels := []metrics.Label{{Name: "service", Value: t.ID}, {Name: "service_type", Value: t.Type}}
@@ -265,7 +289,8 @@ func (c *Collector) postStatus(ctx context.Context, version string, targets []Ta
 		targets = targets[:maxTargets]
 	}
 	st := Status{Host: c.Host, Mode: c.Mode, Version: c.Version, ConfigVersion: version,
-		Targets: targets, Self: SelfStatus{Series: int(c.lastSeries.Load())}}
+		Targets: targets, Self: SelfStatus{Series: int(c.lastSeries.Load()),
+			Namespace: c.Namespace, ServiceAccount: c.ServiceAccount}}
 	if c.Self != nil {
 		st.Self.RSSBytes, st.Self.CPUSeconds = c.Self()
 	}
