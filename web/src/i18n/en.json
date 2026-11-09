@@ -112,6 +112,16 @@
       "invalidInput": "Check the fields and try again.",
       "unavailable": "The WatchLog backend cannot be reached. Check that it is running.",
       "generic": "Something went wrong. Try again."
+    },
+    "forgot": {
+      "link": "Forgot your password?",
+      "title": "Reset your password",
+      "emailIntro": "We'll email you a link to set a new password. It works once and for one hour.",
+      "send": "Email me a link",
+      "sent": "If an account uses that address, a link is on its way. It works once and for one hour.",
+      "cliIntro": "Email isn't set up here, so WatchLog can't send you a link. If you're the Owner, print one inside the backend container. Anyone else: ask an Admin or the Owner for a reset link.",
+      "command": "Command",
+      "cliFoot": "Without --email it resets the Owner. Add --email you{'@'}example.com for another account, and --url https://… if the Public URL isn't set. The link works once and for one hour; every use is logged."
     }
   },
   "demo": {
@@ -1350,7 +1360,8 @@
       "clusters": "Clusters",
       "channels": "Alert channels",
       "general": "General",
-      "tokens": "API tokens"
+      "tokens": "API tokens",
+      "users": "Users"
     },
     "fromEnvironment": "Set by the server's environment",
     "saved": "Saved.",
@@ -2211,5 +2222,160 @@
       "off": "off",
       "anyMetric": "Any metric on this page can be used in a rule."
     }
+  },
+  "roles": {
+    "locked": "Viewers can't change this. Ask an Admin.",
+    "lockedDemo": "This is a read-only demo."
+  },
+  "users": {
+    "title": "Users",
+    "intro": "People who can open this WatchLog. Their role decides what they can change. API tokens follow the role of the person who made them.",
+    "invite": "Invite someone",
+    "error": "Users couldn't be loaded.",
+    "viewerBanner": "You're a Viewer: you can see everything here but not change it.",
+    "viewerAsk": "To add someone or change a role, ask an Admin, for example {email}.",
+    "smtpBanner": "Email isn't set up, so invites and password resets are shared as links you copy and send yourself.",
+    "setUpSmtp": "Set up SMTP →",
+    "setUpSmtpToSend": "Set up SMTP to send these by email →",
+    "columns": {
+      "person": "Person",
+      "role": "Role",
+      "status": "Status",
+      "last": "Last active",
+      "actions": "Actions"
+    },
+    "status": {
+      "active": "Active",
+      "pending": "Pending invite",
+      "expired": "Invite expired"
+    },
+    "you": "{name} (you)",
+    "invited": "Invited user",
+    "activeNow": "Active now",
+    "neverActive": "Not signed in yet",
+    "invitedBy": "Invited by {name} on {date} · expires {date2}",
+    "inviteExpiredOn": "Invite expired on {date}",
+    "ownAccount": "Change your password with a reset link from an Admin",
+    "roleFor": "Role for {email}",
+    "makeOwner": "Make Owner",
+    "resetPassword": "Reset password",
+    "remove": "Remove",
+    "copyLink": "Copy link",
+    "newLink": "New link",
+    "revoke": "Revoke",
+    "copiedFor": "Invite link for {email} copied.",
+    "revoked": "Invite for {email} revoked.",
+    "removedInvite": "Invite for {email} removed.",
+    "roleChanged": "{name} is now {role}.",
+    "removed": "{name} was removed.",
+    "ownerNow": "{name} is now the Owner.",
+    "rolesTitle": "Roles",
+    "can": "Can: ",
+    "cannot": "Can't: ",
+    "activeCount": "no one active | {n} active | {n} active",
+    "roles": {
+      "owner": {
+        "name": "Owner",
+        "count": "one per install",
+        "desc": "Whoever installed WatchLog, until they hand it over.",
+        "items": [
+          "+Everything an Admin can",
+          "+Hand ownership to an Admin",
+          "+Delete clusters and their data",
+          "+Reset their own password from the command line if locked out"
+        ]
+      },
+      "admin": {
+        "name": "Admin",
+        "desc": "For the people who run the clusters.",
+        "items": [
+          "+Everything a Viewer can",
+          "+Alert rules, channels and silences",
+          "+Connect services and set their credentials",
+          "+Invite Admins and Viewers, change their roles",
+          "-Hand over ownership or delete clusters"
+        ]
+      },
+      "viewer": {
+        "name": "Viewer",
+        "desc": "For people who need to look, not change.",
+        "items": [
+          "+See every cluster, service, alert and the service map",
+          "+Make personal read-only API tokens for MCP",
+          "-Change settings, alert rules or integrations",
+          "-Silence alerts"
+        ]
+      }
+    },
+    "auditTitle": "Recent changes",
+    "audit": {
+      "invite_created": "Invited {subject} as {role}",
+      "invite_copied": "Copied the invite link for {subject}",
+      "invite_renewed": "Made a new invite link for {subject}",
+      "invite_revoked": "Revoked the invite for {subject}",
+      "invite_accepted": "{subject} joined",
+      "role_changed": "{subject}: {from} → {to}",
+      "reset_link_created": "Password reset link for {subject}",
+      "password_reset": "{subject} set a new password",
+      "user_removed": "Removed {subject}",
+      "ownership_transferred": "Ownership handed to {subject}"
+    },
+    "inviteTitle": "Invite someone",
+    "inviteDescription": "They choose their own name and password when they open the link.",
+    "email": "Email",
+    "emailHint": "Used to sign in. Nothing is sent to it unless email is set up.",
+    "inviteRole": {
+      "admin": "Changes alert rules, channels and integrations; can invite others.",
+      "viewer": "Sees everything, changes nothing. Good for most of the team."
+    },
+    "oneOwner": "There is one Owner. You can hand ownership to an Admin later from their row.",
+    "inviteHowSmtp": "Email is set up: WatchLog emails the invite and also shows you the link.",
+    "inviteHowLink": "Email isn't set up: you'll get a link to send yourself. It works once and expires in 7 days.",
+    "createInvite": "Create invite",
+    "done": "Done",
+    "link": {
+      "inviteTitle": "Invite ready for {email}",
+      "inviteMeta": "{role} · works once · expires on {date} (7 days)",
+      "inviteFoot": "You can copy the link again, or revoke it, from their row while it is pending.",
+      "resetTitle": "Password reset link for {name}",
+      "resetMeta": "Works once · valid for 1 hour",
+      "resetFoot": "{name}'s current password keeps working until a new one is set. Resetting signs them out everywhere.",
+      "their": "Their",
+      "emailed": "Also emailed to {email}.",
+      "notEmailed": "Email isn't set up, so nothing was sent. Share this link yourself, in Slack, chat or wherever your team talks."
+    },
+    "removeTitle": "Remove {name}?",
+    "removeSignedOut": "They lose access right away and are signed out.",
+    "removeTokens": "They have no API tokens. | Their API token is revoked, so their AI assistant and scripts stop working. | Their {n} API tokens are revoked, so their AI assistant and scripts stop working.",
+    "removeStays": "Alert rules, silences and connected services they set up stay, and keep working.",
+    "removeUser": "Remove user",
+    "ownerTitle": "Make {name} the Owner?",
+    "ownerBody": "{name} becomes the Owner and can hand ownership over or delete clusters. {owner} becomes an Admin. There is one Owner at a time."
+  },
+  "invite": {
+    "title": "Join WatchLog",
+    "intro": "{who} invited you to {site} as a {role}.",
+    "someone": "Someone",
+    "theInviter": "whoever invited you",
+    "name": "Your name",
+    "passwordHint": "At least 12 characters.",
+    "tooShort": "Use at least 12 characters.",
+    "submit": "Create account and sign in",
+    "foot": "This link works once and expires on {date}. If you didn't expect it, you can ignore it.",
+    "expiredTitle": "This invite has expired",
+    "expiredIntro": "Invite links work once and for 7 days. Ask {who} for a new one: it takes them one click.",
+    "unusableTitle": "This invite link doesn't work",
+    "unusableIntro": "It has been used or revoked. Ask whoever invited you for a new one.",
+    "signIn": "Already have an account? Sign in"
+  },
+  "reset": {
+    "title": "Set a new password",
+    "intro": "For {email}. Your current password keeps working until you set a new one.",
+    "password": "New password",
+    "submit": "Set password and sign in",
+    "foot": "Setting it signs this account out everywhere else.",
+    "goneTitle": "This reset link doesn't work",
+    "used": "It has been used. Ask an Admin for a new one, or use Forgot your password? on the sign-in page.",
+    "expired": "Reset links work once and for one hour. Ask an Admin for a new one, or use Forgot your password? on the sign-in page."
   }
 }

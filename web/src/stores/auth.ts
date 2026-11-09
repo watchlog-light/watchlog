@@ -18,6 +18,8 @@ export const useAuthStore = defineStore('auth', () => {
   const demoMode = ref(false);
   /** The demo's public read-only MCP token (ADR-130), offered on Settings → API tokens. */
   const demoMcpToken = ref<string | null>(null);
+  /** Email is set up: "Forgot your password?" emails a link (ADR-140). */
+  const smtp = ref(false);
   const loaded = ref(false);
   /** Whether the UI offers changes: not to viewers, and never in the demo. */
   const canManage = computed(() => user.value?.role !== 'viewer' && !demoMode.value);
@@ -28,6 +30,7 @@ export const useAuthStore = defineStore('auth', () => {
     setupRequired.value = status.required;
     demoMode.value = status.demoMode;
     demoMcpToken.value = (status.demoMode && status.demoMcpToken) || null;
+    smtp.value = status.smtp;
     user.value = null;
     if (!status.required) {
       try {
@@ -80,9 +83,12 @@ export const useAuthStore = defineStore('auth', () => {
     setupRequired,
     demoMode,
     demoMcpToken,
+    smtp,
     canManage,
     loaded,
     ensureLoaded,
+    /** Reloads the session (a role changed). */
+    reload: load,
     login,
     enterDemo,
     completeSetup,

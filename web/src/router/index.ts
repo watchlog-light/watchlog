@@ -108,6 +108,19 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/LoginPage.vue'),
     meta: { titleKey: 'auth.login.title', public: true },
   },
+  // The links in invites and password resets (ADR-140): open without a session.
+  {
+    name: 'accept-invite',
+    path: '/invite/:token',
+    component: () => import('@/views/AcceptInvitePage.vue'),
+    meta: { titleKey: 'invite.title', public: true },
+  },
+  {
+    name: 'reset-password',
+    path: '/reset/:token',
+    component: () => import('@/views/ResetPasswordPage.vue'),
+    meta: { titleKey: 'reset.title', public: true },
+  },
   // Read-only demo (ADR-122): opens a demo session at once (the sign-in page has a button).
   {
     name: 'demo',

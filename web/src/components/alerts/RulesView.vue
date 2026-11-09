@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
+import LockedControl from '@/components/ui/LockedControl.vue';
 import { Hash, Mail, Plus, Send, Webhook } from '@lucide/vue';
 import type { AlertChannel, AlertRule, AlertRuleList } from '@watchlog/api-types';
 import { computed, ref } from 'vue';
@@ -98,23 +99,25 @@ async function toggle(rule: AlertRule) {
           $t('alerts.rules.defaultsMixed')
         }}</span>
         <span class="flex-1" />
-        <BaseButton
-          v-if="canManage"
-          variant="secondary"
-          class="!h-7 !px-2.5 !text-12 max-lg:!h-11 max-lg:!px-3.5 max-lg:!text-13"
-          data-testid="change-defaults"
-          @click="change"
-        >
-          {{ $t('alerts.rules.change') }}
-        </BaseButton>
-        <BaseButton
-          v-if="canManage"
-          class="!h-7 !px-2.5 !text-12 max-lg:!h-11 max-lg:!px-3.5 max-lg:!text-13"
-          data-testid="new-rule"
-          @click="emit('create')"
-        >
-          <Plus class="size-3.5" aria-hidden="true" />{{ $t('alerts.rules.newCustom') }}
-        </BaseButton>
+        <LockedControl>
+          <BaseButton
+            variant="secondary"
+            class="!h-7 !px-2.5 !text-12 max-lg:!h-11 max-lg:!px-3.5 max-lg:!text-13"
+            data-testid="change-defaults"
+            @click="change"
+          >
+            {{ $t('alerts.rules.change') }}
+          </BaseButton>
+        </LockedControl>
+        <LockedControl>
+          <BaseButton
+            class="!h-7 !px-2.5 !text-12 max-lg:!h-11 max-lg:!px-3.5 max-lg:!text-13"
+            data-testid="new-rule"
+            @click="emit('create')"
+          >
+            <Plus class="size-3.5" aria-hidden="true" />{{ $t('alerts.rules.newCustom') }}
+          </BaseButton>
+        </LockedControl>
       </template>
       <template v-else>
         <ComboBox

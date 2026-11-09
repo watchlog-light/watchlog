@@ -4,7 +4,9 @@ import { ArrowRight } from '@lucide/vue';
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import { ApiError } from '@/api/client';
+import { ApiError, api } from '@/api/client';
+import CodeBlock from '@/components/ui/CodeBlock.vue';
+import ModalDialog from '@/components/ui/ModalDialog.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import TextField from '@/components/ui/TextField.vue';
 import AuthCard from '@/layouts/AuthCard.vue';
@@ -15,6 +17,30 @@ const { t } = useI18n();
 const auth = useAuthStore();
 const route = useRoute();
 const router = useRouter();
+
+// "Forgot your password?" (ADR-140): with SMTP, a reset link by email (the same answer
+// whether the account exists or not); without it, the Owner's command line.
+const forgotOpen = ref(false);
+const forgotEmail = ref('');
+const forgotSent = ref(false);
+const forgotBusy = ref(false);
+async function sendReset() {
+  forgotBusy.value = true;
+  try {
+    await api('/auth/forgot-password', {
+      method: 'POST',
+      body: { email: forgotEmail.value.trim() },
+    });
+  } catch {
+    // The same message either way: nothing to tell about the account.
+  } finally {
+    forgotBusy.value = false;
+    forgotSent.value = true;
+  }
+}
+const CLI_K8S =
+  'kubectl exec -n watchlog deploy/watchlog-backend -- \\\n  watchlog admin reset-password';
+const CLI_DOCKER = 'docker exec watchlog-backend-1 \\\n  watchlog admin reset-password';
 
 const email = ref('');
 const password = ref('');
@@ -122,6 +148,49 @@ onMounted(() => {
       <BaseButton type="submit" block :loading="submitting">
         {{ $t('auth.login.submit') }}
       </BaseButton>
+      <button
+        type="button"
+        class="self-center text-13 text-text-muted hover:text-text max-lg:min-h-11"
+        data-testid="forgot"
+        @click="
+          forgotOpen = true;
+          forgotSent = false;
+          forgotEmail = email;
+        "
+      >
+        {{ $t('auth.forgot.link') }}
+      </button>
     </form>
+    <ModalDialog v-model:open="forgotOpen" :title="$t('auth.forgot.title')">
+      <form
+        v-if="auth.smtp"
+        class="flex flex-col gap-4"
+        data-testid="forgot-email"
+        @submit.prevent="sendReset"
+      >
+        <template v-if="!forgotSent">
+          <p class="text-13 text-text-muted">{{ $t('auth.forgot.emailIntro') }}</p>
+          <TextField
+            v-model="forgotEmail"
+            :label="$t('auth.fields.email')"
+            type="email"
+            autocomplete="username"
+            required
+          />
+          <BaseButton type="submit" :loading="forgotBusy">{{ $t('auth.forgot.send') }}</BaseButton>
+        </template>
+        <p v-else role="status" class="text-13 text-text" data-testid="forgot-sent">
+          {{ $t('auth.forgot.sent') }}
+        </p>
+      </form>
+      <div v-else class="flex flex-col gap-3" data-testid="forgot-cli">
+        <p class="text-13 text-text-muted">{{ $t('auth.forgot.cliIntro') }}</p>
+        <p class="text-13 font-medium text-text">Kubernetes</p>
+        <CodeBlock wrap :code="CLI_K8S" :label="$t('auth.forgot.command')" />
+        <p class="text-13 font-medium text-text">Docker</p>
+        <CodeBlock wrap :code="CLI_DOCKER" :label="$t('auth.forgot.command')" />
+        <p class="text-12 text-text-muted">{{ $t('auth.forgot.cliFoot') }}</p>
+      </div>
+    </ModalDialog>
   </AuthCard>
 </template>

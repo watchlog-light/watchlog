@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
+import LockedControl from '@/components/ui/LockedControl.vue';
 import { ChevronRight, Container, Plus } from '@lucide/vue';
 import { KIND_LOGO } from '@/components/ui/kindLogos';
 import type { Cluster, ClusterList, CreateClusterResponse } from '@watchlog/api-types';
@@ -72,15 +73,12 @@ onMounted(list.load);
         </h2>
         <p class="mt-1 text-14 text-text-muted">{{ $t('clusters.intro') }}</p>
       </div>
-      <BaseButton
-        v-if="canManage && clusters.length > 0 && !creating && !revealed"
-        variant="secondary"
-        data-testid="add-cluster"
-        @click="creating = true"
-      >
-        <Plus class="size-4" aria-hidden="true" />
-        {{ $t('clusters.add') }}
-      </BaseButton>
+      <LockedControl v-if="clusters.length > 0 && !creating && !revealed" align="end">
+        <BaseButton variant="secondary" data-testid="add-cluster" @click="creating = true">
+          <Plus class="size-4" aria-hidden="true" />
+          {{ $t('clusters.add') }}
+        </BaseButton>
+      </LockedControl>
     </header>
 
     <TokenReveal

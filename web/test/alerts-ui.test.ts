@@ -257,7 +257,12 @@ describe('Alerts page', () => {
     await w.get('[data-testid="retry"]').trigger('click');
     await flushPromises();
     expect(w.text()).toContain('No alerts are firing');
-    expect(w.find('[data-testid="new-silence"]').exists()).toBe(false);
+    // Locked, not hidden (ADR-140): visible, disabled, saying why.
+    const silence = w.get('[data-testid="new-silence"]');
+    expect(silence.element.closest('fieldset')?.disabled).toBe(true);
+    expect(silence.element.closest('[data-testid="locked"]')?.textContent).toContain(
+      "Viewers can't change this. Ask an Admin.",
+    );
     w.unmount();
   });
 

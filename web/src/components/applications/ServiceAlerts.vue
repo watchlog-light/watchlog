@@ -10,6 +10,7 @@ import type {
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError, api } from '@/api/client';
+import LockedControl from '@/components/ui/LockedControl.vue';
 import RuleDrawer from '@/components/alerts/RuleDrawer.vue';
 import RuleSentence from '@/components/alerts/RuleSentence.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
@@ -64,13 +65,11 @@ async function toggle(rule: AlertRule, enabled: boolean) {
   >
     <div class="flex items-center justify-between gap-2 border-b border-border px-4 py-3 sm:px-5">
       <h3 class="text-14 font-semibold text-text">{{ $t('integrations.alerts.title') }}</h3>
-      <BaseButton
-        v-if="auth.canManage"
-        variant="secondary"
-        data-testid="add-rule"
-        @click="open(null)"
-        >{{ $t('integrations.alerts.add') }}</BaseButton
-      >
+      <LockedControl align="end">
+        <BaseButton variant="secondary" data-testid="add-rule" @click="open(null)">{{
+          $t('integrations.alerts.add')
+        }}</BaseButton>
+      </LockedControl>
     </div>
     <p v-if="data.error.value" class="px-4 py-3 text-13 text-text-subtle sm:px-5">
       {{ $t('integrations.alerts.error') }}
@@ -88,12 +87,13 @@ async function toggle(rule: AlertRule, enabled: boolean) {
         class="flex items-center gap-3 border-t border-border px-4 py-3 first:border-t-0 sm:px-5"
         data-testid="service-rule"
       >
-        <ToggleSwitch
-          v-if="auth.canManage"
-          :model-value="r.enabled"
-          :aria-label="t('integrations.alerts.enable', { name: r.name })"
-          @update:model-value="(v: boolean) => toggle(r, v)"
-        />
+        <LockedControl>
+          <ToggleSwitch
+            :model-value="r.enabled"
+            :aria-label="t('integrations.alerts.enable', { name: r.name })"
+            @update:model-value="(v: boolean) => toggle(r, v)"
+          />
+        </LockedControl>
         <button
           type="button"
           class="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left max-lg:min-h-11 max-lg:justify-center"

@@ -164,15 +164,17 @@ describe('alerts for a service', () => {
     w.unmount();
   });
 
-  it('lets Viewers read the rules without switches or Add rule', async () => {
+  it('lets Viewers read the rules, with the switches and Add rule locked', async () => {
     mockFetch({
       'GET /api/v1/alert-rules': { status: 200, body: { rules: RULES } },
       'GET /api/v1/clusters': { status: 200, body: CLUSTERS },
     });
     const w = await mountBlock('viewer');
     expect(w.findAll('[data-testid="service-rule"]')).toHaveLength(2);
-    expect(w.find('[data-testid="add-rule"]').exists()).toBe(false);
-    expect(w.find('input[type="checkbox"]').exists()).toBe(false);
+    expect(w.get('[data-testid="add-rule"]').element.closest('fieldset')?.disabled).toBe(true);
+    const switches = w.findAll('input[type="checkbox"]');
+    expect(switches).toHaveLength(2);
+    expect(switches.every((s) => s.element.closest('fieldset')?.disabled)).toBe(true);
     w.unmount();
   });
 });

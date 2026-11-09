@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
+import LockedControl from '@/components/ui/LockedControl.vue';
 import { ChevronRight, Database } from '@lucide/vue';
 import type { Application, ApplicationMetrics, DiscoveredService } from '@watchlog/api-types';
 import { computed, onMounted, ref } from 'vue';
@@ -34,7 +35,6 @@ import {
 import { formatDateTime } from '@/lib/format';
 import { formatValue } from '@/lib/units';
 import { useApplicationsStore } from '@/stores/applications';
-import { useAuthStore } from '@/stores/auth';
 
 // Applications (SPEC §4.12, ADR-135): services found but not monitored yet, then every
 // monitored service, problems first, filtered by type (?type=) and sorted (?sort=).
@@ -42,7 +42,6 @@ import { useAuthStore } from '@/stores/auth';
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
-const auth = useAuthStore();
 const store = useApplicationsStore();
 const narrow = useNarrow();
 
@@ -128,14 +127,11 @@ async function started() {
   <div class="flex flex-col gap-5" data-testid="applications">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <p class="text-14 text-text-muted">{{ $t('applications.subtitle') }}</p>
-      <BaseButton
-        v-if="auth.canManage"
-        variant="secondary"
-        data-testid="add-manually"
-        @click="adding = true"
-      >
-        {{ $t('applications.addManually') }}
-      </BaseButton>
+      <LockedControl>
+        <BaseButton variant="secondary" data-testid="add-manually" @click="adding = true">
+          {{ $t('applications.addManually') }}
+        </BaseButton>
+      </LockedControl>
     </div>
 
     <ErrorState
@@ -203,14 +199,15 @@ async function started() {
                   : $t('applications.discovered.ready')
               }}
             </span>
-            <BaseButton
-              v-if="auth.canManage"
-              :aria-label="$t('applications.discovered.monitorName', { name: d.name })"
-              data-testid="monitor"
-              @click="monitoring = d"
-            >
-              {{ $t('applications.discovered.monitor') }}
-            </BaseButton>
+            <LockedControl>
+              <BaseButton
+                :aria-label="$t('applications.discovered.monitorName', { name: d.name })"
+                data-testid="monitor"
+                @click="monitoring = d"
+              >
+                {{ $t('applications.discovered.monitor') }}
+              </BaseButton>
+            </LockedControl>
           </li>
         </ul>
       </section>

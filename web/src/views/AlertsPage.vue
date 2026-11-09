@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
+import LockedControl from '@/components/ui/LockedControl.vue';
 import { Bell, BellOff, History } from '@lucide/vue';
 import type {
   Alert,
@@ -168,15 +169,16 @@ const tabCount = (v: View) =>
       </nav>
       <span class="flex-1" />
       <LoadingIndicator :active="current.refreshing.value" class="mb-2" />
-      <BaseButton
-        v-if="canManage"
-        variant="secondary"
-        class="mb-1.5"
-        data-testid="new-silence"
-        @click="router.replace({ query: { view: 'silences', new: 'silence' } })"
-      >
-        {{ $t('alerts.silence.new') }}
-      </BaseButton>
+      <LockedControl>
+        <BaseButton
+          variant="secondary"
+          class="mb-1.5"
+          data-testid="new-silence"
+          @click="router.replace({ query: { view: 'silences', new: 'silence' } })"
+        >
+          {{ $t('alerts.silence.new') }}
+        </BaseButton>
+      </LockedControl>
     </div>
 
     <ErrorState

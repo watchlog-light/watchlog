@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
+import LockedControl from '@/components/ui/LockedControl.vue';
 import { Hash, Webhook } from '@lucide/vue';
 import type { AlertChannel } from '@watchlog/api-types';
 import { computed, ref } from 'vue';
@@ -48,14 +49,11 @@ const pill = computed(() =>
       <h2 class="text-14 font-semibold text-text">{{ $t(`channels.types.${type}`) }}</h2>
       <span class="flex-1" />
       <TonePill v-bind="pill" />
-      <BaseButton
-        v-if="canManage && !adding"
-        variant="secondary"
-        :data-testid="`add-${type}`"
-        @click="adding = true"
-      >
-        {{ $t('channels.add') }}
-      </BaseButton>
+      <LockedControl v-if="!adding" :locked="!canManage" align="end">
+        <BaseButton variant="secondary" :data-testid="`add-${type}`" @click="adding = true">
+          {{ $t('channels.add') }}
+        </BaseButton>
+      </LockedControl>
     </header>
     <p class="text-13 text-text-muted">{{ $t(`channels.describe.${type}`) }}</p>
     <ul v-if="channels.length" class="flex flex-col">

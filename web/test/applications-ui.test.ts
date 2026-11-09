@@ -267,14 +267,17 @@ describe('Applications page', () => {
     wrapper.unmount();
   });
 
-  it('shows viewers what was found without Monitor', async () => {
+  it('shows viewers what was found, with Monitor locked', async () => {
     mockFetch({
       'GET /api/v1/applications': { status: 200, body: { applications: [] } },
       'GET /api/v1/applications/discovered': { status: 200, body: { discovered: DISCOVERED } },
     });
     const { wrapper } = await mountPage('viewer');
     expect(wrapper.findAll('[data-testid="discovered-row"]')).toHaveLength(2);
-    expect(wrapper.find('[data-testid="monitor"]').exists()).toBe(false);
+    const monitors = wrapper.findAll('[data-testid="monitor"]');
+    expect(monitors).toHaveLength(2);
+    expect(monitors.every((m) => m.element.closest('fieldset')?.disabled)).toBe(true);
+    expect(wrapper.get('[data-testid="locked"]').text()).toContain("Viewers can't change this.");
   });
 
   it('explains an empty page', async () => {
