@@ -4,7 +4,7 @@
 // (slice 0, gap 6), so the share of the time a container is throttled is its throttled
 // seconds a second, at most 1: exact for a single-threaded process, an overstatement for one
 // whose threads are throttled on several CPUs at once (ADR-154). Pure.
-import { runFrom } from './counts.js';
+import { runFromTolerant } from './counts.js';
 import type { EvContainer, EvPod, Evidence } from './evidence.js';
 import { containerObject, podObject } from './resolve.js';
 import type { ObjectRef } from './types.js';
@@ -15,6 +15,12 @@ export const THROTTLED_SHARE = 0.25;
 const RECENT_S = 5 * 60;
 /** Points a throttled minute is judged on (15 s apart). */
 const SMOOTH = 4;
+/**
+ * A dipped minute inside a run doesn't end it (ADR-157 amends ADR-154): on a busy node one
+ * scrape's rate falls to a quarter, pulling a minute's mean under the bar, and the throttling
+ * then looked newer than the slowdown it explains.
+ */
+export const THROTTLE_DIP_S = 60;
 
 export interface Throttling {
   /** The pod or container. */
@@ -70,7 +76,13 @@ export function throttlings(ev: Evidence): Throttling[] | null {
       }),
     );
     const times = points.map(([t]) => t);
-    const from = runFrom(times, (t) => (smooth.get(t) ?? 0) >= THROTTLED_SHARE, hourFrom, step);
+    const from = runFromTolerant(
+      times,
+      (t) => (smooth.get(t) ?? 0) >= THROTTLED_SHARE,
+      hourFrom,
+      step,
+      THROTTLE_DIP_S,
+    );
     const since = from === null ? null : new Date(from * 1000).toISOString();
     const parts = key.split('/');
     if (ev.platform === 'docker') {

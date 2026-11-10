@@ -161,3 +161,29 @@ export function runFrom(
   if (i > 0) return times[i]!;
   return times[0]! - fromS > 2 * step ? times[0]! : null;
 }
+
+/**
+ * runFrom, where a dip of at most `dipS` seconds inside the run doesn't end it: points that
+ * don't hold, with points that do on both sides. Each such dip is skipped; a longer one, or
+ * one at the newest point, ends the run as runFrom's does.
+ */
+export function runFromTolerant(
+  times: number[],
+  is: (t: number) => boolean,
+  fromS: number,
+  step: number,
+  dipS: number,
+): number | null {
+  let i = times.length - 1;
+  if (i < 0 || !is(times[i]!)) return null;
+  for (;;) {
+    while (i > 0 && is(times[i - 1]!)) i--;
+    if (i === 0) break;
+    // times[i - 1] doesn't hold: how far back does the dip go?
+    let k = i - 1;
+    while (k >= 0 && !is(times[k]!)) k--;
+    if (k < 0 || times[i]! - times[k]! - step > dipS) return times[i]!;
+    i = k;
+  }
+  return times[0]! - fromS > 2 * step ? times[0]! : null;
+}
