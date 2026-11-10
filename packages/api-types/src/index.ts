@@ -185,3 +185,5 @@ export type CauseCheck = Causes['checks'][number];
 export type CauseObject = Causes['subject'];
 /** The short likely cause on the alert detail, a problem and an application (ADR-148). */
 export type LikelyCause = NonNullable<AlertDetail['likelyCause']>;
+/** A possible cause on a Needs-attention problem with no likely one (ADR-156). */
+export type PossibleCause = NonNullable<OverviewProblem['possibleCauses']>[number];

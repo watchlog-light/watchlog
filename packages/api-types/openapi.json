@@ -8166,6 +8166,71 @@
                                   }
                                 },
                                 "description": "The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time"
+                              },
+                              "causeState": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["likely"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["possible"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["none"]
+                                  }
+                                ],
+                                "description": "likely: likelyCause has it; possible: possibleCauses lists the leads; none: no clear cause. Left out when the cause was not worked out in time"
+                              },
+                              "possibleCauses": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": ["rule", "code", "facts", "since"],
+                                  "properties": {
+                                    "rule": {
+                                      "type": "string",
+                                      "description": "The catalog rule (ADR-150), e.g. cpu_throttled"
+                                    },
+                                    "code": {
+                                      "type": "string",
+                                      "description": "The cause in one line (causes.cause.<code>)"
+                                    },
+                                    "facts": {
+                                      "type": "object",
+                                      "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                      "additionalProperties": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "number"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "since": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "description": "When the cause began"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "description": "A possible cause: a lead to check, not proven"
+                                },
+                                "maxItems": 2,
+                                "description": "With no likely cause: the first possible ones (GET /causes has them all)"
                               }
                             }
                           }

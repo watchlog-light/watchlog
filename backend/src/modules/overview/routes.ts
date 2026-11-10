@@ -231,14 +231,22 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
           const subject = problemSubject(p, ref.kind);
           return subject ? [{ i, job: { cluster: ref, subject } }] : [];
         });
-        const found = await causes.likely(
+        const found = await causes.summaries(
           causeReader(app, request),
           request.user!.org.id,
           jobs.map((j) => j.job),
         );
+        // The likely cause (ADR-155), else the state and the possible ones for the
+        // Needs-attention line (ADR-156).
         jobs.forEach(({ i }, n) => {
-          const lc = found[n];
-          if (lc) items[i] = { ...items[i]!, likelyCause: lc };
+          const s = found[n];
+          if (!s) return;
+          items[i] = {
+            ...items[i]!,
+            causeState: s.state,
+            ...(s.likely ? { likelyCause: s.likely } : {}),
+            ...(s.possible.length ? { possibleCauses: s.possible } : {}),
+          };
         });
       }
       return answer;

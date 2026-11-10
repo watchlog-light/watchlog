@@ -2,7 +2,7 @@
 // The overview API (ADR-110): everything the page shows in
 // one response.
 import { Type, type TSchema } from 'typebox';
-import { LikelyCauseSchema } from '../causes/schemas.js';
+import { LikelyCauseSchema, PossibleCauseSchema } from '../causes/schemas.js';
 import { IngestFailureSchema } from '../clusters/schemas.js';
 
 const N = Type.Union([Type.Number(), Type.Null()]);
@@ -32,6 +32,22 @@ const Problem = Type.Object({
   related: Type.Integer(),
   /** Its likely cause, when one is (ADR-148): the first 20 problems at most. */
   likelyCause: Type.Optional(LikelyCauseSchema),
+  /**
+   * How sure GET /causes is about this problem (ADR-156), when it was worked out in time:
+   * the first 20 problems at most, within 2 s.
+   */
+  causeState: Type.Optional(
+    Type.Union([Type.Literal('likely'), Type.Literal('possible'), Type.Literal('none')], {
+      description:
+        'likely: likelyCause has it; possible: possibleCauses lists the leads; none: no clear cause. Left out when the cause was not worked out in time',
+    }),
+  ),
+  possibleCauses: Type.Optional(
+    Type.Array(PossibleCauseSchema, {
+      maxItems: 2,
+      description: 'With no likely cause: the first possible ones (GET /causes has them all)',
+    }),
+  ),
 });
 
 const Resource = Type.Object({ usage: N, requests: N, allocatable: N });

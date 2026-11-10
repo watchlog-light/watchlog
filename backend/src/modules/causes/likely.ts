@@ -44,6 +44,38 @@ export function likelyCause(a: CausesAnswer): LikelyCause | undefined {
   };
 }
 
+/** A possible cause, short: what the Needs-attention line shows when nothing is likely. */
+export interface PossibleCause {
+  rule: string;
+  code: string;
+  facts: Facts;
+  since: string | null;
+}
+
+/** At most this many possible causes go on a problem (the line joins them with " · "). */
+export const POSSIBLE_MAX = 2;
+
+/**
+ * An answer in brief, for a list's line (ADR-156): its state, the likely cause when there is
+ * one, else the first possible ones.
+ */
+export interface CauseSummary {
+  state: CausesAnswer['state'];
+  likely?: LikelyCause;
+  possible: PossibleCause[];
+}
+
+export function causeSummary(a: CausesAnswer): CauseSummary {
+  const likely = likelyCause(a);
+  const possible = likely
+    ? []
+    : a.causes
+        .filter((c) => c.strength === 'possible')
+        .slice(0, POSSIBLE_MAX)
+        .map((c) => ({ rule: c.rule, code: c.code, facts: c.facts, since: c.since }));
+  return { state: a.state, ...(likely ? { likely } : {}), possible };
+}
+
 /**
  * Sent on the in-process reads the engine makes: the answers it reads (the overview, the
  * alert, the applications) leave `likelyCause` out, so a cause never asks for causes. Any
@@ -123,12 +155,24 @@ export class CausesService {
     orgId: string,
     jobs: ListJob[],
   ): Promise<(LikelyCause | undefined)[]> {
-    const out: (LikelyCause | undefined)[] = new Array(jobs.length).fill(undefined);
+    return (await this.summaries(reader, orgId, jobs)).map((s) => s?.likely);
+  }
+
+  /**
+   * Each job's answer in brief (undefined: not explained, or not ready within the budget),
+   * bounded as `likely` is: the Needs-attention line's state and possible causes (ADR-156).
+   */
+  async summaries(
+    reader: Reader,
+    orgId: string,
+    jobs: ListJob[],
+  ): Promise<(CauseSummary | undefined)[]> {
+    const out: (CauseSummary | undefined)[] = new Array(jobs.length).fill(undefined);
     const keys = jobs.map((j) => this.key(orgId, j.cluster, j.subject));
     const unique = [...new Set(keys)].slice(0, this.listMax);
     if (unique.length === 0) return out;
     const shared = memoReader(reader);
-    const found = new Map<string, LikelyCause | undefined>();
+    const found = new Map<string, CauseSummary>();
     const deadline = Date.now() + this.budgetMs;
     let next = 0;
     const work = async () => {
@@ -141,9 +185,9 @@ export class CausesService {
           const a = await this.cache.get(key, () =>
             this.explainFn(shared, job.cluster, job.subject),
           );
-          found.set(key, likelyCause(a));
+          found.set(key, causeSummary(a));
         } catch {
-          // A subject that can't be explained (gone, ambiguous) has no likely cause.
+          // A subject that can't be explained (gone, ambiguous) has no cause to show.
         } finally {
           release();
         }

@@ -7,7 +7,7 @@
 import type { Database } from '../../db/index.js';
 import type { AttentionItem } from '../kubernetes/views.js';
 import { alertText } from '../alerts/text.js';
-import type { LikelyCause } from '../causes/likely.js';
+import type { LikelyCause, PossibleCause } from '../causes/likely.js';
 
 export type ProblemType = 'crashloop' | 'oom' | 'connections' | 'nodes' | 'other';
 export type Severity = 'critical' | 'warning';
@@ -40,6 +40,10 @@ export interface Problem {
   related: number;
   /** Its likely cause (ADR-148), filled in by the route. */
   likelyCause?: LikelyCause;
+  /** How sure the cause is, when it was worked out in time (ADR-156). */
+  causeState?: 'likely' | 'possible' | 'none';
+  /** Without a likely cause: the first possible ones, at most 2 (ADR-156). */
+  possibleCauses?: PossibleCause[];
 }
 
 export interface Problems {

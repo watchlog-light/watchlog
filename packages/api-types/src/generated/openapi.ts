@@ -2822,6 +2822,20 @@ export interface paths {
                     /** @description GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked */
                     subject: string;
                   };
+                  /** @description likely: likelyCause has it; possible: possibleCauses lists the leads; none: no clear cause. Left out when the cause was not worked out in time */
+                  causeState?: 'likely' | 'possible' | 'none';
+                  /** @description With no likely cause: the first possible ones (GET /causes has them all) */
+                  possibleCauses?: {
+                    /** @description The catalog rule (ADR-150), e.g. cpu_throttled */
+                    rule: string;
+                    /** @description The cause in one line (causes.cause.<code>) */
+                    code: string;
+                    /** @description The sentence's values; every placeholder of the code's sentence is here */
+                    facts: {
+                      [key: string]: string | number | null;
+                    };
+                    since: string | null;
+                  }[];
                 }[];
                 critical: number;
                 warning: number;

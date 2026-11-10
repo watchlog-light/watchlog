@@ -174,3 +174,17 @@ export const LikelyCauseSchema = Type.Object(
       'The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time',
   },
 );
+
+/**
+ * A possible cause on a Needs-attention problem with no likely one (ADR-156): the cause's
+ * rule, code, facts and start, for the dashboard's one line.
+ */
+export const PossibleCauseSchema = Type.Object(
+  {
+    rule: Type.String({ description: 'The catalog rule (ADR-150), e.g. cpu_throttled' }),
+    code: Type.String({ description: 'The cause in one line (causes.cause.<code>)' }),
+    facts: Facts,
+    since: Nullable(Type.String({ description: 'When the cause began' })),
+  },
+  { description: 'A possible cause: a lead to check, not proven' },
+);
