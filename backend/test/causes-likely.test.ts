@@ -8,6 +8,7 @@ import { explain, type CausesAnswer } from '../src/modules/causes/engine.js';
 import type { Reader } from '../src/modules/causes/evidence.js';
 import {
   CausesService,
+  causeSummary,
   likelyCause,
   problemSubject,
   type ListJob,
@@ -227,5 +228,55 @@ describe('CausesService.likely: a list stays fast', () => {
     // Another org's same subject is its own answer.
     await s.likely(nobody, 'o2', [pod('web')]);
     expect(seen.calls).toEqual(['web', 'web']);
+  });
+});
+
+describe('causeSummary: the Needs-attention line (ADR-156)', () => {
+  it('likely: the short form and no possible ones', async () => {
+    const a = await recorded('kube-dependency-down');
+    const s = causeSummary(a);
+    expect(s.state).toBe('likely');
+    expect(s.likely).toEqual(likelyCause(a));
+    expect(s.possible).toEqual([]);
+  });
+
+  it('possible: the first two possible causes, short; none: only the state', async () => {
+    const a = await recorded('docker-cpu-throttle');
+    const c = a.causes[0]!;
+    const possible = {
+      ...a,
+      state: 'possible' as const,
+      causes: [0, 1, 2].map((i) => ({
+        ...c,
+        code: `${c.code}_${i}`,
+        strength: 'possible' as const,
+      })),
+    };
+    const s = causeSummary(possible);
+    expect(s.likely).toBeUndefined();
+    expect(s.possible).toEqual(
+      [0, 1].map((i) => ({
+        rule: c.rule,
+        code: `${c.code}_${i}`,
+        facts: c.facts,
+        since: c.since,
+      })),
+    );
+    expect(causeSummary({ ...a, state: 'none', causes: [] })).toEqual({
+      state: 'none',
+      possible: [],
+    });
+  });
+
+  it('CausesService.summaries: the same bounds as likely, with the state', async () => {
+    const k = await recorded('kube-dependency-down');
+    const none = { ...k, state: 'none' as const, causes: [] };
+    const { fn } = fakeExplain({ a: k, b: none, c: new Error('gone') });
+    const out = await new CausesService({ explainFn: fn }).summaries(nobody, 'o1', [
+      pod('a'),
+      pod('b'),
+      pod('c'),
+    ]);
+    expect(out.map((x) => x?.state)).toEqual(['likely', 'none', undefined]);
   });
 });

@@ -478,3 +478,57 @@ describe('likelyCause on the overview, the alert detail and the applications (AD
     expect(apps.every((x) => x.likelyCause === undefined)).toBe(true);
   });
 });
+
+describe('causeState and possibleCauses on the problems (ADR-156)', () => {
+  it('a possible answer gives its first two possible causes, a none answer its state, on both platforms', async () => {
+    const base = await recorded('kube-dependency-down');
+    const top = base.causes[0]!;
+    const possible: CausesAnswer = {
+      ...base,
+      state: 'possible',
+      headline: { code: 'possible', facts: { name: 'web', n: 3 } },
+      causes: [
+        { ...top, strength: 'possible' },
+        { ...top, rule: 'cpu_throttled', code: 'cpu_throttled', strength: 'possible' },
+        { ...top, rule: 'bad_change', code: 'bad_change', strength: 'possible' },
+      ],
+    };
+    const silent = await recorded('docker-host-silent');
+    const none: CausesAnswer = {
+      ...silent,
+      state: 'none',
+      headline: { code: 'none_found', facts: { name: 'pg', n: 6, found: 1 } },
+      causes: [],
+    };
+    const fake = async (_r: unknown, c: ClusterRef) => (c.kind === 'kubernetes' ? possible : none);
+    const { cookie, kube, fleet, orgId } = await seeded({
+      causes: new CausesService({ explainFn: fake as unknown as typeof explain }),
+    });
+    const ka = await alert(orgId, kube.id, 'network.connections.failed', {
+      namespace: 'causes-e2e',
+      workload: 'web',
+      workload_kind: 'Deployment',
+      dst_kind: 'workload',
+      dst_namespace: 'causes-e2e',
+      dst_workload: 'api',
+    });
+    type Line = Item & { causeState?: string; possibleCauses?: Record<string, unknown>[] };
+    const k = (await read(cookie, `/clusters/${kube.id}/overview`)).json().problems.items as Line[];
+    const kp = k.find((p) => p.alertId === ka.id)!;
+    expect(kp.causeState).toBe('possible');
+    expect(kp.likelyCause).toBeUndefined();
+    expect(kp.possibleCauses).toEqual([
+      { rule: 'dependency_down', code: top.code, facts: top.facts, since: top.since },
+      { rule: 'cpu_throttled', code: 'cpu_throttled', facts: top.facts, since: top.since },
+    ]);
+    const d = (await read(cookie, `/clusters/${fleet.id}/overview`)).json().problems
+      .items as Line[];
+    const dp = d.find((p) => p.object?.name === 'shop-api-1')!;
+    expect(dp.causeState).toBe('none');
+    expect(dp.likelyCause).toBeUndefined();
+    expect(dp.possibleCauses).toBeUndefined();
+    // Nodes are no subject: no state either.
+    for (const p of [...k, ...d].filter((x) => x.object?.kind === 'Node'))
+      expect(p.causeState).toBeUndefined();
+  });
+});
