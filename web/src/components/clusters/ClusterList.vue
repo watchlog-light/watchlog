@@ -36,7 +36,6 @@ const submitting = ref(false);
 const revealed = ref<CreateClusterResponse>();
 
 function createErrorMessage(err: unknown): string {
-  if (hasProblemType(err, ProblemType.clusterLimit)) return t('clusters.errors.limit');
   if (hasProblemType(err, ProblemType.nameTaken)) return t('clusters.errors.nameTaken');
   if (err instanceof ApiError && err.status === 400) return t('clusters.errors.invalidName');
   return t('clusters.errors.generic');

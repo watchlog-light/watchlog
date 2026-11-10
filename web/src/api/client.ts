@@ -59,7 +59,6 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
 /** Machine-readable problem types returned by the backend (RFC 9457 `type`). */
 export const ProblemType = {
-  clusterLimit: 'urn:watchlog:problem:cluster-limit',
   nameTaken: 'urn:watchlog:problem:name-taken',
   tokenLimit: 'urn:watchlog:problem:token-limit',
   /** An API token used outside its read scope (ADR-125). */
