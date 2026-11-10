@@ -3215,7 +3215,8 @@
       "workload": "workload"
     },
     "line": {
-      "none": "Nothing we checked explains it. Open it to see what was checked."
+      "none": "Nothing we checked explains it. Open it to see what was checked.",
+      "where": "{name}: {fact}"
     },
     "text": {
       "header": "{state}: {headline}",

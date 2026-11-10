@@ -10,6 +10,7 @@ import type {
   Causes,
   CauseStep,
   OverviewProblem,
+  PossibleCause,
 } from '@watchlog/api-types';
 import type { RouteLocationRaw } from 'vue-router';
 import { reasonLine, serviceName } from './applications';
@@ -20,6 +21,11 @@ export interface Line {
   values: Record<string, unknown>;
   /** The count that picks the sentence's form ("1 restart | {n} restarts"): `t(key, values, plural)`. */
   plural?: number;
+  /**
+   * The object a step's sentence is about, for a line that stands alone (a possible cause on
+   * Needs attention): named in front when the sentence doesn't name it, without the full stop.
+   */
+  about?: string;
 }
 
 /** Cores as a request reads: "64", "1.5", "500m". */
@@ -225,7 +231,10 @@ type Translate = (key: string, values?: Record<string, unknown>, plural?: number
 /** A Line in words; a Line with no key is its `text` as is (a Kubernetes kind, a product). */
 export function say(t: Translate, l: Line): string {
   if (!l.key) return String(l.values.text ?? '');
-  return l.plural === undefined ? t(l.key, l.values) : t(l.key, l.values, l.plural);
+  const text = l.plural === undefined ? t(l.key, l.values) : t(l.key, l.values, l.plural);
+  if (l.about === undefined) return text;
+  const fact = text.replace(/\.$/, '');
+  return fact.includes(l.about) ? fact : t('causes.line.where', { name: l.about, fact });
 }
 
 /**
@@ -295,11 +304,21 @@ export function causeMarkers(
     }));
 }
 
+/**
+ * A possible cause in a line that stands alone: where it starts, by its step's sentence and
+ * the object it is about ("hot is throttled 98% of the time at its 20m CPU limit"); the
+ * rule's one-line cause when the answer has no step.
+ */
+export function possibleLine(c: PossibleCause): Line {
+  if (!c.where) return causeLine(c);
+  return { ...stepLine(c.where), about: c.where.name };
+}
+
 /** A Needs-attention problem's line (ADR-156): the chip's state and the sentence. */
 export function problemCause(p: OverviewProblem): { state: PanelState; line: Line[] } | null {
   if (p.likelyCause) return { state: 'likely', line: [headlineLine(p.likelyCause)] };
   if (p.causeState === 'possible' && p.possibleCauses?.length)
-    return { state: 'possible', line: p.possibleCauses.map((c) => causeLine(c)) };
+    return { state: 'possible', line: p.possibleCauses.map(possibleLine) };
   if (p.causeState === 'none')
     return { state: 'none', line: [{ key: 'causes.line.none', values: {} }] };
   return null;
