@@ -2896,7 +2896,26 @@
       "unschedulable_cordoned": "{name} can't be scheduled: the node it may run on is cordoned. | {name} can't be scheduled: the nodes it may run on are cordoned.",
       "unschedulable_other": "{name} can't be scheduled. The scheduler says: {message}.",
       "job_failed_exit": "{name}'s run {job} failed: its pods exited with code {exitCode} until it gave up.",
-      "job_failed": "{name}'s run {job} failed."
+      "job_failed": "{name}'s run {job} failed.",
+      "dependency_down": "{name} fails because {target} is down: none of its pods is ready.",
+      "dependency_down_scaled": "{name} fails because {target} was scaled to 0: nothing answers its calls.",
+      "dependency_down_oom": "{name} fails because {target} is down: it is OOM-killed at its {limit} memory limit.",
+      "dependency_down_crash": "{name} fails because {target} is down: it keeps exiting with code {exitCode}.",
+      "dependency_down_change": "{name} fails because {target} is down since its last change.",
+      "dependency_down_pull": "{name} fails because {target} is down: it can't pull its image {image}.",
+      "dependency_down_stopped": "{name} fails because {target} was stopped (exit code {exitCode}): nothing answers its calls.",
+      "connection_refused": "{name}'s connections to {target} on port {port} fail: {target} runs, but nothing accepts connections on that port.",
+      "connection_refused_noport": "{name}'s connections to {target} fail: {target} runs, but nothing accepts them.",
+      "dns_nxdomain": "{name}'s lookups fail: a name it looks up doesn't exist (NXDOMAIN {perMinute} times a minute).",
+      "dns_nxdomain_change": "{name}'s lookups fail since its last change: a name it looks up doesn't exist (NXDOMAIN {perMinute} times a minute).",
+      "bad_change_slow": "{name} is slow since {target}'s last change: its calls to {target} take {p95} at p95.",
+      "bad_change_errors": "{name} fails since {target}'s last change: {pct} % of its calls to {target} answer 5xx.",
+      "app_consumer_oom": "{queue} is filling up because its consumer {consumer} is OOM-killed at its {limit} memory limit.",
+      "app_consumer_crash": "{queue} is filling up because its consumer {consumer} keeps exiting with code {exitCode}.",
+      "app_consumer_ended": "{queue} is filling up because its consumer {consumer} ended ({how}).",
+      "app_consumer_change": "{queue} is filling up because its consumer {consumer} fails since its last change.",
+      "app_pg_held": "{name} is at {pct} % of max_connections: {holder} holds one of them. | {name} is at {pct} % of max_connections: {holder} holds {n} of them.",
+      "app_finding_caller": "{name}'s calls to {app} fail or slow down, and WatchLog sees a problem on {app}."
     },
     "cause": {
       "oom_limit": "OOM-killed at its {limit} memory limit",
@@ -2904,7 +2923,11 @@
       "bad_change": "The new version fails since its last change",
       "image_pull": "Can't pull its image {image}",
       "unschedulable": "No node can take it",
-      "job_failed": "Its run {job} failed"
+      "job_failed": "Its run {job} failed",
+      "dependency_down": "{target} is down",
+      "connection_refused": "Nothing accepts connections on {target}",
+      "dns_nxdomain": "A name it looks up doesn't exist",
+      "application_finding": "A problem on {name}"
     },
     "check": {
       "what": {
@@ -2967,7 +2990,8 @@
         "edge_ok": "no failed connections, server errors or slow calls",
         "edge_failed": "{pct} % of its connections fail",
         "edge_errors": "{pct} % of its HTTP calls answer 5xx",
-        "edge_slow": "its HTTP calls take {p95} at p95"
+        "edge_slow": "its HTTP calls take {p95} at p95",
+        "dependencies_quiet": "called one in the last hour, none now | called {n} in the last hour, none now"
       }
     },
     "step": {
@@ -3012,7 +3036,23 @@
       "job_backoff_limit": "Run {job} failed: it reached its backoff limit.",
       "job_deadline": "Run {job} failed: it ran past its deadline.",
       "job_run_failed": "Run {job} failed.",
-      "job_pod_exit": "Its pod exited with code {exitCode} ({reason}); {n} failed attempt. | Its pods exited with code {exitCode} ({reason}); {n} failed attempts."
+      "job_pod_exit": "Its pod exited with code {exitCode} ({reason}); {n} failed attempt. | Its pods exited with code {exitCode} ({reason}); {n} failed attempts.",
+      "edge_gone": "It called this service; no connections since.",
+      "edge_gone_dns": "It called this service; since then its DNS lookups fail ({perMinute} a minute).",
+      "no_pods": "It has no pods.",
+      "no_ready_pods": "Its only pod isn't ready. | None of its {n} pods is ready.",
+      "scaled": "Scaled from {from} to {to} replicas.",
+      "container_stopped": "Stopped: it exited with code {exitCode}.",
+      "no_listener_ready": "Its pod is ready, but nothing accepts connections on port {port}. | {ready} of its {n} pods are ready, but nothing accepts connections on port {port}.",
+      "no_listener_running": "It runs, but nothing accepts connections on port {port}.",
+      "nxdomain": "Its lookups get NXDOMAIN (no such name) {perMinute} times a minute.",
+      "new_version_slow": "Its calls slowed from {from} to {p95} at p95.",
+      "new_version_slow_now": "Its calls take {p95} at p95.",
+      "new_version_errors": "{pct} % of its calls answer 5xx.",
+      "queue_no_consumers": "{queue} has no consumers: {ready} ready, growing by {perMin} a minute.",
+      "consumer_ended": "Connected to RabbitMQ until it ended: {how}.",
+      "pg_connections": "Connections at {pct} % of max_connections ({n} of {max}).",
+      "holds_connections": "Holds one of them, since it started. | Holds {n} of them, since it started."
     },
     "connector": {
       "calls": "calls",

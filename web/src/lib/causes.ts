@@ -5,6 +5,7 @@
 // renders each with its placeholders filled.
 import type { Cause, CauseCheck, CauseObject, Causes, CauseStep } from '@watchlog/api-types';
 import type { RouteLocationRaw } from 'vue-router';
+import { reasonLine } from './applications';
 import { formatBytes, formatValue } from './units';
 
 export interface Line {
@@ -23,6 +24,7 @@ const every = (s: number) => (s < 90 ? `${Math.round(s)} s` : `${Math.round(s / 
 function values(facts: Record<string, string | number | null>): Record<string, unknown> {
   const out: Record<string, unknown> = { ...facts };
   if (typeof facts.p95Ms === 'number') out.p95 = formatValue(facts.p95Ms / 1000, 'seconds');
+  if (typeof facts.fromMs === 'number') out.from = formatValue(facts.fromMs / 1000, 'seconds');
   if (typeof facts.limitBytes === 'number') out.limit = formatBytes(facts.limitBytes);
   if (typeof facts.perMinuteBytes === 'number') out.perMinute = formatBytes(facts.perMinuteBytes);
   if (typeof facts.requestBytes === 'number') out.request = formatBytes(facts.requestBytes);
@@ -37,8 +39,24 @@ const line = (key: string, facts: Record<string, string | number | null>): Line 
   ...(typeof facts.n === 'number' ? { plural: facts.n } : {}),
 });
 
+/**
+ * An application's finding (application_finding's `app_finding` step and headline): the
+ * finding's own sentence from "What WatchLog sees" (finding-templates.test.ts), with
+ * `facts.finding` as its code.
+ */
+function findingLine(facts: Record<string, string | number | null>): Line {
+  const { finding, ...rest } = facts;
+  const r = reasonLine(
+    { severity: 'warning', code: String(finding), facts: rest },
+    { id: '', name: '', kind: 'kubernetes' },
+    (iso) => iso,
+  );
+  return { key: r.key, values: r.values };
+}
+
 /** The panel's first sentence. */
 export function headlineLine(a: Pick<Causes, 'headline'>): Line {
+  if (a.headline.code === 'app_finding') return findingLine(a.headline.facts);
   return line(`causes.headline.${a.headline.code}`, a.headline.facts);
 }
 
@@ -49,6 +67,7 @@ export function causeLine(c: Pick<Cause, 'code' | 'facts'>): Line {
 
 /** A step's fact. */
 export function stepLine(s: Pick<CauseStep, 'code' | 'facts'>): Line {
+  if (s.code === 'app_finding') return findingLine(s.facts);
   return line(`causes.step.${s.code}`, s.facts);
 }
 
