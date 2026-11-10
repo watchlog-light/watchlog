@@ -5,6 +5,7 @@ import { clusterField, resolveCluster, type ClusterRef } from '../clusters.js';
 import { labels, message, name, text, ToolError } from '../output.js';
 import type { ApiReader } from '../reader.js';
 import { defineTool, describe, eventField, notFound, summary, type ApiEvent } from './common.js';
+import { causesField, CAUSES_READING, readCauses, type ApiCauses } from './causes.js';
 import { changeField, type ApiMarker } from './events.js';
 import { containerEvents, containerField, findContainer, podFacts } from './pods.js';
 import { composeServiceFacts, workloadFacts } from './workloads.js';
@@ -170,9 +171,9 @@ export const explainAlertTool = defineTool({
   name: 'explain_alert',
   title: 'Explain an alert',
   description: describe(
-    "Everything WatchLog knows about one alert, to explain why it fired: the alert and its rule, the current state of the object it is about (a pod and its containers, a workload, a node, or a Docker container or Compose service), that object's events, and the changes (rollouts, image changes, scaling, re-created containers) in the hour before it started.",
-    `Pass \`alertId\` from get_problems or list_alerts. Returns alert (state, severity, rule, object labels, detail, times), occurrences (how often it fired before), state, up to ${MAX_CHANGES} changes and up to ${MAX_EVENTS} events, newest first.`,
-    'WatchLog states facts; it does not guess a cause. Reason from the termination reasons, exit codes, events and changes it returns.',
+    "Everything WatchLog knows about one alert, to explain why it fired: the alert and its rule, its ranked probable causes with their evidence, the current state of the object it is about (a pod and its containers, a workload, a node, or a Docker container or Compose service), that object's events, and the changes (rollouts, image changes, scaling, re-created containers) in the hour before it started.",
+    `Pass \`alertId\` from get_problems or list_alerts. Returns alert (state, severity, rule, object labels, detail, times), occurrences (how often it fired before), causes (state, headline, causes, checks, flowsOff: the same as explain_problem; null when they could not be worked out), state, up to ${MAX_CHANGES} changes and up to ${MAX_EVENTS} events, newest first.`,
+    `${CAUSES_READING} Check a cause against the termination reasons, exit codes, events and changes returned beside it.`,
     'Example question: "Why did the OOM alert on the cart pod fire?"',
   ),
   input: Type.Object(
@@ -202,7 +203,7 @@ export const explainAlertTool = defineTool({
     const end = a.resolvedAt
       ? Math.floor(Date.parse(a.resolvedAt) / 1000) + 60
       : Math.floor(Date.now() / 1000) + 60;
-    const [object, markers] = await Promise.all([
+    const [object, markers, causes] = await Promise.all([
       objectState(api, cluster, a.labels),
       api
         .get<{ markers: ApiMarker[] }>(`/clusters/${cluster.id}/change-markers`, {
@@ -212,6 +213,8 @@ export const explainAlertTool = defineTool({
         })
         .then((r) => r.markers)
         .catch(() => [] as ApiMarker[]),
+      // The probable cause is one more part: without it, the facts still come.
+      readCauses(api, cluster.id, `alert:${a.id}`).catch(() => null as ApiCauses | null),
     ]);
     const changes = [...markers]
       .sort((x, y) => Date.parse(y.ts) - Date.parse(x.ts))
@@ -225,6 +228,7 @@ export const explainAlertTool = defineTool({
           before: d.history.length,
           lastResolvedAt: d.history.find((h) => h.resolvedAt)?.resolvedAt ?? null,
         },
+        causes: causes ? causesField(causes) : null,
         state: object.state,
         changes,
       },

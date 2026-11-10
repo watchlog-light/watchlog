@@ -4,6 +4,9 @@ import { Type } from 'typebox';
 import { clusterField, resolveCluster, type ClusterRef } from '../clusters.js';
 import { labels, message, name, text, ToolError } from '../output.js';
 import type { ApiAlert } from './alerts.js';
+import { problemSubject } from '../../causes/likely.js';
+import { formatSubject } from '../../causes/subject.js';
+import { likelyField, type ApiLikelyCause } from './causes.js';
 import { ClusterArg, defineTool, describe, NamespaceArg, summary } from './common.js';
 
 const MAX_PROBLEMS = 50;
@@ -16,6 +19,7 @@ interface OverviewProblem {
   alertId: string | null;
   object: { kind: string; namespace: string | null; name: string } | null;
   related: number;
+  likelyCause?: ApiLikelyCause;
 }
 
 interface Overview {
@@ -63,8 +67,8 @@ export const getProblemsTool = defineTool({
   description: describe(
     'What needs attention in one cluster right now: the dashboard\'s "Needs attention" list. Start here for "what is wrong?".',
     'On Kubernetes: crash-looping or OOM-killed pods, nodes not ready, failing connections and firing alerts. On a Docker fleet: restarting, unhealthy or OOM-killed containers, silent hosts and firing alerts.',
-    `Returns health (ok, warning or critical), counts, and up to ${MAX_PROBLEMS} problems, most severe first. Each has severity, type (crashloop, oom, connections, nodes, other), reason (WatchLog's explanation), object (kind, namespace and name on Kubernetes; host and container name on Docker), detail (the dashboard's line, e.g. the last exit code), since, and alertId and rule when an alert covers it. When the list is cut, pass \`namespace\` (Kubernetes) to narrow it.`,
-    'Next steps: explain_alert for a problem with an alertId; get_pod for a pod or container; get_workload for a Deployment or a Compose service.',
+    `Returns health (ok, warning or critical), counts, and up to ${MAX_PROBLEMS} problems, most severe first. Each has severity, type (crashloop, oom, connections, nodes, other), reason (WatchLog's explanation), object (kind, namespace and name on Kubernetes; host and container name on Docker), detail (the dashboard's line, e.g. the last exit code), since, alertId and rule when an alert covers it, subject (what explain_problem takes) and likelyCause when one cause likely explains it (from fixed rules over collected data, no score: rule, headline as a code with its facts, since). A problem without likelyCause has only possible causes, no clear one, or was not worked out in time: explain_problem tells which. When the list is cut, pass \`namespace\` (Kubernetes) to narrow it.`,
+    "Next steps: explain_problem with a problem's subject for its probable cause and evidence; explain_alert for a problem with an alertId; get_pod for a pod or container; get_workload for a Deployment or a Compose service.",
     'Example question: "Why is my prod cluster red?"',
   ),
   input: Type.Object(
@@ -93,6 +97,10 @@ export const getProblemsTool = defineTool({
       }),
     ]);
     const byId = new Map(alerts.alerts.map((a) => [a.id, a]));
+    const subjectOf = (x: OverviewProblem) => {
+      const s = problemSubject(x, cluster.kind);
+      return s ? { subject: text(formatSubject(s), 700) } : {};
+    };
     const p = overview.problems;
     const items = p.items.slice(0, MAX_PROBLEMS).map((x) => {
       const alert = x.alertId ? byId.get(x.alertId) : undefined;
@@ -106,6 +114,8 @@ export const getProblemsTool = defineTool({
         ...(x.alertId ? { alertId: x.alertId } : {}),
         ...(alert ? { rule: { key: alert.rule.key, name: text(alert.rule.name, 120) } } : {}),
         ...(x.related > 0 ? { alsoAffected: x.related } : {}),
+        ...subjectOf(x),
+        ...(x.likelyCause ? { likelyCause: likelyField(x.likelyCause) } : {}),
       };
     });
     return {

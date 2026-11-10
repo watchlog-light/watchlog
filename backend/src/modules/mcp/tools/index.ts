@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// The MCP tools (ADR-128; the services of v0.3, ADR-135), in the order clients list them: the usual path of an
+// The MCP tools (ADR-128; the services of v0.3, ADR-135; probable cause, ADR-148), in the order clients list them: the usual path of an
 // investigation, from the clusters to one object's facts.
 import { explainAlertTool, listAlertsTool } from './alerts.js';
 import { getApplicationTool, listApplicationsTool } from './applications.js';
+import { explainProblemTool } from './causes.js';
 import { listClustersTool } from './clusters.js';
 import type { ToolDef } from './common.js';
 import { getEventsTool, getRecentChangesTool } from './events.js';
@@ -20,6 +21,7 @@ export const TOOLS: ToolDef[] = [
   getProblemsTool,
   listAlertsTool,
   explainAlertTool,
+  explainProblemTool,
   getWorkloadTool,
   getPodTool,
   getNodeTool,
