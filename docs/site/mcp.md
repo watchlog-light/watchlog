@@ -12,10 +12,12 @@ assistant to it, and you can ask questions like:
 - "Why does the cart pod keep restarting?"
 - "Which containers on docker-01 were killed for memory today?"
 - "Did anything change right before the errors started?"
+- "What is the likely cause of the checkout alert?"
 
 The assistant answers from what WatchLog sees: problems and alerts, pods and containers,
-exit codes and OOM kills, events, recent rollouts, the service map and metrics. It works
-for **Kubernetes clusters** and **Docker hosts** alike.
+exit codes and OOM kills, events, recent rollouts, the service map and metrics, and the
+probable cause WatchLog finds for a problem. It works for **Kubernetes clusters** and
+**Docker hosts** alike.
 
 WatchLog doesn't run an AI model itself. It only answers the questions your assistant asks
 through MCP. Nothing about your clusters leaves WatchLog unless you connect a client.
@@ -135,23 +137,40 @@ Every tool is read-only. Each takes the cluster by name, and answers in that clu
 words: namespaces, workloads and pods on Kubernetes; hosts, Compose projects and containers
 on Docker.
 
-| Tool                 | Kubernetes                                                                   | Docker                                                        |
-| -------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `list_clusters`      | Your clusters, their kind and whether they report                            | The same                                                      |
-| `get_problems`       | What needs attention: crash loops, OOM kills, nodes, connections, alerts     | Restarting, unhealthy, OOM-killed or exited containers, hosts |
-| `list_alerts`        | Firing or recent alerts                                                      | The same                                                      |
-| `explain_alert`      | An alert with its pod's state, events and the changes before it              | The same for a container or Compose service                   |
-| `get_workload`       | A Deployment, StatefulSet, DaemonSet, Job or CronJob and its pods            | A Compose service and its containers                          |
-| `get_pod`            | A pod: containers, exit codes, OOM kills, restarts, events                   | A container                                                   |
-| `get_node`           | A node: conditions, capacity against use, the heaviest pods                  | A host                                                        |
-| `list_applications`  | Monitored services (Redis, PostgreSQL, Nginx, RabbitMQ), problems first      | The same, by host and Compose project                         |
-| `get_application`    | A service: its health, every reason, the workloads that connect to it        | The same, with the containers that connect to it              |
-| `get_service_map`    | Failing connections, or one workload's connections and DNS errors            | The same between containers                                   |
-| `get_events`         | Warning events, grouped                                                      | Container deaths, OOM kills, health changes                   |
-| `get_recent_changes` | Rollouts, image changes, scaling, nodes                                      | Re-created containers, image changes                          |
-| `query_metric`       | A metric over up to 24 hours, as statistics, including a monitored service's | The same                                                      |
+| Tool                 | Kubernetes                                                                                                             | Docker                                                                  |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `list_clusters`      | Your clusters, their kind and whether they report                                                                      | The same                                                                |
+| `get_problems`       | What needs attention: crash loops, OOM kills, nodes, connections, alerts; each with its likely cause when there is one | Restarting, unhealthy, OOM-killed or exited containers, hosts; the same |
+| `list_alerts`        | Firing or recent alerts                                                                                                | The same                                                                |
+| `explain_alert`      | An alert with its probable causes, its pod's state, events and the changes before it                                   | The same for a container or Compose service                             |
+| `explain_problem`    | The probable cause of a workload, pod, edge or monitored service, with its evidence and what was checked               | The same for a container or Compose service                             |
+| `get_workload`       | A Deployment, StatefulSet, DaemonSet, Job or CronJob and its pods                                                      | A Compose service and its containers                                    |
+| `get_pod`            | A pod: containers, exit codes, OOM kills, restarts, events                                                             | A container                                                             |
+| `get_node`           | A node: conditions, capacity against use, the heaviest pods                                                            | A host                                                                  |
+| `list_applications`  | Monitored services (Redis, PostgreSQL, Nginx, RabbitMQ), problems first                                                | The same, by host and Compose project                                   |
+| `get_application`    | A service: its health, every reason, the workloads that connect to it                                                  | The same, with the containers that connect to it                        |
+| `get_service_map`    | Failing connections, or one workload's connections and DNS errors                                                      | The same between containers                                             |
+| `get_events`         | Warning events, grouped                                                                                                | Container deaths, OOM kills, health changes                             |
+| `get_recent_changes` | Rollouts, image changes, scaling, nodes                                                                                | Re-created containers, image changes                                    |
+| `query_metric`       | A metric over up to 24 hours, as statistics, including a monitored service's                                           | The same                                                                |
 
 Two prompts start an investigation for you: `investigate_problem` and `why_is_it_crashing`.
+
+**Probable cause.** `explain_problem`, `explain_alert` and `get_problems` give the
+assistant the same evidence as the dashboard's "Likely cause" panel:
+
+- **Fixed rules, no score.** WatchLog checks a fixed list of causes (a dependency that is
+  down, a bad change, an OOM kill at the limit, a crash, an image it can't pull, a pod no
+  node takes, the node or host under it, a problem on a monitored service, refused
+  connections, a name that doesn't resolve, CPU throttling, a failed Job) against the data
+  it collects. No model runs, and no percentage is given.
+- **Likely or possible.** A cause is _likely_ when its evidence chain is complete and it
+  began before the problem; _possible_ causes are leads to check. With neither, WatchLog
+  says what it checked and what it found.
+- **Codes and facts.** Each cause, step and check is a code with its facts (names, counts,
+  sizes, times), and each rule comes with a one-line meaning. The assistant writes the
+  sentences. `get_problems` gives each problem a `subject` to pass to `explain_problem`,
+  for example `workload:shop/api` or `container:docker-01/shop-api-1`.
 
 **Limits:**
 

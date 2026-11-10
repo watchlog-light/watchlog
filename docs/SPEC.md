@@ -276,9 +276,10 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
   | Tool | Kubernetes | Docker |
   |---|---|---|
   | `list_clusters` | clusters with health, nodes, eBPF | fleets with hosts |
-  | `get_problems` | Needs attention: workloads and pods with reasons, firing alerts first | containers that are unhealthy, restarting, OOM-killed or exited non-zero, firing alerts |
+  | `get_problems` | Needs attention: workloads and pods with reasons, firing alerts first; each with its `subject` for `explain_problem` and, when one cause is likely, its `likelyCause` (v0.4, ADR-148) | containers that are unhealthy, restarting, OOM-killed or exited non-zero, firing alerts; the same `subject` and `likelyCause` |
   | `list_alerts` | firing or recent alerts | the same |
-  | `explain_alert` | the alert, its rule, the object's state, last terminations, events and changes before it (v0.4 adds the ranked probable causes, proposed ADR-148) | the same for containers and hosts |
+  | `explain_alert` | the alert, its rule, its `causes` (v0.4, ADR-148: the evidence of `GET /causes`), the object's state, last terminations, events and changes before it | the same for containers and hosts |
+  | `explain_problem` (v0.4) | the probable cause of a workload, pod, edge, application or alert: `state`, `headline`, ranked `causes` with each rule's meaning and its evidence chain, `checks`, `flowsOff` (ADR-148, ADR-155) | the same for a container or Compose service |
   | `get_workload` | replicas, images, restarts, terminations, use vs requests and limits | a Compose service: its containers, the same facts |
   | `get_pod` | containers, states, exit codes, OOM, conditions, events | a container |
   | `get_node` | conditions, capacity vs use, top pods | a host |
@@ -296,7 +297,8 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
 - **Live demo (ADR-130):** a public read token for demo.watchlog.io: 30 tool calls a minute per visitor and 600 in total, plus the demo's query caps.
 - **Docs:** `docs/site/mcp.md` with setup for Claude Code (`claude mcp add --transport http … --header`), Claude Desktop (`mcp-remote`) and Cursor, examples for a Kubernetes cluster and a Docker fleet, and the security notes. The site's "Ask your cluster" section stays behind a flag.
 
-- **End to end:** `deploy/test/k8s/mcp-e2e.sh` drives the SDK client (both protocol generations), Claude Desktop's `mcp-remote` path, Claude Code and Cursor when its CLI is there, against the kind demo and a Docker host (`deploy/test/demo-up.sh`).
+- **Probable cause (v0.4, ADR-148, ADR-155):** the answers carry codes and facts, as `GET /causes` does, plus each rule's meaning in a sentence without names; no rendered English sentence. Tool descriptions say the causes come from fixed rules over collected data, with no score.
+- **End to end:** `deploy/test/k8s/mcp-e2e.sh` drives the SDK client (both protocol generations), Claude Desktop's `mcp-remote` path, Claude Code and Cursor when its CLI is there, against the kind demo and a Docker host (`deploy/test/demo-up.sh`). `deploy/test/causes-e2e.sh mcp` asserts `explain_problem`, `get_problems.likelyCause` and `explain_alert.causes` against every probable-cause scenario on both.
 
 **Accept when:**
 - on the kind demo, Claude Code connected through MCP correctly explains the crash-looping and OOM pods from WatchLog data alone; the same works on a Docker host for an OOM-killed and a restarting container;
@@ -723,13 +725,14 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `GET/POST /clusters` · `GET/PATCH/DELETE /clusters/:id` | Create returns install commands + token (shown once) |
 | `POST /clusters/:id/tokens` · `DELETE /clusters/:id/tokens/:tid` | Rotate / revoke |
 | `GET /clusters/:id/onboarding-status` | Server-sent events: `agent_seen`, `cluster_agent_seen`, `first_metrics`, `ebpf_status`, `service_map_ready` |
-| `GET /clusters/:id/overview` | Data for §4.1 |
+| `GET /clusters/:id/overview` | Data for §4.1; each of the first 20 problems carries `likelyCause` when one cause is likely (ADR-148, ADR-155) |
 | `GET /clusters/:id/nodes` · `/nodes/:name` | |
 | `GET /clusters/:id/workloads` · `/pods` · `/pods/:ns/:name` | |
 | `GET /clusters/:id/docker/hosts` · `/docker/containers` | |
 | `GET /clusters/:id/service-map?from&to&namespace` | Graph JSON: `{nodes:[], edges:[]}` |
 | `GET /clusters/:id/events` | Paged, filterable |
 | `GET /causes?cluster=<id>&subject=<kind>:<ref>` | Probable cause (ADR-146 to ADR-148): `state` (likely, possible, none), a `headline`, up to 3 ranked `causes` with their evidence `chain`, the `checks` made and the nodes with network flows off; every sentence a code with facts. Subjects: `alert:<id>`, `pod:<ns>/<pod>`, `workload:<ns>/<Kind>/<name>` (or `<ns>/<name>`), `container:<host>/<name>` (or `<name>`), `compose_service:<project>/<service>`, `edge:<map edge id>`, `application:<id or name>`. Kept 15 s per subject |
+| `likelyCause` (optional) | On a Needs-attention problem (`/overview`), the alert detail (`GET /alerts/:id`) and an application with a finding (`GET /applications`, `/applications/:id`): `{rule, code, facts, since, headline, subject}`, the top cause of `GET /causes` when it is likely, left out when causes are only possible, none is clear, or the answer took longer than 2 s; `subject` asks `GET /causes` for the chain and the checks. Lists explain at most 20 subjects, 4 at a time, from the same 15 s cache (ADR-155) |
 | `POST /query/range` | Curated metric query: `{clusterId, metric, scope?: {host?, container?, composeProject?}, agg?, step?, from, to}` (unix seconds); `metric` is one of the catalog keys in `backend/src/modules/query/catalog.ts` (16 in Phase 1) → backend builds MetricsQL with tenant filter. Raw MetricsQL only for P1 advanced mode. |
 | `GET/POST/PATCH/DELETE /alert-rules` | |
 | `GET/POST/PATCH/DELETE /alert-channels` · `POST /alert-channels/:id/test` | |
