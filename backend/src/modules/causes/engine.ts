@@ -29,6 +29,7 @@ import {
   dependenciesOf,
   edgeHistory,
   MAX_HOPS,
+  risenEdge,
   throughEdge,
   type Dependency,
   type EdgeSeries,
@@ -98,6 +99,9 @@ export async function explain(
       via,
     });
 
+  /** The subject's dependencies whose p95 rose under the slow bar (its dependency check). */
+  const risen: Dependency[] = [];
+
   /**
    * The object's own causes and, unless one of them explains it on the object itself, those
    * found through what it calls (its failing, slow or quiet edges) and the objects its
@@ -113,6 +117,9 @@ export async function explain(
     const far = await Promise.all([
       ...edges.map(async (d) => {
         const followed: Dependency = { ...d, history: await history(reader, cluster.id, d, now) };
+        // A p95 under the slow bar is followed only when it rose well above its usual one.
+        if (d.risen && !risenEdge(d.edge, followed.history)) return [];
+        if (d.risen && hops === 0) risen.push(followed);
         const focus = await sourceFocus(reader, cluster, d.target);
         if (focus.kind === 'none') return [];
         const fe = await gatherFar(focus, {
@@ -145,7 +152,7 @@ export async function explain(
   const candidates = await look(ev, 0, new Set(ev.map.ids));
 
   const ranked = rank(candidates, target.symptomAt, window.from);
-  const found = checksOf(ev);
+  const found = checksOf(ev, { risen });
   const checks = markChecks(found.checks, ranked);
   const object =
     target.object?.kind === 'application' && ev.application

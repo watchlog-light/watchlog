@@ -90,6 +90,7 @@ const CheckSchema = Type.Object({
       Type.Literal('changes'),
       Type.Literal('node'),
       Type.Literal('host'),
+      Type.Literal('cpu'),
       Type.Literal('dependencies'),
       Type.Literal('dns'),
       Type.Literal('application'),

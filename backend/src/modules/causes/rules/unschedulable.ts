@@ -71,11 +71,22 @@ export function schedulingReasons(message: string): Scheduling {
 }
 
 /** What keeps it off most nodes: a resource, the selector, then taints (often the control plane). */
-const ORDER: SchedulingReason[] = ['cpu', 'memory', 'resource', 'selector', 'other', 'taint'];
+const ORDER: SchedulingReason[] = [
+  'cpu',
+  'memory',
+  'resource',
+  'selector',
+  'other',
+  'taint',
+  'cordoned',
+];
 
 export function mainReason(s: Scheduling): Scheduling['reasons'][number] | null {
+  // A cordon is where it starts unless other nodes lack the CPU or memory it asks for: then
+  // the cordoned node may too, and the request is the likelier reason (ADR-154).
   const cordoned = s.reasons.find((r) => r.reason === 'cordoned');
-  if (cordoned) return cordoned;
+  const short = s.reasons.some((r) => ['cpu', 'memory', 'resource'].includes(r.reason));
+  if (cordoned && !short) return cordoned;
   return (
     [...s.reasons].sort(
       (a, b) => b.n - a.n || ORDER.indexOf(a.reason) - ORDER.indexOf(b.reason),

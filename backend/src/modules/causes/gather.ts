@@ -5,6 +5,7 @@
 // "couldn't check", never a failed answer.
 import { ApiReadError } from '../mcp/reader.js';
 import { increase, sumCounts, type Point } from './counts.js';
+import { conditionTaint, HELD_BY_NODES } from './rules/common.js';
 import {
   COUNT_MS,
   emptyMap,
@@ -90,6 +91,8 @@ interface PodDetail {
   pod: EvPod;
   containers: EvPodContainer[];
   events: EvEvent[];
+  /** The pod's own message (an eviction's words). */
+  message?: string | null;
 }
 
 const byNewest = (a: EvEvent, b: EvEvent) => Date.parse(b.lastSeen) - Date.parse(a.lastSeen);
@@ -138,8 +141,12 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
       names.slice(0, MAX_NODES).map((n) =>
         soft(
           reader
-            .get<{ node: EvNode }>(`${base}/nodes/${encodeURIComponent(n)}`)
-            .then((r) => r.node as EvNode | null),
+            .get<{ node: EvNode; events?: EvEvent[] }>(`${base}/nodes/${encodeURIComponent(n)}`)
+            .then((r) =>
+              r.node
+                ? ({ ...r.node, events: [...(r.events ?? [])].sort(byNewest) } as EvNode)
+                : null,
+            ),
           null,
         ),
       ),
@@ -160,7 +167,7 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
         ev.changes = await markers(focus.namespace);
         return ev;
       }
-      const pod = { ...detail.pod, containers: detail.containers };
+      const pod = { ...detail.pod, containers: detail.containers, message: detail.message ?? null };
       ev.pods = [pod];
       ev.events = detail.events.filter(inWindow).sort(byNewest);
       if (pod.workload && pod.workloadKind)
@@ -178,6 +185,7 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
           pod,
         ]),
       ]);
+      await heldBy(reader, ev, nodes);
       if (pod.workload && pod.workloadKind)
         await nxdomainSeries(reader, ev, {
           namespace: pod.namespace,
@@ -225,14 +233,14 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
               .get<PodDetail>(
                 `${base}/pods/${encodeURIComponent(p.namespace)}/${encodeURIComponent(p.name)}`,
               )
-              .then((d) => d.containers),
+              .then((d) => ({ containers: d.containers, message: d.message ?? null })),
             null,
           ),
         ),
       );
       ev.pods = pods.map((p) => {
         const i = failing.indexOf(p);
-        return i >= 0 && details[i] ? { ...p, containers: details[i] } : p;
+        return i >= 0 && details[i] ? { ...p, ...details[i] } : p;
       });
       // The workload's own events and its pods' and ReplicaSets' (named after it).
       ev.events = events
@@ -261,6 +269,7 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
           pods,
         ),
       ]);
+      await heldBy(reader, ev, nodes);
       await Promise.all([
         nxdomainSeries(reader, ev, {
           namespace: w.namespace,
@@ -387,6 +396,44 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
   }
 }
 
+/**
+ * Slice 4 (node_or_host): a Pending pod the scheduler keeps off cordoned or tainted nodes is
+ * held by those nodes, though no node is under it. Their state and events (NodeNotSchedulable
+ * says when the cordon began; there is no change marker for it, slice 0 gap 4) join the
+ * nodes under the focus. One more read (the nodes), only for such a pod.
+ */
+async function heldBy(
+  reader: Reader,
+  ev: Evidence,
+  nodes: (names: string[]) => Promise<EvNode[]>,
+): Promise<void> {
+  const from = Date.parse(ev.window.from);
+  const held = ev.pods.some(
+    (p) =>
+      p.phase === 'Pending' &&
+      !p.node &&
+      ev.events.some(
+        (e) =>
+          e.reason === 'FailedScheduling' &&
+          e.involvedName === p.name &&
+          Date.parse(e.lastSeen) >= from &&
+          HELD_BY_NODES.test(e.message),
+      ),
+  );
+  if (!held) return;
+  const list = await soft(
+    reader.get<{ nodes: EvNode[] }>(`/clusters/${ev.clusterId}/nodes`).then((r) => r.nodes),
+    [] as EvNode[],
+  );
+  const names = list
+    .filter((n) => n.unschedulable || n.taints.some(conditionTaint))
+    .map((n) => n.name)
+    .filter((n) => !ev.nodes.some((x) => x.name === n));
+  if (!names.length) return;
+  ev.nodes = [...ev.nodes, ...(await nodes(names))];
+  for (const n of names) ev.ownTargets.push(`Node/${n}`);
+}
+
 interface ListedApplication {
   id: string;
   target: Record<string, unknown>;
@@ -510,9 +557,11 @@ async function kubeMetrics(
   pods: EvPod[],
 ): Promise<EvMetrics | null> {
   const hour = countedHour(windowTo);
-  const [restarts, memory] = await Promise.all([
+  const limited = pods.some((p) => (p.cpuLimitCores ?? 0) > 0);
+  const [restarts, memory, throttled] = await Promise.all([
     range(reader, clusterId, 'pod.restarts', scope, hour),
     range(reader, clusterId, 'pod.container.memory.working_set', scope, hour),
+    limited ? range(reader, clusterId, 'pod.container.cpu.throttled', scope, hour) : null,
   ]);
   if (!restarts && !memory) return null;
   const born = new Map(
@@ -536,6 +585,16 @@ async function kubeMetrics(
         bytesPoints(s.points),
       ]),
     ),
+    ...(throttled
+      ? {
+          cpuThrottled: Object.fromEntries(
+            throttled.series.map((s) => [
+              `${s.labels.namespace}/${s.labels.pod}/${s.labels.container}`,
+              bytesPoints(s.points),
+            ]),
+          ),
+        }
+      : {}),
   };
 }
 
@@ -548,10 +607,12 @@ async function dockerMetrics(
   containers: EvContainer[],
 ): Promise<EvMetrics | null> {
   const hour = countedHour(windowTo);
-  const [restarts, kills, memory] = await Promise.all([
+  const limited = containers.some((c) => (c.cpuLimitCores ?? 0) > 0);
+  const [restarts, kills, memory, throttled] = await Promise.all([
     range(reader, clusterId, 'container.restarts', scope, hour),
     range(reader, clusterId, 'container.oom_kills', scope, hour),
     range(reader, clusterId, 'container.memory.working_set', scope, hour),
+    limited ? range(reader, clusterId, 'container.cpu.throttled', scope, hour) : null,
   ]);
   if (!restarts && !kills && !memory) return null;
   const mine = new Map(containers.map((c) => [`${c.host}/${c.name}`, c]));
@@ -575,6 +636,17 @@ async function dockerMetrics(
         .map((s) => [`${s.labels.host}/${s.labels.container}`, bytesPoints(s.points)] as const)
         .filter(([k]) => mine.has(k)),
     ),
+    ...(throttled
+      ? {
+          cpuThrottled: Object.fromEntries(
+            throttled.series
+              .map(
+                (s) => [`${s.labels.host}/${s.labels.container}`, bytesPoints(s.points)] as const,
+              )
+              .filter(([k]) => mine.has(k)),
+          ),
+        }
+      : {}),
   };
 }
 

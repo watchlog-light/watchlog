@@ -36,7 +36,13 @@ export type FixtureName =
   | 'kube-cronjob-failed'
   | 'docker-service-oom'
   | 'docker-container-crash'
-  | 'docker-container-bad-recreate';
+  | 'docker-container-bad-recreate'
+  // Slice 4 (with the throttling read): pinned held off the drained demo-worker2, hot
+  // throttled at its 20m CPU limit (kind and Docker), Compose service pg on a silent host.
+  | 'kube-workload-cordoned'
+  | 'kube-workload-throttled'
+  | 'docker-service-throttled'
+  | 'docker-service-silent';
 
 /** A fresh copy of a captured snapshot, changed by `patch` when given. */
 export function evidence(name: FixtureName, patch?: (ev: Evidence) => void): Evidence {
@@ -128,7 +134,12 @@ export type RecordingName =
   | 'kube-rabbit-consumer-oom'
   | 'docker-rabbit-consumer-oom'
   // Re-created minutes before (a Compose file change): its OOM kills follow a change.
-  | 'docker-rabbit-consumer-change';
+  | 'docker-rabbit-consumer-change'
+  // Slice 4: the node drain (pinned), the silent Docker host (pg), caller → the CPU-limited hot.
+  | 'kube-node-drain'
+  | 'docker-host-silent'
+  | 'kube-cpu-throttle'
+  | 'docker-cpu-throttle';
 
 export interface Recording {
   cluster: ClusterRef;
@@ -144,16 +155,36 @@ export function recording(name: RecordingName): Recording {
   ) as Recording;
 }
 
-/** A Reader that answers from a recording (404 for a read it doesn't have); `patch` may change it first. */
+/**
+ * Reads slice 4 added that recordings made before it lack: the CPU throttling of a focus with
+ * a CPU limit. They answer no series (the recording's time had none recorded), so the answer
+ * stays as it was; any other read missing still fails the test.
+ */
+export const BEFORE_SLICE_4 = (key: string): unknown =>
+  /^POST \/query\/range .*"metric":"(?:pod\.)?container\.cpu\.throttled"/.test(key)
+    ? { metric: 'throttled', unit: 'cores', step: 15, series: [] }
+    : undefined;
+
+/** Whether a recording was made before slice 4 (it has no throttling read). */
+export const beforeSlice4 = (rec: Recording) =>
+  !Object.keys(rec.reads).some((k) => k.includes('cpu.throttled'));
+
+/**
+ * A Reader that answers from a recording (404 for a read it doesn't have); `patch` may change
+ * it first; `fallback` answers reads the recording doesn't have (BEFORE_SLICE_4).
+ */
 export function replay(
   rec: Recording,
   patch?: (reads: Recording['reads']) => void,
+  fallback?: (key: string) => unknown,
 ): Reader & { missed: string[] } {
   const reads = structuredClone(rec.reads);
   patch?.(reads);
   const missed: string[] = [];
   const answer = <T>(key: string): T => {
-    const r = reads[key];
+    const r =
+      reads[key] ??
+      (fallback?.(key) !== undefined ? { status: 200, body: fallback(key) } : undefined);
     if (!r) {
       missed.push(key);
       throw new ApiReadError(404, `not recorded: ${key}`);

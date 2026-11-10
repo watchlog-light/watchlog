@@ -16,9 +16,12 @@ import {
   EDGE_SLOW_P95_S,
   edgeTrouble,
 } from './checks.js';
+import { runFrom } from './counts.js';
 import type { EdgeHistory, EvEdge, Evidence } from './evidence.js';
 import { edgeObject } from './resolve.js';
 import type { Candidate, CheckTopic, Step } from './types.js';
+
+export { runFrom };
 
 export const MAX_HOPS = 2;
 /** Edges followed from one object. */
@@ -29,6 +32,13 @@ export const MAX_STEPS = 3;
 export const QUIET_MS = 2 * 60_000;
 /** The p95 "before" a slowdown is that of the 5 minutes before it. */
 const BEFORE_S = 5 * 60;
+/**
+ * A dependency slower than usual, under the 1 s "slow" bar (slice 4, ADR-154): its p95 is at
+ * least this (seconds)…
+ */
+export const RISEN_MIN_P95_S = 0.05;
+/** …and at least this many times its usual p95 (the lower quartile of its last hour). */
+export const RISEN_FACTOR = 5;
 
 /** A dependency the walk may follow: an edge and the map node at its far end. */
 export interface Dependency {
@@ -37,6 +47,11 @@ export interface Dependency {
   target: string;
   /** The edge's last hour, when it was read (the engine reads it before following). */
   history?: EdgeHistory | null;
+  /**
+   * Not failing nor slow by the map's bars, but its p95 is high enough that it may have risen
+   * well above its usual one (slice 4): followed only when its last hour shows the rise.
+   */
+  risen?: boolean;
 }
 
 const toObject = (id: string) => id.startsWith('w:') || id.startsWith('c:');
@@ -49,8 +64,10 @@ export function lookupsFail(ev: Evidence): boolean {
 
 /**
  * The outgoing edges the walk follows, at most three: failing or slow ones that end at a
- * workload or a container, worst first; then, on Docker while the caller's lookups fail, the
- * edges to containers that carry the least now (a stopped container's edge goes quiet).
+ * workload or a container, worst first; then those whose p95 may have risen well above their
+ * usual one (slice 4: the engine follows them only when their last hour shows it); then, on
+ * Docker while the caller's lookups fail, the edges to containers that carry the least now (a
+ * stopped container's edge goes quiet).
  */
 export function dependenciesOf(ev: Evidence): Dependency[] {
   const troubled = ev.map.outgoing
@@ -67,9 +84,17 @@ export function dependenciesOf(ev: Evidence): Dependency[] {
           .filter((e) => e.target.startsWith('c:') && !edgeTrouble(e))
           .sort((a, b) => a.connectionsPerSecond - b.connectionsPerSecond)
       : [];
-  return [...troubled, ...quiet]
-    .slice(0, MAX_DEPENDENCIES)
-    .map((edge) => ({ edge, target: edge.target }));
+  const risen = ev.map.outgoing
+    .filter(
+      (e) => toObject(e.target) && !edgeTrouble(e) && (e.http?.p95Seconds ?? 0) >= RISEN_MIN_P95_S,
+    )
+    .sort((a, b) => (b.http?.p95Seconds ?? 0) - (a.http?.p95Seconds ?? 0));
+  const out: Dependency[] = [
+    ...troubled.map((edge) => ({ edge, target: edge.target })),
+    ...risen.map((edge) => ({ edge, target: edge.target, risen: true })),
+    ...quiet.filter((e) => !risen.includes(e)).map((edge) => ({ edge, target: edge.target })),
+  ];
+  return out.slice(0, MAX_DEPENDENCIES);
 }
 
 /** One edge series of GET /service-map/edge, as far as the walk reads it. */
@@ -83,25 +108,6 @@ export interface EdgeSeries {
 }
 
 const isoS = (t: number) => new Date(t * 1000).toISOString();
-
-/**
- * The first time of the run of points that lasts to the newest one (`times` ascending); null
- * when the newest isn't in it, or when the run reaches back to the start of the range asked
- * from `fromS` (it began before). A series that begins inside the range (a new edge, a new
- * client) began with its first point.
- */
-export function runFrom(
-  times: number[],
-  is: (t: number) => boolean,
-  fromS: number,
-  step: number,
-): number | null {
-  let i = times.length - 1;
-  if (i < 0 || !is(times[i]!)) return null;
-  while (i > 0 && is(times[i - 1]!)) i--;
-  if (i > 0) return times[i]!;
-  return times[0]! - fromS > 2 * step ? times[0]! : null;
-}
 
 /**
  * The edge's last hour from its series (asked from `fromS`, unix seconds): when its trouble and
@@ -131,23 +137,39 @@ export function edgeHistory(s: EdgeSeries, fromS: number): EdgeHistory {
   const runStart = (is: (t: number) => boolean) => runFrom(times, is, fromS, s.step);
   const trouble = runStart(troubled);
   const slowFrom = runStart(slow);
-  // The p95 just before the slowdown: the median of the last 5 minutes before it (earlier
-  // in the hour it may have been slow already, before a restore).
-  const before =
-    slowFrom === null
-      ? []
-      : times
-          .filter((t) => t < slowFrom && t >= slowFrom - BEFORE_S && p95.has(t))
-          .map((t) => p95.get(t)!)
-          .sort((a, b) => a - b);
+  // The usual p95: the lower quartile of the hour's points, so a rise that lasts less than
+  // three quarters of the hour stands out against it.
+  const sorted = [...p95.values()].sort((a, b) => a - b);
+  const usual = sorted.length ? sorted[Math.floor((sorted.length - 1) / 4)]! : null;
+  const bar = usual === null ? null : Math.max(RISEN_MIN_P95_S, RISEN_FACTOR * usual);
+  const risenFrom = bar === null ? null : runStart((t) => (p95.get(t) ?? 0) >= bar);
+  // The p95 just before a slowdown: the median of the last 5 minutes before it (earlier in
+  // the hour it may have been slow already, before a restore).
+  const medianBefore = (from: number | null) => {
+    if (from === null) return null;
+    const before = times
+      .filter((t) => t < from && t >= from - BEFORE_S && p95.has(t))
+      .map((t) => p95.get(t)!)
+      .sort((a, b) => a - b);
+    return before.length ? before[Math.floor(before.length / 2)]! : null;
+  };
   const lastConn = [...conn].filter(([, v]) => v > 0).map(([t]) => t);
   return {
     troubleSince: trouble === null ? null : isoS(trouble),
     slowSince: slowFrom === null ? null : isoS(slowFrom),
-    p95Before: before.length ? before[Math.floor(before.length / 2)]! : null,
+    p95Before: medianBefore(slowFrom),
+    risenSince: risenFrom === null ? null : isoS(risenFrom),
+    p95Usual: usual,
     lastConnectedAt: lastConn.length ? isoS(Math.max(...lastConn)) : null,
     end: times.length ? isoS(times[times.length - 1]!) : null,
   };
+}
+
+/** The edge's p95 rose well above its usual one, under the slow bar (slice 4). */
+export function risenEdge(edge: EvEdge, history: EdgeHistory | null | undefined): boolean {
+  return (
+    !edgeTrouble(edge) && !!history?.risenSince && (edge.http?.p95Seconds ?? 0) >= RISEN_MIN_P95_S
+  );
 }
 
 /** The edge carried no connection for a while (QUIET_MS before `now`). */
@@ -180,6 +202,16 @@ export function edgeStep(ev: Evidence, dep: Dependency): Step {
           source: 'dns',
         }
       : { ...step, code: 'edge_gone', facts: {}, since: h?.lastConnectedAt ?? null };
+  }
+  if (risenEdge(dep.edge, h)) {
+    const before = h!.p95Usual ?? null;
+    const p95Ms = Math.round((dep.edge.http?.p95Seconds ?? 0) * 1000);
+    return {
+      ...step,
+      code: before !== null ? 'edge_slower' : 'edge_slower_now',
+      facts: before !== null ? { fromMs: Math.round(before * 10000) / 10, p95Ms } : { p95Ms },
+      since: h!.risenSince ?? null,
+    };
   }
   return step;
 }

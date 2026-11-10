@@ -9147,6 +9147,7 @@ export interface paths {
                   | 'changes'
                   | 'node'
                   | 'host'
+                  | 'cpu'
                   | 'dependencies'
                   | 'dns'
                   | 'application'

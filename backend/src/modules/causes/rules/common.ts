@@ -313,5 +313,12 @@ export function changeStep(ev: Evidence, m: EvMarker) {
   };
 }
 
+/** The scheduler keeps a pod off nodes it names as cordoned or tainted (FailedScheduling). */
+export const HELD_BY_NODES =
+  /node\(s\) were unschedulable|node\(s\) had (?:untolerated taint|taints? that the pod didn't tolerate)/i;
+
+/** Taints Kubernetes puts on a node for its condition: a cordon, not-ready, pressure… */
+export const conditionTaint = (t: string) => t.startsWith('node.kubernetes.io/');
+
 export const podRef = (p: EvPod) => podObject(p.namespace, p.name);
 export const containerRef = (c: EvContainer) => containerObject(c.host, c.name);

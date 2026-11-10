@@ -102,6 +102,7 @@ describe('explain', () => {
       'events',
       'changes',
       'node',
+      'cpu',
       'dependencies',
       'dns',
     ]);

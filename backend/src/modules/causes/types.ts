@@ -102,7 +102,16 @@ export interface Cause extends Sentence {
 
 /** What was looked at; the "what" of a check line. */
 export type CheckTopic =
-  'self' | 'events' | 'changes' | 'node' | 'host' | 'dependencies' | 'dns' | 'application' | 'edge';
+  | 'self'
+  | 'events'
+  | 'changes'
+  | 'node'
+  | 'host'
+  | 'cpu'
+  | 'dependencies'
+  | 'dns'
+  | 'application'
+  | 'edge';
 
 /**
  * What a check came to: it explains the problem (the likely cause came from it), it is a

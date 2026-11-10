@@ -2547,6 +2547,7 @@
                               { "type": "string", "enum": ["changes"] },
                               { "type": "string", "enum": ["node"] },
                               { "type": "string", "enum": ["host"] },
+                              { "type": "string", "enum": ["cpu"] },
                               { "type": "string", "enum": ["dependencies"] },
                               { "type": "string", "enum": ["dns"] },
                               { "type": "string", "enum": ["application"] },

@@ -4,7 +4,7 @@
 // candidate cause with its chain. Strength is not the rule's to give: ranking (rank.ts) gives
 // it from the chain and the timing (ADR-147).
 //
-// Adding a rule (slices 2–4): a file in rules/ exporting a Rule, added to RULES below; its
+// Adding a rule: a file in rules/ exporting a Rule, added to RULES below (or OWN_RULES); its
 // codes in web/src/i18n/en.json (causes.cause.<code>, causes.headline.<code>, causes.step.<code>)
 // and a fixture case in web/test/cause-templates.test.ts; unit tests from evidence fixtures
 // (test/support/causes.ts).
@@ -48,8 +48,9 @@ export interface Rule {
 /**
  * The catalog's rules. Slice 2: the rules on the object itself (OWN_RULES, rules/own.ts).
  * Slice 3: the rules across the map, which read what the walk followed (`ev.via`) or the
- * object's DNS and application findings. Slice 4 adds the rules under it (node_or_host,
- * cpu_throttled): add them to OWN_RULES, so dependency_down finds them at the far end too.
+ * object's DNS and application findings. Slice 4: the rules under it (node_or_host,
+ * cpu_throttled), in OWN_RULES, so dependency_down and a consumer's chain find them at the
+ * far end too.
  */
 export const RULES: Rule[] = [
   ...OWN_RULES,

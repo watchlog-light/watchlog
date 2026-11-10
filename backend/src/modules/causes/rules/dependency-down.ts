@@ -54,6 +54,11 @@ function headline(
     return { code: 'dependency_down_change', facts: { name, target } };
   if (own?.rule === 'image_pull' && f.image)
     return { code: 'dependency_down_pull', facts: { name, target, image: f.image } };
+  if (own?.rule === 'node_or_host' && (f.node || f.host))
+    return {
+      code: f.host ? 'dependency_down_host' : 'dependency_down_node',
+      facts: { name, target, node: String(f.node ?? f.host) },
+    };
   return fallback;
 }
 

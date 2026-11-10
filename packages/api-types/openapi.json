@@ -25213,6 +25213,10 @@
                               },
                               {
                                 "type": "string",
+                                "enum": ["cpu"]
+                              },
+                              {
+                                "type": "string",
                                 "enum": ["dependencies"]
                               },
                               {

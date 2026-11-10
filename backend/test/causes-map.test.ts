@@ -18,11 +18,19 @@ import { dnsNxdomain, nxdomainSince } from '../src/modules/causes/rules/dns-nxdo
 import { tail } from '../src/modules/causes/rules/own.js';
 import { parseSubject } from '../src/modules/causes/subject.js';
 import { edgeHistory, runFrom } from '../src/modules/causes/walk.js';
-import { evidence, recording, replay, step, type RecordingName } from './support/causes.js';
+import {
+  BEFORE_SLICE_4,
+  beforeSlice4,
+  evidence,
+  recording,
+  replay,
+  step,
+  type RecordingName,
+} from './support/causes.js';
 
 async function answer(name: RecordingName, patch?: Parameters<typeof replay>[1]) {
   const rec = recording(name);
-  const reader = replay(rec, patch);
+  const reader = replay(rec, patch, beforeSlice4(rec) ? BEFORE_SLICE_4 : undefined);
   const a = await explain(reader, rec.cluster, parseSubject(rec.subject), { now: rec.now });
   return { a, rec, missed: reader.missed };
 }

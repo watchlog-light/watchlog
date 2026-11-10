@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// The rules on the object itself (slice 2; slice 4 adds node_or_host and cpu_throttled here),
+// The rules on the object itself (slice 2) and under it (slice 4: node_or_host, cpu_throttled),
 // and what the rules across the map ask of them: the dependency's or the consumer's own cause,
 // and the steps of it that fit after their own.
 import type { Evidence } from '../evidence.js';
@@ -7,9 +7,11 @@ import { rank } from '../rank.js';
 import type { Rule } from '../rules.js';
 import type { Candidate, Step } from '../types.js';
 import { badChange } from './bad-change.js';
+import { cpuThrottled } from './cpu-throttled.js';
 import { crashExit } from './crash-exit.js';
 import { imagePull } from './image-pull.js';
 import { jobFailed } from './job-failed.js';
+import { nodeOrHost } from './node-or-host.js';
 import { oomLimit } from './oom-limit.js';
 import { run } from './run.js';
 import { unschedulable } from './unschedulable.js';
@@ -21,6 +23,8 @@ export const OWN_RULES: readonly Rule[] = [
   imagePull,
   unschedulable,
   jobFailed,
+  nodeOrHost,
+  cpuThrottled,
 ];
 export const OWN_CODES: readonly string[] = OWN_RULES.map((r) => r.code);
 

@@ -22,6 +22,8 @@ describe('checks on Kubernetes', () => {
       events: ['events_warnings', 'possible'],
       changes: ['changes_own', 'possible'],
       node: ['node_ok', 'ok'],
+      // Captured before slice 4: no throttling read.
+      cpu: ['cpu_unknown', 'not_run'],
       dependencies: ['dependencies_none', 'not_applicable'],
       dns: ['dns_none', 'not_applicable'],
     });
@@ -42,6 +44,7 @@ describe('checks on Kubernetes', () => {
       events: ['events_none', 'ok'],
       changes: ['changes_none', 'ok'],
       node: ['node_ok', 'ok'],
+      cpu: ['cpu_unknown', 'not_run'],
       dependencies: ['dependencies_ok', 'ok'],
       dns: ['dns_ok', 'ok'],
     });
@@ -92,6 +95,7 @@ describe('checks on Kubernetes', () => {
       { node: 'demo-worker', cause: 'kernel', reason: 'kernel without BTF' },
     ]);
     expect(checks.filter((c) => c.result === 'not_run').map((c) => c.code)).toEqual([
+      'cpu_unknown',
       'dependencies_flows_off',
       'dns_flows_off',
     ]);

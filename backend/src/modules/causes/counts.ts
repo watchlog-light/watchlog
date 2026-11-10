@@ -142,3 +142,22 @@ export function interval(c: EvCount | null): number | null {
   if (!c || c.n < 3 || c.first === null || c.last === null || c.last <= c.first) return null;
   return Math.round((c.last - c.first) / (c.n - 1));
 }
+
+/**
+ * The first time of the run of points that lasts to the newest one (`times` ascending); null
+ * when the newest isn't in it, or when the run reaches back to the start of the range asked
+ * from `fromS` (it began before). A series that begins inside the range (a new edge, a new
+ * client) began with its first point.
+ */
+export function runFrom(
+  times: number[],
+  is: (t: number) => boolean,
+  fromS: number,
+  step: number,
+): number | null {
+  let i = times.length - 1;
+  if (i < 0 || !is(times[i]!)) return null;
+  while (i > 0 && is(times[i - 1]!)) i--;
+  if (i > 0) return times[i]!;
+  return times[0]! - fromS > 2 * step ? times[0]! : null;
+}

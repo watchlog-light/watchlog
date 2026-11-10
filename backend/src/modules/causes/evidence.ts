@@ -87,6 +87,8 @@ export interface EvPod {
   restarts: number;
   workloadKind: string | null;
   workload: string | null;
+  /** Containers in the pod (the pods API). */
+  totalContainers?: number;
   createdAt: string | null;
   startedAt: string | null;
   lastTermination: EvTermination | null;
@@ -99,6 +101,8 @@ export interface EvPod {
   memoryBytes: number | null;
   /** Only when the pod's detail was read (a pod subject, or a workload's failing pods). */
   containers?: EvPodContainer[];
+  /** The pod's own message (an eviction's "The node was low on resource: memory…"), from its detail. */
+  message?: string | null;
 }
 
 export interface EvWorkload {
@@ -132,6 +136,10 @@ export interface EvNode {
     bad: boolean;
   }[];
   agent: { status: string; lastSeenAt: string | null };
+  /** Memory used and allocatable (the nodes API), when known. */
+  memory?: { usageBytes: number | null; allocatableBytes: number | null } | null;
+  /** The node's own events (NodeNotSchedulable, NodeNotReady…), from its detail, newest first. */
+  events?: EvEvent[];
 }
 
 export interface EvContainer {
@@ -283,6 +291,12 @@ export interface EvMetrics {
    * the map shows some (slice 3). Absent in older snapshots.
    */
   nxdomain?: [number, number][];
+  /**
+   * Throttled CPU seconds a second per container (`<namespace>/<pod>/<container>` or
+   * `<host>/<name>`), [unix s, s/s] (slice 4, cpu_throttled); read only when the focus has a
+   * CPU limit. Absent in older snapshots.
+   */
+  cpuThrottled?: Record<string, [number, number][]>;
 }
 
 /**
@@ -297,6 +311,15 @@ export interface EdgeHistory {
   slowSince: string | null;
   /** The p95 before that run (the median of the points before it), seconds. */
   p95Before: number | null;
+  /**
+   * Slice 4: the current run of a p95 well above the edge's own usual one (at least 50 ms and
+   * 5 times the hour's lower quartile) began, though it may be under the 1 s "slow" bar (a
+   * dependency that went from 1 ms to 200 ms); null when it isn't (or began before the hour).
+   * Absent in older snapshots.
+   */
+  risenSince?: string | null;
+  /** That usual p95: the lower quartile of the hour's points, seconds. */
+  p95Usual?: number | null;
   /** The last point with a connection. */
   lastConnectedAt: string | null;
   /** The newest point of the series (data lags the clock by about a minute). */

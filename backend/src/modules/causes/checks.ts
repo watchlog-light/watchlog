@@ -7,7 +7,9 @@ import type { EvContainer, EvEdge, EvPod, Evidence } from './evidence.js';
 import { WINDOW_BEFORE_MS } from './evidence.js';
 import { nodeObject } from './resolve.js';
 import { containerRestarts, oomKills, podRestarts, SAME_MS } from './rules/common.js';
+import { hasCpuLimit, sharePct, THROTTLED_SHARE, throttlings } from './throttle.js';
 import type { Check, CheckTopic, FlowsOff } from './types.js';
+import type { Dependency } from './walk.js';
 
 /** DNS errors (NXDOMAIN, SERVFAIL, timeouts) over lookups that count: the map's 5 %. */
 export const DNS_ERROR_RATIO = 0.05;
@@ -196,7 +198,8 @@ function changesCheck(ev: Evidence, name: string): Check {
 function nodeChecks(ev: Evidence, name: string): Check[] {
   if (ev.platform === 'kubernetes') {
     if (ev.focus.kind === 'pod' || ev.focus.kind === 'workload') {
-      if (!ev.gone && ev.pods.length && ev.pods.every((p) => !p.node))
+      // A Pending pod has no node, unless the scheduler is held off cordoned ones (gather).
+      if (!ev.gone && ev.pods.length && ev.pods.every((p) => !p.node) && !ev.nodes.length)
         return [check('node', 'node_none', 'not_applicable', { name })];
     } else if (ev.focus.kind !== 'node') return [];
     return ev.nodes.map((n) => {
@@ -296,7 +299,29 @@ export function edgeTrouble(e: EvEdge): { code: string; facts: Check['facts'] } 
   return null;
 }
 
-function networkChecks(ev: Evidence, name: string, flowsOff: FlowsOff[] | null): Check[] {
+/**
+ * The CPU (slice 4): whether the focus's containers are throttled at their CPU limit, from
+ * the throttled seconds the agent records (throttle.ts).
+ */
+function cpuCheck(ev: Evidence, name: string): Check[] {
+  if (ev.gone || !['pod', 'workload', 'container', 'compose_service'].includes(ev.focus.kind))
+    return [];
+  if (!ev.pods.length && !ev.containers.length) return [];
+  if (!hasCpuLimit(ev)) return [check('cpu', 'cpu_no_limit', 'not_applicable', { name })];
+  const all = throttlings(ev);
+  if (!all) return [check('cpu', 'cpu_unknown', 'not_run', { name })];
+  const top = all[0];
+  if (top && top.share >= THROTTLED_SHARE)
+    return [check('cpu', 'cpu_throttled', 'possible', { name, pct: sharePct(top.share) })];
+  return [check('cpu', 'cpu_ok', 'ok', { name })];
+}
+
+function networkChecks(
+  ev: Evidence,
+  name: string,
+  flowsOff: FlowsOff[] | null,
+  risen: Dependency[],
+): Check[] {
   const hasMapNode = ['pod', 'workload', 'container', 'compose_service'].includes(ev.focus.kind);
   if (!hasMapNode || ev.gone) return [];
   if (ev.map.mode === 'unavailable')
@@ -322,6 +347,17 @@ function networkChecks(ev: Evidence, name: string, flowsOff: FlowsOff[] | null):
         name,
         n: failing.length,
         target: node?.name ?? worst.target.replace(/^[a-z]:/, ''),
+      }),
+    );
+  } else if (risen.length) {
+    // Slice 4: a call whose p95 rose well above its usual one, under the slow bar.
+    const r = risen[0]!;
+    const node = ev.map.nodes.find((n) => n.id === r.edge.target);
+    out.push(
+      check('dependencies', 'dependencies_slower', 'possible', {
+        name,
+        target: node?.name ?? r.edge.target.replace(/^[a-z]:/, ''),
+        p95Ms: Math.round((r.edge.http?.p95Seconds ?? 0) * 1000),
       }),
     );
   } else if (calls.length) {
@@ -377,8 +413,16 @@ function applicationCheck(ev: Evidence): Check[] {
     : [check('application', 'application_ok', 'ok', { name })];
 }
 
+/** What the engine adds to a snapshot's checks: its dependencies whose p95 rose (slice 4). */
+export interface CheckExtras {
+  risen?: Dependency[];
+}
+
 /** Every check of one snapshot, and the nodes or hosts with network flows off. */
-export function checksOf(ev: Evidence): { checks: Check[]; flowsOff: FlowsOff[] | null } {
+export function checksOf(
+  ev: Evidence,
+  extras: CheckExtras = {},
+): { checks: Check[]; flowsOff: FlowsOff[] | null } {
   const name = shortName(ev);
   const flowsOff = flowsOffOf(ev);
   const events = eventsCheck(ev, name);
@@ -391,7 +435,8 @@ export function checksOf(ev: Evidence): { checks: Check[]; flowsOff: FlowsOff[] 
       ...(events ? [events] : []),
       changesCheck(ev, name),
       ...nodeChecks(ev, name),
-      ...networkChecks(ev, name, flowsOff),
+      ...cpuCheck(ev, name),
+      ...networkChecks(ev, name, flowsOff, extras.risen ?? []),
     ],
     flowsOff,
   };
