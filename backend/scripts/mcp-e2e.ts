@@ -13,6 +13,12 @@
 //   - Cursor when its `cursor-agent` CLI is installed (skipped otherwise);
 //   - revoking the token stops the next call.
 // The token is revoked at the end whatever happens. It never appears in the output.
+//
+// `mcp-e2e.ts causes` (run by deploy/test/causes-e2e.sh mcp, v0.4 slice 5, ADR-148): the
+// probable cause over MCP against the triggered scenarios of causes-e2e.sh (its SCENARIOS
+// table, the rows that are on): explain_problem gives each scenario's expected top cause,
+// likely; get_problems carries it as likelyCause on the scenario's problems; explain_alert's
+// causes agree with them; on the kind cluster and the Docker host.
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -25,7 +31,7 @@ const OUT = process.env.WATCHLOG_E2E_OUT ?? join(tmpdir(), 'watchlog-mcp-e2e');
 /** Pinned: the newest release at least two weeks old when this was written. */
 const MCP_REMOTE = 'mcp-remote@0.15.2';
 const QUESTION = "What's wrong with my clusters?";
-const TOOLS = 11;
+const TOOLS = 14;
 
 interface Cluster {
   id: string;
@@ -271,6 +277,154 @@ async function claudeCode(token: string, cluster: Cluster, expect: string[]) {
   }
 }
 
+/** A tool call; waits out the per-token rate limit (60 calls a minute) and calls again. */
+async function paced(client: Client, name: string, args: Json) {
+  for (;;) {
+    const r = await call(client, name, args);
+    const wait = r.isError ? Number(r.data.retryAfterSeconds) : NaN;
+    if (!Number.isFinite(wait)) return r;
+    console.log(`     (rate limited: waiting ${wait} s)`);
+    await new Promise((resolve) => setTimeout(resolve, (wait + 1) * 1000));
+  }
+}
+
+const CATALOG = new Set([
+  'dependency_down',
+  'bad_change',
+  'oom_limit',
+  'crash_exit',
+  'image_pull',
+  'unschedulable',
+  'node_or_host',
+  'application_finding',
+  'connection_refused',
+  'dns_nxdomain',
+  'cpu_throttled',
+  'job_failed',
+]);
+
+/**
+ * Whether a get_problems item is about a scenario's object: the alert's labels or the
+ * problem's object name the workload (kind), the container or Compose service (Docker),
+ * or the monitored service.
+ */
+function about(p: Json, kind: Cluster['kind'], subject: string): boolean {
+  const [k, ref] = [
+    subject.slice(0, subject.indexOf(':')),
+    subject.slice(subject.indexOf(':') + 1),
+  ];
+  const o = (p.object ?? {}) as Json;
+  if (k === 'application') return o.service_name === ref;
+  const parts = ref.split('/');
+  const last = parts[parts.length - 1]!;
+  if (kind === 'kubernetes') {
+    const ns = parts[0];
+    if (o.namespace !== ns) return false;
+    return o.workload === last || (o.kind === 'Pod' && String(o.name).startsWith(`${last}-`));
+  }
+  const names = k === 'compose_service' ? [`${parts[0]}-${last}-1`] : [last];
+  return names.includes(o.container) || (o.kind === 'Container' && names.includes(o.name));
+}
+
+async function causesMain() {
+  const rows = (process.env.SCENARIOS ?? '')
+    .trim()
+    .split('\n')
+    .map((l) => l.trim().split(/\s+/))
+    .filter((r) => r.length === 7 && r[6] === 'on');
+  const only = (process.env.MCP_E2E_SCENARIOS ?? '').split(/\s+/).filter(Boolean);
+  const chosen = only.length ? rows.filter((r) => only.includes(r[0]!)) : rows;
+  if (!chosen.length) throw new Error('no scenario to check (SCENARIOS from causes-e2e.sh)');
+  const cookie = await session();
+  const { clusters } = await api<{ clusters: Cluster[] }>(cookie, 'GET', '/clusters');
+  const kube = pick(clusters, 'kubernetes', process.env.WATCHLOG_E2E_KUBE);
+  const docker = pick(clusters, 'docker', process.env.WATCHLOG_E2E_DOCKER);
+  console.log(`WatchLog ${BASE}: Kubernetes "${kube.name}", Docker "${docker.name}"`);
+  const created = await api<{ value: string; token: { id: string; prefix: string } }>(
+    cookie,
+    'POST',
+    '/api-tokens',
+    { name: 'mcp-e2e causes', expiresInDays: 30 },
+  );
+  try {
+    const client = await httpClient(created.value, { pin: '2026-07-28' });
+    const { tools } = await client.listTools();
+    check(
+      `${TOOLS} tools, explain_problem among them`,
+      tools.length === TOOLS && tools.some((t) => t.name === 'explain_problem'),
+      `${tools.length}`,
+    );
+    const problems = new Map<string, Json[]>();
+    for (const c of [kube, docker]) {
+      const r = await paced(client, 'get_problems', { cluster: c.name });
+      const items = (r.data.problems ?? []) as Json[];
+      problems.set(c.kind, items);
+      const withCause = items.filter((p) => p.likelyCause);
+      check(
+        `get_problems (${c.kind}): every likelyCause is a catalog rule with its headline, and every problem with one has a subject`,
+        !r.isError &&
+          withCause.length > 0 &&
+          withCause.every(
+            (p) =>
+              CATALOG.has(p.likelyCause.rule) &&
+              typeof p.likelyCause.headline?.code === 'string' &&
+              typeof p.subject === 'string',
+          ),
+        `${withCause.length} of ${items.length} with a likely cause`,
+      );
+    }
+    for (const [scenario, plats, kCause, dCause, kSubj, dSubj] of chosen) {
+      for (const kind of plats!.split(',') as Cluster['kind'][]) {
+        const [expected, subject, c] =
+          kind === 'kubernetes' ? [kCause!, kSubj!, kube] : [dCause!, dSubj!, docker];
+        const label = `${scenario} on ${kind}`;
+        const e = await paced(client, 'explain_problem', { cluster: c.name, subject });
+        const top = (e.data.causes ?? [])[0] as Json | undefined;
+        check(
+          `${label}: explain_problem ${subject} → ${expected} (likely)`,
+          !e.isError &&
+            e.data.state === 'likely' &&
+            top?.rule === expected &&
+            top?.strength === 'likely' &&
+            typeof top?.means === 'string',
+          e.isError
+            ? JSON.stringify(e.data).slice(0, 200)
+            : `${e.data.state}: ${top?.rule ?? 'none'} ${top?.strength ?? ''}, headline ${e.data.headline?.code}, ${e.data.checks?.length} checks`,
+        );
+        const mine = (problems.get(kind) ?? []).filter((p) => about(p, kind, subject));
+        if (!mine.length) {
+          skip(`${label}: get_problems`, 'no Needs-attention problem about it');
+          continue;
+        }
+        const hit = mine.find((p) => p.likelyCause?.rule === expected);
+        check(
+          `${label}: get_problems carries likelyCause ${expected}`,
+          !!hit,
+          mine.map((p) => `${p.subject}: ${p.likelyCause?.rule ?? 'none'}`).join(', '),
+        );
+        const alerted = mine.filter((p) => p.alertId && p.likelyCause);
+        for (const p of alerted.slice(0, 2)) {
+          const x = await paced(client, 'explain_alert', { alertId: p.alertId });
+          const xt = (x.data.causes?.causes ?? [])[0] as Json | undefined;
+          check(
+            `${label}: explain_alert's causes agree with get_problems (${p.likelyCause.rule})`,
+            !x.isError && x.data.causes?.state === 'likely' && xt?.rule === p.likelyCause.rule,
+            `${x.data.causes?.state}: ${xt?.rule ?? 'none'}`,
+          );
+        }
+      }
+    }
+    await client.close();
+  } finally {
+    await api(cookie, 'DELETE', `/api-tokens/${created.token.id}`).catch((e) =>
+      console.log(`could not revoke the token: ${String(e)}`),
+    );
+  }
+  const failed = results.filter((r) => !r.ok);
+  console.log(`\n${results.length - failed.length} passed, ${failed.length} failed`);
+  process.exit(failed.length ? 1 : 0);
+}
+
 async function main() {
   const cookie = await session();
   const { clusters } = await api<{ clusters: Cluster[] }>(cookie, 'GET', '/clusters');
@@ -362,7 +516,7 @@ async function main() {
   process.exit(failed.length ? 1 : 0);
 }
 
-main().catch((err: unknown) => {
+(process.argv[2] === 'causes' ? causesMain() : main()).catch((err: unknown) => {
   console.error(`mcp-e2e: ${(err as Error).message}`);
   process.exit(1);
 });

@@ -15,6 +15,10 @@
 #                                                for each scenario's subjects, a pod, and an alert
 #                                                about the fixtures, on both platforms (Docker
 #                                                scenario containers exist only while triggered)
+#   causes-e2e.sh mcp [scenario…]                the same over MCP (backend/scripts/mcp-e2e.ts
+#                                                causes): explain_problem gives each scenario's
+#                                                top cause, likely; get_problems carries it as
+#                                                likelyCause; explain_alert's causes agree
 #   causes-e2e.sh down                           removes only what `up` made
 #
 # Runs after the agents report with network flows on (eBPF: the service map, HTTP and
@@ -697,6 +701,12 @@ GRANT pg_monitor TO watchlog;"
   subjects)
     api subjects "$@"
     ;;
+  mcp)
+    : "${WATCHLOG_E2E_EMAIL:?}" "${WATCHLOG_E2E_PASSWORD:?}"
+    WATCHLOG_URL=$url SCENARIOS=$SCENARIOS MCP_E2E_SCENARIOS="$*" \
+      WATCHLOG_E2E_KUBE=${WATCHLOG_E2E_KUBE_CLUSTER:-} WATCHLOG_E2E_DOCKER=${WATCHLOG_E2E_DOCKER_CLUSTER:-} \
+      pnpm -C backend -s exec tsx scripts/mcp-e2e.ts causes
+    ;;
   down)
     if [ -n "${WATCHLOG_E2E_EMAIL:-}" ]; then
       api unmonitor
@@ -709,7 +719,7 @@ GRANT pg_monitor TO watchlog;"
       rm -rf $dir"
     ;;
   *)
-    sed -n '3,12p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '3,22p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 2
     ;;
 esac

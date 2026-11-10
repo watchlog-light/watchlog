@@ -44,7 +44,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
 /** Builds an app against the test database after emptying all tables. */
 export async function createTestContext(
   overrides: Partial<Config> = {},
-  deps: Partial<Pick<AppDeps, 'ingestBuckets' | 'onRoute' | 'seed' | 'logStream'>> = {},
+  deps: Partial<Pick<AppDeps, 'ingestBuckets' | 'onRoute' | 'seed' | 'logStream' | 'causes'>> = {},
 ): Promise<TestContext> {
   const db = createDb(inject('databaseUrl'));
   await sql`TRUNCATE orgs, users, memberships, sessions, clusters, cluster_tokens, retired_cluster_tokens, agent_instances, objects, alert_worker_heartbeats, alerting_periods, secret_key_check, server_settings CASCADE`.execute(

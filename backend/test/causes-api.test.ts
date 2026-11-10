@@ -15,6 +15,17 @@ import {
 } from './helpers.js';
 import { insertRule } from './support/alerts.js';
 import { container, dockerFleet, kindCluster } from './support/mcp-fixtures.js';
+import { explain, type CausesAnswer } from '../src/modules/causes/engine.js';
+import { CausesService } from '../src/modules/causes/likely.js';
+import type { ClusterRef } from '../src/modules/causes/resolve.js';
+import { parseSubject, type Subject } from '../src/modules/causes/subject.js';
+import {
+  BEFORE_SLICE_4,
+  beforeSlice4,
+  recording,
+  replay,
+  type RecordingName,
+} from './support/causes.js';
 
 let ctx: TestContext | undefined;
 afterEach(async () => {
@@ -22,8 +33,8 @@ afterEach(async () => {
   ctx = undefined;
 });
 
-async function seeded() {
-  ctx = await createTestContext();
+async function seeded(deps: Parameters<typeof createTestContext>[1] = {}) {
+  ctx = await createTestContext({}, deps);
   const cookie = await setupAdmin(ctx.app);
   const kube = await kindCluster(ctx, cookie);
   const fleet = await dockerFleet(ctx, cookie, {
@@ -338,5 +349,132 @@ describe('GET /causes', () => {
     wellFormed(first.json());
     const second = await get(cookie, q);
     expect(second.json().checkedAt).toBe(first.json().checkedAt);
+  });
+});
+
+const read = (cookie: string, url: string, headers = {}) =>
+  ctx!.app.inject({
+    method: 'GET',
+    url: `/api/v1${url}`,
+    cookies: { wl_session: cookie },
+    headers,
+  });
+
+interface Item {
+  alertId: string | null;
+  object: { kind: string; namespace: string | null; name: string } | null;
+  likelyCause?: Record<string, unknown>;
+}
+
+async function recorded(name: RecordingName): Promise<CausesAnswer> {
+  const rec = recording(name);
+  const reader = replay(rec, undefined, beforeSlice4(rec) ? BEFORE_SLICE_4 : undefined);
+  return explain(reader, rec.cluster, parseSubject(rec.subject), { now: rec.now });
+}
+
+describe('likelyCause on the overview, the alert detail and the applications (ADR-148)', () => {
+  it('Kubernetes: the engine itself, through the same cache as GET /causes', async () => {
+    const { cookie, kube, orgId } = await seeded();
+    const ov = await read(cookie, `/clusters/${kube.id}/overview`);
+    expect(ov.statusCode, ov.body).toBe(200);
+    const items = ov.json().problems.items as Item[];
+    // The seed's crash loop: crash_exit, on the pod itself.
+    const crash = items.find((p) => p.object?.kind === 'Pod' && p.object.name === 'crashloop');
+    expect(crash?.likelyCause).toEqual({
+      rule: 'crash_exit',
+      code: 'crash_exit',
+      facts: expect.any(Object),
+      since: expect.toSatisfy((v: unknown) => v === null || typeof v === 'string'),
+      headline: { code: expect.stringMatching(/^crash_exit/), facts: expect.any(Object) },
+      subject: 'pod:wl-test/crashloop',
+    });
+    const full = await get(cookie, { cluster: kube.id, subject: 'pod:wl-test/crashloop' });
+    expect(full.json().headline).toEqual(crash!.likelyCause!.headline);
+    expect(full.json().causes[0]).toMatchObject({ rule: 'crash_exit', strength: 'likely' });
+    // A node problem has no subject.
+    for (const p of items.filter((x) => x.object?.kind === 'Node'))
+      expect(p.likelyCause).toBeUndefined();
+
+    // The alert detail has the field exactly when GET /causes is likely for the alert.
+    const a = await alert(orgId, kube.id, 'k8s.pod.crashloop', {
+      namespace: 'wl-test',
+      pod: 'crashloop',
+      workload: 'crashloop',
+      workload_kind: 'Pod',
+    });
+    const d = await read(cookie, `/alerts/${a.id}`);
+    expect(d.statusCode, d.body).toBe(200);
+    const asked = (await get(cookie, { cluster: kube.id, subject: `alert:${a.id}` })).json();
+    expect('likelyCause' in d.json()).toBe(asked.state === 'likely');
+
+    // The engine's own reads leave the field out, and so may anyone.
+    const plain = await read(cookie, `/clusters/${kube.id}/overview`, {
+      'x-watchlog-no-cause': '1',
+    });
+    expect((plain.json().problems.items as Item[]).some((p) => p.likelyCause)).toBe(false);
+  });
+
+  it('from recorded answers, on both platforms: the problems, the alert detail, the subjects asked', async () => {
+    const answers = {
+      kubernetes: await recorded('kube-dependency-down'),
+      docker: await recorded('docker-host-silent'),
+    };
+    const asked: string[] = [];
+    const fake = async (_r: unknown, c: ClusterRef, s: Subject) => {
+      asked.push(`${c.kind} ${s.kind}`);
+      return answers[c.kind];
+    };
+    const { cookie, kube, fleet, orgId } = await seeded({
+      causes: new CausesService({ explainFn: fake as unknown as typeof explain }),
+    });
+    const ka = await alert(orgId, kube.id, 'network.connections.failed', {
+      namespace: 'causes-e2e',
+      workload: 'web',
+      workload_kind: 'Deployment',
+      dst_kind: 'workload',
+      dst_namespace: 'causes-e2e',
+      dst_workload: 'api',
+    });
+    // An alert about web; api's restarts stay an object problem.
+    const da = await alert(orgId, fleet.id, 'docker.container.unhealthy', {
+      container: 'shop-web-1',
+      node: 'docker-01',
+    });
+    const kItems = (await read(cookie, `/clusters/${kube.id}/overview`)).json().problems
+      .items as Item[];
+    expect(kItems.find((p) => p.alertId === ka.id)?.likelyCause).toEqual({
+      rule: 'dependency_down',
+      code: answers.kubernetes.causes[0]!.code,
+      facts: answers.kubernetes.causes[0]!.facts,
+      since: answers.kubernetes.causes[0]!.since,
+      headline: { code: 'dependency_down_scaled', facts: answers.kubernetes.headline.facts },
+      subject: 'workload:causes-e2e/Deployment/web',
+    });
+    const dItems = (await read(cookie, `/clusters/${fleet.id}/overview`)).json().problems
+      .items as Item[];
+    expect(dItems.find((p) => p.alertId === da.id)?.likelyCause).toMatchObject({
+      rule: 'node_or_host',
+      headline: { code: 'node_or_host_silent' },
+    });
+    expect(dItems.find((p) => p.object?.name === 'shop-api-1')?.likelyCause).toMatchObject({
+      rule: 'node_or_host',
+    });
+    const kd = (await read(cookie, `/alerts/${ka.id}`)).json();
+    expect(kd.likelyCause).toMatchObject({ rule: 'dependency_down' });
+    expect(kd.alert.id).toBe(ka.id);
+    const dd = (await read(cookie, `/alerts/${da.id}`)).json();
+    expect(dd.likelyCause).toMatchObject({ rule: 'node_or_host' });
+    // Alerts are asked as alerts, Docker object problems as containers, pods as pods.
+    expect(new Set(asked)).toEqual(
+      new Set(['kubernetes alert', 'kubernetes pod', 'docker alert', 'docker container']),
+    );
+    // A list answer reads its causes from the cache: no second explain within 15 s.
+    const before = asked.length;
+    await read(cookie, `/clusters/${kube.id}/overview`);
+    await read(cookie, `/alerts/${ka.id}`);
+    expect(asked.length).toBe(before);
+    // Applications without a finding have nothing to explain.
+    const apps = (await read(cookie, '/applications')).json().applications as Item[];
+    expect(apps.every((x) => x.likelyCause === undefined)).toBe(true);
   });
 });

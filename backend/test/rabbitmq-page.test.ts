@@ -2,7 +2,8 @@
 // The RabbitMQ page (v0.3 slice 11, SPEC §4.12): its tabs from the rabbitmq_prometheus
 // series; a queue that lost its consumers linked to the client that was OOM-killed
 // (a crash-looping pod on Kubernetes, an exited container on Docker); alarms, unacked
-// messages; the plugin check with its command; the list; the default rule firing.
+// messages; the plugin check with its command; the list; the default rule firing; the
+// application's likely cause on both platforms (ADR-148).
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
 import { VictoriaQueryClient } from '../src/lib/victoria.js';
@@ -319,6 +320,15 @@ describe('the RabbitMQ page', () => {
       health: 'critical',
       finding: { code: 'queue_no_consumers', severity: 'critical' },
     });
+    // Its likely cause (ADR-148): the lost consumer, followed to how it ended; the same in the list.
+    const cause = {
+      rule: 'application_finding',
+      facts: { finding: 'queue_no_consumers', consumer: 'shop/worker' },
+      headline: { code: 'app_consumer_ended', facts: { queue: 'orders', consumer: 'shop/worker' } },
+      subject: `application:${id}`,
+    };
+    expect(d.application.likelyCause).toMatchObject(cause);
+    expect(listed.likelyCause).toMatchObject(cause);
     const mcp = await mcpClient(ctx, cookie);
     try {
       const all = await mcp.call('list_applications', {});
@@ -510,5 +520,16 @@ describe('the RabbitMQ page', () => {
       facts: { member: 'shop-rabbitmq-2' },
     });
     expect(by('unacked_high')).toMatchObject({ facts: { n: 20_000 } });
+    // The application's likely cause (ADR-148): its consumer container, OOM-killed.
+    expect(d.application.likelyCause).toMatchObject({
+      rule: 'application_finding',
+      headline: {
+        code: 'app_consumer_ended',
+        facts: { consumer: 'shop-consumer-1', how: 'OOMKilled' },
+      },
+      subject: `application:${id}`,
+    });
+    const listed = (await api('GET', '/applications')).json().applications[0];
+    expect(listed.likelyCause).toMatchObject({ rule: 'application_finding' });
   });
 });

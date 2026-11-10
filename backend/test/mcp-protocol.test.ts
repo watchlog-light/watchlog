@@ -17,6 +17,7 @@ afterEach(async () => {
 
 const TOOLS = [
   'explain_alert',
+  'explain_problem',
   'get_application',
   'get_events',
   'get_node',
