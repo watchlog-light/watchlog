@@ -5,8 +5,8 @@
 // here (slices 2–4): CAUSES, STEPS and HEADLINES below.
 import type { CauseCheck, CauseStep } from '@watchlog/api-types';
 import { describe, expect, it } from 'vitest';
-import en from '@/i18n/en.json';
-import { createAppI18n } from '@/i18n';
+import { headlineText } from '@watchlog/cause-words';
+import { createAppI18n, en } from '@/i18n';
 import {
   causeLine,
   checkLine,
@@ -385,6 +385,37 @@ describe('cause sentences', () => {
     for (const [code, facts] of STEPS) verify(`step ${code}`, stepLine({ code, facts }));
     for (const [code, facts] of CAUSES) verify(`cause ${code}`, causeLine({ code, facts }));
     expect(problems, problems.join('\n')).toEqual([]);
+  });
+
+  it("the backend's headline (the notifications' line) is the dashboard's, for every code", () => {
+    // @watchlog/cause-words renders the same templates without vue-i18n (ADR-157).
+    const differ: string[] = [];
+    const codes = new Set<string>();
+    // Each with its own facts, and with every form of its count (0, 1, 2).
+    const cases = HEADLINES.flatMap(([code, facts]): [string, Facts][] =>
+      typeof facts.n === 'number'
+        ? [0, 1, 2, facts.n].map((n) => [code, { ...facts, n }])
+        : [[code, facts]],
+    );
+    for (const [code, facts] of cases) {
+      const backend = headlineText({ code, facts });
+      if (code === 'app_finding') {
+        // The finding's own words: the dashboard's, never likely, never in a notification.
+        expect(backend).toBeNull();
+        continue;
+      }
+      codes.add(code);
+      const l = headlineLine({ headline: { code, facts } });
+      const web =
+        l.plural === undefined ? i18n.t(l.key, l.values) : i18n.t(l.key, l.values, l.plural);
+      if (backend !== web) differ.push(`${code}: backend "${backend}", web "${web}"`);
+    }
+    expect(differ, differ.join('\n')).toEqual([]);
+    expect([...codes].sort()).toEqual(
+      Object.keys(en.causes.headline)
+        .filter((c) => c !== 'app_finding')
+        .sort(),
+    );
   });
 
   it('every check code in en.json is in the list above', () => {

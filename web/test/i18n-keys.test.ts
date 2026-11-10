@@ -5,7 +5,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import en from '../src/i18n/en.json';
+import { en } from '../src/i18n';
 
 const SRC = fileURLToPath(new URL('../src', import.meta.url));
 // $t('a.b'), t('a.b'), titleKey: 'a.b'

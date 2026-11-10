@@ -667,6 +667,8 @@ describe('Alert detail', () => {
       attempts: 1,
       createdAt: '2026-11-01T12:06:00.000Z',
       sentAt: '2026-11-01T12:06:01.000Z',
+      // It carried the likely cause (v0.4 slice 7).
+      withCause: true,
       channel: { id: CHANNEL.id, name: 'Bridge', type: 'webhook' },
     },
     {
@@ -804,6 +806,10 @@ describe('Alert detail', () => {
     const timeline = w.get('[data-testid="alert-timeline"]').text();
     expect(timeline).toContain('Condition started');
     expect(timeline).toContain('Firing message to Bridge');
+    // Which message carried the likely cause; the failed one didn't.
+    expect(w.findAll('[data-testid="note-cause"]').map((x) => x.text())).toEqual([
+      'with the likely cause',
+    ]);
     expect(timeline).toContain('Sent');
     expect(timeline).toContain('Failed');
     expect(timeline).toContain('no_service');

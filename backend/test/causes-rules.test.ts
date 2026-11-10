@@ -3,6 +3,7 @@
 // on the kind and Docker e2e demos (deploy/test/causes-e2e.sh), each with the cases that must
 // not match: an OOM without a limit, an exit 0, a Docker stop, a change after the symptom,
 // image_pull and unschedulable never on Docker, a CronJob whose last run succeeded.
+import { HEADLINES } from '@watchlog/cause-words';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { increase, interval, memoryTrend, runsOf } from '../src/modules/causes/counts.js';
@@ -60,7 +61,7 @@ describe('the scenarios: the top cause on each platform', () => {
     expect(runRules(evidence('docker-compose-healthy'))).toEqual([]);
   });
 
-  it('every code a rule sends has its words in en.json', () => {
+  it('every code a rule sends has its words (en.json, the headlines in cause-words)', () => {
     const en = JSON.parse(
       readFileSync(new URL('../../web/src/i18n/en.json', import.meta.url), 'utf8'),
     ) as { causes: Record<string, Record<string, unknown>> };
@@ -79,9 +80,8 @@ describe('the scenarios: the top cause on each platform', () => {
     for (const f of all)
       for (const c of runRules(evidence(f))) {
         expect(en.causes.cause![c.code], `cause ${c.code}`).toBeTypeOf('string');
-        expect(en.causes.headline![c.headline.code], `headline ${c.headline.code}`).toBeTypeOf(
-          'string',
-        );
+        // The headlines live in @watchlog/cause-words, which the dashboard merges (ADR-157).
+        expect(HEADLINES[c.headline.code], `headline ${c.headline.code}`).toBeTypeOf('string');
         for (const s of c.chain)
           expect(en.causes.step![s.code], `step ${s.code}`).toBeTypeOf('string');
       }
