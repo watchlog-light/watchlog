@@ -10,7 +10,10 @@ RUN corepack enable
 WORKDIR /repo
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY backend/package.json backend/
-RUN pnpm install --frozen-lockfile --filter @watchlog/backend
+COPY packages/cause-words/package.json packages/cause-words/
+RUN pnpm install --frozen-lockfile --filter @watchlog/backend...
+# The words the notifications share with the dashboard (ADR-157): plain JavaScript.
+COPY packages/cause-words packages/cause-words
 COPY backend backend
 RUN pnpm --filter @watchlog/backend build \
  && pnpm --filter @watchlog/backend deploy --prod /out \

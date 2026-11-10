@@ -218,6 +218,9 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.2.2
         version: 2.2.2
+      '@watchlog/cause-words':
+        specifier: workspace:*
+        version: link:../packages/cause-words
       fastify:
         specifier: ^5.12.7
         version: 5.12.7
@@ -289,6 +292,8 @@ importers:
         specifier: ^5.0.5
         version: 5.0.5(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
+  packages/cause-words: {}
+
   packages/design-tokens:
     devDependencies:
       '@types/node':
@@ -318,6 +323,9 @@ importers:
       '@watchlog/api-types':
         specifier: workspace:*
         version: link:../packages/api-types
+      '@watchlog/cause-words':
+        specifier: workspace:*
+        version: link:../packages/cause-words
       '@watchlog/design-tokens':
         specifier: workspace:*
         version: link:../packages/design-tokens

@@ -28,6 +28,7 @@
     "@fastify/type-provider-typebox": "^6.3.0",
     "@modelcontextprotocol/server": "2.4.0",
     "@node-rs/argon2": "^2.2.2",
+    "@watchlog/cause-words": "workspace:*",
     "fastify": "^5.12.7",
     "kysely": "^0.29.7",
     "node-pg-migrate": "^9.0.0",
