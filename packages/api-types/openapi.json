@@ -10930,6 +10930,10 @@
                               }
                             ]
                           },
+                          "withCause": {
+                            "type": "boolean",
+                            "description": "True when the message carries the alert's likely cause (ADR-148): a \"Likely cause:\" line, or \"Was likely:\" on the resolve"
+                          },
                           "channel": {
                             "anyOf": [
                               {

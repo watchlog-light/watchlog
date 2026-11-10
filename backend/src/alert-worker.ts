@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The alert-worker process (SPEC §5.1, ADR-073): `node dist/alert-worker.js`.
 import { pino } from 'pino';
+import { buildApp } from './app.js';
 import { loadConfig, type Config } from './config.js';
 import { createDb, describeDbError, waitForDatabase } from './db/index.js';
 import { checkSecretKey, usePreviousSecretKey } from './lib/secrets.js';
 import { VictoriaQueryClient } from './lib/victoria.js';
 import { HttpClient } from './modules/alerts/channels.js';
+import { workerCauses } from './modules/alerts/likely-cause.js';
+import { CausesService } from './modules/causes/likely.js';
+import { SetupState } from './modules/setup/service.js';
 import { deliverDue } from './modules/alerts/delivery.js';
 import { pollTelegramVerifications } from './modules/alerts/telegram.js';
 import { SettingsService } from './modules/settings/service.js';
@@ -46,12 +50,16 @@ try {
 }
 const http = new HttpClient(config.proxy);
 const settings = new SettingsService(db, config);
+// The likely cause in the messages (ADR-148, ADR-157): probable cause reads the public API,
+// so the worker builds the app in-process and reads it as a viewer of each alert's org.
+const reads = await buildApp(config, { db, setup: new SetupState(), serviceReads: true });
 const channelDeps = {
   db,
   secretKey: config.secretKey,
   http,
   settings: () => settings.alerting(),
   log,
+  causes: workerCauses(reads, new CausesService()),
 };
 
 const worker = new AlertWorker({
@@ -91,6 +99,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     worker
       .stop()
       .then(() => http.close())
+      .then(() => reads.close())
       .then(() => db.destroy())
       .then(
         () => process.exit(0),

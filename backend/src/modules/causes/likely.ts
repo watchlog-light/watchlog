@@ -180,13 +180,27 @@ export class CausesService {
     orgId: string,
     jobs: ListJob[],
   ): Promise<(CauseSummary | undefined)[]> {
-    const out: (CauseSummary | undefined)[] = new Array(jobs.length).fill(undefined);
+    return (await this.answers(reader, orgId, jobs)).map((a) => a && causeSummary(a));
+  }
+
+  /**
+   * Each job's whole answer, bounded as `likely` is (undefined: not explained, or not ready
+   * within the budget; `budgetMs` overrides the service's). The notifications use it for the
+   * likely cause's chain (ADR-157).
+   */
+  async answers(
+    reader: Reader,
+    orgId: string,
+    jobs: ListJob[],
+    opts: { budgetMs?: number } = {},
+  ): Promise<(CausesAnswer | undefined)[]> {
+    const out: (CausesAnswer | undefined)[] = new Array(jobs.length).fill(undefined);
     const keys = jobs.map((j) => this.key(orgId, j.cluster, j.subject));
     const unique = [...new Set(keys)].slice(0, this.listMax);
     if (unique.length === 0) return out;
     const shared = memoReader(reader);
-    const found = new Map<string, CauseSummary>();
-    const deadline = Date.now() + this.budgetMs;
+    const found = new Map<string, CausesAnswer>();
+    const deadline = Date.now() + (opts.budgetMs ?? this.budgetMs);
     let next = 0;
     const work = async () => {
       while (next < unique.length) {
@@ -198,7 +212,8 @@ export class CausesService {
           const a = await this.cache.get(key, () =>
             this.explainFn(shared, job.cluster, job.subject),
           );
-          found.set(key, causeSummary(a));
+          // Ready, but after the deadline: left out as if it weren't (never late).
+          if (Date.now() <= deadline) found.set(key, a);
         } catch {
           // A subject that can't be explained (gone, ambiguous) has no cause to show.
         } finally {

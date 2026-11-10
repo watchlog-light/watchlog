@@ -82,6 +82,8 @@ export interface AlertRules {
 }
 
 export interface AlertStates {
+  cause: Json | null;
+  cause_at: Timestamp | null;
   cluster_id: string;
   created_at: Generated<Timestamp>;
   details: Generated<Json>;

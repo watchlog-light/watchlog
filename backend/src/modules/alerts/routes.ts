@@ -10,6 +10,7 @@ import type { Config } from '../../config.js';
 import type { Database } from '../../db/index.js';
 import type { AlertChannels, DB } from '../../db/types.js';
 import type { VictoriaQueryClient } from '../../lib/victoria.js';
+import type { MessagePayload } from './outbox.js';
 import { newId } from '../../lib/ids.js';
 import { ProblemType, sendProblem } from '../../lib/problem.js';
 import { decryptJson, encryptJson } from '../../lib/secrets.js';
@@ -443,6 +444,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
             'n.attempts',
             'n.created_at',
             'n.sent_at',
+            'n.payload',
             'ch.id as channel_id',
             'ch.name as channel_name',
             'ch.type as channel_type',
@@ -481,6 +483,12 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
           attempts: n.attempts,
           createdAt: iso(n.created_at)!,
           sentAt: iso(n.sent_at),
+          // The message carries the alert's likely cause (ADR-157).
+          ...((n.payload as unknown as MessagePayload).items?.some(
+            (i) => i.alertId === row.id && i.likelyCause,
+          )
+            ? { withCause: true }
+            : {}),
           channel: n.channel_id
             ? { id: n.channel_id, name: n.channel_name!, type: n.channel_type! }
             : null,

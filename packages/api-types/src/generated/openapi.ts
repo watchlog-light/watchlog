@@ -3609,6 +3609,8 @@ export interface paths {
                 attempts: number;
                 createdAt: string;
                 sentAt: string | null;
+                /** @description True when the message carries the alert's likely cause (ADR-148): a "Likely cause:" line, or "Was likely:" on the resolve */
+                withCause?: boolean;
                 channel: {
                   /** Format: uuid */
                   id: string;

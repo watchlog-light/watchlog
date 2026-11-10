@@ -14,6 +14,12 @@ export interface RenderedItem {
   where: string;
   /** "wl-test/web (Deployment) · cluster prod · since 12:04 UTC (5 min)" */
   context: string;
+  /**
+   * The likely cause it had when it fired (ADR-157): "Likely cause: web fails because api was
+   * scaled to 0: nothing answers its calls." on a firing message, "Was likely: …" on the
+   * resolve; null without one.
+   */
+  cause: string | null;
   link: string | null;
 }
 
@@ -41,6 +47,10 @@ const HEADER: Record<MessagePayload['kind'], (sev: string) => string> = {
   resolved: () => '✅ RESOLVED',
   test: () => '🧪 TEST',
 };
+
+/** The words in front of the cause's line (ADR-148): when it fires, and on the resolve. */
+export const CAUSE_LIKELY = 'Likely cause:';
+export const CAUSE_WAS = 'Was likely:';
 
 function hhmm(iso: string): string {
   return `${iso.slice(11, 16)} UTC`;
@@ -116,8 +126,13 @@ export function renderMessage(p: MessagePayload, publicUrl?: string): RenderedMe
       p.kind === 'resolved' && it.resolvedAt
         ? `after ${duration(Date.parse(it.resolvedAt) - Date.parse(it.firedAt ?? it.startedAt))}`
         : `since ${hhmm(it.startedAt)} (${duration(at - Date.parse(it.startedAt))})`;
+    const lc = it.likelyCause?.text;
     return {
       ...text,
+      cause:
+        lc && p.kind !== 'flapping' && p.kind !== 'test'
+          ? `${p.kind === 'resolved' ? CAUSE_WAS : CAUSE_LIKELY} ${lc}`
+          : null,
       where: w,
       context: [w, `cluster ${p.cluster.name}`, when].join(' · '),
       link: link(publicUrl, it, p.cluster),
@@ -142,6 +157,7 @@ export function renderMessage(p: MessagePayload, publicUrl?: string): RenderedMe
     if (!single) lines.push(it.title);
     if (it.why) lines.push(it.why);
     lines.push(it.context);
+    if (it.cause) lines.push(it.cause);
     if (it.link) lines.push(it.link);
   }
   if (more) lines.push('', alertsLink ? `${more}: ${alertsLink}` : more);

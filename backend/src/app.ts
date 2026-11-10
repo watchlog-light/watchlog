@@ -55,6 +55,7 @@ import { applySeed, type Seed } from './modules/seed/seed.js';
 import { applySeedServices } from './modules/seed/services.js';
 import { apiTokenRoutes } from './modules/api-tokens/routes.js';
 import { registerApiTokenAuth } from './plugins/api-token.js';
+import { registerServiceIdentity } from './plugins/service-identity.js';
 
 export const API_PREFIX = '/api/v1';
 
@@ -71,13 +72,20 @@ export interface AppDeps {
   causes?: CausesService;
   /** Test hook: where the log goes (the API token test reads it for token values). */
   logStream?: { write(line: string): void };
+  /**
+   * The alert worker's in-process app (ADR-157): it answers the worker's service reads
+   * (plugins/service-identity.ts), logs no request lines and runs no maintenance. Never set by
+   * the backend that serves the API.
+   */
+  serviceReads?: boolean;
 }
 
 export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
     trustProxy: config.trustProxy,
     logger: {
-      level: config.logLevel,
+      // The worker's in-process reads log only what goes wrong, not each request.
+      level: deps.serviceReads ? 'warn' : config.logLevel,
       // Credentials never reach the log, whatever a serializer adds later (ADR-125).
       redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
       ...(deps.logStream
@@ -118,6 +126,8 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     restPerMinute: config.apiTokenLimits.restPerMinute,
     demoMode: config.demoMode,
   });
+  // The alert worker's reads for the notifications' likely cause (ADR-157): its app only.
+  if (deps.serviceReads) registerServiceIdentity(app, deps.db);
   // Read-only demo (ADR-122): signed sessions without database rows, and small queries.
   const demoSessions = new DemoSessions(config.secretKey);
   if (config.demoMode) {
@@ -255,6 +265,8 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     app.addHook('onClose', async () => clearInterval(seeding));
   }
 
+  // The worker's in-process app serves reads only; the backend maintains the partitions.
+  if (deps.serviceReads) return app;
   // Event partitions (ADR-061): on start, then every 6 hours.
   const maintain = () =>
     ensureEventPartitions(deps.db, config.eventsRetentionDays).catch((err: Error) =>

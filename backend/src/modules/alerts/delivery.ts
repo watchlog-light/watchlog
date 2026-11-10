@@ -13,6 +13,7 @@ import {
   type ChannelType,
   type HttpClient,
 } from './channels.js';
+import { attachCauses, type WorkOut } from './likely-cause.js';
 import type { MessagePayload } from './outbox.js';
 import { testPayload } from './render.js';
 import type { AlertingSettings } from '../settings/service.js';
@@ -27,7 +28,12 @@ export interface DeliveryDeps {
   http: HttpClient;
   /** The public address, email server and Telegram settings in effect (ADR-093). */
   settings: () => Promise<AlertingSettings>;
-  log: { warn(obj: object, msg: string): void };
+  log: { warn(obj: object, msg: string): void; info?(obj: object, msg: string): void };
+  /**
+   * Probable cause for the firing alerts (ADR-157; the worker's in-process app): without it,
+   * messages go without the likely cause.
+   */
+  causes?: WorkOut;
 }
 
 /** 30 s, 1 min, 2 min … capped at 1 h. */
@@ -133,6 +139,13 @@ export async function deliverDue(deps: DeliveryDeps, now = Date.now()): Promise<
           FOR UPDATE SKIP LOCKED)
     RETURNING *`.execute(db);
   if (claimed.rows.length === 0) return report;
+  // The likely cause, worked out when an alert fires (2 s at most, ADR-148), before sending.
+  if (deps.causes) {
+    await attachCauses(db, deps.causes, claimed.rows, {
+      info: (o, m) => deps.log.info?.(o, m),
+      warn: (o, m) => deps.log.warn(o, m),
+    });
+  }
   const settings = await deps.settings();
 
   const channels = await db

@@ -173,6 +173,7 @@ export function slackBody(m: RenderedMessage, p: MessagePayload): object {
       m.single ? null : `*${escSlack(it.title)}*`,
       it.why ? escSlack(it.why) : null,
       `_${escSlack(it.context)}_`,
+      it.cause ? escSlack(it.cause) : null,
       it.link ? `<${it.link}|Open in WatchLog>` : null,
     ].filter(Boolean);
     blocks.push({ type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } });
@@ -211,6 +212,7 @@ export function telegramText(m: RenderedMessage): string {
     if (!m.single) lines.push(`<b>${escHtml(it.title)}</b>`);
     if (it.why) lines.push(escHtml(it.why));
     lines.push(`<i>${escHtml(it.context)}</i>`);
+    if (it.cause) lines.push(escHtml(it.cause));
     if (it.link) lines.push(`<a href="${escHtml(it.link)}">Open in WatchLog</a>`);
   }
   if (m.more) {
@@ -342,6 +344,8 @@ export function webhookBody(p: MessagePayload, m: RenderedMessage, at: number): 
       fired_at: it.firedAt,
       resolved_at: it.resolvedAt,
       link: m.items[i]?.link ?? null,
+      // ADR-148, ADR-157: only when it fired with a likely cause; additive.
+      ...(it.likelyCause ? { likelyCause: it.likelyCause } : {}),
     })),
     total: p.total,
     alerts_link: m.alertsLink,

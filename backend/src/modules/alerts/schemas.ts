@@ -75,6 +75,12 @@ export const NotificationSchema = Type.Object({
   attempts: Type.Integer(),
   createdAt: Type.String(),
   sentAt: NullableString,
+  withCause: Type.Optional(
+    Type.Boolean({
+      description:
+        'True when the message carries the alert\'s likely cause (ADR-148): a "Likely cause:" line, or "Was likely:" on the resolve',
+    }),
+  ),
   channel: Nullable(Type.Object({ id: Id, name: Type.String(), type: Type.String() })),
 });
 

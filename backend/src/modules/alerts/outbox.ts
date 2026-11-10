@@ -4,6 +4,7 @@
 // (ADR-074, ADR-075). Rendering for each channel happens when it is sent.
 import { createHash } from 'node:crypto';
 import { newId } from '../../lib/ids.js';
+import type { NotifyCause } from './likely-cause.js';
 import { maxSeverity, type Episode, type NotifyKind, type Severity } from './state-machine.js';
 
 export const MAX_ITEMS = 5;
@@ -16,6 +17,11 @@ export interface MessageItem {
   startedAt: string;
   firedAt: string | null;
   resolvedAt: string | null;
+  /**
+   * The likely cause it had when it fired (ADR-157), put on just before the message is sent:
+   * "Likely cause: …" on a firing message, "Was likely: …" on the resolve.
+   */
+  likelyCause?: NotifyCause;
 }
 
 /** What a sender needs to render a message; stored in notifications.payload. */
