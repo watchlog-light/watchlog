@@ -177,3 +177,9 @@ export type CreatedInvite = JsonBody<Responses<'/api/v1/users/invites', 'post'>[
 export type IssuedLink = JsonBody<Responses<'/api/v1/users/{id}/reset-link', 'post'>[200]>;
 export type InviteInfo = JsonBody<Responses<'/api/v1/invites/{token}', 'get'>[200]>;
 export type ResetInfo = JsonBody<Responses<'/api/v1/password-resets/{token}', 'get'>[200]>;
+// Probable cause (ADR-146 to ADR-148).
+export type Causes = JsonBody<Responses<'/api/v1/causes', 'get'>[200]>;
+export type Cause = Causes['causes'][number];
+export type CauseStep = Cause['chain'][number];
+export type CauseCheck = Causes['checks'][number];
+export type CauseObject = Causes['subject'];

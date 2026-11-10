@@ -8983,6 +8983,269 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/causes': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Probable cause of an alert, workload, pod, container, Compose service, edge or application
+     * @description Ranked probable causes (likely or possible, never a score), each with its evidence chain, and what was checked (ADR-146 to ADR-148). subject is <kind>:<ref>: alert:<id>, pod:<namespace>/<pod>, workload:<namespace>/<Kind>/<name> (or <namespace>/<name>), container:<host>/<name> (or <name>), compose_service:<project>/<service> (or <service>), edge:<source>><target>:<port> (the service map edge id), application:<id or name>. Answers are kept 15 s per subject.
+     */
+    get: {
+      parameters: {
+        query: {
+          /** @description The cluster or Docker fleet id */
+          cluster: string;
+          /** @description subject is <kind>:<ref>: alert:<id>, pod:<namespace>/<pod>, workload:<namespace>/<Kind>/<name> (or <namespace>/<name>), container:<host>/<name> (or <name>), compose_service:<project>/<service> (or <service>), edge:<source>><target>:<port> (the service map edge id), application:<id or name> */
+          subject: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              /** @description What a step or check is about, and where it links to */
+              subject: {
+                kind:
+                  | 'pod'
+                  | 'workload'
+                  | 'container'
+                  | 'compose_service'
+                  | 'edge'
+                  | 'application'
+                  | 'alert'
+                  | 'node'
+                  | 'host'
+                  | 'change'
+                  | 'cluster';
+                /** @description In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1) */
+                ref: string;
+                name: string;
+                platform: 'kubernetes' | 'docker';
+                workloadKind?: string;
+                host?: string;
+                /** @description An application: postgres, redis, rabbitmq… */
+                type?: string;
+              };
+              object: {
+                kind:
+                  | 'pod'
+                  | 'workload'
+                  | 'container'
+                  | 'compose_service'
+                  | 'edge'
+                  | 'application'
+                  | 'alert'
+                  | 'node'
+                  | 'host'
+                  | 'change'
+                  | 'cluster';
+                /** @description In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1) */
+                ref: string;
+                name: string;
+                platform: 'kubernetes' | 'docker';
+                workloadKind?: string;
+                host?: string;
+                /** @description An application: postgres, redis, rabbitmq… */
+                type?: string;
+              } | null;
+              cluster: {
+                id: string;
+                name: string;
+                kind: 'kubernetes' | 'docker';
+              };
+              /** @description likely: one cause explains it; possible: leads to check; none: no clear cause */
+              state: 'likely' | 'possible' | 'none';
+              checkedAt: string;
+              symptomSince: string | null;
+              resolvedAt: string | null;
+              window: {
+                from: string;
+                to: string;
+              };
+              headline: {
+                code: string;
+                /** @description The sentence's values; every placeholder of the code's sentence is here */
+                facts: {
+                  [key: string]: string | number | null;
+                };
+              };
+              /** @description Ranked, the top one first; at most one is likely */
+              causes: {
+                /** @description The catalog rule (ADR-150), e.g. oom_limit */
+                rule: string;
+                strength: 'likely' | 'possible';
+                code: string;
+                /** @description The sentence's values; every placeholder of the code's sentence is here */
+                facts: {
+                  [key: string]: string | number | null;
+                };
+                since: string | null;
+                /** @description The evidence chain: the symptom first, where it starts last */
+                chain: {
+                  /** @description What a step or check is about, and where it links to */
+                  object: {
+                    kind:
+                      | 'pod'
+                      | 'workload'
+                      | 'container'
+                      | 'compose_service'
+                      | 'edge'
+                      | 'application'
+                      | 'alert'
+                      | 'node'
+                      | 'host'
+                      | 'change'
+                      | 'cluster';
+                    /** @description In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1) */
+                    ref: string;
+                    name: string;
+                    platform: 'kubernetes' | 'docker';
+                    workloadKind?: string;
+                    host?: string;
+                    /** @description An application: postgres, redis, rabbitmq… */
+                    type?: string;
+                  };
+                  /** @description Where the fact comes from */
+                  source:
+                    | 'service_map'
+                    | 'kubernetes'
+                    | 'docker'
+                    | 'change_marker'
+                    | 'metrics'
+                    | 'dns'
+                    | 'application';
+                  code: string;
+                  /** @description The sentence's values; every placeholder of the code's sentence is here */
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                  at: string | null;
+                  since: string | null;
+                  next: ('calls' | 'because' | 'consumed_by' | 'looks_up' | 'after') | null;
+                }[];
+              }[];
+              /** @description What we checked */
+              checks: {
+                /** @description What was looked at */
+                topic:
+                  | 'self'
+                  | 'events'
+                  | 'changes'
+                  | 'node'
+                  | 'host'
+                  | 'dependencies'
+                  | 'dns'
+                  | 'application'
+                  | 'edge';
+                /** @description What was found */
+                code: string;
+                /** @description The sentence's values; every placeholder of the code's sentence is here */
+                facts: {
+                  [key: string]: string | number | null;
+                };
+                /** @description explains: the likely cause came from it; possible: a possible cause, or something abnormal no rule explains; ok: nothing wrong; not_run: couldn’t check (no data, network flows off); not_applicable */
+                result: 'explains' | 'possible' | 'ok' | 'not_run' | 'not_applicable';
+                /** @description What a step or check is about, and where it links to */
+                object?: {
+                  kind:
+                    | 'pod'
+                    | 'workload'
+                    | 'container'
+                    | 'compose_service'
+                    | 'edge'
+                    | 'application'
+                    | 'alert'
+                    | 'node'
+                    | 'host'
+                    | 'change'
+                    | 'cluster';
+                  /** @description In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1) */
+                  ref: string;
+                  name: string;
+                  platform: 'kubernetes' | 'docker';
+                  workloadKind?: string;
+                  host?: string;
+                  /** @description An application: postgres, redis, rabbitmq… */
+                  type?: string;
+                };
+              }[];
+              flowsOff:
+                | {
+                    node: string;
+                    cause: string | null;
+                    reason: string | null;
+                  }[]
+                | null;
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/api-tokens': {
     parameters: {
       query?: never;

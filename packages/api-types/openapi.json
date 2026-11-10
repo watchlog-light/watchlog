@@ -24579,6 +24579,915 @@
         }
       }
     },
+    "/api/v1/causes": {
+      "get": {
+        "summary": "Probable cause of an alert, workload, pod, container, Compose service, edge or application",
+        "tags": ["causes", "public"],
+        "description": "Ranked probable causes (likely or possible, never a score), each with its evidence chain, and what was checked (ADR-146 to ADR-148). subject is <kind>:<ref>: alert:<id>, pod:<namespace>/<pod>, workload:<namespace>/<Kind>/<name> (or <namespace>/<name>), container:<host>/<name> (or <name>), compose_service:<project>/<service> (or <service>), edge:<source>><target>:<port> (the service map edge id), application:<id or name>. Answers are kept 15 s per subject.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "query",
+            "name": "cluster",
+            "required": true,
+            "description": "The cluster or Docker fleet id"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 700
+            },
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "description": "subject is <kind>:<ref>: alert:<id>, pod:<namespace>/<pod>, workload:<namespace>/<Kind>/<name> (or <namespace>/<name>), container:<host>/<name> (or <name>), compose_service:<project>/<service> (or <service>), edge:<source>><target>:<port> (the service map edge id), application:<id or name>"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "subject",
+                    "object",
+                    "cluster",
+                    "state",
+                    "checkedAt",
+                    "symptomSince",
+                    "resolvedAt",
+                    "window",
+                    "headline",
+                    "causes",
+                    "checks",
+                    "flowsOff"
+                  ],
+                  "properties": {
+                    "subject": {
+                      "type": "object",
+                      "required": ["kind", "ref", "name", "platform"],
+                      "properties": {
+                        "kind": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["pod"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["workload"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["container"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["compose_service"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["edge"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["application"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["alert"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["node"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["host"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["change"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["cluster"]
+                            }
+                          ]
+                        },
+                        "ref": {
+                          "type": "string",
+                          "description": "In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1)"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "platform": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["kubernetes"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["docker"]
+                            }
+                          ]
+                        },
+                        "workloadKind": {
+                          "type": "string"
+                        },
+                        "host": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string",
+                          "description": "An application: postgres, redis, rabbitmq…"
+                        }
+                      },
+                      "description": "What a step or check is about, and where it links to"
+                    },
+                    "object": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": ["kind", "ref", "name", "platform"],
+                          "properties": {
+                            "kind": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": ["pod"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["workload"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["container"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["compose_service"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["edge"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["application"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["alert"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["node"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["host"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["change"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["cluster"]
+                                }
+                              ]
+                            },
+                            "ref": {
+                              "type": "string",
+                              "description": "In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1)"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "platform": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": ["kubernetes"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["docker"]
+                                }
+                              ]
+                            },
+                            "workloadKind": {
+                              "type": "string"
+                            },
+                            "host": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string",
+                              "description": "An application: postgres, redis, rabbitmq…"
+                            }
+                          },
+                          "description": "What a step or check is about, and where it links to"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cluster": {
+                      "type": "object",
+                      "required": ["id", "name", "kind"],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["kubernetes"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["docker"]
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "state": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["likely"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["possible"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["none"]
+                        }
+                      ],
+                      "description": "likely: one cause explains it; possible: leads to check; none: no clear cause"
+                    },
+                    "checkedAt": {
+                      "type": "string"
+                    },
+                    "symptomSince": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "resolvedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "A resolved alert: when it resolved (the cause 'was likely')"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "window": {
+                      "type": "object",
+                      "required": ["from", "to"],
+                      "properties": {
+                        "from": {
+                          "type": "string"
+                        },
+                        "to": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "headline": {
+                      "type": "object",
+                      "required": ["code", "facts"],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "facts": {
+                          "type": "object",
+                          "description": "The sentence's values; every placeholder of the code's sentence is here",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "causes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["rule", "strength", "code", "facts", "since", "chain"],
+                        "properties": {
+                          "rule": {
+                            "type": "string",
+                            "description": "The catalog rule (ADR-150), e.g. oom_limit"
+                          },
+                          "strength": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["likely"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["possible"]
+                              }
+                            ]
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "facts": {
+                            "type": "object",
+                            "description": "The sentence's values; every placeholder of the code's sentence is here",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "since": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "When the cause began"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "chain": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "object",
+                                "source",
+                                "code",
+                                "facts",
+                                "at",
+                                "since",
+                                "next"
+                              ],
+                              "properties": {
+                                "object": {
+                                  "type": "object",
+                                  "required": ["kind", "ref", "name", "platform"],
+                                  "properties": {
+                                    "kind": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["pod"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["workload"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["container"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["compose_service"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["edge"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["application"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["alert"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["node"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["host"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["change"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["cluster"]
+                                        }
+                                      ]
+                                    },
+                                    "ref": {
+                                      "type": "string",
+                                      "description": "In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1)"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "platform": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["kubernetes"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["docker"]
+                                        }
+                                      ]
+                                    },
+                                    "workloadKind": {
+                                      "type": "string"
+                                    },
+                                    "host": {
+                                      "type": "string"
+                                    },
+                                    "type": {
+                                      "type": "string",
+                                      "description": "An application: postgres, redis, rabbitmq…"
+                                    }
+                                  },
+                                  "description": "What a step or check is about, and where it links to"
+                                },
+                                "source": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["service_map"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["kubernetes"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["docker"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["change_marker"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["metrics"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["dns"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["application"]
+                                    }
+                                  ],
+                                  "description": "Where the fact comes from"
+                                },
+                                "code": {
+                                  "type": "string"
+                                },
+                                "facts": {
+                                  "type": "object",
+                                  "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                  "additionalProperties": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "at": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "description": "A moment: a change, a kill"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "since": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "description": "Since when a state lasts"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "next": {
+                                  "anyOf": [
+                                    {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["calls"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["because"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["consumed_by"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["looks_up"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["after"]
+                                        }
+                                      ],
+                                      "description": "How this step leads to the next; null on the last step"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "maxItems": 3,
+                            "description": "The evidence chain: the symptom first, where it starts last"
+                          }
+                        }
+                      },
+                      "maxItems": 3,
+                      "description": "Ranked, the top one first; at most one is likely"
+                    },
+                    "checks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["topic", "code", "facts", "result"],
+                        "properties": {
+                          "topic": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["self"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["events"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["changes"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["node"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["host"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["dependencies"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["dns"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["application"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["edge"]
+                              }
+                            ],
+                            "description": "What was looked at"
+                          },
+                          "code": {
+                            "type": "string",
+                            "description": "What was found"
+                          },
+                          "facts": {
+                            "type": "object",
+                            "description": "The sentence's values; every placeholder of the code's sentence is here",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "result": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["explains"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["possible"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["ok"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["not_run"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["not_applicable"]
+                              }
+                            ],
+                            "description": "explains: the likely cause came from it; possible: a possible cause, or something abnormal no rule explains; ok: nothing wrong; not_run: couldn’t check (no data, network flows off); not_applicable"
+                          },
+                          "object": {
+                            "type": "object",
+                            "required": ["kind", "ref", "name", "platform"],
+                            "properties": {
+                              "kind": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["pod"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["workload"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["container"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["compose_service"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["edge"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["application"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["alert"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["node"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["host"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["change"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["cluster"]
+                                  }
+                                ]
+                              },
+                              "ref": {
+                                "type": "string",
+                                "description": "In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1)"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "platform": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["kubernetes"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["docker"]
+                                  }
+                                ]
+                              },
+                              "workloadKind": {
+                                "type": "string"
+                              },
+                              "host": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string",
+                                "description": "An application: postgres, redis, rabbitmq…"
+                              }
+                            },
+                            "description": "What a step or check is about, and where it links to"
+                          }
+                        }
+                      },
+                      "description": "What we checked"
+                    },
+                    "flowsOff": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["node", "cause", "reason"],
+                            "properties": {
+                              "node": {
+                                "type": "string"
+                              },
+                              "cause": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "reason": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "description": "Nodes or hosts under the subject whose agent sees no network flows: dependency checks could not run"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/api-tokens": {
       "get": {
         "summary": "Your API tokens, with the expired and revoked ones of the last 30 days",

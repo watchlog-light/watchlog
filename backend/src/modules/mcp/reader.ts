@@ -2,8 +2,9 @@
 // MCP tools read through the public REST API in-process, as the same API token
 // (lib/internal-call.ts). A tool therefore sees exactly what the token sees through the
 // API, with its org, its scope (public routes only), demo mode's limits and the API's
-// redaction; nothing more.
-import type { FastifyInstance } from 'fastify';
+// redaction; nothing more. Probable cause (causes/) reads the same way, as the user or
+// token that asked.
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { internalCallHeaders } from '../../lib/internal-call.js';
 
 export class ApiReadError extends Error {
@@ -18,18 +19,32 @@ export class ApiReadError extends Error {
 type Query = Record<string, string | number | boolean | undefined | null>;
 
 export class ApiReader {
+  private readonly headers: Record<string, string>;
+
   constructor(
     private readonly app: FastifyInstance,
-    /** The /mcp request's Authorization header: the same token. */
-    private readonly authorization: string,
-  ) {}
+    /** The /mcp request's Authorization header (the same token), or the headers to send. */
+    credentials: string | Record<string, string>,
+  ) {
+    this.headers = typeof credentials === 'string' ? internalCallHeaders(credentials) : credentials;
+  }
+
+  /**
+   * A reader that acts as a request's caller: its API token (not counted again against the
+   * REST limit), else its session or demo cookie.
+   */
+  static forRequest(app: FastifyInstance, request: FastifyRequest): ApiReader {
+    const auth = request.headers.authorization;
+    if (request.apiToken && typeof auth === 'string') return new ApiReader(app, auth);
+    return new ApiReader(app, { cookie: request.headers.cookie ?? '' });
+  }
 
   /** A read sent as POST (the chart query, ADR-125). */
   async post<T>(path: string, body: object): Promise<T> {
     const res = await this.app.inject({
       method: 'POST',
       url: `/api/v1${path}`,
-      headers: { ...internalCallHeaders(this.authorization), 'content-type': 'application/json' },
+      headers: { ...this.headers, 'content-type': 'application/json' },
       payload: body,
     });
     return this.answer<T>(res);
@@ -44,7 +59,7 @@ export class ApiReader {
     const res = await this.app.inject({
       method: 'GET',
       url: `/api/v1${path}${qs ? `?${qs}` : ''}`,
-      headers: internalCallHeaders(this.authorization),
+      headers: this.headers,
     });
     return this.answer<T>(res);
   }

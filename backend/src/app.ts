@@ -24,6 +24,7 @@ import { ConfigNotifier } from './modules/integrations/notifier.js';
 import { installTarget } from './modules/clusters/install.js';
 import { connectRoutes } from './modules/integrations/connect.js';
 import { applicationRoutes } from './modules/integrations/routes.js';
+import { causesRoutes } from './modules/causes/routes.js';
 import { kubernetesRoutes } from './modules/kubernetes/routes.js';
 import { overviewRoutes } from './modules/overview/routes.js';
 import { serviceMapRoutes } from './modules/servicemap/routes.js';
@@ -180,6 +181,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         notifier: collectors,
         secretKey: config.secretKey,
       });
+      await api.register(causesRoutes, { db: deps.db });
       await api.register(apiTokenRoutes, { db: deps.db });
       await api.register(userRoutes, { db: deps.db, settings, secretKey: config.secretKey });
       // The public API only (ADR-126): routes tagged `public`, with the bearer scheme.
