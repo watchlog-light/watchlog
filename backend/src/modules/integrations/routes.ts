@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 // Applications API (SPEC §4.12, ADR-132, ADR-135): monitored services, discovered ones,
 // the collectors, Monitor and remove. Credentials and the connect flow are slice 4.
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
+import type { FastifyRequest } from 'fastify';
 import { Type, type Static } from 'typebox';
 import { isUniqueViolation, type Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
@@ -16,6 +17,8 @@ import {
 } from '../clusters/install.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
+import { causeReader, wantsCause, type CausesService } from '../causes/likely.js';
+import { LikelyCauseSchema } from '../causes/schemas.js';
 import { INTEGRATION_TYPES, type IntegrationTarget } from './collector-config.js';
 import { alertDefaultsFor, createServiceRules, deleteServiceRules } from './alert-defaults.js';
 import { adoptProbe, placementOf } from './connect.js';
@@ -89,6 +92,8 @@ export const ApplicationSchema = Type.Object({
   reason: Reason,
   /** The most severe active finding when it decides the health ("What WatchLog sees"). */
   finding: Type.Optional(Type.Union([ReasonSchema, Type.Null()])),
+  /** With a finding: what likely caused it (ADR-148), when one cause is likely. */
+  likelyCause: Type.Optional(LikelyCauseSchema),
   members: Type.Object({ up: Type.Integer(), total: Type.Integer() }),
   monitoredSince: Type.String(),
   lastReportAt: Type.Union([Type.String(), Type.Null()]),
@@ -204,9 +209,33 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
   secretKey: Buffer;
   victoria?: VictoriaQueryClient;
   install?: ReturnType<typeof installTarget>;
-}> = async (app, { db, notifier, secretKey, victoria, install }) => {
+  /** Each application's likely cause, when it has a finding (ADR-148, ADR-155). */
+  causes?: CausesService;
+}> = async (app, { db, notifier, secretKey, victoria, install, causes }) => {
   const signedIn = requireUser(db);
   const canManage = [signedIn, requireRole('owner', 'admin')];
+
+  /** The likely cause of each application with a finding (the others have none to explain). */
+  async function withCauses(request: FastifyRequest, apps: ApplicationView[]) {
+    if (!causes || !wantsCause(request)) return apps;
+    const jobs = apps.flatMap((a, i) =>
+      a.finding
+        ? [{ i, job: { cluster: a.cluster, subject: { kind: 'application' as const, ref: a.id } } }]
+        : [],
+    );
+    if (!jobs.length) return apps;
+    const found = await causes.likely(
+      causeReader(app, request),
+      request.user!.org.id,
+      jobs.map((j) => j.job),
+    );
+    const out = [...apps];
+    jobs.forEach(({ i }, n) => {
+      const lc = found[n];
+      if (lc) out[i] = { ...out[i]!, likelyCause: lc };
+    });
+    return out;
+  }
   const pageCache = new Map<
     string,
     { at: number; own: Reason[]; connected: ConnectedResult | null }
@@ -306,7 +335,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
       applications.sort(
         (a, b) => ORDER[a.health]! - ORDER[b.health]! || a.name.localeCompare(b.name),
       );
-      return { applications };
+      return { applications: await withCauses(request, applications) };
     },
   );
 
@@ -646,8 +675,9 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         ...statusReasons(view.health, view.reason, ctx.row.status_details, ctx.row.target),
         ...own,
       ]);
+      const [application] = await withCauses(request, [withFindings(view, own)]);
       return {
-        application: withFindings(view, own),
+        application: application!,
         reasons,
         connected,
         page: { id: page.id, tabs: page.tabs.map((t) => ({ id: t.id, title: t.title })) },

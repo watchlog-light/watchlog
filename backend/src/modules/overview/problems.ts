@@ -7,6 +7,7 @@
 import type { Database } from '../../db/index.js';
 import type { AttentionItem } from '../kubernetes/views.js';
 import { alertText } from '../alerts/text.js';
+import type { LikelyCause } from '../causes/likely.js';
 
 export type ProblemType = 'crashloop' | 'oom' | 'connections' | 'nodes' | 'other';
 export type Severity = 'critical' | 'warning';
@@ -37,6 +38,8 @@ export interface Problem {
   object: { kind: string; namespace: string | null; name: string } | null;
   /** Other firing alerts about the same object, merged into this item. */
   related: number;
+  /** Its likely cause (ADR-148), filled in by the route. */
+  likelyCause?: LikelyCause;
 }
 
 export interface Problems {

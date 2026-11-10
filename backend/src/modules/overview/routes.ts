@@ -32,6 +32,7 @@ import { FAILING, dockerProblem, dockerProblems } from './docker-problems.js';
 import { buildProblems, firingAlerts, type Problems } from './problems.js';
 import { OverviewSchema } from './schemas.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
+import { causeReader, problemSubject, wantsCause, type CausesService } from '../causes/likely.js';
 
 const MAX_RANGE_S = 7 * 86400;
 const CHANGES_WINDOW_MS = 7 * 86400_000;
@@ -86,7 +87,9 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
   db: Database;
   victoria?: VictoriaQueryClient;
   settings: SettingsService;
-}> = async (app, { db, victoria, settings }) => {
+  /** Each problem's likely cause (ADR-148, ADR-155); left out without it. */
+  causes?: CausesService;
+}> = async (app, { db, victoria, settings, causes }) => {
   const signedIn = requireUser(db);
 
   /** Metric queries are optional: a storage error gives no values, never a failed page. */
@@ -201,15 +204,44 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
         range,
         step,
       };
-      if (cluster.kind === 'docker')
-        return {
-          ...base,
-          ...(await docker(cluster.id, cluster.name, range, step, start, end, nowMs)),
+      const answer =
+        cluster.kind === 'docker'
+          ? { ...base, ...(await docker(cluster.id, cluster.name, range, step, start, end, nowMs)) }
+          : {
+              ...base,
+              ...(await kubernetes(
+                cluster.id,
+                cluster.name,
+                range,
+                step,
+                start,
+                end,
+                nowMs,
+                namespaces,
+              )),
+            };
+      if (causes && wantsCause(request)) {
+        const ref = {
+          id: cluster.id,
+          name: cluster.name,
+          kind: cluster.kind as 'kubernetes' | 'docker',
         };
-      return {
-        ...base,
-        ...(await kubernetes(cluster.id, cluster.name, range, step, start, end, nowMs, namespaces)),
-      };
+        const items = answer.problems.items;
+        const jobs = items.flatMap((p, i) => {
+          const subject = problemSubject(p, ref.kind);
+          return subject ? [{ i, job: { cluster: ref, subject } }] : [];
+        });
+        const found = await causes.likely(
+          causeReader(app, request),
+          request.user!.org.id,
+          jobs.map((j) => j.job),
+        );
+        jobs.forEach(({ i }, n) => {
+          const lc = found[n];
+          if (lc) items[i] = { ...items[i]!, likelyCause: lc };
+        });
+      }
+      return answer;
     },
   );
 

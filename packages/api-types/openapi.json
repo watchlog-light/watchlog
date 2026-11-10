@@ -8086,6 +8086,86 @@
                               },
                               "related": {
                                 "type": "integer"
+                              },
+                              "likelyCause": {
+                                "type": "object",
+                                "required": [
+                                  "rule",
+                                  "code",
+                                  "facts",
+                                  "since",
+                                  "headline",
+                                  "subject"
+                                ],
+                                "properties": {
+                                  "rule": {
+                                    "type": "string",
+                                    "description": "The catalog rule (ADR-150), e.g. oom_limit"
+                                  },
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "facts": {
+                                    "type": "object",
+                                    "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "since": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "description": "When the cause began"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "headline": {
+                                    "type": "object",
+                                    "required": ["code", "facts"],
+                                    "properties": {
+                                      "code": {
+                                        "type": "string"
+                                      },
+                                      "facts": {
+                                        "type": "object",
+                                        "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                        "additionalProperties": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string"
+                                            },
+                                            {
+                                              "type": "number"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "description": "The answer's first sentence (the same as GET /causes's headline)"
+                                  },
+                                  "subject": {
+                                    "type": "string",
+                                    "description": "GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked"
+                                  }
+                                },
+                                "description": "The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time"
                               }
                             }
                           }
@@ -10628,6 +10708,79 @@
                           }
                         }
                       }
+                    },
+                    "likelyCause": {
+                      "type": "object",
+                      "required": ["rule", "code", "facts", "since", "headline", "subject"],
+                      "properties": {
+                        "rule": {
+                          "type": "string",
+                          "description": "The catalog rule (ADR-150), e.g. oom_limit"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "facts": {
+                          "type": "object",
+                          "description": "The sentence's values; every placeholder of the code's sentence is here",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "since": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "When the cause began"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "headline": {
+                          "type": "object",
+                          "required": ["code", "facts"],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "facts": {
+                              "type": "object",
+                              "description": "The sentence's values; every placeholder of the code's sentence is here",
+                              "additionalProperties": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "description": "The answer's first sentence (the same as GET /causes's headline)"
+                        },
+                        "subject": {
+                          "type": "string",
+                          "description": "GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked"
+                        }
+                      },
+                      "description": "The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time"
                     },
                     "notifications": {
                       "type": "array",
@@ -18937,6 +19090,79 @@
                               }
                             ]
                           },
+                          "likelyCause": {
+                            "type": "object",
+                            "required": ["rule", "code", "facts", "since", "headline", "subject"],
+                            "properties": {
+                              "rule": {
+                                "type": "string",
+                                "description": "The catalog rule (ADR-150), e.g. oom_limit"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "facts": {
+                                "type": "object",
+                                "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "since": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "When the cause began"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "headline": {
+                                "type": "object",
+                                "required": ["code", "facts"],
+                                "properties": {
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "facts": {
+                                    "type": "object",
+                                    "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "description": "The answer's first sentence (the same as GET /causes's headline)"
+                              },
+                              "subject": {
+                                "type": "string",
+                                "description": "GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked"
+                              }
+                            },
+                            "description": "The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time"
+                          },
                           "members": {
                             "type": "object",
                             "required": ["up", "total"],
@@ -19562,6 +19788,79 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "likelyCause": {
+                          "type": "object",
+                          "required": ["rule", "code", "facts", "since", "headline", "subject"],
+                          "properties": {
+                            "rule": {
+                              "type": "string",
+                              "description": "The catalog rule (ADR-150), e.g. oom_limit"
+                            },
+                            "code": {
+                              "type": "string"
+                            },
+                            "facts": {
+                              "type": "object",
+                              "description": "The sentence's values; every placeholder of the code's sentence is here",
+                              "additionalProperties": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "since": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "description": "When the cause began"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "headline": {
+                              "type": "object",
+                              "required": ["code", "facts"],
+                              "properties": {
+                                "code": {
+                                  "type": "string"
+                                },
+                                "facts": {
+                                  "type": "object",
+                                  "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                  "additionalProperties": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "description": "The answer's first sentence (the same as GET /causes's headline)"
+                            },
+                            "subject": {
+                              "type": "string",
+                              "description": "GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked"
+                            }
+                          },
+                          "description": "The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time"
                         },
                         "members": {
                           "type": "object",
@@ -21238,6 +21537,79 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "likelyCause": {
+                          "type": "object",
+                          "required": ["rule", "code", "facts", "since", "headline", "subject"],
+                          "properties": {
+                            "rule": {
+                              "type": "string",
+                              "description": "The catalog rule (ADR-150), e.g. oom_limit"
+                            },
+                            "code": {
+                              "type": "string"
+                            },
+                            "facts": {
+                              "type": "object",
+                              "description": "The sentence's values; every placeholder of the code's sentence is here",
+                              "additionalProperties": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "since": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "description": "When the cause began"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "headline": {
+                              "type": "object",
+                              "required": ["code", "facts"],
+                              "properties": {
+                                "code": {
+                                  "type": "string"
+                                },
+                                "facts": {
+                                  "type": "object",
+                                  "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                  "additionalProperties": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "description": "The answer's first sentence (the same as GET /causes's headline)"
+                            },
+                            "subject": {
+                              "type": "string",
+                              "description": "GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked"
+                            }
+                          },
+                          "description": "The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time"
                         },
                         "members": {
                           "type": "object",

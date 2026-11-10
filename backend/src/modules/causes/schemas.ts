@@ -149,3 +149,28 @@ export const CausesSchema = Type.Object({
     ),
   ),
 });
+
+/**
+ * The likely cause on the alert detail, a Needs-attention problem and an application with a
+ * finding (ADR-148, ADR-155): GET /causes's top cause, short, only when it is likely.
+ */
+export const LikelyCauseSchema = Type.Object(
+  {
+    rule: Type.String({ description: 'The catalog rule (ADR-150), e.g. oom_limit' }),
+    code: Type.String(),
+    facts: Facts,
+    since: Nullable(Type.String({ description: 'When the cause began' })),
+    headline: Type.Object(
+      { code: Type.String(), facts: Facts },
+      { description: "The answer's first sentence (the same as GET /causes's headline)" },
+    ),
+    subject: Type.String({
+      description:
+        'GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked',
+    }),
+  },
+  {
+    description:
+      'The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time',
+  },
+);

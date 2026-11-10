@@ -65,6 +65,7 @@ import {
 import type { SettingsService } from '../settings/service.js';
 import { ruleView, validateRuleChange, type RuleRowView } from './rule-views.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
+import { causeReader, wantsCause, type CausesService } from '../causes/likely.js';
 
 const Errors = { 400: ProblemSchema, 401: ProblemSchema, 403: ProblemSchema, 404: ProblemSchema };
 const iso = (d: Date | string | null) => (d === null ? null : new Date(d).toISOString());
@@ -76,6 +77,8 @@ export interface AlertRouteDeps {
   http: HttpClient;
   settings: SettingsService;
   victoria?: VictoriaQueryClient;
+  /** The alert detail's likely cause (ADR-148, ADR-155); left out without it. */
+  causes?: CausesService;
 }
 
 /** Joined alert row as the API shows it. */
@@ -176,7 +179,7 @@ const last4 = (v: string) => `…${v.slice(-4)}`;
 
 export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
   app,
-  { db, config, http, settings, victoria },
+  { db, config, http, settings, victoria, causes },
 ) => {
   const signedIn = requireUser(db);
   const canManage = [signedIn, requireRole('owner', 'admin')];
@@ -457,8 +460,19 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
           .execute(),
         alertingGaps(db, row.started_at, row.resolved_at ?? new Date()),
       ]);
+      const alert = toAlert(row, (await deliveriesOf([row.id], hideErrors(request))).get(row.id));
+      const [likelyCause] =
+        causes && wantsCause(request)
+          ? await causes.likely(causeReader(app, request), orgId, [
+              {
+                cluster: { ...alert.cluster, kind: alert.cluster.kind as 'kubernetes' | 'docker' },
+                subject: { kind: 'alert', id: alert.id },
+              },
+            ])
+          : [];
       return {
-        alert: toAlert(row, (await deliveriesOf([row.id], hideErrors(request))).get(row.id)),
+        alert,
+        ...(likelyCause ? { likelyCause } : {}),
         notifications: notes.map((n) => ({
           id: n.id,
           kind: n.kind,

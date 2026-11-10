@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Schemas of the alerting API (SPEC §8.1; ADR-074…ADR-088).
 import { Type, type TSchema } from 'typebox';
+import { LikelyCauseSchema } from '../causes/schemas.js';
 
 const Nullable = <T extends TSchema>(t: T) => Type.Union([t, Type.Null()]);
 const NullableString = Nullable(Type.String());
@@ -79,6 +80,8 @@ export const NotificationSchema = Type.Object({
 
 export const AlertDetailSchema = Type.Object({
   alert: AlertSchema,
+  /** What likely caused it (ADR-148): GET /causes's top cause, short, when it is likely. */
+  likelyCause: Type.Optional(LikelyCauseSchema),
   notifications: Type.Array(NotificationSchema),
   /** Earlier episodes of the same rule and scope, newest first (at most 10). */
   history: Type.Array(AlertSchema),

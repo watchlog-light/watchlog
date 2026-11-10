@@ -183,3 +183,5 @@ export type Cause = Causes['causes'][number];
 export type CauseStep = Cause['chain'][number];
 export type CauseCheck = Causes['checks'][number];
 export type CauseObject = Causes['subject'];
+/** The short likely cause on the alert detail, a problem and an application (ADR-148). */
+export type LikelyCause = NonNullable<AlertDetail['likelyCause']>;

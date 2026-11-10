@@ -10,24 +10,16 @@ import { requireUser } from '../../plugins/auth.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { findCluster } from '../clusters/service.js';
-import { ApiReader } from '../mcp/reader.js';
-import { AnswerCache } from './cache.js';
-import { explain, type CausesAnswer } from './engine.js';
+import { causeReader, CausesService } from './likely.js';
 import { AmbiguousError, NotFoundError } from './resolve.js';
 import { CausesSchema } from './schemas.js';
-import {
-  formatSubject,
-  parseSubject,
-  SUBJECT_FORMS,
-  SUBJECT_MAX,
-  SubjectError,
-  type Subject,
-} from './subject.js';
+import { parseSubject, SUBJECT_FORMS, SUBJECT_MAX, SubjectError, type Subject } from './subject.js';
 
 export const causesRoutes: FastifyPluginAsyncTypebox<{
   db: Database;
-  cache?: AnswerCache<CausesAnswer>;
-}> = async (app, { db, cache = new AnswerCache<CausesAnswer>() }) => {
+  /** The answer cache GET /causes shares with the `likelyCause` fields (ADR-155). */
+  causes?: CausesService;
+}> = async (app, { db, causes = new CausesService() }) => {
   const signedIn = requireUser(db);
 
   app.get(
@@ -67,11 +59,8 @@ export const causesRoutes: FastifyPluginAsyncTypebox<{
       const row = await findCluster(db, orgId, request.query.cluster);
       if (!row) return sendProblem(reply, 404, 'Cluster not found');
       const cluster = { id: row.id, name: row.name, kind: row.kind as 'kubernetes' | 'docker' };
-      const reader = ApiReader.forRequest(app, request);
       try {
-        return await cache.get(`${orgId}\u0000${cluster.id}\u0000${formatSubject(subject)}`, () =>
-          explain(reader, cluster, subject),
-        );
+        return await causes.answer(causeReader(app, request), orgId, cluster, subject);
       } catch (err) {
         if (err instanceof NotFoundError) return sendProblem(reply, 404, err.message);
         if (err instanceof AmbiguousError) return sendProblem(reply, 400, err.message);

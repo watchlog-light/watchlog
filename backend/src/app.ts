@@ -25,6 +25,7 @@ import { installTarget } from './modules/clusters/install.js';
 import { connectRoutes } from './modules/integrations/connect.js';
 import { applicationRoutes } from './modules/integrations/routes.js';
 import { causesRoutes } from './modules/causes/routes.js';
+import { CausesService } from './modules/causes/likely.js';
 import { kubernetesRoutes } from './modules/kubernetes/routes.js';
 import { overviewRoutes } from './modules/overview/routes.js';
 import { serviceMapRoutes } from './modules/servicemap/routes.js';
@@ -66,6 +67,8 @@ export interface AppDeps {
   seed?: Seed;
   /** Test hook: sees every route as it is registered (the demo guard's route test). */
   onRoute?: (route: RouteOptions) => void;
+  /** Test hook: the probable-cause service (its cache, its explain) the routes share. */
+  causes?: CausesService;
   /** Test hook: where the log goes (the API token test reads it for token values). */
   logStream?: { write(line: string): void };
 }
@@ -141,6 +144,8 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   const alertHttp = new HttpClient(config.proxy);
   app.addHook('onClose', () => alertHttp.close());
   const settings = new SettingsService(deps.db, config);
+  // One answer cache for GET /causes and the likelyCause fields (ADR-155).
+  const causes = deps.causes ?? new CausesService();
 
   await app.register(
     async (api) => {
@@ -165,9 +170,16 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(queryRoutes, { db: deps.db, victoria });
       await api.register(dockerRoutes, { db: deps.db, victoria });
       await api.register(kubernetesRoutes, { db: deps.db, victoria, settings });
-      await api.register(overviewRoutes, { db: deps.db, victoria, settings });
+      await api.register(overviewRoutes, { db: deps.db, victoria, settings, causes });
       await api.register(serviceMapRoutes, { db: deps.db, victoria, config, settings });
-      await api.register(alertRoutes, { db: deps.db, config, http: alertHttp, settings, victoria });
+      await api.register(alertRoutes, {
+        db: deps.db,
+        config,
+        http: alertHttp,
+        settings,
+        victoria,
+        causes,
+      });
       await api.register(settingsRoutes, { db: deps.db, settings, http: alertHttp });
       await api.register(applicationRoutes, {
         db: deps.db,
@@ -175,13 +187,14 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         secretKey: config.secretKey,
         victoria,
         install: installTarget(config, settings),
+        causes,
       });
       await api.register(connectRoutes, {
         db: deps.db,
         notifier: collectors,
         secretKey: config.secretKey,
       });
-      await api.register(causesRoutes, { db: deps.db });
+      await api.register(causesRoutes, { db: deps.db, causes });
       await api.register(apiTokenRoutes, { db: deps.db });
       await api.register(userRoutes, { db: deps.db, settings, secretKey: config.secretKey });
       // The public API only (ADR-126): routes tagged `public`, with the bearer scheme.

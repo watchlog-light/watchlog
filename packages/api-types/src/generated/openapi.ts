@@ -2801,6 +2801,27 @@ export interface paths {
                     name: string;
                   } | null;
                   related: number;
+                  /** @description The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time */
+                  likelyCause?: {
+                    /** @description The catalog rule (ADR-150), e.g. oom_limit */
+                    rule: string;
+                    code: string;
+                    /** @description The sentence's values; every placeholder of the code's sentence is here */
+                    facts: {
+                      [key: string]: string | number | null;
+                    };
+                    since: string | null;
+                    /** @description The answer's first sentence (the same as GET /causes's headline) */
+                    headline: {
+                      code: string;
+                      /** @description The sentence's values; every placeholder of the code's sentence is here */
+                      facts: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @description GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked */
+                    subject: string;
+                  };
                 }[];
                 critical: number;
                 warning: number;
@@ -3532,6 +3553,27 @@ export interface paths {
                   status: string;
                   error: string | null;
                 }[];
+              };
+              /** @description The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time */
+              likelyCause?: {
+                /** @description The catalog rule (ADR-150), e.g. oom_limit */
+                rule: string;
+                code: string;
+                /** @description The sentence's values; every placeholder of the code's sentence is here */
+                facts: {
+                  [key: string]: string | number | null;
+                };
+                since: string | null;
+                /** @description The answer's first sentence (the same as GET /causes's headline) */
+                headline: {
+                  code: string;
+                  /** @description The sentence's values; every placeholder of the code's sentence is here */
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                };
+                /** @description GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked */
+                subject: string;
               };
               notifications: {
                 /** Format: uuid */
@@ -6904,6 +6946,27 @@ export interface paths {
                     name: string;
                   }[];
                 } | null;
+                /** @description The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time */
+                likelyCause?: {
+                  /** @description The catalog rule (ADR-150), e.g. oom_limit */
+                  rule: string;
+                  code: string;
+                  /** @description The sentence's values; every placeholder of the code's sentence is here */
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                  since: string | null;
+                  /** @description The answer's first sentence (the same as GET /causes's headline) */
+                  headline: {
+                    code: string;
+                    /** @description The sentence's values; every placeholder of the code's sentence is here */
+                    facts: {
+                      [key: string]: string | number | null;
+                    };
+                  };
+                  /** @description GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked */
+                  subject: string;
+                };
                 members: {
                   up: number;
                   total: number;
@@ -7056,6 +7119,27 @@ export interface paths {
                     name: string;
                   }[];
                 } | null;
+                /** @description The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time */
+                likelyCause?: {
+                  /** @description The catalog rule (ADR-150), e.g. oom_limit */
+                  rule: string;
+                  code: string;
+                  /** @description The sentence's values; every placeholder of the code's sentence is here */
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                  since: string | null;
+                  /** @description The answer's first sentence (the same as GET /causes's headline) */
+                  headline: {
+                    code: string;
+                    /** @description The sentence's values; every placeholder of the code's sentence is here */
+                    facts: {
+                      [key: string]: string | number | null;
+                    };
+                  };
+                  /** @description GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked */
+                  subject: string;
+                };
                 members: {
                   up: number;
                   total: number;
@@ -7769,6 +7853,27 @@ export interface paths {
                     name: string;
                   }[];
                 } | null;
+                /** @description The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time */
+                likelyCause?: {
+                  /** @description The catalog rule (ADR-150), e.g. oom_limit */
+                  rule: string;
+                  code: string;
+                  /** @description The sentence's values; every placeholder of the code's sentence is here */
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                  since: string | null;
+                  /** @description The answer's first sentence (the same as GET /causes's headline) */
+                  headline: {
+                    code: string;
+                    /** @description The sentence's values; every placeholder of the code's sentence is here */
+                    facts: {
+                      [key: string]: string | number | null;
+                    };
+                  };
+                  /** @description GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked */
+                  subject: string;
+                };
                 members: {
                   up: number;
                   total: number;

@@ -2,6 +2,7 @@
 // The overview API (ADR-110): everything the page shows in
 // one response.
 import { Type, type TSchema } from 'typebox';
+import { LikelyCauseSchema } from '../causes/schemas.js';
 import { IngestFailureSchema } from '../clusters/schemas.js';
 
 const N = Type.Union([Type.Number(), Type.Null()]);
@@ -29,6 +30,8 @@ const Problem = Type.Object({
   alertId: S,
   object: Nullable(Type.Object({ kind: Type.String(), namespace: S, name: Type.String() })),
   related: Type.Integer(),
+  /** Its likely cause, when one is (ADR-148): the first 20 problems at most. */
+  likelyCause: Type.Optional(LikelyCauseSchema),
 });
 
 const Resource = Type.Object({ usage: N, requests: N, allocatable: N });
