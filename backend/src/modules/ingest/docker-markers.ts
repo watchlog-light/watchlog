@@ -18,6 +18,9 @@ export interface SeenContainer {
   project: string;
 }
 
+/** Compose's temporary name for a container it is re-creating: `<12 hex>_<name>`. */
+const baseName = (name: string) => name.replace(/^[0-9a-f]{12}_/, '');
+
 export function dockerMarkers(
   host: string,
   before: SeenContainer[],
@@ -26,10 +29,13 @@ export function dockerMarkers(
   // The first snapshot of a host is its starting point, not a change.
   if (before.length === 0) return [];
   const out: DockerMarker[] = [];
-  const prev = new Map(before.map((c) => [c.name, c]));
+  const now = new Set(after.map((c) => c.uid));
   for (const c of after) {
-    const p = prev.get(c.name);
-    if (!p || p.uid === c.uid) continue;
+    // The container it replaced: one of that name the host no longer runs. A delta may have
+    // stored the new container before this snapshot, so `before` can hold both; and Compose
+    // renames the old one `<short id>_<name>` while it re-creates.
+    const p = before.find((b) => b.uid !== c.uid && !now.has(b.uid) && baseName(b.name) === c.name);
+    if (!p) continue;
     const target = `Container/${host}/${c.name}`;
     out.push(
       p.image !== c.image
