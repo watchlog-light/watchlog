@@ -133,7 +133,7 @@ The first screen after login. Answers "is anything wrong right now?" in 5 second
 
 - Health banner: **Healthy / Degraded / Critical**, computed from firing alerts.
 - Tiles: nodes (ready / total), pods (running / pending / failed), restarts last 1 h, firing alerts, cluster CPU % and memory % (requests vs usage vs allocatable).
-- "Needs attention" list: top 10 problems ordered by severity (CrashLoopBackOff pods, NotReady nodes, OOMKilled containers, pending pods > 5 min, PVCs > 85 % full).
+- "Needs attention" list: top 10 problems ordered by severity (CrashLoopBackOff pods, NotReady nodes, OOMKilled containers, pending pods > 5 min, PVCs > 85 % full). Under each, its probable cause in one line (v0.4, ADR-148, ADR-156): a Likely, Possible or No clear cause chip and the sentence.
 - Recent Kubernetes events (Warning only) with links to the affected object.
 - Time range selector: 15 m, 1 h, 6 h, 24 h, 7 d, custom (limited by retention).
 
@@ -725,7 +725,7 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `GET/POST /clusters` · `GET/PATCH/DELETE /clusters/:id` | Create returns install commands + token (shown once) |
 | `POST /clusters/:id/tokens` · `DELETE /clusters/:id/tokens/:tid` | Rotate / revoke |
 | `GET /clusters/:id/onboarding-status` | Server-sent events: `agent_seen`, `cluster_agent_seen`, `first_metrics`, `ebpf_status`, `service_map_ready` |
-| `GET /clusters/:id/overview` | Data for §4.1; each of the first 20 problems carries `likelyCause` when one cause is likely (ADR-148, ADR-155) |
+| `GET /clusters/:id/overview` | Data for §4.1; each of the first 20 problems carries `likelyCause` when one cause is likely (ADR-148, ADR-155), and `causeState` (`likely`, `possible`, `none`) with up to two `possibleCauses` (`{rule, code, facts, since}`) for the Needs-attention line (ADR-156) |
 | `GET /clusters/:id/nodes` · `/nodes/:name` | |
 | `GET /clusters/:id/workloads` · `/pods` · `/pods/:ns/:name` | |
 | `GET /clusters/:id/docker/hosts` · `/docker/containers` | |
