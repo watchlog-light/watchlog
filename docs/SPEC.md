@@ -277,7 +277,7 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
   | `list_clusters` | clusters with health, nodes, eBPF | fleets with hosts |
   | `get_problems` | Needs attention: workloads and pods with reasons, firing alerts first | containers that are unhealthy, restarting, OOM-killed or exited non-zero, firing alerts |
   | `list_alerts` | firing or recent alerts | the same |
-  | `explain_alert` | the alert, its rule, the object's state, last terminations, events and changes before it (v0.3 adds the likely cause) | the same for containers and hosts |
+  | `explain_alert` | the alert, its rule, the object's state, last terminations, events and changes before it (v0.4 adds the ranked probable causes, proposed ADR-148) | the same for containers and hosts |
   | `get_workload` | replicas, images, restarts, terminations, use vs requests and limits | a Compose service: its containers, the same facts |
   | `get_pod` | containers, states, exit codes, OOM, conditions, events | a container |
   | `get_node` | conditions, capacity vs use, top pods | a host |

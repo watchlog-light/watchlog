@@ -1987,3 +1987,119 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Node down:** a member that doesn't answer is the generic `member_down`; the default rule "RabbitMQ node down" uses `service.reachable.ratio < 1` (critical after a minute).
   - **Rules:** `rabbitmq.queue.unconsumed` is per queue (ready messages of a queue with no consumer that grew over 5 minutes), so each queue fires its own alert.
 - Consequences: the link is only as good as the flows: with network flows off, the reason names the queue and when it lost its consumers, without a client.
+
+## ADR-146: Probable cause: deterministic rules over the signals WatchLog already has
+
+- Date: 2026-11-10 · Status: proposed (v0.4 planning; waits for the owner and the mock-ups)
+- Context: v0.4 answers "Why is this broken?" for every alert and every failing edge (roadmap §7). It is the last release before the launch on 2–3 December, so it must build in about a week, with no new collection in the agent.
+- Decision:
+  - **Subjects:** what a cause is asked for. An alert; a service-map edge; a workload or pod (Kubernetes); a container or Compose service (Docker); an application with an active finding (ADR-137).
+  - **Evidence:** gathered on demand from data stored today:
+    - the subject's state: phase, ready replicas, restarts, last termination reason and exit code, OOM kills against the memory limit, waiting reasons (ImagePullBackOff, CrashLoopBackOff), CPU throttling;
+    - its events, and the change markers in the 60 minutes before the problem started (ADR-128): rollouts, image changes, scaling, nodes; on Docker, re-created containers, image changes and Compose changes;
+    - the node or host under it: NotReady, pressure conditions, disk, a host that went silent;
+    - its outgoing edges on the service map: failed and refused connections, connect latency, HTTP 5xx and latency (ADR-139), and DNS NXDOMAIN with search-path misses left out;
+    - the active findings of any application it talks to (ADR-137, ADR-145).
+  - **Rules:** a fixed catalog in the backend (ADR-150). Each rule says which subjects it applies to. It turns evidence into a cause with an evidence chain: ordered steps, each a sentence with its time and a link to the object, e.g. "cart can't reach catalog → catalog has 0 ready pods since 19:21 → catalog was scaled to 0 at 19:21".
+  - **Following dependencies:**
+    - when the subject's own evidence doesn't explain it, the engine follows its failing or slow outgoing edges, at most two hops;
+    - it asks the same rules of the workload, container or application at the other end;
+    - a deeper cause that fully explains the symptom ranks above a shallow one.
+  - **Ranking:**
+    1. the strength in words (ADR-147);
+    2. whether the cause began before the symptom: within the window first, then at the same time;
+    3. a complete chain over a partial one;
+    4. fewer hops;
+    5. the catalog's order.
+       At most three causes are returned.
+  - **Where it runs:** a backend module (`causes/`) of pure functions over an evidence snapshot, so every rule is unit-tested from fixtures. Results are cached for 15 s per subject, as findings are. Nothing new is stored. Notifications compute the cause once, when an alert fires (ADR-148).
+  - **No AI in the product.** Users who want an AI to reason further reach the same evidence through MCP (ADR-148).
+- Consequences:
+  - The answer is only as good as the signals. With network flows off, dependency rules can't run, and the answer says so.
+  - Causes are worked out again from the data still retained (default 15 days), so an alert from last week can still be explained.
+  - Anomaly correlation (grouping anomalies that start within 5 minutes of each other across the map) stays Enterprise, in Phase 7, and builds on this.
+
+## ADR-147: Confidence in words: likely, possible, or no clear cause
+
+- Date: 2026-11-10 · Status: proposed (v0.4 planning)
+- Decision:
+  - **Likely:** one rule matched with a complete chain, and the cause began before the symptom (or with it) inside the window. At most one cause is likely.
+  - **Possible:** a partial chain; a cause that began after the symptom; or a second cause as strong as the first. The words then say "possibly" and show both.
+  - **No clear cause:** nothing matched. WatchLog lists what it checked (restarts, events, changes, the node, dependencies, applications) and the facts it found, so the reader starts from there, never from a blank.
+  - There are no percentages or scores, in the UI, the API or MCP: a number suggests a precision the rules don't have.
+  - Each sentence is a structured code plus facts. The UI renders it through i18n, as findings are (ADR-137), and the finding-template test (every placeholder filled) covers it.
+- Consequences: when two causes tie, the reader sees both, honestly marked "possible". The catalog's rule order is the tie-breaker, and the docs list it.
+
+## ADR-148: Probable cause in the UI, the REST API, MCP and notifications
+
+- Date: 2026-11-10 · Status: proposed (v0.4 planning; the screens wait for mock-ups)
+- Decision:
+  - **REST:**
+    - `GET /api/v1/causes?cluster=<id>&subject=<kind>:<ref>` returns `{ subject, checked[], causes[] }`. Each cause has `strength` (likely or possible), `code`, `facts`, `since` and `chain[]` (steps with code, facts, time and an object link). The subject kinds are alert, edge, workload, pod, container, compose_service and application;
+    - additive and optional fields: `likelyCause` (the top cause, short) on the alert detail, on each Needs-attention problem, and on an application that has a finding. The public OpenAPI gains only optional fields and one new route.
+  - **MCP:**
+    - `explain_alert` gains `causes`. Its description stops saying "WatchLog does not guess a cause" and says "ranked probable causes with their evidence; treat 'possible' as a lead to check";
+    - a new tool, `explain_problem`, takes a subject (a workload, pod, container, Compose service, edge or application) and returns the same answer;
+    - `get_problems` carries each problem's `likelyCause`. That makes 14 tools.
+  - **UI:**
+    - one "Likely cause" panel (the ranked causes, each chain as steps with times and links, and "What we checked");
+    - it appears on the alert detail page, the service-map edge panel, the workload and pod pages, the Docker container and Compose service pages, and the application page beside a finding;
+    - one line under each item in the overview's Needs attention.
+  - **Notifications:**
+    - Slack, Telegram and email get one "Likely cause:" line when a cause is likely (none when it is only possible), worked out when the alert fires, with a 2-second budget, after which the message goes without it;
+    - the webhook payload gains an optional `likelyCause` object.
+- Consequences: the REST route and MCP give API users and AI clients the same evidence the UI shows. A cause in a sent message is a snapshot, while the alert's page shows today's answer.
+
+## ADR-149: Probable cause on Docker hosts, as on Kubernetes
+
+- Date: 2026-11-10 · Status: proposed (v0.4 planning; ADR-124)
+- Decision: every rule has a Docker form, in Docker's words:
+
+  | Kubernetes                                       | Docker host                                                                      |
+  | ------------------------------------------------ | -------------------------------------------------------------------------------- |
+  | pod restarts, CrashLoopBackOff, last termination | container restarts and exit code, restart policy looping, health check unhealthy |
+  | OOMKilled against the memory limit               | the `oom` event and exit 137, against the container's memory limit               |
+  | rollout or image change before the problem       | the container re-created, a new image, a Compose project change                  |
+  | dependency scaled to 0 or with no ready pods     | dependency container stopped or exited, Compose service with 0 running           |
+  | node NotReady, pressure, drained                 | the host went silent, host memory or disk nearly full                            |
+  | edges: refused, failed, slow, NXDOMAIN, HTTP 5xx | the same, from the Docker agent's eBPF map                                       |
+  | application findings                             | the same (the collector runs on the host, ADR-131)                               |
+
+- **Kubernetes only, with the reason:**
+  - ImagePullBackOff and FailedScheduling have no Docker form: a Compose `up` that can't pull or start a container fails on the operator's terminal, and no container ever reaches the agent;
+  - HPA scaling has no Docker form either.
+
+  These two rules don't run on a Docker fleet. The docs say why.
+
+- Consequences: the kind e2e and the Docker host e2e prove the same list of failures. A Docker failure in that list either has its Docker scenario or cites this ADR.
+
+## ADR-150: The v0.4 cause catalog, and what is cut to keep the date
+
+- Date: 2026-11-10 · Status: proposed (v0.4 planning)
+- Decision: the catalog, in tie-break order:
+  1. `dependency_down`: what the subject calls has nothing ready (scaled to 0, every pod failing, the container stopped).
+  2. `bad_change`: a rollout, image change or re-create of the subject, or of its dependency, within the window before the problem, and the new version is failing.
+  3. `oom_limit`: OOM-killed with the working set at the limit ("the 256 MiB limit is reached in about N minutes").
+  4. `crash_exit`: exits with a code (Error, code N), with its last events.
+  5. `image_pull` (Kubernetes): cannot pull the image (bad tag or registry).
+  6. `unschedulable` (Kubernetes): FailedScheduling, with its reason (CPU, memory, taints).
+  7. `node_or_host`: NotReady, pressure, drained or cordoned; on Docker, the host is silent or full.
+  8. `application_finding`: a dependency is a monitored application with an active finding, e.g. "api is slow → api waits on PostgreSQL → connections at 98 % of max_connections, 85 held by shop/nightly-export". RabbitMQ's lost consumer links on to that consumer's own cause.
+  9. `connection_refused`: the dependency's port refuses connections.
+  10. `dns_nxdomain`: a name that doesn't resolve, with search-path misses left out.
+  11. `cpu_throttled`: the subject is throttled for more than 25 % of the time while it is slow.
+  12. `job_failed`: a Job or CronJob run failed; its exit and its backoff.
+- Cut from v0.4, to keep the launch date:
+  - anomaly detection and correlation;
+  - learned baselines, and numeric scores;
+  - any AI or LLM in the product;
+  - chains deeper than two hops; causes across clusters;
+  - stored history of causes, and feedback on them ("was this right?");
+  - rules users write, and per-rule settings;
+  - a cause for a custom metric rule with no object (it gets "What we checked" and the changes before it);
+  - logs and traces (SPEC §2.5);
+  - new agent probes (TCP retransmits and resets stay P1);
+  - MongoDB and Elasticsearch rules: they join with their integrations, through `application_finding`, with no new rule;
+  - new notification channels;
+  - a site feature page (a home card and a docs page only).
+- Consequences: twelve rules, each with unit fixtures, and each scenario in the "Done when" list proven on kind and on a Docker host (the v0.4 plan in the notes).
