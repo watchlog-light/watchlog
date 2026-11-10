@@ -9,6 +9,12 @@
 // and a fixture case in web/test/cause-templates.test.ts; unit tests from evidence fixtures
 // (test/support/causes.ts).
 import type { Evidence, Focus } from './evidence.js';
+import { badChange } from './rules/bad-change.js';
+import { crashExit } from './rules/crash-exit.js';
+import { imagePull } from './rules/image-pull.js';
+import { jobFailed } from './rules/job-failed.js';
+import { oomLimit } from './rules/oom-limit.js';
+import { unschedulable } from './rules/unschedulable.js';
 import type { Candidate, CheckTopic, Platform } from './types.js';
 
 /** ADR-150's catalog, in tie-break order. */
@@ -32,6 +38,11 @@ export type RuleCode = (typeof CATALOG)[number];
 export type Match = Omit<Candidate, 'rule' | 'hops' | 'explains'> & {
   /** The checks it explains, when not the rule's own list. */
   explains?: CheckTopic[];
+  /**
+   * Rules whose cause on the same object is a step of this one's chain (bad_change's new
+   * version crashing is crash_exit's exit): their candidates are dropped when this matches.
+   */
+  covers?: RuleCode[];
 };
 
 export interface Rule {
@@ -46,8 +57,11 @@ export interface Rule {
   explains: CheckTopic[];
 }
 
-/** The catalog's rules, in ADR-150's order. Slice 1 has none: every answer is "no clear cause". */
-export const RULES: Rule[] = [];
+/**
+ * The catalog's rules. Slice 2: the rules on the object itself. Slices 3 and 4 add the rules
+ * across the map and under it.
+ */
+export const RULES: Rule[] = [badChange, oomLimit, crashExit, imagePull, unschedulable, jobFailed];
 
 export const catalogIndex = (code: string) => {
   const i = (CATALOG as readonly string[]).indexOf(code);
@@ -57,10 +71,14 @@ export const catalogIndex = (code: string) => {
 /** Every rule that applies to the snapshot's object, asked in catalog order. */
 export function runRules(ev: Evidence, rules: Rule[] = RULES, hops = 0): Candidate[] {
   const out: Candidate[] = [];
+  const covered = new Set<string>();
   for (const r of rules) {
     if (!r.platforms.includes(ev.platform) || !r.applies(ev.focus, ev.platform)) continue;
     const m = r.match(ev);
-    if (m) out.push({ ...m, rule: r.code, hops, explains: m.explains ?? r.explains });
+    if (!m) continue;
+    const { covers, explains, ...rest } = m;
+    for (const c of covers ?? []) covered.add(c);
+    out.push({ ...rest, rule: r.code, hops, explains: explains ?? r.explains });
   }
-  return out;
+  return out.filter((c) => !covered.has(c.rule));
 }

@@ -131,6 +131,12 @@ const ENTRIES = {
     agg: 'max',
     expr: (s, _r, a) => `${a} by (host, container) (watchlog_container_restarts_total${s()})`,
   },
+  /** OOM kills (Docker's oom events) since the container started: a counter. */
+  'container.oom_kills': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) => `${a} by (host, container) (watchlog_container_oom_events_total${s()})`,
+  },
   /** Restarts within the last 10 minutes (the Docker restart rule, ADR-072). */
   'container.restarts.increase': {
     unit: 'count',

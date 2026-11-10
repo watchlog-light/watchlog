@@ -6,6 +6,7 @@
 import type { EvContainer, EvEdge, EvPod, Evidence } from './evidence.js';
 import { WINDOW_BEFORE_MS } from './evidence.js';
 import { nodeObject } from './resolve.js';
+import { containerRestarts, oomKills, podRestarts, SAME_MS } from './rules/common.js';
 import type { Check, CheckTopic, FlowsOff } from './types.js';
 
 /** DNS errors (NXDOMAIN, SERVFAIL, timeouts) over lookups that count: the map's 5 %. */
@@ -84,8 +85,11 @@ function kubeSelf(ev: Evidence, name: string): Check {
   if (failing) return check('self', 'self_failing', 'possible', { name, reason: failing.failing });
   const pending = pods.find((p) => p.phase === 'Pending');
   if (pending) return check('self', 'self_pending', 'possible', { name, pod: pending.name });
-  const restarts =
-    ev.workload?.restartsInRange ?? pods.filter(lately).reduce((n, p) => n + p.restarts, 0);
+  // Restarts in the counted hour (the metrics); without them the workload's own number,
+  // which covers the hour before now.
+  const restarts = ev.metrics
+    ? pods.reduce((n, p) => n + (podRestarts(ev, p)?.n ?? 0), 0)
+    : (ev.workload?.restartsInRange ?? pods.filter(lately).reduce((n, p) => n + p.restarts, 0));
   const when = (iso: string | null) => (iso ? Date.parse(iso) : ev.now);
   const last = pods
     .filter(lately)
@@ -112,10 +116,15 @@ function kubeSelf(ev: Evidence, name: string): Check {
 
 function dockerSelf(ev: Evidence, name: string): Check {
   const cs = ev.containers;
-  // Docker keeps OOMKilled set on a container that runs again; its `oom` events say when.
-  const kills = ev.events.filter((e) => e.reason === 'OOMKilled').reduce((n, e) => n + e.count, 0);
+  // Docker keeps OOMKilled set on a container that runs again; its oom kills in the counted
+  // hour (the counter, else OOMKilled events all inside it) say how often. An OOMKilled event
+  // in the window whose count reaches back before it is a kill, uncounted.
+  const counts = cs.map((c) => oomKills(ev, c));
+  const kills = counts.reduce((n, k) => n + (k?.n ?? 0), 0);
   const oom = cs.find((c) => c.oomKilled && c.state !== 'running');
-  if (oom || kills) return check('self', 'self_oom_killed', 'possible', { name, n: kills || null });
+  const event = ev.events.some((e) => e.reason === 'OOMKilled');
+  if (oom || kills || (event && counts.some((k) => !k)))
+    return check('self', 'self_oom_killed', 'possible', { name, n: kills || null });
   const unhealthy = cs.find((c) => c.health === 'unhealthy');
   if (unhealthy)
     return check('self', 'self_unhealthy', 'possible', {
@@ -131,7 +140,7 @@ function dockerSelf(ev: Evidence, name: string): Check {
     if (stopped)
       return check('self', 'self_stopped', 'possible', { name, exitCode: stopped.exitCode });
   }
-  const restarts = cs.reduce((n, c) => n + (c.restartsInRange ?? 0), 0);
+  const restarts = cs.reduce((n, c) => n + (containerRestarts(ev, c)?.n ?? 0), 0);
   if (restarts > 0) {
     const exit = lastExit(ev, cs);
     return exit !== null
@@ -168,8 +177,10 @@ function eventsCheck(ev: Evidence, name: string): Check | null {
 }
 
 function changesCheck(ev: Evidence, name: string): Check {
+  // Before the problem: changes after the symptom (the window runs to now) are no cause.
+  const until = Date.parse(ev.symptomAt ?? ev.window.to) + SAME_MS;
   const own = ev.changes.filter(
-    (m) => ev.ownTargets.includes(m.target) && Date.parse(m.ts) <= Date.parse(ev.window.to),
+    (m) => ev.ownTargets.includes(m.target) && Date.parse(m.ts) <= until,
   );
   if (ev.focus.kind === 'none' || ev.focus.kind === 'application')
     return ev.changes.length

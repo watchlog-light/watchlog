@@ -6591,6 +6591,7 @@
                       { "type": "string", "enum": ["container.network.bytes"] },
                       { "type": "string", "enum": ["container.fs.io"] },
                       { "type": "string", "enum": ["container.restarts"] },
+                      { "type": "string", "enum": ["container.oom_kills"] },
                       { "type": "string", "enum": ["container.restarts.increase"] },
                       { "type": "string", "enum": ["node.cpu.usage"] },
                       { "type": "string", "enum": ["node.cpu.utilization"] },

@@ -13,6 +13,8 @@ export interface Reader {
     path: string,
     query?: Record<string, string | number | boolean | undefined | null>,
   ): Promise<T>;
+  /** A read sent as POST (the curated metric query); without it, metrics stay unread. */
+  post?<T>(path: string, body: object): Promise<T>;
 }
 
 /** The object whose evidence is gathered: a subject, or what an alert or edge is about. */
@@ -65,6 +67,8 @@ export interface EvPodContainer {
   ready: boolean;
   state: string;
   reason: string | null;
+  /** The waiting or terminated message (e.g. the registry's answer to a pull). */
+  message?: string | null;
   exitCode: number | null;
   restartCount: number;
   lastTermination: EvTermination | null;
@@ -88,10 +92,12 @@ export interface EvPod {
   lastTermination: EvTermination | null;
   /** CrashLoopBackOff, OOMKilled, ImagePullBackOff, Pending… or null. */
   failing: string | null;
+  cpuRequestCores?: number | null;
+  memoryRequestBytes?: number | null;
   cpuLimitCores: number | null;
   memoryLimitBytes: number | null;
   memoryBytes: number | null;
-  /** Only when the pod's detail was read (a pod subject). */
+  /** Only when the pod's detail was read (a pod subject, or a workload's failing pods). */
   containers?: EvPodContainer[];
 }
 
@@ -109,6 +115,8 @@ export interface EvWorkload {
   lastRolloutAt: string | null;
   problem: { severity: string; reason: string; alertId: string | null } | null;
   podStates: string[];
+  /** CronJobs: the newest run (a Job), when one ran. */
+  lastRun?: { result: 'succeeded' | 'failed' | 'running'; at: string | null } | null;
 }
 
 export interface EvNode {
@@ -137,6 +145,8 @@ export interface EvContainer {
   restartsInRange: number | null;
   exitCode: number;
   oomKilled: boolean;
+  /** Unix seconds: when this container (this incarnation) was created. */
+  createdAt?: number | null;
   startedAt: string | null;
   finishedAt: string | null;
   composeProject: string | null;
@@ -244,6 +254,32 @@ export interface EvAlert {
   resolvedAt: string | null;
 }
 
+/** A counter's increase over the counted hour, and when it first and last went up (unix s). */
+export interface EvCount {
+  n: number;
+  first: number | null;
+  last: number | null;
+}
+
+/**
+ * Metrics of the focus over the counted hour: the last 60 minutes of the window, to its end
+ * (now, or when the alert resolved), so counts are always inside the window. Read through
+ * POST /query/range; null when they couldn't be read (rules then fall back to the object's
+ * own numbers or say less).
+ */
+export interface EvMetrics {
+  from: string;
+  to: string;
+  /** Seconds between points. */
+  step: number;
+  /** Restarts per pod (`<namespace>/<pod>`) or container (`<host>/<name>`). */
+  restarts: Record<string, EvCount>;
+  /** Docker: OOM kills per container (`<host>/<name>`), from the container's oom events. */
+  oomKills: Record<string, EvCount>;
+  /** Working set per container (`<namespace>/<pod>/<container>` or `<host>/<name>`), [unix s, bytes]. */
+  memory: Record<string, [number, number][]>;
+}
+
 /** Everything the rules and checks may use about one focus. */
 export interface Evidence {
   platform: Platform;
@@ -278,6 +314,8 @@ export interface Evidence {
   alert: EvAlert | null;
   /** The focus no longer exists (an alert on a pod that was deleted). */
   gone: boolean;
+  /** Restarts, OOM kills and memory over the counted hour; null when unread. */
+  metrics: EvMetrics | null;
 }
 
 export const emptyMap = (mode: EvMap['mode'] = 'unavailable'): EvMap => ({
@@ -292,6 +330,10 @@ export const emptyMap = (mode: EvMap['mode'] = 'unavailable'): EvMap => ({
 
 /** The window before a symptom that changes and events are looked for in (ADR-146). */
 export const WINDOW_BEFORE_MS = 60 * 60_000;
+/** Restarts and kills are counted over the window's last hour ("in the last hour"). */
+export const COUNT_MS = 60 * 60_000;
+/** Failing pods of a workload whose detail (containers, messages) is read. */
+export const MAX_POD_DETAILS = 2;
 /** Nodes or hosts whose state is read for a workload or Compose service. */
 export const MAX_NODES = 3;
 /** Containers whose events are read for a Compose service. */

@@ -4,10 +4,15 @@
 // part is optional: a part that can't be read leaves its slot empty and the checks say
 // "couldn't check", never a failed answer.
 import { ApiReadError } from '../mcp/reader.js';
+import { increase, sumCounts, type Point } from './counts.js';
 import {
+  COUNT_MS,
   emptyMap,
   MAX_EVENT_CONTAINERS,
   MAX_NODES,
+  MAX_POD_DETAILS,
+  type EvCount,
+  type EvMetrics,
   type EvAlert,
   type EvApplication,
   type EvContainer,
@@ -29,16 +34,28 @@ import type { Platform } from './types.js';
 /** A reader that asks each path once per answer: resolving and gathering share reads. */
 export function memoReader(inner: Reader): Reader {
   const seen = new Map<string, Promise<unknown>>();
+  const once = <T>(key: string, read: () => Promise<T>) => {
+    let p = seen.get(key);
+    if (!p) {
+      p = read();
+      seen.set(key, p);
+    }
+    return p as Promise<T>;
+  };
+  const post = inner.post?.bind(inner);
   return {
     get<T>(path: string, query: Record<string, string | number | boolean | undefined | null> = {}) {
-      const key = `${path}?${JSON.stringify(Object.entries(query).sort())}`;
-      let p = seen.get(key);
-      if (!p) {
-        p = inner.get<T>(path, query);
-        seen.set(key, p);
-      }
-      return p as Promise<T>;
+      return once(`GET ${path}?${JSON.stringify(Object.entries(query).sort())}`, () =>
+        inner.get<T>(path, query),
+      );
     },
+    ...(post
+      ? {
+          post<T>(path: string, body: object) {
+            return once(`POST ${path} ${JSON.stringify(body)}`, () => post<T>(path, body));
+          },
+        }
+      : {}),
   };
 }
 
@@ -98,6 +115,7 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
     edge: input.edge ?? null,
     alert: input.alert ?? null,
     gone: false,
+    metrics: null,
   };
   const inWindow = (e: EvEvent) => Date.parse(e.lastSeen) >= Date.parse(window.from);
   const markers = (namespaces?: string) =>
@@ -148,10 +166,13 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
         pod.workload && pod.workloadKind
           ? [`w:${pod.namespace}/${pod.workloadKind}/${pod.workload}`]
           : [];
-      [ev.changes, ev.nodes, ev.map] = await Promise.all([
+      [ev.changes, ev.nodes, ev.map, ev.metrics] = await Promise.all([
         markers(focus.namespace),
         nodes(pod.node ? [pod.node] : []),
         serviceMap(reader, clusterId, ids, focus.namespace),
+        kubeMetrics(reader, clusterId, window.to, { namespace: pod.namespace, pod: pod.name }, [
+          pod,
+        ]),
       ]);
       return ev;
     }
@@ -183,7 +204,26 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
           { events: [] as EvEvent[] },
         ),
       ]);
-      ev.pods = pods;
+      // The failing pods' detail: their containers' limits, waiting messages, terminations.
+      const failing = pods
+        .filter((p) => p.failing || p.phase === 'Failed')
+        .slice(0, MAX_POD_DETAILS);
+      const details = await Promise.all(
+        failing.map((p) =>
+          soft(
+            reader
+              .get<PodDetail>(
+                `${base}/pods/${encodeURIComponent(p.namespace)}/${encodeURIComponent(p.name)}`,
+              )
+              .then((d) => d.containers),
+            null,
+          ),
+        ),
+      );
+      ev.pods = pods.map((p) => {
+        const i = failing.indexOf(p);
+        return i >= 0 && details[i] ? { ...p, containers: details[i] } : p;
+      });
       // The workload's own events and its pods' and ReplicaSets' (named after it).
       ev.events = events
         .filter((e) => e.involvedName === w.name || e.involvedName.startsWith(`${w.name}-`))
@@ -199,10 +239,17 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
         ),
       ];
       ev.ownTargets.push(`${w.kind}/${w.namespace}/${w.name}`, ...under.map((n) => `Node/${n}`));
-      [ev.changes, ev.nodes, ev.map] = await Promise.all([
+      [ev.changes, ev.nodes, ev.map, ev.metrics] = await Promise.all([
         markers(focus.namespace),
         nodes(under),
         serviceMap(reader, clusterId, [`w:${w.namespace}/${w.kind}/${w.name}`], focus.namespace),
+        kubeMetrics(
+          reader,
+          clusterId,
+          window.to,
+          { namespace: w.namespace, workload: w.name, workloadKind: w.kind },
+          pods,
+        ),
       ]);
       return ev;
     }
@@ -225,7 +272,7 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
       ev.containers = mine;
       const withProblems = [...mine].sort((a, b) => Number(!!b.problem) - Number(!!a.problem));
       const hostNames = [...new Set(mine.map((c) => c.host))];
-      const [events, hosts, changes, map] = await Promise.all([
+      const [events, hosts, changes, map, metrics] = await Promise.all([
         Promise.all(
           withProblems.slice(0, MAX_EVENT_CONTAINERS).map((c) =>
             soft(
@@ -251,7 +298,17 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
           clusterId,
           mine.map((c) => `c:${c.name}`),
         ),
+        dockerMetrics(
+          reader,
+          clusterId,
+          window.to,
+          focus.kind === 'container'
+            ? { host: focus.host, container: focus.name }
+            : { composeProject: focus.project },
+          mine,
+        ),
       ]);
+      ev.metrics = metrics;
       ev.events = events.flat().filter(inWindow).sort(byNewest);
       ev.hosts = hosts.filter((h) => hostNames.includes(h.name));
       ev.changes = changes;
@@ -301,6 +358,119 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
       return ev;
     }
   }
+}
+
+interface RangeAnswer {
+  step: number;
+  series: { labels: Record<string, string>; points: Point[] }[];
+}
+
+/** The counted hour: the last 60 minutes of the window (evidence.ts, COUNT_MS). */
+function countedHour(windowTo: string) {
+  const to = sec(windowTo);
+  return { from: to - COUNT_MS / 1000, to };
+}
+
+/** One curated metric over the counted hour, or null when it can't be read. */
+async function range(
+  reader: Reader,
+  clusterId: string,
+  metric: string,
+  scope: Record<string, string>,
+  hour: { from: number; to: number },
+): Promise<RangeAnswer | null> {
+  if (!reader.post) return null;
+  return soft(
+    reader.post<RangeAnswer>('/query/range', {
+      clusterId,
+      metric,
+      scope,
+      from: hour.from,
+      to: hour.to,
+      step: 15,
+    }),
+    null,
+  );
+}
+
+const bytesPoints = (points: Point[]) =>
+  points.filter((p): p is [number, number] => p[1] !== null && Number.isFinite(p[1]));
+
+/** Restarts and memory of a pod or a workload's pods over the counted hour. */
+async function kubeMetrics(
+  reader: Reader,
+  clusterId: string,
+  windowTo: string,
+  scope: Record<string, string>,
+  pods: EvPod[],
+): Promise<EvMetrics | null> {
+  const hour = countedHour(windowTo);
+  const [restarts, memory] = await Promise.all([
+    range(reader, clusterId, 'pod.restarts', scope, hour),
+    range(reader, clusterId, 'pod.container.memory.working_set', scope, hour),
+  ]);
+  if (!restarts && !memory) return null;
+  const born = new Map(
+    pods.map((p) => [`${p.namespace}/${p.name}`, p.createdAt ? sec(p.createdAt) : null]),
+  );
+  const counts = new Map<string, EvCount[]>();
+  for (const s of restarts?.series ?? []) {
+    const key = `${s.labels.namespace}/${s.labels.pod}`;
+    const c = increase(s.points, born.get(key) ?? null, restarts!.step);
+    counts.set(key, [...(counts.get(key) ?? []), c]);
+  }
+  return {
+    from: new Date(hour.from * 1000).toISOString(),
+    to: new Date(hour.to * 1000).toISOString(),
+    step: restarts?.step ?? memory?.step ?? 15,
+    restarts: Object.fromEntries([...counts].map(([k, c]) => [k, sumCounts(c)])),
+    oomKills: {},
+    memory: Object.fromEntries(
+      (memory?.series ?? []).map((s) => [
+        `${s.labels.namespace}/${s.labels.pod}/${s.labels.container}`,
+        bytesPoints(s.points),
+      ]),
+    ),
+  };
+}
+
+/** Restarts, OOM kills and memory of a container or a Compose service's containers. */
+async function dockerMetrics(
+  reader: Reader,
+  clusterId: string,
+  windowTo: string,
+  scope: Record<string, string>,
+  containers: EvContainer[],
+): Promise<EvMetrics | null> {
+  const hour = countedHour(windowTo);
+  const [restarts, kills, memory] = await Promise.all([
+    range(reader, clusterId, 'container.restarts', scope, hour),
+    range(reader, clusterId, 'container.oom_kills', scope, hour),
+    range(reader, clusterId, 'container.memory.working_set', scope, hour),
+  ]);
+  if (!restarts && !kills && !memory) return null;
+  const mine = new Map(containers.map((c) => [`${c.host}/${c.name}`, c]));
+  const counted = (a: RangeAnswer | null) => {
+    const out: Record<string, EvCount> = {};
+    for (const s of a?.series ?? []) {
+      const key = `${s.labels.host}/${s.labels.container}`;
+      const c = mine.get(key);
+      if (c) out[key] = increase(s.points, c.createdAt ?? null, a!.step);
+    }
+    return out;
+  };
+  return {
+    from: new Date(hour.from * 1000).toISOString(),
+    to: new Date(hour.to * 1000).toISOString(),
+    step: restarts?.step ?? memory?.step ?? 15,
+    restarts: counted(restarts),
+    oomKills: counted(kills),
+    memory: Object.fromEntries(
+      (memory?.series ?? [])
+        .map((s) => [`${s.labels.host}/${s.labels.container}`, bytesPoints(s.points)] as const)
+        .filter(([k]) => mine.has(k)),
+    ),
+  };
 }
 
 interface ApiMap {

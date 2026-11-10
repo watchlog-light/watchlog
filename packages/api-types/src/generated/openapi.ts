@@ -1210,6 +1210,7 @@ export interface paths {
               | 'container.network.bytes'
               | 'container.fs.io'
               | 'container.restarts'
+              | 'container.oom_kills'
               | 'container.restarts.increase'
               | 'node.cpu.usage'
               | 'node.cpu.utilization'

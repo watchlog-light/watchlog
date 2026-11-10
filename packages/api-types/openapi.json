@@ -2443,6 +2443,10 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["container.oom_kills"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["container.restarts.increase"]
                       },
                       {
