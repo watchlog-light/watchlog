@@ -43,9 +43,14 @@ kubectl -n watchlog get secret watchlog-secret-key -o jsonpath='{.data.key}' | b
 
 To expose the UI permanently, enable the chart's Ingress (`ingress.enabled`, `ingress.host`) and set `publicUrl` so alert links point to it. See [configuration](configuration.md).
 
-### More clusters
+### More clusters and Docker fleets
 
-In the UI, go to **Settings → Clusters → Add cluster → Kubernetes**. Run the `helm install` command it shows in the new cluster. It installs only the agents (chart `watchlog-agent`), with a token for that cluster.
+One WatchLog holds as many Kubernetes clusters and Docker fleets as you run, side by side, with no limit in Community. In the UI, go to **Settings → Clusters → Add cluster**:
+
+- **Kubernetes:** run the `helm install` command it shows in the new cluster. It installs only the agents (chart `watchlog-agent`), with a token for that cluster.
+- **Docker:** run the `docker run` command it shows on each host of the new fleet. A fleet holds any number of hosts.
+
+The cluster switcher at the top of the sidebar moves between them.
 
 ## Docker hosts
 

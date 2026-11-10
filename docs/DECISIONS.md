@@ -321,7 +321,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 
 ## ADR-039: Community edition allows one cluster or Docker fleet from the start
 
-- Date: 2026-10-31 · Status: accepted
+- Date: 2026-10-31 · Status: superseded by ADR-151 (2026-11-10)
 - Context: SPEC §3.2 limits Community to one cluster / Docker fleet, and SPEC §3.1 says nothing that was ever free becomes paid. Allowing several clusters now and limiting later would take something away.
 - Decision: `POST /clusters` returns 409 with problem type `urn:watchlog:problem:cluster-limit` when an org on plan `community` already has a cluster. A Docker fleet holds any number of hosts, so self-hosters add hosts to the existing fleet. Other plans have no cluster limit until plan limits arrive in Phase 5.
 - Alternatives: no limit until Phase 5 (rejected: would later remove a free capability); 402 (rejected: Community has nothing to pay for).
@@ -2103,3 +2103,17 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - new notification channels;
   - a site feature page (a home card and a docs page only).
 - Consequences: twelve rules, each with unit fixtures, and each scenario in the "Done when" list proven on kind and on a Docker host (the v0.4 plan in the notes).
+
+## ADR-151: Community holds any number of clusters, Docker fleets and nodes
+
+- Date: 2026-11-10 · Status: accepted (the owner's decision; supersedes ADR-039)
+- Context: ADR-039 limited Community to one cluster or Docker fleet (409 `cluster-limit`). Teams run Kubernetes and Docker side by side (ADR-124). The limit made the free product look incomplete. In practice it only bit the second cluster of a self-hoster, the person most likely to recommend WatchLog.
+- Decision:
+  - **No cluster limit in Community.** `POST /clusters` creates any number of Kubernetes clusters and Docker fleets on every plan; the `urn:watchlog:problem:cluster-limit` problem type is gone.
+  - **Cloud plans:** they keep their own limits for Phase 5, where SPEC §3.2 sets them (Cloud Free: one cluster, up to 5 nodes).
+  - **The cluster switcher** is all a Community user needs to move between clusters.
+  - **A unified "all clusters" overview stays a later Cloud and Enterprise feature** (SPEC §3.2, §4.10).
+- Consequences:
+  - SPEC §2.3, §3.1, §3.2 and §4.10 are updated, and so are the README, the FAQ, the install guide ("More clusters and Docker fleets") and the site's pricing.
+  - Tests no longer switch the org to `pro` to hold two clusters.
+  - Lifting a limit takes nothing away (SPEC §3.1, rule 3), so no migration is needed. Existing installs simply stop answering 409.

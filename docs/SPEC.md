@@ -35,8 +35,8 @@ This is the single source of truth for **WatchLog v2**, a rebuild of WatchLog as
 - **Opinionated, ready dashboards** for cluster, nodes, workloads, pods, containers and Docker hosts.
 - **Service map from network traffic (eBPF)** — who talks to whom, latency, errors, failed connections — without changing application code.
 - **Sensible default alerts** that work on day one (CrashLoopBackOff, OOMKilled, node pressure, disk full, etc.).
-- **Fully open source (AGPL-3.0)** and self-hostable for one cluster at no cost. The agent's source is public, which removes the trust barrier of installing a closed agent on production.
-- **Cloud and Enterprise editions** for teams that want zero maintenance, multiple clusters, longer retention, anomaly detection and enterprise controls.
+- **Fully open source (AGPL-3.0)** and self-hostable at no cost, for any number of clusters, Docker fleets and nodes (ADR-151). The agent's source is public, which removes the trust barrier of installing a closed agent on production.
+- **Cloud and Enterprise editions** for teams that want zero maintenance, a unified view across clusters, longer retention, anomaly detection and enterprise controls.
 
 ## 2.4 Target users
 
@@ -70,8 +70,8 @@ _Not part of the public specification._
 
 ## 3.1 Principles
 
-1. **The free product is complete for one cluster.** Monitoring, service map and alerting are never paywalled.
-2. **Money comes from convenience and organisation-scale needs**: hosting, retention, multiple clusters, intelligence (anomaly detection), compliance and support.
+1. **The free product is complete, for every cluster you run.** Monitoring, service map and alerting are never paywalled.
+2. **Money comes from convenience and organisation-scale needs**: hosting, retention, a unified multi-cluster view, intelligence (anomaly detection), compliance and support.
 3. **Nothing that was ever free becomes paid.** Only new capabilities can be paid.
 4. **Simple unit: price per monitored node per month** (a Kubernetes node or a Docker host).
 
@@ -82,7 +82,7 @@ _Not part of the public specification._
 | Hosting | Self-hosted | WatchLog Cloud | WatchLog Cloud | Self-hosted or dedicated cloud |
 | License | AGPL-3.0 | — | — | Commercial (`ee/`) |
 | Price | Free | Free | **$1 / node / month** (min. $10 / month) | Custom quote |
-| Clusters / Docker fleets | 1 | 1 | Unlimited | Unlimited |
+| Clusters / Docker fleets | Unlimited (ADR-151) | 1 | Unlimited | Unlimited |
 | Nodes | Unlimited | Up to 5 | Unlimited | Unlimited |
 | Node, workload, pod, container metrics | ✓ | ✓ | ✓ | ✓ |
 | Docker host & container metrics | ✓ | ✓ | ✓ | ✓ |
@@ -91,7 +91,7 @@ _Not part of the public specification._
 | Default + custom threshold alerts | ✓ | ✓ | ✓ | ✓ |
 | Channels: Slack, Telegram, Email, Webhook | ✓ | ✓ | ✓ | ✓ |
 | Data retention | Limited by your disk (default 15 d) | 3 days | 30 days | Configurable (1 year+) |
-| Users | 1 admin | 1 | Up to 10 | Unlimited |
+| Users | Unlimited: Owner, Admin, Viewer (ADR-140) | 1 | Up to 10 | Unlimited |
 | Unified multi-cluster view | — | — | ✓ | ✓ |
 | SLO / availability reports | — | — | ✓ | ✓ |
 | Anomaly detection — basic (auto-baselines) | — | — | ✓ | ✓ |
@@ -236,7 +236,8 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 |---|---|---|
 | Organisations, invite users by email | P0 | Cloud |
 | Invite users by email into the installation | v0.3 | All (ADR-140) |
-| Multiple clusters per org, cluster switcher, unified "all clusters" overview | P1 | Pro, E |
+| Several clusters and Docker fleets in one installation, cluster switcher | v0.4 | All (ADR-151) |
+| Unified "all clusters" overview | P1 | Pro, E |
 | Roles: Owner, Admin, Viewer | v0.3 | All (ADR-140) |
 | Fine-grained RBAC (per cluster / namespace) | P2 | E |
 | SSO (OIDC, SAML), LDAP | P2 | E |

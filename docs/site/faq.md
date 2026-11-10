@@ -7,7 +7,7 @@ description: Common questions about WatchLog — cost, data, kernels, air-gapped
 
 ## Is it really free?
 
-Yes. WatchLog Community is open source under AGPL-3.0, and you can self-host it for one cluster at no cost. Teams that want several clusters, longer retention or SSO will be able to use the paid editions; see [pricing](/pricing).
+Yes. WatchLog Community is open source under AGPL-3.0, and you can self-host it at no cost, with no limit on clusters, Docker fleets, nodes or users. Teams that want a hosted service, a unified view across clusters, longer retention or SSO will be able to use the paid editions; see [pricing](/pricing).
 
 ## What data leaves my cluster?
 

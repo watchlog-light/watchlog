@@ -13,7 +13,7 @@
 - **Alerts that work on day one.** Crash loops, OOM kills, node pressure, failing connections and more, sent to Slack, Telegram, email or webhooks.
 - **A small, read-only agent.** Under 64 MB of memory and 1 % of a core. It never reads Secrets, ConfigMaps, environment values or payloads; see [what it can access](docs/site/security.md).
 - **For your team.** Owners, Admins and Viewers, invited by email; an MCP server and a REST API for your AI assistant and scripts, read-only.
-- **Self-hosted and free** for one cluster, under AGPL-3.0.
+- **Self-hosted and free**, for as many Kubernetes clusters, Docker fleets and nodes as you run, under AGPL-3.0.
 
 ![The cluster overview: health from firing alerts, what needs attention, recent warnings](docs/images/overview.png)
 
