@@ -126,6 +126,7 @@ export type RecordingName =
   | 'kube-pg-leak'
   | 'docker-pg-leak'
   | 'kube-rabbit-consumer-oom'
+  | 'docker-rabbit-consumer-oom'
   // Re-created minutes before (a Compose file change): its OOM kills follow a change.
   | 'docker-rabbit-consumer-change';
 

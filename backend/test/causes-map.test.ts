@@ -40,6 +40,7 @@ describe('the scenarios: the top cause on each platform, replayed', () => {
     ['kube-pg-leak', 'application_finding', 'app_pg_held'],
     ['docker-pg-leak', 'application_finding', 'app_pg_held'],
     ['kube-rabbit-consumer-oom', 'application_finding', 'app_consumer_oom'],
+    ['docker-rabbit-consumer-oom', 'application_finding', 'app_consumer_oom'],
     ['docker-rabbit-consumer-change', 'application_finding', 'app_consumer_change'],
   ])('%s: %s, likely (%s)', async (name, rule, headline) => {
     const { a, rec, missed } = await answer(name);
@@ -111,29 +112,36 @@ describe('the scenarios: the top cause on each platform, replayed', () => {
     expect(result('dns')).toBe('explains');
   });
 
-  it('the RabbitMQ lost consumer leads on to the consumer OOM-killed at its limit', async () => {
-    const { a } = await answer('kube-rabbit-consumer-oom');
-    const [queue, killed] = a.causes[0]!.chain;
-    expect(queue).toMatchObject({
-      object: { kind: 'application', type: 'rabbitmq' },
-      code: 'queue_no_consumers',
-      facts: { queue: 'orders' },
-      next: 'consumed_by',
-    });
-    // When the queue last had a consumer (slice 0 gap 9 was the fixture's: now it consumes).
-    expect(queue!.since).not.toBeNull();
-    expect(killed).toMatchObject({
-      object: { kind: 'pod' },
-      code: 'oom_killed_restarts',
-      facts: { limitBytes: 402653184 },
-    });
-    expect(a.headline).toMatchObject({
-      code: 'app_consumer_oom',
-      facts: { queue: 'orders', consumer: 'rabbitmq-e2e/consumer', limitBytes: 402653184 },
-    });
-    // One cause for one failure: the finding alone (partial) is covered.
-    expect(a.causes.filter((x) => x.rule === 'application_finding')).toHaveLength(1);
-  });
+  it.each<[RecordingName, string, string, string]>([
+    ['kube-rabbit-consumer-oom', 'pod', 'oom_killed_restarts', 'rabbitmq-e2e/consumer'],
+    ['docker-rabbit-consumer-oom', 'container', 'oom_killed_kills', 'rabbitmq-e2e-consumer-1'],
+  ])(
+    '%s: the lost consumer leads on to the consumer OOM-killed at its limit',
+    async (name, kind, code, consumer) => {
+      const { a } = await answer(name);
+      const [queue, killed] = a.causes[0]!.chain;
+      expect(queue).toMatchObject({
+        object: { kind: 'application', type: 'rabbitmq' },
+        code: 'queue_no_consumers',
+        facts: { queue: 'orders' },
+        next: 'consumed_by',
+      });
+      // When the queue last had a consumer (slice 0 gap 9 was the fixture's: now it consumes).
+      expect(queue!.since).not.toBeNull();
+      expect(killed).toMatchObject({ object: { kind }, code, facts: { limitBytes: 402653184 } });
+      // Inside the window: Docker's aggregated OOMKilled event dates from hours before.
+      // (the counted hour's points are on 15 s steps, so its first may be seconds before it).
+      expect(Date.parse(a.causes[0]!.since!)).toBeGreaterThanOrEqual(
+        Date.parse(a.window.from) - 60_000,
+      );
+      expect(a.headline).toMatchObject({
+        code: 'app_consumer_oom',
+        facts: { queue: 'orders', consumer, limitBytes: 402653184 },
+      });
+      // One cause for one failure: the finding alone (partial) is covered.
+      expect(a.causes.filter((x) => x.rule === 'application_finding')).toHaveLength(1);
+    },
+  );
 
   it('a consumer re-created shortly before its OOM kills: its new version fails (bad_change)', async () => {
     const { a } = await answer('docker-rabbit-consumer-change');
