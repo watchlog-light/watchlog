@@ -129,4 +129,3 @@ watchlog-agent:
     endpoint: 'http://{{ .Release.Name }}-backend:4080'
     existingSecret: '{{ .Release.Name }}-cluster-token'
     existingSecretKey: token
-

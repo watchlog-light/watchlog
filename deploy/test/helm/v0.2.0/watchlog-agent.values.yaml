@@ -65,4 +65,3 @@ clusterAgent:
   goMemLimit: 400MiB
   nodeSelector: {}
   tolerations: []
-
