@@ -1,0 +1,302 @@
+{
+  "platform": "kubernetes",
+  "clusterId": "00000000-0000-4000-8000-00000000000a",
+  "focus": {
+    "kind": "workload",
+    "namespace": "causes-e2e",
+    "workloadKind": "Deployment",
+    "name": "greedy"
+  },
+  "now": 1794333266226,
+  "window": {
+    "from": "2026-11-10T16:37:18.000Z",
+    "to": "2026-11-10T17:54:26.226Z"
+  },
+  "symptomAt": "2026-11-10T17:37:18Z",
+  "pods": [
+    {
+      "namespace": "causes-e2e",
+      "name": "greedy-bd94d4458-xxlrt",
+      "node": null,
+      "phase": "Pending",
+      "status": "Pending",
+      "ready": false,
+      "readyContainers": 0,
+      "totalContainers": 1,
+      "restarts": 0,
+      "qosClass": "Burstable",
+      "ip": null,
+      "workloadKind": "Deployment",
+      "workload": "greedy",
+      "createdAt": "2026-11-10T17:37:18Z",
+      "startedAt": null,
+      "lastTermination": null,
+      "failing": null,
+      "cpuRequestCores": 64,
+      "cpuLimitCores": 64,
+      "memoryRequestBytes": 8388608,
+      "memoryLimitBytes": 16777216,
+      "cpuCores": null,
+      "memoryBytes": null
+    }
+  ],
+  "workload": {
+    "kind": "Deployment",
+    "namespace": "causes-e2e",
+    "name": "greedy",
+    "desired": 1,
+    "ready": 0,
+    "updated": 1,
+    "health": "failed",
+    "pods": 1,
+    "restarts": 0,
+    "images": ["busybox:1.37"],
+    "createdAt": "2026-11-10T17:37:18Z",
+    "lastRolloutAt": null,
+    "schedule": null,
+    "lastScheduleAt": null,
+    "cpuRequestCores": 64,
+    "cpuLimitCores": 64,
+    "memoryRequestBytes": 8388608,
+    "memoryLimitBytes": 16777216,
+    "cpuCores": null,
+    "memoryBytes": null,
+    "problem": {
+      "severity": "warning",
+      "reason": "not scheduled yet",
+      "alertId": null
+    },
+    "podStates": ["starting"],
+    "restartsInRange": null,
+    "cpuSeries": [],
+    "system": false,
+    "lastRun": null
+  },
+  "containers": [],
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "FailedScheduling",
+      "message": "0/3 nodes are available: 1 node(s) had untolerated taint(s), 2 Insufficient cpu. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling.",
+      "count": 20,
+      "firstSeen": "2026-11-10T17:37:18.000Z",
+      "lastSeen": "2026-11-10T17:54:01.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "greedy-bd94d4458-xxlrt",
+      "reportingController": "default-scheduler",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "ScalingReplicaSet",
+      "message": "Scaled up replica set greedy-bd94d4458 from 0 to 1",
+      "count": 1,
+      "firstSeen": "2026-11-10T17:37:18.000Z",
+      "lastSeen": "2026-11-10T17:37:18.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Deployment",
+      "involvedName": "greedy",
+      "reportingController": "deployment-controller",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "SuccessfulCreate",
+      "message": "Created pod: greedy-bd94d4458-xxlrt",
+      "count": 1,
+      "firstSeen": "2026-11-10T17:37:18.000Z",
+      "lastSeen": "2026-11-10T17:37:18.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "ReplicaSet",
+      "involvedName": "greedy-bd94d4458",
+      "reportingController": "replicaset-controller",
+      "host": null
+    }
+  ],
+  "changes": [
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:48:40.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:48:40.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T17:17:50.603Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T17:17:50.603Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T17:17:50.603Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T17:21:35.602Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T17:21:40.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T17:21:50.603Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T17:22:00.602Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T17:22:00.602Z"
+    },
+    {
+      "kind": "image",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": ["release=busybox:0.0-causes-e2e-missing"],
+        "from": ["release=busybox:1.37"]
+      },
+      "ts": "2026-11-10T17:33:55.602Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "4",
+        "from": "3"
+      },
+      "ts": "2026-11-10T17:33:55.602Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T17:33:55.602Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T17:33:55.602Z"
+    }
+  ],
+  "ownTargets": ["Deployment/causes-e2e/greedy"],
+  "nodes": [],
+  "hosts": [],
+  "map": {
+    "mode": "flows",
+    "agents": [
+      {
+        "node": "demo-control-plane",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      },
+      {
+        "node": "demo-worker",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      },
+      {
+        "node": "demo-worker2",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      }
+    ],
+    "ids": ["w:causes-e2e/Deployment/greedy"],
+    "nodes": [],
+    "outgoing": [],
+    "incoming": [],
+    "dns": []
+  },
+  "application": null,
+  "edge": null,
+  "alert": null,
+  "gone": false,
+  "metrics": {
+    "from": "2026-11-10T16:54:26.000Z",
+    "to": "2026-11-10T17:54:26.000Z",
+    "step": 15,
+    "restarts": {},
+    "oomKills": {},
+    "memory": {}
+  }
+}

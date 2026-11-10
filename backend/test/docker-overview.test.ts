@@ -31,6 +31,26 @@ describe('Docker container problems', () => {
       'docker.container.restarting',
     );
     expect(dockerProblem({ state: 'running', health: 'unhealthy' }, NOW)?.severity).toBe('warning');
+    // A crash loop whose process runs a while before it exits is mostly `running` (gap 7):
+    // restarted by its policy moments after it ended, and not for the first time.
+    const loop = (restarts: number, endedS: number, startedS: number) =>
+      dockerProblem(
+        {
+          state: 'running',
+          restart_count: restarts,
+          finished_at: new Date(NOW - endedS * 1000).toISOString(),
+          started_at: new Date(NOW - startedS * 1000).toISOString(),
+        },
+        NOW,
+      );
+    expect(loop(19, 10, 10)).toMatchObject({
+      ruleKey: 'docker.container.restarting',
+      details: { exitCode: null, restarts: 19 },
+    });
+    // Restarted long ago, started by hand long after it ended, or the first restarts: fine.
+    expect(loop(19, 3600, 3600)).toBeNull();
+    expect(loop(19, 3600, 30)).toBeNull();
+    expect(loop(2, 10, 10)).toBeNull();
     const exited = (h: number) =>
       dockerProblem(
         { state: 'exited', exit_code: 3, finished_at: new Date(NOW - h * 3600_000).toISOString() },
@@ -107,6 +127,31 @@ describe('Docker change markers', () => {
     name,
     image,
     project,
+  });
+  it("marks a re-create a delta stored first, or caught under Compose's temporary name", () => {
+    // A delta stored the new container (9) before the snapshot: both are on record.
+    expect(
+      dockerMarkers(
+        'h1',
+        [c('1', 'shop-api-1', 'api:1'), c('9', 'shop-api-1', 'api:2')],
+        [c('9', 'shop-api-1', 'api:2')],
+      ),
+    ).toEqual([
+      {
+        kind: 'image',
+        target: 'Container/h1/shop-api-1',
+        namespace: 'demo',
+        details: { from: 'api:1', to: 'api:2' },
+      },
+    ]);
+    // A snapshot in the middle of `compose up` saw the old one renamed.
+    expect(
+      dockerMarkers('h1', [c('1', '0123456789ab_shop-api-1')], [c('9', 'shop-api-1')]).map(
+        (m) => m.kind,
+      ),
+    ).toEqual(['recreate']);
+    // The same container in both: nothing changed.
+    expect(dockerMarkers('h1', [c('9', 'shop-api-1')], [c('9', 'shop-api-1')])).toEqual([]);
   });
   it('marks re-created containers, image changes and Compose projects up or down', () => {
     expect(dockerMarkers('h1', [], [c('1', 'demo-web-1')])).toEqual([]);

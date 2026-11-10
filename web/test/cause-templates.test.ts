@@ -26,6 +26,34 @@ const HEADLINES: [string, Facts][] = [
   ['none_found', { name: 'crasher', n: 4, found: 3 }],
   ['none_flows_off', { name: 'frontend' }],
   ['possible', { name: 'checkout', n: 2 }],
+  // Slice 2: the rules on the object itself (facts as rules/*.ts send them, measured live).
+  ['oom_limit', { name: 'causes-e2e-hog-1', limitBytes: 50331648, n: 16 }],
+  ['oom_limit', { name: 'causes-e2e-hog-1', limitBytes: 50331648, n: 1 }],
+  ['oom_limit_restarts', { name: 'hog', limitBytes: 50331648, n: 6 }],
+  ['oom_limit_last', { name: 'hog', limitBytes: 50331648 }],
+  ['crash_exit', { name: 'crasher', exitCode: 3, n: 7 }],
+  ['crash_exit_every', { name: 'crasher', exitCode: 3, everyS: 123, n: 7 }],
+  ['crash_exit_once', { name: 'causes-e2e-batch-1', exitCode: 2 }],
+  ['bad_change_crash', { name: 'release', exitCode: 1 }],
+  ['bad_change_oom', { name: 'api', limitBytes: 268435456 }],
+  ['bad_change', { name: 'api' }],
+  ['image_pull', { name: 'release', image: 'busybox:0.0-causes-e2e-missing' }],
+  ['image_pull_change', { name: 'release', image: 'busybox:0.0-causes-e2e-missing' }],
+  ['unschedulable_cpu', { name: 'greedy', n: 2, nodes: 3, requestCores: 64 }],
+  ['unschedulable_memory', { name: 'greedy', n: 2, nodes: 3, requestBytes: 68719476736 }],
+  ['unschedulable_resource', { name: 'greedy', n: 2, nodes: 3, resource: 'nvidia.com/gpu' }],
+  ['unschedulable_selector', { name: 'picky', n: 2, nodes: 3 }],
+  ['unschedulable_taint', { name: 'picky', n: 3, nodes: 3 }],
+  ['unschedulable_cordoned', { name: 'pinned', n: 1, nodes: 3 }],
+  [
+    'unschedulable_other',
+    {
+      name: 'pinned',
+      message: '0/3 nodes are available: 3 node(s) had volume node affinity conflict',
+    },
+  ],
+  ['job_failed_exit', { name: 'report', job: 'report-e2e-1794332238', exitCode: 2 }],
+  ['job_failed', { name: 'report', job: 'report-29001' }],
 ];
 
 /** Checks: [topic, code, facts] as checks.ts sends them, nullable facts both ways. */
@@ -81,16 +109,78 @@ const CHECKS: [CauseCheck['topic'], string, Facts][] = [
   ['edge', 'edge_slow', { p95Ms: 2350 }],
 ];
 
-/** Steps the engine itself adds (the walk's edge step); rules add theirs. */
+/** Steps the engine itself adds (the walk's edge step) and the rules' steps. */
 const STEPS: [string, Facts][] = [
   ['edge_failed', { pct: 38, port: 9898 }],
   ['edge_errors', { pct: 5.5 }],
   ['edge_slow', { p95Ms: 420 }],
   ['edge_ok', {}],
+  ['oom_killed_restarts', { container: 'hog', limitBytes: 50331648, n: 6 }],
+  ['oom_killed_kills', { limitBytes: 50331648, n: 16 }],
+  ['oom_killed', { container: 'hog', limitBytes: 50331648 }],
+  ['memory_climbs', { limitBytes: 50331648, perMinuteBytes: 53941589, minutes: 1 }],
+  ['restarts_backoff', { n: 7 }],
+  ['restarts', { n: 1 }],
+  ['restarts_policy', { n: 183 }],
+  ['exit_code', { container: 'crasher', exitCode: 3, reason: 'Error' }],
+  ['exit_code_every', { container: 'crasher', exitCode: 3, reason: 'Error', everyS: 123 }],
+  ['exit_code_docker', { exitCode: 3 }],
+  ['exit_code_docker_every', { exitCode: 3, everyS: 19 }],
+  ['exited_code', { exitCode: 2 }],
+  ['last_event', { reason: 'Unhealthy', message: 'Liveness probe failed: HTTP probe failed' }],
+  ['new_version_crash', { exitCode: 1, reason: 'Error' }],
+  ['new_container_crash', { exitCode: 1 }],
+  ['new_version_oom', { limitBytes: 268435456 }],
+  ['new_version_oom_no_limit', {}],
+  ['changed_image', { from: 'busybox:latest', to: 'busybox:1.36' }],
+  ['rolled_out', { from: '1', to: '2' }],
+  ['recreated', { image: 'busybox:1.37' }],
+  ['compose_up', { project: 'causes-e2e' }],
+  ['pull_not_found', { image: 'busybox:0.0-causes-e2e-missing' }],
+  ['pull_denied', { image: 'registry.example.com/private/api:1.2' }],
+  ['pull_unreachable', { image: 'registry.example.com/api:1.2' }],
+  ['pull_invalid', { image: 'Busybox::1' }],
+  ['pull_failed', { image: 'busybox:1.37', reason: 'ErrImagePull' }],
+  ['pending_unscheduled', {}],
+  ['scheduling_cpu', { n: 2, nodes: 3, requestCores: 0.5 }],
+  ['scheduling_memory', { n: 2, nodes: 3, requestBytes: 68719476736 }],
+  ['scheduling_resource', { n: 2, nodes: 3, resource: 'nvidia.com/gpu' }],
+  ['scheduling_selector', { n: 2, nodes: 3 }],
+  ['scheduling_taint', { n: 1, nodes: 3 }],
+  ['scheduling_cordoned', { n: 1, nodes: 3 }],
+  [
+    'scheduling_other',
+    { message: '0/3 nodes are available: 3 node(s) had volume node affinity conflict' },
+  ],
+  ['job_backoff_limit', { job: 'report-e2e-1794332238' }],
+  ['job_deadline', { job: 'report-29001' }],
+  ['job_run_failed', { job: 'report-29001' }],
+  ['job_pod_exit', { exitCode: 2, reason: 'Error', n: 2 }],
 ];
 
-/** Causes of the catalog's rules (none in slice 1). */
-const CAUSES: [string, Facts][] = [];
+/** Causes of the catalog's rules: the short line (Needs attention, notifications). */
+const CAUSES: [string, Facts][] = [
+  [
+    'oom_limit',
+    { name: 'hog', container: 'hog', limitBytes: 50331648, n: null, platform: 'kubernetes' },
+  ],
+  ['crash_exit', { name: 'crasher', exitCode: 3, reason: null, n: 7, everyS: null }],
+  [
+    'bad_change',
+    {
+      name: 'release',
+      change: 'image',
+      target: 'Container/docker-01/causes-e2e-release-1',
+      failure: 'crash',
+    },
+  ],
+  [
+    'image_pull',
+    { name: 'release', image: 'busybox:0.0-x', reason: 'ImagePullBackOff', registry: 'not_found' },
+  ],
+  ['unschedulable', { name: 'greedy', reason: 'cpu', pod: 'greedy-1', message: '0/3 nodes…' }],
+  ['job_failed', { name: 'report', job: 'report-1', why: null, exitCode: null, attempts: 2 }],
+];
 
 const raw = (key: string): string | undefined =>
   key.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown> | undefined)?.[k], en) as
@@ -99,7 +189,7 @@ const raw = (key: string): string | undefined =>
 describe('cause sentences', () => {
   const { global: i18n } = createAppI18n();
   const problems: string[] = [];
-  const verify = (label: string, { key, values }: Line) => {
+  const verify = (label: string, { key, values, plural }: Line) => {
     const template = raw(key);
     if (typeof template !== 'string') return void problems.push(`${label}: no sentence at ${key}`);
     for (const [, name] of template.matchAll(/\{(\w+)\}/g)) {
@@ -107,8 +197,8 @@ describe('cause sentences', () => {
       if (v === null || v === undefined || v === '')
         problems.push(`${label}: {${name}} would render empty in "${template}"`);
     }
-    const text = i18n.t(key, values);
-    if (/\{\w+\}|\bnull\b|\bundefined\b|causes\./.test(text))
+    const text = plural === undefined ? i18n.t(key, values) : i18n.t(key, values, plural);
+    if (/\{\w+\}|\bnull\b|\bundefined\b|causes\.|\|/.test(text))
       problems.push(`${label}: rendered "${text}"`);
   };
 
@@ -134,6 +224,30 @@ describe('cause sentences', () => {
     expect(words.filter((w) => !listed.has(w))).toEqual([]);
   });
 
+  it('every headline, step and cause in en.json is in the lists above', () => {
+    const words = (en as { causes: Record<string, object> }).causes;
+    const missing = (part: string, listed: string[]) =>
+      Object.keys(words[part]!).filter((w) => !listed.includes(w));
+    expect(
+      missing(
+        'headline',
+        HEADLINES.map(([c]) => c),
+      ),
+    ).toEqual([]);
+    expect(
+      missing(
+        'step',
+        STEPS.map(([c]) => c),
+      ),
+    ).toEqual([]);
+    expect(
+      missing(
+        'cause',
+        CAUSES.map(([c]) => c),
+      ),
+    ).toEqual([]);
+  });
+
   it('connectors and sources have words', () => {
     for (const next of ['calls', 'because', 'consumed_by', 'looks_up', 'after'] as const)
       expect(i18n.t(connectorKey({ next })!)).not.toMatch(/causes\./);
@@ -148,6 +262,27 @@ describe('cause sentences', () => {
       'application',
     ] as CauseStep['source'][])
       expect(i18n.t(sourceKey({ source }))).not.toMatch(/causes\./);
+  });
+
+  it('renders counts, limits, requests and intervals in their words and units', () => {
+    const say = ({ key, values, plural }: Line) =>
+      plural === undefined ? i18n.t(key, values) : i18n.t(key, values, plural);
+    expect(
+      say(
+        headlineLine({
+          headline: { code: 'oom_limit', facts: { name: 'hog', limitBytes: 50331648, n: 1 } },
+        }),
+      ),
+    ).toBe('hog is OOM-killed when it reaches its 48 MiB memory limit: once in the last hour.');
+    expect(say(stepLine({ code: 'restarts_backoff', facts: { n: 7 } }))).toBe(
+      'Restarting with back-off: 7 restarts in the last hour.',
+    );
+    expect(
+      say(stepLine({ code: 'exit_code_docker_every', facts: { exitCode: 3, everyS: 123 } })),
+    ).toBe('It exits with code 3 about every 2 min.');
+    expect(
+      say(stepLine({ code: 'scheduling_cpu', facts: { n: 2, nodes: 3, requestCores: 0.25 } })),
+    ).toBe('It requests 250m CPU, more than 2 of the 3 nodes have free.');
   });
 
   it('says a slow call in milliseconds or seconds', () => {

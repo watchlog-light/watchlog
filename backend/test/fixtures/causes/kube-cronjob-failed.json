@@ -1,0 +1,547 @@
+{
+  "platform": "kubernetes",
+  "clusterId": "00000000-0000-4000-8000-00000000000a",
+  "focus": {
+    "kind": "workload",
+    "namespace": "causes-e2e",
+    "workloadKind": "CronJob",
+    "name": "report"
+  },
+  "now": 1794333266280,
+  "window": {
+    "from": "2026-11-10T16:54:26.280Z",
+    "to": "2026-11-10T17:54:26.280Z"
+  },
+  "symptomAt": null,
+  "pods": [
+    {
+      "namespace": "causes-e2e",
+      "name": "report-e2e-1794332238-swmdz",
+      "node": "demo-worker2",
+      "phase": "Failed",
+      "status": "Error",
+      "ready": false,
+      "readyContainers": 0,
+      "totalContainers": 1,
+      "restarts": 0,
+      "qosClass": "Burstable",
+      "ip": "10.244.1.129",
+      "workloadKind": "CronJob",
+      "workload": "report",
+      "createdAt": "2026-11-10T17:37:18Z",
+      "startedAt": "2026-11-10T17:37:18Z",
+      "lastTermination": {
+        "container": "report",
+        "reason": "Error",
+        "exitCode": 2,
+        "finishedAt": null
+      },
+      "failing": "Failed",
+      "cpuRequestCores": 0.005,
+      "cpuLimitCores": 0.05,
+      "memoryRequestBytes": 8388608,
+      "memoryLimitBytes": 16777216,
+      "cpuCores": null,
+      "memoryBytes": null,
+      "containers": [
+        {
+          "name": "report",
+          "init": false,
+          "image": "busybox:1.37",
+          "ready": false,
+          "state": "terminated",
+          "reason": "Error",
+          "message": null,
+          "exitCode": 2,
+          "restartCount": 0,
+          "startedAt": "2026-11-10T17:37:19Z",
+          "lastTermination": null,
+          "cpuRequestCores": 0.005,
+          "cpuLimitCores": 0.05,
+          "memoryRequestBytes": 8388608,
+          "memoryLimitBytes": 16777216,
+          "cpuCores": null,
+          "memoryBytes": null
+        }
+      ]
+    },
+    {
+      "namespace": "causes-e2e",
+      "name": "report-e2e-1794332238-tbztk",
+      "node": "demo-worker2",
+      "phase": "Failed",
+      "status": "Error",
+      "ready": false,
+      "readyContainers": 0,
+      "totalContainers": 1,
+      "restarts": 0,
+      "qosClass": "Burstable",
+      "ip": "10.244.1.130",
+      "workloadKind": "CronJob",
+      "workload": "report",
+      "createdAt": "2026-11-10T17:37:34Z",
+      "startedAt": "2026-11-10T17:37:34Z",
+      "lastTermination": {
+        "container": "report",
+        "reason": "Error",
+        "exitCode": 2,
+        "finishedAt": null
+      },
+      "failing": "Failed",
+      "cpuRequestCores": 0.005,
+      "cpuLimitCores": 0.05,
+      "memoryRequestBytes": 8388608,
+      "memoryLimitBytes": 16777216,
+      "cpuCores": null,
+      "memoryBytes": null,
+      "containers": [
+        {
+          "name": "report",
+          "init": false,
+          "image": "busybox:1.37",
+          "ready": false,
+          "state": "terminated",
+          "reason": "Error",
+          "message": null,
+          "exitCode": 2,
+          "restartCount": 0,
+          "startedAt": "2026-11-10T17:37:35Z",
+          "lastTermination": null,
+          "cpuRequestCores": 0.005,
+          "cpuLimitCores": 0.05,
+          "memoryRequestBytes": 8388608,
+          "memoryLimitBytes": 16777216,
+          "cpuCores": null,
+          "memoryBytes": null
+        }
+      ]
+    }
+  ],
+  "workload": {
+    "kind": "CronJob",
+    "namespace": "causes-e2e",
+    "name": "report",
+    "desired": null,
+    "ready": 0,
+    "updated": null,
+    "health": "suspended",
+    "pods": 0,
+    "restarts": 0,
+    "images": [],
+    "createdAt": "2026-11-10T17:37:18Z",
+    "lastRolloutAt": null,
+    "schedule": "0 3 * * *",
+    "lastScheduleAt": null,
+    "cpuRequestCores": 0,
+    "cpuLimitCores": null,
+    "memoryRequestBytes": 0,
+    "memoryLimitBytes": null,
+    "cpuCores": null,
+    "memoryBytes": null,
+    "problem": {
+      "severity": "warning",
+      "reason": "Last run failed",
+      "alertId": null
+    },
+    "podStates": [],
+    "restartsInRange": 0,
+    "cpuSeries": [],
+    "system": false,
+    "lastRun": {
+      "result": "failed",
+      "at": "2026-11-10T17:37:18Z"
+    }
+  },
+  "containers": [],
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "BackoffLimitExceeded",
+      "message": "Job has reached the specified backoff limit",
+      "count": 1,
+      "firstSeen": "2026-11-10T17:37:42.000Z",
+      "lastSeen": "2026-11-10T17:37:42.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Job",
+      "involvedName": "report-e2e-1794332238",
+      "reportingController": "job-controller",
+      "host": null
+    },
+    {
+      "type": "Warning",
+      "reason": "UnexpectedJob",
+      "message": "Saw a job that the controller did not create or forgot: report-e2e-1794332238",
+      "count": 10,
+      "firstSeen": "2026-11-10T17:37:18.000Z",
+      "lastSeen": "2026-11-10T17:37:42.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "CronJob",
+      "involvedName": "report",
+      "reportingController": "cronjob-controller",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Started",
+      "message": "Container started",
+      "count": 1,
+      "firstSeen": "2026-11-10T17:37:35.000Z",
+      "lastSeen": "2026-11-10T17:37:35.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "report-e2e-1794332238-tbztk",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "SuccessfulCreate",
+      "message": "Created pod: report-e2e-1794332238-tbztk",
+      "count": 2,
+      "firstSeen": "2026-11-10T17:37:18.000Z",
+      "lastSeen": "2026-11-10T17:37:34.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Job",
+      "involvedName": "report-e2e-1794332238",
+      "reportingController": "job-controller",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Scheduled",
+      "message": "Successfully assigned causes-e2e/report-e2e-1794332238-tbztk to demo-worker2",
+      "count": 1,
+      "firstSeen": "2026-11-10T17:37:34.000Z",
+      "lastSeen": "2026-11-10T17:37:34.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "report-e2e-1794332238-tbztk",
+      "reportingController": "default-scheduler",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Pulled",
+      "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+      "count": 1,
+      "firstSeen": "2026-11-10T17:37:34.000Z",
+      "lastSeen": "2026-11-10T17:37:34.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "report-e2e-1794332238-tbztk",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Created",
+      "message": "Container created",
+      "count": 1,
+      "firstSeen": "2026-11-10T17:37:34.000Z",
+      "lastSeen": "2026-11-10T17:37:34.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "report-e2e-1794332238-tbztk",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Started",
+      "message": "Container started",
+      "count": 1,
+      "firstSeen": "2026-11-10T17:37:19.000Z",
+      "lastSeen": "2026-11-10T17:37:19.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "report-e2e-1794332238-swmdz",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Pulled",
+      "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+      "count": 1,
+      "firstSeen": "2026-11-10T17:37:19.000Z",
+      "lastSeen": "2026-11-10T17:37:19.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "report-e2e-1794332238-swmdz",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Created",
+      "message": "Container created",
+      "count": 1,
+      "firstSeen": "2026-11-10T17:37:19.000Z",
+      "lastSeen": "2026-11-10T17:37:19.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "report-e2e-1794332238-swmdz",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Scheduled",
+      "message": "Successfully assigned causes-e2e/report-e2e-1794332238-swmdz to demo-worker2",
+      "count": 1,
+      "firstSeen": "2026-11-10T17:37:18.000Z",
+      "lastSeen": "2026-11-10T17:37:18.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "report-e2e-1794332238-swmdz",
+      "reportingController": "default-scheduler",
+      "host": null
+    }
+  ],
+  "changes": [
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T17:17:50.603Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T17:17:50.603Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T17:17:50.603Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T17:21:35.602Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T17:21:40.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T17:21:50.603Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T17:22:00.602Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T17:22:00.602Z"
+    },
+    {
+      "kind": "image",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": ["release=busybox:0.0-causes-e2e-missing"],
+        "from": ["release=busybox:1.37"]
+      },
+      "ts": "2026-11-10T17:33:55.602Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "4",
+        "from": "3"
+      },
+      "ts": "2026-11-10T17:33:55.602Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T17:33:55.602Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T17:33:55.602Z"
+    }
+  ],
+  "ownTargets": ["CronJob/causes-e2e/report", "Node/demo-worker2"],
+  "nodes": [
+    {
+      "name": "demo-worker2",
+      "status": "Ready",
+      "roles": [],
+      "unschedulable": false,
+      "taints": [],
+      "kubeletVersion": "v1.37.0",
+      "osImage": "Debian GNU/Linux 13 (trixie)",
+      "kernelVersion": "6.8.0-147-generic",
+      "architecture": "arm64",
+      "containerRuntime": "containerd://2.3.4",
+      "internalIp": "172.18.0.3",
+      "createdAt": "2026-11-09T15:38:35Z",
+      "cpu": {
+        "usageCores": 0.1357329800176648,
+        "requestsCores": 0.355,
+        "allocatableCores": 4
+      },
+      "memory": {
+        "usageBytes": 807071744,
+        "requestsBytes": 505413632,
+        "allocatableBytes": 6198562816
+      },
+      "diskUtilization": null,
+      "pods": {
+        "count": 24,
+        "capacity": 110
+      },
+      "conditions": [
+        {
+          "type": "MemoryPressure",
+          "status": "False",
+          "reason": "KubeletHasSufficientMemory",
+          "message": "kubelet has sufficient memory available",
+          "since": "2026-11-09T15:38:35Z",
+          "bad": false
+        },
+        {
+          "type": "DiskPressure",
+          "status": "False",
+          "reason": "KubeletHasNoDiskPressure",
+          "message": "kubelet has no disk pressure",
+          "since": "2026-11-09T15:38:35Z",
+          "bad": false
+        },
+        {
+          "type": "PIDPressure",
+          "status": "False",
+          "reason": "KubeletHasSufficientPID",
+          "message": "kubelet has sufficient PID available",
+          "since": "2026-11-09T15:38:35Z",
+          "bad": false
+        },
+        {
+          "type": "Ready",
+          "status": "True",
+          "reason": "KubeletReady",
+          "message": "kubelet is posting ready status",
+          "since": "2026-11-09T15:38:51Z",
+          "bad": false
+        }
+      ],
+      "agent": {
+        "status": "active",
+        "version": "e2e",
+        "kubeletTls": "unverified",
+        "lastSeenAt": "2026-11-10T17:54:15.215Z"
+      }
+    }
+  ],
+  "hosts": [],
+  "map": {
+    "mode": "flows",
+    "agents": [
+      {
+        "node": "demo-control-plane",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      },
+      {
+        "node": "demo-worker",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      },
+      {
+        "node": "demo-worker2",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      }
+    ],
+    "ids": ["w:causes-e2e/CronJob/report"],
+    "nodes": [],
+    "outgoing": [],
+    "incoming": [],
+    "dns": []
+  },
+  "application": null,
+  "edge": null,
+  "alert": null,
+  "gone": false,
+  "metrics": {
+    "from": "2026-11-10T16:54:26.000Z",
+    "to": "2026-11-10T17:54:26.000Z",
+    "step": 15,
+    "restarts": {
+      "causes-e2e/report-e2e-1794332238-swmdz": {
+        "n": 0,
+        "first": null,
+        "last": null
+      },
+      "causes-e2e/report-e2e-1794332238-tbztk": {
+        "n": 0,
+        "first": null,
+        "last": null
+      }
+    },
+    "oomKills": {},
+    "memory": {}
+  }
+}

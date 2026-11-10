@@ -162,10 +162,12 @@ describe('GET /causes', () => {
       subject: { kind: 'pod', ref: 'wl-test/crashloop', platform: 'kubernetes' },
       object: { kind: 'pod', ref: 'wl-test/crashloop' },
       cluster: { id: kube.id, name: 'kind', kind: 'kubernetes' },
-      state: 'none',
-      causes: [],
+      // Its container exits with a code (the seed's crash loop): crash_exit, on the pod itself.
+      state: 'likely',
+      causes: [{ rule: 'crash_exit', strength: 'likely' }],
       resolvedAt: null,
     });
+    expect(p.headline.code).toMatch(/^crash_exit/);
     expect(p.checks.map((c: { topic: string }) => c.topic)).toEqual(
       expect.arrayContaining(['self', 'changes', 'node']),
     );
@@ -174,7 +176,6 @@ describe('GET /causes', () => {
     });
     // No agent reports flows: the checks of the services it calls could not run.
     expect(p.flowsOff).not.toBeNull();
-    expect(p.headline.code).toBe('none_flows_off');
 
     // The kind is filled in.
     const w = await get(cookie, { cluster: kube.id, subject: 'workload:wl-test/web' });

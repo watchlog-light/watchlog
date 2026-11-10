@@ -7,7 +7,13 @@
 //
 // Fixtures: kube-workload-crashloop (causes-e2e/crasher), kube-pod-oom (a hog pod),
 // kube-workload-healthy (web, calling api), docker-container-oom (causes-e2e-hog-1),
-// docker-compose-crashloop (causes-e2e/crasher), docker-compose-healthy (causes-e2e/web).
+// docker-compose-crashloop (causes-e2e/crasher), docker-compose-healthy (causes-e2e/web);
+// those have no `metrics` (captured before slice 2): the rules' fallbacks. With metrics:
+// kube-workload-oom (hog), kube-workload-crash (crasher), kube-workload-image-pull (release
+// with a missing tag), kube-workload-unschedulable (greedy, 64 CPUs requested),
+// kube-cronjob-failed (report, a run past its backoff limit), docker-service-oom (Compose
+// service hog), docker-container-crash (causes-e2e-crasher-1), docker-container-bad-recreate
+// (causes-e2e-release-1 re-created with busybox:1.36 and a command that exits 1).
 import { readFileSync } from 'node:fs';
 import type { Evidence } from '../../src/modules/causes/evidence.js';
 import type { Rule } from '../../src/modules/causes/rules.js';
@@ -19,13 +25,23 @@ export type FixtureName =
   | 'kube-workload-healthy'
   | 'docker-container-oom'
   | 'docker-compose-crashloop'
-  | 'docker-compose-healthy';
+  | 'docker-compose-healthy'
+  // Slice 2, with the counted hour's metrics (restarts, OOM kills, memory):
+  | 'kube-workload-oom'
+  | 'kube-workload-crash'
+  | 'kube-workload-image-pull'
+  | 'kube-workload-unschedulable'
+  | 'kube-cronjob-failed'
+  | 'docker-service-oom'
+  | 'docker-container-crash'
+  | 'docker-container-bad-recreate';
 
 /** A fresh copy of a captured snapshot, changed by `patch` when given. */
 export function evidence(name: FixtureName, patch?: (ev: Evidence) => void): Evidence {
   const ev = JSON.parse(
     readFileSync(new URL(`../fixtures/causes/${name}.json`, import.meta.url), 'utf8'),
   ) as Evidence;
+  ev.metrics ??= null;
   patch?.(ev);
   return ev;
 }

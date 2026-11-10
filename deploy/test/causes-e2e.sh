@@ -51,17 +51,21 @@ say() { printf '\n== %s\n' "$*"; }
 
 # The scenarios: the one table later slices change. One line each:
 #   name  platforms  top cause on kubernetes  on docker  subject on kubernetes  on docker  check
-# The expected causes are ADR-150's codes ("-": no form on that platform, ADR-149). The
+# The expected causes are ADR-150's codes ("-": no form on that platform, ADR-149: a pod
+# the scheduler can't place and a failed Job have no Docker form; a one-shot container that
+# exits non-zero is crash_exit, the crash scenario's). The
 # subjects are GET /causes?cluster=<id>&subject=<kind>:<ref> (ADR-148), in the forms a user
 # types: workload:<namespace>/<name> (or <namespace>/<Kind>/<name>), compose_service:
 # <project>/<service>, container:<name> (or <host>/<name>), application:<name> (or its id).
-# `check` asserts the top cause when the last column is "on" and only reports it when
-# "pending": a slice turns a scenario on with its rules.
+# `check` asserts the top cause, and that it is likely, when the last column is "on", and
+# only reports it when "pending": a slice turns a scenario on with its rules.
 SCENARIOS='
 dependency-down        kubernetes,docker  dependency_down      dependency_down      workload:causes-e2e/web        compose_service:causes-e2e/web      pending
-bad-change             kubernetes,docker  image_pull           bad_change           workload:causes-e2e/release    container:causes-e2e-release-1      pending
-oom                    kubernetes,docker  oom_limit            oom_limit            workload:causes-e2e/hog        container:causes-e2e-hog-1          pending
-crash                  kubernetes,docker  crash_exit           crash_exit           workload:causes-e2e/crasher    container:causes-e2e-crasher-1      pending
+bad-change             kubernetes,docker  image_pull           bad_change           workload:causes-e2e/release    container:causes-e2e-release-1      on
+oom                    kubernetes,docker  oom_limit            oom_limit            workload:causes-e2e/hog        container:causes-e2e-hog-1          on
+crash                  kubernetes,docker  crash_exit           crash_exit           workload:causes-e2e/crasher    container:causes-e2e-crasher-1      on
+unschedulable          kubernetes         unschedulable        -                    workload:causes-e2e/greedy     -                                   on
+job-failed             kubernetes         job_failed           -                    workload:causes-e2e/CronJob/report  -                              on
 node                   kubernetes,docker  node_or_host         node_or_host         workload:causes-e2e/pinned     compose_service:causes-e2e/api      pending
 dns-typo               kubernetes,docker  dns_nxdomain         dns_nxdomain         workload:causes-e2e/typo       compose_service:causes-e2e/typo     pending
 cpu-throttle           kubernetes,docker  cpu_throttled        cpu_throttled        workload:causes-e2e/caller     compose_service:causes-e2e/caller   pending
@@ -77,6 +81,8 @@ describe() {
     bad-change) echo "kubernetes: set image release to a missing tag (ImagePullBackOff) | docker: re-create release with busybox:1.36 and a command that exits 1" ;;
     oom) echo "both: start hog, which grows 1 MiB/s to its 48 MiB limit and is OOM-killed (exit 137), again and again" ;;
     crash) echo "both: start crasher, which exits 3 after 15 s, again and again" ;;
+    unschedulable) echo "kubernetes: start greedy, which requests 64 CPUs (more than any node has): Pending, FailedScheduling" ;;
+    job-failed) echo "kubernetes: run the CronJob report once (kubectl create job --from), which exits 2 until its backoff limit" ;;
     node) echo "kubernetes: cordon demo-worker2, evict causes-e2e's pods (pinned stays Pending) | docker: stop the agent that reports to WATCHLOG_URL" ;;
     dns-typo) echo "both: start typo, which calls http://catalgo.invalid:9898 (NXDOMAIN) every 5 s" ;;
     cpu-throttle) echo "both: hot (CPU limit 20m) starts a busy loop; caller's requests to it slow down" ;;
@@ -138,6 +144,13 @@ start_stop() { # kubernetes|docker trigger|restore <workload>: replicas 1 or 0, 
   esac
 }
 act_oom() { start_stop "$1" "$2" hog; }
+act_unschedulable() { start_stop "$1" "$2" greedy; }
+act_job_failed() {
+  case "$2" in
+    trigger) kc "-n $ns create job report-e2e-\$(date +%s) --from=cronjob/report" ;;
+    restore) kc "-n $ns delete job -l app=report --ignore-not-found --wait=false" ;;
+  esac
+}
 act_crash() { start_stop "$1" "$2" crasher; }
 act_dns_typo() { start_stop "$1" "$2" typo; }
 act_pg_leak() { start_stop "$1" "$2" leak; }
@@ -241,6 +254,7 @@ YAML
     "hog^0^busybox:1.37^[sh, -c, 'echo loading the catalog; sleep 10; (while true; do head -c 1048576 /dev/zero || exit; sleep 1; done) | tail']^{ requests: { cpu: 5m, memory: 16Mi }, limits: { cpu: 100m, memory: 48Mi } }^" \
     "crasher^0^busybox:1.37^[sh, -c, 'echo importing; sleep 15; echo cannot open /data/input.csv; exit 3']^$small^" \
     "pinned^1^busybox:1.37^[sh, -c, 'exec sleep 2147483647']^$small^nodeSelector: { kubernetes.io/hostname: demo-worker2 }" \
+    "greedy^0^busybox:1.37^[sh, -c, 'exec sleep 2147483647']^{ requests: { cpu: \"64\", memory: 8Mi }, limits: { cpu: \"64\", memory: 16Mi } }^" \
     "typo^0^busybox:1.37^[sh, -c, 'while true; do wget -q -O /dev/null -T 2 http://catalgo.invalid:9898/; sleep 5; done']^$small^" \
     "pg^1^postgres:16-alpine^[docker-entrypoint.sh, postgres, -c, max_connections=40, -c, superuser_reserved_connections=0, -c, shared_buffers=16MB, -c, shared_preload_libraries=pg_stat_statements]^{ requests: { cpu: 10m, memory: 64Mi }, limits: { cpu: 500m, memory: 256Mi } }^" \
     "leak^0^postgres:16-alpine^[sh, -c, 'for i in \$(seq 37); do (while sleep 30; do echo \"select 1;\"; done | psql -h pg -U postgres -q >/dev/null 2>&1) & sleep 0.2; done; wait']^{ requests: { cpu: 10m, memory: 32Mi }, limits: { cpu: 200m, memory: 192Mi } }^"; do
@@ -280,6 +294,34 @@ YAML
     if [ -n "$env" ]; then echo "          $env"; fi
     if [ -n "$mounts" ]; then echo "          $mounts"; fi
   done
+  # report: a CronJob that never runs on its own (suspended); the job-failed trigger runs it
+  # once. It exits 2 twice and its Job gives up (backoffLimit 1).
+  cat <<YAML
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: report, namespace: $ns }
+spec:
+  schedule: "0 3 * * *"
+  suspend: true
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    metadata: { labels: { app: report, "app.kubernetes.io/part-of": $ns } }
+    spec:
+      backoffLimit: 1
+      template:
+        metadata: { labels: { app: report, "app.kubernetes.io/part-of": $ns } }
+        spec:
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 2
+          containers:
+            - name: report
+              image: busybox:1.37
+              imagePullPolicy: IfNotPresent
+              command: [sh, -c, 'echo building the report; sleep 5; echo cannot reach the warehouse; exit 2']
+              resources: $small
+YAML
   cat <<YAML
 ---
 apiVersion: v1
@@ -486,13 +528,14 @@ elif mode == "check":
             causes = body.get("causes") or []
             top = causes[0].get("rule", causes[0]["code"]) if causes else "none"
             strength = causes[0].get("strength", "") if causes else ""
+            headline = body.get("headline", {}).get("code")
             if state != "on":
                 print(f"PENDING  {label}: top cause {top} {strength}, expects {expected} (not asserted yet)")
                 pending += 1
-            elif top == expected:
-                print(f"PASS  {label}: {top} ({strength})")
+            elif top == expected and strength == "likely":
+                print(f"PASS  {label}: {top} ({strength}), headline {headline}")
             else:
-                print(f"FAIL  {label}: top cause {top}, expects {expected}: {json.dumps(causes)[:400]}")
+                print(f"FAIL  {label}: top cause {top} {strength}, expects {expected} likely: {json.dumps(causes)[:400]}")
                 failures += 1
     print(f"\n{failures} failed, {pending} pending" if failures else f"\nall asserted passed, {pending} pending")
     sys.exit(1 if failures else 0)
@@ -577,6 +620,7 @@ case "$cmd" in
     in_vm "mkdir -p $dir && chmod 700 $dir && { [ -s $dir/pg-password ] || (umask 077; head -c 18 /dev/urandom | base64 | tr -dc A-Za-z0-9 > $dir/pg-password); }
       (umask 077; p=\$(cat $dir/pg-password); printf 'POSTGRES_PASSWORD=%s\nPGPASSWORD=%s\n' \"\$p\" \"\$p\" > $dir/pg.env)"
     manifest | kc "apply -f - >/dev/null"
+    act_job_failed kubernetes restore >/dev/null
     kc "-n $ns create secret generic pg-admin --from-file=password=\$HOME/causes-e2e/pg-password --dry-run=client -o yaml | kubectl --context kind-demo apply -f - >/dev/null"
     say "Docker: Compose project causes-e2e"
     compose_file | in_vm "cat > $dir/compose.yaml"
