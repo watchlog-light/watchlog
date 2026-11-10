@@ -1928,6 +1928,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Accepted.** Elasticsearch **and** MongoDB move out of v0.3: MongoDB ships as **v0.3.1** about a week after the launch, Elasticsearch in v0.5. RabbitMQ stays.
   - **Launch:** Wednesday 2 December if the timeline allows, otherwise 3 December. At 1.5 sessions a day, v0.3 is about 24 sessions (released about 25 November), v0.4 about 6 and launch preparation about 2: that ends on 1 December, so 2 December fits with no slack.
   - **The 20 November checkpoint** recalculates the pace and the date.
+- Amended 2026-11-10: 0.3.1 is the fix release the live demo needed on its first day (RabbitMQ rates, health from findings, the layout); **MongoDB ships as 0.3.2**, still about a week after the launch.
 
 ## ADR-142: The demo shows Applications with real services and a real failure
 

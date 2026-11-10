@@ -64,7 +64,7 @@ Defaults work for most installs. This page lists what you can change.
 | `WATCHLOG_SECRET_KEY`                                | required   | Key for stored secrets: `openssl rand -base64 32`. Back it up with the database.    |
 | `WATCHLOG_SECRET_KEY_PREVIOUS`                       |            | The key before a rotation; still decrypts until every server runs with the new one. |
 | `WATCHLOG_PUBLIC_URL`                                | `''`       | How agents and browsers reach the server.                                           |
-| `WATCHLOG_VERSION`                                   | `latest`   | Image version; pin it, e.g. `0.3.0`.                                                |
+| `WATCHLOG_VERSION`                                   | `latest`   | Image version; pin it, e.g. `0.3.1`.                                                |
 | `WATCHLOG_PORT`                                      | 8080       | The only published port.                                                            |
 | `WATCHLOG_RETENTION`                                 | `15d`      | Metrics retention.                                                                  |
 | `WATCHLOG_SMTP_URL`, `WATCHLOG_SMTP_FROM`            | unset      | Email alerts.                                                                       |
