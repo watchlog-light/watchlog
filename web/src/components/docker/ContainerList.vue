@@ -151,7 +151,7 @@ const meaning = (code: number) => {
             <td class="c-name">
               <button
                 type="button"
-                class="block max-w-full truncate text-left font-medium text-text max-lg:leading-11"
+                class="block max-w-full truncate text-left font-medium text-text max-lg:min-w-11 max-lg:leading-11"
                 :aria-expanded="open === item.key"
                 @click.stop="toggle(item.c)"
               >
