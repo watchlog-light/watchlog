@@ -22,9 +22,11 @@
 # agents beside the demo's own. Every fixture is small (busybox, podinfo, postgres:16) and
 # labelled app.kubernetes.io/part-of=causes-e2e; nothing of the demo's shop, wl-test or
 # fx-* is touched. Exceptions, each undone by `restore`:
-#   - node: cordons demo-worker2 and evicts only causes-e2e's pods from it;
+#   - node: cordons demo-worker2 and evicts only causes-e2e's pods from it (not hot's);
 #   - node on Docker: stops the Docker agent(s) that report to WATCHLOG_URL's port (the
-#     backend under test), never another backend's agent;
+#     backend under test), never another backend's agent. Every Docker answer then reads
+#     the silent host (that is the scenario), so check the other Docker scenarios before it
+#     or after its restore; the host reads as silent 3 minutes after the stop;
 #   - rabbitmq-consumer-oom: drives the fixtures of deploy/test/rabbitmq-e2e.sh (run it
 #     first); `up` starts its broker, stops its publisher and consumer and empties the
 #     queue, so it is quiet until the trigger.
@@ -66,9 +68,9 @@ oom                    kubernetes,docker  oom_limit            oom_limit        
 crash                  kubernetes,docker  crash_exit           crash_exit           workload:causes-e2e/crasher    container:causes-e2e-crasher-1      on
 unschedulable          kubernetes         unschedulable        -                    workload:causes-e2e/greedy     -                                   on
 job-failed             kubernetes         job_failed           -                    workload:causes-e2e/CronJob/report  -                              on
-node                   kubernetes,docker  node_or_host         node_or_host         workload:causes-e2e/pinned     compose_service:causes-e2e/api      pending
+node                   kubernetes,docker  node_or_host         node_or_host         workload:causes-e2e/pinned     compose_service:causes-e2e/pg       on
 dns-typo               kubernetes,docker  dns_nxdomain         dns_nxdomain         workload:causes-e2e/typo       compose_service:causes-e2e/typo     on
-cpu-throttle           kubernetes,docker  cpu_throttled        cpu_throttled        workload:causes-e2e/caller     compose_service:causes-e2e/caller   pending
+cpu-throttle           kubernetes,docker  cpu_throttled        cpu_throttled        workload:causes-e2e/caller     compose_service:causes-e2e/caller   on
 pg-leak                kubernetes,docker  application_finding  application_finding  application:causes-e2e/pg      application:causes-e2e/pg           on
 rabbitmq-consumer-oom  kubernetes,docker  application_finding  application_finding  application:rabbitmq-e2e/rabbitmq  application:rabbitmq-e2e/rabbitmq  on
 slow-change            kubernetes,docker  bad_change           bad_change           workload:causes-e2e/front      compose_service:causes-e2e/front    on
@@ -84,9 +86,9 @@ describe() {
     crash) echo "both: start crasher, which exits 3 after 15 s, again and again" ;;
     unschedulable) echo "kubernetes: start greedy, which requests 64 CPUs (more than any node has): Pending, FailedScheduling" ;;
     job-failed) echo "kubernetes: run the CronJob report once (kubectl create job --from), which exits 2 until its backoff limit" ;;
-    node) echo "kubernetes: cordon demo-worker2, evict causes-e2e's pods (pinned stays Pending) | docker: stop the agent that reports to WATCHLOG_URL" ;;
+    node) echo "kubernetes: cordon demo-worker2, evict causes-e2e's pods (pinned stays Pending) | docker: stop the agent that reports to WATCHLOG_URL (pg, like every container, is then on a silent host)" ;;
     dns-typo) echo "both: start typo, which calls http://catalgo.invalid:9898 (NXDOMAIN) every 5 s" ;;
-    cpu-throttle) echo "both: hot (CPU limit 20m) starts a busy loop; caller's requests to it slow down" ;;
+    cpu-throttle) echo "both: hot (CPU limit 20m) starts a busy loop, throttled ~100 % of the time; caller's calls to it go from ~1 ms to ~200 ms at p95" ;;
     pg-leak) echo "both: start leak, which opens 37 of pg's 40 connections (92 %) and leaves them idle" ;;
     rabbitmq-consumer-oom) echo "both: start rabbitmq-e2e's publisher and consumer; the consumer is OOM-killed after a minute, orders grows" ;;
     slow-change) echo "kubernetes: roll out slow with podinfo's 1-3 s random delay | docker: re-create slow with it (front calls it)" ;;
@@ -161,7 +163,8 @@ act_node() {
   case "$1 $2" in
     "kubernetes trigger")
       kc "annotate node demo-worker2 causes-e2e/cordoned=true --overwrite >/dev/null"
-      kc "drain demo-worker2 --ignore-daemonsets --delete-emptydir-data --pod-selector app.kubernetes.io/part-of=$ns --timeout 120s"
+      # hot stays where it runs: a new pod would lose cpu-throttle's busy loop.
+      kc "drain demo-worker2 --ignore-daemonsets --delete-emptydir-data --pod-selector 'app.kubernetes.io/part-of=$ns,app!=hot' --timeout 120s"
       ;;
     "kubernetes restore")
       kc "uncordon demo-worker2"

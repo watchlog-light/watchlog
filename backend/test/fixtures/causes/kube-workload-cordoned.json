@@ -1,0 +1,1059 @@
+{
+  "platform": "kubernetes",
+  "clusterId": "00000000-0000-4000-8000-00000000000a",
+  "focus": {
+    "kind": "workload",
+    "namespace": "causes-e2e",
+    "workloadKind": "Deployment",
+    "name": "pinned"
+  },
+  "now": 1794342713403,
+  "window": {
+    "from": "2026-11-10T19:20:13.000Z",
+    "to": "2026-11-10T20:31:53.403Z"
+  },
+  "symptomAt": "2026-11-10T20:20:13Z",
+  "pods": [
+    {
+      "namespace": "causes-e2e",
+      "name": "pinned-84d487d85-d8rz9",
+      "node": null,
+      "phase": "Pending",
+      "status": "Pending",
+      "ready": false,
+      "readyContainers": 0,
+      "totalContainers": 1,
+      "restarts": 0,
+      "qosClass": "Burstable",
+      "ip": null,
+      "workloadKind": "Deployment",
+      "workload": "pinned",
+      "createdAt": "2026-11-10T20:20:13Z",
+      "startedAt": null,
+      "lastTermination": null,
+      "failing": null,
+      "cpuRequestCores": 0.005,
+      "cpuLimitCores": 0.05,
+      "memoryRequestBytes": 8388608,
+      "memoryLimitBytes": 16777216,
+      "cpuCores": null,
+      "memoryBytes": null
+    }
+  ],
+  "workload": {
+    "kind": "Deployment",
+    "namespace": "causes-e2e",
+    "name": "pinned",
+    "desired": 1,
+    "ready": 0,
+    "updated": 1,
+    "health": "failed",
+    "pods": 1,
+    "restarts": 0,
+    "images": ["busybox:1.37"],
+    "createdAt": "2026-11-10T16:34:42Z",
+    "lastRolloutAt": null,
+    "schedule": null,
+    "lastScheduleAt": null,
+    "cpuRequestCores": 0.005,
+    "cpuLimitCores": 0.05,
+    "memoryRequestBytes": 8388608,
+    "memoryLimitBytes": 16777216,
+    "cpuCores": null,
+    "memoryBytes": null,
+    "problem": {
+      "severity": "warning",
+      "reason": "not scheduled yet",
+      "alertId": null
+    },
+    "podStates": ["starting"],
+    "restartsInRange": 0,
+    "system": false,
+    "lastRun": null
+  },
+  "containers": [],
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "FailedScheduling",
+      "message": "0/3 nodes are available: 1 node(s) didn't match Pod's node affinity/selector, 1 node(s) had untolerated taint(s), 1 node(s) were unschedulable. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling.",
+      "count": 3,
+      "firstSeen": "2026-11-10T20:20:13.000Z",
+      "lastSeen": "2026-11-10T20:30:39.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "pinned-84d487d85-d8rz9",
+      "reportingController": "default-scheduler",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "SuccessfulCreate",
+      "message": "Created pod: pinned-84d487d85-d8rz9",
+      "count": 3,
+      "firstSeen": "2026-11-10T16:34:42.000Z",
+      "lastSeen": "2026-11-10T20:20:13.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "ReplicaSet",
+      "involvedName": "pinned-84d487d85",
+      "reportingController": "replicaset-controller",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Killing",
+      "message": "Stopping container pinned",
+      "count": 1,
+      "firstSeen": "2026-11-10T20:20:13.000Z",
+      "lastSeen": "2026-11-10T20:20:13.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "pinned-84d487d85-2rnrx",
+      "reportingController": "kubelet",
+      "host": null
+    }
+  ],
+  "changes": [
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T19:24:35.628Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T19:24:45.610Z"
+    },
+    {
+      "kind": "image",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": ["release=busybox:1.37"],
+        "from": ["release=busybox:0.0-causes-e2e-missing"]
+      },
+      "ts": "2026-11-10T19:24:50.613Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "13",
+        "from": "12"
+      },
+      "ts": "2026-11-10T19:24:50.613Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T19:24:55.612Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/greedy",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T19:24:55.612Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T19:24:55.612Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/slow",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "9",
+        "from": "8"
+      },
+      "ts": "2026-11-10T19:25:05.612Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T19:25:05.612Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/dialer",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T19:25:10.609Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T19:37:40.608Z"
+    },
+    {
+      "kind": "image",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": ["release=busybox:0.0-causes-e2e-missing"],
+        "from": ["release=busybox:1.37"]
+      },
+      "ts": "2026-11-10T19:37:40.608Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "14",
+        "from": "13"
+      },
+      "ts": "2026-11-10T19:37:40.608Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T19:37:40.608Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/greedy",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T19:37:50.608Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T19:37:50.608Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T19:37:55.607Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T19:37:55.607Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/slow",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "10",
+        "from": "9"
+      },
+      "ts": "2026-11-10T19:37:55.607Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/dialer",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T19:38:00.606Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T19:43:25.607Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T19:43:35.606Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/greedy",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T19:43:45.607Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T19:43:45.607Z"
+    },
+    {
+      "kind": "image",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": ["release=busybox:1.37"],
+        "from": ["release=busybox:0.0-causes-e2e-missing"]
+      },
+      "ts": "2026-11-10T19:43:45.607Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "15",
+        "from": "14"
+      },
+      "ts": "2026-11-10T19:43:45.607Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T19:43:45.607Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T19:43:55.609Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/slow",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "11",
+        "from": "10"
+      },
+      "ts": "2026-11-10T19:44:00.606Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/dialer",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T19:44:05.606Z"
+    }
+  ],
+  "ownTargets": ["Deployment/causes-e2e/pinned", "Node/demo-worker2"],
+  "nodes": [
+    {
+      "name": "demo-worker2",
+      "status": "Ready",
+      "roles": [],
+      "unschedulable": true,
+      "taints": ["node.kubernetes.io/unschedulable:NoSchedule"],
+      "kubeletVersion": "v1.37.0",
+      "osImage": "Debian GNU/Linux 13 (trixie)",
+      "kernelVersion": "6.8.0-147-generic",
+      "architecture": "arm64",
+      "containerRuntime": "containerd://2.3.4",
+      "internalIp": "172.18.0.3",
+      "createdAt": "2026-11-09T15:38:35Z",
+      "cpu": {
+        "usageCores": 0.16462848333333113,
+        "requestsCores": 0.325,
+        "allocatableCores": 4
+      },
+      "memory": {
+        "usageBytes": 809250816,
+        "requestsBytes": 429916160,
+        "allocatableBytes": 6198562816
+      },
+      "diskUtilization": null,
+      "pods": {
+        "count": 18,
+        "capacity": 110
+      },
+      "conditions": [
+        {
+          "type": "MemoryPressure",
+          "status": "False",
+          "reason": "KubeletHasSufficientMemory",
+          "message": "kubelet has sufficient memory available",
+          "since": "2026-11-09T15:38:35Z",
+          "bad": false
+        },
+        {
+          "type": "DiskPressure",
+          "status": "False",
+          "reason": "KubeletHasNoDiskPressure",
+          "message": "kubelet has no disk pressure",
+          "since": "2026-11-09T15:38:35Z",
+          "bad": false
+        },
+        {
+          "type": "PIDPressure",
+          "status": "False",
+          "reason": "KubeletHasSufficientPID",
+          "message": "kubelet has sufficient PID available",
+          "since": "2026-11-09T15:38:35Z",
+          "bad": false
+        },
+        {
+          "type": "Ready",
+          "status": "True",
+          "reason": "KubeletReady",
+          "message": "kubelet is posting ready status",
+          "since": "2026-11-09T15:38:51Z",
+          "bad": false
+        }
+      ],
+      "agent": {
+        "status": "active",
+        "version": "e2e",
+        "kubeletTls": "unverified",
+        "lastSeenAt": "2026-11-10T20:31:45.228Z"
+      },
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "NodeNotSchedulable",
+          "message": "Node demo-worker2 status is now: NodeNotSchedulable",
+          "count": 5,
+          "firstSeen": "2026-11-10T16:26:10.000Z",
+          "lastSeen": "2026-11-10T20:20:21.000Z",
+          "namespace": null,
+          "involvedKind": "Node",
+          "involvedName": "demo-worker2",
+          "reportingController": "kubelet",
+          "host": null
+        },
+        {
+          "type": "Normal",
+          "reason": "NodeSchedulable",
+          "message": "Node demo-worker2 status is now: NodeSchedulable",
+          "count": 2,
+          "firstSeen": "2026-11-10T16:27:32.000Z",
+          "lastSeen": "2026-11-10T16:36:53.000Z",
+          "namespace": null,
+          "involvedKind": "Node",
+          "involvedName": "demo-worker2",
+          "reportingController": "kubelet",
+          "host": null
+        },
+        {
+          "type": "Normal",
+          "reason": "RegisteredNode",
+          "message": "Node demo-worker2 event: Registered Node demo-worker2 in Controller",
+          "count": 2,
+          "firstSeen": "2026-11-10T07:04:04.000Z",
+          "lastSeen": "2026-11-10T15:55:45.000Z",
+          "namespace": null,
+          "involvedKind": "Node",
+          "involvedName": "demo-worker2",
+          "reportingController": "node-controller",
+          "host": null
+        },
+        {
+          "type": "Normal",
+          "reason": "Starting",
+          "message": "",
+          "count": 4,
+          "firstSeen": "2026-11-10T07:03:40.000Z",
+          "lastSeen": "2026-11-10T15:55:30.710Z",
+          "namespace": null,
+          "involvedKind": "Node",
+          "involvedName": "demo-worker2",
+          "reportingController": "kube-proxy",
+          "host": null
+        },
+        {
+          "type": "Normal",
+          "reason": "NodeHasSufficientMemory",
+          "message": "Node demo-worker2 status is now: NodeHasSufficientMemory",
+          "count": 16,
+          "firstSeen": "2026-11-10T07:03:40.000Z",
+          "lastSeen": "2026-11-10T15:55:23.000Z",
+          "namespace": null,
+          "involvedKind": "Node",
+          "involvedName": "demo-worker2",
+          "reportingController": "kubelet",
+          "host": null
+        },
+        {
+          "type": "Normal",
+          "reason": "NodeHasNoDiskPressure",
+          "message": "Node demo-worker2 status is now: NodeHasNoDiskPressure",
+          "count": 16,
+          "firstSeen": "2026-11-10T07:03:40.000Z",
+          "lastSeen": "2026-11-10T15:55:23.000Z",
+          "namespace": null,
+          "involvedKind": "Node",
+          "involvedName": "demo-worker2",
+          "reportingController": "kubelet",
+          "host": null
+        },
+        {
+          "type": "Warning",
+          "reason": "Rebooted",
+          "message": "Node demo-worker2 has been rebooted, boot id: e1d71bb9-7b6c-4cd9-8ba9-bccfdfa81aa5",
+          "count": 2,
+          "firstSeen": "2026-11-10T07:03:44.000Z",
+          "lastSeen": "2026-11-10T15:55:23.000Z",
+          "namespace": null,
+          "involvedKind": "Node",
+          "involvedName": "demo-worker2",
+          "reportingController": "kubelet",
+          "host": null
+        },
+        {
+          "type": "Normal",
+          "reason": "NodeHasSufficientPID",
+          "message": "Node demo-worker2 status is now: NodeHasSufficientPID",
+          "count": 14,
+          "firstSeen": "2026-11-10T07:03:40.000Z",
+          "lastSeen": "2026-11-10T15:55:21.000Z",
+          "namespace": null,
+          "involvedKind": "Node",
+          "involvedName": "demo-worker2",
+          "reportingController": "kubelet",
+          "host": null
+        },
+        {
+          "type": "Normal",
+          "reason": "NodeAllocatableEnforced",
+          "message": "Updated Node Allocatable limit across pods",
+          "count": 2,
+          "firstSeen": "2026-11-10T07:03:40.000Z",
+          "lastSeen": "2026-11-10T15:55:19.000Z",
+          "namespace": null,
+          "involvedKind": "Node",
+          "involvedName": "demo-worker2",
+          "reportingController": "kubelet",
+          "host": null
+        }
+      ]
+    }
+  ],
+  "hosts": [],
+  "map": {
+    "mode": "flows",
+    "agents": [
+      {
+        "node": "demo-control-plane",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      },
+      {
+        "node": "demo-worker",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      },
+      {
+        "node": "demo-worker2",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      }
+    ],
+    "ids": ["w:causes-e2e/Deployment/pinned"],
+    "nodes": [],
+    "outgoing": [],
+    "incoming": [],
+    "dns": []
+  },
+  "application": null,
+  "edge": null,
+  "alert": null,
+  "gone": false,
+  "metrics": {
+    "from": "2026-11-10T19:31:53.000Z",
+    "to": "2026-11-10T20:31:53.000Z",
+    "step": 15,
+    "restarts": {
+      "causes-e2e/pinned-84d487d85-2rnrx": {
+        "n": 0,
+        "first": null,
+        "last": null
+      }
+    },
+    "oomKills": {},
+    "memory": {
+      "causes-e2e/pinned-84d487d85-2rnrx/pinned": [
+        [1794339105, 335872],
+        [1794339120, 335872],
+        [1794339135, 335872],
+        [1794339150, 335872],
+        [1794339165, 335872],
+        [1794339180, 335872],
+        [1794339195, 335872],
+        [1794339210, 335872],
+        [1794339225, 335872],
+        [1794339240, 335872],
+        [1794339255, 335872],
+        [1794339270, 335872],
+        [1794339285, 335872],
+        [1794339300, 335872],
+        [1794339315, 335872],
+        [1794339330, 335872],
+        [1794339345, 335872],
+        [1794339360, 335872],
+        [1794339375, 335872],
+        [1794339390, 335872],
+        [1794339405, 335872],
+        [1794339420, 335872],
+        [1794339435, 335872],
+        [1794339450, 335872],
+        [1794339465, 335872],
+        [1794339480, 335872],
+        [1794339495, 335872],
+        [1794339510, 335872],
+        [1794339525, 335872],
+        [1794339540, 335872],
+        [1794339555, 335872],
+        [1794339570, 335872],
+        [1794339585, 335872],
+        [1794339600, 335872],
+        [1794339615, 335872],
+        [1794339630, 335872],
+        [1794339645, 335872],
+        [1794339660, 335872],
+        [1794339675, 335872],
+        [1794339690, 335872],
+        [1794339705, 335872],
+        [1794339720, 335872],
+        [1794339735, 335872],
+        [1794339750, 335872],
+        [1794339765, 335872],
+        [1794339780, 335872],
+        [1794339795, 335872],
+        [1794339810, 335872],
+        [1794339825, 335872],
+        [1794339840, 335872],
+        [1794339855, 335872],
+        [1794339870, 335872],
+        [1794339885, 335872],
+        [1794339900, 335872],
+        [1794339915, 335872],
+        [1794339930, 335872],
+        [1794339945, 335872],
+        [1794339960, 335872],
+        [1794339975, 335872],
+        [1794339990, 335872],
+        [1794340005, 335872],
+        [1794340020, 335872],
+        [1794340035, 335872],
+        [1794340050, 335872],
+        [1794340065, 335872],
+        [1794340080, 335872],
+        [1794340095, 335872],
+        [1794340110, 335872],
+        [1794340125, 335872],
+        [1794340140, 335872],
+        [1794340155, 335872],
+        [1794340170, 335872],
+        [1794340185, 335872],
+        [1794340200, 335872],
+        [1794340215, 335872],
+        [1794340230, 335872],
+        [1794340245, 335872],
+        [1794340260, 335872],
+        [1794340275, 335872],
+        [1794340290, 335872],
+        [1794340305, 335872],
+        [1794340320, 335872],
+        [1794340335, 335872],
+        [1794340350, 335872],
+        [1794340365, 335872],
+        [1794340380, 335872],
+        [1794340395, 335872],
+        [1794340410, 335872],
+        [1794340425, 335872],
+        [1794340440, 335872],
+        [1794340455, 335872],
+        [1794340470, 335872],
+        [1794340485, 335872],
+        [1794340500, 335872],
+        [1794340515, 335872],
+        [1794340530, 335872],
+        [1794340545, 335872],
+        [1794340560, 335872],
+        [1794340575, 335872],
+        [1794340590, 335872],
+        [1794340605, 335872],
+        [1794340620, 335872],
+        [1794340635, 335872],
+        [1794340650, 335872],
+        [1794340665, 335872],
+        [1794340680, 335872],
+        [1794340695, 335872],
+        [1794340710, 335872],
+        [1794340725, 335872],
+        [1794340740, 335872],
+        [1794340755, 335872],
+        [1794340770, 335872],
+        [1794340785, 335872],
+        [1794340800, 335872],
+        [1794340815, 335872],
+        [1794340830, 335872],
+        [1794340845, 335872],
+        [1794340860, 335872],
+        [1794340875, 335872],
+        [1794340890, 335872],
+        [1794340905, 335872],
+        [1794340920, 335872],
+        [1794340935, 335872],
+        [1794340950, 335872],
+        [1794340965, 335872],
+        [1794340980, 335872],
+        [1794340995, 335872],
+        [1794341010, 335872],
+        [1794341025, 335872],
+        [1794341040, 335872],
+        [1794341055, 335872],
+        [1794341070, 335872],
+        [1794341085, 335872],
+        [1794341100, 335872],
+        [1794341115, 335872],
+        [1794341130, 335872],
+        [1794341145, 335872],
+        [1794341160, 335872],
+        [1794341175, 335872],
+        [1794341190, 335872],
+        [1794341205, 335872],
+        [1794341220, 335872],
+        [1794341235, 335872],
+        [1794341250, 335872],
+        [1794341265, 335872],
+        [1794341280, 335872],
+        [1794341295, 335872],
+        [1794341310, 335872],
+        [1794341325, 335872],
+        [1794341340, 335872],
+        [1794341355, 335872],
+        [1794341370, 335872],
+        [1794341385, 335872],
+        [1794341400, 335872],
+        [1794341415, 335872],
+        [1794341430, 335872],
+        [1794341445, 335872],
+        [1794341460, 335872],
+        [1794341475, 335872],
+        [1794341490, 335872],
+        [1794341505, 335872],
+        [1794341520, 335872],
+        [1794341535, 335872],
+        [1794341550, 335872],
+        [1794341565, 335872],
+        [1794341580, 335872],
+        [1794341595, 335872],
+        [1794341610, 335872],
+        [1794341625, 335872],
+        [1794341640, 335872],
+        [1794341655, 335872],
+        [1794341670, 335872],
+        [1794341685, 335872],
+        [1794341700, 335872],
+        [1794341715, 335872],
+        [1794341730, 335872],
+        [1794341745, 335872],
+        [1794341760, 335872],
+        [1794341775, 335872],
+        [1794341790, 335872],
+        [1794341805, 335872],
+        [1794341820, 335872],
+        [1794341835, 335872],
+        [1794341850, 335872],
+        [1794341865, 335872],
+        [1794341880, 335872],
+        [1794341895, 335872],
+        [1794341910, 335872],
+        [1794341925, 335872],
+        [1794341940, 335872],
+        [1794341955, 335872],
+        [1794341970, 335872],
+        [1794341985, 335872],
+        [1794342000, 335872],
+        [1794342015, 335872],
+        [1794342030, 335872]
+      ]
+    },
+    "cpuThrottled": {
+      "causes-e2e/pinned-84d487d85-2rnrx/pinned": [
+        [1794339105, 0],
+        [1794339120, 0],
+        [1794339135, 0],
+        [1794339150, 0],
+        [1794339165, 0],
+        [1794339180, 0],
+        [1794339195, 0],
+        [1794339210, 0],
+        [1794339225, 0],
+        [1794339240, 0],
+        [1794339255, 0],
+        [1794339270, 0],
+        [1794339285, 0],
+        [1794339300, 0],
+        [1794339315, 0],
+        [1794339330, 0],
+        [1794339345, 0],
+        [1794339360, 0],
+        [1794339375, 0],
+        [1794339390, 0],
+        [1794339405, 0],
+        [1794339420, 0],
+        [1794339435, 0],
+        [1794339450, 0],
+        [1794339465, 0],
+        [1794339480, 0],
+        [1794339495, 0],
+        [1794339510, 0],
+        [1794339525, 0],
+        [1794339540, 0],
+        [1794339555, 0],
+        [1794339570, 0],
+        [1794339585, 0],
+        [1794339600, 0],
+        [1794339615, 0],
+        [1794339630, 0],
+        [1794339645, 0],
+        [1794339660, 0],
+        [1794339675, 0],
+        [1794339690, 0],
+        [1794339705, 0],
+        [1794339720, 0],
+        [1794339735, 0],
+        [1794339750, 0],
+        [1794339765, 0],
+        [1794339780, 0],
+        [1794339795, 0],
+        [1794339810, 0],
+        [1794339825, 0],
+        [1794339840, 0],
+        [1794339855, 0],
+        [1794339870, 0],
+        [1794339885, 0],
+        [1794339900, 0],
+        [1794339915, 0],
+        [1794339930, 0],
+        [1794339945, 0],
+        [1794339960, 0],
+        [1794339975, 0],
+        [1794339990, 0],
+        [1794340005, 0],
+        [1794340020, 0],
+        [1794340035, 0],
+        [1794340050, 0],
+        [1794340065, 0],
+        [1794340080, 0],
+        [1794340095, 0],
+        [1794340110, 0],
+        [1794340125, 0],
+        [1794340140, 0],
+        [1794340155, 0],
+        [1794340170, 0],
+        [1794340185, 0],
+        [1794340200, 0],
+        [1794340215, 0],
+        [1794340230, 0],
+        [1794340245, 0],
+        [1794340260, 0],
+        [1794340275, 0],
+        [1794340290, 0],
+        [1794340305, 0],
+        [1794340320, 0],
+        [1794340335, 0],
+        [1794340350, 0],
+        [1794340365, 0],
+        [1794340380, 0],
+        [1794340395, 0],
+        [1794340410, 0],
+        [1794340425, 0],
+        [1794340440, 0],
+        [1794340455, 0],
+        [1794340470, 0],
+        [1794340485, 0],
+        [1794340500, 0],
+        [1794340515, 0],
+        [1794340530, 0],
+        [1794340545, 0],
+        [1794340560, 0],
+        [1794340575, 0],
+        [1794340590, 0],
+        [1794340605, 0],
+        [1794340620, 0],
+        [1794340635, 0],
+        [1794340650, 0],
+        [1794340665, 0],
+        [1794340680, 0],
+        [1794340695, 0],
+        [1794340710, 0],
+        [1794340725, 0],
+        [1794340740, 0],
+        [1794340755, 0],
+        [1794340770, 0],
+        [1794340785, 0],
+        [1794340800, 0],
+        [1794340815, 0],
+        [1794340830, 0],
+        [1794340845, 0],
+        [1794340860, 0],
+        [1794340875, 0],
+        [1794340890, 0],
+        [1794340905, 0],
+        [1794340920, 0],
+        [1794340935, 0],
+        [1794340950, 0],
+        [1794340965, 0],
+        [1794340980, 0],
+        [1794340995, 0],
+        [1794341010, 0],
+        [1794341025, 0],
+        [1794341040, 0],
+        [1794341055, 0],
+        [1794341070, 0],
+        [1794341085, 0],
+        [1794341100, 0],
+        [1794341115, 0],
+        [1794341130, 0],
+        [1794341145, 0],
+        [1794341160, 0],
+        [1794341175, 0],
+        [1794341190, 0],
+        [1794341205, 0],
+        [1794341220, 0],
+        [1794341235, 0],
+        [1794341250, 0],
+        [1794341265, 0],
+        [1794341280, 0],
+        [1794341295, 0],
+        [1794341310, 0],
+        [1794341325, 0],
+        [1794341340, 0],
+        [1794341355, 0],
+        [1794341370, 0],
+        [1794341385, 0],
+        [1794341400, 0],
+        [1794341415, 0],
+        [1794341430, 0],
+        [1794341445, 0],
+        [1794341460, 0],
+        [1794341475, 0],
+        [1794341490, 0],
+        [1794341505, 0],
+        [1794341520, 0],
+        [1794341535, 0],
+        [1794341550, 0],
+        [1794341565, 0],
+        [1794341580, 0],
+        [1794341595, 0],
+        [1794341610, 0],
+        [1794341625, 0],
+        [1794341640, 0],
+        [1794341655, 0],
+        [1794341670, 0],
+        [1794341685, 0],
+        [1794341700, 0],
+        [1794341715, 0],
+        [1794341730, 0],
+        [1794341745, 0],
+        [1794341760, 0],
+        [1794341775, 0],
+        [1794341790, 0],
+        [1794341805, 0],
+        [1794341820, 0],
+        [1794341835, 0],
+        [1794341850, 0],
+        [1794341865, 0],
+        [1794341880, 0],
+        [1794341895, 0],
+        [1794341910, 0],
+        [1794341925, 0],
+        [1794341940, 0],
+        [1794341955, 0],
+        [1794341970, 0],
+        [1794341985, 0],
+        [1794342000, 0],
+        [1794342015, 0],
+        [1794342030, 0],
+        [1794342045, 0],
+        [1794342060, 0],
+        [1794342075, 0]
+      ]
+    }
+  },
+  "via": null
+}
