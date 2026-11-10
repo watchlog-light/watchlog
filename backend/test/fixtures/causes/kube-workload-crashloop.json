@@ -1,0 +1,1090 @@
+{
+  "platform": "kubernetes",
+  "clusterId": "00000000-0000-4000-8000-00000000000a",
+  "focus": {
+    "kind": "workload",
+    "namespace": "causes-e2e",
+    "workloadKind": "Deployment",
+    "name": "crasher"
+  },
+  "now": 1794330105385,
+  "window": {
+    "from": "2026-11-10T15:52:20.905Z",
+    "to": "2026-11-10T17:01:45.385Z"
+  },
+  "symptomAt": "2026-11-10T16:52:20.905Z",
+  "pods": [
+    {
+      "namespace": "causes-e2e",
+      "name": "crasher-7f4948c6c-mgkc2",
+      "node": "demo-worker2",
+      "phase": "Running",
+      "status": "Error",
+      "ready": false,
+      "readyContainers": 0,
+      "totalContainers": 1,
+      "restarts": 7,
+      "qosClass": "Burstable",
+      "ip": "10.244.1.75",
+      "workloadKind": "Deployment",
+      "workload": "crasher",
+      "createdAt": "2026-11-10T16:48:36Z",
+      "startedAt": "2026-11-10T16:48:36Z",
+      "lastTermination": {
+        "container": "crasher",
+        "reason": "Error",
+        "exitCode": 3,
+        "finishedAt": null
+      },
+      "failing": "CrashLoopBackOff",
+      "cpuRequestCores": 0.005,
+      "cpuLimitCores": 0.05,
+      "memoryRequestBytes": 8388608,
+      "memoryLimitBytes": 16777216,
+      "cpuCores": 4.36888888888889e-5,
+      "memoryBytes": 2965504
+    }
+  ],
+  "workload": {
+    "kind": "Deployment",
+    "namespace": "causes-e2e",
+    "name": "crasher",
+    "desired": 1,
+    "ready": 0,
+    "updated": 1,
+    "health": "failed",
+    "pods": 1,
+    "restarts": 7,
+    "images": ["busybox:1.37"],
+    "createdAt": "2026-11-10T16:34:42Z",
+    "lastRolloutAt": null,
+    "schedule": null,
+    "lastScheduleAt": null,
+    "cpuRequestCores": 0.005,
+    "cpuLimitCores": 0.05,
+    "memoryRequestBytes": 8388608,
+    "memoryLimitBytes": 16777216,
+    "cpuCores": 4.36888888888889e-5,
+    "memoryBytes": 2965504,
+    "problem": {
+      "severity": "critical",
+      "reason": "last exit: Error (code 3) \u00b7 7 restarts",
+      "alertId": "01a1c65e-248d-7547-838b-152ae1f84249"
+    },
+    "podStates": ["failing"],
+    "restartsInRange": 12,
+    "cpuSeries": [
+      [1794327360, 0.0008942713657170791],
+      [1794327420, 0.0007034144065065944],
+      [1794327480, 0.00036057829672946155],
+      [1794327540, 0.0002466041100685012],
+      [1794327600, 0.00013317142857142852],
+      [1794328620, 4.65364357623842e-5],
+      [1794328680, 4.65364357623842e-5],
+      [1794329400, 0],
+      [1794329460, 0],
+      [1794329520, 4.393296722527311e-5],
+      [1794329580, 7.029145889442948e-5],
+      [1794329640, 1.2622362470694138e-5],
+      [1794329760, 0]
+    ],
+    "system": false,
+    "lastRun": null
+  },
+  "containers": [],
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "BackOff",
+      "message": "Back-off restarting failed container crasher in pod crasher-7f4948c6c-mgkc2_causes-e2e(e58f9688-5b1f-40bc-8fd7-7fef3aef7d1e)",
+      "count": 14,
+      "firstSeen": "2026-11-10T16:49:08.000Z",
+      "lastSeen": "2026-11-10T17:01:30.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-mgkc2",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Started",
+      "message": "Container started",
+      "count": 8,
+      "firstSeen": "2026-11-10T16:48:37.000Z",
+      "lastSeen": "2026-11-10T17:01:15.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-mgkc2",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Pulled",
+      "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+      "count": 8,
+      "firstSeen": "2026-11-10T16:48:36.000Z",
+      "lastSeen": "2026-11-10T17:01:15.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-mgkc2",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Created",
+      "message": "Container created",
+      "count": 8,
+      "firstSeen": "2026-11-10T16:48:36.000Z",
+      "lastSeen": "2026-11-10T17:01:15.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-mgkc2",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Scheduled",
+      "message": "Successfully assigned causes-e2e/crasher-7f4948c6c-mgkc2 to demo-worker2",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:48:36.000Z",
+      "lastSeen": "2026-11-10T16:48:36.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-mgkc2",
+      "reportingController": "default-scheduler",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "ScalingReplicaSet",
+      "message": "Scaled up replica set crasher-7f4948c6c from 0 to 1",
+      "count": 3,
+      "firstSeen": "2026-11-10T16:36:06.000Z",
+      "lastSeen": "2026-11-10T16:48:36.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Deployment",
+      "involvedName": "crasher",
+      "reportingController": "deployment-controller",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "SuccessfulCreate",
+      "message": "Created pod: crasher-7f4948c6c-mgkc2",
+      "count": 3,
+      "firstSeen": "2026-11-10T16:36:06.000Z",
+      "lastSeen": "2026-11-10T16:48:36.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "ReplicaSet",
+      "involvedName": "crasher-7f4948c6c",
+      "reportingController": "replicaset-controller",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "SuccessfulDelete",
+      "message": "Deleted pod: crasher-7f4948c6c-b6cps",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:36:37.000Z",
+      "lastSeen": "2026-11-10T16:36:37.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "ReplicaSet",
+      "involvedName": "crasher-7f4948c6c",
+      "reportingController": "replicaset-controller",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Killing",
+      "message": "Stopping container crasher",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:36:37.000Z",
+      "lastSeen": "2026-11-10T16:36:37.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-b6cps",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Started",
+      "message": "Container started",
+      "count": 2,
+      "firstSeen": "2026-11-10T16:36:07.000Z",
+      "lastSeen": "2026-11-10T16:36:23.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-b6cps",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Pulled",
+      "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+      "count": 2,
+      "firstSeen": "2026-11-10T16:36:07.000Z",
+      "lastSeen": "2026-11-10T16:36:23.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-b6cps",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Created",
+      "message": "Container created",
+      "count": 2,
+      "firstSeen": "2026-11-10T16:36:07.000Z",
+      "lastSeen": "2026-11-10T16:36:23.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-b6cps",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Started",
+      "message": "Container started",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:36:07.000Z",
+      "lastSeen": "2026-11-10T16:36:07.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-gl65q",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Pulled",
+      "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:36:07.000Z",
+      "lastSeen": "2026-11-10T16:36:07.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-gl65q",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Killing",
+      "message": "Stopping container crasher",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:36:07.000Z",
+      "lastSeen": "2026-11-10T16:36:07.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-gl65q",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Created",
+      "message": "Container created",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:36:07.000Z",
+      "lastSeen": "2026-11-10T16:36:07.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-gl65q",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Scheduled",
+      "message": "Successfully assigned causes-e2e/crasher-7f4948c6c-gl65q to demo-worker2",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:36:06.000Z",
+      "lastSeen": "2026-11-10T16:36:06.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-gl65q",
+      "reportingController": "default-scheduler",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Scheduled",
+      "message": "Successfully assigned causes-e2e/crasher-7f4948c6c-b6cps to demo-worker",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:36:06.000Z",
+      "lastSeen": "2026-11-10T16:36:06.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-b6cps",
+      "reportingController": "default-scheduler",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "SuccessfulDelete",
+      "message": "Deleted pod: crasher-7f4948c6c-98rgz",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:22:06.000Z",
+      "lastSeen": "2026-11-10T16:22:06.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "ReplicaSet",
+      "involvedName": "crasher-7f4948c6c",
+      "reportingController": "replicaset-controller",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "ScalingReplicaSet",
+      "message": "Scaled down replica set crasher-7f4948c6c from 1 to 0",
+      "count": 2,
+      "firstSeen": "2026-11-10T16:14:31.000Z",
+      "lastSeen": "2026-11-10T16:22:05.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Deployment",
+      "involvedName": "crasher",
+      "reportingController": "deployment-controller",
+      "host": null
+    },
+    {
+      "type": "Warning",
+      "reason": "BackOff",
+      "message": "Back-off restarting failed container crasher in pod crasher-7f4948c6c-98rgz_causes-e2e(8a8e182b-599a-410c-88c7-eba144a0a6b1)",
+      "count": 8,
+      "firstSeen": "2026-11-10T16:15:06.000Z",
+      "lastSeen": "2026-11-10T16:21:21.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-98rgz",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Started",
+      "message": "Container started",
+      "count": 6,
+      "firstSeen": "2026-11-10T16:14:33.000Z",
+      "lastSeen": "2026-11-10T16:18:59.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-98rgz",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Pulled",
+      "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+      "count": 6,
+      "firstSeen": "2026-11-10T16:14:32.000Z",
+      "lastSeen": "2026-11-10T16:18:59.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-98rgz",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Created",
+      "message": "Container created",
+      "count": 6,
+      "firstSeen": "2026-11-10T16:14:32.000Z",
+      "lastSeen": "2026-11-10T16:18:59.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-98rgz",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Scheduled",
+      "message": "Successfully assigned causes-e2e/crasher-7f4948c6c-98rgz to demo-worker2",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:14:31.000Z",
+      "lastSeen": "2026-11-10T16:14:31.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "crasher-7f4948c6c-98rgz",
+      "reportingController": "default-scheduler",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "SuccessfulCreate",
+      "message": "Created pod: crasher-7f4948c6c-98rgz",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:14:31.000Z",
+      "lastSeen": "2026-11-10T16:14:31.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "ReplicaSet",
+      "involvedName": "crasher-7f4948c6c",
+      "reportingController": "replicaset-controller",
+      "host": null
+    }
+  ],
+  "changes": [
+    {
+      "kind": "namespace",
+      "target": "Namespace/causes-e2e",
+      "namespace": "causes-e2e",
+      "details": {
+        "action": "created"
+      },
+      "ts": "2026-11-10T16:11:55.602Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:14:15.602Z"
+    },
+    {
+      "kind": "image",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": ["release=busybox:0.0-causes-e2e-missing"],
+        "from": ["release=busybox:1.37"]
+      },
+      "ts": "2026-11-10T16:14:20.607Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:14:20.607Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:14:30.608Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:14:35.603Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:14:35.603Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/slow",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:14:35.603Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:14:35.603Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:17:30.598Z"
+    },
+    {
+      "kind": "image",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": ["release=busybox:1.37"],
+        "from": ["release=busybox:0.0-causes-e2e-missing"]
+      },
+      "ts": "2026-11-10T16:21:55.601Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:21:55.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:21:55.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:21:55.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:22:10.598Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:22:20.598Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:22:35.605Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/slow",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:22:35.605Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:22:50.598Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:22:50.598Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:23:05.611Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:23:10.742Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/pg",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:24:30.601Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:24:30.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:24:30.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:24:30.601Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:24:30.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:24:40.596Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:24:40.596Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:24:40.596Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:27:45.594Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:27:45.594Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/pg",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:27:45.594Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:27:45.594Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "4",
+        "from": "3"
+      },
+      "ts": "2026-11-10T16:32:35.602Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:32:40.600Z"
+    },
+    {
+      "kind": "namespace",
+      "target": "Namespace/causes-e2e",
+      "namespace": "causes-e2e",
+      "details": {
+        "action": "created"
+      },
+      "ts": "2026-11-10T16:34:45.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:35:55.600Z"
+    },
+    {
+      "kind": "image",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": ["release=busybox:0.0-causes-e2e-missing"],
+        "from": ["release=busybox:1.37"]
+      },
+      "ts": "2026-11-10T16:35:55.600Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:35:55.600Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:36:10.604Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:36:10.604Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:36:15.599Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/slow",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:36:15.599Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:36:15.599Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:36:30.601Z"
+    },
+    {
+      "kind": "image",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": ["release=busybox:1.37"],
+        "from": ["release=busybox:0.0-causes-e2e-missing"]
+      },
+      "ts": "2026-11-10T16:36:30.601Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:36:30.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:36:30.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:36:40.600Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:36:50.600Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:37:05.603Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/slow",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:37:15.600Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:48:40.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:48:40.601Z"
+    }
+  ],
+  "ownTargets": ["Deployment/causes-e2e/crasher", "Node/demo-worker2"],
+  "nodes": [
+    {
+      "name": "demo-worker2",
+      "status": "Ready",
+      "roles": [],
+      "unschedulable": false,
+      "taints": [],
+      "kubeletVersion": "v1.37.0",
+      "osImage": "Debian GNU/Linux 13 (trixie)",
+      "kernelVersion": "6.8.0-147-generic",
+      "architecture": "arm64",
+      "containerRuntime": "containerd://2.3.4",
+      "internalIp": "172.18.0.3",
+      "createdAt": "2026-11-09T15:38:35Z",
+      "cpu": {
+        "usageCores": 0.16364017266378916,
+        "requestsCores": 0.345,
+        "allocatableCores": 4
+      },
+      "memory": {
+        "usageBytes": 772128768,
+        "requestsBytes": 480247808,
+        "allocatableBytes": 6198562816
+      },
+      "diskUtilization": null,
+      "pods": {
+        "count": 22,
+        "capacity": 110
+      },
+      "conditions": [
+        {
+          "type": "MemoryPressure",
+          "status": "False",
+          "reason": "KubeletHasSufficientMemory",
+          "message": "kubelet has sufficient memory available",
+          "since": "2026-11-09T15:38:35Z",
+          "bad": false
+        },
+        {
+          "type": "DiskPressure",
+          "status": "False",
+          "reason": "KubeletHasNoDiskPressure",
+          "message": "kubelet has no disk pressure",
+          "since": "2026-11-09T15:38:35Z",
+          "bad": false
+        },
+        {
+          "type": "PIDPressure",
+          "status": "False",
+          "reason": "KubeletHasSufficientPID",
+          "message": "kubelet has sufficient PID available",
+          "since": "2026-11-09T15:38:35Z",
+          "bad": false
+        },
+        {
+          "type": "Ready",
+          "status": "True",
+          "reason": "KubeletReady",
+          "message": "kubelet is posting ready status",
+          "since": "2026-11-09T15:38:51Z",
+          "bad": false
+        }
+      ],
+      "agent": {
+        "status": "active",
+        "version": "e2e",
+        "kubeletTls": "unverified",
+        "lastSeenAt": "2026-11-10T17:01:45.203Z"
+      }
+    }
+  ],
+  "hosts": [],
+  "map": {
+    "mode": "flows",
+    "agents": [
+      {
+        "node": "demo-control-plane",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      },
+      {
+        "node": "demo-worker",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      },
+      {
+        "node": "demo-worker2",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      }
+    ],
+    "ids": ["w:causes-e2e/Deployment/crasher"],
+    "nodes": [],
+    "outgoing": [],
+    "incoming": [],
+    "dns": []
+  },
+  "application": null,
+  "edge": null,
+  "alert": null,
+  "gone": false
+}

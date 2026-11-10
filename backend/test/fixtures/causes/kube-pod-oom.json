@@ -1,0 +1,796 @@
+{
+  "platform": "kubernetes",
+  "clusterId": "00000000-0000-4000-8000-00000000000a",
+  "focus": {
+    "kind": "pod",
+    "namespace": "causes-e2e",
+    "name": "hog-76cf876d44-psvtk"
+  },
+  "now": 1794330105450,
+  "window": {
+    "from": "2026-11-10T15:49:50.895Z",
+    "to": "2026-11-10T17:01:45.450Z"
+  },
+  "symptomAt": "2026-11-10T16:49:50.895Z",
+  "pods": [
+    {
+      "namespace": "causes-e2e",
+      "name": "hog-76cf876d44-psvtk",
+      "node": "demo-worker2",
+      "phase": "Running",
+      "status": "OOMKilled",
+      "ready": false,
+      "readyContainers": 0,
+      "totalContainers": 1,
+      "restarts": 6,
+      "qosClass": "Burstable",
+      "ip": "10.244.1.76",
+      "workloadKind": "Deployment",
+      "workload": "hog",
+      "createdAt": "2026-11-10T16:48:36Z",
+      "startedAt": "2026-11-10T16:48:36Z",
+      "lastTermination": {
+        "container": "hog",
+        "reason": "OOMKilled",
+        "exitCode": 137,
+        "finishedAt": null
+      },
+      "failing": "OOMKilled",
+      "cpuRequestCores": 0.005,
+      "cpuLimitCores": 0.1,
+      "memoryRequestBytes": 16777216,
+      "memoryLimitBytes": 50331648,
+      "cpuCores": 0.007662377777777779,
+      "memoryBytes": 49418240,
+      "containers": [
+        {
+          "name": "hog",
+          "init": false,
+          "image": "busybox:1.37",
+          "ready": false,
+          "state": "terminated",
+          "reason": "OOMKilled",
+          "message": null,
+          "exitCode": 137,
+          "restartCount": 6,
+          "startedAt": "2026-11-10T17:00:04Z",
+          "lastTermination": {
+            "reason": "OOMKilled",
+            "exitCode": 137,
+            "finishedAt": "2026-11-10T16:57:18Z"
+          },
+          "cpuRequestCores": 0.005,
+          "cpuLimitCores": 0.1,
+          "memoryRequestBytes": 16777216,
+          "memoryLimitBytes": 50331648,
+          "cpuCores": 0.007662377777777779,
+          "memoryBytes": 49418240
+        }
+      ]
+    }
+  ],
+  "workload": null,
+  "containers": [],
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "BackOff",
+      "message": "Back-off restarting failed container hog in pod hog-76cf876d44-psvtk_causes-e2e(8d2eb7b2-82b7-45a3-b58c-f2fe9ccc47de)",
+      "count": 9,
+      "firstSeen": "2026-11-10T16:50:32.000Z",
+      "lastSeen": "2026-11-10T17:01:01.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "hog-76cf876d44-psvtk",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Pulled",
+      "message": "Container image \"busybox:1.37\" already present on machine and can be accessed by the pod",
+      "count": 7,
+      "firstSeen": "2026-11-10T16:48:36.000Z",
+      "lastSeen": "2026-11-10T17:00:04.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "hog-76cf876d44-psvtk",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Created",
+      "message": "Container created",
+      "count": 7,
+      "firstSeen": "2026-11-10T16:48:36.000Z",
+      "lastSeen": "2026-11-10T17:00:04.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "hog-76cf876d44-psvtk",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Started",
+      "message": "Container started",
+      "count": 7,
+      "firstSeen": "2026-11-10T16:48:37.000Z",
+      "lastSeen": "2026-11-10T17:00:04.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "hog-76cf876d44-psvtk",
+      "reportingController": "kubelet",
+      "host": null
+    },
+    {
+      "type": "Normal",
+      "reason": "Scheduled",
+      "message": "Successfully assigned causes-e2e/hog-76cf876d44-psvtk to demo-worker2",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:48:36.000Z",
+      "lastSeen": "2026-11-10T16:48:36.000Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Pod",
+      "involvedName": "hog-76cf876d44-psvtk",
+      "reportingController": "default-scheduler",
+      "host": null
+    }
+  ],
+  "changes": [
+    {
+      "kind": "namespace",
+      "target": "Namespace/causes-e2e",
+      "namespace": "causes-e2e",
+      "details": {
+        "action": "created"
+      },
+      "ts": "2026-11-10T16:11:55.602Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:14:15.602Z"
+    },
+    {
+      "kind": "image",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": ["release=busybox:0.0-causes-e2e-missing"],
+        "from": ["release=busybox:1.37"]
+      },
+      "ts": "2026-11-10T16:14:20.607Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:14:20.607Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:14:30.608Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:14:35.603Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:14:35.603Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/slow",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:14:35.603Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:14:35.603Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:17:30.598Z"
+    },
+    {
+      "kind": "image",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": ["release=busybox:1.37"],
+        "from": ["release=busybox:0.0-causes-e2e-missing"]
+      },
+      "ts": "2026-11-10T16:21:55.601Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:21:55.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:21:55.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:21:55.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:22:10.598Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:22:20.598Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:22:35.605Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/slow",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:22:35.605Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:22:50.598Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:22:50.598Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:23:05.611Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:23:10.742Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/pg",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:24:30.601Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:24:30.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:24:30.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:24:30.601Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:24:30.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:24:40.596Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:24:40.596Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:24:40.596Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:27:45.594Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:27:45.594Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/pg",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:27:45.594Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:27:45.594Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "4",
+        "from": "3"
+      },
+      "ts": "2026-11-10T16:32:35.602Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:32:40.600Z"
+    },
+    {
+      "kind": "namespace",
+      "target": "Namespace/causes-e2e",
+      "namespace": "causes-e2e",
+      "details": {
+        "action": "created"
+      },
+      "ts": "2026-11-10T16:34:45.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:35:55.600Z"
+    },
+    {
+      "kind": "image",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": ["release=busybox:0.0-causes-e2e-missing"],
+        "from": ["release=busybox:1.37"]
+      },
+      "ts": "2026-11-10T16:35:55.600Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:35:55.600Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:36:10.604Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:36:10.604Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:36:15.599Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/slow",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "2",
+        "from": "1"
+      },
+      "ts": "2026-11-10T16:36:15.599Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:36:15.599Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/api",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:36:30.601Z"
+    },
+    {
+      "kind": "image",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": ["release=busybox:1.37"],
+        "from": ["release=busybox:0.0-causes-e2e-missing"]
+      },
+      "ts": "2026-11-10T16:36:30.601Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/release",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:36:30.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:36:30.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:36:40.600Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/typo",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:36:50.600Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/leak",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 0,
+        "from": 1
+      },
+      "ts": "2026-11-10T16:37:05.603Z"
+    },
+    {
+      "kind": "rollout",
+      "target": "Deployment/causes-e2e/slow",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "3",
+        "from": "2"
+      },
+      "ts": "2026-11-10T16:37:15.600Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/crasher",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:48:40.601Z"
+    },
+    {
+      "kind": "scale",
+      "target": "Deployment/causes-e2e/hog",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": 1,
+        "from": 0
+      },
+      "ts": "2026-11-10T16:48:40.601Z"
+    }
+  ],
+  "ownTargets": ["Deployment/causes-e2e/hog", "Node/demo-worker2"],
+  "nodes": [
+    {
+      "name": "demo-worker2",
+      "status": "Ready",
+      "roles": [],
+      "unschedulable": false,
+      "taints": [],
+      "kubeletVersion": "v1.37.0",
+      "osImage": "Debian GNU/Linux 13 (trixie)",
+      "kernelVersion": "6.8.0-147-generic",
+      "architecture": "arm64",
+      "containerRuntime": "containerd://2.3.4",
+      "internalIp": "172.18.0.3",
+      "createdAt": "2026-11-09T15:38:35Z",
+      "cpu": {
+        "usageCores": 0.16364017266378916,
+        "requestsCores": 0.345,
+        "allocatableCores": 4
+      },
+      "memory": {
+        "usageBytes": 772128768,
+        "requestsBytes": 480247808,
+        "allocatableBytes": 6198562816
+      },
+      "diskUtilization": null,
+      "pods": {
+        "count": 22,
+        "capacity": 110
+      },
+      "conditions": [
+        {
+          "type": "MemoryPressure",
+          "status": "False",
+          "reason": "KubeletHasSufficientMemory",
+          "message": "kubelet has sufficient memory available",
+          "since": "2026-11-09T15:38:35Z",
+          "bad": false
+        },
+        {
+          "type": "DiskPressure",
+          "status": "False",
+          "reason": "KubeletHasNoDiskPressure",
+          "message": "kubelet has no disk pressure",
+          "since": "2026-11-09T15:38:35Z",
+          "bad": false
+        },
+        {
+          "type": "PIDPressure",
+          "status": "False",
+          "reason": "KubeletHasSufficientPID",
+          "message": "kubelet has sufficient PID available",
+          "since": "2026-11-09T15:38:35Z",
+          "bad": false
+        },
+        {
+          "type": "Ready",
+          "status": "True",
+          "reason": "KubeletReady",
+          "message": "kubelet is posting ready status",
+          "since": "2026-11-09T15:38:51Z",
+          "bad": false
+        }
+      ],
+      "agent": {
+        "status": "active",
+        "version": "e2e",
+        "kubeletTls": "unverified",
+        "lastSeenAt": "2026-11-10T17:01:45.203Z"
+      }
+    }
+  ],
+  "hosts": [],
+  "map": {
+    "mode": "flows",
+    "agents": [
+      {
+        "node": "demo-control-plane",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      },
+      {
+        "node": "demo-worker",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      },
+      {
+        "node": "demo-worker2",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      }
+    ],
+    "ids": ["w:causes-e2e/Deployment/hog"],
+    "nodes": [],
+    "outgoing": [],
+    "incoming": [],
+    "dns": []
+  },
+  "application": null,
+  "edge": null,
+  "alert": null,
+  "gone": false
+}

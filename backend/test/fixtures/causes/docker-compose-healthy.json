@@ -1,0 +1,571 @@
+{
+  "platform": "docker",
+  "clusterId": "00000000-0000-4000-8000-00000000000b",
+  "focus": {
+    "kind": "compose_service",
+    "project": "causes-e2e",
+    "service": "web"
+  },
+  "now": 1794330105637,
+  "window": {
+    "from": "2026-11-10T16:01:45.637Z",
+    "to": "2026-11-10T17:01:45.637Z"
+  },
+  "symptomAt": null,
+  "pods": [],
+  "workload": null,
+  "containers": [
+    {
+      "id": "9d24e325b77d2e8128bcbb683108ece8a209015b73dce2f4b1adb4e14e4af8ae",
+      "name": "causes-e2e-web-1",
+      "host": "docker-01",
+      "image": "busybox:1.37",
+      "state": "running",
+      "status": "Up 26 minutes",
+      "health": null,
+      "restartCount": 0,
+      "exitCode": 0,
+      "oomKilled": false,
+      "createdAt": 1794328486,
+      "startedAt": "2026-11-10T16:34:46.225428651Z",
+      "ports": [],
+      "composeProject": "causes-e2e",
+      "composeService": "web",
+      "sizeRw": 4096,
+      "cpuCores": 0.0020119499999999993,
+      "cpuLimitCores": 0.05,
+      "memoryBytes": 655360,
+      "memoryLimitBytes": 16777216,
+      "restarting": false,
+      "stateError": null,
+      "finishedAt": null,
+      "healthDetail": null,
+      "problem": null,
+      "restartsInRange": 0,
+      "cpuSeries": [
+        [1794327240, 0.003221403690061501],
+        [1794327300, 0.003385736547804565],
+        [1794327360, 0.002881286301175804],
+        [1794327420, 0.0022893642552978726],
+        [1794327480, 0.0021646874505195962],
+        [1794327540, 0.0021430071416071532],
+        [1794327600, 0.0027025416666666665],
+        [1794327660, 0.0035350672511208522],
+        [1794327720, 0.0035981166666666673],
+        [1794327780, 0.0036834416666666667],
+        [1794327840, 0.003939741666666665],
+        [1794327900, 0.004128132265564453],
+        [1794327960, 0.003988225098124184],
+        [1794328020, 0.002579938166151385],
+        [1794328080, 0.0018617047619047594],
+        [1794328140, 0.0020523988355814265],
+        [1794328200, 0],
+        [1794328320, 0.0023459700895535627],
+        [1794328380, 0.0021719967238719245],
+        [1794328440, 0.0022212601771681426],
+        [1794328500, 0.002310194251618763],
+        [1794328560, 0.0019828583333333333],
+        [1794328620, 0.0016336154172595424],
+        [1794328680, 0.0018347201650884507],
+        [1794328740, 0.0023841916666666684],
+        [1794328800, 0.00253139557170357],
+        [1794328860, 0.002327028040498313],
+        [1794328920, 0.002341227843565363],
+        [1794328980, 0.0023516479853327226],
+        [1794329040, 0.0021263322805643295],
+        [1794329100, 0.0020656916666666656],
+        [1794329160, 0.002130117750981258],
+        [1794329220, 0.0022118964683921945],
+        [1794329280, 0.0023094333333333328],
+        [1794329340, 0.002362481041350689],
+        [1794329400, 0.0023485887617603206],
+        [1794329460, 0.0021846067949433745],
+        [1794329520, 0.002156359636330301],
+        [1794329580, 0.0023896449137076133],
+        [1794329640, 0.002482920975658537],
+        [1794329700, 0.0022206666666666672],
+        [1794329760, 0.0020318749999999977],
+        [1794329820, 0.0020453496220864823],
+        [1794329880, 0.00202435020291836],
+        [1794329940, 0.0019727583333333356],
+        [1794330000, 0.002077482687644268],
+        [1794330060, 0.002207281605986614]
+      ],
+      "watchlog": false
+    }
+  ],
+  "events": [
+    {
+      "type": "Normal",
+      "reason": "Started",
+      "message": "Started",
+      "count": 2,
+      "firstSeen": "2026-11-10T16:12:51.000Z",
+      "lastSeen": "2026-11-10T16:34:46.571Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Container",
+      "involvedName": "causes-e2e-web-1",
+      "reportingController": "docker",
+      "host": "docker-01"
+    },
+    {
+      "type": "Normal",
+      "reason": "Created",
+      "message": "Created from image busybox:1.37",
+      "count": 2,
+      "firstSeen": "2026-11-10T16:12:50.770Z",
+      "lastSeen": "2026-11-10T16:34:46.205Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Container",
+      "involvedName": "causes-e2e-web-1",
+      "reportingController": "docker",
+      "host": "docker-01"
+    },
+    {
+      "type": "Normal",
+      "reason": "Destroyed",
+      "message": "Removed",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:34:35.233Z",
+      "lastSeen": "2026-11-10T16:34:35.233Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Container",
+      "involvedName": "causes-e2e-web-1",
+      "reportingController": "docker",
+      "host": "docker-01"
+    },
+    {
+      "type": "Warning",
+      "reason": "Died",
+      "message": "Exited with code 137 (killed)",
+      "count": 1,
+      "firstSeen": "2026-11-10T16:34:35.146Z",
+      "lastSeen": "2026-11-10T16:34:35.146Z",
+      "namespace": "causes-e2e",
+      "involvedKind": "Container",
+      "involvedName": "causes-e2e-web-1",
+      "reportingController": "docker",
+      "host": "docker-01"
+    }
+  ],
+  "changes": [
+    {
+      "kind": "compose",
+      "target": "Compose/docker-01/causes-e2e",
+      "namespace": "causes-e2e",
+      "details": {
+        "action": "up"
+      },
+      "ts": "2026-11-10T16:12:59.388Z"
+    },
+    {
+      "kind": "image",
+      "target": "Container/docker-01/causes-e2e-release-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "busybox:1.36",
+        "from": "busybox:latest"
+      },
+      "ts": "2026-11-10T16:14:29.572Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-slow-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "ghcr.io/stefanprodan/podinfo:6.16.0"
+      },
+      "ts": "2026-11-10T16:14:44.580Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-typo-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "busybox:1.37"
+      },
+      "ts": "2026-11-10T16:17:28.898Z"
+    },
+    {
+      "kind": "image",
+      "target": "Container/docker-01/causes-e2e-release-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "to": "busybox:latest",
+        "from": "busybox:1.36"
+      },
+      "ts": "2026-11-10T16:21:58.912Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-slow-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "ghcr.io/stefanprodan/podinfo:6.16.0"
+      },
+      "ts": "2026-11-10T16:22:44.033Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-pg-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "postgres:16-alpine"
+      },
+      "ts": "2026-11-10T16:24:44.395Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-pg-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "postgres:16-alpine"
+      },
+      "ts": "2026-11-10T16:31:02.751Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-leak-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "postgres:16-alpine"
+      },
+      "ts": "2026-11-10T16:32:47.685Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-caller-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "busybox:1.37"
+      },
+      "ts": "2026-11-10T16:34:48.646Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-front-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "busybox:1.37"
+      },
+      "ts": "2026-11-10T16:34:48.646Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-hot-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "busybox:1.37"
+      },
+      "ts": "2026-11-10T16:34:48.646Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-release-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "busybox:latest"
+      },
+      "ts": "2026-11-10T16:34:48.646Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-web-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "busybox:1.37"
+      },
+      "ts": "2026-11-10T16:34:48.646Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-release-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "busybox:latest"
+      },
+      "ts": "2026-11-10T16:36:47.895Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-slow-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "ghcr.io/stefanprodan/podinfo:6.16.0"
+      },
+      "ts": "2026-11-10T16:36:47.895Z"
+    },
+    {
+      "kind": "recreate",
+      "target": "Container/docker-01/causes-e2e-slow-1",
+      "namespace": "causes-e2e",
+      "details": {
+        "image": "ghcr.io/stefanprodan/podinfo:6.16.0"
+      },
+      "ts": "2026-11-10T16:37:17.816Z"
+    }
+  ],
+  "ownTargets": ["Container/docker-01/causes-e2e-web-1", "Compose/docker-01/causes-e2e"],
+  "nodes": [],
+  "hosts": [
+    {
+      "name": "docker-01",
+      "status": "active",
+      "lastSeenAt": "2026-11-10T17:01:32.807Z",
+      "agentVersion": "e2e",
+      "dockerVersion": "29.9.3",
+      "os": "linux",
+      "arch": "arm64",
+      "kernelVersion": "6.8.0-147-generic",
+      "containers": {
+        "total": 46,
+        "running": 22,
+        "stopped": 24,
+        "unhealthy": 1
+      },
+      "cpuUtilization": 0.16991736923786777,
+      "memoryUtilization": 0.5166557524808022,
+      "diskUtilization": 0.7805921081295394,
+      "load1": 1.44,
+      "cpu": {
+        "usageCores": 0.6841609653252884,
+        "cores": 4
+      },
+      "memory": {
+        "usageBytes": 3202523136,
+        "totalBytes": 6198562816
+      },
+      "bootTime": 1794326110,
+      "disks": [
+        {
+          "mount": "/",
+          "utilization": 0.7805921081295394,
+          "sizeBytes": 30083776512
+        },
+        {
+          "mount": "/boot",
+          "utilization": 0.19663880295750236,
+          "sizeBytes": 933457920
+        },
+        {
+          "mount": "/boot/efi",
+          "utilization": 0.06496076800513073,
+          "sizeBytes": 102185984
+        }
+      ],
+      "cpuSeries": [
+        [1794326700, 0.19005403579871671],
+        [1794326760, 0.21083335681875845],
+        [1794326820, 0.19402796495956878],
+        [1794326880, 0.18000294259831429],
+        [1794326940, 0.17202562217788506],
+        [1794327000, 0.15447290702301894],
+        [1794327060, 0.18017317472994007],
+        [1794327120, 0.23161586074318183],
+        [1794327180, 0.310830086649209],
+        [1794327240, 0.34585661379059385],
+        [1794327300, 0.37811912632056494],
+        [1794327360, 0.3212278519026984],
+        [1794327420, 0.19551840729151357],
+        [1794327480, 0.17157958510038218],
+        [1794327540, 0.19395460725865507],
+        [1794327600, 0.24423052671402756],
+        [1794327660, 0.3018433179723499],
+        [1794327720, 0.33314941748190935],
+        [1794327780, 0.3558246828143022],
+        [1794327840, 0.39235895348089733],
+        [1794327900, 0.4944798902510729],
+        [1794327960, 0.47162645709393397],
+        [1794328020, 0.2625737596659778],
+        [1794328080, 0.1812271434376274],
+        [1794328140, 0.19772054304709838],
+        [1794328320, 0.34690598858789146],
+        [1794328380, 0.32420308086682],
+        [1794328440, 0.2662765179224576],
+        [1794328500, 0.2520395290159801],
+        [1794328560, 0.2309304274937134],
+        [1794328620, 0.21373121869783004],
+        [1794328680, 0.21261389283624477],
+        [1794328740, 0.17828872973991677],
+        [1794328800, 0.1701735266996398],
+        [1794328860, 0.15735944806760763],
+        [1794328920, 0.15039848993288582],
+        [1794328980, 0.15739438836540642],
+        [1794329040, 0.16376489343849643],
+        [1794329100, 0.16071690906419858],
+        [1794329160, 0.1564861460957179],
+        [1794329220, 0.15738447979183345],
+        [1794329280, 0.1586998489172402],
+        [1794329340, 0.16243100879309955],
+        [1794329400, 0.1729631028837678],
+        [1794329460, 0.18002140114559076],
+        [1794329520, 0.18593723779157612],
+        [1794329580, 0.18717878794235457],
+        [1794329640, 0.18262455963764412],
+        [1794329700, 0.17952214134379402],
+        [1794329760, 0.17583777209243795],
+        [1794329820, 0.17173685313220216],
+        [1794329880, 0.16977772191146606],
+        [1794329940, 0.17094178297497759],
+        [1794330000, 0.17060081338308658],
+        [1794330060, 0.17159701242027517]
+      ],
+      "memorySeries": [
+        [1794326700, 0.4433005291012284],
+        [1794326760, 0.4487474897923177],
+        [1794326820, 0.44946908157621546],
+        [1794326880, 0.4468073858751712],
+        [1794326940, 0.4488148912226818],
+        [1794327000, 0.44649020267345796],
+        [1794327060, 0.44780585216223123],
+        [1794327120, 0.4547217675562554],
+        [1794327180, 0.48255921909495736],
+        [1794327240, 0.47920434593850214],
+        [1794327300, 0.5219335487976444],
+        [1794327360, 0.512294483457244],
+        [1794327420, 0.5121570374031683],
+        [1794327480, 0.5064887092692165],
+        [1794327540, 0.519055111242096],
+        [1794327600, 0.5073451039138425],
+        [1794327660, 0.5085682416354494],
+        [1794327720, 0.5249230004737924],
+        [1794327780, 0.49944922458619156],
+        [1794327840, 0.5583917754395795],
+        [1794327900, 0.5863369371071967],
+        [1794327960, 0.58547856006756],
+        [1794328020, 0.5922008615488716],
+        [1794328080, 0.5654127577691712],
+        [1794328320, 0.527867517863031],
+        [1794328380, 0.5446669939821096],
+        [1794328440, 0.5380477770413548],
+        [1794328500, 0.49539324439428256],
+        [1794328560, 0.49784943181255004],
+        [1794328620, 0.5789181541787896],
+        [1794328680, 0.4950337700990074],
+        [1794328740, 0.49672078825312016],
+        [1794328800, 0.49388992817782873],
+        [1794328860, 0.4943531478119976],
+        [1794328920, 0.4915698652169632],
+        [1794328980, 0.4940994012506269],
+        [1794329040, 0.52625054433263],
+        [1794329100, 0.4940049070884498],
+        [1794329160, 0.49278639495520116],
+        [1794329220, 0.49333750076817806],
+        [1794329280, 0.49334278715487334],
+        [1794329340, 0.5009961534928808],
+        [1794329400, 0.5009380032392334],
+        [1794329460, 0.5015062898089698],
+        [1794329520, 0.5021446210024179],
+        [1794329580, 0.5078459890532148],
+        [1794329640, 0.5017943978838595],
+        [1794329700, 0.5173436435495179],
+        [1794329760, 0.5087222076479478],
+        [1794329820, 0.5104052610120391],
+        [1794329880, 0.5061497197223854],
+        [1794329940, 0.5043060923624267],
+        [1794330000, 0.5030763466574507],
+        [1794330060, 0.5120876535777934]
+      ]
+    }
+  ],
+  "map": {
+    "mode": "flows",
+    "agents": [
+      {
+        "node": "docker-01",
+        "ebpf": "enabled",
+        "reason": null,
+        "cause": null
+      }
+    ],
+    "ids": ["c:causes-e2e-web-1"],
+    "nodes": [
+      {
+        "id": "c:causes-e2e-api-1",
+        "kind": "container",
+        "name": "causes-e2e-api-1",
+        "namespace": null,
+        "workloadKind": null,
+        "watchlog": false
+      },
+      {
+        "id": "c:causes-e2e-web-1",
+        "kind": "container",
+        "name": "web",
+        "namespace": "causes-e2e",
+        "workloadKind": null,
+        "watchlog": false
+      },
+      {
+        "id": "x:api:9898",
+        "kind": "external",
+        "name": "api:9898",
+        "namespace": null,
+        "workloadKind": null,
+        "watchlog": false
+      }
+    ],
+    "outgoing": [
+      {
+        "id": "c:causes-e2e-web-1>c:causes-e2e-api-1:9898",
+        "source": "c:causes-e2e-web-1",
+        "target": "c:causes-e2e-api-1",
+        "port": 9898,
+        "service": null,
+        "connectionsPerSecond": 0.9933300222332593,
+        "failedPerSecond": 0,
+        "failedRatio": 0,
+        "latencyMeanSeconds": 5.7403285234899325e-5,
+        "latencyP95Seconds": 0.00047659932659932654,
+        "bytesSentPerSecond": 70.52643157856141,
+        "bytesReceivedPerSecond": 554.2781524061587,
+        "retransmitsPerSecond": 0,
+        "http": {
+          "requestsPerSecond": 0.9933300222332593,
+          "clientErrorsPerSecond": 0,
+          "serverErrorsPerSecond": 0,
+          "serverErrorRatio": 0,
+          "p50Seconds": 0.00045987654320987645,
+          "p95Seconds": 0.0018089285714285698,
+          "p99Seconds": 0.002447499999999999
+        },
+        "health": "ok",
+        "failedLastMinute": 0
+      },
+      {
+        "id": "c:causes-e2e-web-1>x:api:9898:9898",
+        "source": "c:causes-e2e-web-1",
+        "target": "x:api:9898",
+        "port": 9898,
+        "service": null,
+        "connectionsPerSecond": 0,
+        "failedPerSecond": 0,
+        "failedRatio": null,
+        "latencyMeanSeconds": null,
+        "latencyP95Seconds": null,
+        "bytesSentPerSecond": null,
+        "bytesReceivedPerSecond": null,
+        "retransmitsPerSecond": 0,
+        "http": null,
+        "health": "idle",
+        "failedLastMinute": 0
+      }
+    ],
+    "incoming": [],
+    "dns": [
+      {
+        "node": "c:causes-e2e-web-1",
+        "requestsPerSecond": 1.9866600444665186,
+        "nxdomainPerSecond": 0,
+        "servfailPerSecond": 0,
+        "timeoutPerSecond": 0,
+        "searchMissPerSecond": 0,
+        "errorRatio": 0
+      }
+    ]
+  },
+  "application": null,
+  "edge": null,
+  "alert": null,
+  "gone": false
+}

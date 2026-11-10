@@ -11,6 +11,10 @@
 #   causes-e2e.sh trigger <scenario> [kubernetes|docker]   break it (both platforms if unnamed)
 #   causes-e2e.sh restore <scenario> [kubernetes|docker]   mend it
 #   causes-e2e.sh check [scenario…]              the top cause of each, against SCENARIOS
+#   causes-e2e.sh subjects [scenario…]           GET /causes answers 200 with a well-formed body
+#                                                for each scenario's subjects, a pod, and an alert
+#                                                about the fixtures, on both platforms (Docker
+#                                                scenario containers exist only while triggered)
 #   causes-e2e.sh down                           removes only what `up` made
 #
 # Runs after the agents report with network flows on (eBPF: the service map, HTTP and
@@ -48,9 +52,11 @@ say() { printf '\n== %s\n' "$*"; }
 # The scenarios: the one table later slices change. One line each:
 #   name  platforms  top cause on kubernetes  on docker  subject on kubernetes  on docker  check
 # The expected causes are ADR-150's codes ("-": no form on that platform, ADR-149). The
-# subjects are GET /causes?subject=<kind>:<ref> (ADR-148); an application's ref is its name
-# and `check` turns it into its id. `check` asserts the top cause when the last column is
-# "on" and only reports it when "pending": a slice turns a scenario on with its rules.
+# subjects are GET /causes?cluster=<id>&subject=<kind>:<ref> (ADR-148), in the forms a user
+# types: workload:<namespace>/<name> (or <namespace>/<Kind>/<name>), compose_service:
+# <project>/<service>, container:<name> (or <host>/<name>), application:<name> (or its id).
+# `check` asserts the top cause when the last column is "on" and only reports it when
+# "pending": a slice turns a scenario on with its rules.
 SCENARIOS='
 dependency-down        kubernetes,docker  dependency_down      dependency_down      workload:causes-e2e/web        compose_service:causes-e2e/web      pending
 bad-change             kubernetes,docker  image_pull           bad_change           workload:causes-e2e/release    container:causes-e2e-release-1      pending
@@ -467,13 +473,6 @@ elif mode == "check":
             expected, subject = (k_cause, k_subj) if kind == "kubernetes" else (d_cause, d_subj)
             c = cluster(kind)
             label = f"{name} on {kind}"
-            if subject.startswith("application:"):
-                a = next((x for x in monitored(kind).values() if x["name"] == subject.split(":", 1)[1]), None)
-                if not a:
-                    print(f"FAIL  {label}: {subject} is not monitored (run `up`)")
-                    failures += 1
-                    continue
-                subject = f"application:{a['id']}"
             q = urllib.parse.urlencode({"cluster": c["id"], "subject": subject})
             status, body = call("GET", f"/causes?{q}", raw=True)
             if status == 404 and str((body or {}).get("detail", "")).startswith("No route for"):
@@ -485,7 +484,7 @@ elif mode == "check":
                 failures += 1
                 continue
             causes = body.get("causes") or []
-            top = causes[0]["code"] if causes else "none"
+            top = causes[0].get("rule", causes[0]["code"]) if causes else "none"
             strength = causes[0].get("strength", "") if causes else ""
             if state != "on":
                 print(f"PENDING  {label}: top cause {top} {strength}, expects {expected} (not asserted yet)")
@@ -496,6 +495,68 @@ elif mode == "check":
                 print(f"FAIL  {label}: top cause {top}, expects {expected}: {json.dumps(causes)[:400]}")
                 failures += 1
     print(f"\n{failures} failed, {pending} pending" if failures else f"\nall asserted passed, {pending} pending")
+    sys.exit(1 if failures else 0)
+elif mode == "subjects":
+    # GET /causes answers every subject with a well-formed body (ADR-148), causes or not.
+    rows = [l.split() for l in os.environ["SCENARIOS"].strip().splitlines()]
+    if args:
+        rows = [r for r in rows if r[0] in args]
+    STATES, RESULTS = {"likely", "possible", "none"}, {"explains", "possible", "ok", "not_run", "not_applicable"}
+    def problems(b):
+        out = []
+        if b.get("state") not in STATES: out.append(f"state {b.get('state')!r}")
+        h = b.get("headline") or {}
+        if not isinstance(h.get("code"), str) or not isinstance(h.get("facts"), dict): out.append("headline")
+        for k in ("checkedAt", "window", "subject", "cluster"):
+            if not b.get(k): out.append(f"no {k}")
+        causes = b.get("causes")
+        if not isinstance(causes, list) or len(causes) > 3: out.append("causes")
+        else:
+            if sum(c.get("strength") == "likely" for c in causes) > 1: out.append("two likely")
+            if (b.get("state") == "likely") != bool(causes and causes[0].get("strength") == "likely"): out.append("state vs top cause")
+            if (b.get("state") == "none") != (not causes): out.append("state none vs causes")
+            for c in causes:
+                if len(c.get("chain") or []) > 3 or not all(s.get("object", {}).get("ref") for s in c.get("chain") or []): out.append("chain")
+        checks = b.get("checks")
+        if not isinstance(checks, list) or not checks: out.append("no checks")
+        else:
+            for ch in checks:
+                if ch.get("result") not in RESULTS or not str(ch.get("code", "")).startswith(f"{ch.get('topic')}_"): out.append(f"check {ch}")
+        return out
+    failures = 0
+    def ask(label, cid, subject):
+        global failures
+        status, body = call("GET", "/causes?" + urllib.parse.urlencode({"cluster": cid, "subject": subject}), raw=True)
+        bad = problems(body or {}) if status == 200 else [f"answered {status}: {json.dumps(body)[:200]}"]
+        if bad:
+            failures += 1
+            print(f"FAIL  {label} {subject}: {'; '.join(bad)}")
+        else:
+            found = [c["code"] for c in body["checks"] if c["result"] in ("possible", "explains")]
+            print(f"PASS  {label} {subject}: {body['state']}, {body['headline']['code']}, {len(body['checks'])} checks"
+                  + (f" ({', '.join(found)})" if found else "") + (", flows off" if body.get("flowsOff") else ""))
+    for kind in ("kubernetes", "docker"):
+        c = cluster(kind)
+        for name, plats, _k, _d, k_subj, d_subj, _state in rows:
+            if kind in plats.split(","):
+                ask(f"{name} on {kind}:", c["id"], k_subj if kind == "kubernetes" else d_subj)
+        if kind == "kubernetes":
+            pods = call("GET", f"/clusters/{c['id']}/pods?namespaces=causes-e2e")["pods"]
+            if pods:
+                p = sorted(pods, key=lambda p: (not p.get("failing"), p["name"]))[0]
+                ask("a pod on kubernetes:", c["id"], f"pod:causes-e2e/{p['name']}")
+        else:
+            cs = [x for x in call("GET", f"/clusters/{c['id']}/docker/containers")["containers"] if x.get("composeProject") == "causes-e2e"]
+            if cs:
+                x = sorted(cs, key=lambda x: (not x.get("problem"), x["name"]))[0]
+                ask("a container on docker (host/name):", c["id"], f"container:{x['host']}/{x['name']}")
+        alerts = [a for a in call("GET", f"/alerts?view=firing&clusterId={c['id']}&limit=200")["alerts"]
+                  if "causes-e2e" in json.dumps(a["labels"])]
+        if alerts:
+            ask(f"an alert on {kind} ({alerts[0]['rule']['key']}):", c["id"], f"alert:{alerts[0]['id']}")
+        else:
+            print(f"SKIP  an alert on {kind}: none firing about causes-e2e (is the alert worker running?)")
+    print(f"\n{failures} failed" if failures else "\nall subjects answered")
     sys.exit(1 if failures else 0)
 PY
 }
@@ -567,6 +628,9 @@ GRANT pg_monitor TO watchlog;"
     ;;
   check)
     api check "$@"
+    ;;
+  subjects)
+    api subjects "$@"
     ;;
   down)
     if [ -n "${WATCHLOG_E2E_EMAIL:-}" ]; then
