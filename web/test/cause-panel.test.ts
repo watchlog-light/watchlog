@@ -9,7 +9,15 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import CausePanel from '@/components/causes/CausePanel.vue';
 import AttentionCard from '@/components/overview/AttentionCard.vue';
-import { causesText, checksSummary, mcpTool, panelState, problemCause, say } from '@/lib/causes';
+import {
+  causesText,
+  checksSummary,
+  mcpTool,
+  panelState,
+  possibleLine,
+  problemCause,
+  say,
+} from '@/lib/causes';
 import type { Overview } from '@/lib/overview';
 import { mockFetch, type Route } from './fetch-mock';
 import { createPlugins } from './helpers';
@@ -454,9 +462,26 @@ describe('Needs attention: one line under each problem (ADR-156)', () => {
       ...base,
       id: 'possible',
       causeState: 'possible',
+      // Where each starts, as the overview sends it (a rollout, the throttled container).
       possibleCauses: [
-        { rule: 'bad_change', code: 'bad_change', facts: { name: 'slow' }, since: null },
-        { rule: 'cpu_throttled', code: 'cpu_throttled', facts: { pct: 35 }, since: null },
+        {
+          rule: 'bad_change',
+          code: 'bad_change',
+          facts: { name: 'slow' },
+          since: null,
+          where: { code: 'rolled_out', facts: { from: '1', to: '2' }, name: 'backend' },
+        },
+        {
+          rule: 'cpu_throttled',
+          code: 'cpu_throttled',
+          facts: { pct: 35 },
+          since: null,
+          where: {
+            code: 'cpu_throttled',
+            facts: { container: 'backend', pct: 100, limitCores: 0.1 },
+            name: 'backend',
+          },
+        },
       ],
     },
     { ...base, id: 'none', causeState: 'none' },
@@ -471,10 +496,23 @@ describe('Needs attention: one line under each problem (ADR-156)', () => {
       'none',
       null,
     ]);
-    expect(problemCause(items[1]!)!.line.map((l) => say(t, l))).toEqual([
-      'causes.cause.bad_change',
-      'causes.cause.cpu_throttled',
+    expect(problemCause(items[1]!)!.line.map((l) => l.key)).toEqual([
+      'causes.step.rolled_out',
+      'causes.step.cpu_throttled',
     ]);
+    // An answer without a step falls back to the rule's one-line cause.
+    expect(
+      say(t, possibleLine({ rule: 'bad_change', code: 'bad_change', facts: {}, since: null })),
+    ).toBe('causes.cause.bad_change');
+  });
+
+  it('possibleLine: names the object unless its sentence does, without the full stop', async () => {
+    const { global: i18n } = (await createPlugins()).i18n;
+    const t = (k: string, v?: Record<string, unknown>, n?: number) =>
+      n === undefined ? i18n.t(k, v ?? {}) : i18n.t(k, v ?? {}, n);
+    const [rollout, throttled] = items[1]!.possibleCauses!.map((c) => say(t, possibleLine(c)));
+    expect(rollout).toBe('backend: Rolled out: revision 1 → 2');
+    expect(throttled).toBe('backend is throttled 100% of the time at its 100m CPU limit');
   });
 
   it.each(['kubernetes', 'docker'] as const)(
@@ -499,8 +537,9 @@ describe('Needs attention: one line under each problem (ADR-156)', () => {
       ]);
       expect(lines[0]!.text()).toContain('was scaled to 0: nothing answers its calls.');
       expect(lines[1]!.text()).toContain(
-        'The new version fails since its last change · CPU-throttled 35% of the time',
+        'backend: Rolled out: revision 1 → 2 · backend is throttled 100% of the time at its 100m CPU limit',
       );
+      expect(lines[1]!.text()).not.toContain('The new version fails');
       expect(lines[2]!.text()).toContain('Nothing we checked explains it.');
     },
   );

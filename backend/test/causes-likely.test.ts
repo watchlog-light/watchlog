@@ -254,17 +254,34 @@ describe('causeSummary: the Needs-attention line (ADR-156)', () => {
     };
     const s = causeSummary(possible);
     expect(s.likely).toBeUndefined();
+    const last = c.chain.at(-1)!;
     expect(s.possible).toEqual(
       [0, 1].map((i) => ({
         rule: c.rule,
         code: `${c.code}_${i}`,
         facts: c.facts,
         since: c.since,
+        where: { code: last.code, facts: last.facts, name: last.object.name },
       })),
     );
+    // Docker: where it starts is the throttled container's own step.
+    expect(s.possible[0]!.where).toMatchObject({ code: 'cpu_throttled', name: 'causes-e2e-hot-1' });
     expect(causeSummary({ ...a, state: 'none', causes: [] })).toEqual({
       state: 'none',
       possible: [],
+    });
+  });
+
+  it("possible on kind: each one's where-it-starts step names its object", async () => {
+    const a = await recorded('kube-cpu-throttle');
+    const s = causeSummary({
+      ...a,
+      state: 'possible',
+      causes: a.causes.map((c) => ({ ...c, strength: 'possible' as const })),
+    });
+    expect(s.possible[0]!.where).toMatchObject({
+      code: 'cpu_throttled',
+      name: 'hot-ddfb68779-r8wnw',
     });
   });
 

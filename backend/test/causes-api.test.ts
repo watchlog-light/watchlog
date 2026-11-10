@@ -517,10 +517,14 @@ describe('causeState and possibleCauses on the problems (ADR-156)', () => {
     const kp = k.find((p) => p.alertId === ka.id)!;
     expect(kp.causeState).toBe('possible');
     expect(kp.likelyCause).toBeUndefined();
+    const last = top.chain.at(-1)!;
+    const where = { code: last.code, facts: last.facts, name: last.object.name };
     expect(kp.possibleCauses).toEqual([
-      { rule: 'dependency_down', code: top.code, facts: top.facts, since: top.since },
-      { rule: 'cpu_throttled', code: 'cpu_throttled', facts: top.facts, since: top.since },
+      { rule: 'dependency_down', code: top.code, facts: top.facts, since: top.since, where },
+      { rule: 'cpu_throttled', code: 'cpu_throttled', facts: top.facts, since: top.since, where },
     ]);
+    // Where api's failure starts: it was scaled to 0.
+    expect(where).toMatchObject({ code: 'scaled', name: 'api' });
     const d = (await read(cookie, `/clusters/${fleet.id}/overview`)).json().problems
       .items as Line[];
     const dp = d.find((p) => p.object?.name === 'shop-api-1')!;
