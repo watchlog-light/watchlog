@@ -38,7 +38,6 @@ beforeEach(async () => {
   cookie = await setupAdmin(ctx.app);
   clusterId = (await api('POST', '/clusters', { name: 'prod', kind: 'kubernetes' })).json().cluster
     .id;
-  const org = await ctx.db.selectFrom('orgs').select(['id']).executeTakeFirstOrThrow();
   dockerId = (await api('POST', '/clusters', { name: 'hosts', kind: 'docker' })).json().cluster.id;
 });
 afterEach(() => closeTestContext(ctx));
