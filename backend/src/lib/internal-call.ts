@@ -16,7 +16,10 @@ export const internalCallHeaders = (authorization: string) => ({
   [INTERNAL_CALL_HEADER]: SECRET,
 });
 
-/** Whether a request was made in-process by an MCP tool. */
+/** The mark alone, for an in-process read made with a session or demo cookie. */
+export const internalCallMark = () => ({ [INTERNAL_CALL_HEADER]: SECRET });
+
+/** Whether a request was made in-process (an MCP tool, probable cause). */
 export function isInternalCall(request: FastifyRequest): boolean {
   const value = request.headers[INTERNAL_CALL_HEADER];
   if (typeof value !== 'string' || value.length !== SECRET.length) return false;

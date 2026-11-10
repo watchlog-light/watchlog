@@ -5,7 +5,7 @@
 // redaction; nothing more. Probable cause (causes/) reads the same way, as the user or
 // token that asked.
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { internalCallHeaders } from '../../lib/internal-call.js';
+import { internalCallHeaders, internalCallMark } from '../../lib/internal-call.js';
 
 export class ApiReadError extends Error {
   constructor(
@@ -31,12 +31,23 @@ export class ApiReader {
 
   /**
    * A reader that acts as a request's caller: its API token (not counted again against the
-   * REST limit), else its session or demo cookie.
+   * REST limit), else its session or demo cookie. Either way the reads are marked in-process,
+   * so the demo's per-visitor query limit counts the request that made them, not each read.
+   * `extra` headers go on every read (causes' NO_CAUSE_HEADER).
    */
-  static forRequest(app: FastifyInstance, request: FastifyRequest): ApiReader {
+  static forRequest(
+    app: FastifyInstance,
+    request: FastifyRequest,
+    extra: Record<string, string> = {},
+  ): ApiReader {
     const auth = request.headers.authorization;
-    if (request.apiToken && typeof auth === 'string') return new ApiReader(app, auth);
-    return new ApiReader(app, { cookie: request.headers.cookie ?? '' });
+    if (request.apiToken && typeof auth === 'string')
+      return new ApiReader(app, { ...internalCallHeaders(auth), ...extra });
+    return new ApiReader(app, {
+      cookie: request.headers.cookie ?? '',
+      ...internalCallMark(),
+      ...extra,
+    });
   }
 
   /** A read sent as POST (the chart query, ADR-125). */

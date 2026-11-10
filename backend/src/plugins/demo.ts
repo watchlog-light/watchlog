@@ -3,6 +3,7 @@
 // included. Only reads, the demo sign-in, sign-out and the agents' ingest get through.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/index.js';
+import { isInternalCall } from '../lib/internal-call.js';
 import { PROBLEM_CONTENT_TYPE, ProblemType, problem, sendProblem } from '../lib/problem.js';
 import { SESSION_COOKIE } from '../modules/auth/sessions.js';
 import {
@@ -143,6 +144,8 @@ export const DEMO_QUERY_ROUTES: readonly string[] = [
   'GET /api/v1/clusters/:id/docker/containers',
   'GET /api/v1/clusters/:id/service-map',
   'GET /api/v1/clusters/:id/service-map/edge',
+  // Probable cause reads several of the above in-process (ADR-155).
+  'GET /api/v1/causes',
 ];
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
@@ -185,6 +188,9 @@ export function registerDemoQueryLimits(app: FastifyInstance): void {
   });
   const queryRoutes = new Set(DEMO_QUERY_ROUTES);
   app.addHook('onRequest', async (request, reply) => {
+    // An in-process read (MCP, probable cause) is part of a request already counted: the
+    // visitor's, not the backend's own address shared by every visitor.
+    if (isInternalCall(request)) return;
     if (queryRoutes.has(`${request.method} ${request.routeOptions.url}`)) {
       await limit.call(app, request, reply);
     }

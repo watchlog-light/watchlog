@@ -4,6 +4,7 @@
 import type { RouteOptions } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
+import { internalCallMark } from '../src/lib/internal-call.js';
 import { encryptJson } from '../src/lib/secrets.js';
 import {
   DEMO_READ_ONLY_CODE,
@@ -494,6 +495,36 @@ describe('demo query cost', () => {
     // Another visitor is not affected; reads that do not query metrics are not limited.
     expect((await from('198.51.100.9')).statusCode).toBe(400);
     expect((await api('GET', '/me', cookie)).statusCode).toBe(200);
+  });
+
+  it('counts GET /causes as a query, and none of the reads made in-process for it', async () => {
+    ctx = await createTestContext({ demoMode: true, clientIpHeader: 'X-Real-IP' });
+    const { cookie } = await enterDemo();
+    const visitor = { 'x-real-ip': '203.0.113.8' };
+    const query = (headers: Record<string, string>) =>
+      ctx.app.inject({
+        method: 'POST',
+        url: '/api/v1/query/range',
+        cookies: { wl_session: cookie },
+        headers,
+        payload: {},
+      });
+    // In-process reads (probable cause, MCP) carry the internal mark: the request that made
+    // them was counted, so they are not, whatever address they come from.
+    for (let i = 0; i < DEMO_QUERY_RATE + 5; i++) {
+      expect((await query({ ...internalCallMark() })).statusCode).toBe(400);
+    }
+    for (let i = 0; i < DEMO_QUERY_RATE - 1; i++) {
+      expect((await query(visitor)).statusCode).toBe(400);
+    }
+    const causes = await ctx.app.inject({
+      method: 'GET',
+      url: `/api/v1/causes?cluster=${SAMPLE_ID}&subject=pods:x`,
+      cookies: { wl_session: cookie },
+      headers: visitor,
+    });
+    expect(causes.statusCode).toBe(400);
+    expect((await query(visitor)).statusCode).toBe(429);
   });
 
   it('aborts a VictoriaMetrics query that takes too long', async () => {
