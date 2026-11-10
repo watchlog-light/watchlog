@@ -116,7 +116,7 @@ function docker(ev: Evidence): Match | null {
   const via = ev.via!;
   if (!ev.containers.length || ev.containers.some((c) => c.state === 'running')) return null;
   // The caller's side: failed connects, an edge that went quiet, or failed lookups.
-  const quiet = wentQuiet(via.edge, via.history, ev.now);
+  const quiet = wentQuiet(via.edge, via.history, Date.parse(ev.window.to));
   if (!quiet && via.dnsErrorsPerSecond <= 0 && via.edge.failedPerSecond <= 0) return null;
   const c = [...ev.containers].sort(
     (a, b) => Date.parse(b.finishedAt ?? '') - Date.parse(a.finishedAt ?? ''),

@@ -116,7 +116,10 @@ export async function explain(
     const links = linksOf(e).filter((l) => !seen.has(l.key));
     const far = await Promise.all([
       ...edges.map(async (d) => {
-        const followed: Dependency = { ...d, history: await history(reader, cluster.id, d, now) };
+        const followed: Dependency = {
+          ...d,
+          history: await history(reader, cluster.id, d, now, target.resolvedAt ? window : null),
+        };
         // A p95 under the slow bar is followed only when it rose well above its usual one.
         if (d.risen && !risenEdge(d.edge, followed.history)) return [];
         if (d.risen && hops === 0) risen.push(followed);
@@ -175,10 +178,20 @@ export async function explain(
       checks,
       found.flowsOff,
     ),
-    causes: ranked.causes,
+    causes: target.resolvedAt ? ranked.causes.map((c) => closedSteps(c, window.to)) : ranked.causes,
     checks,
     flowsOff: found.flowsOff,
   };
+}
+
+/**
+ * A resolved alert's chain says nothing about later: a state step whose start is after the
+ * alert ended (today's object, failing again since) has no start the alert can claim.
+ */
+export function closedSteps(c: Cause, end: string): Cause {
+  const after = (t: string | null) => t !== null && Date.parse(t) > Date.parse(end);
+  if (!c.chain.some((s) => after(s.since))) return c;
+  return { ...c, chain: c.chain.map((s) => (after(s.since) ? { ...s, since: null } : s)) };
 }
 
 /** A candidate as the caller keeps it: what it covered one hop back is done with. */
@@ -194,23 +207,34 @@ function callerOf(e: Evidence): { kind: string; ref: string; name: string } {
   return o ? { kind: o.kind, ref: o.ref, name: o.name } : { kind: 'none', ref: '', name: '' };
 }
 
-/** A followed edge's last hour (GET /service-map/edge); null when it can't be read. */
+/** The longest an edge's history reaches back for a resolved alert (the demo's range cap). */
+export const HISTORY_MAX_S = 86_400;
+
+/**
+ * A followed edge's last hour (GET /service-map/edge); null when it can't be read. For a
+ * resolved alert (`closed`, its window) it reaches back to the window's start and counts only
+ * up to its end, so a step's start is the alert's, not that of a later failure.
+ */
 async function history(
   reader: Reader,
   clusterId: string,
   d: Dependency,
   now: number,
+  closed: { from: string; to: string } | null,
 ): Promise<EdgeHistory | null> {
+  const back = closed ? Math.ceil((now - Date.parse(closed.from)) / 60_000) * 60 : 0;
+  const range = Math.min(HISTORY_MAX_S, Math.max(3600, back));
   const s = await soft(
     reader.get<EdgeSeries>(`/clusters/${clusterId}/service-map/edge`, {
       source: d.edge.source,
       target: d.edge.target,
       port: d.edge.port ?? undefined,
-      range: 3600,
+      range,
     }),
     null,
   );
-  return s ? edgeHistory(s, Math.floor(now / 1000) - 3600) : null;
+  const endS = closed ? Math.floor(Date.parse(closed.to) / 1000) : null;
+  return s ? edgeHistory(s, Math.floor(now / 1000) - range, endS) : null;
 }
 
 /** The focus of an object a finding names: its workload (any kind) or container. */

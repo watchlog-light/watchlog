@@ -111,11 +111,17 @@ const isoS = (t: number) => new Date(t * 1000).toISOString();
 
 /**
  * The edge's last hour from its series (asked from `fromS`, unix seconds): when its trouble and
- * its slowness began, its last connection.
+ * its slowness began, its last connection. With `endS` (a resolved alert's end), only the
+ * points up to it count, and each run is the last one before it: the run counted back from
+ * its newest point that holds, since the trouble may have ended just before the alert did.
  */
-export function edgeHistory(s: EdgeSeries, fromS: number): EdgeHistory {
+export function edgeHistory(s: EdgeSeries, fromS: number, endS: number | null = null): EdgeHistory {
   const at = (pts: [number, number | null][] | undefined) =>
-    new Map((pts ?? []).filter((p) => p[1] !== null).map((p) => [p[0], p[1]!]));
+    new Map(
+      (pts ?? [])
+        .filter((p) => p[1] !== null && (endS === null || p[0] <= endS))
+        .map((p) => [p[0], p[1]!]),
+    );
   const conn = at(s.connections);
   const failed = at(s.failed);
   const req = at(s.httpRequests);
@@ -134,7 +140,12 @@ export function edgeHistory(s: EdgeSeries, fromS: number): EdgeHistory {
     );
   };
   const slow = (t: number) => (p95.get(t) ?? 0) >= EDGE_SLOW_P95_S;
-  const runStart = (is: (t: number) => boolean) => runFrom(times, is, fromS, s.step);
+  const runStart = (is: (t: number) => boolean) => {
+    if (endS === null) return runFrom(times, is, fromS, s.step);
+    let last = times.length - 1;
+    while (last >= 0 && !is(times[last]!)) last--;
+    return runFrom(times.slice(0, last + 1), is, fromS, s.step);
+  };
   const trouble = runStart(troubled);
   const slowFrom = runStart(slow);
   // The usual p95: the lower quartile of the hour's points, so a rise that lasts less than
@@ -191,7 +202,8 @@ export function edgeStep(ev: Evidence, dep: Dependency): Step {
     since: t ? ((t.code === 'slow' ? h?.slowSince : h?.troubleSince) ?? null) : null,
     next: 'calls',
   };
-  if (!t && wentQuiet(dep.edge, h, ev.now)) {
+  // Quiet at the window's end: now, or when a resolved alert ended.
+  if (!t && wentQuiet(dep.edge, h, Date.parse(ev.window.to))) {
     const dns = dnsTotals(ev);
     return lookupsFail(ev)
       ? {
