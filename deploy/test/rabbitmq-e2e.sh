@@ -9,7 +9,7 @@
 #     exec); then the page fills;
 #   - a publisher (perf-test, 20 messages/s to "orders") and a consumer that consumes for
 #     a minute and is then OOM-killed (a 384 MiB limit and `tail /dev/zero`): on Docker
-#     it stays dead, on Kubernetes it crash-loops;
+#     it stays dead, on Kubernetes it crash-loops without consuming again;
 #   - the queue grows with no consumers, and the reason names the consumer and how it
 #     ended.
 # `rabbitmq-e2e.sh down` removes what it made.
@@ -39,8 +39,13 @@ down
 in_vm 'kubectl --context kind-demo wait --for=delete namespace/rabbitmq-e2e --timeout 120s >/dev/null 2>&1 || true'
 
 publisher() { printf '%s' "[--uri, amqp://guest:guest@$1, -x, '1', -y, '0', -u, orders, -r, '20', -ad, 'false', -f, persistent]"; }
-# Consumes for a minute, then `tail` (PID 1 by then) grows until the limit kills it.
-consumer() { printf '%s' "java -jar /perf_test/perf-test.jar --uri amqp://guest:guest@$1 -x 0 -y 1 -u orders -ad false & sleep 60; exec tail /dev/zero"; }
+# Consumes for a minute, then `tail` (PID 1 by then) grows until the limit kills it. It
+# declares orders as the publisher does (-f persistent: durable); a different declaration
+# fails with PRECONDITION_FAILED and the queue never has a consumer.
+consumer() { printf '%s' "java -jar /perf_test/perf-test.jar --uri amqp://guest:guest@$1 -x 0 -y 1 -u orders -ad false -f persistent & sleep 60; exec tail /dev/zero"; }
+# On Kubernetes the pod restarts it: it consumes only on its first run (a mark in an emptyDir,
+# which lives as long as the pod), so the queue keeps no consumer from the first kill on.
+consumer_once() { printf '%s' "[ -e /state/ran ] || { touch /state/ran; java -jar /perf_test/perf-test.jar --uri amqp://guest:guest@$1 -x 0 -y 1 -u orders -ad false -f persistent & sleep 60; }; exec tail /dev/zero"; }
 
 say "images"
 # kind's nodes pull them themselves (`kind load` fails on multi-arch images whose other
@@ -94,8 +99,10 @@ spec:
       containers:
         - name: consumer
           image: $perf
-          command: [sh, -c, '$(consumer rabbitmq.rabbitmq-e2e)']
+          command: [sh, -c, '$(consumer_once rabbitmq.rabbitmq-e2e)']
           resources: { limits: { memory: 384Mi } }
+          volumeMounts: [{ name: state, mountPath: /state }]
+      volumes: [{ name: state, emptyDir: {} }]
 YAML
 in_vm 'kubectl --context kind-demo -n rabbitmq-e2e rollout status statefulset/rabbitmq --timeout 300s >/dev/null &&
   until kubectl --context kind-demo -n rabbitmq-e2e logs rabbitmq-0 2>/dev/null | grep -q "Server startup complete"; do sleep 3; done &&
