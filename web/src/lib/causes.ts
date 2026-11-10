@@ -3,9 +3,16 @@
 // where each object of a chain or a check links to. Codes come from GET /causes; every
 // sentence lives in en.json under `causes.` (ADR-147), and web/test/cause-templates.test.ts
 // renders each with its placeholders filled.
-import type { Cause, CauseCheck, CauseObject, Causes, CauseStep } from '@watchlog/api-types';
+import type {
+  Cause,
+  CauseCheck,
+  CauseObject,
+  Causes,
+  CauseStep,
+  OverviewProblem,
+} from '@watchlog/api-types';
 import type { RouteLocationRaw } from 'vue-router';
-import { reasonLine } from './applications';
+import { reasonLine, serviceName } from './applications';
 import { formatBytes, formatValue } from './units';
 
 export interface Line {
@@ -115,7 +122,7 @@ export function objectLink(o: CauseObject, clusterId: string): RouteLocationRaw 
         query: cluster,
       };
     case 'compose_service':
-      return { name: 'containers', query: { ...cluster, project: parts[0] } };
+      return { name: 'containers', query: { ...cluster, project: parts[0], service: parts[1] } };
     case 'node':
       return { name: 'node', params: { name: o.ref }, query: cluster };
     case 'host':
@@ -146,4 +153,154 @@ export function objectLink(o: CauseObject, clusterId: string): RouteLocationRaw 
     default:
       return undefined;
   }
+}
+
+// ---- The panel (v0.4 slice 6, ADR-148, ADR-156) ----
+
+/** How sure the answer is, as the chip says: a resolved alert's likely cause "was likely". */
+export type PanelState = 'likely' | 'possible' | 'none' | 'was';
+
+export function panelState(a: Pick<Causes, 'state' | 'resolvedAt'>): PanelState {
+  if (a.state === 'likely' && a.resolvedAt) return 'was';
+  return a.state;
+}
+
+/** The likely cause, whose chain the panel draws; null when there is none. */
+export const likelyOf = (a: Pick<Causes, 'causes'>) =>
+  a.causes.find((c) => c.strength === 'likely') ?? null;
+
+/** The other causes ("Also possible"), or all of them when none is likely. */
+export const possibleOf = (a: Pick<Causes, 'causes'>) =>
+  a.causes.filter((c) => c.strength === 'possible');
+
+/** A step's or a cause's time: a moment ("at 10:00:12") or a state ("since 10:01"). */
+export function stepTime(
+  s: Pick<CauseStep, 'at' | 'since'>,
+  format: (iso: string) => string,
+): Line | null {
+  if (s.at) return { key: 'causes.panel.at', values: { time: format(s.at) } };
+  if (s.since) return { key: 'causes.panel.since', values: { time: format(s.since) } };
+  return null;
+}
+
+/** What an object is, next to its name: "Deployment", "Pod", "Compose service on docker-01". */
+export function objectKind(o: CauseObject): Line {
+  if (o.kind === 'workload' && o.workloadKind) return { key: '', values: { text: o.workloadKind } };
+  if (o.kind === 'compose_service' && o.host)
+    return { key: 'causes.object.compose_service_on', values: { host: o.host } };
+  if (o.kind === 'application' && o.type) return { key: '', values: { text: serviceName(o.type) } };
+  return { key: `causes.object.${o.kind}`, values: {} };
+}
+
+/** "Open workload", "Open in service map": the link under a step. */
+export const openKey = (o: Pick<CauseObject, 'kind'>) => `causes.panel.open.${o.kind}`;
+
+/** The parts of "What we checked · 7 checks, 1 explains it". */
+export function checksSummary(checks: Pick<CauseCheck, 'result'>[], resolved = false): Line[] {
+  const n = (r: CauseCheck['result']) => checks.filter((c) => c.result === r).length;
+  // Counted as the headline counts them ("We checked 5 things"): what applies.
+  const total = checks.length - n('not_applicable');
+  const out: Line[] = [{ key: 'causes.panel.checksSummary', values: { n: total }, plural: total }];
+  const explains = n('explains');
+  const possible = n('possible');
+  const notRun = n('not_run');
+  if (explains)
+    out.push({
+      key: resolved ? 'causes.panel.summary.explained' : 'causes.panel.summary.explains',
+      values: { n: explains },
+      plural: explains,
+    });
+  if (possible) out.push({ key: 'causes.panel.summary.possible', values: { n: possible } });
+  if (notRun) out.push({ key: 'causes.panel.summary.notRun', values: { n: notRun } });
+  if (!explains && !possible) out.push({ key: 'causes.panel.summary.none', values: {} });
+  return out;
+}
+
+/** The MCP tool that gives the same answer (ADR-148): explain_alert for an alert. */
+export const mcpTool = (subject: string) =>
+  subject.startsWith('alert:') ? 'explain_alert' : 'explain_problem';
+
+type Translate = (key: string, values?: Record<string, unknown>, plural?: number) => string;
+
+/** A Line in words; a Line with no key is its `text` as is (a Kubernetes kind, a product). */
+export function say(t: Translate, l: Line): string {
+  if (!l.key) return String(l.values.text ?? '');
+  return l.plural === undefined ? t(l.key, l.values) : t(l.key, l.values, l.plural);
+}
+
+/**
+ * "Copy as text": the headline and the chain in plain words, for an AI chat or a ticket.
+ * The possible causes follow when none is likely.
+ */
+export function causesText(a: Causes, t: Translate, format: (iso: string) => string): string {
+  const state = panelState(a);
+  const lines = [
+    t('causes.text.header', {
+      state: t(`causes.panel.title.${state}`),
+      headline: say(t, headlineLine(a)),
+    }),
+  ];
+  const top = likelyOf(a);
+  if (top) {
+    top.chain.forEach((s, i) => {
+      const time = stepTime(s, format);
+      let line = t('causes.text.step', {
+        n: i + 1,
+        name: s.object.name,
+        kind: say(t, objectKind(s.object)),
+        source: t(sourceKey(s)),
+        fact: say(t, stepLine(s)),
+      });
+      if (time) line += t('causes.text.time', { time: say(t, time) });
+      if (i === top.chain.length - 1) line += t('causes.text.root');
+      lines.push(line);
+      const hop = connectorKey(s);
+      if (hop && i < top.chain.length - 1) lines.push(`   ↓ ${t(hop)}`);
+    });
+  }
+  for (const c of possibleOf(a)) {
+    const where = c.chain[c.chain.length - 1]?.object;
+    lines.push(
+      t('causes.text.possible', {
+        name: where?.name ?? a.subject.name,
+        cause: say(t, causeLine(c)),
+      }),
+    );
+  }
+  if (a.resolvedAt) lines.push(t('causes.panel.resolved', { time: format(a.resolvedAt) }));
+  lines.push(t('causes.text.footer'));
+  return lines.join('\n');
+}
+
+/**
+ * Lines on an alert's chart where the cause's moments are (a change, a kill): the chain's
+ * steps that have a time `at`, in seconds, with the step's sentence.
+ */
+export function causeMarkers(
+  a: Causes,
+  t: Translate,
+  format: (iso: string) => string,
+): { ts: number; label: string; colorToken: string }[] {
+  const top = likelyOf(a) ?? possibleOf(a)[0];
+  if (!top) return [];
+  return top.chain
+    .filter((s): s is CauseStep & { at: string } => !!s.at)
+    .map((s) => ({
+      ts: Math.floor(Date.parse(s.at) / 1000),
+      label: t('causes.panel.marker', {
+        what: say(t, stepLine(s)).replace(/\.$/, ''),
+        at: format(s.at),
+      }),
+      colorToken: '--info',
+    }));
+}
+
+/** A Needs-attention problem's line (ADR-156): the chip's state and the sentence. */
+export function problemCause(p: OverviewProblem): { state: PanelState; line: Line[] } | null {
+  if (p.likelyCause) return { state: 'likely', line: [headlineLine(p.likelyCause)] };
+  if (p.causeState === 'possible' && p.possibleCauses?.length)
+    return { state: 'possible', line: p.possibleCauses.map((c) => causeLine(c)) };
+  if (p.causeState === 'none')
+    return { state: 'none', line: [{ key: 'causes.line.none', values: {} }] };
+  return null;
 }

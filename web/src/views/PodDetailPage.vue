@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { api } from '@/api/client';
 import TimeSeriesChart, { type ChartSeries } from '@/components/charts/TimeSeriesChart.vue';
+import CausePanel from '@/components/causes/CausePanel.vue';
 import EventList from '@/components/kube/EventList.vue';
 import TonePill from '@/components/kube/TonePill.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
@@ -239,6 +240,15 @@ onBeforeUnmount(() => clearInterval(timer));
           <p v-if="detail.message" class="text-text-muted">{{ detail.message }}</p>
         </div>
       </div>
+
+      <!-- The probable cause, near the last termination (ADR-148); nothing on a healthy pod. -->
+      <CausePanel
+        v-if="clusterId"
+        :cluster-id="clusterId"
+        :subject="`pod:${pod.namespace}/${pod.name}`"
+        :name="pod.name"
+        quiet
+      />
 
       <section>
         <h3 class="mb-3 text-16 font-semibold text-text">{{ $t('kube.pod.containers') }}</h3>

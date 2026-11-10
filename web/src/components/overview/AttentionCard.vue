@@ -1,15 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import { CircleCheck } from '@lucide/vue';
+import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
+import CauseChip from '@/components/causes/CauseChip.vue';
+import { problemCause, say } from '@/lib/causes';
 import { problemLink, type Overview } from '@/lib/overview';
 import { since } from '@/lib/time';
 import OverviewCard from './OverviewCard.vue';
 
 // Needs attention: exactly the status strip's list. Firing alerts first, then object
 // problems no alert covers; a title and a "why" line in words; age; a click opens the
-// alert or the object.
+// alert or the object. Under each, its cause in one line (ADR-148, ADR-156): the chip and
+// the likely cause's headline, the possible ones joined, or "no clear cause".
 defineProps<{ overview: Overview }>();
+const { t } = useI18n();
+const tr = (key: string, values?: Record<string, unknown>, plural?: number) =>
+  plural === undefined ? t(key, values ?? {}) : t(key, values ?? {}, plural);
+function causeOf(p: Overview['problems']['items'][number]) {
+  const c = problemCause(p);
+  return c ? { state: c.state, text: c.line.map((l) => say(tr, l)).join(' · ') } : null;
+}
 </script>
 
 <template>
@@ -51,6 +62,20 @@ defineProps<{ overview: Overview }>();
                 · {{ $t('overview.attention.related', { n: p.related }, p.related) }}</template
               ></span
             >
+            <span
+              v-if="causeOf(p)"
+              class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1"
+              data-testid="attention-cause"
+            >
+              <CauseChip :state="causeOf(p)!.state" />
+              <span
+                :class="[
+                  'line-clamp-2 min-w-0 flex-[1_1_12rem] text-12 break-words',
+                  causeOf(p)!.state === 'none' ? 'text-text-muted' : 'text-text',
+                ]"
+                >{{ causeOf(p)!.text }}</span
+              >
+            </span>
           </span>
           <span class="font-mono text-12 whitespace-nowrap text-text-subtle">{{
             p.since ? since(p.since) : ''

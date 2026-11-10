@@ -5,7 +5,7 @@ import type { AlertChart, AlertChartPanel } from '@watchlog/api-types';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import StateTimeline from '@/components/alerts/StateTimeline.vue';
-import TimeSeriesChart from '@/components/charts/TimeSeriesChart.vue';
+import TimeSeriesChart, { type ChartMarker } from '@/components/charts/TimeSeriesChart.vue';
 import SkeletonChart from '@/components/ui/SkeletonChart.vue';
 import {
   chartAreas,
@@ -24,6 +24,8 @@ const props = defineProps<{
   severity: string;
   loading?: boolean;
   error?: boolean;
+  /** More lines: the probable cause's moments (the alert detail page). */
+  extraMarkers?: ChartMarker[];
 }>();
 defineEmits<{ retry: [] }>();
 const { t, te } = useI18n();
@@ -31,8 +33,18 @@ const { t, te } = useI18n();
 const span = computed<[number, number]>(() =>
   props.chart ? [props.chart.window.from, props.chart.window.to] : [0, 0],
 );
-const markers = computed(() => (props.chart ? chartMarkers(props.chart, props.severity, t) : []));
-const legend = computed(() => (props.chart ? markerLegend(props.chart, markers.value, t) : []));
+const own = computed(() => (props.chart ? chartMarkers(props.chart, props.severity, t) : []));
+const markers = computed(() => [...own.value, ...(props.extraMarkers ?? [])]);
+const legend = computed(() =>
+  props.chart
+    ? [
+        ...markerLegend(props.chart, own.value, t),
+        ...(props.extraMarkers ?? [])
+          .filter((m) => m.ts >= props.chart!.window.from && m.ts <= props.chart!.window.to)
+          .map((m) => m.label),
+      ]
+    : [],
+);
 const areas = computed(() => (props.chart ? chartAreas(props.chart, props.severity, t) : []));
 
 function title(p: AlertChartPanel): string {

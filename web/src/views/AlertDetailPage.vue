@@ -9,16 +9,18 @@ import {
   CirclePause,
   Send,
 } from '@lucide/vue';
-import type { AlertChart as AlertChartData, AlertDetail } from '@watchlog/api-types';
-import { computed, onMounted, ref, watch } from 'vue';
+import type { AlertChart as AlertChartData, AlertDetail, Causes } from '@watchlog/api-types';
+import { computed, onMounted, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { api, ApiError } from '@/api/client';
 import AlertChart from '@/components/alerts/AlertChart.vue';
 import AlertTable from '@/components/alerts/AlertTable.vue';
 import SilenceForm from '@/components/alerts/SilenceForm.vue';
+import CausePanel from '@/components/causes/CausePanel.vue';
 import TonePill from '@/components/kube/TonePill.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import CodeBlock from '@/components/ui/CodeBlock.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import SkeletonDetailHeader from '@/components/ui/SkeletonDetailHeader.vue';
@@ -32,6 +34,7 @@ import {
   severityTone,
   stateTone,
 } from '@/lib/alerts';
+import { causeMarkers } from '@/lib/causes';
 import { formatDateTime, formatWhen } from '@/lib/format';
 import { RANGE_SECONDS, since } from '@/lib/time';
 import type { Tone } from '@/lib/kube';
@@ -88,6 +91,14 @@ const steps = computed<Step[]>(() => {
 /** "Oct 31, 2026, 21:42 · 18m ago": the app's date format plus relative time. */
 const when = (iso: string) =>
   `${formatDateTime(iso)} · ${t('alerts.detail.ago', { d: since(iso) })}`;
+
+// The probable cause (ADR-148): its moments (a change, a kill) as lines on the chart.
+const cause = shallowRef<Causes | null>(null);
+const tr = (key: string, values?: Record<string, unknown>, plural?: number) =>
+  plural === undefined ? t(key, values ?? {}) : t(key, values ?? {}, plural);
+const causeMarks = computed(() =>
+  cause.value ? causeMarkers(cause.value, tr, (iso) => formatWhen(iso)) : [],
+);
 
 function silenced() {
   silencing.value = false;
@@ -209,8 +220,16 @@ onMounted(() => {
         @cancel="silencing = false"
       />
 
+      <CausePanel
+        :cluster-id="page.data.value.alert.cluster.id"
+        :subject="`alert:${page.data.value.alert.id}`"
+        :name="alertTargetName(page.data.value.alert) || undefined"
+        @answer="(a) => (cause = a)"
+      />
+
       <AlertChart
         :chart="chart.data.value ?? null"
+        :extra-markers="causeMarks"
         :severity="page.data.value.alert.severity"
         :loading="chart.loading.value"
         :error="!!chart.error.value"
@@ -287,6 +306,18 @@ onMounted(() => {
         >
           {{ $t('alerts.detail.noMessages') }}
         </p>
+      </section>
+
+      <section
+        class="flex flex-col gap-2.5 rounded-card border border-border bg-surface-1 p-5 max-md:p-4"
+        data-testid="ask-ai"
+      >
+        <h3 class="text-14 font-semibold text-text">{{ $t('causes.panel.ask.title') }}</h3>
+        <p class="text-13 text-text-muted">{{ $t('causes.panel.ask.description') }}</p>
+        <CodeBlock
+          :label="$t('causes.panel.ask.label')"
+          :code="`explain_alert(id: &quot;${page.data.value.alert.id}&quot;)`"
+        />
       </section>
 
       <section v-if="page.data.value.history.length" class="flex flex-col gap-3">

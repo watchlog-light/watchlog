@@ -1,11 +1,12 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { Container, Hourglass, SearchX } from '@lucide/vue';
+import { Container, Hourglass, SearchX, X } from '@lucide/vue';
 import type { DockerContainerList } from '@watchlog/api-types';
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
+import CausePanel from '@/components/causes/CausePanel.vue';
 import ContainerList from '@/components/docker/ContainerList.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
@@ -57,7 +58,15 @@ const base = computed(() => ({
   failing: failing.value,
   hideOwn: hideOwn.value,
 }));
-const shown = computed(() => filterContainerRows(rows.value, base.value));
+// A Compose service's page (?project=&service=): its containers and its probable cause.
+const service = computed(() =>
+  typeof route.query.service === 'string' && filter.scope.value.project ? route.query.service : '',
+);
+const shown = computed(() =>
+  filterContainerRows(rows.value, base.value).filter(
+    (r) => !service.value || r.composeService === service.value,
+  ),
+);
 // Chip counts follow the other filters, not the chips themselves.
 const stateCount = (s: (typeof CONTAINER_STATUSES)[number]) =>
   filterContainerRows(rows.value, { ...base.value, statuses: [] }).filter((c) => hasStatus(c, s))
@@ -168,6 +177,17 @@ onBeforeUnmount(() => clearInterval(timer));
           >
             {{ $t(`docker.filter.status.${s}`) }} <b>{{ stateCount(s) }}</b>
           </button>
+          <span v-if="service" class="chip" aria-pressed="true" data-testid="service-chip">
+            {{ $t('causes.object.compose_service') }} {{ filter.scope.value.project }}/{{ service }}
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-full p-0.5 hover:bg-surface-3 max-lg:min-h-11 max-lg:min-w-11"
+              :aria-label="$t('docker.list.clearService')"
+              @click="setQuery({ service: undefined })"
+            >
+              <X class="size-3" aria-hidden="true" />
+            </button>
+          </span>
           <span class="flex-1" />
           <button
             type="button"
@@ -186,6 +206,15 @@ onBeforeUnmount(() => clearInterval(timer));
             }}<span :class="{ 'text-critical': part.critical }">{{ part.text }}</span></template
           >
         </p>
+
+        <CausePanel
+          v-if="service && page.data.value"
+          :key="`${filter.scope.value.project}/${service}`"
+          :cluster-id="page.data.value.fleetId"
+          :subject="`compose_service:${filter.scope.value.project}/${service}`"
+          :name="`${filter.scope.value.project}/${service}`"
+          quiet
+        />
 
         <ContainerList
           v-if="shown.length"

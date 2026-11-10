@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { api } from '@/api/client';
 import TimeSeriesChart, { type ChartSeries } from '@/components/charts/TimeSeriesChart.vue';
+import CausePanel from '@/components/causes/CausePanel.vue';
 import ContainerDiagnosis from '@/components/docker/ContainerDiagnosis.vue';
 import ContainerStatePill from '@/components/docker/ContainerStatePill.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
@@ -145,11 +146,17 @@ onMounted(page.load);
         <div>
           <dt class="text-12 text-text-subtle">{{ $t('docker.facts.compose') }}</dt>
           <dd class="text-text">
-            {{
-              container.composeProject
-                ? `${container.composeProject} / ${container.composeService}`
-                : '–'
-            }}
+            <RouterLink
+              v-if="container.composeProject && container.composeService"
+              :to="{
+                name: 'containers',
+                query: { project: container.composeProject, service: container.composeService },
+              }"
+              class="hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+              data-testid="compose-service-link"
+              >{{ container.composeProject }} / {{ container.composeService }}</RouterLink
+            >
+            <template v-else>{{ container.composeProject ?? '–' }}</template>
           </dd>
         </div>
         <div v-if="container.ports.length > 0">
@@ -167,6 +174,14 @@ onMounted(page.load);
       </dl>
     </header>
     <ContainerDiagnosis v-if="container" :container="container" />
+    <!-- The probable cause (ADR-148, ADR-149); nothing on a healthy container. -->
+    <CausePanel
+      v-if="container && clusterId"
+      :cluster-id="clusterId"
+      :subject="`container:${hostName}/${name}`"
+      :name="name"
+      quiet
+    />
 
     <div v-if="!notFound" class="grid gap-4 lg:grid-cols-2">
       <TimeSeriesChart

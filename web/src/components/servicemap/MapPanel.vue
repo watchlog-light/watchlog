@@ -6,6 +6,7 @@ import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
 import { api } from '@/api/client';
+import CausePanel from '@/components/causes/CausePanel.vue';
 import TimeSeriesChart from '@/components/charts/TimeSeriesChart.vue';
 import TonePill from '@/components/kube/TonePill.vue';
 import { useLoader } from '@/composables/useLoader';
@@ -353,6 +354,15 @@ const alert = computed(() => series.data.value?.context.alert ?? null);
           <ArrowRight class="size-3.5" aria-hidden="true" />
         </RouterLink>
       </div>
+      <!-- A failing or slow edge's probable cause, compact (ADR-148). -->
+      <CausePanel
+        v-if="edge.health === 'critical' || edge.health === 'warning' || reason"
+        :key="edge.id"
+        :cluster-id="clusterId"
+        :subject="`edge:${edge.id}`"
+        :name="`${name(edge.source)} → ${name(edge.target)}`"
+        compact
+      />
       <dl class="grid grid-cols-2 gap-2">
         <div class="rounded-control bg-surface-2 px-2.5 py-2">
           <dt class="text-12 text-text-muted">{{ $t('serviceMap.panel.connections') }}</dt>

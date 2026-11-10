@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError, api } from '@/api/client';
 import ServiceAlerts from '@/components/applications/ServiceAlerts.vue';
+import CausePanel from '@/components/causes/CausePanel.vue';
 import SettingsDrawer from '@/components/applications/SettingsDrawer.vue';
 import ServicePanel from '@/components/panels/ServicePanel.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
@@ -299,6 +300,15 @@ async function resume() {
           </li>
         </ul>
       </section>
+
+      <!-- Beside the finding: what caused it (ADR-148), e.g. a queue's consumer OOM-killed. -->
+      <CausePanel
+        v-if="app.finding"
+        :key="app.id"
+        :cluster-id="app.cluster.id"
+        :subject="`application:${app.id}`"
+        :name="app.name"
+      />
 
       <section
         v-if="page.data.value?.collectorCommand && auth.canManage"

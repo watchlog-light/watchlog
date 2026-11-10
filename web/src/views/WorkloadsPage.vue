@@ -5,6 +5,7 @@ import type { KubePodList, KubeWorkloadList } from '@watchlog/api-types';
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
+import CausePanel from '@/components/causes/CausePanel.vue';
 import PodList from '@/components/kube/PodList.vue';
 import WorkloadList from '@/components/kube/WorkloadList.vue';
 import SegmentedControl from '@/components/overview/SegmentedControl.vue';
@@ -219,7 +220,7 @@ onBeforeUnmount(() => clearInterval(timer));
             {{ owner.kind }} {{ owner.namespace }}/{{ owner.name }}
             <button
               type="button"
-              class="rounded-full p-0.5 hover:bg-surface-3"
+              class="inline-flex items-center justify-center rounded-full p-0.5 hover:bg-surface-3 max-lg:min-h-11 max-lg:min-w-11"
               :aria-label="$t('kube.workloads.clearOwner')"
               @click="setQuery({ wkind: undefined, wname: undefined, wns: undefined })"
             >
@@ -260,6 +261,20 @@ onBeforeUnmount(() => clearInterval(timer));
           }}</span>
           <LoadingIndicator :active="page.refreshing.value" class="ml-1" />
         </p>
+
+        <!-- A workload's page (its pods): the probable cause above them (ADR-148). -->
+        <CausePanel
+          v-if="view === 'pods' && owner && page.data.value"
+          :key="`${owner.namespace}/${owner.kind}/${owner.name}`"
+          :cluster-id="page.data.value.clusterId"
+          :subject="
+            owner.kind
+              ? `workload:${owner.namespace}/${owner.kind}/${owner.name}`
+              : `workload:${owner.namespace}/${owner.name}`
+          "
+          :name="`${owner.namespace}/${owner.name}`"
+          quiet
+        />
 
         <SkeletonTable
           v-if="view === 'pods' && !podsLoaded"

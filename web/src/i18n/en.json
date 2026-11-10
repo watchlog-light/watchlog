@@ -429,7 +429,8 @@
       "failing": "Failing",
       "summary": "1 container | {n} containers",
       "ownHidden": "{n} of WatchLog's hidden",
-      "filter": "Name, image, project or host"
+      "filter": "Name, image, project or host",
+      "clearService": "Show every service of the project"
     }
   },
   "kube": {
@@ -2876,7 +2877,7 @@
       "none_no_changes": "We checked {n} things around {name} and none of them explains it. Nothing changed in the {minutes} minutes before.",
       "none_found": "No rule explains what happens to {name}. We checked {n} things; {found} of them found something to look at.",
       "none_flows_off": "Nothing on {name} itself explains it. Without network flows we couldn't check the services it calls.",
-      "possible": "Nothing proves one cause for {name}. These {n} could explain it.",
+      "possible": "Nothing proves one cause for {name}. This one could explain it. | Nothing proves one cause for {name}. These {n} could explain it.",
       "oom_limit": "{name} is OOM-killed when it reaches its {limit} memory limit: once in the last hour. | {name} is OOM-killed when it reaches its {limit} memory limit: {n} times in the last hour.",
       "oom_limit_restarts": "{name} is OOM-killed when it reaches its {limit} memory limit; it restarted once in the last hour. | {name} is OOM-killed when it reaches its {limit} memory limit; it restarted {n} times in the last hour.",
       "oom_limit_last": "{name} was OOM-killed when it reached its {limit} memory limit.",
@@ -3127,6 +3128,102 @@
       "ok": "fine",
       "not_run": "couldn't check",
       "not_applicable": "doesn't apply"
+    },
+    "panel": {
+      "title": {
+        "likely": "Likely cause",
+        "possible": "Possible causes",
+        "none": "No clear cause",
+        "was": "Was likely"
+      },
+      "chip": {
+        "likely": "Likely",
+        "possible": "Possible",
+        "none": "No clear cause",
+        "was": "Was likely"
+      },
+      "checked": "checked {ago} ago",
+      "checkedNow": "checked just now",
+      "resolvedMeta": "resolved {at}",
+      "copy": "Copy as text",
+      "copyLabel": "Copy the headline and the chain as text",
+      "loading": "Checking {name} and what is around it…",
+      "loadingAny": "Checking what is around it…",
+      "error": "WatchLog couldn't work out the cause right now. The rest of this page is unaffected.",
+      "chain": "Evidence chain",
+      "step": "Step {n}",
+      "root": "Where it starts",
+      "at": "at {time}",
+      "since": "since {time}",
+      "also": "Also possible",
+      "leads": "Leads to check",
+      "possibleSince": "since {time}",
+      "resolved": "Resolved at {time}.",
+      "resolvedAfter": "Resolved at {time}, {d} after it began.",
+      "flowsOff": "Network flows are off on {nodes}, so WatchLog can't follow calls between services. Causes on {name} itself still work.",
+      "flowsOffLink": "How to turn network flows on",
+      "checks": "What we checked",
+      "checksSummary": "{n} check | {n} checks",
+      "summary": {
+        "explains": "{n} explains it | {n} explain it",
+        "explained": "{n} explained it | {n} explained it",
+        "possible": "{n} possible",
+        "notRun": "{n} couldn't run",
+        "none": "none explains it"
+      },
+      "checkResult": {
+        "explains": "Explains it",
+        "possible": "A lead",
+        "ok": "Fine",
+        "not_run": "Couldn't check",
+        "not_applicable": "Doesn't apply"
+      },
+      "footer": "Fixed rules over data WatchLog already collects. No AI, no scores.",
+      "tool": "Your AI gets the same evidence:",
+      "open": {
+        "pod": "Open pod",
+        "workload": "Open workload",
+        "container": "Open container",
+        "compose_service": "Open service",
+        "node": "Open node",
+        "host": "Open host",
+        "edge": "Open in service map",
+        "application": "Open application",
+        "alert": "Open alert",
+        "change": "Open change",
+        "cluster": "Open cluster"
+      },
+      "ask": {
+        "title": "Ask your AI",
+        "description": "Claude, ChatGPT or Cursor connected over MCP get this same evidence.",
+        "label": "MCP tool call"
+      },
+      "marker": "{what} · {at}"
+    },
+    "object": {
+      "pod": "Pod",
+      "container": "container",
+      "compose_service": "Compose service",
+      "compose_service_on": "Compose service on {host}",
+      "node": "Node",
+      "host": "Docker host",
+      "edge": "connection",
+      "application": "application",
+      "alert": "alert",
+      "change": "change",
+      "cluster": "cluster",
+      "workload": "workload"
+    },
+    "line": {
+      "none": "Nothing we checked explains it. Open it to see what was checked."
+    },
+    "text": {
+      "header": "{state}: {headline}",
+      "step": "{n}. {name} ({kind}, {source}): {fact}",
+      "time": " ({time})",
+      "root": " — where it starts",
+      "possible": "Possible: {name}: {cause}",
+      "footer": "From WatchLog: fixed rules over collected data, no AI, no scores."
     }
   }
 }
