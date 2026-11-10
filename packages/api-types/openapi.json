@@ -18846,6 +18846,89 @@
                               }
                             }
                           },
+                          "finding": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["severity", "code", "facts"],
+                                "properties": {
+                                  "severity": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": ["ok"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["info"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["warning"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["critical"]
+                                      }
+                                    ]
+                                  },
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "facts": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "links": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "required": ["kind", "id", "name"],
+                                      "properties": {
+                                        "kind": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "enum": ["workload"]
+                                            },
+                                            {
+                                              "type": "string",
+                                              "enum": ["container"]
+                                            },
+                                            {
+                                              "type": "string",
+                                              "enum": ["alert"]
+                                            }
+                                          ]
+                                        },
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "members": {
                             "type": "object",
                             "required": ["up", "total"],
@@ -19388,6 +19471,89 @@
                               }
                             }
                           }
+                        },
+                        "finding": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["severity", "code", "facts"],
+                              "properties": {
+                                "severity": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["ok"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["info"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["warning"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["critical"]
+                                    }
+                                  ]
+                                },
+                                "code": {
+                                  "type": "string"
+                                },
+                                "facts": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "links": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "required": ["kind", "id", "name"],
+                                    "properties": {
+                                      "kind": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "enum": ["workload"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["container"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["alert"]
+                                          }
+                                        ]
+                                      },
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "members": {
                           "type": "object",
@@ -20981,6 +21147,89 @@
                               }
                             }
                           }
+                        },
+                        "finding": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["severity", "code", "facts"],
+                              "properties": {
+                                "severity": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["ok"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["info"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["warning"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["critical"]
+                                    }
+                                  ]
+                                },
+                                "code": {
+                                  "type": "string"
+                                },
+                                "facts": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "links": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "required": ["kind", "id", "name"],
+                                    "properties": {
+                                      "kind": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "enum": ["workload"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["container"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["alert"]
+                                          }
+                                        ]
+                                      },
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "members": {
                           "type": "object",

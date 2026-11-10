@@ -59,7 +59,7 @@ async function overview(ctx: PageContext): Promise<Panel[]> {
     qDeliver,
   ] = await Promise.all([
     instant(ctx, `sum(rabbitmq_queue_messages_ready{${s}})`),
-    instant(ctx, `sum(deriv(rabbitmq_queue_messages_ready{${s}}[5m]))`),
+    queueGrowth(ctx),
     instant(ctx, `sum(rabbitmq_queue_messages_unacked{${s}})`),
     instant(ctx, `sum(rate(rabbitmq_global_messages_received_total{${s}}[${RATE}]))`),
     instant(ctx, `sum(rate(rabbitmq_global_messages_delivered_total{${s}}[${RATE}]))`),
@@ -94,7 +94,8 @@ async function overview(ctx: PageContext): Promise<Panel[]> {
   const c = valueOf(consumers);
   const cWas = valueOf(consumersWas);
   const mem = valueOf(memory);
-  const rr = valueOf(readyRate);
+  // The same numbers as the findings: the sum of each queue's growth.
+  const rr = readyRate.size ? [...readyRate.values()].reduce((a, b) => a + b, 0) : null;
   const queues = qReady
     .map((q) => ({
       labels: q.labels,
@@ -227,6 +228,41 @@ async function overview(ctx: PageContext): Promise<Panel[]> {
 }
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
+
+/**
+ * Each queue's ready messages per second over the last 5 minutes, from its own series,
+ * evaluated at a 30 s boundary (the heavy scrape's interval): the Ready card and the
+ * findings use this one value, so they never say 180 and 181 a minute.
+ */
+export async function queueGrowth(ctx: PageContext): Promise<Map<string, number>> {
+  if (!ctx.vm) return new Map();
+  const at = Math.floor(ctx.now / 1000 / 30) * 30;
+  const rows = await ctx.vm.query(
+    { clusterId: ctx.row.cluster_id },
+    `sum by (${QBY}) (deriv(rabbitmq_detailed_queue_messages_ready{${one(ctx.row.id)}}[5m]))`,
+    at,
+  );
+  return new Map(rows.map((r) => [queueName(r.labels), r.points[0]?.[1] ?? 0]));
+}
+
+/** The last time a queue had a consumer, from the last 6 hours (null: none in them). */
+async function lastConsumedAt(ctx: PageContext, q: string): Promise<number | null> {
+  if (!ctx.vm) return null;
+  const end = Math.floor(ctx.now / 1000);
+  const rows = await ctx.vm.queryRange(
+    { clusterId: ctx.row.cluster_id },
+    `sum(rabbitmq_detailed_queue_consumers{${one(ctx.row.id)},${q}})`,
+    end - 6 * 3600,
+    end,
+    30,
+  );
+  const points = rows[0]?.points ?? [];
+  for (let i = points.length - 1; i >= 0; i--) {
+    const [t, v] = points[i]!;
+    if (v !== null && v > 0) return t;
+  }
+  return null;
+}
 const perMin = (perSecond: number) => Math.round(Math.abs(perSecond) * 60);
 
 async function queues(ctx: PageContext): Promise<Panel[]> {
@@ -620,16 +656,9 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
     // When the consumers left: the last time the busiest idle queue had one.
     const top = [...idle].sort((a, b) => (b.points[0]?.[1] ?? 0) - (a.points[0]?.[1] ?? 0))[0]!;
     const q = `vhost="${esc(top.labels.vhost ?? '/')}",queue="${esc(top.labels.queue ?? '')}"`;
-    const lastSeen = await instant(
-      ctx,
-      `tlast_over_time((sum(rabbitmq_detailed_queue_consumers{${s},${q}}) > 0)[24h:1m])`,
-    );
-    const lostAt = valueOf(lastSeen);
+    const lostAt = await lastConsumedAt(ctx, q);
     const ended = await endedClients(ctx, lostAt);
-    const growth = await instant(
-      ctx,
-      `sum(deriv(rabbitmq_detailed_queue_messages_ready{${s},${q}}[5m]))`,
-    );
+    const growth = await queueGrowth(ctx);
     const first = ended[0];
     out.push({
       severity: 'critical',
@@ -638,7 +667,10 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
         queue: queueName(top.labels),
         queues: idle.length,
         ready: Math.round(top.points[0]?.[1] ?? 0),
-        perMin: perMin(valueOf(growth) ?? 0),
+        perMin: perMin(growth.get(queueName(top.labels)) ?? 0),
+        // When it last had a consumer (unix seconds), within the last 6 hours; the page
+        // writes "09:58 (3 min ago)" in the reader's time. null: none in 6 hours.
+        sinceAt: lostAt,
         since: lostAt ? ago(lostAt, ctx.now) : null,
         consumer: first?.name ?? null,
         how: first?.how ?? null,
@@ -647,12 +679,16 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
       links: ended.map((e) => ({ kind: e.kind, id: e.id, name: e.name })),
     });
   }
-  for (const g of growing.slice(0, 3)) {
-    out.push({
-      severity: 'warning',
-      code: 'queue_growing',
-      facts: { queue: queueName(g.labels), perMin: perMin(g.points[0]?.[1] ?? 0) },
-    });
+  if (growing.length) {
+    const growth = await queueGrowth(ctx);
+    for (const g of growing.slice(0, 3)) {
+      const name = queueName(g.labels);
+      out.push({
+        severity: 'warning',
+        code: 'queue_growing',
+        facts: { queue: name, perMin: perMin(growth.get(name) ?? g.points[0]?.[1] ?? 0) },
+      });
+    }
   }
   for (const a of alarms) {
     out.push({

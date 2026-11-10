@@ -84,8 +84,11 @@ export const ApplicationSchema = Type.Object({
   }),
   /** What the collector connects to: a workload, a Compose service, a container or an address. */
   target: TargetSchema,
+  /** The worst of reachability and the active findings (critical, then warning). */
   health: Health,
   reason: Reason,
+  /** The most severe active finding when it decides the health ("What WatchLog sees"). */
+  finding: Type.Optional(Type.Union([ReasonSchema, Type.Null()])),
   members: Type.Object({ up: Type.Integer(), total: Type.Integer() }),
   monitoredSince: Type.String(),
   lastReportAt: Type.Union([Type.String(), Type.Null()]),
@@ -165,6 +168,7 @@ function toView(
     target: row.target,
     health,
     reason,
+    finding: null,
     members: { up: members.filter((m) => m.up).length, total: members.length },
     monitoredSince: row.monitored_since.toISOString(),
     lastReportAt: row.last_report_at?.toISOString() ?? null,
@@ -172,6 +176,20 @@ function toView(
 }
 
 const ORDER: Record<string, number> = { critical: 0, warning: 1, unknown: 2, ok: 3 };
+
+/**
+ * A service's health from reachability and its active findings: a critical finding makes
+ * it critical, a warning one at least warning. The list, the page, the REST API and MCP
+ * all get it from here, so the badge never says healthy beside a red finding.
+ */
+export function withFindings(view: ApplicationView, own: Reason[]): ApplicationView {
+  const worst =
+    own.find((r) => r.severity === 'critical') ?? own.find((r) => r.severity === 'warning');
+  if (!worst) return { ...view, finding: null };
+  const sev = worst.severity as 'critical' | 'warning';
+  const health = ORDER[sev]! < ORDER[view.health]! ? sev : view.health;
+  return { ...view, health, finding: worst };
+}
 const PAGE_CACHE_MS = 15_000;
 
 const RangeQuery = Type.Integer({ description: 'Seconds back from now: 1h, 6h, 24h or 7d' });
@@ -193,6 +211,46 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
     string,
     { at: number; own: Reason[]; connected: ConnectedResult | null }
   >();
+
+  // A service's own findings (its integration's reasons), shared by the list and the
+  // page for 15 s; refreshed at once when the collector reports something new.
+  const findingsCache = new Map<string, { at: number; own: Reason[] }>();
+  const extraHash = (row: ApplicationRow) =>
+    createHash('sha1')
+      .update(JSON.stringify((row.status_details as { extra?: unknown } | null)?.extra ?? null))
+      .digest('base64url')
+      .slice(0, 12);
+  async function findingsOf(
+    row: ApplicationRow,
+    view: ApplicationView,
+    collectors: CollectorRow[],
+    now: number,
+    log?: { warn: (o: object, msg: string) => void },
+  ): Promise<Reason[]> {
+    if (!victoria || view.reason.code !== 'connected') return [];
+    const key = `${row.id}:${extraHash(row)}`;
+    const hit = findingsCache.get(key);
+    if (hit && now - hit.at <= PAGE_CACHE_MS) return hit.own;
+    const ctx: PageContext = {
+      db,
+      vm: victoria,
+      row,
+      collector: collectorOf(row, collectors),
+      range: 3600,
+      now,
+    };
+    const own = await pageOf(row.type)
+      .reasons(ctx)
+      .catch((err: Error) => {
+        log?.warn({ err: err.message }, 'service findings failed');
+        return [] as Reason[];
+      });
+    findingsCache.set(key, { at: now, own });
+    if (findingsCache.size > 500) {
+      for (const [k, v] of findingsCache) if (now - v.at > PAGE_CACHE_MS) findingsCache.delete(k);
+    }
+    return own;
+  }
 
   /** One service the caller's organization monitors, with what its page needs. */
   async function contextOf(orgId: string, id: string, range: number) {
@@ -230,7 +288,21 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
       });
       const collectors = await listCollectors(db, [...new Set(rows.map((r) => r.cluster_id))]);
       const now = Date.now();
-      const applications = rows.map((r) => toView(r, collectors, now));
+      // Each connected service's findings, four at a time (cached 15 s).
+      const applications: ApplicationView[] = new Array(rows.length);
+      let next = 0;
+      await Promise.all(
+        Array.from({ length: Math.min(4, rows.length) }, async () => {
+          while (next < rows.length) {
+            const i = next++;
+            const view = toView(rows[i]!, collectors, now);
+            applications[i] = withFindings(
+              view,
+              await findingsOf(rows[i]!, view, collectors, now, request.log),
+            );
+          }
+        }),
+      );
       applications.sort(
         (a, b) => ORDER[a.health]! - ORDER[b.health]! || a.name.localeCompare(b.name),
       );
@@ -553,32 +625,29 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         });
       // The metric-backed parts are cached for 15 s (after the organization check above).
       // A new report of what the collector found (stub_status, metrics on) shows at once.
-      const found_ = createHash('sha1')
-        .update(
-          JSON.stringify((ctx.row.status_details as { extra?: unknown } | null)?.extra ?? null),
-        )
-        .digest('base64url')
-        .slice(0, 12);
-      const key = `${ctx.row.id}:${range}:${view.reason.code}:${found_}`;
+      const key = `${ctx.row.id}:${range}:${view.reason.code}:${extraHash(ctx.row)}`;
       let cached = pageCache.get(key);
       if (!cached || ctx.now - cached.at > PAGE_CACHE_MS) {
-        const [own, connected] = await Promise.all([
-          view.reason.code === 'connected' ? soft(page.reasons(ctx), []) : Promise.resolve([]),
-          soft(connectedTo(ctx), null),
-        ]);
-        cached = { at: ctx.now, own, connected };
+        cached = { at: ctx.now, own: [], connected: await soft(connectedTo(ctx), null) };
         pageCache.set(key, cached);
         if (pageCache.size > 500) {
           for (const [k, v] of pageCache) if (ctx.now - v.at > PAGE_CACHE_MS) pageCache.delete(k);
         }
       }
-      const { own, connected } = cached;
+      const { connected } = cached;
+      const own = await findingsOf(
+        ctx.row,
+        view,
+        ctx.collector ? [ctx.collector] : [],
+        ctx.now,
+        request.log,
+      );
       const reasons = sortReasons([
         ...statusReasons(view.health, view.reason, ctx.row.status_details, ctx.row.target),
         ...own,
       ]);
       return {
-        application: view,
+        application: withFindings(view, own),
         reasons,
         connected,
         page: { id: page.id, tabs: page.tabs.map((t) => ({ id: t.id, title: t.title })) },

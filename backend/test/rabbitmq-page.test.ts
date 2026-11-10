@@ -15,6 +15,7 @@ import {
   type TestContext,
 } from './helpers.js';
 import { testWorker } from './support/alerts.js';
+import { mcpClient } from './support/mcp.js';
 import { encode, type TestSeries } from './support/remote-write.js';
 
 const RUN = `rabbitmq-page-${Date.now()}`;
@@ -303,6 +304,35 @@ describe('the RabbitMQ page', () => {
       links: [{ kind: 'workload', id: 'shop/Deployment/worker', name: 'shop/worker' }],
     });
     expect(r.facts.since).toMatch(/min ago/);
+    // When the consumers left, for the page to write in the reader's time.
+    expect(r.facts.sinceAt).toBeCloseTo((NOW - (120 - LOST) * 15_000) / 1000 - 15, -2);
+
+    // The badge follows the worst finding: critical on the page, in the list and over MCP,
+    // with that finding as the reason it is.
+    expect(d.application).toMatchObject({
+      health: 'critical',
+      finding: { code: 'queue_no_consumers' },
+    });
+    const listed = (await api('GET', '/applications'))
+      .json()
+      .applications.find((a: { id: string }) => a.id === id);
+    expect(listed).toMatchObject({
+      health: 'critical',
+      finding: { code: 'queue_no_consumers', severity: 'critical' },
+    });
+    const mcp = await mcpClient(ctx, cookie);
+    try {
+      const all = await mcp.call('list_applications', {});
+      expect(all.data.applications[0]).toMatchObject({
+        name: 'shop/rabbitmq',
+        health: 'critical',
+        finding: { code: 'queue_no_consumers', sentence: expect.stringContaining('no consumers') },
+      });
+      const one = await mcp.call('get_application', { name: 'shop/rabbitmq' });
+      expect(one.data.application.health).toBe('critical');
+    } finally {
+      await mcp.close();
+    }
 
     const tab = tabOf(id);
     const panel = (ps: Awaited<ReturnType<typeof tab>>, pid: string) =>

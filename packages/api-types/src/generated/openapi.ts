@@ -6890,6 +6890,18 @@ export interface paths {
                     [key: string]: string | number | null;
                   };
                 };
+                finding?: {
+                  severity: 'ok' | 'info' | 'warning' | 'critical';
+                  code: string;
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                  links?: {
+                    kind: 'workload' | 'container' | 'alert';
+                    id: string;
+                    name: string;
+                  }[];
+                } | null;
                 members: {
                   up: number;
                   total: number;
@@ -7030,6 +7042,18 @@ export interface paths {
                     [key: string]: string | number | null;
                   };
                 };
+                finding?: {
+                  severity: 'ok' | 'info' | 'warning' | 'critical';
+                  code: string;
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                  links?: {
+                    kind: 'workload' | 'container' | 'alert';
+                    id: string;
+                    name: string;
+                  }[];
+                } | null;
                 members: {
                   up: number;
                   total: number;
@@ -7731,6 +7755,18 @@ export interface paths {
                     [key: string]: string | number | null;
                   };
                 };
+                finding?: {
+                  severity: 'ok' | 'info' | 'warning' | 'critical';
+                  code: string;
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                  links?: {
+                    kind: 'workload' | 'container' | 'alert';
+                    id: string;
+                    name: string;
+                  }[];
+                } | null;
                 members: {
                   up: number;
                   total: number;

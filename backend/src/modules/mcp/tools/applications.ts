@@ -19,6 +19,8 @@ interface ApiApplication {
   where: { group: string | null; host: string | null; address: string | null };
   health: 'ok' | 'warning' | 'critical' | 'unknown';
   reason: { code: string; facts: Record<string, string | number | null> };
+  /** The most severe active finding when it decides the health. */
+  finding?: ApiReason | null;
   members: { up: number; total: number };
   monitoredSince: string;
   lastReportAt: string | null;
@@ -166,6 +168,17 @@ const appField = (a: ApiApplication) => ({
     sentence: reasonSentence(a.reason),
     facts: cleanFacts(a.reason.facts),
   },
+  // Why the health is what it is, when a finding (not reachability) decides it.
+  ...(a.finding
+    ? {
+        finding: {
+          severity: a.finding.severity,
+          code: a.finding.code,
+          sentence: reasonSentence(a.finding),
+          facts: cleanFacts(a.finding.facts),
+        },
+      }
+    : {}),
   members: a.members,
   lastReportAt: a.lastReportAt,
 });
