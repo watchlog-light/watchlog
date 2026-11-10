@@ -5,7 +5,7 @@
 # chart's defaults with the old release's computed values; this renders the new
 # templates exactly that way (values.yaml swapped for pre-phase4/*.values.yaml) and
 # checks the node agent DaemonSet, plus a fresh install, --reset-then-reuse-values and an
-# explicit opt-out. Needs helm; run from anywhere.
+# explicit opt-out; and the same from 0.2.0's values (v0.2.0/). Needs helm; run from anywhere.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
@@ -130,6 +130,39 @@ for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
     echo "PASS  $fixture chart renders from values before Phase 4"
   else
     echo "FAIL  $fixture chart renders from values before Phase 4: $(cat "$TMP/err")"
+    fails=$((fails + 1))
+  fi
+done
+
+# From 0.2.0 (v0.2.0/, the released charts' values): eBPF with its HTTP stats (ADR-139)
+# and the integrations collector (ADR-131) come on, and every template renders.
+V020="$ROOT/deploy/test/helm/v0.2.0"
+# httpstats <name> <want true|false> <rendered DaemonSet>
+httpstats() {
+  local got
+  got="$(grep -A1 'name: WATCHLOG_EBPF_HTTP$' <<<"$3" | sed -n 's/.*value: "\(.*\)"/\1/p')"
+  if [[ "$got" == "$2" ]]; then
+    echo "PASS  $1: HTTP stats $got"
+  else
+    echo "FAIL  $1: HTTP stats ${got:-unset}, want $2"
+    fails=$((fails + 1))
+  fi
+}
+expect "agent chart, --reuse-values from 0.2.0" on "$(ds "$(reused "$AGENT" "$V020/watchlog-agent.values.yaml")" "$AGENT_DS")"
+httpstats "agent chart, --reuse-values from 0.2.0" true "$(ds "$(reused "$AGENT" "$V020/watchlog-agent.values.yaml")" "$AGENT_DS")"
+httpstats "agent chart, turned off" false "$(ds "$AGENT" "$AGENT_DS" "${USER_VALUES[@]}" --set agent.networkFlows.http=false)"
+expect "watchlog chart, --reuse-values from 0.2.0" on "$(ds "$(reused "$UMBRELLA" "$V020/watchlog.values.yaml")" "$SUB_DS")"
+httpstats "watchlog chart, --reuse-values from 0.2.0" true "$(ds "$(reused "$UMBRELLA" "$V020/watchlog.values.yaml")" "$SUB_DS")"
+collector "agent chart, --reuse-values from 0.2.0" present \
+  "$(helm template rel "$(reused "$AGENT" "$V020/watchlog-agent.values.yaml")" -n ns)"
+collector "watchlog chart, --reuse-values from 0.2.0" present \
+  "$(helm template rel "$(reused "$UMBRELLA" "$V020/watchlog.values.yaml")" -n ns)"
+for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
+  chart="${pair%%:*}" fixture="${pair##*:}"
+  if helm template rel "$(reused "$chart" "$V020/$fixture.values.yaml")" -n ns >/dev/null 2>"$TMP/err"; then
+    echo "PASS  $fixture chart renders from 0.2.0's values"
+  else
+    echo "FAIL  $fixture chart renders from 0.2.0's values: $(cat "$TMP/err")"
     fails=$((fails + 1))
   fi
 done
