@@ -362,8 +362,9 @@ async function causesMain() {
       const withCause = items.filter((p) => p.likelyCause);
       check(
         `get_problems (${c.kind}): every likelyCause is a catalog rule with its headline, and every problem with one has a subject`,
+        // None at all is possible: a silent Docker host leaves only the fleet's "Agent not
+        // reporting" alert, which is about no object (each scenario is asserted below).
         !r.isError &&
-          withCause.length > 0 &&
           withCause.every(
             (p) =>
               CATALOG.has(p.likelyCause.rule) &&
