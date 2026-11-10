@@ -5,33 +5,51 @@
 // renders each with its placeholders filled.
 import type { Cause, CauseCheck, CauseObject, Causes, CauseStep } from '@watchlog/api-types';
 import type { RouteLocationRaw } from 'vue-router';
-import { formatValue } from './units';
+import { formatBytes, formatValue } from './units';
 
 export interface Line {
   key: string;
   values: Record<string, unknown>;
+  /** The count that picks the sentence's form ("1 restart | {n} restarts"): `t(key, values, plural)`. */
+  plural?: number;
 }
 
-/** Facts as the sentences show them: durations in ms or s. */
+/** Cores as a request reads: "64", "1.5", "500m". */
+const cores = (v: number) => (v >= 1 ? String(+v.toFixed(2)) : `${Math.round(v * 1000)}m`);
+/** "45 s", "2 min": how often something happens. */
+const every = (s: number) => (s < 90 ? `${Math.round(s)} s` : `${Math.round(s / 60)} min`);
+
+/** Facts as the sentences show them: durations, bytes and cores in their units. */
 function values(facts: Record<string, string | number | null>): Record<string, unknown> {
   const out: Record<string, unknown> = { ...facts };
   if (typeof facts.p95Ms === 'number') out.p95 = formatValue(facts.p95Ms / 1000, 'seconds');
+  if (typeof facts.limitBytes === 'number') out.limit = formatBytes(facts.limitBytes);
+  if (typeof facts.perMinuteBytes === 'number') out.perMinute = formatBytes(facts.perMinuteBytes);
+  if (typeof facts.requestBytes === 'number') out.request = formatBytes(facts.requestBytes);
+  if (typeof facts.requestCores === 'number') out.request = cores(facts.requestCores);
+  if (typeof facts.everyS === 'number') out.every = every(facts.everyS);
   return out;
 }
 
+const line = (key: string, facts: Record<string, string | number | null>): Line => ({
+  key,
+  values: values(facts),
+  ...(typeof facts.n === 'number' ? { plural: facts.n } : {}),
+});
+
 /** The panel's first sentence. */
 export function headlineLine(a: Pick<Causes, 'headline'>): Line {
-  return { key: `causes.headline.${a.headline.code}`, values: values(a.headline.facts) };
+  return line(`causes.headline.${a.headline.code}`, a.headline.facts);
 }
 
 /** A cause in one line (rules' own codes, slices 2–4). */
 export function causeLine(c: Pick<Cause, 'code' | 'facts'>): Line {
-  return { key: `causes.cause.${c.code}`, values: values(c.facts) };
+  return line(`causes.cause.${c.code}`, c.facts);
 }
 
 /** A step's fact. */
 export function stepLine(s: Pick<CauseStep, 'code' | 'facts'>): Line {
-  return { key: `causes.step.${s.code}`, values: values(s.facts) };
+  return line(`causes.step.${s.code}`, s.facts);
 }
 
 const WHAT: Record<string, string> = { self_no_object: 'alert', node_none: 'node_none' };
