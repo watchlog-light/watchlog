@@ -99,7 +99,8 @@ export function nginxExpr(
       break;
     case '5xx_ratio':
       ing(
-        `sum by (${BY}) (rate(nginx_ingress_controller_requests${sel('status=~"5.."')}[${r}])) / (sum by (${BY}) (rate(nginx_ingress_controller_requests${sel()}[${r}])) > 0)`,
+        // No 5xx series at all is 0 %, not no answer (the list showed "—").
+        `(sum by (${BY}) (rate(nginx_ingress_controller_requests${sel('status=~"5.."')}[${r}])) or sum by (${BY}) (rate(nginx_ingress_controller_requests${sel()}[${r}])) * 0) / (sum by (${BY}) (rate(nginx_ingress_controller_requests${sel()}[${r}])) > 0)`,
       );
       break;
     case 'p95':
@@ -127,7 +128,7 @@ export function nginxExpr(
       parts.push(
         ID(
           s,
-          `sum(rate(watchlog_http_server_requests_total{${s.server},class="5xx"}[${r}])) / (sum(rate(watchlog_http_server_requests_total{${s.server}}[${r}])) > 0)`,
+          `(sum(rate(watchlog_http_server_requests_total{${s.server},class="5xx"}[${r}])) or vector(0)) / (sum(rate(watchlog_http_server_requests_total{${s.server}}[${r}])) > 0)`,
         ),
       );
     } else if (metric === 'p95' && s.server) {

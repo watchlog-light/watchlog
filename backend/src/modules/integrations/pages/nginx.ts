@@ -206,7 +206,11 @@ async function overview(ctx: PageContext): Promise<Panel[]> {
     await Promise.all([
       maybe(ctx, req && `sum(rate(${req}[${RATE}]))`),
       maybe(ctx, req && `max_over_time(sum(rate(${req}[${RATE}]))[${ctx.range}s:1m])`),
-      maybe(ctx, req && `sum(increase(${q.req('5xx')}[15m])) / (sum(increase(${req}[15m])) > 0)`),
+      maybe(
+        ctx,
+        req &&
+          `(sum(increase(${q.req('5xx')}[15m])) or vector(0)) / (sum(increase(${req}[15m])) > 0)`,
+      ),
       maybe(ctx, q.bucket && quantile(0.95, q.bucket, '', '5m')),
       maybe(ctx, q.bucket && quantile(0.5, q.bucket, '', '5m')),
       maybe(ctx, q.bytesOut && `sum(rate(${q.bytesOut}[${RATE}]))`),
@@ -641,7 +645,10 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
   const up5 = q.upReq('5xx');
   const req = q.req();
   const [ratio, topUp, p95, accepted, handled, certs, orphans, ups] = await Promise.all([
-    maybe(ctx, req && `sum(increase(${q.req('5xx')}[5m])) / (sum(increase(${req}[5m])) > 0)`),
+    maybe(
+      ctx,
+      req && `(sum(increase(${q.req('5xx')}[5m])) or vector(0)) / (sum(increase(${req}[5m])) > 0)`,
+    ),
     // The upstream sending the most 5xx, and its share of them.
     maybe(
       ctx,

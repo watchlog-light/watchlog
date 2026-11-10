@@ -653,6 +653,10 @@ describe('the Nginx page', () => {
     const ov = await tabOf(id)('overview');
     const tiles = ov.find((p) => p.id === 'summary')!.tiles as Tile[];
     expect(tiles.find((t) => t.id === 'rps')!.value as number).toBeCloseTo(10, 0);
+    // No 5xx at all is 0 %, on the page and in the list (not "—").
+    expect(tiles.find((t) => t.id === '5xx')!.value).toBe(0);
+    const row = (await api('GET', '/applications/metrics')).json().metrics[id];
+    expect(row.keyMetrics.find((m: { id: string }) => m.id === '5xx').value).toBe(0);
     expect((await tabOf(id)('connections'))[0]).toMatchObject({
       state: 'needs_permission',
       missing: { key: 'integrations.nginx.panels.missingIngressMetrics' },
