@@ -82,7 +82,8 @@ function where(l: Record<string, string>): string {
     return l.container && !l.pod ? `${base} · ${l.container}` : base;
   }
   if (l.agent) return `${l.agent === 'cluster' ? 'cluster-agent' : 'agent'} on ${l.node}`;
-  if (l.container) return `${l.node}/${l.container}`;
+  // A Docker edge's alert names its container but not the host.
+  if (l.container) return l.node ? `${l.node}/${l.container}` : l.container;
   if (l.mount) return `${l.node} ${l.mount}`;
   if (l.node) return l.condition ? `node ${l.node} (${l.condition})` : `node ${l.node}`;
   return Object.values(l).join(' ');
@@ -102,7 +103,7 @@ function link(
   else if (l.pod) path = `/pods/${e(l.namespace!)}/${e(l.pod)}`;
   else if (l.workload || l.pvc) path = `/workloads${q}&ns=${e(l.namespace!)}`;
   else if (cluster.kind === 'docker' && l.container)
-    path = `/docker/hosts/${e(l.node!)}/containers/${e(l.container)}`;
+    path = l.node ? `/docker/hosts/${e(l.node)}/containers/${e(l.container)}` : '/containers';
   else if (cluster.kind === 'docker' && l.node) path = `/docker/hosts/${e(l.node)}`;
   else if (l.node && l.agent !== 'cluster') path = `/nodes/${e(l.node)}`;
   else path = '/';
