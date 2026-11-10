@@ -2117,3 +2117,19 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - SPEC §2.3, §3.1, §3.2 and §4.10 are updated, and so are the README, the FAQ, the install guide ("More clusters and Docker fleets") and the site's pricing.
   - Tests no longer switch the org to `pro` to hold two clusters.
   - Lifting a limit takes nothing away (SPEC §3.1, rule 3), so no migration is needed. Existing installs simply stop answering 409.
+
+## ADR-152: Probable cause on the object: what the rules count, and which wins when two apply
+
+- Date: 2026-11-10 · Status: accepted (v0.4 slice 2; details inside ADR-146 to ADR-150)
+- Context: the rules on the object itself (`bad_change`, `oom_limit`, `crash_exit`, `image_pull`, `unschedulable`, `job_failed`) read the same failure from several angles, and the API's own numbers don't fit a window: Docker events are aggregated per container and reason since the first one, `restartsInRange` always covers the hour before now, and a re-created container's change marker went missing when a delta stored the new container first (measured on the e2e demo).
+- Decision:
+  - **Counts cover the counted hour:** the window's last 60 minutes, to its end (now, or when the alert resolved), read through the curated `POST /query/range`: restarts from the restart counters, Docker OOM kills from the new `container.oom_kills` metric (the agent's oom-events counter, +1 per kill), memory from the working set. Sentences say "in the last hour". Without the metrics a rule falls back to the object's own numbers only while the window ends now, else says less (no count).
+  - **The memory trend is said only when the data shows it:** two runs or more that climb from well below the limit to near it and end in a drop, at growth rates within a factor of two. Otherwise "limit reached" comes from the termination reason alone (scrapes every 15 s miss the peak).
+  - **One cause, not two, for one failure:** a rule whose chain contains another's cause covers it on the same object (`bad_change` and `job_failed` cover `crash_exit` and `oom_limit`), so ranking never ties them into two "possible" causes.
+  - **A new image that can't be pulled is `image_pull`'s,** with the change that set the image as where it starts; `bad_change` takes a new version that crashes or is OOM-killed. A rollout's new pods are those created within 15 minutes of it; a Docker re-create's is the container created within 3 minutes of the marker.
+  - **Not a crash:** exit 0; on Docker, a container stopped by a signal (137 without an OOM kill, 143) with no restart by its policy, or one running again without such a restart.
+  - **Not `oom_limit`:** a kill without a memory limit (the node or host ran out). Under node memory pressure or on a nearly full host the chain is partial (possible at best).
+  - **`unschedulable` and a cordoned node:** when the scheduler names cordoned nodes, the cordon is where it starts; `unschedulable` then gives a partial chain, so `node_or_host`, with the cordon in its complete chain, ranks first.
+  - **Timing of a failure of the object itself:** it began with its earliest evidence (first restart in the hour, first back-off event, termination). When the counted hour starts after the symptom, a first restart after the symptom says nothing, so the start is unknown rather than "after".
+  - **Docker has no Jobs:** a one-shot container that exited non-zero is `crash_exit` ("exited with code N and stays stopped"); `image_pull`, `unschedulable` and `job_failed` run on Kubernetes only (ADR-149).
+- Consequences: the public API gains one metric key (`container.oom_kills`), an additive change. A Docker crash loop whose process runs a while before it exits is now a "keeps restarting" problem in Needs attention (restarted by its policy within 2 minutes of its end, in the last 5 minutes, 3 restarts or more), so its cause has a symptom to sit under.
