@@ -164,6 +164,26 @@ describe('every channel says it in one line (ADR-148)', () => {
     expect(w.alerts[0]!.likelyCause).toEqual(lc);
   });
 
+  it("a Docker edge's alert (no host label) names its container, never undefined", () => {
+    const p = payload({
+      cluster: { id: 'c2', name: 'fleet', kind: 'docker' },
+      items: [
+        {
+          ...payload().items[0]!,
+          labels: {
+            container: 'causes-e2e-dialer-1',
+            dst: 'causes-e2e-web-1',
+            dst_kind: 'container',
+          },
+        },
+      ],
+    });
+    const m = renderMessage(p, 'https://watchlog.example.com');
+    expect(m.items[0]!.context).toMatch(/^causes-e2e-dialer-1 · cluster fleet/);
+    expect(m.items[0]!.link).toBe('https://watchlog.example.com/containers?cluster=c2');
+    expect(m.text).not.toContain('undefined');
+  });
+
   it('the resolve says "Was likely:"; a flapping message and one without a cause say nothing', async () => {
     const { lc, p } = await with_('kube-dependency-down', { kind: 'resolved' });
     const resolved = renderMessage(p);
