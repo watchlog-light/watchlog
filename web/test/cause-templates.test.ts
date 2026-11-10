@@ -97,6 +97,34 @@ const HEADLINES: [string, Facts][] = [
     { name: 'shop/redis', finding: 'memory_near_max', type: 'redis', pct: 95, member: 'redis-0' },
   ],
   ['app_finding', { name: 'shop/nginx', finding: 'latency_high', type: 'nginx', p95: '1.40 s' }],
+  // Slice 4: the rules under it (measured on the kind and Docker e2e demos).
+  ['node_or_host_held_cordoned', { name: 'pinned', node: 'demo-worker2' }],
+  ['node_or_host_held_not_ready', { name: 'pinned', node: 'demo-worker2' }],
+  [
+    'node_or_host_held_pressure',
+    { name: 'pinned', node: 'demo-worker2', condition: 'DiskPressure' },
+  ],
+  ['node_or_host_not_ready', { name: 'api', node: 'demo-worker', status: 'Unknown' }],
+  ['node_or_host_evicted', { name: 'api', node: 'demo-worker', resource: 'memory' }],
+  ['node_or_host_evicted_node', { name: 'api', resource: 'ephemeral-storage' }],
+  ['node_or_host_oom_no_limit', { name: 'hog', node: 'demo-worker' }],
+  ['node_or_host_oom_pressure', { name: 'hog', node: 'demo-worker', limitBytes: 268435456 }],
+  ['node_or_host_pressure', { name: 'api', node: 'demo-worker', condition: 'PIDPressure' }],
+  ['node_or_host_silent', { name: 'pg', host: 'docker-01', minutes: 4 }],
+  ['node_or_host_never', { name: 'pg', host: 'docker-01' }],
+  ['node_or_host_oom_host', { name: 'causes-e2e-hog-1', host: 'docker-01' }],
+  ['node_or_host_oom_host_full', { name: 'hog', host: 'docker-01', limitBytes: 50331648 }],
+  ['node_or_host_host_disk', { name: 'crasher', host: 'docker-01', pct: 95 }],
+  ['node_or_host_host_memory', { name: 'crasher', host: 'docker-01', pct: 93 }],
+  ['cpu_throttled', { name: 'hot', pct: 98, limitCores: 0.02 }],
+  ['cpu_throttled_share', { name: 'hot', pct: 98 }],
+  [
+    'cpu_throttled_dependency',
+    { name: 'caller', target: 'hot', pct: 98, limitCores: 0.02, p95Ms: 233 },
+  ],
+  ['cpu_throttled_dependency_share', { name: 'caller', target: 'hot', pct: 98, p95Ms: 233 }],
+  ['dependency_down_node', { name: 'web', target: 'api', node: 'demo-worker2' }],
+  ['dependency_down_host', { name: 'web', target: 'causes-e2e-api-1', node: 'docker-01' }],
 ];
 
 /** Checks: [topic, code, facts] as checks.ts sends them, nullable facts both ways. */
@@ -152,6 +180,12 @@ const CHECKS: [CauseCheck['topic'], string, Facts][] = [
   ['edge', 'edge_failed', { pct: 38, port: null }],
   ['edge', 'edge_errors', { pct: 12.5 }],
   ['edge', 'edge_slow', { p95Ms: 2350 }],
+  // Slice 4: the CPU, and a dependency slower than usual.
+  ['cpu', 'cpu_ok', { name: 'caller' }],
+  ['cpu', 'cpu_throttled', { name: 'hot', pct: 98 }],
+  ['cpu', 'cpu_no_limit', { name: 'api' }],
+  ['cpu', 'cpu_unknown', { name: 'web' }],
+  ['dependencies', 'dependencies_slower', { name: 'caller', target: 'hot', p95Ms: 233 }],
 ];
 
 /** Steps the engine itself adds (the walk's edge step) and the rules' steps. */
@@ -233,6 +267,29 @@ const STEPS: [string, Facts][] = [
     },
   ],
   ['app_finding', { finding: 'evicting', type: 'redis', n: 120 }],
+  // Slice 4.
+  ['edge_slower', { fromMs: 0.9, p95Ms: 233 }],
+  ['edge_slower_now', { p95Ms: 233 }],
+  ['node_cordoned', { node: 'demo-worker2' }],
+  ['node_not_ready', { node: 'demo-worker', status: 'Unknown', reason: null }],
+  ['node_pressure', { node: 'demo-worker', condition: 'MemoryPressure' }],
+  ['on_node', { node: 'demo-worker', status: 'Running' }],
+  ['evicted', { resource: 'memory' }],
+  ['node_was_low', { node: 'demo-worker', resource: 'memory' }],
+  ['oom_killed_no_limit', { container: 'hog' }],
+  ['oom_killed_below_limit', { container: 'hog', limitBytes: 268435456, peakBytes: 52428800 }],
+  ['oom_killed_with_limit', { container: 'hog', limitBytes: 268435456 }],
+  ['node_memory', { node: 'demo-worker', pct: 97 }],
+  ['node_ran_out', { node: 'demo-worker' }],
+  ['last_report', { state: 'running' }],
+  ['host_silent', { host: 'docker-01', minutes: 4 }],
+  ['host_never', { host: 'docker-01' }],
+  ['host_memory', { host: 'docker-01', pct: 94 }],
+  ['host_ran_out', { host: 'docker-01' }],
+  ['host_disk', { host: 'docker-01', pct: 95 }],
+  ['on_host', { host: 'docker-01', state: 'restarting' }],
+  ['cpu_throttled', { container: 'hot', pct: 98, limitCores: 0.02 }],
+  ['cpu_throttled_share', { container: 'causes-e2e-hot-1', pct: 100 }],
 ];
 
 /** Causes of the catalog's rules: the short line (Needs attention, notifications). */
@@ -282,6 +339,16 @@ const CAUSES: [string, Facts][] = [
       how: 'OOMKilled',
     },
   ],
+  [
+    'node_or_host',
+    { name: 'pinned', node: 'demo-worker2', how: 'cordoned', pod: 'pinned-1', n: 2 },
+  ],
+  ['node_or_host', { name: 'pg', host: 'docker-01', how: 'silent', minutes: 4 }],
+  [
+    'cpu_throttled',
+    { name: 'caller', target: 'hot', container: 'hot', pct: 98, limitCores: 0.02, p95Ms: 233 },
+  ],
+  ['cpu_throttled', { name: 'hot', container: 'hot', pct: 98, limitCores: null }],
 ];
 
 const raw = (key: string): string | undefined =>
@@ -419,6 +486,48 @@ describe('cause sentences', () => {
         }),
       ),
     ).not.toMatch(/causes\.|\{/);
+  });
+
+  it('renders the rules under it in their words', () => {
+    const say = ({ key, values, plural }: Line) =>
+      plural === undefined ? i18n.t(key, values) : i18n.t(key, values, plural);
+    expect(
+      say(
+        headlineLine({
+          headline: {
+            code: 'node_or_host_held_cordoned',
+            facts: { name: 'pinned', node: 'demo-worker2' },
+          },
+        }),
+      ),
+    ).toBe(
+      "pinned can't be scheduled: node demo-worker2, where it may run, is cordoned and takes no new pods.",
+    );
+    expect(
+      say(
+        headlineLine({
+          headline: {
+            code: 'cpu_throttled_dependency',
+            facts: { name: 'caller', target: 'hot', pct: 98, limitCores: 0.02, p95Ms: 233 },
+          },
+        }),
+      ),
+    ).toBe(
+      'caller is slow because hot is CPU-throttled 98 % of the time at its 20m CPU limit: its calls to hot take 233 ms at p95.',
+    );
+    expect(say(stepLine({ code: 'edge_slower', facts: { fromMs: 0.9, p95Ms: 233 } }))).toBe(
+      'Its HTTP calls slowed from 0.9 ms to 233 ms at p95.',
+    );
+    expect(
+      say(
+        headlineLine({
+          headline: {
+            code: 'node_or_host_silent',
+            facts: { name: 'pg', host: 'docker-01', minutes: 4 },
+          },
+        }),
+      ),
+    ).toBe('Host docker-01 has sent nothing for 4 min: what WatchLog shows of pg is from before.');
   });
 
   it('says a slow call in milliseconds or seconds', () => {

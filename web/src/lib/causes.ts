@@ -29,6 +29,8 @@ function values(facts: Record<string, string | number | null>): Record<string, u
   if (typeof facts.perMinuteBytes === 'number') out.perMinute = formatBytes(facts.perMinuteBytes);
   if (typeof facts.requestBytes === 'number') out.request = formatBytes(facts.requestBytes);
   if (typeof facts.requestCores === 'number') out.request = cores(facts.requestCores);
+  if (typeof facts.limitCores === 'number') out.cpuLimit = cores(facts.limitCores);
+  if (typeof facts.peakBytes === 'number') out.peak = formatBytes(facts.peakBytes);
   if (typeof facts.everyS === 'number') out.every = every(facts.everyS);
   return out;
 }
@@ -60,7 +62,7 @@ export function headlineLine(a: Pick<Causes, 'headline'>): Line {
   return line(`causes.headline.${a.headline.code}`, a.headline.facts);
 }
 
-/** A cause in one line (rules' own codes, slices 2–4). */
+/** A cause in one line (the rules' own codes). */
 export function causeLine(c: Pick<Cause, 'code' | 'facts'>): Line {
   return line(`causes.cause.${c.code}`, c.facts);
 }
