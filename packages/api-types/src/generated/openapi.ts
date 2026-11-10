@@ -1211,6 +1211,7 @@ export interface paths {
               | 'container.fs.io'
               | 'container.restarts'
               | 'container.oom_kills'
+              | 'dns.nxdomain.rate'
               | 'container.restarts.increase'
               | 'node.cpu.usage'
               | 'node.cpu.utilization'

@@ -141,7 +141,7 @@ async function problemSince(
 }
 
 /** One container by name (and host): a reporting host's copy when stale ones exist. */
-async function findContainer(
+export async function findContainer(
   reader: Reader,
   cluster: ClusterRef,
   name: string,
@@ -168,7 +168,7 @@ async function findContainer(
 }
 
 /** The workload's kind when the subject left it out. */
-async function findWorkload(
+export async function findWorkload(
   reader: Reader,
   cluster: ClusterRef,
   namespace: string,
@@ -197,6 +197,10 @@ export async function alertFocus(
   l: Record<string, string>,
 ): Promise<{ focus: Focus; edge: EvEdge | null }> {
   const none = { focus: { kind: 'none' } as Focus, edge: null };
+  // A monitored application's alert (its curated metrics are by service and service_type):
+  // the application, whose findings say why (application_finding, slice 3).
+  if (l.service && l.service_type)
+    return { focus: { kind: 'application', id: l.service }, edge: null };
   if (cluster.kind === 'kubernetes') {
     // A failed-connections alert is about an edge, without its port.
     if (l.dst_kind) return edgeFocus(reader, cluster, l);

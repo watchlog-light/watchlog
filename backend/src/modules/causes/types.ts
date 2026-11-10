@@ -85,6 +85,12 @@ export interface Candidate extends Sentence {
   headline: Sentence;
   /** The checks (by topic) this cause explains. */
   explains: CheckTopic[];
+  /**
+   * Rules whose cause on the caller (one hop back) this cause explains better: the walk drops
+   * their candidates there (dependency_down's stopped container behind the caller's failed
+   * lookups covers dns_nxdomain). Not part of the answer.
+   */
+  coversCaller?: string[];
 }
 
 export interface Cause extends Sentence {

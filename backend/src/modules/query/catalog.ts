@@ -137,6 +137,16 @@ const ENTRIES = {
     agg: 'max',
     expr: (s, _r, a) => `${a} by (host, container) (watchlog_container_oom_events_total${s()})`,
   },
+  /**
+   * DNS lookups answered NXDOMAIN, per second, by the client that looked up (eBPF, ADR-113;
+   * search-path misses are counted apart and left out): when a name stopped resolving.
+   */
+  'dns.nxdomain.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r) =>
+      `sum by (namespace, workload_kind, workload, host, container, compose_project, compose_service) (rate(watchlog_dns_requests_total${s('rcode="NXDOMAIN"')}[${r}]))`,
+  },
   /** Restarts within the last 10 minutes (the Docker restart rule, ADR-072). */
   'container.restarts.increase': {
     unit: 'count',

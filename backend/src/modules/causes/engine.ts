@@ -3,15 +3,36 @@
 // ask the rules (and, when nothing on the object explains it, the rules at the far end of
 // its failing edges, two hops at most), rank, and say what was checked. The answer is what
 // GET /causes returns and what MCP and notifications will reuse.
-import { checksOf, shortName } from './checks.js';
-import { type Reader, WINDOW_BEFORE_MS, type Evidence, type Focus } from './evidence.js';
-import { gather, memoReader } from './gather.js';
+import { checksOf, dnsTotals, shortName } from './checks.js';
+import {
+  type Reader,
+  WINDOW_BEFORE_MS,
+  type EdgeHistory,
+  type Evidence,
+  type Focus,
+} from './evidence.js';
+import { gather, memoReader, soft } from './gather.js';
 import { markChecks, rank } from './rank.js';
-import { resolveTarget, sourceFocus, type ClusterRef } from './resolve.js';
-import { RULES, runRules, type Rule } from './rules.js';
+import {
+  findContainer,
+  findWorkload,
+  focusObject,
+  resolveTarget,
+  sourceFocus,
+  type ClusterRef,
+} from './resolve.js';
+import { CALL_RULES, RULES, runRules, type Rule } from './rules.js';
+import { linksOf, throughLink, type Link } from './rules/application-finding.js';
 import type { Subject } from './subject.js';
 import type { Candidate, Cause, Check, FlowsOff, ObjectRef, Sentence, State } from './types.js';
-import { dependenciesOf, MAX_HOPS, throughEdge } from './walk.js';
+import {
+  dependenciesOf,
+  edgeHistory,
+  MAX_HOPS,
+  throughEdge,
+  type Dependency,
+  type EdgeSeries,
+} from './walk.js';
 
 export interface CausesAnswer {
   /** The subject as asked, canonical: `ref` is the form /causes takes back. */
@@ -66,28 +87,60 @@ export async function explain(
     now,
   });
 
+  const gatherFar = (focus: Focus, via: Evidence['via']) =>
+    gather(reader, {
+      clusterId: cluster.id,
+      platform: cluster.kind,
+      focus,
+      window,
+      symptomAt: target.symptomAt,
+      now,
+      via,
+    });
+
+  /**
+   * The object's own causes and, unless one of them explains it on the object itself, those
+   * found through what it calls (its failing, slow or quiet edges) and the objects its
+   * application's finding names (a consumer, a connection holder): two hops at most.
+   */
   const look = async (e: Evidence, hops: number, seen: Set<string>): Promise<Candidate[]> => {
     const own = runRules(e, rules, hops);
-    if (hops >= MAX_HOPS || own.some((c) => c.complete) || e.map.mode !== 'flows') return own;
-    const far = await Promise.all(
-      dependenciesOf(e)
-        .filter((d) => !seen.has(d.target))
-        .map(async (d) => {
-          const focus: Focus = await sourceFocus(reader, cluster, d.target);
-          if (focus.kind === 'none') return [];
-          const fe = await gather(reader, {
-            clusterId: cluster.id,
-            platform: cluster.kind,
-            focus,
-            window,
-            symptomAt: target.symptomAt,
-            now,
-          });
-          const found = await look(fe, hops + 1, new Set([...seen, d.target]));
-          return found.map((c) => throughEdge(e, d, c));
-        }),
-    );
-    return [...own, ...far.flat()];
+    const blocks = own.some((c) => c.complete && !CALL_RULES.includes(c.rule));
+    if (hops >= MAX_HOPS || blocks) return own;
+    const edges =
+      e.map.mode === 'flows' ? dependenciesOf(e).filter((d) => !seen.has(d.target)) : [];
+    const links = linksOf(e).filter((l) => !seen.has(l.key));
+    const far = await Promise.all([
+      ...edges.map(async (d) => {
+        const followed: Dependency = { ...d, history: await history(reader, cluster.id, d, now) };
+        const focus = await sourceFocus(reader, cluster, d.target);
+        if (focus.kind === 'none') return [];
+        const fe = await gatherFar(focus, {
+          edge: d.edge,
+          history: followed.history ?? null,
+          from: shortName(e),
+          caller: callerOf(e),
+          dnsErrorsPerSecond: dnsTotals(e).errors,
+        });
+        const found = await look(fe, hops + 1, new Set([...seen, d.target]));
+        return found.map((c) => ({ c, through: throughEdge(e, followed, c) }));
+      }),
+      ...links.map(async (l) => {
+        const focus = await linkFocus(reader, cluster, l);
+        if (focus.kind === 'none') return [];
+        const fe = await gatherFar(focus, null);
+        const found = await look(fe, hops + 1, new Set([...seen, l.key]));
+        const c = throughLink(e, l, found, fe);
+        return c ? [{ c, through: c }] : [];
+      }),
+    ]);
+    const flat = far.flat();
+    // What a cause further on explains better on this object (Candidate.coversCaller).
+    const drop = new Set(flat.filter((x) => x.c.complete).flatMap((x) => x.c.coversCaller ?? []));
+    return [
+      ...own.filter((c) => !drop.has(c.rule)),
+      ...flat.map(({ through }) => withoutCovers(through)),
+    ];
   };
   const candidates = await look(ev, 0, new Set(ev.map.ids));
 
@@ -119,6 +172,60 @@ export async function explain(
     checks,
     flowsOff: found.flowsOff,
   };
+}
+
+/** A candidate as the caller keeps it: what it covered one hop back is done with. */
+function withoutCovers(c: Candidate): Candidate {
+  const out = { ...c };
+  delete out.coversCaller;
+  return out;
+}
+
+/** The caller's object, for the far end's rules (`via.caller`). */
+function callerOf(e: Evidence): { kind: string; ref: string; name: string } {
+  const o = focusObject(e.focus, e.platform);
+  return o ? { kind: o.kind, ref: o.ref, name: o.name } : { kind: 'none', ref: '', name: '' };
+}
+
+/** A followed edge's last hour (GET /service-map/edge); null when it can't be read. */
+async function history(
+  reader: Reader,
+  clusterId: string,
+  d: Dependency,
+  now: number,
+): Promise<EdgeHistory | null> {
+  const s = await soft(
+    reader.get<EdgeSeries>(`/clusters/${clusterId}/service-map/edge`, {
+      source: d.edge.source,
+      target: d.edge.target,
+      port: d.edge.port ?? undefined,
+      range: 3600,
+    }),
+    null,
+  );
+  return s ? edgeHistory(s, Math.floor(now / 1000) - 3600) : null;
+}
+
+/** The focus of an object a finding names: its workload (any kind) or container. */
+async function linkFocus(reader: Reader, cluster: ClusterRef, l: Link): Promise<Focus> {
+  const t = l.target;
+  if (t.kind === 'workload') {
+    if (cluster.kind !== 'kubernetes') return { kind: 'none' };
+    if (t.workloadKind)
+      return {
+        kind: 'workload',
+        namespace: t.namespace,
+        workloadKind: t.workloadKind,
+        name: t.name,
+      };
+    const w = await soft(findWorkload(reader, cluster, t.namespace, t.name, null), null);
+    return w
+      ? { kind: 'workload', namespace: w.namespace, workloadKind: w.kind, name: w.name }
+      : { kind: 'none' };
+  }
+  if (cluster.kind !== 'docker') return { kind: 'none' };
+  const c = await soft(findContainer(reader, cluster, t.name, null), null);
+  return c ? { kind: 'container', host: c.host, name: c.name } : { kind: 'none' };
 }
 
 /** The panel's first sentence (causes.headline.<code>). */

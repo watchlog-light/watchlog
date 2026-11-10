@@ -28,6 +28,7 @@ import {
   type Evidence,
   type Focus,
   type Reader,
+  type Via,
 } from './evidence.js';
 import type { Platform } from './types.js';
 
@@ -81,6 +82,8 @@ export interface GatherInput {
   alert?: EvAlert | null;
   edge?: EvEdge | null;
   now?: number;
+  /** The far end of an edge the walk follows: the edge, and what the caller sees. */
+  via?: Via | null;
 }
 
 interface PodDetail {
@@ -116,6 +119,7 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
     alert: input.alert ?? null,
     gone: false,
     metrics: null,
+    via: input.via ?? null,
   };
   const inWindow = (e: EvEvent) => Date.parse(e.lastSeen) >= Date.parse(window.from);
   const markers = (namespaces?: string) =>
@@ -174,6 +178,12 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
           pod,
         ]),
       ]);
+      if (pod.workload && pod.workloadKind)
+        await nxdomainSeries(reader, ev, {
+          namespace: pod.namespace,
+          workload: pod.workload,
+          workloadKind: pod.workloadKind,
+        });
       return ev;
     }
     case 'workload': {
@@ -251,6 +261,14 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
           pods,
         ),
       ]);
+      await Promise.all([
+        nxdomainSeries(reader, ev, {
+          namespace: w.namespace,
+          workload: w.name,
+          workloadKind: w.kind,
+        }),
+        input.via ? farApplication(reader, ev) : null,
+      ]);
       return ev;
     }
     case 'container':
@@ -317,6 +335,15 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
         if (c.composeProject) ev.ownTargets.push(`Compose/${c.host}/${c.composeProject}`);
       ev.ownTargets = [...new Set(ev.ownTargets)];
       ev.map = map;
+      const looking = mine.find((c) =>
+        map.dns.some((d) => d.node === `c:${c.name}` && d.nxdomainPerSecond > 0),
+      );
+      await Promise.all([
+        looking
+          ? nxdomainSeries(reader, ev, { host: looking.host, container: looking.name })
+          : null,
+        input.via ? farApplication(reader, ev) : null,
+      ]);
       return ev;
     }
     case 'node': {
@@ -358,6 +385,84 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
       return ev;
     }
   }
+}
+
+interface ListedApplication {
+  id: string;
+  target: Record<string, unknown>;
+  finding: { severity: string; code: string } | null;
+}
+
+/**
+ * The application monitoring the far end of an edge, when it has a finding (ADR-146: the
+ * active findings of any application the subject talks to): its detail, for
+ * application_finding's caller form.
+ */
+async function farApplication(reader: Reader, ev: Evidence): Promise<void> {
+  const list = await soft(
+    reader
+      .get<{ applications: ListedApplication[] }>('/applications', { cluster: ev.clusterId })
+      .then((r) => r.applications),
+    [] as ListedApplication[],
+  );
+  const f = ev.focus;
+  const mine = list.find((a) => {
+    const t = a.target as Record<string, string | number | undefined>;
+    if (f.kind === 'workload')
+      return (
+        t.kind === 'workload' &&
+        t.namespace === f.namespace &&
+        t.workload === f.name &&
+        (!t.workload_kind || t.workload_kind === f.workloadKind)
+      );
+    return ev.containers.some(
+      (c) =>
+        (t.kind === 'container' && t.container === c.name) ||
+        (t.kind === 'compose' &&
+          t.compose_project === c.composeProject &&
+          t.compose_service === c.composeService &&
+          (!t.host || t.host === c.host)),
+    );
+  });
+  if (!mine?.finding) return;
+  const d = await soft(
+    reader.get<{
+      application: Omit<EvApplication, 'reasons'>;
+      reasons: EvApplication['reasons'];
+    }>(`/applications/${mine.id}`),
+    null,
+  );
+  if (d) ev.application = { ...d.application, reasons: d.reasons };
+}
+
+/**
+ * NXDOMAIN answers a second to the focus's lookups over the counted hour, when the map shows
+ * some: when they began (dns_nxdomain's since).
+ */
+async function nxdomainSeries(
+  reader: Reader,
+  ev: Evidence,
+  scope: Record<string, string>,
+): Promise<void> {
+  if (!ev.metrics || !ev.map.dns.some((d) => d.nxdomainPerSecond > 0)) return;
+  const a = await range(
+    reader,
+    ev.clusterId,
+    'dns.nxdomain.rate',
+    scope,
+    countedHour(ev.window.to),
+  );
+  if (!a) return;
+  const f = ev.focus;
+  const sum = new Map<number, number>();
+  for (const s of a.series) {
+    if (f.kind === 'compose_service' && s.labels.compose_service !== f.service) continue;
+    for (const [t, v] of s.points)
+      if (v !== null && Number.isFinite(v)) sum.set(t, (sum.get(t) ?? 0) + v);
+  }
+  const points = [...sum].sort((x, y) => x[0] - y[0]) as [number, number][];
+  // Only beside the other metrics: an empty count would read as "no restarts".
+  if (ev.metrics) ev.metrics = { ...ev.metrics, nxdomain: points };
 }
 
 interface RangeAnswer {

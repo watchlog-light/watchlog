@@ -7,7 +7,7 @@
 //   Strength: the first is likely when it could be, unless the second could be too and
 //   ties with it on everything but the catalog's order: then both are possible. Every
 //   other cause is possible. At most three causes; at most one likely.
-import { catalogIndex } from './rules.js';
+import { catalogIndex } from './catalog.js';
 import type { Candidate, Cause, Check, State } from './types.js';
 
 export const MAX_CAUSES = 3;

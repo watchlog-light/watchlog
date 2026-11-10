@@ -278,6 +278,45 @@ export interface EvMetrics {
   oomKills: Record<string, EvCount>;
   /** Working set per container (`<namespace>/<pod>/<container>` or `<host>/<name>`), [unix s, bytes]. */
   memory: Record<string, [number, number][]>;
+  /**
+   * NXDOMAIN answers per second to the focus's lookups, [unix s, per second]; read only when
+   * the map shows some (slice 3). Absent in older snapshots.
+   */
+  nxdomain?: [number, number][];
+}
+
+/**
+ * An edge over the last hour (GET /service-map/edge), as the dependency rules read it: when
+ * its current trouble began, when it last carried a connection. Times are ISO; null when the
+ * series doesn't say (no data, or the state lasts the whole hour).
+ */
+export interface EdgeHistory {
+  /** The current run of failed connects (≥ 1 %) or 5xx answers (≥ 1 %) began. */
+  troubleSince: string | null;
+  /** The current run of a slow p95 (≥ 1 s) began. */
+  slowSince: string | null;
+  /** The p95 before that run (the median of the points before it), seconds. */
+  p95Before: number | null;
+  /** The last point with a connection. */
+  lastConnectedAt: string | null;
+  /** The newest point of the series (data lags the clock by about a minute). */
+  end: string | null;
+}
+
+/**
+ * How the walk reached this focus (slice 3): the edge from the caller that is failing, slow
+ * or went quiet, and what the caller sees. Rules at the far end of an edge
+ * (dependency_down, connection_refused, bad_change's dependency form, application_finding's
+ * caller form) need it; null on the subject itself.
+ */
+export interface Via {
+  edge: EvEdge;
+  history: EdgeHistory | null;
+  /** The caller's short name ("web") and its object. */
+  from: string;
+  caller: { kind: string; ref: string; name: string };
+  /** The caller's failed DNS lookups a second (NXDOMAIN, SERVFAIL, timeouts; no search misses). */
+  dnsErrorsPerSecond: number;
 }
 
 /** Everything the rules and checks may use about one focus. */
@@ -306,7 +345,10 @@ export interface Evidence {
   nodes: EvNode[];
   hosts: EvHost[];
   map: EvMap;
-  /** The monitored application (an application subject). */
+  /**
+   * The monitored application: an application subject's, or (at the far end of an edge) the
+   * one monitoring this workload or container, with its findings.
+   */
   application: EvApplication | null;
   /** The edge (an edge subject). */
   edge: EvEdge | null;
@@ -316,6 +358,8 @@ export interface Evidence {
   gone: boolean;
   /** Restarts, OOM kills and memory over the counted hour; null when unread. */
   metrics: EvMetrics | null;
+  /** The edge the walk followed to reach this focus; null (or absent) on the subject. */
+  via?: Via | null;
 }
 
 export const emptyMap = (mode: EvMap['mode'] = 'unavailable'): EvMap => ({

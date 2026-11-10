@@ -11,10 +11,14 @@
 //   "can't pull X, the image it was changed to" says more than "fails since a change".
 // - Its cause covers crash_exit and oom_limit on the same object: they are a step of its
 //   chain, not a second cause.
-// - The dependency form (a change of the thing the subject calls, which then fails or slows
-//   down) comes with the walk's far-end rules (slice 3): `newVersionFailure` and `changeStep`
-//   are exported for it.
-import { shortName } from '../checks.js';
+// - The dependency form (slice 3, ADR-153): at the far end of an edge the walk followed
+//   (`ev.via`), a version change of the dependency shortly before its calls turned slow (p95
+//   ≥ 1 s) or erroring (5xx ≥ 1 %), from the edge's last hour. A dependency whose new version
+//   crashes is the object form at the far end (dependency_down's when nothing is ready); a
+//   slow edge with no change before it stays a "possible" dependency check (cpu_throttled may
+//   explain it, slice 4).
+import { edgeTrouble, shortName } from '../checks.js';
+import { focusObject } from '../resolve.js';
 import type { EvContainer, EvMarker, EvPod, Evidence } from '../evidence.js';
 import type { Match, Rule } from '../rules.js';
 import type { Step } from '../types.js';
@@ -30,6 +34,7 @@ import {
   recentTermination,
   ROLLOUT_PODS_MS,
   ROLLOUT_SLACK_MS,
+  SAME_MS,
   terminations,
   versionChanges,
 } from './common.js';
@@ -137,6 +142,68 @@ function failureStep(ev: Evidence, f: Exclude<Failure, { kind: 'pull' }>): Step 
   };
 }
 
+/**
+ * The dependency form: the far end's version change shortly before the near edge turned slow
+ * or erroring. Complete when the edge's last hour shows the trouble beginning after the
+ * change; without that history, partial.
+ */
+export function slowAfterChange(ev: Evidence): Match | null {
+  const via = ev.via;
+  const t = via ? edgeTrouble(via.edge) : null;
+  // Failed connects are dependency_down's or connection_refused's.
+  if (!via || !t || t.code === 'failed') return null;
+  const h = via.history;
+  const start = h ? (t.code === 'slow' ? h.slowSince : h.troubleSince) : null;
+  // The trouble began before the hour (or isn't current in the series): no change explains it.
+  if (h && !start) return null;
+  const marker = versionChanges(ev).find(
+    (m) =>
+      !start ||
+      (Date.parse(m.ts) <= Date.parse(start) + SAME_MS &&
+        Date.parse(m.ts) >= Date.parse(start) - ROLLOUT_PODS_MS),
+  );
+  const object = focusObject(ev.focus, ev.platform);
+  if (!marker || !object) return null;
+  const name = via.from;
+  const target = shortName(ev);
+  const slow = t.code === 'slow';
+  const p95Ms = Number(t.facts.p95Ms ?? 0);
+  const step: Step = {
+    object,
+    source: 'service_map',
+    code: slow
+      ? h?.p95Before !== null && h?.p95Before !== undefined
+        ? 'new_version_slow'
+        : 'new_version_slow_now'
+      : 'new_version_errors',
+    facts: slow
+      ? h?.p95Before !== null && h?.p95Before !== undefined
+        ? { fromMs: Math.round(h.p95Before * 1000), p95Ms }
+        : { p95Ms }
+      : { pct: t.facts.pct ?? null },
+    at: null,
+    since: start,
+    next: 'after',
+  };
+  return {
+    code: 'bad_change',
+    facts: {
+      name,
+      dependency: target,
+      change: marker.kind,
+      target: marker.target,
+      failure: slow ? 'slow' : 'errors',
+    },
+    since: marker.ts,
+    chain: [step, changeStep(ev, marker)],
+    complete: !!start,
+    headline: slow
+      ? { code: 'bad_change_slow', facts: { name, target, p95Ms } }
+      : { code: 'bad_change_errors', facts: { name, target, pct: t.facts.pct ?? null } },
+    explains: ['dependencies'],
+  };
+}
+
 export const badChange: Rule = {
   code: 'bad_change',
   platforms: ['kubernetes', 'docker'],
@@ -163,7 +230,7 @@ export const badChange: Rule = {
         covers: ['crash_exit', 'oom_limit'],
       };
     }
-    return null;
+    return slowAfterChange(ev);
   },
   explains: ['self', 'events', 'changes'],
 };

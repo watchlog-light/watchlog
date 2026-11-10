@@ -267,6 +267,23 @@ export function flowsOffOf(ev: Evidence): FlowsOff[] | null {
 
 const pct = (r: number | null | undefined) => Math.round((r ?? 0) * 1000) / 10;
 
+/**
+ * The focus's DNS lookups a second (the map's rows over 5 minutes, whose requests already
+ * leave search-path misses out, ADR-113), NXDOMAIN answers, and every failure (NXDOMAIN,
+ * SERVFAIL, timeouts).
+ */
+export function dnsTotals(ev: Evidence): { lookups: number; nxdomain: number; errors: number } {
+  let lookups = 0;
+  let nxdomain = 0;
+  let errors = 0;
+  for (const d of ev.map.dns) {
+    lookups += d.requestsPerSecond;
+    nxdomain += d.nxdomainPerSecond;
+    errors += d.nxdomainPerSecond + d.servfailPerSecond + d.timeoutPerSecond;
+  }
+  return { lookups, nxdomain, errors };
+}
+
 /** An edge's trouble, as a check of its own (the edge subject) or a dependency. */
 export function edgeTrouble(e: EvEdge): { code: string; facts: Check['facts'] } | null {
   if ((e.failedRatio ?? 0) >= EDGE_FAILED_RATIO && (e.failedLastMinute ?? 1) > 0)
@@ -309,6 +326,11 @@ function networkChecks(ev: Evidence, name: string, flowsOff: FlowsOff[] | null):
     );
   } else if (calls.length) {
     out.push(check('dependencies', 'dependencies_ok', 'ok', { name, n: calls.length }));
+  } else if (ev.map.outgoing.some((e) => /^[wc]:/.test(e.target))) {
+    // It called services in the last hour and calls none now (a Docker dependency that
+    // stopped leaves Docker's DNS: its callers stop connecting rather than fail).
+    const quiet = ev.map.outgoing.filter((e) => /^[wc]:/.test(e.target));
+    out.push(check('dependencies', 'dependencies_quiet', 'possible', { name, n: quiet.length }));
   } else {
     out.push(check('dependencies', 'dependencies_none', 'not_applicable', { name }));
   }
