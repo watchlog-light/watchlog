@@ -369,6 +369,8 @@ describe('cause sentences', () => {
     const text = plural === undefined ? i18n.t(key, values) : i18n.t(key, values, plural);
     if (/\{\w+\}|\bnull\b|\bundefined\b|causes\.|\|/.test(text))
       problems.push(`${label}: rendered "${text}"`);
+    // English puts no space before a percent sign ("98%"), as the rest of the dashboard.
+    if (/\s%/.test(text)) problems.push(`${label}: a space before % in "${text}"`);
   };
 
   it('every headline, check, step and cause has its words, every placeholder filled', () => {
@@ -476,7 +478,7 @@ describe('cause sentences', () => {
           headline: { code: 'app_pg_held', facts: { name: 'pg', pct: 93, holder: 'leak', n: 37 } },
         }),
       ),
-    ).toBe('pg is at 93 % of max_connections: leak holds 37 of them.');
+    ).toBe('pg is at 93% of max_connections: leak holds 37 of them.');
     // A finding's own sentence, as "What WatchLog sees" words it.
     expect(
       say(
@@ -513,7 +515,7 @@ describe('cause sentences', () => {
         }),
       ),
     ).toBe(
-      'caller is slow because hot is CPU-throttled 98 % of the time at its 20m CPU limit: its calls to hot take 233 ms at p95.',
+      'caller is slow because hot is CPU-throttled 98% of the time at its 20m CPU limit: its calls to hot take 233 ms at p95.',
     );
     expect(say(stepLine({ code: 'edge_slower', facts: { fromMs: 0.9, p95Ms: 233 } }))).toBe(
       'Its HTTP calls slowed from 0.9 ms to 233 ms at p95.',

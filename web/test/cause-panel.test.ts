@@ -499,7 +499,7 @@ describe('Needs attention: one line under each problem (ADR-156)', () => {
       ]);
       expect(lines[0]!.text()).toContain('was scaled to 0: nothing answers its calls.');
       expect(lines[1]!.text()).toContain(
-        'The new version fails since its last change · CPU-throttled 35 % of the time',
+        'The new version fails since its last change · CPU-throttled 35% of the time',
       );
       expect(lines[2]!.text()).toContain('Nothing we checked explains it.');
     },

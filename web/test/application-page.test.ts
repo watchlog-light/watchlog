@@ -472,9 +472,9 @@ describe('Application page', () => {
     const { wrapper } = await mountPage(`/applications/${ID}?cluster=${K8S.id}`);
     const rs = wrapper.findAll('[data-testid="reason"]').map((r) => r.text().replace(/\s+/g, ' '));
     expect(rs[0]).toContain(
-      '12.5 % of requests answer 5xx. Most come from shop/api (80 %), last rolled out 12 min ago.',
+      '12.5% of requests answer 5xx. Most come from shop/api (80%), last rolled out 12 min ago.',
     );
-    expect(rs[1]).toContain('2 % of requests answer 5xx.');
+    expect(rs[1]).toContain('2% of requests answer 5xx.');
     expect(rs[1]).not.toContain('null');
     expect(rs[2]).toContain('Nginx has no stub_status');
     expect(wrapper.get('[data-testid="reason-command"]').text()).toContain('listen 8080;');
