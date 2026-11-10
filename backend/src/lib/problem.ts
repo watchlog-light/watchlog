@@ -15,7 +15,6 @@ export interface Problem {
 
 /** Problem types clients can branch on (RFC 9457 `type`); everything else is about:blank. */
 export const ProblemType = {
-  clusterLimit: 'urn:watchlog:problem:cluster-limit',
   nameTaken: 'urn:watchlog:problem:name-taken',
   /** A cluster's 5 active tokens (ADR-040), or a user's 10 active API tokens (ADR-125). */
   tokenLimit: 'urn:watchlog:problem:token-limit',

@@ -4,7 +4,6 @@ import type { Selectable } from 'kysely';
 import type { Database } from '../../db/index.js';
 import type { Clusters, ClusterTokens } from '../../db/types.js';
 import { newId } from '../../lib/ids.js';
-import type { Plan } from '../auth/sessions.js';
 import type { IngestFailure } from '../ingest/errors.js';
 
 /** A cluster is "active" while an agent reported within this window (SPEC §4.7). */
@@ -13,8 +12,6 @@ export const CLUSTER_STALE_MS = 3 * 60 * 1000;
 export type ClusterKind = 'kubernetes' | 'docker';
 export type ClusterStatus = 'pending' | 'active' | 'inactive';
 
-/** Community edition: one cluster or Docker fleet (SPEC §3.2, ADR-039). */
-export const COMMUNITY_CLUSTER_LIMIT = 1;
 /** Active tokens per cluster; enough for overlapping rotations. */
 export const MAX_ACTIVE_TOKENS = 5;
 
@@ -108,16 +105,6 @@ export async function countActiveTokens(db: Database, clusterId: string): Promis
     .where('revoked_at', 'is', null)
     .executeTakeFirstOrThrow();
   return Number(row.n);
-}
-
-export async function clusterLimitReached(db: Database, orgId: string, plan: Plan) {
-  if (plan !== 'community') return false;
-  const row = await db
-    .selectFrom('clusters')
-    .select((eb) => eb.fn.countAll<string>().as('n'))
-    .where('org_id', '=', orgId)
-    .executeTakeFirstOrThrow();
-  return Number(row.n) >= COMMUNITY_CLUSTER_LIMIT;
 }
 
 export function insertCluster(db: Database, orgId: string, name: string, kind: ClusterKind) {

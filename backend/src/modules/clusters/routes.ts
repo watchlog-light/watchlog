@@ -18,7 +18,6 @@ import {
   TokenParams,
 } from './schemas.js';
 import {
-  clusterLimitReached,
   countActiveTokens,
   findCluster,
   insertCluster,
@@ -100,14 +99,6 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
     },
     async (request, reply) => {
       const { org } = request.user!;
-      if (await clusterLimitReached(db, org.id, org.plan)) {
-        return sendProblem(
-          reply,
-          409,
-          'WatchLog Community supports one cluster or Docker fleet. Add more hosts to the existing fleet with its install command.',
-          ProblemType.clusterLimit,
-        );
-      }
       try {
         const { cluster, token } = await db.transaction().execute(async (trx) => {
           const cluster = await insertCluster(trx, org.id, request.body.name, request.body.kind);
