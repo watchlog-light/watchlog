@@ -15,7 +15,9 @@
 // service hog), docker-container-crash (causes-e2e-crasher-1), docker-container-bad-recreate
 // (causes-e2e-release-1 re-created with busybox:1.36 and a command that exits 1).
 import { readFileSync } from 'node:fs';
-import type { Evidence } from '../../src/modules/causes/evidence.js';
+import type { Evidence, Reader } from '../../src/modules/causes/evidence.js';
+import type { ClusterRef } from '../../src/modules/causes/resolve.js';
+import { ApiReadError } from '../../src/modules/mcp/reader.js';
 import type { Rule } from '../../src/modules/causes/rules.js';
 import type { Candidate, ObjectRef, Step } from '../../src/modules/causes/types.js';
 
@@ -104,3 +106,71 @@ export const fakeRule = (
     };
   },
 });
+
+/**
+ * Slice 3: whole answers, recorded. Every API read GET /causes made for one subject on the
+ * e2e demo (test/fixtures/causes/map/<name>.json: the reads, one a line, pruned to the
+ * fixtures' objects; the host renamed docker-01, cluster ids fixed), replayed by a Reader, so
+ * the walk across the map runs on real data: the edges, their last hour, the far end's own
+ * evidence, the applications. `expected` is what the live answer was.
+ */
+export type RecordingName =
+  | 'kube-dependency-down'
+  | 'docker-dependency-down'
+  | 'kube-refused'
+  | 'docker-refused'
+  | 'kube-dns-typo'
+  | 'docker-dns-typo'
+  | 'kube-slow-change'
+  | 'docker-slow-change'
+  | 'kube-pg-leak'
+  | 'docker-pg-leak'
+  | 'kube-rabbit-consumer-oom'
+  // Re-created minutes before (a Compose file change): its OOM kills follow a change.
+  | 'docker-rabbit-consumer-change';
+
+export interface Recording {
+  cluster: ClusterRef;
+  subject: string;
+  now: number;
+  expected: { state: string; headline: string; rule: string | null; chain: string[] | null };
+  reads: Record<string, { status: number; body: unknown }>;
+}
+
+export function recording(name: RecordingName): Recording {
+  return JSON.parse(
+    readFileSync(new URL(`../fixtures/causes/map/${name}.json`, import.meta.url), 'utf8'),
+  ) as Recording;
+}
+
+/** A Reader that answers from a recording (404 for a read it doesn't have); `patch` may change it first. */
+export function replay(
+  rec: Recording,
+  patch?: (reads: Recording['reads']) => void,
+): Reader & { missed: string[] } {
+  const reads = structuredClone(rec.reads);
+  patch?.(reads);
+  const missed: string[] = [];
+  const answer = <T>(key: string): T => {
+    const r = reads[key];
+    if (!r) {
+      missed.push(key);
+      throw new ApiReadError(404, `not recorded: ${key}`);
+    }
+    if (r.status >= 400)
+      throw new ApiReadError(r.status, (r.body as { detail?: string } | null)?.detail ?? '');
+    return structuredClone(r.body) as T;
+  };
+  return {
+    missed,
+    get<T>(path: string, query: Record<string, unknown> = {}) {
+      const q = Object.entries(query)
+        .filter(([, v]) => v !== undefined && v !== null)
+        .sort();
+      return Promise.resolve().then(() => answer<T>(`GET ${path} ${JSON.stringify(q)}`));
+    },
+    post<T>(path: string, body: object) {
+      return Promise.resolve().then(() => answer<T>(`POST ${path} ${JSON.stringify(body)}`));
+    },
+  };
+}

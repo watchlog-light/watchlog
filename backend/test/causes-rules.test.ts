@@ -449,7 +449,7 @@ describe('job_failed', () => {
 });
 
 describe('the catalog', () => {
-  it('has the six object rules of slice 2, Docker forms where ADR-149 has them', () => {
+  it('has the object rules of slice 2 and the rules across the map of slice 3, Docker forms where ADR-149 has them', () => {
     expect(RULES.map((r) => [r.code, r.platforms.join('+')])).toEqual([
       ['bad_change', 'kubernetes+docker'],
       ['oom_limit', 'kubernetes+docker'],
@@ -457,6 +457,10 @@ describe('the catalog', () => {
       ['image_pull', 'kubernetes'],
       ['unschedulable', 'kubernetes'],
       ['job_failed', 'kubernetes'],
+      ['dependency_down', 'kubernetes+docker'],
+      ['connection_refused', 'kubernetes+docker'],
+      ['dns_nxdomain', 'kubernetes+docker'],
+      ['application_finding', 'kubernetes+docker'],
     ]);
   });
 });

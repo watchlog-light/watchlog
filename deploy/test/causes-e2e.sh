@@ -60,18 +60,19 @@ say() { printf '\n== %s\n' "$*"; }
 # `check` asserts the top cause, and that it is likely, when the last column is "on", and
 # only reports it when "pending": a slice turns a scenario on with its rules.
 SCENARIOS='
-dependency-down        kubernetes,docker  dependency_down      dependency_down      workload:causes-e2e/web        compose_service:causes-e2e/web      pending
+dependency-down        kubernetes,docker  dependency_down      dependency_down      workload:causes-e2e/web        compose_service:causes-e2e/web      on
 bad-change             kubernetes,docker  image_pull           bad_change           workload:causes-e2e/release    container:causes-e2e-release-1      on
 oom                    kubernetes,docker  oom_limit            oom_limit            workload:causes-e2e/hog        container:causes-e2e-hog-1          on
 crash                  kubernetes,docker  crash_exit           crash_exit           workload:causes-e2e/crasher    container:causes-e2e-crasher-1      on
 unschedulable          kubernetes         unschedulable        -                    workload:causes-e2e/greedy     -                                   on
 job-failed             kubernetes         job_failed           -                    workload:causes-e2e/CronJob/report  -                              on
 node                   kubernetes,docker  node_or_host         node_or_host         workload:causes-e2e/pinned     compose_service:causes-e2e/api      pending
-dns-typo               kubernetes,docker  dns_nxdomain         dns_nxdomain         workload:causes-e2e/typo       compose_service:causes-e2e/typo     pending
+dns-typo               kubernetes,docker  dns_nxdomain         dns_nxdomain         workload:causes-e2e/typo       compose_service:causes-e2e/typo     on
 cpu-throttle           kubernetes,docker  cpu_throttled        cpu_throttled        workload:causes-e2e/caller     compose_service:causes-e2e/caller   pending
-pg-leak                kubernetes,docker  application_finding  application_finding  application:causes-e2e/pg      application:causes-e2e/pg           pending
-rabbitmq-consumer-oom  kubernetes,docker  application_finding  application_finding  application:rabbitmq-e2e/rabbitmq  application:rabbitmq-e2e/rabbitmq  pending
-slow-change            kubernetes,docker  bad_change           bad_change           workload:causes-e2e/front      compose_service:causes-e2e/front    pending
+pg-leak                kubernetes,docker  application_finding  application_finding  application:causes-e2e/pg      application:causes-e2e/pg           on
+rabbitmq-consumer-oom  kubernetes,docker  application_finding  application_finding  application:rabbitmq-e2e/rabbitmq  application:rabbitmq-e2e/rabbitmq  on
+slow-change            kubernetes,docker  bad_change           bad_change           workload:causes-e2e/front      compose_service:causes-e2e/front    on
+refused                kubernetes,docker  connection_refused   connection_refused   workload:causes-e2e/dialer     compose_service:causes-e2e/dialer   on
 '
 
 # What each trigger and restore does, for `list` (the functions below do it).
@@ -89,6 +90,7 @@ describe() {
     pg-leak) echo "both: start leak, which opens 37 of pg's 40 connections (92 %) and leaves them idle" ;;
     rabbitmq-consumer-oom) echo "both: start rabbitmq-e2e's publisher and consumer; the consumer is OOM-killed after a minute, orders grows" ;;
     slow-change) echo "kubernetes: roll out slow with podinfo's 1-3 s random delay | docker: re-create slow with it (front calls it)" ;;
+    refused) echo "both: start dialer, which calls web on port 9899, where nothing listens (web itself runs and is ready)" ;;
   esac
 }
 
@@ -154,6 +156,7 @@ act_job_failed() {
 act_crash() { start_stop "$1" "$2" crasher; }
 act_dns_typo() { start_stop "$1" "$2" typo; }
 act_pg_leak() { start_stop "$1" "$2" leak; }
+act_refused() { start_stop "$1" "$2" dialer; }
 act_node() {
   case "$1 $2" in
     "kubernetes trigger")
@@ -195,8 +198,9 @@ act_rabbitmq_consumer_oom() {
   local purge='rabbitmqctl -q purge_queue orders >/dev/null 2>&1 || true'
   case "$1 $2" in
     "kubernetes trigger")
+      # A new pod (restore scaled it to 0), no rollout: the consumer's own cause is its OOM
+      # kill, not a change.
       kc "-n rabbitmq-e2e scale deploy/publisher deploy/consumer --replicas 1"
-      kc "-n rabbitmq-e2e rollout restart deploy/consumer"
       ;;
     "kubernetes restore")
       kc "-n rabbitmq-e2e scale deploy/publisher deploy/consumer --replicas 0"
@@ -256,6 +260,7 @@ YAML
     "pinned^1^busybox:1.37^[sh, -c, 'exec sleep 2147483647']^$small^nodeSelector: { kubernetes.io/hostname: demo-worker2 }" \
     "greedy^0^busybox:1.37^[sh, -c, 'exec sleep 2147483647']^{ requests: { cpu: \"64\", memory: 8Mi }, limits: { cpu: \"64\", memory: 16Mi } }^" \
     "typo^0^busybox:1.37^[sh, -c, 'while true; do wget -q -O /dev/null -T 2 http://catalgo.invalid:9898/; sleep 5; done']^$small^" \
+    "dialer^0^busybox:1.37^[sh, -c, 'while true; do wget -q -O /dev/null -T 2 http://admin:9899/; sleep 1; done']^$small^" \
     "pg^1^postgres:16-alpine^[docker-entrypoint.sh, postgres, -c, max_connections=40, -c, superuser_reserved_connections=0, -c, shared_buffers=16MB, -c, shared_preload_libraries=pg_stat_statements]^{ requests: { cpu: 10m, memory: 64Mi }, limits: { cpu: 500m, memory: 256Mi } }^" \
     "leak^0^postgres:16-alpine^[sh, -c, 'for i in \$(seq 37); do (while sleep 30; do echo \"select 1;\"; done | psql -h pg -U postgres -q >/dev/null 2>&1) & sleep 0.2; done; wait']^{ requests: { cpu: 10m, memory: 32Mi }, limits: { cpu: 200m, memory: 192Mi } }^"; do
     IFS='^' read -r name replicas image command resources extra <<<"$d"
@@ -340,6 +345,15 @@ metadata: { name: ${s%%:*}, namespace: $ns }
 spec: { selector: { app: ${s%%:*} }, ports: [{ port: ${s##*:} }] }
 YAML
   done
+  # admin: web's pods on a port nothing listens on (the refused scenario's dialer calls it;
+  # web, not api, so that dependency-down leaves it alone).
+  cat <<YAML
+---
+apiVersion: v1
+kind: Service
+metadata: { name: admin, namespace: $ns }
+spec: { selector: { app: web }, ports: [{ port: 9899 }] }
+YAML
 }
 
 compose_file() {
@@ -400,6 +414,10 @@ services:
     <<: *small
     profiles: [scenario]
     command: [sh, -c, 'while true; do wget -q -O /dev/null -T 2 http://catalgo.invalid:9898/; sleep 5; done']
+  dialer:
+    <<: *small
+    profiles: [scenario]
+    command: [sh, -c, 'while true; do wget -q -O /dev/null -T 2 http://web:9899/; sleep 1; done']
   leak:
     image: postgres:16-alpine
     profiles: [scenario]

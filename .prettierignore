@@ -9,3 +9,4 @@ web/e2e/.auth
 web/e2e/screenshots
 web/test-results
 web/playwright-report
+backend/test/fixtures/causes/map

@@ -54,6 +54,49 @@ const HEADLINES: [string, Facts][] = [
   ],
   ['job_failed_exit', { name: 'report', job: 'report-e2e-1794332238', exitCode: 2 }],
   ['job_failed', { name: 'report', job: 'report-29001' }],
+  // Slice 3: the rules across the map (measured on the kind and Docker e2e demos).
+  ['dependency_down', { name: 'web', target: 'api' }],
+  ['dependency_down_scaled', { name: 'web', target: 'api' }],
+  ['dependency_down_oom', { name: 'web', target: 'api', limitBytes: 268435456 }],
+  ['dependency_down_crash', { name: 'web', target: 'api', exitCode: 3 }],
+  ['dependency_down_change', { name: 'web', target: 'api' }],
+  ['dependency_down_pull', { name: 'web', target: 'api', image: 'podinfo:0.0-missing' }],
+  ['dependency_down_stopped', { name: 'web', target: 'causes-e2e-api-1', exitCode: 0 }],
+  ['connection_refused', { name: 'dialer', target: 'web', port: 9899 }],
+  ['connection_refused_noport', { name: 'dialer', target: 'web' }],
+  ['dns_nxdomain', { name: 'typo', perMinute: 24 }],
+  ['dns_nxdomain_change', { name: 'typo', perMinute: 24 }],
+  ['bad_change_slow', { name: 'front', target: 'slow', p95Ms: 2425 }],
+  ['bad_change_errors', { name: 'front', target: 'slow', pct: 12.5 }],
+  [
+    'app_consumer_oom',
+    { queue: 'orders', consumer: 'rabbitmq-e2e/consumer', limitBytes: 402653184 },
+  ],
+  ['app_consumer_crash', { queue: 'orders', consumer: 'rabbitmq-e2e-consumer-1', exitCode: 1 }],
+  ['app_consumer_change', { queue: 'orders', consumer: 'rabbitmq-e2e/consumer' }],
+  [
+    'app_consumer_ended',
+    { queue: 'orders', consumer: 'rabbitmq-e2e-consumer-1', how: 'Exited (0)' },
+  ],
+  ['app_pg_held', { name: 'causes-e2e/pg', pct: 93, holder: 'causes-e2e/leak', n: 37 }],
+  ['app_pg_held', { name: 'causes-e2e/pg', pct: 98, holder: 'shop/report', n: 1 }],
+  [
+    'app_finding_caller',
+    {
+      name: 'web',
+      app: 'shop/redis',
+      finding: 'memory_near_max',
+      type: 'redis',
+      pct: 95,
+      member: null,
+    },
+  ],
+  // The application's own finding: its sentence from "What WatchLog sees".
+  [
+    'app_finding',
+    { name: 'shop/redis', finding: 'memory_near_max', type: 'redis', pct: 95, member: 'redis-0' },
+  ],
+  ['app_finding', { name: 'shop/nginx', finding: 'latency_high', type: 'nginx', p95: '1.40 s' }],
 ];
 
 /** Checks: [topic, code, facts] as checks.ts sends them, nullable facts both ways. */
@@ -91,6 +134,8 @@ const CHECKS: [CauseCheck['topic'], string, Facts][] = [
   ['dependencies', 'dependencies_ok', { name: 'web', n: 1 }],
   ['dependencies', 'dependencies_failing', { name: 'web', n: 1, target: 'api' }],
   ['dependencies', 'dependencies_none', { name: 'crasher' }],
+  ['dependencies', 'dependencies_quiet', { name: 'web', n: 1 }],
+  ['dependencies', 'dependencies_quiet', { name: 'web', n: 2 }],
   ['dependencies', 'dependencies_no_node', { name: 'oom' }],
   ['dependencies', 'dependencies_flows_off', { name: 'web' }],
   ['dependencies', 'dependencies_unavailable', { name: 'web' }],
@@ -156,6 +201,38 @@ const STEPS: [string, Facts][] = [
   ['job_deadline', { job: 'report-29001' }],
   ['job_run_failed', { job: 'report-29001' }],
   ['job_pod_exit', { exitCode: 2, reason: 'Error', n: 2 }],
+  // Slice 3.
+  ['edge_gone', {}],
+  ['edge_gone_dns', { perMinute: 238 }],
+  ['no_pods', {}],
+  ['no_ready_pods', { n: 1 }],
+  ['no_ready_pods', { n: 3 }],
+  ['scaled', { from: 1, to: 0 }],
+  ['container_stopped', { exitCode: 0 }],
+  ['no_listener_ready', { port: 9899, ready: 1, n: 1 }],
+  ['no_listener_ready', { port: 9899, ready: 2, n: 3 }],
+  ['no_listener_running', { port: 9899 }],
+  ['nxdomain', { perMinute: 24 }],
+  ['new_version_slow', { fromMs: 1, p95Ms: 2425 }],
+  ['new_version_slow_now', { p95Ms: 2425 }],
+  ['new_version_errors', { pct: 12.5 }],
+  ['queue_no_consumers', { queue: 'orders', ready: 803, perMin: 65 }],
+  ['consumer_ended', { how: 'OOMKilled' }],
+  ['pg_connections', { pct: 93, n: 37, max: 40 }],
+  ['holds_connections', { n: 37 }],
+  ['holds_connections', { n: 1 }],
+  [
+    'app_finding',
+    {
+      finding: 'connections_near_max',
+      type: 'postgres',
+      n: 92,
+      max: 100,
+      pct: 92,
+      top: 'shop/x (85)',
+    },
+  ],
+  ['app_finding', { finding: 'evicting', type: 'redis', n: 120 }],
 ];
 
 /** Causes of the catalog's rules: the short line (Needs attention, notifications). */
@@ -180,6 +257,31 @@ const CAUSES: [string, Facts][] = [
   ],
   ['unschedulable', { name: 'greedy', reason: 'cpu', pod: 'greedy-1', message: '0/3 nodes…' }],
   ['job_failed', { name: 'report', job: 'report-1', why: null, exitCode: null, attempts: 2 }],
+  ['dependency_down', { name: 'web', target: 'api', platform: 'kubernetes', ready: 0, desired: 0 }],
+  ['dependency_down', { name: 'web', target: 'causes-e2e-api-1', platform: 'docker', exitCode: 0 }],
+  ['connection_refused', { name: 'dialer', target: 'web', port: 9899, pct: 100 }],
+  ['connection_refused', { name: 'dialer', target: 'web', port: null, pct: 100 }],
+  ['dns_nxdomain', { name: 'typo', perMinute: 24 }],
+  [
+    'application_finding',
+    {
+      name: 'causes-e2e/pg',
+      finding: 'connections_near_max',
+      holder: 'causes-e2e/leak',
+      n: 37,
+      pct: 93,
+    },
+  ],
+  [
+    'application_finding',
+    {
+      name: 'rabbitmq-e2e/rabbitmq',
+      finding: 'queue_no_consumers',
+      queue: 'orders',
+      consumer: 'c',
+      how: 'OOMKilled',
+    },
+  ],
 ];
 
 const raw = (key: string): string | undefined =>
@@ -283,6 +385,40 @@ describe('cause sentences', () => {
     expect(
       say(stepLine({ code: 'scheduling_cpu', facts: { n: 2, nodes: 3, requestCores: 0.25 } })),
     ).toBe('It requests 250m CPU, more than 2 of the 3 nodes have free.');
+  });
+
+  it('renders the rules across the map in their words', () => {
+    const say = ({ key, values, plural }: Line) =>
+      plural === undefined ? i18n.t(key, values) : i18n.t(key, values, plural);
+    expect(
+      say(
+        headlineLine({
+          headline: { code: 'dependency_down_scaled', facts: { name: 'web', target: 'api' } },
+        }),
+      ),
+    ).toBe('web fails because api was scaled to 0: nothing answers its calls.');
+    expect(say(stepLine({ code: 'no_ready_pods', facts: { n: 1 } }))).toBe(
+      "Its only pod isn't ready.",
+    );
+    expect(say(stepLine({ code: 'new_version_slow', facts: { fromMs: 2, p95Ms: 2425 } }))).toBe(
+      'Its calls slowed from 2 ms to 2.42 s at p95.',
+    );
+    expect(
+      say(
+        headlineLine({
+          headline: { code: 'app_pg_held', facts: { name: 'pg', pct: 93, holder: 'leak', n: 37 } },
+        }),
+      ),
+    ).toBe('pg is at 93 % of max_connections: leak holds 37 of them.');
+    // A finding's own sentence, as "What WatchLog sees" words it.
+    expect(
+      say(
+        stepLine({
+          code: 'app_finding',
+          facts: { finding: 'evicting', type: 'redis', n: 120 },
+        }),
+      ),
+    ).not.toMatch(/causes\.|\{/);
   });
 
   it('says a slow call in milliseconds or seconds', () => {
