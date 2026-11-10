@@ -391,9 +391,9 @@ onBeforeUnmount(() => clearInterval(timer));
           data-testid="cause-checks"
         >
           <summary
-            class="flex min-h-11 cursor-pointer items-center gap-2 text-13 font-medium text-text marker:text-text-muted"
+            class="flex min-h-11 cursor-pointer flex-wrap items-center gap-x-2 py-2 text-13 font-medium text-text marker:text-text-muted"
           >
-            {{ $t('causes.panel.checks') }}
+            <span class="whitespace-nowrap">{{ $t('causes.panel.checks') }}</span>
             <span class="font-normal text-text-muted">· {{ summary }}</span>
           </summary>
           <ul class="flex flex-col gap-2 pb-3.5">
