@@ -18,7 +18,7 @@ WatchLog has two parts: the **server** (backend, web UI, PostgreSQL, VictoriaMet
 One chart installs the server and the agents for this cluster:
 
 ```bash
-helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version 0.2.0 \
+helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version 0.3.0 \
   --namespace watchlog --create-namespace
 ```
 
@@ -53,8 +53,8 @@ In the UI, go to **Settings → Clusters → Add cluster → Kubernetes**. Run t
 
 ```bash
 mkdir watchlog && cd watchlog
-curl -fsSLO https://raw.githubusercontent.com/watchlog-light/watchlog/v0.2.0/deploy/docker/compose.yaml
-curl -fsSL -o .env https://raw.githubusercontent.com/watchlog-light/watchlog/v0.2.0/deploy/docker/.env.example
+curl -fsSLO https://raw.githubusercontent.com/watchlog-light/watchlog/v0.3.0/deploy/docker/compose.yaml
+curl -fsSL -o .env https://raw.githubusercontent.com/watchlog-light/watchlog/v0.3.0/deploy/docker/.env.example
 ```
 
 Edit `.env` and set:
@@ -62,7 +62,7 @@ Edit `.env` and set:
 - `WATCHLOG_DB_PASSWORD`: any strong password.
 - `WATCHLOG_SECRET_KEY`: from `openssl rand -base64 32`. Back it up with the database.
 - `WATCHLOG_PUBLIC_URL`: how agents and browsers reach this host, for example `http://10.0.0.5:8080`.
-- `WATCHLOG_VERSION=0.2.0`.
+- `WATCHLOG_VERSION=0.3.0`.
 
 Then start it and get the setup code:
 
@@ -74,6 +74,20 @@ docker compose logs backend | grep "setup code"
 Open `WATCHLOG_PUBLIC_URL`, enter the code and create your admin account. Only port 8080 is published. For anything beyond a trusted network, put a TLS-terminating proxy in front.
 
 **2. The agents.** In the UI, go to **Settings → Clusters → Add cluster → Docker**, then run the `docker run` command it shows on every Docker host, including this one if it runs workloads. Hosts and containers appear within a minute.
+
+## Applications (databases, caches, queues, web servers)
+
+WatchLog finds Redis, PostgreSQL, Nginx and RabbitMQ in what the agents already see. Open
+**Applications** and press **Monitor**. They are read by the integrations collector, with
+read-only access:
+
+- **Kubernetes:** the chart runs it in each cluster (`integrations.enabled`, on by default).
+- **Docker hosts:** start it on each host that runs the services: the service page shows the
+  `docker run` command (it joins the host's network to reach containers on any network).
+
+Each integration has its own page: [Redis](integrations/redis.md),
+[PostgreSQL](integrations/postgres.md), [Nginx](integrations/nginx.md) and
+[RabbitMQ](integrations/rabbitmq.md).
 
 ## Upgrade
 

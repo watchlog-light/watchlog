@@ -9,8 +9,10 @@
 - **One install.** A Helm chart for Kubernetes, or one `docker run` per Docker host.
 - **Ready-made views.** Cluster overview, nodes, workloads, pods with restart and OOM reasons, events, and Docker hosts and containers.
 - **A service map without code changes.** eBPF shows who connects to whom, failed connections, connect latency, bytes and DNS errors. External services are named by DNS.
+- **Your databases, caches, queues and web servers.** Redis, PostgreSQL, Nginx and RabbitMQ are found by themselves; press Monitor for their own page, the reasons behind a problem (the queue whose consumer was OOM-killed, the upstream sending 5xx) and default alerts. Read-only access, and HTTP stats from eBPF with nothing to set up.
 - **Alerts that work on day one.** Crash loops, OOM kills, node pressure, failing connections and more, sent to Slack, Telegram, email or webhooks.
 - **A small, read-only agent.** Under 64 MB of memory and 1 % of a core. It never reads Secrets, ConfigMaps, environment values or payloads; see [what it can access](docs/site/security.md).
+- **For your team.** Owners, Admins and Viewers, invited by email; an MCP server and a REST API for your AI assistant and scripts, read-only.
 - **Self-hosted and free** for one cluster, under AGPL-3.0.
 
 ![The cluster overview: health from firing alerts, what needs attention, recent warnings](docs/images/overview.png)
@@ -20,7 +22,7 @@
 ### Kubernetes
 
 ```bash
-helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version 0.2.0 \
+helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version 0.3.0 \
   --namespace watchlog --create-namespace
 kubectl -n watchlog port-forward svc/watchlog-web 8080
 ```
@@ -31,8 +33,8 @@ Open http://localhost:8080 and enter the setup code from `kubectl -n watchlog lo
 
 ```bash
 mkdir watchlog && cd watchlog
-curl -fsSLO https://raw.githubusercontent.com/watchlog-light/watchlog/v0.2.0/deploy/docker/compose.yaml
-curl -fsSL -o .env https://raw.githubusercontent.com/watchlog-light/watchlog/v0.2.0/deploy/docker/.env.example
+curl -fsSLO https://raw.githubusercontent.com/watchlog-light/watchlog/v0.3.0/deploy/docker/compose.yaml
+curl -fsSL -o .env https://raw.githubusercontent.com/watchlog-light/watchlog/v0.3.0/deploy/docker/.env.example
 # set WATCHLOG_DB_PASSWORD, WATCHLOG_SECRET_KEY (openssl rand -base64 32), WATCHLOG_PUBLIC_URL in .env
 docker compose up -d && docker compose logs backend | grep "setup code"
 ```
@@ -44,6 +46,7 @@ The [install guide](docs/site/install.md) covers requirements, PodSecurity, more
 ## Documentation
 
 - [Install](docs/site/install.md) · [Configuration](docs/site/configuration.md) · [Security: what the agent can access](docs/site/security.md) · [FAQ](docs/site/faq.md)
+- Applications: [Redis](docs/site/integrations/redis.md) · [PostgreSQL](docs/site/integrations/postgres.md) · [Nginx](docs/site/integrations/nginx.md) · [RabbitMQ](docs/site/integrations/rabbitmq.md)
 - [Specification](docs/SPEC.md) and [architecture decisions](docs/DECISIONS.md)
 - [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md)
 
