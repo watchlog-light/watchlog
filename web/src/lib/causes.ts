@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Probable cause (ADR-146 to ADR-148): the panel's sentences as i18n keys and values, and
 // where each object of a chain or a check links to. Codes come from GET /causes; every
-// sentence lives in en.json under `causes.` (ADR-147), and web/test/cause-templates.test.ts
-// renders each with its placeholders filled.
+// sentence lives in en.json under `causes.` (ADR-147; the headlines come from
+// @watchlog/cause-words, which the notifications render too, ADR-157), and
+// web/test/cause-templates.test.ts renders each with its placeholders filled.
 import type {
   Cause,
   CauseCheck,
@@ -14,7 +15,7 @@ import type {
 } from '@watchlog/api-types';
 import type { RouteLocationRaw } from 'vue-router';
 import { reasonLine, serviceName } from './applications';
-import { formatBytes, formatValue } from './units';
+import { causeValues } from '@watchlog/cause-words';
 
 export interface Line {
   key: string;
@@ -28,25 +29,8 @@ export interface Line {
   about?: string;
 }
 
-/** Cores as a request reads: "64", "1.5", "500m". */
-const cores = (v: number) => (v >= 1 ? String(+v.toFixed(2)) : `${Math.round(v * 1000)}m`);
-/** "45 s", "2 min": how often something happens. */
-const every = (s: number) => (s < 90 ? `${Math.round(s)} s` : `${Math.round(s / 60)} min`);
-
-/** Facts as the sentences show them: durations, bytes and cores in their units. */
-function values(facts: Record<string, string | number | null>): Record<string, unknown> {
-  const out: Record<string, unknown> = { ...facts };
-  if (typeof facts.p95Ms === 'number') out.p95 = formatValue(facts.p95Ms / 1000, 'seconds');
-  if (typeof facts.fromMs === 'number') out.from = formatValue(facts.fromMs / 1000, 'seconds');
-  if (typeof facts.limitBytes === 'number') out.limit = formatBytes(facts.limitBytes);
-  if (typeof facts.perMinuteBytes === 'number') out.perMinute = formatBytes(facts.perMinuteBytes);
-  if (typeof facts.requestBytes === 'number') out.request = formatBytes(facts.requestBytes);
-  if (typeof facts.requestCores === 'number') out.request = cores(facts.requestCores);
-  if (typeof facts.limitCores === 'number') out.cpuLimit = cores(facts.limitCores);
-  if (typeof facts.peakBytes === 'number') out.peak = formatBytes(facts.peakBytes);
-  if (typeof facts.everyS === 'number') out.every = every(facts.everyS);
-  return out;
-}
+/** Facts as the sentences show them: durations, bytes and cores (shared with the backend). */
+const values = (facts: Record<string, string | number | null>) => causeValues(facts);
 
 const line = (key: string, facts: Record<string, string | number | null>): Line => ({
   key,

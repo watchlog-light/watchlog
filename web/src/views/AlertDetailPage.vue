@@ -291,6 +291,18 @@ onMounted(() => {
                   channel: s.note.channel?.name ?? $t('alerts.detail.deletedChannel'),
                 })
               }}
+              <span
+                v-if="s.note.withCause"
+                class="text-12 text-text-muted"
+                data-testid="note-cause"
+                >{{
+                  $t(
+                    s.note.kind === 'resolved'
+                      ? 'alerts.detail.withWasCause'
+                      : 'alerts.detail.withCause',
+                  )
+                }}</span
+              >
               <TonePill
                 :tone="NOTE_TONE[s.note.status] ?? 'neutral'"
                 :label="$t(`alerts.delivery.${s.note.status}`)"

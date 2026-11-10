@@ -1,22 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Formatting for metric values (units from the query catalog, ADR-028).
+import { formatBytes, formatSeconds } from '@watchlog/cause-words';
 
 export type Unit =
   'ratio' | 'bytes' | 'bytes_per_second' | 'cores' | 'load' | 'count' | 'seconds' | 'per_second';
 
 const BYTE_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
 
-export function formatBytes(v: number): string {
-  let i = 0;
-  let n = Math.abs(v);
-  while (n >= 1024 && i < BYTE_UNITS.length - 1) {
-    n /= 1024;
-    i++;
-  }
-  const digits = n >= 100 || i === 0 ? 0 : 1;
-  const text = (Math.sign(v) * n).toFixed(digits).replace(/\.0$/, '');
-  return `${text} ${BYTE_UNITS[i]}`;
-}
+// One formatting of bytes and seconds for the whole dashboard and the notifications (ADR-157).
+export { formatBytes };
 
 // Axis step for byte values: 1, 2 or 5 × a power of ten within one binary unit
 // (KiB, MiB, …), so ticks read 0, 2 MiB, 4 MiB rather than ECharts' decimal 4.8 MiB.
@@ -85,7 +77,6 @@ export function formatValue(v: number | null | undefined, unit: Unit): string {
       return formatRate(v);
     case 'seconds':
       // Connect latencies: milliseconds below a second.
-      if (v === 0) return '0 ms';
-      return v < 1 ? `${+(v * 1000).toFixed(v < 0.01 ? 1 : 0)} ms` : `${+v.toFixed(2)} s`;
+      return formatSeconds(v);
   }
 }
