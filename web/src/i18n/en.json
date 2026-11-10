@@ -2870,5 +2870,106 @@
     "goneTitle": "This reset link doesn't work",
     "used": "It has been used. Ask an Admin for a new one, or use Forgot your password? on the sign-in page.",
     "expired": "Reset links work once and for one hour. Ask an Admin for a new one, or use Forgot your password? on the sign-in page."
+  },
+  "causes": {
+    "headline": {
+      "none_no_changes": "We checked {n} things around {name} and none of them explains it. Nothing changed in the {minutes} minutes before.",
+      "none_found": "No rule explains what happens to {name}. We checked {n} things; {found} of them found something to look at.",
+      "none_flows_off": "Nothing on {name} itself explains it. Without network flows we couldn't check the services it calls.",
+      "possible": "Nothing proves one cause for {name}. These {n} could explain it."
+    },
+    "check": {
+      "what": {
+        "self": "{name} itself",
+        "alert": "The alert",
+        "events": "Events of {name}",
+        "changes": "Recent changes",
+        "node": "Node {node}",
+        "node_none": "The node under {name}",
+        "host": "Host {host}",
+        "dependencies": "Services {name} calls",
+        "dns": "DNS lookups from {name}",
+        "application": "{name}",
+        "edge": "The connection"
+      },
+      "result": {
+        "self_ok": "no restarts, OOM kills or failing containers",
+        "self_restarts": "{n} restarts in the last hour",
+        "self_restarts_exit": "{n} restarts in the last hour; last exit {reason} (code {exitCode})",
+        "self_restarts_code": "{n} restarts in the last hour; last exit code {exitCode}",
+        "self_oom_killed": "OOM-killed: it reached its memory limit",
+        "self_failing": "failing: {reason}",
+        "self_pending": "a pod is Pending, not running yet",
+        "self_not_ready": "{ready} of {desired} replicas ready",
+        "self_stopped": "stopped (exit code {exitCode})",
+        "self_not_running": "{running} of {total} containers running",
+        "self_unhealthy": "its health check fails",
+        "self_gone": "couldn't check: it no longer exists",
+        "self_no_object": "it is about no single object, so only the changes before it were checked",
+        "events_none": "no warning events in the last {minutes} minutes",
+        "events_warnings": "{n} warning events, mostly {reason}",
+        "changes_none": "no rollout, image change, scaling or re-create of {name} in the {minutes} minutes before",
+        "changes_own": "{n} changes to {name} since {minutes} minutes before the problem",
+        "changes_cluster": "{n} changes nearby (its namespace, or the cluster) since {minutes} minutes before",
+        "changes_cluster_none": "nothing changed nearby (its namespace, or the cluster) in the {minutes} minutes before",
+        "node_ok": "Ready, no memory, disk or PID pressure",
+        "node_not_ready": "not Ready ({status})",
+        "node_pressure": "under {condition}",
+        "node_unschedulable": "cordoned: no new pods are scheduled on it",
+        "node_none": "not scheduled on a node yet",
+        "host_ok": "reporting, memory and disk below 90 %",
+        "host_silent": "silent: no report for {minutes} min",
+        "host_never": "silent: no report yet",
+        "host_memory": "memory at {pct} %",
+        "host_disk": "disk at {pct} %",
+        "dependencies_ok": "{n} connections out, none failing or slow",
+        "dependencies_failing": "{n} failing or slow, the worst to {target}",
+        "dependencies_none": "it calls nothing on the service map",
+        "dependencies_no_node": "it is not on the service map",
+        "dependencies_flows_off": "couldn't check: network flows are off",
+        "dependencies_unavailable": "couldn't check: metrics are unavailable",
+        "dns_ok": "no failed lookups",
+        "dns_errors": "{perMinute} failed lookups a minute, {nxdomainPerMinute} of them NXDOMAIN",
+        "dns_none": "no lookups",
+        "dns_flows_off": "couldn't check: network flows are off",
+        "dns_unavailable": "couldn't check: metrics are unavailable",
+        "application_ok": "connected, no findings",
+        "application_findings": "{n} findings: see What WatchLog sees",
+        "application_unreachable": "couldn't check: WatchLog can't read it now",
+        "edge_ok": "no failed connections, server errors or slow calls",
+        "edge_failed": "{pct} % of its connections fail",
+        "edge_errors": "{pct} % of its HTTP calls answer 5xx",
+        "edge_slow": "its HTTP calls take {p95} at p95"
+      }
+    },
+    "step": {
+      "edge_failed": "{pct} % of its calls fail.",
+      "edge_errors": "{pct} % of its HTTP calls answer 5xx.",
+      "edge_slow": "Its HTTP calls take {p95} at p95.",
+      "edge_ok": "It calls this service."
+    },
+    "connector": {
+      "calls": "calls",
+      "because": "because",
+      "consumed_by": "consumed by",
+      "looks_up": "looks up",
+      "after": "after"
+    },
+    "source": {
+      "service_map": "service map",
+      "kubernetes": "Kubernetes",
+      "docker": "Docker",
+      "change_marker": "change marker",
+      "metrics": "metrics",
+      "dns": "DNS",
+      "application": "application"
+    },
+    "result": {
+      "explains": "explains it",
+      "possible": "possible",
+      "ok": "fine",
+      "not_run": "couldn't check",
+      "not_applicable": "doesn't apply"
+    }
   }
 }
