@@ -563,9 +563,17 @@ const alert = computed(() => series.data.value?.context.alert ?? null);
 .close:hover {
   color: var(--text);
 }
-/* Touch screens: 44 px rows. */
+/* Touch screens: 44 px rows and targets. */
 @media (max-width: 1023px) {
-  .lrow {
+  .lrow,
+  .link {
+    min-height: 44px;
+  }
+  .close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
     min-height: 44px;
   }
 }
