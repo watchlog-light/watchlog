@@ -205,6 +205,8 @@ describe('the PostgreSQL page', () => {
         svc({ state: 'idle in transaction', wait: 'Lock' }),
         () => 4,
       ),
+      // pg_stat_database's per-database count, the same sessions again: never added in.
+      write(k8s.id, 'watchlog_postgres_backends', svc({ db: 'shop' }), () => 92),
       write(k8s.id, 'watchlog_postgres_setting', svc({ name: 'max_connections' }), () => 100),
       write(
         k8s.id,

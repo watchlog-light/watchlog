@@ -393,13 +393,13 @@ const ENTRIES = {
     unit: 'count',
     agg: 'sum',
     expr: (s, _r, a) =>
-      `${a} by (service, service_type, member) (watchlog_postgres_backends${s()})`,
+      `${a} by (service, service_type, member) (watchlog_postgres_backends${s('db=""')})`,
   },
   'postgres.connections.ratio': {
     unit: 'ratio',
     agg: 'max',
     expr: (s) =>
-      `sum by (service, service_type, member) (watchlog_postgres_backends${s()}) / on (service, service_type, member) (max by (service, service_type, member) (watchlog_postgres_setting${s('name="max_connections"')}) > 0)`,
+      `sum by (service, service_type, member) (watchlog_postgres_backends${s('db=""')}) / on (service, service_type, member) (max by (service, service_type, member) (watchlog_postgres_setting${s('name="max_connections"')}) > 0)`,
   },
   'postgres.transactions.rate': {
     unit: 'per_second',

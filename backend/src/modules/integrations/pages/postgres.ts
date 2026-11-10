@@ -185,7 +185,7 @@ async function overview(ctx: PageContext): Promise<Panel[]> {
     calls1h,
     volume,
   ] = await Promise.all([
-    instant(ctx, `sum(watchlog_postgres_backends{${s}})`),
+    instant(ctx, `sum(watchlog_postgres_backends{${s}, db=""})`),
     instant(ctx, `max(watchlog_postgres_setting{${s}, name="max_connections"})`),
     instant(ctx, `max(watchlog_postgres_setting{${s}, name="superuser_reserved_connections"})`),
     instant(ctx, `sum(rate(watchlog_postgres_xact_commit_total{${s}}[${RATE}]))`),
@@ -200,7 +200,7 @@ async function overview(ctx: PageContext): Promise<Panel[]> {
       `sum(max by (db) (deriv(watchlog_postgres_database_size_bytes{${s}}[7d]) and last_over_time(watchlog_postgres_database_size_bytes{${s}}[1h] offset 1d))) * 86400`,
     ),
     instant(ctx, `max(watchlog_postgres_backend_max_seconds{${s}, kind="active"})`),
-    range(ctx, `sum(watchlog_postgres_backends{${s}})`),
+    range(ctx, `sum(watchlog_postgres_backends{${s}, db=""})`),
     range(ctx, `max(watchlog_postgres_setting{${s}, name="max_connections"})`),
     range(ctx, `sum(rate(watchlog_postgres_xact_commit_total{${s}}[${RATE}]))`),
     range(ctx, `sum(rate(watchlog_postgres_xact_rollback_total{${s}}[${RATE}]))`),
@@ -383,10 +383,10 @@ async function overview(ctx: PageContext): Promise<Panel[]> {
 async function connections(ctx: PageContext): Promise<Panel[]> {
   const s = one(ctx.row.id);
   const [byState, maxConn, now, idleTx, timeout, sessions, owners] = await Promise.all([
-    range(ctx, `sum by (state) (watchlog_postgres_backends{${s}})`),
+    range(ctx, `sum by (state) (watchlog_postgres_backends{${s}, db=""})`),
     instant(ctx, `max(watchlog_postgres_setting{${s}, name="max_connections"})`),
-    instant(ctx, `sum(watchlog_postgres_backends{${s}})`),
-    instant(ctx, `sum(watchlog_postgres_backends{${s}, state=~"idle in transaction.*"})`),
+    instant(ctx, `sum(watchlog_postgres_backends{${s}, db=""})`),
+    instant(ctx, `sum(watchlog_postgres_backends{${s}, db="", state=~"idle in transaction.*"})`),
     instant(
       ctx,
       `max(watchlog_postgres_setting{${s}, name="idle_in_transaction_session_timeout"})`,
@@ -548,7 +548,7 @@ async function locks(ctx: PageContext): Promise<Panel[]> {
   const s = one(ctx.row.id);
   const end = Math.floor(ctx.now / 1000 / 3600) * 3600;
   const [waits, deadlocks, locked, heat, owners] = await Promise.all([
-    range(ctx, `sum by (wait) (watchlog_postgres_backends{${s}, wait!=""})`),
+    range(ctx, `sum by (wait) (watchlog_postgres_backends{${s}, db="", wait!=""})`),
     range(ctx, `sum(increase(watchlog_postgres_deadlocks_total{${s}}[5m]))`),
     instant(ctx, `topk(10, max by (table) (watchlog_postgres_locked_relation{${s}}))`),
     ctx.vm
@@ -911,11 +911,11 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
     stuck,
     owners,
   ] = await Promise.all([
-    instant(ctx, `sum(watchlog_postgres_backends{${s}})`),
+    instant(ctx, `sum(watchlog_postgres_backends{${s}, db=""})`),
     instant(ctx, `max(watchlog_postgres_setting{${s}, name="max_connections"})`),
     instant(ctx, `max(watchlog_postgres_backend_max_seconds{${s}, kind="active"})`),
     instant(ctx, `max(watchlog_postgres_backend_max_seconds{${s}, kind="idle_in_transaction"})`),
-    instant(ctx, `sum(watchlog_postgres_backends{${s}, state=~"idle in transaction.*"})`),
+    instant(ctx, `sum(watchlog_postgres_backends{${s}, db="", state=~"idle in transaction.*"})`),
     instant(ctx, `max(watchlog_postgres_lock_waits{${s}})`),
     instant(ctx, `sum(increase(watchlog_postgres_deadlocks_total{${s}}[15m]))`),
     instant(ctx, `max(watchlog_postgres_replica_lag_seconds{${s}})`),
@@ -1048,7 +1048,7 @@ export const postgresPage: IntegrationPage = {
     const end = Math.floor(now / 1000 / 300) * 300;
     const tps = `rate(watchlog_postgres_xact_commit_total{${s}}[5m]) + rate(watchlog_postgres_xact_rollback_total{${s}}[5m])`;
     const [conns, max, xact, hit, read, spark] = await Promise.all([
-      vm.query(scope, `sum by (service) (watchlog_postgres_backends{${s}})`),
+      vm.query(scope, `sum by (service) (watchlog_postgres_backends{${s}, db=""})`),
       vm.query(scope, `max by (service) (watchlog_postgres_setting{${s}, name="max_connections"})`),
       vm.query(scope, `sum by (service) (${tps})`),
       vm.query(scope, `sum by (service) (rate(watchlog_postgres_blks_hit_total{${s}}[15m]))`),
