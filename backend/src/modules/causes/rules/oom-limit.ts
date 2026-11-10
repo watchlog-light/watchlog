@@ -122,7 +122,13 @@ function docker(ev: Evidence): Match | null {
   return {
     code: 'oom_limit',
     facts: { name, container: c.name, limitBytes: limit, n, platform: 'docker' },
-    since: failureSince(ev, iso(top.kills?.first), top.event?.firstSeen, c.finishedAt),
+    // Docker events are aggregated since the first one ever: an older firstSeen says nothing.
+    since: failureSince(
+      ev,
+      iso(top.kills?.first),
+      top.event && Date.parse(top.event.firstSeen) >= from ? top.event.firstSeen : null,
+      c.finishedAt,
+    ),
     chain: trend ? [step, trend] : [step],
     complete: !killed.some((k) => hostShortOfMemory(ev, k.c.host)),
     headline: n
