@@ -12,6 +12,7 @@ import { cpuThrottled, THROTTLING_ALERT } from '../src/modules/causes/rules/cpu-
 import { cordonedAt, evictedFor, nodeOrHost } from '../src/modules/causes/rules/node-or-host.js';
 import { unschedulable } from '../src/modules/causes/rules/unschedulable.js';
 import { parseSubject } from '../src/modules/causes/subject.js';
+import { runFromTolerant } from '../src/modules/causes/counts.js';
 import { THROTTLED_SHARE, throttled, throttlings } from '../src/modules/causes/throttle.js';
 import { dependenciesOf, edgeHistory, RISEN_MIN_P95_S } from '../src/modules/causes/walk.js';
 import { evidence, recording, replay, type RecordingName } from './support/causes.js';
@@ -317,6 +318,39 @@ describe('cpu_throttled', () => {
     });
     expect(throttled(idle)).toBeNull();
     expect(throttlings(idle)![0]!.share).toBeCloseTo(0.01);
+  });
+
+  it('a dipped minute inside the run does not restart it; a longer lull does (ADR-157)', () => {
+    const base = throttled(evidence('kube-workload-throttled'))!;
+    const since = Date.parse(base.since!) / 1000;
+    // Raw rates near zero for `seconds`, 7 minutes after the run began (a busy node).
+    const dipped = (seconds: number) =>
+      throttled(
+        evidence('kube-workload-throttled', (e) => {
+          for (const key of Object.keys(e.metrics!.cpuThrottled!))
+            e.metrics!.cpuThrottled![key] = e.metrics!.cpuThrottled![key]!.map(([t, v]) => [
+              t,
+              t > since + 420 && t <= since + 420 + seconds ? 0.02 : v,
+            ]);
+        }),
+      )!;
+    // One minute low: the minute's mean dips under 25% for up to a minute.
+    expect(dipped(60).since).toBe(base.since);
+    expect(dipped(75).since).toBe(base.since);
+    // Two minutes low: the run begins again after it.
+    expect(Date.parse(dipped(120).since!)).toBeGreaterThan(Date.parse(base.since!) + 420_000);
+    expect(runFromTolerant([0, 15, 30, 45, 60, 75], (t) => t !== 30, 0, 15, 60)).toBeNull();
+    expect(runFromTolerant([100, 115, 130, 145], (t) => t !== 115, 0, 15, 60)).toBe(100);
+    expect(runFromTolerant([100, 115, 130, 145], (t) => t !== 145, 0, 15, 60)).toBeNull();
+    expect(
+      runFromTolerant(
+        [100, 115, 130, 145, 160, 175, 190, 205],
+        (t) => t < 115 || t > 175,
+        0,
+        15,
+        60,
+      ),
+    ).toBe(190);
   });
 
   it('on the object itself: a lead, complete only for the throttling alert or slow callers', () => {
