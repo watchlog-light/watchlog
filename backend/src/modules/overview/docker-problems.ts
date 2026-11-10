@@ -22,6 +22,7 @@ interface Status {
   oom_killed?: boolean;
   restarting?: boolean;
   finished_at?: string;
+  started_at?: string;
   error?: string;
   health_since?: string;
   health_detail?: { failing_streak?: number; probes?: { output?: string }[] };
@@ -37,6 +38,14 @@ export const FAILING: Record<string, string> = {
 
 /** Exited containers count for this long after they stopped. */
 export const EXITED_RECENT_MS = 24 * 3600_000;
+/**
+ * A crash loop whose process runs a while before it exits is mostly `running` when sampled
+ * (v0.4 slice 0, gap 7): it counts as restarting while its restart policy started it again
+ * this recently, right after it ended, with this many restarts.
+ */
+export const LOOP_RECENT_MS = 5 * 60_000;
+export const LOOP_GAP_MS = 2 * 60_000;
+export const LOOP_MIN_RESTARTS = 3;
 
 export interface DockerProblem {
   ruleKey: string;
@@ -69,6 +78,22 @@ export function dockerProblem(
       ruleKey: 'docker.container.restarting',
       severity: 'critical',
       details: { exitCode: st.exit_code ?? null, restarts },
+      since: st.finished_at ?? null,
+    };
+  // Running again, but its policy restarted it moments after it ended, again and again. Its
+  // exit code is gone while it runs (Docker resets it).
+  const started = Date.parse(st.started_at ?? '');
+  if (
+    st.state === 'running' &&
+    restarts >= LOOP_MIN_RESTARTS &&
+    now - started < LOOP_RECENT_MS &&
+    started >= finished &&
+    started - finished < LOOP_GAP_MS
+  )
+    return {
+      ruleKey: 'docker.container.restarting',
+      severity: 'critical',
+      details: { exitCode: null, restarts },
       since: st.finished_at ?? null,
     };
   if (st.health === 'unhealthy') {
