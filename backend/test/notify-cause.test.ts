@@ -215,6 +215,19 @@ describe('every channel says it in one line (ADR-148)', () => {
     };
     expect(c.version).toBe(1);
     expect(Object.keys(c.alerts[0]!)).toEqual([...before, 'likelyCause']);
+    // In this order (and the chain's steps in theirs), also once the stored message, jsonb
+    // with sorted keys, is sent.
+    const sorted = JSON.parse(JSON.stringify(p), (_k, v: unknown) =>
+      v && typeof v === 'object' && !Array.isArray(v)
+        ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
+        : v,
+    ) as MessagePayload;
+    const again = webhookBody(sorted, renderMessage(sorted), Date.parse(p.at)) as typeof c;
+    const shape = (lc: unknown) => {
+      const o = lc as { chain: object[] };
+      return [Object.keys(o), ...o.chain.map((x) => Object.keys(x))];
+    };
+    expect(shape(again.alerts[0]!.likelyCause)).toEqual(shape(c.alerts[0]!.likelyCause));
     expect(Object.keys(c.alerts[0]!.likelyCause as object)).toEqual([
       'rule',
       'code',
