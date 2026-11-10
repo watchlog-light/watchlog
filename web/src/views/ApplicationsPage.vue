@@ -25,6 +25,7 @@ import {
   familyOf,
   type ConnectTarget,
   productText,
+  reasonLine,
   reasonText,
   sortApplications,
   whereText,
@@ -89,7 +90,11 @@ function setQuery(patch: Record<string, string | undefined>) {
   void router.replace({ query: { ...route.query, ...patch } });
 }
 
-const reason = (a: Application) => reasonText(a, (iso) => formatDateTime(iso));
+// The finding that decides the health, when one does; else the reachability reason.
+const reason = (a: Application) =>
+  a.finding
+    ? reasonLine(a.finding, a.cluster, (iso) => formatDateTime(iso))
+    : reasonText(a, (iso) => formatDateTime(iso));
 const HEALTH_STYLE: Record<Application['health'], string> = {
   ok: 'bg-ok/15 text-ok',
   warning: 'bg-warning/15 text-warning',

@@ -9,7 +9,7 @@ import {
   DialogRoot,
   DialogTitle,
 } from 'reka-ui';
-import { computed, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
@@ -28,6 +28,9 @@ const compact = useCompact();
 const { navOpen } = storeToRefs(useUiStore());
 const auth = useAuthStore();
 watch([() => route.fullPath, compact], () => (navOpen.value = false));
+// Only the content pane scrolls (main.css): the page is locked while the shell shows.
+onMounted(() => document.documentElement.classList.add('app-shell'));
+onBeforeUnmount(() => document.documentElement.classList.remove('app-shell'));
 </script>
 
 <template>
@@ -52,11 +55,15 @@ watch([() => route.fullPath, compact], () => (navOpen.value = false));
         </DialogContent>
       </DialogPortal>
     </DialogRoot>
-    <div class="flex min-w-0 flex-1 flex-col">
-      <DemoBanner v-if="auth.demoMode" />
-      <AppTopBar :title="title" />
-      <AlertingStatusBanner />
-      <main id="main" class="flex-1 overflow-y-auto p-4 md:p-6">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+      <DemoBanner v-if="auth.demoMode" class="flex-none" />
+      <AppTopBar :title="title" class="flex-none" />
+      <AlertingStatusBanner class="flex-none" />
+      <main
+        id="main"
+        class="relative min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6"
+        data-testid="content"
+      >
         <RouterView />
       </main>
     </div>

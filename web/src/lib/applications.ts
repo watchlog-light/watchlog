@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Applications (SPEC §4.12): what the list shows for each monitored or discovered service.
+import { whenAndAgo } from './format';
 import type {
   Application,
   ApplicationConnected,
@@ -141,8 +142,10 @@ export function reasonLine(
   r: ApplicationReason,
   cluster: Application['cluster'],
   formatTime: (iso: string) => string,
+  now = Date.now(),
 ): { key: string; values: Record<string, unknown> } {
   const f = r.facts;
+  const has = (v: unknown) => v !== null && v !== undefined && v !== '';
   switch (r.code) {
     case 'member_down':
       return f.error
@@ -174,13 +177,25 @@ export function reasonLine(
           : 'integrations.reasons.errors_high_plain',
         values: { ...f },
       };
-    case 'queue_no_consumers':
+    case 'queue_no_consumers': {
+      // Since when (in the reader's time), or "more than 6 hours"; the consumer that
+      // ended, when it did, or that none did.
+      const since = typeof f.sinceAt === 'number' ? whenAndAgo(f.sinceAt, now) : null;
+      const who = !has(f.consumer) ? '_unknown' : has(f.when) ? '' : '_nowhen';
       return {
-        key: f.consumer
-          ? 'integrations.reasons.queue_no_consumers'
-          : 'integrations.reasons.queue_no_consumers_unknown',
+        key: `integrations.reasons.queue_no_consumers${since ? '' : '_long'}${who}`,
+        values: { ...f, since },
+      };
+    }
+    case 'autovacuum_not_finishing':
+    case 'memory_alarm':
+    case 'disk_alarm': {
+      const named = r.code === 'autovacuum_not_finishing' ? f.table : f.member;
+      return {
+        key: `integrations.reasons.${r.code}${has(named) ? '' : '_plain'}`,
         values: { ...f },
       };
+    }
     case 'dead_letters_growing':
       return {
         key:

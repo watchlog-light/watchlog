@@ -23,3 +23,17 @@ export function formatWhen(iso: string, now = Date.now(), locale = 'en'): string
     hourCycle: 'h23',
   }).format(d);
 }
+
+/** "just now", "3 min ago", "2 h ago", "4 d ago": how long ago, short. */
+export function agoShort(unixSeconds: number, now = Date.now()): string {
+  const s = Math.max(0, now / 1000 - unixSeconds);
+  if (s < 60) return 'just now';
+  if (s < 5400) return `${Math.round(s / 60)} min ago`;
+  if (s < 172_800) return `${Math.round(s / 3600)} h ago`;
+  return `${Math.round(s / 86_400)} d ago`;
+}
+
+/** "09:58 (3 min ago)": a moment in the reader's time, and how long ago. */
+export function whenAndAgo(unixSeconds: number, now = Date.now()): string {
+  return `${formatWhen(new Date(unixSeconds * 1000).toISOString(), now)} (${agoShort(unixSeconds, now)})`;
+}

@@ -11,3 +11,13 @@ body {
 :focus-visible {
   box-shadow: none;
 }
+
+/* The app shell (AppShell.vue): only its content pane scrolls. The page itself never
+   scrolls nor rubber-bands, so a wheel at the end of the content doesn't move the
+   sidebar, the top bar or the demo banner. Public pages (sign-in, setup) scroll as usual. */
+html.app-shell,
+html.app-shell body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}

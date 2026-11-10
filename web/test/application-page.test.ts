@@ -498,6 +498,7 @@ describe('Application page', () => {
                   ready: 4200,
                   perMin: 600,
                   since: '6 min ago',
+                  sinceAt: Math.floor(Date.now() / 1000) - 360,
                   consumer: 'shop/worker',
                   how: 'OOMKilled, CrashLoopBackOff',
                   when: '6 min ago',
@@ -542,11 +543,11 @@ describe('Application page', () => {
     });
     const { wrapper } = await mountPage(`/applications/${ID}?cluster=${K8S.id}`);
     const rs = wrapper.findAll('[data-testid="reason"]').map((r) => r.text().replace(/\s+/g, ' '));
-    expect(rs[0]).toContain(
-      'orders has no consumers since 6 min ago and grows by 600 a minute (4200 ready). shop/worker, connected to RabbitMQ until then, was OOMKilled, CrashLoopBackOff 6 min ago.',
+    expect(rs[0]).toMatch(
+      /orders has had no consumers since \d\d:\d\d \(6 min ago\) and grows by 600 a minute \(4200 ready\)\. shop\/worker, connected to RabbitMQ until then, was OOMKilled, CrashLoopBackOff 6 min ago\./,
     );
     expect(rs[1]).toContain(
-      'No client that was connected to RabbitMQ in the last 24 hours ended since.',
+      'No client that was connected to RabbitMQ in the last 24 hours ended in that time.',
     );
     expect(rs[1]).not.toContain('null');
     expect(wrapper.get('[data-testid="reason-command"]').text()).toContain(
