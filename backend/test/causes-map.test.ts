@@ -621,6 +621,25 @@ describe('walk helpers', () => {
     expect(runFrom([100, 115, 130], (t) => t > 100, 0, 15)).toBe(115);
   });
 
+  it("edgeHistory with a resolved alert's end: the run before the end, not a later one", () => {
+    // Failing from point 2, recovered at 6 (the alert resolved at 7), failing again from 9.
+    const from = 1000;
+    const t = (i: number) => from + 15 * (i + 1);
+    const series = (f: (i: number) => number | null) =>
+      Array.from({ length: 12 }, (_, i) => [t(i), f(i)] as [number, number | null]);
+    const s = {
+      step: 15,
+      connections: series(() => 1),
+      failed: series((i) => ((i >= 2 && i < 6) || i >= 9 ? 1 : 0)),
+    };
+    // Today's answer: the run lasting to now, which began at point 9.
+    expect(edgeHistory(s, from - 3600).troubleSince).toBe(new Date(t(9) * 1000).toISOString());
+    // The resolved alert's: the run it had, from point 2, though it ended before the alert.
+    expect(edgeHistory(s, from - 3600, t(7)).troubleSince).toBe(
+      new Date(t(2) * 1000).toISOString(),
+    );
+  });
+
   it('tail: the counts go first, then the details; the last step kept ends the chain', () => {
     const chain = [
       step({ code: 'restarts_backoff', next: 'because' }),
