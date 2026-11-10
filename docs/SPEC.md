@@ -729,6 +729,7 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `GET /clusters/:id/docker/hosts` · `/docker/containers` | |
 | `GET /clusters/:id/service-map?from&to&namespace` | Graph JSON: `{nodes:[], edges:[]}` |
 | `GET /clusters/:id/events` | Paged, filterable |
+| `GET /causes?cluster=<id>&subject=<kind>:<ref>` | Probable cause (ADR-146 to ADR-148): `state` (likely, possible, none), a `headline`, up to 3 ranked `causes` with their evidence `chain`, the `checks` made and the nodes with network flows off; every sentence a code with facts. Subjects: `alert:<id>`, `pod:<ns>/<pod>`, `workload:<ns>/<Kind>/<name>` (or `<ns>/<name>`), `container:<host>/<name>` (or `<name>`), `compose_service:<project>/<service>`, `edge:<map edge id>`, `application:<id or name>`. Kept 15 s per subject |
 | `POST /query/range` | Curated metric query: `{clusterId, metric, scope?: {host?, container?, composeProject?}, agg?, step?, from, to}` (unix seconds); `metric` is one of the catalog keys in `backend/src/modules/query/catalog.ts` (16 in Phase 1) → backend builds MetricsQL with tenant filter. Raw MetricsQL only for P1 advanced mode. |
 | `GET/POST/PATCH/DELETE /alert-rules` | |
 | `GET/POST/PATCH/DELETE /alert-channels` · `POST /alert-channels/:id/test` | |
