@@ -286,10 +286,12 @@ onBeforeUnmount(() => clearInterval(timer));
               >
                 <span class="sr-only">{{ $t('causes.panel.step', { n: i + 1 }) }}</span>
                 <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <CauseObjectLogo :object="s.object" />
-                  <span class="min-w-0 font-mono text-13 font-medium break-all text-text">{{
-                    s.object.name
-                  }}</span>
+                  <span class="inline-flex min-w-0 items-start gap-2">
+                    <CauseObjectLogo :object="s.object" class="mt-0.5" />
+                    <span class="min-w-0 font-mono text-13 font-medium break-words text-text">{{
+                      s.object.name
+                    }}</span>
+                  </span>
                   <span class="text-12 text-text-muted">{{ say(tr, objectKind(s.object)) }}</span>
                   <span
                     class="ml-auto inline-flex h-5 items-center rounded-[5px] border border-border px-1.5 text-12 text-text-muted"
@@ -347,7 +349,7 @@ onBeforeUnmount(() => clearInterval(timer));
               />
               <span
                 v-if="c.chain.length"
-                class="min-w-0 font-mono text-13 font-medium break-all text-text"
+                class="min-w-0 font-mono text-13 font-medium break-words text-text"
                 >{{ c.chain[c.chain.length - 1]!.object.name }}</span
               >
               <span class="text-14 leading-normal text-text">{{ say(tr, causeLine(c)) }}</span>
