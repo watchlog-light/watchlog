@@ -50,6 +50,8 @@ export interface PossibleCause {
   code: string;
   facts: Facts;
   since: string | null;
+  /** Where it starts: the chain's last step (its sentence and the object it is about). */
+  where?: { code: string; facts: Facts; name: string };
 }
 
 /** At most this many possible causes go on a problem (the line joins them with " · "). */
@@ -72,7 +74,18 @@ export function causeSummary(a: CausesAnswer): CauseSummary {
     : a.causes
         .filter((c) => c.strength === 'possible')
         .slice(0, POSSIBLE_MAX)
-        .map((c) => ({ rule: c.rule, code: c.code, facts: c.facts, since: c.since }));
+        .map((c): PossibleCause => {
+          const last = c.chain.at(-1);
+          return {
+            rule: c.rule,
+            code: c.code,
+            facts: c.facts,
+            since: c.since,
+            ...(last
+              ? { where: { code: last.code, facts: last.facts, name: last.object.name } }
+              : {}),
+          };
+        });
   return { state: a.state, ...(likely ? { likely } : {}), possible };
 }
 

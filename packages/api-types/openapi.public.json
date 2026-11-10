@@ -5153,6 +5153,32 @@
                                         { "type": "string", "description": "When the cause began" },
                                         { "type": "null" }
                                       ]
+                                    },
+                                    "where": {
+                                      "type": "object",
+                                      "required": ["code", "facts", "name"],
+                                      "properties": {
+                                        "code": {
+                                          "type": "string",
+                                          "description": "The step in one sentence (causes.step.<code>)"
+                                        },
+                                        "facts": {
+                                          "type": "object",
+                                          "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                          "additionalProperties": {
+                                            "anyOf": [
+                                              { "type": "string" },
+                                              { "type": "number" },
+                                              { "type": "null" }
+                                            ]
+                                          }
+                                        },
+                                        "name": {
+                                          "type": "string",
+                                          "description": "The object the step is about"
+                                        }
+                                      },
+                                      "description": "Where it starts: the last step of the cause's chain, which the dashboard's line shows"
                                     }
                                   },
                                   "description": "A possible cause: a lead to check, not proven"

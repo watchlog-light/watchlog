@@ -2835,6 +2835,17 @@ export interface paths {
                       [key: string]: string | number | null;
                     };
                     since: string | null;
+                    /** @description Where it starts: the last step of the cause's chain, which the dashboard's line shows */
+                    where?: {
+                      /** @description The step in one sentence (causes.step.<code>) */
+                      code: string;
+                      /** @description The sentence's values; every placeholder of the code's sentence is here */
+                      facts: {
+                        [key: string]: string | number | null;
+                      };
+                      /** @description The object the step is about */
+                      name: string;
+                    };
                   }[];
                 }[];
                 critical: number;

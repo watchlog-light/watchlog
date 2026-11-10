@@ -185,6 +185,19 @@ export const PossibleCauseSchema = Type.Object(
     code: Type.String({ description: 'The cause in one line (causes.cause.<code>)' }),
     facts: Facts,
     since: Nullable(Type.String({ description: 'When the cause began' })),
+    where: Type.Optional(
+      Type.Object(
+        {
+          code: Type.String({ description: 'The step in one sentence (causes.step.<code>)' }),
+          facts: Facts,
+          name: Type.String({ description: 'The object the step is about' }),
+        },
+        {
+          description:
+            "Where it starts: the last step of the cause's chain, which the dashboard's line shows",
+        },
+      ),
+    ),
   },
   { description: 'A possible cause: a lead to check, not proven' },
 );
