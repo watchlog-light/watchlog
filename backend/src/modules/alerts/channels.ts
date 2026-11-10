@@ -4,6 +4,7 @@
 import { createHmac } from 'node:crypto';
 import nodemailer, { type Transporter } from 'nodemailer';
 import { Agent, EnvHttpProxyAgent, ProxyAgent, fetch, type Dispatcher } from 'undici';
+import type { NotifyCause } from './likely-cause.js';
 import type { MessagePayload } from './outbox.js';
 import { renderMessage, type RenderedMessage } from './render.js';
 
@@ -345,11 +346,35 @@ export function webhookBody(p: MessagePayload, m: RenderedMessage, at: number): 
       resolved_at: it.resolvedAt,
       link: m.items[i]?.link ?? null,
       // ADR-148, ADR-157: only when it fired with a likely cause; additive.
-      ...(it.likelyCause ? { likelyCause: it.likelyCause } : {}),
+      ...(it.likelyCause ? { likelyCause: webhookCause(it.likelyCause) } : {}),
     })),
     total: p.total,
     alerts_link: m.alertsLink,
     sent_at: new Date(at).toISOString(),
+  };
+}
+
+/**
+ * The likely cause in the webhook's documented key order (the stored message is jsonb, which
+ * sorts keys).
+ */
+function webhookCause(lc: NotifyCause): NotifyCause {
+  return {
+    rule: lc.rule,
+    code: lc.code,
+    facts: lc.facts,
+    since: lc.since,
+    headline: { code: lc.headline.code, facts: lc.headline.facts },
+    subject: lc.subject,
+    text: lc.text,
+    chain: lc.chain.map((s) => ({
+      subject: s.subject,
+      name: s.name,
+      fact: s.fact,
+      facts: s.facts,
+      ...(s.since ? { since: s.since } : {}),
+      ...(s.at ? { at: s.at } : {}),
+    })),
   };
 }
 
