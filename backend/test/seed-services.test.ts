@@ -34,7 +34,6 @@ describe('seeded services', () => {
   beforeEach(async () => {
     ctx = await createTestContext();
     cookie = await setupAdmin(ctx.app);
-    await ctx.db.updateTable('orgs').set({ plan: 'pro' }).execute();
   });
   afterEach(() => closeTestContext(ctx));
 

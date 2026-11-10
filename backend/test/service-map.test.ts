@@ -273,7 +273,6 @@ describe('GET /clusters/:id/service-map', () => {
 
 describe('eBPF fixes per agent (ADR-107)', () => {
   it('draws Compose networks and their containers for a Docker fleet without eBPF', async () => {
-    await ctx.db.updateTable('orgs').set({ plan: 'pro' }).execute(); // a second cluster
     const fleet = (
       await ctx.app.inject({
         method: 'POST',

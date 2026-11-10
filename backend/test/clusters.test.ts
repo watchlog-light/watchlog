@@ -94,16 +94,22 @@ describe('clusters and tokens API', () => {
     );
   });
 
-  it('allows one cluster in Community (ADR-039)', async () => {
+  it('allows any number of clusters and fleets in Community (ADR-151)', async () => {
     expect((await createFleet()).statusCode).toBe(201);
-    const second = await createFleet('staging');
-    expect(second.statusCode).toBe(409);
-    expect(second.json()).toMatchObject({ type: 'urn:watchlog:problem:cluster-limit' });
-    expect(second.json().detail).toContain('one cluster or Docker fleet');
+    expect((await createFleet('staging')).statusCode).toBe(201);
+    expect(
+      (await call('POST', '/clusters', { name: 'prod-k8s', kind: 'kubernetes' })).statusCode,
+    ).toBe(201);
+    const res = await call('GET', '/clusters');
+    expect(
+      res
+        .json()
+        .clusters.map((c: { name: string }) => c.name)
+        .sort(),
+    ).toEqual(['prod-hosts', 'prod-k8s', 'staging']);
   });
 
-  it('rejects duplicate names when the plan allows several clusters', async () => {
-    await ctx.db.updateTable('orgs').set({ plan: 'pro' }).execute();
+  it('rejects duplicate names', async () => {
     expect((await createFleet()).statusCode).toBe(201);
     const duplicate = await createFleet();
     expect(duplicate.statusCode).toBe(409);

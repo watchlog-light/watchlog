@@ -66,7 +66,6 @@ describe('Docker inventory, hosts, containers and query API', () => {
   beforeEach(async () => {
     ctx = await createTestContext();
     cookie = await setupAdmin(ctx.app);
-    await ctx.db.updateTable('orgs').set({ plan: 'pro' }).execute(); // two clusters for isolation tests
     clusters.length = 0;
     for (const name of ['alpha', 'beta']) {
       const res = await ctx.app.inject({

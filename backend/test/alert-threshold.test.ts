@@ -39,7 +39,6 @@ beforeEach(async () => {
   clusterId = (await api('POST', '/clusters', { name: 'prod', kind: 'kubernetes' })).json().cluster
     .id;
   const org = await ctx.db.selectFrom('orgs').select(['id']).executeTakeFirstOrThrow();
-  await ctx.db.updateTable('orgs').set({ plan: 'pro' }).where('id', '=', org.id).execute();
   dockerId = (await api('POST', '/clusters', { name: 'hosts', kind: 'docker' })).json().cluster.id;
 });
 afterEach(() => closeTestContext(ctx));

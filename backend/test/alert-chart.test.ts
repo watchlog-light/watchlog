@@ -214,7 +214,7 @@ beforeEach(async () => {
         return r.json().cluster.id as string;
       });
   kube = await create('kind-demo', 'kubernetes');
-  // Community allows one cluster through the API; the Docker fleet goes in directly.
+  // The Docker fleet goes in directly, with a known id.
   docker = newId();
   await ctx.db
     .insertInto('clusters')

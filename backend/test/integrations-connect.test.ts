@@ -81,7 +81,6 @@ describe('connect flow', () => {
     ctx = await createTestContext();
     cookie = await setupAdmin(ctx.app);
     orgId = (await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow()).id;
-    await ctx.db.updateTable('orgs').set({ plan: 'pro' }).execute();
   });
   afterEach(() => closeTestContext(ctx));
 

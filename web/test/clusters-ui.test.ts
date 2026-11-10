@@ -162,20 +162,32 @@ describe('Settings → Clusters', () => {
     expect(wrapper.text()).not.toContain(TOKEN);
   });
 
-  it('explains the Community one-fleet limit', async () => {
+  it('adds a Kubernetes cluster next to an existing Docker fleet (Community, ADR-151)', async () => {
+    const k8s = { ...CLUSTER, id: 'k8s-1', name: 'prod-k8s', kind: 'kubernetes' as const };
     mockFetch({
-      'GET /api/v1/clusters': { status: 200, body: { clusters: [CLUSTER] } },
+      'GET /api/v1/clusters': [
+        { status: 200, body: { clusters: [CLUSTER] } },
+        { status: 200, body: { clusters: [CLUSTER, k8s] } },
+      ],
       'POST /api/v1/clusters': {
-        status: 409,
-        body: { type: 'urn:watchlog:problem:cluster-limit', title: 'Conflict', status: 409 },
+        status: 201,
+        body: {
+          cluster: k8s,
+          token: ISSUED.token,
+          install: { helm: 'helm install watchlog-agent' },
+        },
       },
     });
     const wrapper = await mountAs(SettingsPage, '/settings');
     await wrapper.get('[data-testid="add-cluster"]').trigger('click');
-    await wrapper.get('[data-testid="create-form"] input').setValue('staging');
+    await wrapper.get('[data-testid="kind-choice"] input[value="kubernetes"]').setValue(true);
+    await wrapper.get('[data-testid="create-form"] input[type="text"]').setValue('prod-k8s');
     await wrapper.get('[data-testid="create-form"]').trigger('submit');
     await flushPromises();
-    expect(wrapper.text()).toContain('supports one cluster or Docker fleet');
+    expect(wrapper.find('[data-testid="token-reveal"]').exists()).toBe(true);
+    const list = wrapper.get('[data-testid="cluster-list"]').text();
+    expect(list).toContain(CLUSTER.name);
+    expect(list).toContain('prod-k8s');
   });
 
   it('shows a duplicate-name message', async () => {

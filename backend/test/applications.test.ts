@@ -56,7 +56,6 @@ describe('Applications API', () => {
     ctx = await createTestContext();
     cookie = await setupAdmin(ctx.app);
     orgId = (await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow()).id;
-    await ctx.db.updateTable('orgs').set({ plan: 'pro' }).execute(); // a cluster and a fleet
   });
   afterEach(() => closeTestContext(ctx));
 
