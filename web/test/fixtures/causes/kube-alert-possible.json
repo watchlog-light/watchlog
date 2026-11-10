@@ -1,0 +1,151 @@
+{
+  "subject": {
+    "kind": "alert",
+    "ref": "01a1c74e-8d54-71b0-9ee5-41bd7dd79dde",
+    "name": "Pod pending too long",
+    "platform": "kubernetes"
+  },
+  "object": {
+    "kind": "pod",
+    "ref": "causes-e2e/pinned-84d487d85-89q98",
+    "name": "pinned-84d487d85-89q98",
+    "platform": "kubernetes"
+  },
+  "cluster": {
+    "id": "01a1c446-a818-76d4-b058-f1b1aa7dc501",
+    "name": "kind",
+    "kind": "kubernetes"
+  },
+  "state": "possible",
+  "checkedAt": "2026-11-10T22:24:18.681Z",
+  "symptomSince": "2026-11-10T21:17:56.328Z",
+  "resolvedAt": null,
+  "window": {
+    "from": "2026-11-10T20:17:56.328Z",
+    "to": "2026-11-10T22:24:18.681Z"
+  },
+  "headline": {
+    "code": "possible",
+    "facts": {
+      "name": "pinned-84d487d85-89q98",
+      "n": 1
+    }
+  },
+  "causes": [
+    {
+      "rule": "node_or_host",
+      "strength": "possible",
+      "code": "node_or_host",
+      "facts": {
+        "name": "pinned-84d487d85-89q98",
+        "node": "demo-worker2",
+        "how": "cordoned",
+        "pod": "pinned-84d487d85-89q98",
+        "platform": "kubernetes",
+        "n": 2
+      },
+      "since": "2026-11-10T22:14:58.000Z",
+      "chain": [
+        {
+          "object": {
+            "kind": "pod",
+            "ref": "causes-e2e/pinned-84d487d85-89q98",
+            "name": "pinned-84d487d85-89q98",
+            "platform": "kubernetes"
+          },
+          "source": "kubernetes",
+          "code": "pending_unscheduled",
+          "facts": {},
+          "at": null,
+          "since": "2026-11-10T22:14:58Z",
+          "next": "because"
+        },
+        {
+          "object": {
+            "kind": "node",
+            "ref": "demo-worker2",
+            "name": "demo-worker2",
+            "platform": "kubernetes"
+          },
+          "source": "kubernetes",
+          "code": "node_cordoned",
+          "facts": {
+            "node": "demo-worker2"
+          },
+          "at": "2026-11-10T22:15:07.000Z",
+          "since": null,
+          "next": null
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "topic": "self",
+      "code": "self_pending",
+      "facts": {
+        "name": "pinned-84d487d85-89q98",
+        "pod": "pinned-84d487d85-89q98"
+      },
+      "result": "possible"
+    },
+    {
+      "topic": "events",
+      "code": "events_warnings",
+      "facts": {
+        "name": "pinned-84d487d85-89q98",
+        "n": 2,
+        "reason": "FailedScheduling"
+      },
+      "result": "possible"
+    },
+    {
+      "topic": "changes",
+      "code": "changes_none",
+      "facts": {
+        "name": "pinned-84d487d85-89q98",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "node",
+      "code": "node_unschedulable",
+      "facts": {
+        "node": "demo-worker2"
+      },
+      "result": "possible",
+      "object": {
+        "kind": "node",
+        "ref": "demo-worker2",
+        "name": "demo-worker2",
+        "platform": "kubernetes"
+      }
+    },
+    {
+      "topic": "cpu",
+      "code": "cpu_ok",
+      "facts": {
+        "name": "pinned-84d487d85-89q98"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "dependencies",
+      "code": "dependencies_none",
+      "facts": {
+        "name": "pinned-84d487d85-89q98"
+      },
+      "result": "not_applicable"
+    },
+    {
+      "topic": "dns",
+      "code": "dns_none",
+      "facts": {
+        "name": "pinned-84d487d85-89q98"
+      },
+      "result": "not_applicable"
+    }
+  ],
+  "flowsOff": null
+}

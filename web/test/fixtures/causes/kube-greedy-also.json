@@ -1,0 +1,202 @@
+{
+  "subject": {
+    "kind": "workload",
+    "ref": "causes-e2e/Deployment/greedy",
+    "name": "causes-e2e/greedy",
+    "platform": "kubernetes",
+    "workloadKind": "Deployment"
+  },
+  "object": {
+    "kind": "workload",
+    "ref": "causes-e2e/Deployment/greedy",
+    "name": "causes-e2e/greedy",
+    "platform": "kubernetes",
+    "workloadKind": "Deployment"
+  },
+  "cluster": {
+    "id": "01a1c446-a818-76d4-b058-f1b1aa7dc501",
+    "name": "kind",
+    "kind": "kubernetes"
+  },
+  "state": "likely",
+  "checkedAt": "2026-11-10T22:24:19.016Z",
+  "symptomSince": "2026-11-10T22:20:08.695Z",
+  "resolvedAt": null,
+  "window": {
+    "from": "2026-11-10T21:20:08.695Z",
+    "to": "2026-11-10T22:24:19.016Z"
+  },
+  "headline": {
+    "code": "unschedulable_cpu",
+    "facts": {
+      "name": "greedy",
+      "n": 1,
+      "nodes": 3,
+      "requestCores": 64
+    }
+  },
+  "causes": [
+    {
+      "rule": "unschedulable",
+      "strength": "likely",
+      "code": "unschedulable",
+      "facts": {
+        "name": "greedy",
+        "reason": "cpu",
+        "pod": "greedy-bd94d4458-ff7jj",
+        "message": "0/3 nodes are available: 1 Insufficient cpu, 1 node(s) had untolerated taint(s), 1 node(s) were unschedulable"
+      },
+      "since": "2026-11-10T22:14:58.000Z",
+      "chain": [
+        {
+          "object": {
+            "kind": "pod",
+            "ref": "causes-e2e/greedy-bd94d4458-ff7jj",
+            "name": "greedy-bd94d4458-ff7jj",
+            "platform": "kubernetes"
+          },
+          "source": "kubernetes",
+          "code": "pending_unscheduled",
+          "facts": {},
+          "at": null,
+          "since": "2026-11-10T22:14:58Z",
+          "next": "because"
+        },
+        {
+          "object": {
+            "kind": "pod",
+            "ref": "causes-e2e/greedy-bd94d4458-ff7jj",
+            "name": "greedy-bd94d4458-ff7jj",
+            "platform": "kubernetes"
+          },
+          "source": "kubernetes",
+          "code": "scheduling_cpu",
+          "facts": {
+            "n": 1,
+            "nodes": 3,
+            "requestCores": 64
+          },
+          "at": "2026-11-10T22:24:02.000Z",
+          "since": null,
+          "next": null
+        }
+      ]
+    },
+    {
+      "rule": "node_or_host",
+      "strength": "possible",
+      "code": "node_or_host",
+      "facts": {
+        "name": "greedy",
+        "node": "demo-worker2",
+        "how": "cordoned",
+        "pod": "greedy-bd94d4458-ff7jj",
+        "platform": "kubernetes",
+        "n": 2
+      },
+      "since": "2026-11-10T22:14:58.000Z",
+      "chain": [
+        {
+          "object": {
+            "kind": "pod",
+            "ref": "causes-e2e/greedy-bd94d4458-ff7jj",
+            "name": "greedy-bd94d4458-ff7jj",
+            "platform": "kubernetes"
+          },
+          "source": "kubernetes",
+          "code": "pending_unscheduled",
+          "facts": {},
+          "at": null,
+          "since": "2026-11-10T22:14:58Z",
+          "next": "because"
+        },
+        {
+          "object": {
+            "kind": "node",
+            "ref": "demo-worker2",
+            "name": "demo-worker2",
+            "platform": "kubernetes"
+          },
+          "source": "kubernetes",
+          "code": "node_cordoned",
+          "facts": {
+            "node": "demo-worker2"
+          },
+          "at": "2026-11-10T22:15:07.000Z",
+          "since": null,
+          "next": null
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "topic": "self",
+      "code": "self_pending",
+      "facts": {
+        "name": "greedy",
+        "pod": "greedy-bd94d4458-ff7jj"
+      },
+      "result": "explains"
+    },
+    {
+      "topic": "events",
+      "code": "events_warnings",
+      "facts": {
+        "name": "greedy",
+        "n": 68,
+        "reason": "FailedScheduling"
+      },
+      "result": "explains"
+    },
+    {
+      "topic": "changes",
+      "code": "changes_own",
+      "facts": {
+        "name": "greedy",
+        "n": 2,
+        "minutes": 60
+      },
+      "result": "possible"
+    },
+    {
+      "topic": "node",
+      "code": "node_unschedulable",
+      "facts": {
+        "node": "demo-worker2"
+      },
+      "result": "possible",
+      "object": {
+        "kind": "node",
+        "ref": "demo-worker2",
+        "name": "demo-worker2",
+        "platform": "kubernetes"
+      }
+    },
+    {
+      "topic": "cpu",
+      "code": "cpu_ok",
+      "facts": {
+        "name": "greedy"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "dependencies",
+      "code": "dependencies_none",
+      "facts": {
+        "name": "greedy"
+      },
+      "result": "not_applicable"
+    },
+    {
+      "topic": "dns",
+      "code": "dns_none",
+      "facts": {
+        "name": "greedy"
+      },
+      "result": "not_applicable"
+    }
+  ],
+  "flowsOff": null
+}

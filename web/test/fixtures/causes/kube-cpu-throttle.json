@@ -1,0 +1,161 @@
+{
+  "subject": {
+    "kind": "workload",
+    "ref": "causes-e2e/Deployment/caller",
+    "name": "causes-e2e/caller",
+    "platform": "kubernetes",
+    "workloadKind": "Deployment"
+  },
+  "object": {
+    "kind": "workload",
+    "ref": "causes-e2e/Deployment/caller",
+    "name": "causes-e2e/caller",
+    "platform": "kubernetes",
+    "workloadKind": "Deployment"
+  },
+  "cluster": {
+    "id": "00000000-0000-4000-8000-00000000000a",
+    "name": "kind",
+    "kind": "kubernetes"
+  },
+  "state": "likely",
+  "checkedAt": "2026-11-10T20:32:24.324Z",
+  "symptomSince": null,
+  "resolvedAt": null,
+  "window": {
+    "from": "2026-11-10T19:32:24.324Z",
+    "to": "2026-11-10T20:32:24.324Z"
+  },
+  "headline": {
+    "code": "cpu_throttled_dependency",
+    "facts": {
+      "name": "caller",
+      "target": "hot",
+      "pct": 57,
+      "limitCores": 0.02,
+      "p95Ms": 235
+    }
+  },
+  "causes": [
+    {
+      "rule": "cpu_throttled",
+      "strength": "likely",
+      "code": "cpu_throttled",
+      "facts": {
+        "name": "caller",
+        "target": "hot",
+        "container": "hot",
+        "pct": 57,
+        "limitCores": 0.02,
+        "p95Ms": 235
+      },
+      "since": "2026-11-10T20:19:30.000Z",
+      "chain": [
+        {
+          "object": {
+            "kind": "edge",
+            "ref": "w:causes-e2e/Deployment/caller>w:causes-e2e/Deployment/hot:8080",
+            "name": "causes-e2e/caller → causes-e2e/hot",
+            "platform": "kubernetes"
+          },
+          "source": "service_map",
+          "code": "edge_slower",
+          "facts": {
+            "fromMs": 0.9,
+            "p95Ms": 235
+          },
+          "at": null,
+          "since": "2026-11-10T20:19:00.000Z",
+          "next": "calls"
+        },
+        {
+          "object": {
+            "kind": "pod",
+            "ref": "causes-e2e/hot-ddfb68779-r8wnw",
+            "name": "hot-ddfb68779-r8wnw",
+            "platform": "kubernetes"
+          },
+          "source": "metrics",
+          "code": "cpu_throttled",
+          "facts": {
+            "container": "hot",
+            "pct": 57,
+            "limitCores": 0.02
+          },
+          "at": null,
+          "since": "2026-11-10T20:19:30.000Z",
+          "next": null
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "topic": "self",
+      "code": "self_ok",
+      "facts": {
+        "name": "caller"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "events",
+      "code": "events_none",
+      "facts": {
+        "name": "caller",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "changes",
+      "code": "changes_none",
+      "facts": {
+        "name": "caller",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "node",
+      "code": "node_ok",
+      "facts": {
+        "node": "demo-worker"
+      },
+      "result": "ok",
+      "object": {
+        "kind": "node",
+        "ref": "demo-worker",
+        "name": "demo-worker",
+        "platform": "kubernetes"
+      }
+    },
+    {
+      "topic": "cpu",
+      "code": "cpu_ok",
+      "facts": {
+        "name": "caller"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "dependencies",
+      "code": "dependencies_slower",
+      "facts": {
+        "name": "caller",
+        "target": "hot",
+        "p95Ms": 235
+      },
+      "result": "explains"
+    },
+    {
+      "topic": "dns",
+      "code": "dns_ok",
+      "facts": {
+        "name": "caller"
+      },
+      "result": "ok"
+    }
+  ],
+  "flowsOff": null
+}

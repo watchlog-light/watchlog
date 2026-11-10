@@ -1,0 +1,112 @@
+{
+  "subject": {
+    "kind": "application",
+    "ref": "01a1c650-1e80-762e-be01-cc3d3a1b1e18",
+    "name": "rabbitmq-e2e/rabbitmq",
+    "platform": "docker",
+    "type": "rabbitmq"
+  },
+  "object": {
+    "kind": "application",
+    "ref": "01a1c650-1e80-762e-be01-cc3d3a1b1e18",
+    "name": "rabbitmq-e2e/rabbitmq",
+    "platform": "docker",
+    "type": "rabbitmq"
+  },
+  "cluster": {
+    "id": "00000000-0000-4000-8000-00000000000b",
+    "name": "fleet",
+    "kind": "docker"
+  },
+  "state": "likely",
+  "checkedAt": "2026-11-10T20:04:01.824Z",
+  "symptomSince": null,
+  "resolvedAt": null,
+  "window": {
+    "from": "2026-11-10T19:04:01.824Z",
+    "to": "2026-11-10T20:04:01.824Z"
+  },
+  "headline": {
+    "code": "app_consumer_oom",
+    "facts": {
+      "queue": "orders",
+      "consumer": "rabbitmq-e2e-consumer-1",
+      "limitBytes": 402653184
+    }
+  },
+  "causes": [
+    {
+      "rule": "application_finding",
+      "strength": "likely",
+      "code": "application_finding",
+      "facts": {
+        "name": "rabbitmq-e2e/rabbitmq",
+        "finding": "queue_no_consumers",
+        "queue": "orders",
+        "consumer": "rabbitmq-e2e-consumer-1",
+        "how": "OOMKilled"
+      },
+      "since": "2026-11-10T19:04:00.000Z",
+      "chain": [
+        {
+          "object": {
+            "kind": "application",
+            "ref": "01a1c650-1e80-762e-be01-cc3d3a1b1e18",
+            "name": "rabbitmq-e2e/rabbitmq",
+            "platform": "docker",
+            "type": "rabbitmq"
+          },
+          "source": "application",
+          "at": null,
+          "next": "consumed_by",
+          "code": "queue_no_consumers",
+          "facts": {
+            "queue": "orders",
+            "ready": 32,
+            "perMin": 4
+          },
+          "since": "2026-11-10T20:02:30.000Z"
+        },
+        {
+          "object": {
+            "kind": "container",
+            "ref": "docker-01/rabbitmq-e2e-consumer-1",
+            "name": "rabbitmq-e2e-consumer-1",
+            "platform": "docker",
+            "host": "docker-01"
+          },
+          "source": "docker",
+          "code": "oom_killed_kills",
+          "facts": {
+            "limitBytes": 402653184,
+            "n": 4
+          },
+          "at": "2026-11-10T20:03:15.000Z",
+          "since": null,
+          "next": null
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "topic": "application",
+      "code": "application_findings",
+      "facts": {
+        "name": "rabbitmq-e2e/rabbitmq",
+        "n": 1
+      },
+      "result": "explains"
+    },
+    {
+      "topic": "changes",
+      "code": "changes_cluster",
+      "facts": {
+        "n": 9,
+        "minutes": 60
+      },
+      "result": "possible"
+    }
+  ],
+  "flowsOff": null
+}

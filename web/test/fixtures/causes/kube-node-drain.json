@@ -1,0 +1,153 @@
+{
+  "subject": {
+    "kind": "workload",
+    "ref": "causes-e2e/Deployment/pinned",
+    "name": "causes-e2e/pinned",
+    "platform": "kubernetes",
+    "workloadKind": "Deployment"
+  },
+  "object": {
+    "kind": "workload",
+    "ref": "causes-e2e/Deployment/pinned",
+    "name": "causes-e2e/pinned",
+    "platform": "kubernetes",
+    "workloadKind": "Deployment"
+  },
+  "cluster": {
+    "id": "00000000-0000-4000-8000-00000000000a",
+    "name": "kind",
+    "kind": "kubernetes"
+  },
+  "state": "likely",
+  "checkedAt": "2026-11-10T20:31:53.403Z",
+  "symptomSince": "2026-11-10T20:20:13Z",
+  "resolvedAt": null,
+  "window": {
+    "from": "2026-11-10T19:20:13.000Z",
+    "to": "2026-11-10T20:31:53.403Z"
+  },
+  "headline": {
+    "code": "node_or_host_held_cordoned",
+    "facts": {
+      "name": "pinned",
+      "node": "demo-worker2"
+    }
+  },
+  "causes": [
+    {
+      "rule": "node_or_host",
+      "strength": "likely",
+      "code": "node_or_host",
+      "facts": {
+        "name": "pinned",
+        "node": "demo-worker2",
+        "how": "cordoned",
+        "pod": "pinned-84d487d85-d8rz9",
+        "platform": "kubernetes",
+        "n": 2
+      },
+      "since": "2026-11-10T20:20:13.000Z",
+      "chain": [
+        {
+          "object": {
+            "kind": "pod",
+            "ref": "causes-e2e/pinned-84d487d85-d8rz9",
+            "name": "pinned-84d487d85-d8rz9",
+            "platform": "kubernetes"
+          },
+          "source": "kubernetes",
+          "code": "pending_unscheduled",
+          "facts": {},
+          "at": null,
+          "since": "2026-11-10T20:20:13Z",
+          "next": "because"
+        },
+        {
+          "object": {
+            "kind": "node",
+            "ref": "demo-worker2",
+            "name": "demo-worker2",
+            "platform": "kubernetes"
+          },
+          "source": "kubernetes",
+          "next": null,
+          "at": "2026-11-10T20:20:21.000Z",
+          "code": "node_cordoned",
+          "facts": {
+            "node": "demo-worker2"
+          },
+          "since": null
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "topic": "self",
+      "code": "self_pending",
+      "facts": {
+        "name": "pinned",
+        "pod": "pinned-84d487d85-d8rz9"
+      },
+      "result": "explains"
+    },
+    {
+      "topic": "events",
+      "code": "events_warnings",
+      "facts": {
+        "name": "pinned",
+        "n": 3,
+        "reason": "FailedScheduling"
+      },
+      "result": "explains"
+    },
+    {
+      "topic": "changes",
+      "code": "changes_none",
+      "facts": {
+        "name": "pinned",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "node",
+      "code": "node_unschedulable",
+      "facts": {
+        "node": "demo-worker2"
+      },
+      "result": "explains",
+      "object": {
+        "kind": "node",
+        "ref": "demo-worker2",
+        "name": "demo-worker2",
+        "platform": "kubernetes"
+      }
+    },
+    {
+      "topic": "cpu",
+      "code": "cpu_ok",
+      "facts": {
+        "name": "pinned"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "dependencies",
+      "code": "dependencies_none",
+      "facts": {
+        "name": "pinned"
+      },
+      "result": "not_applicable"
+    },
+    {
+      "topic": "dns",
+      "code": "dns_none",
+      "facts": {
+        "name": "pinned"
+      },
+      "result": "not_applicable"
+    }
+  ],
+  "flowsOff": null
+}

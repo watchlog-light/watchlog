@@ -1,0 +1,159 @@
+{
+  "subject": {
+    "kind": "alert",
+    "ref": "01a1c752-ac56-740b-8dc0-20ab489841ec",
+    "name": "Docker container restarting",
+    "platform": "docker"
+  },
+  "object": {
+    "kind": "container",
+    "ref": "docker-01/causes-e2e-hog-1",
+    "name": "causes-e2e-hog-1",
+    "platform": "docker",
+    "host": "docker-01"
+  },
+  "cluster": {
+    "id": "01a1c446-a82c-76a5-87d3-753489e1b0c5",
+    "name": "fleet",
+    "kind": "docker"
+  },
+  "state": "likely",
+  "checkedAt": "2026-11-10T22:24:18.840Z",
+  "symptomSince": "2026-11-10T21:17:26.327Z",
+  "resolvedAt": "2026-11-10T22:15:08.684Z",
+  "window": {
+    "from": "2026-11-10T20:17:26.327Z",
+    "to": "2026-11-10T22:15:08.684Z"
+  },
+  "headline": {
+    "code": "oom_limit",
+    "facts": {
+      "name": "causes-e2e-hog-1",
+      "limitBytes": 50331648,
+      "n": 35
+    }
+  },
+  "causes": [
+    {
+      "rule": "oom_limit",
+      "strength": "likely",
+      "code": "oom_limit",
+      "facts": {
+        "name": "causes-e2e-hog-1",
+        "container": "causes-e2e-hog-1",
+        "limitBytes": 50331648,
+        "n": 35,
+        "platform": "docker"
+      },
+      "since": "2026-11-10T21:15:45.000Z",
+      "chain": [
+        {
+          "object": {
+            "kind": "container",
+            "ref": "docker-01/causes-e2e-hog-1",
+            "name": "causes-e2e-hog-1",
+            "platform": "docker",
+            "host": "docker-01"
+          },
+          "source": "docker",
+          "code": "oom_killed_kills",
+          "facts": {
+            "limitBytes": 50331648,
+            "n": 35
+          },
+          "at": "2026-11-10T21:55:30.000Z",
+          "since": null,
+          "next": "because"
+        },
+        {
+          "object": {
+            "kind": "container",
+            "ref": "docker-01/causes-e2e-hog-1",
+            "name": "causes-e2e-hog-1",
+            "platform": "docker",
+            "host": "docker-01"
+          },
+          "source": "metrics",
+          "code": "memory_climbs",
+          "facts": {
+            "limitBytes": 50331648,
+            "perMinuteBytes": 56049664,
+            "minutes": 1
+          },
+          "at": null,
+          "since": null,
+          "next": null
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "topic": "self",
+      "code": "self_oom_killed",
+      "facts": {
+        "name": "causes-e2e-hog-1",
+        "n": 35
+      },
+      "result": "explains"
+    },
+    {
+      "topic": "events",
+      "code": "events_warnings",
+      "facts": {
+        "name": "causes-e2e-hog-1",
+        "n": 283,
+        "reason": "Died"
+      },
+      "result": "explains"
+    },
+    {
+      "topic": "changes",
+      "code": "changes_none",
+      "facts": {
+        "name": "causes-e2e-hog-1",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "host",
+      "code": "host_ok",
+      "facts": {
+        "host": "docker-01"
+      },
+      "result": "ok",
+      "object": {
+        "kind": "host",
+        "ref": "docker-01",
+        "name": "docker-01",
+        "platform": "docker"
+      }
+    },
+    {
+      "topic": "cpu",
+      "code": "cpu_ok",
+      "facts": {
+        "name": "causes-e2e-hog-1"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "dependencies",
+      "code": "dependencies_none",
+      "facts": {
+        "name": "causes-e2e-hog-1"
+      },
+      "result": "not_applicable"
+    },
+    {
+      "topic": "dns",
+      "code": "dns_none",
+      "facts": {
+        "name": "causes-e2e-hog-1"
+      },
+      "result": "not_applicable"
+    }
+  ],
+  "flowsOff": null
+}

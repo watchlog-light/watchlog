@@ -1,0 +1,172 @@
+{
+  "subject": {
+    "kind": "workload",
+    "ref": "causes-e2e/Deployment/web",
+    "name": "causes-e2e/web",
+    "platform": "kubernetes",
+    "workloadKind": "Deployment"
+  },
+  "object": {
+    "kind": "workload",
+    "ref": "causes-e2e/Deployment/web",
+    "name": "causes-e2e/web",
+    "platform": "kubernetes",
+    "workloadKind": "Deployment"
+  },
+  "cluster": {
+    "id": "00000000-0000-4000-8000-00000000000a",
+    "name": "kind",
+    "kind": "kubernetes"
+  },
+  "state": "likely",
+  "checkedAt": "2026-11-10T19:42:52.161Z",
+  "symptomSince": null,
+  "resolvedAt": null,
+  "window": {
+    "from": "2026-11-10T18:42:52.161Z",
+    "to": "2026-11-10T19:42:52.161Z"
+  },
+  "headline": {
+    "code": "dependency_down_scaled",
+    "facts": {
+      "name": "web",
+      "target": "api"
+    }
+  },
+  "causes": [
+    {
+      "rule": "dependency_down",
+      "strength": "likely",
+      "code": "dependency_down",
+      "facts": {
+        "name": "web",
+        "target": "api",
+        "platform": "kubernetes",
+        "ready": 0,
+        "desired": 0
+      },
+      "since": "2026-11-10T19:37:50.608Z",
+      "chain": [
+        {
+          "object": {
+            "kind": "edge",
+            "ref": "w:causes-e2e/Deployment/web>w:causes-e2e/Deployment/api:9898",
+            "name": "causes-e2e/web → causes-e2e/api",
+            "platform": "kubernetes"
+          },
+          "source": "service_map",
+          "code": "edge_failed",
+          "facts": {
+            "pct": 77.6,
+            "port": 9898
+          },
+          "at": null,
+          "since": "2026-11-10T19:38:00.000Z",
+          "next": "calls"
+        },
+        {
+          "object": {
+            "kind": "workload",
+            "ref": "causes-e2e/Deployment/api",
+            "name": "causes-e2e/api",
+            "platform": "kubernetes",
+            "workloadKind": "Deployment"
+          },
+          "source": "kubernetes",
+          "code": "no_pods",
+          "facts": {},
+          "at": null,
+          "since": "2026-11-10T19:37:50.608Z",
+          "next": "because"
+        },
+        {
+          "object": {
+            "kind": "change",
+            "ref": "Deployment/causes-e2e/api",
+            "name": "api",
+            "platform": "kubernetes",
+            "workloadKind": "Deployment"
+          },
+          "source": "change_marker",
+          "code": "scaled",
+          "facts": {
+            "from": 1,
+            "to": 0
+          },
+          "at": "2026-11-10T19:37:50.608Z",
+          "since": null,
+          "next": null
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "topic": "self",
+      "code": "self_ok",
+      "facts": {
+        "name": "web"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "events",
+      "code": "events_none",
+      "facts": {
+        "name": "web",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "changes",
+      "code": "changes_none",
+      "facts": {
+        "name": "web",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "node",
+      "code": "node_ok",
+      "facts": {
+        "node": "demo-worker"
+      },
+      "result": "ok",
+      "object": {
+        "kind": "node",
+        "ref": "demo-worker",
+        "name": "demo-worker",
+        "platform": "kubernetes"
+      }
+    },
+    {
+      "topic": "cpu",
+      "code": "cpu_ok",
+      "facts": {
+        "name": "web"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "dependencies",
+      "code": "dependencies_failing",
+      "facts": {
+        "name": "web",
+        "n": 1,
+        "target": "api"
+      },
+      "result": "explains"
+    },
+    {
+      "topic": "dns",
+      "code": "dns_ok",
+      "facts": {
+        "name": "web"
+      },
+      "result": "ok"
+    }
+  ],
+  "flowsOff": null
+}

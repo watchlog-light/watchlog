@@ -1,0 +1,156 @@
+{
+  "subject": {
+    "kind": "compose_service",
+    "ref": "causes-e2e/web",
+    "name": "causes-e2e/web",
+    "platform": "docker",
+    "host": "docker-01"
+  },
+  "object": {
+    "kind": "compose_service",
+    "ref": "causes-e2e/web",
+    "name": "causes-e2e/web",
+    "platform": "docker",
+    "host": "docker-01"
+  },
+  "cluster": {
+    "id": "00000000-0000-4000-8000-00000000000b",
+    "name": "fleet",
+    "kind": "docker"
+  },
+  "state": "likely",
+  "checkedAt": "2026-11-10T19:42:52.552Z",
+  "symptomSince": null,
+  "resolvedAt": null,
+  "window": {
+    "from": "2026-11-10T18:42:52.552Z",
+    "to": "2026-11-10T19:42:52.552Z"
+  },
+  "headline": {
+    "code": "dependency_down_stopped",
+    "facts": {
+      "name": "web",
+      "target": "causes-e2e-api-1",
+      "exitCode": 0
+    }
+  },
+  "causes": [
+    {
+      "rule": "dependency_down",
+      "strength": "likely",
+      "code": "dependency_down",
+      "facts": {
+        "name": "web",
+        "target": "causes-e2e-api-1",
+        "platform": "docker",
+        "exitCode": 0
+      },
+      "since": "2026-11-10T19:37:51.976953682Z",
+      "chain": [
+        {
+          "object": {
+            "kind": "edge",
+            "ref": "c:causes-e2e-web-1>c:causes-e2e-api-1:9898",
+            "name": "causes-e2e-web-1 → causes-e2e-api-1",
+            "platform": "docker"
+          },
+          "source": "dns",
+          "code": "edge_gone_dns",
+          "facts": {
+            "perMinute": 211
+          },
+          "at": null,
+          "since": "2026-11-10T19:38:45.000Z",
+          "next": "calls"
+        },
+        {
+          "object": {
+            "kind": "container",
+            "ref": "docker-01/causes-e2e-api-1",
+            "name": "causes-e2e-api-1",
+            "platform": "docker",
+            "host": "docker-01"
+          },
+          "source": "docker",
+          "code": "container_stopped",
+          "facts": {
+            "exitCode": 0
+          },
+          "at": "2026-11-10T19:37:51.976953682Z",
+          "since": null,
+          "next": null
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "topic": "self",
+      "code": "self_ok",
+      "facts": {
+        "name": "web"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "events",
+      "code": "events_none",
+      "facts": {
+        "name": "web",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "changes",
+      "code": "changes_none",
+      "facts": {
+        "name": "web",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "host",
+      "code": "host_ok",
+      "facts": {
+        "host": "docker-01"
+      },
+      "result": "ok",
+      "object": {
+        "kind": "host",
+        "ref": "docker-01",
+        "name": "docker-01",
+        "platform": "docker"
+      }
+    },
+    {
+      "topic": "cpu",
+      "code": "cpu_ok",
+      "facts": {
+        "name": "web"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "dependencies",
+      "code": "dependencies_ok",
+      "facts": {
+        "name": "web",
+        "n": 1
+      },
+      "result": "explains"
+    },
+    {
+      "topic": "dns",
+      "code": "dns_errors",
+      "facts": {
+        "name": "web",
+        "perMinute": 211,
+        "nxdomainPerMinute": 0
+      },
+      "result": "explains"
+    }
+  ],
+  "flowsOff": null
+}

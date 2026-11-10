@@ -18,6 +18,7 @@ import {
   type Page,
 } from '@playwright/test';
 import * as apps from './fixtures/applications';
+import { CAUSES_URL, causeAnswers } from './fixtures/causes';
 import * as people from './fixtures/users';
 import { SERVICE_MAPS } from './fixtures/service-map';
 import { layoutProblems, report, SHOTS, viewportFor, WIDTHS } from './layout-checks';
@@ -128,10 +129,14 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
     api,
     `/clusters/${docker.id}/docker/hosts`,
   );
-  const { containers } = await get<{ containers: { host: string; name: string }[] }>(
-    api,
-    `/clusters/${docker.id}/docker/containers`,
-  );
+  const { containers } = await get<{
+    containers: {
+      host: string;
+      name: string;
+      composeProject: string | null;
+      composeService: string | null;
+    }[];
+  }>(api, `/clusters/${docker.id}/docker/containers`);
   const { alerts } = await get<{ alerts: { id: string }[] }>(api, '/alerts');
   const { applications: monitored } = await get<{
     applications: {
@@ -260,6 +265,7 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
     { name: 'not-found', path: `/no-such-page${k}` },
   ];
   if (alerts[0]) routes.push({ name: 'alert', path: `/alerts/${alerts[0].id}${k}`, shot: true });
+  routes.push(...causeRoutes(kube, docker, k, d, alerts[0]?.id, pod!, container!));
   const only = process.env.WATCHLOG_E2E_ONLY?.split(',');
   // The read-only demo has no rule editor to open, and its own tokens state.
   const available = demo
@@ -580,6 +586,101 @@ function applicationRoutes(
       },
     );
   }
+  return routes;
+}
+
+/**
+ * The probable-cause panel (v0.4 slice 6) on every page it sits on, in each state, on both
+ * kinds: the alert detail (likely, also possible, possible only, none, flows off, resolved),
+ * the pod and a workload's pods, the Docker container and a Compose service, an application
+ * beside its finding, and the service map's edge panel (compact). GET /causes is answered
+ * from the recorded answers; the pages themselves are live.
+ */
+function causeRoutes(
+  kube: Cluster,
+  docker: Cluster,
+  k: string,
+  d: string,
+  alertId: string | undefined,
+  pod: { namespace: string; name: string },
+  container: {
+    host: string;
+    name: string;
+    composeProject: string | null;
+    composeService: string | null;
+  },
+): Route[] {
+  const c = causeAnswers(kube, docker);
+  const answer = (json: unknown): Answer => ({ url: CAUSES_URL, json });
+  const routes: Route[] = [];
+  if (alertId) {
+    for (const state of ['likely', 'also', 'possible', 'none', 'flowsOff', 'was'] as const)
+      routes.push({
+        name: `cause-alert-${state}`,
+        path: `/alerts/${alertId}${k}`,
+        shot: true,
+        answers: [answer(c[state])],
+      });
+    // The disclosure open, on a likely answer (closed by default).
+    routes.push({
+      name: 'cause-alert-checks-open',
+      path: `/alerts/${alertId}${k}`,
+      shot: true,
+      answers: [answer(c.likely)],
+      prepare: (page) => page.getByTestId('cause-checks').locator('summary').click(),
+    });
+  }
+  const podPath = `/pods/${encodeURIComponent(pod.namespace)}/${encodeURIComponent(pod.name)}${k}`;
+  routes.push(
+    { name: 'cause-pod', path: podPath, shot: true, answers: [answer(c.pod)] },
+    {
+      name: 'cause-workload',
+      path: `/workloads${k}&view=pods&wns=causes-e2e&wkind=Deployment&wname=web`,
+      shot: true,
+      answers: [answer(c.likely)],
+    },
+    {
+      name: 'cause-container',
+      path: `/containers/${encodeURIComponent(container.host)}/${encodeURIComponent(container.name)}${d}`,
+      shot: true,
+      answers: [answer(c.dockerDns)],
+    },
+    {
+      name: 'cause-compose-service',
+      path: `/containers${d}&project=${encodeURIComponent(container.composeProject ?? 'causes-e2e')}&service=${encodeURIComponent(container.composeService ?? 'web')}`,
+      shot: true,
+      answers: [answer(c.dockerDep)],
+    },
+    {
+      name: 'cause-application',
+      path: `/applications/${apps.FIXTURE_APP_ID}${k}`,
+      shot: true,
+      answers: [
+        {
+          url: new RegExp(`/api/v1/applications/${apps.FIXTURE_APP_ID}(\\?|$)`),
+          json: apps.applicationDetail(kube, true),
+        },
+        {
+          url: new RegExp(`/api/v1/applications/${apps.FIXTURE_APP_ID}/panels`),
+          json: apps.applicationPanels(),
+        },
+        { url: /\/api\/v1\/alert-rules$/, json: { rules: apps.serviceRules(kube) } },
+        answer(c.rabbit),
+      ],
+    },
+    {
+      name: 'cause-edge',
+      path: `/service-map${k}&edge=${encodeURIComponent('w:shop/Deployment/frontend>w:shop/Deployment/orders:8080')}`,
+      shot: true,
+      answers: [serviceMapAnswer(kube), answer(c.likely)],
+    },
+    {
+      name: 'cause-edge-docker',
+      path: `/service-map${d}&edge=${encodeURIComponent('c:storefront-worker-1>c:storefront-db-1:5432')}`,
+      shot: true,
+      answers: [serviceMapAnswer(docker), answer(c.dockerDep)],
+    },
+  );
   return routes;
 }
 

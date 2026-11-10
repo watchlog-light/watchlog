@@ -43,9 +43,21 @@ export function application(kube: Cluster) {
   };
 }
 
-export function applicationDetail(kube: Cluster) {
+/** `withFinding`: the member down decides its health, so the probable-cause panel shows. */
+export function applicationDetail(kube: Cluster, withFinding = false) {
   return {
-    application: application(kube),
+    application: {
+      ...application(kube),
+      ...(withFinding
+        ? {
+            finding: {
+              severity: 'warning',
+              code: 'member_down',
+              facts: { member: 'postgres-1', error: 'dial tcp 10.244.2.7:5432: i/o timeout' },
+            },
+          }
+        : {}),
+    },
     reasons: [
       { severity: 'warning', code: 'connected', facts: { up: 1, members: 2 } },
       {

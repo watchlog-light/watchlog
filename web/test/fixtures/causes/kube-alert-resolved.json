@@ -1,0 +1,179 @@
+{
+  "subject": {
+    "kind": "alert",
+    "ref": "01a1c74f-028f-74f2-8692-f1b4c3e65d7e",
+    "name": "Service-to-service failed connections",
+    "platform": "kubernetes"
+  },
+  "object": {
+    "kind": "edge",
+    "ref": "w:causes-e2e/Deployment/web>w:causes-e2e/Deployment/api:9898",
+    "name": "causes-e2e/web \u2192 causes-e2e/api",
+    "platform": "kubernetes"
+  },
+  "cluster": {
+    "id": "01a1c446-a818-76d4-b058-f1b1aa7dc501",
+    "name": "kind",
+    "kind": "kubernetes"
+  },
+  "state": "likely",
+  "checkedAt": "2026-11-10T22:24:18.901Z",
+  "symptomSince": "2026-11-10T21:18:26.328Z",
+  "resolvedAt": "2026-11-10T22:15:08.684Z",
+  "window": {
+    "from": "2026-11-10T20:18:26.328Z",
+    "to": "2026-11-10T22:15:08.684Z"
+  },
+  "headline": {
+    "code": "dependency_down_scaled",
+    "facts": {
+      "name": "web",
+      "target": "api"
+    }
+  },
+  "causes": [
+    {
+      "rule": "dependency_down",
+      "strength": "likely",
+      "code": "dependency_down",
+      "facts": {
+        "name": "web",
+        "target": "api",
+        "platform": "kubernetes",
+        "ready": 0,
+        "desired": 0
+      },
+      "since": "2026-11-10T21:12:10.608Z",
+      "chain": [
+        {
+          "object": {
+            "kind": "edge",
+            "ref": "w:causes-e2e/Deployment/web>w:causes-e2e/Deployment/api:9898",
+            "name": "causes-e2e/web \u2192 causes-e2e/api",
+            "platform": "kubernetes"
+          },
+          "source": "service_map",
+          "code": "edge_failed",
+          "facts": {
+            "pct": 99.3,
+            "port": 9898
+          },
+          "at": null,
+          "since": "2026-11-10T22:15:00.000Z",
+          "next": "calls"
+        },
+        {
+          "object": {
+            "kind": "workload",
+            "ref": "causes-e2e/Deployment/api",
+            "name": "causes-e2e/api",
+            "platform": "kubernetes",
+            "workloadKind": "Deployment"
+          },
+          "source": "kubernetes",
+          "code": "no_pods",
+          "facts": {},
+          "at": null,
+          "since": "2026-11-10T21:12:10.608Z",
+          "next": "because"
+        },
+        {
+          "object": {
+            "kind": "change",
+            "ref": "Deployment/causes-e2e/api",
+            "name": "api",
+            "platform": "kubernetes",
+            "workloadKind": "Deployment"
+          },
+          "source": "change_marker",
+          "code": "scaled",
+          "facts": {
+            "from": 1,
+            "to": 0
+          },
+          "at": "2026-11-10T21:12:10.608Z",
+          "since": null,
+          "next": null
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "topic": "edge",
+      "code": "edge_failed",
+      "facts": {
+        "pct": 99.3,
+        "port": 9898
+      },
+      "result": "possible"
+    },
+    {
+      "topic": "self",
+      "code": "self_ok",
+      "facts": {
+        "name": "web"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "events",
+      "code": "events_none",
+      "facts": {
+        "name": "web",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "changes",
+      "code": "changes_none",
+      "facts": {
+        "name": "web",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "node",
+      "code": "node_ok",
+      "facts": {
+        "node": "demo-worker"
+      },
+      "result": "ok",
+      "object": {
+        "kind": "node",
+        "ref": "demo-worker",
+        "name": "demo-worker",
+        "platform": "kubernetes"
+      }
+    },
+    {
+      "topic": "cpu",
+      "code": "cpu_ok",
+      "facts": {
+        "name": "web"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "dependencies",
+      "code": "dependencies_failing",
+      "facts": {
+        "name": "web",
+        "n": 1,
+        "target": "api"
+      },
+      "result": "explains"
+    },
+    {
+      "topic": "dns",
+      "code": "dns_ok",
+      "facts": {
+        "name": "web"
+      },
+      "result": "ok"
+    }
+  ],
+  "flowsOff": null
+}

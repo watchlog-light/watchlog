@@ -1,0 +1,136 @@
+{
+  "subject": {
+    "kind": "compose_service",
+    "ref": "causes-e2e/typo",
+    "name": "causes-e2e/typo",
+    "platform": "docker",
+    "host": "docker-01"
+  },
+  "object": {
+    "kind": "compose_service",
+    "ref": "causes-e2e/typo",
+    "name": "causes-e2e/typo",
+    "platform": "docker",
+    "host": "docker-01"
+  },
+  "cluster": {
+    "id": "00000000-0000-4000-8000-00000000000b",
+    "name": "fleet",
+    "kind": "docker"
+  },
+  "state": "likely",
+  "checkedAt": "2026-11-10T19:42:54.053Z",
+  "symptomSince": null,
+  "resolvedAt": null,
+  "window": {
+    "from": "2026-11-10T18:42:54.053Z",
+    "to": "2026-11-10T19:42:54.053Z"
+  },
+  "headline": {
+    "code": "dns_nxdomain",
+    "facts": {
+      "name": "typo",
+      "perMinute": 14
+    }
+  },
+  "causes": [
+    {
+      "rule": "dns_nxdomain",
+      "strength": "likely",
+      "code": "dns_nxdomain",
+      "facts": {
+        "name": "typo",
+        "perMinute": 14
+      },
+      "since": "2026-11-10T19:38:30.000Z",
+      "chain": [
+        {
+          "object": {
+            "kind": "compose_service",
+            "ref": "causes-e2e/typo",
+            "name": "causes-e2e/typo",
+            "platform": "docker"
+          },
+          "source": "dns",
+          "code": "nxdomain",
+          "facts": {
+            "perMinute": 14
+          },
+          "at": null,
+          "since": "2026-11-10T19:38:30.000Z",
+          "next": null
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "topic": "self",
+      "code": "self_ok",
+      "facts": {
+        "name": "typo"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "events",
+      "code": "events_warnings",
+      "facts": {
+        "name": "typo",
+        "n": 7,
+        "reason": "Died"
+      },
+      "result": "possible"
+    },
+    {
+      "topic": "changes",
+      "code": "changes_none",
+      "facts": {
+        "name": "typo",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "host",
+      "code": "host_ok",
+      "facts": {
+        "host": "docker-01"
+      },
+      "result": "ok",
+      "object": {
+        "kind": "host",
+        "ref": "docker-01",
+        "name": "docker-01",
+        "platform": "docker"
+      }
+    },
+    {
+      "topic": "cpu",
+      "code": "cpu_ok",
+      "facts": {
+        "name": "typo"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "dependencies",
+      "code": "dependencies_none",
+      "facts": {
+        "name": "typo"
+      },
+      "result": "not_applicable"
+    },
+    {
+      "topic": "dns",
+      "code": "dns_errors",
+      "facts": {
+        "name": "typo",
+        "perMinute": 14,
+        "nxdomainPerMinute": 14
+      },
+      "result": "explains"
+    }
+  ],
+  "flowsOff": null
+}

@@ -1,0 +1,156 @@
+{
+  "subject": {
+    "kind": "compose_service",
+    "ref": "causes-e2e/pg",
+    "name": "causes-e2e/pg",
+    "platform": "docker",
+    "host": "docker-01"
+  },
+  "object": {
+    "kind": "compose_service",
+    "ref": "causes-e2e/pg",
+    "name": "causes-e2e/pg",
+    "platform": "docker",
+    "host": "docker-01"
+  },
+  "cluster": {
+    "id": "00000000-0000-4000-8000-00000000000b",
+    "name": "fleet",
+    "kind": "docker"
+  },
+  "state": "likely",
+  "checkedAt": "2026-11-10T20:35:37.653Z",
+  "symptomSince": null,
+  "resolvedAt": null,
+  "window": {
+    "from": "2026-11-10T19:35:37.653Z",
+    "to": "2026-11-10T20:35:37.653Z"
+  },
+  "headline": {
+    "code": "node_or_host_silent",
+    "facts": {
+      "name": "pg",
+      "host": "docker-01",
+      "minutes": 3
+    }
+  },
+  "causes": [
+    {
+      "rule": "node_or_host",
+      "strength": "likely",
+      "code": "node_or_host",
+      "facts": {
+        "name": "pg",
+        "host": "docker-01",
+        "how": "silent",
+        "minutes": 3,
+        "platform": "docker"
+      },
+      "since": "2026-11-10T20:32:20.260Z",
+      "chain": [
+        {
+          "object": {
+            "kind": "container",
+            "ref": "docker-01/causes-e2e-pg-1",
+            "name": "causes-e2e-pg-1",
+            "platform": "docker",
+            "host": "docker-01"
+          },
+          "source": "docker",
+          "code": "last_report",
+          "facts": {
+            "state": "running"
+          },
+          "at": "2026-11-10T20:32:20.260Z",
+          "since": null,
+          "next": "because"
+        },
+        {
+          "object": {
+            "kind": "host",
+            "ref": "docker-01",
+            "name": "docker-01",
+            "platform": "docker"
+          },
+          "source": "docker",
+          "code": "host_silent",
+          "facts": {
+            "host": "docker-01",
+            "minutes": 3
+          },
+          "at": null,
+          "since": "2026-11-10T20:32:20.260Z",
+          "next": null
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "topic": "self",
+      "code": "self_ok",
+      "facts": {
+        "name": "pg"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "events",
+      "code": "events_none",
+      "facts": {
+        "name": "pg",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "changes",
+      "code": "changes_none",
+      "facts": {
+        "name": "pg",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "host",
+      "code": "host_silent",
+      "facts": {
+        "host": "docker-01",
+        "minutes": 3
+      },
+      "result": "explains",
+      "object": {
+        "kind": "host",
+        "ref": "docker-01",
+        "name": "docker-01",
+        "platform": "docker"
+      }
+    },
+    {
+      "topic": "cpu",
+      "code": "cpu_no_limit",
+      "facts": {
+        "name": "pg"
+      },
+      "result": "not_applicable"
+    },
+    {
+      "topic": "dependencies",
+      "code": "dependencies_none",
+      "facts": {
+        "name": "pg"
+      },
+      "result": "not_applicable"
+    },
+    {
+      "topic": "dns",
+      "code": "dns_none",
+      "facts": {
+        "name": "pg"
+      },
+      "result": "not_applicable"
+    }
+  ],
+  "flowsOff": null
+}

@@ -1,0 +1,104 @@
+{
+  "subject": {
+    "kind": "alert",
+    "ref": "01a1c76f-0dd3-772f-96e7-3d7e99e2a748",
+    "name": "Container CPU throttling",
+    "platform": "kubernetes"
+  },
+  "object": {
+    "kind": "workload",
+    "ref": "causes-e2e/Deployment/hot",
+    "name": "causes-e2e/hot",
+    "platform": "kubernetes",
+    "workloadKind": "Deployment"
+  },
+  "cluster": {
+    "id": "01a1c446-a818-76d4-b058-f1b1aa7dc501",
+    "name": "kind",
+    "kind": "kubernetes"
+  },
+  "state": "none",
+  "checkedAt": "2026-11-10T22:24:18.767Z",
+  "symptomSince": "2026-11-10T22:14:38.684Z",
+  "resolvedAt": null,
+  "window": {
+    "from": "2026-11-10T21:14:38.684Z",
+    "to": "2026-11-10T22:24:18.767Z"
+  },
+  "headline": {
+    "code": "none_no_changes",
+    "facts": {
+      "name": "hot",
+      "n": 5,
+      "minutes": 60
+    }
+  },
+  "causes": [],
+  "checks": [
+    {
+      "topic": "self",
+      "code": "self_ok",
+      "facts": {
+        "name": "hot"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "events",
+      "code": "events_none",
+      "facts": {
+        "name": "hot",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "changes",
+      "code": "changes_none",
+      "facts": {
+        "name": "hot",
+        "minutes": 60
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "node",
+      "code": "node_ok",
+      "facts": {
+        "node": "demo-worker"
+      },
+      "result": "ok",
+      "object": {
+        "kind": "node",
+        "ref": "demo-worker",
+        "name": "demo-worker",
+        "platform": "kubernetes"
+      }
+    },
+    {
+      "topic": "cpu",
+      "code": "cpu_ok",
+      "facts": {
+        "name": "hot"
+      },
+      "result": "ok"
+    },
+    {
+      "topic": "dependencies",
+      "code": "dependencies_none",
+      "facts": {
+        "name": "hot"
+      },
+      "result": "not_applicable"
+    },
+    {
+      "topic": "dns",
+      "code": "dns_none",
+      "facts": {
+        "name": "hot"
+      },
+      "result": "not_applicable"
+    }
+  ],
+  "flowsOff": null
+}
