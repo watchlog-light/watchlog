@@ -123,6 +123,20 @@ func TestNodeAndQueues(t *testing.T) {
 	if _, ok := value(res.Samples, "rabbitmq_resident_memory_limit_bytes"); !ok {
 		t.Error("no memory watermark")
 	}
+	// Each node series once: the global counters come split by protocol and queue type
+	// (6 lines each in 4.1) and are summed, never sent as several values of one series.
+	seen := map[string]int{}
+	for _, s := range res.Samples {
+		seen[s.SeriesKey()]++
+	}
+	for k, n := range seen {
+		if n > 1 {
+			t.Errorf("%d samples of one series %q", n, k)
+		}
+	}
+	if v, _ := value(res.Samples, "rabbitmq_global_messages_delivered_total"); v != 5962 {
+		t.Errorf("delivered = %v, want 5962 (the sum over protocols and queue types)", v)
+	}
 	if count(res.Samples, "rabbitmq_detailed_queue_messages_ready") != 0 {
 		t.Error("queues before a heavy scrape")
 	}

@@ -188,6 +188,12 @@ func (r *RabbitMQ) member(ctx context.Context, id string, m integrations.Member,
 		return out // the plugin is off (or its port closed): the page says how to enable it
 	}
 	out.plugin = true
+	// The node's totals, one series each: RabbitMQ splits some (the global message
+	// counters by protocol and queue type), and those labels are summed away. Sending
+	// the parts as one series made its value jump between them, and rate() read every
+	// drop as a counter reset (the demo showed hundreds of publishes a second for 3).
+	totals := map[string]float64{}
+	var order []string
 	for _, p := range parsed {
 		switch p.Name {
 		case "rabbitmq_build_info":
@@ -197,7 +203,13 @@ func (r *RabbitMQ) member(ctx context.Context, id string, m integrations.Member,
 			out.node, out.cluster = p.Labels["rabbitmq_node"], p.Labels["rabbitmq_cluster"]
 			continue
 		}
-		out.samples = append(out.samples, metrics.New(p.Name, p.Value).WithLabels(label))
+		if _, seen := totals[p.Name]; !seen {
+			order = append(order, p.Name)
+		}
+		totals[p.Name] += p.Value
+	}
+	for _, name := range order {
+		out.samples = append(out.samples, metrics.New(name, totals[name]).WithLabels(label))
 	}
 	key := id + "\x00" + m.Name
 	if heavy {
