@@ -27,11 +27,6 @@ const restartsText = computed(() => {
   return t('overview.kpi.vsBefore', { change: `${n > 0 ? '+' : ''}${n}`, period: period.value });
 });
 const traffic = computed(() => k.value.traffic);
-const trafficCmp = computed(() =>
-  traffic.value
-    ? comparison(traffic.value.connectionsPerSecond, traffic.value.previous, 0.01)
-    : null,
-);
 
 function bar(r: { usage: number | null; requests: number | null; allocatable: number | null }) {
   const alloc = r.allocatable ?? 0;
@@ -131,8 +126,11 @@ const pct = (v: number | null) => (v === null ? '–' : `${Math.round(v * 100)}%
           {{ perSecond(traffic.connectionsPerSecond).replace('/s', '')
           }}<small> {{ $t('overview.kpi.connPerSec') }}</small>
         </div>
+        <!-- One line: the failed share and the latency. The traffic's change against the
+             previous period read as the failures' ("▲ 390%"): the sparkline shows the trend. -->
         <div
-          class="d"
+          class="d whitespace-nowrap"
+          data-testid="kpi-traffic-sub"
           :class="
             (traffic.failedRatio ?? 0) >= 0.05
               ? 'text-critical'
@@ -147,10 +145,6 @@ const pct = (v: number | null) => (v === null ? '–' : `${Math.round(v * 100)}%
               p95: latency(traffic.p95Seconds),
             })
           }}
-          <template v-if="trafficCmp?.direction === 'up' || trafficCmp?.direction === 'down'">
-            · {{ trafficCmp.direction === 'up' ? '▲' : '▼' }}
-            {{ formatValue(Math.abs(trafficCmp.ratio ?? 0), 'ratio') }}
-          </template>
         </div>
         <SparkLine :values="values(traffic.series)" color-token="--ok" />
       </template>
