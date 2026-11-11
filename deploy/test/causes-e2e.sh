@@ -19,6 +19,18 @@
 #                                                causes): explain_problem gives each scenario's
 #                                                top cause, likely; get_problems carries it as
 #                                                likelyCause; explain_alert's causes agree
+#   causes-e2e.sh notify                         the likely cause in the messages (ADR-148): an email
+#                                                channel (Mailpit), a webhook and a fake Slack
+#                                                endpoint (a receiver this script runs) on the rules
+#                                                of three scenarios. Waits until none of their alerts
+#                                                fires, triggers dependency-down (kind) and oom
+#                                                (Docker), likely: "Likely cause:" and likelyCause on
+#                                                the firing messages, "Was likely:" on the resolves;
+#                                                then the Docker host goes silent (node, no cause):
+#                                                no line. Restores them and removes its channels.
+#                                                Needs the alert worker running from this checkout
+#                                                against WATCHLOG_URL and WATCHLOG_E2E_MAILPIT_URL
+#                                                (the backend's Mailpit)
 #   causes-e2e.sh down                           removes only what `up` made
 #
 # Runs after the agents report with network flows on (eBPF: the service map, HTTP and
@@ -41,6 +53,8 @@
 #   WATCHLOG_E2E_KUBE_CLUSTER, WATCHLOG_E2E_DOCKER_CLUSTER
 #                          the cluster and fleet (id or name); default the only one of each kind
 #   VM                     the Lima VM (default watchlog-demo)
+#   WATCHLOG_E2E_MAILPIT_URL   Mailpit's API for `notify` (default http://127.0.0.1:8025)
+#   NOTIFY_TIMEOUT         seconds `notify` waits for each message (default 900)
 # shellcheck disable=SC2016
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -626,7 +640,155 @@ elif mode == "subjects":
             print(f"SKIP  an alert on {kind}: none firing about causes-e2e (is the alert worker running?)")
     print(f"\n{failures} failed" if failures else "\nall subjects answered")
     sys.exit(1 if failures else 0)
+elif mode.startswith("notify-"):
+    # The likely cause in the messages (ADR-148). State between the steps in $NOTIFY_DIR.
+    d = os.environ["NOTIFY_DIR"]
+    state_file = os.path.join(d, "state.json")
+    mailpit = os.environ.get("WATCHLOG_E2E_MAILPIT_URL", "http://127.0.0.1:8025")
+    timeout = int(os.environ.get("NOTIFY_TIMEOUT", "900"))
+    # (scenario, platform, rule key, labels it must have, the rule expected, or None: possible)
+    CASES = [("dependency-down", "kubernetes", "network.connections.failed", {"namespace": "causes-e2e", "workload": "web"}, "dependency_down"),
+             ("oom", "docker", "docker.container.restarts", {"container": "causes-e2e-hog-1"}, "oom_limit"),
+             # Not likely: the fleet's only host goes silent. The cluster's "agent not reporting"
+             # alert has no object, so no cause (ADR-155): its message carries no line.
+             ("node", "docker", "agent.not_reporting", {"agent": "all"}, None)]
+    rules = call("GET", "/alert-rules")["rules"]
+    if mode == "notify-quiet":
+        # A message goes out only when an alert fires: one already firing (a run cut off
+        # before its restore, say) would never send one. Wait until none of the cases fires.
+        def firing():
+            return [f"{a['rule'].get('key')} {a.get('labels')}" for a in call("GET", "/alerts")["alerts"]
+                    if a.get("state") == "firing" and any(a["rule"].get("key") == c[2] and all(a.get("labels", {}).get(k) == v for k, v in c[3].items()) for c in CASES)]
+        left = wait(lambda: not firing() or None, timeout, every=15)
+        if not left:
+            print("still firing after %d s: %s" % (timeout, "; ".join(firing())))
+            sys.exit(1)
+        print("none of the cases' alerts is firing")
+        sys.exit(0)
+    if mode == "notify-setup":
+        receiver = args[0]
+        recipient = f"causes-e2e-{int(time.time())}@example.com"
+        mk = lambda typ, name, settings: call("POST", "/alert-channels", {"type": typ, "name": name, "settings": settings, "useForAllRules": False})["channel"]["id"]
+        ch = [mk("email", "causes-e2e notify email", {"recipients": [recipient]}),
+              mk("webhook", "causes-e2e notify webhook", {"url": receiver + "/hook"}),
+              # Slack's payload, to this script's receiver: never the real Slack.
+              mk("slack", "causes-e2e notify slack", {"webhookUrl": receiver + "/slack"})]
+        before = {}
+        for key in sorted({c[2] for c in CASES}):
+            for r in [r for r in rules if r.get("ruleKey") == key]:
+                before[r["id"]] = r["channelIds"]
+                call("PATCH", f"/alert-rules/{r['id']}", {"channelIds": sorted(set(r["channelIds"]) | set(ch))})
+        json.dump({"channels": ch, "before": before, "recipient": recipient, "since": time.time()}, open(state_file, "w"))
+        print(f"channels: email to {recipient}, webhook and Slack to {receiver}; on {len(before)} rules")
+        sys.exit(0)
+    st = json.load(open(state_file))
+    if mode == "notify-cleanup":
+        for rid, ids in st["before"].items():
+            call("PATCH", f"/alert-rules/{rid}", {"channelIds": ids})
+        for cid in st["channels"]:
+            call("DELETE", f"/alert-channels/{cid}")
+        print(f"rules' channels put back on {len(st['before'])} rules; {len(st['channels'])} channels removed")
+        sys.exit(0)
+
+    def received():
+        out = []
+        try:
+            for line in open(os.path.join(d, "received.jsonl")):
+                out.append(json.loads(line))
+        except FileNotFoundError:
+            pass
+        return out
+    def hooks(event):
+        return [(r["body"], a) for r in received() if r["path"] == "/hook" and r["body"].get("event") == event
+                for a in r["body"]["alerts"]]
+    def mails():
+        q = urllib.parse.quote(f'to:"{st["recipient"]}"')
+        with urllib.request.urlopen(f"{mailpit}/api/v1/search?query={q}&limit=200", timeout=30) as res:
+            msgs = json.loads(res.read())["messages"]
+        out = []
+        for m in msgs:
+            with urllib.request.urlopen(f"{mailpit}/api/v1/message/{m['ID']}", timeout=30) as res:
+                out.append({"subject": m["Subject"], "text": json.loads(res.read())["Text"]})
+        return out
+    def slacks():
+        return [json.dumps(r["body"], ensure_ascii=False) for r in received() if r["path"] == "/slack"]
+    def match(c, a, body):
+        return body["rule"].get("key") == c[2] and all(a["labels"].get(k) == v for k, v in c[3].items())
+    def find(c, event):
+        return next(((b, a) for b, a in hooks(event) if match(c, a, b)), None)
+
+    passed = failed = 0
+    def result(ok, label, detail=""):
+        global passed, failed
+        if ok: passed += 1
+        else: failed += 1
+        print(f"{'PASS' if ok else 'FAIL'}  {label}{(': ' + detail) if detail else ''}")
+    wanted = [c for c in CASES if not args or c[0] in args]
+    event = "firing" if mode == "notify-firing" else "resolved"
+    for c in wanted:
+        if event == "resolved" and c[4] is None:
+            continue  # only the likely ones are waited for on resolve
+        got = wait(lambda: find(c, event), timeout, every=10)
+        label = f"{c[0]} on {c[1]} ({c[2]}, {'likely ' + c[4] if c[4] else 'not likely'}) {event}"
+        if not got:
+            result(False, label, f"no {event} message in {timeout} s")
+            continue
+        body, a = got
+        lc = a.get("likelyCause")
+        title = a["title"]
+        mail = wait(lambda: next((m for m in mails() if title in m["text"] and (("[RESOLVED]" in m["subject"]) == (event == "resolved"))), None), 120)
+        slack = next((x for x in slacks() if title in x and (("RESOLVED" in x) == (event == "resolved"))), None)
+        word = "Likely cause:" if event == "firing" else "Was likely:"
+        if c[4]:
+            result(bool(lc) and lc.get("rule") == c[4] and lc.get("text") and lc.get("chain"), f"{label}: webhook likelyCause",
+                   f"{lc.get('rule')}: {lc.get('text')}" if lc else json.dumps(a)[:300])
+            line = f"{word} {lc['text']}" if lc else word
+            result(bool(mail) and line in mail["text"], f"{label}: email says {word!r}", "" if mail else "no email")
+            result(bool(slack) and word in slack, f"{label}: Slack payload says {word!r}", "" if slack else "no Slack message")
+            if event == "firing":
+                det = call("GET", f"/alerts/{a['id']}")
+                mine = [n for n in det["notifications"] if n["channel"] and n["channel"]["id"] in st["channels"] and n["kind"] == "firing"]
+                result(bool(mine) and all(n.get("withCause") for n in mine), f"{label}: the timeline marks its messages withCause")
+            with open(os.path.join(d, f"sample-{c[1]}-{event}.txt"), "w") as f:
+                f.write((mail or {}).get("text", "") + "\n\n" + json.dumps(body, indent=2, ensure_ascii=False))
+        else:
+            q = urllib.parse.urlencode({"cluster": body["cluster"]["id"], "subject": f"alert:{a['id']}"})
+            code, ans = call("GET", f"/causes?{q}", raw=True)
+            now = (f"{ans['state']} ({', '.join(x['rule'] + ' ' + x['strength'] for x in ans['causes'])})"
+                   if code == 200 and ans else f"HTTP {code}")
+            result(not lc and bool(mail) and "Likely cause:" not in mail["text"] and not (slack and "Likely cause:" in slack),
+                   f"{label}: no line, no likelyCause", f"GET /causes now: {now}")
+    print(f"\n{passed} passed, {failed} failed")
+    sys.exit(1 if failed else 0)
 PY
+}
+
+# The webhook and Slack stand-in for `notify`: records each POST as a line of JSON.
+receiver() { # <dir>: prints the URL; the PID goes to <dir>/receiver.pid
+  python3 - "$1" >"$1/receiver.log" 2>&1 <<'PY' &
+import http.server, json, os, sys
+d = sys.argv[1]
+class H(http.server.BaseHTTPRequestHandler):
+    def do_POST(self):
+        body = self.rfile.read(int(self.headers.get("content-length") or 0))
+        try:
+            parsed = json.loads(body)
+        except ValueError:
+            parsed = body.decode(errors="replace")
+        with open(os.path.join(d, "received.jsonl"), "a") as f:
+            f.write(json.dumps({"path": self.path, "headers": dict(self.headers), "body": parsed}) + "\n")
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"ok")
+    def log_message(self, *a):
+        pass
+s = http.server.HTTPServer(("127.0.0.1", 0), H)
+open(os.path.join(d, "port"), "w").write(str(s.server_port))
+s.serve_forever()
+PY
+  echo $! >"$1/receiver.pid"
+  for _ in $(seq 50); do [ -s "$1/port" ] && break; sleep 0.1; done
+  echo "http://127.0.0.1:$(cat "$1/port")"
 }
 
 cmd=${1:-}
@@ -651,6 +813,9 @@ case "$cmd" in
     compose_file | in_vm "cat > $dir/compose.yaml"
     printf '%s\n' "$pg_init" | in_vm "mkdir -p $dir/initdb && cat > $dir/initdb/watchlog.sh"
     in_vm "docker pull -q busybox:1.37 >/dev/null && docker pull -q busybox:1.36 >/dev/null && $compose up -d --quiet-pull 2>&1 | tail -n 1"
+    # The scenarios' containers are removed too: a run cut off before its restore leaves them,
+    # and their restart policy starts them again whenever Docker starts (a reboot, say).
+    in_vm "s=\$(comm -13 <($compose config --services | sort) <($compose --profile scenario config --services | sort)); [ -z \"\$s\" ] || $compose --profile scenario rm -sf \$s 2>&1 | tail -n 1"
     say "PostgreSQL: a pg_monitor role watchlog, with the fixture's password"
     sql="SET client_min_messages = warning;
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
@@ -707,6 +872,45 @@ GRANT pg_monitor TO watchlog;"
       WATCHLOG_E2E_KUBE=${WATCHLOG_E2E_KUBE_CLUSTER:-} WATCHLOG_E2E_DOCKER=${WATCHLOG_E2E_DOCKER_CLUSTER:-} \
       pnpm -C backend -s exec tsx scripts/mcp-e2e.ts causes
     ;;
+  notify)
+    : "${WATCHLOG_E2E_EMAIL:?}" "${WATCHLOG_E2E_PASSWORD:?}"
+    curl -fsS "$url/api/v1/health" >/dev/null
+    NOTIFY_DIR=$(mktemp -d)
+    export NOTIFY_DIR
+    hook=$(receiver "$NOTIFY_DIR")
+    notify_end() {
+      say "notify: restore, channels back, receiver stopped"
+      act_dependency_down kubernetes restore || true
+      act_oom docker restore || true
+      act_node docker restore || true
+      api notify-cleanup || true
+      kill "$(cat "$NOTIFY_DIR/receiver.pid")" 2>/dev/null || true
+      echo "messages and samples kept in $NOTIFY_DIR"
+    }
+    trap notify_end EXIT
+    say "notify: the scenarios restored, none of their alerts firing"
+    act_dependency_down kubernetes restore
+    act_oom docker restore
+    act_node docker restore
+    api notify-quiet
+    say "notify: channels on the scenarios' rules"
+    api notify-setup "$hook"
+    say "notify: trigger dependency-down (kind) and oom (Docker), likely"
+    act_dependency_down kubernetes trigger
+    act_oom docker trigger
+    status=0
+    api notify-firing dependency-down oom || status=1
+    say "notify: restore, then the resolves"
+    act_dependency_down kubernetes restore
+    act_oom docker restore
+    api notify-resolved dependency-down oom || status=1
+    # After the resolves: a silent host holds the fleet's other alerts (ADR-094).
+    say "notify: the Docker host goes silent (no cause: no line)"
+    act_node docker trigger
+    api notify-firing node || status=1
+    act_node docker restore
+    exit $status
+    ;;
   down)
     if [ -n "${WATCHLOG_E2E_EMAIL:-}" ]; then
       api unmonitor
@@ -719,7 +923,7 @@ GRANT pg_monitor TO watchlog;"
       rm -rf $dir"
     ;;
   *)
-    sed -n '3,22p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '3,34p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 2
     ;;
 esac
