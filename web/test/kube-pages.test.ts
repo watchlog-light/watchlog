@@ -374,6 +374,10 @@ describe('Docker overview', () => {
     expect(w.get('[data-testid="facts"]').text()).toContain('1 host');
     expect(w.get('[data-testid="kpi-pods"]').text()).toMatch(/Containers running\s*2\s*\/ 3/);
     expect(w.get('[data-testid="kpi-pods"]').text()).toContain('1 stopped · 0 unhealthy');
+    // Docker's words in the strip: a container, not a pod.
+    expect(w.findAll('[data-testid="strip-chip"]').map((c) => c.text())).toEqual([
+      '✕ 1 crash-looping container',
+    ]);
     const item = w.get('[data-testid="attention-item"]');
     expect(item.text()).toContain('fx-crashloop keeps restarting');
     expect(item.attributes('href')).toBe('/containers/h1/fx-crashloop');

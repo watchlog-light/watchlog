@@ -5,7 +5,7 @@
 // here (slices 2–4): CAUSES, STEPS and HEADLINES below.
 import type { CauseCheck, CauseStep } from '@watchlog/api-types';
 import { describe, expect, it } from 'vitest';
-import { headlineText } from '@watchlog/cause-words';
+import { formatClock, headlineText } from '@watchlog/cause-words';
 import { createAppI18n, en } from '@/i18n';
 import {
   causeLine,
@@ -432,6 +432,45 @@ describe('cause sentences', () => {
       Object.keys(en.causes.headline)
         .filter((c) => c !== 'app_finding')
         .sort(),
+    );
+  });
+
+  it('a moment on another day than today reads with its date, in the dashboard and in UTC', () => {
+    const at = '2026-11-10T10:33:20Z';
+    const facts = { name: 'cart', node: 'demo-worker', at };
+    const code = 'node_or_host_node_restarted';
+    // The same day: the clock time alone.
+    const sameDay = Date.parse('2026-11-10T21:00:00Z');
+    expect(headlineText({ code, facts }, { utc: true, now: sameDay })).toBe(
+      'cart restarted when node demo-worker restarted at 10:33 UTC.',
+    );
+    // The next day (UTC): "Nov 10, 10:33 UTC"; another year names it.
+    expect(
+      headlineText({ code, facts }, { utc: true, now: Date.parse('2026-11-11T09:00:00Z') }),
+    ).toBe('cart restarted when node demo-worker restarted at Nov 10, 10:33 UTC.');
+    expect(formatClock(at, true, Date.parse('2027-01-02T09:00:00Z'))).toBe(
+      'Nov 10 2026, 10:33 UTC',
+    );
+    // The viewer's clock: the date by the viewer's own day.
+    const local = new Date(at);
+    const hm = `${String(local.getHours()).padStart(2, '0')}:${String(local.getMinutes()).padStart(2, '0')}`;
+    const nextLocalDay = new Date(
+      local.getFullYear(),
+      local.getMonth(),
+      local.getDate() + 1,
+      12,
+    ).getTime();
+    expect(formatClock(at, false, local.getTime() + 60_000)).toBe(hm);
+    expect(formatClock(at, false, nextLocalDay)).toBe(
+      `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][local.getMonth()]} ${local.getDate()}, ${hm}`,
+    );
+    // The dashboard's headline line goes through the same formatter (today's moment: no date).
+    const today = new Date(Date.now() - 60_000).toISOString();
+    const l = headlineLine({ headline: { code, facts: { ...facts, at: today } } });
+    expect(i18n.t(l.key, l.values)).toBe(headlineText({ code, facts: { ...facts, at: today } }));
+    const old = headlineLine({ headline: { code, facts } });
+    expect(i18n.t(old.key, old.values)).toMatch(
+      /restarted at [A-Z][a-z]{2} \d{1,2}( \d{4})?, \d{2}:\d{2}\.$/,
     );
   });
 
