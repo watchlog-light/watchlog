@@ -146,6 +146,34 @@ describe('metric rules: trigger and resolve', () => {
     expect((await alerts()).map((a) => a.state)).toEqual(['resolved']);
   });
 
+  it('network.connections.failed: the share never reads above 100 %', async () => {
+    await setup('network.connections.failed');
+    const edge = {
+      namespace: 'shop',
+      workload_kind: 'Deployment',
+      workload: 'frontend',
+      dst_kind: 'workload',
+      dst_namespace: 'shop',
+      dst_workload_kind: 'Deployment',
+      dst_workload: 'cart',
+      dst_service: 'cart',
+      dst_port: '8080',
+    };
+    // Scraped apart, the failed counter can run a little ahead of the total (measured: 102 %).
+    await write(
+      'watchlog_flow_connections_total',
+      edge,
+      counter(() => 2),
+    );
+    await write(
+      'watchlog_flow_connect_failed_total',
+      edge,
+      counter(() => 2.04),
+    );
+    await evaluate(3, 12);
+    expect(await alerts()).toMatchObject([{ state: 'firing', details: { value: 1 } }]);
+  });
+
   it('node.cpu.high: a node above 90 % for 10 min fires, below resolves', async () => {
     await setup('node.cpu.high');
     // Busy 95 % for the first 20 minutes, then 10 %.
