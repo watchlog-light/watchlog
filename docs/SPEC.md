@@ -133,7 +133,7 @@ The first screen after login. Answers "is anything wrong right now?" in 5 second
 
 - Health banner: **Healthy / Degraded / Critical**, computed from firing alerts.
 - Tiles: nodes (ready / total), pods (running / pending / failed), restarts last 1 h, firing alerts, cluster CPU % and memory % (requests vs usage vs allocatable).
-- "Needs attention" list: top 10 problems ordered by severity (CrashLoopBackOff pods, NotReady nodes, OOMKilled containers, pending pods > 5 min, PVCs > 85 % full). Under each, its probable cause in one line (v0.4, ADR-148, ADR-156): a Likely, Possible or No clear cause chip and the sentence.
+- "Needs attention" list: the first 6 problems, worst first (critical before warning, then firing alerts before object problems, then oldest), and "+N more in Alerts" (CrashLoopBackOff pods, NotReady nodes, OOMKilled containers, pending pods > 5 min, PVCs > 85 % full; ADR-159). Under each, its probable cause (v0.4, ADR-148, ADR-156, ADR-159): a Likely or Possible chip and the sentence, wrapped, never cut; a No clear cause chip alone; no line under an agent that stopped reporting. A container its host's reboot or its Docker daemon's restart stopped, and that its restart policy left stopped, is no problem; a pod its node's reboot restarted is not crash-looping.
 - Recent Kubernetes events (Warning only) with links to the affected object.
 - Time range selector: 15 m, 1 h, 6 h, 24 h, 7 d, custom (limited by retention).
 
@@ -278,7 +278,7 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
   | Tool | Kubernetes | Docker |
   |---|---|---|
   | `list_clusters` | clusters with health, nodes, eBPF | fleets with hosts |
-  | `get_problems` | Needs attention: workloads and pods with reasons, firing alerts first; each with its `subject` for `explain_problem` and, when one cause is likely, its `likelyCause` (v0.4, ADR-148) | containers that are unhealthy, restarting, OOM-killed or exited non-zero, firing alerts; the same `subject` and `likelyCause` |
+  | `get_problems` | Needs attention: workloads and pods with reasons, worst first (critical first, then firing alerts; ADR-159); each with its `subject` for `explain_problem` and, when one cause is likely, its `likelyCause` (v0.4, ADR-148) | containers that are unhealthy, restarting, OOM-killed or exited non-zero (not those their host's or daemon's restart stopped), firing alerts; the same `subject` and `likelyCause` |
   | `list_alerts` | firing or recent alerts | the same |
   | `explain_alert` | the alert, its rule, its `causes` (v0.4, ADR-148: the evidence of `GET /causes`), the object's state, last terminations, events and changes before it | the same for containers and hosts |
   | `explain_problem` (v0.4) | the probable cause of a workload, pod, edge, application or alert: `state`, `headline`, ranked `causes` with each rule's meaning and its evidence chain, `checks`, `flowsOff` (ADR-148, ADR-155) | the same for a container or Compose service |
