@@ -186,6 +186,7 @@ const GROUP_OF: Record<string, RuleGroup> = {
   'k8s.node.pressure': 'nodes',
   'docker.container.unhealthy': 'docker',
   'docker.container.restarts': 'docker',
+  'docker.container.throttling': 'docker',
   'agent.not_reporting': 'watchlog',
 };
 export const RULE_GROUPS: RuleGroup[] = ['pods', 'nodes', 'docker', 'watchlog', 'custom'];
@@ -212,6 +213,8 @@ export const CUSTOM_METRICS: Record<'kubernetes' | 'docker', { key: string; unit
     { key: 'pod.restarts', unit: 'count' },
     { key: 'workload.cpu.usage', unit: 'cores' },
     { key: 'workload.memory.working_set', unit: 'bytes' },
+    { key: 'workload.container.cpu.throttled_share', unit: 'ratio' },
+    // Throttled ÷ used (ADR-072), kept so the custom rules made on it stay editable (ADR-160).
     { key: 'workload.container.cpu.throttling', unit: 'ratio' },
     { key: 'namespace.cpu.usage', unit: 'cores' },
     { key: 'namespace.memory.working_set', unit: 'bytes' },
@@ -223,6 +226,7 @@ export const CUSTOM_METRICS: Record<'kubernetes' | 'docker', { key: string; unit
     { key: 'host.filesystem.utilization', unit: 'ratio' },
     { key: 'host.load1', unit: 'load' },
     { key: 'container.cpu.usage', unit: 'cores' },
+    { key: 'container.cpu.throttled_share', unit: 'ratio' },
     { key: 'container.memory.working_set', unit: 'bytes' },
     { key: 'container.restarts.increase', unit: 'count' },
   ],

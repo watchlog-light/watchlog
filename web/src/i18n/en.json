@@ -959,7 +959,7 @@
         "k8s_pod_pending": "A pod stays **Pending**",
         "k8s_pod_imagepull": "A pod **cannot pull its image**",
         "k8s_deployment_unavailable": "A Deployment has **fewer ready replicas** than desired",
-        "k8s_container_throttling": "A container is **CPU-throttled** more than **{value}**",
+        "k8s_container_throttling": "A container is **CPU-throttled** more than **{value}** of the time",
         "k8s_pvc_usage": "A **volume (PVC)** is more than **{value}** full",
         "node_disk_usage": "Node **disk** above **{value}**",
         "node_cpu_high": "Node **CPU** above **{value}**",
@@ -967,6 +967,7 @@
         "k8s_node_pressure": "A node is under **memory or disk pressure**",
         "docker_container_unhealthy": "A container's **health check fails**",
         "docker_container_restarts": "A container **restarts more than {value} times** in **10 min**",
+        "docker_container_throttling": "A container is **CPU-throttled** more than **{value}** of the time",
         "agent_not_reporting": "A cluster or host **stops reporting** for **3 min**",
         "custom": "{metric} of **{scope}** {op} **{value}**",
         "for": " for **{d}**",
@@ -1157,6 +1158,7 @@
         "k8s_pvc_usage": "Volume (PVC) usage",
         "k8s_container_throttling": "CPU throttling",
         "docker_container_restarts": "Restarts in 10 min",
+        "docker_container_throttling": "CPU throttling",
         "network_connections_failed": "Failed connections"
       },
       "defaultScope": {
@@ -1165,6 +1167,7 @@
         "k8s_pvc_usage": "every volume",
         "k8s_container_throttling": "every container",
         "docker_container_restarts": "every container",
+        "docker_container_throttling": "every container",
         "network_connections_failed": "every workload and destination"
       },
       "everyOfType": "every {type} service"
@@ -1339,7 +1342,8 @@
     "pod_restarts": "Pod restarts (total)",
     "workload_cpu_usage": "Workload CPU usage",
     "workload_memory_working_set": "Workload memory (working set)",
-    "workload_container_cpu_throttling": "Container CPU throttling",
+    "workload_container_cpu_throttling": "Container CPU throttled per CPU second used",
+    "workload_container_cpu_throttled_share": "Container CPU throttling (share of the time)",
     "namespace_cpu_usage": "Namespace CPU usage",
     "namespace_memory_working_set": "Namespace memory (working set)",
     "pvc_utilization": "PVC usage",
@@ -1348,6 +1352,7 @@
     "host_filesystem_utilization": "Host disk usage (per mount)",
     "host_load1": "Host load (1 min)",
     "container_cpu_usage": "Container CPU usage",
+    "container_cpu_throttled_share": "Container CPU throttling (share of the time)",
     "container_memory_working_set": "Container memory (working set)",
     "container_restarts_increase": "Container restarts (10 min)",
     "service_reachable_ratio": "Members reachable",
@@ -1677,6 +1682,13 @@
         "oom": "1 out of memory | {n} out of memory",
         "connections": "1 failing connection | {n} failing connections",
         "nodes": "1 node issue | {n} node issues",
+        "other": "1 other problem | {n} other problems"
+      },
+      "typesDocker": {
+        "crashloop": "1 crash-looping container | {n} crash-looping containers",
+        "oom": "1 out of memory | {n} out of memory",
+        "connections": "1 failing connection | {n} failing connections",
+        "nodes": "1 host issue | {n} host issues",
         "other": "1 other problem | {n} other problems"
       },
       "silenced": "{n} silenced",

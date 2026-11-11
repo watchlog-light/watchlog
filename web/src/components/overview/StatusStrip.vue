@@ -21,6 +21,10 @@ const ICON = {
   unknown: CircleHelp,
 };
 const SYMBOL: Record<string, string> = { critical: '✕', warning: '▲' };
+// Each platform's words (ADR-124): a Docker fleet has crash-looping containers and hosts.
+const types = computed(() =>
+  props.overview.kind === 'docker' ? 'overview.status.typesDocker' : 'overview.status.types',
+);
 </script>
 
 <template>
@@ -69,7 +73,7 @@ const SYMBOL: Record<string, string> = { critical: '✕', warning: '▲' };
           aria-hidden="true"
           >{{ SYMBOL[t.severity] }}</span
         >
-        {{ $t(`overview.status.types.${t.type}`, { n: t.count }, t.count) }}
+        {{ $t(`${types}.${t.type}`, { n: t.count }, t.count) }}
       </RouterLink>
       <RouterLink
         v-if="p.silenced"
