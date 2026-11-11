@@ -2103,6 +2103,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - new notification channels;
   - a site feature page (a home card and a docs page only).
 - Consequences: twelve rules, each with unit fixtures, and each scenario in the "Done when" list proven on kind and on a Docker host (the v0.4 plan in the notes).
+- Amended 2026-11-11 by ADR-161: the site feature page is built after all (the owner's review).
 
 ## ADR-151: Community holds any number of clusters, Docker fleets and nodes
 
@@ -2317,3 +2318,16 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - A container that runs and meets its limit for a moment no longer pages anyone; one held at its limit does, on both platforms, and its alert's likely cause is `cpu_throttled` on itself.
   - Installs that changed the throttling threshold get 25 % back after the upgrade; the release notes say so.
   - Recordings of a keep-alive client on kind and Docker (`kube-keepalive-throttle`, `docker-keepalive-throttle`) replay in the tests; with the old reading their first step was `edge_gone`.
+
+## ADR-161: Probable cause gets a site feature page; the live demo's slow-backend tie is split in the demo kit
+
+- Date: 2026-11-11 · Status: accepted (the owner's v0.4 UI review; release 0.4.0; amends ADR-150, settles ADR-154's demo consequence)
+- Context:
+  - ADR-150 cut "a site feature page (a home card and a docs page only)" to keep the date. In the UI review the owner asked for a feature page, and for probable cause to lead the site for the launch.
+  - ADR-154's consequence: the live demo's slow-backend scenario rolled out backend with a random delay and a 20m CPU limit with a busy loop at once, so `bad_change` (a slower dependency right after its change) and `cpu_throttled` (throttled before or with the slowdown) were both complete at the far end and tied: both "possible".
+  - On a Docker fleet that runs on the same host as a kind cluster, the kind nodes' pod and Service addresses are RFC 1918 externals ("External service"), correctly (ADR-158).
+- Decision:
+  - **The site gets `/features/probable-cause/`,** with the examples and their chains, Likely / Possible / No clear cause, the twelve rules with their Kubernetes and Docker forms, the message line and MCP; probable cause is the home page's launch headline (a card, the Features menu, the first section of "What you get") and a row in the pricing table. This overrides that one cut of ADR-150; the rest of its cuts stand.
+  - **The tie is resolved in the demo kit, not in the rule.** slow-backend rolls out only the delay, once an hour, so `bad_change` is likely. A separate busy-backend slot shrinks the running backend pod's CPU limit in place (no rollout, so no change marker) while a loop keeps a core busy, so `cpu_throttled` is likely. `cpu_throttled` and the ranking (ADR-146, ADR-147, ADR-154) stay as they are: when a change and throttling really happen together, a tie that shows both as possible is the honest answer.
+- Open, not built: a "Private network" label in place of "External service" for RFC 1918 destinations on a Docker fleet (ADR-158's last point), for the owner to decide later.
+- Consequences: the site's copy follows the 0.4.0 docs at the pinned commit (ADR-114); the live demo shows `bad_change` and `cpu_throttled` each as likely, at different times of the hour.

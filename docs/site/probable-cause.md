@@ -36,6 +36,11 @@ same answer, and every step names the fact it rests on.
 
 There are no percentages: a cause is either proven by the data or it isn't.
 
+A cause always adds a fact the problem doesn't already state. A container that exited once and
+stays stopped, or a pod with one exit that runs again, is "No clear cause": the exit is the
+problem itself. A restart caused by a node's or a host's reboot, or by the Docker daemon's
+restart, is not a crash: the node or host is the cause.
+
 ## The rules
 
 Each rule looks at the object, at what is under it (its node or host), or across the service map
@@ -55,7 +60,7 @@ because the API was scaled to 0. It looks at the last 60 minutes.
 | **A name doesn't exist**       | Its DNS lookups get NXDOMAIN (no such name)                                                                                                                    | The same                                                                                        |
 | **An application finding**     | A monitored application explains it: a queue with no consumer (and why the consumer is gone), PostgreSQL out of connections (and who holds them), Redis, Nginx | The same                                                                                        |
 | **The node or host**           | Its node is NotReady, cordoned, under memory, disk or PID pressure, or evicted its pods; a node reboot                                                         | The host stopped reporting, is out of memory or disk, or restarted (containers stopped with it) |
-| **CPU throttling**             | It, or what it calls, is throttled at its CPU limit at least 25% of the time, and calls slowed with it                                                         | The same, at the container's CPU limit                                                          |
+| **CPU throttling**             | It, or what it calls, is throttled at its CPU limit at least 25% of the time while calls to it slowed, or its own throttling alert fired                       | The same, at the container's CPU limit                                                          |
 
 The rules that follow the service map need network flows (the agent's eBPF collector). With flows
 off, the answer says so, and those rules can't run.
@@ -70,6 +75,9 @@ off, the answer says so, and those rules can't run.
 - **Applications:** beside a finding.
 
 **Copy as text** copies the sentence and the chain, for a ticket or a chat.
+
+Times in the sentences are in your browser's time zone in the dashboard and in UTC in alert
+messages. A moment on another day carries its date ("restarted at Nov 10, 10:33").
 
 ## In alert messages
 

@@ -90,6 +90,7 @@ _Not part of the public specification._
 | Kubernetes events & restarts | ✓ | ✓ | ✓ | ✓ |
 | Default + custom threshold alerts | ✓ | ✓ | ✓ | ✓ |
 | Channels: Slack, Telegram, Email, Webhook | ✓ | ✓ | ✓ | ✓ |
+| Probable cause: fixed rules with their evidence, in the UI, API, MCP and messages (v0.4, ADR-146) | ✓ | ✓ | ✓ | ✓ |
 | Data retention | Limited by your disk (default 15 d) | 3 days | 30 days | Configurable (1 year+) |
 | Users | Unlimited: Owner, Admin, Viewer (ADR-140) | 1 | Up to 10 | Unlimited |
 | Unified multi-cluster view | — | — | ✓ | ✓ |
@@ -482,6 +483,15 @@ Access: nothing with security off; otherwise an API key with the `monitor` privi
 - Claude Code, through MCP, explains each of those from WatchLog data alone.
 - A Viewer can see everything and change nothing; a removed user's token stops at the next call.
 - The collector stays within its budget with every integration on.
+
+## 4.13 Probable cause ("Why is this broken?") — v0.4, All (shipped in 0.4.0)
+
+For every alert and every problem, WatchLog names the probable cause and shows the evidence, on Kubernetes clusters and Docker hosts alike (ADR-146 to ADR-160; the user page is `docs/site/probable-cause.md`).
+
+- **Deterministic rules, no AI and no scores:** twelve rules in a fixed catalog (ADR-150), each with a Kubernetes and a Docker form (ADR-149), over the data already collected: the object's state and restarts, its events and change markers, the node or host under it, its CPU throttling, its edges on the service map and the findings of monitored applications. The walk follows failing, slow or slower-than-usual edges up to two hops (ADR-153, ADR-154).
+- **In words:** Likely (one complete chain that began before or with the symptom), Possible (a lead), or No clear cause with "What we checked" (ADR-147). A cause always adds a fact the problem doesn't state (ADR-159).
+- **Where:** the panel on the alert detail, pod, workload, Docker container and Compose service pages, the service map's edge panel and beside an application's finding; a line under each Needs-attention problem (§4.1; ADR-156); the "Likely cause:" line in Slack, Telegram and email and `likelyCause` in the webhook (§4.7; ADR-157); `GET /causes` and the optional `likelyCause` fields (§8.1); MCP `explain_problem`, `explain_alert`'s causes and `get_problems`' likely cause (§4.11; ADR-155).
+- Anomaly correlation and root-cause hints across the map stay Enterprise (§4.8).
 
 
 # 5. System architecture

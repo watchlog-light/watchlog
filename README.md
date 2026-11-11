@@ -8,6 +8,7 @@
 
 - **One install.** A Helm chart for Kubernetes, or one `docker run` per Docker host.
 - **Ready-made views.** Cluster overview, nodes, workloads, pods with restart and OOM reasons, events, and Docker hosts and containers.
+- **Why it broke.** Every alert and problem gets its probable cause in one sentence, with the evidence behind it: "web fails because api was scaled to 0: nothing answers its calls." Twelve fixed rules over what WatchLog already collects, across the service map, on Kubernetes and Docker; the same line in Slack, Telegram and email. No AI in the product, no scores; see [probable cause](docs/site/probable-cause.md).
 - **A service map without code changes.** eBPF shows who connects to whom, failed connections, connect latency, bytes and DNS errors. External services are named by DNS.
 - **Your databases, caches, queues and web servers.** Redis, PostgreSQL, Nginx and RabbitMQ are found by themselves; press Monitor for their own page, the reasons behind a problem (the queue whose consumer was OOM-killed, the upstream sending 5xx) and default alerts. Read-only access, and HTTP stats from eBPF with nothing to set up.
 - **Alerts that work on day one.** Crash loops, OOM kills, node pressure, failing connections and more, sent to Slack, Telegram, email or webhooks.
@@ -46,6 +47,7 @@ The [install guide](docs/site/install.md) covers requirements, PodSecurity, more
 ## Documentation
 
 - [Install](docs/site/install.md) · [Configuration](docs/site/configuration.md) · [Security: what the agent can access](docs/site/security.md) · [FAQ](docs/site/faq.md)
+- [Probable cause](docs/site/probable-cause.md) · [Alerts and notifications](docs/site/alerts.md) · [Ask your cluster (MCP)](docs/site/mcp.md) · [REST API](docs/site/api.md)
 - Applications: [Redis](docs/site/integrations/redis.md) · [PostgreSQL](docs/site/integrations/postgres.md) · [Nginx](docs/site/integrations/nginx.md) · [RabbitMQ](docs/site/integrations/rabbitmq.md)
 - [Specification](docs/SPEC.md) and [architecture decisions](docs/DECISIONS.md)
 - [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md)
