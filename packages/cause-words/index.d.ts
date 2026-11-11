@@ -8,12 +8,12 @@ export declare function formatBytes(v: number): string;
 export declare function formatSeconds(v: number): string;
 export declare function formatCores(v: number): string;
 export declare function formatEvery(s: number): string;
-/** "08:50", or "08:50 UTC" with `utc`. */
-export declare function formatClock(iso: string, utc?: boolean): string;
+/** "08:50", or "08:50 UTC" with `utc`; "Nov 10, 08:50" on another day than `now`. */
+export declare function formatClock(iso: string, utc?: boolean, now?: number): string;
 /** Facts as the sentences show them: `p95Ms` → `p95`, `limitBytes` → `limit`, `at` → `time`… */
 export declare function causeValues(
   facts: Facts,
-  opts?: { utc?: boolean },
+  opts?: { utc?: boolean; now?: number },
 ): Record<string, unknown>;
 /** The count that picks a sentence's form: `facts.n` when it is a number. */
 export declare function pluralOf(facts: Facts): number | undefined;
@@ -26,5 +26,5 @@ export declare function renderTemplate(
 /** A headline in English; null for a code without a template here (`app_finding`). */
 export declare function headlineText(
   sentence: { code: string; facts: Facts },
-  opts?: { utc?: boolean },
+  opts?: { utc?: boolean; now?: number },
 ): string | null;

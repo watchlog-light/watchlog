@@ -38,22 +38,37 @@ export const formatEvery = (s) => (s < 90 ? `${Math.round(s)} s` : `${Math.round
 
 const two = (n) => String(n).padStart(2, '0');
 
-/** "08:50": a moment's clock time, the viewer's own, or UTC with `utc` ("08:50 UTC"). */
-export function formatClock(iso, utc = false) {
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * "08:50": a moment's clock time, the viewer's own, or UTC with `utc` ("08:50 UTC"); a
+ * moment on another day than `now` gets its date ("Nov 10, 08:50"), so yesterday's restart
+ * doesn't read as today's.
+ */
+export function formatClock(iso, utc = false, now = Date.now()) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return utc
-    ? `${two(d.getUTCHours())}:${two(d.getUTCMinutes())} UTC`
-    : `${two(d.getHours())}:${two(d.getMinutes())}`;
+  const n = new Date(now);
+  const parts = utc
+    ? [d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()]
+    : [d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()];
+  const today = utc
+    ? [n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()]
+    : [n.getFullYear(), n.getMonth(), n.getDate()];
+  const [y, mo, day, h, mi] = parts;
+  const sameDay = y === today[0] && mo === today[1] && day === today[2];
+  const date = sameDay ? '' : `${MONTHS[mo]} ${day}${y === today[0] ? '' : ` ${y}`}, `;
+  return `${date}${two(h)}:${two(mi)}${utc ? ' UTC' : ''}`;
 }
 
 /**
  * Facts as the sentences show them: durations, bytes and cores in their units, a moment
- * (`at`) as its clock time (`time`; UTC with `opts.utc`, as notifications write times).
+ * (`at`) as its clock time (`time`; UTC with `opts.utc`, as notifications write times), with
+ * its date when it isn't on `opts.now`'s day.
  */
 export function causeValues(facts, opts = {}) {
   const out = { ...facts };
-  if (typeof facts.at === 'string') out.time = formatClock(facts.at, !!opts.utc);
+  if (typeof facts.at === 'string') out.time = formatClock(facts.at, !!opts.utc, opts.now);
   const num = (k) => typeof facts[k] === 'number' && Number.isFinite(facts[k]);
   if (num('p95Ms')) out.p95 = formatSeconds(facts.p95Ms / 1000);
   if (num('fromMs')) out.from = formatSeconds(facts.fromMs / 1000);
