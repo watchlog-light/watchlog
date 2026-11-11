@@ -194,6 +194,44 @@ describe('crash_exit', () => {
     expect(m.chain[1]!.facts.exitCode).toBe(3);
   });
 
+  it('Kubernetes: reason Unknown (exit 255, the node or runtime restarted it) is no crash', () => {
+    // Measured on kind after the VM rebooted: every pod's last termination was Unknown/255.
+    const k = evidence('kube-workload-crash', (ev) => {
+      for (const p of ev.pods) {
+        p.failing = null;
+        p.lastTermination = {
+          container: 'crasher',
+          reason: 'Unknown',
+          exitCode: 255,
+          finishedAt: ev.window.to,
+        };
+        for (const c of p.containers ?? []) {
+          c.state = 'running';
+          c.reason = null;
+          c.lastTermination = { reason: 'Unknown', exitCode: 255, finishedAt: ev.window.to };
+        }
+      }
+    });
+    expect(crashExit.match(k)).toBeNull();
+  });
+
+  it('Kubernetes: one exit of a pod that runs again and isn’t failing is a lead, not proof', () => {
+    const k = evidence('kube-workload-crash', (ev) => {
+      for (const p of ev.pods) {
+        p.failing = null;
+        p.restarts = 1;
+        for (const c of p.containers ?? []) {
+          c.state = 'running';
+          c.reason = null;
+        }
+      }
+      ev.metrics!.restarts = {};
+    });
+    const m = crashExit.match(k)!;
+    expect(m).not.toBeNull();
+    expect(m.complete).toBe(false);
+  });
+
   it('exit 0 is no crash, on either platform', () => {
     const k = evidence('kube-workload-crash', (ev) => {
       for (const p of ev.pods) {
