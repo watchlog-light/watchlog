@@ -1076,26 +1076,41 @@ for (const kind of ['kubernetes', 'docker'] as const) {
   });
 }
 
-// The overview's two-column rows keep each card's own height (ADR-159): the resources
-// chart stays about 320 px however long Needs attention is, and Needs attention lists at most
-// six problems, so the two columns stay close in height on a desktop.
+// The overview below the tiles is two columns that stack on their own (ADR-159): the wide
+// one holds the resources chart (about 320 px, whatever the other column holds), top
+// workloads and warning events; the narrow one Needs attention (six problems at most),
+// recent changes and the heatmap. On a narrow page, one column with Needs attention first.
+// The traffic tile's sub-line stays on one line.
 for (const kind of ['kubernetes', 'docker'] as const) {
-  for (const width of [1280, 1440]) {
-    test(`overview (${kind}) at ${width}px: the resources chart keeps its height`, async ({
-      browser,
-    }) => {
+  for (const width of [1280, 1440, 390]) {
+    test(`overview (${kind}) at ${width}px: columns stack on their own`, async ({ browser }) => {
       const cluster = clustersByKind?.[kind];
       test.skip(!cluster, `no ${kind} cluster`);
       const context = await browser.newContext({ ...viewportFor(width), storageState: storage });
       const page = await context.newPage();
       await page.goto(`/?cluster=${cluster!.id}`);
       await settle(page);
-      const chart = await page.getByTestId('resources-chart').boundingBox();
-      const card = await page.getByTestId('card-resources').boundingBox();
-      expect(chart!.height).toBeGreaterThanOrEqual(300);
-      expect(chart!.height).toBeLessThanOrEqual(340);
-      expect(card!.height).toBeLessThan(440);
+      const box = async (id: string) => (await page.getByTestId(id).first().boundingBox())!;
+      const chart = await box('resources-chart');
+      expect(chart.height).toBeGreaterThanOrEqual(300);
+      expect(chart.height).toBeLessThanOrEqual(340);
       expect(await page.getByTestId('attention-item').count()).toBeLessThanOrEqual(6);
+      const resources = await box('card-resources');
+      const attention = await box('card-attention');
+      const top = await box('card-top');
+      if (width >= 1280) {
+        // Side by side, and the card under the chart follows the chart, not Needs attention.
+        expect(Math.abs(resources.y - attention.y)).toBeLessThan(2);
+        expect(attention.x).toBeGreaterThan(resources.x + resources.width);
+        expect(top.y - (resources.y + resources.height)).toBeLessThan(16);
+        if (await page.getByTestId('kpi-traffic-sub').count()) {
+          const sub = await box('kpi-traffic-sub');
+          expect(sub.height, 'the traffic tile’s sub-line on one line').toBeLessThan(22);
+        }
+      } else {
+        expect(attention.y).toBeLessThan(resources.y);
+        expect(Math.abs(attention.x - resources.x)).toBeLessThan(2);
+      }
       await context.close();
     });
   }
