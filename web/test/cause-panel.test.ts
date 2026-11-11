@@ -488,7 +488,7 @@ describe('Needs attention: one line under each problem (ADR-156)', () => {
     { ...base, id: 'later' },
   ];
 
-  it('problemCause: likely, possible joined, none, nothing when not worked out', () => {
+  it('problemCause: likely, possible joined, none (the chip alone), nothing when not worked out', () => {
     const t = (k: string) => k;
     expect(items.map((p) => problemCause(p)?.state ?? null)).toEqual([
       'likely',
@@ -504,6 +504,7 @@ describe('Needs attention: one line under each problem (ADR-156)', () => {
     expect(
       say(t, possibleLine({ rule: 'bad_change', code: 'bad_change', facts: {}, since: null })),
     ).toBe('causes.cause.bad_change');
+    expect(problemCause(items[2]!)!.line).toEqual([]);
   });
 
   it('possibleLine: names the object unless its sentence does, without the full stop', async () => {
@@ -540,9 +541,32 @@ describe('Needs attention: one line under each problem (ADR-156)', () => {
         'backend: Rolled out: revision 1 → 2 · backend is throttled 100% of the time at its 100m CPU limit',
       );
       expect(lines[1]!.text()).not.toContain('The new version fails');
-      expect(lines[2]!.text()).toContain('Nothing we checked explains it.');
+      // No clear cause: the chip alone; what was checked is in the panel (ADR-159).
+      expect(lines[2]!.text()).toBe('No clear cause');
+      expect(lines[2]!.find('[data-testid="attention-cause-text"]').exists()).toBe(false);
+      // Never cut with an ellipsis: the whole headline wraps.
+      for (const t of w.findAll('[data-testid="attention-cause-text"]'))
+        expect(t.classes().some((c) => c.startsWith('line-clamp') || c === 'truncate')).toBe(false);
     },
   );
+
+  it('shows the first six, worst first as the overview sends them, and how many more', async () => {
+    const plugins = await createPlugins();
+    const many = Array.from({ length: 9 }, (_, i) => ({ ...base, id: `p${i}`, title: `p${i}` }));
+    const overview = {
+      kind: 'docker',
+      health: 'critical',
+      problems: { items: many, critical: 9, warning: 0, types: [], silenced: 0, oldestSince: null },
+    } as unknown as Overview;
+    const w = mount(AttentionCard, {
+      props: { overview },
+      global: { plugins: [plugins.pinia, plugins.router, plugins.i18n] },
+    });
+    expect(w.findAll('[data-testid="attention-item"]').map((x) => x.text())).toEqual(
+      ['p0', 'p1', 'p2', 'p3', 'p4', 'p5'].map((t) => expect.stringContaining(t)),
+    );
+    expect(w.text()).toContain('+ 3 more in Alerts');
+  });
 });
 
 // The Docker fleet's answers carry their own cluster id.

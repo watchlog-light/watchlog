@@ -6,7 +6,13 @@
 import { HEADLINES } from '@watchlog/cause-words';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { increase, interval, memoryTrend, runsOf } from '../src/modules/causes/counts.js';
+import {
+  increase,
+  interval,
+  memoryTrend,
+  runsOf,
+  type Point,
+} from '../src/modules/causes/counts.js';
 import type { EvMarker, Evidence } from '../src/modules/causes/evidence.js';
 import { rank } from '../src/modules/causes/rank.js';
 import { RULES, runRules } from '../src/modules/causes/rules.js';
@@ -15,6 +21,7 @@ import { crashExit } from '../src/modules/causes/rules/crash-exit.js';
 import { imagePull, pullClass } from '../src/modules/causes/rules/image-pull.js';
 import { jobFailed } from '../src/modules/causes/rules/job-failed.js';
 import { oomLimit } from '../src/modules/causes/rules/oom-limit.js';
+import { nodeOrHost } from '../src/modules/causes/rules/node-or-host.js';
 import {
   mainReason,
   schedulingReasons,
@@ -225,7 +232,9 @@ describe('crash_exit', () => {
           c.reason = null;
         }
       }
-      ev.metrics!.restarts = {};
+      ev.metrics!.restarts = Object.fromEntries(
+        ev.pods.map((p) => [`${p.namespace}/${p.name}`, { n: 1, first: 0, last: 0 }]),
+      );
     });
     const m = crashExit.match(k)!;
     expect(m).not.toBeNull();
@@ -261,18 +270,100 @@ describe('crash_exit', () => {
     expect(crashExit.match(evidence('docker-service-oom'))).toBeNull();
   });
 
-  it('Docker has no Jobs: a one-shot container that exited non-zero is crash_exit', () => {
+  it('one exit and no restart is no cause: "exited with code 2" is the problem’s own fact (ADR-159)', () => {
     const ev = evidence('docker-container-crash', (e) => {
       const c = e.containers[0]!;
       c.state = 'exited';
       c.exitCode = 2;
       c.finishedAt = e.window.to;
-      e.events = [];
       e.metrics!.restarts = {};
     });
-    const m = crashExit.match(ev)!;
-    expect(m.headline).toMatchObject({ code: 'crash_exit_once', facts: { exitCode: 2 } });
-    expect(codes(m as Candidate)).toEqual(['exited_code']);
+    expect(crashExit.match(ev)).toBeNull();
+    const k = evidence('kube-workload-crash', (e) => {
+      for (const p of e.pods) p.failing = null;
+      e.metrics!.restarts = {};
+    });
+    expect(crashExit.match(k)).toBeNull();
+  });
+
+  it('a stopped container’s own exit code wins over an aggregated Died event’s (ADR-159)', () => {
+    const ev = evidence('docker-container-crash', (e) => {
+      const c = e.containers[0]!;
+      c.state = 'exited';
+      c.exitCode = 1;
+      c.finishedAt = e.window.to;
+    });
+    expect(ev.events.some((x) => x.reason === 'Died' && !x.message.includes('code 1'))).toBe(true);
+    expect(crashExit.match(ev)!.facts.exitCode).toBe(1);
+  });
+
+  it('a container its host’s reboot stopped is node_or_host’s, not a crash (ADR-159)', () => {
+    const ev = evidence('docker-container-crash', (e) => {
+      const c = e.containers[0]!;
+      c.state = 'exited';
+      c.exitCode = 255;
+      c.finishedAt = '2026-11-11T08:50:37Z';
+      c.stoppedWith = { how: 'host', at: '2026-11-11T08:50:31.000Z' };
+    });
+    expect(crashExit.match(ev)).toBeNull();
+    const m = nodeOrHost.match(ev)!;
+    expect(m).toMatchObject({
+      complete: true,
+      headline: {
+        code: 'node_or_host_host_restarted',
+        facts: { host: 'docker-01', at: '2026-11-11T08:50:31.000Z' },
+      },
+    });
+    expect(m.chain.map((x) => x.code)).toEqual(['stopped_with_host', 'host_rebooted']);
+    ev.containers[0]!.stoppedWith = { how: 'docker', at: '2026-11-11T10:00:01.000Z' };
+    expect(nodeOrHost.match(ev)!.headline.code).toBe('node_or_host_docker_restarted');
+  });
+
+  it('a pod its node’s reboot restarted (Unknown, 255, at the Rebooted event) reads so on kind', () => {
+    const ev = evidence('kube-workload-crash', (e) => {
+      const p = e.pods[0]!;
+      p.failing = null;
+      p.lastTermination = {
+        container: 'crasher',
+        reason: 'Unknown',
+        exitCode: 255,
+        finishedAt: '2026-11-11T08:50:40Z',
+      };
+      p.containers = undefined;
+      e.metrics!.restarts = { [`${p.namespace}/${p.name}`]: { n: 1, first: 0, last: 0 } };
+      const node = e.nodes.find((n) => n.name === p.node) ?? e.nodes[0]!;
+      p.node = node.name;
+      node.events = [
+        {
+          ...(e.events[0] ?? ({} as never)),
+          involvedKind: 'Node',
+          involvedName: node.name,
+          reason: 'Rebooted',
+          message: `Node ${node.name} has been rebooted, boot id: 6d7f9a9d`,
+          lastSeen: '2026-11-11T08:50:47Z',
+        },
+      ];
+      // The crash loop the reboot seemed to be began with it.
+      e.symptomAt = '2026-11-11T08:51:10Z';
+    });
+    expect(crashExit.match(ev)).toBeNull();
+    const m = nodeOrHost.match(ev)!;
+    expect(m).toMatchObject({
+      complete: true,
+      headline: { code: 'node_or_host_node_restarted', facts: { at: '2026-11-11T08:50:47Z' } },
+    });
+    expect(m.chain.map((x) => x.code)).toEqual(['restarted_by_node', 'node_rebooted']);
+    // Not under another symptom: a throttling alert, or the far end of a slow edge.
+    expect(
+      nodeOrHost.match({
+        ...ev,
+        alert: { rule: { id: 'r', key: 'k8s.container.throttling', name: 'x' } } as never,
+      }),
+    ).toBeNull();
+    expect(nodeOrHost.match({ ...ev, via: {} as never })).toBeNull();
+    // A symptom an hour after the reboot: the reboot's restart doesn't explain it.
+    expect(nodeOrHost.match({ ...ev, symptomAt: '2026-11-11T09:50:00Z' })).toBeNull();
+    expect(nodeOrHost.match({ ...ev, symptomAt: null })).toBeNull();
   });
 
   it('a container stopped by a signal (docker stop) is no crash', () => {
@@ -528,6 +619,17 @@ describe('counts', () => {
         100,
       ),
     ).toEqual({ n: 3, first: 105, last: 120 });
+    // Created long before the range (fx-crashloop, measured 2026-11-11: 405 restarts
+    // before the hour, 125 in it, then the host rebooted and the counter began again at 3,
+    // up to 23): the first point is the baseline, not restarts in the hour.
+    const created = 1_000;
+    const hour = Array.from({ length: 126 }, (_, i) => [7200 + i * 15, 405 + i] as Point);
+    const after = Array.from({ length: 21 }, (_, i) => [9200 + i * 15, 3 + i] as Point);
+    expect(increase([...hour, ...after], created, 15)).toEqual({
+      n: 125 + 3 + 20,
+      first: 7215,
+      last: 9500,
+    });
     // The first points are an earlier container's of the same name: the baseline.
     expect(
       increase(

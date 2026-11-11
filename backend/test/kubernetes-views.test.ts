@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   containerResources,
+  crashLooping,
   lastTermination,
   needsAttention,
   nodeStatus,
@@ -262,5 +263,29 @@ describe('Kubernetes views', () => {
     expect(soon.items.map((i) => i.kind)).toEqual(['OOMKilled']);
     expect(soon.items[0]!.detail).toBe('main: OOMKilled (exit 137), 1 restart');
     expect(needsAttention([], [running], [], Date.parse(finished) + 2 * 3600_000).total).toBe(0);
+  });
+});
+
+describe('crash loops and node reboots (ADR-159)', () => {
+  const now = Date.parse('2026-11-11T08:56:00Z');
+  const running = (reason: string) => ({
+    name: 'podinfo',
+    ready: true,
+    restart_count: 6,
+    state: 'running',
+    last_termination: {
+      reason,
+      exit_code: reason === 'Unknown' ? 255 : 1,
+      finished_at: '2026-11-11T08:50:40Z',
+    },
+  });
+
+  it('a container its node restarted (Unknown, 255) is not crash-looping', () => {
+    expect(crashLooping(running('Unknown'), now)).toBe(false);
+    expect(crashLooping(running('Error'), now)).toBe(true);
+    // Back-off is a crash loop whatever the last termination says.
+    expect(
+      crashLooping({ ...running('Unknown'), state: 'waiting', reason: 'CrashLoopBackOff' }, now),
+    ).toBe(true);
   });
 });

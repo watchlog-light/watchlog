@@ -111,6 +111,31 @@ describe('overview problems', () => {
     expect(p.oldestSince).toBe('2026-11-01T17:00:00.000Z');
   });
 
+  it('worst first: a critical object problem before a warning alert (ADR-159)', () => {
+    const p = buildProblems({
+      alerts: [
+        alert(
+          'k8s.container.throttling',
+          { namespace: 'causes-e2e', workload: 'hot', container: 'hot' },
+          { severity: 'warning' },
+        ),
+        alert('agent.not_reporting', { node: 'demo-worker' }),
+      ],
+      attention: [pod('crasher-1', 'CrashLoopBackOff', 'main: Error (exit 3), 9 restarts')],
+      podWorkload: new Map(),
+      clusterName: 'kind',
+      now: NOW,
+    });
+    expect(p.items.map((i) => [i.source, i.severity])).toEqual([
+      ['alert', 'critical'],
+      ['object', 'critical'],
+      ['alert', 'warning'],
+    ]);
+    // The route reads the rule to leave a silent agent without a cause line; the response
+    // schema leaves the field out.
+    expect(p.items[0]!.ruleKey).toBe('agent.not_reporting');
+  });
+
   it('is empty when nothing is wrong', () => {
     const p = buildProblems({
       alerts: [],

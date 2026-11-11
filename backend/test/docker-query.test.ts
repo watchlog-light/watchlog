@@ -374,6 +374,18 @@ describe('Docker inventory, hosts, containers and query API', () => {
       c('watchlog_container_memory_working_set_bytes', 3_424_256, t + 30_000),
       c('watchlog_container_memory_limit_bytes', 134_217_728, t + 30_000),
       c('watchlog_container_cpu_limit_cores', 0.5, t + 30_000),
+      // eaten's limit while it ran, 20 minutes ago: a stopped container reports nothing, so
+      // its limit is the last one seen (ADR-159), not "no limit".
+      {
+        labels: {
+          __name__: 'watchlog_container_memory_limit_bytes',
+          host: HOST,
+          container: 'eaten',
+          run: RUN,
+        },
+        value: 402_653_184,
+        timestampMs: Date.now() - 20 * 60_000,
+      },
     ]);
     const res = await api('GET', `/clusters/${clusters[0]!.id}/docker/containers?host=${HOST}`);
     expect(res.statusCode).toBe(200);
@@ -391,6 +403,8 @@ describe('Docker inventory, hosts, containers and query API', () => {
     });
     expect(byName['demo-cache-1'].cpuCores).toBeCloseTo(0.5, 5);
     expect(byName['done']).toMatchObject({ state: 'exited', cpuCores: null, memoryBytes: null });
+    expect(byName['done'].memoryLimitBytes).toBeNull();
+    expect(byName['eaten'].memoryLimitBytes).toBe(402_653_184);
     // The Containers page: a problem worded as the alert texts (for hosts that report),
     // series over the range.
     expect(byName['eaten'].problem).toBeNull(); // no heartbeat from the host yet
@@ -407,7 +421,7 @@ describe('Docker inventory, hosts, containers and query API', () => {
       severity: 'critical',
       kind: 'OOMKilled',
       title: 'eaten was killed for using too much memory',
-      reason: 'OOMKilled · 2 restarts',
+      reason: 'OOMKilled · limit 384 MiB · 2 restarts',
       alertId: null,
     });
     expect(byName['demo-cache-1']).toMatchObject({ watchlog: false, problem: null });

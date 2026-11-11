@@ -1076,6 +1076,31 @@ for (const kind of ['kubernetes', 'docker'] as const) {
   });
 }
 
+// The overview's two-column rows keep each card's own height (ADR-159): the resources
+// chart stays about 320 px however long Needs attention is, and Needs attention lists at most
+// six problems, so the two columns stay close in height on a desktop.
+for (const kind of ['kubernetes', 'docker'] as const) {
+  for (const width of [1280, 1440]) {
+    test(`overview (${kind}) at ${width}px: the resources chart keeps its height`, async ({
+      browser,
+    }) => {
+      const cluster = clustersByKind?.[kind];
+      test.skip(!cluster, `no ${kind} cluster`);
+      const context = await browser.newContext({ ...viewportFor(width), storageState: storage });
+      const page = await context.newPage();
+      await page.goto(`/?cluster=${cluster!.id}`);
+      await settle(page);
+      const chart = await page.getByTestId('resources-chart').boundingBox();
+      const card = await page.getByTestId('card-resources').boundingBox();
+      expect(chart!.height).toBeGreaterThanOrEqual(300);
+      expect(chart!.height).toBeLessThanOrEqual(340);
+      expect(card!.height).toBeLessThan(440);
+      expect(await page.getByTestId('attention-item').count()).toBeLessThanOrEqual(6);
+      await context.close();
+    });
+  }
+}
+
 // Optional: the same on a phone with the cluster's own data, when one reported in the last
 // 10 minutes (deploy/test/demo-up.sh). The checks above never need it.
 for (const kind of ['kubernetes', 'docker'] as const) {
