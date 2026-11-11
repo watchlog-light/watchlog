@@ -119,7 +119,15 @@ function kube(ev: Evidence): Match | null {
       const ts = terminations(p);
       // The newest termination decides: an OOM kill is oom_limit's, exit 0 is no crash.
       const t: Termination | undefined = ts[0];
-      if (!t || t.reason === 'OOMKilled' || t.exitCode === 0 || !recentTermination(ev, p, t))
+      // Reason "Unknown" (exit 255) is the node or the container runtime restarting the
+      // container (a reboot, say), not the process exiting: every pod on the node has one.
+      if (
+        !t ||
+        t.reason === 'OOMKilled' ||
+        t.reason === 'Unknown' ||
+        t.exitCode === 0 ||
+        !recentTermination(ev, p, t)
+      )
         return null;
       return { p, t, restarts: podRestarts(ev, p) ?? workloadRestarts(ev) };
     })
@@ -143,7 +151,8 @@ function kube(ev: Evidence): Match | null {
     }),
     since: failureSince(ev, iso(restarts?.first), backoff?.firstSeen, t.finishedAt),
     // Without the metrics, "restarts in the last hour" isn't known: the exit still is.
-    complete: true,
+    // One exit of a pod that runs again and isn't failing proves no loop: a lead only.
+    complete: !!p.failing || (restarts?.n ?? p.restarts) > 1,
   };
 }
 
