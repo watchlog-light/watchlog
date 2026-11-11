@@ -105,3 +105,33 @@ func value(samples []metrics.Sample, name string, labels ...string) float64 {
 	}
 	return -1
 }
+
+// Before the first IP map, a flow to a private address is counted as unresolved and
+// drawn as nothing; a public one is still an external.
+func TestCollectDropsPrivateDestinationsBeforeTheFirstMap(t *testing.T) {
+	d := &fakeDrainer{flows: [][]ebpf.Flow{{
+		{Cgroup: 1, Addr: netip.MustParseAddr("10.244.2.16"), Port: 5432, Connects: 3, Failures: 3},
+		{Cgroup: 1, Addr: netip.MustParseAddr("203.0.113.7"), Port: 443, Connects: 2, Established: 2},
+	}}}
+	c := New(d, func() (map[uint64]Owner, error) { return map[uint64]Owner{1: {PodID: "p"}}, nil },
+		slog.New(slog.NewTextHandler(io.Discard, nil)))
+	c.Names = func(Owner) (Source, bool) {
+		return Source{Namespace: "watchlog", WorkloadKind: "Deployment", Workload: "integrations"}, true
+	}
+	res := NewResolver(nil, nil)
+	res.pending = true
+	c.Resolver = func() *Resolver { return res }
+	out, err := c.Collect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := value(out, "watchlog_flow_connections_total", "dst", "10.244.2.0/24"); v != -1 {
+		t.Errorf("pod address drawn as an external: %v", v)
+	}
+	if v := value(out, "watchlog_flow_connections_total", "dst_kind", "external", "dst", "203.0.113.0/24"); v != 2 {
+		t.Errorf("public external = %v, want 2", v)
+	}
+	if v := value(out, "watchlog_agent_flow_cluster_unresolved_connections_total"); v != 3 {
+		t.Errorf("unresolved = %v, want 3", v)
+	}
+}
