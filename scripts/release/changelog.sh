@@ -16,7 +16,7 @@ range="${prev:+$prev..}$ref"
 repo="https://github.com/watchlog-light/watchlog"
 
 if [ -f "docs/releases/$tag.md" ]; then
-  sed '/^<!--/,/-->$/d' "docs/releases/$tag.md"
+  sed -e '/^<!--.*-->$/d' -e '/^<!--/,/-->$/d' "docs/releases/$tag.md"
   echo
 fi
 
