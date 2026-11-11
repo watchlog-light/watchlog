@@ -17,7 +17,7 @@ import { dependencyDown } from '../src/modules/causes/rules/dependency-down.js';
 import { dnsNxdomain, nxdomainSince } from '../src/modules/causes/rules/dns-nxdomain.js';
 import { tail } from '../src/modules/causes/rules/own.js';
 import { parseSubject } from '../src/modules/causes/subject.js';
-import { edgeHistory, runFrom } from '../src/modules/causes/walk.js';
+import { edgeHistory, runFrom, type EdgeSeries } from '../src/modules/causes/walk.js';
 import {
   BEFORE_SLICE_4,
   beforeSlice4,
@@ -412,15 +412,70 @@ describe('dependency_down', () => {
   });
 });
 
+describe('a keep-alive edge that got slower (the demo kit: api → a throttled backend)', () => {
+  // Recorded on kind and Docker: api's HTTP pool to backend opened its last new connection 20
+  // minutes before (kind) or before the hour (Docker), while its requests and bytes flowed
+  // every second; then backend's busy loop met its 30m CPU limit and the edge's p95 rose from
+  // 2–3 ms to 200 ms. The walk read the edge as gone "since" that last connection, and the
+  // dependency check as quiet: traffic is connections, bytes and requests, not connects.
+  it.each<[RecordingName, string]>([
+    ['kube-keepalive-throttle', 'possible'],
+    ['docker-keepalive-throttle', 'likely'],
+  ])('%s: "slowed from X to Y", never gone or quiet', async (name, state) => {
+    const { a, rec, missed } = await answer(name);
+    expect(missed).toEqual([]);
+    expect(a.state).toBe(state);
+    expect(a.causes[0]).toMatchObject({ rule: 'cpu_throttled', strength: state });
+    const chain = a.causes[0]!.chain;
+    expect(chain.map((s) => s.code)).toEqual(['edge_slower', 'cpu_throttled']);
+    expect(chain[0]!.facts).toMatchObject({
+      p95Ms: expect.any(Number),
+      fromMs: expect.any(Number),
+    });
+    expect((chain[0]!.facts.p95Ms as number) / (chain[0]!.facts.fromMs as number)).toBeGreaterThan(
+      20,
+    );
+    const steps = a.causes.flatMap((c) => c.chain.map((s) => s.code));
+    expect(steps).not.toContain('edge_gone');
+    const deps = a.checks.find((c) => c.topic === 'dependencies')!;
+    expect(deps.code).toBe('dependencies_slower');
+    // The edge's own series: connects long ago (or never), traffic up to the end.
+    const key = Object.keys(rec.reads).find((k) => k.includes('/service-map/edge'))!;
+    const s = rec.reads[key]!.body as EdgeSeries;
+    const h = edgeHistory(s, Math.floor(rec.now / 1000) - 3600);
+    const lastConnect = s.connections.filter((p) => (p[1] ?? 0) > 0).at(-1)?.[0] ?? null;
+    expect(lastConnect === null || rec.now / 1000 - lastConnect > 15 * 60).toBe(true);
+    expect(Date.parse(h.end!) - Date.parse(h.lastConnectedAt!)).toBeLessThan(60_000);
+  });
+});
+
 describe('the dependency check', () => {
   it('calls in the last hour, none now: quiet (a stopped Docker dependency), something to look at', () => {
     const ev = evidence('docker-compose-healthy', (e) => {
       for (const x of e.map.outgoing)
-        Object.assign(x, { connectionsPerSecond: 0, failedPerSecond: 0 });
+        Object.assign(x, {
+          connectionsPerSecond: 0,
+          failedPerSecond: 0,
+          http: null,
+          health: 'idle',
+        });
     });
     expect(checksOf(ev).checks.find((c) => c.topic === 'dependencies')).toMatchObject({
       code: 'dependencies_quiet',
       result: 'possible',
+    });
+  });
+
+  it('a keep-alive pool opens no new connection, yet its traffic flows: in use, not quiet', () => {
+    // The demo kit's api → backend (podinfo's HTTP client): no connects for minutes, bytes and
+    // requests every second (the map's health is ok, not idle).
+    const ev = evidence('docker-compose-healthy', (e) => {
+      for (const x of e.map.outgoing)
+        Object.assign(x, { connectionsPerSecond: 0, failedPerSecond: 0, health: 'ok' });
+    });
+    expect(checksOf(ev).checks.find((c) => c.topic === 'dependencies')).toMatchObject({
+      code: 'dependencies_ok',
+      result: 'ok',
     });
   });
 });

@@ -139,7 +139,11 @@ export type RecordingName =
   | 'kube-node-drain'
   | 'docker-host-silent'
   | 'kube-cpu-throttle'
-  | 'docker-cpu-throttle';
+  | 'docker-cpu-throttle'
+  // A keep-alive client (podinfo's HTTP pool) whose CPU-throttled backend got slower: no new
+  // connection for minutes while its requests flow (a fresh namespace and Compose project).
+  | 'kube-keepalive-throttle'
+  | 'docker-keepalive-throttle';
 
 export interface Recording {
   cluster: ClusterRef;
