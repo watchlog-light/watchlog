@@ -10,7 +10,7 @@
 //     edge in front: "caller calls hot, its p95 rose from 1 ms to 200 ms → hot is throttled
 //     98 % of the time at its 20m CPU limit".
 //   - On the object itself: complete when the symptom is the throttling (the "Container CPU
-//     throttling" alert) or a caller's calls to it are slow; otherwise a lead (partial).
+//     throttling" alert, or its Docker form) or a caller's calls to it are slow; otherwise a lead (partial).
 // Failed connects are not this rule's (dependency_down, connection_refused).
 import { edgeTrouble, shortName } from '../checks.js';
 import type { Evidence } from '../evidence.js';
@@ -20,8 +20,8 @@ import type { Step } from '../types.js';
 import { risenEdge } from '../walk.js';
 import { SAME_MS } from './common.js';
 
-/** The default alert rule whose symptom is the throttling itself (ADR-072). */
-export const THROTTLING_ALERT = 'k8s.container.throttling';
+/** The default alert rules whose symptom is the throttling itself (ADR-072, ADR-160). */
+export const THROTTLING_ALERTS = ['k8s.container.throttling', 'docker.container.throttling'];
 
 const ms = (s: string) => Date.parse(s);
 
@@ -90,7 +90,7 @@ export const cpuThrottled: Rule = {
       facts: { name: target, container: t.container, pct, limitCores: limit },
       since: t.since,
       chain: [step],
-      complete: ev.alert?.rule.key === THROTTLING_ALERT || slowCallers,
+      complete: THROTTLING_ALERTS.includes(ev.alert?.rule.key ?? '') || slowCallers,
       headline: limit
         ? { code: 'cpu_throttled', facts: { name: target, pct, limitCores: limit } }
         : { code: 'cpu_throttled_share', facts: { name: target, pct } },

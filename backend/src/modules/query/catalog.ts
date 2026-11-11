@@ -98,6 +98,17 @@ const ENTRIES = {
     expr: (s, r, a) =>
       `${a} by (host, container) (rate(watchlog_container_cpu_throttled_seconds_total${s()}[${r}]))`,
   },
+  /**
+   * The share of the time a container is throttled at its CPU limit: its throttled seconds a
+   * second, at most 1 (ADR-154's share; the agent has no CFS period counter). The most
+   * throttled one when several match.
+   */
+  'container.cpu.throttled_share': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s, r, a) =>
+      `${a} by (host, container) (clamp_max(rate(watchlog_container_cpu_throttled_seconds_total${s()}[${r}]), 1))`,
+  },
   'container.cpu.limit': {
     unit: 'cores',
     agg: 'max',
@@ -279,14 +290,25 @@ const ENTRIES = {
       `${a} by (namespace, pod, container, dir) (rate(watchlog_container_fs_io_bytes_total${s('pod!=""')}[${r}]))`,
   },
   /**
-   * Throttled CPU time per CPU time used (ADR-072): there is no CFS period counter, so
-   * this is the share of a workload container's run time it spent throttled.
+   * Throttled CPU time per CPU time used (ADR-072). Not a share of the time: a near-idle
+   * container throttled for a moment reads several times 1. The default rule reads
+   * workload.container.cpu.throttled_share instead (ADR-160); kept for custom rules.
    */
   'workload.container.cpu.throttling': {
     unit: 'ratio',
     agg: 'sum',
     expr: (s, r, a) =>
       `${a} by (namespace, workload_kind, workload, container) (rate(watchlog_container_cpu_throttled_seconds_total${s('pod!=""')}[${r}])) / ${a} by (namespace, workload_kind, workload, container) (rate(watchlog_container_cpu_seconds_total${s('pod!=""')}[${r}]))`,
+  },
+  /**
+   * The share of the time a workload container is throttled at its CPU limit: throttled
+   * seconds a second, at most 1, of its most throttled pod (ADR-154, ADR-160).
+   */
+  'workload.container.cpu.throttled_share': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s, r, a) =>
+      `${a} by (namespace, workload_kind, workload, container) (clamp_max(rate(watchlog_container_cpu_throttled_seconds_total${s('pod!=""')}[${r}]), 1))`,
   },
   'workload.cpu.usage': {
     unit: 'cores',

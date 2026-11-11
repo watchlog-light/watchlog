@@ -211,7 +211,15 @@ export function alertText(a: AlertTextInput): AlertText {
       return {
         title: `${wl} is CPU-throttled`,
         why: join(
-          `${l.container}: throttled ${pct(d.value)} of its CPU time`,
+          `${l.container}: throttled ${pct(Math.min(1, num(d.value) ?? 0))} of the time`,
+          `threshold ${pct(d.threshold)}`,
+        ),
+      };
+    case 'docker.container.throttling':
+      return {
+        title: `${l.container} is CPU-throttled`,
+        why: join(
+          `throttled ${pct(Math.min(1, num(d.value) ?? 0))} of the time`,
           `threshold ${pct(d.threshold)}`,
         ),
       };

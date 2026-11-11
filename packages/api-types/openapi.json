@@ -2419,6 +2419,10 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["container.cpu.throttled_share"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["container.cpu.limit"]
                       },
                       {
@@ -2536,6 +2540,10 @@
                       {
                         "type": "string",
                         "enum": ["workload.container.cpu.throttling"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["workload.container.cpu.throttled_share"]
                       },
                       {
                         "type": "string",

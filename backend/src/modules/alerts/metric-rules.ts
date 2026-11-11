@@ -256,15 +256,17 @@ export const METRIC_RULES: DefaultRule[] = [
     }),
   },
   {
+    // The share of the time throttled, as cpu_throttled reads it (ADR-160): 25 % is at least
+    // 0.25 s throttled every second for 15 minutes, which a near-idle container never is.
     key: 'k8s.container.throttling',
-    metrics: { kubernetes: 'workload.container.cpu.throttling' },
+    metrics: { kubernetes: 'workload.container.cpu.throttled_share' },
     unit: 'ratio',
     name: 'Container CPU throttling',
     severity: 'warning',
     forSeconds: 900,
     condition: { op: '>', value: 0.25 },
     evaluator: metricRule({
-      metric: { kubernetes: 'workload.container.cpu.throttling' },
+      metric: { kubernetes: 'workload.container.cpu.throttled_share' },
       scope: (l) =>
         l.namespace && l.workload && l.workload_kind && l.container
           ? {
@@ -277,7 +279,28 @@ export const METRIC_RULES: DefaultRule[] = [
               },
             }
           : null,
-      summary: (v, l) => `${l.container}: throttled ${pct(v)} of its CPU time`,
+      summary: (v, l) => `${l.container}: throttled ${pct(v)} of the time`,
+    }),
+  },
+  {
+    // The Docker form (ADR-124, ADR-160): the same share, per container.
+    key: 'docker.container.throttling',
+    metrics: { docker: 'container.cpu.throttled_share' },
+    unit: 'ratio',
+    name: 'Docker container CPU throttling',
+    severity: 'warning',
+    forSeconds: 900,
+    condition: { op: '>', value: 0.25 },
+    evaluator: metricRule({
+      metric: { docker: 'container.cpu.throttled_share' },
+      scope: (l) =>
+        l.host && l.container
+          ? {
+              fingerprint: `docker:${l.host}/${l.container}`,
+              labels: { node: l.host, container: l.container },
+            }
+          : null,
+      summary: (v) => `throttled ${pct(v)} of the time`,
     }),
   },
   {
