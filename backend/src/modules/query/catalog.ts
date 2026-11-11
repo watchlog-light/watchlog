@@ -329,7 +329,9 @@ const ENTRIES = {
     expr: (s, r) => {
       const by =
         'namespace, workload_kind, workload, container, dst_kind, dst_namespace, dst_workload_kind, dst_workload, dst_service, dst';
-      return `sum by (${by}) (rate(watchlog_flow_connect_failed_total${s()}[${r}])) / (sum by (${by}) (rate(watchlog_flow_connections_total${s()}[${r}])) > 0.05)`;
+      // A share is at most 1: the two counters are scraped apart, so the failed rate can
+      // come out a little above the total (an alert read "102% of connections failed").
+      return `clamp_max(sum by (${by}) (rate(watchlog_flow_connect_failed_total${s()}[${r}])) / (sum by (${by}) (rate(watchlog_flow_connections_total${s()}[${r}])) > 0.05), 1)`;
     },
   },
   /**
