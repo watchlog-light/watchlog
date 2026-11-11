@@ -337,7 +337,15 @@ function networkChecks(
   if (!ev.map.ids.length)
     return [check('dependencies', 'dependencies_no_node', 'not_applicable', { name })];
   const out: Check[] = [];
-  const calls = ev.map.outgoing.filter((e) => e.connectionsPerSecond > 0 || e.failedPerSecond > 0);
+  // In use: new connections, failures, or a keep-alive pool's traffic (the map's `idle` is
+  // no connection and no bytes; HTTP requests count too).
+  const calls = ev.map.outgoing.filter(
+    (e) =>
+      e.connectionsPerSecond > 0 ||
+      e.failedPerSecond > 0 ||
+      (e.http?.requestsPerSecond ?? 0) > 0 ||
+      (!!e.health && e.health !== 'idle'),
+  );
   const failing = ev.map.outgoing.filter((e) => edgeTrouble(e));
   if (failing.length) {
     const worst = failing.sort((a, b) => (b.failedRatio ?? 0) - (a.failedRatio ?? 0))[0]!;

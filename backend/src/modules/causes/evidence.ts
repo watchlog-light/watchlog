@@ -322,7 +322,10 @@ export interface EdgeHistory {
   risenSince?: string | null;
   /** That usual p95: the lower quartile of the hour's points, seconds. */
   p95Usual?: number | null;
-  /** The last point with a connection. */
+  /**
+   * The last point with traffic: a new connection, bytes either way or HTTP requests (a
+   * keep-alive client opens no new connection while its requests flow).
+   */
   lastConnectedAt: string | null;
   /** The newest point of the series (data lags the clock by about a minute). */
   end: string | null;

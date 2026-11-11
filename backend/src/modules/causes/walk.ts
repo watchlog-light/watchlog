@@ -102,6 +102,8 @@ export interface EdgeSeries {
   step: number;
   connections: [number, number | null][];
   failed: [number, number | null][];
+  bytesSent?: [number, number | null][];
+  bytesReceived?: [number, number | null][];
   httpRequests?: [number, number | null][];
   http5xx?: [number, number | null][];
   httpP95?: [number, number | null][];
@@ -111,7 +113,7 @@ const isoS = (t: number) => new Date(t * 1000).toISOString();
 
 /**
  * The edge's last hour from its series (asked from `fromS`, unix seconds): when its trouble and
- * its slowness began, its last connection. With `endS` (a resolved alert's end), only the
+ * its slowness began, its last traffic (a connection, bytes or requests). With `endS` (a resolved alert's end), only the
  * points up to it count, and each run is the last one before it: the run counted back from
  * its newest point that holds, since the trouble may have ended just before the alert did.
  */
@@ -164,14 +166,23 @@ export function edgeHistory(s: EdgeSeries, fromS: number, endS: number | null = 
       .sort((a, b) => a - b);
     return before.length ? before[Math.floor(before.length / 2)]! : null;
   };
-  const lastConn = [...conn].filter(([, v]) => v > 0).map(([t]) => t);
+  // Traffic, not only new connections: a keep-alive client (an HTTP or database pool) opens
+  // none once up, yet its bytes and requests flow; such an edge is in use, not quiet (the
+  // map's own `idle` reads the same way).
+  const sent = at(s.bytesSent);
+  const received = at(s.bytesReceived);
+  const lastConn = Math.max(
+    -Infinity,
+    ...[conn, req, sent, received].flatMap((m) => [...m].filter(([, v]) => v > 0).map(([t]) => t)),
+  );
+
   return {
     troubleSince: trouble === null ? null : isoS(trouble),
     slowSince: slowFrom === null ? null : isoS(slowFrom),
     p95Before: medianBefore(slowFrom),
     risenSince: risenFrom === null ? null : isoS(risenFrom),
     p95Usual: usual,
-    lastConnectedAt: lastConn.length ? isoS(Math.max(...lastConn)) : null,
+    lastConnectedAt: Number.isFinite(lastConn) ? isoS(lastConn) : null,
     end: times.length ? isoS(times[times.length - 1]!) : null,
   };
 }
