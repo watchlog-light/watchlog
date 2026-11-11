@@ -227,13 +227,16 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 12px;
-  align-items: stretch;
+  /* Each card keeps its own height: the resources chart has a fixed one, and stretching
+     it to a long Needs attention left it mostly empty (the owner's v0.4 review). */
+  align-items: start;
 }
 .g2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  align-items: stretch;
+  /* The same: top workloads (5 rows) stretched to recent changes left half a card empty. */
+  align-items: start;
 }
 @container (max-width: 1080px) {
   .g1 {

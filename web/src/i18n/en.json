@@ -3019,6 +3019,11 @@
       "node_ran_out": "Node {node} ran out of memory.",
       "last_report": "Its last report, before the host went silent: {state}.",
       "host_silent": "Host {host} has sent no report for {minutes} min.",
+      "restarted_by_node": "{container} was restarted by its node, not by its own exit (reason Unknown, exit 255).",
+      "node_rebooted": "Node {node} restarted.",
+      "stopped_with_host": "It stopped with exit code {exitCode} and its restart policy left it stopped.",
+      "host_rebooted": "Host {host} restarted.",
+      "docker_restarted": "Docker on host {host} restarted.",
       "host_never": "Host {host} has never reported.",
       "host_memory": "Host {host}'s memory is {pct}% used.",
       "host_ran_out": "Host {host} ran out of memory.",
@@ -3156,7 +3161,6 @@
       "workload": "workload"
     },
     "line": {
-      "none": "Nothing we checked explains it. Open it to see what was checked.",
       "where": "{name}: {fact}"
     },
     "text": {

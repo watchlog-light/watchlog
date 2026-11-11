@@ -10,7 +10,8 @@ import SegmentedControl from './SegmentedControl.vue';
 
 // Cluster resources over the range: usage, with requested and allocatable as dashed
 // lines, and every change (rollout, image, scale, node, new namespace) as a marker line
-// with its label on hover; a click opens what changed.
+// with its label on hover; a click opens what changed. The chart keeps its own height
+// (320 px): the row aligns to the top, so a long Needs attention never stretches it.
 const props = defineProps<{ overview: Overview }>();
 const { t } = useI18n();
 type Metric = 'cpu' | 'memory' | 'network';
@@ -94,7 +95,7 @@ const markers = computed<ChartMarker[]>(() =>
         ]"
       />
     </template>
-    <div class="flex flex-1 flex-col px-3 pt-1 pb-2">
+    <div class="flex h-[320px] flex-col px-3 pt-1 pb-2" data-testid="resources-chart">
       <TimeSeriesChart
         plain
         :title="$t(`overview.resources.chart.${metric}`)"

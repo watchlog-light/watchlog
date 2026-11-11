@@ -298,12 +298,14 @@ export function possibleLine(c: PossibleCause): Line {
   return { ...stepLine(c.where), about: c.where.name };
 }
 
-/** A Needs-attention problem's line (ADR-156): the chip's state and the sentence. */
+/**
+ * A Needs-attention problem's line (ADR-156): the chip's state and the sentence. "No clear
+ * cause" is the chip alone: the panel says what was checked (ADR-159).
+ */
 export function problemCause(p: OverviewProblem): { state: PanelState; line: Line[] } | null {
   if (p.likelyCause) return { state: 'likely', line: [headlineLine(p.likelyCause)] };
   if (p.causeState === 'possible' && p.possibleCauses?.length)
     return { state: 'possible', line: p.possibleCauses.map(possibleLine) };
-  if (p.causeState === 'none')
-    return { state: 'none', line: [{ key: 'causes.line.none', values: {} }] };
+  if (p.causeState === 'none') return { state: 'none', line: [] };
   return null;
 }

@@ -11,9 +11,12 @@ import OverviewCard from './OverviewCard.vue';
 
 // Needs attention: exactly the status strip's list. Firing alerts first, then object
 // problems no alert covers; a title and a "why" line in words; age; a click opens the
-// alert or the object. Under each, its cause in one line (ADR-148, ADR-156): the chip and
-// the likely cause's headline, the possible ones joined, or "no clear cause".
+// alert or the object. Under each, its cause (ADR-148, ADR-156): the chip and the likely
+// cause's headline, the possible ones joined, or the "No clear cause" chip alone; never cut
+// with an ellipsis (it wraps). The first ATTENTION_MAX items, worst first (ADR-159), so the
+// card stays about as tall as the resources chart beside it; the rest are in Alerts.
 defineProps<{ overview: Overview }>();
+const ATTENTION_MAX = 6;
 const { t } = useI18n();
 const tr = (key: string, values?: Record<string, unknown>, plural?: number) =>
   plural === undefined ? t(key, values ?? {}) : t(key, values ?? {}, plural);
@@ -42,7 +45,7 @@ function causeOf(p: Overview['problems']['items'][number]) {
       >
     </template>
     <ul v-if="overview.problems.items.length" class="flex flex-col">
-      <li v-for="p in overview.problems.items.slice(0, 8)" :key="p.id">
+      <li v-for="p in overview.problems.items.slice(0, ATTENTION_MAX)" :key="p.id">
         <RouterLink :to="problemLink(p)" class="ai" data-testid="attention-item">
           <span
             class="sv"
@@ -69,10 +72,9 @@ function causeOf(p: Overview['problems']['items'][number]) {
             >
               <CauseChip :state="causeOf(p)!.state" />
               <span
-                :class="[
-                  'line-clamp-2 min-w-0 flex-[1_1_12rem] text-12 break-words',
-                  causeOf(p)!.state === 'none' ? 'text-text-muted' : 'text-text',
-                ]"
+                v-if="causeOf(p)!.text"
+                class="min-w-0 flex-[1_1_12rem] text-12 break-words text-text"
+                data-testid="attention-cause-text"
                 >{{ causeOf(p)!.text }}</span
               >
             </span>
@@ -92,10 +94,10 @@ function causeOf(p: Overview['problems']['items'][number]) {
       }}
     </div>
     <p
-      v-if="overview.problems.items.length > 8"
+      v-if="overview.problems.items.length > ATTENTION_MAX"
       class="border-t border-border px-3.5 py-2.5 text-12 text-text-subtle"
     >
-      {{ $t('overview.attention.more', { n: overview.problems.items.length - 8 }) }}
+      {{ $t('overview.attention.more', { n: overview.problems.items.length - ATTENTION_MAX }) }}
     </p>
     <p
       v-if="overview.kind === 'kubernetes' && overview.problems.items.length"
