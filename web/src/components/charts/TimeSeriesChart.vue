@@ -18,6 +18,7 @@ import BaseButton from '@/components/ui/BaseButton.vue';
 import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
 import SkeletonChart from '@/components/ui/SkeletonChart.vue';
 import { useDelayedFlag } from '@/composables/useDelayedFlag';
+import { breakGaps } from '@/lib/chart-gaps';
 import { rangeWindow } from '@/lib/time';
 import { byteAxisStep, formatValue, integerStep, niceStep, type Unit } from '@/lib/units';
 import { useUiStore } from '@/stores/ui';
@@ -256,7 +257,8 @@ function render() {
           width: s.dashed || s.dotted ? 1 : 1.5,
           type: s.dashed ? 'dashed' : s.dotted ? 'dotted' : 'solid',
         },
-        data: s.points.map(([t, v]) => [(t ?? 0) * 1000, v]),
+        // No data is a gap in the line, not a straight line across it (ADR-159).
+        data: (s.dotted ? s.points : breakGaps(s.points)).map(([t, v]) => [(t ?? 0) * 1000, v]),
         // Markers, thresholds and shaded ranges hang on the first series; a marker's
         // name shows on hover, a threshold's label always.
         ...(i === 0 ? decorations() : {}),
