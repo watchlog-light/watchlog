@@ -49,7 +49,7 @@ WatchLog aims at teams that want answers without building dashboards. One instal
 
 ## Which alert channels are supported?
 
-Slack, Telegram, email and webhooks (signed with HMAC-SHA256). Default rules cover crash loops, OOM kills, pods stuck pending, image pull errors, unavailable deployments, node pressure and NotReady nodes, unhealthy Docker containers, failing connections between services, and agents that stop reporting. You can change their thresholds or add your own.
+Slack, Telegram, email and webhooks (signed with HMAC-SHA256). Default rules cover crash loops, OOM kills, pods stuck pending, image pull errors, unavailable deployments, node pressure and NotReady nodes, unhealthy Docker containers, failing connections between services, and agents that stop reporting. You can change their thresholds or add your own. When an alert's cause is likely, its message says so in one line ("Likely cause: …"); see [Alerts and notifications](alerts.md), which also documents the webhook's payload.
 
 ## Where is WatchLog Cloud data stored?
 

@@ -204,6 +204,8 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 
 **Behaviour:** grouping (one message per rule+scope), resolve notifications, re-notify interval (default 4 h), silences with expiry, maintenance windows (P1), routing by severity/namespace (P1). Alert messages are short and actionable: what, where, since when, link.
 
+**The likely cause in messages (v0.4, ADR-148, ADR-157):** when an alert fires, its probable cause is worked out once, within 2 s, just before the firing message is sent, and kept with the alert. A likely cause adds one line under the facts in Slack, Telegram and email ("Likely cause: web fails because api was scaled to 0: nothing answers its calls.") and `likelyCause` to the webhook's alert (`{rule, code, facts, since, headline, subject, text, chain}`); possible causes, no clear cause and an answer not ready in 2 s add nothing, and the message is never held back longer. The resolve message says "Was likely: …" from the answer kept at fire time. The alert's timeline marks the messages that carried it. The alert worker reads the API in-process as a viewer of the alert's organization; the headline's English comes from `@watchlog/cause-words`, which the dashboard uses too.
+
 **Silent clusters and held alerts (ADR-094):** when every agent of a cluster is silent, one "stopped reporting" alert is raised for the cluster instead of one per agent. The cluster's other alerts, and pod alerts on NotReady nodes, are held: neither notified nor resolved while their state is unknown, shown as "held back", and released when data returns.
 
 **Server settings (ADR-093):** the public address, the email server (SMTP, password encrypted and write-only) and Telegram's HTTPS proxy are set in Settings and stored in the database. An environment variable, when set, overrides the stored value and the UI shows it read-only as set by the server's environment.
@@ -689,7 +691,7 @@ All tables have `id` (UUID v7), `created_at`, `updated_at`. Tenant tables have `
 | `change_markers` | cluster_id, kind (`rollout`/`image`/`scale`/`node`), target, namespace, details (jsonb), ts | |
 | `alert_rules` | org_id, cluster_id (nullable = all), name, type (`default`/`threshold`/`anomaly`), rule_key (default rules), metric, scope (jsonb), condition (jsonb), for_seconds, severity, renotify_seconds, enabled, channel_ids, eval_error | |
 | `alert_channels` | org_id, type (`slack`/`telegram`/`email`/`webhook`), name, config (jsonb, secrets encrypted with AES-GCM), verified_at | |
-| `alert_states` | org_id, rule_id, cluster_id, fingerprint, state (`pending`/`firing`/`resolved`), severity, labels (jsonb), details (jsonb), started_at, fired_at, resolved_at, last_notified_at, silenced, flapping, held, rule_snapshot (jsonb), version | One open row per (rule, cluster, fingerprint); held = state unknown (ADR-094); rule_snapshot = the rule as the alert was evaluated (ADR-098) |
+| `alert_states` | org_id, rule_id, cluster_id, fingerprint, state (`pending`/`firing`/`resolved`), severity, labels (jsonb), details (jsonb), started_at, fired_at, resolved_at, last_notified_at, silenced, flapping, held, rule_snapshot (jsonb), cause (jsonb), cause_at, version | One open row per (rule, cluster, fingerprint); held = state unknown (ADR-094); rule_snapshot = the rule as the alert was evaluated (ADR-098); cause = its probable cause when it fired (ADR-157) |
 | `alert_worker_heartbeats` | worker_id, version, started_at, lock_pid, buckets, last_cycle_at, last_error | One row per running worker (ADR-088) |
 | `alerting_periods` | started_at, ended_at | When alerting ran; gaps explain late alerts (ADR-098) |
 | `server_settings` | key (`general`/`smtp`/`telegram`), value (jsonb), secret (encrypted) | Settings made in the UI; environment overrides (ADR-093) |
@@ -725,7 +727,7 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `GET/POST /clusters` · `GET/PATCH/DELETE /clusters/:id` | Create returns install commands + token (shown once) |
 | `POST /clusters/:id/tokens` · `DELETE /clusters/:id/tokens/:tid` | Rotate / revoke |
 | `GET /clusters/:id/onboarding-status` | Server-sent events: `agent_seen`, `cluster_agent_seen`, `first_metrics`, `ebpf_status`, `service_map_ready` |
-| `GET /clusters/:id/overview` | Data for §4.1; each of the first 20 problems carries `likelyCause` when one cause is likely (ADR-148, ADR-155), and `causeState` (`likely`, `possible`, `none`) with up to two `possibleCauses` (`{rule, code, facts, since}`) for the Needs-attention line (ADR-156) |
+| `GET /clusters/:id/overview` | Data for §4.1; each of the first 20 problems carries `likelyCause` when one cause is likely (ADR-148, ADR-155), and `causeState` (`likely`, `possible`, `none`) with up to two `possibleCauses` (`{rule, code, facts, since, where}`, `where` the step where it starts: `{code, facts, name}`) for the Needs-attention line (ADR-156, ADR-157) |
 | `GET /clusters/:id/nodes` · `/nodes/:name` | |
 | `GET /clusters/:id/workloads` · `/pods` · `/pods/:ns/:name` | |
 | `GET /clusters/:id/docker/hosts` · `/docker/containers` | |
@@ -736,7 +738,7 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `POST /query/range` | Curated metric query: `{clusterId, metric, scope?: {host?, container?, composeProject?}, agg?, step?, from, to}` (unix seconds); `metric` is one of the catalog keys in `backend/src/modules/query/catalog.ts` (16 in Phase 1) → backend builds MetricsQL with tenant filter. Raw MetricsQL only for P1 advanced mode. |
 | `GET/POST/PATCH/DELETE /alert-rules` | |
 | `GET/POST/PATCH/DELETE /alert-channels` · `POST /alert-channels/:id/test` | |
-| `GET /alerts` (firing & history) · `POST /silences` | |
+| `GET /alerts` (firing & history) · `POST /silences` | `GET /alerts/:id` lists the messages sent for the alert; each carries `withCause: true` when it had the likely cause line (ADR-157) |
 | `POST /funnel` | Client-side funnel events (§10.4) |
 | `GET/POST /api-tokens` · `DELETE /api-tokens/:id` | Personal API tokens (§4.11): list, create (value shown once), revoke; session only, never with a token |
 | `POST /mcp` | MCP server, Streamable HTTP (§4.11); read token. 401 with `WWW-Authenticate: Bearer` without one; `GET` and `DELETE` (2025 session operations) answer 405 |
