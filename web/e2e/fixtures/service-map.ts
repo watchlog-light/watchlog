@@ -36,7 +36,14 @@ function edge(
   target: MapNode,
   port: number,
   cps: number,
-  opts: { failed?: number; p95?: number; service?: string; health?: Health } = {},
+  opts: {
+    failed?: number;
+    p95?: number;
+    service?: string;
+    health?: Health;
+    /** HTTP seen on the edge (ADR-139). */
+    http?: Record<string, number>;
+  } = {},
 ) {
   const failed = opts.failed ?? 0;
   const p95 = opts.p95 ?? 0.004;
@@ -54,7 +61,7 @@ function edge(
     bytesSentPerSecond: cps * 900,
     bytesReceivedPerSecond: cps * 4200,
     retransmitsPerSecond: 0,
-    http: null,
+    http: opts.http ?? null,
     health: opts.health ?? (failed > 0 ? 'critical' : p95 > 0.25 ? 'warning' : 'ok'),
     failedLastMinute: Math.round(failed * 60),
   };
@@ -95,7 +102,19 @@ function kubernetesMap() {
   const edges = [
     edge(loadgen!, frontend!, 8080, 24, { service: 'frontend' }),
     edge(frontend!, catalog!, 8080, 18, { service: 'catalog' }),
-    edge(frontend!, cart!, 8080, 9, { service: 'cart', p95: 0.41 }),
+    edge(frontend!, cart!, 8080, 9, {
+      service: 'cart',
+      p95: 0.41,
+      http: {
+        requestsPerSecond: 9,
+        clientErrorsPerSecond: 0.2,
+        serverErrorsPerSecond: 0.1,
+        serverErrorRatio: 0.011,
+        p50Seconds: 0.05,
+        p95Seconds: 0.41,
+        p99Seconds: 0.8,
+      },
+    }),
     edge(frontend!, sessions!, 8080, 12, { service: 'sessions' }),
     edge(cart!, redis, 6379, 30, { service: 'redis' }),
     edge(frontend!, orders!, 8080, 3, { service: 'orders', failed: 0.6 }),

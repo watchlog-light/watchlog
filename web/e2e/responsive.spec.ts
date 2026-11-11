@@ -207,6 +207,35 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
       answer: serviceMapAnswer(docker),
       prepare: openMap,
     },
+    // An edge and a node selected, every panel section open: the panel's toggles, its
+    // numbers and its charts at every width (the desktop layout doesn't scroll the page;
+    // scroll.spec.ts checks that).
+    ...(
+      [
+        [
+          'kube',
+          k,
+          kube,
+          'w:shop/Deployment/frontend>w:shop/Deployment/cart:8080',
+          'w:shop/Deployment/orders',
+        ],
+        ['docker', d, docker, 'c:storefront-api-1>c:storefront-db-1:5432', 'c:storefront-api-1'],
+      ] as const
+    ).flatMap(([name, q, c, edge, node]) => [
+      {
+        name: `service-map-edge-${name}`,
+        path: `/service-map${q}&view=map&edge=${encodeURIComponent(edge)}`,
+        shot: true,
+        answer: serviceMapAnswer(c),
+        prepare: openSections,
+      },
+      {
+        name: `service-map-node-${name}`,
+        path: `/service-map${q}&view=map&node=${encodeURIComponent(node)}`,
+        answer: serviceMapAnswer(c),
+        prepare: openSections,
+      },
+    ]),
     { name: 'hosts', path: `/hosts${d}`, shot: true },
     { name: 'host', path: `/hosts/${encodeURIComponent(hosts[0]!.name)}${d}`, shot: true },
     { name: 'containers', path: `/containers${d}`, shot: true },
@@ -882,6 +911,13 @@ function tokenRoutes(k: string, id: string): Route[] {
 /** Phones open the service map on Connections with an "Open map" button; wider screens on the map. */
 const openMap = (page: Page) =>
   page.getByTestId((page.viewportSize()?.width ?? 0) < 768 ? 'open-map' : 'view-map').click();
+
+/** Opens every folded section of the service map's panel. */
+async function openSections(page: Page) {
+  await page.getByTestId('map-panel').waitFor();
+  const closed = page.locator('[data-testid="map-panel"] [aria-expanded="false"]');
+  while ((await closed.count()) > 0) await closed.first().click();
+}
 
 /** Waits until the page has drawn its data: no skeletons or loading indicators left. */
 async function settle(page: Page) {

@@ -178,8 +178,14 @@ describe('service map page', () => {
     await w.get(`[data-node="${cart.id}"]`).trigger('keydown', { key: 'Enter' });
     await flushPromises();
     expect(router.currentRoute.value.query.node).toBe(cart.id);
+    // Sections: the first with something in it is open, the other folded.
     expect(w.get('[data-testid="panel-calledBy"]').text()).toContain('frontend');
+    expect(w.get('[data-testid="panel-calls"]').text()).toBe('Calls · 2');
+    const calls = w.get('[data-testid="panel-calls-toggle"]');
+    expect(calls.attributes('aria-expanded')).toBe('false');
+    await calls.trigger('click');
     expect(w.get('[data-testid="panel-calls"]').text()).toContain('catalog');
+    expect(calls.attributes('aria-expanded')).toBe('true');
     // Hovering keeps the node's neighbours and fades the rest.
     const faded = w.findAll('[data-testid="map-node"].faded').map((n) => n.attributes('data-node'));
     expect(faded).toEqual([pg.id]);
@@ -191,6 +197,13 @@ describe('service map page', () => {
     expect(reason).toContain('38% of connections fail.');
     expect(reason).toContain('catalog has 0 ready pods since');
     expect(w.get('[data-testid="edge-alert"]').attributes('href')).toBe('/alerts/a1');
+    // Numbers first, then the charts in sections: Connections open, Latency folded.
+    const panel = w.get('[data-testid="map-panel"]').html();
+    expect(panel.indexOf('edge-numbers')).toBeLessThan(panel.indexOf('section-connections'));
+    expect(w.findAll('.chart-stub').map((c) => c.text())).toEqual([
+      'Connections and failures per second (per_second)',
+    ]);
+    await w.get('[data-testid="section-latency-toggle"]').trigger('click');
     expect(w.findAll('.chart-stub').map((c) => c.text())).toEqual([
       'Connections and failures per second (per_second)',
       'Connect latency (p95) (seconds)',
@@ -239,16 +252,27 @@ describe('service map page', () => {
     expect(section.text()).toContain('40/s');
     expect(section.get('[data-testid="edge-http-5xx"]').classes()).toContain('text-critical');
     expect(section.text()).toContain('12 ms · 180 ms · 900 ms');
+    // HTTP is the first section, open; Connections and Latency are folded.
+    expect(w.findAll('.chart-stub').map((c) => c.text())).toEqual([
+      'HTTP requests and errors (per_second)',
+      'HTTP latency (seconds)',
+    ]);
+    await w.get('[data-testid="section-connections-toggle"]').trigger('click');
+    await w.get('[data-testid="section-latency-toggle"]').trigger('click');
     expect(w.findAll('.chart-stub').map((c) => c.text())).toEqual([
       'HTTP requests and errors (per_second)',
       'HTTP latency (seconds)',
       'Connections and failures per second (per_second)',
       'Connect latency (p95) (seconds)',
     ]);
-    // An edge with no HTTP has no HTTP section.
+    // An edge with no HTTP has no HTTP numbers or section, and opens on Connections.
     await w.get(`[data-edge="${MAP.edges[2]!.id}"] .edge-hit`).trigger('click');
     await flushPromises();
     expect(w.find('[data-testid="edge-http"]').exists()).toBe(false);
+    expect(w.find('[data-testid="section-http"]').exists()).toBe(false);
+    expect(w.findAll('.chart-stub').map((c) => c.text())).toEqual([
+      'Connections and failures per second (per_second)',
+    ]);
     w.unmount();
   });
 
