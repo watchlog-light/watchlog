@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { ArrowRight, X } from '@lucide/vue';
 import type { ServiceMapEdge, ServiceMapEdgeSeries, ServiceMapNode } from '@watchlog/api-types';
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
 import { api } from '@/api/client';
@@ -16,6 +16,7 @@ import { isExternal, throughput, type Summary } from '@/lib/servicemap-model';
 import { RANGE_SECONDS } from '@/lib/time';
 import { formatValue } from '@/lib/units';
 import { useUiStore } from '@/stores/ui';
+import PanelSection from './PanelSection.vue';
 import type { Selection } from './ServiceMapCanvas.vue';
 
 // The right column of the service map: with nothing selected, the traffic summary and
@@ -137,11 +138,38 @@ const reason = computed(() =>
     : null,
 );
 const alert = computed(() => series.data.value?.context.alert ?? null);
+
+// The panel's sections: open is the first with something in it (an edge's HTTP, else its
+// Connections; a node's callers, else whom it calls), again for each selection. The
+// 15 s refresh leaves what the user opened or closed alone.
+type SectionKey = 'http' | 'connections' | 'latency' | 'calledBy' | 'calls';
+const open = ref<Record<SectionKey, boolean>>({
+  http: false,
+  connections: false,
+  latency: false,
+  calledBy: false,
+  calls: false,
+});
+watch(
+  () => (props.selection ? `${props.selection.type}:${props.selection.id}` : ''),
+  () => {
+    const http = !!edge.value?.http;
+    const callers = incoming.value.length > 0;
+    open.value = {
+      http,
+      connections: !http,
+      latency: false,
+      calledBy: callers || !outgoing.value.length,
+      calls: !callers && outgoing.value.length > 0,
+    };
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
   <aside
-    class="flex min-h-[200px] flex-col gap-3.5 rounded-card border border-border bg-surface-1 p-3.5"
+    class="flex min-h-[200px] flex-col gap-3.5 rounded-card border border-border bg-surface-1 p-3.5 *:shrink-0 lg:max-h-full lg:overflow-y-auto lg:overscroll-contain"
     aria-live="polite"
     data-testid="map-panel"
   >
@@ -257,37 +285,40 @@ const alert = computed(() => series.data.value?.context.alert ?? null);
           <dd class="font-mono text-16 tabular-nums text-text">{{ perSecond(sum(outgoing)) }}</dd>
         </div>
       </dl>
-      <section
-        v-for="[key, list, dir] in [
-          ['calledBy', incoming, 'in'],
-          ['calls', outgoing, 'out'],
-        ] as const"
-        :key="key"
-        :data-testid="`panel-${key}`"
-      >
-        <h3 class="mb-1 text-11 font-medium tracking-wide text-text-subtle uppercase">
-          {{ $t(`serviceMap.panel.${key}`, { n: list.length }) }}
-        </h3>
-        <p v-if="!list.length" class="px-1.5 text-13 text-text-muted">
-          {{ $t(`serviceMap.panel.${key}None`) }}
-        </p>
-        <button
-          v-for="e in list"
-          :key="e.id"
-          type="button"
-          class="lrow"
-          @click="emit('select', { type: 'edge', id: e.id })"
+      <div class="flex flex-col">
+        <PanelSection
+          v-for="[key, list, dir] in [
+            ['calledBy', incoming, 'in'],
+            ['calls', outgoing, 'out'],
+          ] as const"
+          :key="key"
+          v-model:open="open[key]"
+          :title="$t(`serviceMap.panel.${key}`, { n: list.length })"
+          :testid="`panel-${key}`"
         >
-          <span class="dot" :class="`bg-${e.health}`" aria-hidden="true" />
-          <span class="truncate text-13 text-text"
-            >{{ name(dir === 'in' ? e.source : e.target)
-            }}<span v-if="e.port" class="text-text-subtle">:{{ e.port }}</span></span
-          >
-          <span class="font-mono text-12 whitespace-nowrap text-text-muted"
-            >{{ SYMBOL[e.health] }} {{ rowText(e) }}</span
-          >
-        </button>
-      </section>
+          <p v-if="!list.length" class="px-1.5 text-13 text-text-muted">
+            {{ $t(`serviceMap.panel.${key}None`) }}
+          </p>
+          <div v-else>
+            <button
+              v-for="e in list"
+              :key="e.id"
+              type="button"
+              class="lrow"
+              @click="emit('select', { type: 'edge', id: e.id })"
+            >
+              <span class="dot" :class="`bg-${e.health}`" aria-hidden="true" />
+              <span class="truncate text-13 text-text"
+                >{{ name(dir === 'in' ? e.source : e.target)
+                }}<span v-if="e.port" class="text-text-subtle">:{{ e.port }}</span></span
+              >
+              <span class="font-mono text-12 whitespace-nowrap text-text-muted"
+                >{{ SYMBOL[e.health] }} {{ rowText(e) }}</span
+              >
+            </button>
+          </div>
+        </PanelSection>
+      </div>
       <RouterLink v-if="workloadLink" :to="workloadLink" class="link">
         {{
           $t('serviceMap.panel.openWorkload', {
@@ -354,16 +385,8 @@ const alert = computed(() => series.data.value?.context.alert ?? null);
           <ArrowRight class="size-3.5" aria-hidden="true" />
         </RouterLink>
       </div>
-      <!-- A failing or slow edge's probable cause, compact (ADR-148). -->
-      <CausePanel
-        v-if="edge.health === 'critical' || edge.health === 'warning' || reason"
-        :key="edge.id"
-        :cluster-id="clusterId"
-        :subject="`edge:${edge.id}`"
-        :name="`${name(edge.source)} → ${name(edge.target)}`"
-        compact
-      />
-      <dl class="grid grid-cols-2 gap-2">
+      <!-- The numbers, then the probable cause, then the charts in sections. -->
+      <dl class="grid grid-cols-2 gap-2" data-testid="edge-numbers">
         <div class="rounded-control bg-surface-2 px-2.5 py-2">
           <dt class="text-12 text-text-muted">{{ $t('serviceMap.panel.connections') }}</dt>
           <dd class="font-mono text-16 tabular-nums text-text">
@@ -396,11 +419,10 @@ const alert = computed(() => series.data.value?.context.alert ?? null);
           </dd>
         </div>
       </dl>
-      <section v-if="edge.http" class="flex flex-col gap-2" data-testid="edge-http">
-        <div class="flex flex-wrap items-baseline justify-between gap-x-2">
-          <h4 class="text-13 font-semibold text-text">{{ $t('serviceMap.http.title') }}</h4>
-          <span class="text-12 text-text-subtle">{{ $t('serviceMap.http.note') }}</span>
-        </div>
+      <div v-if="edge.http" class="flex flex-col gap-2" data-testid="edge-http">
+        <h3 class="text-11 font-medium tracking-wide text-text-subtle uppercase">
+          {{ $t('serviceMap.http.title') }}
+        </h3>
         <dl class="grid grid-cols-2 gap-2">
           <div class="rounded-control bg-surface-2 px-2.5 py-2">
             <dt class="text-12 text-text-muted">{{ $t('serviceMap.http.requests') }}</dt>
@@ -432,47 +454,78 @@ const alert = computed(() => series.data.value?.context.alert ?? null);
             </dd>
           </div>
         </dl>
-        <TimeSeriesChart
-          :title="$t('serviceMap.charts.httpRequests')"
-          unit="per_second"
-          :series="httpTraffic"
-          :loading="series.loading.value && !series.data.value"
-          :error="!!series.error.value"
-          :empty-text="$t('serviceMap.charts.empty')"
-          :error-text="$t('serviceMap.charts.error')"
-          @retry="series.load"
-        />
-        <TimeSeriesChart
-          :title="$t('serviceMap.charts.httpLatency')"
-          unit="seconds"
-          :series="httpLatency"
-          :loading="series.loading.value && !series.data.value"
-          :error="!!series.error.value"
-          :empty-text="$t('serviceMap.charts.empty')"
-          :error-text="$t('serviceMap.charts.error')"
-          @retry="series.load"
-        />
-      </section>
-      <TimeSeriesChart
-        :title="$t('serviceMap.charts.traffic')"
-        unit="per_second"
-        :series="traffic"
-        :loading="series.loading.value && !series.data.value"
-        :error="!!series.error.value"
-        :empty-text="$t('serviceMap.charts.empty')"
-        :error-text="$t('serviceMap.charts.error')"
-        @retry="series.load"
+      </div>
+      <!-- A failing or slow edge's probable cause, compact (ADR-148). -->
+      <CausePanel
+        v-if="edge.health === 'critical' || edge.health === 'warning' || reason"
+        :key="edge.id"
+        :cluster-id="clusterId"
+        :subject="`edge:${edge.id}`"
+        :name="`${name(edge.source)} → ${name(edge.target)}`"
+        compact
       />
-      <TimeSeriesChart
-        :title="$t('serviceMap.charts.latency')"
-        unit="seconds"
-        :series="slow"
-        :loading="series.loading.value && !series.data.value"
-        :error="!!series.error.value"
-        :empty-text="$t('serviceMap.charts.empty')"
-        :error-text="$t('serviceMap.charts.error')"
-        @retry="series.load"
-      />
+      <div class="flex flex-col">
+        <PanelSection
+          v-if="edge.http"
+          v-model:open="open.http"
+          :title="$t('serviceMap.sections.http')"
+          testid="section-http"
+        >
+          <p class="text-12 text-text-subtle">{{ $t('serviceMap.http.note') }}</p>
+          <TimeSeriesChart
+            :title="$t('serviceMap.charts.httpRequests')"
+            unit="per_second"
+            :series="httpTraffic"
+            :loading="series.loading.value && !series.data.value"
+            :error="!!series.error.value"
+            :empty-text="$t('serviceMap.charts.empty')"
+            :error-text="$t('serviceMap.charts.error')"
+            @retry="series.load"
+          />
+          <TimeSeriesChart
+            :title="$t('serviceMap.charts.httpLatency')"
+            unit="seconds"
+            :series="httpLatency"
+            :loading="series.loading.value && !series.data.value"
+            :error="!!series.error.value"
+            :empty-text="$t('serviceMap.charts.empty')"
+            :error-text="$t('serviceMap.charts.error')"
+            @retry="series.load"
+          />
+        </PanelSection>
+        <PanelSection
+          v-model:open="open.connections"
+          :title="$t('serviceMap.sections.connections')"
+          testid="section-connections"
+        >
+          <TimeSeriesChart
+            :title="$t('serviceMap.charts.traffic')"
+            unit="per_second"
+            :series="traffic"
+            :loading="series.loading.value && !series.data.value"
+            :error="!!series.error.value"
+            :empty-text="$t('serviceMap.charts.empty')"
+            :error-text="$t('serviceMap.charts.error')"
+            @retry="series.load"
+          />
+        </PanelSection>
+        <PanelSection
+          v-model:open="open.latency"
+          :title="$t('serviceMap.sections.latency')"
+          testid="section-latency"
+        >
+          <TimeSeriesChart
+            :title="$t('serviceMap.charts.latency')"
+            unit="seconds"
+            :series="slow"
+            :loading="series.loading.value && !series.data.value"
+            :error="!!series.error.value"
+            :empty-text="$t('serviceMap.charts.empty')"
+            :error-text="$t('serviceMap.charts.error')"
+            @retry="series.load"
+          />
+        </PanelSection>
+      </div>
       <div class="flex flex-wrap gap-3">
         <button
           type="button"

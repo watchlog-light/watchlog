@@ -126,6 +126,9 @@ const VIEWS: View[] = ['map', 'connections', 'external', 'dns'];
 // Phones open on the Connections list (a map needs room); "Open map" switches.
 const narrow = useNarrow();
 const defaultView = computed<View>(() => (narrow.value ? 'connections' : 'map'));
+// The filters fold above the map on phones, and on desktops too narrow for three
+// columns (the map and the panel side by side, so the page needn't scroll).
+const foldFilters = useNarrow('(max-width: 767px), (min-width: 1024px) and (max-width: 1279px)');
 const view = computed<View>(() =>
   VIEWS.includes(route.query.view as View) ? (route.query.view as View) : defaultView.value,
 );
@@ -336,8 +339,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-3.5">
-    <div class="flex flex-wrap items-center gap-3">
+  <!-- Desktop: the page fills the content pane and never scrolls; the map takes the
+       height left, and the filters and the panel scroll on their own. -->
+  <div class="flex flex-col gap-3.5 lg:h-full lg:min-h-0" data-testid="service-map-page">
+    <div class="flex flex-none flex-wrap items-center gap-3">
       <h2 class="text-20 font-semibold text-text">{{ $t('serviceMap.title') }}</h2>
       <span
         v-if="map"
@@ -381,12 +386,14 @@ onBeforeUnmount(() => {
 
     <EbpfStatus
       v-if="map"
+      class="flex-none"
       :agents="map.agents"
       :mode="map.mode"
       :docker="page.data.value?.cluster.kind === 'docker'"
     />
     <ErrorState
       v-if="page.error.value"
+      class="flex-none"
       :inline="page.loaded.value"
       :message="$t('serviceMap.errors.load')"
       :retrying="page.loading.value"
@@ -394,7 +401,7 @@ onBeforeUnmount(() => {
     />
 
     <div v-if="page.skeleton.value" class="work" role="status" :aria-label="$t('common.loading')">
-      <Skeleton class="h-[420px] rounded-card" />
+      <Skeleton class="skeleton-side h-[420px] rounded-card" />
       <Skeleton class="h-[640px] rounded-card" />
       <Skeleton class="h-[420px] rounded-card" />
     </div>
@@ -408,36 +415,38 @@ onBeforeUnmount(() => {
     />
 
     <div v-else-if="map && page.data.value" class="work">
-      <!-- Phones: the filters fold away so the list or the map comes first. -->
-      <details v-if="narrow" class="group" data-testid="map-filters-disclosure">
-        <summary
-          class="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-card border border-border bg-surface-1 px-3.5 text-14 font-medium text-text group-open:rounded-b-none group-open:border-b-0"
-        >
-          <Filter class="size-4 text-text-subtle" aria-hidden="true" />
-          {{ $t('serviceMap.filters.label') }}
-          <ChevronDown
-            class="ml-auto size-4 text-text-subtle transition-transform group-open:rotate-180"
-            aria-hidden="true"
-          />
-        </summary>
-        <MapFilters
-          v-model="filters"
-          :namespaces="namespaces"
-          :docker="page.data.value?.cluster.kind === 'docker'"
-          class="rounded-t-none"
-        />
-      </details>
       <MapFilters
-        v-else
+        v-if="!foldFilters"
         v-model="filters"
         :namespaces="namespaces"
         :docker="page.data.value?.cluster.kind === 'docker'"
+        class="work-side"
       />
 
-      <div class="min-w-0">
+      <div class="work-middle min-w-0">
+        <!-- Phones, and desktops too narrow for three columns: the filters fold away so
+             the list or the map comes first. -->
+        <details v-if="foldFilters" class="group flex-none" data-testid="map-filters-disclosure">
+          <summary
+            class="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-card border border-border bg-surface-1 px-3.5 text-14 font-medium text-text group-open:rounded-b-none group-open:border-b-0"
+          >
+            <Filter class="size-4 text-text-subtle" aria-hidden="true" />
+            {{ $t('serviceMap.filters.label') }}
+            <ChevronDown
+              class="ml-auto size-4 text-text-subtle transition-transform group-open:rotate-180"
+              aria-hidden="true"
+            />
+          </summary>
+          <MapFilters
+            v-model="filters"
+            :namespaces="namespaces"
+            :docker="page.data.value?.cluster.kind === 'docker'"
+            class="rounded-t-none lg:max-h-[40vh] lg:overflow-y-auto lg:overscroll-contain"
+          />
+        </details>
         <section
           v-show="view === 'map'"
-          class="relative h-[640px] overflow-hidden rounded-card border border-border bg-surface-1 max-md:h-[70dvh]"
+          class="work-map relative h-[640px] overflow-hidden rounded-card border border-border bg-surface-1 max-md:h-[70dvh]"
           data-testid="view-map-panel"
         >
           <ServiceMapCanvas
@@ -489,7 +498,6 @@ onBeforeUnmount(() => {
           v-if="narrow && view === 'connections' && drawNodes.length"
           variant="secondary"
           block
-          class="mb-3"
           data-testid="open-map"
           @click="go({ view: 'map' })"
         >
@@ -527,13 +535,20 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* Phones: one column (filters folded, then the list or the map, then the panel). */
 .work {
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   align-items: start;
 }
-@media (max-width: 1280px) {
+.work-middle {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* Tablets: the filters beside the map, the panel under both; the page scrolls. */
+@media (min-width: 768px) and (max-width: 1023px) {
   .work {
     grid-template-columns: 200px minmax(0, 1fr);
   }
@@ -541,9 +556,52 @@ onBeforeUnmount(() => {
     grid-column: 1 / -1;
   }
 }
-@media (max-width: 760px) {
+/* Desktops: the page never scrolls. The grid takes the height left under the header,
+   the map fills its column, and the filters, the panel and the lists scroll inside. */
+@media (min-width: 1024px) {
   .work {
-    grid-template-columns: minmax(0, 1fr);
+    flex: 1 1 0;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-rows: minmax(0, 1fr);
+  }
+  /* Positioned, so what is absolutely placed inside (screen-reader text, chart layers)
+     scrolls with its column instead of making the content pane scroll. */
+  .work > * {
+    position: relative;
+    max-height: 100%;
+    min-height: 0;
+  }
+  .work-side {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .work-middle {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .work-map {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 280px;
+  }
+  /* Below 1280 px the filters fold above the map: two skeleton columns. */
+  .skeleton-side {
+    display: none;
+  }
+}
+@media (min-width: 1280px) {
+  .work {
+    grid-template-columns: 200px minmax(0, 1fr) 320px;
+  }
+  .skeleton-side {
+    display: block;
+  }
+}
+@media (min-width: 1440px) {
+  .work {
+    grid-template-columns: 230px minmax(0, 1fr) 340px;
   }
 }
 .live-dot {

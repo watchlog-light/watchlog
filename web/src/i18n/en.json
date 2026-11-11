@@ -1434,6 +1434,11 @@
     }
   },
   "serviceMap": {
+    "sections": {
+      "http": "HTTP",
+      "connections": "Connections",
+      "latency": "Latency"
+    },
     "openMap": "Open map",
     "title": "Service map",
     "graphLabel": "Service map: workloads, databases and external services, and the TCP connections between them. Use the Connections view for a table.",
