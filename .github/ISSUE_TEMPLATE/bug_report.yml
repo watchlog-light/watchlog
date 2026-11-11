@@ -35,7 +35,7 @@ body:
     attributes:
       label: WatchLog version
       description: Settings shows the backend version; the agent prints its own with --version.
-      placeholder: 0.3.1
+      placeholder: 0.4.0
     validations:
       required: true
   - type: input
