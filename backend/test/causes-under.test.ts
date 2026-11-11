@@ -8,7 +8,7 @@ import { checksOf } from '../src/modules/causes/checks.js';
 import { explain } from '../src/modules/causes/engine.js';
 import type { EdgeHistory, EvEdge, Evidence, Via } from '../src/modules/causes/evidence.js';
 import { runRules } from '../src/modules/causes/rules.js';
-import { cpuThrottled, THROTTLING_ALERT } from '../src/modules/causes/rules/cpu-throttled.js';
+import { cpuThrottled, THROTTLING_ALERTS } from '../src/modules/causes/rules/cpu-throttled.js';
 import { cordonedAt, evictedFor, nodeOrHost } from '../src/modules/causes/rules/node-or-host.js';
 import { unschedulable } from '../src/modules/causes/rules/unschedulable.js';
 import { parseSubject } from '../src/modules/causes/subject.js';
@@ -359,20 +359,32 @@ describe('cpu_throttled', () => {
       complete: false,
       headline: { code: 'cpu_throttled', facts: { name: 'hot', limitCores: 0.02 } },
     });
-    const alerted = evidence('kube-workload-throttled', (e) => {
-      e.alert = {
-        id: 'a',
-        state: 'firing',
-        severity: 'warning',
-        rule: { id: 'r', key: THROTTLING_ALERT, name: 'Container CPU throttling' },
-        labels: {},
-        startedAt: e.window.to,
-        firedAt: e.window.to,
-        resolvedAt: null,
-      };
-    });
-    expect(cpuThrottled.match(alerted)!.complete).toBe(true);
+    const alerted = (name: 'kube-workload-throttled' | 'docker-service-throttled', key: string) =>
+      evidence(name, (e) => {
+        e.alert = {
+          id: 'a',
+          state: 'firing',
+          severity: 'warning',
+          rule: { id: 'r', key, name: 'Container CPU throttling' },
+          labels: {},
+          startedAt: e.window.to,
+          firedAt: e.window.to,
+          resolvedAt: null,
+        };
+      });
+    expect(THROTTLING_ALERTS).toEqual(['k8s.container.throttling', 'docker.container.throttling']);
+    expect(
+      cpuThrottled.match(alerted('kube-workload-throttled', THROTTLING_ALERTS[0]!))!.complete,
+    ).toBe(true);
     expect(cpuThrottled.match(evidence('docker-service-throttled'))!.complete).toBe(false);
+    // ADR-160: the Docker form of the alert is the throttling itself too.
+    expect(
+      cpuThrottled.match(alerted('docker-service-throttled', THROTTLING_ALERTS[1]!))!.complete,
+    ).toBe(true);
+    expect(
+      cpuThrottled.match(alerted('docker-service-throttled', 'docker.container.restarts'))!
+        .complete,
+    ).toBe(false);
   });
 
   it('at the far end of a slower edge: complete when the throttling began before the rise', () => {

@@ -3,6 +3,8 @@
 // (ADR-072, ADR-086). Series are written for the last 40 minutes and evaluated on a
 // fake clock in that past, so VictoriaMetrics' latency offset (30 s in CI) never hides
 // the newest samples.
+import { readFileSync } from 'node:fs';
+import { sql } from 'kysely';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { VictoriaQueryClient } from '../src/lib/victoria.js';
 import type { DefaultRule } from '../src/modules/alerts/defaults.js';
@@ -287,7 +289,7 @@ describe('metric rules: trigger and resolve', () => {
     expect((await alerts()).map((a) => a.state)).toEqual(['resolved']);
   });
 
-  it('k8s.container.throttling: throttled > 25 % for 15 min fires per workload container', async () => {
+  it('k8s.container.throttling: throttled > 25 % of the time for 15 min fires per workload container', async () => {
     await setup('k8s.container.throttling');
     const labels = {
       namespace: 'wl-test',
@@ -304,17 +306,123 @@ describe('metric rules: trigger and resolve', () => {
       await write(
         'watchlog_container_cpu_throttled_seconds_total',
         { ...labels, pod },
-        counter((t) => (t < A + 25 * MIN ? 0.2 : 0)),
+        counter((t) => (t < A + 25 * MIN ? (pod === 'web-1' ? 0.4 : 0.1) : 0)),
       );
     }
+    await evaluate(3, 17);
+    expect((await alerts()).map((a) => a.state)).toEqual(['pending']);
+    await evaluate(18.5, 24);
+    // The most throttled pod's share: 0.4 s a second, not throttled ÷ used (0.8).
+    expect(await alerts()).toMatchObject([
+      {
+        state: 'firing',
+        fingerprint: 'pod:wl-test/Deployment/web:nginx',
+        details: { summary: 'nginx: throttled 40 % of the time' },
+      },
+    ]);
+    await evaluate(25, 30);
+    expect((await alerts()).map((a) => a.state)).toEqual(['resolved']);
+  });
+
+  it('k8s.container.throttling: a near-idle container throttled for a moment never fires (ADR-160)', async () => {
+    await setup('k8s.container.throttling');
+    const labels = {
+      namespace: 'causes-e2e',
+      workload_kind: 'Deployment',
+      workload: 'web',
+      container: 'web',
+    };
+    // Measured on the e2e kind cluster under load: 0.0024 s/s throttled against 0.00055 cores
+    // used read "433 %" as throttled ÷ used; as a share it is 0.24 %.
+    await write(
+      'watchlog_container_cpu_seconds_total',
+      { ...labels, pod: 'web-1' },
+      counter(() => 0.00055),
+    );
+    await write(
+      'watchlog_container_cpu_throttled_seconds_total',
+      { ...labels, pod: 'web-1' },
+      counter(() => 0.0024),
+    );
+    await evaluate(3, 30);
+    expect(await alerts()).toEqual([]);
+  });
+
+  it('the migration puts a stored throttling threshold back to 25 %, keeping the rest (ADR-160, ADR-107)', async () => {
+    await setup('k8s.container.throttling');
+    const { orgId } = await ctx.db
+      .selectFrom('clusters')
+      .select('org_id as orgId')
+      .where('id', '=', clusterId)
+      .executeTakeFirstOrThrow();
+    await ensureDefaultRules(ctx.db, orgId, [
+      rule('k8s.container.throttling'),
+      rule('node.cpu.high'),
+    ]);
+    // Throttled ÷ used could be set above 100 %; the old rule's own default stays as it is.
+    await ctx.db
+      .updateTable('alert_rules')
+      .set({
+        condition: JSON.stringify({ op: '>', value: 4, critical: 8 }),
+        enabled: false,
+        for_seconds: 600,
+      })
+      .where('rule_key', '=', 'k8s.container.throttling')
+      .execute();
+    await ctx.db
+      .updateTable('alert_rules')
+      .set({ condition: JSON.stringify({ op: '>', value: 0.8 }) })
+      .where('rule_key', '=', 'node.cpu.high')
+      .execute();
+    const up = readFileSync(
+      new URL('../migrations/1794200000000_throttling-share.sql', import.meta.url),
+      'utf8',
+    );
+    await sql.raw(up).execute(ctx.db);
+    const rows = await ctx.db
+      .selectFrom('alert_rules')
+      .select(['rule_key', 'condition', 'enabled', 'for_seconds'])
+      .where('org_id', '=', orgId)
+      .orderBy('rule_key')
+      .execute();
+    expect(rows).toEqual([
+      {
+        rule_key: 'k8s.container.throttling',
+        condition: { op: '>', value: 0.25 },
+        enabled: false,
+        for_seconds: 600,
+      },
+      {
+        rule_key: 'node.cpu.high',
+        condition: { op: '>', value: 0.8 },
+        enabled: true,
+        for_seconds: 600,
+      },
+    ]);
+  });
+
+  it('docker.container.throttling: the same share per container; a share is at most 100 %', async () => {
+    await setup('docker.container.throttling', 'docker');
+    // A multi-threaded container throttled on two CPUs at once: 1.25 s a second, read as 100 %.
+    await write(
+      'watchlog_container_cpu_throttled_seconds_total',
+      { host: 'host-1', container: 'hot' },
+      counter((t) => (t < A + 25 * MIN ? 1.25 : 0)),
+    );
+    await write(
+      'watchlog_container_cpu_throttled_seconds_total',
+      { host: 'host-1', container: 'idle' },
+      counter(() => 0.0024),
+    );
     await evaluate(3, 17);
     expect((await alerts()).map((a) => a.state)).toEqual(['pending']);
     await evaluate(18.5, 24);
     expect(await alerts()).toMatchObject([
       {
         state: 'firing',
-        fingerprint: 'pod:wl-test/Deployment/web:nginx',
-        details: { summary: 'nginx: throttled 40 % of its CPU time' },
+        fingerprint: 'docker:host-1/hot',
+        labels: { node: 'host-1', container: 'hot' },
+        details: { summary: 'throttled 100 % of the time', value: 1 },
       },
     ]);
     await evaluate(25, 30);

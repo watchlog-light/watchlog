@@ -182,7 +182,15 @@ describe('alert titles and "why" lines', () => {
         { namespace: 'shop', workload: 'checkout', workload_kind: 'Deployment', container: 'app' },
         { value: 0.4, threshold: 0.25 },
         'checkout is CPU-throttled',
-        'app: throttled 40% of its CPU time · threshold 25%',
+        'app: throttled 40% of the time · threshold 25%',
+      ],
+      [
+        'docker.container.throttling',
+        { node: 'docker-01', container: 'causes-e2e-hot-1' },
+        // An alert that fired before ADR-160 holds throttled ÷ used: shown at most 100%.
+        { value: 15.77, threshold: 0.25 },
+        'causes-e2e-hot-1 is CPU-throttled',
+        'throttled 100% of the time · threshold 25%',
       ],
     ];
   it.each(cases)('%s: %s', (key, labels, details, title, why) => {
