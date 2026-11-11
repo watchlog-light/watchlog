@@ -193,7 +193,7 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 | Node disk usage | > 85 % warning, > 95 % critical | warning / critical |
 | PVC usage | > 85 % | warning |
 | Deployment replicas unavailable | ready < desired for 5 min | critical |
-| Container CPU throttling | > 25 % for 15 min | warning |
+| Container CPU throttling (Kubernetes and Docker) | throttled > 25 % of the time for 15 min (throttled seconds a second, at most 100 %; ADR-160) | warning |
 | Docker container unhealthy / restarting | health = unhealthy or > 3 restarts in 10 min | warning |
 | Service-to-service failed connections | > 5 % of connections fail for 5 min | warning |
 | Agent not reporting | no heartbeat for 3 min; one alert for the whole cluster when all its agents are silent | critical |
