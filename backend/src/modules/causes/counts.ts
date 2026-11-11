@@ -9,6 +9,9 @@ import type { EvCount } from './evidence.js';
 
 export type Point = [number, number | null];
 
+/** A series whose first point comes this soon after the object's creation was born with it. */
+export const BORN_S = 300;
+
 /**
  * The increase of a counter over its points: every rise, and the value after a reset (a
  * re-created container starts again from 0). The first point is the baseline, unless it is
@@ -27,8 +30,14 @@ export function increase(points: Point[], bornAt: number | null = null, step = 1
     first ??= t;
     last = t;
   };
-  if (pts.length && bornAt !== null && pts[0]![0] >= bornAt - 2 * step)
-    rise(pts[0]![0], pts[0]![1]);
+  // Born inside the range: its first point comes at its creation or soon after (not
+  // before: those are a predecessor's of the same name). An object created before the
+  // range has a first point long after its creation, the baseline: only the first check
+  // was made, so every old object's whole lifetime counted as restarts in the hour
+  // ("1329 restarts in the last hour" beside 30 in 10 minutes, the v0.4 review).
+  const t0 = pts[0]?.[0];
+  if (t0 !== undefined && bornAt !== null && t0 >= bornAt - 2 * step && t0 - bornAt <= BORN_S)
+    rise(t0, pts[0]![1]);
   for (let i = 1; i < pts.length; i++) {
     const [t, v] = pts[i]!;
     const prev = pts[i - 1]![1];
