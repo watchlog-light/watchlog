@@ -2,7 +2,7 @@ module github.com/watchlog-light/watchlog/agent
 
 go 1.27
 
-toolchain go1.27.3
+toolchain go1.27.4
 
 require (
 	github.com/cilium/ebpf v0.22.0
