@@ -203,16 +203,22 @@ export const diedCode = (e: EvEvent) => {
   return m ? Number(m[1]) : null;
 };
 
-/** A container's newest exit in the window: its Died event, else its own exited state. */
+/**
+ * A container's newest exit in the window: a stopped container's own exit code and time
+ * (its newest, by definition), else its Died event. Docker's events are aggregated per
+ * container and reason, so a Died event's message may hold an older exit's code (the v0.4
+ * review: "keeps exiting with code 143" under "exited with code 1").
+ */
 export function lastDockerExit(
   ev: Evidence,
   c: EvContainer,
 ): { exitCode: number; at: string | null } | null {
   const from = ms(ev.window.from);
+  const stopped = c.state !== 'running' && c.state !== 'restarting';
+  if (stopped && c.finishedAt && ms(c.finishedAt) >= from)
+    return { exitCode: c.exitCode, at: c.finishedAt };
   const died = containerEvents(ev, c).find((e) => diedCode(e) !== null && ms(e.lastSeen) >= from);
   if (died) return { exitCode: diedCode(died)!, at: died.lastSeen };
-  if (c.state !== 'running' && c.finishedAt && ms(c.finishedAt) >= from)
-    return { exitCode: c.exitCode, at: c.finishedAt };
   return null;
 }
 
