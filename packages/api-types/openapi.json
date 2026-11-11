@@ -3700,6 +3700,27 @@
                               }
                             ]
                           },
+                          "stoppedWith": {
+                            "type": "object",
+                            "required": ["how", "at"],
+                            "properties": {
+                              "how": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["host"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["docker"]
+                                  }
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            }
+                          },
                           "healthDetail": {
                             "anyOf": [
                               {

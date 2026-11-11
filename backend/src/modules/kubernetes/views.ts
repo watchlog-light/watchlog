@@ -587,7 +587,14 @@ export function crashLooping(c: ContainerStatus, now: number): boolean {
   if (c.restart_count < CRASH_RESTARTS) return false;
   if (c.state === 'terminated') return !!c.reason && c.reason !== 'Completed';
   const t = c.last_termination;
-  return !!t && t.reason !== 'Completed' && now - Date.parse(t.finished_at ?? '') < CRASH_RECENT_MS;
+  // Reason Unknown (exit 255) is the node or the runtime restarting the container (a
+  // reboot): every pod on the node gets one, and none is crash-looping for it (ADR-159).
+  return (
+    !!t &&
+    t.reason !== 'Completed' &&
+    t.reason !== 'Unknown' &&
+    now - Date.parse(t.finished_at ?? '') < CRASH_RECENT_MS
+  );
 }
 
 const PULL_ERRORS = new Set([

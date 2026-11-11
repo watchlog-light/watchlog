@@ -36,9 +36,24 @@ export const formatCores = (v) => (v >= 1 ? String(+v.toFixed(2)) : `${Math.roun
 /** "45 s", "2 min": how often something happens. */
 export const formatEvery = (s) => (s < 90 ? `${Math.round(s)} s` : `${Math.round(s / 60)} min`);
 
-/** Facts as the sentences show them: durations, bytes and cores in their units. */
-export function causeValues(facts) {
+const two = (n) => String(n).padStart(2, '0');
+
+/** "08:50": a moment's clock time, the viewer's own, or UTC with `utc` ("08:50 UTC"). */
+export function formatClock(iso, utc = false) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return utc
+    ? `${two(d.getUTCHours())}:${two(d.getUTCMinutes())} UTC`
+    : `${two(d.getHours())}:${two(d.getMinutes())}`;
+}
+
+/**
+ * Facts as the sentences show them: durations, bytes and cores in their units, a moment
+ * (`at`) as its clock time (`time`; UTC with `opts.utc`, as notifications write times).
+ */
+export function causeValues(facts, opts = {}) {
   const out = { ...facts };
+  if (typeof facts.at === 'string') out.time = formatClock(facts.at, !!opts.utc);
   const num = (k) => typeof facts[k] === 'number' && Number.isFinite(facts[k]);
   if (num('p95Ms')) out.p95 = formatSeconds(facts.p95Ms / 1000);
   if (num('fromMs')) out.from = formatSeconds(facts.fromMs / 1000);
@@ -97,8 +112,8 @@ export function renderTemplate(template, values = {}, plural) {
  * Null for a code without a template here (`app_finding`, whose words are the finding's own
  * and live with the dashboard's application pages).
  */
-export function headlineText(sentence) {
+export function headlineText(sentence, opts = {}) {
   const template = HEADLINES[sentence.code];
   if (typeof template !== 'string') return null;
-  return renderTemplate(template, causeValues(sentence.facts), pluralOf(sentence.facts));
+  return renderTemplate(template, causeValues(sentence.facts, opts), pluralOf(sentence.facts));
 }

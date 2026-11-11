@@ -38,6 +38,11 @@ export interface Problem {
   object: { kind: string; namespace: string | null; name: string } | null;
   /** Other firing alerts about the same object, merged into this item. */
   related: number;
+  /**
+   * The alert rule behind an alert's item, for the route only: not in the response schema,
+   * so the serializer leaves it out.
+   */
+  ruleKey?: string | null;
   /** Its likely cause (ADR-148), filled in by the route. */
   likelyCause?: LikelyCause;
   /** How sure the cause is, when it was worked out in time (ADR-156). */
@@ -158,6 +163,7 @@ export function buildProblems(input: {
       alertId: a.id,
       object: null,
       related: list.length - 1,
+      ruleKey: a.ruleKey,
     });
   }
 
@@ -206,11 +212,12 @@ export function buildProblems(input: {
 
   items.push(...(input.objects ?? []));
 
-  // Firing alerts first, then object problems; critical before warning; oldest first.
+  // Worst first (ADR-159): critical before warning; then firing alerts before object
+  // problems; oldest first. Needs attention shows the first few.
   items.sort(
     (a, b) =>
-      Number(a.source === 'object') - Number(b.source === 'object') ||
       Number(b.severity === 'critical') - Number(a.severity === 'critical') ||
+      Number(a.source === 'object') - Number(b.source === 'object') ||
       (a.since ?? '9').localeCompare(b.since ?? '9'),
   );
 

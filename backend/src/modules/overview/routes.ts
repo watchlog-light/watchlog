@@ -29,10 +29,14 @@ import { systemNamespaces, type SettingsService } from '../settings/service.js';
 import { sparkStep } from './step.js';
 import { groupEvents } from './events.js';
 import { FAILING, dockerProblem, dockerProblems } from './docker-problems.js';
+import { hostBoots, stoppedWithHost } from '../docker/host-restart.js';
 import { buildProblems, firingAlerts, type Problems } from './problems.js';
 import { OverviewSchema } from './schemas.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import { causeReader, problemSubject, wantsCause, type CausesService } from '../causes/likely.js';
+
+/** The alert rule of an agent that stopped reporting (alerts/defaults.ts). */
+const NOT_REPORTING = 'agent.not_reporting';
 
 const MAX_RANGE_S = 7 * 86400;
 const CHANGES_WINDOW_MS = 7 * 86400_000;
@@ -228,6 +232,8 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
         };
         const items = answer.problems.items;
         const jobs = items.flatMap((p, i) => {
+          // An agent that stopped reporting is where it starts: no cause line (ADR-159).
+          if (p.ruleKey === NOT_REPORTING) return [];
           const subject = problemSubject(p, ref.kind);
           return subject ? [{ i, job: { cluster: ref, subject } }] : [];
         });
@@ -644,6 +650,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
       [agents, alerting, alerts, containers, hostRows, inRange, recent, eventRows],
       instantR,
       rangeR,
+      boots,
     ] = await Promise.all([
       Promise.all([
         agentRows(clusterId),
@@ -717,6 +724,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
         end,
         step,
       ),
+      hostBoots((e) => instant(clusterId, [e]).then((r) => r[0] ?? []), nowMs / 1000),
     ]);
     const [
       cpuNow,
@@ -748,6 +756,8 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
         .map((a) => a.node),
     );
     const reporting = liveHosts.size;
+    // Containers their host's reboot or their daemon's restart stopped (ADR-159).
+    const withHost = stoppedWithHost(containers, boots);
     // Docker: running, stopped (as "pending") and unhealthy (as "failed").
     const counts = { running: 0, pending: 0, failed: 0, total: containers.length };
     const perHost = new Map<string, number>();
@@ -773,7 +783,15 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
       podWorkload: new Map(),
       clusterName,
       now: nowMs,
-      objects: dockerProblems(containers, alerts, clusterName, nowMs, undefined, liveHosts),
+      objects: dockerProblems(
+        containers,
+        alerts,
+        clusterName,
+        nowMs,
+        undefined,
+        liveHosts,
+        withHost,
+      ),
     });
     // Warning events, grouped; covered (a problem names the container) and WatchLog's own
     // containers flagged, as for Kubernetes.
@@ -830,7 +848,12 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
       );
     const cCpuBy = byLabels(cCpu!, 'host', 'container');
     const failingOf = (c: (typeof containers)[number]) => {
-      const p = dockerProblem(c.status_summary as Parameters<typeof dockerProblem>[0], nowMs);
+      const p = dockerProblem(
+        c.status_summary as Parameters<typeof dockerProblem>[0],
+        nowMs,
+        undefined,
+        withHost.get(`${c.node}\u0000${c.name}`),
+      );
       return p ? (FAILING[p.ruleKey] ?? null) : null;
     };
     const connsNow = first(conns);

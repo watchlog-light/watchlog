@@ -23,6 +23,11 @@
 //     (gap 4);
 //   - OOM-killed for the host's sake: no memory limit, or the host nearly full (≥ 90 %) while
 //     its memory stayed well below its limit.
+//   - stopped when its host rebooted or its Docker daemon restarted (the containers API's
+//     `stoppedWith`, ADR-159): "host restarted at 08:50", not a crash.
+// Kubernetes again: a pod whose newest termination is reason Unknown (exit 255: the node or
+// the runtime restarted the container) within minutes of its node's Rebooted event: "node
+// restarted at 08:50" (ADR-159; crash_exit skips those terminations since 216f951).
 // Both: a node under pressure or a host nearly full while the object fails (restarts, not
 // ready) is a partial chain, possible at best.
 import { HOST_FULL_RATIO, shortName } from '../checks.js';
@@ -386,6 +391,68 @@ function kubeStrained(ev: Evidence, name: string): Match | null {
   return null;
 }
 
+/** A termination this close to the node's Rebooted event came with the reboot. */
+export const REBOOT_SLACK_MS = 5 * 60_000;
+
+/** The node's newest reboot (its Rebooted event), else null. */
+export function rebootedAt(n: EvNode): string | null {
+  return (n.events ?? []).find((e) => e.reason === 'Rebooted')?.lastSeen ?? null;
+}
+
+/** Alerts a restart can explain; any other alert (CPU throttling, say) isn't about one. */
+const RESTART_ALERTS = new Set(['k8s.pod.crashloop', 'k8s.deployment.unavailable']);
+
+/** A pod the node's reboot restarted: its newest termination is Unknown, at the reboot. */
+function nodeRestarted(ev: Evidence, name: string): Match | null {
+  if (ev.alert && !RESTART_ALERTS.has(ev.alert.rule.key ?? '')) return null;
+  // At the far end of an edge the pod runs again: a past restart explains no call failing
+  // or slow now (it read "caller is throttled: hot restarted when its node restarted").
+  if (ev.via) return null;
+  // Only a symptom that began with the reboot: an hour later, web failing to reach api
+  // isn't explained by web's restart at the reboot.
+  const symptom = ms(ev.symptomAt);
+  if (!Number.isFinite(symptom)) return null;
+  for (const p of ev.pods) {
+    const t = terminations(p)[0];
+    if (!t || t.reason !== 'Unknown' || !recentTermination(ev, p, t)) continue;
+    const n = nodeOf(ev, p.node);
+    const at = n ? rebootedAt(n) : null;
+    if (!n || !at) continue;
+    if (t.finishedAt && Math.abs(ms(t.finishedAt) - ms(at)) > REBOOT_SLACK_MS) continue;
+    if (symptom < ms(at) - REBOOT_SLACK_MS || symptom > ms(at) + 2 * REBOOT_SLACK_MS) continue;
+    const restarts = podRestarts(ev, p)?.n ?? null;
+    const restarted: Step = {
+      object: podRef(p),
+      source: 'kubernetes',
+      code: 'restarted_by_node',
+      facts: { container: t.container ?? '?' },
+      at: t.finishedAt ?? at,
+      since: null,
+      next: 'because',
+    };
+    const node: Step = {
+      object: nodeObject(n.name, 'kubernetes'),
+      source: 'kubernetes',
+      code: 'node_rebooted',
+      facts: { node: n.name },
+      at,
+      since: null,
+      next: null,
+    };
+    return {
+      code: 'node_or_host',
+      facts: { name, node: n.name, how: 'rebooted', pod: p.name, platform: 'kubernetes', at },
+      since: at,
+      chain: [restarted, node],
+      // More restarts in the hour than the reboot's one, or failing now: something else.
+      complete: !p.failing && (restarts === null || restarts <= 1),
+      headline: { code: 'node_or_host_node_restarted', facts: { name, node: n.name, at } },
+      explains: ['self', 'events', 'node'],
+    };
+  }
+  return null;
+}
+
 function kube(ev: Evidence): Match | null {
   const name = shortName(ev);
   return (
@@ -393,6 +460,7 @@ function kube(ev: Evidence): Match | null {
     notReady(ev, name) ??
     evicted(ev, name) ??
     kubeOom(ev, name) ??
+    nodeRestarted(ev, name) ??
     kubeStrained(ev, name)
   );
 }
@@ -547,9 +615,58 @@ function dockerStrained(ev: Evidence, name: string): Match | null {
   return null;
 }
 
+/** A container its host's reboot or its daemon's restart stopped, still stopped. */
+function hostRestarted(ev: Evidence, name: string): Match | null {
+  for (const c of ev.containers) {
+    const w = c.stoppedWith;
+    if (!w || c.state === 'running' || c.state === 'restarting') continue;
+    const stopped: Step = {
+      object: containerRef(c),
+      source: 'docker',
+      code: 'stopped_with_host',
+      facts: { exitCode: c.exitCode },
+      at: c.finishedAt,
+      since: null,
+      next: 'because',
+    };
+    const host: Step = {
+      object: nodeObject(c.host, 'docker'),
+      source: 'docker',
+      code: w.how === 'host' ? 'host_rebooted' : 'docker_restarted',
+      facts: { host: c.host },
+      at: w.at,
+      since: null,
+      next: null,
+    };
+    return {
+      code: 'node_or_host',
+      facts: {
+        name,
+        host: c.host,
+        how: w.how === 'host' ? 'rebooted' : 'docker_restarted',
+        container: c.name,
+        platform: 'docker',
+        at: w.at,
+      },
+      since: w.at,
+      chain: [stopped, host],
+      complete: true,
+      headline: {
+        code: w.how === 'host' ? 'node_or_host_host_restarted' : 'node_or_host_docker_restarted',
+        facts: { name, host: c.host, at: w.at },
+      },
+      explains: ['self', 'events', 'host'],
+      covers: ['crash_exit'] as RuleCode[],
+    };
+  }
+  return null;
+}
+
 function docker(ev: Evidence): Match | null {
   const name = shortName(ev);
-  return silent(ev, name) ?? dockerOom(ev, name) ?? dockerStrained(ev, name);
+  return (
+    silent(ev, name) ?? dockerOom(ev, name) ?? hostRestarted(ev, name) ?? dockerStrained(ev, name)
+  );
 }
 
 export const nodeOrHost: Rule = {

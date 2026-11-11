@@ -1567,6 +1567,10 @@ export interface paths {
                 restarting: boolean;
                 stateError: string | null;
                 finishedAt: string | null;
+                stoppedWith?: {
+                  how: 'host' | 'docker';
+                  at: string;
+                };
                 healthDetail: {
                   status: string;
                   failingStreak: number;

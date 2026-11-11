@@ -10,6 +10,7 @@ import { ProblemSchema } from '../auth/schemas.js';
 import { CLUSTER_STALE_MS, findCluster } from '../clusters/service.js';
 import { alertText } from '../alerts/text.js';
 import { FAILING, dockerProblem } from '../overview/docker-problems.js';
+import { hostBoots, stoppedWithHost, type HostBoot } from './host-restart.js';
 import { watchlogComponents } from '../servicemap/graph.js';
 import { firingAlerts } from '../overview/problems.js';
 import { sparkStep } from '../overview/step.js';
@@ -18,6 +19,10 @@ import { PUBLIC_TAG } from '../../openapi/public.js';
 
 const Nullable = <T extends ReturnType<typeof Type.Number>>(t: T) => Type.Union([t, Type.Null()]);
 const NullableString = Type.Union([Type.String(), Type.Null()]);
+/** States in which a container reports its metrics. */
+const RUNS = new Set(['running', 'restarting', 'paused']);
+/** How far back a stopped container's last memory limit is looked for. */
+const STOPPED_LIMIT_WINDOW = '1d';
 
 const HostSchema = Type.Object({
   name: Type.String(),
@@ -103,6 +108,16 @@ const ContainerSchema = Type.Object({
   /** Daemon error message (State.Error), redacted by the agent. */
   stateError: NullableString,
   finishedAt: NullableString,
+  /**
+   * Stopped by its host's reboot (`host`, `at` the boot) or its Docker daemon's restart
+   * (`docker`, `at` the stop), not by its own process (ADR-159); absent otherwise.
+   */
+  stoppedWith: Type.Optional(
+    Type.Object({
+      how: Type.Union([Type.Literal('host'), Type.Literal('docker')]),
+      at: Type.String(),
+    }),
+  ),
   /** Why the health status is what it is (ADR-047); null without a health check. */
   healthDetail: Type.Union([
     Type.Object({
@@ -294,6 +309,7 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
         [cpu, mem, disk, load, used, cores, memUsed, memTotal, boot, mounts, sizes, cCpu, cLimit],
         [cpuR, memR],
         alerts,
+        boots,
       ] = await Promise.all([
         instant(cluster.id, [
           buildQuery('host.cpu.utilization', {}, 15).expr,
@@ -325,7 +341,11 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
           step,
         ),
         firingAlerts(db, cluster.id),
+        heat
+          ? hostBoots((e) => instant(cluster.id, [e]).then((r) => r[0] ?? []), now / 1000)
+          : new Map<string, HostBoot>(),
       ]);
+      const withHost = stoppedWithHost(containerRows, boots);
       const cpuBy = byLabels(cpu!, 'host');
       const memBy = byLabels(mem!, 'host');
       const diskBy = byLabels(disk!, 'host');
@@ -414,14 +434,19 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
                       c.node === name &&
                       (st.state === 'running' ||
                         st.state === 'restarting' ||
-                        !!dockerProblem(st as never, now))
+                        !!dockerProblem(
+                          st as never,
+                          now,
+                          null,
+                          withHost.get(`${name}\u0000${c.name}`),
+                        ))
                     );
                   })
                   .map((c) => {
                     const k = `${name}\u0000${c.name}`;
                     const used = cCpuBy.get(k) ?? null;
                     const lim = cLimitBy.get(k) ?? null;
-                    const p = dockerProblem(c.status_summary as never, now);
+                    const p = dockerProblem(c.status_summary as never, now, null, withHost.get(k));
                     return {
                       namespace: c.namespace,
                       name: c.name,
@@ -496,29 +521,38 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
       const now = Date.now();
       const end = Math.floor(now / 1000 / step) * step;
       const sel = host ? `{host="${host.replace(/["\\]/g, '')}"}` : '';
-      const [[cpu, mem, limit, cpuLimit, restarts], [cpuR], alerts, agentRows] = await Promise.all([
-        instant(cluster.id, [
-          buildQuery('container.cpu.usage', scope, 15).expr,
-          buildQuery('container.memory.working_set', scope, 15).expr,
-          buildQuery('container.memory.limit', scope, 15).expr,
-          buildQuery('container.cpu.limit', scope, 15).expr,
-          `sum by (host, container) (increase(watchlog_container_restarts_total${sel}[${range}s]))`,
-        ]),
-        ranged(
-          cluster.id,
-          [buildQuery('container.cpu.usage', scope, step).expr],
-          end - range,
-          end,
-          step,
-        ),
-        firingAlerts(db, cluster.id),
-        db
-          .selectFrom('agent_instances')
-          .select(['node', 'last_seen_at'])
-          .where('cluster_id', '=', cluster.id)
-          .where('mode', '=', 'docker')
-          .execute(),
-      ]);
+      const [[cpu, mem, limit, cpuLimit, restarts, lastLimit], [cpuR], alerts, agentRows, boots] =
+        await Promise.all([
+          instant(cluster.id, [
+            buildQuery('container.cpu.usage', scope, 15).expr,
+            buildQuery('container.memory.working_set', scope, 15).expr,
+            buildQuery('container.memory.limit', scope, 15).expr,
+            buildQuery('container.cpu.limit', scope, 15).expr,
+            `sum by (host, container) (increase(watchlog_container_restarts_total${sel}[${range}s]))`,
+            // A stopped container reports nothing: its limit is the last one seen (the
+            // OOM-killed consumer's 384 MiB read as "no limit of its own", the v0.4 review).
+            `max by (host, container) (last_over_time(watchlog_container_memory_limit_bytes${sel}[${STOPPED_LIMIT_WINDOW}]))`,
+          ]),
+          ranged(
+            cluster.id,
+            [buildQuery('container.cpu.usage', scope, step).expr],
+            end - range,
+            end,
+            step,
+          ),
+          firingAlerts(db, cluster.id),
+          db
+            .selectFrom('agent_instances')
+            .select(['node', 'last_seen_at'])
+            .where('cluster_id', '=', cluster.id)
+            .where('mode', '=', 'docker')
+            .execute(),
+          hostBoots(
+            (e) => instant(cluster.id, [e]).then((r) => r[0] ?? []),
+            now / 1000,
+            host ? new Set([host]) : undefined,
+          ),
+        ]);
       // Containers on hosts that stopped reporting keep their last state, but no problem:
       // it is stale, and the host's "not reporting" alert says so.
       const live = new Set(
@@ -543,14 +577,27 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
       const cpuLimitBy = byLabels(cpuLimit!, 'host', 'container');
       const cpuBy = byLabels(cpu!, 'host', 'container');
       const memBy = byLabels(mem!, 'host', 'container');
-      const limitBy = byLabels(limit!, 'host', 'container');
+      const nowLimitBy = byLabels(limit!, 'host', 'container');
+      const lastLimitBy = byLabels(lastLimit!, 'host', 'container');
+      const stopped = new Set(
+        rows
+          .filter((r) => !RUNS.has((r.status_summary as ContainerStatus).state ?? ''))
+          .map((r) => `${r.node}\u0000${r.name}`),
+      );
+      // Running: the limit now (none means none). Stopped: the last one it ran with.
+      const limitBy = {
+        get: (key: string) =>
+          nowLimitBy.get(key) ?? (stopped.has(key) ? lastLimitBy.get(key) : undefined),
+      };
 
+      const withHost = stoppedWithHost(rows, boots);
       const containers = rows.map((r) => {
         const spec = r.spec_summary as ContainerSpec;
         const st = r.status_summary as ContainerStatus;
         const key = `${r.node}\u0000${r.name}`;
+        const stoppedWith = withHost.get(key);
         const p = live.has(r.node)
-          ? dockerProblem(st as never, now, memText(limitBy.get(key)))
+          ? dockerProblem(st as never, now, memText(limitBy.get(key)), stoppedWith)
           : null;
         const alert = alerts.find(
           (a) =>
@@ -626,6 +673,7 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
           restarting: st.restarting ?? st.state === 'restarting',
           stateError: st.error || null,
           finishedAt: st.finished_at ?? null,
+          ...(stoppedWith ? { stoppedWith } : {}),
           healthDetail: st.health_detail
             ? {
                 status: st.health_detail.status,

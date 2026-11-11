@@ -157,6 +157,8 @@ export interface EvContainer {
   createdAt?: number | null;
   startedAt: string | null;
   finishedAt: string | null;
+  /** Stopped by its host's reboot or its daemon's restart (the containers API, ADR-159). */
+  stoppedWith?: { how: 'host' | 'docker'; at: string };
   composeProject: string | null;
   composeService: string | null;
   cpuLimitCores: number | null;

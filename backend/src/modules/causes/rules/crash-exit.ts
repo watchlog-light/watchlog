@@ -11,7 +11,8 @@
 // dependency_down's at the far end of an edge); a Docker exit 137 counted as an OOM kill; a
 // Docker container stopped by a signal (137, 143) or running again without a restart by its
 // policy (someone stopped and started it).
-// Docker has no Jobs (ADR-149): a one-shot container that exited non-zero is this rule.
+// Docker has no Jobs (ADR-149). A container that exited once and stays stopped, or a pod
+// with one exit and no restart, is no cause: the exit is the problem's own fact (ADR-159).
 import { shortName } from '../checks.js';
 import { interval } from '../counts.js';
 import type { EvContainer, EvCount, EvPod, Evidence } from '../evidence.js';
@@ -137,6 +138,9 @@ function kube(ev: Evidence): Match | null {
   if (!top) return null;
   const { p, t } = top;
   const restarts = top.restarts ?? (p.restarts ? null : { n: 0, first: null, last: null });
+  // One exit, no restart and not failing now says only what the problem says ("exited
+  // with code 1"): no cause (ADR-159). A pod in back-off is still a crash, whatever the count.
+  if (restarts?.n === 0 && !p.failing) return null;
   const backoff = firstBackOff(ev);
   return {
     ...build(ev, {
@@ -159,6 +163,8 @@ function kube(ev: Evidence): Match | null {
 function docker(ev: Evidence): Match | null {
   const crashed = ev.containers
     .map((c: EvContainer) => {
+      // Stopped by its host's reboot or its daemon's restart: node_or_host's (ADR-159).
+      if (c.stoppedWith && c.state !== 'running' && c.state !== 'restarting') return null;
       const exit = lastDockerExit(ev, c);
       if (!exit || exit.exitCode === 0) return null;
       // Exit 137 with OOM kills in the hour is oom_limit's.
@@ -169,6 +175,9 @@ function docker(ev: Evidence): Match | null {
       // old news. Stopped by a signal (SIGTERM 143, or SIGKILL 137 after the stop timeout)
       // with no policy restart: a stop, not a crash.
       if (!restarted && (c.state === 'running' || STOP_CODES.has(exit.exitCode))) return null;
+      // Exited once and stays stopped: "exited with code N" is the problem's own fact, not a
+      // cause (ADR-159; it was crash_exit's "once" form, ADR-152).
+      if (!restarted) return null;
       return { c, exit, restarts };
     })
     .filter((x) => !!x)

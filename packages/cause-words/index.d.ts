@@ -8,8 +8,13 @@ export declare function formatBytes(v: number): string;
 export declare function formatSeconds(v: number): string;
 export declare function formatCores(v: number): string;
 export declare function formatEvery(s: number): string;
-/** Facts as the sentences show them: `p95Ms` → `p95`, `limitBytes` → `limit`, … */
-export declare function causeValues(facts: Facts): Record<string, unknown>;
+/** "08:50", or "08:50 UTC" with `utc`. */
+export declare function formatClock(iso: string, utc?: boolean): string;
+/** Facts as the sentences show them: `p95Ms` → `p95`, `limitBytes` → `limit`, `at` → `time`… */
+export declare function causeValues(
+  facts: Facts,
+  opts?: { utc?: boolean },
+): Record<string, unknown>;
 /** The count that picks a sentence's form: `facts.n` when it is a number. */
 export declare function pluralOf(facts: Facts): number | undefined;
 /** A template with its values, as vue-i18n renders the subset the headlines use. */
@@ -19,4 +24,7 @@ export declare function renderTemplate(
   plural?: number,
 ): string;
 /** A headline in English; null for a code without a template here (`app_finding`). */
-export declare function headlineText(sentence: { code: string; facts: Facts }): string | null;
+export declare function headlineText(
+  sentence: { code: string; facts: Facts },
+  opts?: { utc?: boolean },
+): string | null;

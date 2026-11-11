@@ -21,8 +21,7 @@ export const HEADLINES = {
   oom_limit_last: '{name} was OOM-killed when it reached its {limit} memory limit.',
   crash_exit:
     '{name} keeps exiting with code {exitCode}: {n} restart in the last hour. | {name} keeps exiting with code {exitCode}: {n} restarts in the last hour.',
-  crash_exit_every:
-    '{name} exits with code {exitCode} about every {every}: {n} restart in the last hour. | {name} exits with code {exitCode} about every {every}: {n} restarts in the last hour.',
+  crash_exit_every: '{name} exits with code {exitCode} about every {every}.',
   crash_exit_once: '{name} exited with code {exitCode}.',
   bad_change_crash:
     '{name} fails since its last change: the new version exits with code {exitCode}.',
@@ -60,6 +59,9 @@ export const HEADLINES = {
   node_or_host_oom_pressure:
     '{name} is OOM-killed below its {limit} memory limit while node {node} is short of memory.',
   node_or_host_pressure: '{name} fails on node {node}, which is under {condition}.',
+  node_or_host_node_restarted: '{name} restarted when node {node} restarted at {time}.',
+  node_or_host_host_restarted: '{name} stopped when host {host} restarted at {time}.',
+  node_or_host_docker_restarted: '{name} stopped when Docker on host {host} restarted at {time}.',
   node_or_host_silent:
     'Host {host} has sent nothing for {minutes} min: what WatchLog shows of {name} is from before.',
   node_or_host_never: 'Host {host} has never reported: WatchLog has nothing current about {name}.',

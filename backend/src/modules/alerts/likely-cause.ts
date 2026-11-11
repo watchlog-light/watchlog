@@ -69,7 +69,8 @@ export function notifyCause(a: CausesAnswer): NotifyCause | undefined {
   const lc = likelyCause(a);
   const top = a.causes.find((c) => c.strength === 'likely');
   if (!lc || !top) return undefined;
-  const text = headlineText(lc.headline);
+  // Messages write times in UTC, as the alert's own facts do.
+  const text = headlineText(lc.headline, { utc: true });
   if (!text) return undefined;
   return {
     rule: lc.rule,

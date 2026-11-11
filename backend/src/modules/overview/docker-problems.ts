@@ -4,6 +4,7 @@
 // in the last day. Worded by the alert texts; skipped when an alert (firing or
 // silenced) already names the container.
 import { alertText } from '../alerts/text.js';
+import type { StoppedWithHost } from '../docker/host-restart.js';
 import type { FiringAlert, Problem } from './problems.js';
 import { problemType } from './problems.js';
 
@@ -54,11 +55,16 @@ export interface DockerProblem {
   since: string | null;
 }
 
-/** The problem of one container, else null. */
+/**
+ * The problem of one container, else null. A container stopped by its host's reboot or its
+ * daemon's restart (`withHost`) and still stopped is no problem: Docker's restart policy
+ * left it stopped (ADR-159).
+ */
 export function dockerProblem(
   st: Status,
   now: number,
   memoryLimit?: string | null,
+  withHost?: StoppedWithHost | null,
 ): DockerProblem | null {
   const restarts = st.restart_count ?? 0;
   const finished = Date.parse(st.finished_at ?? '');
@@ -108,7 +114,12 @@ export function dockerProblem(
       since: st.health_since ?? null,
     };
   }
-  if ((st.state === 'exited' || st.state === 'dead') && (st.exit_code ?? 0) !== 0 && recent)
+  if (
+    (st.state === 'exited' || st.state === 'dead') &&
+    (st.exit_code ?? 0) !== 0 &&
+    recent &&
+    !withHost
+  )
     return {
       ruleKey: 'docker.container.exited',
       severity: 'warning',
@@ -130,11 +141,17 @@ export function dockerProblems(
   now: number,
   memoryLimit: (host: string, name: string) => string | null = () => null,
   liveHosts?: Set<string>,
+  withHost: Map<string, StoppedWithHost> = new Map(),
 ): Problem[] {
   const out: Problem[] = [];
   for (const c of containers) {
     if (liveHosts && !liveHosts.has(c.node)) continue;
-    const p = dockerProblem(c.status_summary as Status, now, memoryLimit(c.node, c.name));
+    const p = dockerProblem(
+      c.status_summary as Status,
+      now,
+      memoryLimit(c.node, c.name),
+      withHost.get(`${c.node}\u0000${c.name}`),
+    );
     if (!p) continue;
     if (
       alerts.some(
