@@ -58,8 +58,9 @@ type Collector struct {
 	// PodFilter, in Kubernetes mode, keeps the kernel recording only this node's pods
 	// (ADR-121); nil in Docker mode or when turned off.
 	PodFilter *PodFilter
-	// insideUnnamed counts flows to names under svc.<domain> that name no Service; they
-	// are dropped rather than drawn as externals.
+	// insideUnnamed counts flows to names under svc.<domain> that name no Service, and
+	// to private addresses before the first IP map; they are dropped rather than drawn
+	// as externals.
 	insideUnnamed float64
 	insideName    bool
 
@@ -212,15 +213,16 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 
 // destination is where a container's connection to addr:port goes: a workload, a
 // Service, a container or an external, named by what the container looked up when the
-// IP map doesn't know it (ADR-104, ADR-116). false drops it; insideName says it was a
-// cluster name that names no Service.
+// IP map doesn't know it (ADR-104, ADR-116). false drops it; insideName says it was
+// inside the cluster but nothing names it: a cluster name that names no Service, or a
+// private address before the first IP map.
 func (c *Collector) destination(cgroup uint64, src Source, addr netip.Addr, port uint16, res *Resolver, now time.Time) (Dest, bool) {
 	c.insideName = false
 	dst, ok := res.Resolve(addr, port)
 	if !ok {
 		return Dest{}, false
 	}
-	if dst.Kind == DstExternal && c.DNSNames != nil {
+	if (dst.Kind == DstExternal || dst.Kind == dstUnresolved) && c.DNSNames != nil {
 		if name, ok := c.DNSNames.Lookup(cgroup, addr); ok {
 			// A cluster Service's name: the IP map does not know this address yet (a
 			// Service created moments ago). Attribute it to the Service by name; never
@@ -231,10 +233,15 @@ func (c *Collector) destination(cgroup uint64, src Source, addr netip.Addr, port
 					return Dest{}, false
 				}
 				dst = Dest{Kind: DstService, Namespace: ns, Service: svc, Port: dst.Port}
-			} else {
+			} else if dst.Kind == DstExternal {
 				dst.Name = name
 			}
 		}
+	}
+	if dst.Kind == dstUnresolved {
+		// Inside the cluster before the first IP map: counted, never an external.
+		c.insideName = true
+		return Dest{}, false
 	}
 	return c.ext.admit(src.key(), dst, now), true
 }

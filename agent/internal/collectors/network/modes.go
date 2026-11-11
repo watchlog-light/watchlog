@@ -37,7 +37,9 @@ func KubeNames(last func() *podmap.Map) func(Owner) (Source, bool) {
 }
 
 // KubeResolver refreshes the cluster-agent's IP map at most every interval and keeps
-// the last one when the cluster-agent is unreachable.
+// the last one when the cluster-agent is unreachable. Before the first map (the agent
+// just started and the cluster-agent isn't answering yet), private destinations are
+// unresolved rather than externals; addresses that leave the map are remembered.
 func KubeResolver(fetch func(context.Context) (*podmap.IPMap, error), interval time.Duration, log *slog.Logger) func() *Resolver {
 	var (
 		mu      sync.Mutex
@@ -63,7 +65,10 @@ func KubeResolver(fetch func(context.Context) (*podmap.IPMap, error), interval t
 			}
 		}
 		if m != from || res == nil {
-			from, res = m, NewResolver(m, nil)
+			next := NewResolver(m, nil)
+			next.pending = m == nil
+			next.inherit(res, at)
+			from, res = m, next
 		}
 		return res
 	}
@@ -87,8 +92,18 @@ func DockerNames(ids func() map[string]runtime.Identity) func(Owner) (Source, bo
 	}
 }
 
-// DockerResolver resolves destinations to the host's containers by their addresses.
+// DockerResolver resolves destinations to the host's containers by their addresses. A
+// stopped or removed container's address keeps its name for a while (departedTTL), so
+// a client still dialling it shows as failing to reach that container.
 func DockerResolver(ids func() map[string]runtime.Identity) func() *Resolver {
+	return dockerResolver(ids, time.Now)
+}
+
+func dockerResolver(ids func() map[string]runtime.Identity, now func() time.Time) func() *Resolver {
+	var (
+		mu   sync.Mutex
+		prev *Resolver
+	)
 	return func() *Resolver {
 		byIP := map[string]string{}
 		for _, id := range ids() {
@@ -96,6 +111,11 @@ func DockerResolver(ids func() map[string]runtime.Identity) func() *Resolver {
 				byIP[ip] = id.Name
 			}
 		}
-		return NewResolver(nil, byIP)
+		r := NewResolver(nil, byIP)
+		mu.Lock()
+		defer mu.Unlock()
+		r.inherit(prev, now())
+		prev = r
+		return r
 	}
 }
