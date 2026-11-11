@@ -200,19 +200,19 @@ onBeforeUnmount(() => {
       <StatusStrip :overview="o" />
       <KpiRow :overview="o" />
 
-      <div class="g1">
-        <ResourcesCard :overview="o" />
-        <AttentionCard :overview="o" />
-      </div>
-
-      <div class="g2">
-        <TopWorkloads :overview="o" />
-        <RecentChanges :overview="o" />
-      </div>
-
-      <div class="g1">
-        <WarningEvents :overview="o" />
-        <PodsByNode :overview="o" />
+      <!-- Two columns that stack on their own (ADR-159): no card waits for the other
+           column's. One column on a narrow page, Needs attention first. -->
+      <div class="cols" data-testid="overview-columns">
+        <div class="col col-main" data-testid="overview-main">
+          <ResourcesCard class="o-resources" :overview="o" />
+          <TopWorkloads class="o-top" :overview="o" />
+          <WarningEvents class="o-events" :overview="o" />
+        </div>
+        <div class="col col-side" data-testid="overview-side">
+          <AttentionCard class="o-attention" :overview="o" />
+          <RecentChanges class="o-changes" :overview="o" />
+          <PodsByNode class="o-nodes" :overview="o" />
+        </div>
       </div>
     </template>
   </div>
@@ -227,25 +227,52 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 12px;
-  /* Each card keeps its own height: the resources chart has a fixed one, and stretching
-     it to a long Needs attention left it mostly empty (the owner's v0.4 review). */
   align-items: start;
 }
-.g2 {
+/* Below the tiles: a wide and a narrow column, each stacking its own cards, so a long
+   Needs attention never pushes the cards under the chart down (the owner's v0.4 review,
+   ADR-159). */
+.cols {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 12px;
-  /* The same: top workloads (5 rows) stretched to recent changes left half a card empty. */
   align-items: start;
 }
-@container (max-width: 1080px) {
+.col {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+@container (max-width: 860px) {
   .g1 {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-@container (max-width: 640px) {
-  .g2 {
-    grid-template-columns: minmax(0, 1fr);
+  /* One column: Needs attention, the resources chart, then the rest. */
+  .cols {
+    display: flex;
+    flex-direction: column;
+  }
+  .col {
+    display: contents;
+  }
+  .o-attention {
+    order: 1;
+  }
+  .o-resources {
+    order: 2;
+  }
+  .o-top {
+    order: 3;
+  }
+  .o-changes {
+    order: 4;
+  }
+  .o-events {
+    order: 5;
+  }
+  .o-nodes {
+    order: 6;
   }
 }
 .text-22 {
