@@ -2360,7 +2360,7 @@
         "howTo": "An Owner or Admin can resume it here or in its settings."
       },
       "genericWhat": {
-        "mongodb": "WatchLog checks that its collector reaches every member of this MongoDB and how fast it connects. Operations, replication and collections come with its integration (v0.3.1).",
+        "mongodb": "WatchLog checks that its collector reaches every member of this MongoDB and how fast it connects. Operations, replication and collections come with its integration, in a later release.",
         "elasticsearch": "WatchLog checks that its collector reaches every member of this Elasticsearch and how fast it connects. Cluster health, indices and search latency come with its integration (v0.5)."
       }
     },
