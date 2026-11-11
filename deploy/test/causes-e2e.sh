@@ -816,6 +816,8 @@ case "$cmd" in
     # The scenarios' containers are removed too: a run cut off before its restore leaves them,
     # and their restart policy starts them again whenever Docker starts (a reboot, say).
     in_vm "s=\$(comm -13 <($compose config --services | sort) <($compose --profile scenario config --services | sort)); [ -z \"\$s\" ] || $compose --profile scenario rm -sf \$s 2>&1 | tail -n 1"
+    # hot's busy loop is a file in the container, which a restart (Docker's, at boot) keeps.
+    act_cpu_throttle docker restore 2>/dev/null || true
     say "PostgreSQL: a pg_monitor role watchlog, with the fixture's password"
     sql="SET client_min_messages = warning;
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
@@ -840,6 +842,7 @@ GRANT pg_monitor TO watchlog;"
     done
     echo "rabbitmq-e2e on: ${rabbit[*]:-none (rabbitmq-consumer-oom needs deploy/test/rabbitmq-e2e.sh)}"
     kc "-n $ns rollout status deploy --timeout 180s >/dev/null"
+    act_cpu_throttle kubernetes restore 2>/dev/null || true
     if [ -n "${WATCHLOG_E2E_EMAIL:-}" ]; then
       say "monitored applications"
       api monitor ${rabbit[@]+"${rabbit[@]}"}
