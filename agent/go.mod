@@ -6,6 +6,7 @@ toolchain go1.27.4
 
 require (
 	github.com/cilium/ebpf v0.22.0
+	github.com/go-sql-driver/mysql v1.10.1
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/klauspost/compress v1.20.3
 	golang.org/x/sys v0.48.0
@@ -16,6 +17,7 @@ require (
 )
 
 require (
+	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.1 // indirect
