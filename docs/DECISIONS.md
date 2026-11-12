@@ -2331,3 +2331,168 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **The tie is resolved in the demo kit, not in the rule.** slow-backend rolls out only the delay, once an hour, so `bad_change` is likely. A separate busy-backend slot shrinks the running backend pod's CPU limit in place (no rollout, so no change marker) while a loop keeps a core busy, so `cpu_throttled` is likely. `cpu_throttled` and the ranking (ADR-146, ADR-147, ADR-154) stay as they are: when a change and throttling really happen together, a tie that shows both as possible is the honest answer.
 - Open, not built: a "Private network" label in place of "External service" for RFC 1918 destinations on a Docker fleet (ADR-158's last point), for the owner to decide later.
 - Consequences: the site's copy follows the 0.4.0 docs at the pinned commit (ADR-114); the live demo shows `bad_change` and `cpu_throttled` each as likely, at different times of the hour.
+
+## ADR-162: v0.5 ships before the launch, with MongoDB, as the launch release
+
+- Date: 2026-11-13 · Status: accepted (owner, 2026-11-13; pre-approved in the v0.5 build brief, reviewed after the fact; amends ADR-141 and the roadmap's order)
+- Context:
+  - The roadmap put v0.5 (integrations wave 2 and the gaps launch feedback would show) after the big launch, and ADR-141 moved MongoDB to a point release about a week after it (first 0.3.1, then 0.3.2). 0.4.0 shipped on 2026-11-11, so neither number can come next.
+  - The launch (Show HN, r/kubernetes, r/selfhosted, CNCF Slack, Product Hunt; Wednesday 2 or Thursday 3 December 2026) has to show a complete product. The gaps a first visitor finds quickest are the services most teams run next to their workloads (MySQL, MongoDB, k3s's Traefik, Kafka), a container's last log lines, and the way around the dashboard.
+- Decision:
+  - **0.5.0 ships before the launch and is the launch release.** MongoDB moves into it.
+  - **Scope, each for Kubernetes and Docker (ADR-124), built in this order:**
+    1. MySQL / MariaDB (ADR-163);
+    2. MongoDB (ADR-164);
+    3. Traefik, with its HTTP stats on the service map (ADR-165);
+    4. Kafka (ADR-166);
+    5. container logs on demand (ADR-167);
+    6. right-sizing hints (ADR-168);
+    7. the ⌘K command palette (ADR-169);
+    8. a Docker host in the live demo (ADR-170);
+    9. the four new services in the demo kit, each with one real failure (ADR-171);
+    10. small fixes ride along (the metric rules' alert summaries write "100%" without a space).
+  - **Every integration follows the wave-1 pattern completely:** discovery, the three ways to connect a service (ADR-134), encrypted credentials (ADR-133), a catalog in SPEC §4.12, the service page (ADR-135), default rules and rules for every service of the type (ADR-136, ADR-144), structured reasons (ADR-137), an `application_finding` probable cause where one fits (ADR-150), MCP through `list_applications` / `get_application`, the docs page, the site's Applications page and an e2e script.
+  - **Out of scope, after the launch, in the order users ask:** MinIO, Elasticsearch (its catalog stays in SPEC §4.12), Google OAuth, the light theme, the Persian locale, and the "Private network" label (ADR-161).
+  - **Testing:** fast checks per slice (lint, typecheck, the changed code's unit and Go tests); the full suites (every integration's e2e on kind and a Docker host, causes-e2e, the Helm upgrade test from 0.4.0, the kwok scale test, CI) run once, in the release slice.
+- Alternatives: launch on 0.4.0 and ship v0.5 after it (rejected: launch traffic comes once, and the first questions would be "MySQL?" and "logs?"); keep MongoDB as a point release after the launch (rejected: it has no number left, and its catalog has been ready since v0.3).
+- Consequences: about 16 sessions of build before the launch (the plan in the maintainer's notes); the 20 November checkpoint can cut from the end of the list (the demo kit's services first, then the palette) without moving the date. Release notes and the site list only what ships.
+
+## ADR-163: MySQL and MariaDB: one integration, read through performance_schema and the status variables
+
+- Date: 2026-11-13 · Status: accepted (v0.5 slice 0; pre-approved, reviewed after the fact)
+- Context: MySQL and MariaDB are the most common databases after PostgreSQL in the clusters and Compose files WatchLog sees. They share the protocol, most status variables and the grant model, and differ in performance_schema (on by default in MySQL, off by default in MariaDB), the lock tables, and the replication words.
+- Decision:
+  - **One type, `mysql`, for both,** named by what the server reports (`version_comment`): "MySQL 8.4" or "MariaDB 11.4". Versions: MySQL 8.0+ and MariaDB 10.6+ (tested on MySQL 8.4 LTS and MariaDB 11.4 LTS). Percona Server reads as MySQL.
+  - **Driver:** `github.com/go-sql-driver/mysql` (pure Go, no cgo). One connection per instance, with read-only session settings: `SET SESSION TRANSACTION READ ONLY`, `lock_wait_timeout=5`, and a 5 s statement limit (`max_execution_time=5000` on MySQL, `max_statement_time=5` on MariaDB).
+  - **What is read, never table data:** `SHOW GLOBAL STATUS`, `SHOW GLOBAL VARIABLES` (an allow-list), `performance_schema.events_statements_summary_by_digest` (the server's own normalised `DIGEST_TEXT`, so ADR-138 holds), `events_statements_histogram_global` (MySQL 8.0.19+), the process list through `performance_schema.threads` / `information_schema.PROCESSLIST` (client host, user, command, time; the statement text only as its digest), lock waits (`performance_schema.data_lock_waits` on MySQL, `information_schema.INNODB_LOCK_WAITS` on MariaDB, both with `INNODB_TRX`), `SHOW REPLICA STATUS` (MariaDB 10.5.1+ and MySQL 8.0.22+; the older word otherwise), and table sizes from `mysql.innodb_table_stats` (estimates; `information_schema.TABLES` would need privileges on the tables themselves).
+  - **The generated user** (ADR-134): `CREATE USER 'watchlog'@'%' IDENTIFIED BY '…' WITH MAX_USER_CONNECTIONS 2; GRANT PROCESS, REPLICATION CLIENT ON *.* TO 'watchlog'@'%'; GRANT SELECT ON performance_schema.* TO 'watchlog'@'%'; GRANT SELECT ON mysql.innodb_table_stats TO 'watchlog'@'%';`. An existing user's grants are checked with `SHOW GRANTS` and each missing privilege names the panels it costs.
+  - **MariaDB without performance_schema** (its default): statements, the histogram and MySQL's lock tables are unavailable; the page says so with the one line to turn it on (`performance_schema=ON`, needs a restart), and the reason `performance_schema_off` is a hint, not a problem. Lock waits still work through `INNODB_LOCK_WAITS`.
+  - **Discovery:** images `mysql`, `mariadb`, `percona`, `bitnami/mysql`, `bitnami/mariadb`, the Oracle MySQL operator's and the MariaDB operator's; port 3306.
+  - **Probable cause:** `lock_waits` (the blocking session's client workload or container through the IP map, how long, since when) and `connections_near_max` (the clients holding most) are `application_finding` causes, like PostgreSQL's; the chain ends at the holder's own cause when it has one (a CronJob that started, a rollout).
+  - **Dependency and image budget:** the integrations image must stay within its budget. ADR-057: "Both images FROM scratch (ADR-020), amd64 and arm64, each ≤ 40 MB; CI reports sizes"; ADR-131 holds the integrations image to the same ≤ 40 MB (compressed), ≤ 128 MB RSS and ≤ 5 % of a core with every integration on one instance each. Today it is 14.9 MB with pgx. Slice 1 measures the image with the driver added and records the number here; over budget, the smallest working option wins and gets its own ADR.
+- Alternatives: `mysqld_exporter` (rejected: one more image to wire per service, no connect flow or reasons); reading the slow log (rejected: a file or a table that must be switched on; the digest summary gives mean and max per statement); `information_schema.TABLES` for sizes (rejected: needs privileges on the tables).
+- Consequences: catalog in SPEC §4.12. Galera and group replication are read as single servers with their own status (wsrep and group state are flagged, not interpreted). Statement text kept is the server's digest text, already free of literals.
+
+## ADR-164: MongoDB: built from the v0.3 catalog with the official driver v2
+
+- Date: 2026-11-13 · Status: accepted (v0.5 slice 0; pre-approved, reviewed after the fact; MongoDB's version per ADR-162)
+- Context: SPEC §4.12 has had MongoDB's catalog since v0.3; ADR-141 moved the build out of v0.3. ADR-162 brings it into 0.5.0.
+- Decision:
+  - **Driver:** the official `go.mongodb.org/mongo-driver/v2`. One client per instance with a direct connection to each member (`directConnection=true`), so each member reports for itself; read preference `nearest`, 5 s per command.
+  - **Versions:** MongoDB 6.0+ (tested on 7.0 and 8.0), standalone and replica sets. A `mongos` is read as a member (serverStatus only); per-shard discovery behind it isn't built.
+  - **Commands, all within `clusterMonitor`:** `serverStatus` (with `opLatencies` histograms), `replSetGetStatus`, `getLog global` (the "Slow query" entries), `top`, `listDatabases`, `dbStats` (50 databases), `$collStats` storage stats (100 collections, by size, on the heavy scrape), `$indexStats` (indexes never used), `$currentOp` with idle connections (clients by address). An optional `read` on `local` adds the oplog window.
+  - **Query text (ADR-138):** a slow entry's filter is kept as its shape: field names and operators, every literal replaced by `?`; MongoDB 8.0's `queryShapeHash` is the fingerprint when present.
+  - **Clients:** `$currentOp`'s client addresses and a slow entry's `remote` go through the IP map to workloads or containers. That gives "connections by workload", and lets `slow_collscan` name who sends the scans.
+  - **Probable cause:** `slow_collscan` (the client workload, the collection, since when) and `connections_near_max` are `application_finding` causes; `no_primary` and `member_down` chain to the member's pod or container (its OOM, crash or node).
+  - **Discovery:** images `mongo`, `mongodb/mongodb-community-server`, `bitnami/mongodb`, Percona's and the MongoDB community operator's; port 27017.
+  - **Image budget:** as ADR-163 (ADR-057's ≤ 40 MB, ADR-131's limits). The driver is the largest of the three new dependencies; slice 2 measures it and records the number here.
+- Alternatives: `mongodb_exporter` (rejected, as for MySQL); the v1 driver (rejected: in maintenance; v2 is the supported line).
+- Consequences: SPEC §4.12's version line becomes v0.5.0, the catalog stays with the corrections slice 0 made (the client addresses, the shape rule, the version range).
+
+## ADR-165: Traefik: its Prometheus metrics, and what they add to the eBPF HTTP stats on the map
+
+- Date: 2026-11-13 · Status: accepted (v0.5 slice 0; pre-approved, reviewed after the fact)
+- Context: Traefik is k3s's default ingress and a common Compose proxy. Since v0.3 the service map shows HTTP stats from eBPF on plain HTTP/1.x edges (ADR-139), so a Traefik pod's edges already carry requests, errors and latency when traffic is plain HTTP. What eBPF can't see: requests that arrive over TLS (Traefik terminates it), backends reached over TLS or HTTP/2, and requests Traefik answers itself without ever connecting to a backend (502, 503, 504 when no server is up or none answers in time).
+- Decision:
+  - **Source:** Traefik's own Prometheus metrics, read with promtext from its `metrics` entrypoint (`:9100/metrics` in the Helm chart and in k3s's bundled Traefik; `:8080/metrics` with the default `traefik` entrypoint). Versions: v2.10+ and v3. Without metrics, requests, errors and latency come from eBPF as for plain Nginx, and the reason `metrics_off` gives the setting (k3s: a `HelmChartConfig`; Helm: `--set metrics.prometheus.entryPoint=metrics`; Docker: the three flags).
+  - **Series as they are,** with fewer labels: entrypoint and service families keep `entrypoint`, `service`, `code` (method and protocol summed away); router families only when Traefik exports them (`addRoutersLabels`, off by default); `traefik_service_server_up{service,url}`; `traefik_tls_certs_not_after`; config reloads. A service label is mapped to its backend: on Kubernetes `<namespace>-<service>-<port>@kubernetes` (and `@kubernetescrd`) is the Service; on Docker `<name>@docker` is the container or Compose service; a server URL's address goes through the IP map to a pod or container. At most 4,000 series per member.
+  - **On the service map:**
+    - eBPF stays the source of an edge's HTTP stats where it has them (ADR-139). Traefik's numbers fill an edge from Traefik to a backend only where eBPF has none (TLS or HTTP/2 to the backend), with the source shown ("from Traefik").
+    - Requests Traefik answered itself, with no connection made, are shown on the Traefik → service edge as their own figure: "12/s answered by Traefik: no server up". eBPF can't see them, and they are exactly the outage case.
+    - The Traefik node shows requests per entrypoint, TLS included, which no edge carries when clients come from outside the cluster.
+  - **Probable cause:** `no_server_up` (a service with every server down) chains to the backend workload or container's own cause (scaled to 0, crashing, OOM), through `application_finding`; `errors_high` names the top service and its workload's last rollout, as Nginx's does (ADR-143).
+  - **Discovery:** images `traefik`, `rancher/mirrored-library-traefik` (k3s); ports 80, 443, 8080, 9100; on Docker the official image.
+- Alternatives: Traefik's API (`/api/rawdata`) for routers and services (rejected: often off, and the dashboard API exposes the configuration); counting eBPF only (rejected: misses TLS and the requests that never reach a backend).
+- Consequences: catalog in SPEC §4.12. Paths and hosts are never collected (ADR-139). A Traefik without metrics still gets a page from eBPF.
+
+## ADR-166: Kafka: the admin API through franz-go, no JMX, and the consumer group that lost its members
+
+- Date: 2026-11-13 · Status: accepted (v0.5 slice 0; pre-approved, reviewed after the fact)
+- Context: small teams running Kafka want to know four things: are the brokers up, are partitions offline or under-replicated, how far behind each consumer group is per topic, and whether a group stopped consuming. The usual way, JMX through an exporter, means a Java agent in the broker, which they rarely set up.
+- Decision:
+  - **Read through the Kafka protocol only,** read-only, with `github.com/twmb/franz-go` (`kgo`, `kadm`): Metadata (brokers, the controller, partitions, leaders, ISR), ListOffsets (end offsets), ListGroups, DescribeGroups (state, members with client id and client host, assignments), OffsetFetch (committed offsets), DescribeLogDirs (size per topic and broker), DescribeConfigs (retention, when allowed), DescribeQuorum (KRaft, when allowed). No admin call that changes anything is in the code.
+  - **No JMX.** What only JMX has (bytes in and out, request latency, handler idle, ISR shrinks) is flagged in the catalog. **If a Prometheus endpoint exists** (the JMX exporter, Strimzi's, Bitnami's), the user names it and promtext reads it into a "Broker internals" tab; nothing else depends on it.
+  - **Rates from offsets:** messages in per topic are end-offset growth per second, labelled "offsets/s" (transaction markers and compaction make it approximate); consumption per group is committed-offset growth. Lag is end offset − committed offset per partition, summed per group and topic; lag in time is lag ÷ the topic's in-rate, labelled "about".
+  - **Access:** nothing on PLAINTEXT listeners; otherwise SASL (PLAIN, SCRAM-SHA-256/512) over TLS or not, through the three ways to connect (ADR-134). With ACLs: `Describe` on the cluster, every topic and every group (`DescribeConfigs` optional); a missing one names what it costs. Versions: Kafka 3.0+ with ZooKeeper or KRaft, 4.x KRaft.
+  - **Caps (ADR-136):** 200 topics (by size), 100 groups (lagging first), partitions summed per topic; per-partition rows only in the status's extra for offline and under-replicated partitions (top 50).
+  - **The lost group:** a group with committed offsets whose state is `Empty` (no members) while its lag grew for 5 minutes, having had members in the last 24 hours. The collector remembers each group's last members (client id, client host); the backend maps their addresses through the IP map. The reason `group_no_members` links them, closest first to the moment the group emptied, as RabbitMQ's `queue_no_consumers` links its consumers (ADR-145); when the addresses are gone from the IP map, the eBPF flows into the broker port over the last 24 hours stand in. In probable cause it is an `application_finding` that chains to the member's own cause (OOM-killed, crashing, scaled to 0).
+  - **Discovery:** images `apache/kafka`, `apache/kafka-native`, `bitnami/kafka`, `confluentinc/cp-kafka`, Strimzi's; port 9092. Every broker is a member; the collector bootstraps from the one discovered and reads the rest from Metadata.
+  - **Image budget:** as ADR-163 (ADR-057's ≤ 40 MB, ADR-131's limits); slice 4 measures franz-go's cost and records it here.
+- Alternatives: JMX through Jolokia or an exporter (rejected: a Java agent in the broker, the setup small teams skip); `sarama` (rejected: larger, and kadm's admin calls are what is needed); Kafka's Connect/REST proxy (rejected: an extra component).
+- Consequences: catalog in SPEC §4.12. Redpanda speaks the protocol and may work, but isn't claimed. ZooKeeper's own health is not read.
+
+## ADR-167: Container logs on demand: the last lines, streamed, never stored
+
+- Date: 2026-11-13 · Status: accepted (v0.5 slice 0; pre-approved, reviewed after the fact; amends SPEC §4.3 and §6.6's P1 line)
+- Context: when a pod crash-loops, its last lines are usually the answer, and today people leave WatchLog for `kubectl logs` or `docker logs`. SPEC §2.5 keeps log management a non-goal (no search, indexing, storage or retention), and allows the last N lines on demand. The backend never connects into a cluster (SPEC §5.2), so the request has to reach an agent that is already connected out.
+- Decision:
+  - **What:** the last N lines of one container, read when someone asks, streamed through the backend to the asker, never written anywhere. Optionally followed live for at most 5 minutes while the panel stays open. No search, no filter, no history, no download of more than what was shown.
+  - **Lines:** 200 by default; 100, 200, 500 or 1,000 in the UI (the API takes 1–1,000). Each line is cut at 2 KB, control characters and ANSI escapes stripped (ADR-129). At most 512 KB per answer; the oldest lines go first when it is over, and the answer says so.
+  - **Redaction, as ADR-047:** each line passes through `agent/internal/redact` **in the agent**, before it leaves the cluster or host. Redaction is pattern-based; the answer always says that lines were redacted (and how many).
+  - **Kubernetes:** the cluster-agent reads `GET /api/v1/namespaces/{ns}/pods/{pod}/log` (`container`, `tailLines`, `timestamps`, `previous` for the container's last run, `follow`) through the API server, which asks the kubelet. Its ClusterRole gains `get` on `pods/log`, nothing else; no `nodes/proxy` (ADR-049) and no host paths. Kubernetes merges stdout and stderr, so lines carry no stream there.
+  - **Docker:** the host's agent reads `GET /containers/{id}/logs?stdout=1&stderr=1&timestamps=1&tail=N` (and `follow=1`), added to the allow-list of ADR-024 (a test asserts nothing else is). Lines carry their stream. An exited container's logs are readable while Docker keeps it. Only the `json-file`, `local` and `journald` drivers answer; others say so.
+  - **The path:** the backend registers a request in memory; the cluster-agent's leader or the host's agent long-polls `GET /ingest/v1/logs/requests?wait=25` (answered at once when a request arrives) and posts the lines in chunks to `POST /ingest/v1/logs/{requestId}`, which the backend relays to the waiting HTTP response (JSON) or event stream (SSE, for follow). Nothing goes through the agent's disk buffer. A request no agent picks up in 10 s answers 504 with what to check (an agent older than 0.5.0, logs turned off). One backend process holds the request; several replicas (Cloud, Phase 5) need a relay and decide it then.
+  - **Never stored:** not in PostgreSQL, VictoriaMetrics, the agent's buffer, request logs or the MCP call log (which already never keeps outputs). The browser holds the lines in memory; "Copy" copies what is shown.
+  - **Who may read:** every signed-in role, **Viewers included.** ADR-140 gives Viewers every page, alert and query text; the teammate on call is often a Viewer, and logs are read-only. Two guards instead: an installation switch, `logs.enabled` in both charts and `WATCHLOG_LOGS` on the Docker agent, **default on** (read nil-safe, ADR-107: an upgrade turns it on and the release notes say so; off removes the `pods/log` grant and the agent refuses), and a server setting, "Container logs: every role / Owners and Admins only / off", which Owners and Admins change in Settings. Every read is recorded in `audit_events` (who, which container, how many lines, follow or not), never the lines. Tokens and MCP act with their user's role (ADR-140).
+  - **Limits:** 30 reads a minute and 3 open follows per user; 50 open follows per installation. Demo mode allows the demo's own application namespaces and its Docker host's containers, never system namespaces (ADR-111) or WatchLog's own pods.
+  - **Where:** a "Logs" tab on the pod page (with a container picker and "previous run") and on the Docker container page; a link from a crash loop's probable cause ("see the last lines"). The REST routes are public reads (ADR-126); the MCP tool `get_container_logs` returns at most 200 lines within ADR-128's 16 KB, newest last, with `truncated`, and its description says the lines are cluster-controlled data (ADR-129).
+- Alternatives: the node agent reading `/var/log/pods` (rejected: a host path on every node, rotation and CRI formats to parse, and the node agent would hold log access on every node); the kubelet through `nodes/proxy` (rejected by ADR-049); storing a short window (rejected: that is log management, SPEC §2.5); Viewers refused (rejected: it pushes on-call teammates to shared Admin accounts; the setting covers installations that want it).
+- Consequences: the cluster-agent and the Docker agent gain one long-poll each; the agent images grow by a few kilobytes. `docs/security.md` and the chart's RBAC docs list `pods/log`. The e2e asserts that the backend's database and VictoriaMetrics hold nothing of a read's lines.
+
+## ADR-168: Right-sizing hints: requests and limits against seven days of use, in plain sentences
+
+- Date: 2026-11-13 · Status: accepted (v0.5 slice 0; pre-approved, reviewed after the fact; SPEC §4.3's P1 line comes into Community, ADR-151's principle)
+- Context: WatchLog already has each container's CPU and memory use (15 s), its throttling, its OOM kills, and its requests and limits on the objects (ADR-056). Teams over-request because they don't know what their pods use, and under-limit until the OOM killer tells them.
+- Decision:
+  - **Window:** the last 7 days, at 5-minute resolution. A container with less than 24 hours of data gets "not enough history yet (N of 24 hours)". With shorter retention (Cloud Free) the window is what exists and the sentence says so. Jobs and CronJobs are left out (short runs); system namespaces only when asked (ADR-111).
+  - **What is judged, per workload container on Kubernetes** (its pods' quantiles, the busiest pod counting):
+    - CPU request too high: request ≥ 2 × the p95 of use and at least 100m spare;
+    - CPU request too low: p95 of use above the request;
+    - memory request too high: request ≥ 2 × the highest working set and at least 128 MiB spare;
+    - memory request too low: p95 of the working set above the request (first to be evicted under node pressure);
+    - memory limit tight: the highest working set ≥ 90 % of the limit, or an OOM kill in the window;
+    - CPU limit holds it back: throttled ≥ 10 % of the time at p95 (the share of ADR-160);
+    - no request or no memory limit set: one sentence with what it used.
+  - **Docker** has limits and reservations but no requests, and a limit above use reserves nothing. So a Docker container gets: memory limit tight (as above), CPU limit holds it back, a memory reservation too high or too low when one is set, and no memory limit while it used more than a quarter of the host's memory.
+  - **Plain sentences, no scores:** codes and facts rendered through i18n, like reasons (ADR-137): "web asks for 500m CPU; its busiest pod used at most 60m (p95) over 7 days. About 80m would cover it." The suggestion rounds up: CPU p95 × 1.25 to 10m, memory peak × 1.25 to 16 MiB. Each hint says what it is based on. No savings in money, no percentages of "efficiency".
+  - **Where:** a "Right-sizing" card on the workload page and on the Docker container and Compose service pages; on the overview, a card with the count and the first three hints (OOM risk first, then the most CPU or memory to give back); `GET /clusters/{id}/right-sizing` (public, filters by namespace, workload, host, container); MCP `get_right_sizing`. Hints are not alerts.
+  - **Cost:** worked out by the backend per cluster on request from VictoriaMetrics (`quantile_over_time` and `max_over_time` over 5-minute subqueries) and kept for an hour. Slice 6 measures the query time on the e2e stack and the kwok scale run measures it at 15,000 pods in the release slice; over 5 s there, the hour's answer is computed in the background instead.
+- Alternatives: the Vertical Pod Autoscaler's recommender (rejected: a component to install, Kubernetes only); a score per workload (rejected: the owner's "no scores" rule, ADR-147); a 30-day window (rejected: beyond Community's default 15-day retention).
+- Consequences: SPEC §4.3 describes the hints; Phase 6's "right-sizing" line is done in Community. No new collection.
+
+## ADR-169: The ⌘K command palette
+
+- Date: 2026-11-13 · Status: accepted (v0.5 slice 0; pre-approved, reviewed after the fact; SPEC §11.3's P1 search)
+- Decision:
+  - **Opens with** ⌘K on macOS and Ctrl+K elsewhere, `/` when focus isn't in a field, and a search button in the top bar (a 44 px icon button on phones, where the palette fills the screen).
+  - **Finds:** pages (the navigation's own list, matched in the browser), clusters and Docker fleets (from the store; picking one switches), and the selected cluster's objects through `GET /clusters/{id}/search?q=&limit=`: on Kubernetes workloads, pods, nodes; on Docker hosts, containers and Compose projects; on both, applications. Names in PostgreSQL, case-insensitive, prefix matches before substring matches, at most 8 per kind and 40 in all, 150 ms after the last key. Each result shows its kind and its namespace, host or type. The five last picks (this browser only) show before typing.
+  - **Keyboard-first and accessible:** a modal dialog with an ARIA combobox and a grouped listbox (Reka UI's Dialog and Combobox, already used per ADR-092; no new dependency): ↑ ↓ to move, Enter to open, Esc to close and return focus where it was, the count announced in a live region, design tokens only, visible focus, every string in i18n.
+  - Read-only navigation: no actions that change anything. Works in demo mode.
+- Alternatives: loading every object into the browser (rejected: 15,000 pods); a palette library (rejected: no new dependency for a dialog and a list Reka UI already gives).
+- Consequences: the route is a public read (ADR-126), so API users get name search too; the responsive suite covers the palette at 360–1440 px.
+
+## ADR-170: The live demo gets a Docker host, isolated from the server it runs on
+
+- Date: 2026-11-13 · Status: accepted (v0.5 slice 0; pre-approved, reviewed after the fact)
+- Context: the live demo shows a k3d cluster only, so visitors never see half of what WatchLog does (ADR-124). The server runs other sites and containers. A WatchLog Docker agent on the server's own Docker daemon would list those containers, read the server's CPU, memory and disks, and see its traffic, which ADR-121 rules out.
+- Decision:
+  - **A Docker-in-Docker host:** one `docker:dind` container (pinned version) started by the demo kit, with its own daemon and data volume, its own network joined to the k3d network so its agents reach the demo's ingest, no published ports, and caps of 1 CPU and 1 GiB. It must run privileged (dind needs it); it runs only the images the kit pins.
+  - **Inside it:** a Compose project `storefront` (a web and an api from podinfo, Redis, PostgreSQL), the WatchLog Docker agent and the integrations collector, both at the kit's version, reporting to a second entry in the demo, a Docker fleet named "demo-docker", seeded by the kit like the cluster. One failure that probable cause names on Docker: a `worker` container OOM-killed every 20 minutes (`oom_limit`, Docker form).
+  - **Nothing of the server shows:** the agent runs with `WATCHLOG_NODE_METRICS_SCOPE=cgroup` (ADR-121's switch, set explicitly: a Docker host's `auto` is `host`), so CPU, memory and disks are the dind container's. Network flows need ADR-121's filter in Docker mode: slice 8 adds a Docker-mode option (`WATCHLOG_EBPF_CONTAINER_FILTER`, default off) whose roots are the cgroups of the containers this daemon runs, and the demo turns it on. If that can't be built and measured in the slice, the demo's Docker host runs with flows off and the map says why (ADR-107), rather than record the server's traffic.
+  - **The dashboard's cluster switcher** lists both; the k3d cluster stays the one a visitor lands on.
+  - Tested first in the kit's server test VM (`deploy/test/server-test.sh` in the kit's repository), never on the server by Claude.
+- Alternatives: the server's own daemon with an include filter (rejected: the agent would still read the host's /proc, events and traffic); a k3d node or a pod running dind (rejected: it takes memory from the 3 GiB nodes, ADR-171); a VM on the server (rejected: needs root).
+- Consequences: the demo takes up to 1 GiB more on the server. Privileged dind is noted in the kit's DEPLOY.md for the owner.
+
+## ADR-171: The demo kit's shop gains MySQL, MongoDB, Traefik and Kafka, each with a real failure
+
+- Date: 2026-11-13 · Status: accepted (v0.5 slice 0; pre-approved, reviewed after the fact; follows ADR-142)
+- Context: ADR-142 gave the demo real services with real failures. The k3d nodes have 3 GiB each (never changed), and the server node already uses about 1.8 GiB.
+- Decision:
+  - **MariaDB 11.4** (`--innodb-buffer-pool-size=32M`, performance_schema on with small sizes): requests 128 MiB, limit 256 MiB. A small `inventory` writer updates a `stock` table. **Failure:** `inventory-lock`, hourly at :50–:55, opens a transaction, locks the row `inventory` updates (`SELECT … FOR UPDATE`) and sleeps 5 minutes. `lock_waits` names shop/inventory-lock as the holder; probable cause: `application_finding` → the CronJob started at :50.
+  - **MongoDB 8.0** as a one-member replica set (`--wiredTigerCacheSizeGB 0.25`): requests 160 MiB, limit 384 MiB, with an `events` writer. **Failure:** `analytics`, hourly at :05–:10, runs an unindexed query on `events` in a loop. `slow_collscan` names shop/analytics; probable cause: `application_finding` → the CronJob started at :05.
+  - **Traefik v3** as a second way in: the load generator sends part of its traffic through Traefik to `api`, so the existing frontend → api chain is unchanged. Requests 32 MiB, limit 96 MiB, metrics on :9100. **Failure:** the existing api-outage (:00–:05, :30–:35): Traefik's api service has no server up and answers 503 itself; probable cause: `no_server_up` → `dependency_down` (api scaled to 0).
+  - **Kafka 4.1 as a single KRaft node** (`apache/kafka-native`; fallback `apache/kafka` with a 192 MiB heap and a 512 MiB limit): requests 192 MiB, limit 384 MiB, with a producer and an `audit` consumer group (kcat). **Failure:** the audit consumer consumes 40 minutes, then grows until it is OOM-killed and waits 7 minutes before joining again (RabbitMQ's pattern, ADR-142): the group loses its members while lag grows; probable cause: `group_no_members` → `oom_limit` on shop/audit.
+  - **Budget:** about 0.6 GiB of requests and 1.4 GiB of limits in all, clients included. Slice 9 measures each node's working set in a k3d with the same 3 GiB nodes, at the worst minute of the hour with everything running. A node must stay under 85 % of its memory. If one service doesn't fit, it is left out of the demo in this order: Kafka, MongoDB, MariaDB, Traefik; pending-review says which and why. Node and server sizes never change. The shop's ResourceQuota may grow to cover the new limits.
+  - **The e2e demos** (kind and the Docker host in the e2e VM) get the same services and failures through each integration's e2e script, including MySQL 8.4 next to MariaDB.
+- Consequences: the hour's chaos schedule gains :05–:10 and :50–:55; the kit's `status.sh` and `check.sh` list the new CronJobs and services; the seed monitors the four with their default alerts.
