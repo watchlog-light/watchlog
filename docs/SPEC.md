@@ -150,8 +150,17 @@ The first screen after login. Answers "is anything wrong right now?" in 5 second
 - Workloads list: Deployments, StatefulSets, DaemonSets, Jobs, CronJobs. Desired vs ready replicas, restarts, CPU / memory usage vs requests vs limits, last rollout time.
 - Pod list and pod detail: phase, node, IP, QoS class, owner, containers, restarts with **last termination reason** (OOMKilled, Error, Completed) and exit code, events for this pod.
 - Container metrics: CPU (cores and % of limit), throttling %, memory working set vs limit, network, filesystem.
-- **Right-sizing hint (P1):** "requests are 4× higher than p95 usage over 7 d" / "memory limit is within 10 % of p99 usage — OOM risk".
-- **Container logs on demand (P1):** last 500 lines via the Kubernetes API, streamed, never stored.
+- **Right-sizing hints (v0.5, ADR-168):** requests and limits compared with the last 7 days of use (5-minute resolution; at least 24 hours of data), per workload container on Kubernetes and per container on Docker, in plain sentences with no score: "web asks for 500m CPU; its busiest pod used at most 60m (p95) over 7 days. About 80m would cover it."
+  - **Kubernetes:** CPU request ≥ 2 × p95 use (and ≥ 100m spare) or below p95 use; memory request ≥ 2 × the peak working set (and ≥ 128 MiB spare) or below its p95; memory limit within 10 % of the peak or an OOM kill in the window ("OOM risk"); CPU limit throttling ≥ 10 % of the time at p95; no request or no memory limit set.
+  - **Docker** (limits reserve nothing, so no "too high" hint on a limit): memory limit within 10 % of the peak or an OOM kill, CPU limit throttling, a memory reservation too high or too low when set, no memory limit while it used more than a quarter of the host's memory.
+  - Jobs and CronJobs are left out. Suggestions round up (CPU p95 × 1.25 to 10m, memory peak × 1.25 to 16 MiB).
+  - **Where:** a card on the workload, Docker container and Compose service pages; the overview's card (count and the first three, OOM risk first); `GET /clusters/:id/right-sizing`; MCP `get_right_sizing`. Kept an hour per cluster. Hints are not alerts.
+- **Container logs on demand (v0.5, ADR-167):** the last N lines of one container (200 by default, up to 1,000; each line cut at 2 KB, 512 KB per answer), optionally followed for up to 5 minutes, streamed through the backend and **never stored** (no database, no metrics store, no agent buffer, no request log). Not log management (§2.5): no search, filter, history or retention.
+  - **Kubernetes:** the cluster-agent reads the pod's log through the API server (`pods/log` `get`; the container's previous run too). **Docker:** the host's agent reads `/containers/{id}/logs` (allow-listed, ADR-024), stdout and stderr marked.
+  - Lines are redacted in the agent, as ADR-047 does, before they leave the cluster or host; control characters and escapes are stripped (ADR-129).
+  - The request reaches the agent through a long-poll it already holds open (`/ingest/v1/logs/requests`); the backend never connects into a cluster (§5.2).
+  - **Who:** every role, Viewers included, unless an Owner or Admin limits it to Owners and Admins or turns it off in Settings; `logs.enabled` (charts) and `WATCHLOG_LOGS` (Docker agent), default on, turn it off for the installation. Every read is audited without its lines. 30 reads a minute and 3 follows per user.
+  - **Where:** a Logs tab on the pod page (container picker, "previous run") and the Docker container page; `GET …/logs` (§8.1); MCP `get_container_logs` (at most 200 lines, 16 KB).
 
 ## 4.4 Docker hosts — P0, All
 
@@ -290,6 +299,8 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
   | `get_events` | grouped warning events, at most 24 h | container die / OOM / restart / health events |
   | `get_recent_changes` | rollouts, image changes, scaling, nodes | container re-creations and image changes |
   | `query_metric` | catalog keys only, at most 24 h, 10 series, 60 points; statistics by default | the Docker catalog keys |
+  | `get_container_logs` (v0.5) | a pod container's last lines (at most 200, 16 KB; `previous` for the last run), redacted, never stored; cluster-controlled data (ADR-129, ADR-167) | a container's last lines, with their stream |
+  | `get_right_sizing` (v0.5) | right-sizing hints for a namespace or workload: codes and facts, what each is based on, the suggestion (ADR-168) | the same for a host, Compose service or container |
 
   Prompts: `investigate_problem`, `why_is_it_crashing`.
 - **Caps:** every tool has a maximum number of items and at most 16 KB of output. Beyond it the result says `truncated`, how many more, and which argument narrows the query.
@@ -308,9 +319,9 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
 - revoking the token stops access at the next call;
 - the protocol works with Claude Code, Claude Desktop through `mcp-remote`, Cursor where it can be scripted, and the SDK's own client.
 
-## 4.12 Applications (service integrations) and multi-user — v0.3, All
+## 4.12 Applications (service integrations) and multi-user — v0.3, All (wave 2 in v0.5)
 
-Monitor the services people run next to their workloads (databases, caches, queues, proxies) with the same quality as the rest of WatchLog. Services are discovered automatically and get opinionated pages, default alerts and plain-language reasons. These are service metrics, not APM: no code instrumentation, no tracing, never table data (SPEC §2.5). Community edition: monitoring is never paywalled (§3.1). Decisions: ADR-131 to ADR-142.
+Monitor the services people run next to their workloads (databases, caches, queues, proxies) with the same quality as the rest of WatchLog. Services are discovered automatically and get opinionated pages, default alerts and plain-language reasons. These are service metrics, not APM: no code instrumentation, no tracing, never table data (SPEC §2.5). Community edition: monitoring is never paywalled (§3.1). Decisions: ADR-131 to ADR-145; wave 2 (v0.5): ADR-162 to ADR-166.
 
 **Architecture:**
 - **The collector:** a separate `integrations` collector, one per Kubernetes cluster and one per Docker host that runs a monitored service. It pushes like the agents and pulls its targets from the backend. The node agent stays small and never reads secrets (ADR-131).
@@ -336,7 +347,7 @@ Monitor the services people run next to their workloads (databases, caches, queu
 7. the landing entry;
 8. tests against the real service on Kubernetes **and** Docker (ADR-124), the generated setup command included.
 
-**Order:** foundation → multi-user → Redis → PostgreSQL → eBPF HTTP + Nginx → RabbitMQ. MongoDB ships in v0.3.1, about a week after the launch; Elasticsearch moves to v0.5 (ADR-141).
+**Order:** foundation → multi-user → Redis → PostgreSQL → eBPF HTTP + Nginx → RabbitMQ (v0.3, ADR-141). **v0.5.0, before the launch (ADR-162):** MySQL / MariaDB → MongoDB → Traefik → Kafka. Elasticsearch and MinIO come after the launch, in the order users ask; Elasticsearch's catalog stays below.
 
 **Panel types:** L line with limit line · SA stacked area · HB horizontal bars · H histogram · G capacity gauge · HM hour × day heatmap · T table · S stat tiles.
 
@@ -431,26 +442,107 @@ Access: nothing; the plugin ships with RabbitMQ. If it is off, the generated com
 - ⚑ **Network partitions** aren't exported by the plugin. Closest: a member whose endpoint stops answering.
 - **Reasons:** `queue_no_consumers` (linked to the workloads or containers that were connected to RabbitMQ in the last 24 h, from eBPF flows, and ended since, closest to when the queue lost its consumers: the plugin doesn't say which client consumed which queue; ADR-145), `queue_growing`, `memory_alarm` and `disk_alarm` (publishers blocked), `unacked_high`, `dead_letters_growing`, `prometheus_plugin_off` (with the command per node). A node down is a member down, as for every service.
 
-### MongoDB — v0.3.1, about a week after the launch (ADR-141)
+### MySQL and MariaDB (status variables, performance_schema, InnoDB tables; MySQL 8.0+, MariaDB 10.6+) — v0.5.0 (ADR-163)
 
-Access: nothing with authentication off; otherwise a user with `clusterMonitor`. An optional `read` on `local` adds the oplog window.
+Access: a user with `PROCESS`, `REPLICATION CLIENT`, `SELECT` on `performance_schema.*` and `SELECT` on `mysql.innodb_table_stats`, at most 2 connections. It reads statistics, never table data. The session is read-only with a 5 s statement limit. One type for both servers, named by `version_comment`.
+
+| Tab | Panels and sources |
+|---|---|
+| Overview | **S** connections / max (`Threads_connected`, `max_connections`), queries/s (`Questions`), slow queries/s (`Slow_queries`), buffer pool hit (`Innodb_buffer_pool_read_requests` vs `Innodb_buffer_pool_reads`), replication lag, longest running query (process list `TIME`) · **L** connections vs `max_connections` · **SA** statements/s by type (`Com_select`, `Com_insert`, `Com_update`, `Com_delete`, other) · **T** slowest statements by mean: digest text, mean, calls (1 h), total (`events_statements_summary_by_digest`) |
+| Connections | **SA** threads connected and running (`Threads_connected`, `Threads_running`) · **HB** by client: workload from the process list's host via the IP map, or the user for manual sessions · **G** `max_connections` with `Max_used_connections` · **L** aborted and refused connections/s (`Aborted_connects`, `Connection_errors_max_connections`) |
+| Queries | **SA** rows/s by operation (`Innodb_rows_read`, `_inserted`, `_updated`, `_deleted`) · **H** statement latency (`events_statements_histogram_global`, MySQL 8.0.19+). ⚑ MariaDB has no histogram; closest: statements bucketed by their mean, labelled "by statement mean". · **L** temporary tables on disk and full scans/s (`Created_tmp_disk_tables`, `Select_scan`) · **T** top statements by total time: total, mean, rows examined per call |
+| Locks | **L** row lock waits/s and time (`Innodb_row_lock_waits`, `Innodb_row_lock_time`) · **T** blocking right now: waiting and blocking sessions, both clients' workloads, the table, how long (`performance_schema.data_lock_waits` on MySQL, `information_schema.INNODB_LOCK_WAITS` on MariaDB, with `INNODB_TRX` and the process list) · **L** deadlocks (`INNODB_METRICS` `lock_deadlocks` on MySQL, `Innodb_deadlocks` on MariaDB) |
+| InnoDB and storage | **G** buffer pool: pages with data and dirty vs total (`Innodb_buffer_pool_pages_*`) · **L** buffer pool reads from disk/s · **L** redo written/s (`Innodb_os_log_written`) · **HB** largest tables (`mysql.innodb_table_stats`: clustered and other index pages × page size). ⚑ These are InnoDB's persistent statistics, refreshed by automatic recalculation or `ANALYZE TABLE`; exact sizes need privileges on the tables themselves; labelled "estimate". |
+| Replication | **S** IO and SQL threads running, last error (redacted) · **L** lag (`SHOW REPLICA STATUS` `Seconds_Behind_Source`; MariaDB's and older servers' `Seconds_Behind_Master`) with the 30 s line. ⚑ A source lists its replicas (`SHOW REPLICAS`) without their lag; each replica is monitored on its own. |
+
+- ⚑ **MariaDB's performance_schema is off by default:** without it the statement tables, the histogram and MySQL's lock tables are empty, and the page shows the one setting (`performance_schema=ON`, a restart). Lock waits still come from `INNODB_LOCK_WAITS`.
+- ⚑ **The slow query log** (a file, or a table when `log_output=TABLE`) isn't read. Closest: the digest summary's mean and maximum per statement, and the process list for what runs now.
+- ⚑ **Galera and group replication** are read as single servers; their cluster state is flagged, not interpreted.
+- **Discovery:** images `mysql`, `mariadb`, `percona`, `bitnami/mysql`, `bitnami/mariadb`, the Oracle MySQL operator's and the MariaDB operator's; port 3306.
+- **Default rules:**
+  - connections > 90 % of max for 5 min (warning);
+  - a query runs longer than 5 min (critical; client sessions, not replication threads);
+  - replication stopped: IO or SQL thread not running (critical);
+  - replication lag > 30 s for 2 min (warning);
+  - deadlocks detected (warning).
+- **Reasons:** `connections_near_max` (with the clients holding most), `connections_refused`, `long_query`, `lock_waits` (the blocking session's workload), `deadlocks`, `replica_stopped`, `replica_lag`, `buffer_pool_hit_low`, `tmp_disk_tables_high`, `performance_schema_off` and `table_stats_unavailable` (hints).
+- **Probable cause:** `lock_waits` and `connections_near_max` are application findings, like PostgreSQL's: the chain ends at the holder's own cause.
+
+### Traefik (its Prometheus metrics; eBPF HTTP; v2.10+ and v3) — v0.5.0 (ADR-165)
+
+Access: nothing. Traefik's metrics on its `metrics` entrypoint (`:9100/metrics` in the Helm chart and k3s's bundled Traefik; `:8080/metrics` on the default entrypoint). Without them, requests, errors and latency come from eBPF (ADR-139) and the page gives the setting.
+
+| Tab | Panels and sources |
+|---|---|
+| Overview | **S** requests/s (peak), 5xx (15 min), p95 (p50), open connections, services with a server up / total, the soonest certificate expiry · **SA** requests/s by status class (`traefik_entrypoint_requests_total`, or eBPF) · **L** p50, p95, p99 (`traefik_entrypoint_request_duration_seconds`, or eBPF) · **HB** busiest services (`traefik_service_requests_total`) |
+| Services | **T** services: requests/s, 5xx %, p95, servers up / total (`traefik_service_server_up`), retries/s (`traefik_service_retries_total`), the backend workload or container · **L** 5xx by service · **HB** slowest services by p95 (`traefik_service_request_duration_seconds`). ⚑ Routers only when Traefik exports their labels (`addRoutersLabels`, off by default); closest: services. |
+| Entrypoints and TLS | **SA** requests by entrypoint (`web`, `websecure`) · **L** open connections by entrypoint (`traefik_open_connections`; v2: `traefik_entrypoint_open_connections`) · **T** certificates: names, expiry (`traefik_tls_certs_not_after`) · **S** config reloads, last reload succeeded (`traefik_config_reloads_total`, `traefik_config_last_reload_success`) |
+
+- **Service names to backends:** `<namespace>-<service>-<port>@kubernetes` (and `@kubernetescrd`) is the Kubernetes Service; `<name>@docker` the container or Compose service; a server URL's address goes through the IP map.
+- **On the service map (ADR-165):** eBPF stays the source of an edge's HTTP stats. Traefik's numbers fill a Traefik → backend edge only where eBPF has none (TLS or HTTP/2 to the backend), marked "from Traefik". Requests Traefik answered itself with no connection made (no server up, a timeout) show on that edge as their own figure. The Traefik node shows requests per entrypoint, TLS included.
+- ⚑ **Without metrics,** plain-HTTP traffic is eBPF's (time to the first response byte); TLS entrypoints and Traefik's own 502/503/504 aren't seen.
+- **Not collected:** request paths and hosts (ADR-139).
+- **Discovery:** images `traefik`, `rancher/mirrored-library-traefik` (k3s); ports 80, 443, 8080, 9100.
+- **Default rules:**
+  - 5xx > 5 % for 5 min (critical);
+  - p95 > 1 s for 5 min (warning);
+  - a service has no server up (critical);
+  - a certificate expires within 14 days (warning);
+  - the last configuration reload failed (warning).
+- **Reasons:** `errors_high` (top service, linked to its workload's state and last rollout), `no_server_up` (linked to the backend), `latency_high`, `certificate_expiring`, `config_reload_failed`, `metrics_off` (hint, with the setting for k3s, Helm and Docker).
+- **Probable cause:** `no_server_up` is an application finding that chains to the backend's own cause (scaled to 0, crashing, OOM).
+
+### Kafka (the Kafka protocol's admin API; Kafka 3.0+, ZooKeeper or KRaft) — v0.5.0 (ADR-166)
+
+Access: nothing on PLAINTEXT listeners; otherwise SASL (PLAIN, SCRAM-SHA-256/512), with or without TLS. With ACLs: `Describe` on the cluster, every topic and every group (`DescribeConfigs` on topics optional, for retention). Read-only, through `franz-go`; no JMX.
+
+| Tab | Panels and sources |
+|---|---|
+| Overview | **S** brokers up / known, offline partitions, under-replicated partitions, messages in/s, consumer groups (without members), the largest lag · **L** messages in/s by topic (end-offset growth, `ListOffsets`) · **L** lag per group (end − committed offsets, `ListOffsets` + `OffsetFetch`) · **T** groups: state, members, topics, lag, lag in time |
+| Topics | **HB** largest topics (`DescribeLogDirs`, leader replicas) · **HB** busiest topics by messages in/s · **T** topics: partitions, replication factor, offline, under-replicated, retention (`Metadata`, `DescribeConfigs`), size |
+| Consumer groups | **L** lag per group and topic · **L** consumed/s per group (committed-offset growth) · **T** members: client id, client workload (`DescribeGroups` client host through the IP map), assigned partitions |
+| Brokers | **T** brokers: id, rack, controller, reachable (`Metadata`; KRaft quorum through `DescribeQuorum` when allowed) · **HB** partitions and leaders per broker · **HB** log size per broker (`DescribeLogDirs`) |
+| Broker internals (only with a Prometheus endpoint) | **L** bytes in and out/s, requests/s, from the endpoint the user names (JMX exporter, Strimzi, Bitnami), read with promtext |
+
+- ⚑ **Messages in/s** is end-offset growth, labelled "offsets/s": transaction markers and compaction make it approximate.
+- ⚑ **Lag in time** isn't in the protocol. Closest: lag ÷ the topic's in-rate, labelled "about".
+- ⚑ **Bytes in and out, request latency, handler idle and ISR shrinks** are JMX metrics; without a Prometheus endpoint they aren't shown.
+- ⚑ **ZooKeeper's own health** isn't read.
+- **Caps:** 200 topics (by size), 100 groups (lagging first); partitions are summed per topic, and only offline and under-replicated partitions are listed one by one (top 50).
+- **Discovery:** images `apache/kafka`, `apache/kafka-native`, `bitnami/kafka`, `confluentinc/cp-kafka`, Strimzi's; port 9092. The other brokers come from `Metadata`.
+- **Default rules:**
+  - offline partitions (critical);
+  - under-replicated partitions for 5 min (warning);
+  - a broker down (critical);
+  - a group's lag grows for 10 min (warning);
+  - a group lost its members while its lag grows, for 5 min (critical).
+- **Reasons:** `offline_partitions`, `under_replicated`, `broker_down`, `group_lag_growing`, `group_no_members` (the lost group: linked to the members it had, from the collector's last description with members, through the IP map; else to the clients whose eBPF flows into the broker port ended, as RabbitMQ's lost consumer, ADR-145), `acl_denied` (hint, with what each missing ACL costs).
+- **Probable cause:** `group_no_members` is an application finding that chains to the lost member's own cause (OOM-killed, crashing, scaled to 0).
+
+### MongoDB — v0.5.0 (ADR-162, ADR-164; versions 6.0+, standalone and replica sets)
+
+Access: nothing with authentication off; otherwise a user with `clusterMonitor`. An optional `read` on `local` adds the oplog window. The official Go driver v2, one direct connection per member (ADR-164).
 
 | Tab | Panels and sources |
 |---|---|
 | Overview | **S** operations/s (reads %), connections of available, replication lag, slow operations (1 h), WiredTiger cache %, oplog window · **SA** operations by type (`opcounters`) · **L** lag per secondary (`replSetGetStatus`) · **T** replica set members: state, health, lag |
-| Operations | **H** operation latency (`serverStatus` `opLatencies` histograms) · **HB** busiest collections (`top`) · **T** slow operations: shape, collection, duration, plan, COLLSCAN marked (`getLog global` "Slow query" entries) |
+| Operations | **H** operation latency (`serverStatus` `opLatencies` histograms) · **HB** busiest collections (`top`) · **T** slow operations: shape, collection, duration, plan, COLLSCAN marked, client workload (`getLog global` "Slow query" entries; the shape keeps field names and operators, every literal becomes `?` (ADR-138); `queryShapeHash` on 8.0; the entry's `remote` address through the IP map) · **HB** connections by client workload (`$currentOp` with idle connections, client addresses through the IP map) |
 | Cache and storage | **G** WiredTiger cache used vs maximum (dirty %); disk (`dbStats` `fsUsedSize`/`fsTotalSize`) · **L** read and write tickets available (`wiredTiger.concurrentTransactions`; `queues.execution` on 7.0+) · **HB** largest collections (`$collStats`) |
 
 - ⚑ **The oplog window** needs `read` on `local`, which `clusterMonitor` lacks. The generated command adds it as an optional line; otherwise the tile and the rule explain.
+- ⚑ **The slow-operation table** comes from `getLog global`, the server's in-memory ring of its last 1,024 log lines: on a busy server, entries between two scrapes can be missed. Closest for the count: `serverStatus` `metrics.operation`/`opLatencies` totals; the table is labelled "recent".
+- ⚑ **Sharded clusters:** a `mongos` is read as one member (`serverStatus`); the shards behind it are monitored only if each is added.
+- **Discovery:** images `mongo`, `mongodb/mongodb-community-server`, `bitnami/mongodb`, Percona's and the community operator's; port 27017.
 - **Default rules:**
   - no primary (critical);
   - replication lag > 30 s for 2 min (warning);
   - a member is down (critical);
   - slow operations > 20/min for 5 min (warning);
   - oplog window < 24 h (warning).
-- **Reasons:** `no_primary`, `member_down`, `replica_lag`, `slow_collscan`, `cache_pressure`, `connections_near_max`, `operations_queued`, `oplog_window_short`.
+- **Reasons:** `no_primary`, `member_down`, `replica_lag`, `slow_collscan` (with the client workload that sends the scans), `cache_pressure`, `connections_near_max` (with the clients holding most), `operations_queued`, `oplog_window_short`.
+- **Probable cause:** `slow_collscan` and `connections_near_max` are application findings that chain to the client's own cause (a CronJob that started, a rollout); `no_primary` and `member_down` chain to the member's pod or container.
 
-### Elasticsearch — moved to v0.5 (ADR-141); catalog kept
+### Elasticsearch — after the launch, in the order users ask (ADR-162); catalog kept
 
 Access: nothing with security off; otherwise an API key with the `monitor` privilege.
 
@@ -483,6 +575,7 @@ Access: nothing with security off; otherwise an API key with the `monitor` privi
 - Claude Code, through MCP, explains each of those from WatchLog data alone.
 - A Viewer can see everything and change nothing; a removed user's token stops at the next call.
 - The collector stays within its budget with every integration on.
+- **v0.5:** MySQL and MariaDB, MongoDB, Traefik and Kafka meet the same bar on a kind cluster and a Docker host, each with its default rules, reasons, MCP view, docs page and e2e script; the demo kit's failures for them name the right probable cause (ADR-171).
 
 ## 4.13 Probable cause ("Why is this broken?") — v0.4, All (shipped in 0.4.0)
 
@@ -636,9 +729,9 @@ Labels on container series: `cluster_id` (server-injected), `node`, `namespace`,
 
 ## 6.6 Security and RBAC
 
-- Cluster-agent ClusterRole is **read-only**: `get, list, watch` on the resources in §6.5, plus `create` on `tokenreviews` (pod map authentication); a namespaced Role for its leader-election Lease. Node agent ClusterRole: `get` on `nodes/stats` only. **No access to Secrets, ConfigMaps or `nodes/proxy`** (ADR-049, ADR-060). `pods/log` `get` only if logs-on-demand (P1) is enabled.
+- Cluster-agent ClusterRole is **read-only**: `get, list, watch` on the resources in §6.5, plus `create` on `tokenreviews` (pod map authentication); a namespaced Role for its leader-election Lease. Node agent ClusterRole: `get` on `nodes/stats` only. **No access to Secrets, ConfigMaps or `nodes/proxy`** (ADR-049, ADR-060). `get` on `pods/log` while logs on demand are on (`logs.enabled`, default on from v0.5; ADR-167).
 - Node agent runs with `hostNetwork: false`, `hostPID` only where measured necessary, as a non-root user, read-only root filesystem, all capabilities dropped and none added until eBPF (Phase 4: `BPF`, `PERFMON`, `SYS_RESOURCE`, `SYS_PTRACE` for `/proc/<pid>` of other containers, `NET_ADMIN` only if required by the chosen hook). The release namespace is labelled `pod-security.kubernetes.io/enforce: privileged` because the agent needs read-only hostPath mounts of `/proc` and `/sys`. Document every capability and exception in `docs/security.md`.
-- Docker mode mounts `/var/run/docker.sock` **read-only** and only calls list/inspect/stats/events endpoints.
+- Docker mode mounts `/var/run/docker.sock` **read-only** and only calls list/inspect/stats/events endpoints, and the container logs endpoint while logs on demand are on (`WATCHLOG_LOGS`, ADR-167).
 - Transport: HTTPS with TLS 1.2+; cluster token in `Authorization: Bearer`. Tokens are per cluster, revocable, 256-bit random values stored as a SHA-256 hash in the backend (a slow hash adds cost without security for high-entropy tokens; argon2id is used for passwords; ADR-025).
 - The agent never executes remote commands and has no inbound port except `:8080/healthz` and `:8080/metrics` (self-metrics), bound to pod IP.
 
@@ -662,7 +755,7 @@ agent:
 clusterAgent:
   enabled: true
 logs:
-  enabled: false                            # P1
+  enabled: true                             # logs on demand (ADR-167); false removes pods/log
 ```
 
 Docker install (shown on the onboarding screen):
@@ -745,6 +838,11 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `GET /clusters/:id/events` | Paged, filterable |
 | `GET /causes?cluster=<id>&subject=<kind>:<ref>` | Probable cause (ADR-146 to ADR-148): `state` (likely, possible, none), a `headline`, up to 3 ranked `causes` with their evidence `chain`, the `checks` made and the nodes with network flows off; every sentence a code with facts. Subjects: `alert:<id>`, `pod:<ns>/<pod>`, `workload:<ns>/<Kind>/<name>` (or `<ns>/<name>`), `container:<host>/<name>` (or `<name>`), `compose_service:<project>/<service>`, `edge:<map edge id>`, `application:<id or name>`. Kept 15 s per subject |
 | `likelyCause` (optional) | On a Needs-attention problem (`/overview`), the alert detail (`GET /alerts/:id`) and an application with a finding (`GET /applications`, `/applications/:id`): `{rule, code, facts, since, headline, subject}`, the top cause of `GET /causes` when it is likely, left out when causes are only possible, none is clear, or the answer took longer than 2 s; `subject` asks `GET /causes` for the chain and the checks. Lists explain at most 20 subjects, 4 at a time, from the same 15 s cache (ADR-155) |
+| `GET /clusters/:id/pods/:namespace/:name/logs?container&lines&previous&follow` | Logs on demand (ADR-167): the last `lines` (1–1,000, default 200) of a container, redacted, never stored; `previous` reads the container's last run; `follow=true` with `Accept: text/event-stream` streams new lines for up to 5 minutes. JSON `{lines:[{ts, text}], redacted, truncated}`. 504 when no agent picked the request up in 10 s; 403 when the setting doesn't allow the caller's role |
+| `GET /clusters/:id/docker/hosts/:host/containers/:name/logs?lines&follow` | The same for a Docker container; each line also carries its `stream` (stdout, stderr) |
+| `GET /clusters/:id/right-sizing?namespace&workload&host&container` | Right-sizing hints (ADR-168): per container `{object, resource (cpu, memory), code, facts, basedOn {window, from, to, samples}, suggestion}`, OOM risk first; `notEnoughHistory` rows for containers with less than 24 hours. Kept an hour per cluster |
+| `GET /clusters/:id/search?q&limit` | The ⌘K palette's object search (ADR-169): workloads, pods, nodes (Kubernetes); hosts, containers, Compose projects (Docker); applications. At most 8 per kind, 40 in all |
+| MCP tools added in v0.5 | `get_container_logs` (the logs routes above, at most 200 lines) and `get_right_sizing` (§4.11). The new integrations need no new tool: `list_applications` and `get_application` cover every type |
 | `POST /query/range` | Curated metric query: `{clusterId, metric, scope?: {host?, container?, composeProject?}, agg?, step?, from, to}` (unix seconds); `metric` is one of the catalog keys in `backend/src/modules/query/catalog.ts` (16 in Phase 1) → backend builds MetricsQL with tenant filter. Raw MetricsQL only for P1 advanced mode. |
 | `GET/POST/PATCH/DELETE /alert-rules` | |
 | `GET/POST/PATCH/DELETE /alert-channels` · `POST /alert-channels/:id/test` | |
@@ -762,6 +860,8 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `POST /ingest/v1/heartbeat` | `{agent_version, mode, node, capabilities:{ebpf, cgroup}, series}` | Updates `clusters.last_seen_at`; triggers onboarding SSE |
 | `POST /ingest/v1/objects` | `{snapshot|delta, objects:[...]}` (JSON, gzip) | |
 | `POST /ingest/v1/events` | `{events:[{uid, namespace, involved:{kind, namespace, name, uid}, type, reason, message, count, first_ts, last_ts, reporting_controller}]}` (≤ 1,000 per request, JSON, gzip) | ADR-061 |
+| `GET /ingest/v1/logs/requests?wait=25` | — | Logs on demand (ADR-167): the cluster-agent's leader or a Docker host's agent long-polls for log requests; answered at once when one arrives, `204` after `wait` |
+| `POST /ingest/v1/logs/:requestId` | `{lines:[{ts, stream?, text}], done, error?}` (redacted in the agent) | Relayed to the waiting reader and dropped; `410` when the reader left, which ends a follow |
 
 Responses: `204` OK; `401` bad token (agent logs a clear message and backs off 5 min); `413` / `429` with `Retry-After` for limits; `402` plan limit reached (agent keeps running, backend drops data beyond limit and the UI shows an upgrade banner).
 
@@ -903,7 +1003,8 @@ The whole product (site + app) is **dark only** in v2.0. Light theme MAY be adde
 
 ## 11.3 Layout and components
 
-- App shell: left sidebar (240 px, collapsible to 64 px) with cluster switcher at top; top bar with time range, namespace filter, search (⌘K command palette, P1).
+- App shell: left sidebar (240 px, collapsible to 64 px) with cluster switcher at top; top bar with time range, namespace filter, search (the ⌘K command palette).
+- **⌘K command palette (v0.5, ADR-169):** ⌘K / Ctrl+K, `/` outside a field, or the top bar's search button. Finds pages, clusters and Docker fleets, and the selected cluster's workloads, pods and nodes (Kubernetes), hosts, containers and Compose projects (Docker), and applications (`GET /clusters/:id/search`, prefix matches first, 8 per kind). The last five picks show before typing. A modal dialog with an ARIA combobox and a grouped listbox (Reka UI): ↑ ↓, Enter, Esc returns focus; the result count in a live region; full screen on phones, 44 px targets. Read-only navigation.
 - Phones and tablets (ADR-120): below 1024 px the sidebar is an off-canvas drawer and the cluster switcher sits in the top bar; below 768 px the cluster, filters and time range share one sheet, wide tables become cards and pickers open as sheets. Touch targets are at least 44 px; no page scrolls sideways.
 - Radius: 6 px (inputs, buttons), 10 px (cards). Spacing scale 4 px base.
 - Components (built in `web/src/components/ui`, Tailwind-based, no heavy UI kit): Button (primary / secondary / ghost / danger), Input, Select, Combobox, Tabs, Table (virtualised for > 500 rows), Card, StatTile, Badge/StatusPill, Tooltip, Drawer, Modal, Toast, EmptyState, CodeBlock with copy, TimeRangePicker, Sparkline, TimeSeriesChart (ECharts), ServiceMapGraph (ECharts graph or Cytoscape.js — decide in Phase 4).
@@ -1013,7 +1114,7 @@ Each phase ends with a demo-able result and explicit acceptance criteria. Durati
 
 ## Phase 6 — Pro features (≈ 4 weeks)
 
-- Multi-cluster overview, roles (Owner/Admin/Viewer), 30-day retention tier, SLO reports, right-sizing hints, logs on demand, basic anomaly detection (§4.8).
+- Multi-cluster overview, 30-day retention tier, SLO reports, basic anomaly detection (§4.8). Roles came in v0.3 (Community, ADR-140); right-sizing hints and logs on demand in v0.5 (Community, ADR-167, ADR-168).
 
 ## Phase 7 — Enterprise (as demand appears)
 
