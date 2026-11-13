@@ -20,6 +20,7 @@ function hasKey(key: string): boolean {
   }
   return typeof node === 'string';
 }
+const SHARED = new Set(['member_down', 'needs_permission']);
 const missing = (keys: string[]) => [...new Set(keys)].filter((k) => !hasKey(k));
 
 describe('keys the backend sends', () => {
@@ -50,7 +51,9 @@ describe('keys the backend sends', () => {
       // An integration's own reasons; the health and member reasons have their own words.
       if (!['reasons.ts', 'generic.ts', 'types.ts'].includes(file)) {
         for (const m of src.matchAll(/\bcode: '([a-z_]+)'/g))
-          keys.push(`integrations.reasons.${m[1]}`);
+          // member_down and needs_permission are every type's (applications.reason.*),
+          // even when a page sends them itself (MongoDB's replica set members).
+          if (!SHARED.has(m[1]!)) keys.push(`integrations.reasons.${m[1]}`);
       }
     }
     expect(keys.length).toBeGreaterThan(100);
