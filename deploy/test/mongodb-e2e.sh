@@ -433,6 +433,18 @@ def scenario(label, app_id, cluster_id, code, key, holder, headline, timeout=300
           bool(c) and holder in json.dumps(c.get("headline", {})),
           json.dumps(call("GET", "/causes?" + urllib.parse.urlencode({"cluster": cluster_id, "subject": f"application:{app_id}"}), ok=False))[:500])
 
+# The leak: about 94 of maxConns 100 (measured: 3 connections per client, 5 for mongosh,
+# about 11 for the other member and the collector). At maxConns 60 the band between 90 %
+# and refusing the collector was 6 connections: the leak filled it and the collector got EOF.
+# Before the scan: slow_collscan counts the last 15 minutes, so after the scan it would
+# still rank first; the leak's finding clears as soon as its connections close.
+scale(["leak"], 1)
+compose_up(["leak"])
+scenario("kubernetes leak", k_app, k_cluster, "connections_near_max", "top", f"{ns}/leak", "app_pg_held")
+scenario("docker leak", d_app, d_cluster, "connections_near_max", "top", "mongodb-e2e-leak-1", "app_pg_held")
+scale(["leak"], 0)
+compose_rm(["leak"])
+
 # The scan: analytics runs an unindexed find on shop.events in a loop.
 scale(["analytics"], 1)
 compose_up(["analytics"])
@@ -443,16 +455,6 @@ for label, app_id in (("kubernetes", k_app), ("docker", d_app)):
     check(f"{label}: Operations lists the scan's shape on shop.events", bool(s) and "{amount: {$gt: ?}, kind: ?}" in json.dumps(s), json.dumps(s)[:300])
 scale(["analytics"], 0)
 compose_rm(["analytics"])
-
-# The leak: about 94 of maxConns 100 (measured: 3 connections per client, 5 for mongosh,
-# about 11 for the other member and the collector). At maxConns 60 the band between 90 %
-# and refusing the collector was 6 connections: the leak filled it and the collector got EOF.
-scale(["leak"], 1)
-compose_up(["leak"])
-scenario("kubernetes leak", k_app, k_cluster, "connections_near_max", "top", f"{ns}/leak", "app_pg_held")
-scenario("docker leak", d_app, d_cluster, "connections_near_max", "top", "mongodb-e2e-leak-1", "app_pg_held")
-scale(["leak"], 0)
-compose_rm(["leak"])
 
 # The member: the second member stops; the first stays primary (the second has no vote).
 vm_run(f"kubectl -n {ns} scale statefulset mongo --replicas 1 >/dev/null; {compose} stop mongo-b >/dev/null")
