@@ -1274,6 +1274,18 @@
                         "helm": {
                           "type": "string",
                           "description": "helm install command for a Kubernetes cluster (ADR-059)"
+                        },
+                        "kubectl": {
+                          "type": "string",
+                          "description": "Cloud: kubectl apply of the manifest behind an install code valid 24 hours (ADR-176)"
+                        },
+                        "compose": {
+                          "type": "string",
+                          "description": "Cloud: the Docker agent as a Compose service (ADR-176)"
+                        },
+                        "installCodeExpiresAt": {
+                          "type": "string",
+                          "format": "date-time"
                         }
                       }
                     }
@@ -2210,6 +2222,18 @@
                         "helm": {
                           "type": "string",
                           "description": "helm install command for a Kubernetes cluster (ADR-059)"
+                        },
+                        "kubectl": {
+                          "type": "string",
+                          "description": "Cloud: kubectl apply of the manifest behind an install code valid 24 hours (ADR-176)"
+                        },
+                        "compose": {
+                          "type": "string",
+                          "description": "Cloud: the Docker agent as a Compose service (ADR-176)"
+                        },
+                        "installCodeExpiresAt": {
+                          "type": "string",
+                          "format": "date-time"
                         }
                       }
                     }
@@ -11942,6 +11966,279 @@
             }
           },
           "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{id}/onboarding-status": {
+      "get": {
+        "summary": "The live connection checklist of a new cluster: agents, cluster agent, first metrics, eBPF, service map. JSON, or Server-Sent Events with `Accept: text/event-stream`",
+        "tags": ["clusters"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "clusterId",
+                    "kind",
+                    "createdAt",
+                    "now",
+                    "steps",
+                    "ready",
+                    "complete"
+                  ],
+                  "properties": {
+                    "clusterId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "kind": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["kubernetes"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["docker"]
+                        }
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "now": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["id", "state", "since"],
+                        "properties": {
+                          "id": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["agent"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["clusterAgent"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["metrics"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["ebpf"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["map"]
+                              }
+                            ]
+                          },
+                          "state": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["waiting"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["done"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["off"]
+                              }
+                            ]
+                          },
+                          "since": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "nodes": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "containers": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "enabled": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "agents": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "node": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "cause": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["config"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["kernel"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["permission"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["load"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["outdated"]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "fix": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "services": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "connections": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    },
+                    "ready": {
+                      "type": "boolean"
+                    },
+                    "complete": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Default Response",
             "content": {
               "application/json": {

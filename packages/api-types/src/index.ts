@@ -34,6 +34,11 @@ export type CreateClusterResponse = JsonBody<Responses<'/api/v1/clusters', 'post
 export type ClusterDetail = JsonBody<Responses<'/api/v1/clusters/{id}', 'get'>[200]>;
 export type ClusterToken = ClusterDetail['tokens'][number];
 export type IssueTokenResponse = JsonBody<Responses<'/api/v1/clusters/{id}/tokens', 'post'>[201]>;
+/** The live connection checklist (ADR-176). */
+export type OnboardingStatus = JsonBody<
+  Responses<'/api/v1/clusters/{id}/onboarding-status', 'get'>[200]
+>;
+export type OnboardingStep = OnboardingStatus['steps'][number];
 
 export type DockerHostList = JsonBody<Responses<'/api/v1/clusters/{id}/docker/hosts', 'get'>[200]>;
 export type DockerHost = DockerHostList['hosts'][number];

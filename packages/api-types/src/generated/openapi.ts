@@ -629,6 +629,12 @@ export interface paths {
                 dockerRun?: string;
                 /** @description helm install command for a Kubernetes cluster (ADR-059) */
                 helm?: string;
+                /** @description Cloud: kubectl apply of the manifest behind an install code valid 24 hours (ADR-176) */
+                kubectl?: string;
+                /** @description Cloud: the Docker agent as a Compose service (ADR-176) */
+                compose?: string;
+                /** Format: date-time */
+                installCodeExpiresAt?: string;
               };
             };
           };
@@ -1053,6 +1059,12 @@ export interface paths {
                 dockerRun?: string;
                 /** @description helm install command for a Kubernetes cluster (ADR-059) */
                 helm?: string;
+                /** @description Cloud: kubectl apply of the manifest behind an install code valid 24 hours (ADR-176) */
+                kubectl?: string;
+                /** @description Cloud: the Docker agent as a Compose service (ADR-176) */
+                compose?: string;
+                /** Format: date-time */
+                installCodeExpiresAt?: string;
               };
             };
           };
@@ -4058,6 +4070,101 @@ export interface paths {
         };
         /** @description Default Response */
         503: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/clusters/{id}/onboarding-status': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The live connection checklist of a new cluster: agents, cluster agent, first metrics, eBPF, service map. JSON, or Server-Sent Events with `Accept: text/event-stream` */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              /** Format: uuid */
+              clusterId: string;
+              kind: 'kubernetes' | 'docker';
+              /** Format: date-time */
+              createdAt: string;
+              /** Format: date-time */
+              now: string;
+              steps: {
+                id: 'agent' | 'clusterAgent' | 'metrics' | 'ebpf' | 'map';
+                state: 'waiting' | 'done' | 'off';
+                since: string | null;
+                nodes?: number;
+                containers?: number;
+                enabled?: number;
+                agents?: number;
+                node?: string | null;
+                reason?: string | null;
+                cause?: 'config' | 'kernel' | 'permission' | 'load' | 'outdated' | null;
+                fix?: string | null;
+                services?: number;
+                connections?: number;
+              }[];
+              ready: boolean;
+              complete: boolean;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
           headers: {
             [name: string]: unknown;
           };
