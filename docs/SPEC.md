@@ -496,7 +496,7 @@ Access: nothing. Traefik's metrics on its `metrics` entrypoint (`:9100/metrics` 
 
 ### Kafka (the Kafka protocol's admin API; Kafka 3.0+, ZooKeeper or KRaft) — v0.5.0 (ADR-166)
 
-Access: nothing on PLAINTEXT listeners; otherwise SASL (PLAIN, SCRAM-SHA-256/512), with or without TLS. With ACLs: `Describe` on the cluster, every topic and every group (`DescribeConfigs` on topics optional, for retention). Read-only, through `franz-go`; no JMX.
+Access: nothing on PLAINTEXT listeners; otherwise SASL (PLAIN, SCRAM-SHA-256/512, the first the broker offers), with or without TLS (detected, unverified). A broker whose advertised host the collector can't resolve is reached at its discovered pod or container address. With ACLs: `Describe` on the cluster, every topic and every group (`DescribeConfigs` on topics optional, for retention). Read-only, through `franz-go`; no JMX.
 
 | Tab | Panels and sources |
 |---|---|
@@ -504,7 +504,7 @@ Access: nothing on PLAINTEXT listeners; otherwise SASL (PLAIN, SCRAM-SHA-256/512
 | Topics | **HB** largest topics (`DescribeLogDirs`, leader replicas) · **HB** busiest topics by messages in/s · **T** topics: partitions, replication factor, offline, under-replicated, retention (`Metadata`, `DescribeConfigs`), size |
 | Consumer groups | **L** lag per group and topic · **L** consumed/s per group (committed-offset growth) · **T** members: client id, client workload (`DescribeGroups` client host through the IP map), assigned partitions |
 | Brokers | **T** brokers: id, rack, controller, reachable (`Metadata`; KRaft quorum through `DescribeQuorum` when allowed) · **HB** partitions and leaders per broker · **HB** log size per broker (`DescribeLogDirs`) |
-| Broker internals (only with a Prometheus endpoint) | **L** bytes in and out/s, requests/s, from the endpoint the user names (JMX exporter, Strimzi, Bitnami), read with promtext |
+| Broker internals (only with a Prometheus endpoint) | **L** bytes in and out/s, requests/s, from a JMX exporter found on the usual ports (9404 Strimzi, 5556 Bitnami, 7071) at `/metrics`, read with promtext |
 
 - ⚑ **Messages in/s** is end-offset growth, labelled "offsets/s": transaction markers and compaction make it approximate.
 - ⚑ **Lag in time** isn't in the protocol. Closest: lag ÷ the topic's in-rate, labelled "about".

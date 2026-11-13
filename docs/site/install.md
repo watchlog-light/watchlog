@@ -93,7 +93,8 @@ read-only access:
 Each integration has its own page: [Redis](integrations/redis.md),
 [PostgreSQL](integrations/postgres.md), [MySQL and MariaDB](integrations/mysql.md),
 [MongoDB](integrations/mongodb.md), [Nginx](integrations/nginx.md),
-[Traefik](integrations/traefik.md) and [RabbitMQ](integrations/rabbitmq.md).
+[Traefik](integrations/traefik.md), [RabbitMQ](integrations/rabbitmq.md) and
+[Kafka](integrations/kafka.md).
 
 ## Upgrade
 
