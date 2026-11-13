@@ -8,6 +8,7 @@ import {
   edgeMatchers,
   health,
   watchlogComponents,
+  withCompose,
 } from '../src/modules/servicemap/graph.js';
 import {
   TEST_VM_URL,
@@ -668,5 +669,74 @@ describe('edges', () => {
       dst_kind: 'internet',
     });
     expect(edgeMatchers('s:shop/cart', 'internet', null)).toBeNull();
+  });
+});
+
+describe('Docker: servers that never connect out sit in their Compose project', () => {
+  const flow = (labels: Record<string, string>) => ({
+    labels: { dst_port: '5432', ...labels },
+    points: [[0, 1]] as [number, number][],
+  });
+  const empty = {
+    connections: [],
+    failed: [],
+    latencySum: [],
+    latencyCount: [],
+    latencyP95: [],
+    bytes: [],
+    retransmits: [],
+  };
+
+  it('keeps the project a container has as a source when it is also a destination', () => {
+    // Measured on the e2e fleet: mongo connects to mongo-b, and mongo-b to mongo.
+    const g = buildGraph({
+      ...empty,
+      seen: [
+        flow({
+          compose_project: 'mongodb-e2e',
+          compose_service: 'mongo',
+          container: 'mongodb-e2e-mongo-1',
+          dst_kind: 'container',
+          dst: 'mongodb-e2e-mongo-b-1',
+        }),
+        flow({
+          compose_project: 'mongodb-e2e',
+          compose_service: 'mongo-b',
+          container: 'mongodb-e2e-mongo-b-1',
+          dst_kind: 'container',
+          dst: 'mongodb-e2e-mongo-1',
+        }),
+      ],
+    });
+    expect(g.nodes.map((n) => [n.id, n.name, n.namespace])).toEqual([
+      ['c:mongodb-e2e-mongo-1', 'mongo', 'mongodb-e2e'],
+      ['c:mongodb-e2e-mongo-b-1', 'mongo-b', 'mongodb-e2e'],
+    ]);
+  });
+
+  it('a container only reached takes its project and service from the container list', () => {
+    const g = buildGraph({
+      ...empty,
+      seen: [
+        flow({
+          compose_project: 'storefront',
+          compose_service: 'orders',
+          container: 'storefront-orders-1',
+          dst_kind: 'container',
+          dst: 'storefront-db-1',
+        }),
+        flow({ container: 'cool_lewin', dst_kind: 'container', dst: 'pg-standalone' }),
+      ],
+    });
+    const nodes = withCompose(g.nodes, [
+      { name: 'storefront-db-1', project: 'storefront', service: 'db' },
+      { name: 'pg-standalone', project: null, service: null },
+    ]);
+    expect(nodes.map((n) => [n.id, n.name, n.namespace])).toEqual([
+      ['c:cool_lewin', 'cool_lewin', null],
+      ['c:pg-standalone', 'pg-standalone', null],
+      ['c:storefront-db-1', 'db', 'storefront'],
+      ['c:storefront-orders-1', 'orders', 'storefront'],
+    ]);
   });
 });
