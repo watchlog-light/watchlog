@@ -18,6 +18,10 @@ const SYSTEM_DB: Record<string, string> = {
   'alert-worker.ts': 'wiring: the worker lists orgs and runs the outbox and token jobs',
   'modules/alerts/worker.ts': 'lists the orgs and prunes history across them',
   'modules/auth/routes.ts': 'sign-in, before the org is known',
+  'modules/accounts/routes.ts':
+    "Cloud accounts: signup, OAuth, 2FA, the user's sessions and orgs, joining from an invite",
+  'modules/accounts/service.ts': 'Cloud signup creates the user and their org',
+  'modules/cloud/routes.ts': 'wiring: hands systemDb to the Cloud account routes',
   'modules/demo/routes.ts': 'the demo sign-in, before the org is known',
   'modules/setup/routes.ts': 'first-run setup, before any org exists',
   'modules/users/routes.ts': 'invite and password-reset links, signed out',

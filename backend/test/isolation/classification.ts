@@ -36,6 +36,7 @@ const pub: RouteClass = { kind: 'public' };
 const installation: RouteClass = { kind: 'installation' };
 const ingest: RouteClass = { kind: 'ingest' };
 const mcp: RouteClass = { kind: 'mcp' };
+const cloud: RouteClass = { kind: 'cloud' };
 
 export const ROUTES: Record<string, RouteClass> = {
   'GET /api/v1/health': pub,
@@ -51,6 +52,28 @@ export const ROUTES: Record<string, RouteClass> = {
   'POST /api/v1/invites/:token/accept': pub,
   'GET /api/v1/password-resets/:token': pub,
   'POST /api/v1/password-resets/:token': pub,
+
+  // Cloud accounts (ADR-175). Called as B with A's ids in the sweep; the cross-org cases
+  // (switching to A's org, revoking A's session) are asserted in cross-org.test.ts.
+  'GET /api/v1/auth/config': cloud,
+  'POST /api/v1/auth/signup': cloud,
+  'POST /api/v1/auth/verify-email': cloud,
+  'POST /api/v1/auth/verify-email/resend': cloud,
+  'GET /api/v1/auth/account': cloud,
+  'POST /api/v1/auth/2fa/setup': cloud,
+  'POST /api/v1/auth/2fa/enable': cloud,
+  'POST /api/v1/auth/2fa/disable': cloud,
+  'POST /api/v1/auth/2fa/recovery-codes': cloud,
+  'POST /api/v1/auth/2fa/verify': cloud,
+  'GET /api/v1/auth/sessions': cloud,
+  'DELETE /api/v1/auth/sessions/:id': cloud,
+  'DELETE /api/v1/auth/sessions': cloud,
+  'GET /api/v1/orgs': cloud,
+  'POST /api/v1/orgs/:id/switch': cloud,
+  'POST /api/v1/invites/:token/join': cloud,
+  'GET /api/v1/auth/oauth/:provider/start': cloud,
+  'GET /api/v1/auth/oauth/:provider/callback': cloud,
+  'DELETE /api/v1/auth/identities/:provider': cloud,
 
   'GET /api/v1/clusters': org,
   'POST /api/v1/clusters': org,

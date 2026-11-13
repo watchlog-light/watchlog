@@ -13,7 +13,18 @@ import {
   registerCloudOnly,
   registerCommunityOnlyGuard,
 } from '../../src/plugins/edition.js';
-import { closeTestContext, createTestContext, setupAdmin, type TestContext } from '../helpers.js';
+import { inject } from 'vitest';
+import { buildApp } from '../../src/app.js';
+import { createDb } from '../../src/db/index.js';
+import { SetupState } from '../../src/modules/setup/service.js';
+import {
+  closeTestContext,
+  createTestContext,
+  setupAdmin,
+  TEST_SETUP_CODE,
+  testConfig,
+  type TestContext,
+} from '../helpers.js';
 
 let ctx: TestContext;
 const routes: RouteOptions[] = [];
@@ -63,6 +74,45 @@ describe('Community (WATCHLOG_EDITION unset)', () => {
       }
     }
     expect(routes.filter(isCloudOnly).map((r) => r.url)).toEqual([]);
+  });
+
+  it('answers 404 for every route a Cloud app registers as Cloud-only', async () => {
+    // The Cloud app's own route table, so a new Cloud route is covered without a list.
+    const db = createDb(inject('databaseUrl'));
+    const cloudRoutes: RouteOptions[] = [];
+    const cloud = await buildApp(testConfig({ edition: 'cloud' }), {
+      db,
+      setup: new SetupState(() => TEST_SETUP_CODE),
+      onRoute: (r) => void cloudRoutes.push(r),
+      fetch: async () => {
+        throw new Error('offline in tests');
+      },
+    });
+    await cloud.ready();
+    await cloud.close();
+    await db.destroy();
+    const only = cloudRoutes.filter(isCloudOnly).flatMap((r) =>
+      [r.method]
+        .flat()
+        .filter((m) => m !== 'HEAD')
+        .map((m) => ({ method: m, url: r.url })),
+    );
+    expect(only.length).toBeGreaterThanOrEqual(19);
+    for (const { method, url } of only) {
+      const path = url
+        .replace(':id', '00000000-0000-4000-8000-000000000000')
+        .replace(':token', 'x'.repeat(43))
+        .replace(':provider', 'github');
+      for (const cookies of [{} as Record<string, string>, { wl_session: cookie }]) {
+        const res = await ctx.app.inject({
+          method: method as 'GET',
+          url: path,
+          cookies,
+          ...(method === 'GET' || method === 'DELETE' ? {} : { payload: {} }),
+        });
+        expect(res.statusCode, `${method} ${path}`).toBe(404);
+      }
+    }
   });
 
   it("keeps the installation's settings (Cloud-only 404s don't apply)", async () => {

@@ -65,6 +65,9 @@ function pathFor(route: string, o: SeededOrg): string {
     .replace('/applications/:id', `/applications/${o.serviceId}`)
     .replace('/api-tokens/:id', `/api-tokens/${o.apiToken.id}`)
     .replace('/users/invites/:id', `/users/invites/${o.inviteId}`)
+    .replace('/orgs/:id', `/orgs/${o.orgId}`)
+    .replace('/auth/sessions/:id', `/auth/sessions/${o.kept.id}`)
+    .replace(':provider', 'github')
     .replace('/users/:id', `/users/${o.viewerId}`)
     .replace(':token', unknownLinkToken())
     .replace(':requestId', '00000000-0000-4000-8000-000000000000');
@@ -502,6 +505,44 @@ describe('Row-Level Security (the second layer)', () => {
       ).rejects.toThrow();
     } finally {
       await client.end();
+    }
+  });
+});
+
+// ------------------------------------------------------------------------------- accounts
+
+describe('Cloud accounts across orgs (ADR-175)', () => {
+  const as = async (o: SeededOrg, method: 'GET' | 'POST' | 'DELETE', url: string) =>
+    w.app.inject({ method, url, cookies: { wl_session: await o.session() } });
+
+  it("B can't switch to A's org: 404, and B's session stays in B", async () => {
+    const res = await as(B, 'POST', `/api/v1/orgs/${A.orgId}/switch`);
+    expect(res.statusCode).toBe(404);
+    expect(leaks(res.body, A.orgId)).toEqual([]);
+    const orgs = await as(B, 'GET', '/api/v1/orgs');
+    expect(orgs.statusCode).toBe(200);
+    expect(orgs.json().orgs.map((o: { id: string }) => o.id)).toEqual([B.orgId]);
+    expect(leaks(orgs.body)).toEqual([]);
+  });
+
+  it("B can't revoke A's session: 404, and A's session still works", async () => {
+    const res = await as(B, 'DELETE', `/api/v1/auth/sessions/${A.kept.id}`);
+    expect(res.statusCode).toBe(404);
+    const me = await w.app.inject({
+      method: 'GET',
+      url: '/api/v1/me',
+      cookies: { wl_session: A.kept.token },
+    });
+    expect(me.statusCode).toBe(200);
+    expect(me.json().user.org.id).toBe(A.orgId);
+  });
+
+  it("B's session list and account show nothing of A", async () => {
+    for (const url of ['/api/v1/auth/sessions', '/api/v1/auth/account']) {
+      const res = await as(B, 'GET', url);
+      expect(res.statusCode, url).toBe(200);
+      expect(leaks(res.body), url).toEqual([]);
+      expect(res.body).not.toContain(A.kept.id);
     }
   });
 });

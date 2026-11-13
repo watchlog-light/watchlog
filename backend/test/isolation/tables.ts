@@ -6,6 +6,10 @@ export const GLOBAL_TABLES = [
   'users',
   'sessions',
   'password_resets',
+  // Cloud accounts (ADR-175): a user's sign-in methods, verification links and 2FA codes.
+  'user_identities',
+  'email_tokens',
+  'recovery_codes',
   // The installation's settings (ADR-093); in Cloud the operator's, their routes 404.
   'server_settings',
   // The secret key's canary (ADR-133).

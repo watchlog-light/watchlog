@@ -45,7 +45,10 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
 export async function createTestContext(
   overrides: Partial<Config> = {},
   deps: Partial<
-    Pick<AppDeps, 'ingestBuckets' | 'onRoute' | 'seed' | 'logStream' | 'causes' | 'serviceReads'>
+    Pick<
+      AppDeps,
+      'ingestBuckets' | 'onRoute' | 'seed' | 'logStream' | 'causes' | 'serviceReads' | 'fetch'
+    >
   > = {},
 ): Promise<TestContext> {
   const db = createDb(inject('databaseUrl'));

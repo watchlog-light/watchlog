@@ -94,6 +94,9 @@ export async function cloudWorld(): Promise<CloudWorld> {
       db: appDb,
       systemDb: owner,
       setup,
+      // Turnstile is off (no secret) and the breached-password check is skipped: the suite
+      // never reaches an outside service.
+      fetch: offlineFetch,
       onRoute: (r) => {
         for (const m of [r.method].flat()) {
           if (m !== 'HEAD') routes.push({ key: `${m} ${r.url}`, opts: r });
@@ -140,6 +143,11 @@ function remapUids(text: string, map: Map<string, string>): string {
   );
 }
 
+/** A `fetch` that never reaches the network (Cloud's outbound checks fail closed or skip). */
+export const offlineFetch: typeof fetch = async () => {
+  throw new Error('offline in tests');
+};
+
 export interface SeededOrg {
   label: 'zzalpha' | 'zzbeta';
   orgId: string;
@@ -147,6 +155,8 @@ export interface SeededOrg {
   viewerId: string;
   /** A fresh session of the org's Owner (signing out in the sweep ends earlier ones). */
   session(): Promise<string>;
+  /** One more session of the Owner, kept: its id (Cloud's session routes) and token. */
+  kept: { id: string; token: string };
   k8s: { id: string; token: string; tokenId: string };
   docker: { id: string; token: string };
   node: string;
@@ -237,6 +247,17 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     ])
     .execute();
   const session = async () => (await createSession(owner, ownerId)).token;
+  const keptToken = (await createSession(owner, ownerId)).token;
+  const kept = {
+    token: keptToken,
+    id: (
+      await owner
+        .selectFrom('sessions')
+        .select('id')
+        .where('token_hash', '=', sha256(keptToken))
+        .executeTakeFirstOrThrow()
+    ).id,
+  };
   const cookie = await session();
   const api = async (method: string, url: string, payload?: object) => {
     const r = await app.inject({
@@ -515,6 +536,7 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     ownerId,
     viewerId,
     session,
+    kept,
     k8s,
     docker,
     node,
