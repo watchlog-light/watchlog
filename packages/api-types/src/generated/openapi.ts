@@ -3298,6 +3298,106 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/clusters/{id}/search': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Search a cluster by name
+     * @description The ⌘K palette's search (ADR-169): workloads, pods and nodes of a Kubernetes cluster; hosts, containers and Compose projects of a Docker fleet; applications on both. Case-insensitive; a word matches when its letters appear in order in the name (with its namespace, Compose project or type), or with one letter off for words of 4 to 32 letters. The exact name first, then names starting with the query, then names containing it, then the rest. At most 8 per kind.
+     */
+    get: {
+      parameters: {
+        query: {
+          /** @description What to look for */
+          q: string;
+          /** @description At most this many results (default and maximum 40) */
+          limit?: number;
+        };
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              query: string;
+              results: {
+                kind:
+                  | 'workload'
+                  | 'pod'
+                  | 'node'
+                  | 'host'
+                  | 'container'
+                  | 'compose_project'
+                  | 'application';
+                name: string;
+                /** @description Kubernetes namespace; the Compose project of a Docker container */
+                namespace: string | null;
+                /** @description Docker host of a container or a Compose project (its first host) */
+                host: string | null;
+                /** @description The workload's kind (Deployment, …) or the application's type (redis, …) */
+                type: string | null;
+                /** @description The application's id */
+                id: string | null;
+                /** @description exact, prefix (the name starts with the query), substring, path (namespace or host and name), letters (in order), typo (one letter off) */
+                match: 'exact' | 'prefix' | 'substring' | 'path' | 'letters' | 'typo';
+              }[];
+              truncated: boolean;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/clusters/{id}/overview': {
     parameters: {
       query?: never;

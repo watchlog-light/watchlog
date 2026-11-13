@@ -191,3 +191,6 @@ export type PossibleCause = NonNullable<OverviewProblem['possibleCauses']>[numbe
 export type RightSizing = JsonBody<Responses<'/api/v1/clusters/{id}/right-sizing', 'get'>[200]>;
 export type RightSizingHint = RightSizing['hints'][number];
 export type RightSizingShort = RightSizing['notEnoughHistory'][number];
+// The ⌘K palette's search (ADR-169).
+export type SearchResponse = JsonBody<Responses<'/api/v1/clusters/{id}/search', 'get'>[200]>;
+export type SearchResult = SearchResponse['results'][number];

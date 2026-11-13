@@ -44,6 +44,7 @@ const ALLOWED = [
   'GET /api/v1/clusters/:id/pods/:namespace/:name',
   'GET /api/v1/clusters/:id/pods/:namespace/:name/logs',
   'GET /api/v1/clusters/:id/right-sizing',
+  'GET /api/v1/clusters/:id/search',
   'GET /api/v1/clusters/:id/service-map',
   'GET /api/v1/clusters/:id/service-map/edge',
   'GET /api/v1/clusters/:id/workloads',

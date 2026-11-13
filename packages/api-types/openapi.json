@@ -9045,6 +9045,240 @@
         }
       }
     },
+    "/api/v1/clusters/{id}/search": {
+      "get": {
+        "summary": "Search a cluster by name",
+        "tags": ["search", "public"],
+        "description": "The ⌘K palette's search (ADR-169): workloads, pods and nodes of a Kubernetes cluster; hosts, containers and Compose projects of a Docker fleet; applications on both. Case-insensitive; a word matches when its letters appear in order in the name (with its namespace, Compose project or type), or with one letter off for words of 4 to 32 letters. The exact name first, then names starting with the query, then names containing it, then the rest. At most 8 per kind.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "description": "What to look for"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 40
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "At most this many results (default and maximum 40)"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["query", "results", "truncated"],
+                  "properties": {
+                    "query": {
+                      "type": "string"
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["kind", "name", "namespace", "host", "type", "id", "match"],
+                        "properties": {
+                          "kind": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["workload"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["pod"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["node"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["host"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["container"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["compose_project"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["application"]
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "namespace": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Kubernetes namespace; the Compose project of a Docker container"
+                          },
+                          "host": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Docker host of a container or a Compose project (its first host)"
+                          },
+                          "type": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "The workload's kind (Deployment, …) or the application's type (redis, …)"
+                          },
+                          "id": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "The application's id"
+                          },
+                          "match": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["exact"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["prefix"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["substring"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["path"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["letters"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["typo"]
+                              }
+                            ],
+                            "description": "exact, prefix (the name starts with the query), substring, path (namespace or host and name), letters (in order), typo (one letter off)"
+                          }
+                        }
+                      }
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/clusters/{id}/overview": {
       "get": {
         "summary": "Overview: status, KPIs, resources, problems, changes, events, nodes (SPEC §4.1)",

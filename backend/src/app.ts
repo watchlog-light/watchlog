@@ -52,6 +52,7 @@ import { LogBroker } from './modules/logs/broker.js';
 import { logsRoutes } from './modules/logs/routes.js';
 import { rightSizingRoutes } from './modules/rightsizing/routes.js';
 import { RightSizingService } from './modules/rightsizing/service.js';
+import { searchRoutes } from './modules/search/routes.js';
 import { userRoutes } from './modules/users/routes.js';
 import { SettingsService } from './modules/settings/service.js';
 import type { BucketSpec } from './modules/ingest/rate-limit.js';
@@ -196,6 +197,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(kubernetesRoutes, { db: deps.db, victoria, settings });
       await api.register(logsRoutes, { db: deps.db, settings, broker: logBroker });
       await api.register(rightSizingRoutes, { db: deps.db, rightSizing });
+      await api.register(searchRoutes, { db: deps.db });
       await api.register(overviewRoutes, { db: deps.db, victoria, settings, causes });
       await api.register(serviceMapRoutes, { db: deps.db, victoria, config, settings });
       await api.register(alertRoutes, {
