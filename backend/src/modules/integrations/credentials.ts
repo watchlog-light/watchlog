@@ -56,6 +56,7 @@ export function generatePassword(): string {
 /** Types whose access is a user (the others need nothing, ADR-134). */
 export const USER_TYPES: ReadonlySet<IntegrationType> = new Set([
   'postgres',
+  'mysql',
   'redis',
   'mongodb',
   'elasticsearch',
@@ -97,10 +98,35 @@ function createUser(type: IntegrationType, user: string, password: string): stri
         `'+memory|usage'`,
         '+scan',
       ];
+    case 'mysql':
+      // One form for MySQL and MariaDB (ADR-163): the shell picks the client the image
+      // has (MariaDB 11 has no `mysql`), `-p` asks for root's password, and `/*M!…*/`
+      // grants REPLICA MONITOR only on MariaDB, which needs it for SHOW REPLICA STATUS.
+      // Backticks and double quotes keep the SQL inside one single-quoted argument.
+      return [
+        'sh',
+        '-c',
+        `'exec "$(command -v mariadb || command -v mysql)" -uroot -p -e "$0"'`,
+        `'${mysqlGrants(user, password)}'`,
+      ];
     default:
       return null;
   }
 }
+
+/** The statements that create MySQL's or MariaDB's monitoring user (ADR-163). */
+export function mysqlGrants(user: string, password: string): string {
+  const u = `\`${user}\`@\`%\``;
+  return [
+    `CREATE USER ${u} IDENTIFIED BY "${password}" WITH MAX_USER_CONNECTIONS 2`,
+    `GRANT PROCESS, REPLICATION CLIENT /*M!100509 , SLAVE MONITOR */ ON *.* TO ${u}`,
+    `GRANT SELECT ON performance_schema.* TO ${u}`,
+    `GRANT SELECT ON mysql.innodb_table_stats TO ${u}`,
+  ].join('; ');
+}
+
+/** Types whose command asks for a password at the terminal (`exec -it`). */
+const INTERACTIVE: ReadonlySet<IntegrationType> = new Set(['mysql']);
 
 /**
  * The one-time command that creates WatchLog's user (option a), with the names the
@@ -116,14 +142,17 @@ export function connectCommand(
   const stmt = createUser(type, opts.user ?? DEFAULT_USER, password);
   if (!stmt) return null;
   const line = stmt.join(' ');
+  const it = INTERACTIVE.has(type) ? '-it ' : '';
   switch (target.kind) {
     case 'workload':
-      return `kubectl exec -n ${target.namespace} ${target.workload_kind.toLowerCase()}/${target.workload} -- ${line}`;
+      return `kubectl exec ${it}-n ${target.namespace} ${target.workload_kind.toLowerCase()}/${target.workload} -- ${line}`;
     case 'compose':
     case 'container':
-      return `docker exec ${opts.container ?? (target.kind === 'container' ? target.container : `${target.compose_project}-${target.compose_service}-1`)} ${line}`;
+      return `docker exec ${it}${opts.container ?? (target.kind === 'container' ? target.container : `${target.compose_project}-${target.compose_service}-1`)} ${line}`;
     case 'address':
-      return line;
+      return type === 'mysql'
+        ? `mysql -uroot -p -e '${mysqlGrants(opts.user ?? DEFAULT_USER, password)}'`
+        : line;
   }
 }
 

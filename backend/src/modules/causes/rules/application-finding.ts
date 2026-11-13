@@ -5,8 +5,8 @@
 //     object the finding names when it names one (`linksOf`; the engine gathers that object
 //     and `throughLink` puts the finding in front): RabbitMQ's lost consumer leads on to the
 //     consumer's own cause ("orders has no consumers → consumer is OOM-killed at its limit"),
-//     PostgreSQL's connections near max_connections to the client holding most of them and
-//     when it started. Without such an object the finding alone is a partial chain: it says
+//     PostgreSQL's and MySQL's connections near max_connections to the client holding most of
+//     them and when it started, MySQL's lock waits to the session holding the lock (ADR-163). Without such an object the finding alone is a partial chain: it says
 //     what is wrong, not why (possible at best).
 //   - the far end of an edge (`ev.via`): the caller's calls fail or are slow, and the
 //     application monitoring what it calls has a finding ("api is slow → PostgreSQL's
@@ -45,7 +45,7 @@ export interface Link {
   target:
     | { kind: 'workload'; namespace: string; name: string; workloadKind: string | null }
     | { kind: 'container'; name: string };
-  /** PostgreSQL: the connections it holds. */
+  /** PostgreSQL and MySQL: the connections it holds. */
   n: number | null;
 }
 
@@ -83,6 +83,11 @@ export function linksOf(ev: Evidence): Link[] {
       },
     ];
   }
+  // MySQL's lock waits name the holder's workload ("ns/name") or container (ADR-163).
+  if (f.code === 'lock_waits' && typeof f.facts.holder === 'string' && f.facts.holder) {
+    if (ev.platform === 'kubernetes' && !f.facts.holder.includes('/')) return [];
+    return [holderLink(ev, f.code, f.facts.holder, null)];
+  }
   if (f.code === 'connections_near_max' && typeof f.facts.top === 'string') {
     const m = HOLDER.exec(f.facts.top);
     if (!m || IP.test(m[1]!)) return [];
@@ -106,6 +111,21 @@ export function linksOf(ev: Evidence): Link[] {
     ];
   }
   return [];
+}
+
+/** A workload ("ns/name", its kind unknown) on Kubernetes, a container on Docker. */
+function holderLink(ev: Evidence, finding: string, who: string, n: number | null): Link {
+  if (ev.platform === 'kubernetes') {
+    const [namespace, ...rest] = who.split('/');
+    return {
+      key: `holder:${who}`,
+      finding,
+      name: who,
+      target: { kind: 'workload', namespace: namespace!, name: rest.join('/'), workloadKind: null },
+      n,
+    };
+  }
+  return { key: `c:${who}`, finding, name: who, target: { kind: 'container', name: who }, n };
 }
 
 const appObject = (ev: Evidence, a: EvApplication): ObjectRef => ({
@@ -138,6 +158,17 @@ export function findingStep(ev: Evidence, a: EvApplication, f: Finding, next: St
       code: 'pg_connections',
       facts: { pct: num(f.facts.pct), n: num(f.facts.n), max: num(f.facts.max) },
       since: null,
+    };
+  if (f.code === 'lock_waits' && typeof f.facts.holder === 'string')
+    return {
+      ...base,
+      code: 'lock_waits',
+      facts: {
+        n: num(f.facts.n),
+        table: typeof f.facts.table === 'string' ? f.facts.table : null,
+        duration: typeof f.facts.duration === 'string' ? f.facts.duration : null,
+      },
+      since: iso(num(f.facts.sinceAt)),
     };
   return {
     ...base,
@@ -214,6 +245,33 @@ export function throughLink(
             : own?.rule === 'bad_change'
               ? { code: 'app_consumer_change', facts: { queue, consumer: link.name } }
               : { code: 'app_consumer_ended', facts: { queue, consumer: link.name, how } },
+    };
+  }
+  if (f.code === 'lock_waits') {
+    if (far.gone) return null;
+    const first = findingStep(ev, a, f, 'because');
+    const table = typeof f.facts.table === 'string' && f.facts.table ? f.facts.table : null;
+    const held = typeof f.facts.held === 'string' ? f.facts.held : null;
+    return {
+      ...base,
+      facts: { name: a.name, finding: f.code, holder: link.name, table, held },
+      since: first.since,
+      chain: [
+        first,
+        {
+          object,
+          source: 'application',
+          code: 'holds_lock',
+          facts: { held, table },
+          at: null,
+          since: first.since,
+          next: null,
+        },
+      ],
+      headline: {
+        code: table ? 'app_lock_held' : 'app_lock_held_any',
+        facts: { name: a.name, holder: link.name, table, held },
+      },
     };
   }
   if (f.code === 'connections_near_max') {

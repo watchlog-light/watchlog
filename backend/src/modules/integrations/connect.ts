@@ -143,6 +143,7 @@ const ProbeBody = Type.Object(
       Type.Literal('postgres'),
       Type.Literal('nginx'),
       Type.Literal('rabbitmq'),
+      Type.Literal('mysql'),
       Type.Literal('mongodb'),
       Type.Literal('elasticsearch'),
     ]),

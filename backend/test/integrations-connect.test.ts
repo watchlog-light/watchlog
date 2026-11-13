@@ -69,6 +69,15 @@ describe('sealed access', () => {
       `docker exec shop-cache-1 redis-cli ACL SETUSER watchlog reset on '>${pw}' '~*' +info +ping +slowlog +latency '+config|get' '+client|list' '+memory|stats' '+memory|usage' +scan`,
     );
     expect(connectCommand('nginx', compose, pw)).toBeNull();
+    // MySQL and MariaDB (ADR-163): one form, root's password asked at the prompt; the
+    // statements as tested on MySQL 8.4 and MariaDB 11.4.
+    const grants = `CREATE USER \`watchlog\`@\`%\` IDENTIFIED BY "${pw}" WITH MAX_USER_CONNECTIONS 2; GRANT PROCESS, REPLICATION CLIENT /*M!100509 , SLAVE MONITOR */ ON *.* TO \`watchlog\`@\`%\`; GRANT SELECT ON performance_schema.* TO \`watchlog\`@\`%\`; GRANT SELECT ON mysql.innodb_table_stats TO \`watchlog\`@\`%\``;
+    expect(connectCommand('mysql', { ...sts, workload: 'mysql', port: 3306 }, pw)).toBe(
+      `kubectl exec -it -n shop statefulset/mysql -- sh -c 'exec "$(command -v mariadb || command -v mysql)" -uroot -p -e "$0"' '${grants}'`,
+    );
+    expect(connectCommand('mysql', { kind: 'address', address: 'db:3306' }, pw)).toBe(
+      `mysql -uroot -p -e '${grants}'`,
+    );
   });
 });
 

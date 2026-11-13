@@ -50,6 +50,16 @@ export const SERVICE_KINDS: ServiceKind[] = [
     available: true,
   },
   {
+    // MySQL, MariaDB and Percona Server; the Oracle operator's server image is
+    // mysql/community-server (ADR-163).
+    type: 'mysql',
+    image:
+      /(^|\/)(mysql|mysql-server|community-server|enterprise-server|mariadb|percona|percona-server|mariadb-galera)$/,
+    not: /(exporter|router|operator|backup|sidecar|xtrabackup|maxscale|proxysql|adminer|phpmyadmin)/,
+    ports: [3306],
+    available: true,
+  },
+  {
     type: 'mongodb',
     image: /(^|\/)(mongo|mongodb|mongodb-community-server)$/,
     not: /(exporter|express|operator)/,
@@ -81,6 +91,7 @@ export function imagePath(ref: string): string {
 export function productOfImage(ref: string): string | null {
   const path = imagePath(ref);
   if (/(^|\/)valkey$/.test(path)) return 'valkey';
+  if (/(^|\/)(mariadb|mariadb-galera)$/.test(path)) return 'mariadb';
   if (/(^|\/)(ingress-nginx\/controller|nginx-ingress-controller)$/.test(path))
     return 'ingress-nginx';
   return null;

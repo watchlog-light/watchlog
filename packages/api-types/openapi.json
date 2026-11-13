@@ -2659,6 +2659,46 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["mysql.connections"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.connections.ratio"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.queries.rate"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.slow_queries.rate"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.buffer_pool_hit.ratio"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.query.longest"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.replication.lag"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.replication.stopped"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.deadlocks.rate"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.lock_waits"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["rabbitmq.messages.ready"]
                       },
                       {
@@ -19391,6 +19431,10 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["mysql"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["mongodb"]
                       },
                       {
@@ -20968,6 +21012,10 @@
                 {
                   "type": "string",
                   "enum": ["rabbitmq"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["mysql"]
                 },
                 {
                   "type": "string",
@@ -23677,6 +23725,10 @@
                       {
                         "type": "string",
                         "enum": ["rabbitmq"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql"]
                       },
                       {
                         "type": "string",

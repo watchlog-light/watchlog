@@ -11,6 +11,7 @@ export const INTEGRATION_TYPES = [
   'postgres',
   'nginx',
   'rabbitmq',
+  'mysql',
   'mongodb',
   'elasticsearch',
 ] as const;

@@ -151,7 +151,7 @@ export function metricRule(spec: MetricSpec): RuleEvaluator {
   };
 }
 
-const pct = (v: number) => `${Math.round(v * 100)} %`;
+const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 /** One alert per source and destination of failing connections. */
 function flowScope(l: Record<string, string>) {

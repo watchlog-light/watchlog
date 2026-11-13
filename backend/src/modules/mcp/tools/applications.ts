@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // list_applications and get_application (SPEC §4.12, ADR-135): the services WatchLog
-// monitors (Redis, PostgreSQL, Nginx, RabbitMQ…), their health with its reasons, and
+// monitors (Redis, PostgreSQL, MySQL, Nginx, RabbitMQ…), their health with its reasons, and
 // who connects to them, on Kubernetes clusters and Docker fleets.
 import { Type } from 'typebox';
 import { clusterField, resolveCluster, type ClusterRef } from '../clusters.js';
@@ -71,19 +71,32 @@ const INTEGRATION_SENTENCES: Record<string, string> = {
   long_query: 'A client query has been running longer than 5 minutes (facts.duration).',
   idle_in_transaction:
     'Sessions are idle inside a transaction (facts.n, the longest facts.duration): they hold locks and block vacuum.',
-  lock_waits: 'Sessions are waiting for locks (facts.n); facts.who holds them.',
+  lock_waits:
+    "Sessions are waiting for locks (facts.n); facts.who holds them. MySQL also gives facts.table, how long the worst one waited (facts.duration), how long the holder's transaction has been open (facts.held) and facts.holder, its workload or container.",
   deadlocks: 'Deadlocks happened in the last 15 minutes (facts.n).',
   replica_lag: 'A replica is behind its primary (facts.duration).',
   slot_retains_wal: 'An inactive replication slot (facts.slot) keeps WAL on disk (facts.size).',
   wraparound_risk:
     'Transaction ID age is high (facts.db, facts.n): at 2,000 M PostgreSQL stops accepting writes.',
-  cache_hit_low: 'Few reads come from shared buffers (facts.pct %).',
+  cache_hit_low: 'Few reads come from shared buffers (facts.pct%).',
   autovacuum_not_finishing:
     'Autovacuum is not finishing on some tables (facts.n, for example facts.table).',
   statements_unavailable: 'pg_stat_statements is not installed, so query statistics are missing.',
+  // MySQL and MariaDB (the codes above that PostgreSQL shares mean the same)
+  connections_refused:
+    'Connections were refused at max_connections (facts.n in 15 minutes, max facts.max).',
+  replica_stopped:
+    'Replication stopped on facts.member: its facts.thread thread is not running (facts.error).',
+  buffer_pool_hit_low: 'Few reads come from the InnoDB buffer pool (facts.pct%).',
+  tmp_disk_tables_high:
+    'Queries create temporary tables on disk (facts.perSec a second): sorts or GROUP BY that outgrow memory.',
+  performance_schema_off:
+    "performance_schema is off (MariaDB's default), so statement statistics are missing; performance_schema=ON and a restart turn it on.",
+  table_stats_unavailable:
+    "The user can't read mysql.innodb_table_stats, so table sizes are missing.",
   // Nginx
   errors_high:
-    'Requests answer 5xx (facts.pct %); facts.upstream sends most of them (facts.upstreamPct %), facts.rollout its last rollout.',
+    'Requests answer 5xx (facts.pct%); facts.upstream sends most of them (facts.upstreamPct%), facts.rollout its last rollout.',
   upstream_no_endpoints:
     'An upstream (facts.upstream) has no ready endpoint, so requests to it fail.',
   latency_high: 'The p95 response time is high (facts.p95).',
@@ -187,7 +200,7 @@ export const listApplicationsTool = defineTool({
   name: 'list_applications',
   title: 'List monitored services',
   description: describe(
-    'The services WatchLog monitors in a cluster or Docker fleet: databases, caches, queues and web servers (Redis, PostgreSQL, Nginx, RabbitMQ), problems first.',
+    'The services WatchLog monitors in a cluster or Docker fleet: databases, caches, queues and web servers (Redis, PostgreSQL, MySQL and MariaDB, Nginx, RabbitMQ), problems first.',
     "Each has its type, version, where it runs (namespace on Kubernetes; host and Compose project on Docker), health (ok, warning, critical, unknown) with a reason code, a sentence and facts, and how many of its members (pods or containers) the collector reaches. Pass `cluster` to see one cluster; leave it out to see every cluster the token can read. Use get_application for one service's reasons and who connects to it.",
     'Example question: "Is any of our databases unhealthy?"',
   ),
@@ -201,6 +214,7 @@ export const listApplicationsTool = defineTool({
             Type.Literal('postgres'),
             Type.Literal('nginx'),
             Type.Literal('rabbitmq'),
+            Type.Literal('mysql'),
             Type.Literal('mongodb'),
             Type.Literal('elasticsearch'),
           ],
@@ -245,7 +259,7 @@ export const getApplicationTool = defineTool({
   name: 'get_application',
   title: 'Get a monitored service',
   description: describe(
-    'One monitored service (Redis, PostgreSQL, Nginx, RabbitMQ…): its health, every reason WatchLog sees (most severe first, each with a code, a sentence, facts and the workloads or containers it points to), and the workloads or containers that connect to it over the last hour, with connection and failed-connect counts (from network flows; `connected.flows` is false when the agents report none).',
+    'One monitored service (Redis, PostgreSQL, MySQL, Nginx, RabbitMQ…): its health, every reason WatchLog sees (most severe first, each with a code, a sentence, facts and the workloads or containers it points to), and the workloads or containers that connect to it over the last hour, with connection and failed-connect counts (from network flows; `connected.flows` is false when the agents report none).',
     'Pass `name` as list_applications shows it ("shop/redis" on Kubernetes, "billing/postgres" for a Compose service, or a container name), or its id.',
     'Example question: "Why is payments/postgres critical, and which services use it?"',
   ),

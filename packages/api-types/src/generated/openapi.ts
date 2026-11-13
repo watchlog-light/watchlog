@@ -1264,6 +1264,16 @@ export interface paths {
               | 'postgres.deadlocks.rate'
               | 'postgres.database.size'
               | 'postgres.lock_waits'
+              | 'mysql.connections'
+              | 'mysql.connections.ratio'
+              | 'mysql.queries.rate'
+              | 'mysql.slow_queries.rate'
+              | 'mysql.buffer_pool_hit.ratio'
+              | 'mysql.query.longest'
+              | 'mysql.replication.lag'
+              | 'mysql.replication.stopped'
+              | 'mysql.deadlocks.rate'
+              | 'mysql.lock_waits'
               | 'rabbitmq.messages.ready'
               | 'rabbitmq.messages.unacked'
               | 'rabbitmq.publish.rate'
@@ -7041,7 +7051,8 @@ export interface paths {
           'application/json': {
             /** Format: uuid */
             clusterId: string;
-            type: 'redis' | 'postgres' | 'nginx' | 'rabbitmq' | 'mongodb' | 'elasticsearch';
+            type:
+              'redis' | 'postgres' | 'nginx' | 'rabbitmq' | 'mysql' | 'mongodb' | 'elasticsearch';
             target:
               | {
                   /** @enum {string} */
@@ -7650,7 +7661,7 @@ export interface paths {
     get: {
       parameters: {
         query: {
-          type: 'redis' | 'postgres' | 'nginx' | 'rabbitmq' | 'mongodb' | 'elasticsearch';
+          type: 'redis' | 'postgres' | 'nginx' | 'rabbitmq' | 'mysql' | 'mongodb' | 'elasticsearch';
         };
         header?: never;
         path?: never;
@@ -8518,7 +8529,8 @@ export interface paths {
           'application/json': {
             /** Format: uuid */
             clusterId: string;
-            type: 'redis' | 'postgres' | 'nginx' | 'rabbitmq' | 'mongodb' | 'elasticsearch';
+            type:
+              'redis' | 'postgres' | 'nginx' | 'rabbitmq' | 'mysql' | 'mongodb' | 'elasticsearch';
             target:
               | {
                   /** @enum {string} */

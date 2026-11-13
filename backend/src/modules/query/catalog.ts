@@ -495,6 +495,70 @@ const ENTRIES = {
     agg: 'max',
     expr: (s, _r, a) => `${a} by (service, service_type) (watchlog_postgres_lock_waits${s()})`,
   },
+  // MySQL and MariaDB (v0.5 slice 1, ADR-163): status variables and the process list, per
+  // member where a member can differ.
+  'mysql.connections': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, member) (watchlog_mysql_threads_connected${s()})`,
+  },
+  'mysql.connections.ratio': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, member) (watchlog_mysql_threads_connected${s()}) / on (service, service_type, member) (max by (service, service_type, member) (watchlog_mysql_setting${s('name="max_connections"')}) > 0)`,
+  },
+  'mysql.queries.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (service, service_type) (rate(watchlog_mysql_questions_total${s()}[${r}]))`,
+  },
+  'mysql.slow_queries.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (service, service_type) (rate(watchlog_mysql_slow_queries_total${s()}[${r}]))`,
+  },
+  'mysql.buffer_pool_hit.ratio': {
+    unit: 'ratio',
+    agg: 'avg',
+    expr: (s, r) =>
+      `1 - sum by (service, service_type) (rate(watchlog_mysql_buffer_pool_reads_total${s()}[${r}])) / (sum by (service, service_type) (rate(watchlog_mysql_buffer_pool_read_requests_total${s()}[${r}])) > 0)`,
+  },
+  /** The longest running statement of a client session (not replication threads). */
+  'mysql.query.longest': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, member) (watchlog_mysql_longest_query_seconds${s()})`,
+  },
+  'mysql.replication.lag': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, member) (watchlog_mysql_replica_lag_seconds${s()})`,
+  },
+  /** 1 on a replica whose IO or SQL thread isn't running. */
+  'mysql.replication.stopped': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, member) (1 - min by (service, service_type, member) (watchlog_mysql_replica_running${s()}))`,
+  },
+  'mysql.deadlocks.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (service, service_type) (rate(watchlog_mysql_deadlocks_total${s()}[${r}]))`,
+  },
+  'mysql.lock_waits': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type) (watchlog_mysql_row_lock_current_waits${s()})`,
+  },
   // RabbitMQ (v0.3 slice 11): the rabbitmq_prometheus series of every node.
   'rabbitmq.messages.ready': {
     unit: 'count',

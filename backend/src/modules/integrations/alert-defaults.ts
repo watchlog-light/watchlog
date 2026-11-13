@@ -43,7 +43,7 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
   redis: [
     {
       key: 'redis_memory_high',
-      name: 'Redis memory above 90 % of maxmemory',
+      name: 'Redis memory above 90% of maxmemory',
       metric: 'redis.memory.ratio',
       condition: { op: '>', value: 0.9 },
       forSeconds: 300,
@@ -82,7 +82,7 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
   postgres: [
     {
       key: 'postgres_connections_high',
-      name: 'PostgreSQL connections above 90 % of max_connections',
+      name: 'PostgreSQL connections above 90% of max_connections',
       metric: 'postgres.connections.ratio',
       condition: { op: '>', value: 0.9 },
       forSeconds: 300,
@@ -118,10 +118,49 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
       forSeconds: 0,
     },
   ],
+  mysql: [
+    {
+      key: 'mysql_connections_high',
+      name: 'MySQL connections above 90% of max_connections',
+      metric: 'mysql.connections.ratio',
+      condition: { op: '>', value: 0.9 },
+      forSeconds: 300,
+    },
+    {
+      key: 'mysql_long_query',
+      name: 'MySQL query running over 5 minutes',
+      metric: 'mysql.query.longest',
+      condition: { op: '>', value: 300 },
+      forSeconds: 0,
+      severity: 'critical',
+    },
+    {
+      key: 'mysql_replication_stopped',
+      name: 'MySQL replication stopped',
+      metric: 'mysql.replication.stopped',
+      condition: { op: '>', value: 0 },
+      forSeconds: 60,
+      severity: 'critical',
+    },
+    {
+      key: 'mysql_replication_lag',
+      name: 'MySQL replication lag above 30 s',
+      metric: 'mysql.replication.lag',
+      condition: { op: '>', value: 30 },
+      forSeconds: 120,
+    },
+    {
+      key: 'mysql_deadlocks',
+      name: 'MySQL deadlocks detected',
+      metric: 'mysql.deadlocks.rate',
+      condition: { op: '>', value: 0 },
+      forSeconds: 0,
+    },
+  ],
   nginx: [
     {
       key: 'nginx_5xx_high',
-      name: 'Nginx 5xx above 5 %',
+      name: 'Nginx 5xx above 5%',
       metric: 'nginx.5xx.ratio',
       condition: { op: '>', value: 0.05 },
       forSeconds: 300,

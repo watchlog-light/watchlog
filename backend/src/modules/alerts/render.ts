@@ -69,6 +69,7 @@ const SERVICE_NAMES: Record<string, string> = {
   postgres: 'PostgreSQL',
   nginx: 'Nginx',
   rabbitmq: 'RabbitMQ',
+  mysql: 'MySQL',
   mongodb: 'MongoDB',
   elasticsearch: 'Elasticsearch',
 };

@@ -13,6 +13,7 @@ export const SERVICE_METRIC_PREFIXES = [
   'postgres.',
   'nginx.',
   'rabbitmq.',
+  'mysql.',
 ] as const;
 export const isServiceMetric = (metric: string) =>
   SERVICE_METRIC_PREFIXES.some((p) => metric.startsWith(p));
@@ -29,7 +30,7 @@ export function conditionError(c: Condition, unit: string | null): string | null
     return 'Thresholds must be numbers';
   }
   if (unit === 'ratio' && (c.value < 0 || c.value > 10)) {
-    return 'A ratio threshold is between 0 and 1 (1 = 100 %)';
+    return 'A ratio threshold is between 0 and 1 (1 = 100%)';
   }
   if (c.critical !== undefined) {
     const ok = c.op === '>' ? c.critical > c.value : c.critical < c.value;

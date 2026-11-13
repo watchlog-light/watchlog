@@ -204,7 +204,7 @@ describe('metric rules: trigger and resolve', () => {
         fingerprint: 'node:worker-1',
         severity: 'warning',
         labels: { node: 'worker-1' },
-        details: { summary: 'CPU 95 %' },
+        details: { summary: 'CPU 95%' },
       },
     ]);
     await evaluate(20, 25);
@@ -233,7 +233,7 @@ describe('metric rules: trigger and resolve', () => {
         fingerprint: 'host:host-1:/',
         severity: 'warning',
         labels: { node: 'host-1', mount: '/' },
-        details: { summary: '/ 90 % used' },
+        details: { summary: '/ 90% used' },
       },
     ]);
     await evaluate(15, 16);
@@ -282,7 +282,7 @@ describe('metric rules: trigger and resolve', () => {
         state: 'firing',
         fingerprint: 'pvc:wl-test/data-db-0',
         labels: { namespace: 'wl-test', pvc: 'data-db-0' },
-        details: { summary: '90 % used' },
+        details: { summary: '90% used' },
       },
     ]);
     await evaluate(15, 16);
@@ -317,7 +317,7 @@ describe('metric rules: trigger and resolve', () => {
       {
         state: 'firing',
         fingerprint: 'pod:wl-test/Deployment/web:nginx',
-        details: { summary: 'nginx: throttled 40 % of the time' },
+        details: { summary: 'nginx: throttled 40% of the time' },
       },
     ]);
     await evaluate(25, 30);
@@ -422,7 +422,7 @@ describe('metric rules: trigger and resolve', () => {
         state: 'firing',
         fingerprint: 'docker:host-1/hot',
         labels: { node: 'host-1', container: 'hot' },
-        details: { summary: 'throttled 100 % of the time', value: 1 },
+        details: { summary: 'throttled 100% of the time', value: 1 },
       },
     ]);
     await evaluate(25, 30);

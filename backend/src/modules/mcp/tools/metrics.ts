@@ -20,6 +20,7 @@ const DOCKER_PREFIXES = [
   'postgres.',
   'nginx.',
   'rabbitmq.',
+  'mysql.',
 ];
 const KUBERNETES_PREFIXES = [
   'node.',
@@ -34,6 +35,7 @@ const KUBERNETES_PREFIXES = [
   'postgres.',
   'nginx.',
   'rabbitmq.',
+  'mysql.',
 ];
 
 const ScopeValue = (what: string) =>

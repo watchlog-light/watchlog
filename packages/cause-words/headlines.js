@@ -113,6 +113,10 @@ export const HEADLINES = {
     '{queue} is filling up because its consumer {consumer} fails since its last change.',
   app_pg_held:
     '{name} is at {pct}% of max_connections: {holder} holds one of them. | {name} is at {pct}% of max_connections: {holder} holds {n} of them.',
+  app_lock_held:
+    "{name}'s writes wait on a row lock in {table}: {holder} holds it, its transaction open for {held}.",
+  app_lock_held_any:
+    "{name}'s writes wait on a row lock: {holder} holds it, its transaction open for {held}.",
   app_finding_caller:
     "{name}'s calls to {app} fail or slow down, and WatchLog sees a problem on {app}.",
 };
