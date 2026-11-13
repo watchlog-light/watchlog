@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { Component } from 'vue';
+import type { Restriction } from '@/api/cloud';
 import { createRouter, createWebHistory, type Router, type RouteRecordRaw } from 'vue-router';
 import {
   Bell,
@@ -23,6 +24,12 @@ declare module 'vue-router' {
     charts?: boolean;
     /** The page exists for this kind of cluster only; the other kind goes to Overview. */
     kind?: ClusterKind;
+    /** Cloud only (ADR-175): Community sends it to sign-in, or home when signed in. */
+    cloud?: boolean;
+    /** Cloud: a public page that a signed-in user may open too (an invite, a verify link). */
+    anyone?: boolean;
+    /** Cloud: the page that lifts this gate; signed-in users without it go home. */
+    gate?: Restriction;
   }
 }
 
@@ -108,12 +115,46 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/LoginPage.vue'),
     meta: { titleKey: 'auth.login.title', public: true },
   },
-  // The links in invites and password resets (ADR-140): open without a session.
+  // Cloud (ADR-175): sign-up, the 2FA step, the verify link and the two gates. The backend's
+  // OAuth callback names /signin, /signin/2fa and /settings/security.
+  {
+    name: 'signup',
+    path: '/signup',
+    component: () => import('@/views/SignupPage.vue'),
+    meta: { titleKey: 'cloud.signup.title', public: true, cloud: true },
+  },
+  { path: '/signin', redirect: (to) => ({ name: 'login', query: to.query }) },
+  {
+    name: 'signin-2fa',
+    path: '/signin/2fa',
+    component: () => import('@/views/TwoFactorPage.vue'),
+    meta: { titleKey: 'cloud.mfa.title', public: true, cloud: true },
+  },
+  {
+    name: 'verify-email',
+    path: '/verify-email/:token',
+    component: () => import('@/views/VerifyEmailPage.vue'),
+    meta: { titleKey: 'cloud.verify.title', public: true, anyone: true, cloud: true },
+  },
+  {
+    name: 'verify-required',
+    path: '/verify-email',
+    component: () => import('@/views/VerifyRequiredPage.vue'),
+    meta: { titleKey: 'cloud.gate.verifyTitle', cloud: true, gate: 'email-verification-required' },
+  },
+  {
+    name: 'mfa-required',
+    path: '/setup-2fa',
+    component: () => import('@/views/MfaRequiredPage.vue'),
+    meta: { titleKey: 'cloud.gate.mfaTitle', cloud: true, gate: 'mfa-setup-required' },
+  },
+  // The links in invites and password resets (ADR-140): open without a session. In Cloud a
+  // signed-in user opens the invite too, to join with one click (ADR-175).
   {
     name: 'accept-invite',
     path: '/invite/:token',
     component: () => import('@/views/AcceptInvitePage.vue'),
-    meta: { titleKey: 'invite.title', public: true },
+    meta: { titleKey: 'invite.title', public: true, anyone: true },
   },
   {
     name: 'reset-password',
@@ -200,6 +241,11 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/ClusterSettingsPage.vue'),
         meta: { titleKey: 'clusters.detailTitle' },
       },
+      // Cloud: the OAuth callback's way back after linking GitHub or Google (ADR-175).
+      {
+        path: 'settings/security',
+        redirect: (to) => ({ name: 'settings', query: { ...to.query, tab: 'security' } }),
+      },
       {
         name: 'api-token',
         path: 'settings/api-tokens/:id',
@@ -220,12 +266,23 @@ export const routes: RouteRecordRaw[] = [
 export interface AuthState {
   readonly user: unknown;
   readonly setupRequired: boolean;
+  /** Cloud (ADR-175); absent or false in Community. */
+  readonly isCloud?: boolean;
+  /** Cloud: the gate the account must pass first. */
+  readonly restriction?: Restriction | null;
   ensureLoaded(): Promise<void>;
 }
 
+/** The page that lifts each Cloud gate. */
+export const GATE_ROUTE: Record<Restriction, string> = {
+  'mfa-setup-required': 'mfa-required',
+  'email-verification-required': 'verify-required',
+};
+
 /**
  * Sends visitors to first-run setup while it is required, to sign-in when they
- * have no session, and away from sign-in/setup once they are signed in.
+ * have no session, and away from sign-in/setup once they are signed in. Cloud: its pages
+ * exist only there, and a gated account sees only the page that lifts the gate.
  */
 export function installAuthGuard(router: Router, auth: () => AuthState): void {
   router.beforeEach(async (to) => {
@@ -237,11 +294,19 @@ export function installAuthGuard(router: Router, auth: () => AuthState): void {
       return to.name === 'login' ? true : { name: 'login', query: { redirect: to.fullPath } };
     }
     if (state.setupRequired) return to.name === 'setup' ? true : { name: 'setup' };
+    if (to.meta.cloud && !state.isCloud) return state.user ? { path: '/' } : { name: 'login' };
     if (to.name === 'setup') return state.user ? { path: '/' } : { name: 'login' };
-    if (to.meta.public) return state.user ? { path: '/' } : true;
+    if (to.meta.public) {
+      return state.user && !(to.meta.anyone && state.isCloud) ? { path: '/' } : true;
+    }
     if (!state.user) {
       return { name: 'login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } };
     }
+    if (state.restriction) {
+      const gate = GATE_ROUTE[state.restriction];
+      return to.name === gate ? true : { name: gate };
+    }
+    if (to.meta.gate) return { path: '/' };
     return true;
   });
 }
@@ -262,7 +327,7 @@ export interface ClusterState {
  */
 export function installClusterGuard(router: Router, clusters: () => ClusterState): void {
   router.beforeEach(async (to) => {
-    if (to.meta.public || to.name === 'not-found') return true;
+    if (to.meta.public || to.meta.gate || to.name === 'not-found') return true;
     const c = clusters();
     try {
       await c.ensure();

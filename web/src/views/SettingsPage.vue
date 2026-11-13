@@ -8,17 +8,24 @@ import ClusterList from '@/components/clusters/ClusterList.vue';
 import ApiTokens from '@/components/settings/ApiTokens.vue';
 import GeneralSettings from '@/components/settings/GeneralSettings.vue';
 import LogsAccess from '@/components/settings/LogsAccess.vue';
+import SecuritySettings from '@/components/settings/SecuritySettings.vue';
 import SystemNamespaces from '@/components/settings/SystemNamespaces.vue';
+import { useAuthStore } from '@/stores/auth';
 
 // Settings (alerts redesign): clusters, alert channels with the email server and
 // Telegram, general settings (the public address and the system namespaces) and the
-// user's API tokens (ADR-125). ?tab= keeps the view.
-const TABS = ['clusters', 'channels', 'general', 'users', 'tokens'] as const;
-type Tab = (typeof TABS)[number];
+// user's API tokens (ADR-125). Cloud adds Security: 2FA, sessions, GitHub and Google
+// (ADR-175). ?tab= keeps the view.
+const ALL_TABS = ['clusters', 'channels', 'general', 'users', 'tokens', 'security'] as const;
+type Tab = (typeof ALL_TABS)[number];
+const auth = useAuthStore();
+const TABS = computed<readonly Tab[]>(() =>
+  auth.isCloud ? ALL_TABS : ALL_TABS.filter((t) => t !== 'security'),
+);
 const route = useRoute();
 const router = useRouter();
 const tab = computed<Tab>(() =>
-  TABS.includes(route.query.tab as Tab) ? (route.query.tab as Tab) : 'clusters',
+  TABS.value.includes(route.query.tab as Tab) ? (route.query.tab as Tab) : 'clusters',
 );
 function setTab(t: Tab) {
   void router.replace({ query: { ...route.query, tab: t === 'clusters' ? undefined : t } });
@@ -54,6 +61,7 @@ function setTab(t: Tab) {
     <ChannelSettings v-else-if="tab === 'channels'" />
     <UsersSettings v-else-if="tab === 'users'" class="max-w-6xl" />
     <ApiTokens v-else-if="tab === 'tokens'" />
+    <SecuritySettings v-else-if="tab === 'security'" />
     <template v-else>
       <GeneralSettings />
       <SystemNamespaces />

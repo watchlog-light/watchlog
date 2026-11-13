@@ -14,6 +14,7 @@ defineProps<{
   mono?: boolean;
   readonly?: boolean;
   placeholder?: string;
+  inputmode?: 'text' | 'numeric' | 'email';
 }>();
 
 const model = defineModel<string>({ required: true });
@@ -31,6 +32,7 @@ const id = useId();
       :required="required"
       :readonly="readonly"
       :placeholder="placeholder"
+      :inputmode="inputmode"
       :minlength="minlength"
       :maxlength="maxlength"
       :aria-invalid="error ? 'true' : undefined"

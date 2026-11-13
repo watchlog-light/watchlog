@@ -16,6 +16,7 @@ export class ApiError extends Error {
 
 let unauthorizedHandler: (() => void) | undefined;
 let readOnlyHandler: ((message: string) => void) | undefined;
+let restrictedHandler: ((type: string) => void) | undefined;
 
 /** Called when an authenticated request returns 401 (for example an expired session). */
 export function setUnauthorizedHandler(handler: () => void): void {
@@ -26,6 +27,20 @@ export function setUnauthorizedHandler(handler: () => void): void {
 export function setReadOnlyHandler(handler: (message: string) => void): void {
   readOnlyHandler = handler;
 }
+
+/**
+ * Cloud (ADR-175): called with the problem type when a request is refused because the
+ * account must set up 2FA or verify its email first. Community never answers these.
+ */
+export function setRestrictedHandler(handler: (type: string) => void): void {
+  restrictedHandler = handler;
+}
+
+/** The gates a Cloud session can answer 403 with (ADR-175). */
+export const RESTRICTED_TYPES = [
+  'urn:watchlog:problem:mfa-setup-required',
+  'urn:watchlog:problem:email-verification-required',
+] as const;
 
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -52,6 +67,9 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     if (res.status === 401 && !path.startsWith('/auth/')) unauthorizedHandler?.();
     const err = new ApiError(res.status, data as Problem | undefined);
     if (isDemoReadOnly(err)) readOnlyHandler?.(err.problem?.message ?? err.message);
+    const type = err.problem?.type;
+    if (res.status === 403 && type && (RESTRICTED_TYPES as readonly string[]).includes(type))
+      restrictedHandler?.(type);
     throw err;
   }
   return data as T;

@@ -15,12 +15,15 @@ import {
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
+import OrgSwitcher from '@/components/cloud/OrgSwitcher.vue';
 import DockerScopeFilter from '@/components/docker/DockerScopeFilter.vue';
 import NamespaceFilter from '@/components/kube/NamespaceFilter.vue';
 import { KIND_LOGO } from '@/components/ui/kindLogos';
 import { useCompact, useNarrow } from '@/composables/useNarrow';
 import { isApple } from '@/lib/palette';
+import { useAuthStore } from '@/stores/auth';
 import { useClustersStore } from '@/stores/clusters';
+import { useOrgsStore } from '@/stores/orgs';
 import { useUiStore } from '@/stores/ui';
 import ClusterSwitcher from './ClusterSwitcher.vue';
 import TimeRangePicker from './TimeRangePicker.vue';
@@ -32,6 +35,10 @@ const { timeRange, navOpen } = storeToRefs(ui);
 const route = useRoute();
 const clusters = useClustersStore();
 const { t } = useI18n();
+// Cloud (ADR-175): the org switcher, when the user belongs to two or more orgs.
+const auth = useAuthStore();
+const orgs = useOrgsStore();
+const multiOrg = computed(() => auth.isCloud && orgs.list.length >= 2);
 // Below 1024 px the sidebar is a drawer and the cluster switcher moves up here; below
 // 768 px the cluster, the filters and the time range move into one sheet.
 const compact = useCompact();
@@ -121,6 +128,7 @@ const summary = computed(() =>
     </button>
 
     <template v-if="!narrow">
+      <OrgSwitcher v-if="auth.isCloud" class="w-48 max-xl:w-40" />
       <ClusterSwitcher v-if="compact" :collapsed="false" class="w-52" />
       <DockerScopeFilter v-if="onDocker" />
       <NamespaceFilter v-else-if="onKube" />
@@ -161,6 +169,10 @@ const summary = computed(() =>
           </header>
           <DialogDescription class="sr-only">{{ summary }}</DialogDescription>
           <div class="flex flex-col gap-4 overflow-y-auto p-4">
+            <div v-if="multiOrg" class="flex flex-col gap-1.5">
+              <span class="text-13 font-medium text-text">{{ $t('cloud.orgs.label') }}</span>
+              <OrgSwitcher variant="field" />
+            </div>
             <div class="flex flex-col gap-1.5">
               <span class="text-13 font-medium text-text">{{ $t('clusterSwitcher.label') }}</span>
               <ClusterSwitcher :collapsed="false" />

@@ -17,6 +17,8 @@ import AppTopBar from '@/components/layout/AppTopBar.vue';
 import AlertingStatusBanner from '@/components/alerts/AlertingStatusBanner.vue';
 import CommandPalette from '@/components/layout/CommandPalette.vue';
 import DemoBanner from '@/components/layout/DemoBanner.vue';
+import VerifyBanner from '@/components/cloud/VerifyBanner.vue';
+import { useOrgsStore } from '@/stores/orgs';
 import { useCompact } from '@/composables/useNarrow';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
@@ -28,6 +30,11 @@ const title = computed(() => (route.meta.titleKey ? t(route.meta.titleKey) : t('
 const compact = useCompact();
 const { navOpen } = storeToRefs(useUiStore());
 const auth = useAuthStore();
+// Cloud: the org switcher needs the user's orgs (ADR-175); the narrow sheet reads them too.
+const orgs = useOrgsStore();
+onMounted(() => {
+  if (auth.isCloud && auth.user && !orgs.loaded) void orgs.load();
+});
 watch([() => route.fullPath, compact], () => (navOpen.value = false));
 // Only the content pane scrolls (main.css): the page is locked while the shell shows.
 onMounted(() => document.documentElement.classList.add('app-shell'));
@@ -59,6 +66,7 @@ onBeforeUnmount(() => document.documentElement.classList.remove('app-shell'));
     <div class="flex min-h-0 min-w-0 flex-1 flex-col">
       <DemoBanner v-if="auth.demoMode" class="flex-none" />
       <AppTopBar :title="title" class="flex-none" />
+      <VerifyBanner v-if="auth.isCloud" class="flex-none" />
       <AlertingStatusBanner class="flex-none" />
       <main
         id="main"

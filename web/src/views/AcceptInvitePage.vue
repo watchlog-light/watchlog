@@ -5,6 +5,8 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError, api } from '@/api/client';
+import { cloudApi, cloudErrorKey } from '@/api/cloud';
+import FormAlert from '@/components/cloud/FormAlert.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import TextField from '@/components/ui/TextField.vue';
 import AuthCard from '@/layouts/AuthCard.vue';
@@ -49,13 +51,58 @@ async function accept() {
     busy.value = false;
   }
 }
+// Cloud (ADR-175): an existing account joins with one click, signed in; signed out, it
+// signs in first and comes back here.
+const joinError = ref<string>();
+async function join() {
+  joinError.value = undefined;
+  busy.value = true;
+  try {
+    await cloudApi.joinInvite(token.value);
+    // The session is now in the new org: start the app again there.
+    window.location.assign('/');
+  } catch (err) {
+    joinError.value = cloudErrorKey(err);
+    busy.value = false;
+  }
+}
+const signInToJoin = computed(() => ({
+  name: 'login',
+  query: { redirect: `/invite/${token.value}` },
+}));
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 </script>
 
 <template>
   <AuthCard
-    v-if="info.data.value && usable"
+    v-if="info.data.value && usable && auth.isCloud && auth.user"
+    :title="$t('cloud.join.title')"
+    :intro="
+      $t('invite.intro', {
+        who: info.data.value.invitedBy ?? $t('invite.someone'),
+        site: info.data.value.site,
+        role: $t(`users.roles.${info.data.value.role}.name`),
+      })
+    "
+  >
+    <div class="flex flex-col gap-4" data-testid="join">
+      <p class="text-13 text-text-muted">
+        {{ $t('cloud.join.as', { email: auth.user.email }) }}
+      </p>
+      <FormAlert v-if="joinError">{{ $t(joinError) }}</FormAlert>
+      <BaseButton block :loading="busy" data-testid="join-submit" @click="join">
+        {{ $t('cloud.join.submit') }}
+      </BaseButton>
+      <RouterLink
+        to="/"
+        class="self-center text-13 text-text-muted hover:text-text max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+        >{{ $t('cloud.join.notNow') }}</RouterLink
+      >
+    </div>
+  </AuthCard>
+  <AuthCard
+    v-else-if="info.data.value && usable"
     :title="$t('invite.title')"
     :intro="
       $t('invite.intro', {
@@ -95,6 +142,13 @@ const day = (iso: string) =>
       <p class="text-12 text-text-muted">
         {{ $t('invite.foot', { date: day(info.data.value.expiresAt) }) }}
       </p>
+      <RouterLink
+        v-if="auth.isCloud"
+        :to="signInToJoin"
+        class="self-center text-13 text-primary hover:text-primary-hover max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+        data-testid="sign-in-to-join"
+        >{{ $t('cloud.join.signIn') }}</RouterLink
+      >
     </form>
   </AuthCard>
   <AuthCard

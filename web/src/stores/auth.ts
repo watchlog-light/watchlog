@@ -10,6 +10,7 @@ import type {
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { api, ApiError } from '@/api/client';
+import { cloudApi, fetchCloudConfig, type Account, type CloudConfig } from '@/api/cloud';
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<CurrentUser | null>(null);
@@ -21,25 +22,47 @@ export const useAuthStore = defineStore('auth', () => {
   /** Email is set up: "Forgot your password?" emails a link (ADR-140). */
   const smtp = ref(false);
   const loaded = ref(false);
+  /** Cloud's sign-up config (ADR-175); null in Community, where every Cloud page stays hidden. */
+  const cloud = ref<CloudConfig | null>(null);
+  const isCloud = computed(() => cloud.value !== null);
+  /** Cloud: the signed-in account (verification, 2FA, identities, the gate). */
+  const account = ref<Account | null>(null);
+  /** Cloud: what the account must do before anything else (ADR-175 gates). */
+  const restriction = computed(() => account.value?.restriction ?? null);
   /** Whether the UI offers changes: not to viewers, and never in the demo. */
   const canManage = computed(() => user.value?.role !== 'viewer' && !demoMode.value);
   let pending: Promise<void> | null = null;
 
   async function load(): Promise<void> {
-    const status = await api<SetupStatus>('/setup');
-    setupRequired.value = status.required;
+    const [status, config] = await Promise.all([api<SetupStatus>('/setup'), fetchCloudConfig()]);
+    cloud.value = config;
+    // Cloud signs people up; the installation's first-run setup isn't offered there.
+    setupRequired.value = status.required && !config;
     demoMode.value = status.demoMode;
     demoMcpToken.value = (status.demoMode && status.demoMcpToken) || null;
     smtp.value = status.smtp;
     user.value = null;
-    if (!status.required) {
+    account.value = null;
+    if (!setupRequired.value) {
       try {
         user.value = (await api<UserEnvelope>('/me')).user;
       } catch (err) {
         if (!(err instanceof ApiError && err.status === 401)) throw err;
       }
     }
+    if (user.value && config) await loadAccount();
     loaded.value = true;
+  }
+
+  /** Cloud: reloads the account (after verifying, turning 2FA on, linking). */
+  async function loadAccount(): Promise<void> {
+    if (!cloud.value) return;
+    try {
+      account.value = await cloudApi.account();
+    } catch {
+      // The pages still work; the gates are enforced by the backend anyway.
+      account.value = null;
+    }
   }
 
   /** Loads setup and session state once; retried on the next call if it failed. */
@@ -51,8 +74,21 @@ export const useAuthStore = defineStore('auth', () => {
     return pending;
   }
 
-  async function login(request: LoginRequest): Promise<void> {
-    user.value = (await api<UserEnvelope>('/auth/login', { method: 'POST', body: request })).user;
+  /** Signs in; Cloud answers `mfa` when the account has 2FA on (the code is asked next). */
+  async function login(request: LoginRequest): Promise<'signed-in' | 'mfa'> {
+    const res = await api<UserEnvelope | { mfaRequired: true }>('/auth/login', {
+      method: 'POST',
+      body: request,
+    });
+    if ('mfaRequired' in res) return 'mfa';
+    await signedIn(res.user);
+    return 'signed-in';
+  }
+
+  /** A sign-in finished elsewhere (the 2FA step, an invite, sign-up). */
+  async function signedIn(next: CurrentUser): Promise<void> {
+    user.value = next;
+    await loadAccount();
   }
 
   /** Starts a read-only demo session (demo mode only). */
@@ -70,12 +106,14 @@ export const useAuthStore = defineStore('auth', () => {
       await api<void>('/auth/logout', { method: 'POST' });
     } finally {
       user.value = null;
+      account.value = null;
     }
   }
 
   /** Forgets the user locally, e.g. after the session expired. */
   function clear(): void {
     user.value = null;
+    account.value = null;
   }
 
   return {
@@ -86,6 +124,12 @@ export const useAuthStore = defineStore('auth', () => {
     smtp,
     canManage,
     loaded,
+    cloud,
+    isCloud,
+    account,
+    restriction,
+    loadAccount,
+    signedIn,
     ensureLoaded,
     /** Reloads the session (a role changed). */
     reload: load,

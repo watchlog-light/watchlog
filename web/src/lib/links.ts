@@ -11,5 +11,8 @@ export const LINKS = {
   rightSizing: 'https://watchlog.io/docs/right-sizing/',
   /** Probable cause and its rules (docs/site/probable-cause.md, v0.4). */
   probableCause: 'https://watchlog.io/docs/probable-cause/#the-rules',
+  /** Cloud's Terms and Privacy policy on the site (Cloud slice 8 writes them, ADR-175). */
+  terms: 'https://watchlog.io/terms',
+  privacy: 'https://watchlog.io/privacy',
   kubeletTls: `${DOCS}/faq.md#nodes-say-the-kubelet-certificate-is-not-verified-how-do-i-fix-it`,
 } as const;

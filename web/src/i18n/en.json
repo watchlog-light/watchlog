@@ -1480,7 +1480,8 @@
       "channels": "Alert channels",
       "general": "General",
       "tokens": "API tokens",
-      "users": "Users"
+      "users": "Users",
+      "security": "Security"
     },
     "fromEnvironment": "Set by the server's environment",
     "saved": "Saved.",
@@ -3815,6 +3816,198 @@
         "containers": "Show all ({n} container) | Show all ({n} containers)"
       },
       "fewer": "Show fewer"
+    }
+  },
+  "cloud": {
+    "errors": {
+      "turnstile-failed": "The human check didn't go through. Try it again.",
+      "email-disposable": "That looks like a throwaway address. Use an email you'll keep: we send alerts there.",
+      "password-breached": "That password has appeared in a known data breach. Choose another one.",
+      "rate-limited": "Too many attempts. Wait a few minutes and try again.",
+      "invalid-credentials": "Invalid email or password.",
+      "mfa-invalid": "That code isn't right. Check the time on your phone and try the newest code.",
+      "invalid-token": "This link or step is no longer valid. Start again.",
+      "token-expired": "This link has expired. Links work for 24 hours; ask for a new one.",
+      "already-verified": "Your email is already verified.",
+      "mfa-already-enabled": "Two-factor authentication is already on.",
+      "mfa-not-enabled": "Two-factor authentication is off.",
+      "mfa-required": "You own an org on a paid plan, so two-factor authentication stays on.",
+      "mfa-setup-required": "Set up two-factor authentication to continue.",
+      "email-verification-required": "Verify your email to continue.",
+      "not-found": "That no longer exists. Reload the page.",
+      "invite-other-email": "This invite was sent to another address. Sign in with that address to join.",
+      "already-member": "You're already a member of this org.",
+      "last-sign-in-method": "This is your only way to sign in. Link another one, or set a password, before you remove it.",
+      "identity-taken": "That account is already linked to another WatchLog account.",
+      "plan-limit": "Cloud Free has one user. Try Pro to invite your team.",
+      "oauth-state": "The sign-in took too long or was opened in another tab. Try again.",
+      "oauth-cancelled": "Sign-in was cancelled.",
+      "oauth-failed": "The provider didn't answer as expected. Try again, or use email and password.",
+      "oauth-email-unverified": "Verify your email with that provider first, then try again.",
+      "oauth-disabled": "That sign-in option isn't available here.",
+      "account-disabled": "This account is disabled. Contact support if you think that's a mistake."
+    },
+    "turnstile": {
+      "label": "Human check",
+      "failed": "The human check could not load. Check your connection or content blocker, then reload the page.",
+      "needed": "Wait for the human check to finish, then try again."
+    },
+    "providers": {
+      "continue": {
+        "github": "Continue with GitHub",
+        "google": "Continue with Google"
+      },
+      "name": {
+        "github": "GitHub",
+        "google": "Google"
+      },
+      "or": "or with email"
+    },
+    "strength": {
+      "tooShort": "Too short.",
+      "weak": "Weak.",
+      "fair": "Fair.",
+      "good": "Good.",
+      "strong": "Strong.",
+      "rule": "At least {min} characters; checked against known leaked passwords."
+    },
+    "signup": {
+      "title": "Create your account",
+      "intro": "Free plan. No card.",
+      "haveAccount": "Already have an account?",
+      "signIn": "Sign in",
+      "email": "Work email",
+      "emailNeeded": "Enter your email address.",
+      "tooShort": "Use a longer password.",
+      "submit": "Create account",
+      "agree": "By creating an account you agree to the {terms} and the {privacy}. We send a verification link; you can keep going without opening it.",
+      "terms": "Terms",
+      "privacy": "Privacy policy",
+      "checkTitle": "Check your email",
+      "checkIntro": "We sent a message to {email}. If you already have an account, sign in instead.",
+      "stepsLabel": "What happens next",
+      "panelTitle": "Two minutes from here to your cluster on screen.",
+      "stepN": "Step {n}:",
+      "steps": {
+        "account": {
+          "title": "Account",
+          "text": "You are here. GitHub or Google is one click."
+        },
+        "install": {
+          "title": "Kubernetes or Docker",
+          "text": "Pick one, copy one command. Your token is already in it."
+        },
+        "checklist": {
+          "title": "Live checklist",
+          "text": "Agent, metrics, eBPF and the service map tick as they arrive."
+        }
+      },
+      "chips": {
+        "readOnly": "Read-only agent",
+        "noSecrets": "Never reads Secrets",
+        "openSource": "Open source (AGPL-3.0)"
+      }
+    },
+    "signin": {
+      "intro": "Sign in to WatchLog Cloud.",
+      "noAccount": "New to WatchLog?",
+      "signUp": "Create an account"
+    },
+    "mfa": {
+      "title": "Two-factor authentication",
+      "intro": "Enter the 6-digit code from your authenticator app.",
+      "recoveryIntro": "Enter one of the recovery codes you saved when you turned on two-factor authentication. Each works once.",
+      "codeLabel": "Code",
+      "recoveryLabel": "Recovery code",
+      "submit": "Verify",
+      "useRecovery": "Use a recovery code",
+      "useApp": "Use your authenticator app",
+      "sixDigits": "Enter the 6-digit code.",
+      "recoveryFormat": "Recovery codes look like abcde-12345.",
+      "expiredTitle": "Sign in again",
+      "signInAgain": "Sign in again",
+      "setup": {
+        "step1": "Add WatchLog to your authenticator app with this key:",
+        "openApp": "Or open it in an authenticator app on this device",
+        "step2": "Enter the 6-digit code the app shows",
+        "enable": "Turn on"
+      }
+    },
+    "recovery": {
+      "once": "Save these recovery codes now: they are shown only once. Each signs you in once if you lose your phone.",
+      "listLabel": "Recovery codes",
+      "download": "Download",
+      "ack": "I have saved these codes somewhere safe.",
+      "done": "Done"
+    },
+    "verify": {
+      "title": "Verify your email",
+      "checking": "Checking your link…",
+      "doneTitle": "Email verified",
+      "doneIntro": "Thanks. Your address is confirmed.",
+      "continue": "Continue to WatchLog",
+      "failedTitle": "This link doesn't work",
+      "sent": "A new link is on its way to {email}. It works for 24 hours.",
+      "resend": "Send a new link",
+      "banner": "Verify {email} by {date} to keep using WatchLog. The link is in your inbox.",
+      "bannerNoDate": "Verify {email}. The link is in your inbox.",
+      "bannerLabel": "Email verification",
+      "dismiss": "Hide until the next visit"
+    },
+    "gate": {
+      "verifyTitle": "Verify your email to continue",
+      "verifyIntro": "Your account was created more than 7 days ago and {email} isn't verified yet. Open the link we sent, or ask for a new one.",
+      "recheck": "I've verified it",
+      "mfaTitle": "Set up two-factor authentication",
+      "mfaIntro": "You own an org on a paid plan, so your account needs two-factor authentication before anything else. It takes a minute."
+    },
+    "security": {
+      "linked": "{provider} is linked. You can sign in with it now.",
+      "mfaOff": "Two-factor authentication is off.",
+      "mfaOn": "Two-factor authentication is on.",
+      "revokedOthers": "Signed out of other sessions: {n}.",
+      "unknownDevice": "Unknown device",
+      "browserOn": "{browser} on {os}",
+      "mfaTitle": "Two-factor authentication",
+      "on": "On",
+      "off": "Off",
+      "mfaRequired": "Required: you own an org on a paid plan.",
+      "mfaIntro": "Ask for a code from your authenticator app at every sign-in.",
+      "codesLeft": "Recovery codes left: {n} of 10.",
+      "turnOn": "Turn on",
+      "newCodes": "New recovery codes",
+      "turnOff": "Turn off",
+      "sessionsTitle": "Sessions",
+      "revokeOthers": "Sign out everywhere else",
+      "thisDevice": "This device",
+      "with2fa": "2FA",
+      "sessionMeta": "{ip} · last active {seen} · since {since}",
+      "signOutHere": "Sign out on this device",
+      "revokeLabel": "Sign out {device}",
+      "revoke": "Sign out",
+      "methodsTitle": "Ways to sign in",
+      "passwordSet": "Set",
+      "passwordNone": "None",
+      "linkedAs": "{email} · linked {date}",
+      "notLinked": "Not linked",
+      "unlink": "Unlink",
+      "link": "Link",
+      "setupTitle": "Turn on two-factor authentication",
+      "setupIntro": "Use any authenticator app: 1Password, Google Authenticator, Authy and others.",
+      "turnOffTitle": "Turn off two-factor authentication",
+      "newCodesTitle": "New recovery codes",
+      "confirmIntro": "Enter a code from your authenticator app, or a recovery code. New codes replace the old ones.",
+      "confirmLabel": "Code"
+    },
+    "orgs": {
+      "label": "Organization"
+    },
+    "join": {
+      "title": "Join an org",
+      "as": "You're signed in as {email}. Join with this account?",
+      "submit": "Join",
+      "notNow": "Not now",
+      "signIn": "Already have an account? Sign in to join"
     }
   }
 }
