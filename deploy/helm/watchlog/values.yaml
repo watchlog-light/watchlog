@@ -45,7 +45,8 @@ cookieSecure: auto
 #       - { name: Node memory above 75%, metric: node.memory.utilization, clusterId: null,
 #           scope: {}, condition: { op: '>', value: 0.75 }, forSeconds: 300, severity: warning }
 # Each rule is created once, matched by name, and never overwritten. clusterId is null
-# (every cluster) or a cluster's name or id. Rules only: no channels, nothing secret.
+# (every cluster) or a cluster's name or id. Also services to monitor and clusters to
+# register by their token's SHA-256 (docs/site/configuration.md). No channels, nothing secret.
 seed: {}
 
 backend:

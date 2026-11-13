@@ -169,6 +169,23 @@ It can also list services to monitor. Each is monitored as soon as an agent repo
 
 `name` is the service as the Applications page lists it. `cluster` (a name or id) limits it to one cluster. The collector still needs the Role and RoleBinding for that Secret, as the connect drawer shows them. A service already monitored keeps its access, unless it has none.
 
+It can also register a Docker fleet (or another cluster) whose agents run outside the Helm chart, such as a demo's Docker host. The file holds only the cluster token's SHA-256 and its prefix (the 8 characters after `wl_ct_`), never the token, which only the agents have:
+
+```json
+{
+  "clusters": [
+    {
+      "name": "demo-docker",
+      "kind": "docker",
+      "tokenSha256": "<sha256 of the token, 64 hex characters>",
+      "tokenPrefix": "<the token's characters 7 to 14>"
+    }
+  ]
+}
+```
+
+Make the token yourself, `wl_ct_` and 43 letters, digits, `-` or `_` (for example `printf 'wl_ct_%s' "$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 43)"`), and give it to the agents as `WATCHLOG_TOKEN`. The cluster is created at the backend's next start, with its name and kind, and a seeded rule may name it. A token you revoke, or whose cluster you delete, isn't brought back. A cluster of that name but another kind is left alone and the backend logs why.
+
 A public demo can also publish a read-only MCP token, which only works in demo mode (`demoMode: true`). Its value is public on purpose:
 
 ```json
@@ -187,19 +204,29 @@ A public demo can also publish a read-only MCP token, which only works in demo m
 
 Set as environment variables, or as flags in the `docker run` command. The install commands set the required ones.
 
-| Variable                      | Flag                   | Default                          | What it does                                                                                                             |
-| ----------------------------- | ---------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `WATCHLOG_ENDPOINT`           | `--endpoint`           | required                         | The WatchLog URL.                                                                                                        |
-| `WATCHLOG_TOKEN`              | —                      | required                         | The cluster token.                                                                                                       |
-| `WATCHLOG_EBPF`               | `--ebpf`               | `true`                           | Network flows. `false` turns them off; the service map then says so for this agent.                                      |
-| `WATCHLOG_EBPF_POD_FILTER`    | `--ebpf-pod-filter`    | `true`                           | Kubernetes: record only this node's pods in the kernel. `false` records every process and drops the others in the agent. |
-| `WATCHLOG_EBPF_HTTP`          | `--ebpf-http`          | `true`                           | HTTP/1.x stats on edges. `false` keeps flows and DNS and turns only these off.                                           |
-| `WATCHLOG_NODE_METRICS_SCOPE` | `--node-metrics-scope` | `auto`                           | `host`, `cgroup` or `auto` (Kubernetes detects; Docker hosts use `host`).                                                |
-| `WATCHLOG_HEALTH_OUTPUT`      | `--health-output`      | `true`                           | Docker: send health check output (redacted, one line, at most 512 bytes). `false` sends exit codes only.                 |
-| `WATCHLOG_LOGS`               | —                      | `true`                           | [Logs on demand](logs.md): a container's last lines when someone asks. `false` refuses every request.                    |
-| `WATCHLOG_HOSTNAME`           | `--hostname`           | the host's                       | The name the host appears under.                                                                                         |
-| `WATCHLOG_DOCKER_SOCKET`      | `--docker-socket`      | `/var/run/docker.sock`           | Docker socket, used read-only.                                                                                           |
-| `WATCHLOG_BUFFER_DIR`         | `--buffer-dir`         | `/var/lib/watchlog-agent/buffer` | On-disk buffer while the server is unreachable: up to 200 MB or 15 minutes.                                              |
+| Variable                         | Flag                      | Default                          | What it does                                                                                                                                                |
+| -------------------------------- | ------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WATCHLOG_ENDPOINT`              | `--endpoint`              | required                         | The WatchLog URL.                                                                                                                                           |
+| `WATCHLOG_TOKEN`                 | —                         | required                         | The cluster token.                                                                                                                                          |
+| `WATCHLOG_EBPF`                  | `--ebpf`                  | `true`                           | Network flows. `false` turns them off; the service map then says so for this agent.                                                                         |
+| `WATCHLOG_EBPF_POD_FILTER`       | `--ebpf-pod-filter`       | `true`                           | Kubernetes: record only this node's pods in the kernel. `false` records every process and drops the others in the agent.                                    |
+| `WATCHLOG_EBPF_CONTAINER_FILTER` | `--ebpf-container-filter` | `false`                          | Docker: record only the containers of the Docker daemon the agent reads, in the kernel. For a Docker host inside a container (Docker in Docker): see below. |
+| `WATCHLOG_EBPF_HTTP`             | `--ebpf-http`             | `true`                           | HTTP/1.x stats on edges. `false` keeps flows and DNS and turns only these off.                                                                              |
+| `WATCHLOG_NODE_METRICS_SCOPE`    | `--node-metrics-scope`    | `auto`                           | `host`, `cgroup` or `auto` (Kubernetes detects; Docker hosts use `host`).                                                                                   |
+| `WATCHLOG_HEALTH_OUTPUT`         | `--health-output`         | `true`                           | Docker: send health check output (redacted, one line, at most 512 bytes). `false` sends exit codes only.                                                    |
+| `WATCHLOG_LOGS`                  | —                         | `true`                           | [Logs on demand](logs.md): a container's last lines when someone asks. `false` refuses every request.                                                       |
+| `WATCHLOG_HOSTNAME`              | `--hostname`              | the host's                       | The name the host appears under.                                                                                                                            |
+| `WATCHLOG_DOCKER_SOCKET`         | `--docker-socket`         | `/var/run/docker.sock`           | Docker socket, used read-only.                                                                                                                              |
+| `WATCHLOG_BUFFER_DIR`            | `--buffer-dir`            | `/var/lib/watchlog-agent/buffer` | On-disk buffer while the server is unreachable: up to 200 MB or 15 minutes.                                                                                 |
+
+## A Docker host inside a container (Docker in Docker)
+
+A Docker daemon that runs in a container (`docker:dind`) shares the kernel of the machine around it, and so do its eBPF hooks. Run its agent with `WATCHLOG_EBPF_CONTAINER_FILTER=true` and `WATCHLOG_NODE_METRICS_SCOPE=cgroup`:
+
+- **Network flows.** The agent gives the kernel the cgroups of the containers the inner daemon runs, and the kernel records only connections and DNS lookups made inside them. With Docker's `cgroupfs` driver (Docker in Docker uses it) that is their common `docker` cgroup, so a new container is recorded from its first connection; with the `systemd` driver it is each container's scope, picked up within one interval (15 s). Anything else on the machine, the inner daemon's own processes included, is only counted in `watchlog_agent_flow_filtered_connections_total` and `watchlog_agent_dns_filtered_queries_total`. The kernel holds 16 roots: with more `systemd` scopes than that the filter turns off and the agent logs it, and flows of other processes are dropped in the agent, as they are without the option.
+- **Host metrics.** `cgroup` scope reads CPU and memory from the Docker-in-Docker container's own cgroup (its limits), not the machine's, as for [nodes that are containers](#nodes-that-are-containers-kind-k3d).
+
+Off by default: on an ordinary Docker host the agent already drops flows it can't attribute to one of the host's containers.
 
 ## Nodes that are containers (kind, k3d)
 
