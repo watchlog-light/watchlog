@@ -13,6 +13,22 @@
 	}
 }
 
+# The dashboard's response headers per edition (ADR-181). WATCHLOG_EDITION=cloud on the web
+# container turns on Cloud's strict Content-Security-Policy and the other headers for the
+# dashboard's own files; Community (unset) sends none of them, as before. The API's headers
+# come from the backend; HSTS is the TLS proxy's (nginx in Cloud). The policy is the one in
+# backend/src/lib/csp.ts (a test keeps the two the same).
+(edition-community) {
+}
+(edition-cloud) {
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+}
+
 :8080 {
 	encode zstd gzip
 
@@ -51,6 +67,7 @@
 	}
 
 	handle {
+		import edition-{$WATCHLOG_EDITION:community}
 		root * /srv
 		header /assets/* Cache-Control "public, max-age=31536000, immutable"
 		try_files {path} /index.html
