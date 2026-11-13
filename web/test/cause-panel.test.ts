@@ -13,6 +13,7 @@ import {
   causesText,
   checksSummary,
   mcpTool,
+  objectKind,
   panelState,
   possibleLine,
   problemCause,
@@ -21,6 +22,7 @@ import {
 import type { Overview } from '@/lib/overview';
 import { mockFetch, type Route } from './fetch-mock';
 import { createPlugins } from './helpers';
+import { createAppI18n } from '@/i18n';
 import kubeDep from './fixtures/causes/kube-dependency-down.json';
 import dockerDep from './fixtures/causes/docker-dependency-down.json';
 import kubeRabbit from './fixtures/causes/kube-rabbit-consumer-oom.json';
@@ -573,4 +575,26 @@ describe('Needs attention: one line under each problem (ADR-156)', () => {
 it('fixtures: kind and Docker answers', () => {
   expect(KUBE).not.toBe(DOCKER);
   expect(answer(dockerDep).cluster.kind).toBe('docker');
+});
+
+describe('a step under an application names the product the collector found', () => {
+  it('MariaDB under the MySQL type, Valkey under Redis, else the type', () => {
+    const { t } = createAppI18n().global;
+    const app = (type: string, product?: string) =>
+      say(
+        t,
+        objectKind({
+          kind: 'application',
+          ref: 'a1',
+          name: 'shop/inventory',
+          platform: 'kubernetes',
+          type,
+          ...(product ? { product } : {}),
+        }),
+      );
+    expect(app('mysql', 'mariadb')).toBe('MariaDB');
+    expect(app('mysql')).toBe('MySQL');
+    expect(app('redis', 'valkey')).toBe('Valkey (Redis-compatible)');
+    expect(app('postgres')).toBe('PostgreSQL');
+  });
 });
