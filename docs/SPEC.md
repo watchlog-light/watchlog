@@ -150,12 +150,12 @@ The first screen after login. Answers "is anything wrong right now?" in 5 second
 - Workloads list: Deployments, StatefulSets, DaemonSets, Jobs, CronJobs. Desired vs ready replicas, restarts, CPU / memory usage vs requests vs limits, last rollout time.
 - Pod list and pod detail: phase, node, IP, QoS class, owner, containers, restarts with **last termination reason** (OOMKilled, Error, Completed) and exit code, events for this pod.
 - Container metrics: CPU (cores and % of limit), throttling %, memory working set vs limit, network, filesystem.
-- **Right-sizing hints (v0.5, ADR-168):** requests and limits compared with the last 7 days of use (5-minute resolution; at least 24 hours of data), per workload container on Kubernetes and per container on Docker, in plain sentences with no score: "web asks for 500m CPU; its busiest pod used at most 60m (p95) over 7 days. About 80m would cover it."
+- **Right-sizing hints (v0.5, shipped in 0.5.0; ADR-168):** requests and limits compared with the last 7 days of use (5-minute resolution; at least 24 hours of data), per workload container on Kubernetes and per container on Docker, in plain sentences with no score: "web asks for 500m CPU; its busiest pod used at most 60m (p95) over 7 days. About 80m would cover it."
   - **Kubernetes:** CPU request ≥ 2 × p95 use (and ≥ 100m spare) or below p95 use; memory request ≥ 2 × the peak working set (and ≥ 128 MiB spare) or below its p95; memory limit within 10 % of the peak or an OOM kill in the window ("OOM risk"); CPU limit throttling ≥ 10 % of the time at p95; no request or no memory limit set.
   - **Docker** (limits reserve nothing, so no "too high" hint on a limit): memory limit within 10 % of the peak or an OOM kill, CPU limit throttling, a memory reservation too high or too low when set, no memory limit while it used more than a quarter of the host's memory.
   - Jobs and CronJobs are left out. Suggestions round up (CPU p95 × 1.25 to 10m, memory peak × 1.25 to 16 MiB).
   - **Where:** a card on the workload, Docker container and Compose service pages; the overview's card (count and the first three, OOM risk first); `GET /clusters/:id/right-sizing`; MCP `get_right_sizing`. Kept an hour per cluster. Hints are not alerts.
-- **Container logs on demand (v0.5, ADR-167):** the last N lines of one container (200 by default, up to 1,000; each line cut at 2 KB, 512 KB per answer), optionally followed for up to 5 minutes, streamed through the backend and **never stored** (no database, no metrics store, no agent buffer, no request log). Not log management (§2.5): no search, filter, history or retention.
+- **Container logs on demand (v0.5, shipped in 0.5.0; ADR-167):** the last N lines of one container (200 by default, up to 1,000; each line cut at 2 KB, 512 KB per answer), optionally followed for up to 5 minutes, streamed through the backend and **never stored** (no database, no metrics store, no agent buffer, no request log). Not log management (§2.5): no search, filter, history or retention.
   - **Kubernetes:** the cluster-agent reads the pod's log through the API server (`pods/log` `get`; the container's previous run too). **Docker:** the host's agent reads `/containers/{id}/logs` (allow-listed, ADR-024), stdout and stderr marked.
   - Lines are redacted in the agent, as ADR-047 does, before they leave the cluster or host; control characters and escapes are stripped (ADR-129).
   - The request reaches the agent through a long-poll it already holds open (`/ingest/v1/logs/requests`); the backend never connects into a cluster (§5.2).
@@ -319,13 +319,13 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
 - revoking the token stops access at the next call;
 - the protocol works with Claude Code, Claude Desktop through `mcp-remote`, Cursor where it can be scripted, and the SDK's own client.
 
-## 4.12 Applications (service integrations) and multi-user — v0.3, All (wave 2 in v0.5)
+## 4.12 Applications (service integrations) and multi-user — v0.3, All (wave 2 shipped in 0.5.0)
 
 Monitor the services people run next to their workloads (databases, caches, queues, proxies) with the same quality as the rest of WatchLog. Services are discovered automatically and get opinionated pages, default alerts and plain-language reasons. These are service metrics, not APM: no code instrumentation, no tracing, never table data (SPEC §2.5). Community edition: monitoring is never paywalled (§3.1). Decisions: ADR-131 to ADR-145; wave 2 (v0.5): ADR-162 to ADR-166.
 
 **Architecture:**
 - **The collector:** a separate `integrations` collector, one per Kubernetes cluster and one per Docker host that runs a monitored service. It pushes like the agents and pulls its targets from the backend. The node agent stays small and never reads secrets (ADR-131).
-- **Discovery:** from images, container and Service ports, and eBPF flows the agents already report. "Found N services that aren't monitored yet" with Monitor, Ignore and Add manually. Nothing is contacted before Monitor (ADR-132).
+- **Discovery:** from images, container and Service ports, and eBPF flows the agents already report. "Found N services that aren't monitored yet" with Monitor, Ignore and Add manually. Nothing is contacted before Monitor (ADR-132). A pod or container that runs a server's image only as a client (it connects out on the type's port, nothing connects to it there, and it declares or publishes no such port) isn't offered (ADR-172).
 - **Connecting:** services that need nothing start at once. Those that need a read-only user offer three ways: a generated user and the one-time command, an existing user (its privileges checked), or the user's own Secret or file (ADR-134). Stored credentials are AES-256-GCM encrypted, write-only, and sent only to that cluster's collector (ADR-133).
 - **Pages:**
   - Applications is a list with problems first and filters by type.
@@ -442,7 +442,7 @@ Access: nothing; the plugin ships with RabbitMQ. If it is off, the generated com
 - ⚑ **Network partitions** aren't exported by the plugin. Closest: a member whose endpoint stops answering.
 - **Reasons:** `queue_no_consumers` (linked to the workloads or containers that were connected to RabbitMQ in the last 24 h, from eBPF flows, and ended since, closest to when the queue lost its consumers: the plugin doesn't say which client consumed which queue; ADR-145), `queue_growing`, `memory_alarm` and `disk_alarm` (publishers blocked), `unacked_high`, `dead_letters_growing`, `prometheus_plugin_off` (with the command per node). A node down is a member down, as for every service.
 
-### MySQL and MariaDB (status variables, performance_schema, InnoDB tables; MySQL 8.0+, MariaDB 10.6+) — v0.5.0 (ADR-163)
+### MySQL and MariaDB (status variables, performance_schema, InnoDB tables; MySQL 8.0+, MariaDB 10.6+) — v0.5 (shipped in 0.5.0; ADR-163)
 
 Access: a user with `PROCESS` (required), `REPLICATION CLIENT` (MariaDB: and `SLAVE MONITOR`), `SELECT` on `performance_schema.*` and `SELECT` on `mysql.innodb_table_stats`, at most 2 connections; each missing optional privilege costs the panels it names. It reads statistics, never table data. The session is read-only with a 5 s statement limit. One type for both servers, named by `version_comment`.
 
@@ -468,7 +468,7 @@ Access: a user with `PROCESS` (required), `REPLICATION CLIENT` (MariaDB: and `SL
 - **Reasons:** `connections_near_max` (with the clients holding most), `connections_refused`, `long_query`, `lock_waits` (the blocking session's workload), `deadlocks`, `replica_stopped`, `replica_lag`, `buffer_pool_hit_low`, `tmp_disk_tables_high`, `performance_schema_off` and `table_stats_unavailable` (hints).
 - **Probable cause:** `lock_waits` and `connections_near_max` are application findings, like PostgreSQL's: the chain ends at the holder's own cause.
 
-### Traefik (its Prometheus metrics; eBPF HTTP; v2.10+ and v3) — v0.5.0 (ADR-165)
+### Traefik (its Prometheus metrics; eBPF HTTP; v2.10+ and v3) — v0.5 (shipped in 0.5.0; ADR-165)
 
 Access: nothing. Traefik's metrics on its `metrics` entrypoint (`:9100/metrics` in the Helm chart and k3s's bundled Traefik; `:8080/metrics` on the default entrypoint). Without them, requests, errors and latency come from eBPF (ADR-139) and the page gives the setting.
 
@@ -494,7 +494,7 @@ Access: nothing. Traefik's metrics on its `metrics` entrypoint (`:9100/metrics` 
 - **Reasons:** `errors_high` (top service, linked to its workload's state and last rollout), `no_server_up` (linked to the backend), `latency_high`, `certificate_expiring`, `config_reload_failed`, `metrics_off` (hint, with the setting for k3s, Helm and Docker).
 - **Probable cause:** `no_server_up` is an application finding that chains to the backend's own cause (scaled to 0, crashing, OOM).
 
-### Kafka (the Kafka protocol's admin API; Kafka 3.0+, ZooKeeper or KRaft) — v0.5.0 (ADR-166)
+### Kafka (the Kafka protocol's admin API; Kafka 3.0+, ZooKeeper or KRaft) — v0.5 (shipped in 0.5.0; ADR-166)
 
 Access: nothing on PLAINTEXT listeners; otherwise SASL (PLAIN, SCRAM-SHA-256/512, the first the broker offers), with or without TLS (detected, unverified). A broker whose advertised host the collector can't resolve is reached at its discovered pod or container address. With ACLs: `Describe` on the cluster, every topic and every group (`DescribeConfigs` on topics optional, for retention). Read-only, through `franz-go`; no JMX.
 
@@ -521,7 +521,7 @@ Access: nothing on PLAINTEXT listeners; otherwise SASL (PLAIN, SCRAM-SHA-256/512
 - **Reasons:** `offline_partitions`, `under_replicated`, `broker_down`, `group_lag_growing`, `group_no_members` (the lost group: linked to the members it had, from the collector's last description with members, through the IP map; else to the clients whose eBPF flows into the broker port ended, as RabbitMQ's lost consumer, ADR-145), `acl_denied` (hint, with what each missing ACL costs).
 - **Probable cause:** `group_no_members` is an application finding that chains to the lost member's own cause (OOM-killed, crashing, scaled to 0).
 
-### MongoDB — v0.5.0 (ADR-162, ADR-164; versions 6.0+, standalone and replica sets)
+### MongoDB — v0.5 (shipped in 0.5.0; ADR-162, ADR-164; versions 6.0+, standalone and replica sets)
 
 Access: nothing with authentication off; otherwise a user with `clusterMonitor`, which on 7.0 and 8.0 also reads `local` (the oplog window; measured in slice 2). The official Go driver v2, one direct connection per member (ADR-164).
 
@@ -844,7 +844,7 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `GET /clusters/:id/docker/hosts/:host/containers/:name/logs?lines&follow` | The same for a Docker container; each line also carries its `stream` (stdout, stderr) |
 | `GET /clusters/:id/right-sizing?namespace&kind&workload&host&container&project&service&system` | Right-sizing hints (ADR-168): per container `{object, container, resource (cpu, memory), code, facts, suggestion, giveBack, basedOn {windowHours, from, to, samples, hours}}`, OOM risk first; `notEnoughHistory` rows for containers with less than 24 hours; `summary` (objects, giveBackObjects, giveBack {cores, bytes}, oomRisk). The use is kept an hour per cluster, requests and limits read on each request |
 | `GET /clusters/:id/search?q&limit` | The ⌘K palette's object search (ADR-169): workloads, pods, nodes (Kubernetes); hosts, containers, Compose projects (Docker); applications (also by type). Letters in order, one typo as a fallback; exact and prefix matches first. At most 8 per kind, 40 in all |
-| MCP tools added in v0.5 | `get_container_logs` (the logs routes above, at most 200 lines) and `get_right_sizing` (§4.11). The new integrations need no new tool: `list_applications` and `get_application` cover every type |
+| MCP tools added in v0.5 (shipped in 0.5.0) | `get_container_logs` (the logs routes above, at most 200 lines) and `get_right_sizing` (§4.11). The new integrations need no new tool: `list_applications` and `get_application` cover every type |
 | `POST /query/range` | Curated metric query: `{clusterId, metric, scope?: {host?, container?, composeProject?}, agg?, step?, from, to}` (unix seconds); `metric` is one of the catalog keys in `backend/src/modules/query/catalog.ts` (16 in Phase 1) → backend builds MetricsQL with tenant filter. Raw MetricsQL only for P1 advanced mode. |
 | `GET/POST/PATCH/DELETE /alert-rules` | |
 | `GET/POST/PATCH/DELETE /alert-channels` · `POST /alert-channels/:id/test` | |
@@ -1006,7 +1006,7 @@ The whole product (site + app) is **dark only** in v2.0. Light theme MAY be adde
 ## 11.3 Layout and components
 
 - App shell: left sidebar (240 px, collapsible to 64 px) with cluster switcher at top; top bar with time range, namespace filter, search (the ⌘K command palette).
-- **⌘K command palette (v0.5, ADR-169):** ⌘K / Ctrl+K, `/` outside a field (on list pages `/` focuses the page's filter), or the top bar's search button. Finds pages, clusters and Docker fleets, and the selected cluster's workloads, pods and nodes (Kubernetes), hosts, containers and Compose projects (Docker), and applications (`GET /clusters/:id/search`: letters in order, one typo as a fallback, exact and prefix matches first, 8 per kind; groups ordered by their best match). The last five picks show before typing. A modal dialog with an ARIA combobox and a grouped listbox (Reka UI): ↑ ↓, Enter, Esc returns focus; the result count in a live region; full screen on phones, 44 px targets. Read-only navigation.
+- **⌘K command palette (v0.5, shipped in 0.5.0; ADR-169):** ⌘K / Ctrl+K, `/` outside a field (on list pages `/` focuses the page's filter), or the top bar's search button. Finds pages, clusters and Docker fleets, and the selected cluster's workloads, pods and nodes (Kubernetes), hosts, containers and Compose projects (Docker), and applications (`GET /clusters/:id/search`: letters in order, one typo as a fallback, exact and prefix matches first, 8 per kind; groups ordered by their best match). The last five picks show before typing. A modal dialog with an ARIA combobox and a grouped listbox (Reka UI): ↑ ↓, Enter, Esc returns focus; the result count in a live region; full screen on phones, 44 px targets. Read-only navigation.
 - Phones and tablets (ADR-120): below 1024 px the sidebar is an off-canvas drawer and the cluster switcher sits in the top bar; below 768 px the cluster, filters and time range share one sheet, wide tables become cards and pickers open as sheets. Touch targets are at least 44 px; no page scrolls sideways.
 - Radius: 6 px (inputs, buttons), 10 px (cards). Spacing scale 4 px base.
 - Components (built in `web/src/components/ui`, Tailwind-based, no heavy UI kit): Button (primary / secondary / ghost / danger), Input, Select, Combobox, Tabs, Table (virtualised for > 500 rows), Card, StatTile, Badge/StatusPill, Tooltip, Drawer, Modal, Toast, EmptyState, CodeBlock with copy, TimeRangePicker, Sparkline, TimeSeriesChart (ECharts), ServiceMapGraph (ECharts graph or Cytoscape.js — decide in Phase 4).
