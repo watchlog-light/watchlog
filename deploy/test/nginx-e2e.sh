@@ -267,6 +267,10 @@ def tile(label, tid):
 for label in ("web-k8s", "web-docker", "bare", "ingress"):
     got = wait(lambda: "errors_high" in reasons(label) and (tile(label, "rps")["value"] or 0) > 1, 300)
     check(f"{label}: requests/s and 5xx from eBPF", bool(got), json.dumps(list(reasons(label))))
+    # A container's first 15 s of series can read 100 %: VictoriaMetrics' increase() counts a
+    # new counter's first sample from 0 when it is small (the 5xx) but not when it is large
+    # (the 2xx), until the next sample comes in.
+    wait(lambda: 8 <= (reasons(label).get("errors_high") or {}).get("facts", {}).get("pct", 0) <= 30, 60)
     r = reasons(label)
     if "errors_high" in r:
         check(f"{label}: 5xx share about 17 % ({r['errors_high']['facts']['pct']} %)",
