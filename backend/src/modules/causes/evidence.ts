@@ -241,6 +241,8 @@ export interface EvMap {
 export interface EvApplication {
   id: string;
   type: string;
+  /** mariadb, valkey…: what the collector found, when it isn't the type's own product. */
+  product?: string | null;
   name: string;
   health: string;
   reason: { code: string; facts: Record<string, string | number | null> };

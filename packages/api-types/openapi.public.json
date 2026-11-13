@@ -2439,6 +2439,10 @@
                         "type": {
                           "type": "string",
                           "description": "An application: postgres, redis, rabbitmq…"
+                        },
+                        "product": {
+                          "type": "string",
+                          "description": "An application whose server is another product of its type: mariadb, valkey"
                         }
                       },
                       "description": "What a step or check is about, and where it links to"
@@ -2480,6 +2484,10 @@
                             "type": {
                               "type": "string",
                               "description": "An application: postgres, redis, rabbitmq…"
+                            },
+                            "product": {
+                              "type": "string",
+                              "description": "An application whose server is another product of its type: mariadb, valkey"
                             }
                           },
                           "description": "What a step or check is about, and where it links to"
@@ -2626,6 +2634,10 @@
                                     "type": {
                                       "type": "string",
                                       "description": "An application: postgres, redis, rabbitmq…"
+                                    },
+                                    "product": {
+                                      "type": "string",
+                                      "description": "An application whose server is another product of its type: mariadb, valkey"
                                     }
                                   },
                                   "description": "What a step or check is about, and where it links to"
@@ -2772,6 +2784,10 @@
                               "type": {
                                 "type": "string",
                                 "description": "An application: postgres, redis, rabbitmq…"
+                              },
+                              "product": {
+                                "type": "string",
+                                "description": "An application whose server is another product of its type: mariadb, valkey"
                               }
                             },
                             "description": "What a step or check is about, and where it links to"

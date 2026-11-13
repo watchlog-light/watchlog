@@ -34,6 +34,11 @@ export const ObjectRefSchema = Type.Object(
     workloadKind: Type.Optional(Type.String()),
     host: Type.Optional(Type.String()),
     type: Type.Optional(Type.String({ description: 'An application: postgres, redis, rabbitmq…' })),
+    product: Type.Optional(
+      Type.String({
+        description: 'An application whose server is another product of its type: mariadb, valkey',
+      }),
+    ),
   },
   { description: 'What a step or check is about, and where it links to' },
 );

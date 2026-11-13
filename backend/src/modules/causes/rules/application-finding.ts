@@ -149,6 +149,7 @@ const appObject = (ev: Evidence, a: EvApplication): ObjectRef => ({
   name: a.name,
   platform: ev.platform,
   type: a.type,
+  ...(a.product ? { product: a.product } : {}),
 });
 
 const num = (v: unknown) => (typeof v === 'number' ? v : null);

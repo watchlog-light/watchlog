@@ -10032,6 +10032,8 @@ export interface paths {
                 host?: string;
                 /** @description An application: postgres, redis, rabbitmq… */
                 type?: string;
+                /** @description An application whose server is another product of its type: mariadb, valkey */
+                product?: string;
               };
               object: {
                 kind:
@@ -10054,6 +10056,8 @@ export interface paths {
                 host?: string;
                 /** @description An application: postgres, redis, rabbitmq… */
                 type?: string;
+                /** @description An application whose server is another product of its type: mariadb, valkey */
+                product?: string;
               } | null;
               cluster: {
                 id: string;
@@ -10111,6 +10115,8 @@ export interface paths {
                     host?: string;
                     /** @description An application: postgres, redis, rabbitmq… */
                     type?: string;
+                    /** @description An application whose server is another product of its type: mariadb, valkey */
+                    product?: string;
                   };
                   /** @description Where the fact comes from */
                   source:
@@ -10175,6 +10181,8 @@ export interface paths {
                   host?: string;
                   /** @description An application: postgres, redis, rabbitmq… */
                   type?: string;
+                  /** @description An application whose server is another product of its type: mariadb, valkey */
+                  product?: string;
                 };
               }[];
               flowsOff:

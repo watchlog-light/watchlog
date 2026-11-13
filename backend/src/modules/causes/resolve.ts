@@ -486,7 +486,7 @@ export async function resolveTarget(
     }
     case 'application': {
       const { applications } = await reader.get<{
-        applications: { id: string; name: string; type: string }[];
+        applications: { id: string; name: string; type: string; product?: string | null }[];
       }>('/applications', { cluster: cluster.id });
       const matches = applications.filter((a) => a.id === subject.ref || a.name === subject.ref);
       if (matches.length === 0)
@@ -500,6 +500,7 @@ export async function resolveTarget(
         name: a.name,
         platform: cluster.kind,
         type: a.type,
+        ...(a.product ? { product: a.product } : {}),
       };
       return {
         subject: { kind: 'application', ref: a.id },

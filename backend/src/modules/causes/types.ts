@@ -43,6 +43,8 @@ export interface ObjectRef {
   host?: string;
   /** Applications: postgres, redis, rabbitmq… */
   type?: string;
+  /** Applications: the product the collector found when it isn't the type's own (mariadb, valkey). */
+  product?: string;
 }
 
 /** Where a step's fact comes from: the panel's source chip. */
