@@ -45,11 +45,11 @@ import {
   stateMatches,
   type Provider,
 } from './oauth.js';
+import { recordFunnelEvent } from '../funnel/recorder.js';
 import {
   createAccount,
   createVerifyToken,
   existingAccountMail,
-  recordFunnelEvent,
   useVerifyToken,
   verifyMail,
 } from './service.js';
@@ -294,7 +294,7 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
         return reply.code(201).send({ accepted: true as const, verificationSent: sent });
       }
       const sent = await sendVerification(request, created.userId, email);
-      recordFunnelEvent(request.log, {
+      await recordFunnelEvent(request.server, {
         name: 'signup_completed',
         userId: created.userId,
         orgId: created.orgId,
@@ -331,7 +331,7 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
       if (!used) {
         return sendCode(reply, 400, 'invalid-token', "This link doesn't work. Ask for a new one.");
       }
-      recordFunnelEvent(request.log, {
+      await recordFunnelEvent(request.server, {
         name: 'email_verified',
         userId: used.userId,
         orgId: used.orgId,
@@ -1104,7 +1104,7 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
           identity: { provider: p, providerUserId: profile.id, email },
         });
         if (!created) return fail('oauth-failed');
-        recordFunnelEvent(request.log, {
+        await recordFunnelEvent(request.server, {
           name: 'signup_completed',
           userId: created.userId,
           orgId: created.orgId,

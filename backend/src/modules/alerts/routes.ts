@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Alerting API (SPEC §8.1): alerts, silences, rules, channels and whether alerting
 // runs (ADR-088). Reads for every member, changes for owners and admins.
+import { isReadOnlyScope } from '../../db/org-context.js';
+import { recordFunnelEvent } from '../funnel/recorder.js';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { sql, type ExpressionBuilder, type Selectable } from 'kysely';
@@ -729,7 +731,8 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
       },
     },
     async (request) => {
-      await ensureDefaultRules(db, request.user!.org.id);
+      // Support mode reads only (ADR-179): the defaults wait for the org's own next visit.
+      if (!isReadOnlyScope()) await ensureDefaultRules(db, request.user!.org.id);
       return { rules: await ruleViews(request.user!.org.id) };
     },
   );
@@ -1230,6 +1233,15 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
         type === 'telegram'
           ? await startTelegramVerification(db, id, cfg.botName as string)
           : undefined;
+      // Cloud's funnel (ADR-179): Telegram counts once its chat is connected (the worker).
+      if (type !== 'telegram') {
+        await recordFunnelEvent(request.server, {
+          name: 'alert_channel_connected',
+          orgId,
+          userId: request.user!.id,
+          props: { type },
+        });
+      }
       return reply.code(201).send({
         channel: (await channelViews(orgId, id))[0]!,
         ...(type === 'webhook' && !input.signingSecret ? { signingSecret } : {}),
@@ -1348,6 +1360,14 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
         )
         .where('id', '=', row.id)
         .execute();
+      if (res.ok) {
+        await recordFunnelEvent(request.server, {
+          name: 'alert_channel_connected',
+          orgId: row.org_id,
+          userId: request.user!.id,
+          props: { type: row.type },
+        });
+      }
       return res.ok ? { ok: true, error: null } : { ok: false, error: res.error };
     },
   );

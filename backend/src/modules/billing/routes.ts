@@ -6,6 +6,7 @@
 //   POST /plan/portal    "Manage billing": a Customer Portal URL (Owner).
 // The org is always the session's; the billing service writes the entitlements back
 // through the internal API, so the plan changes there, never here.
+import { recordFunnelEvent } from '../funnel/recorder.js';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyReply } from 'fastify';
 import { Type } from 'typebox';
@@ -144,6 +145,12 @@ export const billingRoutes: FastifyPluginAsyncTypebox<BillingRouteOptions> = asy
         const s = await b.startBeta(orgId);
         // The billing service wrote Pro through the internal API; read it fresh here too.
         entitlements.invalidate(orgId);
+        await recordFunnelEvent(request.server, {
+          name: 'pro_started',
+          orgId,
+          userId: request.user!.id,
+          props: { source: 'beta' },
+        });
         return view(s);
       }),
   );

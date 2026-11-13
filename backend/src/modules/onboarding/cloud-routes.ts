@@ -11,13 +11,11 @@ import { sql } from 'kysely';
 import { Type } from 'typebox';
 import type { Config } from '../../config.js';
 import type { Database } from '../../db/index.js';
+import { isReadOnlyScope } from '../../db/org-context.js';
 import { sendProblem } from '../../lib/problem.js';
 import { requireUser } from '../../plugins/auth.js';
-import {
-  CLIENT_FUNNEL_EVENTS,
-  recordFunnelEvent,
-  type FunnelEventName,
-} from '../accounts/service.js';
+import { CLIENT_FUNNEL_EVENT_NAMES, type ClientFunnelEvent } from '../funnel/events.js';
+import { recordFunnelEvent } from '../funnel/recorder.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { installTarget } from '../clusters/install.js';
 import type { SettingsService } from '../settings/service.js';
@@ -142,7 +140,8 @@ export const onboardingCloudRoutes: FastifyPluginAsyncTypebox<{
         .executeTakeFirst();
       // Each step reaches the funnel once, the first time this user's card sees it done.
       const fresh = STEP_IDS.filter((id) => done[id] && !(state?.reported ?? []).includes(id));
-      if (fresh.length) {
+      // Support mode reads only (ADR-179): staff's views don't tick the customer's steps.
+      if (fresh.length && !isReadOnlyScope()) {
         const reported = [...(state?.reported ?? []), ...fresh];
         await db
           .insertInto('onboarding_states')
@@ -150,7 +149,7 @@ export const onboardingCloudRoutes: FastifyPluginAsyncTypebox<{
           .onConflict((oc) => oc.columns(['org_id', 'user_id']).doUpdateSet({ reported }))
           .execute();
         for (const id of fresh) {
-          recordFunnelEvent(request.log, {
+          await recordFunnelEvent(request.server, {
             name: `first_week_${id}`,
             userId,
             orgId: org.id,
@@ -186,7 +185,11 @@ export const onboardingCloudRoutes: FastifyPluginAsyncTypebox<{
         .values({ org_id: org.id, user_id: userId, dismissed_at: now })
         .onConflict((oc) => oc.columns(['org_id', 'user_id']).doUpdateSet({ dismissed_at: now }))
         .execute();
-      recordFunnelEvent(request.log, { name: 'first_week_dismissed', userId, orgId: org.id });
+      await recordFunnelEvent(request.server, {
+        name: 'first_week_dismissed',
+        userId,
+        orgId: org.id,
+      });
       return reply.code(204).send(null);
     },
   );
@@ -200,13 +203,8 @@ export const onboardingCloudRoutes: FastifyPluginAsyncTypebox<{
         tags: ['onboarding'],
         body: Type.Object(
           {
-            name: Type.Union([
-              Type.Literal('install_command_copied'),
-              Type.Literal('onboarding_dashboard_opened'),
-              Type.Literal('onboarding_sample_opened'),
-              Type.Literal('onboarding_help_opened'),
-              Type.Literal('onboarding_troubleshooting_shown'),
-            ] satisfies { const: (typeof CLIENT_FUNNEL_EVENTS)[number] }[]),
+            // The allow-list (ADR-179): only what the page alone sees.
+            name: Type.Union(CLIENT_FUNNEL_EVENT_NAMES.map((n) => Type.Literal(n))),
             props: Type.Optional(
               Type.Object(
                 {
@@ -226,8 +224,8 @@ export const onboardingCloudRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      recordFunnelEvent(request.log, {
-        name: request.body.name as FunnelEventName,
+      await recordFunnelEvent(request.server, {
+        name: request.body.name as ClientFunnelEvent,
         userId: request.user!.id,
         orgId: request.user!.org.id,
         props: request.body.props ?? {},

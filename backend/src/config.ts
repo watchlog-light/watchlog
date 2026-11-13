@@ -102,6 +102,11 @@ export interface Config {
    * the page shows no button and the billing routes answer 503.
    */
   billingUrl?: string;
+  /**
+   * Lifecycle emails (ADR-179), Cloud only: WATCHLOG_LIFECYCLE_FROM, the founder's address
+   * they come from (`Name <address>`), also their Reply-To. Unset: none are sent.
+   */
+  lifecycleFrom?: string;
 }
 
 export interface InternalApiConfig {
@@ -306,6 +311,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     'VICTORIAMETRICS_URL_3D',
     'VICTORIAMETRICS_URL_30D',
     'WATCHLOG_BILLING_URL',
+    'WATCHLOG_LIFECYCLE_FROM',
   ] as const) {
     if (env[name] !== undefined && edition !== 'cloud') {
       throw new Error(`${name} is only read with WATCHLOG_EDITION=cloud`);
@@ -428,5 +434,6 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
       : undefined,
     victoriaMetricsTiers: tier3 && tier30 ? { '3d': tier3, '30d': tier30 } : undefined,
     billingUrl: billingUrl ? new URL(billingUrl).origin : undefined,
+    lifecycleFrom: env.WATCHLOG_LIFECYCLE_FROM?.trim() || undefined,
   };
 }

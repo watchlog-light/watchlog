@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { recordFunnelEvent } from '../funnel/recorder.js';
 import { createHash } from 'node:crypto';
 // Applications API (SPEC §4.12, ADR-132, ADR-135): monitored services, discovered ones,
 // the collectors, Monitor and remove. Credentials and the connect flow are slice 4.
@@ -881,6 +882,12 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
       notifier.notify(cluster.id);
       const [row] = await listApplicationRows(db, orgId, { id });
       const collectors = await listCollectors(db, [cluster.id]);
+      await recordFunnelEvent(request.server, {
+        name: 'application_connected',
+        orgId,
+        userId: request.user!.id,
+        props: { type: body.type },
+      });
       return reply.code(201).send({ application: toView(row!, collectors) });
     },
   );

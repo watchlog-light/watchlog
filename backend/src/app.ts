@@ -63,6 +63,7 @@ import { apiTokenRoutes } from './modules/api-tokens/routes.js';
 import { registerApiTokenAuth } from './plugins/api-token.js';
 import { registerServiceIdentity } from './plugins/service-identity.js';
 import { registerOrgScope } from './plugins/org-scope.js';
+import { registerSupportMode } from './plugins/support.js';
 import { requestWithoutCodes } from './lib/redact.js';
 import { registerCloudOnly, registerCommunityOnlyGuard } from './plugins/edition.js';
 import { cloudApiRoutes } from './modules/cloud/routes.js';
@@ -70,6 +71,7 @@ import { EntitlementsService } from './modules/entitlements/service.js';
 import { NodeGate } from './modules/entitlements/node-gate.js';
 import { metricsClient } from './modules/entitlements/metrics.js';
 import { CloudAccounts } from './modules/accounts/context.js';
+import { FunnelRecorder } from './modules/funnel/recorder.js';
 
 export const API_PREFIX = '/api/v1';
 
@@ -149,6 +151,11 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   const entitlements =
     config.edition === 'cloud' ? (deps.entitlements ?? new EntitlementsService(systemDb)) : null;
   app.decorate('entitlements', entitlements);
+  // Cloud's funnel (ADR-179): written under each event's org, on the request path's pool.
+  app.decorate(
+    'funnel',
+    config.edition === 'cloud' && !deps.serviceReads ? new FunnelRecorder(deps.db, app.log) : null,
+  );
   registerProblemHandlers(app);
   // JSON only: text/plain is a CORS "simple" content type usable for CSRF (ADR-034).
   app.removeContentTypeParser('text/plain');
@@ -179,6 +186,9 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     restPerMinute: config.apiTokenLimits.restPerMinute,
     demoMode: config.demoMode,
   });
+  // Cloud's support mode (ADR-179): a staff member's read-only session for one org, checked
+  // before the session cookie.
+  if (config.edition === 'cloud' && !deps.serviceReads) registerSupportMode(app, { systemDb });
   // The alert worker's reads for the notifications' likely cause (ADR-157): its app only.
   if (deps.serviceReads) registerServiceIdentity(app, systemDb);
   // Read-only demo (ADR-122): signed sessions without database rows, and small queries.

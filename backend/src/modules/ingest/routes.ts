@@ -8,7 +8,7 @@ import { bindOrg } from '../../db/org-context.js';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
-import { sendProblem } from '../../lib/problem.js';
+import { ProblemType, sendProblem } from '../../lib/problem.js';
 import { authorisedScope, VictoriaError, type VictoriaClient } from '../../lib/victoria.js';
 import type { TokenOwner } from '../clusters/tokens.js';
 import { ProblemSchema } from '../auth/schemas.js';
@@ -213,6 +213,11 @@ function problemDetail(payload: unknown): string {
   }
 }
 
+const ownerKey = (owner: { orgId: string; clusterId: string }) => ({
+  orgId: owner.orgId,
+  clusterId: owner.clusterId,
+});
+
 export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app, opts) => {
   const { db, tokens, victoria } = opts;
   const nodeGate = opts.nodeGate ?? null;
@@ -265,6 +270,16 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
     request.ingestOwner = owner;
     // The cluster's org, never one the agent names (ADR-174).
     bindOrg(owner.orgId);
+    // Cloud: an org staff suspended stores nothing (ADR-179); its agents drop a 402 batch.
+    const entitlements = request.server.entitlements;
+    if (entitlements && (await entitlements.isSuspended(owner.orgId))) {
+      return sendProblem(
+        reply,
+        402,
+        'This organization is suspended; its data is not stored. Its Owners can still sign in.',
+        ProblemType.orgSuspended,
+      );
+    }
 
     const agentHeader = request.headers['x-watchlog-agent'];
     const agentId = (Array.isArray(agentHeader) ? agentHeader[0] : agentHeader) || request.ip;
@@ -358,6 +373,10 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
         reply.header('retry-after', String(UNAVAILABLE_RETRY_AFTER_S));
         return sendProblem(reply, 503, 'Metrics storage temporarily unavailable');
       }
+      // Cloud's funnel (ADR-179): the cluster's first stored batch, once.
+      const funnel = request.server.funnel;
+      const first = { name: 'first_metrics_received', ...ownerKey(owner) } as const;
+      if (funnel && !funnel.seen(first)) funnel.emit(first);
       return reply.code(204).send(null);
     },
   );
@@ -660,6 +679,11 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
           .where('id', '=', owner.clusterId)
           .execute();
       });
+      // Cloud's funnel (ADR-179): the cluster's first heartbeat, once (the database decides;
+      // the recorder's memory keeps it off the hot path after that).
+      const funnel = request.server.funnel;
+      const first = { name: 'agent_first_heartbeat', ...ownerKey(owner) } as const;
+      if (funnel && !funnel.seen(first)) funnel.emit({ ...first, props: { mode: hb.mode } });
       return reply.code(204).send(null);
     },
   );

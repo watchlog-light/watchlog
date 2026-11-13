@@ -17,36 +17,7 @@ import { installTarget } from '../clusters/install.js';
 import { ClusterIdParams } from '../clusters/schemas.js';
 import { clusterForOrg } from '../clusters/service.js';
 import type { SettingsService } from '../settings/service.js';
-import { recordFunnelEvent } from '../accounts/service.js';
 import { onboardingStatus, type OnboardingStatus, type StatusCluster } from './status.js';
-
-/**
- * Cloud: the first heartbeat and the first metrics reach the funnel (SPEC §10.4) from the
- * checklist that sees them, once per cluster and process, for clusters made in the last
- * day; slice 6's funnel_events makes them unique in the database.
- */
-const reported = new Set<string>();
-const FUNNEL_WINDOW_MS = 24 * 60 * 60 * 1000;
-function funnelSteps(request: FastifyRequest, status: OnboardingStatus): void {
-  if (request.server.edition !== 'cloud') return;
-  const age = Date.parse(status.now) - Date.parse(status.createdAt);
-  if (age > FUNNEL_WINDOW_MS) return;
-  for (const [step, name] of [
-    ['agent', 'agent_first_heartbeat'],
-    ['metrics', 'first_metrics_received'],
-  ] as const) {
-    const key = `${status.clusterId}:${name}`;
-    if (reported.has(key) || status.steps.find((s) => s.id === step)?.state !== 'done') continue;
-    if (reported.size > 10_000) reported.clear();
-    reported.add(key);
-    recordFunnelEvent(request.log, {
-      name,
-      userId: request.user!.id,
-      orgId: request.user!.org.id,
-      props: { kind: status.kind, seconds: String(Math.round(age / 1000)) },
-    });
-  }
-}
 
 /** How often a stream looks again, how often it says it's alive, and how long it lasts. */
 export const STREAM_POLL_MS = 3000;
@@ -160,7 +131,6 @@ export const onboardingRoutes: FastifyPluginAsyncTypebox<{
         if (key !== last) {
           last = key;
           send('status', status);
-          funnelSteps(request, status);
         }
         if (status.complete) end('complete');
       } catch (err) {
@@ -201,7 +171,6 @@ export const onboardingRoutes: FastifyPluginAsyncTypebox<{
         return stream(request, reply, cluster);
       }
       const status = await compute(request, cluster);
-      funnelSteps(request, status);
       return reply.header('cache-control', 'no-store').send(status);
     },
   );

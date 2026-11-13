@@ -75,6 +75,7 @@ export async function registerMcpRoutes(
         callsPerMinute: opts.callsPerMinute,
         now,
         log: app.log,
+        funnel: app.funnel,
       }),
     {
       legacy: 'stateless',

@@ -16,13 +16,20 @@ import type { InternalApiConfig } from '../../config.js';
 import type { Database } from '../../db/index.js';
 import { registerProblemHandlers, sendProblem } from '../../lib/problem.js';
 import { ProblemSchema } from '../auth/schemas.js';
-import type { Entitlement } from '../entitlements/plans.js';
 import type { EntitlementsService } from '../entitlements/service.js';
 import { usageReport } from '../entitlements/usage.js';
+import type { FunnelRecorder } from '../funnel/recorder.js';
+import type { AlertingSettings } from '../settings/service.js';
+import { adminRoutes } from './admin.js';
+import { EntitlementView, entitlementView, Limit, PlanLiteral, UsageView } from './views.js';
 
 export interface InternalAppDeps {
   systemDb: Database;
   entitlements: EntitlementsService;
+  /** Cloud's funnel (ADR-179): `pro_started` when billing or staff first set Pro. */
+  funnel?: FunnelRecorder | null;
+  /** The email server and public address: support links and the Owners' email (ADR-179). */
+  settings?: () => Promise<Pick<AlertingSettings, 'smtp' | 'publicUrl'>>;
   logLevel?: string;
   /** Test hooks. */
   logStream?: { write(line: string): void };
@@ -44,29 +51,6 @@ export function internalTokenMatches(
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const Limit = Type.Union([Type.Integer({ minimum: 0, maximum: 1_000_000 }), Type.Null()]);
-const PlanLiteral = Type.Union([
-  Type.Literal('free'),
-  Type.Literal('pro'),
-  Type.Literal('enterprise'),
-]);
-
-export const EntitlementView = Type.Object({
-  orgId: Type.String(),
-  plan: PlanLiteral,
-  source: Type.String(),
-  clusters: Limit,
-  nodes: Limit,
-  users: Limit,
-  retentionDays: Type.Integer(),
-  proFeatures: Type.Boolean(),
-  betaUntil: Type.Union([Type.String(), Type.Null()]),
-  graceUntil: Type.Union([Type.String(), Type.Null()]),
-  previousRetentionDays: Type.Union([Type.Integer(), Type.Null()]),
-  retentionChangedAt: Type.Union([Type.String(), Type.Null()]),
-  stored: Type.Boolean(),
-});
-
 export const EntitlementBody = Type.Object(
   {
     plan: PlanLiteral,
@@ -83,41 +67,6 @@ export const EntitlementBody = Type.Object(
   },
   { additionalProperties: false },
 );
-
-export const UsageView = Type.Object({
-  orgId: Type.String(),
-  from: Type.String(),
-  to: Type.String(),
-  hoursInPeriod: Type.Integer(),
-  p95: Type.Integer(),
-  peak: Type.Integer(),
-  hours: Type.Array(
-    Type.Object({
-      hour: Type.String(),
-      nodes: Type.Integer(),
-      dockerHosts: Type.Integer(),
-      total: Type.Integer(),
-    }),
-  ),
-});
-
-function view(e: Entitlement) {
-  return {
-    orgId: e.orgId,
-    plan: e.plan,
-    source: e.source,
-    clusters: e.clusters,
-    nodes: e.nodes,
-    users: e.users,
-    retentionDays: e.retentionDays,
-    proFeatures: e.proFeatures,
-    betaUntil: e.betaUntil?.toISOString() ?? null,
-    graceUntil: e.graceUntil?.toISOString() ?? null,
-    previousRetentionDays: e.previousRetentionDays,
-    retentionChangedAt: e.retentionChangedAt?.toISOString() ?? null,
-    stored: e.stored,
-  };
-}
 
 /** Longest usage period one call returns (a year and a month). */
 const MAX_USAGE_MS = 400 * 86_400_000;
@@ -163,7 +112,7 @@ export async function buildInternalApp(
     },
     async (request, reply) => {
       if (!(await orgExists(request.params.id))) return sendProblem(reply, 404, 'No such org');
-      return view(await entitlements.get(request.params.id));
+      return entitlementView(await entitlements.get(request.params.id));
     },
   );
 
@@ -201,7 +150,11 @@ export async function buildInternalApp(
         { orgId: id, plan: saved.plan, source: saved.source, graceUntil: saved.graceUntil },
         'entitlements set',
       );
-      return view(saved);
+      // The funnel (ADR-179): the first Pro, once per org (the beta's comes from the product).
+      if (saved.plan === 'pro' && deps.funnel) {
+        await deps.funnel.record({ name: 'pro_started', orgId: id, props: { source: b.source } });
+      }
+      return entitlementView(saved);
     },
   );
 
@@ -268,6 +221,42 @@ export async function buildInternalApp(
       return { orgId: id, ...report };
     },
   );
+
+  app.post(
+    '/internal/orgs/:id/beta-notice',
+    {
+      schema: {
+        summary:
+          "Billing asks for the beta-to-billing notice (ADR-179): the lifecycle job emails the org's Owners once",
+        params: Params,
+        body: Type.Object(
+          { billingStartsAt: Type.String({ format: 'date-time' }) },
+          { additionalProperties: false },
+        ),
+        response: { 202: Type.Null(), 400: ProblemSchema, 401: ProblemSchema, 404: ProblemSchema },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      if (!(await orgExists(id))) return sendProblem(reply, 404, 'No such org');
+      const startsAt = new Date(request.body.billingStartsAt);
+      await systemDb
+        .insertInto('beta_notices')
+        .values({ org_id: id, billing_starts_at: startsAt })
+        .onConflict((oc) => oc.column('org_id').doUpdateSet({ billing_starts_at: startsAt }))
+        .execute();
+      return reply.code(202).send(null);
+    },
+  );
+
+  // The Cloud admin's API (ADR-179): the staff member named in X-WatchLog-Staff.
+  await app.register(adminRoutes, {
+    systemDb,
+    entitlements,
+    funnel: deps.funnel,
+    settings: deps.settings,
+    now: deps.now,
+  });
 
   return app;
 }

@@ -2,6 +2,7 @@
 // The outbox sender (ADR-074): claims due notifications with FOR UPDATE SKIP LOCKED and
 // a lease, so two workers never send the same row; retries with back-off; records the
 // result on the row and the channel. Also the synchronous "send test" (ADR-080).
+import type { FunnelRecorder } from '../funnel/recorder.js';
 import { sql, type Selectable } from 'kysely';
 import type { Database } from '../../db/index.js';
 import type { AlertChannels, Notifications } from '../../db/types.js';
@@ -34,6 +35,8 @@ export interface DeliveryDeps {
    * messages go without the likely cause.
    */
   causes?: WorkOut;
+  /** Cloud's funnel (ADR-179): the first notification sent. */
+  funnel?: FunnelRecorder | null;
 }
 
 /** 30 s, 1 min, 2 min … capped at 1 h. */
@@ -192,6 +195,15 @@ export async function deliverDue(deps: DeliveryDeps, now = Date.now()): Promise<
         }
         const outcome = await finish(db, n, error, now);
         report[outcome]++;
+        // Cloud's funnel (ADR-179): the org's first real notification, once.
+        if (outcome === 'sent' && deps.funnel) {
+          await deps.funnel.record({
+            name: 'first_alert_sent',
+            orgId: n.org_id,
+            props: { kind: n.kind },
+            at: new Date(now),
+          });
+        }
         if (error) {
           deps.log.warn(
             { notification: n.id, channel: channelId, attempt: n.attempts, err: error.message },

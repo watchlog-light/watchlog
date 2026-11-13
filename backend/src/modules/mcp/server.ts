@@ -2,6 +2,7 @@
 // The MCP server (ADR-127): one McpServer per request from the official SDK, with the
 // tools of tools.ts. Every tool call is rate limited per token (60 a minute), bounded
 // (output.ts) and logged without its output (calls.ts).
+import type { FunnelRecorder } from '../funnel/recorder.js';
 import {
   fromJsonSchema,
   McpServer,
@@ -69,6 +70,8 @@ export interface McpServerDeps {
   callsPerMinute: number;
   now: () => Date;
   log: { warn(obj: object, msg: string): void; error(obj: object, msg: string): void };
+  /** Cloud's funnel (ADR-179): the org's first MCP call. */
+  funnel?: FunnelRecorder | null;
 }
 
 export function buildMcpServer(ctx: McpRequestContext, deps: McpServerDeps): McpServer {
@@ -139,6 +142,12 @@ async function callTool(
     }
   }
   const bytes = Buffer.byteLength(json, 'utf8');
+  if (deps.funnel && status !== 'rate_limited') {
+    const first = { name: 'mcp_first_call', orgId: ctx.orgId } as const;
+    if (!deps.funnel.seen(first)) {
+      await deps.funnel.record({ ...first, props: { tool: tool.name } });
+    }
+  }
   if (ctx.logCalls) {
     try {
       await recordMcpCall(deps.db, {

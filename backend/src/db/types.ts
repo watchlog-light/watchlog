@@ -437,6 +437,8 @@ export interface Orgs {
   slug: string;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  suspended_at: Timestamp | null;
+  suspended_reason: string | null;
   trial_ends_at: Timestamp | null;
   updated_at: Generated<Timestamp>;
 }
@@ -522,6 +524,7 @@ export interface Users {
   email: string;
   email_verified_at: Timestamp | null;
   id: string;
+  lifecycle_unsubscribed_at: Timestamp | null;
   locale: Generated<string>;
   name: string;
   password_hash: string | null;
@@ -602,6 +605,51 @@ export interface RecoveryCodes {
   user_id: string;
 }
 
+export interface FunnelEvents {
+  id: Generated<string>;
+  name: string;
+  once_key: string | null;
+  org_id: string;
+  props: Generated<Json>;
+  ts: Generated<Timestamp>;
+  user_id: string | null;
+}
+
+export interface LifecycleEmails {
+  kind: string;
+  org_id: string;
+  sent_at: Generated<Timestamp>;
+  user_id: string;
+}
+
+export interface BetaNotices {
+  billing_starts_at: Timestamp;
+  org_id: string;
+  requested_at: Generated<Timestamp>;
+}
+
+export interface SupportSessions {
+  code_expires_at: Timestamp;
+  code_hash: Buffer | null;
+  ended_at: Timestamp | null;
+  entered_at: Timestamp | null;
+  expires_at: Timestamp;
+  id: string;
+  org_id: string;
+  reason: string;
+  staff_email: string;
+  started_at: Generated<Timestamp>;
+  token_hash: Buffer | null;
+}
+
+export interface SupportSessionViews {
+  count: Generated<number>;
+  first_at: Generated<Timestamp>;
+  org_id: string;
+  path: string;
+  session_id: string;
+}
+
 export interface DB {
   agent_instances: AgentInstances;
   alert_channels: AlertChannels;
@@ -612,12 +660,14 @@ export interface DB {
   api_token_events: ApiTokenEvents;
   api_tokens: ApiTokens;
   audit_events: AuditEvents;
+  beta_notices: BetaNotices;
   change_markers: ChangeMarkers;
   cluster_tokens: ClusterTokens;
   clusters: Clusters;
   discovery_ignores: DiscoveryIgnores;
   email_tokens: EmailTokens;
   entitlements: Entitlements;
+  funnel_events: FunnelEvents;
   ingest_errors: IngestErrors;
   install_codes: InstallCodes;
   integration_collectors: IntegrationCollectors;
@@ -626,6 +676,7 @@ export interface DB {
   integration_probes: IntegrationProbes;
   integrations: Integrations;
   invites: Invites;
+  lifecycle_emails: LifecycleEmails;
   k8s_events: K8sEvents;
   mcp_calls: McpCalls;
   memberships: Memberships;
@@ -644,6 +695,8 @@ export interface DB {
   recovery_codes: RecoveryCodes;
   sessions: Sessions;
   silences: Silences;
+  support_session_views: SupportSessionViews;
+  support_sessions: SupportSessions;
   telegram_verifications: TelegramVerifications;
   usage_hourly: UsageHourly;
   user_identities: UserIdentities;

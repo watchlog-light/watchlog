@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { Kysely, PostgresDialect, type PostgresPool } from 'kysely';
 import pg from 'pg';
-import { currentOrgId } from './org-context.js';
+import { currentOrgId, isReadOnlyScope } from './org-context.js';
 import type { DB } from './types.js';
 
 export type Database = Kysely<DB>;
@@ -22,7 +22,10 @@ export function createDb(databaseUrl: string, opts: DbOptions = {}): Database {
   });
 }
 
-const SET_ORG = "SELECT set_config('watchlog.org_id', $1, false)";
+// One round trip: the org, and read-only for a support-mode request (ADR-179), reset to off
+// for every other checkout so it never outlives that request's use of the connection.
+const SET_ORG =
+  "SELECT set_config('watchlog.org_id', $1, false), set_config('default_transaction_read_only', $2, false)";
 
 /**
  * A pool that sets the org on every checkout. Session-level (not `SET LOCAL`): it is set
@@ -35,7 +38,7 @@ export function orgScopedPool(pool: pg.Pool): PostgresPool {
     async connect() {
       const client = await pool.connect();
       try {
-        await client.query(SET_ORG, [currentOrgId() ?? '']);
+        await client.query(SET_ORG, [currentOrgId() ?? '', isReadOnlyScope() ? 'on' : 'off']);
       } catch (err) {
         client.release(err as Error);
         throw err;

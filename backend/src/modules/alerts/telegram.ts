@@ -2,6 +2,7 @@
 // Telegram chat binding by deep link (ADR-080): the user opens
 // https://t.me/<bot>?start=<one-time code>; the worker long-polls getUpdates while a
 // verification is open (10 minutes), binds the chat that sent the code and replies.
+import type { FunnelRecorder } from '../funnel/recorder.js';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
@@ -56,6 +57,8 @@ export interface TelegramDeps {
   http: HttpClient;
   settings: () => Promise<AlertingSettings>;
   log: { warn(obj: object, msg: string): void };
+  /** Cloud's funnel (ADR-179): a channel connected. */
+  funnel?: FunnelRecorder | null;
 }
 
 /** One getUpdates round for every channel with an open verification. */
@@ -70,7 +73,15 @@ export async function pollTelegramVerifications(
   const open = await db
     .selectFrom('telegram_verifications as v')
     .innerJoin('alert_channels as c', 'c.id', 'v.channel_id')
-    .select(['v.id', 'v.channel_id', 'v.code_hash', 'v.update_offset', 'c.secret', 'c.name'])
+    .select([
+      'v.id',
+      'v.channel_id',
+      'v.code_hash',
+      'v.update_offset',
+      'c.secret',
+      'c.name',
+      'c.org_id',
+    ])
     .where('c.type', '=', 'telegram')
     .execute();
   const byChannel = new Map<string, typeof open>();
@@ -128,6 +139,14 @@ export async function pollTelegramVerifications(
           .execute();
         await db.deleteFrom('telegram_verifications').where('channel_id', '=', channelId).execute();
         bound++;
+        // Cloud's funnel (ADR-179): a Telegram channel counts once its chat is connected.
+        if (deps.funnel) {
+          await deps.funnel.record({
+            name: 'alert_channel_connected',
+            orgId: rows[0]!.org_id,
+            props: { type: 'telegram' },
+          });
+        }
         await telegramCall(
           deps.http,
           apiUrl,

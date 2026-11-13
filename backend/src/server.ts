@@ -9,6 +9,7 @@ import { syncDemoMcpToken } from './modules/demo/mcp-token.js';
 import { ensureDemoUser } from './modules/demo/service.js';
 import { applySeed, loadSeedFile, type Seed } from './modules/seed/seed.js';
 import { buildInternalApp } from './modules/internal/app.js';
+import { SettingsService } from './modules/settings/service.js';
 
 let config: Config;
 try {
@@ -106,9 +107,12 @@ if (cloud && app.entitlements) {
   if (!config.internalApi) {
     app.log.warn('WATCHLOG_INTERNAL_TOKEN is not set; the internal API is off');
   } else {
+    const internalSettings = new SettingsService(systemDb, config);
     const built = await buildInternalApp(config.internalApi, {
       systemDb,
       entitlements: app.entitlements,
+      funnel: app.funnel,
+      settings: () => internalSettings.alerting(),
       logLevel: config.logLevel,
     });
     internal = built;

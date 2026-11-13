@@ -2,6 +2,7 @@
 // Users, invites and password resets (ADR-140). Signed-in routes under /users for the
 // Users page; public routes for the links (/invites/:token, /password-resets/:token) and
 // "Forgot your password?". Every change is audited, never with a token or password.
+import { recordFunnelEvent } from '../funnel/recorder.js';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { sql } from 'kysely';
 import { Type } from 'typebox';
@@ -315,6 +316,12 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
         actor: actorOf(request),
         subjectEmail: email,
         details: { role: request.body.role },
+      });
+      await recordFunnelEvent(request.server, {
+        name: 'teammate_invited',
+        orgId,
+        userId: request.user!.id,
+        props: { role: request.body.role },
       });
       const issued = await issueInvite(
         request,

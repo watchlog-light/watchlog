@@ -20,6 +20,9 @@ import { metricsClient } from './modules/entitlements/metrics.js';
 import { recordUsage, USAGE_EVERY_MS } from './modules/entitlements/usage.js';
 import { LIMIT_MAIL_EVERY_MS, sendLimitEmails } from './modules/entitlements/limit-mail.js';
 import type { WorkerTask } from './modules/alerts/worker.js';
+import { FunnelRecorder } from './modules/funnel/recorder.js';
+import { DAY7_EVERY_MS, recordDay7Active } from './modules/funnel/day7.js';
+import { LIFECYCLE_EVERY_MS, sendLifecycleEmails } from './modules/lifecycle/job.js';
 
 let config: Config;
 try {
@@ -69,7 +72,9 @@ const reads = await buildApp(config, {
 });
 // Cloud's plans (ADR-177): the metrics tiers, the hourly usage and the limit emails.
 const entitlements = cloud ? new EntitlementsService(systemDb) : null;
-const cloudTasks: WorkerTask[] = cloud
+// Cloud's funnel (ADR-179): the first notification, a Telegram chat connected, day7_active.
+const funnel = cloud ? new FunnelRecorder(db, log) : null;
+const cloudTasks: WorkerTask[] = funnel
   ? [
       {
         name: 'usage',
@@ -85,6 +90,31 @@ const cloudTasks: WorkerTask[] = cloud
           await sendLimitEmails({ systemDb, settings: () => settings.alerting(), log }, now);
         },
       },
+      // The lifecycle emails (ADR-179): across orgs, each record written inside its org.
+      {
+        name: 'lifecycle-emails',
+        everyMs: LIFECYCLE_EVERY_MS,
+        run: async (now) => {
+          await sendLifecycleEmails(
+            {
+              systemDb,
+              db,
+              secretKey: config.secretKey,
+              from: config.lifecycleFrom,
+              settings: () => settings.alerting(),
+              log,
+            },
+            now,
+          );
+        },
+      },
+      {
+        name: 'funnel-day7',
+        everyMs: DAY7_EVERY_MS,
+        run: async (now) => {
+          await recordDay7Active({ systemDb, funnel }, now);
+        },
+      },
     ]
   : [];
 const channelDeps = {
@@ -94,6 +124,7 @@ const channelDeps = {
   settings: () => settings.alerting(),
   log,
   causes: workerCauses(reads, new CausesService()),
+  funnel,
 };
 
 const worker = new AlertWorker({

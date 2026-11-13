@@ -7,6 +7,11 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 interface OrgScope {
   orgId: string | null;
+  /**
+   * Support mode (ADR-179): every connection this scope checks out is read-only in
+   * PostgreSQL (`default_transaction_read_only`), so no query of a support request can write.
+   */
+  readOnly?: boolean;
 }
 
 const storage = new AsyncLocalStorage<OrgScope>();
@@ -16,9 +21,24 @@ export function currentOrgId(): string | null {
   return storage.getStore()?.orgId ?? null;
 }
 
+/** True inside a support-mode request: its queries run read-only (Cloud). */
+export function isReadOnlyScope(): boolean {
+  return storage.getStore()?.readOnly === true;
+}
+
+/**
+ * Marks the current request read-only (support mode, ADR-179). It can't be undone for the
+ * request, and `withOrg` inside it stays read-only.
+ */
+export function markReadOnly(): void {
+  const scope = storage.getStore();
+  if (!scope) throw new Error('markReadOnly outside a request scope');
+  scope.readOnly = true;
+}
+
 /** Runs `fn` for one org: every query it makes sees that org's rows only (Cloud). */
 export function withOrg<T>(orgId: string, fn: () => Promise<T>): Promise<T> {
-  return storage.run({ orgId }, fn);
+  return storage.run({ orgId, readOnly: isReadOnlyScope() }, fn);
 }
 
 /**

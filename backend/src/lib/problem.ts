@@ -27,6 +27,8 @@ export const ProblemType = {
   demoReadOnly: 'urn:watchlog:problem:demo-read-only',
   /** Cloud: over the plan's clusters, users (409) or nodes (402 at ingest) (ADR-177). */
   planLimit: 'urn:watchlog:problem:plan-limit',
+  /** Cloud: staff suspended the org; ingest answers 402 (ADR-179, ADR-181). */
+  orgSuspended: 'urn:watchlog:problem:org-suspended',
 } as const;
 export type ProblemType = (typeof ProblemType)[keyof typeof ProblemType];
 

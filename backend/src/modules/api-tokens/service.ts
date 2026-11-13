@@ -52,7 +52,7 @@ export interface ApiTokenView {
 }
 
 export type ApiTokenEventKind =
-  'created' | 'first_use' | 'new_ip' | 'expired' | 'revoked' | 'reminder_sent';
+  'created' | 'first_use' | 'new_ip' | 'expired' | 'revoked' | 'reminder_sent' | 'staff_access';
 
 export interface ApiTokenEventView {
   at: string;

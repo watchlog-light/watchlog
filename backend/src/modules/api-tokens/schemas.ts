@@ -64,6 +64,8 @@ export const ApiTokenEventSchema = Type.Object({
     Type.Literal('expired'),
     Type.Literal('revoked'),
     Type.Literal('reminder_sent'),
+    // Cloud support mode (ADR-179): read by WatchLog staff in a support session.
+    Type.Literal('staff_access'),
   ]),
   ip: Nullable(Type.String()),
   country: Nullable(Type.String()),

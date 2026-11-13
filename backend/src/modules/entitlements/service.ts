@@ -68,6 +68,7 @@ export class EntitlementsService {
   private readonly entries = new Map<string, { value: Entitlement; expiresAt: number }>();
   private readonly clusterOrgs = new Map<string, string>();
   private readonly listeners: ((orgId: string) => void)[] = [];
+  private readonly suspensions = new Map<string, { value: boolean; expiresAt: number }>();
 
   constructor(
     private readonly systemDb: Database,
@@ -94,8 +95,24 @@ export class EntitlementsService {
     this.listeners.push(listener);
   }
 
+  /** Whether staff suspended the org (ADR-179): ingest answers 402. Cached like the rest. */
+  async isSuspended(orgId: string): Promise<boolean> {
+    const hit = this.suspensions.get(orgId);
+    if (hit && hit.expiresAt > this.now()) return hit.value;
+    const row = await this.systemDb
+      .selectFrom('orgs')
+      .select('suspended_at')
+      .where('id', '=', orgId)
+      .executeTakeFirst();
+    const value = !!row?.suspended_at;
+    if (this.suspensions.size >= MAX_ENTRIES) this.suspensions.clear();
+    this.suspensions.set(orgId, { value, expiresAt: this.now() + ENTITLEMENTS_TTL_MS });
+    return value;
+  }
+
   invalidate(orgId: string): void {
     this.entries.delete(orgId);
+    this.suspensions.delete(orgId);
     for (const l of this.listeners) l(orgId);
   }
 

@@ -16,7 +16,7 @@ import {
   kubectlApplyCommand,
 } from './install.js';
 import { issueInstallCode, revokeInstallCodes } from '../onboarding/install-codes.js';
-import { recordFunnelEvent } from '../accounts/service.js';
+import { recordFunnelEvent } from '../funnel/recorder.js';
 import {
   ClusterDetailSchema,
   ClusterIdParams,
@@ -154,12 +154,25 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
           'cluster created',
         );
         if (config.edition === 'cloud') {
-          recordFunnelEvent(request.log, {
+          await recordFunnelEvent(request.server, {
             name: 'cluster_created',
             userId: request.user!.id,
             orgId: org.id,
             props: { kind: cluster.kind },
           });
+          const { n } = await db
+            .selectFrom('clusters')
+            .select((eb) => eb.fn.countAll<string>().as('n'))
+            .where('org_id', '=', org.id)
+            .executeTakeFirstOrThrow();
+          if (Number(n) >= 2) {
+            await recordFunnelEvent(request.server, {
+              name: 'second_cluster_added',
+              userId: request.user!.id,
+              orgId: org.id,
+              props: { kind: cluster.kind },
+            });
+          }
         }
         return reply.code(201).send({ cluster: toClusterView(cluster), ...body });
       } catch (err) {
