@@ -2395,7 +2395,8 @@
       "no_server_up_unknown": "Traefik answers {answered} requests a second itself with 503 \"no available server\": a service it routes to has no server up, and WatchLog can't tell which (its backend left Traefik's configuration or isn't one WatchLog sees).",
       "config_reload_failed": "Traefik's last configuration reload failed ({at}): it keeps serving the configuration it loaded {lastOk}.",
       "metrics_off": "Traefik doesn't serve its Prometheus metrics, so requests, errors and latency come from eBPF (plain HTTP only): TLS traffic and the requests Traefik answers itself are missing. Turn them on:",
-      "metrics_off_tried": "Traefik doesn't serve its Prometheus metrics, so requests, errors and latency come from eBPF (plain HTTP only): TLS traffic and the requests Traefik answers itself are missing. WatchLog looked at {tried}. Turn them on:"
+      "metrics_off_tried": "Traefik doesn't serve its Prometheus metrics, so requests, errors and latency come from eBPF (plain HTTP only): TLS traffic and the requests Traefik answers itself are missing. WatchLog looked at {tried}. Turn them on:",
+      "errors_high_for": "{pct}% of requests answer 5xx, most of them for {upstream}."
     },
     "page": {
       "since": "monitored since {at}",

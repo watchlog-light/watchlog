@@ -181,9 +181,12 @@ export function reasonLine(
       // Which words depend on what is known: the upstream, and its last rollout.
       return {
         key: f.upstream
-          ? f.rollout
-            ? 'integrations.reasons.errors_high'
-            : 'integrations.reasons.errors_high_upstream'
+          ? !has(f.upstreamPct)
+            ? // Traefik's own 503s for a backend with no server up carry no share.
+              'integrations.reasons.errors_high_for'
+            : f.rollout
+              ? 'integrations.reasons.errors_high'
+              : 'integrations.reasons.errors_high_upstream'
           : 'integrations.reasons.errors_high_plain',
         values: { ...f },
       };
