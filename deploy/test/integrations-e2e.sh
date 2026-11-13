@@ -10,6 +10,10 @@
 #   WATCHLOG_E2E_EMAIL and WATCHLOG_E2E_PASSWORD
 #   WATCHLOG_E2E_KUBE_TOKEN and WATCHLOG_E2E_DOCKER_TOKEN
 #                          tokens of a Kubernetes cluster and a Docker fleet in that backend
+# The script discovers and monitors the demo's shop/redis, shop/postgres and a Redis
+# container itself, then removes them: a backend started with deploy/test/demo/seed.json
+# already monitors them, so discovery doesn't offer them. Start it without
+# WATCHLOG_SEED_FILE and remove those services first (a restart with the seed adds them back).
 #   VM                     the Lima VM (default watchlog-demo)
 #   GOPROXY                for the image builds; default proxy.golang.org, then goproxy.io
 #   WATCHLOG_E2E_FLOWS     true: the agents run with eBPF (network flows and HTTP), for
