@@ -22,11 +22,18 @@ type KernelFilter interface {
 // queries of anything else on the kernel (host daemons, plain Docker containers, the
 // pods of other nodes that share it) are never recorded, only counted. The filter is
 // turned on once a kubepods cgroup is known; until then flows from outside pods are
-// dropped in user space as before.
+// dropped in user space as before. In Docker mode the same filter takes the cgroups of
+// the daemon's own containers (NewContainerFilter, ADR-170).
 type PodFilter struct {
 	kernel KernelFilter
 	roots  func() []uint64
 	log    *slog.Logger
+	// max is how many roots the kernel holds (0: no limit checked). With more, the
+	// filter turns off rather than leave the extra cgroups unrecorded: the agent still
+	// drops their flows in user space.
+	max int
+	// what names the recorded tasks in the log.
+	what string
 
 	mu       sync.Mutex
 	current  []uint64
@@ -37,7 +44,15 @@ type PodFilter struct {
 
 // NewPodFilter returns a filter whose roots come from roots (the kubepods cgroup ids).
 func NewPodFilter(kernel KernelFilter, roots func() []uint64, log *slog.Logger) *PodFilter {
-	return &PodFilter{kernel: kernel, roots: roots, log: log}
+	return &PodFilter{kernel: kernel, roots: roots, log: log, what: "this node's pods"}
+}
+
+// NewContainerFilter is the Docker-mode filter (WATCHLOG_EBPF_CONTAINER_FILTER, ADR-170):
+// roots are the cgroups of the containers this Docker daemon runs (DockerRoots), so a
+// Docker host inside a container (Docker in Docker) records none of the machine it runs
+// on. With more roots than the kernel holds it stays off.
+func NewContainerFilter(kernel KernelFilter, roots func() []uint64, max int, log *slog.Logger) *PodFilter {
+	return &PodFilter{kernel: kernel, roots: roots, log: log, max: max, what: "this Docker daemon's containers"}
 }
 
 // Refresh looks for the kubepods cgroups again (they appear when the kubelet starts),
@@ -48,21 +63,38 @@ func (p *PodFilter) Refresh() {
 	ids = slices.Compact(ids)
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.max > 0 && len(ids) > p.max {
+		if p.on || p.current != nil {
+			if err := p.kernel.SetFilter(false); err != nil {
+				p.log.Warn("eBPF filter", "err", err)
+				return
+			}
+			p.on, p.current = false, nil
+			p.log.Warn("eBPF filter off: more cgroups than the kernel map holds; flows of other tasks are dropped in the agent instead",
+				"roots", len(ids), "max", p.max)
+		}
+		p.readCounters()
+		return
+	}
 	if len(ids) > 0 && !slices.Equal(ids, p.current) {
 		if err := p.kernel.SetRoots(ids); err != nil {
-			p.log.Warn("pod filter roots", "err", err)
+			p.log.Warn("eBPF filter roots", "err", err)
 		} else {
 			p.current = ids
 		}
 	}
 	if !p.on && len(p.current) > 0 {
 		if err := p.kernel.SetFilter(true); err != nil {
-			p.log.Warn("pod filter", "err", err)
+			p.log.Warn("eBPF filter", "err", err)
 		} else {
 			p.on = true
-			p.log.Info("eBPF pod filter on: only this node's pods are recorded", "roots", len(p.current))
+			p.log.Info("eBPF filter on: only "+p.what+" are recorded", "roots", len(p.current))
 		}
 	}
+	p.readCounters()
+}
+
+func (p *PodFilter) readCounters() {
 	if c, d, err := p.kernel.Filtered(); err == nil {
 		p.connects, p.dns = float64(c), float64(d)
 	}

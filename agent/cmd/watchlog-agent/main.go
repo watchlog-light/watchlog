@@ -107,6 +107,8 @@ func run(args []string, stdout io.Writer) int {
 		"HTTP/1.x requests, status codes and latency on network edges (ADR-139): a 16-byte peek, no paths or bodies")
 	podFilter := fs.Bool("ebpf-pod-filter", envOr("WATCHLOG_EBPF_POD_FILTER", "true") != "false",
 		"node mode: record only this node's pods in the kernel (ADR-121); false records every task and drops the rest in user space")
+	containerFilter := fs.Bool("ebpf-container-filter", envOr("WATCHLOG_EBPF_CONTAINER_FILTER", "false") == "true",
+		"docker mode: record only this Docker daemon's containers in the kernel (ADR-170), e.g. a Docker host inside a container; false records every task and drops the rest in user space")
 	scopeFlag := fs.String("node-metrics-scope", envOr("WATCHLOG_NODE_METRICS_SCOPE", host.ScopeAuto),
 		"node metrics from the host's /proc (host), the node's own cgroup when the node is a container on a shared kernel (cgroup), or detected (auto)")
 	healthOutput := fs.Bool("health-output", envOr("WATCHLOG_HEALTH_OUTPUT", "true") != "false",
@@ -205,6 +207,11 @@ func run(args []string, stdout io.Writer) int {
 			netCollector.Bytes = flows.Bytes
 			if mode == config.ModeNode && *podFilter {
 				netCollector.PodFilter = network.NewPodFilter(flows, func() []uint64 { return kubepodsRoots(reader) }, slog.Default())
+				netCollector.PodFilter.Refresh()
+			}
+			if mode == config.ModeDocker && *containerFilter && dockerCollector != nil {
+				ids := func() []uint64 { return network.DockerRoots(reader, dockerCollector.ContainerIDs(), network.Inode) }
+				netCollector.PodFilter = network.NewContainerFilter(flows, ids, ebpf.RootsMax, slog.Default())
 				netCollector.PodFilter.Refresh()
 			}
 			if flows.DNS {

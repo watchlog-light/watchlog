@@ -76,3 +76,31 @@ func DockerCgroups(r *containers.Reader, ids []string, inode func(string) (uint6
 	}
 	return out
 }
+
+// DockerRoots are the Docker-mode filter's roots (ADR-170): the cgroups of the given
+// containers, the ones this daemon runs. Under the cgroupfs driver (Docker in Docker, or
+// a host without systemd) they sit in one parent named "docker" that holds containers
+// only, so that parent is the root and a container started between two scans is
+// recorded from its first connection. Under the systemd driver each container is a
+// scope in system.slice, next to the host's own services, so each scope is a root.
+func DockerRoots(r *containers.Reader, ids []string, inode func(string) (uint64, bool)) []uint64 {
+	seen := map[string]bool{}
+	var out []uint64
+	for _, id := range ids {
+		dir := r.DockerDir(id)
+		if dir == "" {
+			continue
+		}
+		if parent := filepath.Dir(dir); filepath.Base(parent) == "docker" {
+			dir = parent
+		}
+		if seen[dir] {
+			continue
+		}
+		seen[dir] = true
+		if n, ok := inode(dir); ok {
+			out = append(out, n)
+		}
+	}
+	return out
+}

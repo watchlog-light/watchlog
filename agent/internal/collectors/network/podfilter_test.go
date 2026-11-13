@@ -143,3 +143,29 @@ func TestCollectorRefreshesThePodFilter(t *testing.T) {
 		t.Errorf("filtered connections = %v", v)
 	}
 }
+
+// The Docker-mode filter (ADR-170) turns on with the daemon's container cgroups, and off
+// again when there are more than the kernel's map holds, so no container goes unrecorded;
+// back under the limit it turns on again.
+func TestContainerFilterStaysWithinTheKernelMap(t *testing.T) {
+	k := &fakeKernel{}
+	roots := []uint64{7}
+	p := NewContainerFilter(k, func() []uint64 { return append([]uint64(nil), roots...) }, 3, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	p.Refresh()
+	if !k.on || !p.On() || len(k.roots) != 1 {
+		t.Fatalf("with one root: on=%v roots=%v", k.on, k.roots)
+	}
+	roots = []uint64{1, 2, 3, 4}
+	p.Refresh()
+	if k.on || p.On() {
+		t.Errorf("four roots in a map of three: filter still on (roots %v)", k.roots)
+	}
+	if v := value(p.samples(), "watchlog_agent_flow_pod_filter"); v != 0 {
+		t.Errorf("filter metric = %v, want 0", v)
+	}
+	roots = []uint64{1, 2}
+	p.Refresh()
+	if !k.on || len(k.roots) != 2 {
+		t.Errorf("back to two roots: on=%v roots=%v", k.on, k.roots)
+	}
+}
