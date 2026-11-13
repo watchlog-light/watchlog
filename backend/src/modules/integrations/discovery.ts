@@ -70,6 +70,16 @@ export const SERVICE_KINDS: ServiceKind[] = [
     available: true,
   },
   {
+    // Traefik, k3s's default ingress (its bundled image is rancher/mirrored-library-traefik)
+    // and the official image (ADR-165). Port 80 comes first so a port alone never makes a
+    // Traefik (Nginx, listed before, owns 80); k3s and the Helm chart declare 8000.
+    type: 'traefik',
+    image: /(^|\/)(traefik|mirrored-library-traefik)$/,
+    not: /(exporter|mesh|forward-auth|certs-dumper)/,
+    ports: [80, 8000, 443, 8443, 8080, 9100],
+    available: true,
+  },
+  {
     type: 'elasticsearch',
     image: /(^|\/)elasticsearch$/,
     not: /(exporter|operator)/,

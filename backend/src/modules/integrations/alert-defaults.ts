@@ -228,6 +228,45 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
       forSeconds: 0,
     },
   ],
+  traefik: [
+    {
+      key: 'traefik_5xx_high',
+      name: 'Traefik 5xx above 5%',
+      metric: 'traefik.5xx.ratio',
+      condition: { op: '>', value: 0.05 },
+      forSeconds: 300,
+      severity: 'critical',
+    },
+    {
+      key: 'traefik_latency_high',
+      name: 'Traefik p95 above 1 s',
+      metric: 'traefik.latency.p95',
+      condition: { op: '>', value: 1 },
+      forSeconds: 300,
+    },
+    {
+      key: 'traefik_no_server_up',
+      name: 'Traefik service with no server up',
+      metric: 'traefik.services.down',
+      condition: { op: '>', value: 0 },
+      forSeconds: 60,
+      severity: 'critical',
+    },
+    {
+      key: 'traefik_certificate_expiring',
+      name: 'Traefik certificate expires within 14 days',
+      metric: 'traefik.certificate.expiry',
+      condition: { op: '<', value: 14 * 86_400 },
+      forSeconds: 0,
+    },
+    {
+      key: 'traefik_config_reload_failed',
+      name: "Traefik's last configuration reload failed",
+      metric: 'traefik.config.reload_failed',
+      condition: { op: '>', value: 0 },
+      forSeconds: 0,
+    },
+  ],
   rabbitmq: [
     {
       key: 'rabbitmq_queue_unconsumed',

@@ -27,6 +27,9 @@ import {
   type MapNode,
 } from './graph.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
+import type { IntegrationTarget } from '../integrations/collector-config.js';
+import { backendIndex, resolveTraefikService } from '../integrations/traefik-backends.js';
+import { addProxies, type ProxyTarget } from './proxies.js';
 
 export interface ServiceMapDeps {
   db: Database;
@@ -79,6 +82,22 @@ const EdgeSchema = Type.Object({
     }),
     Type.Null(),
   ]),
+  /** Where `http` comes from on a proxy's edge (ADR-165): eBPF first, else Traefik's own. */
+  httpSource: Type.Optional(
+    Type.Union([Type.Literal('ebpf'), Type.Literal('traefik'), Type.Null()]),
+  ),
+  /** Requests the proxy answered itself on this edge, with no connection made (ADR-165). */
+  answeredByProxy: Type.Optional(
+    Type.Union([
+      Type.Object({
+        perSecond: Type.Number(),
+        reason: Type.Literal('no_server_up'),
+        proxy: Type.String(),
+        shared: Type.Boolean(),
+      }),
+      Type.Null(),
+    ]),
+  ),
   health: Type.String(),
 });
 const ServiceMapSchema = Type.Object({
@@ -116,6 +135,25 @@ const ServiceMapSchema = Type.Object({
       timeoutPerSecond: Type.Number(),
       searchMissPerSecond: Type.Number(),
       errorRatio: Type.Number(),
+    }),
+  ),
+  /**
+   * Proxies with their own metrics (Traefik, ADR-165): requests per entrypoint, TLS
+   * included, and the requests they answered themselves (no server up).
+   */
+  proxies: Type.Array(
+    Type.Object({
+      node: Type.String(),
+      integrationId: Type.String(),
+      entrypoints: Type.Array(
+        Type.Object({
+          name: Type.String(),
+          requestsPerSecond: Type.Number(),
+          serverErrorsPerSecond: Type.Number(),
+          tlsRequestsPerSecond: Type.Number(),
+        }),
+      ),
+      answeredPerSecond: Type.Number(),
     }),
   ),
 });
@@ -381,6 +419,78 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
     return { nodes: [...nodes.values()], edges };
   }
 
+  /** The cluster's Traefik integrations and their nodes on the map (ADR-165). */
+  async function proxyTargets(clusterId: string): Promise<ProxyTarget[]> {
+    const rows = await db
+      .selectFrom('integrations')
+      .select(['id', 'target'])
+      .where('cluster_id', '=', clusterId)
+      .where('type', '=', 'traefik')
+      .execute();
+    if (!rows.length) return [];
+    const docker = rows.some((r) => (r.target as IntegrationTarget).kind === 'compose');
+    const containers = docker
+      ? await db
+          .selectFrom('objects')
+          .select(['node', 'namespace', 'name', 'spec_summary', 'status_summary'])
+          .where('cluster_id', '=', clusterId)
+          .where('kind', '=', 'DockerContainer')
+          .where('deleted_at', 'is', null)
+          .orderBy('name')
+          .execute()
+      : [];
+    const out: ProxyTarget[] = [];
+    for (const r of rows) {
+      const t = r.target as IntegrationTarget;
+      if (t.kind === 'workload') {
+        out.push({
+          integrationId: r.id,
+          node: {
+            id: `w:${t.namespace}/${t.workload_kind}/${t.workload}`,
+            kind: 'workload',
+            name: t.workload,
+            namespace: t.namespace,
+            workloadKind: t.workload_kind,
+          },
+        });
+      } else if (t.kind === 'container') {
+        out.push({
+          integrationId: r.id,
+          node: {
+            id: `c:${t.container}`,
+            kind: 'container',
+            name: t.container,
+            namespace: null,
+            workloadKind: null,
+          },
+        });
+      } else if (t.kind === 'compose') {
+        // The service's first running container (a Compose Traefik has one).
+        const c = containers.find(
+          (x) =>
+            x.node === t.host &&
+            x.namespace === t.compose_project &&
+            (x.spec_summary as { compose_service?: string }).compose_service ===
+              t.compose_service &&
+            (x.status_summary as { state?: string }).state === 'running',
+        );
+        if (c) {
+          out.push({
+            integrationId: r.id,
+            node: {
+              id: `c:${c.name}`,
+              kind: 'container',
+              name: t.compose_service,
+              namespace: t.compose_project,
+              workloadKind: null,
+            },
+          });
+        }
+      }
+    }
+    return out;
+  }
+
   app.get(
     '/clusters/:id/service-map',
     {
@@ -414,6 +524,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
           mode: 'topology' as const,
           agents,
           dns: [],
+          proxies: [],
           ...(await markComponents(
             cluster.id,
             cluster.kind === 'docker'
@@ -453,9 +564,29 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
         // DNS errors belong to the workload that looked up.
         `sum by (namespace, workload_kind, workload, container, compose_project, compose_service, rcode) (rate(watchlog_dns_requests_total${ns ? `{namespace=~"${ns}"}` : ''}[${RATE_WINDOW}]))`,
       ];
+      // Traefik's own metrics (ADR-165), only for clusters that monitor a Traefik.
+      const targets = await proxyTargets(cluster.id);
+      const px = targets.length ? `{service=~"${anyOf(targets.map((t) => t.integrationId))}"}` : '';
+      const proxyExprs = targets.length
+        ? [
+            `sum by (service, traefik_service, code) (rate(traefik_service_requests_total${px}[${RATE_WINDOW}]))`,
+            ...[0.5, 0.95, 0.99].map(
+              (q) =>
+                `histogram_quantile(${q}, sum by (service, traefik_service, le) (rate(traefik_service_request_duration_seconds_bucket${px}[${RATE_WINDOW}])))`,
+            ),
+            `sum by (service, entrypoint, code) (rate(traefik_entrypoint_requests_total${px}[${RATE_WINDOW}]))`,
+            `sum by (service, entrypoint) (rate(traefik_entrypoint_requests_tls_total${px}[${RATE_WINDOW}]))`,
+            `sum by (service, traefik_service) (increase(traefik_service_requests_total${px}[1h])) > 0`,
+            `max by (service, traefik_service) (traefik_service_server_up${px})`,
+          ]
+        : [];
       let r: QuerySeries[][];
+      let pr: QuerySeries[][];
       try {
-        r = await Promise.all(exprs.map((e) => victoria.query({ clusterId: cluster.id }, e)));
+        [r, pr] = await Promise.all([
+          Promise.all(exprs.map((e) => victoria.query({ clusterId: cluster.id }, e))),
+          Promise.all(proxyExprs.map((e) => victoria.query({ clusterId: cluster.id }, e))),
+        ]);
       } catch (err) {
         request.log.warn({ err: (err as Error).message }, 'service map query failed');
         return sendProblem(reply, 502, 'Metrics could not be queried');
@@ -476,25 +607,55 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
         httpP99,
         dns,
       ] = r.map((x) => x ?? []);
+      const graph = buildGraph({
+        seen: seen!,
+        connections: connections!,
+        failed: failed!,
+        latencySum: latencySum!,
+        latencyCount: latencyCount!,
+        latencyP95: latencyP95!,
+        bytes: bytes!,
+        retransmits: retransmits!,
+        failedLastMinute: failedLastMinute!,
+        http: { byClass: httpByClass!, p50: httpP50!, p95: httpP95!, p99: httpP99! },
+      });
+      let withProxies: ReturnType<typeof addProxies> = { ...graph, proxies: [] };
+      if (targets.length) {
+        const [
+          serviceByCode,
+          p50,
+          p95,
+          p99,
+          entrypointByCode,
+          entrypointTls,
+          seenTraefik,
+          serverUp,
+        ] = pr.map((x) => x ?? []);
+        const idx = await backendIndex(db, cluster.id);
+        withProxies = addProxies(
+          graph,
+          targets,
+          {
+            serviceByCode: serviceByCode!,
+            p50: p50!,
+            p95: p95!,
+            p99: p99!,
+            entrypointByCode: entrypointByCode!,
+            entrypointTls: entrypointTls!,
+            seen: seenTraefik!,
+            serverUp: serverUp!,
+          },
+          (name) => resolveTraefikService(name, idx),
+          namespaces,
+        );
+      }
+      const { proxies, ...nodesAndEdges } = withProxies;
       return {
         mode: 'flows' as const,
         agents,
-        ...(await markComponents(
-          cluster.id,
-          buildGraph({
-            seen: seen!,
-            connections: connections!,
-            failed: failed!,
-            latencySum: latencySum!,
-            latencyCount: latencyCount!,
-            latencyP95: latencyP95!,
-            bytes: bytes!,
-            retransmits: retransmits!,
-            failedLastMinute: failedLastMinute!,
-            http: { byClass: httpByClass!, p50: httpP50!, p95: httpP95!, p99: httpP99! },
-          }),
-        )),
+        ...(await markComponents(cluster.id, nodesAndEdges)),
         dns: dnsRows(dns!),
+        proxies,
       };
     },
   );

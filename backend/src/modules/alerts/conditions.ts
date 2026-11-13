@@ -15,6 +15,7 @@ export const SERVICE_METRIC_PREFIXES = [
   'rabbitmq.',
   'mysql.',
   'mongodb.',
+  'traefik.',
 ] as const;
 export const isServiceMetric = (metric: string) =>
   SERVICE_METRIC_PREFIXES.some((p) => metric.startsWith(p));

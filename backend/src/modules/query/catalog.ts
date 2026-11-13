@@ -4,6 +4,9 @@ import { nginxExpr, type NginxSource } from './nginx.js';
 // user input only ever becomes escaped label values. cluster_id is enforced by
 // VictoriaMetrics (extra_label), never by these templates.
 
+/** Traefik's entrypoints that carry users' traffic: not its metrics or API entrypoints. */
+const TRAEFIK_EP = 'entrypoint!~"metrics|traefik"';
+
 export type Unit =
   'ratio' | 'bytes' | 'bytes_per_second' | 'cores' | 'load' | 'count' | 'seconds' | 'per_second';
 export type Agg = 'sum' | 'avg' | 'max' | 'min';
@@ -707,6 +710,54 @@ const ENTRIES = {
     unit: 'seconds',
     agg: 'min',
     expr: (s, r, _a, scope) => nginxExpr('cert_expiry', scope.nginx ?? [], s, r),
+  },
+  // Traefik (v0.5 slice 3, ADR-165): its own Prometheus series, read by the collector with
+  // Traefik's `service` label renamed traefik_service. The metrics and traefik (API)
+  // entrypoints are Traefik's own traffic, left out.
+  'traefik.requests.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (service, service_type) (rate(traefik_entrypoint_requests_total${s(TRAEFIK_EP)}[${r}]))`,
+  },
+  'traefik.5xx.ratio': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s, r) =>
+      `sum by (service, service_type) (rate(traefik_entrypoint_requests_total${s(`${TRAEFIK_EP},code=~"5.."`)}[${r}])) / (sum by (service, service_type) (rate(traefik_entrypoint_requests_total${s(TRAEFIK_EP)}[${r}])) > 0)`,
+  },
+  'traefik.latency.p95': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s, r) =>
+      `histogram_quantile(0.95, sum by (service, service_type, le) (rate(traefik_entrypoint_request_duration_seconds_bucket${s(TRAEFIK_EP)}[${r}])))`,
+  },
+  /**
+   * Services with no server up: every server down by Traefik's health checks, or (without
+   * health checks) 1 while Traefik answers 503 itself, "no available server": measured on
+   * 3.6, those 503s are counted on the entrypoint and never on a service.
+   */
+  'traefik.services.down': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, r) => {
+      const ep = `sum by (service, service_type) (rate(traefik_entrypoint_requests_total${s('code="503"')}[${r}]))`;
+      const svc = `sum by (service, service_type) (rate(traefik_service_requests_total${s('code="503"')}[${r}]))`;
+      return `(count by (service, service_type) (max by (service, service_type, traefik_service) (traefik_service_server_up${s()}) == 0)) or (((${ep} - (${svc} or ${ep} * 0)) > 0.001) * 0 + 1)`;
+    },
+  },
+  /** Seconds until the soonest certificate Traefik serves expires. */
+  'traefik.certificate.expiry': {
+    unit: 'seconds',
+    agg: 'min',
+    expr: (s) => `min by (service, service_type) (traefik_tls_certs_not_after${s()}) - time()`,
+  },
+  /** 1 when the last configuration reload failed (Traefik v2 only: v3 has no failure series). */
+  'traefik.config.reload_failed': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type) (traefik_config_last_reload_failure${s()} > bool on (service, service_type, member) traefik_config_last_reload_success${s()})`,
   },
 } satisfies Record<string, Entry>;
 

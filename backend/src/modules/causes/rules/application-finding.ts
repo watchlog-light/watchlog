@@ -7,7 +7,8 @@
 //     consumer's own cause ("orders has no consumers → consumer is OOM-killed at its limit"),
 //     PostgreSQL's and MySQL's connections near max_connections to the client holding most of
 //     them and when it started, MySQL's lock waits to the session holding the lock (ADR-163),
-//     MongoDB's collection scans to the client sending them (ADR-164). Without such an object the finding alone is a partial chain: it says
+//     MongoDB's collection scans to the client sending them (ADR-164), Traefik's service
+//     with no server up to its backend's own cause (ADR-165). Without such an object the finding alone is a partial chain: it says
 //     what is wrong, not why (possible at best).
 //   - the far end of an edge (`ev.via`): the caller's calls fail or are slow, and the
 //     application monitoring what it calls has a finding ("api is slow → PostgreSQL's
@@ -58,7 +59,8 @@ const IP = /^[\d.:a-f]+$/i;
 export function linksOf(ev: Evidence): Link[] {
   const f = topFinding(ev.application);
   if (!f) return [];
-  if (f.code === 'queue_no_consumers') {
+  // RabbitMQ's lost consumer and Traefik's backend with no server up link the object.
+  if (f.code === 'queue_no_consumers' || f.code === 'no_server_up') {
     const l = (f.links ?? []).find((x) => x.kind === 'workload' || x.kind === 'container');
     if (!l) return [];
     if (l.kind === 'container')
@@ -158,6 +160,17 @@ export function findingStep(ev: Evidence, a: EvApplication, f: Finding, next: St
         perMin: num(f.facts.perMin),
       },
       since: iso(num(f.facts.sinceAt)),
+    };
+  if (f.code === 'no_server_up')
+    return {
+      ...base,
+      code: 'no_server_up',
+      facts: {
+        backend: typeof f.facts.backend === 'string' ? f.facts.backend : null,
+        service: typeof f.facts.service === 'string' ? f.facts.service : null,
+        answered: num(f.facts.answered),
+      },
+      since: null,
     };
   if (f.code === 'connections_near_max')
     return {
@@ -262,6 +275,29 @@ export function throughLink(
             : own?.rule === 'bad_change'
               ? { code: 'app_consumer_change', facts: { queue, consumer: link.name } }
               : { code: 'app_consumer_ended', facts: { queue, consumer: link.name, how } },
+    };
+  }
+  // Traefik answers 503 itself: the backend's own cause (scaled to 0, crashing, OOM) follows.
+  if (f.code === 'no_server_up') {
+    const own = bestOf(found, far);
+    const backend = link.name;
+    const answered = num(f.facts.answered);
+    const first = findingStep(ev, a, f, 'because');
+    const none: Step = {
+      object,
+      source: 'application',
+      code: 'backend_no_server',
+      facts: { how: far.gone ? 'gone' : 'down' },
+      at: null,
+      since: null,
+      next: null,
+    };
+    return {
+      ...base,
+      facts: { name: a.name, finding: f.code, backend, answered },
+      since: own?.since ?? null,
+      chain: own ? [first, ...tail(own.chain, 2)] : [first, none],
+      headline: { code: 'app_no_server', facts: { name: a.name, backend, answered } },
     };
   }
   if (f.code === 'lock_waits') {

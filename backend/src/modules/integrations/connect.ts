@@ -145,6 +145,7 @@ const ProbeBody = Type.Object(
       Type.Literal('rabbitmq'),
       Type.Literal('mysql'),
       Type.Literal('mongodb'),
+      Type.Literal('traefik'),
       Type.Literal('elasticsearch'),
     ]),
     target: TargetSchema,

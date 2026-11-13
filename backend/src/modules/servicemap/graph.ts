@@ -57,7 +57,23 @@ export interface MapEdge {
   failedLastMinute?: number;
   /** HTTP/1.x on this edge, from the 16-byte peek (ADR-139); null when none was seen. */
   http: EdgeHttp | null;
+  /**
+   * Where `http` comes from on a proxy's edge (ADR-165): eBPF stays the source where it
+   * has numbers; Traefik's own fill an edge eBPF can't read (TLS, HTTP/2). Unset elsewhere.
+   */
+  httpSource?: 'ebpf' | 'traefik' | null;
+  /** Requests the proxy answered itself on this edge, with no connection made (ADR-165). */
+  answeredByProxy?: AnsweredByProxy | null;
   health: Health;
+}
+
+export interface AnsweredByProxy {
+  perSecond: number;
+  reason: 'no_server_up';
+  /** The proxy's node id. */
+  proxy: string;
+  /** Several backends were down at once: the figure is the proxy's whole, on each. */
+  shared: boolean;
 }
 
 export interface EdgeHttp {

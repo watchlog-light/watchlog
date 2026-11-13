@@ -6046,7 +6046,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["mode", "agents", "nodes", "edges", "dns"],
+                  "required": ["mode", "agents", "nodes", "edges", "dns", "proxies"],
                   "properties": {
                     "mode": {
                       "anyOf": [
@@ -6170,6 +6170,28 @@
                               { "type": "null" }
                             ]
                           },
+                          "httpSource": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["ebpf"] },
+                              { "type": "string", "enum": ["traefik"] },
+                              { "type": "null" }
+                            ]
+                          },
+                          "answeredByProxy": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["perSecond", "reason", "proxy", "shared"],
+                                "properties": {
+                                  "perSecond": { "type": "number" },
+                                  "reason": { "type": "string", "enum": ["no_server_up"] },
+                                  "proxy": { "type": "string" },
+                                  "shared": { "type": "boolean" }
+                                }
+                              },
+                              { "type": "null" }
+                            ]
+                          },
                           "health": { "type": "string" }
                         }
                       }
@@ -6195,6 +6217,36 @@
                           "timeoutPerSecond": { "type": "number" },
                           "searchMissPerSecond": { "type": "number" },
                           "errorRatio": { "type": "number" }
+                        }
+                      }
+                    },
+                    "proxies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["node", "integrationId", "entrypoints", "answeredPerSecond"],
+                        "properties": {
+                          "node": { "type": "string" },
+                          "integrationId": { "type": "string" },
+                          "entrypoints": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "requestsPerSecond",
+                                "serverErrorsPerSecond",
+                                "tlsRequestsPerSecond"
+                              ],
+                              "properties": {
+                                "name": { "type": "string" },
+                                "requestsPerSecond": { "type": "number" },
+                                "serverErrorsPerSecond": { "type": "number" },
+                                "tlsRequestsPerSecond": { "type": "number" }
+                              }
+                            }
+                          },
+                          "answeredPerSecond": { "type": "number" }
                         }
                       }
                     }
@@ -6981,7 +7033,13 @@
                       { "type": "string", "enum": ["nginx.5xx.ratio"] },
                       { "type": "string", "enum": ["nginx.latency.p95"] },
                       { "type": "string", "enum": ["nginx.upstream.down"] },
-                      { "type": "string", "enum": ["nginx.certificate.expiry"] }
+                      { "type": "string", "enum": ["nginx.certificate.expiry"] },
+                      { "type": "string", "enum": ["traefik.requests.rate"] },
+                      { "type": "string", "enum": ["traefik.5xx.ratio"] },
+                      { "type": "string", "enum": ["traefik.latency.p95"] },
+                      { "type": "string", "enum": ["traefik.services.down"] },
+                      { "type": "string", "enum": ["traefik.certificate.expiry"] },
+                      { "type": "string", "enum": ["traefik.config.reload_failed"] }
                     ]
                   },
                   "scope": {

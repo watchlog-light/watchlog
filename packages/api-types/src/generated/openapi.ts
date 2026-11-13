@@ -1296,7 +1296,13 @@ export interface paths {
               | 'nginx.5xx.ratio'
               | 'nginx.latency.p95'
               | 'nginx.upstream.down'
-              | 'nginx.certificate.expiry';
+              | 'nginx.certificate.expiry'
+              | 'traefik.requests.rate'
+              | 'traefik.5xx.ratio'
+              | 'traefik.latency.p95'
+              | 'traefik.services.down'
+              | 'traefik.certificate.expiry'
+              | 'traefik.config.reload_failed';
             scope?: {
               host?: string;
               container?: string;
@@ -3115,6 +3121,14 @@ export interface paths {
                   p95Seconds: number | null;
                   p99Seconds: number | null;
                 } | null;
+                httpSource?: 'ebpf' | 'traefik' | null;
+                answeredByProxy?: {
+                  perSecond: number;
+                  /** @enum {string} */
+                  reason: 'no_server_up';
+                  proxy: string;
+                  shared: boolean;
+                } | null;
                 health: string;
               }[];
               dns: {
@@ -3125,6 +3139,17 @@ export interface paths {
                 timeoutPerSecond: number;
                 searchMissPerSecond: number;
                 errorRatio: number;
+              }[];
+              proxies: {
+                node: string;
+                integrationId: string;
+                entrypoints: {
+                  name: string;
+                  requestsPerSecond: number;
+                  serverErrorsPerSecond: number;
+                  tlsRequestsPerSecond: number;
+                }[];
+                answeredPerSecond: number;
               }[];
             };
           };
@@ -7061,7 +7086,14 @@ export interface paths {
             /** Format: uuid */
             clusterId: string;
             type:
-              'redis' | 'postgres' | 'nginx' | 'rabbitmq' | 'mysql' | 'mongodb' | 'elasticsearch';
+              | 'redis'
+              | 'postgres'
+              | 'nginx'
+              | 'rabbitmq'
+              | 'mysql'
+              | 'mongodb'
+              | 'traefik'
+              | 'elasticsearch';
             target:
               | {
                   /** @enum {string} */
@@ -7670,7 +7702,15 @@ export interface paths {
     get: {
       parameters: {
         query: {
-          type: 'redis' | 'postgres' | 'nginx' | 'rabbitmq' | 'mysql' | 'mongodb' | 'elasticsearch';
+          type:
+            | 'redis'
+            | 'postgres'
+            | 'nginx'
+            | 'rabbitmq'
+            | 'mysql'
+            | 'mongodb'
+            | 'traefik'
+            | 'elasticsearch';
         };
         header?: never;
         path?: never;
@@ -8539,7 +8579,14 @@ export interface paths {
             /** Format: uuid */
             clusterId: string;
             type:
-              'redis' | 'postgres' | 'nginx' | 'rabbitmq' | 'mysql' | 'mongodb' | 'elasticsearch';
+              | 'redis'
+              | 'postgres'
+              | 'nginx'
+              | 'rabbitmq'
+              | 'mysql'
+              | 'mongodb'
+              | 'traefik'
+              | 'elasticsearch';
             target:
               | {
                   /** @enum {string} */

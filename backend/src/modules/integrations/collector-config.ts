@@ -13,6 +13,7 @@ export const INTEGRATION_TYPES = [
   'rabbitmq',
   'mysql',
   'mongodb',
+  'traefik',
   'elasticsearch',
 ] as const;
 export type IntegrationType = (typeof INTEGRATION_TYPES)[number];

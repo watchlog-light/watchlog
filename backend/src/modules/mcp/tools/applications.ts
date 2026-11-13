@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // list_applications and get_application (SPEC §4.12, ADR-135): the services WatchLog
-// monitors (Redis, PostgreSQL, MySQL, MongoDB, Nginx, RabbitMQ…), their health with its reasons, and
+// monitors (Redis, PostgreSQL, MySQL, MongoDB, Nginx, Traefik, RabbitMQ…), their health with its reasons, and
 // who connects to them, on Kubernetes clusters and Docker fleets.
 import { Type } from 'typebox';
 import { clusterField, resolveCluster, type ClusterRef } from '../clusters.js';
@@ -112,12 +112,19 @@ const INTEGRATION_SENTENCES: Record<string, string> = {
   connections_dropped:
     'Nginx dropped connections (facts.n in 15 minutes): worker_connections is reached.',
   certificate_expiring:
-    'A certificate ingress-nginx serves (facts.host) expires soon (facts.days days).',
+    'A certificate ingress-nginx or Traefik serves (facts.host) expires soon (facts.days days).',
   ingress_metrics_off:
     "ingress-nginx doesn't serve its metrics (--enable-metrics): requests come from eBPF and connections are missing; facts.command turns them on.",
   stub_status_missing:
     'Plain Nginx has no stub_status, so its connections are missing; facts.command is the configuration to add.',
   no_http_source: 'Added by address: no agent sees its HTTP traffic.',
+  // Traefik (errors_high, latency_high and certificate_expiring above mean the same)
+  no_server_up:
+    "Traefik answers 503 itself (facts.answered a second): its service facts.service has no server up, so facts.backend (linked) gets no requests; the backend's own state says why.",
+  config_reload_failed:
+    "Traefik's last configuration reload failed (facts.at); it keeps serving the configuration loaded facts.lastOk.",
+  metrics_off:
+    "Traefik doesn't serve its Prometheus metrics: requests come from eBPF (plain HTTP only), and TLS traffic and Traefik's own 502/503/504 are missing; facts.command (facts.how) turns them on.",
   // RabbitMQ
   queue_no_consumers:
     'A queue (facts.queue, facts.ready messages, +facts.perMin a minute) has no consumers since facts.since; facts.consumer, a client that was connected to RabbitMQ, ended facts.how facts.when (links: the likely former consumers, ranked by when they ended).',
@@ -209,7 +216,7 @@ export const listApplicationsTool = defineTool({
   name: 'list_applications',
   title: 'List monitored services',
   description: describe(
-    'The services WatchLog monitors in a cluster or Docker fleet: databases, caches, queues and web servers (Redis, PostgreSQL, MySQL and MariaDB, MongoDB, Nginx, RabbitMQ), problems first.',
+    'The services WatchLog monitors in a cluster or Docker fleet: databases, caches, queues and web servers (Redis, PostgreSQL, MySQL and MariaDB, MongoDB, Nginx, Traefik, RabbitMQ), problems first.',
     "Each has its type, version, where it runs (namespace on Kubernetes; host and Compose project on Docker), health (ok, warning, critical, unknown) with a reason code, a sentence and facts, and how many of its members (pods or containers) the collector reaches. Pass `cluster` to see one cluster; leave it out to see every cluster the token can read. Use get_application for one service's reasons and who connects to it.",
     'Example question: "Is any of our databases unhealthy?"',
   ),
@@ -268,7 +275,7 @@ export const getApplicationTool = defineTool({
   name: 'get_application',
   title: 'Get a monitored service',
   description: describe(
-    'One monitored service (Redis, PostgreSQL, MySQL, MongoDB, Nginx, RabbitMQ…): its health, every reason WatchLog sees (most severe first, each with a code, a sentence, facts and the workloads or containers it points to), and the workloads or containers that connect to it over the last hour, with connection and failed-connect counts (from network flows; `connected.flows` is false when the agents report none).',
+    'One monitored service (Redis, PostgreSQL, MySQL, MongoDB, Nginx, Traefik, RabbitMQ…): its health, every reason WatchLog sees (most severe first, each with a code, a sentence, facts and the workloads or containers it points to), and the workloads or containers that connect to it over the last hour, with connection and failed-connect counts (from network flows; `connected.flows` is false when the agents report none).',
     'Pass `name` as list_applications shows it ("shop/redis" on Kubernetes, "billing/postgres" for a Compose service, or a container name), or its id.',
     'Example question: "Why is payments/postgres critical, and which services use it?"',
   ),

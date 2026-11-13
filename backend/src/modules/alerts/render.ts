@@ -71,6 +71,7 @@ const SERVICE_NAMES: Record<string, string> = {
   rabbitmq: 'RabbitMQ',
   mysql: 'MySQL',
   mongodb: 'MongoDB',
+  traefik: 'Traefik',
   elasticsearch: 'Elasticsearch',
 };
 
