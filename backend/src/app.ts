@@ -48,6 +48,8 @@ import { queryRoutes } from './modules/query/routes.js';
 import { alertRoutes } from './modules/alerts/routes.js';
 import { HttpClient } from './modules/alerts/channels.js';
 import { settingsRoutes } from './modules/settings/routes.js';
+import { LogBroker } from './modules/logs/broker.js';
+import { logsRoutes } from './modules/logs/routes.js';
 import { userRoutes } from './modules/users/routes.js';
 import { SettingsService } from './modules/settings/service.js';
 import type { BucketSpec } from './modules/ingest/rate-limit.js';
@@ -145,6 +147,8 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   const tokens = new TokenCache(deps.db);
   // Wakes integrations collectors waiting on their configuration (ADR-131).
   const collectors = new ConfigNotifier();
+  // Logs on demand (ADR-167): readers and agents meet here, in this process only.
+  const logBroker = new LogBroker();
   app.decorate('collectorNotifier', collectors);
   const victoria = config.victoriaMetricsUrl
     ? new VictoriaQueryClient(config.victoriaMetricsUrl, 10_000, config.queryTimeoutMs)
@@ -180,6 +184,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(queryRoutes, { db: deps.db, victoria });
       await api.register(dockerRoutes, { db: deps.db, victoria });
       await api.register(kubernetesRoutes, { db: deps.db, victoria, settings });
+      await api.register(logsRoutes, { db: deps.db, settings, broker: logBroker });
       await api.register(overviewRoutes, { db: deps.db, victoria, settings, causes });
       await api.register(serviceMapRoutes, { db: deps.db, victoria, config, settings });
       await api.register(alertRoutes, {
@@ -246,6 +251,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     eventsRetentionDays: config.eventsRetentionDays,
     notifier: collectors,
     secretKey: config.secretKey,
+    logs: logBroker,
   });
 
   // Seeded services (ADR-142): monitored as soon as the agents report them, so tried on

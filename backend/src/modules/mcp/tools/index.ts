@@ -9,6 +9,7 @@ import type { ToolDef } from './common.js';
 import { getEventsTool, getRecentChangesTool } from './events.js';
 import { queryMetricTool } from './metrics.js';
 import { getNodeTool } from './nodes.js';
+import { getContainerLogsTool } from './logs.js';
 import { getPodTool } from './pods.js';
 import { getProblemsTool } from './problems.js';
 import { getServiceMapTool } from './servicemap.js';
@@ -24,6 +25,7 @@ export const TOOLS: ToolDef[] = [
   explainProblemTool,
   getWorkloadTool,
   getPodTool,
+  getContainerLogsTool,
   getNodeTool,
   listApplicationsTool,
   getApplicationTool,

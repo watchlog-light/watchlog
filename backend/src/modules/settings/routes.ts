@@ -12,7 +12,12 @@ import nodemailer from 'nodemailer';
 import { encryptJson } from '../../lib/secrets.js';
 import { redactUrl, restoreUrlPassword } from '../../lib/redact.js';
 import type { HttpClient } from '../alerts/channels.js';
-import { smtpTransport, type SettingsService, type SmtpConfig } from './service.js';
+import {
+  smtpTransport,
+  type LogsAccess,
+  type SettingsService,
+  type SmtpConfig,
+} from './service.js';
 
 const Nullable = <T extends TSchema>(t: T) => Type.Union([t, Type.Null()]);
 export const SourceSchema = Type.Union([
@@ -33,6 +38,12 @@ export const NamespacesSchema = Type.Object({
   watchlog: Type.Boolean(),
   isDefault: Type.Boolean(),
 });
+export const LogsAccessSchema = Type.Union([
+  Type.Literal('all'),
+  Type.Literal('admins'),
+  Type.Literal('off'),
+]);
+export const LogsSettingsSchema = Type.Object({ access: LogsAccessSchema });
 // A Kubernetes namespace name (RFC 1123 label).
 const NamespaceName = Type.String({ pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$', maxLength: 63 });
 
@@ -170,6 +181,41 @@ export const settingsRoutes: FastifyPluginAsyncTypebox<{
           request.user!.id,
         );
       return settings.namespaces();
+    },
+  );
+
+  // ---------------------------------------------------------------- container logs
+
+  app.get(
+    '/settings/logs',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary: 'Who may read container logs on demand (ADR-167)',
+        tags: ['settings'],
+        response: { 200: LogsSettingsSchema, 401: ProblemSchema },
+      },
+    },
+    async () => ({ access: await settings.logsAccess() }),
+  );
+
+  app.put(
+    '/settings/logs',
+    {
+      preHandler: canManage,
+      schema: {
+        summary: 'Let every role, Owners and Admins only, or no one read container logs',
+        tags: ['settings'],
+        body: Type.Object({ access: LogsAccessSchema }, { additionalProperties: false }),
+        response: { 200: LogsSettingsSchema, ...Errors },
+      },
+    },
+    async (request) => {
+      const access = request.body.access as LogsAccess;
+      // The default is kept as no row, so a later default change reaches it.
+      if (access === 'all') await settings.remove('logs');
+      else await settings.save('logs', { access }, null, request.user!.id);
+      return { access: await settings.logsAccess() };
     },
   );
 

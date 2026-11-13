@@ -25,7 +25,9 @@ export type AuditAction =
   | 'reset_link_created'
   | 'password_reset'
   | 'user_removed'
-  | 'ownership_transferred';
+  | 'ownership_transferred'
+  // Container logs on demand (ADR-167): who read which container, never the lines.
+  | 'logs_read';
 
 export interface Actor {
   id: string | null;

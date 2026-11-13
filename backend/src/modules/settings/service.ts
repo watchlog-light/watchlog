@@ -18,7 +18,11 @@ export interface AlertingSettings {
   telegramProxy?: string;
 }
 
-export type SettingKey = 'general' | 'smtp' | 'telegram' | 'namespaces';
+export type SettingKey = 'general' | 'smtp' | 'telegram' | 'namespaces' | 'logs';
+
+/** Who may read container logs on demand (ADR-167): every role by default. */
+export type LogsAccess = 'all' | 'admins' | 'off';
+export const LOGS_ACCESS: readonly LogsAccess[] = ['all', 'admins', 'off'];
 
 /** Namespaces hidden by default on the Workloads page and in the overview's tops. */
 export const DEFAULT_SYSTEM_NAMESPACES = [
@@ -172,6 +176,12 @@ export class SettingsService {
       watchlog: v?.watchlog ?? true,
       isDefault: !v,
     };
+  }
+
+  /** Who may read container logs (ADR-167); every role until it is changed in Settings. */
+  async logsAccess(): Promise<LogsAccess> {
+    const v = (await this.row('logs'))?.value as { access?: string } | undefined;
+    return LOGS_ACCESS.includes(v?.access as LogsAccess) ? (v!.access as LogsAccess) : 'all';
   }
 
   /** The values senders use now (cached for 10 s, cleared on every change). */

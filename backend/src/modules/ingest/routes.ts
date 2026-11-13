@@ -12,6 +12,8 @@ import { VictoriaError, type VictoriaClient } from '../../lib/victoria.js';
 import type { TokenOwner } from '../clusters/tokens.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { registerIntegrationIngest } from '../integrations/ingest.js';
+import { LogBroker } from '../logs/broker.js';
+import { registerLogsIngest } from '../logs/ingest.js';
 import { ConfigNotifier } from '../integrations/notifier.js';
 import { healthSince } from './health.js';
 import {
@@ -63,6 +65,8 @@ export interface IngestOptions {
   notifier?: ConfigNotifier;
   /** Opens integration credentials for their collector (ADR-133). */
   secretKey: Buffer;
+  /** Logs on demand (ADR-167): where agents pick up requests and post lines. */
+  logs?: LogBroker;
 }
 
 const Str = (max: number) => Type.String({ maxLength: max });
@@ -172,6 +176,8 @@ const HeartbeatBody = Type.Object({
       /** namespace/release and chart, set by the agent chart for the upgrade command. */
       // Checked where used (helmUpgradeCommand): a bad value must not fail the heartbeat.
       helm_release: Type.Optional(Type.String({ maxLength: 128 })),
+      /** Logs on demand (ADR-167): "off" when the installation turned them off. */
+      logs: Type.Optional(Type.Union([Type.Literal('on'), Type.Literal('off')])),
       helm_chart: Type.Optional(Type.String({ maxLength: 64 })),
       /** Docker agents: their own container, named in the upgrade command. */
       container_id: Type.Optional(Type.String({ maxLength: 64 })),
@@ -257,8 +263,11 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
     // The cluster-agent's start-up burst gets its own bucket; the cluster ceiling
     // still bounds anyone claiming its name (ADR-067).
     const instance = agentId === CLUSTER_AGENT_ID ? clusterAgentBuckets : agentBuckets;
+    // Logs on demand (ADR-167) answer a person waiting for them: the poll and the lines
+    // count against the cluster's ceiling only, not the agent's own budget.
+    const logs = (request.routeOptions.url ?? '').startsWith('/ingest/v1/logs/');
     const wait = Math.max(
-      instance.take(`${owner.tokenId}:${agentId}`),
+      logs ? 0 : instance.take(`${owner.tokenId}:${agentId}`),
       clusterBuckets.take(owner.clusterId),
     );
     if (wait > 0) {
@@ -556,6 +565,8 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
       return reply.code(204).send(null);
     },
   );
+
+  registerLogsIngest(app, { broker: opts.logs ?? new LogBroker() });
 
   registerIntegrationIngest(app, {
     db,

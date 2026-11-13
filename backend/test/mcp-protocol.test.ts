@@ -19,6 +19,7 @@ const TOOLS = [
   'explain_alert',
   'explain_problem',
   'get_application',
+  'get_container_logs',
   'get_events',
   'get_node',
   'get_pod',

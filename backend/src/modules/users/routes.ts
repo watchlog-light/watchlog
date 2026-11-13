@@ -153,6 +153,8 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
               .selectFrom('audit_events')
               .select(['action', 'actor_name', 'subject_email', 'ip', 'at', 'details'])
               .where('org_id', '=', orgId)
+              // "Recent changes" lists user changes; log reads are audited apart (ADR-167).
+              .where('action', '<>', 'logs_read')
               .orderBy('at', 'desc')
               .limit(50)
               .execute(),
