@@ -8,7 +8,8 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
 import { VictoriaQueryClient } from '../src/lib/victoria.js';
 import type { Evidence } from '../src/modules/causes/evidence.js';
-import { linksOf } from '../src/modules/causes/rules/application-finding.js';
+import { findingStep, linksOf } from '../src/modules/causes/rules/application-finding.js';
+import { foldPermissions } from '../src/modules/integrations/pages/reasons.js';
 import { reasonSentence } from '../src/modules/mcp/tools/applications.js';
 import {
   TEST_VM_URL,
@@ -366,6 +367,8 @@ describe('the MySQL page', () => {
     expect(d.application.product).toBe('mariadb');
     const reasons = d.reasons as { code: string; facts: Record<string, unknown> }[];
     expect(reasons.map((r) => r.code)).toContain('performance_schema_off');
+    // The hint says it all: no "needs permission" line for what performance_schema empties.
+    expect(reasons.filter((r) => r.code === 'needs_permission')).toEqual([]);
     expect(reasons.find((r) => r.code === 'lock_waits')!.facts).toMatchObject({
       holder: 'shop-locker-1',
       waiting: '172.18.0.6',
@@ -415,5 +418,42 @@ describe('probable cause follows the finding to the holder', () => {
         }),
       )[0],
     ).toMatchObject({ name: 'mysql-e2e/leak', n: 36 });
+  });
+
+  it('a step under MariaDB carries the product, so it says MariaDB, not MySQL', () => {
+    const e = ev('docker', 'lock_waits', { holder: 'shop-locker-1' });
+    const f = e.application!.reasons[0]!;
+    expect(findingStep(e, e.application!, f, null).object.product).toBeUndefined();
+    const maria = { ...e, application: { ...e.application!, product: 'mariadb' } } as Evidence;
+    expect(findingStep(maria, maria.application!, f, null).object).toMatchObject({
+      type: 'mysql',
+      product: 'mariadb',
+    });
+  });
+});
+
+describe('a hint replaces the needs-permission lines it covers', () => {
+  it('performance_schema off and innodb_table_stats; other permissions stay', () => {
+    const perm = (tab: string, missing: string) => ({
+      severity: 'info' as const,
+      code: 'needs_permission',
+      facts: { tab, missing },
+    });
+    const all = [
+      perm('overview/slowest', 'performance_schema'),
+      perm('queries/top', 'performance_schema'),
+      perm('storage/tables', 'SELECT on mysql.innodb_table_stats'),
+      perm('replication/status', 'REPLICATION CLIENT'),
+    ];
+    expect(foldPermissions(all)).toEqual(all);
+    const hints = [
+      { severity: 'info' as const, code: 'performance_schema_off', facts: {} },
+      { severity: 'info' as const, code: 'table_stats_unavailable', facts: {} },
+    ];
+    expect(foldPermissions([...all, ...hints]).map((r) => r.facts.tab ?? r.code)).toEqual([
+      'replication/status',
+      'performance_schema_off',
+      'table_stats_unavailable',
+    ]);
   });
 });
