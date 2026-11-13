@@ -19,6 +19,7 @@
 - At session end: append to HISTORY.md, tick the phase checklist and update pending-review.md in
   the notes repository; record any decision in docs/DECISIONS.md here.
 - Conventional commits (feat:, fix:, chore:, docs:, refactor:, test:).
+- Commits show only the owner as author: no Co-Authored-By, Claude-Session or 'Generated with Claude Code' lines.
 
 ## What belongs here
 
