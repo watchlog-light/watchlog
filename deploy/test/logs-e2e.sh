@@ -10,7 +10,7 @@
 #     sidecar writes its own lines;
 #   - reads through REST (JSON): the token is there, hunter2 never is, `redacted` counts the
 #     lines, multi-byte text survives, `lines` caps the answer, Docker marks stdout/stderr,
-#     the sidecar is its own container, an unknown container is a 422, `previous=true`
+#     the sidecar is its own container, an unknown container is a 404, `previous=true`
 #     gives the first run;
 #   - follows over SSE: a first `lines` event, then newer lines;
 #   - get_container_logs over MCP with a fresh API token (revoked at the end);
@@ -211,7 +211,9 @@ for kind, path in paths.items():
 s, side = status("GET", pod + "?container=sidecar&lines=20")
 check("kubernetes: the sidecar is its own container", s == 200 and "sidecar alive" in text(side) and tok not in text(side), f"{s}")
 s, bad = status("GET", pod + "?container=nope")
-check(f"kubernetes: an unknown container is a 422 ({s} {bad and bad.get('code')})", s == 422 and bad.get("code") == "container_not_found")
+# Not in the pod's spec: the backend answers 404 itself (the agent's 422 container_not_found
+# is for a container the spec has and the runtime doesn't).
+check(f"kubernetes: a container the pod doesn't have is a 404 ({s})", s == 404)
 
 # The first run exits after 40 s; Kubernetes restarts it (10 s back-off).
 def restarted():
