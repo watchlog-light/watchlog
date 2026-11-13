@@ -22,7 +22,8 @@
 #       scan:   an `analytics` client runs an unindexed find on shop.events in a loop →
 #               slow_collscan naming analytics; the top cause of the service is
 #               application_finding (app_collscan, analytics as the client);
-#       leak:   a `leak` holds about 52 of maxConns 60 (16 clients of three connections each) → connections_near_max naming the leak;
+#       leak:   a `leak` holds about 83 of maxConns 100 (26 clients of three connections each and
+#               mongosh's own five; about 94 % with the other member's and WatchLog's) → connections_near_max naming the leak;
 #               application_finding (app_pg_held, the leak as holder);
 #       member: the second member stops → member_down; application_finding naming it.
 #
@@ -75,7 +76,7 @@ down() {
 # server's user, then starts through the image's entrypoint, which creates root on the
 # first start.
 # shellcheck disable=SC2089
-start='printf "%s" "$MONGO_KEYFILE" > /tmp/keyfile && chmod 400 /tmp/keyfile && chown 999:999 /tmp/keyfile && exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /tmp/keyfile --bind_ip_all --wiredTigerCacheSizeGB 0.25 --maxConns 60'
+start='printf "%s" "$MONGO_KEYFILE" > /tmp/keyfile && chmod 400 /tmp/keyfile && chown 999:999 /tmp/keyfile && exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /tmp/keyfile --bind_ip_all --wiredTigerCacheSizeGB 0.25 --maxConns 100'
 
 up() {
   say "MongoDB 8.0 on kind (namespace $ns), MongoDB 7.0 on the VM's Docker host (project mongodb-e2e)"
@@ -152,7 +153,7 @@ services:
   leak:
     <<: *client
     command: ["mongosh", "--quiet", "mongodb://app:app-e2e-password@mongo:27017/shop?directConnection=true", "--eval",
-      "const held = []; for (let i = 0; i < 16; i++) { const c = new Mongo('mongodb://app:app-e2e-password@mongo:27017/shop?directConnection=true&maxPoolSize=1'); c.getDB('shop').runCommand({ ping: 1 }); held.push(c) } sleep(3600 * 1000)"]
+      "const held = []; for (let i = 0; i < 26; i++) { const c = new Mongo('mongodb://app:app-e2e-password@mongo:27017/shop?directConnection=true&maxPoolSize=1'); c.getDB('shop').runCommand({ ping: 1 }); held.push(c) } sleep(3600 * 1000)"]
 YAML
   in_vm "$compose up -d --quiet-pull mongo mongo-b >/dev/null && kubectl --context kind-demo -n $ns rollout status statefulset/mongo --timeout 300s >/dev/null"
   # Ready: the entrypoint's first start (root created, standalone) is over and the real
@@ -172,6 +173,7 @@ YAML
   # 100 ms (measured in slice 2).
   seed='db.getSiblingDB("shop").setProfilingLevel(0, { slowms: 20 });
 db.getSiblingDB("shop").createUser({ user: "app", pwd: "app-e2e-password", roles: [{ role: "readWrite", db: "shop" }] });
+db.getSiblingDB("admin").createUser({ user: "nomon", pwd: "nomon-e2e-password", roles: [{ role: "read", db: "shop" }] });
 const ev = db.getSiblingDB("shop").events; const kinds = ["order", "refund", "view", "cart"];
 for (let b = 0; b < 40; b++) { const docs = []; for (let i = 0; i < 5000; i++) docs.push({ kind: kinds[i % 4], amount: (i * 7919) % 100, at: new Date(), note: "x".repeat(64) }); ev.insertMany(docs) }'
   in_vm ". $dir/.env && kubectl --context kind-demo -n $ns exec -i mongo-0 -- bash -c 'mongosh --quiet -u root -p \"\$MONGO_INITDB_ROOT_PASSWORD\" >/dev/null' <<JS
@@ -221,7 +223,7 @@ spec:
           image: mongo:8.0
           imagePullPolicy: IfNotPresent
           command: ["mongosh", "--quiet", "mongodb://app:app-e2e-password@mongo-0.mongo:27017/shop?directConnection=true", "--eval",
-            "const held = []; for (let i = 0; i < 16; i++) { const c = new Mongo('mongodb://app:app-e2e-password@mongo-0.mongo:27017/shop?directConnection=true&maxPoolSize=1'); c.getDB('shop').runCommand({ ping: 1 }); held.push(c) } sleep(3600 * 1000)"]
+            "const held = []; for (let i = 0; i < 26; i++) { const c = new Mongo('mongodb://app:app-e2e-password@mongo-0.mongo:27017/shop?directConnection=true&maxPoolSize=1'); c.getDB('shop').runCommand({ ping: 1 }); held.push(c) } sleep(3600 * 1000)"]
 YAML
 }
 
@@ -246,7 +248,7 @@ up
 
 say "connect, test and monitor; the failure cases; the scenarios and their causes"
 WATCHLOG_URL=$url VM=$vm NS=$ns DIR=$dir python3 - <<'PY'
-import atexit, http.cookiejar, json, os, re, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
+import atexit, http.cookiejar, json, os, re, shlex, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
 
 url = os.environ["WATCHLOG_URL"] + "/api/v1"
 vm, ns, d_ = os.environ["VM"], os.environ["NS"], os.environ["DIR"]
@@ -362,7 +364,8 @@ first = settle(p, 45)
 check("kubernetes: before the command runs, the test waits (auth_failed)",
       first["status"] == "pending" and (first["result"] or {}).get("code") == "auth_failed", json.dumps(first))
 inner = cmd.split(" -- ", 1)[1].replace(" -p --authenticationDatabase", ' -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase')
-vm_run(f"kubectl exec -i -n {ns} statefulset/mongo -- bash -c {json.dumps(inner)}")
+# Single-quoted for the VM's shell, so the password variable expands in the pod, not there.
+vm_run(f"kubectl exec -i -n {ns} mongo-0 -- bash -c {shlex.quote(inner)}")
 call("POST", f"/applications/probes/{p['probe']['id']}/check")
 q = passed(p["probe"]["id"], 60)
 check("kubernetes: after the command, the test passes with no excess role (8.0, replica set rs0)",
@@ -380,7 +383,8 @@ check("kubernetes: the generated user can read every panel", not perms, str(perm
 # 2. A wrong password, and a user without clusterMonitor.
 wrong = settle(probe(svc, {"method": "entered", "username": "watchlog", "password": "not-the-password"}))
 check("a wrong password fails as auth_failed", (wrong["result"] or {}).get("code") == "auth_failed", json.dumps(wrong))
-nomon = settle(probe(svc, {"method": "entered", "username": "app", "password": "app-e2e-password"}))
+# In admin, where the collector authenticates (the app user is in shop: auth_failed there).
+nomon = settle(probe(svc, {"method": "entered", "username": "nomon", "password": "nomon-e2e-password"}))
 check("a user without clusterMonitor fails as permission_missing, naming it",
       (nomon["result"] or {}).get("code") == "permission_missing" and nomon["result"]["missing"] == ["clusterMonitor"], json.dumps(nomon))
 
@@ -440,7 +444,9 @@ for label, app_id in (("kubernetes", k_app), ("docker", d_app)):
 scale(["analytics"], 0)
 compose_rm(["analytics"])
 
-# The leak: about 52 of maxConns 60.
+# The leak: about 94 of maxConns 100 (measured: 3 connections per client, 5 for mongosh,
+# about 11 for the other member and the collector). At maxConns 60 the band between 90 %
+# and refusing the collector was 6 connections: the leak filled it and the collector got EOF.
 scale(["leak"], 1)
 compose_up(["leak"])
 scenario("kubernetes leak", k_app, k_cluster, "connections_near_max", "top", f"{ns}/leak", "app_pg_held")
