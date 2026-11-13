@@ -73,6 +73,7 @@ import { metricsClient } from './modules/entitlements/metrics.js';
 import { CloudAccounts } from './modules/accounts/context.js';
 import { FunnelRecorder } from './modules/funnel/recorder.js';
 import { EgressPolicy, type Resolver } from './lib/egress.js';
+import { CLOUD_HELMET } from './lib/csp.js';
 
 export const API_PREFIX = '/api/v1';
 
@@ -167,13 +168,15 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     clientIpHeader: config.clientIpHeader,
     clientCountryHeader: config.clientCountryHeader,
     trustedProxies: parseTrustedProxies(config.trustedProxies),
-    cookieSecure: config.cookieSecure,
+    // Cloud: Secure cookies always (ADR-181), whatever built the configuration.
+    cookieSecure: config.edition === 'cloud' ? 'always' : config.cookieSecure,
   });
   registerCsrfProtection(app, config.publicUrl);
   // Read-only demo (ADR-122): every change is refused here, before any route runs.
   registerDemoGuard(app, config.demoMode);
 
-  await app.register(helmet);
+  // Cloud: the strict policy and headers (ADR-181); Community: helmet's defaults, as 0.5.0.
+  await app.register(helmet, config.edition === 'cloud' ? CLOUD_HELMET : {});
   await app.register(cookie);
   // Per visitor, also behind a proxy (WATCHLOG_CLIENT_IP_HEADER), or per API token when a
   // request has one; routes may key otherwise.
