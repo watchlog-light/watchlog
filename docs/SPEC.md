@@ -521,7 +521,7 @@ Access: nothing on PLAINTEXT listeners; otherwise SASL (PLAIN, SCRAM-SHA-256/512
 
 ### MongoDB — v0.5.0 (ADR-162, ADR-164; versions 6.0+, standalone and replica sets)
 
-Access: nothing with authentication off; otherwise a user with `clusterMonitor`. An optional `read` on `local` adds the oplog window. The official Go driver v2, one direct connection per member (ADR-164).
+Access: nothing with authentication off; otherwise a user with `clusterMonitor`, which on 7.0 and 8.0 also reads `local` (the oplog window; measured in slice 2). The official Go driver v2, one direct connection per member (ADR-164).
 
 | Tab | Panels and sources |
 |---|---|
@@ -529,7 +529,7 @@ Access: nothing with authentication off; otherwise a user with `clusterMonitor`.
 | Operations | **H** operation latency (`serverStatus` `opLatencies` histograms) · **HB** busiest collections (`top`) · **T** slow operations: shape, collection, duration, plan, COLLSCAN marked, client workload (`getLog global` "Slow query" entries; the shape keeps field names and operators, every literal becomes `?` (ADR-138); `queryShapeHash` on 8.0; the entry's `remote` address through the IP map) · **HB** connections by client workload (`$currentOp` with idle connections, client addresses through the IP map) |
 | Cache and storage | **G** WiredTiger cache used vs maximum (dirty %); disk (`dbStats` `fsUsedSize`/`fsTotalSize`) · **L** read and write tickets available (`wiredTiger.concurrentTransactions`; `queues.execution` on 7.0+) · **HB** largest collections (`$collStats`) |
 
-- ⚑ **The oplog window** needs `read` on `local`, which `clusterMonitor` lacks. The generated command adds it as an optional line; otherwise the tile and the rule explain.
+- ⚑ **The oplog window** is the first-to-last entry span: until the oplog is full it is only the set's age, so the rule waits for the oplog to be 90 % full (`$collStats` size vs `maxSize`).
 - ⚑ **The slow-operation table** comes from `getLog global`, the server's in-memory ring of its last 1,024 log lines: on a busy server, entries between two scrapes can be missed. Closest for the count: `serverStatus` `metrics.operation`/`opLatencies` totals; the table is labelled "recent".
 - ⚑ **Sharded clusters:** a `mongos` is read as one member (`serverStatus`); the shards behind it are monitored only if each is added.
 - **Discovery:** images `mongo`, `mongodb/mongodb-community-server`, `bitnami/mongodb`, Percona's and the community operator's; port 27017.
