@@ -161,8 +161,8 @@ describe('Settings › Plan & billing', () => {
     expect(wrapper.get('[data-testid="meter-retention"]').text()).toContain('3 days');
     expect(wrapper.get('[data-testid="pro-card"]').text()).toContain('coming to Pro');
     expect(wrapper.get('[data-testid="how-counted"]').text()).toContain('95th percentile');
-    // No Stripe or beta button yet (slice 5).
-    expect(wrapper.find('[data-testid="pro-card"] button').exists()).toBe(false);
+    // Without an answer from the billing service, no action (cloud-billing.test.ts has them).
+    expect(wrapper.find('[data-testid="start-beta"]').exists()).toBe(false);
   });
 
   it('Community: no Plan & billing tab', async () => {
