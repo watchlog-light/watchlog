@@ -6,6 +6,7 @@
 import { genericPage } from './generic.js';
 import { duration } from './mysql.js';
 import { ipOwners, type Owner } from './owners.js';
+import type { QuerySeries } from '../../../lib/victoria.js';
 import { instant, one, pointsOf, range, some, SPARK_RANGE, valueOf } from './query.js';
 import type { IntegrationPage, PageContext, Panel, Reason, RowMetrics, Severity } from './types.js';
 
@@ -13,6 +14,39 @@ const P = 'integrations.mongodb.panels';
 const RATE = '2m';
 const LAG_LINE = 30;
 const OPLOG_LINE = 86400;
+
+/** Each member's current and available connections (labels member and state). */
+const connsBy = (s: string, by = 'member') =>
+  `max by (${by}, state) (watchlog_mongodb_connections{${s}, state=~"current|available"})`;
+
+/**
+ * The member nearest its connection limit, from connsBy's series, per key (the service in a
+ * list, '' on a page). The limit is each member's own: a max() of current and of available
+ * taken apart mixed a full primary with an idle secondary (100 of 190, 53 %, not 100 of 100).
+ */
+export function busiestMember(
+  rows: QuerySeries[],
+  key: (labels: Record<string, string>) => string = () => '',
+): Map<string, { c: number; a: number }> {
+  const members = new Map<string, { key: string; c?: number; a?: number }>();
+  for (const r of rows) {
+    const v = r.points[0]?.[1];
+    if (v === undefined || v === null) continue;
+    const k = key(r.labels);
+    const id = `${k}\u0000${r.labels.member ?? ''}`;
+    const m = members.get(id) ?? { key: k };
+    if (r.labels.state === 'current') m.c = v;
+    else m.a = v;
+    members.set(id, m);
+  }
+  const out = new Map<string, { c: number; a: number }>();
+  for (const m of members.values()) {
+    if (m.c === undefined || m.a === undefined || m.c + m.a <= 0) continue;
+    const best = out.get(m.key);
+    if (!best || m.c / (m.c + m.a) > best.c / (best.c + best.a)) out.set(m.key, { c: m.c, a: m.a });
+  }
+  return out;
+}
 
 export interface MongoSlow {
   ns: string;
@@ -101,12 +135,11 @@ function slowRows(list: MongoSlow[], owners: Map<string, Owner>) {
 
 async function overview(ctx: PageContext): Promise<Panel[]> {
   const s = one(ctx.row.id);
-  const [ops, reads, conns, avail, lag, slow, cacheUsed, cacheMax, oplog, byOp, lagSeries, isSet] =
+  const [ops, reads, conns, lag, slow, cacheUsed, cacheMax, oplog, byOp, lagSeries, isSet] =
     await Promise.all([
       instant(ctx, `sum(rate(watchlog_mongodb_ops_total{${s}}[${RATE}]))`),
       instant(ctx, `sum(rate(watchlog_mongodb_ops_total{${s}, op=~"query|getmore"}[${RATE}]))`),
-      instant(ctx, `max(watchlog_mongodb_connections{${s}, state="current"})`),
-      instant(ctx, `max(watchlog_mongodb_connections{${s}, state="available"})`),
+      instant(ctx, connsBy(s)),
       instant(ctx, `max(watchlog_mongodb_replication_lag_seconds{${s}})`),
       instant(ctx, `sum(increase(watchlog_mongodb_slow_ops_total{${s}}[1h]))`),
       instant(ctx, `max(watchlog_mongodb_cache_bytes{${s}, state="used"})`),
@@ -118,8 +151,9 @@ async function overview(ctx: PageContext): Promise<Panel[]> {
     ]);
   const total = valueOf(ops);
   const r = valueOf(reads) ?? 0;
-  const c = valueOf(conns);
-  const a = valueOf(avail);
+  const busiest = busiestMember(conns).get('');
+  const c = busiest?.c ?? null;
+  const a = busiest?.a ?? null;
   const lagS = valueOf(lag);
   const used = valueOf(cacheUsed);
   const max = valueOf(cacheMax);
@@ -416,38 +450,24 @@ async function storage(ctx: PageContext): Promise<Panel[]> {
 
 async function reasons(ctx: PageContext): Promise<Reason[]> {
   const s = one(ctx.row.id);
-  const [
-    isSet,
-    primary,
-    lag,
-    collscan,
-    conns,
-    avail,
-    dirty,
-    used,
-    max,
-    queued,
-    window,
-    full,
-    owners,
-  ] = await Promise.all([
-    instant(ctx, `max(watchlog_mongodb_replica_set{${s}})`),
-    instant(ctx, `max(watchlog_mongodb_primary_seen{${s}})`),
-    instant(ctx, `topk(1, max by (rs_member) (watchlog_mongodb_replication_lag_seconds{${s}}))`),
-    instant(ctx, `sum(increase(watchlog_mongodb_slow_ops_total{${s}, plan="collscan"}[15m]))`),
-    instant(ctx, `max(watchlog_mongodb_connections{${s}, state="current"})`),
-    instant(ctx, `max(watchlog_mongodb_connections{${s}, state="available"})`),
-    instant(ctx, `max(watchlog_mongodb_cache_bytes{${s}, state="dirty"})`),
-    instant(ctx, `max(watchlog_mongodb_cache_bytes{${s}, state="used"})`),
-    instant(ctx, `max(watchlog_mongodb_cache_bytes{${s}, state="max"})`),
-    instant(ctx, `max(sum by (member) (watchlog_mongodb_queued{${s}}))`),
-    instant(ctx, `min(watchlog_mongodb_oplog_window_seconds{${s}})`),
-    instant(
-      ctx,
-      `max(max by (member) (watchlog_mongodb_oplog_bytes{${s}, state="used"}) / on (member) (max by (member) (watchlog_mongodb_oplog_bytes{${s}, state="max"}) > 0))`,
-    ),
-    ipOwners(ctx.db, ctx.row.cluster_id),
-  ]);
+  const [isSet, primary, lag, collscan, conns, dirty, used, max, queued, window, full, owners] =
+    await Promise.all([
+      instant(ctx, `max(watchlog_mongodb_replica_set{${s}})`),
+      instant(ctx, `max(watchlog_mongodb_primary_seen{${s}})`),
+      instant(ctx, `topk(1, max by (rs_member) (watchlog_mongodb_replication_lag_seconds{${s}}))`),
+      instant(ctx, `sum(increase(watchlog_mongodb_slow_ops_total{${s}, plan="collscan"}[15m]))`),
+      instant(ctx, connsBy(s)),
+      instant(ctx, `max(watchlog_mongodb_cache_bytes{${s}, state="dirty"})`),
+      instant(ctx, `max(watchlog_mongodb_cache_bytes{${s}, state="used"})`),
+      instant(ctx, `max(watchlog_mongodb_cache_bytes{${s}, state="max"})`),
+      instant(ctx, `max(sum by (member) (watchlog_mongodb_queued{${s}}))`),
+      instant(ctx, `min(watchlog_mongodb_oplog_window_seconds{${s}})`),
+      instant(
+        ctx,
+        `max(max by (member) (watchlog_mongodb_oplog_bytes{${s}, state="used"}) / on (member) (max by (member) (watchlog_mongodb_oplog_bytes{${s}, state="max"}) > 0))`,
+      ),
+      ipOwners(ctx.db, ctx.row.cluster_id),
+    ]);
   const out: Reason[] = [];
   const ex = extra(ctx);
   const replicaSet = valueOf(isSet) === 1;
@@ -498,9 +518,9 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
       },
     });
   }
-  const c = valueOf(conns);
-  const a = valueOf(avail);
-  if (c !== null && a !== null && c + a > 0 && c / (c + a) > 0.9) {
+  const busiest = busiestMember(conns).get('');
+  if (busiest && busiest.c / (busiest.c + busiest.a) > 0.9) {
+    const { c, a } = busiest;
     const by = new Map<string, number>();
     for (const x of ex.clients ?? []) {
       const name = clientName(owners, x.addr, x.app);
@@ -554,20 +574,20 @@ export const mongodbPage: IntegrationPage = {
     const s = some(ids);
     const end = Math.floor(now / 1000 / 300) * 300;
     const opsQ = `sum by (service) (rate(watchlog_mongodb_ops_total{${s}}[5m]))`;
-    const [conns, avail, ops, used, max, spark] = await Promise.all([
-      vm.query(scope, `max by (service) (watchlog_mongodb_connections{${s}, state="current"})`),
-      vm.query(scope, `max by (service) (watchlog_mongodb_connections{${s}, state="available"})`),
+    const [conns, ops, used, max, spark] = await Promise.all([
+      vm.query(scope, connsBy(s, 'service, member')),
       vm.query(scope, opsQ),
       vm.query(scope, `max by (service) (watchlog_mongodb_cache_bytes{${s}, state="used"})`),
       vm.query(scope, `max by (service) (watchlog_mongodb_cache_bytes{${s}, state="max"})`),
       vm.queryRange(scope, opsQ, end - SPARK_RANGE, end, 300),
     ]);
-    const at = (rows: typeof conns, id: string) =>
+    const at = (rows: typeof ops, id: string) =>
       rows.find((r) => r.labels.service === id)?.points[0]?.[1] ?? null;
+    const busiest = busiestMember(conns, (l) => l.service ?? '');
     const out = new Map<string, RowMetrics>();
     for (const id of ids) {
-      const c = at(conns, id);
-      const a = at(avail, id);
+      const c = busiest.get(id)?.c ?? null;
+      const a = busiest.get(id)?.a ?? null;
       const u = at(used, id);
       const m = at(max, id);
       const ratio = c !== null && a !== null && c + a > 0 ? c / (c + a) : null;
