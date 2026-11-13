@@ -92,6 +92,17 @@ export const ROUTES: Record<string, RouteClass> = {
   'POST /api/v1/plan/checkout': { kind: 'cloud', body: { interval: 'monthly' } },
   'POST /api/v1/plan/portal': cloud,
 
+  // Support mode (ADR-179): entering from the Cloud admin's one-time link, the banner,
+  // leaving, and the Owners' list of the org's sessions (B's Owner sees B's only). A
+  // support session of A's reaching B is asserted in support.test.ts.
+  'GET /api/v1/support/enter': { kind: 'cloud', query: { code: 'wl_sc_none' } },
+  'GET /api/v1/support/current': cloud,
+  'DELETE /api/v1/support/session': cloud,
+  'GET /api/v1/support-sessions': cloud,
+  // The lifecycle emails' unsubscribe (ADR-179): a signed link naming one user, no session.
+  'GET /api/v1/email/unsubscribe': { kind: 'cloud', query: { token: 'none' } },
+  'POST /api/v1/email/unsubscribe': { kind: 'cloud', query: { token: 'none' } },
+
   'GET /api/v1/clusters': org,
   'POST /api/v1/clusters': org,
   'GET /api/v1/clusters/:id': org,
@@ -238,4 +249,19 @@ export const INTERNAL_ROUTES = [
   'PUT /internal/orgs/:id/entitlements',
   'GET /internal/orgs/:id/usage',
   'GET /internal/orgs/:id/owners',
+  // The beta-to-billing notice, asked for by billing (ADR-179).
+  'POST /internal/orgs/:id/beta-notice',
+  // The Cloud admin's API (ADR-179): also needs X-WatchLog-Staff (internal.test.ts).
+  'GET /internal/admin/orgs',
+  'GET /internal/admin/orgs/:id',
+  'GET /internal/admin/orgs/:id/members',
+  'GET /internal/admin/orgs/:id/usage',
+  'GET /internal/admin/orgs/:id/entitlements',
+  'PUT /internal/admin/orgs/:id/entitlements',
+  'POST /internal/admin/orgs/:id/suspend',
+  'POST /internal/admin/orgs/:id/unsuspend',
+  'GET /internal/admin/funnel',
+  'POST /internal/admin/orgs/:id/support-sessions',
+  'GET /internal/admin/orgs/:id/support-sessions',
+  'DELETE /internal/admin/support-sessions/:id',
 ] as const;

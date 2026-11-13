@@ -31,6 +31,18 @@ const SYSTEM_DB: Record<string, string> = {
     'the entitlements cache, read across orgs by ingest and the metrics tiers; the internal API writes it',
   'modules/entitlements/usage.ts':
     "the usage job lists the orgs with agents in the hour; each org's row is written withOrg",
+  'modules/funnel/day7.ts':
+    "the worker's day7_active job lists clusters across orgs; each event is written withOrg",
+  'modules/internal/admin.ts':
+    "the Cloud admin's API (staff): any org's row, members, usage, funnel and support sessions",
+  'modules/lifecycle/job.ts':
+    "the worker's lifecycle emails list Owners across orgs; each record is written withOrg",
+  'modules/lifecycle/unsubscribe.ts': 'the unsubscribe link names a user (global), signed out',
+  'modules/support/routes.ts':
+    'entering support mode: the one-time code names the session, before the org',
+  'modules/support/service.ts':
+    "support sessions: the cookie's lookup before the org, and the records a read-only request can't write itself",
+  'plugins/support.ts': "support mode's cookie lookup and the records of what it opened",
   'modules/internal/app.ts':
     "the internal API (billing, staff): any org's entitlements and usage, behind its own token",
   'modules/onboarding/cloud-routes.ts':

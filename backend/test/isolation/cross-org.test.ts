@@ -9,6 +9,9 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { isCloudOnly } from '../../src/plugins/edition.js';
+import { SUPPORT_ALLOWED } from '../../src/plugins/support.js';
+import { withOrg, markReadOnly, enterRequestScope } from '../../src/db/org-context.js';
+import { enterSupportSession, openSupportSession } from '../../src/modules/support/service.js';
 import { METRIC_KEYS } from '../../src/modules/query/catalog.js';
 import { TEST_VM_URL } from '../helpers.js';
 import {
@@ -544,5 +547,122 @@ describe('Cloud accounts across orgs (ADR-175)', () => {
       expect(leaks(res.body), url).toEqual([]);
       expect(res.body).not.toContain(A.kept.id);
     }
+  });
+});
+
+// ------------------------------------------------------------------------------- support
+
+describe('support mode (ADR-179): a session of B, read-only, never reaching A', () => {
+  /** The tables support mode itself records into (what was opened, tokens read). */
+  const SUPPORT_RECORDS = [
+    'support_session_views',
+    'support_sessions',
+    'audit_events',
+    'api_token_events',
+  ];
+  const withoutRecords = (f: Record<string, string>) =>
+    Object.fromEntries(Object.entries(f).filter(([k]) => !SUPPORT_RECORDS.includes(k)));
+  let support: string;
+
+  beforeAll(async () => {
+    const { code } = await openSupportSession(w.owner, {
+      orgId: B.orgId,
+      staffEmail: 'staff@watchlog.test',
+      reason: 'isolation sweep',
+      minutes: 60,
+    });
+    support = (await enterSupportSession(w.owner, code))!.token;
+  });
+  const asSupport = (route: string, ids: SeededOrg) =>
+    call(route, B, ids, { cookies: { wl_support: support } });
+
+  it("reads with A's ids: 404 or 403, never a marker of A; B's own reads never fail", async () => {
+    const problems: string[] = [];
+    let reads = 0;
+    for (const [route, cls] of Object.entries(ROUTES)) {
+      if (!isRead(route) || cls.kind === 'mcp' || cls.kind === 'ingest') continue;
+      reads++;
+      const b = await asSupport(route, A);
+      const found = leaks(b.body, b.sent);
+      if (found.length)
+        problems.push(`${route}: support saw ${found.join(', ')} (${b.statusCode})`);
+      if (cls.kind === 'org' && hasParams(route) && ![403, 404].includes(b.statusCode))
+        problems.push(`${route}: support of B got ${b.statusCode} with A's ids`);
+      // B's own ids: a read under a read-only database must not fail (a GET that writes would).
+      const own = await asSupport(route, B);
+      if (own.statusCode >= 500) {
+        problems.push(`${route}: support's own read ${own.statusCode}: ${own.body.slice(0, 160)}`);
+      }
+    }
+    expect(problems).toEqual([]);
+    expect(reads).toBeGreaterThan(60);
+  }, 120_000);
+
+  it("every change is refused (403), with A's ids and with B's own; neither org's rows change", async () => {
+    const beforeA = await fingerprint(A.orgId);
+    const beforeB = withoutRecords(await fingerprint(B.orgId));
+    const problems: string[] = [];
+    for (const [route, cls] of Object.entries(ROUTES)) {
+      // The installation's settings answer 404 in Cloud before anything else.
+      if (cls.kind === 'mcp' || cls.kind === 'ingest' || cls.kind === 'installation') continue;
+      if (route.startsWith('GET ')) continue;
+      const [method, url] = route.split(' ');
+      if (SUPPORT_ALLOWED.some((a) => a.method === method && a.url === url)) continue;
+      for (const ids of [A, B]) {
+        const res = await asSupport(route, ids);
+        if (res.statusCode !== 403 || !res.body.includes('support-read-only')) {
+          problems.push(`${route}: ${res.statusCode} ${res.body.slice(0, 120)}`);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+    expect(await fingerprint(A.orgId)).toEqual(beforeA);
+    expect(withoutRecords(await fingerprint(B.orgId))).toEqual(beforeB);
+  }, 120_000);
+
+  it('the database refuses a write in a read-only scope, even one no guard caught', async () => {
+    const err = await new Promise<unknown>((resolve) =>
+      enterRequestScope(() => {
+        markReadOnly();
+        withOrg(B.orgId, () =>
+          w.appDb
+            .updateTable('clusters')
+            .set({ name: 'zzbeta-renamed' })
+            .where('org_id', '=', B.orgId)
+            .execute(),
+        ).then(() => resolve(null), resolve);
+      }),
+    );
+    expect((err as { code?: string } | null)?.code).toBe('25006');
+    // The next request on the same pool writes again (the setting is per checkout).
+    const ok = await withOrg(B.orgId, () =>
+      w.appDb.selectFrom('clusters').select('id').where('org_id', '=', B.orgId).execute(),
+    );
+    expect(ok.length).toBeGreaterThan(0);
+    const write = await withOrg(B.orgId, () =>
+      w.appDb
+        .updateTable('clusters')
+        .set({ updated_at: new Date() })
+        .where('id', '=', B.k8s.id)
+        .executeTakeFirst(),
+    );
+    expect(Number(write.numUpdatedRows)).toBe(1);
+  });
+
+  it("the support session's org is fixed: no org switch, and A's ids are 404", async () => {
+    const sw = await w.app.inject({
+      method: 'POST',
+      url: `/api/v1/orgs/${A.orgId}/switch`,
+      cookies: { wl_support: support },
+    });
+    expect(sw.statusCode).toBe(403);
+    const cluster = await w.app.inject({
+      method: 'GET',
+      url: `/api/v1/clusters/${A.k8s.id}`,
+      cookies: { wl_support: support, wl_session: await A.session() },
+    });
+    // The support cookie wins over a session cookie in the same browser: B's org, not A's.
+    expect(cluster.statusCode).toBe(404);
+    expect(leaks(cluster.body, A.k8s.id)).toEqual([]);
   });
 });
