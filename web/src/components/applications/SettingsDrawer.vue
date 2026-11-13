@@ -185,7 +185,10 @@ const settings = computed(() => data.data.value?.settings);
             settings.paused ? $t('applications.settings.on') : $t('applications.settings.off')
           }}</span>
         </label>
-        <label v-if="app.type === 'postgres'" class="flex items-start justify-between gap-4">
+        <label
+          v-if="app.type === 'postgres' || app.type === 'mysql'"
+          class="flex items-start justify-between gap-4"
+        >
           <span class="flex flex-col gap-0.5">
             <span class="text-13 font-medium text-text">{{
               $t('applications.monitor.queryText')

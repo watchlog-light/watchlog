@@ -1377,6 +1377,16 @@
     "postgres_deadlocks_rate": "PostgreSQL deadlocks/s",
     "postgres_database_size": "PostgreSQL database size",
     "postgres_lock_waits": "PostgreSQL lock waits",
+    "mysql_connections": "MySQL connections",
+    "mysql_connections_ratio": "MySQL connections of max_connections",
+    "mysql_queries_rate": "MySQL queries/s",
+    "mysql_slow_queries_rate": "MySQL slow queries/s",
+    "mysql_buffer_pool_hit_ratio": "MySQL buffer pool hit",
+    "mysql_query_longest": "MySQL longest query",
+    "mysql_replication_lag": "MySQL replication lag",
+    "mysql_replication_stopped": "MySQL replication stopped",
+    "mysql_deadlocks_rate": "MySQL deadlocks/s",
+    "mysql_lock_waits": "MySQL row lock waits",
     "nginx_requests_rate": "Nginx requests/s",
     "nginx_5xx_ratio": "Nginx 5xx share",
     "nginx_latency_p95": "Nginx p95 response time",
@@ -2101,23 +2111,28 @@
       "failed": "{name} couldn't be added: {error}",
       "detectedAddress": "Added by hand: {address}, reached by the integrations collector of {cluster}.",
       "queryText": "Collect query text",
-      "queryTextHint": "The statements of the slowest queries, as PostgreSQL normalizes them. Turn it off if even normalized statements shouldn't leave the database.",
+      "queryTextHint": "The statements of the slowest queries, as the database normalizes them (values replaced by placeholders). Turn it off if even normalized statements shouldn't leave the database.",
       "defaultAlerts": "Default alerts",
       "defaultAlertsHint": "They notify your alert channels. Unticked ones are created off; switch them on later on the service page.",
       "alert": {
         "unreachable": "When a member can't be reached (critical when none can)",
         "slow_connect": "When connecting takes longer than 500 ms",
-        "redis_memory_high": "When memory is above 90 % of maxmemory for 5 minutes",
+        "redis_memory_high": "When memory is above 90% of maxmemory for 5 minutes",
         "redis_evicting": "When keys are being evicted",
         "redis_replica_down": "When a replica disconnects (critical)",
         "redis_save_failed": "When saving to disk fails (critical)",
         "redis_blocked_clients": "When clients stay blocked for 2 minutes",
-        "postgres_connections_high": "When connections are above 90 % of max_connections for 5 minutes",
+        "postgres_connections_high": "When connections are above 90% of max_connections for 5 minutes",
         "postgres_long_query": "When a query runs longer than 5 minutes (critical)",
         "postgres_replication_lag": "When a replica is more than 30 s behind for 2 minutes",
         "postgres_xid_age": "When the transaction ID age passes 1,500 M (critical)",
         "postgres_deadlocks": "When a deadlock happens",
-        "nginx_5xx_high": "When more than 5 % of requests answer 5xx for 5 minutes (critical)",
+        "mysql_connections_high": "When connections are above 90% of max_connections for 5 minutes",
+        "mysql_long_query": "When a query runs longer than 5 minutes (critical)",
+        "mysql_replication_stopped": "When a replica's IO or SQL thread stops (critical)",
+        "mysql_replication_lag": "When a replica is more than 30 s behind for 2 minutes",
+        "mysql_deadlocks": "When a deadlock happens",
+        "nginx_5xx_high": "When more than 5% of requests answer 5xx for 5 minutes (critical)",
         "nginx_latency_high": "When p95 is above 1 s for 5 minutes",
         "nginx_upstream_down": "When an upstream has no healthy endpoint (critical)",
         "nginx_certificate_expiring": "When a certificate expires within 14 days (ingress-nginx)",
@@ -2195,6 +2210,9 @@
         },
         "redis": {
           "permission_missing": "Add the commands to its ACL as an admin: ACL SETUSER {user} {missing}"
+        },
+        "mysql": {
+          "permission_missing": "Grant it as an admin: GRANT PROCESS ON *.* TO {user};"
         }
       }
     },
@@ -2257,7 +2275,9 @@
       "valkey": "Valkey {version} (Redis-compatible)",
       "valkeyNoVersion": "Valkey (Redis-compatible)",
       "ingressNginx": "ingress-nginx {version}",
-      "ingressNginxNoVersion": "ingress-nginx"
+      "ingressNginxNoVersion": "ingress-nginx",
+      "mariadb": "MariaDB {version}",
+      "mariadbNoVersion": "MariaDB"
     }
   },
   "integrations": {
@@ -2284,7 +2304,7 @@
       "long_query": "A query has been running for {duration}.",
       "idle_in_transaction": "{n} sessions are idle in a transaction, the longest for {duration}: they hold locks and stop vacuum from cleaning up.",
       "lock_waits": "{n} sessions are waiting for a lock held by {who}.",
-      "deadlocks": "{n} deadlocks in the last 15 minutes: PostgreSQL cancelled one transaction each time.",
+      "deadlocks": "{n} deadlocks in the last 15 minutes: the database cancelled one transaction each time.",
       "replica_lag": "A replica is {duration} behind.",
       "slot_retains_wal": "The inactive replication slot {slot} keeps {size} of WAL: the disk fills until it is used or dropped.",
       "wraparound_risk": "Transaction ID age in {db} is {n}: at 2,000 M PostgreSQL stops accepting writes. Vacuum is falling behind.",
@@ -2317,7 +2337,15 @@
       "queue_no_consumers_long_unknown": "{queue} has had no consumers for more than 6 hours and grows by {perMin} a minute ({ready} ready). No client that was connected to RabbitMQ in the last 24 hours ended in that time.",
       "autovacuum_not_finishing_plain": "Autovacuum isn't finishing on {n} tables: dead rows rose for 24 hours with no autovacuum completed.",
       "memory_alarm_plain": "A node is in a memory alarm: publishers are blocked until memory drops below the high watermark.",
-      "disk_alarm_plain": "A node is in a disk alarm: publishers are blocked until free disk is above the limit."
+      "disk_alarm_plain": "A node is in a disk alarm: publishers are blocked until free disk is above the limit.",
+      "lock_waits_held": "A session waits on a row lock in {table} (for {duration}): {who} holds it, its transaction open for {held}. | {n} sessions wait on row locks in {table} (the longest for {duration}): {who} holds it, its transaction open for {held}.",
+      "connections_refused": "{n} connections were refused in the last 15 minutes: max_connections ({max}) was reached.",
+      "replica_stopped": "Replication stopped on {member}: its {thread} thread isn't running. {error}",
+      "replica_stopped_plain": "Replication stopped: the IO or SQL thread isn't running.",
+      "buffer_pool_hit_low": "Only {pct}% of reads come from the InnoDB buffer pool: innodb_buffer_pool_size may be too small for the working set.",
+      "tmp_disk_tables_high": "Queries create {perSec} temporary tables on disk a second: sorts and GROUP BY outgrow tmp_table_size.",
+      "performance_schema_off": "performance_schema is off (MariaDB's default): statements and their latency stay empty. Set performance_schema=ON in the server's configuration and restart it.",
+      "table_stats_unavailable": "WatchLog's user can't read mysql.innodb_table_stats: the largest tables stay empty. GRANT SELECT ON mysql.innodb_table_stats to it."
     },
     "page": {
       "since": "monitored since {at}",
@@ -2614,6 +2642,120 @@
         },
         "replication": {
           "wal": "Grant {missing} to WatchLog's user to read the WAL directory's size."
+        }
+      }
+    },
+    "mysql": {
+      "tabs": {
+        "overview": "Overview",
+        "connections": "Connections",
+        "queries": "Queries",
+        "locks": "Locks",
+        "storage": "InnoDB and storage",
+        "replication": "Replication"
+      },
+      "panels": {
+        "summary": "At a glance",
+        "connections": "Connections",
+        "connectionsPct": "Connections",
+        "ofMax": "of {max}",
+        "qps": "Queries/s",
+        "slowQueries": "Slow queries/s",
+        "bufferPoolHit": "Buffer pool hit",
+        "replicationLag": "Replication lag",
+        "notReplica": "not a replica",
+        "longestQuery": "Longest query",
+        "connectionsOverTime": "Connections",
+        "maxConnections": "max_connections",
+        "statementsByType": "Statements by type",
+        "slowest": "Slowest statements (mean)",
+        "statementsNote": "from performance_schema's digest summary; text only with query text on, as the server normalizes it (values are ?)",
+        "threads": "Threads connected and running",
+        "byClient": "Connections by client",
+        "limits": "Limits",
+        "maxUsed": "Most connections at once (Max_used_connections)",
+        "aborted": "Aborted and refused connections",
+        "rows": "Rows by operation",
+        "duration": "Statement latency",
+        "fromHistogram": "from the server's statement histogram (events_statements_histogram_global)",
+        "byStatementMean": "by statement mean: MariaDB keeps no statement histogram",
+        "tmpAndScans": "Temporary tables on disk and full scans",
+        "topQueries": "Top statements by total time",
+        "rowLockWaits": "Row lock waits",
+        "rowLockTime": "Time spent waiting for row locks",
+        "rowLockTimeNote": "seconds of waiting per second, summed over sessions",
+        "blocking": "Blocking right now",
+        "blockingNote": "clients by workload or container; the table, never the locked row",
+        "deadlocks": "Deadlocks",
+        "bufferPool": "Buffer pool",
+        "pagesWithData": "Pages with data",
+        "pagesDirty": "Dirty pages",
+        "diskReads": "Buffer pool reads from disk",
+        "redo": "Redo log written",
+        "largestTables": "Largest tables",
+        "tablesEstimate": "estimate from InnoDB's persistent statistics (mysql.innodb_table_stats), refreshed by ANALYZE TABLE",
+        "replicaThreads": "Replica threads",
+        "replicaLag": "Replica lag",
+        "lagLine": "30 s",
+        "notReplicaNote": "This server isn't a replica. Each replica is monitored on its own: a source doesn't know its replicas' lag.",
+        "perfSchemaOff": "performance_schema is off: set performance_schema=ON in the server's configuration and restart it.",
+        "grant": "Grant {grant} to WatchLog's user.",
+        "cols": {
+          "query": "Statement",
+          "mean": "Mean",
+          "calls1h": "Calls (1 h)",
+          "total": "Total time",
+          "examinedPerCall": "Rows examined per call",
+          "waiting": "Waiting",
+          "table": "Table",
+          "for": "For",
+          "blockedBy": "Blocked by",
+          "openFor": "Its transaction open for",
+          "member": "Member",
+          "source": "Source",
+          "io": "IO thread",
+          "sql": "SQL thread",
+          "lastError": "Last error"
+        },
+        "series": {
+          "connections": "Connections",
+          "select": "SELECT",
+          "insert": "INSERT",
+          "update": "UPDATE",
+          "delete": "DELETE",
+          "other": "Other",
+          "connected": "Connected",
+          "running": "Running",
+          "aborted": "Aborted connects",
+          "refused": "Refused at max_connections",
+          "read": "Read",
+          "inserted": "Inserted",
+          "updated": "Updated",
+          "deleted": "Deleted",
+          "tmpDisk": "Temporary tables on disk",
+          "fullScans": "Full scans",
+          "waits": "Waits",
+          "waitTime": "Waiting",
+          "deadlocks": "Deadlocks",
+          "diskReads": "Reads from disk",
+          "redo": "Redo"
+        }
+      },
+      "missing": {
+        "overview": {
+          "slowest": "Turn performance_schema on to see statements: performance_schema=ON in the server's configuration, then restart it."
+        },
+        "queries": {
+          "top": "Turn performance_schema on to see statements: performance_schema=ON in the server's configuration, then restart it."
+        },
+        "locks": {
+          "blocking": "WatchLog's user needs {missing} to see who blocks whom."
+        },
+        "storage": {
+          "tables": "Grant {missing} to WatchLog's user to see the largest tables."
+        },
+        "replication": {
+          "status": "Grant {missing} to WatchLog's user to read the replica's status."
         }
       }
     },
@@ -3062,7 +3204,9 @@
       "queue_no_consumers": "{queue} has no consumers: {ready} ready, growing by {perMin} a minute.",
       "consumer_ended": "Connected to RabbitMQ until it ended: {how}.",
       "pg_connections": "Connections at {pct}% of max_connections ({n} of {max}).",
-      "holds_connections": "Holds one of them, since it started. | Holds {n} of them, since it started."
+      "holds_connections": "Holds one of them, since it started. | Holds {n} of them, since it started.",
+      "lock_waits": "A session waits on a row lock in {table}, for {duration}. | {n} sessions wait on row locks in {table}, the longest for {duration}.",
+      "holds_lock": "Holds the lock: its transaction has been open for {held}."
     },
     "connector": {
       "calls": "calls",

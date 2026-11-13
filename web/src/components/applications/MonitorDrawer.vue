@@ -93,7 +93,9 @@ async function start() {
         ...(s.value.collectorHost ? { collectorHost: s.value.collectorHost } : {}),
         ...(s.value.target.kind === 'address' ? { name: s.value.name } : {}),
         ...(probe.value ? { probeId: probe.value.id } : {}),
-        ...(s.value.type === 'postgres' ? { queryText: queryText.value } : {}),
+        ...(s.value.type === 'postgres' || s.value.type === 'mysql'
+          ? { queryText: queryText.value }
+          : {}),
         defaultAlerts: chosen.value,
       },
     });
@@ -137,7 +139,10 @@ async function start() {
 
       <AccessStep :service="s" @probe="(p) => (probe = p)" />
 
-      <label v-if="s.type === 'postgres'" class="flex items-start justify-between gap-4">
+      <label
+        v-if="s.type === 'postgres' || s.type === 'mysql'"
+        class="flex items-start justify-between gap-4"
+      >
         <span class="flex flex-col gap-0.5">
           <span class="text-13 font-medium text-text">{{
             $t('applications.monitor.queryText')

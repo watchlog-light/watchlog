@@ -81,6 +81,11 @@ const HEADLINES: [string, Facts][] = [
   ['app_pg_held', { name: 'causes-e2e/pg', pct: 93, holder: 'causes-e2e/leak', n: 37 }],
   ['app_pg_held', { name: 'causes-e2e/pg', pct: 98, holder: 'shop/report', n: 1 }],
   [
+    'app_lock_held',
+    { name: 'mysql-e2e/mysql', holder: 'mysql-e2e/locker', table: 'shop.stock', held: '69 s' },
+  ],
+  ['app_lock_held_any', { name: 'mysql-e2e/mariadb', holder: 'mysql-e2e-locker-1', held: '2 min' }],
+  [
     'app_finding_caller',
     {
       name: 'web',
@@ -267,6 +272,9 @@ const STEPS: [string, Facts][] = [
   ['pg_connections', { pct: 93, n: 37, max: 40 }],
   ['holds_connections', { n: 37 }],
   ['holds_connections', { n: 1 }],
+  ['lock_waits', { n: 1, table: 'shop.stock', duration: '13 s' }],
+  ['lock_waits', { n: 3, table: 'shop.stock', duration: '40 s' }],
+  ['holds_lock', { held: '69 s', table: 'shop.stock' }],
   [
     'app_finding',
     {

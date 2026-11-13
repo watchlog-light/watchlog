@@ -15,6 +15,7 @@ export type Family = 'databases' | 'caches' | 'queues' | 'proxies' | 'search';
 /** Each type's name, its family (the list's filters) and the one-word kind under the name. */
 export const SERVICE_TYPES: Record<string, { name: string; family: Family }> = {
   postgres: { name: 'PostgreSQL', family: 'databases' },
+  mysql: { name: 'MySQL', family: 'databases' },
   mongodb: { name: 'MongoDB', family: 'databases' },
   redis: { name: 'Redis', family: 'caches' },
   rabbitmq: { name: 'RabbitMQ', family: 'queues' },
@@ -39,6 +40,11 @@ export function productText(s: { type: string; version: string | null; product?:
       ? { key: 'applications.product.valkey', values: { version: s.version } }
       : { key: 'applications.product.valkeyNoVersion', values: {} };
   }
+  if (s.product === 'mariadb') {
+    return s.version
+      ? { key: 'applications.product.mariadb', values: { version: s.version } }
+      : { key: 'applications.product.mariadbNoVersion', values: {} };
+  }
   if (s.product === 'ingress-nginx') {
     return s.version
       ? { key: 'applications.product.ingressNginx', values: { version: s.version } }
@@ -53,7 +59,7 @@ export function productText(s: { type: string; version: string | null; product?:
 }
 
 /** Types that need a read-only user before WatchLog can read them (ADR-134). */
-export const NEEDS_USER = new Set(['postgres']);
+export const NEEDS_USER = new Set(['postgres', 'mysql']);
 
 const ORDER: Record<ApplicationHealth, number> = { critical: 0, warning: 1, unknown: 2, ok: 3 };
 
@@ -196,6 +202,22 @@ export function reasonLine(
         values: { ...f },
       };
     }
+    case 'lock_waits':
+      // MySQL names the table and how long the holder's transaction has been open.
+      return {
+        key:
+          has(f.table) && has(f.held)
+            ? 'integrations.reasons.lock_waits_held'
+            : 'integrations.reasons.lock_waits',
+        values: { ...f },
+      };
+    case 'replica_stopped':
+      return {
+        key: has(f.member)
+          ? 'integrations.reasons.replica_stopped'
+          : 'integrations.reasons.replica_stopped_plain',
+        values: { ...f, error: f.error ?? '' },
+      };
     case 'dead_letters_growing':
       return {
         key:

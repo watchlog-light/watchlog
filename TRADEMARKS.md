@@ -36,7 +36,7 @@ logo. The logo is in `packages/design-tokens/assets/` and the name in
 
 ## Other marks
 
-Kubernetes, Docker, Redis, PostgreSQL, NGINX, RabbitMQ, MongoDB and Elasticsearch are
+Kubernetes, Docker, Redis, PostgreSQL, MySQL, NGINX, RabbitMQ, MongoDB and Elasticsearch are
 trademarks of their respective owners. WatchLog is not affiliated with them, and they don't
 sponsor or endorse it. The dashboard shows their logos only to name what it monitors: the
 kind of cluster, and the services on the Applications page.
@@ -50,11 +50,12 @@ kind of cluster, and the services on the Applications page.
   under Docker's [trademark guidelines](https://www.docker.com/legal/trademark-guidelines/).
 
 - **Service logos** (`web/src/assets/brands/redis.svg`, `postgres.svg`, `nginx.svg`,
-  `rabbitmq.svg`, `mongodb.svg`, `elasticsearch.svg`): the icons from
+  `rabbitmq.svg`, `mysql.svg`, `mongodb.svg`, `elasticsearch.svg`): the icons from
   [Simple Icons](https://simpleicons.org) 16.36.0 (CC0 1.0), filled with each brand's colour,
   used under each owner's guidelines ([PostgreSQL](https://www.postgresql.org/about/policies/trademarks/),
   [Redis](https://redis.io/legal/trademark-policy/), [RabbitMQ](https://www.rabbitmq.com/trademark-guidelines),
-  [NGINX](https://www.f5.com/company/policies/trademarks)).
+  [NGINX](https://www.f5.com/company/policies/trademarks),
+  [MySQL](https://www.oracle.com/legal/trademarks.html)).
 
 The Kubernetes and Docker files are the owners' artwork as published, not changed or
 recoloured. Forks keep these notices with the files.

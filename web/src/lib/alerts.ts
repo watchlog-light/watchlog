@@ -273,6 +273,18 @@ export const SERVICE_METRICS_BY_TYPE: Record<string, typeof SERVICE_METRICS> = {
     { key: 'postgres.database.size', unit: 'bytes', start: { op: '>', value: 50 * 2 ** 30 } },
     { key: 'postgres.lock_waits', unit: 'count', start: { op: '>', value: 0 } },
   ],
+  mysql: [
+    { key: 'mysql.connections.ratio', unit: 'ratio', start: { op: '>', value: 0.9 } },
+    { key: 'mysql.connections', unit: 'count', start: { op: '>', value: 100 } },
+    { key: 'mysql.queries.rate', unit: 'per_second', start: { op: '>', value: 5000 } },
+    { key: 'mysql.slow_queries.rate', unit: 'per_second', start: { op: '>', value: 1 } },
+    { key: 'mysql.buffer_pool_hit.ratio', unit: 'ratio', start: { op: '<', value: 0.9 } },
+    { key: 'mysql.query.longest', unit: 'seconds', start: { op: '>', value: 300 } },
+    { key: 'mysql.replication.lag', unit: 'seconds', start: { op: '>', value: 30 } },
+    { key: 'mysql.replication.stopped', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'mysql.deadlocks.rate', unit: 'per_second', start: { op: '>', value: 0 } },
+    { key: 'mysql.lock_waits', unit: 'count', start: { op: '>', value: 0 } },
+  ],
   nginx: [
     { key: 'nginx.5xx.ratio', unit: 'ratio', start: { op: '>', value: 0.05 } },
     { key: 'nginx.latency.p95', unit: 'seconds', start: { op: '>', value: 1 } },

@@ -2,6 +2,7 @@
 import { type FunctionalComponent, h } from 'vue';
 import elasticsearchUrl from '@/assets/brands/elasticsearch.svg';
 import mongodbUrl from '@/assets/brands/mongodb.svg';
+import mysqlUrl from '@/assets/brands/mysql.svg';
 import nginxUrl from '@/assets/brands/nginx.svg';
 import postgresUrl from '@/assets/brands/postgres.svg';
 import rabbitmqUrl from '@/assets/brands/rabbitmq.svg';
@@ -15,6 +16,7 @@ export const SERVICE_LOGO_URL: Record<string, string> = {
   postgres: postgresUrl,
   nginx: nginxUrl,
   rabbitmq: rabbitmqUrl,
+  mysql: mysqlUrl,
   mongodb: mongodbUrl,
   elasticsearch: elasticsearchUrl,
 };
