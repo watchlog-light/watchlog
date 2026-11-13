@@ -35,7 +35,7 @@ const BILLING = { name: 'settings', query: { tab: 'billing' } } as const;
           >{{ $t('cloud.plan.betaTag') }}</span
         >
       </span>
-      <span class="text-text-muted" data-testid="plan-nodes">
+      <span class="shrink-0 whitespace-nowrap text-text-muted" data-testid="plan-nodes">
         {{
           p.limits.nodes === null
             ? $t('cloud.plan.nodes', { n: p.usage.nodes }, p.usage.nodes)
