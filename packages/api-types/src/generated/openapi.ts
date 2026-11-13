@@ -138,6 +138,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -153,6 +154,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -168,6 +170,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -232,6 +235,18 @@ export interface paths {
           };
         };
         /** @description Default Response */
+        202: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              /** @enum {boolean} */
+              mfaRequired: true;
+            };
+          };
+        };
+        /** @description Default Response */
         401: {
           headers: {
             [name: string]: unknown;
@@ -243,6 +258,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -258,6 +274,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -364,6 +381,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -433,6 +451,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -448,6 +467,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -463,6 +483,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -538,6 +559,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -623,6 +645,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -638,6 +661,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -653,6 +677,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -668,6 +693,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -753,6 +779,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -768,6 +795,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -806,6 +834,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -821,6 +850,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -836,6 +866,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -908,6 +939,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -923,6 +955,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -938,6 +971,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -953,6 +987,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -968,6 +1003,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1033,6 +1069,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1048,6 +1085,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1063,6 +1101,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1078,6 +1117,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1131,6 +1171,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1146,6 +1187,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1161,6 +1203,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1365,6 +1408,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1380,6 +1424,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1395,6 +1440,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1410,6 +1456,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1516,6 +1563,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1531,6 +1579,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1654,6 +1703,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1669,6 +1719,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1793,6 +1844,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1808,6 +1860,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1952,6 +2005,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -1967,6 +2021,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2063,6 +2118,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2078,6 +2134,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2168,6 +2225,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2183,6 +2241,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2310,6 +2369,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2325,6 +2385,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2411,6 +2472,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2426,6 +2488,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2441,6 +2504,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2545,6 +2609,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2560,6 +2625,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2575,6 +2641,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2646,6 +2713,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2661,6 +2729,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2676,6 +2745,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2735,6 +2805,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -2750,6 +2821,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3255,6 +3327,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3270,6 +3343,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3285,6 +3359,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3370,6 +3445,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3385,6 +3461,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3667,6 +3744,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3682,6 +3760,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3809,6 +3888,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3824,6 +3904,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3839,6 +3920,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3922,6 +4004,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3937,6 +4020,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3952,6 +4036,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3967,6 +4052,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -3982,6 +4068,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4039,6 +4126,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4148,6 +4236,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4163,6 +4252,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4178,6 +4268,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4193,6 +4284,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4370,6 +4462,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4385,6 +4478,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4400,6 +4494,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4415,6 +4510,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4548,6 +4644,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4563,6 +4660,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4578,6 +4676,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4593,6 +4692,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4608,6 +4708,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4682,6 +4783,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4697,6 +4799,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4712,6 +4815,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4727,6 +4831,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4801,6 +4906,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4816,6 +4922,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4831,6 +4938,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4846,6 +4954,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4898,6 +5007,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4913,6 +5023,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4928,6 +5039,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -4943,6 +5055,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5040,6 +5153,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5055,6 +5169,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5070,6 +5185,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5085,6 +5201,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5205,6 +5322,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5220,6 +5338,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5235,6 +5354,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5250,6 +5370,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5302,6 +5423,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5317,6 +5439,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5332,6 +5455,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5347,6 +5471,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5362,6 +5487,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5484,6 +5610,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5499,6 +5626,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5514,6 +5642,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5529,6 +5658,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5630,6 +5760,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5645,6 +5776,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5660,6 +5792,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5675,6 +5808,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5776,6 +5910,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5791,6 +5926,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5806,6 +5942,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5821,6 +5958,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -5836,6 +5974,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6009,6 +6148,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6024,6 +6164,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6039,6 +6180,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6054,6 +6196,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6069,6 +6212,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6141,6 +6285,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6156,6 +6301,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6171,6 +6317,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6186,6 +6333,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6266,6 +6414,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6281,6 +6430,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6296,6 +6446,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6311,6 +6462,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6363,6 +6515,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6378,6 +6531,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6393,6 +6547,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6408,6 +6563,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6482,6 +6638,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6497,6 +6654,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6512,6 +6670,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6527,6 +6686,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6579,6 +6739,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6594,6 +6755,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6609,6 +6771,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6624,6 +6787,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6680,6 +6844,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6695,6 +6860,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6710,6 +6876,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6725,6 +6892,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6777,6 +6945,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6822,6 +6991,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6837,6 +7007,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6852,6 +7023,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6867,6 +7039,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6921,6 +7094,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6968,6 +7142,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6983,6 +7158,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -6998,6 +7174,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7013,6 +7190,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7065,6 +7243,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7109,6 +7288,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7124,6 +7304,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7139,6 +7320,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7154,6 +7336,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7215,6 +7398,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7273,6 +7457,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7288,6 +7473,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7303,6 +7489,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7318,6 +7505,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7353,6 +7541,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7368,6 +7557,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7383,6 +7573,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7398,6 +7589,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7464,6 +7656,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7479,6 +7672,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7494,6 +7688,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7509,6 +7704,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7561,6 +7757,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7606,6 +7803,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7621,6 +7819,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7636,6 +7835,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7651,6 +7851,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7704,6 +7905,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -7850,6 +8052,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8032,6 +8235,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8047,6 +8251,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8062,6 +8267,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8077,6 +8283,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8092,6 +8299,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8202,6 +8410,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8276,6 +8485,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8291,6 +8501,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8306,6 +8517,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8321,6 +8533,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8373,6 +8586,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8388,6 +8602,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8403,6 +8618,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8463,6 +8679,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8537,6 +8754,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8612,6 +8830,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8627,6 +8846,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8812,6 +9032,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8827,6 +9048,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8842,6 +9064,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8880,6 +9103,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8895,6 +9119,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8910,6 +9135,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8955,6 +9181,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8970,6 +9197,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -8985,6 +9213,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9284,6 +9513,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9299,6 +9529,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9314,6 +9545,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9329,6 +9561,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9465,6 +9698,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9480,6 +9714,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9495,6 +9730,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9510,6 +9746,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9582,6 +9819,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9597,6 +9835,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9612,6 +9851,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9688,6 +9928,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9703,6 +9944,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9718,6 +9960,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9798,6 +10041,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9813,6 +10057,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9856,6 +10101,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9871,6 +10117,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9886,6 +10133,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9901,6 +10149,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9938,6 +10187,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9953,6 +10203,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -9968,6 +10219,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10207,6 +10459,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10222,6 +10475,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10237,6 +10491,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10307,6 +10562,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10322,6 +10578,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10386,6 +10643,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10401,6 +10659,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10416,6 +10675,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10431,6 +10691,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10522,6 +10783,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10537,6 +10799,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10552,6 +10815,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10590,6 +10854,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10605,6 +10870,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10620,6 +10886,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10700,6 +10967,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10777,6 +11045,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10792,6 +11061,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10807,6 +11077,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10822,6 +11093,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10878,6 +11150,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10893,6 +11166,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10908,6 +11182,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10923,6 +11198,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10982,6 +11258,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -10997,6 +11274,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11012,6 +11290,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11064,6 +11343,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11079,6 +11359,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11094,6 +11375,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11145,6 +11427,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11160,6 +11443,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11175,6 +11459,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11219,6 +11504,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11234,6 +11520,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11249,6 +11536,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11304,6 +11592,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11319,6 +11608,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11334,6 +11624,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11385,6 +11676,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11400,6 +11692,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11415,6 +11708,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11430,6 +11724,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11488,6 +11783,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11503,6 +11799,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11581,6 +11878,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11596,6 +11894,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11611,6 +11910,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11626,6 +11926,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11681,6 +11982,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11696,6 +11998,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11757,6 +12060,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11772,6 +12076,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11787,6 +12092,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11820,6 +12126,7 @@ export interface paths {
           'application/json': {
             /** Format: email */
             email: string;
+            turnstileToken?: string;
           };
         };
       };
@@ -11836,6 +12143,22 @@ export interface paths {
           };
         };
         /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+            };
+          };
+        };
+        /** @description Default Response */
         409: {
           headers: {
             [name: string]: unknown;
@@ -11847,6 +12170,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
@@ -11862,6 +12186,7 @@ export interface paths {
               status: number;
               detail?: string;
               instance?: string;
+              code?: string;
             };
           };
         };
