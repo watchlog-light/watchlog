@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ADMIN } from './helpers.js';
 import { createServer, request as httpRequest, type Server } from 'node:http';
 import {
+  TEST_SMTP_URL,
   mailpitMessages,
   startMockProviders,
   type MockProviders,
@@ -108,9 +109,11 @@ describe('system namespaces (Settings → General)', () => {
 });
 
 describe('email server (SMTP) from the UI', () => {
+  // The test Mailpit's SMTP port (WATCHLOG_TEST_SMTP_URL), never a fixed one.
+  const SMTP = new URL(TEST_SMTP_URL);
   const MAILPIT = {
-    host: '127.0.0.1',
-    port: 1025,
+    host: SMTP.hostname,
+    port: Number(SMTP.port),
     security: 'none',
     username: '',
     from: 'WatchLog <alerts@acme.test>',
@@ -128,8 +131,8 @@ describe('email server (SMTP) from the UI', () => {
     expect(mails.at(-1)!.Subject).toBe('WatchLog test email');
 
     expect((await api('PUT', '/settings/smtp', MAILPIT)).json().smtp).toMatchObject({
-      host: '127.0.0.1',
-      port: 1025,
+      host: MAILPIT.host,
+      port: MAILPIT.port,
       source: 'db',
       passwordSet: false,
     });

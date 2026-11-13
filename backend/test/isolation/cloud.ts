@@ -12,6 +12,7 @@ import type { FastifyInstance, RouteOptions } from 'fastify';
 import pg from 'pg';
 import { inject } from 'vitest';
 import { buildApp } from '../../src/app.js';
+import type { Resolver } from '../../src/lib/egress.js';
 import { grantAppRole } from '../../src/db/app-role.js';
 import { createDb, type Database } from '../../src/db/index.js';
 import { withOrg } from '../../src/db/org-context.js';
@@ -76,7 +77,16 @@ export async function ensureAppRole(ownerUrl: string): Promise<void> {
   await grantAppRole(ownerUrl, APP_ROLE);
 }
 
-export async function cloudWorld(): Promise<CloudWorld> {
+/**
+ * Cloud's egress policy (ADR-181) resolves channel hosts: the suite never asks real DNS.
+ * Every name is a public address, except names under `.internal.test` (10.0.0.1).
+ */
+export const testResolver: Resolver = async (host) =>
+  host.endsWith('.internal.test')
+    ? [{ address: '10.0.0.1', family: 4 }]
+    : [{ address: '93.184.215.14', family: 4 }];
+
+export async function cloudWorld(opts: { resolve?: Resolver } = {}): Promise<CloudWorld> {
   const ownerUrl = inject('databaseUrl');
   await ensureAppRole(ownerUrl);
   const appUrl = appUrlOf(ownerUrl);
@@ -97,6 +107,7 @@ export async function cloudWorld(): Promise<CloudWorld> {
       // Turnstile is off (no secret) and the breached-password check is skipped: the suite
       // never reaches an outside service.
       fetch: offlineFetch,
+      resolve: opts.resolve ?? testResolver,
       onRoute: (r) => {
         for (const m of [r.method].flat()) {
           if (m !== 'HEAD') routes.push({ key: `${m} ${r.url}`, opts: r });
