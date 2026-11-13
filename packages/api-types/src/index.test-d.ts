@@ -71,7 +71,7 @@ describe('generated API types', () => {
       30 | 90 | 365 | null | undefined
     >();
     expectTypeOf<ApiTokenEvent['kind']>().toEqualTypeOf<
-      'created' | 'first_use' | 'new_ip' | 'expired' | 'revoked' | 'reminder_sent'
+      'created' | 'first_use' | 'new_ip' | 'expired' | 'revoked' | 'reminder_sent' | 'staff_access'
     >();
   });
 });
