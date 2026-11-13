@@ -39,6 +39,8 @@ const CONFIG: CloudConfig = {
   turnstileSiteKey: null,
   passwordMinLength: 10,
   verifyGraceDays: 7,
+  supportEmail: 'support@watchlog.io',
+  sampleUrl: 'https://demo.watchlog.io',
 };
 const ACCOUNT: Account = {
   email: USER.email,
@@ -337,7 +339,7 @@ describe('the sign-up page', () => {
     const { wrapper, router, auth } = await mountCloud(SignupPage, '/signup');
     await fillAndSubmit(wrapper);
     expect(calls[0]!.body).toEqual({ email: 'sara@acme.dev', password: 'correct-horse-9' });
-    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/'));
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/onboarding'));
     expect(auth.account?.emailVerified).toBe(false);
   });
 
