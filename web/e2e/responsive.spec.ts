@@ -61,6 +61,61 @@ const serviceMapAnswer = (c: Cluster): Answer => ({
   json: SERVICE_MAPS[c.kind],
 });
 
+const hit = (r: Record<string, string | null>) => ({
+  namespace: null,
+  host: null,
+  type: null,
+  id: null,
+  match: 'prefix',
+  ...r,
+});
+/** The palette's search answers: a long name of each kind. */
+const PALETTE_ANSWERS = {
+  kubernetes: {
+    query: 'shop',
+    truncated: false,
+    results: [
+      hit({
+        kind: 'workload',
+        name: 'shop-payments-api',
+        namespace: 'shop-production',
+        type: 'Deployment',
+      }),
+      hit({ kind: 'pod', name: 'shop-payments-api-7d9f8c6b5-x2k4q', namespace: 'shop-production' }),
+      hit({ kind: 'node', name: 'shop-pool-a-4vcpu-16gb-eu-west-1c-0f3a', match: 'substring' }),
+      hit({
+        kind: 'application',
+        name: 'shop-production/redis',
+        namespace: 'shop-production',
+        type: 'redis',
+        id: '01a18f0e-a6c2-71ef-a7b4-42d765746d40',
+      }),
+    ],
+  },
+  docker: {
+    query: 'shop',
+    truncated: false,
+    results: [
+      hit({ kind: 'compose_project', name: 'shop', host: 'docker-host-eu-west-1', match: 'exact' }),
+      hit({ kind: 'host', name: 'shop-docker-host-eu-west-1' }),
+      hit({
+        kind: 'container',
+        name: 'shop-payments-api-worker-1',
+        namespace: 'shop',
+        host: 'docker-host-eu-west-1',
+      }),
+      hit({
+        kind: 'application',
+        name: 'shop/postgres',
+        namespace: 'shop',
+        host: 'docker-host-eu-west-1',
+        type: 'postgres',
+        id: '01a18f0e-a6c2-71ef-a7b4-42d765746d41',
+      }),
+    ],
+  },
+};
+
 /** A cluster that reported in the last 10 minutes, for the optional live-data check. */
 const LIVE_MS = 10 * 60_000;
 const isLive = (c: Cluster) => !!c.lastSeenAt && Date.now() - Date.parse(c.lastSeenAt) < LIVE_MS;
@@ -291,6 +346,21 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
         await page.getByTestId('cluster-switcher').click();
       },
     },
+    // The ⌘K palette (ADR-169): full screen on phones, a dialog above; fixture answers.
+    ...(['kubernetes', 'docker'] as const).map((kind) => ({
+      name: `palette-${kind}`,
+      path: `/${kind === 'docker' ? d : k}`,
+      shot: true,
+      answer: {
+        url: new RegExp(`/api/v1/clusters/${(kind === 'docker' ? docker : kube).id}/search\\?`),
+        json: PALETTE_ANSWERS[kind],
+      },
+      prepare: async (page: Page) => {
+        await page.getByTestId('palette-open').click();
+        await page.getByTestId('palette-input').fill('shop');
+        await expect(page.getByTestId('palette-option').first()).toBeVisible();
+      },
+    })),
     { name: 'not-found', path: `/no-such-page${k}` },
   ];
   if (alerts[0]) routes.push({ name: 'alert', path: `/alerts/${alerts[0].id}${k}`, shot: true });
