@@ -30,6 +30,7 @@ import { discover, listIgnored, targetKey } from './discovery.js';
 import type { ConfigNotifier } from './notifier.js';
 import {
   connectedTo,
+  foldPermissions,
   pageOf,
   PAGE_RANGES,
   sortReasons,
@@ -671,10 +672,12 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         ctx.now,
         request.log,
       );
-      const reasons = sortReasons([
-        ...statusReasons(view.health, view.reason, ctx.row.status_details, ctx.row.target),
-        ...own,
-      ]);
+      const reasons = sortReasons(
+        foldPermissions([
+          ...statusReasons(view.health, view.reason, ctx.row.status_details, ctx.row.target),
+          ...own,
+        ]),
+      );
       const [application] = await withCauses(request, [withFindings(view, own)]);
       return {
         application: application!,

@@ -30,5 +30,5 @@ export function pageOf(type: IntegrationType): IntegrationPage {
 
 export { connectedTo, type ConnectedResult } from './connected.js';
 export { PAGE_RANGES } from './query.js';
-export { sortReasons, statusReasons } from './reasons.js';
+export { foldPermissions, sortReasons, statusReasons } from './reasons.js';
 export type * from './types.js';

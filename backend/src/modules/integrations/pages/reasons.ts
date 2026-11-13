@@ -62,6 +62,23 @@ export function statusReasons(
   return out;
 }
 
+/**
+ * A page's hint that already says what a missing feature or privilege empties, and how to fix
+ * it, replaces the collector's "needs permission" lines it covers (MariaDB without
+ * performance_schema showed the hint and two of them).
+ */
+const COVERS: Record<string, (facts: Reason['facts']) => boolean> = {
+  performance_schema_off: (f) => f.missing === 'performance_schema',
+  table_stats_unavailable: (f) => f.tab === 'storage/tables',
+};
+
+/** Leaves out the needs_permission reasons a hint in the list covers. */
+export function foldPermissions(reasons: Reason[]): Reason[] {
+  const hints = reasons.flatMap((r) => (COVERS[r.code] ? [COVERS[r.code]!] : []));
+  if (hints.length === 0) return reasons;
+  return reasons.filter((r) => r.code !== 'needs_permission' || !hints.some((h) => h(r.facts)));
+}
+
 /** Most severe first; equal ones keep their order. */
 export function sortReasons(reasons: Reason[]): Reason[] {
   return reasons
