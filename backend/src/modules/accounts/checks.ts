@@ -5,6 +5,7 @@
 // tests replace; none of them can reach the real services.
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { STATUS_CODES } from 'node:http';
 import type { FastifyBaseLogger, FastifyReply } from 'fastify';
 import { PROBLEM_CONTENT_TYPE } from '../../lib/problem.js';
 
@@ -52,7 +53,8 @@ export function sendCode(
     .type(PROBLEM_CONTENT_TYPE)
     .send({
       type: `urn:watchlog:problem:${code}`,
-      title: status === 429 ? 'Too Many Requests' : status >= 500 ? 'Error' : 'Bad Request',
+      // The status's own reason phrase (a 403 or 404 is not a "Bad Request").
+      title: STATUS_CODES[status] ?? 'Error',
       status,
       detail,
       instance: reply.request.url,
