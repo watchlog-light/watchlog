@@ -118,6 +118,54 @@ jobs:
         working-directory: .
         run: make agent-linux
 
+  isolation:
+    # The cross-org isolation suite (ADR-182), Cloud's release gate: the backend in Cloud
+    # mode as watchlog_app under Row-Level Security, two orgs, every route, MCP tool, query
+    # key, ingest path and stream called across them. Its own job, so a red one is seen.
+    name: Cross-org isolation (Cloud)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: watchlog
+          POSTGRES_PASSWORD: watchlog
+          POSTGRES_DB: watchlog
+        ports:
+          - 54320:5432
+        options: >-
+          --health-cmd "pg_isready -U watchlog -d watchlog"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      victoriametrics:
+        image: victoriametrics/victoria-metrics:v1.155.0
+        ports:
+          - 8428:8428
+    env:
+      DATABASE_URL: postgres://watchlog:watchlog@127.0.0.1:54320/watchlog
+      WATCHLOG_TEST_VM_URL: http://127.0.0.1:8428
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile
+      - name: Isolation suite (test/isolation)
+        working-directory: backend
+        run: pnpm exec vitest run test/isolation
+
   ts:
     name: TypeScript (backend, web, packages)
     runs-on: ubuntu-24.04
