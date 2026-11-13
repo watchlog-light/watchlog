@@ -105,6 +105,10 @@ export interface AccountsConfig {
   google?: OAuthClient;
   /** More disposable-email domains, one per line (WATCHLOG_DISPOSABLE_DOMAINS_FILE). */
   disposableDomainsFile?: string;
+  /** Where "Get help installing" writes to (WATCHLOG_SUPPORT_EMAIL, ADR-176). */
+  supportEmail: string;
+  /** The read-only live demo the wizard's "Look around a sample organisation" opens. */
+  sampleUrl: string;
 }
 
 /** ADR-125's rate limits per API token; fixed by the decision, not by an environment variable. */
@@ -170,6 +174,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     'VICTORIAMETRICS_URL',
     'WATCHLOG_SMTP_URL',
     'WATCHLOG_TELEGRAM_API_URL',
+    'WATCHLOG_SAMPLE_URL',
   ] as const) {
     if (env[name] !== undefined && !URL.canParse(env[name])) {
       throw new Error(`Invalid ${name}: ${env[name]}`);
@@ -319,6 +324,8 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
       github: oauthClient('GITHUB'),
       google: oauthClient('GOOGLE'),
       disposableDomainsFile: env.WATCHLOG_DISPOSABLE_DOMAINS_FILE,
+      supportEmail: env.WATCHLOG_SUPPORT_EMAIL ?? 'support@watchlog.io',
+      sampleUrl: env.WATCHLOG_SAMPLE_URL ?? 'https://demo.watchlog.io',
     },
   };
 }

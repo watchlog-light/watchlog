@@ -7,7 +7,15 @@ import { isUniqueViolation, type Database } from '../../db/index.js';
 import { ProblemType, sendProblem } from '../../lib/problem.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
-import { dockerRunCommand, helmInstallCommand, installTarget } from './install.js';
+import {
+  dockerComposeSnippet,
+  dockerRunCommand,
+  helmInstallCommand,
+  installTarget,
+  kubectlApplyCommand,
+} from './install.js';
+import { issueInstallCode, revokeInstallCodes } from '../onboarding/install-codes.js';
+import { recordFunnelEvent } from '../accounts/service.js';
 import {
   ClusterDetailSchema,
   ClusterIdParams,
@@ -45,14 +53,46 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
   const canManage = [signedIn, requireRole('owner', 'admin')];
   const { image, version, endpointFor } = installTarget(config, settings);
 
-  async function issuedTokenBody(request: FastifyRequest, token: IssuedToken, kind: string) {
+  /**
+   * The new token and its install commands. Cloud adds the Compose snippet, and the kubectl
+   * command with an install code for this token (ADR-176); Community's are as in 0.5.0.
+   */
+  async function issuedTokenBody(
+    request: FastifyRequest,
+    token: IssuedToken,
+    cluster: { id: string; org_id: string; kind: string },
+    trx: Database = db,
+  ) {
     const endpoint = await endpointFor(request);
+    const cloud = config.edition === 'cloud';
+    const code =
+      cloud && cluster.kind === 'kubernetes'
+        ? await issueInstallCode(trx, {
+            orgId: cluster.org_id,
+            clusterId: cluster.id,
+            tokenId: token.id,
+            token: token.value,
+          })
+        : null;
     return {
       token: { ...token, createdAt: token.createdAt.toISOString() },
       install:
-        kind === 'kubernetes'
-          ? { helm: helmInstallCommand({ token: token.value, endpoint, version }) }
-          : { dockerRun: dockerRunCommand({ token: token.value, endpoint, image }) },
+        cluster.kind === 'kubernetes'
+          ? {
+              helm: helmInstallCommand({ token: token.value, endpoint, version }),
+              ...(code
+                ? {
+                    kubectl: kubectlApplyCommand({ endpoint, code: code.code }),
+                    installCodeExpiresAt: code.expiresAt.toISOString(),
+                  }
+                : {}),
+            }
+          : {
+              dockerRun: dockerRunCommand({ token: token.value, endpoint, image }),
+              ...(cloud
+                ? { compose: dockerComposeSnippet({ token: token.value, endpoint, image }) }
+                : {}),
+            },
     };
   }
 
@@ -100,15 +140,24 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
     async (request, reply) => {
       const { org } = request.user!;
       try {
-        const { cluster, token } = await db.transaction().execute(async (trx) => {
+        const { cluster, body } = await db.transaction().execute(async (trx) => {
           const cluster = await insertCluster(trx, org.id, request.body.name, request.body.kind);
-          return { cluster, token: await issueClusterToken(trx, cluster.id) };
+          const token = await issueClusterToken(trx, cluster.id);
+          return { cluster, body: await issuedTokenBody(request, token, cluster, trx) };
         });
-        request.log.info({ clusterId: cluster.id, tokenPrefix: token.prefix }, 'cluster created');
-        return reply.code(201).send({
-          cluster: toClusterView(cluster),
-          ...(await issuedTokenBody(request, token, cluster.kind)),
-        });
+        request.log.info(
+          { clusterId: cluster.id, tokenPrefix: body.token.prefix },
+          'cluster created',
+        );
+        if (config.edition === 'cloud') {
+          recordFunnelEvent(request.log, {
+            name: 'cluster_created',
+            userId: request.user!.id,
+            orgId: org.id,
+            props: { kind: cluster.kind },
+          });
+        }
+        return reply.code(201).send({ cluster: toClusterView(cluster), ...body });
       } catch (err) {
         if (isUniqueViolation(err)) {
           return sendProblem(
@@ -263,12 +312,14 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
           ProblemType.tokenLimit,
         );
       }
+      // A rotation: the install codes of the old token go (ADR-176).
+      await revokeInstallCodes(db, cluster.id);
       const token = await issueClusterToken(db, cluster.id);
       request.log.info(
         { clusterId: cluster.id, tokenPrefix: token.prefix },
         'cluster token issued',
       );
-      return reply.code(201).send(await issuedTokenBody(request, token, cluster.kind));
+      return reply.code(201).send(await issuedTokenBody(request, token, cluster));
     },
   );
 
@@ -299,6 +350,7 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
           .set({ revoked_at: new Date() })
           .where('id', '=', token.id)
           .execute();
+        await revokeInstallCodes(db, cluster.id);
         tokens.invalidateToken(token.id);
         request.log.info(
           { clusterId: cluster.id, tokenPrefix: token.prefix },

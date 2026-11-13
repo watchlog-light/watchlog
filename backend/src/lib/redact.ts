@@ -42,3 +42,28 @@ export function restoreUrlPassword(edited: string, stored: string | undefined): 
   e.password = s.password;
   return e.toString();
 }
+
+/** A request as Fastify logs it, minimal shape (its default `req` serializer's fields). */
+interface LoggedRequest {
+  method: string;
+  url: string;
+  host?: string;
+  ip?: string;
+  headers?: Record<string, unknown>;
+  socket?: { remotePort?: number };
+}
+
+/**
+ * Fastify's request log line with the values of `code=` in the URL masked: an install code
+ * (ADR-176) is a credential for 24 hours, and OAuth's code for a few minutes.
+ */
+export function requestWithoutCodes(req: LoggedRequest) {
+  return {
+    method: req.method,
+    url: req.url.replace(/([?&]code=)[^&#]*/g, `$1${URL_SECRET_MASK}`),
+    version: req.headers?.['accept-version'] as string | undefined,
+    host: req.host,
+    remoteAddress: req.ip,
+    remotePort: req.socket?.remotePort,
+  };
+}

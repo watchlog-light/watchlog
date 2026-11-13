@@ -30,6 +30,8 @@ export const CLOUD_ONLY_PATHS = [
   '/api/v1/auth/2fa/verify',
   '/api/v1/orgs',
   '/api/v1/funnel',
+  '/api/v1/onboarding/first-week',
+  '/install.yaml',
   '/internal/orgs',
   '/internal/entitlements',
 ] as const;

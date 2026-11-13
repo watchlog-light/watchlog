@@ -75,6 +75,50 @@ export function dockerRunCommand({
   ].join('\n');
 }
 
+/**
+ * The same agent as dockerRunCommand, as a Compose service for the hosts that keep their
+ * containers in a Compose file (ADR-176). Values are JSON-quoted, which YAML reads as is.
+ */
+export function dockerComposeSnippet({
+  token,
+  endpoint,
+  image,
+}: {
+  token: string;
+  endpoint: string;
+  image: string;
+}): string {
+  const q = (v: string) => JSON.stringify(v);
+  return [
+    'services:',
+    '  watchlog-agent:',
+    `    image: ${q(image)}`,
+    '    command: ["--mode=docker"]',
+    '    restart: unless-stopped',
+    '    pid: host',
+    '    user: "0:65532"',
+    '    cap_drop: [ALL]',
+    '    cap_add: [BPF, PERFMON]',
+    '    security_opt: [no-new-privileges]',
+    '    volumes:',
+    '      - /var/run/docker.sock:/var/run/docker.sock:ro',
+    '      - /proc:/host/proc:ro',
+    '      - /sys:/host/sys:ro',
+    '      - /:/host/root:ro,rslave',
+    '      - watchlog-agent-state:/var/lib/watchlog-agent',
+    '    environment:',
+    `      WATCHLOG_TOKEN: ${q(token)}`,
+    `      WATCHLOG_ENDPOINT: ${q(endpoint)}`,
+    'volumes:',
+    '  watchlog-agent-state:',
+  ].join('\n');
+}
+
+/** `kubectl apply` of the manifest behind an install code (ADR-176): no token in the URL. */
+export function kubectlApplyCommand({ endpoint, code }: { endpoint: string; code: string }) {
+  return `kubectl apply -f ${shellQuote(`${endpoint}/install.yaml?code=${code}`)}`;
+}
+
 /** Agent image matching the backend release, or `latest` for development builds. */
 export function agentImage(registry: string, backendVersion: string): string {
   const tag = /^\d+\.\d+\.\d+$/.test(backendVersion) ? backendVersion : 'latest';

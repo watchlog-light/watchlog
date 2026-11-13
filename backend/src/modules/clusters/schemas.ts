@@ -69,6 +69,16 @@ export const InstallSchema = Type.Object({
   helm: Type.Optional(
     Type.String({ description: 'helm install command for a Kubernetes cluster (ADR-059)' }),
   ),
+  kubectl: Type.Optional(
+    Type.String({
+      description:
+        'Cloud: kubectl apply of the manifest behind an install code valid 24 hours (ADR-176)',
+    }),
+  ),
+  compose: Type.Optional(
+    Type.String({ description: 'Cloud: the Docker agent as a Compose service (ADR-176)' }),
+  ),
+  installCodeExpiresAt: Type.Optional(DateTime),
 });
 
 export const ClusterListSchema = Type.Object({ clusters: Type.Array(ClusterSchema) });

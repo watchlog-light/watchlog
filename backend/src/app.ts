@@ -29,6 +29,8 @@ import { CausesService } from './modules/causes/likely.js';
 import { kubernetesRoutes } from './modules/kubernetes/routes.js';
 import { overviewRoutes } from './modules/overview/routes.js';
 import { serviceMapRoutes } from './modules/servicemap/routes.js';
+import { onboardingRoutes } from './modules/onboarding/routes.js';
+import { installManifestRoutes } from './modules/onboarding/cloud-routes.js';
 import { healthRoutes } from './modules/health/routes.js';
 import { setupRoutes } from './modules/setup/routes.js';
 import type { SetupState } from './modules/setup/service.js';
@@ -62,6 +64,7 @@ import { apiTokenRoutes } from './modules/api-tokens/routes.js';
 import { registerApiTokenAuth } from './plugins/api-token.js';
 import { registerServiceIdentity } from './plugins/service-identity.js';
 import { registerOrgScope } from './plugins/org-scope.js';
+import { requestWithoutCodes } from './lib/redact.js';
 import { registerCloudOnly, registerCommunityOnlyGuard } from './plugins/edition.js';
 import { cloudApiRoutes, internalRoutes } from './modules/cloud/routes.js';
 import { CloudAccounts } from './modules/accounts/context.js';
@@ -108,6 +111,8 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       level: deps.serviceReads ? 'warn' : config.logLevel,
       // Credentials never reach the log, whatever a serializer adds later (ADR-125).
       redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
+      // Codes in URLs are credentials (an install code, ADR-176; OAuth's code): never logged.
+      serializers: { req: requestWithoutCodes },
       ...(deps.logStream
         ? { stream: deps.logStream }
         : config.isDevelopment
@@ -231,6 +236,12 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(searchRoutes, { db: deps.db });
       await api.register(overviewRoutes, { db: deps.db, victoria, settings, causes });
       await api.register(serviceMapRoutes, { db: deps.db, victoria, config, settings });
+      await api.register(onboardingRoutes, {
+        db: deps.db,
+        victoria: victoria ?? null,
+        config,
+        settings,
+      });
       await api.register(alertRoutes, {
         db: deps.db,
         config,
@@ -299,6 +310,12 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         : {}),
     });
   }
+  // Cloud: the kubectl manifest behind an install code, at the ingest address's root.
+  await registerCloudOnly(app, config.edition, installManifestRoutes, {
+    systemDb,
+    config,
+    settings,
+  });
   await registerCloudOnly(app, config.edition, internalRoutes, {
     db: deps.db,
     prefix: '/internal',

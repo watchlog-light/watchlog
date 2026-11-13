@@ -182,6 +182,9 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
             turnstileSiteKey: Type.Union([Type.String(), Type.Null()]),
             passwordMinLength: Type.Integer(),
             verifyGraceDays: Type.Integer(),
+            /** Onboarding (ADR-176): "Get help installing" and the sample organisation. */
+            supportEmail: Type.String(),
+            sampleUrl: Type.String(),
           }),
         },
       },
@@ -195,6 +198,8 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
         : null,
       passwordMinLength: MIN_PASSWORD_LENGTH,
       verifyGraceDays: VERIFY_GRACE_MS / 86_400_000,
+      supportEmail: config.accounts.supportEmail,
+      sampleUrl: config.accounts.sampleUrl,
     }),
   );
 

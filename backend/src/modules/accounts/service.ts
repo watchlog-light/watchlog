@@ -190,6 +190,32 @@ export const existingAccountMail = (p: { site: string }) => ({
   ].join('\n'),
 });
 
+/** The funnel's events (SPEC §10.4); the client may send only CLIENT_FUNNEL_EVENTS. */
+export const SERVER_FUNNEL_EVENTS = [
+  'signup_completed',
+  'email_verified',
+  'teammate_invited',
+  'cluster_created',
+  'agent_first_heartbeat',
+  'first_metrics_received',
+  'first_week_channel',
+  'first_week_teammate',
+  'first_week_application',
+  'first_week_mcp',
+  'first_week_problem',
+  'first_week_dismissed',
+] as const;
+/** Sent by the pages through POST /api/v1/funnel (ADR-176): clicks the server can't see. */
+export const CLIENT_FUNNEL_EVENTS = [
+  'install_command_copied',
+  'onboarding_dashboard_opened',
+  'onboarding_sample_opened',
+  'onboarding_help_opened',
+  'onboarding_troubleshooting_shown',
+] as const;
+export type FunnelEventName =
+  (typeof SERVER_FUNNEL_EVENTS)[number] | (typeof CLIENT_FUNNEL_EVENTS)[number];
+
 /**
  * The funnel's events (ADR-179, SPEC §10.4). TODO(Cloud slice 6): `funnel_events` and its
  * writer belong to slice 6; until then the event goes to the log only, at the place it
@@ -198,7 +224,7 @@ export const existingAccountMail = (p: { site: string }) => ({
 export function recordFunnelEvent(
   log: FastifyBaseLogger,
   e: {
-    name: 'signup_completed' | 'email_verified' | 'teammate_invited';
+    name: FunnelEventName;
     userId: string;
     orgId: string | null;
     props?: Record<string, string>;

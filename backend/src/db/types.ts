@@ -228,6 +228,17 @@ export interface IngestErrors {
   org_id: Generated<string>;
 }
 
+export interface InstallCodes {
+  cluster_id: string;
+  code_hash: Buffer;
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  id: string;
+  org_id: string;
+  token_ciphertext: string;
+  token_id: string;
+}
+
 export interface IntegrationCollectors {
   cluster_id: string;
   config_etag: string | null;
@@ -409,6 +420,15 @@ export interface Objects {
   updated_at: Generated<Timestamp>;
 }
 
+export interface OnboardingStates {
+  created_at: Generated<Timestamp>;
+  dismissed_at: Timestamp | null;
+  org_id: string;
+  reported: Generated<string[]>;
+  updated_at: Generated<Timestamp>;
+  user_id: string;
+}
+
 export interface Orgs {
   created_at: Generated<Timestamp>;
   id: string;
@@ -566,6 +586,7 @@ export interface DB {
   email_tokens: EmailTokens;
   entitlements: Entitlements;
   ingest_errors: IngestErrors;
+  install_codes: InstallCodes;
   integration_collectors: IntegrationCollectors;
   integration_credentials: IntegrationCredentials;
   integration_events: IntegrationEvents;
@@ -578,6 +599,7 @@ export interface DB {
   notification_alerts: NotificationAlerts;
   notifications: Notifications;
   objects: Objects;
+  onboarding_states: OnboardingStates;
   orgs: Orgs;
   password_resets: PasswordResets;
   retired_cluster_tokens: RetiredClusterTokens;
