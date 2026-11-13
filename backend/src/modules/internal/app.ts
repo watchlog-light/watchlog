@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The internal API (ADR-177, ADR-178), Cloud only: what the billing service and staff call
-// to set an org's entitlements and read its usage. It is its own Fastify app on its own
-// listener (WATCHLOG_INTERNAL_HOST:WATCHLOG_INTERNAL_PORT), which the Cloud kit keeps on
+// to set an org's entitlements, read its usage and reach its Owners (the billing emails).
+// It is its own Fastify app on its own listener (WATCHLOG_INTERNAL_HOST:
+// WATCHLOG_INTERNAL_PORT), which the Cloud kit keeps on
 // the Compose network, never behind the public nginx; the public listener has no
 // /internal routes at all (404). Every request needs `Authorization: Bearer
 // <WATCHLOG_INTERNAL_TOKEN>` (or the previous token during a rotation), compared in
@@ -201,6 +202,38 @@ export async function buildInternalApp(
         'entitlements set',
       );
       return view(saved);
+    },
+  );
+
+  app.get(
+    '/internal/orgs/:id/owners',
+    {
+      schema: {
+        summary: "An org's Owners, for the billing service's emails (dunning, the beta's notice)",
+        params: Params,
+        response: {
+          200: Type.Object({
+            owners: Type.Array(
+              Type.Object({ email: Type.String(), name: Type.Union([Type.String(), Type.Null()]) }),
+            ),
+          }),
+          401: ProblemSchema,
+          404: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      if (!(await orgExists(id))) return sendProblem(reply, 404, 'No such org');
+      const rows = await systemDb
+        .selectFrom('memberships as m')
+        .innerJoin('users as u', 'u.id', 'm.user_id')
+        .select(['u.email', 'u.name'])
+        .where('m.org_id', '=', id)
+        .where('m.role', '=', 'owner')
+        .orderBy('m.created_at')
+        .execute();
+      return { owners: rows.map((r) => ({ email: r.email, name: r.name || null })) };
     },
   );
 

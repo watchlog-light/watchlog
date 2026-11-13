@@ -96,6 +96,12 @@ export interface Config {
    * VICTORIAMETRICS_URL holds everything (Community, or Cloud with one tier).
    */
   victoriaMetricsTiers?: { '3d': string; '30d': string };
+  /**
+   * The billing service (ADR-178), Cloud only: WATCHLOG_BILLING_URL, on the Compose network.
+   * The product calls it with WATCHLOG_INTERNAL_TOKEN for Settings › Plan & billing. Unset,
+   * the page shows no button and the billing routes answer 503.
+   */
+  billingUrl?: string;
 }
 
 export interface InternalApiConfig {
@@ -299,6 +305,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     'WATCHLOG_INTERNAL_TOKEN_PREVIOUS',
     'VICTORIAMETRICS_URL_3D',
     'VICTORIAMETRICS_URL_30D',
+    'WATCHLOG_BILLING_URL',
   ] as const) {
     if (env[name] !== undefined && edition !== 'cloud') {
       throw new Error(`${name} is only read with WATCHLOG_EDITION=cloud`);
@@ -323,6 +330,23 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(
       'WATCHLOG_INTERNAL_PORT must differ from PORT: the internal API has its own listener',
     );
+  }
+  const billingUrl = env.WATCHLOG_BILLING_URL?.trim() || undefined;
+  if (billingUrl) {
+    let u: URL | undefined;
+    try {
+      u = new URL(billingUrl);
+    } catch {
+      u = undefined;
+    }
+    if (!u || !/^https?:$/.test(u.protocol) || u.pathname !== '/' || u.search || u.hash) {
+      throw new Error('Invalid WATCHLOG_BILLING_URL: an origin, like http://billing:8090');
+    }
+    if (!env.WATCHLOG_INTERNAL_TOKEN) {
+      throw new Error(
+        'WATCHLOG_BILLING_URL needs WATCHLOG_INTERNAL_TOKEN (it authenticates the calls)',
+      );
+    }
   }
   const tier3 = env.VICTORIAMETRICS_URL_3D;
   const tier30 = env.VICTORIAMETRICS_URL_30D;
@@ -403,5 +427,6 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
         }
       : undefined,
     victoriaMetricsTiers: tier3 && tier30 ? { '3d': tier3, '30d': tier30 } : undefined,
+    billingUrl: billingUrl ? new URL(billingUrl).origin : undefined,
   };
 }
