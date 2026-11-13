@@ -15,6 +15,7 @@ import { useRoute } from 'vue-router';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import AppTopBar from '@/components/layout/AppTopBar.vue';
 import AlertingStatusBanner from '@/components/alerts/AlertingStatusBanner.vue';
+import CommandPalette from '@/components/layout/CommandPalette.vue';
 import DemoBanner from '@/components/layout/DemoBanner.vue';
 import { useCompact } from '@/composables/useNarrow';
 import { useAuthStore } from '@/stores/auth';
@@ -68,4 +69,5 @@ onBeforeUnmount(() => document.documentElement.classList.remove('app-shell'));
       </main>
     </div>
   </div>
+  <CommandPalette v-if="auth.user" />
 </template>

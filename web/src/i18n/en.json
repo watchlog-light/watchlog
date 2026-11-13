@@ -27,6 +27,48 @@
     "none": "No cluster connected",
     "comingSoon": "Connect a cluster to select it here"
   },
+  "palette": {
+    "title": "Search",
+    "description": "Type to find a page, a cluster, or the selected cluster's workloads, pods, nodes, hosts, containers and applications. Up and down arrows move, Enter opens, Escape closes.",
+    "label": "Search pages, clusters and objects",
+    "open": "Search",
+    "button": "Search…",
+    "placeholder": "Search pages, clusters, and {cluster}…",
+    "placeholderNone": "Search pages and clusters…",
+    "searching": "Searching…",
+    "noMatches": "Nothing matches “{query}”",
+    "failed": "The search didn't answer. Pages and clusters are still listed.",
+    "count": "No results | 1 result | {n} results",
+    "recentCount": "No recent picks | 1 recent pick | {n} recent picks",
+    "groups": {
+      "recent": "Recent",
+      "page": "Pages",
+      "cluster": "Clusters and fleets",
+      "workload": "Workloads",
+      "pod": "Pods",
+      "node": "Nodes",
+      "host": "Hosts",
+      "container": "Containers",
+      "compose_project": "Compose projects",
+      "application": "Applications"
+    },
+    "detail": {
+      "page": "Page",
+      "currentCluster": "{kind} · selected",
+      "workload": "{type} · {namespace}",
+      "pod": "Pod · {namespace}",
+      "node": "Node",
+      "host": "Docker host",
+      "container": "Container · {host}",
+      "containerInProject": "Container · {project} on {host}",
+      "composeProject": "Compose project · {host}"
+    },
+    "keys": {
+      "move": "move",
+      "open": "open",
+      "close": "close"
+    }
+  },
   "topBar": {
     "timeRange": "Time range",
     "namespace": "Namespace",

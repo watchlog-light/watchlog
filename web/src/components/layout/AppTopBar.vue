@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { ChevronDown, Layers, Menu, X } from '@lucide/vue';
+import { ChevronDown, Layers, Menu, Search, X } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import {
   DialogClose,
@@ -19,6 +19,7 @@ import DockerScopeFilter from '@/components/docker/DockerScopeFilter.vue';
 import NamespaceFilter from '@/components/kube/NamespaceFilter.vue';
 import { KIND_LOGO } from '@/components/ui/kindLogos';
 import { useCompact, useNarrow } from '@/composables/useNarrow';
+import { isApple } from '@/lib/palette';
 import { useClustersStore } from '@/stores/clusters';
 import { useUiStore } from '@/stores/ui';
 import ClusterSwitcher from './ClusterSwitcher.vue';
@@ -51,6 +52,11 @@ const onDocker = computed(
   () => clusters.selected?.kind === 'docker' && DOCKER_PAGES.has(page.value),
 );
 const onKube = computed(() => clusters.selected?.kind !== 'docker' && KUBE_PAGES.has(page.value));
+
+// The ⌘K palette's button (ADR-169): a search field look on desktops, a 44 px icon below.
+const apple = isApple();
+const shortcut = apple ? '⌘K' : 'Ctrl K';
+const shortcutAria = apple ? 'Meta+K' : 'Control+K';
 
 const sheetOpen = ref(false);
 // Choosing a cluster or a host navigates; the sheet closes with it.
@@ -87,6 +93,32 @@ const summary = computed(() =>
       <Menu class="size-5" aria-hidden="true" />
     </button>
     <h1 class="min-w-0 flex-1 truncate text-16 font-semibold text-text">{{ title }}</h1>
+
+    <button
+      type="button"
+      data-testid="palette-open"
+      aria-haspopup="dialog"
+      :aria-expanded="ui.paletteOpen"
+      :aria-label="$t('palette.open')"
+      :aria-keyshortcuts="shortcutAria"
+      :title="compact ? `${$t('palette.open')} (${shortcut})` : undefined"
+      :class="
+        compact
+          ? 'flex size-11 shrink-0 items-center justify-center rounded-control text-text-muted hover:bg-surface-2 hover:text-text'
+          : 'flex h-8 w-56 shrink-0 items-center gap-2 rounded-control border border-border bg-surface-1 px-2.5 text-13 text-text-subtle hover:bg-surface-2 hover:text-text max-xl:w-44'
+      "
+      @click="ui.paletteOpen = true"
+    >
+      <Search :class="compact ? 'size-5' : 'size-3.5 shrink-0'" aria-hidden="true" />
+      <template v-if="!compact">
+        <span class="min-w-0 flex-1 truncate text-left">{{ $t('palette.button') }}</span>
+        <kbd
+          class="shrink-0 rounded-[4px] border border-border px-1 font-mono text-12 text-text-subtle"
+          aria-hidden="true"
+          >{{ shortcut }}</kbd
+        >
+      </template>
+    </button>
 
     <template v-if="!narrow">
       <ClusterSwitcher v-if="compact" :collapsed="false" class="w-52" />

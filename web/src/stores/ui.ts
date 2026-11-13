@@ -23,6 +23,8 @@ export const useUiStore = defineStore('ui', () => {
   const timeRange = ref<TimeRange>('1h');
   /** Below 1024 px the navigation is a drawer: whether it is open. */
   const navOpen = ref(false);
+  /** The ⌘K command palette (ADR-169) is open. */
+  const paletteOpen = ref(false);
 
   watch(sidebarCollapsed, (value) => {
     try {
@@ -36,5 +38,5 @@ export const useUiStore = defineStore('ui', () => {
     sidebarCollapsed.value = !sidebarCollapsed.value;
   }
 
-  return { sidebarCollapsed, timeRange, navOpen, toggleSidebar };
+  return { sidebarCollapsed, timeRange, navOpen, paletteOpen, toggleSidebar };
 });
