@@ -254,6 +254,12 @@ type ContainerState struct {
 	Config struct {
 		Healthcheck *Healthcheck `json:"Healthcheck"`
 	} `json:"Config"`
+	// HostConfig.MemoryReservation is the soft memory limit (`--memory-reservation`,
+	// Compose `mem_reservation`), in bytes; 0 when none is set. Right-sizing compares it
+	// with the container's use (ADR-168).
+	HostConfig struct {
+		MemoryReservation int64 `json:"MemoryReservation"`
+	} `json:"HostConfig"`
 }
 
 // Health is State.Health: the daemon keeps the last five probe results in Log.

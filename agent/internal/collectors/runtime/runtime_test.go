@@ -25,6 +25,8 @@ const apiFixtures = "../../docker/testdata/docker-29"
 type fakeDocker struct {
 	t        *testing.T
 	inspects []string
+	// reservations sets HostConfig.MemoryReservation by container name (the fixtures have none).
+	reservations map[string]int64
 }
 
 func (f *fakeDocker) load(name string, into any) error {
@@ -56,6 +58,9 @@ func (f *fakeDocker) Inspect(_ context.Context, id string) (docker.ContainerStat
 	var st docker.ContainerState
 	if err := f.load("inspect-"+nameByID[id]+".json", &st); err != nil {
 		return st, errors.New("no such container fixture")
+	}
+	if r, ok := f.reservations[nameByID[id]]; ok {
+		st.HostConfig.MemoryReservation = r
 	}
 	return st, nil
 }
@@ -147,6 +152,18 @@ func TestCollectFromRealFixtures(t *testing.T) {
 				t.Fatalf("container IDs must not be labels (SPEC §6.3): %v", s)
 			}
 		}
+	}
+}
+
+func TestMemoryReservationIsReported(t *testing.T) {
+	c, fd := newCollector(t)
+	fd.reservations = map[string]int64{"demo-cache-1": 64 << 20}
+	samples, _ := c.Collect()
+	if got, ok := find(samples, "watchlog_container_memory_reservation_bytes", map[string]string{"container": "demo-cache-1"}); !ok || got != 64<<20 {
+		t.Errorf("reservation = %v (found %v), want 64 MiB", got, ok)
+	}
+	if _, ok := find(samples, "watchlog_container_memory_reservation_bytes", map[string]string{"container": "demo-web-1"}); ok {
+		t.Error("a container without a reservation must not report one")
 	}
 }
 

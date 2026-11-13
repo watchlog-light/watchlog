@@ -312,6 +312,11 @@ func (c *Collector) containerMetrics(s docker.ContainerSummary, st *inspected, l
 			out = append(out, metrics.New("watchlog_container_memory_limit_bytes", *cg.MemoryLimit, labels...))
 		}
 	}
+	// The memory reservation (a soft limit), as the container was created with it; read
+	// from inspect so that it is Docker's setting (ADR-168).
+	if r := st.state.HostConfig.MemoryReservation; r > 0 {
+		out = append(out, metrics.New("watchlog_container_memory_reservation_bytes", float64(r), labels...))
+	}
 	// Host-network containers see the host's interfaces; their traffic is in the host metrics.
 	if s.HostConfig.NetworkMode != "host" && st.state.State.Pid > 0 {
 		rx, tx, err := c.cgroups.Network(st.state.State.Pid)
