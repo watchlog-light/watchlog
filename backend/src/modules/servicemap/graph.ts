@@ -226,6 +226,23 @@ export interface FlowResults {
 }
 
 /** Nodes and edges from the flow queries (rates per second over the last 5 minutes). */
+/**
+ * Docker: a container that is only ever reached (a server that never connects out: api, db,
+ * redis) has no Compose labels on its flows. Its project and service come from the
+ * container list, so it is drawn in its project's group, by its service's name.
+ */
+export function withCompose(
+  nodes: MapNode[],
+  containers: { name: string; project: string | null; service: string | null }[],
+): MapNode[] {
+  const by = new Map(containers.map((c) => [c.name, c]));
+  return nodes.map((n) => {
+    if (n.kind !== 'container' || n.namespace !== null) return n;
+    const c = by.get(n.id.slice(2));
+    return c?.project ? { ...n, namespace: c.project, name: c.service || n.name } : n;
+  });
+}
+
 export function buildGraph(r: FlowResults): { nodes: MapNode[]; edges: MapEdge[] } {
   const by = (list: QuerySeries[]) => new Map(list.map((s) => [edgeKey(s.labels), s]));
   const conn = by(r.connections);
@@ -269,8 +286,11 @@ export function buildGraph(r: FlowResults): { nodes: MapNode[]; edges: MapEdge[]
     const src = sourceNode(l);
     const dst = targetNode(l);
     if (!src || !dst) continue;
-    nodes.set(src.id, src);
-    nodes.set(dst.id, dst);
+    // A container's flows name its Compose project only where it is the source: keep that.
+    for (const n of [src, dst]) {
+      const had = nodes.get(n.id);
+      if (!had || (had.namespace === null && n.namespace !== null)) nodes.set(n.id, n);
+    }
     const k = edgeKey(l);
     const c = value(conn.get(k)) ?? 0;
     const f = value(failed.get(k)) ?? 0;

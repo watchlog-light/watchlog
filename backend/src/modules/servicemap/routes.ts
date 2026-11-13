@@ -20,6 +20,7 @@ import { chooseStep, escapeLabelValue, anyOf } from '../query/catalog.js';
 import {
   EDGE_LABELS,
   buildGraph,
+  withCompose,
   dnsRows,
   edgeMatchers,
   watchlogComponents,
@@ -306,7 +307,22 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
         };
       }),
     );
-    return { ...graph, nodes: graph.nodes.map((n) => ({ ...n, watchlog: own.has(n.id) })) };
+    const compose = withCompose(
+      graph.nodes,
+      rows.flatMap((r) =>
+        r.kind === 'DockerContainer'
+          ? [
+              {
+                name: r.name,
+                project: r.namespace || null,
+                service:
+                  (r.spec_summary as { compose_service?: string } | null)?.compose_service ?? null,
+              },
+            ]
+          : [],
+      ),
+    );
+    return { ...graph, nodes: compose.map((n) => ({ ...n, watchlog: own.has(n.id) })) };
   }
 
   /**
