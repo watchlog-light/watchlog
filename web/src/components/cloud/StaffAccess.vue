@@ -87,7 +87,7 @@ const end = (s: SupportSession) =>
           :aria-expanded="open === s.id"
           @click="open = open === s.id ? null : s.id"
         >
-          {{ $t('cloud.support.opened', { n: s.opened.length }, s.opened.length) }}
+          {{ $t('cloud.support.opened', { n: s.opened.length }) }}
         </button>
         <p v-else class="mt-1 text-12 text-text-muted">{{ $t('cloud.support.openedNone') }}</p>
         <ul

@@ -118,8 +118,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout(): Promise<void> {
     try {
-      await api<void>('/auth/logout', { method: 'POST' });
+      // Support mode (ADR-179): signing out leaves it (the session ends for good).
+      if (support.value) await cloudApi.leaveSupport();
+      else await api<void>('/auth/logout', { method: 'POST' });
     } finally {
+      support.value = null;
       user.value = null;
       account.value = null;
     }

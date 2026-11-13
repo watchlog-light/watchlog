@@ -4134,8 +4134,8 @@
       "none": "WatchLog staff have never opened a support session here.",
       "when": "{start} to {end}",
       "why": "Why: {reason}",
-      "opened": "Opened {n} page | Opened {n} pages",
-      "openedNone": "Nothing opened.",
+      "opened": "What it opened ({n})",
+      "openedNone": "It opened nothing.",
       "state": {
         "active": "In progress",
         "ended": "Ended",
