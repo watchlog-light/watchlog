@@ -1,0 +1,84 @@
+# The released 0.4.0 chart's default values (helm show values) with a release's own
+# endpoint and token, as --reuse-values would give them: for upgrade-test.sh.
+# SPDX-License-Identifier: AGPL-3.0-only
+# WatchLog agent chart (SPEC §6.7, ADR-059). Install from a repository checkout:
+#   helm install watchlog-agent deploy/helm/watchlog-agent -n watchlog --create-namespace \
+#     --set watchlog.endpoint=https://watchlog.example.com --set watchlog.clusterToken=wl_ct_...
+# Resource names default to <release>-watchlog-agent, or the release name when it
+# already contains "watchlog-agent".
+fullnameOverride: ''
+
+watchlog:
+  # Base URL the agents push to (the backend or the web front door, which proxies /ingest).
+  endpoint: http://watchlog.example.internal:4080
+  # Cluster token from Settings → Clusters; or name a Secret with existingSecret.
+  # endpoint and existingSecret may use templates (the watchlog chart sets both).
+  clusterToken: wl_ct_example
+  existingSecret: ''
+  existingSecretKey: token
+
+image:
+  registry: ghcr.io/watchlog-light
+  # Defaults to the chart's appVersion. Images are not published before the Phase 4
+  # launch (ADR-043): load locally built images (kind load / k3s ctr images import).
+  tag: ''
+  pullPolicy: IfNotPresent
+
+agent:
+  enabled: true
+  interval: 15s
+  networkFlows:
+    # eBPF network flows for the service map (SPEC §6.4, opt-out). When enabled the node
+    # agent runs as uid 0 with only the BPF and PERFMON capabilities (ADR-105,
+    # docs/security.md); disabled, it runs as uid 65532 with none. Replaces
+    # agent.ebpf.enabled, which charts before Phase 4 set to false and is ignored (ADR-107).
+    enabled: true
+    # Pod filter (ADR-121): the kernel records only connections and DNS queries of this
+    # node's pods (below its kubepods cgroup). Processes outside the cluster on the same
+    # kernel (host daemons, plain Docker containers, other kind/k3d nodes' pods) are never
+    # recorded, only counted. false records every task and drops the rest in the agent.
+    podFilter: true
+    # HTTP stats on service-map edges (ADR-139): the first 16 bytes of each TCP message
+    # tell an HTTP/1.x request or response apart; only the method's class, the status code
+    # and the latency are kept, never paths, headers or bodies, and TLS is never decrypted.
+    http: true
+  # Where node metrics come from (ADR-121): host reads the kernel's host-wide /proc;
+  # cgroup reads the node's own cgroup, for nodes that are containers on a shared kernel
+  # (kind, k3d): capacity from cpu.max and memory.max, no load average, no host disks or
+  # filesystems, the node container's start as boot time. auto picks cgroup when the node
+  # looks like a container (/.dockerenv, /run/.containerenv, kind, or a cgroup root with
+  # limits).
+  nodeMetricsScope: auto
+  # Kubelet TLS (ADR-051): auto tries the cluster CA, then falls back and reports it.
+  kubeletTLS: auto
+  resources:
+    requests: { cpu: 20m, memory: 48Mi }
+    limits: { memory: 128Mi }
+  # Run on every node, control plane included.
+  tolerations: [{ operator: Exists }]
+  nodeSelector: {}
+  priorityClassName: ''
+
+clusterAgent:
+  enabled: true
+  replicas: 1
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+  # Go heap target below the memory limit (ADR-058).
+  goMemLimit: 400MiB
+  nodeSelector: {}
+  tolerations: []
+
+# Integrations collector (SPEC §4.12, ADR-131): one per cluster, reads the services
+# monitored on the Applications page (Redis, PostgreSQL, Nginx, RabbitMQ) with read-only
+# access. Idle until a service is monitored. No ClusterRole, no Secrets.
+integrations:
+  enabled: true
+  resources:
+    requests: { cpu: 20m, memory: 48Mi }
+    limits: { memory: 128Mi }
+  # Go heap target below the memory limit.
+  goMemLimit: 100MiB
+  nodeSelector: {}
+  tolerations: []

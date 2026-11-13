@@ -5,7 +5,8 @@
 # chart's defaults with the old release's computed values; this renders the new
 # templates exactly that way (values.yaml swapped for pre-phase4/*.values.yaml) and
 # checks the node agent DaemonSet, plus a fresh install, --reset-then-reuse-values and an
-# explicit opt-out; and the same from 0.2.0's values (v0.2.0/). Needs helm; run from anywhere.
+# explicit opt-out; and the same from 0.2.0's values (v0.2.0/) and 0.4.0's (v0.4.0/, where
+# logs on demand and its pods/log grant come on). Needs helm; run from anywhere.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
@@ -163,6 +164,49 @@ for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
     echo "PASS  $fixture chart renders from 0.2.0's values"
   else
     echo "FAIL  $fixture chart renders from 0.2.0's values: $(cat "$TMP/err")"
+    fails=$((fails + 1))
+  fi
+done
+
+# From 0.4.0 (v0.4.0/, the released charts' values): logs on demand (ADR-167) come on,
+# with the cluster-agent's pods/log grant, read nil-safe; logs.enabled=false takes both away.
+V040="$ROOT/deploy/test/helm/v0.4.0"
+# logs <name> <want on|off> <chart dir> [helm args...]
+logs() {
+  local name="$1" want="$2" chart="$3" out env grant got=inconsistent
+  shift 3
+  out="$(helm template rel "$chart" -n ns "$@")"
+  env="$(grep -A1 'name: WATCHLOG_LOGS$' <<<"$out" | sed -n 's/.*value: "\(.*\)"/\1/p')"
+  grant=no
+  grep -q 'resources: \[pods/log\]' <<<"$out" && grant=yes
+  if [[ "$env" == true && "$grant" == yes ]]; then
+    got=on
+  elif [[ "$env" == false && "$grant" == no ]]; then
+    got=off
+  fi
+  if [[ "$got" == "$want" ]]; then
+    echo "PASS  $name: logs $got"
+  else
+    echo "FAIL  $name: logs $got (WATCHLOG_LOGS ${env:-unset}, pods/log grant $grant), want $want"
+    fails=$((fails + 1))
+  fi
+}
+expect "agent chart, --reuse-values from 0.4.0" on "$(ds "$(reused "$AGENT" "$V040/watchlog-agent.values.yaml")" "$AGENT_DS")"
+logs "agent chart, fresh install" on "$AGENT" "${USER_VALUES[@]}"
+logs "agent chart, --reuse-values from 0.4.0" on "$(reused "$AGENT" "$V040/watchlog-agent.values.yaml")"
+logs "agent chart, --reuse-values from 0.4.0 plus logs.enabled=false" off \
+  "$(reused "$AGENT" "$V040/watchlog-agent.values.yaml")" --set logs.enabled=false
+logs "agent chart, logs.enabled=false as a string" off "$AGENT" "${USER_VALUES[@]}" --set-string logs.enabled=false
+logs "watchlog chart, --reuse-values from 0.4.0" on "$(reused "$UMBRELLA" "$V040/watchlog.values.yaml")"
+logs "watchlog chart, watchlog-agent.logs.enabled=false" off "$UMBRELLA" --set watchlog-agent.logs.enabled=false
+collector "agent chart, --reuse-values from 0.4.0" present \
+  "$(helm template rel "$(reused "$AGENT" "$V040/watchlog-agent.values.yaml")" -n ns)"
+for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
+  chart="${pair%%:*}" fixture="${pair##*:}"
+  if helm template rel "$(reused "$chart" "$V040/$fixture.values.yaml")" -n ns >/dev/null 2>"$TMP/err"; then
+    echo "PASS  $fixture chart renders from 0.4.0's values"
+  else
+    echo "FAIL  $fixture chart renders from 0.4.0's values: $(cat "$TMP/err")"
     fails=$((fails + 1))
   fi
 done
