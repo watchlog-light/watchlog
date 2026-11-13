@@ -2416,6 +2416,13 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Discovery:** images `traefik`, `rancher/mirrored-library-traefik` (k3s); ports 80, 443, 8080, 9100; on Docker the official image.
 - Alternatives: Traefik's API (`/api/rawdata`) for routers and services (rejected: often off, and the dashboard API exposes the configuration); counting eBPF only (rejected: misses TLS and the requests that never reach a backend).
 - Consequences: catalog in SPEC §4.12. Paths and hosts are never collected (ADR-139). A Traefik without metrics still gets a page from eBPF.
+- Measured in slice 3 (2026-11-13), on Traefik 3.6.25 (kind, Ingress and IngressRoute; Docker 29 with the Docker provider) and 2.11.62:
+  - **Requests Traefik answers itself** ("no available server", 503, when a service has no server up) are counted on `traefik_entrypoint_requests_total` and **never** on `traefik_service_requests_total`. So "answered by Traefik" is the entrypoints' 503s minus the services' 503s, and the service with no server up is found from its backend: the Service's ready endpoints (Kubernetes), the container's state (Docker), or `traefik_service_server_up`, which exists **only for services with a health check**.
+  - **Without `allowEmptyServices`** (Traefik's own default; the Helm chart turns it on) an Ingress whose Service has no endpoint is dropped from the configuration, and its requests get a 404 from no router. On Docker, a stopped container's route is removed the same way. Both show as the backend's own state, not as no server up.
+  - **Service names:** `<namespace>-<service>-<port>@kubernetes` as decided; an IngressRoute's is `<namespace>-<route>-<hash>@kubernetescrd` (a 20-hex hash, not the Service), so it maps to the route only; Compose's default is `<service>-<project>@docker`, a label's name `<name>@docker`. Namespaces and Services contain dashes, so the split is decided against the cluster-agent's objects.
+  - **v2 and v3 differ:** v2's `traefik_entrypoint_open_connections{method,protocol}` became `traefik_open_connections{protocol}` (the collector writes both as the latter); v3 has no `traefik_config_reloads_failure_total` or `traefik_config_last_reload_failure`, so the failed-reload rule works on v2 only. The version comes from `/api/version` when the API answers (no metric carries it).
+  - **Docker 29** refuses Traefik before 3.6.1 (its Docker client speaks API 1.24): such a Traefik routes nothing. The docs say so.
+  - **Image:** the collector adds 0.07 MB to the integrations binary on arm64 (13.76 → 13.83 MB stripped; 4.84 → 4.86 MB gzipped) and 0.04 MB on amd64 (14.76 → 14.80 MB).
 
 ## ADR-166: Kafka: the admin API through franz-go, no JMX, and the consumer group that lost its members
 

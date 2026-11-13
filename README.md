@@ -48,7 +48,7 @@ The [install guide](docs/site/install.md) covers requirements, PodSecurity, more
 
 - [Install](docs/site/install.md) · [Configuration](docs/site/configuration.md) · [Security: what the agent can access](docs/site/security.md) · [FAQ](docs/site/faq.md)
 - [Probable cause](docs/site/probable-cause.md) · [Alerts and notifications](docs/site/alerts.md) · [Ask your cluster (MCP)](docs/site/mcp.md) · [REST API](docs/site/api.md)
-- Applications: [Redis](docs/site/integrations/redis.md) · [PostgreSQL](docs/site/integrations/postgres.md) · [MySQL and MariaDB](docs/site/integrations/mysql.md) · [MongoDB](docs/site/integrations/mongodb.md) · [Nginx](docs/site/integrations/nginx.md) · [RabbitMQ](docs/site/integrations/rabbitmq.md)
+- Applications: [Redis](docs/site/integrations/redis.md) · [PostgreSQL](docs/site/integrations/postgres.md) · [MySQL and MariaDB](docs/site/integrations/mysql.md) · [MongoDB](docs/site/integrations/mongodb.md) · [Nginx](docs/site/integrations/nginx.md) · [Traefik](docs/site/integrations/traefik.md) · [RabbitMQ](docs/site/integrations/rabbitmq.md)
 - [Specification](docs/SPEC.md) and [architecture decisions](docs/DECISIONS.md)
 - [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md)
 
