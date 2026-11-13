@@ -84,6 +84,24 @@ export class TieredVictoriaClient extends VictoriaQueryClient {
     await this.tiers[p.current].write(scope, body);
   }
 
+  /** Both tiers, whatever the plan: an old tier may still hold the org's data (ADR-181). */
+  override async exportSeries(scope: ClusterScope, start: number, end: number) {
+    const out: Response[] = [];
+    for (const tier of ['30d', '3d'] as const) {
+      out.push(...(await this.tiers[tier].exportSeries(scope, start, end)));
+    }
+    return out;
+  }
+
+  /** Deletes the cluster's series in both tiers (ADR-181). */
+  override async deleteSeries(scope: ClusterScope, now = Date.now()) {
+    const out: Record<string, number> = {};
+    for (const tier of ['3d', '30d'] as const) {
+      out[tier] = (await this.tiers[tier].deleteSeries(scope, now)).all!;
+    }
+    return out;
+  }
+
   /** The current tier's answer, merged with the old tier's while it still holds data. */
   private async read(
     scope: ClusterScope,

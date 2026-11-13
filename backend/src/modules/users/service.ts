@@ -34,7 +34,15 @@ export type AuditAction =
   | 'staff_org_unsuspended'
   | 'support_session_started'
   | 'support_session_ended'
-  | 'support_tokens_accessed';
+  | 'support_tokens_accessed'
+  // Cloud (ADR-181): the org's data exported, its deletion asked for or undone, and the
+  // inactivity warning, suspension and reactivation.
+  | 'org_exported'
+  | 'org_deletion_requested'
+  | 'org_deletion_cancelled'
+  | 'org_inactive_warned'
+  | 'org_inactive_suspended'
+  | 'org_reactivated';
 
 export interface Actor {
   id: string | null;

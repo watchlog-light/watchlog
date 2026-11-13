@@ -429,9 +429,25 @@ export interface OnboardingStates {
   user_id: string;
 }
 
+export interface OrgDeletions {
+  cluster_ids: Generated<string[]>;
+  deleted_at: Generated<Timestamp>;
+  deleted_org_id: string;
+  org_name: string;
+  requested_at: Timestamp;
+  requested_by: string | null;
+  series: Generated<Json>;
+  users_deleted: Generated<number>;
+}
+
 export interface Orgs {
   created_at: Generated<Timestamp>;
+  deletion_due_at: Timestamp | null;
+  deletion_requested_at: Timestamp | null;
+  deletion_requested_by: string | null;
   id: string;
+  inactive_warned_at: Timestamp | null;
+  inactivity_reset_at: Timestamp | null;
   name: string;
   plan: string;
   slug: string;
@@ -439,6 +455,7 @@ export interface Orgs {
   stripe_subscription_id: string | null;
   suspended_at: Timestamp | null;
   suspended_reason: string | null;
+  suspension_kind: string | null;
   trial_ends_at: Timestamp | null;
   updated_at: Generated<Timestamp>;
 }
@@ -684,6 +701,7 @@ export interface DB {
   notifications: Notifications;
   objects: Objects;
   onboarding_states: OnboardingStates;
+  org_deletions: OrgDeletions;
   orgs: Orgs;
   password_resets: PasswordResets;
   plan_limit_emails: PlanLimitEmails;

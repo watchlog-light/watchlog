@@ -32,7 +32,7 @@ export function authorisedScope(clusterId: string): ClusterScope {
 
 export class VictoriaClient {
   constructor(
-    private readonly baseUrl: string,
+    protected readonly baseUrl: string,
     private readonly timeoutMs = 10_000,
     protected readonly queryTimeoutMs = 15_000,
   ) {}
@@ -71,7 +71,73 @@ export class VictoriaClient {
     }
     await res.body?.cancel();
   }
+
+  /**
+   * The cluster's raw series in [start, end] (unix seconds) as JSON lines, from
+   * /api/v1/export, for the org's data export (ADR-181). One stream per VictoriaMetrics.
+   */
+  async exportSeries(scope: ClusterScope, start: number, end: number): Promise<Response[]> {
+    const url = this.url('/api/v1/export', scope, {
+      'match[]': `{cluster_id="${scope.clusterId}"}`,
+      start: String(start),
+      end: String(end),
+    });
+    let res: Response;
+    try {
+      res = await fetch(url, { signal: AbortSignal.timeout(EXPORT_TIMEOUT_MS) });
+    } catch (err) {
+      throw new VictoriaError(`VictoriaMetrics unreachable: ${(err as Error).message}`, 0);
+    }
+    if (!res.ok) {
+      const text = (await res.text()).slice(0, 300);
+      throw new VictoriaError(`VictoriaMetrics export failed: ${res.status} ${text}`, res.status);
+    }
+    return [res];
+  }
+
+  /**
+   * Deletes every series of the cluster (/api/v1/admin/tsdb/delete_series), for an org's
+   * deletion (ADR-181). Answers how many series there were, per VictoriaMetrics.
+   */
+  async deleteSeries(scope: ClusterScope, now = Date.now()): Promise<Record<string, number>> {
+    return { all: await this.deleteIn(this.baseUrl, scope, now) };
+  }
+
+  protected async deleteIn(base: string, scope: ClusterScope, now: number): Promise<number> {
+    const match = `{cluster_id="${scope.clusterId}"}`;
+    const ask = async (path: string, params: Record<string, string>, method = 'GET') => {
+      const u = new URL(path, base);
+      for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
+      u.searchParams.set('extra_label', `cluster_id=${scope.clusterId}`);
+      let res: Response;
+      try {
+        res = await fetch(u, { method, signal: AbortSignal.timeout(EXPORT_TIMEOUT_MS) });
+      } catch (err) {
+        throw new VictoriaError(`VictoriaMetrics unreachable: ${(err as Error).message}`, 0);
+      }
+      if (!res.ok) {
+        const text = (await res.text()).slice(0, 300);
+        throw new VictoriaError(
+          `VictoriaMetrics ${path} failed: ${res.status} ${text}`,
+          res.status,
+        );
+      }
+      return res;
+    };
+    // Counted over the longest retention (30 days and a day), for the deletion's record.
+    const listed = await ask('/api/v1/series', {
+      'match[]': match,
+      start: String(Math.floor(now / 1000) - 31 * 86_400),
+      end: String(Math.floor(now / 1000)),
+    });
+    const body = (await listed.json().catch(() => ({}))) as { data?: unknown[] };
+    await ask('/api/v1/admin/tsdb/delete_series', { 'match[]': match }, 'POST');
+    return Array.isArray(body.data) ? body.data.length : 0;
+  }
 }
+
+/** Exports and deletions read or remove a whole cluster's series: minutes, not seconds. */
+const EXPORT_TIMEOUT_MS = 10 * 60_000;
 
 /** One series of a query result. Values are numbers, or null for NaN/Inf. */
 export interface QuerySeries {

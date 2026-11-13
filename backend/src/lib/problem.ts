@@ -33,6 +33,8 @@ export const ProblemType = {
   egressRefused: 'urn:watchlog:problem:egress-refused',
   /** Cloud: the org is scheduled for deletion; ingest answers 402 (ADR-181). */
   orgDeleting: 'urn:watchlog:problem:org-deleting',
+  /** Cloud: the deletion's confirmation didn't match the org's name (ADR-181). */
+  confirmMismatch: 'urn:watchlog:problem:confirm-mismatch',
 } as const;
 export type ProblemType = (typeof ProblemType)[keyof typeof ProblemType];
 

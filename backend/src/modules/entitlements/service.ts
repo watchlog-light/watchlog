@@ -18,6 +18,9 @@ import {
 } from './plans.js';
 
 export const ENTITLEMENTS_TTL_MS = 60_000;
+
+/** Why an org's agents get 402 whatever their plan; null when they don't. */
+export type IngestBlock = 'suspended' | 'deleting' | null;
 const MAX_ENTRIES = 50_000;
 
 export type { Tier };
@@ -68,7 +71,7 @@ export class EntitlementsService {
   private readonly entries = new Map<string, { value: Entitlement; expiresAt: number }>();
   private readonly clusterOrgs = new Map<string, string>();
   private readonly listeners: ((orgId: string) => void)[] = [];
-  private readonly suspensions = new Map<string, { value: boolean; expiresAt: number }>();
+  private readonly suspensions = new Map<string, { value: IngestBlock; expiresAt: number }>();
 
   constructor(
     private readonly systemDb: Database,
@@ -95,16 +98,21 @@ export class EntitlementsService {
     this.listeners.push(listener);
   }
 
-  /** Whether staff suspended the org (ADR-179): ingest answers 402. Cached like the rest. */
-  async isSuspended(orgId: string): Promise<boolean> {
+  /**
+   * Why the org's ingest answers 402, if it does: suspended (by staff, ADR-179, or for
+   * inactivity, ADR-181) or scheduled for deletion (ADR-181). Cached like the rest.
+   */
+  async ingestBlock(orgId: string): Promise<IngestBlock> {
     const hit = this.suspensions.get(orgId);
     if (hit && hit.expiresAt > this.now()) return hit.value;
     const row = await this.systemDb
       .selectFrom('orgs')
-      .select('suspended_at')
+      .select(['suspended_at', 'deletion_requested_at'])
       .where('id', '=', orgId)
       .executeTakeFirst();
-    const value = !!row?.suspended_at;
+    // No row: the org was just deleted (another process's token cache may still know it).
+    const value: IngestBlock =
+      !row || row.deletion_requested_at ? 'deleting' : row?.suspended_at ? 'suspended' : null;
     if (this.suspensions.size >= MAX_ENTRIES) this.suspensions.clear();
     this.suspensions.set(orgId, { value, expiresAt: this.now() + ENTITLEMENTS_TTL_MS });
     return value;

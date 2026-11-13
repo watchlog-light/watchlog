@@ -513,7 +513,13 @@ export const adminRoutes: FastifyPluginAsyncTypebox<AdminDeps> = async (app, dep
         const at = action === 'suspend' ? (org.suspended_at ?? now()) : null;
         await systemDb
           .updateTable('orgs')
-          .set({ suspended_at: at, suspended_reason: at ? request.body.reason : null })
+          .set({
+            suspended_at: at,
+            suspended_reason: at ? request.body.reason : null,
+            suspension_kind: at ? 'staff' : null,
+            // Lifting a suspension starts the inactivity count again (ADR-181).
+            ...(at ? {} : { inactive_warned_at: null, inactivity_reset_at: now() }),
+          })
           .where('id', '=', org.id)
           .execute();
         entitlements.invalidate(org.id);

@@ -270,9 +270,19 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
     request.ingestOwner = owner;
     // The cluster's org, never one the agent names (ADR-174).
     bindOrg(owner.orgId);
-    // Cloud: an org staff suspended stores nothing (ADR-179); its agents drop a 402 batch.
+    // Cloud: a suspended org (ADR-179, ADR-181) or one scheduled for deletion (ADR-181)
+    // stores nothing; its agents drop a 402 batch.
     const entitlements = request.server.entitlements;
-    if (entitlements && (await entitlements.isSuspended(owner.orgId))) {
+    const blocked = entitlements ? await entitlements.ingestBlock(owner.orgId) : null;
+    if (blocked === 'deleting') {
+      return sendProblem(
+        reply,
+        402,
+        'This organization is scheduled for deletion; its data is not stored. Its Owners can undo the deletion.',
+        ProblemType.orgDeleting,
+      );
+    }
+    if (blocked === 'suspended') {
       return sendProblem(
         reply,
         402,

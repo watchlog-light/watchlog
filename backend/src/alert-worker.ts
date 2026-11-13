@@ -24,6 +24,11 @@ import type { WorkerTask } from './modules/alerts/worker.js';
 import { FunnelRecorder } from './modules/funnel/recorder.js';
 import { DAY7_EVERY_MS, recordDay7Active } from './modules/funnel/day7.js';
 import { LIFECYCLE_EVERY_MS, sendLifecycleEmails } from './modules/lifecycle/job.js';
+import {
+  DATA_RIGHTS_EVERY_MS,
+  runDeletions,
+  runInactivity,
+} from './modules/data-rights/service.js';
 
 let config: Config;
 try {
@@ -77,6 +82,7 @@ const reads = await buildApp(config, {
 const entitlements = cloud ? new EntitlementsService(systemDb) : null;
 // Cloud's funnel (ADR-179): the first notification, a Telegram chat connected, day7_active.
 const funnel = cloud ? new FunnelRecorder(db, log) : null;
+const victoria = metricsClient(config, entitlements, log);
 const cloudTasks: WorkerTask[] = funnel
   ? [
       {
@@ -111,6 +117,21 @@ const cloudTasks: WorkerTask[] = funnel
           );
         },
       },
+      // Data rights (ADR-181): deletions after their 7 days, then inactive Free orgs.
+      {
+        name: 'data-rights',
+        everyMs: DATA_RIGHTS_EVERY_MS,
+        run: async (now) => {
+          const mail = {
+            systemDb,
+            settings: () => settings.alerting(),
+            from: config.lifecycleFrom,
+            log,
+          };
+          await runDeletions({ ...mail, victoria: victoria ?? undefined }, now);
+          await runInactivity({ ...mail, invalidate: (id) => entitlements?.invalidate(id) }, now);
+        },
+      },
       {
         name: 'funnel-day7',
         everyMs: DAY7_EVERY_MS,
@@ -138,7 +159,7 @@ const worker = new AlertWorker({
   log,
   evaluators: lookupEvaluator,
   prepareOrg: (orgId) => ensureDefaultRules(db, orgId),
-  victoria: metricsClient(config, entitlements, log),
+  victoria,
   retentionDays: config.alertRetentionDays,
   tasks: [
     { name: 'deliver', everyMs: 2_000, run: (now) => deliverDue(channelDeps, now) },

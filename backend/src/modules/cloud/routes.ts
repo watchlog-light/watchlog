@@ -2,7 +2,7 @@
 // The Cloud-only routes (ADR-173), registered only with WATCHLOG_EDITION=cloud
 // (plugins/edition.ts). Accounts (ADR-175), onboarding (ADR-176), the plan (ADR-177) and
 // Plan & billing's calls to the billing service (ADR-178), the lifecycle emails' unsubscribe
-// and support mode (ADR-179) are here. The internal API (ADR-177, ADR-178) has its own
+// and support mode (ADR-179), and the data rights (ADR-181) are here. The internal API (ADR-177, ADR-178) has its own
 // listener (modules/internal/app.ts). Each route is classified in
 // test/isolation/classification.ts.
 import type { FastifyPluginAsync } from 'fastify';
@@ -18,6 +18,8 @@ import { unsubscribeRoutes } from '../lifecycle/unsubscribe.js';
 import { supportRoutes } from '../support/routes.js';
 import type { EntitlementsService } from '../entitlements/service.js';
 import type { SettingsService } from '../settings/service.js';
+import { dataRightsRoutes } from '../data-rights/routes.js';
+import type { VictoriaClient } from '../../lib/victoria.js';
 
 export interface CloudRouteOptions extends Record<string, unknown> {
   db: Database;
@@ -30,6 +32,7 @@ export interface CloudApiOptions extends CloudRouteOptions {
   settings: SettingsService;
   accounts: CloudAccounts;
   entitlements: EntitlementsService;
+  victoria?: VictoriaClient;
 }
 
 /** Under /api/v1: the public Cloud API (accounts, onboarding's first week and the funnel). */
@@ -44,6 +47,18 @@ export const cloudApiRoutes: FastifyPluginAsync<CloudApiOptions> = async (app, o
   await app.register(unsubscribeRoutes, {
     systemDb: opts.systemDb,
     secretKey: opts.config.secretKey,
+  });
+  // Data rights (ADR-181): export, deletion with its 7-day undo, reactivation.
+  await app.register(dataRightsRoutes, {
+    db: opts.db,
+    victoria: opts.victoria,
+    entitlements: opts.entitlements,
+    mail: {
+      systemDb: opts.systemDb,
+      settings: () => opts.settings.alerting(),
+      from: opts.config.lifecycleFrom,
+      log: app.log,
+    },
   });
   const { billingUrl, internalApi } = opts.config;
   await app.register(billingRoutes, {

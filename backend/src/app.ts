@@ -308,6 +308,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
           settings,
           accounts,
           entitlements,
+          victoria,
         });
       }
       await api.register(userRoutes, {
