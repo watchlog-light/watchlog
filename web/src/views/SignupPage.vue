@@ -2,9 +2,9 @@
 <script setup lang="ts">
 import logoUrl from '@watchlog/design-tokens/assets/logo.svg';
 import type { UserEnvelope } from '@watchlog/api-types';
-import { MailCheck } from '@lucide/vue';
-import { computed, ref, useId } from 'vue';
-import { useRouter } from 'vue-router';
+import { MailCheck, Users } from '@lucide/vue';
+import { computed, onMounted, ref, useId } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { api, ApiError } from '@/api/client';
 import { cloudApi, cloudErrorKey } from '@/api/cloud';
 import FormAlert from '@/components/cloud/FormAlert.vue';
@@ -20,8 +20,28 @@ import { useAuthStore } from '@/stores/auth';
 // email and password with a strength meter and Cloudflare's human check; no card. The
 // answer is the same for a new and a taken address: a new account comes back signed in
 // (GET /me answers) and goes on; a taken one gets an email, and the page says to check it.
+//
+// Invite waves (ADR-173): while signup is in `invite` mode, the page needs the invite from
+// the wave's email (`/signup?invite=wl_si_…`). It checks the code, fills in the address it
+// is for (read-only) and hands the code to the signup and to GitHub/Google. Without a
+// usable invite it says Cloud is opening in waves and links to the waitlist.
 const auth = useAuthStore();
 const router = useRouter();
+const route = useRoute();
+const inviteCode = computed(() => {
+  const q = route.query.invite;
+  return typeof q === 'string' && q.length <= 128 ? q : '';
+});
+type InviteState = 'none' | 'checking' | 'valid' | 'invalid';
+const inviteState = ref<InviteState>(inviteCode.value ? 'checking' : 'none');
+const invitedUntil = ref('');
+const inviteOk = computed(() => inviteState.value === 'valid');
+/** Signup is closed to this visitor: invite mode and no usable invite. */
+const closed = computed(
+  () =>
+    auth.cloud?.signupMode === 'invite' &&
+    (inviteState.value === 'none' || inviteState.value === 'invalid'),
+);
 const min = computed(() => auth.cloud?.passwordMinLength ?? 10);
 const siteKey = computed(() => auth.cloud?.turnstileSiteKey ?? null);
 
@@ -33,6 +53,18 @@ const error = ref<string>();
 const busy = ref(false);
 const checkEmail = ref(false);
 const strengthId = useId();
+
+onMounted(async () => {
+  if (!inviteCode.value) return;
+  try {
+    const invite = await cloudApi.signupInvite(inviteCode.value);
+    email.value = invite.email;
+    invitedUntil.value = invite.expiresAt.slice(0, 10);
+    inviteState.value = 'valid';
+  } catch {
+    inviteState.value = 'invalid';
+  }
+});
 
 const STEPS = ['account', 'install', 'checklist'] as const;
 const CHIPS = ['readOnly', 'noSecrets', 'openSource'] as const;
@@ -49,6 +81,7 @@ async function submit() {
       email: address,
       password: password.value,
       ...(turnstileToken.value ? { turnstileToken: turnstileToken.value } : {}),
+      ...(inviteOk.value ? { invite: inviteCode.value } : {}),
     });
     try {
       const { user } = await api<UserEnvelope>('/me');
@@ -109,6 +142,42 @@ async function submit() {
             >{{ $t('cloud.signup.signIn') }}</RouterLink
           >
         </template>
+        <p
+          v-else-if="inviteState === 'checking'"
+          class="text-14 text-text-muted"
+          role="status"
+          data-testid="signup-invite-checking"
+        >
+          {{ $t('cloud.signup.checkingInvite') }}
+        </p>
+        <template v-else-if="closed">
+          <Users class="size-8 text-primary" aria-hidden="true" />
+          <h1 :id="`${strengthId}-title`" class="text-24 font-semibold">
+            {{ $t('cloud.signup.waves.title') }}
+          </h1>
+          <FormAlert v-if="inviteState === 'invalid'" data-testid="signup-invite-invalid">{{
+            $t('cloud.signup.waves.invalid')
+          }}</FormAlert>
+          <p class="text-14 leading-relaxed text-text-muted" data-testid="signup-waves">
+            {{ $t('cloud.signup.waves.intro') }}
+          </p>
+          <a
+            :href="LINKS.waitlist"
+            class="inline-flex h-11 items-center justify-center rounded-control bg-primary px-4 text-14 font-semibold text-on-primary hover:bg-primary-hover"
+            data-testid="signup-waitlist"
+            >{{ $t('cloud.signup.waves.join') }}</a
+          >
+          <p class="text-13 leading-relaxed text-text-muted">
+            {{ $t('cloud.signup.waves.selfHost') }}
+            <a
+              :href="LINKS.install"
+              target="_blank"
+              rel="noopener"
+              class="inline-flex items-center text-primary hover:text-primary-hover max-lg:min-h-11"
+              >{{ $t('cloud.signup.waves.selfHostLink') }}</a
+            >
+          </p>
+        </template>
         <template v-else>
           <div class="flex flex-col gap-1.5">
             <h1 :id="`${strengthId}-title`" class="text-24 font-semibold">
@@ -116,7 +185,19 @@ async function submit() {
             </h1>
             <p class="text-14 text-text-muted">{{ $t('cloud.signup.intro') }}</p>
           </div>
-          <ProviderButtons />
+          <div
+            v-if="inviteOk"
+            class="flex flex-col gap-0.5 rounded-control border border-border bg-surface-2 px-3 py-2.5"
+            data-testid="signup-invited"
+          >
+            <p class="text-14 font-semibold">
+              {{ $t('cloud.signup.invitedAs', { email }) }}
+            </p>
+            <p class="text-13 text-text-muted">
+              {{ $t('cloud.signup.invitedNote', { date: invitedUntil }) }}
+            </p>
+          </div>
+          <ProviderButtons :invite="inviteOk ? inviteCode : undefined" />
           <form
             class="flex flex-col gap-4.5"
             novalidate
@@ -129,6 +210,7 @@ async function submit() {
               type="email"
               autocomplete="email"
               inputmode="email"
+              :readonly="inviteOk"
               required
             />
             <div class="flex flex-col gap-2">

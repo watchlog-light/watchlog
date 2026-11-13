@@ -3870,7 +3870,10 @@
       "already-subscribed": "This org already has a subscription. Manage it with Manage billing.",
       "no-billing-customer": "This org has no billing account yet. Upgrade first.",
       "support-read-only": "Support mode is read-only: nothing can be changed in this session.",
-      "confirm-mismatch": "Type the organization's name exactly to confirm."
+      "confirm-mismatch": "Type the organization's name exactly to confirm.",
+      "invite-required": "WatchLog Cloud is opening in waves: signing up needs an invite for now.",
+      "invite-email-mismatch": "This invite is for another address. Sign up with the address it was sent to.",
+      "invite-invalid": "This invite link has expired, was already used, or was replaced by a newer one."
     },
     "turnstile": {
       "label": "Human check",
@@ -3926,6 +3929,17 @@
           "title": "Live checklist",
           "text": "Agent, metrics, eBPF and the service map tick as they arrive."
         }
+      },
+      "invitedAs": "Invited as {email}",
+      "invitedNote": "The invite works once, for this address, until {date}.",
+      "checkingInvite": "Checking your invite…",
+      "waves": {
+        "title": "WatchLog Cloud is opening in waves",
+        "intro": "We let people in from the waitlist a group at a time, so every new team gets a good start. Join the waitlist and we'll email you an invite.",
+        "invalid": "This invite link has expired, was already used, or was replaced by a newer one. Ask us for a new one, or join the waitlist.",
+        "join": "Join the waitlist",
+        "selfHost": "Can't wait? WatchLog is open source: install it on your own cluster or Docker host today.",
+        "selfHostLink": "Install guide"
       },
       "chips": {
         "readOnly": "Read-only agent",

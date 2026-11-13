@@ -11,6 +11,11 @@ export const PROVIDERS: readonly Provider[] = ['github', 'google'];
 /** GET /auth/config: what the sign-up and sign-in pages offer. */
 export interface CloudConfig {
   signup: boolean;
+  /**
+   * How Cloud opens (ADR-173): `invite` (the default) needs a signup invite from a wave;
+   * `public` lets anyone sign up.
+   */
+  signupMode: 'invite' | 'public';
   providers: Record<Provider, boolean>;
   /** Load Cloudflare's Turnstile widget only when this is set. */
   turnstileSiteKey: string | null;
@@ -183,8 +188,20 @@ export const cloudApi = {
   supportCurrent: () => api<SupportCurrent>('/support/current'),
   leaveSupport: () => api<void>('/support/session', { method: 'DELETE' }),
   supportSessions: () => api<{ sessions: SupportSession[] }>('/support-sessions'),
-  signup: (body: { email: string; password: string; name?: string; turnstileToken?: string }) =>
+  signup: (body: {
+    email: string;
+    password: string;
+    name?: string;
+    turnstileToken?: string;
+    invite?: string;
+  }) =>
     api<{ accepted: true; verificationSent: boolean }>('/auth/signup', { method: 'POST', body }),
+  /** A wave's signup invite: the address it is for (404 `invite-invalid` when not usable). */
+  signupInvite: (invite: string) =>
+    api<{ email: string; expiresAt: string }>('/auth/signup-invite', {
+      method: 'POST',
+      body: { invite },
+    }),
   verifyEmail: (token: string) =>
     api<{ verified: true }>('/auth/verify-email', { method: 'POST', body: { token } }),
   resendVerification: (turnstileToken?: string) =>
@@ -250,9 +267,12 @@ export function oauthStartUrl(
   provider: Provider,
   intent: 'signin' | 'link',
   next?: string,
+  /** A signup invite from a wave's link (ADR-173): a new account needs it in invite mode. */
+  invite?: string,
 ): string {
   const q = new URLSearchParams({ intent });
   if (next && next.startsWith('/') && !next.startsWith('//')) q.set('next', next);
+  if (invite && intent === 'signin') q.set('invite', invite);
   return `/api/v1/auth/oauth/${provider}/start?${q.toString()}`;
 }
 
@@ -295,6 +315,9 @@ export const CLOUD_ERROR_CODES = [
   'no-billing-customer',
   'support-read-only',
   'confirm-mismatch',
+  'invite-required',
+  'invite-email-mismatch',
+  'invite-invalid',
 ] as const;
 export type CloudErrorCode = (typeof CLOUD_ERROR_CODES)[number];
 

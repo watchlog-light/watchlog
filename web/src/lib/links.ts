@@ -14,5 +14,7 @@ export const LINKS = {
   /** Cloud's Terms and Privacy policy on the site (Cloud slice 8 writes them, ADR-175). */
   terms: 'https://watchlog.io/terms',
   privacy: 'https://watchlog.io/privacy',
+  /** The Cloud waitlist on the site, while Cloud opens in invite waves (ADR-173). */
+  waitlist: 'https://watchlog.io/pricing/#cloud',
   kubeletTls: `${DOCS}/faq.md#nodes-say-the-kubelet-certificate-is-not-verified-how-do-i-fix-it`,
 } as const;

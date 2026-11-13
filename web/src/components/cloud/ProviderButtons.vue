@@ -8,10 +8,10 @@ import GithubMark from './GithubMark.vue';
 
 // "Continue with GitHub / Google" (ADR-175, Signup.dc.html): plain links, since the browser
 // leaves for the provider. Only the providers the backend has turned on are shown.
-const props = defineProps<{ next?: string }>();
+const props = defineProps<{ next?: string; invite?: string }>();
 const auth = useAuthStore();
 const shown = computed(() => PROVIDERS.filter((p) => auth.cloud?.providers[p]));
-const href = (p: Provider) => oauthStartUrl(p, 'signin', props.next);
+const href = (p: Provider) => oauthStartUrl(p, 'signin', props.next, props.invite);
 </script>
 
 <template>
