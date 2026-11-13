@@ -10,7 +10,7 @@ import ModalDialog from '@/components/ui/ModalDialog.vue';
 import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
 import { KIND_LOGO } from '@/components/ui/kindLogos';
 import { ServiceLogo } from '@/components/ui/serviceLogos';
-import { productText, type ConnectTarget } from '@/lib/applications';
+import { productText, QUERY_TEXT, type ConnectTarget } from '@/lib/applications';
 import { useToastStore } from '@/stores/toast';
 
 // Monitor a service (SPEC §4.12, the mock-up's connect drawer, ADR-134): what was
@@ -93,9 +93,7 @@ async function start() {
         ...(s.value.collectorHost ? { collectorHost: s.value.collectorHost } : {}),
         ...(s.value.target.kind === 'address' ? { name: s.value.name } : {}),
         ...(probe.value ? { probeId: probe.value.id } : {}),
-        ...(s.value.type === 'postgres' || s.value.type === 'mysql'
-          ? { queryText: queryText.value }
-          : {}),
+        ...(QUERY_TEXT.has(s.value.type) ? { queryText: queryText.value } : {}),
         defaultAlerts: chosen.value,
       },
     });
@@ -139,10 +137,7 @@ async function start() {
 
       <AccessStep :service="s" @probe="(p) => (probe = p)" />
 
-      <label
-        v-if="s.type === 'postgres' || s.type === 'mysql'"
-        class="flex items-start justify-between gap-4"
-      >
+      <label v-if="QUERY_TEXT.has(s.type)" class="flex items-start justify-between gap-4">
         <span class="flex flex-col gap-0.5">
           <span class="text-13 font-medium text-text">{{
             $t('applications.monitor.queryText')

@@ -285,6 +285,17 @@ export const SERVICE_METRICS_BY_TYPE: Record<string, typeof SERVICE_METRICS> = {
     { key: 'mysql.deadlocks.rate', unit: 'per_second', start: { op: '>', value: 0 } },
     { key: 'mysql.lock_waits', unit: 'count', start: { op: '>', value: 0 } },
   ],
+  mongodb: [
+    { key: 'mongodb.primary.missing', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'mongodb.members.down', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'mongodb.replication.lag', unit: 'seconds', start: { op: '>', value: 30 } },
+    { key: 'mongodb.slow_ops.rate', unit: 'count', start: { op: '>', value: 20 } },
+    { key: 'mongodb.oplog.window', unit: 'seconds', start: { op: '<', value: 86400 } },
+    { key: 'mongodb.connections.ratio', unit: 'ratio', start: { op: '>', value: 0.9 } },
+    { key: 'mongodb.connections', unit: 'count', start: { op: '>', value: 500 } },
+    { key: 'mongodb.ops.rate', unit: 'per_second', start: { op: '>', value: 5000 } },
+    { key: 'mongodb.cache.ratio', unit: 'ratio', start: { op: '>', value: 0.95 } },
+  ],
   nginx: [
     { key: 'nginx.5xx.ratio', unit: 'ratio', start: { op: '>', value: 0.05 } },
     { key: 'nginx.latency.p95', unit: 'seconds', start: { op: '>', value: 1 } },

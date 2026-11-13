@@ -58,8 +58,11 @@ export function productText(s: { type: string; version: string | null; product?:
     : { key: 'applications.product.nameOnly', values: { name: serviceName(s.type) } };
 }
 
+/** Types whose statements or query shapes WatchLog can keep (ADR-138's switch). */
+export const QUERY_TEXT = new Set(['postgres', 'mysql', 'mongodb']);
+
 /** Types that need a read-only user before WatchLog can read them (ADR-134). */
-export const NEEDS_USER = new Set(['postgres', 'mysql']);
+export const NEEDS_USER = new Set(['postgres', 'mysql', 'mongodb']);
 
 const ORDER: Record<ApplicationHealth, number> = { critical: 0, warning: 1, unknown: 2, ok: 3 };
 

@@ -86,6 +86,10 @@ const HEADLINES: [string, Facts][] = [
   ],
   ['app_lock_held_any', { name: 'mysql-e2e/mariadb', holder: 'mysql-e2e-locker-1', held: '2 min' }],
   [
+    'app_collscan',
+    { name: 'mongodb-e2e/mongo', ns: 'shop.events', holder: 'mongodb-e2e/analytics', perMin: 290 },
+  ],
+  [
     'app_finding_caller',
     {
       name: 'web',
@@ -275,6 +279,8 @@ const STEPS: [string, Facts][] = [
   ['lock_waits', { n: 1, table: 'shop.stock', duration: '13 s' }],
   ['lock_waits', { n: 3, table: 'shop.stock', duration: '40 s' }],
   ['holds_lock', { held: '69 s', table: 'shop.stock' }],
+  ['slow_collscan', { perMin: 290, ns: 'shop.events' }],
+  ['sends_collscan', { ns: 'shop.events' }],
   [
     'app_finding',
     {
