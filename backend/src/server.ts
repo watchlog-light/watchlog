@@ -98,30 +98,30 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   });
 }
 
-try {
-  await app.listen({ host: config.host, port: config.port });
-} catch (err) {
-  app.log.error({ err }, 'failed to start');
-  process.exit(1);
-}
-
 // Cloud: the internal API for the billing service and staff (ADR-177, ADR-178), on its own
-// listener that the Cloud kit keeps on the Compose network. Off without its token.
+// listener that the Cloud kit keeps on the Compose network. Off without its token. Built
+// before the public listener starts (hooks can't be added after).
+let internal: Awaited<ReturnType<typeof buildInternalApp>> | null = null;
 if (cloud && app.entitlements) {
   if (!config.internalApi) {
     app.log.warn('WATCHLOG_INTERNAL_TOKEN is not set; the internal API is off');
   } else {
-    const internal = await buildInternalApp(config.internalApi, {
+    const built = await buildInternalApp(config.internalApi, {
       systemDb,
       entitlements: app.entitlements,
       logLevel: config.logLevel,
     });
-    app.addHook('onClose', () => internal.close());
-    try {
-      await internal.listen({ host: config.internalApi.host, port: config.internalApi.port });
-    } catch (err) {
-      app.log.error({ err }, 'the internal API failed to start');
-      process.exit(1);
-    }
+    internal = built;
+    app.addHook('onClose', () => built.close());
   }
+}
+
+try {
+  await app.listen({ host: config.host, port: config.port });
+  if (internal && config.internalApi) {
+    await internal.listen({ host: config.internalApi.host, port: config.internalApi.port });
+  }
+} catch (err) {
+  app.log.error({ err }, 'failed to start');
+  process.exit(1);
 }

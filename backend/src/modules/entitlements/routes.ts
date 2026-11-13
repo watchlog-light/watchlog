@@ -34,7 +34,10 @@ export const PlanSchema = Type.Object({
     dockerHosts: Type.Integer(),
     users: Type.Integer(),
   }),
-  /** This calendar month (UTC) so far: the bill's 95th percentile and the peak hour. */
+  /**
+   * This calendar month (UTC) so far, from the org's creation if later: the bill's 95th
+   * percentile and the peak hour.
+   */
   period: Type.Object({
     from: Type.String(),
     to: Type.String(),
@@ -94,7 +97,16 @@ export const planRoutes: FastifyPluginAsyncTypebox<PlanRouteOptions> = async (ap
       const nodes = counts.k8s + counts.docker;
       const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
       const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-      const usage = await usageReport(db, orgId, monthStart, monthEnd, nowMs);
+      // The period starts with the month, or with the org if it is younger: the hours
+      // before it existed aren't zeros of its own.
+      const org = await db
+        .selectFrom('orgs')
+        .select('created_at')
+        .where('id', '=', orgId)
+        .executeTakeFirst();
+      const created = org ? new Date(org.created_at) : monthStart;
+      const periodStart = created > monthStart ? created : monthStart;
+      const usage = await usageReport(db, orgId, periodStart, monthEnd, nowMs);
       const atNodeLimit = ent.nodes !== null && nodes >= ent.nodes;
       const nodesOver = ent.nodes === null ? 0 : Math.max(0, nodes - ent.nodes);
       const clustersOver = ent.clusters === null ? 0 : Math.max(0, counts.clusters - ent.clusters);
@@ -120,7 +132,7 @@ export const planRoutes: FastifyPluginAsyncTypebox<PlanRouteOptions> = async (ap
           users: counts.users,
         },
         period: {
-          from: monthStart.toISOString(),
+          from: usage.from,
           to: monthEnd.toISOString(),
           p95: usage.p95,
           peak: usage.peak,
