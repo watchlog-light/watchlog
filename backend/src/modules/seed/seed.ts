@@ -12,6 +12,7 @@ import { ConditionSchema, Severity, ThresholdScopeSchema } from '../alerts/schem
 import { insertThresholdRule } from '../alerts/rules.js';
 import { validateThreshold } from '../alerts/threshold.js';
 import { SeedServiceSchema } from './services.js';
+import { ensureTokenCluster } from '../clusters/bootstrap.js';
 
 /** A threshold rule as POST /alert-rules takes it; the cluster by id or by name, no channels. */
 const SeedRuleSchema = Type.Object(
@@ -41,8 +42,26 @@ const SeedDemoMcpSchema = Type.Object(
   { additionalProperties: false },
 );
 
+/**
+ * A cluster or Docker fleet the seed registers with its agents' token (ADR-170): the
+ * demo's Docker host, whose agents run outside the chart. Only the token's SHA-256 and
+ * its prefix are in the seed; the token stays with the agents.
+ */
+const SeedClusterSchema = Type.Object(
+  {
+    name: Type.String({ minLength: 1, maxLength: 63, pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$' }),
+    kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
+    /** The cluster token's SHA-256, 64 hex characters. */
+    tokenSha256: Type.String({ pattern: '^[0-9a-f]{64}$' }),
+    /** The 8 characters after `wl_ct_`, which find the token. */
+    tokenPrefix: Type.String({ pattern: '^[A-Za-z0-9_-]{8}$' }),
+  },
+  { additionalProperties: false },
+);
+
 export const SeedSchema = Type.Object(
   {
+    clusters: Type.Optional(Type.Array(SeedClusterSchema, { maxItems: 20 })),
     alertRules: Type.Optional(Type.Array(SeedRuleSchema, { maxItems: 200 })),
     /** Services to monitor once the agents report them (ADR-142): seed/services.ts. */
     services: Type.Optional(Type.Array(SeedServiceSchema, { maxItems: 100 })),
@@ -79,6 +98,9 @@ export async function loadSeedFile(path: string): Promise<Seed> {
   const names = (value.alertRules ?? []).map((r) => r.name);
   const twice = names.find((n, i) => names.indexOf(n) !== i);
   if (twice) throw new SeedFileError(`seed file ${path} names the rule "${twice}" twice`);
+  const clusters = (value.clusters ?? []).map((c) => c.name);
+  const again = clusters.find((n, i) => clusters.indexOf(n) !== i);
+  if (again) throw new SeedFileError(`seed file ${path} names the cluster "${again}" twice`);
   return value;
 }
 
@@ -103,6 +125,25 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 export async function applySeed(db: Database, seed: Seed, log: SeedLogger): Promise<SeedResult> {
   const result: SeedResult = { created: [], existing: [], failed: [], waiting: false };
+  // Clusters first: a seeded rule may name one.
+  for (const c of seed.clusters ?? []) {
+    const outcome = await ensureTokenCluster(db, {
+      name: c.name,
+      kind: c.kind,
+      hash: Buffer.from(c.tokenSha256, 'hex'),
+      prefix: c.tokenPrefix,
+    });
+    if (outcome === 'created') log.info({ cluster: c.name, kind: c.kind }, 'seed: cluster created');
+    if (outcome === 'kind-mismatch') {
+      log.error({ cluster: c.name }, `seed: a cluster of that name exists, not of kind ${c.kind}`);
+    }
+    if (outcome === 'revoked' || outcome === 'deleted') {
+      log.info(
+        { cluster: c.name, reason: outcome },
+        'seed: token revoked or cluster deleted; not recreating it',
+      );
+    }
+  }
   const rules = seed.alertRules ?? [];
   if (rules.length === 0) return result;
   await db.transaction().execute(async (trx) => {

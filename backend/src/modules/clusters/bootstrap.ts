@@ -6,6 +6,7 @@ import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
 import { sha256 } from '../../lib/tokens.js';
 import { insertCluster } from './service.js';
+import type { ClusterKind } from './service.js';
 import { tokenPrefix, verifyClusterToken } from './tokens.js';
 
 /**
@@ -26,36 +27,54 @@ export async function ensureBootstrapCluster(
   token: string,
 ): Promise<BootstrapResult> {
   if (await verifyClusterToken(db, token)) return 'exists';
-  const hash = sha256(token);
+  const result = await ensureTokenCluster(db, {
+    name,
+    kind: 'kubernetes',
+    hash: sha256(token),
+    prefix: tokenPrefix(token),
+    anyKind: true,
+  });
+  return result === 'kind-mismatch' ? 'exists' : result; // never with anyKind
+}
+
+/**
+ * The same for a token known only by its SHA-256 and prefix (a seeded cluster, ADR-170:
+ * the seed never holds the token itself). 'exists' when that token is registered and
+ * not revoked; a cluster of the name but another kind is left alone ('kind-mismatch').
+ */
+export async function ensureTokenCluster(
+  db: Database,
+  t: { name: string; kind: ClusterKind; hash: Buffer; prefix: string; anyKind?: boolean },
+): Promise<BootstrapResult | 'kind-mismatch'> {
   const [known, retired] = await Promise.all([
-    db.selectFrom('cluster_tokens').select('id').where('token_hash', '=', hash).executeTakeFirst(),
+    db
+      .selectFrom('cluster_tokens')
+      .select(['id', 'revoked_at'])
+      .where('token_hash', '=', t.hash)
+      .executeTakeFirst(),
     db
       .selectFrom('retired_cluster_tokens')
       .select('token_hash')
-      .where('token_hash', '=', hash)
+      .where('token_hash', '=', t.hash)
       .executeTakeFirst(),
   ]);
   if (retired) return 'deleted';
-  if (known) return 'revoked';
+  if (known) return known.revoked_at ? 'revoked' : 'exists';
   const org = await db.selectFrom('orgs').select('id').orderBy('created_at').executeTakeFirst();
   if (!org) return 'no-org';
-  await db.transaction().execute(async (trx) => {
-    const cluster =
-      (await trx
-        .selectFrom('clusters')
-        .selectAll()
-        .where('org_id', '=', org.id)
-        .where('name', '=', name)
-        .executeTakeFirst()) ?? (await insertCluster(trx, org.id, name, 'kubernetes'));
+  return db.transaction().execute(async (trx) => {
+    const found = await trx
+      .selectFrom('clusters')
+      .selectAll()
+      .where('org_id', '=', org.id)
+      .where('name', '=', t.name)
+      .executeTakeFirst();
+    if (found && found.kind !== t.kind && !t.anyKind) return 'kind-mismatch' as const;
+    const cluster = found ?? (await insertCluster(trx, org.id, t.name, t.kind));
     await trx
       .insertInto('cluster_tokens')
-      .values({
-        id: newId(),
-        cluster_id: cluster.id,
-        token_hash: hash,
-        prefix: tokenPrefix(token),
-      })
+      .values({ id: newId(), cluster_id: cluster.id, token_hash: t.hash, prefix: t.prefix })
       .execute();
+    return 'created' as const;
   });
-  return 'created';
 }

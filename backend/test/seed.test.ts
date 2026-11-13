@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, inject, it } from 'vitest';
 import { insertCluster } from '../src/modules/clusters/service.js';
+import { tokenPrefix, verifyClusterToken } from '../src/modules/clusters/tokens.js';
+import { sha256 } from '../src/lib/tokens.js';
 import { ensureDemoUser } from '../src/modules/demo/service.js';
 import { applySeed, loadSeedFile, SeedFileError, type Seed } from '../src/modules/seed/seed.js';
 import {
@@ -130,6 +132,72 @@ describe('seed file', () => {
     });
     const names = list.json().rules.map((r: { name: string }) => r.name);
     expect(names).toEqual(expect.arrayContaining(['Node memory above 75%']));
+  });
+
+  it('registers a seeded Docker fleet by its token hash, once, and a rule may name it (ADR-170)', async () => {
+    ctx = await createTestContext({ demoMode: true });
+    await ensureDemoUser(ctx.db);
+    const token = `wl_ct_${'Dk9'.repeat(14)}z`;
+    const fleet = {
+      name: 'demo-docker',
+      kind: 'docker' as const,
+      tokenSha256: sha256(token).toString('hex'),
+      tokenPrefix: tokenPrefix(token),
+    };
+    const seed = {
+      clusters: [fleet],
+      alertRules: [
+        {
+          ...NODE_MEMORY,
+          name: 'Fleet memory',
+          metric: 'host.memory.utilization',
+          clusterId: 'demo-docker',
+        },
+      ],
+    } as Seed;
+    expect(await loadSeedFile(file('fleet.json', seed))).toEqual(seed);
+    const first = await applySeed(ctx.db, seed, quiet);
+    expect(first.failed).toEqual([]);
+    expect(first.created).toEqual(['Fleet memory']);
+    const owner = await verifyClusterToken(ctx.db, token);
+    expect(owner).not.toBeNull();
+    const cluster = await ctx.db.selectFrom('clusters').selectAll().executeTakeFirstOrThrow();
+    expect(cluster).toMatchObject({ id: owner!.clusterId, name: 'demo-docker', kind: 'docker' });
+    // The next start changes nothing; the token itself is nowhere in the database.
+    await applySeed(ctx.db, seed, quiet);
+    expect(await ctx.db.selectFrom('clusters').selectAll().execute()).toHaveLength(1);
+    expect(await ctx.db.selectFrom('cluster_tokens').selectAll().execute()).toHaveLength(1);
+    // A revoked token stays revoked, and a cluster of that name but another kind is left alone.
+    await ctx.db.updateTable('cluster_tokens').set({ revoked_at: new Date() }).execute();
+    await applySeed(ctx.db, seed, quiet);
+    expect(await verifyClusterToken(ctx.db, token)).toBeNull();
+    const other = `wl_ct_${'Kx7'.repeat(14)}q`;
+    const org = await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow();
+    await insertCluster(ctx.db, org.id, 'sample-cluster', 'kubernetes');
+    await applySeed(
+      ctx.db,
+      {
+        clusters: [
+          {
+            ...fleet,
+            name: 'sample-cluster',
+            tokenSha256: sha256(other).toString('hex'),
+            tokenPrefix: tokenPrefix(other),
+          },
+        ],
+      } as Seed,
+      quiet,
+    );
+    expect(await verifyClusterToken(ctx.db, other)).toBeNull();
+    // A cluster named twice, or a token instead of its hash, stops the start.
+    const twice = await loadSeedFile(file('twice.json', { clusters: [fleet, fleet] })).catch(
+      (e: Error) => e,
+    );
+    expect((twice as Error).message).toContain('names the cluster "demo-docker" twice');
+    const plain = await loadSeedFile(
+      file('plain.json', { clusters: [{ ...fleet, tokenSha256: token }] }),
+    ).catch((e: Error) => e);
+    expect(plain).toBeInstanceOf(SeedFileError);
   });
 
   it('waits for first-run setup when there is no org, then applies', async () => {
