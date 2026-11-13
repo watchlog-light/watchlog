@@ -3,7 +3,7 @@
 // the 500-pod cap of label selectors, and evaluation against VictoriaMetrics.
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
-import { VictoriaQueryClient } from '../src/lib/victoria.js';
+import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import { lookupEvaluator } from '../src/modules/alerts/rules.js';
 import {
   TEST_VM_URL,
@@ -146,7 +146,7 @@ describe('custom threshold rules: evaluation', () => {
     for (let t = A; t <= A + 25 * MIN; t += 15_000) {
       series.push({ labels: { __name__: name, run: RUN, ...labels }, value, timestampMs: t });
     }
-    await vm.write({ clusterId }, encode(series));
+    await vm.write(authorisedScope(clusterId), encode(series));
     await fetch(`${TEST_VM_URL}/internal/force_flush`);
   }
 

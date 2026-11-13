@@ -2,7 +2,7 @@
 // Rule preview (alerts redesign item 9, ADR-096): the backtest and its API.
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
-import { VictoriaQueryClient } from '../src/lib/victoria.js';
+import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import { backtest } from '../src/modules/alerts/preview.js';
 import {
   TEST_VM_URL,
@@ -93,7 +93,10 @@ describe('POST /alert-rules/preview', () => {
       }
       return out;
     };
-    await vm.write({ clusterId }, encode([...mk('user', busy), ...mk('idle', (t) => 1 - busy(t))]));
+    await vm.write(
+      authorisedScope(clusterId),
+      encode([...mk('user', busy), ...mk('idle', (t) => 1 - busy(t))]),
+    );
     await fetch(`${TEST_VM_URL}/internal/force_flush`);
 
     const { rules } = (await api('GET', '/alert-rules')).json();
@@ -138,7 +141,7 @@ describe('POST /alert-rules/preview', () => {
         });
       }
     }
-    await vm.write({ clusterId }, encode(disk));
+    await vm.write(authorisedScope(clusterId), encode(disk));
     await fetch(`${TEST_VM_URL}/internal/force_flush`);
     const res = await api('POST', '/alert-rules/preview', {
       metric: 'node.filesystem.utilization',

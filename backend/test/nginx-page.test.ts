@@ -6,7 +6,7 @@
 // ingress-nginx's metrics, the list's numbers, and default rules firing on both.
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
-import { VictoriaQueryClient } from '../src/lib/victoria.js';
+import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import { lookupEvaluator } from '../src/modules/alerts/rules.js';
 import { bursts } from '../src/modules/integrations/pages/nginx.js';
 import {
@@ -67,7 +67,7 @@ async function write(
       timestampMs: t,
     });
   }
-  await vm.write({ clusterId }, encode(series));
+  await vm.write(authorisedScope(clusterId), encode(series));
 }
 
 async function status(token: string, host: string, targets: object[]) {

@@ -5,7 +5,7 @@
 // its collector said, cleanup on removal, and query_metric scoped to a service, on a
 // Kubernetes cluster and a Docker fleet.
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { VictoriaQueryClient } from '../src/lib/victoria.js';
+import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import { renderMessage } from '../src/modules/alerts/render.js';
 import { lookupEvaluator } from '../src/modules/alerts/rules.js';
 import { alertText } from '../src/modules/alerts/text.js';
@@ -68,7 +68,7 @@ async function write(
   for (let t = A; t <= A + 25 * MIN; t += 15_000) {
     series.push({ labels: { __name__: name, run: RUN, ...labels }, value, timestampMs: t });
   }
-  await vm.write({ clusterId }, encode(series));
+  await vm.write(authorisedScope(clusterId), encode(series));
   await fetch(`${TEST_VM_URL}/internal/force_flush`);
 }
 
@@ -348,7 +348,7 @@ describe('alert rules for services', () => {
         timestampMs: t,
       });
     }
-    await vm.write({ clusterId: k8s.id }, encode(series));
+    await vm.write(authorisedScope(k8s.id), encode(series));
     await fetch(`${TEST_VM_URL}/internal/force_flush`);
     mcp = await mcpClient(ctx, cookie);
     const res = await mcp.call('query_metric', {

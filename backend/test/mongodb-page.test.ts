@@ -5,7 +5,7 @@
 // client sending collection scans for probable cause, and the list's numbers.
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
-import { VictoriaQueryClient } from '../src/lib/victoria.js';
+import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import type { Evidence } from '../src/modules/causes/evidence.js';
 import { linksOf } from '../src/modules/causes/rules/application-finding.js';
 import { reasonSentence } from '../src/modules/mcp/tools/applications.js';
@@ -66,7 +66,7 @@ async function write(
       timestampMs: t,
     });
   }
-  await vm.write({ clusterId }, encode(series));
+  await vm.write(authorisedScope(clusterId), encode(series));
 }
 
 async function status(token: string, host: string, targets: object[]) {

@@ -5,7 +5,7 @@
 // Runs only with WATCHLOG_BENCH=1 (it writes about a million samples).
 import { afterAll, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
-import { VictoriaQueryClient } from '../src/lib/victoria.js';
+import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import { closeTestContext, createTestContext, setupAdmin, TEST_VM_URL } from './helpers.js';
 import { encode, type TestSeries } from './support/remote-write.js';
 
@@ -161,7 +161,7 @@ describe.runIf(process.env.WATCHLOG_BENCH === '1')('overview at 100 nodes', () =
           const batch: TestSeries[] = [];
           for (let i = start; i < Math.min(count, start + 500); i++)
             for (let t = NOW - 3600_000; t <= NOW; t += STEP) batch.push(...gen(t, i));
-          await vm.write({ clusterId }, encode(batch));
+          await vm.write(authorisedScope(clusterId), encode(batch));
         }
       };
       const s = (labels: Record<string, string>, v: number, t: number): TestSeries => ({

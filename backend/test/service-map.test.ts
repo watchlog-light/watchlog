@@ -2,7 +2,7 @@
 // Service map API (SPEC §4.5, Phase 4): flow series as the node agents write them.
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
-import { VictoriaQueryClient } from '../src/lib/victoria.js';
+import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import {
   buildGraph,
   edgeMatchers,
@@ -102,7 +102,7 @@ describe('GET /clusters/:id/service-map', () => {
   it('draws workloads, externals and edges with rates, failures, latency and health', async () => {
     await agent('enabled');
     await vm.write(
-      { clusterId },
+      authorisedScope(clusterId),
       encode([
         ...counter('watchlog_flow_connections_total', cart, 4),
         ...counter('watchlog_flow_connect_failed_total', cart, 1),
@@ -186,7 +186,7 @@ describe('GET /clusters/:id/service-map', () => {
     };
     const named = { ...ops, dst_kind: 'external', dst: 'api.stripe.com', dst_port: '443' };
     await vm.write(
-      { clusterId },
+      authorisedScope(clusterId),
       encode([
         ...counter('watchlog_flow_connections_total', cart, 4),
         ...counter('watchlog_flow_connections_total', intoShop, 1),
@@ -216,7 +216,7 @@ describe('GET /clusters/:id/service-map', () => {
   it('draws a keep-alive edge that only moved bytes in the range (ADR-108)', async () => {
     await agent('enabled');
     await vm.write(
-      { clusterId },
+      authorisedScope(clusterId),
       encode([
         ...counter('watchlog_flow_connections_total', cart, 0),
         ...counter('watchlog_flow_bytes_total', { ...cart, dir: 'sent' }, 900),
@@ -447,7 +447,7 @@ describe("WatchLog's own components", () => {
       dst_port: '5432',
     };
     await vm.write(
-      { clusterId },
+      authorisedScope(clusterId),
       encode([
         ...counter('watchlog_flow_connections_total', cart, 4),
         ...counter('watchlog_flow_connect_failed_total', cart, 2),

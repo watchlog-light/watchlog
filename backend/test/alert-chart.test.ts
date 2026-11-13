@@ -3,7 +3,7 @@
 // against VictoriaMetrics with fixture series.
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
-import { VictoriaQueryClient } from '../src/lib/victoria.js';
+import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import { chartWindow } from '../src/modules/alerts/alert-chart.js';
 import { RULE_CHARTS, bandRows, densify } from '../src/modules/alerts/rule-charts.js';
 import { DEFAULT_RULES } from '../src/modules/alerts/rules.js';
@@ -134,7 +134,7 @@ function gen(
   return out;
 }
 async function write(clusterId: string, series: TestSeries[]) {
-  await vm.write({ clusterId }, encode(series));
+  await vm.write(authorisedScope(clusterId), encode(series));
   await fetch(`${TEST_VM_URL}/internal/force_flush`);
 }
 

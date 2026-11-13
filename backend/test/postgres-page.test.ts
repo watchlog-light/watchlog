@@ -6,7 +6,7 @@
 // and "can't log in" when the password is refused.
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
-import { VictoriaQueryClient } from '../src/lib/victoria.js';
+import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import { lookupEvaluator } from '../src/modules/alerts/rules.js';
 import { reasonSentence } from '../src/modules/mcp/tools/applications.js';
 import {
@@ -68,7 +68,7 @@ async function write(
       timestampMs: t,
     });
   }
-  await vm.write({ clusterId }, encode(series));
+  await vm.write(authorisedScope(clusterId), encode(series));
 }
 
 async function status(token: string, host: string, targets: object[]) {
@@ -297,7 +297,7 @@ describe('the PostgreSQL page', () => {
         timestampMs: t,
       });
     }
-    await vm.write({ clusterId: k8s.id }, encode(used));
+    await vm.write(authorisedScope(k8s.id), encode(used));
     // Lock waits over 3 hours: the heatmap's hourly cells end at the last full hour.
     const waits: TestSeries[] = [];
     for (let t = NOW - 180 * MIN; t <= NOW; t += 60_000) {
@@ -307,7 +307,7 @@ describe('the PostgreSQL page', () => {
         timestampMs: t,
       });
     }
-    await vm.write({ clusterId: k8s.id }, encode(waits));
+    await vm.write(authorisedScope(k8s.id), encode(waits));
     await fetch(`${TEST_VM_URL}/internal/force_flush`);
 
     const d = (await api('GET', `/applications/${id}`)).json();

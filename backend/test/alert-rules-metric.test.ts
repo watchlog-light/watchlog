@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { sql } from 'kysely';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { VictoriaQueryClient } from '../src/lib/victoria.js';
+import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import type { DefaultRule } from '../src/modules/alerts/defaults.js';
 import { DEFAULT_RULES, ensureDefaultRules, lookupEvaluator } from '../src/modules/alerts/rules.js';
 import type { AlertWorker } from '../src/modules/alerts/worker.js';
@@ -65,7 +65,7 @@ async function write(
       timestampMs: t,
     });
   }
-  await vm.write({ clusterId }, encode(series));
+  await vm.write(authorisedScope(clusterId), encode(series));
   await fetch(`${TEST_VM_URL}/internal/force_flush`); // make fresh samples searchable
 }
 

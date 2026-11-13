@@ -6,7 +6,7 @@
 // entrypoint, never on a service), probable cause's link to the backend, and metrics_off.
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
-import { VictoriaQueryClient } from '../src/lib/victoria.js';
+import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import type { Evidence } from '../src/modules/causes/evidence.js';
 import { linksOf } from '../src/modules/causes/rules/application-finding.js';
 import { reasonSentence } from '../src/modules/mcp/tools/applications.js';
@@ -65,7 +65,7 @@ async function write(
     if (v === null) continue;
     series.push({ labels: { __name__: name, run: RUN, ...labels }, value: v, timestampMs: t });
   }
-  await vm.write({ clusterId }, encode(series));
+  await vm.write(authorisedScope(clusterId), encode(series));
 }
 
 async function status(token: string, host: string, targets: object[]) {
