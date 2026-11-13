@@ -21,3 +21,21 @@ html.app-shell body {
   overflow: hidden;
   overscroll-behavior: none;
 }
+
+/* "Open dashboard" pulses twice when the first metrics arrive (ADR-176, SPEC §10.2). */
+@keyframes wl-pulse {
+  from {
+    box-shadow: 0 0 0 0 var(--color-primary-glow);
+  }
+  to {
+    box-shadow: 0 0 0 14px var(--color-transparent);
+  }
+}
+.pulse-twice {
+  animation: wl-pulse 1.2s ease-out 2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse-twice {
+    animation: none;
+  }
+}

@@ -16,7 +16,26 @@ export interface CloudConfig {
   turnstileSiteKey: string | null;
   passwordMinLength: number;
   verifyGraceDays: number;
+  /** Onboarding (ADR-176): "Get help installing" writes here. */
+  supportEmail: string;
+  /** The read-only live demo: "Look around a sample organisation". */
+  sampleUrl: string;
 }
+
+/** The overview's first-week card (ADR-176): each step from the org's real state. */
+export type FirstWeekStepId = 'channel' | 'teammate' | 'application' | 'mcp' | 'problem';
+export interface FirstWeek {
+  dismissed: boolean;
+  steps: { id: FirstWeekStepId; done: boolean; blocked: 'plan-limit' | null }[];
+}
+
+/** Funnel events only the page sees (POST /funnel; SPEC §10.4). */
+export type ClientFunnelEvent =
+  | 'install_command_copied'
+  | 'onboarding_dashboard_opened'
+  | 'onboarding_sample_opened'
+  | 'onboarding_help_opened'
+  | 'onboarding_troubleshooting_shown';
 
 export type Restriction = 'mfa-setup-required' | 'email-verification-required';
 
@@ -96,7 +115,22 @@ export const cloudApi = {
   joinInvite: (token: string) =>
     api<{ org: unknown }>(`/invites/${encodeURIComponent(token)}/join`, { method: 'POST' }),
   unlink: (provider: Provider) => api<void>(`/auth/identities/${provider}`, { method: 'DELETE' }),
+  firstWeek: () => api<FirstWeek>('/onboarding/first-week'),
+  dismissFirstWeek: () => api<void>('/onboarding/first-week/dismiss', { method: 'POST' }),
 };
+
+/**
+ * Records a funnel event; never fails the page (a lost event is only a lost count).
+ * Cloud only: Community has no funnel, so nothing is sent there.
+ */
+export function funnel(
+  name: ClientFunnelEvent,
+  props?: { method?: string; kind?: 'kubernetes' | 'docker' },
+): void {
+  void api<void>('/funnel', { method: 'POST', body: props ? { name, props } : { name } }).catch(
+    () => {},
+  );
+}
 
 /** The browser navigates here to sign in, sign up or link with GitHub or Google. */
 export function oauthStartUrl(

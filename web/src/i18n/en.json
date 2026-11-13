@@ -4009,5 +4009,187 @@
       "notNow": "Not now",
       "signIn": "Already have an account? Sign in to join"
     }
+  },
+  "onboarding": {
+    "title": "Add your first cluster",
+    "steps": {
+      "label": "Setup steps",
+      "what": "What",
+      "install": "Install",
+      "alerts": "Alerts",
+      "done": "done"
+    },
+    "choose": {
+      "title": "What do you want to monitor?",
+      "intro": "You can add more later.",
+      "legend": "What to monitor",
+      "kubernetes": {
+        "title": "Kubernetes cluster",
+        "body": "Nodes, workloads, pods, events and the service map. One Helm chart installs a DaemonSet and a cluster agent.",
+        "how": "helm · kubectl manifest"
+      },
+      "docker": {
+        "title": "Docker host(s)",
+        "body": "Hosts, Compose projects and containers, with the same service map and alerts. One container per host.",
+        "how": "docker run · Compose snippet"
+      },
+      "name": {
+        "kubernetes": "Name this cluster",
+        "docker": "Name this Docker fleet"
+      },
+      "nameHint": "Shown in the cluster switcher and in alert messages. Lowercase letters, digits and dashes.",
+      "continue": "Continue"
+    },
+    "sample": {
+      "first": "Look around a sample organisation first",
+      "waitTitle": "While you wait",
+      "wait": "Look around a sample organisation with real data",
+      "newTab": "(opens in a new tab)"
+    },
+    "install": {
+      "title": "Install the agent",
+      "intro": {
+        "kubernetes": "Run this where kubectl points at {name}. Your cluster token is already in the command.",
+        "docker": "Run this on each host of {name}. Your token is already in the command."
+      },
+      "methods": "Install method",
+      "method": {
+        "helm": "Helm",
+        "kubectl": "kubectl",
+        "dockerRun": "Docker run",
+        "compose": "Compose"
+      },
+      "note": {
+        "helm": "Installs a DaemonSet (one agent per node) and one cluster agent in the watchlog namespace.",
+        "kubectl": "The same as the Helm chart, as plain manifests. The link works for 24 hours and holds no token.",
+        "dockerRun": "For a Docker fleet: run it once on every host.",
+        "compose": "Add it to the Compose file on each host, then run docker compose up -d."
+      },
+      "copy": "Copy command",
+      "copied": "Copied",
+      "lost": "The command with the token was shown once, when the cluster was made. Get a new command to install the agent; the earlier token keeps working.",
+      "reissue": "Get a new command",
+      "openDashboard": "Open dashboard",
+      "waiting": "Waiting for the agent…",
+      "skip": "Go to the dashboard now"
+    },
+    "check": {
+      "title": "Live connection",
+      "state": {
+        "waiting": "waiting",
+        "done": "done",
+        "off": "not available"
+      },
+      "agent": {
+        "label": "Agent connected",
+        "waiting": "Waiting for the first heartbeat…",
+        "done": {
+          "nodes": "on {n} node | on {n} node | on {n} nodes",
+          "hosts": "on {n} host | on {n} host | on {n} hosts"
+        }
+      },
+      "clusterAgent": {
+        "label": "Cluster agent connected",
+        "waiting": "Waiting for the cluster agent…",
+        "done": "Watching the Kubernetes API"
+      },
+      "metrics": {
+        "label": "First metrics received",
+        "waiting": "Waiting for the first metrics…",
+        "done": {
+          "nodes": "{nodes} nodes, {containers} containers | {nodes} nodes, {containers} container | {nodes} nodes, {containers} containers",
+          "hosts": "{nodes} hosts, {containers} containers | {nodes} hosts, {containers} container | {nodes} hosts, {containers} containers"
+        }
+      },
+      "ebpf": {
+        "label": "eBPF network monitoring",
+        "waiting": "Checking the kernel…",
+        "done": {
+          "nodes": "On, on every node | On, on {n} node | On, on all {n} nodes",
+          "hosts": "On, on every host | On, on {n} host | On, on all {n} hosts"
+        },
+        "off": "Off on {node}",
+        "offWhy": "Off on {node}: {reason}",
+        "fix": "Turn eBPF on"
+      },
+      "map": {
+        "label": "Service map ready",
+        "waiting": "Waiting for traffic between services…",
+        "later": "After about 2 minutes of traffic",
+        "done": "{services} services, {connections} connections so far | {services} services, {connections} connection so far | {services} services, {connections} connections so far",
+        "off": "Drawn from workloads and services; connections need eBPF"
+      }
+    },
+    "alerts": {
+      "title": "Where should alerts go?",
+      "intro": "The default alert rules are already on: crash loops, out-of-memory, nodes not ready, failing connections and more. Pick a channel, or skip and do it later.",
+      "slack": "Post to a channel through a webhook",
+      "telegram": "Open the bot, press Start",
+      "emailVerified": "{email} · already verified",
+      "set": "No channel yet | Alerts go to 1 channel | Alerts go to {n} channels"
+    },
+    "trouble": {
+      "title": "Not connecting after 2 minutes?",
+      "run": "Run these and send us the output if nothing below helps:",
+      "diagnostics": "Diagnostics",
+      "commands": {
+        "kubernetes": "kubectl -n watchlog get pods\nkubectl -n watchlog logs ds/watchlog-agent --tail=50\nkubectl -n watchlog logs deploy/watchlog-agent-cluster-agent --tail=50",
+        "docker": "docker ps -a --filter name=watchlog-agent\ndocker logs --tail 50 watchlog-agent"
+      },
+      "egress": {
+        "title": "Outbound HTTPS blocked:",
+        "body": "allow {host} on port 443 from the nodes or hosts."
+      },
+      "token": {
+        "title": "Wrong or revoked token:",
+        "body": "copy the command again from this page; a token revoked in Settings › Clusters is refused."
+      },
+      "podSecurity": {
+        "title": "PodSecurity rejects the agent:",
+        "body": "the node agent reads host paths, so its namespace needs the privileged level:"
+      },
+      "socket": {
+        "title": "Docker socket elsewhere:",
+        "body": "rootless Docker or Podman keep it under /run/user/<uid>/; mount that path as /var/run/docker.sock."
+      },
+      "kernel": {
+        "title": "Old kernel without BTF:",
+        "body": "metrics still work; the service map's connections need Linux 5.8 or newer with BTF."
+      },
+      "help": "Get help installing: a person answers, usually the same day",
+      "helpSubject": "Help installing WatchLog",
+      "helpBody": "Cluster id: {id}\nKind: {kind}\n\nWhat I ran and what I see:\n"
+    },
+    "firstWeek": {
+      "title": "Get the most out of your first week",
+      "count": "{done} of {total}",
+      "progress": "First-week progress",
+      "dismiss": "Hide this checklist",
+      "done": "done",
+      "todo": "to do",
+      "needsPro": "Cloud Free has one user. Pro adds your team, free during the beta.",
+      "steps": {
+        "channel": {
+          "title": "Send alerts somewhere",
+          "body": "Slack, Telegram or email: where WatchLog tells you something broke."
+        },
+        "teammate": {
+          "title": "Invite a teammate",
+          "body": "Share the dashboards and the alerts with your team."
+        },
+        "application": {
+          "title": "Connect an application",
+          "body": "PostgreSQL, Redis, Kafka and more: read-only, one click each."
+        },
+        "mcp": {
+          "title": "Ask your AI what broke",
+          "body": "Connect Claude, Cursor or any MCP client with a read-only token."
+        },
+        "problem": {
+          "title": "See your first explained problem",
+          "body": "When something breaks, it shows up with its likely cause."
+        }
+      }
+    }
   }
 }

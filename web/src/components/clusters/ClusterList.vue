@@ -9,6 +9,8 @@ import { useI18n } from 'vue-i18n';
 import { useClustersStore } from '@/stores/clusters';
 import { api, ApiError, hasProblemType, ProblemType } from '@/api/client';
 import TokenReveal from '@/components/clusters/TokenReveal.vue';
+import LiveChecklist from '@/components/onboarding/LiveChecklist.vue';
+import { useOnboardingStatus } from '@/composables/useOnboardingStatus';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
@@ -34,6 +36,9 @@ const kind = ref<'docker' | 'kubernetes'>('docker');
 const createError = ref<string>();
 const submitting = ref(false);
 const revealed = ref<CreateClusterResponse>();
+/** The new cluster's live connection checklist under its install command (ADR-176). */
+const watching = ref<{ id: string; kind: 'docker' | 'kubernetes' } | null>(null);
+const { status } = useOnboardingStatus(computed(() => watching.value?.id ?? null));
 
 function createErrorMessage(err: unknown): string {
   if (hasProblemType(err, ProblemType.nameTaken)) return t('clusters.errors.nameTaken');
@@ -49,6 +54,7 @@ async function create() {
       method: 'POST',
       body: { name: name.value.trim(), kind: kind.value },
     });
+    watching.value = { id: revealed.value.cluster.id, kind: revealed.value.cluster.kind };
     creating.value = false;
     // The switcher lists the new cluster; the selection stays as it is.
     await Promise.all([list.load(), selection.load()]);
@@ -86,6 +92,16 @@ onMounted(list.load);
       :install="revealed.install"
       @done="revealed = undefined"
     />
+    <div
+      v-if="watching"
+      class="rounded-card border border-border bg-surface-1 p-5"
+      data-testid="add-cluster-checklist"
+    >
+      <LiveChecklist :status="status" :kind="watching.kind" />
+      <div v-if="!revealed" class="mt-4 flex justify-end">
+        <BaseButton variant="ghost" @click="watching = null">{{ $t('common.close') }}</BaseButton>
+      </div>
+    </div>
 
     <form
       v-if="creating"

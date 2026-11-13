@@ -30,6 +30,8 @@ declare module 'vue-router' {
     anyone?: boolean;
     /** Cloud: the page that lifts this gate; signed-in users without it go home. */
     gate?: Restriction;
+    /** A full page outside the app shell that picks no cluster (the onboarding wizard). */
+    bare?: boolean;
   }
 }
 
@@ -147,6 +149,13 @@ export const routes: RouteRecordRaw[] = [
     path: '/setup-2fa',
     component: () => import('@/views/MfaRequiredPage.vue'),
     meta: { titleKey: 'cloud.gate.mfaTitle', cloud: true, gate: 'mfa-setup-required' },
+  },
+  // Cloud onboarding (ADR-176): the wizard after sign-up, and for an org with no cluster.
+  {
+    name: 'onboarding',
+    path: '/onboarding',
+    component: () => import('@/views/OnboardingPage.vue'),
+    meta: { titleKey: 'onboarding.title', cloud: true, bare: true },
   },
   // The links in invites and password resets (ADR-140): open without a session. In Cloud a
   // signed-in user opens the invite too, to join with one click (ADR-175).
@@ -327,7 +336,7 @@ export interface ClusterState {
  */
 export function installClusterGuard(router: Router, clusters: () => ClusterState): void {
   router.beforeEach(async (to) => {
-    if (to.meta.public || to.meta.gate || to.name === 'not-found') return true;
+    if (to.meta.public || to.meta.gate || to.meta.bare || to.name === 'not-found') return true;
     const c = clusters();
     try {
       await c.ensure();

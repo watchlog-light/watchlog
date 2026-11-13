@@ -53,7 +53,8 @@ async function submit() {
     try {
       const { user } = await api<UserEnvelope>('/me');
       await auth.signedIn(user);
-      await router.replace('/');
+      // Straight to "Add your first cluster" (SPEC §10.1, ADR-176).
+      await router.replace({ name: 'onboarding' });
     } catch (err) {
       if (!(err instanceof ApiError && err.status === 401)) throw err;
       checkEmail.value = true;

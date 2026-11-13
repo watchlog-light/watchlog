@@ -23,11 +23,16 @@ import { useLoader } from '@/composables/useLoader';
 import { useNamespaceFilter, withQuery } from '@/composables/useNamespaceFilter';
 import { RANGE_SECONDS } from '@/lib/time';
 import { useUiStore } from '@/stores/ui';
+import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router';
+import FirstWeekCard from '@/components/onboarding/FirstWeekCard.vue';
 
 // The overview (SPEC §4.1, ADR-110): "is anything wrong
 // right now?" in five seconds. One API call for the page, refreshed every 15 s without
 // skeletons.
 const clusters = useClustersStore();
+const auth = useAuthStore();
+const router = useRouter();
 const REFRESH_MS = 15_000;
 // ECharts loads with the resources card, after the rest of the page is shown.
 const ResourcesCard = defineAsyncComponent(() => import('@/components/overview/ResourcesCard.vue'));
@@ -40,7 +45,11 @@ let clock: ReturnType<typeof setInterval> | undefined;
 const page = useLoader(async () => {
   // The selected cluster or fleet (the switcher's; it never changes by itself).
   const cluster: Cluster | null = await clusters.ensure();
-  if (!cluster) return null;
+  if (!cluster) {
+    // Cloud: an org with no cluster yet starts in the wizard (ADR-176).
+    if (auth.isCloud && auth.canManage) void router.replace({ name: 'onboarding' });
+    return null;
+  }
   const range = Math.max(300, RANGE_SECONDS[ui.timeRange]);
   const overview = await api<KubeOverview>(
     withQuery(
@@ -136,7 +145,11 @@ onBeforeUnmount(() => {
       :title="$t('kube.waiting.title')"
       :description="$t('kube.waiting.description')"
       :action-label="$t('kube.waiting.action')"
-      :action-to="`/settings/clusters/${page.data.value?.cluster.id}`"
+      :action-to="
+        auth.isCloud
+          ? `/onboarding?id=${page.data.value?.cluster.id}`
+          : `/settings/clusters/${page.data.value?.cluster.id}`
+      "
     />
 
     <template v-else-if="o && page.data.value">
@@ -198,6 +211,8 @@ onBeforeUnmount(() => {
         </span>
       </div>
 
+      <!-- Cloud: the first week's checklist (ADR-176), hidden once done or dismissed. -->
+      <FirstWeekCard v-if="auth.isCloud && !auth.demoMode" />
       <StatusStrip :overview="o" />
       <KpiRow :overview="o" />
 

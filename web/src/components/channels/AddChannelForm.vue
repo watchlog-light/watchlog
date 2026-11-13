@@ -10,12 +10,17 @@ import TextField from '@/components/ui/TextField.vue';
 
 // Adds a Slack, email or webhook channel (Telegram has its own guided setup). A
 // webhook's signing secret is shown once, here, before the form closes.
-const props = defineProps<{ type: 'slack' | 'email' | 'webhook'; firstChannel: boolean }>();
+const props = defineProps<{
+  type: 'slack' | 'email' | 'webhook';
+  firstChannel: boolean;
+  /** Prefills the address (the wizard's email: the user's verified address, ADR-176). */
+  initialTarget?: string;
+}>();
 const emit = defineEmits<{ created: []; cancel: [] }>();
 const { t } = useI18n();
 
 const name = ref('');
-const target = ref('');
+const target = ref(props.initialTarget ?? '');
 const useForAll = ref(props.firstChannel);
 const error = ref<string>();
 const saving = ref(false);
