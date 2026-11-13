@@ -4138,7 +4138,7 @@
       },
       "egress": {
         "title": "Outbound HTTPS blocked:",
-        "body": "allow {host} on port 443 from the nodes or hosts."
+        "body": "allow connections to {host} from the nodes or hosts."
       },
       "token": {
         "title": "Wrong or revoked token:",

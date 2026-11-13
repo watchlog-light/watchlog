@@ -168,11 +168,15 @@ function onTabKey(e: KeyboardEvent, i: number) {
   method.value = methods.value[next]!;
   tabs.value[next]?.focus();
 }
-/** Where the agents push to, for the troubleshooting's "allow this host". */
+/** Where the agents push to, for the troubleshooting's "allow this host and port". */
 const ingestHost = computed(() => {
-  const m = /https?:\/\/([^/'"\s:]+)/.exec(current.value?.install?.[methods.value[0]!] ?? '');
-  return m?.[1] ?? '';
+  const m = /https?:\/\/[^\s'"\\]+/.exec(current.value?.install?.[methods.value[0]!] ?? '');
+  if (!m || !URL.canParse(m[0])) return '';
+  const u = new URL(m[0]);
+  return `${u.hostname}:${u.port || (u.protocol === 'https:' ? '443' : '80')}`;
 });
+const podSecurityFix =
+  'kubectl label namespace watchlog pod-security.kubernetes.io/enforce=privileged --overwrite';
 
 // ------------------------------------------------------------------ the live checklist
 const { status } = useOnboardingStatus(
@@ -500,7 +504,7 @@ const steps = computed(() => [
               @click="channel = channel === c ? null : c"
             >
               <b class="text-16">{{ $t(`channels.types.${c}`) }}</b>
-              <span class="text-13 break-words text-text-muted">{{
+              <span class="text-13 wrap-anywhere text-text-muted">{{
                 c === 'email'
                   ? auth.account?.emailVerified
                     ? $t('onboarding.alerts.emailVerified', { email: verifiedEmail })
@@ -566,10 +570,9 @@ const steps = computed(() => [
                 <li>
                   <b class="text-text">{{ $t('onboarding.trouble.podSecurity.title') }}</b>
                   {{ $t('onboarding.trouble.podSecurity.body') }}
-                  <code class="font-mono break-all text-text"
-                    >kubectl label namespace watchlog pod-security.kubernetes.io/enforce=privileged
-                    --overwrite</code
-                  >
+                  <code class="mt-1 block font-mono wrap-anywhere text-text">{{
+                    podSecurityFix
+                  }}</code>
                 </li>
               </template>
               <li v-else>
