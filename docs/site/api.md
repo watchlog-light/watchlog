@@ -93,6 +93,11 @@ curl -H "$H" $WATCHLOG/api/v1/clusters/$CLUSTER/namespaces
 
 # Warning events, newest first
 curl -H "$H" "$WATCHLOG/api/v1/clusters/$CLUSTER/events?type=Warning&limit=20"
+
+# A container's last 200 lines, redacted, never stored; previous=true for its last run
+curl -H "$H" "$WATCHLOG/api/v1/clusters/$CLUSTER/pods/shop/cart-6488c85554-ws5tm/logs?container=cart&lines=200"
+# Follow new lines for up to 5 minutes (server-sent events)
+curl -N -H "$H" -H 'Accept: text/event-stream' "$WATCHLOG/api/v1/clusters/$CLUSTER/pods/shop/cart-6488c85554-ws5tm/logs?container=cart&follow=true"
 ```
 
 A pod in the list looks like this:
@@ -126,6 +131,9 @@ curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/docker/containers?host=docker-01"
 
 # Events (container starts, stops, OOM kills, health changes) on one host
 curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/events?hosts=docker-01&limit=20"
+
+# A container's last 200 lines, each marked stdout or stderr
+curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/docker/hosts/docker-01/containers/storefront-api-1/logs?lines=200"
 ```
 
 A container looks like this:

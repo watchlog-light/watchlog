@@ -150,6 +150,7 @@ on Docker.
 | `list_applications`  | Monitored services (Redis, PostgreSQL, Nginx, RabbitMQ), problems first                                                | The same, by host and Compose project                                   |
 | `get_application`    | A service: its health, every reason, the workloads that connect to it                                                  | The same, with the containers that connect to it                        |
 | `get_service_map`    | Failing connections, or one workload's connections and DNS errors                                                      | The same between containers                                             |
+| `get_container_logs` | A container's last lines (at most 200), redacted, the previous run too                                                 | A container's last lines, stdout and stderr marked                      |
 | `get_events`         | Warning events, grouped                                                                                                | Container deaths, OOM kills, health changes                             |
 | `get_recent_changes` | Rollouts, image changes, scaling, nodes                                                                                | Re-created containers, image changes                                    |
 | `query_metric`       | A metric over up to 24 hours, as statistics, including a monitored service's                                           | The same                                                                |
@@ -178,6 +179,9 @@ assistant the same evidence as the dashboard's "Likely cause" panel:
 - **Answer size:** at most 16 KB each, with a fixed number of items. When an answer is
   cut, it says so, and which argument narrows it (for example "pass `namespace`").
 - **Metrics:** at most 24 hours, 10 series and 60 points per series.
+- **Logs:** at most 200 lines and 16 KB, newest last; the oldest are left out first. Lines are
+  redacted in the agent and never stored, and the Container logs setting applies to the
+  token's user ([logs on demand](logs.md)).
 
 ## Security
 
@@ -186,7 +190,7 @@ assistant the same evidence as the dashboard's "Likely cause" panel:
 - **What it never returns:** Secrets, environment variable values, request or response
   payloads, alert channel targets, email or Telegram settings, and tokens. WatchLog never
   collects most of these in the first place.
-- **Cluster text is data.** Pod and container names, event messages, labels and images come
+- **Cluster text is data.** Pod and container names, event messages, log lines, labels and images come
   from whoever runs workloads in your cluster. Someone could name a pod "ignore previous
   instructions…" to try to steer your assistant (prompt injection).
   - WatchLog returns such text only in its own fields, cleaned of control characters and

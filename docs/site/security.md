@@ -29,6 +29,8 @@ Two agents with separate permissions:
 
 It can also create TokenReviews, to check that a node agent is who it says, and use a Lease in its own namespace for leader election.
 
+While [logs on demand](logs.md) is on (the default), it can also `get` `pods/log`: it reads a container's last lines through the API server only when someone asks for them, redacts them, and keeps nothing. `logs.enabled: false` removes that permission.
+
 **No access** to Secrets, ConfigMaps, `nodes/proxy`, Ingresses or PersistentVolumes. Objects are trimmed before they're sent: no environment variables, commands, arguments, probe commands, termination messages or `managedFields`. Annotations are kept only from a short allow-list, such as the deployment revision.
 
 ### Node agent
@@ -53,18 +55,27 @@ Edges carry workload names, never pod IPs. An external destination is a DNS name
 
 The install command, and why each setting is there:
 
-| Setting                                                         | Why                                                                                                                                      |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `--user 0:65532 --cap-drop ALL --cap-add BPF --cap-add PERFMON` | Network flows need `BPF` and `PERFMON`. Every other capability is dropped; no `--privileged`.                                            |
-| `--security-opt no-new-privileges`                              | No privilege gain through setuid binaries.                                                                                               |
-| `-v /var/run/docker.sock:...:ro`                                | Only `/_ping`, `/version`, container list, inspect and stats, and `/events` are called. The client refuses anything else before sending. |
-| `-v /proc`, `/sys`, `/` read-only                               | Host and container metrics, filesystem usage.                                                                                            |
-| `--pid host`                                                    | So the mounted `/proc` describes the host, not the agent's container.                                                                    |
-| volume `watchlog-agent-state`                                   | Buffer while the server is unreachable.                                                                                                  |
+| Setting                                                         | Why                                                                                                                                                                                                                   |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--user 0:65532 --cap-drop ALL --cap-add BPF --cap-add PERFMON` | Network flows need `BPF` and `PERFMON`. Every other capability is dropped; no `--privileged`.                                                                                                                         |
+| `--security-opt no-new-privileges`                              | No privilege gain through setuid binaries.                                                                                                                                                                            |
+| `-v /var/run/docker.sock:...:ro`                                | Only `/_ping`, `/version`, container list, inspect and stats, `/events`, and a container's logs when someone asks (`WATCHLOG_LOGS=false` turns that off) are called. The client refuses anything else before sending. |
+| `-v /proc`, `/sys`, `/` read-only                               | Host and container metrics, filesystem usage.                                                                                                                                                                         |
+| `--pid host`                                                    | So the mounted `/proc` describes the host, not the agent's container.                                                                                                                                                 |
+| volume `watchlog-agent-state`                                   | Buffer while the server is unreachable.                                                                                                                                                                               |
 
 Docker's inspect response contains a container's environment variables. The agent never decodes, stores, logs or sends them, nor the command line.
 
 Health-check commands and probe output can contain credentials. The agent redacts passwords, tokens, auth headers and keys before sending, folds output to one line of at most 512 bytes, and `WATCHLOG_HEALTH_OUTPUT=false` turns output off entirely.
+
+## Container logs on demand
+
+The last lines of a container's log, when someone opens its Logs panel or asks through the API or MCP. See [Container logs on demand](logs.md).
+
+- **Redacted in the agent.** Each line is redacted like health check output before it leaves your cluster or host, cut at 2 KB, with control characters removed.
+- **Never stored.** Lines pass through the server to the reader and are gone: not in the database, the metrics store, the agent's buffer, request logs or the MCP call log.
+- **Who:** every role by default; Owners and Admins can limit it to themselves or turn it off in Settings. Every read is audited (who, which container, how many lines), never the lines.
+- **Off for an installation:** `logs.enabled: false` (Helm) or `WATCHLOG_LOGS=false` (Docker). The agent then refuses every request.
 
 ## Integrations collector (Applications)
 
@@ -114,12 +125,13 @@ Services you monitor on the Applications page (Redis, PostgreSQL, Nginx, RabbitM
 - **Resetting signs out everywhere.** The old password keeps working until a new one is set; setting it ends every session of that account.
 - **Removing a user** signs them out and revokes their API tokens at once. What they set up stays.
 - **Locked out?** The Owner can print a reset link inside the backend container with `watchlog admin reset-password` (see [Configuration](configuration.md#a-locked-out-owner)). Anyone who can run a command there already controls the install.
-- **Audit:** invites, role changes, reset links (including from the command line), removals and the ownership handover are logged with who, when and from which address, shown to Owners and Admins. Never a token or a password.
+- **Audit:** invites, role changes, reset links (including from the command line), removals and the ownership handover are logged with who, when and from which address, shown to Owners and Admins. Never a token or a password. Log reads are recorded too, without the lines.
 
 ## API tokens and MCP
 
 - **Personal API tokens** (Settings → API tokens) are `wl_pat_` plus 256 random bits. The server keeps only a SHA-256 hash. The value is shown once, when you create the token.
 - **Read only:** a token reads only the documented [REST API](api.md) routes and the [MCP server](mcp.md), and only what its user can see. It can't change anything: no setting, rule, channel or cluster.
+- **Container logs:** a token reads them with its user's role, if the Container logs setting allows that role. They are redacted in the agent and never stored.
 - **Never returned to a token:** Secrets, environment values, payloads, alert channel targets, email and Telegram settings, other tokens, and the error text of a failed alert delivery, which can name your mail server or part of a webhook address.
 - **Expiry and revocation:** tokens expire after 30 days, 90 days or a year, or never if you choose. You get an email 7 days before. Revoking stops a token at the next request.
 - **Each token's history:** when it was created, its first use, use from a new address, and its expiry or revocation.
