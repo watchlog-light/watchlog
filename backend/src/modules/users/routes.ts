@@ -571,9 +571,16 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
         .where('user_id', '=', target.id)
         .where('revoked_at', 'is', null)
         .executeTakeFirst();
-      // The account goes with its sessions and tokens (cascade); rules, silences and
-      // services they made keep working (their creator becomes empty).
-      await db.deleteFrom('users').where('id', '=', target.id).execute();
+      if (request.server.edition === 'cloud') {
+        // Cloud: a user may belong to other orgs (ADR-175), so removing them here ends
+        // their membership, their API tokens and sessions in this org only; the account
+        // goes when this was its last org.
+        await removeFromCloudOrg(me.org.id, target.id);
+      } else {
+        // The account goes with its sessions and tokens (cascade); rules, silences and
+        // services they made keep working (their creator becomes empty).
+        await db.deleteFrom('users').where('id', '=', target.id).execute();
+      }
       await audit(db, {
         orgId: me.org.id,
         action: 'user_removed',
@@ -584,6 +591,36 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
       return reply.code(204).send(null);
     },
   );
+
+  async function removeFromCloudOrg(orgId: string, userId: string) {
+    await db
+      .updateTable('api_tokens')
+      .set({ revoked_at: new Date() })
+      .where('org_id', '=', orgId)
+      .where('user_id', '=', userId)
+      .where('revoked_at', 'is', null)
+      .execute();
+    await db
+      .deleteFrom('memberships')
+      .where('org_id', '=', orgId)
+      .where('user_id', '=', userId)
+      .execute();
+    // Across orgs: the owner's connection.
+    const left = await systemDb
+      .selectFrom('memberships')
+      .select('id')
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+    if (!left) {
+      await systemDb.deleteFrom('users').where('id', '=', userId).execute();
+      return;
+    }
+    await systemDb
+      .deleteFrom('sessions')
+      .where('user_id', '=', userId)
+      .where((eb) => eb.or([eb('current_org_id', '=', orgId), eb('current_org_id', 'is', null)]))
+      .execute();
+  }
 
   app.post(
     '/users/:id/owner',
