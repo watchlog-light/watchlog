@@ -27,6 +27,11 @@ import {
 import { safeNext } from '../src/modules/accounts/oauth.js';
 import { createVerifyToken, orgNameFor, slugFor } from '../src/modules/accounts/service.js';
 import {
+  issueSignupInvite,
+  listSignupInvites,
+  setSignupMode,
+} from '../src/modules/signup-invites/service.js';
+import {
   decryptTotpSecret,
   encryptTotpSecret,
   totpCode,
@@ -401,6 +406,7 @@ describe('signup', () => {
     const cfg = await call('GET', '/api/v1/auth/config');
     expect(cfg.json()).toEqual({
       signup: true,
+      signupMode: 'public',
       providers: { github: true, google: true },
       turnstileSiteKey: 'site',
       passwordMinLength: 10,
@@ -962,5 +968,124 @@ describe('a hashed password row stays usable', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(cookieOf(res)!.secure).toBe(true);
+  });
+});
+
+// ------------------------------------------------------------------- invite waves (ADR-173)
+
+describe('invite waves: signup needs an invite until staff open it to everyone', () => {
+  afterEach(async () => {
+    // The test database starts public (global-setup.ts); leave it so.
+    if (ctx) await setSignupMode(ctx.db, 'public', 'tests');
+  });
+
+  async function inviteMode() {
+    await cloudContext(OAUTH);
+    await setSignupMode(ctx.db, 'invite', 'staff@watchlog.io');
+  }
+  const issue = (email: string, now?: Date) =>
+    issueSignupInvite(ctx.db, { email, staffEmail: 'staff@watchlog.io', now });
+  const check = (invite: string) =>
+    call('POST', '/api/v1/auth/signup-invite', undefined, { invite });
+
+  it('refuses signup without an invite, takes one for its address once, and says so in the config', async () => {
+    await inviteMode();
+    expect((await call('GET', '/api/v1/auth/config')).json().signupMode).toBe('invite');
+    const none = await signup('wave@example.com');
+    expect(none.statusCode).toBe(403);
+    expect(none.json().code).toBe('invite-required');
+    const forged = await signup('wave@example.com', { invite: 'wl_si_not-a-real-code' });
+    expect(forged.json().code).toBe('invite-required');
+
+    const { code, invite } = await issue('Wave@Example.com');
+    expect(invite.email).toBe('wave@example.com');
+    expect(Date.parse(invite.expiresAt) - Date.parse(invite.createdAt)).toBe(14 * 86_400_000);
+    // Only the hash is stored.
+    const row = await ctx.db
+      .selectFrom('signup_invites')
+      .selectAll()
+      .where('id', '=', invite.id)
+      .executeTakeFirstOrThrow();
+    expect(row.code_hash).not.toContain(code.slice(6));
+    expect((await check(code)).json()).toMatchObject({ email: 'wave@example.com' });
+
+    const other = await signup('someone-else@example.com', { invite: code });
+    expect(other.statusCode).toBe(403);
+    expect(other.json().code).toBe('invite-email-mismatch');
+
+    const ok = await signup('wave@example.com', { invite: code });
+    expect(ok.statusCode, ok.body).toBe(201);
+    expect(cookieOf(ok)).toBeDefined();
+    const [listed] = await listSignupInvites(ctx.db, { email: 'wave@example.com' });
+    expect(listed!.status).toBe('used');
+
+    // Single use.
+    expect((await check(code)).statusCode).toBe(404);
+    expect((await check(code)).json().code).toBe('invite-invalid');
+    expect((await signup('wave@example.com', { invite: code })).json().code).toBe(
+      'invite-required',
+    );
+  });
+
+  it('a newer invite replaces the older one, and an invite stops after 14 days', async () => {
+    await inviteMode();
+    const first = await issue('again@example.com');
+    const second = await issue('again@example.com');
+    expect((await check(first.code)).statusCode).toBe(404);
+    expect((await check(second.code)).statusCode).toBe(200);
+    const statuses = (await listSignupInvites(ctx.db, { email: 'again@example.com' })).map(
+      (i) => i.status,
+    );
+    expect(statuses).toEqual(['pending', 'revoked']);
+
+    const old = await issue('late@example.com', new Date(Date.now() - 15 * 86_400_000));
+    expect((await check(old.code)).statusCode).toBe(404);
+    expect((await signup('late@example.com', { invite: old.code })).statusCode).toBe(403);
+  });
+
+  it('GitHub signup needs the invite the page started with; existing accounts still sign in', async () => {
+    await inviteMode();
+    const startWith = async (query: Record<string, string>) => {
+      const res = await ctx.app.inject({
+        method: 'GET',
+        url: '/api/v1/auth/oauth/github/start',
+        query,
+      });
+      expect(res.statusCode, res.body).toBe(302);
+      const url = new URL(res.headers.location as string);
+      return ctx.app.inject({
+        method: 'GET',
+        url: '/api/v1/auth/oauth/github/callback',
+        query: { code: 'gh-alice', state: url.searchParams.get('state')! },
+        cookies: { wl_oauth: cookieOf(res, 'wl_oauth')!.value },
+      });
+    };
+    const refused = await startWith({});
+    expect(refused.headers.location).toBe('/signin?error=invite-required');
+    expect(
+      await ctx.db
+        .selectFrom('users')
+        .select('id')
+        .where('email', '=', 'alice@example.com')
+        .execute(),
+    ).toEqual([]);
+
+    // The code reached the invited mailbox; GitHub's address may differ from it.
+    const { code } = await issue('alice.work@example.com');
+    const ok = await startWith({ invite: code });
+    expect(ok.headers.location).toBe('/');
+    expect(cookieOf(ok)).toBeDefined();
+    expect((await listSignupInvites(ctx.db, { email: 'alice.work@example.com' }))[0]!.status).toBe(
+      'used',
+    );
+    // Signing in again with the linked GitHub account needs no invite.
+    const again = await startWith({});
+    expect(again.headers.location).toBe('/');
+  });
+
+  it('in public mode anyone signs up, as before', async () => {
+    await cloudContext();
+    expect((await call('GET', '/api/v1/auth/config')).json().signupMode).toBe('public');
+    expect((await signup('open@example.com')).statusCode).toBe(201);
   });
 });

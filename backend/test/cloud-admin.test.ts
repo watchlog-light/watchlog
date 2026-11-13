@@ -9,6 +9,7 @@ import { STAFF_HEADER } from '../src/modules/internal/admin.js';
 import { recordDay7Active } from '../src/modules/funnel/day7.js';
 import { FunnelRecorder, onceKey } from '../src/modules/funnel/recorder.js';
 import { CLIENT_FUNNEL_EVENT_NAMES } from '../src/modules/funnel/events.js';
+import { openSupportSession } from '../src/modules/support/service.js';
 import { cloudWorld, seedOrg, type CloudWorld, type SeededOrg } from './isolation/cloud.js';
 
 const TOKEN = 'a'.repeat(48);
@@ -263,6 +264,15 @@ describe('the internal admin API', () => {
       reason: 'abuse report',
     });
     expect(s.json()).toMatchObject({ status: 'suspended' });
+    const detail = (await staff('GET', `/internal/admin/orgs/${B.orgId}`)).json().org;
+    expect(detail).toMatchObject({
+      status: 'suspended',
+      suspendedReason: 'abuse report',
+      suspensionKind: 'staff',
+      inactiveWarnedAt: null,
+      deletionRequestedAt: null,
+      deletionDueAt: null,
+    });
     const refused = await hb();
     expect(refused.statusCode).toBe(402);
     expect(refused.json().type).toBe('urn:watchlog:problem:org-suspended');
@@ -336,5 +346,97 @@ describe('the internal admin API', () => {
       .where('org_id', '=', A.orgId)
       .executeTakeFirst();
     expect(row?.billing_starts_at.toISOString()).toBe('2027-02-01T00:00:00.000Z');
+  });
+});
+
+describe('the Cloud admin, slice 6c: invite waves, support sessions and deletions across orgs', () => {
+  it('reads and switches the signup mode (invite by default), naming the staff member', async () => {
+    const before = (await staff('GET', '/internal/admin/signup-mode')).json();
+    expect(['invite', 'public']).toContain(before.mode);
+    const set = await staff('PUT', '/internal/admin/signup-mode', { mode: 'invite' });
+    expect(set.statusCode).toBe(200);
+    expect(set.json()).toMatchObject({ mode: 'invite', changedBy: STAFF });
+    expect((await staff('PUT', '/internal/admin/signup-mode', { mode: 'open' })).statusCode).toBe(
+      400,
+    );
+    // Back to how the test database started (global-setup.ts).
+    await staff('PUT', '/internal/admin/signup-mode', { mode: before.mode });
+  });
+
+  it('issues a signup invite for one address and lists it with its state', async () => {
+    const r = await staff('POST', '/internal/admin/signup-invites', { email: 'Wave1@Example.com' });
+    expect(r.statusCode, r.body).toBe(201);
+    const body = r.json();
+    expect(body.code).toMatch(/^wl_si_[A-Za-z0-9_-]{43}$/);
+    expect(body.invite).toMatchObject({
+      email: 'wave1@example.com',
+      createdBy: STAFF,
+      status: 'pending',
+    });
+    // No WATCHLOG_PUBLIC_URL in this app: no link, the Cloud admin builds its own.
+    expect(body.url).toBeNull();
+    const again = await staff('POST', '/internal/admin/signup-invites', {
+      email: 'wave1@example.com',
+    });
+    const listed = (
+      await staff('GET', '/internal/admin/signup-invites?email=wave1@example.com')
+    ).json();
+    expect(listed.invites.map((i: { id: string; status: string }) => [i.id, i.status])).toEqual([
+      [again.json().invite.id, 'pending'],
+      [body.invite.id, 'revoked'],
+    ]);
+    expect(JSON.stringify(listed)).not.toContain(body.code);
+    expect(
+      (await staff('POST', '/internal/admin/signup-invites', { email: 'nope' })).statusCode,
+    ).toBe(400);
+  });
+
+  it('lists support sessions across orgs with the org, newest first', async () => {
+    await openSupportSession(w.owner, {
+      orgId: A.orgId,
+      staffEmail: STAFF,
+      reason: 'install help',
+      minutes: 15,
+      now: new Date(Date.now() - 60_000),
+    });
+    await openSupportSession(w.owner, {
+      orgId: B.orgId,
+      staffEmail: STAFF,
+      reason: 'chart question',
+      minutes: 30,
+      now: new Date(),
+    });
+    const r = await staff('GET', '/internal/admin/support-sessions?limit=2');
+    expect(r.statusCode).toBe(200);
+    expect(
+      r.json().sessions.map((s: { orgId: string; reason: string }) => [s.orgId, s.reason]),
+    ).toEqual([
+      [B.orgId, 'chart question'],
+      [A.orgId, 'install help'],
+    ]);
+    expect(r.json().sessions[0].orgName).toBeTruthy();
+  });
+
+  it('lists the deletion records', async () => {
+    const id = '00000000-0000-4000-8000-00000000dead';
+    await w.owner
+      .insertInto('org_deletions')
+      .values({
+        deleted_org_id: id,
+        org_name: 'gone-inc',
+        requested_at: new Date(Date.now() - 8 * 86_400_000),
+        cluster_ids: ['00000000-0000-4000-8000-0000000000c1'],
+        users_deleted: 1,
+        series: JSON.stringify({ '3d': 10, '30d': 12 }),
+      })
+      .execute();
+    const r = await staff('GET', '/internal/admin/deletions');
+    expect(r.statusCode).toBe(200);
+    expect(r.json().deletions.find((d: { orgId: string }) => d.orgId === id)).toMatchObject({
+      orgName: 'gone-inc',
+      clusters: 1,
+      usersDeleted: 1,
+      series: { '3d': 10, '30d': 12 },
+    });
   });
 });

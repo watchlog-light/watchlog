@@ -31,5 +31,14 @@ export default async function setup(project: TestProject) {
   const testUrl = new URL(baseUrl);
   testUrl.pathname = `/${TEST_DB}`;
   await migrateUp(testUrl.toString());
+  // Cloud signup opens by invitation by default (ADR-173); the suites that sign up through
+  // the API test accounts, not waves, so the test database starts in public mode.
+  // accounts.test.ts's invite-wave cases switch to invite mode and back.
+  const db = new pg.Client({ connectionString: testUrl.toString() });
+  await db.connect();
+  await db.query(
+    `INSERT INTO cloud_settings (key, value, updated_by) VALUES ('signup_mode', '{"mode":"public"}', 'tests')`,
+  );
+  await db.end();
   project.provide('databaseUrl', testUrl.toString());
 }

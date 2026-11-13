@@ -21,6 +21,9 @@ export const GLOBAL_TABLES = [
   'retired_cluster_tokens',
   // Cloud (ADR-181): the record of each org deletion, kept after the org's rows are gone.
   'org_deletions',
+  // Cloud (ADR-173): the signup mode and the signup invites of the waves, before any org.
+  'cloud_settings',
+  'signup_invites',
   // node-pg-migrate's bookkeeping; watchlog_app has no grant on it.
   'pgmigrations',
 ] as const;

@@ -57,6 +57,8 @@ export const ROUTES: Record<string, RouteClass> = {
   // (switching to A's org, revoking A's session) are asserted in cross-org.test.ts.
   'GET /api/v1/auth/config': cloud,
   'POST /api/v1/auth/signup': cloud,
+  // Invite waves (ADR-173): checks a signup invite's code, signed out; no org's data.
+  'POST /api/v1/auth/signup-invite': cloud,
   'POST /api/v1/auth/verify-email': cloud,
   'POST /api/v1/auth/verify-email/resend': cloud,
   'GET /api/v1/auth/account': cloud,
@@ -273,4 +275,11 @@ export const INTERNAL_ROUTES = [
   'POST /internal/admin/orgs/:id/support-sessions',
   'GET /internal/admin/orgs/:id/support-sessions',
   'DELETE /internal/admin/support-sessions/:id',
+  // Slice 6c: across orgs for the Cloud admin's lists, and invite waves (ADR-173).
+  'GET /internal/admin/support-sessions',
+  'GET /internal/admin/deletions',
+  'GET /internal/admin/signup-mode',
+  'PUT /internal/admin/signup-mode',
+  'POST /internal/admin/signup-invites',
+  'GET /internal/admin/signup-invites',
 ] as const;
