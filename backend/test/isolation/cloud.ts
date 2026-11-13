@@ -246,6 +246,11 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
       { id: newId(), org_id: orgId, user_id: viewerId, role: 'viewer' },
     ])
     .execute();
+  // Pro, set by staff (ADR-177): each org has a cluster and a fleet, over Free's one.
+  await owner
+    .insertInto('entitlements')
+    .values({ org_id: orgId, plan: 'pro', source: 'staff', users: 10, retention_days: 30 })
+    .execute();
   const session = async () => (await createSession(owner, ownerId)).token;
   const keptToken = (await createSession(owner, ownerId)).token;
   const kept = {

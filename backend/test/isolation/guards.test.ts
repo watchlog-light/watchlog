@@ -23,6 +23,16 @@ const SYSTEM_DB: Record<string, string> = {
   'modules/accounts/service.ts': 'Cloud signup creates the user and their org',
   'modules/cloud/routes.ts': 'wiring: hands systemDb to the Cloud account routes',
   'modules/demo/routes.ts': 'the demo sign-in, before the org is known',
+  'modules/entitlements/limit-mail.ts':
+    "the worker's plan-limit emails: the day's hits across orgs, each org's Owners",
+  'modules/entitlements/node-gate.ts':
+    "ingest's node limit: each org's recent agents, read before a request's org is bound to a query",
+  'modules/entitlements/service.ts':
+    'the entitlements cache, read across orgs by ingest and the metrics tiers; the internal API writes it',
+  'modules/entitlements/usage.ts':
+    "the usage job lists the orgs with agents in the hour; each org's row is written withOrg",
+  'modules/internal/app.ts':
+    "the internal API (billing, staff): any org's entitlements and usage, behind its own token",
   'modules/onboarding/cloud-routes.ts':
     'Cloud /install.yaml: the install code names its cluster, before the org is known',
   'modules/onboarding/install-codes.ts': 'resolves an install code, before the org is known',

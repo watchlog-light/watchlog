@@ -737,11 +737,7 @@ describe('sessions and orgs', () => {
     });
     expect(free.statusCode).toBe(409);
     expect(free.json().code).toBe('plan-limit');
-    await ctx.db
-      .updateTable('entitlements')
-      .set({ plan: 'pro', source: 'beta' })
-      .where('org_id', '=', ownerOrg.id)
-      .execute();
+    await ctx.app.entitlements!.put(ownerOrg.id, { plan: 'pro', source: 'beta' });
     const inv = await call('POST', '/api/v1/users/invites', owner.cookie, {
       email: 'mate@example.com',
       role: 'admin',

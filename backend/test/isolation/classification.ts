@@ -83,6 +83,9 @@ export const ROUTES: Record<string, RouteClass> = {
   'POST /api/v1/funnel': { kind: 'cloud', body: { name: 'install_command_copied' } },
   'GET /install.yaml': cloud,
 
+  // Cloud plans (ADR-177): the org's plan, limits and usage, for the strip and the banners.
+  'GET /api/v1/plan': cloud,
+
   'GET /api/v1/clusters': org,
   'POST /api/v1/clusters': org,
   'GET /api/v1/clusters/:id': org,
@@ -218,3 +221,14 @@ export const STREAMS: { route: string; query: Record<string, string> }[] = [
     query: { follow: 'true' },
   },
 ];
+
+/**
+ * The internal API (ADR-177, ADR-178): its own app and listener, never the public one.
+ * Each route answers 404 on the public listener and in Community, and 401 without the
+ * internal token (internal.test.ts). A route added there without a line here fails.
+ */
+export const INTERNAL_ROUTES = [
+  'GET /internal/orgs/:id/entitlements',
+  'PUT /internal/orgs/:id/entitlements',
+  'GET /internal/orgs/:id/usage',
+] as const;
