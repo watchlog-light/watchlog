@@ -159,7 +159,27 @@ export interface BillingState {
 }
 export type BillingInterval = 'monthly' | 'annual';
 
+/** GET /org/status (ADR-181): deletion pending, suspension, inactivity warning. */
+export interface OrgStatus {
+  deletion: { requestedAt: string; dueAt: string; requestedBy: string | null } | null;
+  suspension: { at: string; kind: 'staff' | 'inactive'; reason: string | null } | null;
+  inactivity: { warnedAt: string; suspendsAt: string } | null;
+  lastDataAt: string | null;
+}
+
+/** Downloads are plain links (the session cookie goes along): the export routes' URLs. */
+export const exportUrls = {
+  config: () => '/api/v1/org/export',
+  metrics: (clusterId: string, from: number, to: number) =>
+    `/api/v1/clusters/${encodeURIComponent(clusterId)}/export?from=${from}&to=${to}`,
+};
+
 export const cloudApi = {
+  orgStatus: () => api<OrgStatus>('/org/status'),
+  requestDeletion: (confirm: string) =>
+    api<OrgStatus>('/org/deletion', { method: 'POST', body: { confirm } }),
+  undoDeletion: () => api<OrgStatus>('/org/deletion', { method: 'DELETE' }),
+  reactivate: () => api<OrgStatus>('/org/reactivate', { method: 'POST' }),
   supportCurrent: () => api<SupportCurrent>('/support/current'),
   leaveSupport: () => api<void>('/support/session', { method: 'DELETE' }),
   supportSessions: () => api<{ sessions: SupportSession[] }>('/support-sessions'),
@@ -274,6 +294,7 @@ export const CLOUD_ERROR_CODES = [
   'already-subscribed',
   'no-billing-customer',
   'support-read-only',
+  'confirm-mismatch',
 ] as const;
 export type CloudErrorCode = (typeof CLOUD_ERROR_CODES)[number];
 

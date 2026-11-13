@@ -20,6 +20,8 @@ import DemoBanner from '@/components/layout/DemoBanner.vue';
 import SupportBanner from '@/components/cloud/SupportBanner.vue';
 import VerifyBanner from '@/components/cloud/VerifyBanner.vue';
 import PlanBanner from '@/components/plan/PlanBanner.vue';
+import OrgStatusBanner from '@/components/cloud/OrgStatusBanner.vue';
+import { useOrgStatusStore } from '@/stores/orgStatus';
 import { PLAN_REFRESH_MS, usePlanStore } from '@/stores/plan';
 import { useOrgsStore } from '@/stores/orgs';
 import { useCompact } from '@/composables/useNarrow';
@@ -37,12 +39,18 @@ const auth = useAuthStore();
 const orgs = useOrgsStore();
 // Cloud: the plan's strip and banners (ADR-177), asked again every minute.
 const plan = usePlanStore();
+// Cloud: the deletion, suspension and inactivity banner (ADR-181), asked with the plan.
+const orgStatus = useOrgStatusStore();
 let planTimer: ReturnType<typeof setInterval> | undefined;
 onMounted(() => {
   if (auth.isCloud && auth.user && !orgs.loaded) void orgs.load();
   if (auth.isCloud && auth.user && !auth.demoMode) {
     void plan.load();
-    planTimer = setInterval(() => void plan.load(), PLAN_REFRESH_MS);
+    void orgStatus.load();
+    planTimer = setInterval(() => {
+      void plan.load();
+      void orgStatus.load();
+    }, PLAN_REFRESH_MS);
   }
 });
 onBeforeUnmount(() => clearInterval(planTimer));
@@ -79,6 +87,7 @@ onBeforeUnmount(() => document.documentElement.classList.remove('app-shell'));
       <AppTopBar :title="title" class="flex-none" />
       <SupportBanner v-if="auth.isCloud" class="flex-none" />
       <VerifyBanner v-if="auth.isCloud" class="flex-none" />
+      <OrgStatusBanner v-if="auth.isCloud" class="flex-none" />
       <PlanBanner v-if="auth.isCloud" class="flex-none" />
       <AlertingStatusBanner class="flex-none" />
       <main

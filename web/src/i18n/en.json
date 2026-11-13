@@ -1482,7 +1482,8 @@
       "tokens": "API tokens",
       "users": "Users",
       "security": "Security",
-      "billing": "Plan & billing"
+      "billing": "Plan & billing",
+      "data": "Data"
     },
     "fromEnvironment": "Set by the server's environment",
     "saved": "Saved.",
@@ -3338,7 +3339,13 @@
       "staff_org_unsuspended": "WatchLog staff lifted the suspension: {reason}",
       "support_session_started": "WatchLog staff opened a read-only support session: {reason}",
       "support_session_ended": "WatchLog staff ended a support session",
-      "support_tokens_accessed": "Tokens accessed by WatchLog staff ({prefixes})"
+      "support_tokens_accessed": "Tokens accessed by WatchLog staff ({prefixes})",
+      "org_exported": "Exported the organization’s data ({what})",
+      "org_deletion_requested": "Asked to delete the organization (7 days to undo)",
+      "org_deletion_cancelled": "Undid the organization’s deletion",
+      "org_inactive_warned": "Warned: no data from any agent for 30 days",
+      "org_inactive_suspended": "Suspended after {days} days without data",
+      "org_reactivated": "Reactivated the organization"
     },
     "inviteTitle": "Invite someone",
     "inviteDescription": "They choose their own name and password when they open the link.",
@@ -3860,7 +3867,8 @@
       "already-pro": "This org is already on a paid plan.",
       "already-subscribed": "This org already has a subscription. Manage it with Manage billing.",
       "no-billing-customer": "This org has no billing account yet. Upgrade first.",
-      "support-read-only": "Support mode is read-only: nothing can be changed in this session."
+      "support-read-only": "Support mode is read-only: nothing can be changed in this session.",
+      "confirm-mismatch": "Type the organization's name exactly to confirm."
     },
     "turnstile": {
       "label": "Human check",
@@ -4140,6 +4148,50 @@
         "active": "In progress",
         "ended": "Ended",
         "unused": "Link not used"
+      }
+    },
+    "dataRights": {
+      "ownersOnly": "Only Owners can export or delete the organization’s data.",
+      "exportTitle": "Export your data",
+      "exportBody": "Download what WatchLog keeps for this organization. Each download is recorded in the audit log.",
+      "configTitle": "Configuration",
+      "configBody": "Clusters, alert rules, channels, silences, applications, members and API tokens, as JSON. Secrets are left out: Slack URLs, bot tokens, signing secrets, passwords and token values.",
+      "configButton": "Download configuration",
+      "metricsTitle": "Metrics",
+      "metricsBody": "One cluster’s metrics for a time range, as JSON lines in VictoriaMetrics’ export format.",
+      "metricsNote": "Up to 30 downloads an hour. Free keeps 3 days of metrics, Pro 30.",
+      "metricsButton": "Download metrics",
+      "noClusters": "No clusters yet: nothing to export.",
+      "cluster": "Cluster",
+      "range": "Range",
+      "ranges": {
+        "1d": "24 hours",
+        "7d": "7 days",
+        "30d": "30 days"
+      },
+      "kind": {
+        "kubernetes": "Kubernetes",
+        "docker": "Docker"
+      },
+      "deleteTitle": "Delete this organization",
+      "deleteBody": "Its agents’ data stops being stored at once. You have 7 days to undo it; after that its clusters, alert rules, channels, members and metrics are deleted for good. Accounts that belong to no other organization are deleted too.",
+      "confirmLabel": "Type {name} to confirm",
+      "deleteButton": "Delete organization",
+      "scheduled": "{who} asked to delete this organization. It will be deleted on {date}; until then an Owner can undo it.",
+      "anOwner": "An Owner",
+      "undo": "Undo deletion",
+      "undone": "The deletion is undone. Agents’ data is stored again.",
+      "reactivate": "Reactivate",
+      "reactivated": "The organization is active again. Agents’ data is stored again.",
+      "banner": {
+        "label": "Organization status",
+        "deletion": "{org} will be deleted on {date}. Its agents’ data isn’t stored meanwhile.",
+        "suspendedInactive": "{org} is suspended after more than 37 days without data. Its agents’ data isn’t stored.",
+        "suspendedStaff": "WatchLog suspended {org}: {reason}. Its agents’ data isn’t stored; write to support to lift it.",
+        "suspendedStaffNoReason": "WatchLog suspended {org}. Its agents’ data isn’t stored; write to support to lift it.",
+        "inactive": "{org} has received no data for 30 days. It will be suspended on {date} unless an agent sends data.",
+        "askOwner": "An Owner can undo it.",
+        "manage": "Export or delete"
       }
     }
   },

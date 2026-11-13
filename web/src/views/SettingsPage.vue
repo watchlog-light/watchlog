@@ -11,12 +11,14 @@ import LogsAccess from '@/components/settings/LogsAccess.vue';
 import SecuritySettings from '@/components/settings/SecuritySettings.vue';
 import SystemNamespaces from '@/components/settings/SystemNamespaces.vue';
 import PlanBilling from '@/components/plan/PlanBilling.vue';
+import DataSettings from '@/components/settings/DataSettings.vue';
 import { useAuthStore } from '@/stores/auth';
 
 // Settings (alerts redesign): clusters, alert channels with the email server and
 // Telegram, general settings (the public address and the system namespaces) and the
 // user's API tokens (ADR-125). Cloud adds Security: 2FA, sessions, GitHub and Google
-// (ADR-175) and Plan & billing (ADR-177). ?tab= keeps the view.
+// (ADR-175), Plan & billing (ADR-177) and Data: export and deletion (ADR-181). ?tab= keeps
+// the view.
 const ALL_TABS = [
   'clusters',
   'channels',
@@ -25,9 +27,10 @@ const ALL_TABS = [
   'tokens',
   'billing',
   'security',
+  'data',
 ] as const;
 type Tab = (typeof ALL_TABS)[number];
-const CLOUD_TABS: readonly Tab[] = ['billing', 'security'];
+const CLOUD_TABS: readonly Tab[] = ['billing', 'security', 'data'];
 const auth = useAuthStore();
 const TABS = computed<readonly Tab[]>(() =>
   auth.isCloud ? ALL_TABS : ALL_TABS.filter((t) => !CLOUD_TABS.includes(t)),
@@ -81,6 +84,7 @@ function setTab(t: Tab) {
     <ApiTokens v-else-if="tab === 'tokens'" />
     <SecuritySettings v-else-if="tab === 'security'" />
     <PlanBilling v-else-if="tab === 'billing'" />
+    <DataSettings v-else-if="tab === 'data'" />
     <template v-else>
       <GeneralSettings />
       <SystemNamespaces />
