@@ -3,6 +3,8 @@
 // that aren't monitored yet. Read-only: nothing is contacted until someone presses
 // Monitor. Computed on read from the stored objects, so it is always current.
 import type { Database } from '../../db/index.js';
+import type { VictoriaQueryClient } from '../../lib/victoria.js';
+import { clusterFlows, containerKey, looksLikeClient, workloadKey } from './clients.js';
 import type { IntegrationTarget, IntegrationType } from './collector-config.js';
 
 export interface ServiceKind {
@@ -169,6 +171,11 @@ interface Container {
   ports?: { port?: number; protocol?: string }[];
 }
 
+interface Published {
+  private_port?: number;
+  public_port?: number;
+}
+
 /** The port to connect to: one the container declares, else the kind's default. */
 function pickPort(kind: ServiceKind, declared: number[]): number {
   return kind.ports.find((p) => declared.includes(p)) ?? kind.ports[0]!;
@@ -199,6 +206,8 @@ export async function discover(
   db: Database,
   orgId: string,
   clusterId?: string,
+  /** With it, client pods and containers that run a server's image are left out (clients.ts). */
+  vm?: VictoriaQueryClient,
 ): Promise<Discovered[]> {
   let q = db.selectFrom('clusters').select(['id', 'name', 'kind']).where('org_id', '=', orgId);
   if (clusterId) q = q.where('id', '=', clusterId);
@@ -232,6 +241,13 @@ export async function discover(
     monitored.map((m) => targetKey(m.cluster_id, m.type, m.target as IntegrationTarget)),
   );
   const byCluster = new Map(clusters.map((c) => [c.id, c]));
+  const flows = vm
+    ? await clusterFlows(
+        vm,
+        ids,
+        SERVICE_KINDS.flatMap((k) => (k.available ? k.ports : [])),
+      )
+    : new Map();
   const found = new Map<string, Discovered>();
 
   for (const o of objects) {
@@ -247,6 +263,9 @@ export async function discover(
     let host: string | null = null;
     let kind: ServiceKind | undefined;
     let confidence: Discovered['confidence'] = 'image';
+    // Who it is in the eBPF flows, and the ports it declares or publishes (it listens there).
+    let who: string;
+    let listens: number[];
 
     if (o.kind === 'Pod') {
       const workload = spec.workload as { kind?: string; name?: string } | undefined;
@@ -281,6 +300,8 @@ export async function discover(
       };
       name = `${o.namespace}/${workload.name}`;
       group = o.namespace;
+      who = workloadKey(o.namespace, workload.kind, workload.name);
+      listens = declared;
     } else {
       image = spec.image as string | undefined;
       declared = (spec.exposed as number[] | undefined) ?? [];
@@ -307,8 +328,14 @@ export async function discover(
         name = o.name;
       }
       group = o.namespace;
+      who = containerKey(o.name);
+      listens = ((spec.ports as Published[] | undefined) ?? []).flatMap((p) =>
+        p.public_port && p.private_port ? [p.private_port] : [],
+      );
     }
     if (!kind.available) continue;
+    const sides = flows.get(o.cluster_id);
+    if (sides && looksLikeClient(sides, who, kind.ports, listens)) continue;
     const key = targetKey(o.cluster_id, kind.type, target);
     if (taken.has(key) || ignoredKeys.has(key)) continue;
     if (group && ignoredGroups.has(`${o.cluster_id}/${group}`)) continue;

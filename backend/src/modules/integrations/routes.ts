@@ -359,7 +359,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
     },
     async (request) => {
       const [found, ignored] = await Promise.all([
-        discover(db, request.user!.org.id, request.query.cluster),
+        discover(db, request.user!.org.id, request.query.cluster, victoria),
         listIgnored(db, request.user!.org.id, request.query.cluster),
       ]);
       return {
@@ -425,7 +425,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
           'Name one service (key) or one namespace or project (group)',
         );
       }
-      const found = await discover(db, orgId, clusterId);
+      const found = await discover(db, orgId, clusterId, victoria);
       const match = key ? found.find((d) => d.key === key) : found.find((d) => d.group === group);
       if (!match) return sendProblem(reply, 404, 'No discovered service matches');
       const what = match.clusterKind === 'kubernetes' ? 'namespace' : 'Compose project';
