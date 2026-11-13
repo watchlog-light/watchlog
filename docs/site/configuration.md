@@ -78,6 +78,25 @@ Defaults work for most installs. This page lists what you can change.
 | `WATCHLOG_CLIENT_COUNTRY_HEADER`                     | unset      | Like the Helm value `backend.clientCountryHeader`.                                  |
 | `WATCHLOG_TRUSTED_PROXIES`, `WATCHLOG_COOKIE_SECURE` | unset      | Like the Helm values `backend.trustedProxies` and `cookieSecure`.                   |
 
+## Cloud mode (`WATCHLOG_EDITION=cloud`)
+
+WatchLog Cloud runs the same backend with `WATCHLOG_EDITION=cloud`: many organizations with sign-up, Row-Level Security between them, and the account features below. Without it (the default, `community`) none of this exists and these variables are ignored.
+
+| Variable                                                     | Default            | What it does                                                                                                                                                                                                                  |
+| ------------------------------------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WATCHLOG_EDITION`                                           | `community`        | `cloud` turns on sign-up, organizations and the Cloud-only API. Anything else stops the start.                                                                                                                                |
+| `DATABASE_SYSTEM_URL`                                        | required in Cloud  | The database owner, for migrations and the few lookups made before an organization is known. `DATABASE_URL` is then the `watchlog_app` role, which can't bypass Row-Level Security; the backend refuses the same URL in both. |
+| `WATCHLOG_COOKIE_SECURE`                                     | `always` in Cloud  | In Cloud the session cookie is always Secure; any other value stops the start. Browsers accept Secure cookies on `http://localhost`, so local development works.                                                              |
+| `TURNSTILE_SECRET_KEY`                                       | unset              | Cloudflare Turnstile's secret: sign-up, "Forgot your password?" and "Resend the verification email" then need a passing widget, checked by the server. Unset: no check (development, tests).                                  |
+| `TURNSTILE_SITE_KEY`                                         | unset              | Turnstile's site key, which the sign-up and sign-in pages load the widget with. Given to the pages only when the secret key is set too.                                                                                       |
+| `WATCHLOG_GITHUB_CLIENT_ID`, `WATCHLOG_GITHUB_CLIENT_SECRET` | unset              | A GitHub OAuth app for "Continue with GitHub". Its callback URL is `<public URL>/api/v1/auth/oauth/github/callback`. Set both or neither; unset, the button is hidden.                                                        |
+| `WATCHLOG_GOOGLE_CLIENT_ID`, `WATCHLOG_GOOGLE_CLIENT_SECRET` | unset              | A Google OAuth client (web application) for "Continue with Google". Its redirect URI is `<public URL>/api/v1/auth/oauth/google/callback`. Set both or neither; unset, the button is hidden.                                   |
+| `WATCHLOG_DISPOSABLE_DOMAINS_FILE`                           | unset              | A file of more disposable email domains to refuse at sign-up, one per line (`#` starts a comment), on top of the built-in list. A domain also covers its subdomains. Read at start.                                           |
+| `WATCHLOG_SMTP_URL`, `WATCHLOG_SMTP_FROM`                    | unset              | In Cloud also the verification, password reset and invite emails. Without them those emails aren't sent (sign-up still works).                                                                                                |
+| `WATCHLOG_PUBLIC_URL`                                        | the request origin | The address in email links and the OAuth callback URLs. Set it in Cloud.                                                                                                                                                      |
+
+Sign-up checks every new password against [Have I Been Pwned](https://haveibeenpwned.com/API/v3#PwnedPasswords) without sending it: only the first 5 characters of its SHA-1 leave the server. When the service doesn't answer within 2 seconds, sign-up goes on and the skipped check is logged. The backend needs outbound HTTPS to `api.pwnedpasswords.com`, `challenges.cloudflare.com` (with Turnstile), and GitHub's and Google's OAuth endpoints (with those providers). Two-factor secrets are encrypted with `WATCHLOG_SECRET_KEY`, so a [key rotation](#rotating-the-secret-key) re-encrypts them too.
+
 ## A locked-out Owner
 
 When nobody can sign in as the Owner and email isn't set up, print a reset link inside the backend container:
@@ -93,7 +112,7 @@ It prints a link that works once and for one hour. Without `--email` it resets t
 
 ## Rotating the secret key
 
-`WATCHLOG_SECRET_KEY` encrypts alert channel secrets, the email server password and service credentials. To replace it without downtime:
+`WATCHLOG_SECRET_KEY` encrypts alert channel secrets, the email server password, service credentials and, in Cloud mode, two-factor secrets. To replace it without downtime:
 
 1. Generate a new key: `openssl rand -base64 32`.
 2. Re-encrypt everything with both keys set, from the backend image:
