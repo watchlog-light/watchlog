@@ -41,6 +41,8 @@ const NO_PARTITION = '23514';
 export async function storeKubernetesEvents(
   db: Database,
   clusterId: string,
+  /** The cluster's org, given so no row needs the org_id trigger (ADR-174). */
+  orgId: string,
   body: KubernetesEvents,
   retentionDays: number,
   now = new Date(),
@@ -90,6 +92,7 @@ export async function storeKubernetesEvents(
   if (rows.size === 0) return { stored: 0, skipped };
   const values = [...rows.values()].map((r) => ({
     ...r,
+    org_id: orgId,
     event_counts: JSON.stringify(r.event_counts),
   }));
   const upsert = () =>

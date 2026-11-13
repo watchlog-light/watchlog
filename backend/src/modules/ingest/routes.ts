@@ -366,7 +366,7 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
     async (request, reply) => {
       const owner = request.ingestOwner!;
       if (request.body.source === 'kubernetes') {
-        await storeKubernetesObjects(db, owner.clusterId, request.body);
+        await storeKubernetesObjects(db, owner.clusterId, owner.orgId, request.body);
         return reply.code(204).send(null);
       }
       const { kind, node, inventory } = request.body;
@@ -421,6 +421,7 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
             .values({
               id: newId(),
               cluster_id: owner.clusterId,
+              org_id: owner.orgId,
               source: 'docker',
               kind: row.kind,
               namespace: row.namespace,
@@ -505,6 +506,7 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
               markers.map((m) => ({
                 id: newId(),
                 cluster_id: owner.clusterId,
+                org_id: owner.orgId,
                 kind: m.kind,
                 target: m.target,
                 namespace: m.namespace,
@@ -563,6 +565,7 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
       await storeKubernetesEvents(
         db,
         request.ingestOwner!.clusterId,
+        request.ingestOwner!.orgId,
         request.body,
         opts.eventsRetentionDays ?? 15,
       );
@@ -599,6 +602,7 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
           .values({
             id: newId(),
             cluster_id: owner.clusterId,
+            org_id: owner.orgId,
             node: hb.node,
             mode: hb.mode,
             agent_version: hb.agent_version,

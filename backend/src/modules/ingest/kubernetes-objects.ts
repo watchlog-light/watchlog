@@ -117,6 +117,8 @@ export function changeMarkers(
 export async function storeKubernetesObjects(
   db: Database,
   clusterId: string,
+  /** The cluster's org, given so no row needs the org_id trigger (ADR-174). */
+  orgId: string,
   body: KubernetesObjects,
   now = new Date(),
 ): Promise<void> {
@@ -168,6 +170,7 @@ export async function storeKubernetesObjects(
           markers.map((m) => ({
             id: newId(),
             cluster_id: clusterId,
+            org_id: orgId,
             kind: m.kind,
             target: m.target,
             namespace: m.namespace,
@@ -185,6 +188,7 @@ export async function storeKubernetesObjects(
           live.slice(i, i + BATCH).map((o) => ({
             id: newId(),
             cluster_id: clusterId,
+            org_id: orgId,
             source: 'kubernetes',
             kind: o.kind,
             namespace: o.namespace ?? '',
