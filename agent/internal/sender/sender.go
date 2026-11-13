@@ -268,6 +268,9 @@ type Capabilities struct {
 	// the host's when nodes are containers on a shared kernel.
 	NodeCPUCores    float64 `json:"node_cpu_cores,omitempty"`
 	NodeMemoryBytes float64 `json:"node_memory_bytes,omitempty"`
+	// Logs is "on" or "off" on agents that read container logs on demand (ADR-167): the
+	// cluster-agent and Docker agents. Off, the backend says so instead of waiting.
+	Logs string `json:"logs,omitempty"`
 }
 
 // SendHeartbeat posts one heartbeat and returns its outcome.

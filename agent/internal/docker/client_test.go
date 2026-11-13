@@ -23,6 +23,7 @@ func TestAllowlist(t *testing.T) {
 	allowed := []string{
 		"/_ping", "/version", "/v1.56/containers/json", "/v1.41/containers/0b869286b1d0/json",
 		"/v1.56/containers/0b869286b1d05b4ac849f1406237936c359e223c9fa5efc1f4cd666d4a25e100/stats", "/v1.56/events",
+		"/v1.56/containers/0b869286b1d0/logs",
 	}
 	for _, p := range allowed {
 		if !Allowed(http.MethodGet, p) {
@@ -31,7 +32,9 @@ func TestAllowlist(t *testing.T) {
 	}
 	denied := map[string]string{
 		"/v1.56/info": "GET", "/v1.56/containers/abc123abc123/exec": "GET", "/v1.56/containers/create": "GET",
-		"/v1.56/containers/0b869286b1d0/logs": "GET", "/v1.56/images/json": "GET", "/v1.56/containers/my-name/json": "GET",
+		"/v1.56/containers/my-name/logs": "GET", "/v1.56/containers/0b869286b1d0/logs/../json": "GET",
+		"/v1.56/containers/0b869286b1d0/attach": "GET", "/v1.56/containers/0b869286b1d0/archive": "GET",
+		"/v1.56/images/json": "GET", "/v1.56/containers/my-name/json": "GET",
 		"/v1.56/containers/0b869286b1d0/kill": "POST", "/v1.56/containers/json": "POST", "/_ping": "HEAD",
 		"/v1.56/containers/json/../../info": "GET",
 	}
@@ -219,5 +222,20 @@ func TestInspectDecodesHealthAndExitDetails(t *testing.T) {
 	b, _ := json.Marshal(u)
 	if strings.Contains(string(b), "Env") || strings.Contains(string(b), "REDACTED") || strings.Contains(string(b), "Cmd") {
 		t.Error("environment and command line must never be decoded")
+	}
+}
+
+// The allow-list is exactly ADR-024's reads plus ADR-167's logs: nothing else may be added
+// without this test changing.
+func TestAllowlistIsClosed(t *testing.T) {
+	if len(allowedPaths) != 7 {
+		t.Fatalf("%d allowed paths; review ADR-024 before adding one", len(allowedPaths))
+	}
+}
+
+func TestLogsRefusedWhenOff(t *testing.T) {
+	c := New("/nonexistent.sock")
+	if _, err := c.Logs(context.Background(), "0b869286b1d0", 10, false); !errors.Is(err, ErrLogsOff) {
+		t.Fatalf("got %v", err)
 	}
 }

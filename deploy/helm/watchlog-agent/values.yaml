@@ -68,6 +68,13 @@ clusterAgent:
   nodeSelector: {}
   tolerations: []
 
+# Container logs on demand (ADR-167): the last lines of one container, read through the
+# API server when someone asks on a pod page or through MCP, redacted in the agent and
+# never stored. Grants the cluster-agent `get` on pods/log. false removes the grant and
+# the cluster-agent refuses log requests.
+logs:
+  enabled: true
+
 # Integrations collector (SPEC §4.12, ADR-131): one per cluster, reads the services
 # monitored on the Applications page (Redis, PostgreSQL, Nginx, RabbitMQ) with read-only
 # access. Idle until a service is monitored. No ClusterRole, no Secrets.

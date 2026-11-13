@@ -29,6 +29,7 @@ import (
 
 	"github.com/watchlog-light/watchlog/agent/internal/buffer"
 	"github.com/watchlog-light/watchlog/agent/internal/k8s"
+	"github.com/watchlog-light/watchlog/agent/internal/logs"
 	"github.com/watchlog-light/watchlog/agent/internal/podmap"
 	"github.com/watchlog-light/watchlog/agent/internal/runner"
 	"github.com/watchlog-light/watchlog/agent/internal/sender"
@@ -72,6 +73,8 @@ func run(args []string, stdout io.Writer) int {
 	podmapKey := fs.String("podmap-key", os.Getenv("WATCHLOG_PODMAP_KEY"), "TLS key for the pod map")
 	nodeAgentSA := fs.String("node-agent-serviceaccount", envOr("WATCHLOG_NODE_AGENT_SA", "watchlog-agent"),
 		"ServiceAccount of the node agents, in the lease namespace; the only identity the pod map answers")
+	logsOn := fs.Bool("logs", envOr("WATCHLOG_LOGS", "true") != "false",
+		"read a container's last log lines when someone asks (pods/log, ADR-167); false never reads logs")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -150,13 +153,20 @@ func run(args []string, stdout io.Writer) int {
 		}
 		r := &runner.Runner{Mode: "cluster", Version: version.Version, Host: agentID, Interval: *interval,
 			SeriesCap: k8s.StateSeriesCap, Sources: cluster.StateSources(), Buffer: buf, Sender: snd, Log: log,
-			Capabilities: sender.Capabilities{EBPF: "disabled", Cgroup: "none"}}
+			Capabilities: sender.Capabilities{EBPF: "disabled", Cgroup: "none", Logs: onOff(*logsOn)}}
 		go shipper.Run(ctx)
 		go events.Run(ctx)
+		if *logsOn {
+			// Only the leader answers log requests, like everything it ships.
+			lr := &logs.Runner{Base: base.String(), Token: token, AgentID: agentID,
+				UserAgent: "watchlog-cluster-agent/" + version.Version,
+				Reader:    k8s.LogReader{Client: cs}, Log: log}
+			go lr.Run(ctx)
+		}
 		r.Run(ctx)
 	}
 
-	log.Info("cluster-agent started", "version", version.Version, "endpoint", base.String(), "leader_elect", *leaderElect)
+	log.Info("cluster-agent started", "version", version.Version, "endpoint", base.String(), "leader_elect", *leaderElect, "logs", onOff(*logsOn))
 	if !*leaderElect {
 		lead(ctx)
 		return 0
@@ -179,6 +189,13 @@ func run(args []string, stdout io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+func onOff(b bool) string {
+	if b {
+		return "on"
+	}
+	return "off"
 }
 
 func restConfig(kubeconfig string) (*rest.Config, error) {

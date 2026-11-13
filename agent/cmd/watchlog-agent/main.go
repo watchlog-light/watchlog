@@ -27,6 +27,7 @@ import (
 	"github.com/watchlog-light/watchlog/agent/internal/config"
 	"github.com/watchlog-light/watchlog/agent/internal/docker"
 	"github.com/watchlog-light/watchlog/agent/internal/ebpf"
+	"github.com/watchlog-light/watchlog/agent/internal/logs"
 	"github.com/watchlog-light/watchlog/agent/internal/metrics"
 	"github.com/watchlog-light/watchlog/agent/internal/podmap"
 	"github.com/watchlog-light/watchlog/agent/internal/runner"
@@ -110,6 +111,8 @@ func run(args []string, stdout io.Writer) int {
 		"node metrics from the host's /proc (host), the node's own cgroup when the node is a container on a shared kernel (cgroup), or detected (auto)")
 	healthOutput := fs.Bool("health-output", envOr("WATCHLOG_HEALTH_OUTPUT", "true") != "false",
 		"send health probe output (redacted, one line, at most 512 bytes); false sends exit codes only")
+	logsOn := fs.Bool("logs", envOr("WATCHLOG_LOGS", "true") != "false",
+		"docker mode: read a container's last log lines when someone asks (ADR-167); false never reads logs")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -171,8 +174,11 @@ func run(args []string, stdout io.Writer) int {
 		sources = append(sources, runner.Source{Name: "pods", Collect: pods.Collect})
 	}
 	var dockerCollector *runtime.Collector
+	var dockerClient *docker.Client
 	if mode == config.ModeDocker {
-		dockerCollector = runtime.New(docker.New(*dockerSocket), containers.NewReader(paths.Proc, paths.Sys), slog.Default())
+		dockerClient = docker.New(*dockerSocket)
+		dockerClient.LogsEnabled = *logsOn
+		dockerCollector = runtime.New(dockerClient, containers.NewReader(paths.Proc, paths.Sys), slog.Default())
 		dockerCollector.HealthOutput = *healthOutput
 		dockerCollector.Host = *hostname
 		sources = append(sources, runner.Source{Name: "docker", Collect: dockerCollector.Collect})
@@ -309,6 +315,7 @@ func run(args []string, stdout io.Writer) int {
 			HelmChart:   helmRelease(os.Getenv("WATCHLOG_HELM_CHART")),
 			ContainerID: selfContainerID(mode),
 			NodeScope:   hostCfg.Scope,
+			Logs:        logsCapability(mode, *logsOn),
 		},
 	}
 
@@ -340,6 +347,11 @@ func run(args []string, stdout io.Writer) int {
 		}
 		go dockerCollector.WatchEvents(ctx)
 		go dockerCollector.ShipEvents(ctx, snd.SendEvents, log)
+		if *logsOn {
+			lr := &logs.Runner{Base: base.String(), Token: token, AgentID: *hostname, Host: *hostname,
+				UserAgent: "watchlog-agent/" + version.Version, Reader: logs.DockerReader{API: dockerClient}, Log: log}
+			go lr.Run(ctx)
+		}
 	}
 	if podmapClient != nil && netCollector != nil {
 		// The cluster-agent pushes IP map changes; flows resolve against them at the next
@@ -351,6 +363,17 @@ func run(args []string, stdout io.Writer) int {
 	r.Run(ctx)
 	slog.Info("agent stopped; undelivered batches stay buffered")
 	return 0
+}
+
+// logsCapability is "on" or "off" for a Docker agent (ADR-167); node agents read no logs.
+func logsCapability(mode config.Mode, on bool) string {
+	switch {
+	case mode != config.ModeDocker:
+		return ""
+	case on:
+		return "on"
+	}
+	return "off"
 }
 
 // resolveScope turns auto into host or cgroup. Auto detects only in node mode; a

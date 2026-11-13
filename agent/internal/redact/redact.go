@@ -44,6 +44,10 @@ var rules = []struct {
 	{[]string{"pass", "pwd", "secret", "token", "key"}, regexp.MustCompile(`(?i)((?:^|\s)--?(?:password|passwd|pass|pwd|secret|token|api-?key|access-?key|auth-token)(?:\s+|=))[^\s'"$-][^\s'"]*`), "${1}" + Mask},
 	// key=value pairs in query strings and environment-style assignments.
 	{[]string{"pass", "pwd", "secret", "token", "key", "credential"}, regexp.MustCompile(`(?i)\b([\w.-]*(?:password|passwd|pwd|secret|token|api_?key|apikey|access_?key|credential)[\w.-]*=)[^\s'"&;,|$][^\s'"&;,|]*`), "${1}" + Mask},
+	// "key": "value" (JSON) and key: value (YAML, log fields), as container logs print
+	// them (ADR-167); a quoted value may contain spaces. Variable references are kept.
+	{[]string{"pass", "pwd", "secret", "token", "key", "credential"}, regexp.MustCompile(`(?i)("[\w.-]*(?:password|passwd|pwd|secret|token|api_?key|apikey|access_?key|credential)[\w.-]*"\s*:\s*")[^"$][^"]*`), "${1}" + Mask},
+	{[]string{"pass", "pwd", "secret", "token", "key", "credential"}, regexp.MustCompile(`(?i)\b([\w.-]*(?:password|passwd|pwd|secret|token|api_?key|apikey|access_?key|credential)[\w.-]*:[ \t]*)[^\s'"&;,|${}\[\]][^\s'"&;,|]*`), "${1}" + Mask},
 	// Well-known token formats.
 	{[]string{"akia", "asia"}, regexp.MustCompile(`\b(?:AKIA|ASIA)[A-Z0-9]{16}\b`), Mask},
 	{[]string{"gh"}, regexp.MustCompile(`\bgh[pousr]_[A-Za-z0-9]{36,}\b`), Mask},

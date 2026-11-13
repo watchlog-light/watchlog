@@ -33,6 +33,9 @@ var allowedPaths = []*regexp.Regexp{
 	regexp.MustCompile(`^/v1\.\d+/containers/[a-f0-9]{12,64}/json$`),
 	regexp.MustCompile(`^/v1\.\d+/containers/[a-f0-9]{12,64}/stats$`),
 	regexp.MustCompile(`^/v1\.\d+/events$`),
+	// Logs on demand (ADR-167): read only when someone asks, and only while the agent's
+	// WATCHLOG_LOGS is on (Client.Logs refuses otherwise).
+	regexp.MustCompile(`^/v1\.\d+/containers/[a-f0-9]{12,64}/logs$`),
 }
 
 // Allowed reports whether a request may be sent (GET on an allowlisted path).
@@ -52,6 +55,29 @@ func Allowed(method, path string) bool {
 type Client struct {
 	http       *http.Client
 	apiVersion string
+	// LogsEnabled allows Logs (WATCHLOG_LOGS, ADR-167); off, no logs request is made.
+	LogsEnabled bool
+}
+
+// ErrLogsOff is returned by Logs when logs on demand are turned off.
+var ErrLogsOff = errors.New("container logs are turned off on this agent (WATCHLOG_LOGS=false)")
+
+// Logs opens a container's log: the last tail lines with timestamps, stdout and stderr,
+// and new lines too with follow. The stream is multiplexed (8-byte frame headers) unless
+// the container has a TTY. The caller closes it.
+func (c *Client) Logs(ctx context.Context, id string, tail int, follow bool) (io.ReadCloser, error) {
+	if !c.LogsEnabled {
+		return nil, ErrLogsOff
+	}
+	q := url.Values{"stdout": {"1"}, "stderr": {"1"}, "timestamps": {"1"}, "tail": {strconv.Itoa(tail)}}
+	if follow {
+		q.Set("follow", "1")
+	}
+	res, err := c.get(ctx, c.versioned("/containers/"+id+"/logs"), q)
+	if err != nil {
+		return nil, err
+	}
+	return res.Body, nil
 }
 
 // New returns a client for the socket at path (normally /var/run/docker.sock).

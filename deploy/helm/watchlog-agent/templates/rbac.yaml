@@ -67,6 +67,13 @@ rules:
   - apiGroups: [authentication.k8s.io]
     resources: [tokenreviews]
     verbs: [create]
+  {{- if ne (toString (dig "enabled" true (.Values.logs | default dict))) "false" }}
+  # Logs on demand (ADR-167): a container's last lines, read only when someone asks.
+  # logs.enabled: false removes this grant.
+  - apiGroups: ['']
+    resources: [pods/log]
+    verbs: [get]
+  {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

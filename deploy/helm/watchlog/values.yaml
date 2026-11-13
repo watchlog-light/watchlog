@@ -126,6 +126,9 @@ victoriametrics:
 # this release; override only to run them elsewhere.
 watchlog-agent:
   enabled: true
+  # Container logs on demand (ADR-167); false removes the pods/log grant.
+  logs:
+    enabled: true
   fullnameOverride: watchlog-agent
   watchlog:
     endpoint: 'http://{{ .Release.Name }}-backend:4080'

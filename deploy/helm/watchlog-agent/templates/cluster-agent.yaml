@@ -50,6 +50,9 @@ spec:
               value: {{ $fullname }}
             - name: GOMEMLIMIT
               value: {{ .Values.clusterAgent.goMemLimit | quote }}
+            # Logs on demand (ADR-167); read nil-safe, so an upgrade keeps them on (ADR-107).
+            - name: WATCHLOG_LOGS
+              value: {{ ne (toString (dig "enabled" true (.Values.logs | default dict))) "false" | quote }}
             {{- include "watchlog-agent.env" . | nindent 12 }}
           ports:
             - { name: podmap, containerPort: 8443 }
