@@ -2494,6 +2494,15 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Cost:** worked out by the backend per cluster on request from VictoriaMetrics (`quantile_over_time` and `max_over_time` over 5-minute subqueries) and kept for an hour. Slice 6 measures the query time on the e2e stack and the kwok scale run measures it at 15,000 pods in the release slice; over 5 s there, the hour's answer is computed in the background instead.
 - Alternatives: the Vertical Pod Autoscaler's recommender (rejected: a component to install, Kubernetes only); a score per workload (rejected: the owner's "no scores" rule, ADR-147); a 30-day window (rejected: beyond Community's default 15-day retention).
 - Consequences: SPEC §4.3 describes the hints; Phase 6's "right-sizing" line is done in Community. No new collection.
+- As built (v0.5 slice 6, 2026-11-13; measured on the e2e kind cluster and Docker host):
+  - **One new metric after all:** Docker's memory reservation isn't in the cgroup readings, so the Docker agent sends `watchlog_container_memory_reservation_bytes` from inspect when one is set (0.5.0 agents; older agents simply give no reservation hint).
+  - **Codes:** `memory_limit_oom`, `memory_limit_tight`, `cpu_limit_throttled`, `memory_request_low`, `cpu_request_low`, `memory_reservation_low`, `cpu_request_high`, `memory_request_high`, `memory_reservation_high`, `cpu_no_request`, `memory_no_request`, `memory_no_limit`; one per resource in the API, and the dashboard says a container's "not set" ones in one sentence (ADR-168's "one sentence").
+  - **A request left out while a limit is set is the limit** (Kubernetes's default), so a pod with only limits isn't "not set".
+  - **OOM kills on Kubernetes** come from the pods' last terminations in the window (one per pod at most: a lower bound); on Docker from the OOM counter's increase.
+  - **Give back** counts every running replica; the overview orders give-back hints by CPU and memory on one scale (1 core ≈ 4 GiB). A workload scaled to zero gets no hints.
+  - **Cost:** the use is kept an hour per cluster; requests and limits are read on every request, so a changed request shows at once. Six queries (Kubernetes) or twelve (Docker), run together: **53 ms** for the kind cluster's 65 workload containers and **31 ms** for the Docker host's 23 containers, with about 20 hours of history in the window. Far from 5 s, so no background computation; the kwok run in slice 10 measures 15,000 pods.
+  - `WATCHLOG_RIGHT_SIZING_WINDOW_HOURS` (168) and `WATCHLOG_RIGHT_SIZING_MIN_HOURS` (24) shorten the window and the history needed, for tests.
+  - Not built: a link from a hint to the workload's own Likely cause panel (the hint links to the probable-cause docs instead; the panel is on the same page).
 
 ## ADR-169: The ⌘K command palette
 

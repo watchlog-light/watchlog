@@ -165,6 +165,11 @@ H="Authorization: Bearer $TOKEN"
 curl -H "$H" $WATCHLOG/api/v1/clusters/$CLUSTER/overview
 curl -H "$H" $WATCHLOG/api/v1/clusters/$FLEET/overview
 
+# Right-sizing hints: requests and limits against 7 days of use (see right-sizing.md);
+# filter with namespace and workload (Kubernetes) or host, container, project and service (Docker)
+curl -H "$H" "$WATCHLOG/api/v1/clusters/$CLUSTER/right-sizing?namespace=shop"
+curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/right-sizing?project=storefront&service=web"
+
 # The service map: who talks to whom, with failures and latency (eBPF)
 curl -H "$H" "$WATCHLOG/api/v1/clusters/$CLUSTER/service-map?range=3600"
 curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/service-map?range=3600"

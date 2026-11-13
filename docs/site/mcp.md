@@ -151,6 +151,7 @@ on Docker.
 | `get_application`    | A service: its health, every reason, the workloads that connect to it                                                  | The same, with the containers that connect to it                        |
 | `get_service_map`    | Failing connections, or one workload's connections and DNS errors                                                      | The same between containers                                             |
 | `get_container_logs` | A container's last lines (at most 200), redacted, the previous run too                                                 | A container's last lines, stdout and stderr marked                      |
+| `get_right_sizing`   | Requests and limits against 7 days of use: too high, too low, OOM risk, throttled, not set                             | Limits and reservations against use: OOM risk, throttled, reservations  |
 | `get_events`         | Warning events, grouped                                                                                                | Container deaths, OOM kills, health changes                             |
 | `get_recent_changes` | Rollouts, image changes, scaling, nodes                                                                                | Re-created containers, image changes                                    |
 | `query_metric`       | A metric over up to 24 hours, as statistics, including a monitored service's                                           | The same                                                                |
