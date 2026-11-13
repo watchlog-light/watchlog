@@ -488,17 +488,16 @@ func (s *scrape) replication(ctx context.Context) {
 		}
 	}
 	s.add("watchlog_mongodb_primary_seen", primary)
+	// The extra holds only lists of rows (ingest.ts): the set's name rides on each.
+	set := trimText(str(st, "set"), 64)
 	rows := make([]map[string]any, 0, len(members))
 	for _, m := range members {
 		rows = append(rows, map[string]any{"name": trimText(ShortHost(m.Name), 64), "state": m.State, "health": m.Health,
-			"lag": m.Lag, "uptime": m.Uptime, "seen_by": s.member})
+			"lag": m.Lag, "uptime": m.Uptime, "seen_by": s.member, "set": set})
 	}
 	if len(asRows(s.extra["members"])) == 0 || primary == 1 {
 		// The primary's view wins, as it knows every member's optime.
 		s.extra["members"] = rows
-	}
-	if set := str(st, "set"); set != "" {
-		s.extra["set"] = set
 	}
 }
 
@@ -563,6 +562,23 @@ func (s *scrape) oplog(ctx context.Context) {
 		return
 	}
 	s.add("watchlog_mongodb_oplog_window_seconds", last.Sub(first).Seconds())
+	// How full the oplog is: until it is, the window is only the set's age.
+	cur, err := coll.Aggregate(ctx, mongo.Pipeline{{{Key: "$collStats", Value: bson.D{{Key: "storageStats", Value: bson.D{}}}}},
+		{{Key: "$project", Value: bson.D{{Key: "storageStats.size", Value: 1}, {Key: "storageStats.maxSize", Value: 1}}}}})
+	if err != nil {
+		return
+	}
+	defer func() { _ = cur.Close(ctx) }()
+	var d bson.M
+	if cur.Next(ctx) && cur.Decode(&d) == nil {
+		st := sub(d, "storageStats")
+		if used, ok := toFloat(st["size"]); ok {
+			s.add("watchlog_mongodb_oplog_bytes", used, "state", "used")
+		}
+		if m, ok := toFloat(st["maxSize"]); ok {
+			s.add("watchlog_mongodb_oplog_bytes", m, "state", "max")
+		}
+	}
 }
 
 // slowEntry is one "Slow query" log line as kept: its shape (only with the query-text
