@@ -232,6 +232,8 @@ jobs:
           helm dependency build deploy/helm/watchlog
           helm lint --strict deploy/helm/watchlog
           helm template watchlog deploy/helm/watchlog > /dev/null
+      - name: The install manifest matches the agent chart (ADR-176)
+        run: scripts/render-install-manifest.sh && git diff --exit-code backend/assets/install-manifest.yaml
       - name: Helm upgrade from a release before Phase 4 turns eBPF on (ADR-107)
         run: bash deploy/test/helm/upgrade-test.sh
       - name: Generated API types are up to date

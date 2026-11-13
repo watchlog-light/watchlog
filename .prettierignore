@@ -11,3 +11,4 @@ web/test-results
 web/playwright-report
 backend/test/fixtures/causes/map
 backend/test/fixtures/causes/attention
+backend/assets/install-manifest.yaml

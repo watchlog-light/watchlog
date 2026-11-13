@@ -32,6 +32,8 @@ COPY --from=build /out/package.json ./
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
 COPY --from=build /repo/backend/migrations ./migrations
+# The kubectl manifest Cloud serves at /install.yaml (scripts/render-install-manifest.sh).
+COPY --from=build /repo/backend/assets ./assets
 COPY --from=build /out/watchlog /usr/local/bin/watchlog
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4080 WATCHLOG_VERSION=${VERSION}
 # `node` on PATH in both runtime images (distroless keeps it in /nodejs/bin), so the
