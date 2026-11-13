@@ -18,7 +18,10 @@ import { PUBLIC_TAG } from '../../openapi/public.js';
 
 const INVALID_CREDENTIALS = 'Invalid email or password';
 
-export const authRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (app, { db }) => {
+export const authRoutes: FastifyPluginAsyncTypebox<{
+  /** Sign-in runs before the org is known: the owner's connection (ADR-174). */
+  systemDb: Database;
+}> = async (app, { systemDb }) => {
   app.post(
     '/auth/login',
     {
@@ -45,7 +48,7 @@ export const authRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (ap
     },
     async (request, reply) => {
       const email = request.body.email.trim().toLowerCase();
-      const user = await db
+      const user = await systemDb
         .selectFrom('users')
         .select(['id', 'password_hash'])
         .where('email', '=', email)
@@ -58,12 +61,12 @@ export const authRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (ap
         return sendProblem(reply, 401, INVALID_CREDENTIALS);
       }
 
-      const { token, expiresAt } = await createSession(db, user.id);
-      const current = await findSessionUser(db, token);
+      const { token, expiresAt } = await createSession(systemDb, user.id);
+      const current = await findSessionUser(systemDb, token);
       if (!current) {
         // A user without a membership cannot sign in; this indicates broken data.
         request.log.error({ userId: user.id }, 'user has no org membership');
-        await deleteSession(db, token);
+        await deleteSession(systemDb, token);
         return sendProblem(reply, 401, INVALID_CREDENTIALS);
       }
       setSessionCookie(request, reply, token, expiresAt);
@@ -82,7 +85,7 @@ export const authRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (ap
     },
     async (request, reply) => {
       const token = request.cookies[SESSION_COOKIE];
-      if (token) await deleteSession(db, token);
+      if (token) await deleteSession(systemDb, token);
       clearSessionCookie(request, reply);
       return reply.code(204).send(null);
     },
@@ -91,7 +94,7 @@ export const authRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (ap
   app.get(
     '/me',
     {
-      preHandler: requireUser(db),
+      preHandler: requireUser(),
       schema: {
         summary: 'The signed-in user and their organisation, and the API token used',
         tags: ['auth', PUBLIC_TAG],

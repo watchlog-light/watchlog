@@ -10,6 +10,7 @@
 // the cookie CSRF check (plugins/csrf.ts): they carry no cookie a browser could add.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/index.js';
+import { bindOrg } from '../db/org-context.js';
 import { isInternalCall } from '../lib/internal-call.js';
 import { ProblemType, sendProblem } from '../lib/problem.js';
 import { SESSION_COOKIE } from '../modules/auth/sessions.js';
@@ -38,6 +39,8 @@ export const TOKEN_SCOPE_MESSAGE = 'API tokens are read-only and cannot use this
 
 export interface ApiTokenAuthOptions {
   db: Database;
+  /** The token lookup runs before the org is known: the owner's connection (ADR-174). */
+  systemDb: Database;
   /** REST requests per token and minute (ADR-125: 300). */
   restPerMinute: number;
   /** The demo's public token works only in demo mode (ADR-130). */
@@ -69,7 +72,7 @@ export function registerApiTokenAuth(app: FastifyInstance, opts: ApiTokenAuthOpt
       return sendProblem(reply, 400, TOKEN_WITH_SESSION_MESSAGE, ProblemType.tokenWithSession);
     }
     const at = now();
-    const found = await verifyApiToken(opts.db, value, at);
+    const found = await verifyApiToken(opts.systemDb, value, at);
     if (!found || (found.token.public && !opts.demoMode)) {
       reply.header('www-authenticate', 'Bearer error="invalid_token"');
       return sendProblem(reply, 401, TOKEN_INVALID_MESSAGE);
@@ -86,6 +89,7 @@ export function registerApiTokenAuth(app: FastifyInstance, opts: ApiTokenAuthOpt
     }
     request.apiToken = found.token;
     request.user = found.user;
+    bindOrg(found.user.org.id);
 
     // An MCP tool reading through the API in-process: the MCP call is counted and logged.
     if (isInternalCall(request)) return;

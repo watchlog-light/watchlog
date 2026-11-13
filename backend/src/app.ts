@@ -61,11 +61,23 @@ import { applySeedServices } from './modules/seed/services.js';
 import { apiTokenRoutes } from './modules/api-tokens/routes.js';
 import { registerApiTokenAuth } from './plugins/api-token.js';
 import { registerServiceIdentity } from './plugins/service-identity.js';
+import { registerOrgScope } from './plugins/org-scope.js';
+import { registerCloudOnly, registerCommunityOnlyGuard } from './plugins/edition.js';
+import { cloudApiRoutes, internalRoutes } from './modules/cloud/routes.js';
 
 export const API_PREFIX = '/api/v1';
 
 export interface AppDeps {
+  /**
+   * The request path's database. Cloud: `watchlog_app` with the org set on every checkout
+   * (ADR-174); Community: the owner, as in 0.5.0.
+   */
   db: Database;
+  /**
+   * The owner's connection, for the allow-listed work that runs before the org is known or
+   * across orgs (ADR-174; test/isolation/system-db.test.ts). Community: the same as `db`.
+   */
+  systemDb?: Database;
   setup: SetupState;
   /** Test overrides for the ingest rate limits (ADR-027). */
   ingestBuckets?: { agent?: BucketSpec; clusterAgent?: BucketSpec; cluster?: BucketSpec };
@@ -102,6 +114,11 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   }).withTypeProvider<TypeBoxTypeProvider>();
 
   if (deps.onRoute) app.addHook('onRoute', deps.onRoute);
+  // First: each request's org scope, which authentication binds (ADR-174).
+  registerOrgScope(app);
+  registerCommunityOnlyGuard(app, config.edition);
+  const systemDb = deps.systemDb ?? deps.db;
+  app.decorate('systemDb', systemDb);
   registerProblemHandlers(app);
   // JSON only: text/plain is a CORS "simple" content type usable for CSRF (ADR-034).
   app.removeContentTypeParser('text/plain');
@@ -128,15 +145,16 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   // Personal API tokens (ADR-125): before the session cookie and the demo's sessions.
   registerApiTokenAuth(app, {
     db: deps.db,
+    systemDb,
     restPerMinute: config.apiTokenLimits.restPerMinute,
     demoMode: config.demoMode,
   });
   // The alert worker's reads for the notifications' likely cause (ADR-157): its app only.
-  if (deps.serviceReads) registerServiceIdentity(app, deps.db);
+  if (deps.serviceReads) registerServiceIdentity(app, systemDb);
   // Read-only demo (ADR-122): signed sessions without database rows, and small queries.
   const demoSessions = new DemoSessions(config.secretKey);
   if (config.demoMode) {
-    registerDemoSessions(app, { db: deps.db, sessions: demoSessions });
+    registerDemoSessions(app, { systemDb, sessions: demoSessions });
     registerDemoQueryLimits(app);
     registerDemoHiddenFacts(app);
   }
@@ -147,7 +165,8 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     },
   });
 
-  const tokens = new TokenCache(deps.db);
+  // The cluster-token check runs before the org is known (ADR-174).
+  const tokens = new TokenCache(systemDb);
   // Wakes integrations collectors waiting on their configuration (ADR-131).
   const collectors = new ConfigNotifier();
   // Logs on demand (ADR-167): readers and agents meet here, in this process only.
@@ -176,18 +195,20 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     async (api) => {
       await api.register(healthRoutes, { version: config.version });
       await api.register(setupRoutes, {
-        ...deps,
+        setup: deps.setup,
+        systemDb,
         demoMode: config.demoMode,
         demoMcpToken: config.demoMode ? deps.seed?.demoMcp?.token : undefined,
         smtpConfigured: async () => !!(await settings.alerting()).smtp,
+        // Across orgs, right after the first one is made: the owner's connection.
         afterSetup: async () => {
-          await bootstrapCluster(app, config, deps.db);
-          if (deps.seed) await applySeed(deps.db, deps.seed, app.log);
+          await bootstrapCluster(app, config, systemDb);
+          if (deps.seed) await applySeed(systemDb, deps.seed, app.log);
         },
       });
-      await api.register(authRoutes, deps);
+      await api.register(authRoutes, { systemDb });
       await api.register(demoRoutes, {
-        db: deps.db,
+        systemDb,
         demoMode: config.demoMode,
         sessions: demoSessions,
       });
@@ -224,7 +245,14 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       });
       await api.register(causesRoutes, { db: deps.db, causes });
       await api.register(apiTokenRoutes, { db: deps.db });
-      await api.register(userRoutes, { db: deps.db, settings, secretKey: config.secretKey });
+      // Cloud only (ADR-173): Community never registers these, so they answer 404.
+      await registerCloudOnly(api, config.edition, cloudApiRoutes, { db: deps.db });
+      await api.register(userRoutes, {
+        db: deps.db,
+        systemDb,
+        settings,
+        secretKey: config.secretKey,
+      });
       // The public API only (ADR-126): routes tagged `public`, with the bearer scheme.
       let spec: Record<string, unknown> | undefined;
       api.get(
@@ -253,6 +281,10 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         : {}),
     });
   }
+  await registerCloudOnly(app, config.edition, internalRoutes, {
+    db: deps.db,
+    prefix: '/internal',
+  });
   await app.register(ingestRoutes, {
     prefix: '/ingest/v1',
     db: deps.db,
@@ -273,7 +305,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   let seeding: ReturnType<typeof setInterval> | undefined;
   if (seededServices.length) {
     const seedServices = () =>
-      applySeedServices(deps.db, seededServices, collectors, app.log).catch((err: Error) =>
+      applySeedServices(systemDb, seededServices, collectors, app.log).catch((err: Error) =>
         app.log.error({ err: err.message }, 'seed: services not applied'),
       );
     app.addHook('onReady', async () => {
@@ -288,7 +320,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   if (deps.serviceReads) return app;
   // Event partitions (ADR-061): on start, then every 6 hours.
   const maintain = () =>
-    ensureEventPartitions(deps.db, config.eventsRetentionDays).catch((err: Error) =>
+    ensureEventPartitions(systemDb, config.eventsRetentionDays).catch((err: Error) =>
       app.log.error({ err: err.message }, 'event partition maintenance failed'),
     );
   let maintenance: ReturnType<typeof setInterval> | undefined;

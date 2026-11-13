@@ -4,10 +4,10 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { sendProblem } from '../../lib/problem.js';
-import type { QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
+import type { ClusterScope, QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
 import { requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
-import { CLUSTER_STALE_MS, findCluster } from '../clusters/service.js';
+import { CLUSTER_STALE_MS, clusterForOrg } from '../clusters/service.js';
 import { alertText } from '../alerts/text.js';
 import { FAILING, dockerProblem } from '../overview/docker-problems.js';
 import { hostBoots, stoppedWithHost, type HostBoot } from './host-restart.js';
@@ -217,14 +217,14 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
   db: Database;
   victoria?: VictoriaQueryClient;
 }> = async (app, { db, victoria }) => {
-  const signedIn = requireUser(db);
+  const signedIn = requireUser();
 
   /** Range queries, as optional as instant ones. */
-  function ranged(clusterId: string, exprs: string[], start: number, end: number, step: number) {
+  function ranged(scope: ClusterScope, exprs: string[], start: number, end: number, step: number) {
     return Promise.all(
       exprs.map((e) =>
         victoria
-          ? victoria.queryRange({ clusterId }, e, start, end, step).catch((err: Error) => {
+          ? victoria.queryRange(scope, e, start, end, step).catch((err: Error) => {
               app.log.warn({ err: err.message }, 'range query failed');
               return [] as QuerySeries[];
             })
@@ -234,11 +234,11 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
   }
 
   /** Runs instant queries; metrics are optional, so storage errors return no values. */
-  async function instant(clusterId: string, exprs: string[]): Promise<QuerySeries[][]> {
+  async function instant(scope: ClusterScope, exprs: string[]): Promise<QuerySeries[][]> {
     if (!victoria) return exprs.map(() => []);
     return Promise.all(
       exprs.map((e) =>
-        victoria.query({ clusterId }, e).catch((err: Error) => {
+        victoria.query(scope, e).catch((err: Error) => {
           app.log.warn({ err: err.message }, 'instant query failed');
           return [] as QuerySeries[];
         }),
@@ -280,7 +280,7 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
 
       const [agents, hostObjects, containerRows] = await Promise.all([
@@ -311,7 +311,7 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
         alerts,
         boots,
       ] = await Promise.all([
-        instant(cluster.id, [
+        instant(cluster.scope, [
           buildQuery('host.cpu.utilization', {}, 15).expr,
           buildQuery('host.memory.utilization', {}, 15).expr,
           buildQuery('host.root_filesystem.utilization', {}, 15).expr,
@@ -331,7 +331,7 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
             : []),
         ]),
         ranged(
-          cluster.id,
+          cluster.scope,
           [
             buildQuery('host.cpu.utilization', {}, step).expr,
             buildQuery('host.memory.utilization', {}, step).expr,
@@ -342,7 +342,7 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
         ),
         firingAlerts(db, cluster.id),
         heat
-          ? hostBoots((e) => instant(cluster.id, [e]).then((r) => r[0] ?? []), now / 1000)
+          ? hostBoots((e) => instant(cluster.scope, [e]).then((r) => r[0] ?? []), now / 1000)
           : new Map<string, HostBoot>(),
       ]);
       const withHost = stoppedWithHost(containerRows, boots);
@@ -503,7 +503,7 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const host = request.query.host;
       let q = db
@@ -523,7 +523,7 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
       const sel = host ? `{host="${host.replace(/["\\]/g, '')}"}` : '';
       const [[cpu, mem, limit, cpuLimit, restarts, lastLimit], [cpuR], alerts, agentRows, boots] =
         await Promise.all([
-          instant(cluster.id, [
+          instant(cluster.scope, [
             buildQuery('container.cpu.usage', scope, 15).expr,
             buildQuery('container.memory.working_set', scope, 15).expr,
             buildQuery('container.memory.limit', scope, 15).expr,
@@ -534,7 +534,7 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
             `max by (host, container) (last_over_time(watchlog_container_memory_limit_bytes${sel}[${STOPPED_LIMIT_WINDOW}]))`,
           ]),
           ranged(
-            cluster.id,
+            cluster.scope,
             [buildQuery('container.cpu.usage', scope, step).expr],
             end - range,
             end,
@@ -548,7 +548,7 @@ export const dockerRoutes: FastifyPluginAsyncTypebox<{
             .where('mode', '=', 'docker')
             .execute(),
           hostBoots(
-            (e) => instant(cluster.id, [e]).then((r) => r[0] ?? []),
+            (e) => instant(cluster.scope, [e]).then((r) => r[0] ?? []),
             now / 1000,
             host ? new Set([host]) : undefined,
           ),

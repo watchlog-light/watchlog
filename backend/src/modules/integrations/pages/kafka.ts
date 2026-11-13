@@ -504,7 +504,7 @@ async function lastMembersAt(ctx: PageContext, group: string): Promise<number | 
   if (!ctx.vm) return null;
   const end = Math.floor(ctx.now / 1000);
   const rows = await ctx.vm.queryRange(
-    { clusterId: ctx.row.cluster_id },
+    ctx.scope,
     `max(watchlog_kafka_group_members{${one(ctx.row.id)},group="${esc(group)}"})`,
     end - 6 * 3600,
     end,
@@ -676,8 +676,7 @@ export const kafkaPage: IntegrationPage = {
     },
   ],
 
-  async listMetrics({ vm, clusterId, ids, now }) {
-    const scope = { clusterId };
+  async listMetrics({ vm, scope, ids, now }) {
     const s = some(ids);
     const end = Math.floor(now / 1000 / 300) * 300;
     const inQ = `sum by (service) (rate(watchlog_kafka_topic_end_offset{${s}}[5m]))`;

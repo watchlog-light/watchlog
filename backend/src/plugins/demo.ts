@@ -3,6 +3,7 @@
 // included. Only reads, the demo sign-in, sign-out and the agents' ingest get through.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/index.js';
+import { bindOrg } from '../db/org-context.js';
 import { isInternalCall } from '../lib/internal-call.js';
 import { PROBLEM_CONTENT_TYPE, ProblemType, problem, sendProblem } from '../lib/problem.js';
 import { SESSION_COOKIE } from '../modules/auth/sessions.js';
@@ -101,7 +102,8 @@ export function setDemoCookie(
  */
 export function registerDemoSessions(
   app: FastifyInstance,
-  opts: { db: Database; sessions: DemoSessions },
+  /** `systemDb`: the demo user is found before the org is known (ADR-174). */
+  opts: { systemDb: Database; sessions: DemoSessions },
 ): void {
   app.addHook('onRequest', async (request, reply) => {
     const token = request.cookies[SESSION_COOKIE];
@@ -109,9 +111,10 @@ export function registerDemoSessions(
     const now = Date.now();
     const valid = opts.sessions.verify(token, now);
     if (!valid) return;
-    const user = await findDemoUser(opts.db);
+    const user = await findDemoUser(opts.systemDb);
     if (!user) return;
     request.user = user;
+    bindOrg(user.org.id);
     if (now - valid.issuedAt > DEMO_SESSION_REFRESH_MS) {
       const renewed = opts.sessions.issue(now);
       setDemoCookie(request, reply, renewed.token, renewed.expiresAt);

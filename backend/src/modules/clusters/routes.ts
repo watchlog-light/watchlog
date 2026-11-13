@@ -19,7 +19,7 @@ import {
 } from './schemas.js';
 import {
   countActiveTokens,
-  findCluster,
+  clusterForOrg,
   insertCluster,
   listClusters,
   listTokens,
@@ -41,7 +41,7 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
   tokens: TokenCache;
   settings: SettingsService;
 }> = async (app, { db, config, tokens, settings }) => {
-  const signedIn = requireUser(db);
+  const signedIn = requireUser();
   const canManage = [signedIn, requireRole('owner', 'admin')];
   const { image, version, endpointFor } = installTarget(config, settings);
 
@@ -135,7 +135,7 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, NOT_FOUND);
       // Read-only demo (ADR-122) and API tokens (ADR-125): not even token prefixes.
       const tokens = config.demoMode || request.apiToken ? [] : await listTokens(db, cluster.id);
@@ -253,7 +253,7 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, NOT_FOUND);
       if ((await countActiveTokens(db, cluster.id)) >= MAX_ACTIVE_TOKENS) {
         return sendProblem(
@@ -284,7 +284,7 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, NOT_FOUND);
       const token = await db
         .selectFrom('cluster_tokens')

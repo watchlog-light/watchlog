@@ -692,8 +692,7 @@ export const traefikPage: IntegrationPage = {
     },
   ],
 
-  async listMetrics({ vm, clusterId, ids, now }) {
-    const scope = { clusterId };
+  async listMetrics({ vm, scope, ids, now }) {
     const sel = `service=~"${ids.map((i) => i.replace(/[.*+?^${}()|[\]\\"]/g, '\\$&')).join('|')}",${EP}`;
     const req = `traefik_entrypoint_requests_total{${sel}}`;
     const end = Math.floor(now / 1000 / 300) * 300;

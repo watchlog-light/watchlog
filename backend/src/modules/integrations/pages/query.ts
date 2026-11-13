@@ -32,13 +32,13 @@ export function windowOf(range: number, now: number): Window {
 export async function range(ctx: PageContext, expr: string): Promise<QuerySeries[]> {
   if (!ctx.vm) return [];
   const w = windowOf(ctx.range, ctx.now);
-  return ctx.vm.queryRange({ clusterId: ctx.row.cluster_id }, expr, w.start, w.end, w.step);
+  return ctx.vm.queryRange(ctx.scope, expr, w.start, w.end, w.step);
 }
 
 /** An instant query at now. */
 export async function instant(ctx: PageContext, expr: string): Promise<QuerySeries[]> {
   if (!ctx.vm) return [];
-  return ctx.vm.query({ clusterId: ctx.row.cluster_id }, expr, Math.floor(ctx.now / 1000));
+  return ctx.vm.query(ctx.scope, expr, Math.floor(ctx.now / 1000));
 }
 
 /** The single value of an instant query, or null. */

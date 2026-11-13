@@ -34,7 +34,7 @@ export const apiTokenRoutes: FastifyPluginAsyncTypebox<{
     }
   };
   // Personal tokens (ADR-125): every role makes and revokes its own (ADR-140).
-  const preHandler = [requireUser(db), requireRole('owner', 'admin', 'viewer'), sessionOnly];
+  const preHandler = [requireUser(), requireRole('owner', 'admin', 'viewer'), sessionOnly];
 
   app.get(
     '/api-tokens',

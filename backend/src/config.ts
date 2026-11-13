@@ -6,13 +6,27 @@ import {
   type CookieSecure,
 } from './plugins/client-ip.js';
 
+/** Community (the default, 0.5.0's behaviour) or Cloud (ADR-173). */
+export type Edition = 'community' | 'cloud';
+
 export interface Config {
+  /**
+   * WATCHLOG_EDITION (ADR-173): `cloud` turns on every Cloud-only path; unset or `community`
+   * keeps the product exactly as 0.5.0.
+   */
+  edition: Edition;
   host: string;
   port: number;
   logLevel: string;
   version: string;
   isDevelopment: boolean;
   databaseUrl: string;
+  /**
+   * The owner's connection (ADR-174), for migrations and the allow-listed `systemDb`. Cloud
+   * reads it from DATABASE_SYSTEM_URL, and DATABASE_URL is then `watchlog_app`, which can't
+   * bypass Row-Level Security. Community: the same URL as databaseUrl.
+   */
+  databaseSystemUrl: string;
   /** Public origin of the web app (e.g. https://watchlog.example.com); optional. */
   publicUrl?: string;
   /** Trust X-Forwarded-* headers from a reverse proxy. */
@@ -82,8 +96,17 @@ const DEV_VICTORIAMETRICS_URL = 'http://127.0.0.1:8428';
 export const DEV_SECRET_KEY = 'd2F0Y2hsb2ctZGV2LWtleS1ub3Qtc2VjcmV0LTMyYiE=';
 const DEV_SMTP_URL = 'smtp://127.0.0.1:1025';
 
-/** DATABASE_URL alone, for `migrate`, which needs no other setting (and no secret key). */
+/**
+ * The database URL alone, for `migrate`, which needs no other setting (and no secret key).
+ * Migrations run as the owner: DATABASE_SYSTEM_URL in Cloud (ADR-174), DATABASE_URL otherwise.
+ */
 export function loadDatabaseUrl(env: NodeJS.ProcessEnv = process.env): string {
+  if (env.WATCHLOG_EDITION === 'cloud') {
+    if (!env.DATABASE_SYSTEM_URL) {
+      throw new Error('DATABASE_SYSTEM_URL is required with WATCHLOG_EDITION=cloud');
+    }
+    return env.DATABASE_SYSTEM_URL;
+  }
   const url = env.DATABASE_URL || (env.NODE_ENV === 'development' ? DEV_DATABASE_URL : undefined);
   if (!url) throw new Error('DATABASE_URL is required');
   return url;
@@ -102,6 +125,23 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   const databaseUrl = env.DATABASE_URL ?? (isDevelopment ? DEV_DATABASE_URL : undefined);
   if (!databaseUrl) {
     throw new Error('DATABASE_URL is required');
+  }
+  const edition = env.WATCHLOG_EDITION ?? 'community';
+  if (edition !== 'community' && edition !== 'cloud') {
+    throw new Error(`Invalid WATCHLOG_EDITION: ${edition} (expected community or cloud)`);
+  }
+  // Cloud: the request path runs as watchlog_app and only systemDb as the owner (ADR-174).
+  // Community never needs a second role: both are DATABASE_URL.
+  const databaseSystemUrl = edition === 'cloud' ? env.DATABASE_SYSTEM_URL : databaseUrl;
+  if (!databaseSystemUrl) {
+    throw new Error(
+      'DATABASE_SYSTEM_URL is required with WATCHLOG_EDITION=cloud (the database owner; DATABASE_URL is watchlog_app)',
+    );
+  }
+  if (edition === 'cloud' && databaseSystemUrl === databaseUrl) {
+    throw new Error(
+      'With WATCHLOG_EDITION=cloud, DATABASE_URL must be the watchlog_app role, not DATABASE_SYSTEM_URL',
+    );
   }
   for (const name of [
     'WATCHLOG_PUBLIC_URL',
@@ -193,12 +233,14 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     throw new Error('Invalid WATCHLOG_BOOTSTRAP_CLUSTER_TOKEN: expected wl_ct_ and 43 characters');
   }
   return {
+    edition,
     host: env.HOST ?? '127.0.0.1',
     port,
     logLevel: env.LOG_LEVEL ?? 'info',
     version: env.WATCHLOG_VERSION ?? '0.0.0-dev',
     isDevelopment,
     databaseUrl,
+    databaseSystemUrl,
     publicUrl: env.WATCHLOG_PUBLIC_URL,
     trustProxy: env.WATCHLOG_TRUST_PROXY === 'true',
     ingestUrl: env.WATCHLOG_INGEST_URL,

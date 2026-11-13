@@ -238,7 +238,7 @@ export async function queueGrowth(ctx: PageContext): Promise<Map<string, number>
   if (!ctx.vm) return new Map();
   const at = Math.floor(ctx.now / 1000 / 30) * 30;
   const rows = await ctx.vm.query(
-    { clusterId: ctx.row.cluster_id },
+    ctx.scope,
     `sum by (${QBY}) (deriv(rabbitmq_detailed_queue_messages_ready{${one(ctx.row.id)}}[5m]))`,
     at,
   );
@@ -250,7 +250,7 @@ async function lastConsumedAt(ctx: PageContext, q: string): Promise<number | nul
   if (!ctx.vm) return null;
   const end = Math.floor(ctx.now / 1000);
   const rows = await ctx.vm.queryRange(
-    { clusterId: ctx.row.cluster_id },
+    ctx.scope,
     `sum(rabbitmq_detailed_queue_consumers{${one(ctx.row.id)},${q}})`,
     end - 6 * 3600,
     end,
@@ -605,7 +605,7 @@ export async function endedClients(ctx: PageContext, lostAt: number | null): Pro
   const port = 'port' in ctx.row.target ? ctx.row.target.port : null;
   const own = await ownComponents(ctx);
   const clients = await ctx.vm.query(
-    { clusterId: ctx.row.cluster_id },
+    ctx.scope,
     `max by (${SOURCE}) (present_over_time(watchlog_flow_connections_total{${dst}${port ? `,dst_port="${port}"` : ''}}[24h]))`,
     Math.floor(ctx.now / 1000),
   );
@@ -767,8 +767,7 @@ export const rabbitmqPage: IntegrationPage = {
     },
   ],
 
-  async listMetrics({ vm, clusterId, ids, now }) {
-    const scope = { clusterId };
+  async listMetrics({ vm, scope, ids, now }) {
     const s = some(ids);
     const end = Math.floor(now / 1000 / 300) * 300;
     const [ready, publish, consumers, spark] = await Promise.all([

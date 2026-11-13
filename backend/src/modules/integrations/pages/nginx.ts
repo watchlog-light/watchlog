@@ -771,8 +771,7 @@ export const nginxPage: IntegrationPage = {
     },
   ],
 
-  async listMetrics({ vm, clusterId, ids, rows, now }) {
-    const scope = { clusterId };
+  async listMetrics({ vm, scope, ids, rows, now }) {
     const sources = (rows ?? []).filter((r) => ids.includes(r.id)).map(nginxSource);
     const sel = (...extra: string[]) =>
       `{${[...extra, `service=~"${ids.map((i) => i.replace(/[.*+?^${}()|[\]\\"]/g, '\\$&')).join('|')}"`].join(',')}}`;

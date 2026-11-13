@@ -8,7 +8,7 @@ import { sendProblem } from '../../lib/problem.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import { requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
-import { findCluster } from '../clusters/service.js';
+import { clusterForOrg } from '../clusters/service.js';
 import type { RightSizingService } from './service.js';
 
 const Nullable = <T extends ReturnType<typeof Type.String> | ReturnType<typeof Type.Number>>(
@@ -78,7 +78,7 @@ export const rightSizingRoutes: FastifyPluginAsyncTypebox<{
   db: Database;
   rightSizing: RightSizingService;
 }> = async (app, { db, rightSizing }) => {
-  const signedIn = requireUser(db);
+  const signedIn = requireUser();
 
   app.get(
     '/clusters/:id/right-sizing',
@@ -113,14 +113,14 @@ export const rightSizingRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const row = await findCluster(db, request.user!.org.id, request.params.id);
+      const row = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!row) return sendProblem(reply, 404, 'Cluster not found');
       if (!rightSizing.configured) {
         return sendProblem(reply, 503, 'Metrics storage is not configured');
       }
       try {
         return await rightSizing.answer(
-          { id: row.id, kind: row.kind as 'kubernetes' | 'docker' },
+          { id: row.id, kind: row.kind as 'kubernetes' | 'docker', scope: row.scope },
           request.query,
         );
       } catch (err) {

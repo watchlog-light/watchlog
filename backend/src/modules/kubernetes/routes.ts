@@ -8,10 +8,10 @@ import { Type, type Static } from 'typebox';
 import type { Database } from '../../db/index.js';
 import type { K8sEvents } from '../../db/types.js';
 import { sendProblem } from '../../lib/problem.js';
-import type { QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
+import type { ClusterScope, QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
 import { requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
-import { CLUSTER_STALE_MS, findCluster } from '../clusters/service.js';
+import { CLUSTER_STALE_MS, clusterForOrg } from '../clusters/service.js';
 import { firingAlerts } from '../overview/problems.js';
 import { sparkStep } from '../overview/step.js';
 import { anyOf, buildQuery, type QueryScope } from '../query/catalog.js';
@@ -150,14 +150,14 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
   victoria?: VictoriaQueryClient;
   settings: SettingsService;
 }> = async (app, { db, victoria, settings }) => {
-  const signedIn = requireUser(db);
+  const signedIn = requireUser();
 
   /** Range queries, as optional as instant ones. */
-  function ranged(clusterId: string, exprs: string[], start: number, end: number, step: number) {
+  function ranged(scope: ClusterScope, exprs: string[], start: number, end: number, step: number) {
     return Promise.all(
       exprs.map((e) =>
         victoria
-          ? victoria.queryRange({ clusterId }, e, start, end, step).catch((err: Error) => {
+          ? victoria.queryRange(scope, e, start, end, step).catch((err: Error) => {
               app.log.warn({ err: err.message }, 'range query failed');
               return [] as QuerySeries[];
             })
@@ -185,11 +185,11 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
   }
 
   /** Instant queries; metrics are optional, so storage errors return no values. */
-  async function instant(clusterId: string, exprs: string[]): Promise<QuerySeries[][]> {
+  async function instant(scope: ClusterScope, exprs: string[]): Promise<QuerySeries[][]> {
     if (!victoria) return exprs.map(() => []);
     return Promise.all(
       exprs.map((e) =>
-        victoria.query({ clusterId }, e).catch((err: Error) => {
+        victoria.query(scope, e).catch((err: Error) => {
           app.log.warn({ err: err.message }, 'instant query failed');
           return [] as QuerySeries[];
         }),
@@ -230,8 +230,8 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
     );
   }
 
-  async function podUsage(clusterId: string, scope: QueryScope): Promise<Map<string, Usage>> {
-    const [cpu, mem] = await instant(clusterId, [
+  async function podUsage(cluster: ClusterScope, scope: QueryScope): Promise<Map<string, Usage>> {
+    const [cpu, mem] = await instant(cluster, [
       buildQuery('pod.cpu.usage', scope, 15).expr,
       buildQuery('pod.memory.working_set', scope, 15).expr,
     ]);
@@ -244,8 +244,8 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
     return out;
   }
 
-  async function nodeMetrics(clusterId: string, scope: QueryScope) {
-    const [cpu, mem, disk] = await instant(clusterId, [
+  async function nodeMetrics(cluster: ClusterScope, scope: QueryScope) {
+    const [cpu, mem, disk] = await instant(cluster, [
       buildQuery('node.cpu.usage', scope, 15).expr,
       buildQuery('node.memory.used', scope, 15).expr,
       buildQuery('node.filesystem.utilization', scope, 15).expr,
@@ -307,7 +307,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const range = request.query.range ?? 3600;
       const heat = request.query.heat === '1';
@@ -320,7 +320,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
           objects(cluster.id, ['Pod']),
           nodeAgents(cluster.id),
           firingAlerts(db, cluster.id),
-          instant(cluster.id, [
+          instant(cluster.scope, [
             buildQuery('node.cpu.usage', {}, 15).expr,
             buildQuery('node.memory.used', {}, 15).expr,
             buildQuery('node.filesystem.utilization', {}, 15).expr,
@@ -329,7 +329,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
             ...(heat ? [buildQuery('pod.cpu.usage', {}, 15).expr] : []),
           ]),
           ranged(
-            cluster.id,
+            cluster.scope,
             [
               buildQuery('node.cpu.usage', {}, step).expr,
               buildQuery('node.memory.used', {}, step).expr,
@@ -431,7 +431,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const { name } = request.params;
       const [node] = (await objects(cluster.id, ['Node'])).filter((n) => n.name === name);
@@ -448,8 +448,8 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
         .execute()) as ObjectRow[];
       const [agents, metrics, usage, events] = await Promise.all([
         nodeAgents(cluster.id),
-        nodeMetrics(cluster.id, { node: name }),
-        podUsage(cluster.id, { node: name }),
+        nodeMetrics(cluster.scope, { node: name }),
+        podUsage(cluster.scope, { node: name }),
         recentEvents(cluster.id, { kind: 'Node', name }, 50),
       ]);
       return {
@@ -488,7 +488,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const namespaces = splitNamespaces(request.query.namespaces);
       const kinds = request.query.kind ? [request.query.kind] : [...WORKLOAD_KINDS];
@@ -523,7 +523,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
             },
             500,
           ),
-          instant(cluster.id, [
+          instant(cluster.scope, [
             buildQuery('workload.cpu.usage', scope, 15).expr,
             buildQuery('workload.memory.working_set', scope, 15).expr,
             `sum by (${by}) (increase(watchlog_kube_pod_container_restarts_total${ns}[${range}s]))`,
@@ -531,7 +531,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
         ]);
       const [[cpuRange], system] = await Promise.all([
         ranged(
-          cluster.id,
+          cluster.scope,
           [buildQuery('workload.cpu.usage', scope, step).expr],
           end - range,
           end,
@@ -639,7 +639,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const { node, workloadKind, workload } = request.query;
       const namespaces = splitNamespaces(request.query.namespaces);
@@ -652,7 +652,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       const now = Date.now();
       const [rows, usage, system] = await Promise.all([
         objects(cluster.id, ['Pod'], namespaces),
-        podUsage(cluster.id, scope),
+        podUsage(cluster.scope, scope),
         objects(cluster.id, [...WORKLOAD_KINDS], namespaces).then(systemNs),
       ]);
       const pods = rows
@@ -692,7 +692,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const { namespace, name } = request.params;
       const row = (await db
@@ -707,8 +707,8 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       if (!row) return sendProblem(reply, 404, 'Pod not found');
       const scope = { namespace, pod: name };
       const [usage, [cpu, mem], events] = await Promise.all([
-        podUsage(cluster.id, scope),
-        instant(cluster.id, [
+        podUsage(cluster.scope, scope),
+        instant(cluster.scope, [
           buildQuery('pod.container.cpu.usage', scope, 15).expr,
           buildQuery('pod.container.memory.working_set', scope, 15).expr,
         ]),
@@ -800,7 +800,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const { cursor } = request.query;
       const limit = request.query.limit ?? EVENTS_PAGE;
@@ -871,7 +871,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const to = Math.floor(request.query.to ?? Date.now() / 1000);
       const from = Math.floor(request.query.from ?? to - 86400);
@@ -908,7 +908,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       if (!(to > from) || (to - from) * 1000 > MAX_RANGE_MS) {
         return sendProblem(reply, 400, 'The range must be positive and at most 31 days');
       }
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const namespaces = splitNamespaces(request.query.namespaces);
       let q = db
@@ -958,7 +958,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const [rows, counts] = await Promise.all([
         objects(cluster.id, ['Namespace']),

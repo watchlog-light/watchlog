@@ -2,6 +2,7 @@
 // Session authentication for /api/v1 routes (ADR-033).
 import type { FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from 'fastify';
 import type { Database } from '../db/index.js';
+import { bindOrg } from '../db/org-context.js';
 import { sendProblem } from '../lib/problem.js';
 import {
   clearSessionCookie,
@@ -15,20 +16,35 @@ declare module 'fastify' {
   interface FastifyRequest {
     user: CurrentUser | null;
   }
+  interface FastifyInstance {
+    /**
+     * The owner's connection (ADR-174): only for what must work before the org is known,
+     * such as the session lookup here. A test allow-lists the files that use it.
+     */
+    systemDb: Database;
+  }
 }
 
-/** preHandler that rejects requests without a valid session with 401. */
-export function requireUser(db: Database): preHandlerAsyncHookHandler {
+/**
+ * preHandler that rejects requests without a valid session with 401, and binds the
+ * request to the user's org (ADR-174).
+ */
+export function requireUser(): preHandlerAsyncHookHandler {
   return async function (this: unknown, request: FastifyRequest, reply: FastifyReply) {
-    // Already signed in by a demo cookie (ADR-122).
-    if (request.user) return;
+    // Already signed in by a demo cookie (ADR-122), an API token or the service identity.
+    if (request.user) {
+      bindOrg(request.user.org.id);
+      return;
+    }
     const token = request.cookies[SESSION_COOKIE];
-    const user = token ? await findSessionUser(db, token) : null;
+    // Before the org is known: the owner's connection.
+    const user = token ? await findSessionUser(request.server.systemDb, token) : null;
     if (!user) {
       if (token) clearSessionCookie(request, reply);
       return sendProblem(reply, 401, 'Sign in to continue');
     }
     request.user = user;
+    bindOrg(user.org.id);
   };
 }
 

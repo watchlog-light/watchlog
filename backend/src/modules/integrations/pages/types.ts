@@ -3,7 +3,7 @@
 // the backend fills each panel with data; the web draws it by kind. Titles, labels and
 // notes are i18n keys (integrations.<type>.…); names from the service are data.
 import type { Database } from '../../../db/index.js';
-import type { VictoriaQueryClient } from '../../../lib/victoria.js';
+import type { ClusterScope, VictoriaQueryClient } from '../../../lib/victoria.js';
 import type { ApplicationRow, CollectorRow } from '../service.js';
 
 /** The web's units (web/src/lib/units.ts). */
@@ -112,6 +112,8 @@ export interface KeyMetric {
 export interface PageContext {
   db: Database;
   vm: VictoriaQueryClient | undefined;
+  /** The row's cluster, authorised for the caller's org (ADR-174). */
+  scope: ClusterScope;
   row: ApplicationRow;
   collector: CollectorRow | undefined;
   /** Seconds back from now. */
@@ -128,7 +130,8 @@ export interface TabDef {
 
 export interface ListContext {
   vm: VictoriaQueryClient;
-  clusterId: string;
+  /** The cluster of these services, authorised for the caller's org (ADR-174). */
+  scope: ClusterScope;
   /** The services of this type in this cluster. */
   ids: string[];
   /** Their rows, for pages whose series are found by target (Nginx's eBPF). */

@@ -8,7 +8,8 @@ import { createSession, findSessionUser, setSessionCookie } from '../auth/sessio
 import { createAdmin, SetupAlreadyCompleteError, type SetupState } from './service.js';
 
 export const setupRoutes: FastifyPluginAsyncTypebox<{
-  db: Database;
+  /** First-run setup runs before any org exists: the owner's connection (ADR-174). */
+  systemDb: Database;
   setup: SetupState;
   /** Runs once the org exists (Helm cluster bootstrap, ADR-069); errors are logged. */
   afterSetup?: () => Promise<void>;
@@ -18,7 +19,10 @@ export const setupRoutes: FastifyPluginAsyncTypebox<{
   demoMcpToken?: string;
   /** Whether email is set up: "Forgot your password?" emails a link, else shows the command (ADR-140). */
   smtpConfigured?: () => Promise<boolean>;
-}> = async (app, { db, setup, afterSetup, demoMode = false, demoMcpToken, smtpConfigured }) => {
+}> = async (
+  app,
+  { systemDb, setup, afterSetup, demoMode = false, demoMcpToken, smtpConfigured },
+) => {
   app.get(
     '/setup',
     {
@@ -42,7 +46,7 @@ export const setupRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async () => ({
-      required: !demoMode && (await setup.isRequired(db)),
+      required: !demoMode && (await setup.isRequired(systemDb)),
       demoMode,
       demoMcpToken: demoMode ? (demoMcpToken ?? null) : null,
       smtp: !demoMode && !!(await smtpConfigured?.().catch(() => false)),
@@ -66,7 +70,7 @@ export const setupRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      if (!(await setup.isRequired(db))) {
+      if (!(await setup.isRequired(systemDb))) {
         return sendProblem(reply, 409, 'Setup is already complete');
       }
       if (!setup.verifyCode(request.body.code)) {
@@ -75,7 +79,7 @@ export const setupRoutes: FastifyPluginAsyncTypebox<{
 
       let userId: string;
       try {
-        userId = await createAdmin(db, {
+        userId = await createAdmin(systemDb, {
           email: request.body.email.trim().toLowerCase(),
           name: request.body.name.trim(),
           password: request.body.password,
@@ -92,8 +96,8 @@ export const setupRoutes: FastifyPluginAsyncTypebox<{
         request.log.error({ err: err.message }, 'post-setup bootstrap failed'),
       );
 
-      const { token, expiresAt } = await createSession(db, userId);
-      const user = await findSessionUser(db, token);
+      const { token, expiresAt } = await createSession(systemDb, userId);
+      const user = await findSessionUser(systemDb, token);
       setSessionCookie(request, reply, token, expiresAt);
       return reply.code(201).send({ user: user! });
     },

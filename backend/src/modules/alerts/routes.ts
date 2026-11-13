@@ -9,7 +9,7 @@ import { Type, type Static } from 'typebox';
 import type { Config } from '../../config.js';
 import type { Database } from '../../db/index.js';
 import type { AlertChannels, DB } from '../../db/types.js';
-import type { VictoriaQueryClient } from '../../lib/victoria.js';
+import { authorisedScope, type VictoriaQueryClient } from '../../lib/victoria.js';
 import type { MessagePayload } from './outbox.js';
 import { newId } from '../../lib/ids.js';
 import { ProblemType, sendProblem } from '../../lib/problem.js';
@@ -182,7 +182,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
   app,
   { db, config, http, settings, victoria, causes },
 ) => {
-  const signedIn = requireUser(db);
+  const signedIn = requireUser();
   const canManage = [signedIn, requireRole('owner', 'admin')];
   // Read-only demo (ADR-122): channels show their type and name, never where they send.
   const demoMode = config.demoMode;
@@ -1008,7 +1008,8 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
         }
         if (!q) continue;
         const { expr } = buildQuery(key, q, 60);
-        const series = await victoria.queryRange({ clusterId: c.id }, expr, start, end, 60);
+        // The org's own clusters, read with its filter above (ADR-174).
+        const series = await victoria.queryRange(authorisedScope(c.id), expr, start, end, 60);
         for (const s of series) {
           const r = backtest(s.points, cond, forSeconds);
           total.fired += r.fired;

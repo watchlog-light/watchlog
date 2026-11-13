@@ -3,7 +3,7 @@
 // that aren't monitored yet. Read-only: nothing is contacted until someone presses
 // Monitor. Computed on read from the stored objects, so it is always current.
 import type { Database } from '../../db/index.js';
-import type { VictoriaQueryClient } from '../../lib/victoria.js';
+import { authorisedScope, type VictoriaQueryClient } from '../../lib/victoria.js';
 import { clusterFlows, containerKey, looksLikeClient, workloadKey } from './clients.js';
 import type { IntegrationTarget, IntegrationType } from './collector-config.js';
 
@@ -244,7 +244,8 @@ export async function discover(
   const flows = vm
     ? await clusterFlows(
         vm,
-        ids,
+        // The org's own clusters, read with its filter above (ADR-174).
+        ids.map((id) => authorisedScope(id)),
         SERVICE_KINDS.flatMap((k) => (k.available ? k.ports : [])),
       )
     : new Map();

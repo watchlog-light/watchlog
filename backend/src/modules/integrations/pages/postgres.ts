@@ -561,7 +561,7 @@ async function locks(ctx: PageContext): Promise<Panel[]> {
     instant(ctx, `topk(10, max by (table) (watchlog_postgres_locked_relation{${s}}))`),
     ctx.vm
       ? ctx.vm.queryRange(
-          { clusterId: ctx.row.cluster_id },
+          ctx.scope,
           `max_over_time(sum(watchlog_postgres_lock_waits{${s}})[1h])`,
           end - 7 * 86400,
           end,
@@ -1050,8 +1050,7 @@ export const postgresPage: IntegrationPage = {
     },
   ],
 
-  async listMetrics({ vm, clusterId, ids, now }) {
-    const scope = { clusterId };
+  async listMetrics({ vm, scope, ids, now }) {
     const s = some(ids);
     const end = Math.floor(now / 1000 / 300) * 300;
     const tps = `rate(watchlog_postgres_xact_commit_total{${s}}[5m]) + rate(watchlog_postgres_xact_rollback_total{${s}}[5m])`;

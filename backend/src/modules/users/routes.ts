@@ -71,10 +71,15 @@ const LinkResponse = Type.Object({
 
 export const userRoutes: FastifyPluginAsyncTypebox<{
   db: Database;
+  /**
+   * The owner's connection (ADR-174) for the public links below: invites, password resets
+   * and forgot-password run before anyone is signed in, so before the org is known.
+   */
+  systemDb: Database;
   settings: SettingsService;
   secretKey: Buffer;
-}> = async (app, { db, settings, secretKey }) => {
-  const signedIn = requireUser(db);
+}> = async (app, { db, systemDb, settings, secretKey }) => {
+  const signedIn = requireUser();
   const canManage = [signedIn, requireRole('owner', 'admin')];
   const ownerOnly = [signedIn, requireRole('owner')];
   const site = async (request: Parameters<typeof baseUrl>[1]) =>
@@ -608,11 +613,12 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
   );
 
   // ------------------------------------------------------------ public: the links
+  // Signed out, before the org is known: these use systemDb (ADR-174).
 
   const limited = { rateLimit: { max: 10, timeWindow: '1 minute' } };
 
   async function findInvite(token: string) {
-    return db
+    return systemDb
       .selectFrom('invites as i')
       .innerJoin('orgs as o', 'o.id', 'i.org_id')
       .select([
@@ -704,7 +710,7 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
             : 'This invite link has been used or revoked.',
         );
       }
-      const taken = await db
+      const taken = await systemDb
         .selectFrom('users')
         .select('id')
         .where('email', '=', i.email)
@@ -713,7 +719,7 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
         return sendProblem(reply, 409, `${i.email} already has an account: sign in instead`);
       const userId = newId();
       const passwordHash = await hashPassword(request.body.password);
-      await db.transaction().execute(async (trx) => {
+      await systemDb.transaction().execute(async (trx) => {
         await trx
           .insertInto('users')
           .values({
@@ -733,21 +739,21 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
           .where('id', '=', i.id)
           .execute();
       });
-      await audit(db, {
+      await audit(systemDb, {
         orgId: i.org_id,
         action: 'invite_accepted',
         actor: { id: userId, name: request.body.name.trim(), ip: request.ip },
         subjectEmail: i.email,
         details: { role: i.role },
       });
-      const { token, expiresAt } = await createSession(db, userId);
+      const { token, expiresAt } = await createSession(systemDb, userId);
       setSessionCookie(request, reply, token, expiresAt);
-      return reply.code(201).send({ user: (await findSessionUser(db, token))! });
+      return reply.code(201).send({ user: (await findSessionUser(systemDb, token))! });
     },
   );
 
   async function findReset(token: string) {
-    return db
+    return systemDb
       .selectFrom('password_resets as r')
       .innerJoin('users as u', 'u.id', 'r.user_id')
       .innerJoin('memberships as m', 'm.user_id', 'u.id')
@@ -819,7 +825,7 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
         );
       }
       const passwordHash = await hashPassword(request.body.password);
-      const used = await db.transaction().execute(async (trx) => {
+      const used = await systemDb.transaction().execute(async (trx) => {
         const claimed = await trx
           .updateTable('password_resets')
           .set({ used_at: new Date() })
@@ -845,16 +851,16 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
         return true;
       });
       if (!used) return sendProblem(reply, 410, 'This reset link has been used.');
-      await audit(db, {
+      await audit(systemDb, {
         orgId: r.org_id,
         action: 'password_reset',
         actor: { id: r.user_id, name: r.email, ip: request.ip },
         subjectEmail: r.email,
         details: { via: r.via },
       });
-      const { token, expiresAt } = await createSession(db, r.user_id);
+      const { token, expiresAt } = await createSession(systemDb, r.user_id);
       setSessionCookie(request, reply, token, expiresAt);
-      return { user: (await findSessionUser(db, token))! };
+      return { user: (await findSessionUser(systemDb, token))! };
     },
   );
 
@@ -883,14 +889,14 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
         );
       }
       const email = request.body.email.trim().toLowerCase();
-      const user = await db
+      const user = await systemDb
         .selectFrom('users as u')
         .innerJoin('memberships as m', 'm.user_id', 'u.id')
         .select(['u.id', 'u.email'])
         .where('u.email', '=', email)
         .executeTakeFirst();
       if (user) {
-        const { token } = await createResetLink(db, {
+        const { token } = await createResetLink(systemDb, {
           userId: user.id,
           via: 'email',
           createdBy: null,

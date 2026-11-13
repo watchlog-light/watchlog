@@ -759,8 +759,7 @@ export const mysqlPage: IntegrationPage = {
     },
   ],
 
-  async listMetrics({ vm, clusterId, ids, now }) {
-    const scope = { clusterId };
+  async listMetrics({ vm, scope, ids, now }) {
     const s = some(ids);
     const end = Math.floor(now / 1000 / 300) * 300;
     const qps = `rate(watchlog_mysql_questions_total{${s}}[5m])`;

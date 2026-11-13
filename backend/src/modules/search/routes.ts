@@ -11,7 +11,7 @@ import { sendProblem } from '../../lib/problem.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import { requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
-import { findCluster } from '../clusters/service.js';
+import { clusterForOrg } from '../clusters/service.js';
 import { WORKLOAD_KINDS } from '../kubernetes/views.js';
 import { patterns, type SearchPatterns, type Tier } from './match.js';
 
@@ -240,7 +240,7 @@ const toResult = (r: Row) => {
 };
 
 export const searchRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (app, { db }) => {
-  const signedIn = requireUser(db);
+  const signedIn = requireUser();
 
   app.get(
     '/clusters/:id/search',
@@ -270,7 +270,7 @@ export const searchRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const { q } = request.query;
       const p = patterns(q);

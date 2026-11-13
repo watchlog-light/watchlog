@@ -35,6 +35,7 @@ export interface AgentInstances {
   last_seen_at: Timestamp;
   mode: string;
   node: string;
+  org_id: Generated<string>;
   series: Generated<number>;
   updated_at: Generated<Timestamp>;
 }
@@ -130,6 +131,7 @@ export interface ApiTokenEvents {
   id: string;
   ip: string | null;
   kind: string;
+  org_id: Generated<string>;
   token_id: string;
 }
 
@@ -172,6 +174,7 @@ export interface ChangeMarkers {
   id: string;
   kind: string;
   namespace: Generated<string>;
+  org_id: Generated<string>;
   target: string;
   ts: Timestamp;
 }
@@ -195,6 +198,7 @@ export interface ClusterTokens {
   cluster_id: string;
   created_at: Generated<Timestamp>;
   id: string;
+  org_id: Generated<string>;
   prefix: string;
   revoked_at: Timestamp | null;
   token_hash: Buffer;
@@ -221,6 +225,7 @@ export interface IngestErrors {
   last_message: Generated<string>;
   last_status: number;
   last_success_at: Timestamp | null;
+  org_id: Generated<string>;
 }
 
 export interface IntegrationCollectors {
@@ -231,6 +236,7 @@ export interface IntegrationCollectors {
   id: string;
   last_seen_at: Timestamp;
   mode: string;
+  org_id: Generated<string>;
   self: Generated<Json>;
   updated_at: Generated<Timestamp>;
   version: string;
@@ -240,6 +246,7 @@ export interface IntegrationCredentials {
   ciphertext: string | null;
   integration_id: string;
   method: string;
+  org_id: Generated<string>;
   reference: Json | null;
   set_at: Generated<Timestamp>;
   set_by: string | null;
@@ -331,6 +338,7 @@ export interface K8sEvents {
   last_ts: Timestamp;
   message: Generated<string>;
   namespace: Generated<string>;
+  org_id: Generated<string>;
   reason: string;
   reporting_controller: Generated<string>;
   type: string;
@@ -361,6 +369,7 @@ export interface Memberships {
 export interface NotificationAlerts {
   alert_state_id: string;
   notification_id: string;
+  org_id: Generated<string>;
 }
 
 export interface Notifications {
@@ -391,6 +400,7 @@ export interface Objects {
   name: string;
   namespace: Generated<string>;
   node: Generated<string>;
+  org_id: Generated<string>;
   snapshot_id: string | null;
   source: string;
   spec_summary: Generated<Json>;
@@ -476,6 +486,7 @@ export interface TelegramVerifications {
   created_at: Generated<Timestamp>;
   expires_at: Timestamp;
   id: string;
+  org_id: Generated<string>;
   update_offset: Generated<Int8>;
 }
 

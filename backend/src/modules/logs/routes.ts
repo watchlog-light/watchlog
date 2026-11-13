@@ -13,7 +13,7 @@ import { isInternalCall } from '../../lib/internal-call.js';
 import { PROBLEM_CONTENT_TYPE, problem, sendProblem } from '../../lib/problem.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import { requireUser } from '../../plugins/auth.js';
-import { findCluster } from '../clusters/service.js';
+import { clusterForOrg } from '../clusters/service.js';
 import type { SettingsService } from '../settings/service.js';
 import { actorOf, audit } from '../users/service.js';
 import type { LogBroker, LogChunk, LogLine, LogSpec } from './broker.js';
@@ -154,7 +154,7 @@ export const logsRoutes: FastifyPluginAsyncTypebox<{
   broker: LogBroker;
   limiter?: LogLimiter;
 }> = async (app, { db, settings, broker, limiter = new LogLimiter() }) => {
-  const signedIn = requireUser(db);
+  const signedIn = requireUser();
   const demoMode = settings.config.demoMode;
 
   /** The Settings switch for the caller's role, or the error code. */
@@ -351,7 +351,7 @@ export const logsRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       if (cluster.kind !== 'kubernetes') {
         return sendProblem(reply, 400, 'This is a Docker fleet; read a container instead');
@@ -440,7 +440,7 @@ export const logsRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       if (cluster.kind !== 'docker') {
         return sendProblem(reply, 400, 'This is a Kubernetes cluster; read a pod instead');

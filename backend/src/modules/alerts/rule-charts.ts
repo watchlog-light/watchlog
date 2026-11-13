@@ -15,7 +15,7 @@
 //
 // Every query is scoped to the alert's object (node, pod, workload, container), one
 // series per object, at most MAX_SERIES with the rest counted.
-import type { QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
+import { authorisedScope, type QuerySeries, type VictoriaQueryClient } from '../../lib/victoria.js';
 import {
   buildQuery,
   chooseStep,
@@ -559,7 +559,8 @@ export async function ruleChart(r: ChartRange, t: ChartTarget): Promise<ChartRes
     ...r,
     step,
     range: (expr, s = step) =>
-      r.victoria.queryRange({ clusterId: r.clusterId }, expr, r.from, r.to, s),
+      // The cluster of the org's own alert or rule, which the callers read (ADR-174).
+      r.victoria.queryRange(authorisedScope(r.clusterId), expr, r.from, r.to, s),
   };
   const def = t.ruleKey ? RULE_CHARTS[t.ruleKey] : undefined;
   if (def) {

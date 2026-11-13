@@ -82,8 +82,15 @@ export const settingsRoutes: FastifyPluginAsyncTypebox<{
   db: Database;
   settings: SettingsService;
   http: HttpClient;
-}> = async (app, { db, settings, http }) => {
-  const signedIn = requireUser(db);
+}> = async (app, { settings, http }) => {
+  // The installation's settings (ADR-093). In Cloud they are the operator's: every route here
+  // answers 404 (plugins/edition.ts), except reading the system namespaces and who may read
+  // logs, which the pages need. Per-org versions of those two are a later slice's.
+  app.addHook('onRoute', (route) => {
+    const readable = route.method === 'GET' && /\/settings\/(namespaces|logs)$/.test(route.url);
+    if (!readable) route.config = { ...(route.config ?? {}), communityOnly: true };
+  });
+  const signedIn = requireUser();
   // Read-only demo (ADR-122): no mail server or proxy details at all.
   const demoMode = settings.config.demoMode;
   const canManage = [signedIn, requireRole('owner', 'admin')];

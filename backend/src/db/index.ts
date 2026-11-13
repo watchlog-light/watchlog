@@ -1,14 +1,49 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { Kysely, PostgresDialect } from 'kysely';
+import { Kysely, PostgresDialect, type PostgresPool } from 'kysely';
 import pg from 'pg';
+import { currentOrgId } from './org-context.js';
 import type { DB } from './types.js';
 
 export type Database = Kysely<DB>;
 
-export function createDb(databaseUrl: string): Database {
+export interface DbOptions {
+  /**
+   * Cloud's request path (ADR-174): every checkout first sets `watchlog.org_id` to the
+   * current org (db/org-context.ts), or to '' outside one, for Row-Level Security under
+   * watchlog_app. Off in Community and for systemDb: 0.5.0's pool, no extra round trip.
+   */
+  orgScoped?: boolean;
+}
+
+export function createDb(databaseUrl: string, opts: DbOptions = {}): Database {
+  const pool = new pg.Pool({ connectionString: databaseUrl, max: 10 });
   return new Kysely<DB>({
-    dialect: new PostgresDialect({ pool: new pg.Pool({ connectionString: databaseUrl, max: 10 }) }),
+    dialect: new PostgresDialect({ pool: opts.orgScoped ? orgScopedPool(pool) : pool }),
   });
+}
+
+const SET_ORG = "SELECT set_config('watchlog.org_id', $1, false)";
+
+/**
+ * A pool that sets the org on every checkout. Session-level (not `SET LOCAL`): it is set
+ * before Kysely's BEGIN, so a transaction keeps the org it started with, and the next
+ * checkout overwrites it, so nothing leaks from one org's use of a connection to another's.
+ */
+export function orgScopedPool(pool: pg.Pool): PostgresPool {
+  return {
+    options: pool.options,
+    async connect() {
+      const client = await pool.connect();
+      try {
+        await client.query(SET_ORG, [currentOrgId() ?? '']);
+      } catch (err) {
+        client.release(err as Error);
+        throw err;
+      }
+      return client;
+    },
+    end: () => pool.end(),
+  };
 }
 
 /** Turns connection errors into an actionable message. */

@@ -6,11 +6,11 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { sendProblem } from '../../lib/problem.js';
-import type { QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
+import type { ClusterScope, QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
 import { requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { alertingStatus } from '../alerts/status.js';
-import { CLUSTER_STALE_MS, findCluster } from '../clusters/service.js';
+import { CLUSTER_STALE_MS, clusterForOrg } from '../clusters/service.js';
 import { ingestFailures } from '../ingest/errors.js';
 import {
   containerResources,
@@ -94,14 +94,14 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
   /** Each problem's likely cause (ADR-148, ADR-155); left out without it. */
   causes?: CausesService;
 }> = async (app, { db, victoria, settings, causes }) => {
-  const signedIn = requireUser(db);
+  const signedIn = requireUser();
 
   /** Metric queries are optional: a storage error gives no values, never a failed page. */
-  function instant(clusterId: string, exprs: string[]): Promise<QuerySeries[][]> {
+  function instant(scope: ClusterScope, exprs: string[]): Promise<QuerySeries[][]> {
     return Promise.all(
       exprs.map((e) =>
         victoria
-          ? victoria.query({ clusterId }, e).catch((err: Error) => {
+          ? victoria.query(scope, e).catch((err: Error) => {
               app.log.warn({ err: err.message }, 'overview query failed');
               return [] as QuerySeries[];
             })
@@ -109,11 +109,11 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
       ),
     );
   }
-  function ranged(clusterId: string, exprs: string[], start: number, end: number, step: number) {
+  function ranged(scope: ClusterScope, exprs: string[], start: number, end: number, step: number) {
     return Promise.all(
       exprs.map((e) =>
         victoria
-          ? victoria.queryRange({ clusterId }, e, start, end, step).catch((err: Error) => {
+          ? victoria.queryRange(scope, e, start, end, step).catch((err: Error) => {
               app.log.warn({ err: err.message }, 'overview range query failed');
               return [] as QuerySeries[];
             })
@@ -194,7 +194,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const range = request.query.range ?? 3600;
       const step = sparkStep(range);
@@ -210,11 +210,14 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
       };
       const answer =
         cluster.kind === 'docker'
-          ? { ...base, ...(await docker(cluster.id, cluster.name, range, step, start, end, nowMs)) }
+          ? {
+              ...base,
+              ...(await docker(cluster.scope, cluster.name, range, step, start, end, nowMs)),
+            }
           : {
               ...base,
               ...(await kubernetes(
-                cluster.id,
+                cluster.scope,
                 cluster.name,
                 range,
                 step,
@@ -260,7 +263,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
   );
 
   async function kubernetes(
-    clusterId: string,
+    cluster: ClusterScope,
     clusterName: string,
     range: number,
     step: number,
@@ -269,6 +272,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
     nowMs: number,
     namespaces: string[] | undefined,
   ) {
+    const clusterId = cluster.clusterId;
     const scope: QueryScope = namespaces ? { namespaces } : {};
     const ns = namespaces ? `namespace=~"${anyOf(namespaces)}"` : '';
     const sel = (...m: string[]) => `{${[...m, ns].filter(Boolean).join(',')}}`;
@@ -326,7 +330,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
           return q.orderBy('last_ts', 'desc').limit(500).execute();
         })(),
       ] as const),
-      instant(clusterId, [
+      instant(cluster, [
         usageCpu,
         usageMem,
         `sum(increase(${restarts}[${range}s]))`,
@@ -343,7 +347,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
         `sum(increase(${flows}[${range}s] offset ${range}s)) / ${range}`,
       ]),
       ranged(
-        clusterId,
+        cluster,
         [
           `sum(watchlog_kube_node_condition{condition="Ready",status="true"})`,
           `sum(watchlog_kube_pod_status_phase${sel('phase="Running"')})`,
@@ -633,7 +637,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
   }
 
   async function docker(
-    clusterId: string,
+    cluster: ClusterScope,
     clusterName: string,
     range: number,
     step: number,
@@ -641,6 +645,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
     end: number,
     nowMs: number,
   ) {
+    const clusterId = cluster.clusterId;
     const win = `${Math.max(60, 2 * step)}s`;
     const restarts = `watchlog_container_restarts_total`;
     const flows = `watchlog_flow_connections_total`;
@@ -690,7 +695,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
           .limit(500)
           .execute(),
       ] as const),
-      instant(clusterId, [
+      instant(cluster, [
         `sum(rate(watchlog_node_cpu_seconds_total{mode!="idle"}[2m]))`,
         memUsed,
         // Each host reports its CPU count (its CPU-time series are not per CPU).
@@ -709,7 +714,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
         buildQuery('container.cpu.limit', {}, 15).expr,
       ]),
       ranged(
-        clusterId,
+        cluster,
         [
           `count(count by (host) (watchlog_node_cpu_seconds_total))`,
           `count(watchlog_container_state{state="running"} == 1)`,
@@ -724,7 +729,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
         end,
         step,
       ),
-      hostBoots((e) => instant(clusterId, [e]).then((r) => r[0] ?? []), nowMs / 1000),
+      hostBoots((e) => instant(cluster, [e]).then((r) => r[0] ?? []), nowMs / 1000),
     ]);
     const [
       cpuNow,

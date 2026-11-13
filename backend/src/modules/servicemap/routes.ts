@@ -13,7 +13,7 @@ import type { QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
 import { requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { installTarget } from '../clusters/install.js';
-import { findCluster } from '../clusters/service.js';
+import { clusterForOrg } from '../clusters/service.js';
 import type { SettingsService } from '../settings/service.js';
 import { agentContainer, agentEbpf, type AgentCapabilities } from './ebpf-fix.js';
 import { chooseStep, escapeLabelValue, anyOf } from '../query/catalog.js';
@@ -194,7 +194,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
   app,
   { db, victoria, config, settings },
 ) => {
-  const signedIn = requireUser(db);
+  const signedIn = requireUser();
   const install = installTarget(config, settings);
 
   async function agentStates(clusterId: string, request: FastifyRequest) {
@@ -532,7 +532,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const namespaces = request.query.namespaces?.split(',').filter(Boolean).slice(0, 50);
       const agents = await agentStates(cluster.id, request);
@@ -603,8 +603,8 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
       let pr: QuerySeries[][];
       try {
         [r, pr] = await Promise.all([
-          Promise.all(exprs.map((e) => victoria.query({ clusterId: cluster.id }, e))),
-          Promise.all(proxyExprs.map((e) => victoria.query({ clusterId: cluster.id }, e))),
+          Promise.all(exprs.map((e) => victoria.query(cluster.scope, e))),
+          Promise.all(proxyExprs.map((e) => victoria.query(cluster.scope, e))),
         ]);
       } catch (err) {
         request.log.warn({ err: (err as Error).message }, 'service map query failed');
@@ -715,7 +715,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
       },
     },
     async (request, reply) => {
-      const cluster = await findCluster(db, request.user!.org.id, request.params.id);
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const q = request.query;
       const m = edgeMatchers(q.source, q.target, q.port ?? null);
@@ -730,7 +730,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
         .join(',')}}`;
       const run = (e: string) =>
         victoria
-          .queryRange({ clusterId: cluster.id }, e, end - range, end, step)
+          .queryRange(cluster.scope, e, end - range, end, step)
           .then((r) => r[0]?.points ?? []);
       try {
         const httpRate = (cls?: string) =>

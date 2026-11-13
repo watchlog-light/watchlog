@@ -569,8 +569,7 @@ export const mongodbPage: IntegrationPage = {
     },
   ],
 
-  async listMetrics({ vm, clusterId, ids, now }) {
-    const scope = { clusterId };
+  async listMetrics({ vm, scope, ids, now }) {
     const s = some(ids);
     const end = Math.floor(now / 1000 / 300) * 300;
     const opsQ = `sum by (service) (rate(watchlog_mongodb_ops_total{${s}}[5m]))`;

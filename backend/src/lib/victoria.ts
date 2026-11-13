@@ -12,8 +12,22 @@ export class VictoriaError extends Error {
   }
 }
 
+declare const authorised: unique symbol;
+
+/**
+ * A cluster authorised for the caller's org (ADR-174): every VictoriaMetrics call needs one.
+ * Only clusterForOrg (modules/clusters/service.ts) makes one from a user's request; the
+ * paths whose cluster comes from a cluster token or the org's own rows make one with
+ * authorisedScope, and a test allow-lists them (test/isolation/guards.test.ts).
+ */
 export interface ClusterScope {
-  clusterId: string;
+  readonly clusterId: string;
+  readonly [authorised]: true;
+}
+
+/** For the allow-listed callers only: the cluster is already known to be the org's. */
+export function authorisedScope(clusterId: string): ClusterScope {
+  return { clusterId } as ClusterScope;
 }
 
 export class VictoriaClient {

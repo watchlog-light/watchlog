@@ -7,7 +7,7 @@ import { sendProblem } from '../../lib/problem.js';
 import { VictoriaError, type VictoriaQueryClient } from '../../lib/victoria.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
-import { findCluster } from '../clusters/service.js';
+import { clusterForOrg } from '../clusters/service.js';
 import { buildQuery, chooseStep, METRIC_KEYS, type MetricKey } from './catalog.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 
@@ -38,7 +38,7 @@ export const queryRoutes: FastifyPluginAsyncTypebox<{
     '/query/range',
     {
       // A read sent as POST: every role (ADR-140).
-      preHandler: [requireUser(db), requireRole('owner', 'admin', 'viewer')],
+      preHandler: [requireUser(), requireRole('owner', 'admin', 'viewer')],
       schema: {
         summary: 'Curated metric query over a time range (no raw MetricsQL)',
         tags: ['query', PUBLIC_TAG],
@@ -89,7 +89,7 @@ export const queryRoutes: FastifyPluginAsyncTypebox<{
       if (!(to > from) || to - from > MAX_RANGE_S) {
         return sendProblem(reply, 400, 'The range must be positive and at most 31 days');
       }
-      const cluster = await findCluster(db, request.user!.org.id, clusterId);
+      const cluster = await clusterForOrg(db, request.user!.org.id, clusterId);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       if (!victoria) return sendProblem(reply, 503, 'Metrics storage is not configured');
 
@@ -100,7 +100,7 @@ export const queryRoutes: FastifyPluginAsyncTypebox<{
         : scope;
       const q = buildQuery(metric as MetricKey, resolved, step, agg);
       try {
-        const series = await victoria.queryRange({ clusterId: cluster.id }, q.expr, from, to, step);
+        const series = await victoria.queryRange(cluster.scope, q.expr, from, to, step);
         return { metric, unit: q.unit, step, series };
       } catch (err) {
         request.log.error({ err: (err as Error).message, metric }, 'range query failed');

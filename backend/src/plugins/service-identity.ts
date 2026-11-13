@@ -9,6 +9,7 @@
 // that serves the API ignores the header, so nothing outside the worker process can use it.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/index.js';
+import { bindOrg } from '../db/org-context.js';
 import { isInternalCall } from '../lib/internal-call.js';
 import { sendProblem } from '../lib/problem.js';
 import { tokenAllows } from '../modules/api-tokens/scope.js';
@@ -18,7 +19,8 @@ export const SERVICE_ORG_HEADER = 'x-watchlog-service-org';
 /** Who the worker's reads are, in logs and wherever a route names its caller. */
 export const SERVICE_USER_ID = 'service:alert-worker';
 
-export function registerServiceIdentity(app: FastifyInstance, db: Database): void {
+/** `systemDb`: the org is looked up before the request is bound to it (ADR-174). */
+export function registerServiceIdentity(app: FastifyInstance, systemDb: Database): void {
   app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
     const orgId = request.headers[SERVICE_ORG_HEADER];
     if (orgId === undefined) return;
@@ -30,7 +32,7 @@ export function registerServiceIdentity(app: FastifyInstance, db: Database): voi
     // No route: the 404 handler answers.
     if (route !== undefined && !tokenAllows('read', { method: request.method, url: route, tags }))
       return sendProblem(reply, 403, 'Service reads cover the public read API only');
-    const org = await db
+    const org = await systemDb
       .selectFrom('orgs')
       .select(['id', 'name', 'slug', 'plan'])
       .where('id', '=', orgId)
@@ -46,5 +48,6 @@ export function registerServiceIdentity(app: FastifyInstance, db: Database): voi
       org: { id: org.id, name: org.name, slug: org.slug, plan: org.plan as Plan },
     };
     request.user = user;
+    bindOrg(org.id);
   });
 }

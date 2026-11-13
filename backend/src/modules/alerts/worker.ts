@@ -7,6 +7,7 @@ import { hostname } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
+import { withOrg } from '../../db/org-context.js';
 import type { VictoriaQueryClient } from '../../lib/victoria.js';
 import { evaluateOrg, type EvaluatorLookup } from './engine.js';
 import { BUCKETS, LockSession, bucketOf, type LockLogger } from './locks.js';
@@ -22,7 +23,13 @@ export interface WorkerLogger extends LockLogger {
 }
 
 export interface WorkerOptions {
+  /** Each org's evaluation, inside withOrg (Cloud: watchlog_app under RLS, ADR-174). */
   db: Database;
+  /**
+   * Across orgs: listing the orgs and pruning old history (ADR-174). Community: the same as
+   * `db`.
+   */
+  systemDb?: Database;
   databaseUrl: string;
   version: string;
   log: WorkerLogger;
@@ -131,17 +138,20 @@ export class AlertWorker {
   }
 
   private async evaluate(report: CycleReport, now: number): Promise<void> {
-    const orgs = await this.opts.db.selectFrom('orgs').select('id').execute();
+    const orgs = await this.system.selectFrom('orgs').select('id').execute();
     for (const { id } of orgs) {
       const bucket = bucketOf(id);
       if (!this.locks.holds(bucket)) continue;
-      await this.opts.prepareOrg?.(id);
-      const res = await evaluateOrg(
-        { db: this.opts.db, victoria: this.opts.victoria, evaluators: this.opts.evaluators },
-        id,
-        now,
-        () => this.locks.holds(bucket),
-      );
+      // Every query of one org's evaluation runs for that org only (ADR-174).
+      const res = await withOrg(id, async () => {
+        await this.opts.prepareOrg?.(id);
+        return evaluateOrg(
+          { db: this.opts.db, victoria: this.opts.victoria, evaluators: this.opts.evaluators },
+          id,
+          now,
+          () => this.locks.holds(bucket),
+        );
+      });
       report.orgs++;
       report.evaluated += res.evaluated;
       report.transitions += res.transitions;
@@ -197,14 +207,19 @@ export class AlertWorker {
     if (end?.evaluated) await recordCycle(this.opts.db, now);
   }
 
+  /** The owner's connection, for the work across orgs. */
+  private get system(): Database {
+    return this.opts.systemDb ?? this.opts.db;
+  }
+
   private async prune(now: number): Promise<void> {
     const cutoff = new Date(now - this.opts.retentionDays * 86_400_000);
-    const states = await this.opts.db
+    const states = await this.system
       .deleteFrom('alert_states')
       .where('state', '=', 'resolved')
       .where('resolved_at', '<', cutoff)
       .executeTakeFirst();
-    const notes = await this.opts.db
+    const notes = await this.system
       .deleteFrom('notifications')
       .where('status', 'in', ['sent', 'failed', 'dropped'])
       .where('created_at', '<', cutoff)

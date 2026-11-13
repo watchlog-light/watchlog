@@ -10,10 +10,11 @@ import { DEMO_USER_EMAIL } from './constants.js';
 import { ensureDemoUser, findDemoUser, type DemoSessions } from './service.js';
 
 export const demoRoutes: FastifyPluginAsyncTypebox<{
-  db: Database;
+  /** The demo sign-in runs before the org is known: the owner's connection (ADR-174). */
+  systemDb: Database;
   demoMode: boolean;
   sessions: DemoSessions;
-}> = async (app, { db, demoMode, sessions }) => {
+}> = async (app, { systemDb, demoMode, sessions }) => {
   app.post(
     '/demo/session',
     {
@@ -29,10 +30,10 @@ export const demoRoutes: FastifyPluginAsyncTypebox<{
       // A visitor whose demo cookie is still valid keeps it.
       if (request.user?.email === DEMO_USER_EMAIL) return { user: request.user };
       // Made at start; again here if the database was reset since.
-      let user = await findDemoUser(db);
+      let user = await findDemoUser(systemDb);
       if (!user) {
-        await ensureDemoUser(db);
-        user = await findDemoUser(db);
+        await ensureDemoUser(systemDb);
+        user = await findDemoUser(systemDb);
       }
       if (!user) return sendProblem(reply, 503, 'The demo is not ready; try again shortly');
       const { token, expiresAt } = sessions.issue();

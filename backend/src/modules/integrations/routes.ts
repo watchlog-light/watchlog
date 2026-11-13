@@ -8,7 +8,7 @@ import { Type, type Static } from 'typebox';
 import { isUniqueViolation, type Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
 import { sendProblem } from '../../lib/problem.js';
-import { VictoriaError, type VictoriaQueryClient } from '../../lib/victoria.js';
+import { authorisedScope, VictoriaError, type VictoriaQueryClient } from '../../lib/victoria.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import {
   dockerCollectorCommand,
@@ -213,7 +213,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
   /** Each application's likely cause, when it has a finding (ADR-148, ADR-155). */
   causes?: CausesService;
 }> = async (app, { db, notifier, secretKey, victoria, install, causes }) => {
-  const signedIn = requireUser(db);
+  const signedIn = requireUser();
   const canManage = [signedIn, requireRole('owner', 'admin')];
 
   /** The likely cause of each application with a finding (the others have none to explain). */
@@ -237,6 +237,10 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
     });
     return out;
   }
+  // A service row read with the caller's org filter: its cluster is that org's, which the
+  // composite key (cluster_id, org_id) guarantees (ADR-174).
+  const scopeOf = (row: ApplicationRow) => authorisedScope(row.cluster_id);
+
   const pageCache = new Map<
     string,
     { at: number; own: Reason[]; connected: ConnectedResult | null }
@@ -264,6 +268,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
     const ctx: PageContext = {
       db,
       vm: victoria,
+      scope: scopeOf(row),
       row,
       collector: collectorOf(row, collectors),
       range: 3600,
@@ -290,6 +295,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
     const ctx: PageContext = {
       db,
       vm: victoria,
+      scope: scopeOf(row),
       row,
       collector: collectorOf(row, collectors),
       range,
@@ -593,7 +599,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
           [...groups.values()].map((g) =>
             g.page.listMetrics({
               vm: victoria,
-              clusterId: g.clusterId,
+              scope: authorisedScope(g.clusterId),
               ids: g.ids,
               rows: g.rows,
               now,

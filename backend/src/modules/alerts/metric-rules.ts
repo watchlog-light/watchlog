@@ -5,6 +5,7 @@ import { buildQuery, type MetricKey, type QueryScope } from '../query/catalog.js
 import type { Condition, DefaultRule } from './defaults.js';
 import type { ClusterKind, EvalContext, RuleEvaluator } from './engine.js';
 import type { Observation, Severity } from './state-machine.js';
+import { authorisedScope } from '../../lib/victoria.js';
 
 /** Instant queries use a 60 s step: rates over 2 minutes (rateWindow). */
 const STEP_S = 60;
@@ -77,7 +78,8 @@ export async function queryThreshold(
   const thresholds = [cond.value, cond.critical ?? cond.value];
   const bound = cond.op === '>' ? Math.min(...thresholds) : Math.max(...thresholds);
   const series = await ctx.victoria.query(
-    { clusterId: ctx.cluster.id },
+    // The org's own cluster, read under withOrg by the engine (ADR-174).
+    authorisedScope(ctx.cluster.id),
     `(${expr}) ${cond.op} ${Number(bound)}`,
     ctx.now / 1000,
   );
@@ -106,7 +108,7 @@ const labelKey = (l: Record<string, string>) =>
 async function addTrend(ctx: EvalContext, key: MetricKey, hits: ThresholdHit[]) {
   const { expr } = buildQuery(key, {}, STEP_S);
   const slopes = await ctx.victoria!.query(
-    { clusterId: ctx.cluster.id },
+    authorisedScope(ctx.cluster.id),
     `deriv((${expr})[1h:1m])`,
     ctx.now / 1000,
   );

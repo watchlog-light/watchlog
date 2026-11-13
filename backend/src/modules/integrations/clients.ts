@@ -4,7 +4,7 @@
 // The image can't tell, so the eBPF flows do: it connects out to the type's port and nothing
 // connects to it there. A port it declares (Kubernetes) or publishes (Docker) means it
 // listens, so it is never hidden; without flows (no eBPF, or no traffic yet) nothing is.
-import type { QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
+import type { ClusterScope, QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
 
 /** A day: a daily job's connections, and a client's that it holds open (bytes). */
 export const CLIENT_WINDOW = '24h';
@@ -72,18 +72,15 @@ export function looksLikeClient(
 /** The flows of each cluster; a cluster whose query fails gets none (nothing hidden). */
 export async function clusterFlows(
   vm: VictoriaQueryClient,
-  clusterIds: string[],
+  clusters: ClusterScope[],
   ports: number[],
 ): Promise<Map<string, FlowSides>> {
   const q = flowQueries(ports);
   const all = await Promise.all(
-    clusterIds.map(async (id) => {
+    clusters.map(async (scope) => {
       try {
-        const [o, i] = await Promise.all([
-          vm.query({ clusterId: id }, q.out),
-          vm.query({ clusterId: id }, q.in),
-        ]);
-        return [id, flowSides(o, i)] as const;
+        const [o, i] = await Promise.all([vm.query(scope, q.out), vm.query(scope, q.in)]);
+        return [scope.clusterId, flowSides(o, i)] as const;
       } catch {
         return null;
       }

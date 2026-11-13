@@ -2,6 +2,7 @@
 import { bootstrapCluster, buildApp } from './app.js';
 import { loadConfig, type Config } from './config.js';
 import { createDb, describeDbError, waitForDatabase } from './db/index.js';
+import { assertAppRole } from './db/app-role.js';
 import { checkSecretKey, usePreviousSecretKey } from './lib/secrets.js';
 import { SetupState } from './modules/setup/service.js';
 import { syncDemoMcpToken } from './modules/demo/mcp-token.js';
@@ -25,17 +26,26 @@ if (config.seedFile) {
     process.exit(1);
   }
 }
-const db = createDb(config.databaseUrl);
+// Cloud (ADR-174): the request path as watchlog_app, the org set on every checkout; the
+// allow-listed systemDb as the owner. Community: one connection, as in 0.5.0.
+const cloud = config.edition === 'cloud';
+const db = createDb(config.databaseUrl, { orgScoped: cloud });
+const systemDb = cloud ? createDb(config.databaseSystemUrl) : db;
 const setup = new SetupState();
-const app = await buildApp(config, { db, setup, seed });
-app.addHook('onClose', () => db.destroy());
+const app = await buildApp(config, { db, systemDb, setup, seed });
+app.addHook('onClose', async () => {
+  await db.destroy();
+  if (systemDb !== db) await systemDb.destroy();
+});
 
 try {
   await waitForDatabase(() => db.selectFrom('users').select('id').limit(1).execute(), {
     log: (msg) => app.log.info(msg),
   });
+  // Cloud refuses to serve requests on a connection that RLS doesn't apply to.
+  if (cloud) await assertAppRole(db);
   await setup.initialize(
-    db,
+    systemDb,
     { email: config.adminEmail, password: config.adminPassword },
     { info: (obj, msg) => app.log.info(obj, msg), warn: (msg) => app.log.warn(msg) },
   );
@@ -46,7 +56,7 @@ try {
 }
 usePreviousSecretKey(config.previousSecretKey);
 try {
-  await checkSecretKey(db, config.secretKey);
+  await checkSecretKey(systemDb, config.secretKey);
 } catch (err) {
   app.log.error(`watchlog backend cannot start: ${(err as Error).message}`);
   await app.close();
@@ -55,24 +65,24 @@ try {
 // Read-only demo (ADR-122): the viewer account exists before the bootstrap cluster needs an org.
 if (config.demoMode) {
   try {
-    await ensureDemoUser(db);
+    await ensureDemoUser(systemDb);
     app.log.warn('demo mode: the dashboard is a read-only public demo; every change answers 403');
   } catch (err) {
     app.log.error({ err: (err as Error).message }, 'demo account setup failed');
   }
 }
-await bootstrapCluster(app, config, db).catch((err: Error) =>
+await bootstrapCluster(app, config, systemDb).catch((err: Error) =>
   app.log.error({ err: err.message }, 'cluster bootstrap failed'),
 );
 // The demo's public MCP token (ADR-130): in demo mode the seed's, otherwise none.
 await syncDemoMcpToken(
-  db,
+  systemDb,
   { demoMode: config.demoMode, token: seed?.demoMcp?.token },
   app.log,
 ).catch((err: Error) => app.log.error({ err: err.message }, 'demo MCP token setup failed'));
 // After the bootstrap cluster, which a seeded rule may name. A rule that fails is logged.
 if (seed) {
-  await applySeed(db, seed, app.log).catch((err: Error) =>
+  await applySeed(systemDb, seed, app.log).catch((err: Error) =>
     app.log.error({ err: err.message }, 'seed failed'),
   );
 }

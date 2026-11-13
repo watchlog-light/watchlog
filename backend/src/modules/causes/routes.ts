@@ -9,7 +9,7 @@ import { sendProblem } from '../../lib/problem.js';
 import { requireUser } from '../../plugins/auth.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import { ProblemSchema } from '../auth/schemas.js';
-import { findCluster } from '../clusters/service.js';
+import { clusterForOrg } from '../clusters/service.js';
 import { causeReader, CausesService } from './likely.js';
 import { AmbiguousError, NotFoundError } from './resolve.js';
 import { CausesSchema } from './schemas.js';
@@ -20,7 +20,7 @@ export const causesRoutes: FastifyPluginAsyncTypebox<{
   /** The answer cache GET /causes shares with the `likelyCause` fields (ADR-155). */
   causes?: CausesService;
 }> = async (app, { db, causes = new CausesService() }) => {
-  const signedIn = requireUser(db);
+  const signedIn = requireUser();
 
   app.get(
     '/causes',
@@ -56,7 +56,7 @@ export const causesRoutes: FastifyPluginAsyncTypebox<{
         throw err;
       }
       const orgId = request.user!.org.id;
-      const row = await findCluster(db, orgId, request.query.cluster);
+      const row = await clusterForOrg(db, orgId, request.query.cluster);
       if (!row) return sendProblem(reply, 404, 'Cluster not found');
       const cluster = { id: row.id, name: row.name, kind: row.kind as 'kubernetes' | 'docker' };
       try {

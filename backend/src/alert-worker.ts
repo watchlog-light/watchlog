@@ -29,7 +29,12 @@ const log = pino({
   level: config.logLevel,
   ...(config.isDevelopment ? { transport: { target: 'pino-pretty' } } : {}),
 });
-const db = createDb(config.databaseUrl);
+// Cloud (ADR-174): each org's evaluation as watchlog_app under RLS, inside withOrg; the work
+// across orgs (listing orgs, the outbox, Telegram polling, token jobs, pruning) as the owner.
+// Community: one connection, as in 0.5.0.
+const cloud = config.edition === 'cloud';
+const db = createDb(config.databaseUrl, { orgScoped: cloud });
+const systemDb = cloud ? createDb(config.databaseSystemUrl) : db;
 
 try {
   // The backend applies the migrations; on a fresh install this may start first.
@@ -43,18 +48,23 @@ try {
 }
 usePreviousSecretKey(config.previousSecretKey);
 try {
-  await checkSecretKey(db, config.secretKey);
+  await checkSecretKey(systemDb, config.secretKey);
 } catch (err) {
   log.error(`watchlog alert-worker cannot start: ${(err as Error).message}`);
   process.exit(1);
 }
 const http = new HttpClient(config.proxy);
-const settings = new SettingsService(db, config);
+const settings = new SettingsService(systemDb, config);
 // The likely cause in the messages (ADR-148, ADR-157): probable cause reads the public API,
 // so the worker builds the app in-process and reads it as a viewer of each alert's org.
-const reads = await buildApp(config, { db, setup: new SetupState(), serviceReads: true });
-const channelDeps = {
+const reads = await buildApp(config, {
   db,
+  systemDb,
+  setup: new SetupState(),
+  serviceReads: true,
+});
+const channelDeps = {
+  db: systemDb,
   secretKey: config.secretKey,
   http,
   settings: () => settings.alerting(),
@@ -64,7 +74,8 @@ const channelDeps = {
 
 const worker = new AlertWorker({
   db,
-  databaseUrl: config.databaseUrl,
+  systemDb,
+  databaseUrl: config.databaseSystemUrl,
   version: config.version,
   log,
   evaluators: lookupEvaluator,
@@ -81,7 +92,8 @@ const worker = new AlertWorker({
     {
       name: 'api-tokens',
       everyMs: TOKEN_JOBS_EVERY_MS,
-      run: (now) => runApiTokenJobs({ db, settings: () => settings.alerting(), log }, now),
+      run: (now) =>
+        runApiTokenJobs({ db: systemDb, settings: () => settings.alerting(), log }, now),
     },
   ],
 });
@@ -101,6 +113,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       .then(() => http.close())
       .then(() => reads.close())
       .then(() => db.destroy())
+      .then(() => (systemDb === db ? undefined : systemDb.destroy()))
       .then(
         () => process.exit(0),
         () => process.exit(1),

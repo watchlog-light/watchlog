@@ -4,6 +4,7 @@ import type { Selectable } from 'kysely';
 import type { Database } from '../../db/index.js';
 import type { Clusters, ClusterTokens } from '../../db/types.js';
 import { newId } from '../../lib/ids.js';
+import { authorisedScope } from '../../lib/victoria.js';
 import type { IngestFailure } from '../ingest/errors.js';
 
 /** A cluster is "active" while an agent reported within this window (SPEC §4.7). */
@@ -79,13 +80,18 @@ export function listClusters(db: Database, orgId: string) {
     .execute();
 }
 
-export function findCluster(db: Database, orgId: string, clusterId: string) {
-  return db
+/**
+ * The one guard before any metrics read (ADR-174, ADR-028): the cluster if it is the org's,
+ * with the `scope` the VictoriaMetrics client requires; undefined otherwise (answer 404).
+ */
+export async function clusterForOrg(db: Database, orgId: string, clusterId: string) {
+  const row = await db
     .selectFrom('clusters')
     .selectAll()
     .where('org_id', '=', orgId)
     .where('id', '=', clusterId)
     .executeTakeFirst();
+  return row ? { ...row, scope: authorisedScope(row.id) } : undefined;
 }
 
 export function listTokens(db: Database, clusterId: string) {

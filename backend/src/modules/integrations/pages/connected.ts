@@ -105,7 +105,7 @@ export async function destination(ctx: PageContext): Promise<string | null> {
 
 export async function connectedTo(ctx: PageContext, limit = 20): Promise<ConnectedResult> {
   if (!ctx.vm) return { flows: false, items: [] };
-  const scope = { clusterId: ctx.row.cluster_id };
+  const scope = ctx.scope;
   const at = Math.floor(ctx.now / 1000);
   const dst = await destination(ctx);
   const [any, conns, failed, own] = await Promise.all([

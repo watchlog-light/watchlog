@@ -3,7 +3,7 @@
 // an hour per cluster and kept; the requests and limits are read on every request (a changed
 // request shows at once), and the hints are worked out from both.
 import type { Database } from '../../db/index.js';
-import type { VictoriaQueryClient } from '../../lib/victoria.js';
+import type { ClusterScope, VictoriaQueryClient } from '../../lib/victoria.js';
 import { AnswerCache } from '../causes/cache.js';
 import type { ContainerStatus, ObjectRow, PodSpec, PodStatus } from '../kubernetes/views.js';
 import { parseQuantity, podIsActive } from '../kubernetes/views.js';
@@ -77,7 +77,8 @@ export class RightSizingService {
   }
 
   /** The use over the window, kept an hour per cluster. */
-  measure(clusterId: string, platform: 'kubernetes' | 'docker'): Promise<Measured> {
+  measure(scope: ClusterScope, platform: 'kubernetes' | 'docker'): Promise<Measured> {
+    const clusterId = scope.clusterId;
     return this.cache.get(`${clusterId}/${platform}`, async () => {
       const started = Date.now();
       const at = Math.floor(started / 1000);
@@ -85,8 +86,7 @@ export class RightSizingService {
       const victoria = this.victoria;
       const entries = await Promise.all(
         Object.entries(exprs).map(
-          async ([k, e]) =>
-            [k, victoria ? await victoria.query({ clusterId }, e, at) : []] as const,
+          async ([k, e]) => [k, victoria ? await victoria.query(scope, e, at) : []] as const,
         ),
       );
       const tookMs = Date.now() - started;
@@ -96,10 +96,11 @@ export class RightSizingService {
   }
 
   async answer(
-    cluster: { id: string; kind: 'kubernetes' | 'docker' },
+    /** From clusterForOrg (ADR-174). */
+    cluster: { id: string; kind: 'kubernetes' | 'docker'; scope: ClusterScope },
     f: Filters,
   ): Promise<Answer> {
-    const m = await this.measure(cluster.id, cluster.kind);
+    const m = await this.measure(cluster.scope, cluster.kind);
     const usage = usageByKey(cluster.kind, m.series);
     const { hints, short } =
       cluster.kind === 'kubernetes'

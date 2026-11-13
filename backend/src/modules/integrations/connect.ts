@@ -331,7 +331,7 @@ export const connectRoutes: FastifyPluginAsyncTypebox<{
   notifier: ConfigNotifier;
   secretKey: Buffer;
 }> = async (app, { db, notifier, secretKey }) => {
-  const signedIn = requireUser(db);
+  const signedIn = requireUser();
   const canManage = [signedIn, requireRole('owner', 'admin')];
 
   app.post(

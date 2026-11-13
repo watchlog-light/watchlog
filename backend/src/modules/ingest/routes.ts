@@ -4,11 +4,12 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createGunzip } from 'node:zlib';
 import { sql } from 'kysely';
+import { bindOrg } from '../../db/org-context.js';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
 import { sendProblem } from '../../lib/problem.js';
-import { VictoriaError, type VictoriaClient } from '../../lib/victoria.js';
+import { authorisedScope, VictoriaError, type VictoriaClient } from '../../lib/victoria.js';
 import type { TokenOwner } from '../clusters/tokens.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { registerIntegrationIngest } from '../integrations/ingest.js';
@@ -257,6 +258,8 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
     const owner = token ? await tokens.verify(token) : null;
     if (!owner) return sendProblem(reply, 401, 'Missing, invalid or revoked cluster token');
     request.ingestOwner = owner;
+    // The cluster's org, never one the agent names (ADR-174).
+    bindOrg(owner.orgId);
 
     const agentHeader = request.headers['x-watchlog-agent'];
     const agentId = (Array.isArray(agentHeader) ? agentHeader[0] : agentHeader) || request.ip;
@@ -317,7 +320,8 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
         return sendProblem(reply, 503, 'Metrics storage is not configured');
       }
       try {
-        await victoria.write({ clusterId: owner.clusterId }, body);
+        // The cluster comes from the token, never from the agent (ADR-026).
+        await victoria.write(authorisedScope(owner.clusterId), body);
       } catch (err) {
         if (err instanceof VictoriaError && err.status >= 400 && err.status < 500) {
           request.log.warn(

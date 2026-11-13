@@ -35,6 +35,8 @@ export async function ensureEventPartitions(
     await sql`create table if not exists ${sql.table(name)} partition of k8s_events for values from (${sql.lit(from)}) to (${sql.lit(to)})`.execute(
       db,
     );
+    // Readable only through k8s_events and its org policy (ADR-174).
+    await sql`alter table ${sql.table(name)} enable row level security`.execute(db);
     created.push(name);
   }
   const oldest = partitionName(iso(new Date(today - retentionDays * DAY_MS)));
