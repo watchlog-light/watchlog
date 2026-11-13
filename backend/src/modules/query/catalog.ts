@@ -624,6 +624,62 @@ const ENTRIES = {
     expr: (s) =>
       `max by (service, service_type, member) (watchlog_mongodb_cache_bytes${s('state="used"')}) / on (service, service_type, member) (max by (service, service_type, member) (watchlog_mongodb_cache_bytes${s('state="max"')}) > 0)`,
   },
+  // Kafka (v0.5 slice 4, ADR-166): the admin API's view of the cluster, written once per
+  // scrape by the collector (no member label), groups and topics by name.
+  'kafka.partitions.offline': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) => `max by (service, service_type) (watchlog_kafka_partitions_offline${s()})`,
+  },
+  'kafka.partitions.under_replicated': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type) (watchlog_kafka_partitions_under_replicated${s()})`,
+  },
+  /** Brokers missing from Metadata against the most seen in the last hour. */
+  'kafka.brokers.missing': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type) (max_over_time(watchlog_kafka_brokers${s()}[1h])) - max by (service, service_type) (watchlog_kafka_brokers${s()})`,
+  },
+  'kafka.messages_in.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (service, service_type) (rate(watchlog_kafka_topic_end_offset${s()}[${r}]))`,
+  },
+  /** Each group's lag, all its topics summed. */
+  'kafka.group.lag': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) => `sum by (service, service_type, group) (watchlog_kafka_group_lag${s()})`,
+  },
+  /** Each group whose lag grew over the last 10 minutes while it has members (per minute). */
+  'kafka.group.lag.growth': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) => {
+      const by = 'service, service_type, group';
+      return `(sum by (${by}) (deriv(watchlog_kafka_group_lag${s()}[10m])) * 60 > 0) and on (${by}) (max by (${by}) (watchlog_kafka_group_members${s()}) > 0)`;
+    },
+  },
+  /** Each group with no member whose lag grows (5 min): the group lost its consumers. */
+  'kafka.group.lost': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) => {
+      const by = 'service, service_type, group';
+      return `(sum by (${by}) (watchlog_kafka_group_lag${s()}) > 0) and on (${by}) (max by (${by}) (watchlog_kafka_group_members${s()}) == 0) and on (${by}) (sum by (${by}) (deriv(watchlog_kafka_group_lag${s()}[5m])) > 0)`;
+    },
+  },
+  'kafka.groups.empty': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `count by (service, service_type) (max by (service, service_type, group) (watchlog_kafka_group_members${s()}) == 0) or max by (service, service_type) (watchlog_kafka_groups${s()}) * 0`,
+  },
   // RabbitMQ (v0.3 slice 11): the rabbitmq_prometheus series of every node.
   'rabbitmq.messages.ready': {
     unit: 'count',

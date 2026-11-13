@@ -8,7 +8,8 @@
 //     PostgreSQL's and MySQL's connections near max_connections to the client holding most of
 //     them and when it started, MySQL's lock waits to the session holding the lock (ADR-163),
 //     MongoDB's collection scans to the client sending them (ADR-164), Traefik's service
-//     with no server up to its backend's own cause (ADR-165). Without such an object the finding alone is a partial chain: it says
+//     with no server up to its backend's own cause (ADR-165), Kafka's consumer group that
+//     lost its members to the member's own cause (ADR-166). Without such an object the finding alone is a partial chain: it says
 //     what is wrong, not why (possible at best).
 //   - the far end of an edge (`ev.via`): the caller's calls fail or are slow, and the
 //     application monitoring what it calls has a finding ("api is slow → PostgreSQL's
@@ -59,8 +60,13 @@ const IP = /^[\d.:a-f]+$/i;
 export function linksOf(ev: Evidence): Link[] {
   const f = topFinding(ev.application);
   if (!f) return [];
-  // RabbitMQ's lost consumer and Traefik's backend with no server up link the object.
-  if (f.code === 'queue_no_consumers' || f.code === 'no_server_up') {
+  // RabbitMQ's lost consumer, Traefik's backend with no server up and Kafka's lost group
+  // members link the object.
+  if (
+    f.code === 'queue_no_consumers' ||
+    f.code === 'no_server_up' ||
+    f.code === 'group_no_members'
+  ) {
     const l = (f.links ?? []).find((x) => x.kind === 'workload' || x.kind === 'container');
     if (!l) return [];
     if (l.kind === 'container')
@@ -157,6 +163,17 @@ export function findingStep(ev: Evidence, a: EvApplication, f: Finding, next: St
       facts: {
         queue: f.facts.queue ?? '?',
         ready: num(f.facts.ready),
+        perMin: num(f.facts.perMin),
+      },
+      since: iso(num(f.facts.sinceAt)),
+    };
+  if (f.code === 'group_no_members')
+    return {
+      ...base,
+      code: 'group_no_members',
+      facts: {
+        group: f.facts.group ?? '?',
+        lag: num(f.facts.lag),
         perMin: num(f.facts.perMin),
       },
       since: iso(num(f.facts.sinceAt)),
@@ -275,6 +292,43 @@ export function throughLink(
             : own?.rule === 'bad_change'
               ? { code: 'app_consumer_change', facts: { queue, consumer: link.name } }
               : { code: 'app_consumer_ended', facts: { queue, consumer: link.name, how } },
+    };
+  }
+  // Kafka's group with no members: the former member's own cause (OOM, crash, change).
+  if (f.code === 'group_no_members') {
+    const own = bestOf(found, far);
+    const group = String(f.facts.group ?? '?');
+    const how = String(f.facts.how ?? (far.gone ? 'gone' : 'stopped'));
+    const first = findingStep(ev, a, f, 'because');
+    const ended: Step = {
+      object,
+      source: 'application',
+      code: 'group_member_ended',
+      facts: { how },
+      at: null,
+      since: null,
+      next: null,
+    };
+    const of = own?.facts ?? {};
+    return {
+      ...base,
+      facts: { name: a.name, finding: f.code, group, member: link.name, how },
+      since: own?.since ?? first.since,
+      chain: own ? [first, ...tail(own.chain, 2)] : [first, ended],
+      headline:
+        own?.rule === 'oom_limit' && typeof of.limitBytes === 'number'
+          ? {
+              code: 'app_group_oom',
+              facts: { group, member: link.name, limitBytes: of.limitBytes },
+            }
+          : own?.rule === 'crash_exit' && typeof of.exitCode === 'number'
+            ? {
+                code: 'app_group_crash',
+                facts: { group, member: link.name, exitCode: of.exitCode },
+              }
+            : own?.rule === 'bad_change'
+              ? { code: 'app_group_change', facts: { group, member: link.name } }
+              : { code: 'app_group_ended', facts: { group, member: link.name, how } },
     };
   }
   // Traefik answers 503 itself: the backend's own cause (scaled to 0, crashing, OOM) follows.

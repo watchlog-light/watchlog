@@ -72,6 +72,7 @@ const SERVICE_NAMES: Record<string, string> = {
   mysql: 'MySQL',
   mongodb: 'MongoDB',
   traefik: 'Traefik',
+  kafka: 'Kafka',
   elasticsearch: 'Elasticsearch',
 };
 

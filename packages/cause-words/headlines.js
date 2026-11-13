@@ -111,6 +111,13 @@ export const HEADLINES = {
   app_consumer_ended: '{queue} is filling up because its consumer {consumer} ended ({how}).',
   app_consumer_change:
     '{queue} is filling up because its consumer {consumer} fails since its last change.',
+  app_group_oom:
+    'Consumer group {group} falls behind because its member {member} is OOM-killed at its {limit} memory limit.',
+  app_group_crash:
+    'Consumer group {group} falls behind because its member {member} keeps exiting with code {exitCode}.',
+  app_group_ended: 'Consumer group {group} falls behind because its member {member} ended ({how}).',
+  app_group_change:
+    'Consumer group {group} falls behind because its member {member} fails since its last change.',
   app_pg_held:
     '{name} is at {pct}% of max_connections: {holder} holds one of them. | {name} is at {pct}% of max_connections: {holder} holds {n} of them.',
   app_lock_held:

@@ -59,6 +59,7 @@ export const USER_TYPES: ReadonlySet<IntegrationType> = new Set([
   'mysql',
   'redis',
   'mongodb',
+  'kafka',
   'elasticsearch',
 ]);
 
@@ -124,9 +125,26 @@ function createUser(type: IntegrationType, user: string, password: string): stri
         '--eval',
         `'${mongoUser(user, password)}'`,
       ];
+    case 'kafka':
+      // A SCRAM-SHA-512 user with Describe on the cluster, every topic and every group, and
+      // DescribeConfigs on topics (ADR-166). Run in a broker, through its own listener; the
+      // tools are on PATH in Bitnami's and Confluent's images, in /opt/kafka/bin in Apache's
+      // and Strimzi's (the native image has none: run it from any Kafka image).
+      return ['sh', '-c', `'${kafkaUser(user, password)}'`];
     default:
       return null;
   }
+}
+
+/** The commands that create Kafka's monitoring user and its ACLs (ADR-166). */
+export function kafkaUser(user: string, password: string): string {
+  const bs = '--bootstrap-server localhost:9092';
+  return [
+    'PATH="$PATH:/opt/kafka/bin:/opt/bitnami/kafka/bin"',
+    `kafka-configs.sh ${bs} --alter --entity-type users --entity-name ${user} --add-config "SCRAM-SHA-512=[password=${password}]"`,
+    `kafka-acls.sh ${bs} --add --allow-principal User:${user} --operation Describe --cluster --topic "*" --group "*"`,
+    `kafka-acls.sh ${bs} --add --allow-principal User:${user} --operation DescribeConfigs --topic "*"`,
+  ].join(' && ');
 }
 
 /** The statement that creates MongoDB's monitoring user (ADR-164). */

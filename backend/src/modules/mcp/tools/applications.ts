@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // list_applications and get_application (SPEC §4.12, ADR-135): the services WatchLog
-// monitors (Redis, PostgreSQL, MySQL, MongoDB, Nginx, Traefik, RabbitMQ…), their health with its reasons, and
+// monitors (Redis, PostgreSQL, MySQL, MongoDB, Nginx, Traefik, RabbitMQ, Kafka…), their health with its reasons, and
 // who connects to them, on Kubernetes clusters and Docker fleets.
 import { Type } from 'typebox';
 import { clusterField, resolveCluster, type ClusterRef } from '../clusters.js';
@@ -136,6 +136,16 @@ const INTEGRATION_SENTENCES: Record<string, string> = {
     'Messages are being dead-lettered (facts.n in 15 minutes, or facts.queue grows).',
   prometheus_plugin_off:
     'The rabbitmq_prometheus plugin is off on facts.n nodes; facts.command enables it, with no restart.',
+  // Kafka (ADR-166)
+  offline_partitions:
+    'Kafka partitions have no leader (facts.n, e.g. in facts.topic): they can be neither written nor read.',
+  under_replicated:
+    'Kafka partitions have fewer in-sync replicas than replicas (facts.n, e.g. in facts.topic).',
+  broker_down: 'Kafka brokers are missing from the cluster (facts.n fewer than in the last hour).',
+  group_lag_growing:
+    'A consumer group (facts.group) falls behind on facts.topic: lag facts.lag, growing by facts.perMin a minute, while it has members.',
+  group_no_members:
+    'A consumer group (facts.group, lag facts.lag, +facts.perMin a minute) has had no members since facts.since; facts.member, a member until then, ended facts.how facts.when (links: the likely former members, closest first).',
 };
 
 /** WatchLog's sentence for a reason code; the facts come with it, cleaned. */
@@ -216,7 +226,7 @@ export const listApplicationsTool = defineTool({
   name: 'list_applications',
   title: 'List monitored services',
   description: describe(
-    'The services WatchLog monitors in a cluster or Docker fleet: databases, caches, queues and web servers (Redis, PostgreSQL, MySQL and MariaDB, MongoDB, Nginx, Traefik, RabbitMQ), problems first.',
+    'The services WatchLog monitors in a cluster or Docker fleet: databases, caches, queues and web servers (Redis, PostgreSQL, MySQL and MariaDB, MongoDB, Nginx, Traefik, RabbitMQ, Kafka), problems first.',
     "Each has its type, version, where it runs (namespace on Kubernetes; host and Compose project on Docker), health (ok, warning, critical, unknown) with a reason code, a sentence and facts, and how many of its members (pods or containers) the collector reaches. Pass `cluster` to see one cluster; leave it out to see every cluster the token can read. Use get_application for one service's reasons and who connects to it.",
     'Example question: "Is any of our databases unhealthy?"',
   ),
@@ -232,6 +242,8 @@ export const listApplicationsTool = defineTool({
             Type.Literal('rabbitmq'),
             Type.Literal('mysql'),
             Type.Literal('mongodb'),
+            Type.Literal('traefik'),
+            Type.Literal('kafka'),
             Type.Literal('elasticsearch'),
           ],
           { description: 'Only services of this type.' },
@@ -275,7 +287,7 @@ export const getApplicationTool = defineTool({
   name: 'get_application',
   title: 'Get a monitored service',
   description: describe(
-    'One monitored service (Redis, PostgreSQL, MySQL, MongoDB, Nginx, Traefik, RabbitMQ…): its health, every reason WatchLog sees (most severe first, each with a code, a sentence, facts and the workloads or containers it points to), and the workloads or containers that connect to it over the last hour, with connection and failed-connect counts (from network flows; `connected.flows` is false when the agents report none).',
+    'One monitored service (Redis, PostgreSQL, MySQL, MongoDB, Nginx, Traefik, RabbitMQ, Kafka…): its health, every reason WatchLog sees (most severe first, each with a code, a sentence, facts and the workloads or containers it points to), and the workloads or containers that connect to it over the last hour, with connection and failed-connect counts (from network flows; `connected.flows` is false when the agents report none).',
     'Pass `name` as list_applications shows it ("shop/redis" on Kubernetes, "billing/postgres" for a Compose service, or a container name), or its id.',
     'Example question: "Why is payments/postgres critical, and which services use it?"',
   ),

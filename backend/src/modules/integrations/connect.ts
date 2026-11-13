@@ -146,6 +146,7 @@ const ProbeBody = Type.Object(
       Type.Literal('mysql'),
       Type.Literal('mongodb'),
       Type.Literal('traefik'),
+      Type.Literal('kafka'),
       Type.Literal('elasticsearch'),
     ]),
     target: TargetSchema,

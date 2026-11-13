@@ -80,6 +80,16 @@ export const SERVICE_KINDS: ServiceKind[] = [
     available: true,
   },
   {
+    // Kafka (ADR-166): Apache's JVM and native images, Bitnami's, Confluent's and Strimzi's
+    // (quay.io/strimzi/kafka). Every broker is a member; the collector reads the others
+    // from Metadata.
+    type: 'kafka',
+    image: /(^|\/)(kafka|kafka-native|cp-kafka|cp-server)$/,
+    not: /(exporter|operator|ui|connect|rest|schema-registry|zookeeper|bridge|mirror|cruise|kafdrop|akhq)/,
+    ports: [9092],
+    available: true,
+  },
+  {
     type: 'elasticsearch',
     image: /(^|\/)elasticsearch$/,
     not: /(exporter|operator)/,

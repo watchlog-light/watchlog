@@ -1283,6 +1283,14 @@ export interface paths {
               | 'mongodb.slow_ops.rate'
               | 'mongodb.oplog.window'
               | 'mongodb.cache.ratio'
+              | 'kafka.partitions.offline'
+              | 'kafka.partitions.under_replicated'
+              | 'kafka.brokers.missing'
+              | 'kafka.messages_in.rate'
+              | 'kafka.group.lag'
+              | 'kafka.group.lag.growth'
+              | 'kafka.group.lost'
+              | 'kafka.groups.empty'
               | 'rabbitmq.messages.ready'
               | 'rabbitmq.messages.unacked'
               | 'rabbitmq.publish.rate'
@@ -7093,6 +7101,7 @@ export interface paths {
               | 'mysql'
               | 'mongodb'
               | 'traefik'
+              | 'kafka'
               | 'elasticsearch';
             target:
               | {
@@ -7710,6 +7719,7 @@ export interface paths {
             | 'mysql'
             | 'mongodb'
             | 'traefik'
+            | 'kafka'
             | 'elasticsearch';
         };
         header?: never;
@@ -8586,6 +8596,7 @@ export interface paths {
               | 'mysql'
               | 'mongodb'
               | 'traefik'
+              | 'kafka'
               | 'elasticsearch';
             target:
               | {

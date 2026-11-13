@@ -2735,6 +2735,38 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["kafka.partitions.offline"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["kafka.partitions.under_replicated"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["kafka.brokers.missing"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["kafka.messages_in.rate"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["kafka.group.lag"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["kafka.group.lag.growth"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["kafka.group.lost"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["kafka.groups.empty"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["rabbitmq.messages.ready"]
                       },
                       {
@@ -19588,6 +19620,10 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["kafka"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["elasticsearch"]
                       }
                     ]
@@ -21173,6 +21209,10 @@
                 {
                   "type": "string",
                   "enum": ["traefik"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["kafka"]
                 },
                 {
                   "type": "string",
@@ -23890,6 +23930,10 @@
                       {
                         "type": "string",
                         "enum": ["traefik"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["kafka"]
                       },
                       {
                         "type": "string",

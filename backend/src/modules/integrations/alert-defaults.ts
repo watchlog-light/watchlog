@@ -267,6 +267,46 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
       forSeconds: 0,
     },
   ],
+  kafka: [
+    {
+      key: 'kafka_offline_partitions',
+      name: 'Kafka partitions offline',
+      metric: 'kafka.partitions.offline',
+      condition: { op: '>', value: 0 },
+      forSeconds: 60,
+      severity: 'critical',
+    },
+    {
+      key: 'kafka_under_replicated',
+      name: 'Kafka partitions under-replicated',
+      metric: 'kafka.partitions.under_replicated',
+      condition: { op: '>', value: 0 },
+      forSeconds: 300,
+    },
+    {
+      key: 'kafka_broker_down',
+      name: 'Kafka broker down',
+      metric: 'service.reachable.ratio',
+      condition: { op: '<', value: 1 },
+      forSeconds: 60,
+      severity: 'critical',
+    },
+    {
+      key: 'kafka_group_lag_growing',
+      name: 'Kafka consumer group lag growing',
+      metric: 'kafka.group.lag.growth',
+      condition: { op: '>', value: 0 },
+      forSeconds: 600,
+    },
+    {
+      key: 'kafka_group_lost',
+      name: 'Kafka consumer group lost its members',
+      metric: 'kafka.group.lost',
+      condition: { op: '>', value: 0 },
+      forSeconds: 300,
+      severity: 'critical',
+    },
+  ],
   rabbitmq: [
     {
       key: 'rabbitmq_queue_unconsumed',

@@ -14,6 +14,7 @@ export const INTEGRATION_TYPES = [
   'mysql',
   'mongodb',
   'traefik',
+  'kafka',
   'elasticsearch',
 ] as const;
 export type IntegrationType = (typeof INTEGRATION_TYPES)[number];
