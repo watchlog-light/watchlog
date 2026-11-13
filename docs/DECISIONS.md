@@ -2572,3 +2572,152 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - Identities as the flows name them: the workload (`namespace/kind/name`) on Kubernetes, the container name on Docker. A replica set in one workload (MongoDB, Kafka, a PostgreSQL StatefulSet) is reached by its own members, so it stays.
 - Measured (e2e stack): 7 candidates became 4 (`shop/orders`, `shop/sessions`, `causes-e2e/leak` left out; every server kept), the discovery answer in 47 ms.
 - Known limit: a replica in a workload of its own that only connects to its primary, and whose readers are outside the cluster or host, reads as a client; Add manually still monitors it.
+
+## ADR-173: WatchLog Cloud opens before the launch, as a beta in release 0.6.0
+
+- Date: 2026-11-13 · Status: accepted (Cloud slice 0; pre-approved, reviewed after the fact; brings SPEC §13 Phase 5 forward)
+- Context: the live demo gets a few visitors a day without any promotion, and the launch (2 December 2026) should let a visitor start in minutes without running anything. Stripe can't be switched on until a payment entity exists (SPEC §16), which takes longer than the code.
+- Decision:
+  - **Scope:** Phase 5 (SPEC §13) is built now, before the launch: multi-tenancy, accounts, onboarding, plans and limits, billing (built and tested, not live), lifecycle emails and funnel, the Cloud admin, the production kit and the trust pages. It ships in the public release **0.6.0**.
+  - **One switch:** `WATCHLOG_EDITION=cloud` turns on every Cloud-only path (signup, OAuth, the wizard's Cloud parts, entitlements and limits, Redis quotas, funnel events, lifecycle emails, the internal admin and billing APIs, the SSRF egress policy). Unset (or `community`), the product behaves exactly as 0.5.0: one default org, no limits (ADR-151), no signup, no billing. The Cloud routes answer 404 there, and a test pins that set. The Helm upgrade test from 0.5.0 must pass unchanged.
+  - **How Cloud opens:** invite waves from the existing waitlist, then public signup (a setting in the Cloud admin).
+  - **Pro free during beta:** while `BILLING_LIVE=false`, an org can switch to Pro without a card (`source: beta`): 30 days of data, unlimited clusters and nodes, up to 10 users. Users get 14 days' notice by email before billing starts. Prices (SPEC §3.2) don't change.
+  - **What Pro gives in 0.6.0:** the limits above and email support. The multi-cluster view, SLO reports and basic anomaly detection are Phase 6: pages and the site say "coming to Pro", never that they're included.
+  - **Where code goes:** tenancy, accounts, onboarding, entitlements, limits, funnel, lifecycle emails and the Cloud admin's API are product code in this repository, behind the switch. The billing service, the production Compose kit and Cloud operations are in the private Cloud repository; the marketing and trust pages are in the site's. The public `deploy/cloud/` placeholder (a Caddy layout, SPEC §5.5's first draft) is removed; SPEC §5.5 describes what runs instead.
+  - **Not in this release:** a shared Telegram bot with a webhook (channels keep their own bot tokens), the Phase 6 Pro features, live billing, a paid pen test, a region claim before the owner confirms where the server is.
+- Alternatives: Cloud after the launch (rejected by the owner: visitors already ask for it); a separate Cloud codebase (rejected: SPEC §3.4, self-hosters run the same code).
+- Consequences: SPEC §3, §5.4, §5.5, §10 and §13 are updated. Every Cloud slice keeps Community's behaviour pinned by the existing suites plus a "Community unchanged" route test.
+
+## ADR-174: Tenancy: org_id on every tenant row, Row-Level Security under a role that can't bypass it, the org per connection checkout
+
+- Date: 2026-11-13 · Status: accepted (Cloud slice 0; pre-approved, reviewed after the fact; completes ADR-035)
+- Context: ADR-035 put `org_id` on the first tables and left Row-Level Security for Phase 5. Measured on the 0.5.0 schema: `clusters`, `alert_channels`, `alert_rules`, `alert_states`, `api_tokens`, `audit_events`, `discovery_ignores`, `integration_events`, `integration_probes`, `integrations`, `invites`, `mcp_calls`, `memberships`, `notifications`, `seed_services` and `silences` carry `org_id`; `objects`, `change_markers`, `agent_instances`, `cluster_tokens`, `ingest_errors`, and `integration_collectors` carry only `cluster_id`; `integration_credentials`, `notification_alerts`, `api_token_events` reach their org through a parent row. 64 backend files share one Kysely instance on one pg pool.
+- Decision:
+  - **`org_id` on every tenant row:** the cluster-keyed and parent-keyed tables gain `org_id NOT NULL`, backfilled from their cluster or parent in the same migration, with a composite foreign key to their parent where one exists (`(cluster_id, org_id)` → `clusters`), so a row can't name one org's cluster under another org.
+  - **RLS on every tenant table:** `USING (org_id = current_setting('watchlog.org_id', true)::uuid)` with the same `WITH CHECK`. An unset or empty setting matches nothing.
+  - **Two database roles in Cloud:** the request path connects as `watchlog_app` (not the owner, `NOBYPASSRLS`); migrations and a small allow-listed `systemDb` connect as the owner. `systemDb` is used only for what must work before the org is known or across orgs: session, API-token, cluster-token, invite, email-token and OAuth-identity lookups; the ingest token check; the workers listing orgs; the internal billing and admin APIs. A test fails if any other file imports it.
+  - **The org per connection checkout:** an `AsyncLocalStorage` holds the request's org; the pool given to Kysely sets `watchlog.org_id` on every checkout (empty outside an org context), so each query and transaction runs under the right org without changing the 64 modules. Workers run each org's work inside `withOrg(orgId, …)`.
+  - **Community:** the same migrations add the columns and policies, but the backend keeps connecting as the owner, which RLS doesn't apply to (no `FORCE`), and the data-access layer keeps scoping by org as today. Behaviour and performance are 0.5.0's.
+  - **VictoriaMetrics:** one guard, `clusterForOrg(orgId, clusterId)`, authorises a cluster before any query, SSE stream, MCP tool or export; the VictoriaMetrics client accepts only its result (a branded type), and adds `extra_label=cluster_id` as before (ADR-028). Ingest already takes the cluster from the token (ADR-026).
+  - **Per-org limits in Redis (Cloud):** API and MCP rate limits and ingest quotas are keyed by org in Redis, so they hold across backend replicas (ADR-027's open item). Community keeps its in-memory buckets.
+- Alternatives: a Kysely transaction per request passed through every module (rejected: touches every module and holds a transaction for SSE streams); `SECURITY DEFINER` functions for the pre-org lookups (rejected: more SQL to review than one allow-listed module); a database or schema per org (rejected: thousands of Free orgs).
+- Consequences: one extra `set_config` round trip per checkout in Cloud (measured in slice 1). Isolation has two layers that are tested separately (ADR-182): the queries' own `org_id` filters, and RLS under `watchlog_app` with the filters removed.
+
+## ADR-175: Accounts in Cloud: email and password, GitHub and Google, TOTP, Turnstile, many orgs per user
+
+- Date: 2026-11-13 · Status: accepted (Cloud slice 0; pre-approved, reviewed after the fact)
+- Context: SPEC §10.1 wants signup in 60 seconds; an infrastructure tool needs 2FA; Community keeps its first-run setup and invites (ADR-140).
+- Decision:
+  - **Signup** (Cloud only): email and password (argon2id as ADR-034, at least 10 characters, a strength meter), or GitHub or Google. No card, no company field. A verification link is sent; it doesn't block onboarding, and an account not verified in 7 days can sign in only to verify. Signup creates the user, an org named after the email's local part (renamable), an Owner membership and Free entitlements.
+  - **Breached passwords:** the Have I Been Pwned range API with k-anonymity (only the first 5 hex characters of the SHA-1 leave), through `fetch` with a 2-second timeout; when it can't answer, signup goes on and the check is logged as skipped.
+  - **OAuth** (GitHub and Google) through `fetch`: the authorization-code flow with PKCE and a `state` bound to a short-lived HttpOnly cookie. Accounts are linked only by the provider's id; an existing email account is linked only after the user signs in with its password, never by matching emails. GitHub's primary email must be verified.
+  - **TOTP 2FA** (`otpauth`, RFC 6238, 30 s, ±1 step, a used step not accepted twice), its secret encrypted with AES-256-GCM under `WATCHLOG_SECRET_KEY` (ADR-079), 10 single-use recovery codes stored as SHA-256. Optional for everyone; required for Owners of orgs whose entitlements come from billing (not the beta). Sign-in after the password or OAuth step asks for the code; the session records `mfa_passed_at`.
+  - **Turnstile** on signup, password reset and resend-verification, verified server-side with `fetch`; off when `TURNSTILE_SECRET_KEY` is unset (tests, development).
+  - **Abuse:** signups limited per IP (5 an hour) and per email domain (20 a day), a built-in list of disposable-email domains extendable by a file, login and reset rate-limited per IP and per account; messages never reveal whether an email has an account.
+  - **Sessions:** ADR-033's, rotated at sign-in and at the 2FA step, listed and revocable in Settings › Security; always `Secure` in Cloud.
+  - **Orgs:** a user may belong to several orgs; the session carries the current one, and an org switcher appears when there are two or more. Invites (ADR-140) work across orgs: an existing account joins with one click. Cloud Free has one user, so invites ask to try Pro first.
+  - **Community:** none of this is reachable; `/setup` and invites work as in 0.5.0.
+- Alternatives: an external identity service (rejected: another dependency and another place for data); magic links instead of passwords (rejected: mail delays hurt the 60-second target).
+- Consequences: new tables `user_identities`, `email_tokens`, `recovery_codes`; `users` gains `email_verified_at`, `totp_secret`, `disabled_at`; `sessions` gains `mfa_passed_at` and `org_id`. GitHub and Google OAuth apps and the Turnstile keys are the owner's to create.
+
+## ADR-176: Onboarding in Cloud: the wizard, a live checklist over SSE, troubleshooting, the live demo as the sample
+
+- Date: 2026-11-13 · Status: accepted (Cloud slice 0; pre-approved, reviewed after the fact)
+- Context: SPEC §10.2 targets 3 minutes from signup to data; the design references are the six Cloud screens.
+- Decision:
+  - **The wizard:** Kubernetes or Docker → a name (prefilled) → one command with the token in it (Helm, kubectl manifest, docker run, Compose) → the live checklist → "Open dashboard" → an optional alert channel (Slack, Telegram, email prefilled with the user's verified email).
+  - **The live checklist:** `GET /api/v1/clusters/:id/onboarding-status` as Server-Sent Events (JSON polling fallback), from data the backend already has: agent heartbeats (and how many nodes), the cluster agent (Kubernetes), the first metrics, eBPF on or why not (ADR-107), the service map's first edges. A step's detail is in plain words; nothing is invented while waiting.
+  - **The kubectl manifest** is fetched with a separate install code (`wl_ic_`, 256 bits, SHA-256 at rest, one cluster, valid 24 hours, revoked with the cluster token), never the cluster token in a URL; the nginx vhost logs the path without the query string.
+  - **Troubleshooting** after 2 minutes without a heartbeat (SPEC §10.3): the copy-paste diagnostics for the chosen platform, the common causes with fixes, and "Get help installing", which mails support with the cluster id.
+  - **The sample:** "Look around a sample organisation" opens the read-only live demo (`demo.watchlog.io`) in a new tab. No demo data is copied into Cloud, so isolation has nothing to except.
+  - **First-week checklist** on the overview: connect a channel, invite a teammate, connect an application, try MCP with your AI, and see your first explained problem. Each step is a funnel event, and the card hides once all are done or dismissed.
+  - **Community:** the existing "Add cluster" flow gains the live checklist (the same endpoint), since it helps self-hosters too; signup, the sample link and the first-week card are Cloud only.
+- Alternatives: a sample org inside Cloud fed with the demo's data (rejected: a second copy of the demo's metrics and an exception in the isolation suite); the token in the manifest URL as SPEC §10.2 first said (rejected: URLs end up in logs and shell history).
+- Consequences: SPEC §10 is updated. The wizard's timings are measured in slice 9 on kind and Docker.
+
+## ADR-177: Plans and entitlements: what each plan allows, how limits answer, two retention tiers
+
+- Date: 2026-11-13 · Status: accepted (Cloud slice 0; pre-approved, reviewed after the fact; uses ADR-027's 402)
+- Context: SPEC §3.2 sets the plans; the product must enforce them without knowing about Stripe.
+- Decision:
+  - **Entitlements:** one row per org (`plan`, `clusters`, `nodes`, `users`, `retention_days`, `pro_features`, `beta_until`, `source`: `beta`, `billing` or `staff`), written only through the internal API by the billing service or staff. The product reads it, cached for 60 seconds. Community has no row and no limits.
+  - **Defaults:** Free 1 cluster or Docker fleet, 5 nodes, 3 days, 1 user; Pro unlimited clusters and nodes, 30 days, 10 users.
+  - **Limits:**
+    - A cluster over the plan: `POST /clusters` answers 409 `urn:watchlog:problem:plan-limit`.
+    - A node over the plan: ingest answers **402** for an agent instance the org hasn't seen in the last 24 hours, never for one already sending (ADR-027).
+    - A user over the plan: invites answer 409 `plan-limit`.
+    - The UI shows a plain banner with the count and the way out, and the Owners get one email per limit and day.
+  - **Downgrade:** data is never deleted before its retention runs out. Nodes and clusters already sending keep sending for 14 days; then the nodes beyond the plan, newest first, get 402. The banner counts the days.
+  - **Usage:** a job records each org's distinct sending nodes and Docker hosts every hour in `usage_hourly`; an internal API returns the hourly counts and the 95th percentile for a period (the bill, SPEC §3.3).
+  - **Retention tiers:** two VictoriaMetrics instances, `vm-3d` and `vm-30d` (SPEC §5.4). Ingest writes to the org's current tier. After a plan change, queries read both for the old tier's retention and merge series by their labels, preferring the current tier's points. The cost per node of each tier is measured in slice 9 and recorded here.
+  - **Pro features:** `pro_features` gates only what is built. In 0.6.0 that is nothing beyond the limits; Phase 6 features check it when they arrive.
+- Alternatives: 402 for every write over the limit (rejected: an autoscaling spike would blind a paying team); one VictoriaMetrics with per-series retention (rejected: VictoriaMetrics' single-node version has one retention per instance).
+- Consequences: Community is untouched (no row, no checks). SPEC §3.2, §3.3 and §5.4 note the details.
+
+## ADR-178: Billing is a separate service behind an interface, built on Stripe's test mode, live switch off
+
+- Date: 2026-11-13 · Status: accepted (Cloud slice 0; pre-approved, reviewed after the fact)
+- Context: SPEC §3.3 chose Stripe (Checkout, Billing, Customer Portal, usage reported daily). Billing code stays out of this repository (SPEC §3.4). There's no payment entity yet.
+- Decision:
+  - **A small TypeScript service** in the private Cloud repository, with the `stripe` package, its own PostgreSQL schema `billing` and role (Stripe customer and subscription ids, processed webhook event ids, meter reports sent; never card data), and a `BillingProvider` interface so Stripe can be replaced.
+  - **Prices** (SPEC §3.3, its open choice decided here): monthly Pro is a metered, graduated price: the first 10 nodes are a flat $10, then $1 per node. That is the $10 minimum with no separate fee. Annual Pro is a committed node count at $10 per node a year (2 months free), minimum 10 nodes, with nodes above the commitment billed monthly at the metered price.
+  - **Usage:** once a day the service reads the org's 95th percentile so far in the period from the product's internal usage API and sends it as a meter event to a meter that aggregates with `last`. The period's last report is the period's p95. Reports are idempotent per org and day.
+  - **Webhooks:** the signature is verified (`stripe.webhooks.constructEvent`, 5-minute tolerance), each event id is processed once (insert-or-skip in the same transaction as its effect), and handlers converge on Stripe's current state rather than trusting event order. They write entitlements through the product's internal API.
+  - **Dunning:** Stripe's retries plus WatchLog's own emails. After 14 days unpaid, the org moves to Free (data kept, ADR-177).
+  - **The live switch:** `BILLING_LIVE=false` by default. While false, the service refuses `sk_live_` and `rk_live_` keys and the product offers "Pro free during beta" instead of Checkout. With no test keys, everything runs against `stripe-mock`.
+  - **The internal API** (product ↔ billing) listens only on the Compose network, authenticated by a shared `WATCHLOG_INTERNAL_TOKEN`, compared in constant time and rotatable with a previous value.
+  - **Card data never reaches our servers:** Checkout and the Customer Portal are Stripe's pages.
+- Alternatives: billing inside the backend (rejected: SPEC §3.4); a reseller (Paddle, Lemon Squeezy) (kept possible by the interface; the owner and a lawyer decide with the entity).
+- Consequences: tests run on `stripe-mock` in CI and against Stripe's test mode when test keys exist. Switching billing on is a config change plus the 14 days' notice.
+
+## ADR-179: Lifecycle emails, the funnel and the Cloud admin, with an audited support mode
+
+- Date: 2026-11-13 · Status: accepted (Cloud slice 0; pre-approved, reviewed after the fact)
+- Context: SPEC §10.4 wants funnel events from day one and an admin page; staff sometimes need to see a customer's org to help, and customers need to know when that happened.
+- Decision:
+  - **Funnel events** (Cloud): `funnel_events` (org, user, event, props, time), written server-side where the event happens, plus `POST /api/v1/funnel` for the few client-side ones (an allow-listed set: `install_command_copied`, `sample_opened`, `dashboard_first_view`). SPEC §10.4's events plus `email_verified`, `second_cluster_added`, `teammate_invited`, `application_connected`, `mcp_first_call`, `pro_started`.
+  - **Lifecycle emails** (Cloud): plain text from the founder's address, through the existing SMTP setup, each with a one-click unsubscribe (a signed token, `List-Unsubscribe` and `List-Unsubscribe-Post`). They are welcome; no data after 1 hour; the first alert explained; day 3 tips; near a Free limit; and the beta-to-billing notice. They are sent by a job in the alert worker, at most one lifecycle email a day per user, and recorded so none is sent twice.
+  - **The Cloud admin:** the product exposes an internal admin API (orgs, usage, plans and entitlements, funnel by week, support sessions), reachable only on the Compose network with `WATCHLOG_INTERNAL_TOKEN` and the staff member's identity. The waitlist's admin panel (already behind its own sign-in with TOTP) grows into the Cloud admin and calls it.
+  - **Support mode:** a staff member opens a support session for one org with a reason. It is read-only, lasts at most 1 hour, and is recorded in `support_sessions` and the org's audit events. The org's Owners see each session (who, when, why, what was opened) in Settings › Security and get an email when one starts. API and cluster tokens record "accessed by WatchLog staff" when read in support mode.
+- Alternatives: a third-party product-analytics tool (rejected: sends user data to another processor); staff signing in as the user (rejected: no audit trail, and it can write).
+- Consequences: the waitlist admin panel and the Cloud admin share one sign-in. Subprocessors stay minimal (Stripe, Cloudflare, the email provider, the backup storage).
+
+## ADR-180: Cloud runs on the current production server, as its own Compose project behind the host's nginx
+
+- Date: 2026-11-13 · Status: accepted (Cloud slice 0; pre-approved, reviewed after the fact; replaces SPEC §5.5's Caddy layout)
+- Context: the owner decided Cloud starts on the current server (36 GB), which already runs the v1 app, the site and the waitlist, and the live demo. The host's nginx already owns ports 80 and 443.
+- Decision:
+  - **Its own Compose project** (`watchlog-cloud`), network and volumes, under its own data directory: backend, alert worker, web, `vm-3d`, `vm-30d`, PostgreSQL 16, Redis and billing, from the public release's images plus the private billing image. Ports publish on 127.0.0.1 only; no other project's container can reach Cloud's PostgreSQL, Redis or VictoriaMetrics.
+  - **Limits on every container** (memory and CPU), set from measurements in slice 7 and checked in its test. The demo keeps its caps, so a demo OOM scenario can't starve Cloud.
+  - **The host's nginx:** new vhost files for `cloud.watchlog.io` (the dashboard and API) and `ingest.watchlog.io` (agents only: `/ingest/` and nothing else, body limits as ADR-027, the query string kept out of the access log). The owner installs them with sudo, with certificates from the setup the site already uses, behind Cloudflare. No Caddy.
+  - **status.watchlog.io** is an external uptime service's status page (a DNS record the owner adds, no vhost), so it stays up when the server doesn't.
+  - **Backups:** nightly `pg_dump`, WAL archiving and VictoriaMetrics snapshots, encrypted on the server before they leave it (OpenSSL in the PostgreSQL image: AES-256-CBC with PBKDF2, then HMAC-SHA256 over the ciphertext, keys only in the server's env file), uploaded to S3-compatible storage with `curl --aws-sigv4`. A restore-test script runs monthly into a scratch Compose project and checks row counts and a metric.
+  - **Monitoring:** a WatchLog Docker agent on the server reports the Cloud project's containers to a staff org in Cloud itself, with the external uptime check for when Cloud is down.
+  - **The demo's privileged Docker host** (ADR-170) is the main risk on a box with customer data. Before the first customers are invited, the owner either turns it off (`DEMO_DOCKER=off`) or moves the demo to another server.
+  - **Tested** in a Lima VM that runs the server kit, the demo kit and the Cloud kit together, like the server kit's `server-test.sh`. Nothing existing on the server is touched; everything that needs sudo is in the owner's command list.
+- Alternatives: a new server (rejected by the owner for now: no extra cost until there are customers); Caddy as in SPEC §5.5 (rejected: the host's nginx owns 80 and 443).
+- Consequences: SPEC §5.5 is rewritten. A later move to its own server is a copy of the data directory and a DNS change.
+
+## ADR-181: The Cloud security baseline
+
+- Date: 2026-11-13 · Status: accepted (Cloud slice 0; pre-approved, reviewed after the fact; closes ADR-091 item 2 for Cloud)
+- Context: SPEC §14 asks for OWASP ASVS L1. A hosted service that holds many teams' cluster data needs more, checked by someone who didn't write it.
+- Decision:
+  - **SSRF egress policy** (Cloud): webhook, Slack and other channel URLs, and every server-side fetch to a user-given address, resolve the host and refuse loopback, private, link-local, CGNAT, multicast and metadata addresses (IPv4 and IPv6, IPv4-mapped included). The check runs at save time and again at send time, on the address actually connected to (no DNS rebinding), and doesn't follow redirects. Community keeps any `http(s)` URL (ADR-091), since self-hosters post to their own networks.
+  - **Headers** (Cloud): a strict Content-Security-Policy for the dashboard (`default-src 'self'`, no inline scripts, `frame-ancestors 'none'`), HSTS at the nginx vhost, `Referrer-Policy: strict-origin-when-cross-origin`, and `Secure` cookies always. CSRF is as ADR-034.
+  - **Tokens:** cluster, API and install tokens are scoped to one org and hashed (ADR-025, ADR-125); secrets at rest are AES-256-GCM (ADR-079, ADR-133), and the key rotation is documented and tested.
+  - **Data rights:** an Owner can export the org (its configuration as JSON, and a metrics range per cluster through VictoriaMetrics' export, scoped by `cluster_id`) and delete it. Deletion has a 7-day undo; then a job deletes its PostgreSQL rows and its series in both tiers (`delete_series` by `cluster_id`) and records the deletion.
+  - **Inactive orgs:** a Free org with no data for 30 days is warned by email, then suspended after 7 more (ingest 402, sign-in still works to export or delete).
+  - **Review:** before the first invite wave, a separate review pass that didn't write the code checks against OWASP ASVS L2 and this list; findings are fixed or recorded. A paid pen test follows once there is revenue.
+- Consequences: SPEC §14's security line reads ASVS L2 for Cloud. The isolation suite (ADR-182) is the release gate.
+
+## ADR-182: The cross-org isolation suite is the release gate
+
+- Date: 2026-11-13 · Status: accepted (Cloud slice 0; pre-approved, reviewed after the fact)
+- Context: one leak between orgs would end the product's credibility. Routes grow every release.
+- Decision:
+  - **Two orgs,** each with a Kubernetes cluster and a Docker fleet with objects, metrics, alerts, channels, applications, tokens and users, seeded directly (no agents needed), against real PostgreSQL and VictoriaMetrics.
+  - **Everything is enumerated, not listed by hand:** every REST route from Fastify's route table, every MCP tool from the MCP server, every curated query key from the catalog, every ingest path and every SSE stream. Each is called as org B with org A's ids, and must answer 404 (or 403 where the role decides first) or an empty answer. Ingest with org B's token never lands in org A's cluster. A new route, tool, key or stream without a classification fails the suite.
+  - **Two layers tested separately:** the routes under `watchlog_app` with RLS (the product as it runs), and a direct check that every tenant table has RLS on and that a query with no org setting returns no rows.
+  - **Where it runs:** in CI on every push, as its own job, and in every Cloud slice's fast checks. It must stay under 5 minutes. A failing isolation test is fixed before anything else.
+- Consequences: each slice adds its new routes to the classification. Community runs the same suite's route table to prove the Cloud routes answer 404 there.
