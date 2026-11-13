@@ -12,13 +12,16 @@ describe('auth store', () => {
   it('loads the signed-in user once', async () => {
     const { calls } = mockFetch({
       'GET /api/v1/setup': { status: 200, body: { required: false } },
+      // Community: the Cloud config route doesn't exist (ADR-175).
+      'GET /api/v1/auth/config': problem(404, 'Not Found'),
       'GET /api/v1/me': { status: 200, body: { user: USER } },
     });
     const auth = useAuthStore();
     await Promise.all([auth.ensureLoaded(), auth.ensureLoaded()]);
     await auth.ensureLoaded();
     expect(auth.user?.email).toBe(USER.email);
-    expect(calls).toHaveLength(2);
+    expect(auth.isCloud).toBe(false);
+    expect(calls).toHaveLength(3);
   });
 
   it('treats 401 from /me as signed out', async () => {
@@ -33,11 +36,14 @@ describe('auth store', () => {
   });
 
   it('does not ask for /me while setup is required', async () => {
-    const { calls } = mockFetch({ 'GET /api/v1/setup': { status: 200, body: { required: true } } });
+    const { calls } = mockFetch({
+      'GET /api/v1/setup': { status: 200, body: { required: true } },
+      'GET /api/v1/auth/config': problem(404, 'Not Found'),
+    });
     const auth = useAuthStore();
     await auth.ensureLoaded();
     expect(auth.setupRequired).toBe(true);
-    expect(calls.map((c) => c.path)).toEqual(['/api/v1/setup']);
+    expect(calls.map((c) => c.path)).toEqual(['/api/v1/setup', '/api/v1/auth/config']);
   });
 
   it('retries loading after a network failure', async () => {
