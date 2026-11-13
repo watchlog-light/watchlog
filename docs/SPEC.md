@@ -68,6 +68,8 @@ _Not part of the public specification._
 
 # 3. Editions and pricing
 
+> WatchLog Cloud opens as a beta in release 0.6.0, before the launch (ADR-173). While billing is off (`BILLING_LIVE=false`), Pro is free during the beta, with 14 days' notice before billing starts.
+
 ## 3.1 Principles
 
 1. **The free product is complete, for every cluster you run.** Monitoring, service map and alerting are never paywalled.
@@ -93,9 +95,9 @@ _Not part of the public specification._
 | Probable cause: fixed rules with their evidence, in the UI, API, MCP and messages (v0.4, ADR-146) | ✓ | ✓ | ✓ | ✓ |
 | Data retention | Limited by your disk (default 15 d) | 3 days | 30 days | Configurable (1 year+) |
 | Users | Unlimited: Owner, Admin, Viewer (ADR-140) | 1 | Up to 10 | Unlimited |
-| Unified multi-cluster view | — | — | ✓ | ✓ |
-| SLO / availability reports | — | — | ✓ | ✓ |
-| Anomaly detection — basic (auto-baselines) | — | — | ✓ | ✓ |
+| Unified multi-cluster view | — | — | ✓ (Phase 6) | ✓ |
+| SLO / availability reports | — | — | ✓ (Phase 6) | ✓ |
+| Anomaly detection — basic (auto-baselines) | — | — | ✓ (Phase 6) | ✓ |
 | Anomaly detection — advanced (correlation & root-cause hints) | — | — | — | ✓ |
 | SSO (OIDC/SAML), LDAP | — | — | — | ✓ |
 | RBAC (per-cluster / per-namespace roles) | — | — | — | ✓ |
@@ -103,15 +105,17 @@ _Not part of the public specification._
 | Air-gapped install, offline license | — | — | — | ✓ |
 | Support | GitHub issues, community chat | Community | Email (2 business days) | SLA + dedicated channel |
 
+Rows marked (Phase 6) are not in 0.6.0: Cloud pages and the site say "coming to Pro" for them (ADR-173). Cloud limits and how they answer (409 `plan-limit`, 402 on ingest for new nodes only): ADR-177.
+
 **Why anomaly detection is paid:** it needs at least 7-14 days of history to learn weekly seasonality, which only the paid retention tiers provide, and it costs real compute per series.
 
 ## 3.3 Pricing rationale and billing
 
 - **$1 per node per month** is deliberately far below typical per-host SaaS pricing. The goal is to make "just use Cloud" cheaper than the time spent maintaining a self-hosted stack, and to win on volume and word of mouth.
-- **Minimum $10 / month** (covers up to 10 nodes). Without a minimum, Stripe's fixed per-transaction fee would eat a large share of very small invoices (e.g. a 3-node, $3 invoice). Alternative to evaluate: no minimum but **annual billing only** below 10 nodes. Record the choice in `DECISIONS.md`.
-- **Annual plan:** 2 months free (pay for 10, get 12).
+- **Minimum $10 / month** (covers up to 10 nodes). Without a minimum, Stripe's fixed per-transaction fee would eat a large share of very small invoices (e.g. a 3-node, $3 invoice). **Decided (ADR-178):** a graduated metered price, the first 10 nodes a flat $10, then $1 per node.
+- **Annual plan:** 2 months free (pay for 10, get 12): a committed node count at $10 per node a year, minimum 10, with nodes above it billed monthly at the metered price (ADR-178).
 - **Billable nodes** = the 95th percentile of hourly node counts in the billing period, so autoscaling spikes do not inflate the bill.
-- **Billing provider: Stripe** (Stripe Checkout + Billing + Customer Portal, usage-based price reported daily via Stripe usage records/meters). Invoices, tax and card management stay in Stripe; WatchLog stores only the Stripe customer and subscription IDs.
+- **Billing provider: Stripe** (Stripe Checkout + Billing + Customer Portal, usage-based price reported daily via Stripe usage records/meters). Invoices, tax and card management stay in Stripe; WatchLog stores only the Stripe customer and subscription IDs. Billing is a separate service in the private Cloud repository behind a provider interface; it writes the org's entitlements through an internal API, and the product never talks to Stripe (ADR-178). Built and tested on Stripe's test mode and stripe-mock; live once the payment entity exists (§16).
 - **Enterprise:** custom annual contracts, invoiced through Stripe.
 
 ## 3.4 Licensing and repository layout
@@ -650,23 +654,27 @@ For every alert and every problem, WatchLog names the probable cause and shows t
 
 Self-hosted footprint target (10 nodes, 15 d retention): backend 256 MB, VictoriaMetrics 512 MB, PostgreSQL 256 MB, agent ≤ 64 MB per node.
 
-## 5.4 Multi-tenancy (Cloud)
+## 5.4 Multi-tenancy (Cloud) — Cloud, 0.6.0 (planned; ADR-174, ADR-177, ADR-182)
 
-- VictoriaMetrics: single-node in v2.0 with `tenant_id` label enforced on every query by the backend query proxy (users never send raw queries without the injected filter). Move to VictoriaMetrics cluster with native `accountID` tenants when > 2,000 nodes.
-- PostgreSQL: every tenant table has `org_id`; enforced with Row-Level Security policies as a second layer.
-- Retention per plan implemented by separate VictoriaMetrics instances per retention tier (3 d, 30 d) in v2.0 — simplest correct approach.
+- **The switch:** `WATCHLOG_EDITION=cloud` turns on every Cloud-only path. Unset, the product is Community and behaves exactly as 0.5.0: one default org, no limits, no signup, no billing; the Cloud routes answer 404 (ADR-173).
+- **PostgreSQL:** every tenant table has `org_id` (cluster-keyed tables gain it, backfilled), with Row-Level Security policies on `watchlog.org_id` as a second layer. In Cloud the request path connects as `watchlog_app`, a role that can't bypass RLS, and the org is set on every connection checkout from the request's context; an allow-listed `systemDb` (the owner role) handles the lookups that come before the org is known and the cross-org jobs. Community keeps connecting as the owner, so RLS doesn't change it (ADR-174).
+- **VictoriaMetrics:** `cluster_id` is injected from the token at ingest (ADR-026) and on every query (ADR-028). One guard authorises a cluster against the org before any query, SSE stream, MCP tool or export. Move to VictoriaMetrics cluster with native `accountID` tenants when > 2,000 nodes.
+- **Retention per plan:** separate VictoriaMetrics instances per retention tier, `vm-3d` and `vm-30d`. Ingest writes to the org's tier; after a plan change, queries read both until the old tier's retention runs out (ADR-177).
+- **Rate limits and ingest quotas** per org in Redis (Community keeps in-memory buckets).
+- **Proof:** the cross-org isolation suite calls every REST route, MCP tool, curated query key, ingest path and SSE stream as another org, in CI on every push (ADR-182).
 
-## 5.5 Cloud production hosting (v2.0)
+## 5.5 Cloud production hosting — Cloud, 0.6.0 (planned; ADR-180)
 
-WatchLog Cloud starts on **one Ubuntu server (22.04 / 24.04 LTS) running the whole stack with Docker Compose**. This is deliberately simple; it is enough for the first ~1,000 monitored nodes.
+WatchLog Cloud starts on **the current production server** (36 GB), beside the site, the waitlist and the live demo, as its **own Docker Compose project**. It is enough for the first ~1,000 monitored nodes.
 
-- File: `deploy/cloud/compose.yaml` (in the private Cloud repository it is extended with billing settings and secrets).
-- Services: `caddy` (reverse proxy, automatic TLS via Let's Encrypt), `backend` (API + ingest), `alert-worker`, `anomaly-worker` (P1), `web` (static files served by Caddy), `victoriametrics-3d`, `victoriametrics-30d`, `postgres`, `redis`.
-- Domains on `watchlog.io`: `watchlog.io` (site), `app.watchlog.io` (dashboard), `ingest.watchlog.io` (agents), `api.watchlog.io` (optional, or `app.watchlog.io/api`), `status.watchlog.io` (external status page).
-- Only ports 80/443 are open (UFW). PostgreSQL, Redis and VictoriaMetrics listen on the internal Docker network only. SSH with keys only.
-- Persistent data in named volumes on a dedicated disk mount (`/srv/watchlog`). Nightly backups: `pg_dump` + WAL archiving and VictoriaMetrics snapshots, shipped to off-site S3-compatible storage; restore tested monthly.
-- Deploy: GitHub Actions builds and pushes images to GHCR; the server pulls tagged images with `docker compose pull && docker compose up -d` (manually triggered workflow over SSH, or a small deploy script). Database migrations run as a one-shot `backend migrate` container before the new backend starts.
-- The production server is monitored by a separate WatchLog Community install (dogfooding) plus an external uptime check.
+- **Where:** the Compose kit lives in the private Cloud repository (`deploy/cloud/`), with the billing service; it runs the public release's images. Its own network, volumes and data directory; every port on 127.0.0.1; memory and CPU limits on every container.
+- **Services:** `backend` (API + ingest), `alert-worker`, `web`, `vm-3d`, `vm-30d`, `postgres`, `redis`, `billing` (`anomaly-worker` in Phase 6).
+- **Proxy:** the host's existing nginx (it owns 80/443), with new vhost files for `cloud.watchlog.io` (dashboard and API) and `ingest.watchlog.io` (agents only), behind Cloudflare. No Caddy. `app.watchlog.io` stays the v1 app.
+- **Status page:** `status.watchlog.io` is an external uptime service's page, so it stays up when the server doesn't.
+- **Backups:** nightly `pg_dump` + WAL archiving and VictoriaMetrics snapshots, encrypted on the server before they leave it, shipped to S3-compatible storage; a restore test runs monthly by script.
+- **Deploy:** GitHub Actions builds and pushes images to GHCR; the owner pulls tagged images on the server with the kit's update script. Database migrations run before the new backend starts (ADR-107).
+- **Monitoring:** a WatchLog Docker agent reports the Cloud project to a staff org in Cloud (dogfooding), plus an external uptime check.
+- **Sharing the server:** nothing existing is touched (the v1 app, pm2, other vhosts, system packages, the firewall). The demo's privileged Docker host (ADR-170) is turned off or moved before the first customers are invited.
 - **Scale-out path (later):** move PostgreSQL to a managed service, VictoriaMetrics to its cluster version on a second server, then run backend replicas behind the proxy. The Compose layout keeps each service stateless or clearly stateful so this split is a configuration change, not a rewrite.
 
 
@@ -913,21 +921,23 @@ Built with Nuxt 4 in static mode, dark theme only (§11), English only. The mark
 - Each page: unique `<title>`, meta description, Open Graph image (dark, green accent), JSON-LD (`SoftwareApplication`, `FAQPage`).
 - Site analytics: Microsoft Clarity on the marketing site only, loaded only after the visitor accepts, form fields masked, never on token pages; never in the product (ADR-119). UTM parameters captured into `users.signup_source` on signup.
 
-# 10. Signup and onboarding
+# 10. Signup and onboarding — Cloud, 0.6.0 (planned; ADR-175, ADR-176, ADR-179)
 
-The onboarding flow is the most important part of the product. Every step has a target time.
+The onboarding flow is the most important part of the product. Every step has a target time. Signup, the sample link, the first-week checklist, funnel events and lifecycle emails are Cloud only; the live connection checklist (step 4) also helps Community's "Add cluster" (ADR-176).
 
 ## 10.1 Signup — target ≤ 60 s
 
-- Fields: email, password (min 10 chars, strength meter). Or **Continue with GitHub** (P0) / Google (P1).
+- Fields: email, password (min 10 chars, strength meter, checked against known leaked passwords with k-anonymity). Or **Continue with GitHub** / **Continue with Google** (both in 0.6.0).
 - No company name, no phone, no credit card. Email verification link is sent but **does not block** onboarding (verify within 7 days to keep the account).
-- After signup → straight to "Add your first cluster".
+- Cloudflare Turnstile on signup and reset; signups limited per IP and email domain; disposable domains refused.
+- Optional TOTP 2FA with recovery codes, required for Owners of paid orgs (ADR-175).
+- After signup → straight to "Add your first cluster". The signup creates an org (renamable) on the Free plan; a user may belong to several orgs.
 
 ## 10.2 Add cluster wizard — target ≤ 3 min
 
 1. **What do you want to monitor?** Two large cards: *Kubernetes cluster* · *Docker host(s)*.
 2. **Name it** (pre-filled `my-cluster`).
-3. **Install** — the screen shows the exact command with the token already embedded and a copy button. Tabs: Helm · kubectl manifest (`kubectl apply -f https://.../install.yaml?token=...`) · Docker run · Docker Compose snippet.
+3. **Install** — the screen shows the exact command with the token already embedded and a copy button. Tabs: Helm · kubectl manifest (`kubectl apply -f https://.../install.yaml?code=wl_ic_...`: a separate install code valid 24 hours, never the cluster token in a URL, ADR-176) · Docker run · Docker Compose snippet.
 4. **Live connection checklist** (Server-Sent Events from `/clusters/:id/onboarding-status`):
    - ☐ Waiting for agent… → ✓ Agent connected on *N* nodes
    - ✓ Cluster agent connected (Kubernetes only)
@@ -945,6 +955,8 @@ If no heartbeat after 2 minutes, show an expandable panel:
 - Common causes: egress to `ingest.watchlog.io:443` blocked (show the IPs / domain to allow), wrong token, PodSecurity admission blocking capabilities (show the namespace label to apply), kernel without BTF.
 - **"Get help installing"** button → opens Discord community / email with the cluster ID pre-filled. Founder-led concierge onboarding is part of the launch strategy.
 
+**While waiting:** "Look around a sample organisation" opens the read-only live demo in a new tab (no demo data is copied into Cloud). **After the first data:** a first-week checklist on the overview (connect a channel, invite a teammate, connect an application, try MCP, see your first explained problem), each step a funnel event (ADR-176).
+
 ## 10.4 Funnel tracking (P0, from day one)
 
 Events stored in `funnel_events` (server-side where possible, client-side through `POST /api/v1/funnel`):
@@ -960,10 +972,11 @@ Events stored in `funnel_events` (server-side where possible, client-side throug
 | `alert_channel_connected` | Channel verified |
 | `first_alert_sent` | First real notification |
 | `day7_active` | Cluster still sending data 7 days after first heartbeat (daily job) |
+| `email_verified`, `second_cluster_added`, `teammate_invited`, `application_connected`, `mcp_first_call`, `sample_opened`, `pro_started` | As named (ADR-179) |
 
-An internal admin page (`/admin/funnel`, owner-only, behind an env flag) shows conversion between steps per week.
+An internal admin page (`/admin/funnel` in the Cloud admin, which grows from the waitlist's admin panel) shows conversion between steps per week; the product exposes it through an internal admin API on the Compose network only (ADR-179).
 
-**Lifecycle emails (Cloud):** 1 h after signup without heartbeat → "Need help installing?" (plain text, from the founder). 24 h → troubleshooting tips. Day 3 with data → "Set up alerts". Day 25 of Free with > 5 nodes → upgrade suggestion.
+**Lifecycle emails (Cloud):** plain text from the founder, one-click unsubscribe, at most one a day: welcome; 1 h after signup without heartbeat → "Need help installing?" with the troubleshooting link; the first alert explained; day 3 with data → tips; near a Free limit; the beta-to-billing notice 14 days ahead (ADR-179).
 
 # 11. Design system — dark only (v2.0)
 
@@ -1105,14 +1118,19 @@ Each phase ends with a demo-able result and explicit acceptance criteria. Durati
 
 **→ Open-source launch (Community):** GitHub public, docs site, Show HN, Reddit (r/kubernetes, r/selfhosted, r/docker), Product Hunt, CNCF Slack, dev.to / Medium posts.
 
-## Phase 5 — Cloud and launch (≈ 3-4 weeks)
+## Phase 5 — Cloud and launch (≈ 3-4 weeks) — Cloud beta in 0.6.0, before the launch (planned; ADR-173)
+
+Brought forward on 2026-11-13: the Cloud opens as a beta by invite from the waitlist (Free, and Pro free during the beta), released as 0.6.0. Billing is built and tested but stays off until the payment entity exists. Decisions: ADR-173 (scope, the `WATCHLOG_EDITION` switch), ADR-174 (tenancy), ADR-175 (accounts), ADR-176 (onboarding), ADR-177 (plans and limits), ADR-178 (billing), ADR-179 (funnel, emails, admin, support mode), ADR-180 (hosting on the current server), ADR-181 (security baseline), ADR-182 (the isolation suite).
+
 
 - Multi-tenancy (§5.4), signup / login / GitHub OAuth, orgs, invites, onboarding wizard with live checklist (§10), funnel tracking and admin funnel page, lifecycle emails.
 - The marketing site on `watchlog.io` (landing, pricing, docs, blog), in its private repository (§9).
 - Plan limits (Free: 1 cluster, 5 nodes, 3 d). Stripe billing ($1/node, $10 minimum, p95 node count, Customer Portal) in the private Cloud repository.
-- Production deployment on the Ubuntu server with Docker Compose (§5.5), backups, monitoring by WatchLog Community itself.
+- Production deployment on the current server with Docker Compose behind the host's nginx (§5.5), backups, monitoring by WatchLog itself.
+- Security: RLS, the SSRF egress policy, 2FA, Turnstile, data export and deletion, an audited support mode, an independent review against OWASP ASVS L2 (ADR-181).
+- Trust pages on the site: terms, privacy, DPA, subprocessors, security, status (drafts for a lawyer's review).
 
-**Accept when:** a new user goes from landing page to data on a kind cluster in under 5 minutes without reading docs (test with 5 real people, record times); funnel page shows every step.
+**Accept when:** a new user goes from landing page to data on a kind cluster in under 5 minutes without reading docs (test with 5 real people, record times); funnel page shows every step; the isolation suite passes in CI on every push; gross margin ≥ 70 % at $1/node, measured.
 
 ## Phase 6 — Pro features (≈ 4 weeks)
 
@@ -1129,7 +1147,7 @@ Each phase ends with a demo-able result and explicit acceptance criteria. Durati
 | Performance | Overview page loads < 1.5 s (p95) for a 100-node cluster; chart queries < 500 ms (p95) for 24 h range |
 | Scale (Cloud v2.0) | 2,000 nodes total, 500 nodes per cluster |
 | Availability (Cloud) | 99.5 % monthly for UI/API; ingest buffered by agents so short outages lose no data |
-| Security | OWASP ASVS L1; argon2id password hashing; CSRF protection on cookie auth; rate limits on auth endpoints; channel secrets encrypted at rest; dependency scanning (Dependabot, `govulncheck`, `pnpm audit`) in CI; signed container images (cosign) |
+| Security | OWASP ASVS L1 (Cloud: L2, ADR-181); argon2id password hashing; CSRF protection on cookie auth; rate limits on auth endpoints; channel secrets encrypted at rest; dependency scanning (Dependabot, `govulncheck`, `pnpm audit`) in CI; signed container images (cosign) |
 | Privacy | No env values, Secrets, ConfigMap data, request payloads or TLS contents ever leave the cluster. Documented in `/security` and `docs/security.md` |
 | Backups (Cloud) | PostgreSQL daily + WAL archiving; VictoriaMetrics daily snapshots for the 30 d tier |
 | Testing | Go: unit tests per collector with fixture `/proc` and cgroup trees. Backend: Vitest unit + integration against real PostgreSQL/VictoriaMetrics in Docker. Web: Vitest component tests + Playwright for critical flows (signup, wizard, overview). E2E: kind cluster in CI installs Helm chart and asserts data arrives |

@@ -23,15 +23,15 @@
 
 ## What belongs here
 
-- The product: agent, backend, web, multi-tenancy, signup, onboarding, funnel, plan limits, the
-  Cloud base compose (`deploy/cloud/`). Self-hosted users run the same code as Cloud, so anything
-  the product needs lives here.
+- The product: agent, backend, web, multi-tenancy, signup, onboarding, funnel, plan limits,
+  entitlements, lifecycle emails and the Cloud admin's API, behind `WATCHLOG_EDITION=cloud`
+  (ADR-173). Self-hosted users run the same code as Cloud, so anything the product needs lives here.
 - The user docs (`docs/site/*.md`), the README screenshots (`docs/images/`) and the design tokens
   stay here and public. The marketing site that renders them is in a private repository and
   reads them at a pinned commit (ADR-114). Renaming or moving those files breaks the site's build,
   so mention it in the commit message.
-- Not here: internal notes, the marketing site, Cloud-only code (billing, production
-  configuration, Cloud operations) and the pre-launch history. They live in private repositories
+- Not here: internal notes, the marketing site, Cloud-only code (billing, the production
+  Compose kit and its configuration, Cloud operations) and the pre-launch history. They live in private repositories
   next to this one; the workspace CLAUDE.md maps them. Commit each change to the repository it
   belongs to; a change that spans repositories gets one commit per repository, with matching
   messages.
