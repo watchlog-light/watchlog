@@ -285,6 +285,14 @@ describe('scenario 15: channels in Cloud', () => {
       settings: { url: 'http://metadata.internal.test/' },
     });
     expect(patch.statusCode).toBe(400);
+    // Refused means nothing saved: no new channel, the old URL kept.
+    const rows = await w.owner
+      .selectFrom('alert_channels')
+      .select(['name', 'config'])
+      .where('org_id', '=', A.orgId)
+      .execute();
+    expect(rows.map((r) => r.name)).not.toContain('probe');
+    expect(rows.map((r) => r.config)).toContainEqual({ url: 'https://zzalpha.example.com/hook' });
   });
 
   it('a name that resolves to 10.0.0.1 at send time is refused at send', async () => {
