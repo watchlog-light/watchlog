@@ -6,6 +6,7 @@ import type { Database } from '../../db/index.js';
 import { PLAN_DEFAULTS } from '../entitlements/plans.js';
 import { newId } from '../../lib/ids.js';
 import { randomToken, sha256 } from '../../lib/tokens.js';
+import { spendInvite } from '../signup-invites/service.js';
 
 export const VERIFY_TTL_MS = 24 * 3_600_000;
 
@@ -38,6 +39,8 @@ export interface NewAccount {
   /** How the account was made, for the funnel (`signup_source`). */
   method: 'password' | 'github' | 'google';
   identity?: { provider: 'github' | 'google'; providerUserId: string; email: string | null };
+  /** The signup invite this account spends (ADR-173); throws InviteUnavailableError if spent. */
+  inviteId?: string;
 }
 
 /**
@@ -73,6 +76,7 @@ export async function createAccount(
             signup_source: JSON.stringify({ method: a.method }),
           })
           .execute();
+        if (a.inviteId) await spendInvite(trx, a.inviteId, userId);
         await trx
           .insertInto('orgs')
           .values({ id: orgId, name: orgName, slug, plan: 'free' })

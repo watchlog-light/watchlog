@@ -19,6 +19,7 @@ import type { FunnelRecorder } from '../funnel/recorder.js';
 import type { AlertingSettings } from '../settings/service.js';
 import {
   endSupportSession,
+  listRecentSupportSessions,
   listSupportSessions,
   openSupportSession,
   staffActor,
@@ -26,6 +27,7 @@ import {
   SUPPORT_MAX_MS,
 } from '../support/service.js';
 import { SupportSessionSchema } from '../support/routes.js';
+import { signupAdminRoutes } from '../signup-invites/admin-routes.js';
 import { audit } from '../users/service.js';
 import { EntitlementView, entitlementView, UsageView } from './views.js';
 
@@ -129,7 +131,19 @@ export const adminRoutes: FastifyPluginAsyncTypebox<AdminDeps> = async (app, dep
     UUID.test(id)
       ? systemDb
           .selectFrom('orgs')
-          .select(['id', 'name', 'slug', 'plan', 'created_at', 'suspended_at', 'suspended_reason'])
+          .select([
+            'id',
+            'name',
+            'slug',
+            'plan',
+            'created_at',
+            'suspended_at',
+            'suspended_reason',
+            'suspension_kind',
+            'inactive_warned_at',
+            'deletion_requested_at',
+            'deletion_due_at',
+          ])
           .where('id', '=', id)
           .executeTakeFirst()
       : undefined;
@@ -250,7 +264,19 @@ export const adminRoutes: FastifyPluginAsyncTypebox<AdminDeps> = async (app, dep
           200: Type.Object({
             org: Type.Intersect([
               AdminOrgRow,
-              Type.Object({ suspendedAt: Nullable(Iso), suspendedReason: Nullable(Type.String()) }),
+              Type.Object({
+                suspendedAt: Nullable(Iso),
+                suspendedReason: Nullable(Type.String()),
+                /** Who suspended it (ADR-181): staff, or the inactivity rule. */
+                suspensionKind: Nullable(
+                  Type.Union([Type.Literal('staff'), Type.Literal('inactive')]),
+                ),
+                /** A Free org without data for 30 days is warned, then suspended 7 days later. */
+                inactiveWarnedAt: Nullable(Iso),
+                /** An Owner asked for deletion; it runs at deletionDueAt unless undone. */
+                deletionRequestedAt: Nullable(Iso),
+                deletionDueAt: Nullable(Iso),
+              }),
             ]),
             entitlements: EntitlementView,
             members: Type.Array(Member),
@@ -291,6 +317,12 @@ export const adminRoutes: FastifyPluginAsyncTypebox<AdminDeps> = async (app, dep
           ...rowView(row),
           suspendedAt: org.suspended_at?.toISOString() ?? null,
           suspendedReason: org.suspended_reason,
+          suspensionKind: org.suspended_at
+            ? ((org.suspension_kind as 'staff' | 'inactive' | null) ?? 'staff')
+            : null,
+          inactiveWarnedAt: org.inactive_warned_at?.toISOString() ?? null,
+          deletionRequestedAt: org.deletion_requested_at?.toISOString() ?? null,
+          deletionDueAt: org.deletion_due_at?.toISOString() ?? null,
         },
         entitlements: entitlementView(ent),
         members,
@@ -722,4 +754,88 @@ export const adminRoutes: FastifyPluginAsyncTypebox<AdminDeps> = async (app, dep
       return reply.code(204).send(null);
     },
   );
+  app.get(
+    '/internal/admin/support-sessions',
+    {
+      schema: {
+        summary: 'Support sessions across orgs, newest first, with the org and what each opened',
+        querystring: Type.Object({
+          limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, default: 50 })),
+        }),
+        response: {
+          200: Type.Object({
+            sessions: Type.Array(
+              Type.Intersect([
+                SupportSessionSchema,
+                Type.Object({ orgId: Type.String(), orgName: Type.String() }),
+              ]),
+            ),
+          }),
+          400: ProblemSchema,
+          401: ProblemSchema,
+        },
+      },
+    },
+    async (request) => ({
+      sessions: await listRecentSupportSessions(systemDb, request.query.limit ?? 50),
+    }),
+  );
+
+  // ---------------------------------------------------------------- deletions (ADR-181)
+
+  app.get(
+    '/internal/admin/deletions',
+    {
+      schema: {
+        summary: "Orgs deleted at their Owners' request: the records kept after the data is gone",
+        querystring: Type.Object({
+          limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500, default: 100 })),
+        }),
+        response: {
+          200: Type.Object({
+            deletions: Type.Array(
+              Type.Object({
+                orgId: Type.String(),
+                orgName: Type.String(),
+                requestedAt: Iso,
+                deletedAt: Iso,
+                clusters: Type.Integer(),
+                usersDeleted: Type.Integer(),
+                series: Type.Record(Type.String(), Type.Number()),
+              }),
+            ),
+          }),
+          400: ProblemSchema,
+          401: ProblemSchema,
+        },
+      },
+    },
+    async (request) => {
+      const rows = await systemDb
+        .selectFrom('org_deletions')
+        .selectAll()
+        .orderBy('deleted_at', 'desc')
+        .limit(request.query.limit ?? 100)
+        .execute();
+      return {
+        deletions: rows.map((r) => ({
+          orgId: r.deleted_org_id,
+          orgName: r.org_name,
+          requestedAt: r.requested_at.toISOString(),
+          deletedAt: r.deleted_at.toISOString(),
+          clusters: r.cluster_ids.length,
+          usersDeleted: r.users_deleted,
+          series: (r.series ?? {}) as Record<string, number>,
+        })),
+      };
+    },
+  );
+
+  // ---------------------------------------------------------------- invite waves (ADR-173)
+
+  signupAdminRoutes(app, {
+    systemDb,
+    now,
+    publicUrl: async () => (deps.settings ? ((await deps.settings()).publicUrl ?? null) : null),
+  });
 };

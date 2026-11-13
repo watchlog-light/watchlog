@@ -25,6 +25,7 @@ declare module 'fastify' {
 export const CLOUD_ONLY_PATHS = [
   '/api/v1/auth/signup',
   '/api/v1/auth/config',
+  '/api/v1/auth/signup-invite',
   '/api/v1/auth/oauth/github',
   '/api/v1/auth/oauth/github/start',
   '/api/v1/auth/2fa/verify',
@@ -49,6 +50,10 @@ export const CLOUD_ONLY_PATHS = [
   '/internal/orgs',
   '/internal/admin/orgs',
   '/internal/admin/funnel',
+  '/internal/admin/signup-mode',
+  '/internal/admin/signup-invites',
+  '/internal/admin/support-sessions',
+  '/internal/admin/deletions',
   '/internal/entitlements',
   '/internal/orgs/00000000-0000-4000-8000-000000000000/entitlements',
   '/internal/orgs/00000000-0000-4000-8000-000000000000/usage',

@@ -47,6 +47,11 @@ import {
 } from './oauth.js';
 import { recordFunnelEvent } from '../funnel/recorder.js';
 import {
+  findUsableInvite,
+  getSignupMode,
+  InviteUnavailableError,
+} from '../signup-invites/service.js';
+import {
   createAccount,
   createVerifyToken,
   existingAccountMail,
@@ -178,6 +183,8 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
         response: {
           200: Type.Object({
             signup: Type.Boolean(),
+            /** ADR-173: `invite` needs a signup invite from a wave; `public` lets anyone in. */
+            signupMode: Type.Union([Type.Literal('invite'), Type.Literal('public')]),
             providers: Type.Object({ github: Type.Boolean(), google: Type.Boolean() }),
             turnstileSiteKey: Type.Union([Type.String(), Type.Null()]),
             passwordMinLength: Type.Integer(),
@@ -191,6 +198,7 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
     },
     async () => ({
       signup: true,
+      signupMode: (await getSignupMode(systemDb)).mode,
       providers: { github: !!config.accounts.github, google: !!config.accounts.google },
       // The site key only when the server checks the token too.
       turnstileSiteKey: config.accounts.turnstile.secretKey
@@ -204,6 +212,45 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
   );
 
   // ------------------------------------------------------------------------------ signup
+
+  /** Invite mode's rule for a new account: a usable invite, or the reason there is none. */
+  async function inviteFor(code: string | undefined) {
+    const { mode } = await getSignupMode(systemDb);
+    const invite = await findUsableInvite(systemDb, code);
+    return { mode, invite };
+  }
+
+  app.post(
+    '/auth/signup-invite',
+    {
+      config: limit(20),
+      schema: {
+        summary:
+          "Check a signup invite from a wave's link: the address it is for, until when (ADR-173)",
+        tags: ['auth'],
+        body: Type.Object(
+          { invite: Type.String({ minLength: 1, maxLength: 128 }) },
+          { additionalProperties: false },
+        ),
+        response: {
+          200: Type.Object({ email: Type.String(), expiresAt: Type.String() }),
+          404: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const invite = await findUsableInvite(systemDb, request.body.invite);
+      if (!invite) {
+        return sendCode(
+          reply,
+          404,
+          'invite-invalid',
+          'This invite has expired, was already used, or was replaced by a newer one.',
+        );
+      }
+      return { email: invite.email, expiresAt: invite.expiresAt.toISOString() };
+    },
+  );
 
   app.post(
     '/auth/signup',
@@ -219,6 +266,8 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
             password: NewPassword,
             name: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
             turnstileToken: TurnstileToken,
+            /** The signup invite from the wave's link (`/signup?invite=…`), ADR-173. */
+            invite: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
           },
           { additionalProperties: false },
         ),
@@ -230,6 +279,7 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
             }),
           }),
           400: ProblemSchema,
+          403: ProblemSchema,
           429: ProblemSchema,
         },
       },
@@ -237,6 +287,26 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
     async (request, reply) => {
       const email = request.body.email.trim().toLowerCase();
       const domain = emailDomain(email);
+      const { mode, invite } = await inviteFor(request.body.invite);
+      if (mode === 'invite' && !invite) {
+        return sendCode(
+          reply,
+          403,
+          'invite-required',
+          'WatchLog Cloud is opening in waves: signing up needs an invite for now.',
+        );
+      }
+      // An invite is for one address: email signup uses that one (the page fills it in).
+      if (mode === 'invite' && invite && invite.email !== email) {
+        return sendCode(
+          reply,
+          403,
+          'invite-email-mismatch',
+          'This invite is for another address. Sign up with the address it was sent to.',
+        );
+      }
+      // In public mode a matching invite is still spent, so staff see it used.
+      const spend = invite && invite.email === email ? invite.id : undefined;
       if (accounts.signupsPerIp.full(request.clientIp)) {
         return sendCode(reply, 429, 'rate-limited', 'Too many signups from here. Try again later.');
       }
@@ -275,13 +345,25 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
       }
       accounts.signupsPerIp.hit(request.clientIp);
       accounts.signupsPerDomain.hit(domain);
-      const created = await createAccount(systemDb, {
-        email,
-        name: request.body.name?.trim() || email.slice(0, email.indexOf('@')),
-        passwordHash: await hashPassword(request.body.password),
-        emailVerified: false,
-        method: 'password',
-      });
+      let created;
+      try {
+        created = await createAccount(systemDb, {
+          email,
+          name: request.body.name?.trim() || email.slice(0, email.indexOf('@')),
+          passwordHash: await hashPassword(request.body.password),
+          emailVerified: false,
+          method: 'password',
+          inviteId: spend,
+        });
+      } catch (err) {
+        if (!(err instanceof InviteUnavailableError)) throw err;
+        return sendCode(
+          reply,
+          403,
+          'invite-required',
+          'This invite was used a moment ago. Ask for a new one.',
+        );
+      }
       if (!created) {
         // The address has an account: the same answer, no session, and a notice to it.
         const base = await site(request);
@@ -963,6 +1045,8 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
         querystring: Type.Object({
           intent: Type.Optional(Type.Union([Type.Literal('signin'), Type.Literal('link')])),
           next: Type.Optional(Type.String({ maxLength: 512 })),
+          /** A signup invite (ADR-173), kept sealed in the state cookie for a new account. */
+          invite: Type.Optional(Type.String({ maxLength: 128 })),
         }),
         response: { 302: Type.Null(), 401: ProblemSchema, 404: ProblemSchema },
       },
@@ -979,7 +1063,11 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
         if (!user) return sendCode(reply, 401, 'invalid-credentials', 'Sign in to continue');
         userId = user.id;
       }
-      const flow = newFlow(p, intent, { userId, next: safeNext(request.query.next) });
+      const flow = newFlow(p, intent, {
+        userId,
+        next: safeNext(request.query.next),
+        ...(intent === 'signin' && request.query.invite ? { invite: request.query.invite } : {}),
+      });
       reply.setCookie(OAUTH_COOKIE, sealState(key, flow), {
         path: OAUTH_COOKIE_PATH,
         httpOnly: true,
@@ -1084,8 +1172,12 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
           .where('id', '=', identity.id)
           .execute();
       } else {
-        // A new account: never linked to an existing one by its address (ADR-175).
+        // A new account: never linked to an existing one by its address (ADR-175). In invite
+        // mode it needs the invite the sign-up page started with (ADR-173); the code itself
+        // reached the invited mailbox, so the provider's address may differ from it.
         const email = profile.email!;
+        const { mode, invite } = await inviteFor(s.invite);
+        if (mode === 'invite' && !invite) return fail('invite-required');
         if (isDisposable(accounts.disposable, email)) return fail('email-disposable');
         if (
           accounts.signupsPerIp.full(request.clientIp) ||
@@ -1095,14 +1187,21 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
         }
         accounts.signupsPerIp.hit(request.clientIp);
         accounts.signupsPerDomain.hit(emailDomain(email));
-        const created = await createAccount(systemDb, {
-          email,
-          name: profile.name?.trim() || email.slice(0, email.indexOf('@')),
-          passwordHash: null,
-          emailVerified: true,
-          method: p,
-          identity: { provider: p, providerUserId: profile.id, email },
-        });
+        let created;
+        try {
+          created = await createAccount(systemDb, {
+            email,
+            name: profile.name?.trim() || email.slice(0, email.indexOf('@')),
+            passwordHash: null,
+            emailVerified: true,
+            method: p,
+            identity: { provider: p, providerUserId: profile.id, email },
+            inviteId: invite?.id,
+          });
+        } catch (err) {
+          if (!(err instanceof InviteUnavailableError)) throw err;
+          return fail('invite-required');
+        }
         if (!created) return fail('oauth-failed');
         await recordFunnelEvent(request.server, {
           name: 'signup_completed',

@@ -35,6 +35,9 @@ export type AccountErrorCode =
   | 'invite-other-email'
   | 'already-member'
   | 'plan-limit'
+  | 'invite-required'
+  | 'invite-email-mismatch'
+  | 'invite-invalid'
   | 'not-found';
 
 /** An RFC 9457 problem with a `code` the pages branch on. */

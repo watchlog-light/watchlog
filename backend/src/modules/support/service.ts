@@ -265,11 +265,52 @@ export async function listSupportSessions(db: Database, orgId: string, limit = 5
     .orderBy('started_at', 'desc')
     .limit(limit)
     .execute();
+  return withViews(db, sessions);
+}
+
+/** Across orgs, for the Cloud admin (the owner's connection only). */
+export async function listRecentSupportSessions(systemDb: Database, limit = 50) {
+  const sessions = await systemDb
+    .selectFrom('support_sessions as s')
+    .innerJoin('orgs as o', 'o.id', 's.org_id')
+    .select([
+      's.id',
+      's.staff_email',
+      's.reason',
+      's.started_at',
+      's.expires_at',
+      's.entered_at',
+      's.ended_at',
+      's.org_id',
+      'o.name as org_name',
+    ])
+    .orderBy('s.started_at', 'desc')
+    .limit(limit)
+    .execute();
+  const listed = await withViews(systemDb, sessions);
+  return listed.map((v, i) => ({
+    ...v,
+    orgId: sessions[i]!.org_id,
+    orgName: sessions[i]!.org_name,
+  }));
+}
+
+async function withViews(
+  db: Database,
+  sessions: {
+    id: string;
+    staff_email: string;
+    reason: string;
+    started_at: Date;
+    expires_at: Date;
+    entered_at: Date | null;
+    ended_at: Date | null;
+  }[],
+) {
   const views = sessions.length
     ? await db
         .selectFrom('support_session_views')
         .select(['session_id', 'path', 'count', 'first_at'])
-        .where('org_id', '=', orgId)
         .where(
           'session_id',
           'in',

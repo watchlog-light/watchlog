@@ -179,6 +179,13 @@ export interface ChangeMarkers {
   ts: Timestamp;
 }
 
+export interface CloudSettings {
+  key: string;
+  updated_at: Generated<Timestamp>;
+  updated_by: string;
+  value: Json;
+}
+
 export interface Clusters {
   agent_version: string | null;
   created_at: Generated<Timestamp>;
@@ -513,6 +520,18 @@ export interface Sessions {
   user_id: string;
 }
 
+export interface SignupInvites {
+  code_hash: string;
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  email: string;
+  expires_at: Timestamp;
+  id: string;
+  revoked_at: Timestamp | null;
+  used_at: Timestamp | null;
+  used_by: string | null;
+}
+
 export interface Silences {
   comment: Generated<string>;
   created_at: Generated<Timestamp>;
@@ -680,6 +699,7 @@ export interface DB {
   beta_notices: BetaNotices;
   change_markers: ChangeMarkers;
   cluster_tokens: ClusterTokens;
+  cloud_settings: CloudSettings;
   clusters: Clusters;
   discovery_ignores: DiscoveryIgnores;
   email_tokens: EmailTokens;
@@ -712,6 +732,7 @@ export interface DB {
   server_settings: ServerSettings;
   recovery_codes: RecoveryCodes;
   sessions: Sessions;
+  signup_invites: SignupInvites;
   silences: Silences;
   support_session_views: SupportSessionViews;
   support_sessions: SupportSessions;

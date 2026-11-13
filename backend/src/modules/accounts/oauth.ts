@@ -46,6 +46,8 @@ export interface OAuthState {
   userId?: string;
   /** Where to go afterwards: a path on this site only. */
   next?: string;
+  /** A signup invite for a new account (ADR-173); checked at the callback. */
+  invite?: string;
   exp: number;
 }
 
@@ -78,7 +80,7 @@ export function safeNext(next: string | undefined): string | undefined {
 export function newFlow(
   provider: Provider,
   intent: OAuthState['intent'],
-  extra: { userId?: string; next?: string } = {},
+  extra: { userId?: string; next?: string; invite?: string } = {},
   now = Date.now(),
 ): OAuthState {
   return {
