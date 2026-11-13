@@ -4,6 +4,7 @@ import { Hourglass, LayoutDashboard } from '@lucide/vue';
 import type { Cluster, KubeOverview } from '@watchlog/api-types';
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { api } from '@/api/client';
+import { funnel } from '@/api/cloud';
 import { useClustersStore } from '@/stores/clusters';
 import IngestFailureBanner from '@/components/clusters/IngestFailureBanner.vue';
 import AttentionCard from '@/components/overview/AttentionCard.vue';
@@ -73,6 +74,15 @@ const waiting = computed(
     o.value.kpis.pods.total === 0 &&
     o.value.facts.agents.reporting === 0,
 );
+
+// Cloud's funnel (SPEC §10.4): the overview opened with data. Once per user in the database;
+// once per page view here. Never from support mode (staff aren't the customer).
+let viewed = false;
+watch([o, waiting], () => {
+  if (viewed || !o.value || waiting.value || !auth.isCloud || auth.support || auth.demoMode) return;
+  viewed = true;
+  funnel('dashboard_first_view', { kind: page.data.value?.cluster.kind });
+});
 
 const now = ref(Date.now());
 const ago = computed(() => {

@@ -212,7 +212,7 @@ async function openDashboard() {
   });
 }
 const sampleUrl = computed(() => auth.cloud?.sampleUrl ?? 'https://demo.watchlog.io');
-const sampleOpened = () => funnel('onboarding_sample_opened');
+const sampleOpened = () => funnel('sample_opened');
 
 // ------------------------------------------------------------------ alerts (optional)
 type Channel = 'slack' | 'telegram' | 'email';

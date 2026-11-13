@@ -17,6 +17,7 @@ import AppTopBar from '@/components/layout/AppTopBar.vue';
 import AlertingStatusBanner from '@/components/alerts/AlertingStatusBanner.vue';
 import CommandPalette from '@/components/layout/CommandPalette.vue';
 import DemoBanner from '@/components/layout/DemoBanner.vue';
+import SupportBanner from '@/components/cloud/SupportBanner.vue';
 import VerifyBanner from '@/components/cloud/VerifyBanner.vue';
 import PlanBanner from '@/components/plan/PlanBanner.vue';
 import { PLAN_REFRESH_MS, usePlanStore } from '@/stores/plan';
@@ -76,6 +77,7 @@ onBeforeUnmount(() => document.documentElement.classList.remove('app-shell'));
     <div class="flex min-h-0 min-w-0 flex-1 flex-col">
       <DemoBanner v-if="auth.demoMode" class="flex-none" />
       <AppTopBar :title="title" class="flex-none" />
+      <SupportBanner v-if="auth.isCloud" class="flex-none" />
       <VerifyBanner v-if="auth.isCloud" class="flex-none" />
       <PlanBanner v-if="auth.isCloud" class="flex-none" />
       <AlertingStatusBanner class="flex-none" />

@@ -60,6 +60,8 @@ function eventLabel(e: ApiTokenEvent): string {
       return t('apiTokens.history.revoked', { who: who(e) });
     case 'reminder_sent':
       return t('apiTokens.history.reminder');
+    case 'staff_access':
+      return t('apiTokens.history.staffAccess');
   }
 }
 

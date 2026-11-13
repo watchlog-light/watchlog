@@ -85,6 +85,7 @@ export const EVENT_DOT: Record<ApiTokenEvent['kind'], string> = {
   expired: 'bg-text-subtle',
   revoked: 'bg-critical',
   reminder_sent: 'bg-info',
+  staff_access: 'bg-warning',
 };
 
 /** One MCP tool call in a token's activity: never the output (ADR-127). */

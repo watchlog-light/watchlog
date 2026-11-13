@@ -67,10 +67,32 @@ export interface PlanInfo {
 /** Funnel events only the page sees (POST /funnel; SPEC §10.4). */
 export type ClientFunnelEvent =
   | 'install_command_copied'
+  | 'sample_opened'
+  | 'dashboard_first_view'
   | 'onboarding_dashboard_opened'
-  | 'onboarding_sample_opened'
   | 'onboarding_help_opened'
   | 'onboarding_troubleshooting_shown';
+
+/** GET /support/current: the support session this browser is in (ADR-179). */
+export interface SupportCurrent {
+  sessionId: string;
+  staffEmail: string;
+  reason: string;
+  expiresAt: string;
+  org: { id: string; name: string };
+}
+
+/** GET /support-sessions: WatchLog staff's sessions in the org (Owners, Settings › Security). */
+export interface SupportSession {
+  id: string;
+  staffEmail: string;
+  reason: string;
+  startedAt: string;
+  expiresAt: string;
+  enteredAt: string | null;
+  endedAt: string | null;
+  opened: { path: string; count: number; at: string }[];
+}
 
 export type Restriction = 'mfa-setup-required' | 'email-verification-required';
 
@@ -138,6 +160,9 @@ export interface BillingState {
 export type BillingInterval = 'monthly' | 'annual';
 
 export const cloudApi = {
+  supportCurrent: () => api<SupportCurrent>('/support/current'),
+  leaveSupport: () => api<void>('/support/session', { method: 'DELETE' }),
+  supportSessions: () => api<{ sessions: SupportSession[] }>('/support-sessions'),
   signup: (body: { email: string; password: string; name?: string; turnstileToken?: string }) =>
     api<{ accepted: true; verificationSent: boolean }>('/auth/signup', { method: 'POST', body }),
   verifyEmail: (token: string) =>
@@ -248,6 +273,7 @@ export const CLOUD_ERROR_CODES = [
   'already-pro',
   'already-subscribed',
   'no-billing-customer',
+  'support-read-only',
 ] as const;
 export type CloudErrorCode = (typeof CLOUD_ERROR_CODES)[number];
 

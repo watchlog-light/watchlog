@@ -2070,7 +2070,8 @@
       "newIp": "First use from a new IP · {place}",
       "expired": "Expired",
       "revoked": "Revoked by {who}",
-      "reminder": "Expiry reminder sent by email"
+      "reminder": "Expiry reminder sent by email",
+      "staffAccess": "Accessed by WatchLog staff in a support session"
     },
     "mcp": {
       "title": "MCP activity",
@@ -3331,7 +3332,13 @@
       "reset_link_created": "Password reset link for {subject}",
       "password_reset": "{subject} set a new password",
       "user_removed": "Removed {subject}",
-      "ownership_transferred": "Ownership handed to {subject}"
+      "ownership_transferred": "Ownership handed to {subject}",
+      "staff_entitlements_set": "WatchLog staff changed the plan to {plan}",
+      "staff_org_suspended": "WatchLog staff suspended the organization: {reason}",
+      "staff_org_unsuspended": "WatchLog staff lifted the suspension: {reason}",
+      "support_session_started": "WatchLog staff opened a read-only support session: {reason}",
+      "support_session_ended": "WatchLog staff ended a support session",
+      "support_tokens_accessed": "Tokens accessed by WatchLog staff ({prefixes})"
     },
     "inviteTitle": "Invite someone",
     "inviteDescription": "They choose their own name and password when they open the link.",
@@ -3852,7 +3859,8 @@
       "billing-not-live": "Billing hasn't started yet: Pro is free during the beta.",
       "already-pro": "This org is already on a paid plan.",
       "already-subscribed": "This org already has a subscription. Manage it with Manage billing.",
-      "no-billing-customer": "This org has no billing account yet. Upgrade first."
+      "no-billing-customer": "This org has no billing account yet. Upgrade first.",
+      "support-read-only": "Support mode is read-only: nothing can be changed in this session."
     },
     "turnstile": {
       "label": "Human check",
@@ -4114,6 +4122,25 @@
         "afterUpgrade": "Available after you upgrade"
       },
       "betaTag": "free during beta"
+    },
+    "support": {
+      "bannerLabel": "Support mode",
+      "bannerTitle": "Support mode, read-only.",
+      "banner": "WatchLog staff ({staff}) are looking at {org}. Nothing can be changed. Ends at {until} ({n} min left).",
+      "reason": "Why: {reason}",
+      "leave": "Leave support mode",
+      "title": "WatchLog staff access",
+      "intro": "When you ask for help, WatchLog staff may open a read-only support session in this organization. It lasts at most an hour, can’t change anything, and its Owners get an email when it starts. Every session is listed here.",
+      "none": "WatchLog staff have never opened a support session here.",
+      "when": "{start} to {end}",
+      "why": "Why: {reason}",
+      "opened": "Opened {n} page | Opened {n} pages",
+      "openedNone": "Nothing opened.",
+      "state": {
+        "active": "In progress",
+        "ended": "Ended",
+        "unused": "Link not used"
+      }
     }
   },
   "onboarding": {

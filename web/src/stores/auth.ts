@@ -10,7 +10,13 @@ import type {
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { api, ApiError } from '@/api/client';
-import { cloudApi, fetchCloudConfig, type Account, type CloudConfig } from '@/api/cloud';
+import {
+  cloudApi,
+  fetchCloudConfig,
+  type Account,
+  type CloudConfig,
+  type SupportCurrent,
+} from '@/api/cloud';
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<CurrentUser | null>(null);
@@ -27,10 +33,14 @@ export const useAuthStore = defineStore('auth', () => {
   const isCloud = computed(() => cloud.value !== null);
   /** Cloud: the signed-in account (verification, 2FA, identities, the gate). */
   const account = ref<Account | null>(null);
+  /** Cloud: a WatchLog staff member's read-only support session (ADR-179), or null. */
+  const support = ref<SupportCurrent | null>(null);
   /** Cloud: what the account must do before anything else (ADR-175 gates). */
   const restriction = computed(() => account.value?.restriction ?? null);
   /** Whether the UI offers changes: not to viewers, and never in the demo. */
-  const canManage = computed(() => user.value?.role !== 'viewer' && !demoMode.value);
+  const canManage = computed(
+    () => user.value?.role !== 'viewer' && !demoMode.value && !support.value,
+  );
   let pending: Promise<void> | null = null;
 
   async function load(): Promise<void> {
@@ -43,6 +53,7 @@ export const useAuthStore = defineStore('auth', () => {
     smtp.value = status.smtp;
     user.value = null;
     account.value = null;
+    support.value = null;
     if (!setupRequired.value) {
       try {
         user.value = (await api<UserEnvelope>('/me')).user;
@@ -50,13 +61,17 @@ export const useAuthStore = defineStore('auth', () => {
         if (!(err instanceof ApiError && err.status === 401)) throw err;
       }
     }
-    if (user.value && config) await loadAccount();
+    if (user.value && config) {
+      // Support mode has no account of its own: the banner's facts instead.
+      support.value = await cloudApi.supportCurrent().catch(() => null);
+      if (!support.value) await loadAccount();
+    }
     loaded.value = true;
   }
 
   /** Cloud: reloads the account (after verifying, turning 2FA on, linking). */
   async function loadAccount(): Promise<void> {
-    if (!cloud.value) return;
+    if (!cloud.value || support.value) return;
     try {
       account.value = await cloudApi.account();
     } catch {
@@ -127,6 +142,7 @@ export const useAuthStore = defineStore('auth', () => {
     cloud,
     isCloud,
     account,
+    support,
     restriction,
     loadAccount,
     signedIn,

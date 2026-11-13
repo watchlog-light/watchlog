@@ -18,6 +18,7 @@ import FormAlert from '@/components/cloud/FormAlert.vue';
 import GithubMark from '@/components/cloud/GithubMark.vue';
 import InfoTag from '@/components/cloud/InfoTag.vue';
 import RecoveryCodes from '@/components/cloud/RecoveryCodes.vue';
+import StaffAccess from '@/components/cloud/StaffAccess.vue';
 import TwoFactorSetup from '@/components/cloud/TwoFactorSetup.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import ModalDialog from '@/components/ui/ModalDialog.vue';
@@ -27,7 +28,8 @@ import { describeAgent } from '@/lib/sessions';
 import { useAuthStore } from '@/stores/auth';
 
 // Settings › Security (Cloud, ADR-175): 2FA on or off with its recovery codes, the signed-in
-// sessions with revoke, and GitHub and Google as ways to sign in. The OAuth callback comes
+// sessions with revoke, GitHub and Google as ways to sign in, and for Owners WatchLog
+// staff's support sessions (ADR-179). The OAuth callback comes
 // back here with ?linked=<provider> or ?error=<code>.
 const { t } = useI18n();
 const auth = useAuthStore();
@@ -355,6 +357,9 @@ onMounted(() => {
         </li>
       </ul>
     </section>
+
+    <!-- WatchLog staff's support sessions (ADR-179): Owners only. -->
+    <StaffAccess v-if="auth.user?.role === 'owner'" />
 
     <ModalDialog
       v-model:open="setupOpen"
