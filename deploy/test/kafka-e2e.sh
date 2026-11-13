@@ -87,7 +87,10 @@ k_env() { kraft_env "$1" | sed -E 's/^([A-Z_]+)=(.*)$/            - { name: \1, 
 # As Compose environment lines.
 c_env() { kraft_env "$1" | sed -E 's/^([A-Z_]+)=(.*)$/      \1: "\2"/'; }
 
-heap='KAFKA_HEAP_OPTS: "-Xms16m -Xmx48m -XX:+UseSerialGC -XX:TieredStopAtLevel=1"'
+# The image's KAFKA_JVM_PERFORMANCE_OPTS selects G1: a second collector in the heap options
+# stops the JVM ("Multiple garbage collectors selected"), so the GC goes there.
+heap='KAFKA_HEAP_OPTS: "-Xms16m -Xmx48m"
+      KAFKA_JVM_PERFORMANCE_OPTS: "-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.awt.headless=true"'
 producer() { printf '%s' "/opt/kafka/bin/kafka-topics.sh --bootstrap-server $1 --create --if-not-exists --topic orders --partitions 3 --replication-factor 1 && exec /opt/kafka/bin/kafka-producer-perf-test.sh --topic orders --num-records 100000000 --record-size 100 --throughput 20 --producer-props bootstrap.servers=$1 acks=1"; }
 # Consumes for a minute, then `tail` grows until the limit kills it (OOMKilled).
 consumer() { printf '%s' "/opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server $1 --topic orders --group audit --consumer-property client.id=audit >/dev/null & sleep 60; exec tail /dev/zero"; }
@@ -183,7 +186,7 @@ spec:
           image: $cli
           imagePullPolicy: IfNotPresent
           command: [sh, -c, '$(producer kafka-0.kafka:9092)']
-          env: [{ name: KAFKA_HEAP_OPTS, value: "-Xms16m -Xmx48m -XX:+UseSerialGC -XX:TieredStopAtLevel=1" }]
+          env: [{ name: KAFKA_HEAP_OPTS, value: "-Xms16m -Xmx48m" }, { name: KAFKA_JVM_PERFORMANCE_OPTS, value: "-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.awt.headless=true" }]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -200,7 +203,7 @@ spec:
           image: $cli
           imagePullPolicy: IfNotPresent
           command: [sh, -c, '$(consumer_once kafka-0.kafka:9092)']
-          env: [{ name: KAFKA_HEAP_OPTS, value: "-Xms16m -Xmx48m -XX:+UseSerialGC -XX:TieredStopAtLevel=1" }]
+          env: [{ name: KAFKA_HEAP_OPTS, value: "-Xms16m -Xmx48m" }, { name: KAFKA_JVM_PERFORMANCE_OPTS, value: "-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.awt.headless=true" }]
           resources: { limits: { memory: $limit } }
           volumeMounts: [{ name: state, mountPath: /state }]
       volumes: [{ name: state, emptyDir: {} }]
