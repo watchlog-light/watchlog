@@ -11,6 +11,7 @@ import KpiRow from '@/components/overview/KpiRow.vue';
 import OverviewCard from '@/components/overview/OverviewCard.vue';
 import PodsByNode from '@/components/overview/PodsByNode.vue';
 import RecentChanges from '@/components/overview/RecentChanges.vue';
+import RightSizingCard from '@/components/rightsizing/RightSizingCard.vue';
 import StatusStrip from '@/components/overview/StatusStrip.vue';
 import TopWorkloads from '@/components/overview/TopWorkloads.vue';
 import WarningEvents from '@/components/overview/WarningEvents.vue';
@@ -211,6 +212,14 @@ onBeforeUnmount(() => {
         <div class="col col-side" data-testid="overview-side">
           <AttentionCard class="o-attention" :overview="o" />
           <RecentChanges class="o-changes" :overview="o" />
+          <!-- Right-sizing (ADR-168): what could give back, what is at risk at its limit. -->
+          <RightSizingCard
+            v-if="page.data.value"
+            class="o-sizing"
+            :cluster-id="page.data.value.cluster.id"
+            :kind="page.data.value.cluster.kind"
+            :namespaces="ns.selected.value"
+          />
           <PodsByNode class="o-nodes" :overview="o" />
         </div>
       </div>
@@ -268,11 +277,14 @@ onBeforeUnmount(() => {
   .o-changes {
     order: 4;
   }
-  .o-events {
+  .o-sizing {
     order: 5;
   }
-  .o-nodes {
+  .o-events {
     order: 6;
+  }
+  .o-nodes {
+    order: 7;
   }
 }
 .text-22 {

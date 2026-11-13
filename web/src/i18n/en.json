@@ -3699,5 +3699,80 @@
       "no_agent": "Logs need agent 0.5.0 or newer, connected to this server.",
       "logs_disabled": "It was turned off at install time: logs.enabled in the Helm chart, or WATCHLOG_LOGS on the Docker agent."
     }
+  },
+  "rightSizing": {
+    "title": "Right-sizing",
+    "basedOn": "Use over {period}",
+    "days": "{n} day | {n} days",
+    "hours": "{n} hour | {n} hours",
+    "container": "container {name}",
+    "tone": {
+      "risk": "OOM risk",
+      "held": "Held back",
+      "back": "Could give back",
+      "unset": "Not set"
+    },
+    "cause": {
+      "oom_limit": "Probable cause names this too: out of memory at the limit",
+      "cpu_throttled": "Probable cause names this too: CPU throttled at the limit"
+    },
+    "error": "Right-sizing hints could not be loaded.",
+    "fits": "{name}'s requests and limits fit what it used over {period}.",
+    "notEnough": "Not enough history yet for {name}: {hours} of {needed} hours. Hints appear once it has run that long.",
+    "footnote": "Requests and limits against real use: CPU at p95, memory at its peak, in 5-minute steps. Hints, not alerts.",
+    "how": "How hints work",
+    "k8s": {
+      "memory_limit_oom": "{name} was OOM-killed at its {limit} memory limit in the last {period}. About {suggest} would leave it room.",
+      "memory_limit_tight": "{name} peaked at {peak} against its {limit} memory limit over {period}: one spike away from an OOM kill. About {suggest} would leave it room.",
+      "cpu_limit_throttled": "{name} was held at its {limit} CPU limit {share} of the time (p95) over {period}, so it ran slower than it could. Raise the limit, or remove it.",
+      "memory_request_low": "{name} asks for {request} of memory but used {p95} or more 5% of the time over {period}: under memory pressure on its node it is among the first evicted. About {suggest} would cover it.",
+      "cpu_request_low": "{name} asks for {request} CPU but its busiest pod used {used} (p95) over {period}, so the scheduler places it as if it needed less. About {suggest} would cover it.",
+      "cpu_request_high": "{name} asks for {request} CPU; its busiest pod used at most {used} (p95) over {period}. About {suggest} would cover it and give back {giveBack} CPU in all.",
+      "memory_request_high": "{name} asks for {request} of memory; its busiest pod peaked at {peak} over {period}. About {suggest} would cover it and give back {giveBack} in all.",
+      "unset": {
+        "cpu": "{name} sets no CPU request; it used up to {used} (p95) over {period}. A request of about {cpuSuggest} would cover it.",
+        "memory": "{name} sets no memory request; it peaked at {peak} over {period}. A request of about {memorySuggest} would cover it.",
+        "limit": "{name} sets no memory limit; it peaked at {peak} over {period}. A limit of about {memorySuggest} would keep a leak from taking its node's memory.",
+        "cpu_memory": "{name} sets no CPU or memory request; it used up to {used} CPU (p95) and peaked at {peak} over {period}. About {cpuSuggest} CPU and {memorySuggest} of memory would cover it.",
+        "cpu_limit": "{name} sets no CPU request and no memory limit; it used up to {used} CPU (p95) and peaked at {peak} over {period}. A {cpuSuggest} CPU request and a {memorySuggest} memory limit would cover it.",
+        "memory_limit": "{name} sets no memory request or limit; it peaked at {peak} over {period}. About {memorySuggest} for both would cover it.",
+        "cpu_memory_limit": "{name} sets no requests and no memory limit; it used up to {used} CPU (p95) and peaked at {peak} over {period}. About {cpuSuggest} CPU and {memorySuggest} of memory would cover it."
+      }
+    },
+    "docker": {
+      "memory_limit_oom": "{name} was OOM-killed {n} time at its {limit} memory limit in the last {period}. About {suggest} would leave it room. | {name} was OOM-killed {n} times at its {limit} memory limit in the last {period}. About {suggest} would leave it room.",
+      "memory_limit_tight": "{name} peaked at {peak} against its {limit} memory limit over {period}: one spike away from an OOM kill. About {suggest} would leave it room.",
+      "cpu_limit_throttled": "{name} was held at its {limit} CPU limit {share} of the time (p95) over {period}, so it ran slower than it could. Raise the limit, or remove it.",
+      "memory_reservation_low": "{name} reserves {reservation} of memory but used {p95} or more 5% of the time over {period}: when the host runs short of memory, it is squeezed back toward its reservation first. About {suggest} would cover it.",
+      "memory_reservation_high": "{name} reserves {reservation} of memory; it peaked at {peak} over {period}. About {suggest} would cover it and leave {giveBack} for other containers.",
+      "memory_no_limit": "{name} has no memory limit and peaked at {peak} over {period}, more than a quarter of {host}'s {hostMemory}. A limit of about {suggest} would keep a leak from taking the host's memory."
+    },
+    "card": {
+      "giveBack": {
+        "workloads": {
+          "both": "{n} workload could give back {cpu} CPU and {memory} of memory. | {n} workloads could give back {cpu} CPU and {memory} of memory.",
+          "cpu": "{n} workload could give back {cpu} CPU. | {n} workloads could give back {cpu} CPU.",
+          "memory": "{n} workload could give back {memory} of memory. | {n} workloads could give back {memory} of memory."
+        },
+        "containers": {
+          "both": "{n} container could give back {cpu} CPU and {memory} of memory. | {n} containers could give back {cpu} CPU and {memory} of memory.",
+          "cpu": "{n} container could give back {cpu} CPU. | {n} containers could give back {cpu} CPU.",
+          "memory": "{n} container could give back {memory} of memory. | {n} containers could give back {memory} of memory."
+        }
+      },
+      "risk": {
+        "workloads": "{n} workload is close to its memory limit or was OOM-killed there. | {n} workloads are close to their memory limit or were OOM-killed there.",
+        "containers": "{n} container is close to its memory limit or was OOM-killed there. | {n} containers are close to their memory limit or were OOM-killed there."
+      },
+      "none": {
+        "workloads": "Requests and limits fit what the workloads used.",
+        "containers": "Limits and reservations fit what the containers used."
+      },
+      "all": {
+        "workloads": "Show all ({n} workload) | Show all ({n} workloads)",
+        "containers": "Show all ({n} container) | Show all ({n} containers)"
+      },
+      "fewer": "Show fewer"
+    }
   }
 }

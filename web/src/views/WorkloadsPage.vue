@@ -6,6 +6,7 @@ import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import CausePanel from '@/components/causes/CausePanel.vue';
+import RightSizingPanel from '@/components/rightsizing/RightSizingPanel.vue';
 import PodList from '@/components/kube/PodList.vue';
 import WorkloadList from '@/components/kube/WorkloadList.vue';
 import SegmentedControl from '@/components/overview/SegmentedControl.vue';
@@ -274,6 +275,19 @@ onBeforeUnmount(() => clearInterval(timer));
           "
           :name="`${owner.namespace}/${owner.name}`"
           quiet
+        />
+        <!-- Its requests and limits against 7 days of use (ADR-168). -->
+        <RightSizingPanel
+          v-if="view === 'pods' && owner && page.data.value"
+          :key="`rs-${owner.namespace}/${owner.kind}/${owner.name}`"
+          :cluster-id="page.data.value.clusterId"
+          :query="{
+            namespace: owner.namespace,
+            kind: owner.kind || undefined,
+            workload: owner.name,
+            system: 'true',
+          }"
+          :name="owner.name"
         />
 
         <SkeletonTable

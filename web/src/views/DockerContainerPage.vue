@@ -11,6 +11,7 @@ import CausePanel from '@/components/causes/CausePanel.vue';
 import ContainerDiagnosis from '@/components/docker/ContainerDiagnosis.vue';
 import ContainerStatePill from '@/components/docker/ContainerStatePill.vue';
 import LogsPanel from '@/components/logs/LogsPanel.vue';
+import RightSizingPanel from '@/components/rightsizing/RightSizingPanel.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import SkeletonDetailHeader from '@/components/ui/SkeletonDetailHeader.vue';
 import { useLoader } from '@/composables/useLoader';
@@ -182,6 +183,14 @@ onMounted(page.load);
       :subject="`container:${hostName}/${name}`"
       :name="name"
       quiet
+    />
+    <!-- Its limits and reservation against 7 days of use (ADR-168). -->
+    <RightSizingPanel
+      v-if="container && clusterId"
+      :key="`rs-${hostName}/${name}`"
+      :cluster-id="clusterId"
+      :query="{ host: hostName, container: name, system: 'true' }"
+      :name="name"
     />
 
     <div v-if="!notFound" class="grid gap-4 lg:grid-cols-2">

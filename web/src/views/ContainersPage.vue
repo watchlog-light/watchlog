@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import CausePanel from '@/components/causes/CausePanel.vue';
+import RightSizingPanel from '@/components/rightsizing/RightSizingPanel.vue';
 import ContainerList from '@/components/docker/ContainerList.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
@@ -214,6 +215,13 @@ onBeforeUnmount(() => clearInterval(timer));
           :subject="`compose_service:${filter.scope.value.project}/${service}`"
           :name="`${filter.scope.value.project}/${service}`"
           quiet
+        />
+        <RightSizingPanel
+          v-if="service && page.data.value"
+          :key="`rs-${filter.scope.value.project}/${service}`"
+          :cluster-id="page.data.value.fleetId"
+          :query="{ project: filter.scope.value.project, service, system: 'true' }"
+          :name="`${filter.scope.value.project}/${service}`"
         />
 
         <ContainerList

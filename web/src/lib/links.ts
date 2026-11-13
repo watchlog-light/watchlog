@@ -7,5 +7,9 @@ export const LINKS = {
   install: 'https://watchlog.io/docs/install/',
   /** Connecting Claude Code, Claude Desktop and Cursor (docs/site/mcp.md, v0.2). */
   mcp: 'https://watchlog.io/docs/mcp/',
+  /** Right-sizing hints (docs/site/right-sizing.md, v0.5, ADR-168). */
+  rightSizing: 'https://watchlog.io/docs/right-sizing/',
+  /** Probable cause and its rules (docs/site/probable-cause.md, v0.4). */
+  probableCause: 'https://watchlog.io/docs/probable-cause/#the-rules',
   kubeletTls: `${DOCS}/faq.md#nodes-say-the-kubelet-certificate-is-not-verified-how-do-i-fix-it`,
 } as const;
