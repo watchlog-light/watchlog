@@ -3846,7 +3846,13 @@
       "oauth-failed": "The provider didn't answer as expected. Try again, or use email and password.",
       "oauth-email-unverified": "Verify your email with that provider first, then try again.",
       "oauth-disabled": "That sign-in option isn't available here.",
-      "account-disabled": "This account is disabled. Contact support if you think that's a mistake."
+      "account-disabled": "This account is disabled. Contact support if you think that's a mistake.",
+      "billing-unavailable": "Billing can't be reached right now. Nothing changed; try again in a minute.",
+      "billing-live": "Billing has started: upgrade with a card instead.",
+      "billing-not-live": "Billing hasn't started yet: Pro is free during the beta.",
+      "already-pro": "This org is already on a paid plan.",
+      "already-subscribed": "This org already has a subscription. Manage it with Manage billing.",
+      "no-billing-customer": "This org has no billing account yet. Upgrade first."
     },
     "turnstile": {
       "label": "Human check",
@@ -4070,15 +4076,44 @@
         "perMonth": "${n} / month",
         "minimum": "$10 minimum · $1 per node",
         "perNode": "$1 per node",
-        "startSoon": "Starting Pro from this page, free during the beta, comes next. After the beta, upgrading opens Stripe Checkout: card details go to Stripe, and WatchLog never sees or stores them.",
+        "startBeta": "Start Pro, free during beta",
+        "startBetaNote": "No card needed. After the beta, upgrading opens Stripe Checkout: card details go to Stripe, and WatchLog never sees or stores them.",
+        "onBeta": "You're on Pro, free during the beta.",
+        "onBetaNote": "You'll get an email 14 days before billing starts. Nothing is charged without a card you add yourself.",
+        "onBetaUntil": "You're on Pro, free during the beta, until {date}.",
+        "onBetaUntilNote": "To keep Pro after that, upgrade before {date}. Card details go to Stripe; WatchLog never sees or stores them.",
+        "upgrade": "Upgrade to Pro",
+        "upgradeNote": "Opens Stripe Checkout. Card details go to Stripe; WatchLog never sees or stores them.",
+        "subscribed": "You're on Pro, billed {interval}.",
+        "intervalWord": {
+          "monthly": "monthly",
+          "annual": "yearly"
+        },
+        "committed": "Committed: {n} nodes a year; nodes above it are billed monthly at $1.",
+        "cancelling": "Ends on {date}: cancelled in the portal.",
+        "ownerOnly": "Only an Owner can change the plan.",
+        "unavailableNow": "Billing can't be reached right now. Try again in a minute.",
+        "paymentFailed": "Your last payment failed. Update the payment method in Manage billing before {date}, or the org moves to Free (your data is kept).",
+        "checkoutDone": "Thanks. Your plan updates as soon as Stripe confirms the payment.",
+        "checkoutCancelled": "Checkout was cancelled; nothing was charged.",
+        "monthly": "Monthly",
+        "annual": "Annual · 2 months free",
+        "interval": "Billing period",
+        "perYear": "${n} / year",
+        "annualMinimum": "10 nodes minimum · $10 per node a year",
+        "annualSaves": "$10 per node a year · saves ${n} a year",
+        "annualCommit": "Annual commits to {n} nodes; nodes above it are billed monthly at $1.",
         "countedTitle": "How nodes are counted",
         "countedBody": "Every hour we record how many Kubernetes nodes and Docker hosts sent data. Your bill uses the 95th percentile of those counts, so a few hours of autoscaling don’t cost you a month.",
         "countedExample": "Example: 10 nodes most of the month and 40 for one busy day is billed as 10.",
         "countedLimit": "The plan's node limit counts the nodes and hosts that sent data in the last 24 hours. A new one over the limit is refused; the ones already sending never are.",
         "invoicesTitle": "Invoices and payment method",
         "invoicesBody": "Managed in Stripe’s customer portal: cards, invoices, VAT number and cancelling.",
-        "whenBilling": "Available when billing starts"
-      }
+        "whenBilling": "Available when billing starts",
+        "manage": "Manage billing",
+        "afterUpgrade": "Available after you upgrade"
+      },
+      "betaTag": "free during beta"
     }
   },
   "onboarding": {

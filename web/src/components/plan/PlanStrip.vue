@@ -5,7 +5,8 @@ import { usePlanStore } from '@/stores/plan';
 
 // The plan strip (ADR-177, Dashboard.dc.html), Cloud only: "Free plan · 3 of 5 nodes ·
 // 3 days of data · 1 user · Try Pro, free during beta →" with the real counts. In the
-// sidebar from 1024 px; on the overview below it (the sidebar is a drawer there).
+// sidebar from 1024 px; on the overview below it (the sidebar is a drawer there). The
+// beta's Pro says "free during beta" next to the plan's name (ADR-178).
 defineProps<{ inline?: boolean }>();
 const plan = usePlanStore();
 const p = computed(() => plan.info);
@@ -25,7 +26,15 @@ const BILLING = { name: 'settings', query: { tab: 'billing' } } as const;
     data-testid="plan-strip"
   >
     <div class="flex items-baseline justify-between gap-3 text-13">
-      <b class="font-semibold text-text">{{ $t(`cloud.plan.name.${p.plan}`) }}</b>
+      <span class="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+        <b class="font-semibold text-text">{{ $t(`cloud.plan.name.${p.plan}`) }}</b>
+        <span
+          v-if="p.plan === 'pro' && p.source === 'beta'"
+          class="text-12 text-primary"
+          data-testid="plan-beta"
+          >{{ $t('cloud.plan.betaTag') }}</span
+        >
+      </span>
       <span class="text-text-muted" data-testid="plan-nodes">
         {{
           p.limits.nodes === null

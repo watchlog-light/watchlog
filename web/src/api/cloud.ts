@@ -118,6 +118,25 @@ export async function fetchCloudConfig(): Promise<CloudConfig | null> {
   }
 }
 
+/** GET /plan/billing (ADR-178): the billing service's view of the org, through the product. */
+export interface BillingState {
+  /** False: no billing service, or it can't be reached now. */
+  available: boolean;
+  /** The live switch: false = "Pro free during beta"; true = Checkout and the portal. */
+  live: boolean;
+  customer: boolean;
+  subscription: {
+    interval: BillingInterval;
+    status: string;
+    committedNodes: number | null;
+    currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+  } | null;
+  beta: { startedAt: string; betaUntil: string | null } | null;
+  dunning: { since: string; downgradeAt: string; downgraded: boolean } | null;
+}
+export type BillingInterval = 'monthly' | 'annual';
+
 export const cloudApi = {
   signup: (body: { email: string; password: string; name?: string; turnstileToken?: string }) =>
     api<{ accepted: true; verificationSent: boolean }>('/auth/signup', { method: 'POST', body }),
@@ -153,7 +172,20 @@ export const cloudApi = {
   firstWeek: () => api<FirstWeek>('/onboarding/first-week'),
   dismissFirstWeek: () => api<void>('/onboarding/first-week/dismiss', { method: 'POST' }),
   plan: () => api<PlanInfo>('/plan'),
+  billing: () => api<BillingState>('/plan/billing'),
+  startBeta: () => api<BillingState>('/plan/beta', { method: 'POST' }),
+  checkout: (interval: BillingInterval, nodes?: number) =>
+    api<{ url: string }>('/plan/checkout', {
+      method: 'POST',
+      body: nodes ? { interval, nodes } : { interval },
+    }),
+  portal: () => api<{ url: string }>('/plan/portal', { method: 'POST' }),
 };
+
+/** Checkout and the portal are Stripe's pages: the browser leaves for them. */
+export function leaveFor(url: string): void {
+  window.location.assign(url);
+}
 
 /**
  * Records a funnel event; never fails the page (a lost event is only a lost count).
@@ -210,6 +242,12 @@ export const CLOUD_ERROR_CODES = [
   'oauth-email-unverified',
   'oauth-disabled',
   'account-disabled',
+  'billing-unavailable',
+  'billing-live',
+  'billing-not-live',
+  'already-pro',
+  'already-subscribed',
+  'no-billing-customer',
 ] as const;
 export type CloudErrorCode = (typeof CLOUD_ERROR_CODES)[number];
 
