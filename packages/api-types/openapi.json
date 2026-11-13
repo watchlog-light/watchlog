@@ -31192,6 +31192,10 @@
                               {
                                 "type": "string",
                                 "enum": ["reminder_sent"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["staff_access"]
                               }
                             ]
                           },

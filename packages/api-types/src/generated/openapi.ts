@@ -11359,7 +11359,14 @@ export interface paths {
               history: {
                 /** Format: date-time */
                 at: string;
-                kind: 'created' | 'first_use' | 'new_ip' | 'expired' | 'revoked' | 'reminder_sent';
+                kind:
+                  | 'created'
+                  | 'first_use'
+                  | 'new_ip'
+                  | 'expired'
+                  | 'revoked'
+                  | 'reminder_sent'
+                  | 'staff_access';
                 ip: string | null;
                 country: string | null;
                 expiresAt?: string | null;
