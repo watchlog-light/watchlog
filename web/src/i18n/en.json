@@ -1353,6 +1353,8 @@
       "set": "Set up",
       "fromEnv": "Set by the server",
       "loadFailed": "Could not load the email server.",
+      "cloud": "WatchLog Cloud sends alert emails for you. Add the addresses that should get them.",
+      "cloudReady": "Ready",
       "failed": "Could not save the email server. Try again.",
       "host": "Server",
       "port": "Port",

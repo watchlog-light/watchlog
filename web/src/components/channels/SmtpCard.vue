@@ -17,12 +17,15 @@ import ErrorState from '@/components/ui/ErrorState.vue';
 import Skeleton from '@/components/ui/Skeleton.vue';
 import TextField from '@/components/ui/TextField.vue';
 import { useLoader } from '@/composables/useLoader';
+import { useAuthStore } from '@/stores/auth';
 import AddChannelForm from './AddChannelForm.vue';
 import ChannelRow from './ChannelRow.vue';
 
 // Email (ADR-093): the email server is set here, once for the installation; email
 // channels then only need recipients. The password is write-only. When the server's
-// environment sets the email server, the fields are read-only.
+// environment sets the email server, the fields are read-only. In Cloud the email server
+// is the operator's (env only; Settings' SMTP routes answer 404 there): the card asks
+// nothing, shows email as ready and only lists the recipients.
 const props = defineProps<{
   channels: AlertChannel[];
   canManage: boolean;
@@ -56,6 +59,9 @@ const page = useLoader(async () => {
   return smtp;
 });
 const smtp = computed(() => page.data.value ?? null);
+const cloud = computed(() => useAuthStore().isCloud);
+/** Email channels can be added: Cloud's server, or one set here or by the environment. */
+const ready = computed(() => cloud.value || !!smtp.value);
 const readonly = computed(() => smtp.value?.source === 'env' || !props.canManage);
 const portText = computed({
   get: () => String(form.port),
@@ -117,15 +123,19 @@ async function save() {
 }
 
 const pill = computed(() =>
-  !smtp.value
-    ? { tone: 'neutral' as const, label: t('channels.smtp.notSet') }
-    : smtp.value.source === 'env'
-      ? { tone: 'ok' as const, label: t('channels.smtp.fromEnv') }
-      : { tone: 'ok' as const, label: t('channels.smtp.set') },
+  cloud.value
+    ? { tone: 'ok' as const, label: t('channels.smtp.cloudReady') }
+    : !smtp.value
+      ? { tone: 'neutral' as const, label: t('channels.smtp.notSet') }
+      : smtp.value.source === 'env'
+        ? { tone: 'ok' as const, label: t('channels.smtp.fromEnv') }
+        : { tone: 'ok' as const, label: t('channels.smtp.set') },
 );
 const adding = ref(false);
 
-onMounted(page.load);
+onMounted(() => {
+  if (!cloud.value) void page.load();
+});
 </script>
 
 <template>
@@ -141,22 +151,25 @@ onMounted(page.load);
       </span>
       <h2 class="text-14 font-semibold text-text">{{ $t('channels.smtp.title') }}</h2>
       <span class="flex-1" />
-      <TonePill v-if="page.loaded.value" v-bind="pill" />
+      <TonePill v-if="cloud || page.loaded.value" v-bind="pill" />
     </header>
 
+    <p v-if="cloud" class="text-13 text-text-muted" data-testid="smtp-cloud">
+      {{ $t('channels.smtp.cloud') }}
+    </p>
     <ErrorState
-      v-if="page.error.value"
+      v-else-if="page.error.value"
       inline
       :message="$t('channels.smtp.loadFailed')"
       :retrying="page.loading.value"
       @retry="page.load"
     />
-    <div v-if="page.skeleton.value" class="flex flex-col gap-2">
+    <div v-if="!cloud && page.skeleton.value" class="flex flex-col gap-2">
       <Skeleton shape="rect" class="h-9 w-full" />
       <Skeleton shape="rect" class="h-9 w-full" />
     </div>
     <form
-      v-else-if="page.loaded.value"
+      v-else-if="!cloud && page.loaded.value"
       class="flex flex-col gap-3"
       novalidate
       @submit.prevent="save"
@@ -272,14 +285,14 @@ onMounted(page.load);
         <BaseButton
           v-if="canManage && !adding"
           variant="ghost"
-          :disabled="!smtp"
+          :disabled="!ready"
           data-testid="add-email"
           @click="adding = true"
         >
           {{ $t('channels.add') }}
         </BaseButton>
       </div>
-      <p v-if="!smtp" class="text-12 text-text-muted">{{ $t('channels.smtp.needServer') }}</p>
+      <p v-if="!ready" class="text-12 text-text-muted">{{ $t('channels.smtp.needServer') }}</p>
       <ul v-if="channels.length" class="flex flex-col">
         <ChannelRow
           v-for="c in channels"
