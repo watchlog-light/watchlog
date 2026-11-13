@@ -109,9 +109,29 @@ function createUser(type: IntegrationType, user: string, password: string): stri
         `'exec "$(command -v mariadb || command -v mysql)" -uroot -p -e "$0"'`,
         `'${mysqlGrants(user, password)}'`,
       ];
+    case 'mongodb':
+      // clusterMonitor reads everything WatchLog shows, the oplog's first and last entries
+      // included (measured on 7.0 and 8.0, ADR-164). `-p` without a value asks for root's
+      // password; on a server without authentication, the user is still made, unused.
+      return [
+        'mongosh',
+        '-u',
+        'root',
+        '-p',
+        '--authenticationDatabase',
+        'admin',
+        '--quiet',
+        '--eval',
+        `'${mongoUser(user, password)}'`,
+      ];
     default:
       return null;
   }
+}
+
+/** The statement that creates MongoDB's monitoring user (ADR-164). */
+export function mongoUser(user: string, password: string): string {
+  return `db.getSiblingDB("admin").createUser({ user: "${user}", pwd: "${password}", roles: [{ role: "clusterMonitor", db: "admin" }] })`;
 }
 
 /** The statements that create MySQL's or MariaDB's monitoring user (ADR-163). */
@@ -126,7 +146,7 @@ export function mysqlGrants(user: string, password: string): string {
 }
 
 /** Types whose command asks for a password at the terminal (`exec -it`). */
-const INTERACTIVE: ReadonlySet<IntegrationType> = new Set(['mysql']);
+const INTERACTIVE: ReadonlySet<IntegrationType> = new Set(['mysql', 'mongodb']);
 
 /**
  * The one-time command that creates WatchLog's user (option a), with the names the
@@ -152,7 +172,9 @@ export function connectCommand(
     case 'address':
       return type === 'mysql'
         ? `mysql -uroot -p -e '${mysqlGrants(opts.user ?? DEFAULT_USER, password)}'`
-        : line;
+        : type === 'mongodb'
+          ? `mongosh "mongodb://${target.address}/?directConnection=true" -u root -p --authenticationDatabase admin --quiet --eval '${mongoUser(opts.user ?? DEFAULT_USER, password)}'`
+          : line;
   }
 }
 

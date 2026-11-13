@@ -6,7 +6,8 @@
 //     and `throughLink` puts the finding in front): RabbitMQ's lost consumer leads on to the
 //     consumer's own cause ("orders has no consumers → consumer is OOM-killed at its limit"),
 //     PostgreSQL's and MySQL's connections near max_connections to the client holding most of
-//     them and when it started, MySQL's lock waits to the session holding the lock (ADR-163). Without such an object the finding alone is a partial chain: it says
+//     them and when it started, MySQL's lock waits to the session holding the lock (ADR-163),
+//     MongoDB's collection scans to the client sending them (ADR-164). Without such an object the finding alone is a partial chain: it says
 //     what is wrong, not why (possible at best).
 //   - the far end of an edge (`ev.via`): the caller's calls fail or are slow, and the
 //     application monitoring what it calls has a finding ("api is slow → PostgreSQL's
@@ -83,6 +84,11 @@ export function linksOf(ev: Evidence): Link[] {
       },
     ];
   }
+  // MongoDB's collection scans name the client that sends them (ADR-164).
+  if (f.code === 'slow_collscan' && typeof f.facts.holder === 'string' && f.facts.holder) {
+    if (ev.platform === 'kubernetes' && !f.facts.holder.includes('/')) return [];
+    return [holderLink(ev, f.code, f.facts.holder, null)];
+  }
   // MySQL's lock waits name the holder's workload ("ns/name") or container (ADR-163).
   if (f.code === 'lock_waits' && typeof f.facts.holder === 'string' && f.facts.holder) {
     if (ev.platform === 'kubernetes' && !f.facts.holder.includes('/')) return [];
@@ -158,6 +164,16 @@ export function findingStep(ev: Evidence, a: EvApplication, f: Finding, next: St
       ...base,
       code: 'pg_connections',
       facts: { pct: num(f.facts.pct), n: num(f.facts.n), max: num(f.facts.max) },
+      since: null,
+    };
+  if (f.code === 'slow_collscan')
+    return {
+      ...base,
+      code: 'slow_collscan',
+      facts: {
+        perMin: num(f.facts.perMin),
+        ns: typeof f.facts.ns === 'string' ? f.facts.ns : null,
+      },
       since: null,
     };
   if (f.code === 'lock_waits' && typeof f.facts.holder === 'string')
@@ -273,6 +289,30 @@ export function throughLink(
         code: table ? 'app_lock_held' : 'app_lock_held_any',
         facts: { name: a.name, holder: link.name, table, held },
       },
+    };
+  }
+  if (f.code === 'slow_collscan') {
+    if (far.gone) return null;
+    const since = started(far);
+    const ns = typeof f.facts.ns === 'string' ? f.facts.ns : null;
+    const perMin = num(f.facts.perMin);
+    return {
+      ...base,
+      facts: { name: a.name, finding: f.code, holder: link.name, ns, perMin },
+      since,
+      chain: [
+        findingStep(ev, a, f, 'because'),
+        {
+          object,
+          source: 'application',
+          code: 'sends_collscan',
+          facts: { ns },
+          at: null,
+          since,
+          next: null,
+        },
+      ],
+      headline: { code: 'app_collscan', facts: { name: a.name, ns, holder: link.name, perMin } },
     };
   }
   if (f.code === 'connections_near_max') {

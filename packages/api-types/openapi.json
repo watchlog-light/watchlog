@@ -2699,6 +2699,42 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["mongodb.ops.rate"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mongodb.connections"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mongodb.connections.ratio"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mongodb.primary.missing"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mongodb.members.down"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mongodb.replication.lag"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mongodb.slow_ops.rate"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mongodb.oplog.window"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mongodb.cache.ratio"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["rabbitmq.messages.ready"]
                       },
                       {

@@ -14,6 +14,7 @@ export const SERVICE_METRIC_PREFIXES = [
   'nginx.',
   'rabbitmq.',
   'mysql.',
+  'mongodb.',
 ] as const;
 export const isServiceMetric = (metric: string) =>
   SERVICE_METRIC_PREFIXES.some((p) => metric.startsWith(p));

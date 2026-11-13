@@ -78,6 +78,15 @@ describe('sealed access', () => {
     expect(connectCommand('mysql', { kind: 'address', address: 'db:3306' }, pw)).toBe(
       `mysql -uroot -p -e '${grants}'`,
     );
+    // MongoDB (ADR-164): clusterMonitor only, root's password asked at the prompt; run for
+    // real on 7.0 and 8.0.
+    const mongo = `db.getSiblingDB("admin").createUser({ user: "watchlog", pwd: "${pw}", roles: [{ role: "clusterMonitor", db: "admin" }] })`;
+    expect(connectCommand('mongodb', { ...sts, workload: 'mongo', port: 27017 }, pw)).toBe(
+      `kubectl exec -it -n shop statefulset/mongo -- mongosh -u root -p --authenticationDatabase admin --quiet --eval '${mongo}'`,
+    );
+    expect(connectCommand('mongodb', { kind: 'address', address: 'db:27017' }, pw)).toBe(
+      `mongosh "mongodb://db:27017/?directConnection=true" -u root -p --authenticationDatabase admin --quiet --eval '${mongo}'`,
+    );
   });
 });
 

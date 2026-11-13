@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // list_applications and get_application (SPEC §4.12, ADR-135): the services WatchLog
-// monitors (Redis, PostgreSQL, MySQL, Nginx, RabbitMQ…), their health with its reasons, and
+// monitors (Redis, PostgreSQL, MySQL, MongoDB, Nginx, RabbitMQ…), their health with its reasons, and
 // who connects to them, on Kubernetes clusters and Docker fleets.
 import { Type } from 'typebox';
 import { clusterField, resolveCluster, type ClusterRef } from '../clusters.js';
@@ -94,6 +94,17 @@ const INTEGRATION_SENTENCES: Record<string, string> = {
     "performance_schema is off (MariaDB's default), so statement statistics are missing; performance_schema=ON and a restart turn it on.",
   table_stats_unavailable:
     "The user can't read mysql.innodb_table_stats, so table sizes are missing.",
+  // MongoDB (replica_lag and connections_near_max above mean the same)
+  no_primary: 'The replica set (facts.set) has no primary: writes fail until one is elected.',
+  member_down:
+    'A replica set member is down or unhealthy (facts.member, state facts.state; facts.n in all).',
+  slow_collscan:
+    'Slow operations scan whole collections (facts.perMin a minute, COLLSCAN on facts.ns, mean facts.mean): facts.client sends most of them (facts.holder, its workload or container).',
+  cache_pressure:
+    'The WiredTiger cache is under pressure (facts.pct% used, facts.dirtyPct% dirty): operations wait for eviction.',
+  operations_queued: 'Operations wait for a ticket (facts.n queued).',
+  oplog_window_short:
+    'The oplog holds only facts.duration of writes: a secondary down longer than that needs a full resync.',
   // Nginx
   errors_high:
     'Requests answer 5xx (facts.pct%); facts.upstream sends most of them (facts.upstreamPct%), facts.rollout its last rollout.',
@@ -200,7 +211,7 @@ export const listApplicationsTool = defineTool({
   name: 'list_applications',
   title: 'List monitored services',
   description: describe(
-    'The services WatchLog monitors in a cluster or Docker fleet: databases, caches, queues and web servers (Redis, PostgreSQL, MySQL and MariaDB, Nginx, RabbitMQ), problems first.',
+    'The services WatchLog monitors in a cluster or Docker fleet: databases, caches, queues and web servers (Redis, PostgreSQL, MySQL and MariaDB, MongoDB, Nginx, RabbitMQ), problems first.',
     "Each has its type, version, where it runs (namespace on Kubernetes; host and Compose project on Docker), health (ok, warning, critical, unknown) with a reason code, a sentence and facts, and how many of its members (pods or containers) the collector reaches. Pass `cluster` to see one cluster; leave it out to see every cluster the token can read. Use get_application for one service's reasons and who connects to it.",
     'Example question: "Is any of our databases unhealthy?"',
   ),
@@ -259,7 +270,7 @@ export const getApplicationTool = defineTool({
   name: 'get_application',
   title: 'Get a monitored service',
   description: describe(
-    'One monitored service (Redis, PostgreSQL, MySQL, Nginx, RabbitMQ…): its health, every reason WatchLog sees (most severe first, each with a code, a sentence, facts and the workloads or containers it points to), and the workloads or containers that connect to it over the last hour, with connection and failed-connect counts (from network flows; `connected.flows` is false when the agents report none).',
+    'One monitored service (Redis, PostgreSQL, MySQL, MongoDB, Nginx, RabbitMQ…): its health, every reason WatchLog sees (most severe first, each with a code, a sentence, facts and the workloads or containers it points to), and the workloads or containers that connect to it over the last hour, with connection and failed-connect counts (from network flows; `connected.flows` is false when the agents report none).',
     'Pass `name` as list_applications shows it ("shop/redis" on Kubernetes, "billing/postgres" for a Compose service, or a container name), or its id.',
     'Example question: "Why is payments/postgres critical, and which services use it?"',
   ),

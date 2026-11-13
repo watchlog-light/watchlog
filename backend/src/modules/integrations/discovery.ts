@@ -60,11 +60,14 @@ export const SERVICE_KINDS: ServiceKind[] = [
     available: true,
   },
   {
+    // The official image, MongoDB's community and enterprise server images (the community
+    // operator's), Bitnami's and Percona's (ADR-164).
     type: 'mongodb',
-    image: /(^|\/)(mongo|mongodb|mongodb-community-server)$/,
-    not: /(exporter|express|operator)/,
+    image:
+      /(^|\/)(mongo|mongodb|mongodb-community-server|mongodb-enterprise-server|percona-server-mongodb)$/,
+    not: /(exporter|express|operator|agent|backup|sidecar|compass)/,
     ports: [27017],
-    available: false,
+    available: true,
   },
   {
     type: 'elasticsearch',

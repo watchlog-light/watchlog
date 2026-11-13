@@ -117,6 +117,8 @@ export const HEADLINES = {
     "{name}'s writes wait on a row lock in {table}: {holder} holds it, its transaction open for {held}.",
   app_lock_held_any:
     "{name}'s writes wait on a row lock: {holder} holds it, its transaction open for {held}.",
+  app_collscan:
+    '{name} runs slow collection scans on {ns} ({perMin} a minute): {holder} sends them.',
   app_finding_caller:
     "{name}'s calls to {app} fail or slow down, and WatchLog sees a problem on {app}.",
 };

@@ -157,6 +157,45 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
       forSeconds: 0,
     },
   ],
+  mongodb: [
+    {
+      key: 'mongodb_no_primary',
+      name: 'MongoDB replica set has no primary',
+      metric: 'mongodb.primary.missing',
+      condition: { op: '>', value: 0 },
+      forSeconds: 60,
+      severity: 'critical',
+    },
+    {
+      key: 'mongodb_replication_lag',
+      name: 'MongoDB replication lag above 30 s',
+      metric: 'mongodb.replication.lag',
+      condition: { op: '>', value: 30 },
+      forSeconds: 120,
+    },
+    {
+      key: 'mongodb_member_down',
+      name: 'MongoDB replica set member down',
+      metric: 'mongodb.members.down',
+      condition: { op: '>', value: 0 },
+      forSeconds: 60,
+      severity: 'critical',
+    },
+    {
+      key: 'mongodb_slow_ops',
+      name: 'MongoDB slow operations above 20 a minute',
+      metric: 'mongodb.slow_ops.rate',
+      condition: { op: '>', value: 20 },
+      forSeconds: 300,
+    },
+    {
+      key: 'mongodb_oplog_window',
+      name: 'MongoDB oplog window under 24 h',
+      metric: 'mongodb.oplog.window',
+      condition: { op: '<', value: 86400 },
+      forSeconds: 600,
+    },
+  ],
   nginx: [
     {
       key: 'nginx_5xx_high',

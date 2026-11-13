@@ -559,6 +559,68 @@ const ENTRIES = {
     expr: (s, _r, a) =>
       `${a} by (service, service_type) (watchlog_mysql_row_lock_current_waits${s()})`,
   },
+  // MongoDB (v0.5 slice 2, ADR-164): serverStatus per member; replica set members as each
+  // member sees them (the worst view per member name).
+  'mongodb.ops.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (service, service_type) (rate(watchlog_mongodb_ops_total${s()}[${r}]))`,
+  },
+  'mongodb.connections': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, member) (watchlog_mongodb_connections${s('state="current"')})`,
+  },
+  'mongodb.connections.ratio': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, member) (watchlog_mongodb_connections${s('state="current"')}) / on (service, service_type, member) ((max by (service, service_type, member) (watchlog_mongodb_connections${s('state="current"')}) + max by (service, service_type, member) (watchlog_mongodb_connections${s('state="available"')})) > 0)`,
+  },
+  /** 1 while no member of a replica set is primary, as any reachable member sees it. */
+  'mongodb.primary.missing': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) => `1 - max by (service, service_type) (watchlog_mongodb_primary_seen${s()})`,
+  },
+  /** Members a reachable member sees as unhealthy. */
+  'mongodb.members.down': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `count by (service, service_type) (max by (service, service_type, rs_member) (1 - watchlog_mongodb_member_health${s()}) > 0) or max by (service, service_type) (watchlog_mongodb_replica_set${s()}) * 0`,
+  },
+  'mongodb.replication.lag': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, rs_member) (watchlog_mongodb_replication_lag_seconds${s()})`,
+  },
+  /** "Slow query" log lines a minute (unit count: per minute), as the collector counts them. */
+  'mongodb.slow_ops.rate': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (service, service_type) (rate(watchlog_mongodb_slow_ops_total${s()}[${r}])) * 60`,
+  },
+  /**
+   * The oplog's window, once the oplog is full (over 90 % of its size): before that, the
+   * window is only how long the set has been running.
+   */
+  'mongodb.oplog.window': {
+    unit: 'seconds',
+    agg: 'min',
+    expr: (s) =>
+      `min by (service, service_type, member) (watchlog_mongodb_oplog_window_seconds${s()}) and on (service, service_type, member) (max by (service, service_type, member) (watchlog_mongodb_oplog_bytes${s('state="used"')}) / on (service, service_type, member) (max by (service, service_type, member) (watchlog_mongodb_oplog_bytes${s('state="max"')}) > 0) > 0.9)`,
+  },
+  'mongodb.cache.ratio': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, member) (watchlog_mongodb_cache_bytes${s('state="used"')}) / on (service, service_type, member) (max by (service, service_type, member) (watchlog_mongodb_cache_bytes${s('state="max"')}) > 0)`,
+  },
   // RabbitMQ (v0.3 slice 11): the rabbitmq_prometheus series of every node.
   'rabbitmq.messages.ready': {
     unit: 'count',

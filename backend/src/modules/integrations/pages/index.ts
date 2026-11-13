@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The service pages by type (ADR-135). Each integration replaces the generic page with
-// its own as it lands (Redis, PostgreSQL, Nginx, RabbitMQ, MySQL; MongoDB, Traefik and Kafka in v0.5).
+// its own as it lands (Redis, PostgreSQL, Nginx, RabbitMQ, MySQL, MongoDB; Traefik and Kafka in v0.5).
 import type { IntegrationType } from '../collector-config.js';
 import { genericPage } from './generic.js';
+import { mongodbPage } from './mongodb.js';
 import { mysqlPage } from './mysql.js';
 import { nginxPage } from './nginx.js';
 import { postgresPage } from './postgres.js';
@@ -11,6 +12,7 @@ import { redisPage } from './redis.js';
 import type { IntegrationPage } from './types.js';
 
 const PAGES: Partial<Record<IntegrationType, IntegrationPage>> = {
+  mongodb: mongodbPage,
   mysql: mysqlPage,
   nginx: nginxPage,
   postgres: postgresPage,

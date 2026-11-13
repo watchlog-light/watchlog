@@ -186,7 +186,7 @@ describe('Applications API', () => {
       .set({ status_summary: JSON.stringify({ phase: 'Succeeded' }) })
       .where('name', '=', 'api-1')
       .execute();
-    // MongoDB ships in v0.3.1: not offered yet.
+    // MongoDB (v0.5, ADR-164): offered by its image.
     await pod(k8s.id, 'billing', 'mongo-0', ['StatefulSet', 'mongo'], [{ image: 'mongo:7.0' }]);
     await container(docker.id, 'docker-01', 'analytics-redis-1', 'redis:7.2', {
       project: 'analytics',
@@ -211,6 +211,7 @@ describe('Applications API', () => {
     }[];
     expect(found.map((d) => [d.type, d.name, d.confidence])).toEqual([
       ['redis', 'analytics/redis', 'image'],
+      ['mongodb', 'billing/mongo', 'image'],
       ['nginx', 'ingress/ingress-nginx-controller', 'image'],
       ['rabbitmq', 'mq', 'image'],
       ['postgres', 'payments/postgres', 'image'],
@@ -353,8 +354,13 @@ describe('Applications API', () => {
       400,
     );
     expect(
-      (await post({ clusterId: docker.id, type: 'mongodb', target: { ...compose, port: 27017 } }))
-        .statusCode,
+      (
+        await post({
+          clusterId: docker.id,
+          type: 'elasticsearch',
+          target: { ...compose, port: 9200 },
+        })
+      ).statusCode,
     ).toBe(400);
     // An address on Docker needs the host whose collector reaches it.
     const address = { kind: 'address', address: 'db.internal:5432' };
