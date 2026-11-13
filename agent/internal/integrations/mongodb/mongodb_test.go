@@ -139,3 +139,27 @@ func BenchmarkParseSlow(b *testing.B) {
 		ParseSlow(lines, true)
 	}
 }
+
+// A shape sent an hour ago by a pod that is gone, many times, and now by another, fewer
+// times: the client named is the one sending it now.
+func TestSlowTableNamesTheRecentClient(t *testing.T) {
+	now := time.Now()
+	var recent []slowEntry
+	for i := 0; i < 150; i++ {
+		recent = append(recent, slowEntry{At: now.Add(-55*time.Minute + time.Duration(i)*time.Second), NS: "shop.events",
+			Op: "find", Shape: "{amount: {$gt: ?}, kind: ?}", Plan: "COLLSCAN", Millis: 40, Remote: "10.42.0.64", Collscan: true})
+	}
+	for i := 0; i < 60; i++ {
+		recent = append(recent, slowEntry{At: now.Add(-2*time.Minute + time.Duration(i)*time.Second), NS: "shop.events",
+			Op: "find", Shape: "{amount: {$gt: ?}, kind: ?}", Plan: "COLLSCAN", Millis: 40, Remote: "10.42.0.80", Collscan: true})
+	}
+	s := &scrape{member: "m", extra: map[string]any{}, slow: &slowState{recent: recent}}
+	s.slowTable()
+	rows := asRows(s.extra["slow"])
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want 1", len(rows))
+	}
+	if rows[0]["remote"] != "10.42.0.80" || rows[0]["count"] != 210 {
+		t.Fatalf("row = %v, want remote 10.42.0.80 and count 210", rows[0])
+	}
+}

@@ -847,8 +847,13 @@ func (s *scrape) heavy(ctx context.Context) {
 	s.collections(ctx, colls)
 }
 
+// ClientWindow: how far back from a shape's newest slow entry its clients are counted.
+const ClientWindow = 10 * time.Minute
+
 // slowTable groups the last hour's slow entries by namespace, operation and shape (or
-// hash): count, mean and max duration, plan, and the last client's address.
+// hash): count, mean and max duration, plan, and the client that sent most of them in
+// the shape's last ClientWindow (a job that ran the same query an hour ago, from a pod
+// that is gone now, must not outrank the one sending it now).
 func (s *scrape) slowTable() {
 	type key struct{ ns, op, shape, plan string }
 	type agg struct {
@@ -875,9 +880,17 @@ func (s *scrape) slowTable() {
 		a.max = max(a.max, e.Millis)
 		a.collscan = a.collscan || e.Collscan
 		a.hash = e.Hash
-		a.remotes[e.Remote]++
 		if e.At.After(a.last) {
 			a.last, a.remote = e.At, e.Remote
+		}
+	}
+	for _, e := range s.slow.recent {
+		k := key{e.NS, e.Op, e.Shape, e.Plan}
+		if k.shape == "" {
+			k.shape = e.Hash
+		}
+		if a := by[k]; !e.At.Before(a.last.Add(-ClientWindow)) {
+			a.remotes[e.Remote]++
 		}
 	}
 	rows := make([]map[string]any, 0, len(by))
