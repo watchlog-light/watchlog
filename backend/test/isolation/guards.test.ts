@@ -23,6 +23,9 @@ const SYSTEM_DB: Record<string, string> = {
   'modules/accounts/service.ts': 'Cloud signup creates the user and their org',
   'modules/cloud/routes.ts': 'wiring: hands systemDb to the Cloud account routes',
   'modules/demo/routes.ts': 'the demo sign-in, before the org is known',
+  'modules/onboarding/cloud-routes.ts':
+    'Cloud /install.yaml: the install code names its cluster, before the org is known',
+  'modules/onboarding/install-codes.ts': 'resolves an install code, before the org is known',
   'modules/setup/routes.ts': 'first-run setup, before any org exists',
   'modules/users/routes.ts': 'invite and password-reset links, signed out',
   'plugins/api-token.ts': 'the API token lookup',

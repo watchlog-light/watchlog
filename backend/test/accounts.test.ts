@@ -133,7 +133,15 @@ const nextIp = () => `10.0.${Math.floor(++ip / 250)}.${(ip % 250) + 1}`;
 async function cloudContext(accounts: Partial<Config['accounts']> = {}) {
   mock = mockServices();
   ctx = await createTestContext(
-    { ...CLOUD, accounts: { turnstile: {}, ...accounts } },
+    {
+      ...CLOUD,
+      accounts: {
+        turnstile: {},
+        supportEmail: 'support@watchlog.io',
+        sampleUrl: 'https://demo.watchlog.io',
+        ...accounts,
+      },
+    },
     { fetch: mock.fetch },
   );
   return ctx;
@@ -277,7 +285,13 @@ describe('the checks, alone', () => {
     };
     const c = loadConfig(base);
     expect(c.cookieSecure).toBe('always');
-    expect(c.accounts).toEqual({ turnstile: {}, github: undefined, google: undefined });
+    expect(c.accounts).toEqual({
+      turnstile: {},
+      github: undefined,
+      google: undefined,
+      supportEmail: 'support@watchlog.io',
+      sampleUrl: 'https://demo.watchlog.io',
+    });
     expect(() => loadConfig({ ...base, WATCHLOG_COOKIE_SECURE: 'auto' })).toThrow(/Secure/);
     expect(() => loadConfig({ ...base, WATCHLOG_GITHUB_CLIENT_ID: 'x' })).toThrow(/together/);
     expect(
@@ -391,6 +405,8 @@ describe('signup', () => {
       turnstileSiteKey: 'site',
       passwordMinLength: 10,
       verifyGraceDays: 7,
+      supportEmail: 'support@watchlog.io',
+      sampleUrl: 'https://demo.watchlog.io',
     });
     expect((await signup('t@example.com')).json().code).toBe('turnstile-failed');
     expect((await signup('t@example.com', { turnstileToken: 'bad' })).statusCode).toBe(400);

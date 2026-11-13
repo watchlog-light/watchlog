@@ -75,6 +75,14 @@ export const ROUTES: Record<string, RouteClass> = {
   'GET /api/v1/auth/oauth/:provider/callback': cloud,
   'DELETE /api/v1/auth/identities/:provider': cloud,
 
+  // Cloud onboarding (ADR-176): the first-week card, the page's funnel events, and the
+  // kubectl manifest behind an install code (a code of A's never answers for B's cluster:
+  // cross-org.test.ts).
+  'GET /api/v1/onboarding/first-week': cloud,
+  'POST /api/v1/onboarding/first-week/dismiss': cloud,
+  'POST /api/v1/funnel': { kind: 'cloud', body: { name: 'install_command_copied' } },
+  'GET /install.yaml': cloud,
+
   'GET /api/v1/clusters': org,
   'POST /api/v1/clusters': org,
   'GET /api/v1/clusters/:id': org,
@@ -106,6 +114,8 @@ export const ROUTES: Record<string, RouteClass> = {
   'GET /api/v1/clusters/:id/search': { kind: 'org', query: { q: 'web' } },
   'GET /api/v1/clusters/:id/overview': org,
   'GET /api/v1/clusters/:id/service-map': org,
+  // The live connection checklist (ADR-176), both editions; its stream form is in STREAMS.
+  'GET /api/v1/clusters/:id/onboarding-status': org,
   'GET /api/v1/clusters/:id/service-map/edge': {
     kind: 'org',
     control: 'needs an edge between two workloads, which the seed has no flows for',
@@ -196,8 +206,9 @@ export const ROUTES: Record<string, RouteClass> = {
   'POST /ingest/v1/heartbeat': ingest,
 };
 
-/** Event streams: a route and how it is asked for one (ADR-167's logs follow). */
+/** Event streams: a route and how it is asked for one (ADR-167's logs follow, ADR-176). */
 export const STREAMS: { route: string; query: Record<string, string> }[] = [
+  { route: 'GET /api/v1/clusters/:id/onboarding-status', query: {} },
   {
     route: 'GET /api/v1/clusters/:id/pods/:namespace/:name/logs',
     query: { follow: 'true' },
