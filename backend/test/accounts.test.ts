@@ -746,6 +746,32 @@ describe('sessions and orgs', () => {
   });
 });
 
+describe('removing a user in Cloud', () => {
+  it('ends the membership in this org only; the account goes with its last org', async () => {
+    await cloudContext();
+    const a = await signedUp('member@example.com');
+    const b = await signedUp('admin@example.com');
+    const bOrg = (await call('GET', '/api/v1/me', b.cookie)).json().user.org.id as string;
+    await ctx.db
+      .insertInto('memberships')
+      .values({ id: newId(), org_id: bOrg, user_id: a.user.id, role: 'viewer' })
+      .execute();
+    await call('POST', `/api/v1/orgs/${bOrg}/switch`, a.cookie);
+    const removed = await call('DELETE', `/api/v1/users/${a.user.id}`, b.cookie);
+    expect(removed.statusCode, removed.body).toBe(204);
+    // Still an account, still Owner of its own org; the session in B's org ended.
+    expect((await call('GET', '/api/v1/me', a.cookie)).statusCode).toBe(401);
+    const back = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: 'member@example.com', password: 'a long enough password' },
+    });
+    expect(back.statusCode).toBe(200);
+    expect(back.json().user.role).toBe('owner');
+    expect(back.json().user.org.id).not.toBe(bOrg);
+  });
+});
+
 // ------------------------------------------------------------------------------- OAuth
 
 describe('GitHub and Google sign-in', () => {
