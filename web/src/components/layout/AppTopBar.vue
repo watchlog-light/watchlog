@@ -128,7 +128,7 @@ const summary = computed(() =>
     </button>
 
     <template v-if="!narrow">
-      <OrgSwitcher v-if="auth.isCloud" class="w-48 max-xl:w-40" />
+      <OrgSwitcher v-if="auth.isCloud" class="w-36 min-[1440px]:w-44" />
       <ClusterSwitcher v-if="compact" :collapsed="false" class="w-52" />
       <DockerScopeFilter v-if="onDocker" />
       <NamespaceFilter v-else-if="onKube" />

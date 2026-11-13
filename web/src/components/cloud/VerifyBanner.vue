@@ -38,14 +38,14 @@ const by = computed(() =>
           : $t('cloud.verify.bannerNoDate', { email: auth.account!.email })
       }}
     </p>
-    <ResendVerification compact class="max-sm:w-full" />
     <button
       type="button"
-      class="flex size-8 items-center justify-center rounded-control text-text-muted hover:bg-surface-2 hover:text-text max-lg:size-11"
+      class="flex size-8 items-center justify-center rounded-control text-text-muted hover:bg-surface-2 hover:text-text max-lg:size-11 sm:order-last"
       :aria-label="$t('cloud.verify.dismiss')"
       @click="hidden = true"
     >
       <X class="size-4" aria-hidden="true" />
     </button>
+    <ResendVerification compact class="max-sm:basis-full max-sm:pl-7" />
   </div>
 </template>

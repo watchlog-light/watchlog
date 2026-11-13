@@ -23,8 +23,8 @@ const tone = computed(() =>
       />
     </div>
     <p :id="id" class="text-12 text-text-muted" aria-live="polite">
-      <template v-if="password">{{ $t(`cloud.strength.${label}`) }} </template
-      >{{ $t('cloud.strength.rule', { min: minLength }) }}
+      {{ password ? `${$t(`cloud.strength.${label}`)} ` : ''
+      }}{{ $t('cloud.strength.rule', { min: minLength }) }}
     </p>
   </div>
 </template>
