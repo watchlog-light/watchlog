@@ -14,7 +14,7 @@ import type {
   PossibleCause,
 } from '@watchlog/api-types';
 import type { RouteLocationRaw } from 'vue-router';
-import { reasonLine, serviceName } from './applications';
+import { productText, reasonLine } from './applications';
 import { causeValues } from '@watchlog/cause-words';
 
 export interface Line {
@@ -178,7 +178,9 @@ export function objectKind(o: CauseObject): Line {
   if (o.kind === 'workload' && o.workloadKind) return { key: '', values: { text: o.workloadKind } };
   if (o.kind === 'compose_service' && o.host)
     return { key: 'causes.object.compose_service_on', values: { host: o.host } };
-  if (o.kind === 'application' && o.type) return { key: '', values: { text: serviceName(o.type) } };
+  // The product the collector found (MariaDB, Valkey), else the type's own name.
+  if (o.kind === 'application' && o.type)
+    return productText({ type: o.type, version: null, product: o.product ?? null });
   return { key: `causes.object.${o.kind}`, values: {} };
 }
 
