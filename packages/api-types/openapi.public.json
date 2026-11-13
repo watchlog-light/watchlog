@@ -184,7 +184,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -203,7 +205,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -222,7 +226,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -241,7 +247,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -433,7 +441,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -452,7 +462,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -471,7 +483,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -490,7 +504,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -820,7 +836,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -839,7 +857,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -858,7 +878,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -877,7 +899,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -1150,7 +1174,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -1169,7 +1195,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -1188,7 +1216,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -1207,7 +1237,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -1226,7 +1258,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -1565,7 +1599,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -2030,7 +2066,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -2049,7 +2087,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -2068,7 +2108,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -2136,7 +2178,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -2374,7 +2418,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -2855,7 +2901,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -2874,7 +2922,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -2893,7 +2943,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -3017,7 +3069,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -3158,7 +3212,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -3177,7 +3233,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -3271,7 +3329,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -3290,7 +3350,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -3309,7 +3371,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -3553,7 +3617,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -3572,7 +3638,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -3774,7 +3842,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -3793,7 +3863,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -4217,7 +4289,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -4236,7 +4310,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -4255,7 +4331,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -4473,7 +4551,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -4492,7 +4572,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -4511,7 +4593,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -4572,7 +4656,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -4591,7 +4677,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -4835,7 +4923,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -4854,7 +4944,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -5123,7 +5215,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -5142,7 +5236,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -5869,7 +5965,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -5888,7 +5986,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -6040,7 +6140,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -6059,7 +6161,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -6291,7 +6395,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -6310,7 +6416,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -6820,7 +6928,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -6839,7 +6949,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -6858,7 +6970,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -6972,7 +7086,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -6991,7 +7107,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -7258,7 +7376,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -7277,7 +7397,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -7296,7 +7418,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -7486,7 +7610,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -7505,7 +7631,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -7524,7 +7652,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -7543,7 +7673,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -7562,7 +7694,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -7769,7 +7903,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -7788,7 +7924,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -7907,7 +8045,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -8140,7 +8280,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -8159,7 +8301,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -8178,7 +8322,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -8197,7 +8343,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -8283,7 +8431,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -8302,7 +8452,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -8321,7 +8473,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }
@@ -8340,7 +8494,9 @@
                     "status": { "type": "integer" },
                     "detail": { "type": "string" },
                     "instance": { "type": "string" },
-                    "code": { "type": "string" }
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
                   }
                 }
               }

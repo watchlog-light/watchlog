@@ -88,6 +88,9 @@ export interface Problem {
   /** Read-only demo mode (ADR-122): `demo_read_only`, with `message` for the visitor. */
   code?: string;
   message?: string;
+  /** Cloud's `plan-limit` (ADR-177): `clusters`, `users` or `nodes`, and the plan's number. */
+  limit?: string;
+  max?: number;
 }
 
 export type AlertingStatus = JsonBody<Responses<'/api/v1/alerting/status', 'get'>[200]>;
