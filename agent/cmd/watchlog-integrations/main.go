@@ -27,6 +27,7 @@ import (
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/postgres"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/rabbitmq"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/redis"
+	"github.com/watchlog-light/watchlog/agent/internal/integrations/traefik"
 	"github.com/watchlog-light/watchlog/agent/internal/runner"
 	"github.com/watchlog-light/watchlog/agent/internal/sender"
 	"github.com/watchlog-light/watchlog/agent/internal/version"
@@ -134,7 +135,7 @@ func run(args []string, stdout io.Writer) int {
 		},
 		// Integrations that read a service themselves; the others get the TCP check.
 		Registry: integrations.Registry{
-			"mongodb": mongodb.New(), "mysql": mysql.New(), "nginx": nginx.New(), "postgres": postgres.New(), "rabbitmq": rabbitmq.New(), "redis": redis.New(),
+			"mongodb": mongodb.New(), "mysql": mysql.New(), "nginx": nginx.New(), "postgres": postgres.New(), "rabbitmq": rabbitmq.New(), "redis": redis.New(), "traefik": traefik.New(),
 		},
 		Buffer: buf,
 		Sender: snd,
