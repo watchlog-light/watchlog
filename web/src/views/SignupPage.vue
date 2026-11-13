@@ -167,16 +167,18 @@ async function submit() {
             data-testid="signup-waitlist"
             >{{ $t('cloud.signup.waves.join') }}</a
           >
-          <p class="text-13 leading-relaxed text-text-muted">
-            {{ $t('cloud.signup.waves.selfHost') }}
+          <div class="flex flex-col gap-1">
+            <p class="text-13 leading-relaxed text-text-muted">
+              {{ $t('cloud.signup.waves.selfHost') }}
+            </p>
             <a
               :href="LINKS.install"
               target="_blank"
               rel="noopener"
-              class="inline-flex items-center text-primary hover:text-primary-hover max-lg:min-h-11"
+              class="inline-flex w-fit items-center text-13 text-primary hover:text-primary-hover max-lg:min-h-11"
               >{{ $t('cloud.signup.waves.selfHostLink') }}</a
             >
-          </p>
+          </div>
         </template>
         <template v-else>
           <div class="flex flex-col gap-1.5">
