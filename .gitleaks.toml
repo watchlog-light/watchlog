@@ -17,4 +17,7 @@ regexes = [
   # Reviewed 2026-11-09: a made-up generated password in the responsive suite's fixture
   # (web/e2e/fixtures/applications.ts, commit f6ef503); it was never a real credential.
   '''wl_mon_Qx7fK2mT9bLr4Wc8Nz3Hd5Vp1''',
+  # Reviewed 2026-11-13: a metric key in the rule editor's list (web/src/lib/alerts.ts,
+  # commit 76477a9), `key: 'traefik.latency.p95'`, read as a generic API key.
+  '''traefik\.latency\.p95''',
 ]
