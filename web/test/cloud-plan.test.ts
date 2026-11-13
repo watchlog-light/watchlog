@@ -135,7 +135,7 @@ describe('the banners', () => {
     );
     const b = wrapper.get('[data-testid="downgrade-banner"]');
     expect(b.text()).toContain('Your plan is now Free.');
-    expect(b.text()).toContain('keeps sending for 14 days more');
+    expect(b.text()).toContain('keeps sending until Nov 28, 14 days from now');
     expect(b.text()).toContain('3 nodes and 1 cluster beyond the plan stop sending, newest first');
   });
 
