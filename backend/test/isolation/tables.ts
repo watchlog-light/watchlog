@@ -19,6 +19,8 @@ export const GLOBAL_TABLES = [
   'alerting_periods',
   // Hashes of revoked cluster tokens, read by the ingest token check before any org.
   'retired_cluster_tokens',
+  // Cloud (ADR-181): the record of each org deletion, kept after the org's rows are gone.
+  'org_deletions',
   // node-pg-migrate's bookkeeping; watchlog_app has no grant on it.
   'pgmigrations',
 ] as const;

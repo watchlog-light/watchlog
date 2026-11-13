@@ -35,6 +35,8 @@ const SYSTEM_DB: Record<string, string> = {
     "the worker's day7_active job lists clusters across orgs; each event is written withOrg",
   'modules/internal/admin.ts':
     "the Cloud admin's API (staff): any org's row, members, usage, funnel and support sessions",
+  'modules/data-rights/service.ts':
+    "the worker's deletions and inactive orgs across orgs, and the Owners' notices",
   'modules/lifecycle/job.ts':
     "the worker's lifecycle emails list Owners across orgs; each record is written withOrg",
   'modules/lifecycle/unsubscribe.ts': 'the unsubscribe link names a user (global), signed out',
@@ -60,6 +62,7 @@ const AUTHORISED_SCOPE: Record<string, string> = {
   'lib/victoria.ts': 'defines it',
   'modules/clusters/service.ts': 'clusterForOrg, the guard itself',
   'modules/ingest/routes.ts': 'the cluster comes from the cluster token (ADR-026)',
+  'modules/data-rights/service.ts': "an org's deletion removes its own clusters' series",
   'modules/alerts/metric-rules.ts': "the alert worker's rules, read under withOrg",
   'modules/alerts/routes.ts': "the org's clusters, read with its filter",
   'modules/alerts/rule-charts.ts': "charts of the org's own alerts and rules",

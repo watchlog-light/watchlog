@@ -102,6 +102,15 @@ export const ROUTES: Record<string, RouteClass> = {
   // The lifecycle emails' unsubscribe (ADR-179): a signed link naming one user, no session.
   'GET /api/v1/email/unsubscribe': { kind: 'cloud', query: { token: 'none' } },
   'POST /api/v1/email/unsubscribe': { kind: 'cloud', query: { token: 'none' } },
+  // Data rights (ADR-181): the banners' state, the exports (B with A's cluster: 404, in
+  // cross-org.test.ts), the deletion (its confirmation is the org's name, so the sweep's
+  // generated body is refused) and the Owners' reactivation.
+  'GET /api/v1/org/status': cloud,
+  'GET /api/v1/org/export': cloud,
+  'GET /api/v1/clusters/:id/export': { kind: 'cloud', query: lastHour },
+  'POST /api/v1/org/deletion': cloud,
+  'DELETE /api/v1/org/deletion': cloud,
+  'POST /api/v1/org/reactivate': cloud,
 
   'GET /api/v1/clusters': org,
   'POST /api/v1/clusters': org,

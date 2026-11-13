@@ -258,6 +258,41 @@ describe('every REST route as org B with org A ids', () => {
     expect(q.body).toContain('zzalpha-pod');
   });
 
+  it("exports (ADR-181): B can't reach A's clusters, and B's own exports hold nothing of A", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const range = { from: String(now - 3600), to: String(now) };
+    const exportOf = async (as: SeededOrg, clusterId: string) =>
+      w.app.inject({
+        method: 'GET',
+        url: `/api/v1/clusters/${clusterId}/export`,
+        query: range,
+        cookies: { wl_session: await as.session() },
+      });
+    for (const id of [A.k8s.id, A.docker.id]) {
+      const b = await exportOf(B, id);
+      expect(b.statusCode, id).toBe(404);
+      expect(leaks(b.body, id)).toEqual([]);
+    }
+    for (const id of [B.k8s.id, B.docker.id]) {
+      const own = await exportOf(B, id);
+      expect(own.statusCode).toBe(200);
+      expect(leaks(own.body)).toEqual([]);
+    }
+    // The control: A's own export has A's series.
+    const a = await exportOf(A, A.k8s.id);
+    expect(a.statusCode).toBe(200);
+    expect(a.body).toContain('zzalpha-pod');
+    expect(a.body).toContain(`"cluster_id":"${A.k8s.id}"`);
+    const config = await w.app.inject({
+      method: 'GET',
+      url: '/api/v1/org/export',
+      cookies: { wl_session: await B.session() },
+    });
+    expect(config.statusCode).toBe(200);
+    expect(leaks(config.body)).toEqual([]);
+    expect(config.json().org.id).toBe(B.orgId);
+  });
+
   it('changes: B with A ids gets 404 or 403, and none of A rows changes', async () => {
     const before = await fingerprint(A.orgId);
     const problems: string[] = [];
