@@ -19,6 +19,7 @@ export const SERVICE_TYPES: Record<string, { name: string; family: Family }> = {
   mongodb: { name: 'MongoDB', family: 'databases' },
   redis: { name: 'Redis', family: 'caches' },
   rabbitmq: { name: 'RabbitMQ', family: 'queues' },
+  kafka: { name: 'Kafka', family: 'queues' },
   nginx: { name: 'Nginx', family: 'proxies' },
   traefik: { name: 'Traefik', family: 'proxies' },
   elasticsearch: { name: 'Elasticsearch', family: 'search' },
@@ -200,6 +201,28 @@ export function reasonLine(
         values: { ...f, since },
       };
     }
+    case 'group_no_members': {
+      // Kafka (ADR-166): since when, and the member that ended (how, when), the last
+      // member when none is known to have ended, or nobody.
+      const since = typeof f.sinceAt === 'number' ? whenAndAgo(f.sinceAt, now) : null;
+      const who = !has(f.member)
+        ? '_unknown'
+        : !has(f.how)
+          ? '_last'
+          : has(f.when)
+            ? ''
+            : '_nowhen';
+      return {
+        key: `integrations.reasons.group_no_members${since ? '' : '_long'}${who}`,
+        values: { ...f, since },
+      };
+    }
+    case 'offline_partitions':
+    case 'under_replicated':
+      return {
+        key: `integrations.reasons.${r.code}${has(f.topic) ? '' : '_plain'}`,
+        values: { ...f },
+      };
     case 'autovacuum_not_finishing':
     case 'memory_alarm':
     case 'disk_alarm': {
@@ -316,6 +339,6 @@ export type AccessMethod = 'none' | 'generated' | 'entered' | 'reference';
 /** The ways to connect each type (ADR-134): a user for PostgreSQL, optional for Redis. */
 export function accessOptions(type: string): AccessMethod[] {
   if (type === 'postgres') return ['generated', 'entered', 'reference'];
-  if (type === 'redis') return ['none', 'generated', 'entered', 'reference'];
+  if (type === 'redis' || type === 'kafka') return ['none', 'generated', 'entered', 'reference'];
   return ['none'];
 }

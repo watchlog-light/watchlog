@@ -322,6 +322,16 @@ export const SERVICE_METRICS_BY_TYPE: Record<string, typeof SERVICE_METRICS> = {
     { key: 'rabbitmq.alarms', unit: 'count', start: { op: '>', value: 0 } },
     { key: 'rabbitmq.dead_lettered.rate', unit: 'per_second', start: { op: '>', value: 0 } },
   ],
+  kafka: [
+    { key: 'kafka.partitions.offline', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'kafka.partitions.under_replicated', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'kafka.brokers.missing', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'kafka.group.lost', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'kafka.group.lag.growth', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'kafka.group.lag', unit: 'count', start: { op: '>', value: 10_000 } },
+    { key: 'kafka.groups.empty', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'kafka.messages_in.rate', unit: 'per_second', start: { op: '>', value: 10_000 } },
+  ],
 };
 export const serviceMetrics = (type?: string) => [
   ...SERVICE_METRICS,

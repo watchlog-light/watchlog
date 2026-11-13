@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { type FunctionalComponent, h } from 'vue';
 import elasticsearchUrl from '@/assets/brands/elasticsearch.svg';
+import kafkaUrl from '@/assets/brands/kafka.svg';
 import mongodbUrl from '@/assets/brands/mongodb.svg';
 import mysqlUrl from '@/assets/brands/mysql.svg';
 import nginxUrl from '@/assets/brands/nginx.svg';
@@ -20,6 +21,7 @@ export const SERVICE_LOGO_URL: Record<string, string> = {
   mysql: mysqlUrl,
   mongodb: mongodbUrl,
   traefik: traefikUrl,
+  kafka: kafkaUrl,
   elasticsearch: elasticsearchUrl,
 };
 

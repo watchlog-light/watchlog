@@ -78,6 +78,10 @@ const HEADLINES: [string, Facts][] = [
     'app_consumer_ended',
     { queue: 'orders', consumer: 'rabbitmq-e2e-consumer-1', how: 'Exited (0)' },
   ],
+  ['app_group_oom', { group: 'audit', member: 'kafka-e2e/audit', limitBytes: 67108864 }],
+  ['app_group_crash', { group: 'audit', member: 'kafka-e2e-audit-1', exitCode: 1 }],
+  ['app_group_change', { group: 'audit', member: 'kafka-e2e/audit' }],
+  ['app_group_ended', { group: 'audit', member: 'kafka-e2e-audit-1', how: 'OOMKilled' }],
   ['app_pg_held', { name: 'causes-e2e/pg', pct: 93, holder: 'causes-e2e/leak', n: 37 }],
   ['app_pg_held', { name: 'causes-e2e/pg', pct: 98, holder: 'shop/report', n: 1 }],
   [
@@ -284,6 +288,8 @@ const STEPS: [string, Facts][] = [
   ['sends_collscan', { ns: 'shop.events' }],
   ['no_server_up', { backend: 'shop/api', service: 'shop-api-80@kubernetes', answered: 12.5 }],
   ['backend_no_server', { how: 'down' }],
+  ['group_no_members', { group: 'audit', lag: 12000, perMin: 1200 }],
+  ['group_member_ended', { how: 'OOMKilled' }],
   [
     'app_finding',
     {

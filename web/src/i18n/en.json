@@ -1415,7 +1415,15 @@
     "traefik_latency_p95": "Traefik p95 response time",
     "traefik_services_down": "Traefik services with no server up",
     "traefik_certificate_expiry": "Traefik certificate expiry",
-    "traefik_config_reload_failed": "Traefik configuration reload failed"
+    "traefik_config_reload_failed": "Traefik configuration reload failed",
+    "kafka_partitions_offline": "Kafka offline partitions",
+    "kafka_partitions_under_replicated": "Kafka under-replicated partitions",
+    "kafka_brokers_missing": "Kafka brokers missing",
+    "kafka_messages_in_rate": "Kafka messages in/s (offsets/s)",
+    "kafka_group_lag": "Kafka consumer group lag",
+    "kafka_group_lag_growth": "Kafka consumer group lag growth (a minute)",
+    "kafka_group_lost": "Kafka consumer group lost its members",
+    "kafka_groups_empty": "Kafka consumer groups without members"
   },
   "combobox": {
     "noMatches": "No matches",
@@ -2177,7 +2185,12 @@
         "traefik_latency_high": "When p95 stays above 1 s for 5 minutes",
         "traefik_no_server_up": "When a service has no server up for a minute (critical)",
         "traefik_certificate_expiring": "When a certificate expires within 14 days",
-        "traefik_config_reload_failed": "When the last configuration reload failed (Traefik 2)"
+        "traefik_config_reload_failed": "When the last configuration reload failed (Traefik 2)",
+        "kafka_offline_partitions": "When a partition has no leader for a minute (critical)",
+        "kafka_under_replicated": "When partitions are under-replicated for 5 minutes",
+        "kafka_broker_down": "When a broker is down for a minute (critical)",
+        "kafka_group_lag_growing": "When a group's lag grows for 10 minutes while it has members",
+        "kafka_group_lost": "When a group has no members and its lag grows for 5 minutes (critical)"
       }
     },
     "metricsError": "Key metrics couldn't be loaded.",
@@ -2253,6 +2266,9 @@
         },
         "mongodb": {
           "permission_missing": "Grant it as an admin: db.getSiblingDB(\"admin\").grantRolesToUser(\"{user}\", [\"clusterMonitor\"])"
+        },
+        "kafka": {
+          "permission_missing": "Add the ACLs as an admin: kafka-acls.sh --bootstrap-server localhost:9092 --add --allow-principal User:{user} --operation Describe --cluster --topic \"*\" --group \"*\""
         }
       }
     },
@@ -2396,7 +2412,21 @@
       "config_reload_failed": "Traefik's last configuration reload failed ({at}): it keeps serving the configuration it loaded {lastOk}.",
       "metrics_off": "Traefik doesn't serve its Prometheus metrics, so requests, errors and latency come from eBPF (plain HTTP only): TLS traffic and the requests Traefik answers itself are missing. Turn them on:",
       "metrics_off_tried": "Traefik doesn't serve its Prometheus metrics, so requests, errors and latency come from eBPF (plain HTTP only): TLS traffic and the requests Traefik answers itself are missing. WatchLog looked at {tried}. Turn them on:",
-      "errors_high_for": "{pct}% of requests answer 5xx, most of them for {upstream}."
+      "errors_high_for": "{pct}% of requests answer 5xx, most of them for {upstream}.",
+      "offline_partitions": "{n} partitions have no leader (in {topic} and maybe others): they can be neither written nor read.",
+      "offline_partitions_plain": "{n} partitions have no leader: they can be neither written nor read.",
+      "under_replicated": "{n} partitions have fewer in-sync replicas than replicas (in {topic} and maybe others).",
+      "under_replicated_plain": "{n} partitions have fewer in-sync replicas than replicas.",
+      "broker_down": "{n} brokers are missing from the cluster compared with the last hour.",
+      "group_lag_growing": "Group {group} falls behind on {topic}: lag {lag}, growing by {perMin} a minute, while it has members.",
+      "group_no_members": "Group {group} has had no members since {since}, and its lag ({lag}) grows by {perMin} a minute. {member}, a member until then, was {how} {when}.",
+      "group_no_members_nowhen": "Group {group} has had no members since {since}, and its lag ({lag}) grows by {perMin} a minute. {member}, a member until then, was {how}.",
+      "group_no_members_last": "Group {group} has had no members since {since}, and its lag ({lag}) grows by {perMin} a minute. Its last member was {member}.",
+      "group_no_members_unknown": "Group {group} has had no members since {since}, and its lag ({lag}) grows by {perMin} a minute. WatchLog doesn’t know which client was its member.",
+      "group_no_members_long": "Group {group} has had no members for more than 6 hours, and its lag ({lag}) grows by {perMin} a minute. {member}, which was a member, was {how} {when}.",
+      "group_no_members_long_nowhen": "Group {group} has had no members for more than 6 hours, and its lag ({lag}) grows by {perMin} a minute. {member}, which was a member, was {how}.",
+      "group_no_members_long_last": "Group {group} has had no members for more than 6 hours, and its lag ({lag}) grows by {perMin} a minute. Its last member was {member}.",
+      "group_no_members_long_unknown": "Group {group} has had no members for more than 6 hours, and its lag ({lag}) grows by {perMin} a minute."
     },
     "page": {
       "since": "monitored since {at}",
@@ -2440,7 +2470,8 @@
       },
       "genericWhat": {
         "mongodb": "WatchLog checks that its collector reaches every member of this MongoDB and how fast it connects.",
-        "elasticsearch": "WatchLog checks that its collector reaches every member of this Elasticsearch and how fast it connects. Cluster health, indices and search latency come with its integration (v0.5)."
+        "elasticsearch": "WatchLog checks that its collector reaches every member of this Elasticsearch and how fast it connects. Cluster health, indices and search latency come with its integration (v0.5).",
+        "kafka": "WatchLog checks that its collector reaches every broker of this Kafka and how fast it connects."
       }
     },
     "panel": {
@@ -3063,6 +3094,89 @@
           "deliver": "Deliver"
         }
       }
+    },
+    "kafka": {
+      "tabs": {
+        "overview": "Overview",
+        "topics": "Topics",
+        "consumer_groups": "Consumer groups",
+        "brokers": "Brokers",
+        "internals": "Broker internals"
+      },
+      "panels": {
+        "stats": "At a glance",
+        "brokersUp": "Brokers up",
+        "ofKnown": "of {n} known",
+        "offline": "Offline partitions",
+        "underReplicated": "Under-replicated",
+        "messagesIn": "Messages in/s",
+        "offsetsNote": "offsets/s: end-offset growth, about",
+        "groups": "Consumer groups",
+        "withoutMembers": "{n} without members",
+        "largestLag": "Largest lag",
+        "ofGroup": "{group}",
+        "rateByTopic": "Messages in/s by topic",
+        "lagByGroup": "Lag per group",
+        "groupsTable": "Consumer groups",
+        "lagTimeNote": "lag in messages (end offset − committed offset); lag in time is about: lag ÷ the topic’s messages in/s",
+        "largest": "Largest topics",
+        "largestNote": "leader replicas on disk (DescribeLogDirs)",
+        "busiest": "Busiest topics",
+        "topicsTable": "Topics",
+        "lagByGroupTopic": "Lag per group and topic",
+        "consumed": "Consumed/s per group",
+        "consumedNote": "committed-offset growth",
+        "members": "Members",
+        "brokers": "Brokers",
+        "quorumNote": "KRaft quorum: leader {leader}, {voters} voters",
+        "quorumDenied": "KRaft quorum: not readable by this user (Describe on the cluster)",
+        "partitionsPerBroker": "Partitions per broker",
+        "leadersNote": "leaders: {leaders}",
+        "logSize": "Log size per broker",
+        "traffic": "Bytes in and out/s",
+        "requests": "Requests/s",
+        "internalsNone": "From a Prometheus endpoint of the brokers (the JMX exporter, Strimzi’s or Bitnami’s): none answered on 9404, 5556 or 7071.",
+        "acl": "WatchLog’s user needs {acl}.",
+        "cols": {
+          "group": "Group",
+          "state": "State",
+          "members": "Members",
+          "topics": "Topics",
+          "lag": "Lag",
+          "lagTime": "Lag in time",
+          "topic": "Topic",
+          "partitions": "Partitions",
+          "replication": "Replication",
+          "offline": "Offline",
+          "underReplicated": "Under-replicated",
+          "retention": "Retention",
+          "size": "Size",
+          "clientId": "Client id",
+          "client": "Client",
+          "assigned": "Partitions assigned",
+          "broker": "Broker",
+          "host": "Advertised address",
+          "rack": "Rack",
+          "controller": "Controller",
+          "reachable": "Reachable"
+        },
+        "series": {
+          "in": "In",
+          "out": "Out"
+        }
+      },
+      "missing": {
+        "consumer_groups": {
+          "lag": "WatchLog's user needs {missing} for this panel: add the ACL as an admin."
+        },
+        "topics": {
+          "largest": "WatchLog's user needs {missing} for this panel: add the ACL as an admin.",
+          "topics": "WatchLog's user needs {missing} for this panel: add the ACL as an admin."
+        },
+        "brokers": {
+          "brokers": "WatchLog's user needs {missing} for this panel: add the ACL as an admin."
+        }
+      }
     }
   },
   "roles": {
@@ -3397,7 +3511,9 @@
       "slow_collscan": "{perMin} slow operations a minute scan all of {ns}.",
       "sends_collscan": "Sends the scans on {ns}, since it started.",
       "no_server_up": "{backend} has no server up: Traefik answers {answered} requests a second itself with 503.",
-      "backend_no_server": "Has no pod or container serving Traefik's requests ({how})."
+      "backend_no_server": "Has no pod or container serving Traefik's requests ({how}).",
+      "group_no_members": "Consumer group {group} has no members: lag {lag}, growing by {perMin} a minute.",
+      "group_member_ended": "A member of the group until it ended: {how}."
     },
     "connector": {
       "calls": "calls",
