@@ -230,6 +230,13 @@ func (b *fakeBackend) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// lastHeaders reads the last request's headers under the lock: the runner keeps polling.
+func (b *fakeBackend) lastHeaders() http.Header {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.headers.Clone()
+}
+
 func (b *fakeBackend) snapshot() []chunk {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -264,8 +271,8 @@ func TestRunnerServesATail(t *testing.T) {
 			if total != 701 || posts[n-1].Redacted != 1 || posts[0].Lines[0].Text != "password=***" || n < 2 {
 				t.Fatalf("posts=%d total=%d redacted=%d first=%q", n, total, posts[n-1].Redacted, posts[0].Lines[0].Text)
 			}
-			if be.headers.Get("Authorization") != "Bearer tok" || be.headers.Get("X-WatchLog-Agent") != "cluster-agent" {
-				t.Fatalf("headers %v", be.headers)
+			if h := be.lastHeaders(); h.Get("Authorization") != "Bearer tok" || h.Get("X-WatchLog-Agent") != "cluster-agent" {
+				t.Fatalf("headers %v", h)
 			}
 			return
 		}
