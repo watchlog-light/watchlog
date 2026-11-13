@@ -72,6 +72,7 @@ import { NodeGate } from './modules/entitlements/node-gate.js';
 import { metricsClient } from './modules/entitlements/metrics.js';
 import { CloudAccounts } from './modules/accounts/context.js';
 import { FunnelRecorder } from './modules/funnel/recorder.js';
+import { EgressPolicy, type Resolver } from './lib/egress.js';
 
 export const API_PREFIX = '/api/v1';
 
@@ -105,6 +106,8 @@ export interface AppDeps {
   serviceReads?: boolean;
   /** Test hook: the `fetch` for Turnstile, Have I Been Pwned and OAuth (Cloud, ADR-175). */
   fetch?: typeof fetch;
+  /** Test hook: the resolver Cloud's egress policy checks users' URLs with (ADR-181). */
+  resolve?: Resolver;
   /** Test hook: Cloud's entitlements (ADR-177), shared with the internal API's app. */
   entitlements?: EntitlementsService;
 }
@@ -218,7 +221,11 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   // Cloud: a new node over the plan gets 402 at ingest (ADR-177); Community has no gate.
   const nodeGate = entitlements ? new NodeGate(systemDb, entitlements, app.log) : null;
   // Send test and Telegram's getMe go out through the outbound proxy (ADR-080).
-  const alertHttp = new HttpClient(config.proxy);
+  // Cloud: users' Slack and webhook URLs go through the egress policy (ADR-181).
+  const alertHttp = new HttpClient(
+    config.proxy,
+    config.edition === 'cloud' ? new EgressPolicy(deps.resolve) : null,
+  );
   app.addHook('onClose', () => alertHttp.close());
   const settings = new SettingsService(deps.db, config);
   // One answer cache for GET /causes and the likelyCause fields (ADR-155).

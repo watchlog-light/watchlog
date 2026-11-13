@@ -6,6 +6,7 @@ import { loadConfig, type Config } from './config.js';
 import { createDb, describeDbError, waitForDatabase } from './db/index.js';
 import { checkSecretKey, usePreviousSecretKey } from './lib/secrets.js';
 import { HttpClient } from './modules/alerts/channels.js';
+import { EgressPolicy } from './lib/egress.js';
 import { workerCauses } from './modules/alerts/likely-cause.js';
 import { CausesService } from './modules/causes/likely.js';
 import { SetupState } from './modules/setup/service.js';
@@ -60,7 +61,9 @@ try {
   log.error(`watchlog alert-worker cannot start: ${(err as Error).message}`);
   process.exit(1);
 }
-const http = new HttpClient(config.proxy);
+// Cloud: users' Slack and webhook URLs go through the egress policy again at send time,
+// connecting only to an address that passed (ADR-181).
+const http = new HttpClient(config.proxy, cloud ? new EgressPolicy() : null);
 const settings = new SettingsService(systemDb, config);
 // The likely cause in the messages (ADR-148, ADR-157): probable cause reads the public API,
 // so the worker builds the app in-process and reads it as a viewer of each alert's org.

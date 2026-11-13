@@ -29,6 +29,10 @@ export const ProblemType = {
   planLimit: 'urn:watchlog:problem:plan-limit',
   /** Cloud: staff suspended the org; ingest answers 402 (ADR-179, ADR-181). */
   orgSuspended: 'urn:watchlog:problem:org-suspended',
+  /** Cloud: a channel URL that points at an internal address (ADR-181). */
+  egressRefused: 'urn:watchlog:problem:egress-refused',
+  /** Cloud: the org is scheduled for deletion; ingest answers 402 (ADR-181). */
+  orgDeleting: 'urn:watchlog:problem:org-deleting',
 } as const;
 export type ProblemType = (typeof ProblemType)[keyof typeof ProblemType];
 

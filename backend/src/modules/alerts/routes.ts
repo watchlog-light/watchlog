@@ -21,6 +21,7 @@ import { requireRole, requireUser } from '../../plugins/auth.js';
 import { alertDefaultByKey } from '../integrations/alert-defaults.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { UnreachableError, type HttpClient } from './channels.js';
+import { egressMessage } from '../../lib/egress.js';
 import { sendTest, type DeliveryDeps } from './delivery.js';
 import { DEFAULT_RULES, ensureDefaultRules, insertThresholdRule } from './rules.js';
 import {
@@ -199,6 +200,16 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
   async function botName(token: string) {
     const s = await settings.alerting();
     return telegramBotName(http, s.telegramApiUrl, token, s.telegramProxy);
+  }
+
+  /**
+   * Cloud's egress policy at save time (ADR-181): a Slack or webhook URL whose host is or
+   * resolves to an internal address answers 400. Community takes any http(s) URL (ADR-091).
+   */
+  async function refusedUrl(reply: FastifyReply, url: string | undefined) {
+    if (!url || !http.egress) return null;
+    const c = await http.egress.checkUrl(url);
+    return c.ok ? null : sendProblem(reply, 400, egressMessage(c), ProblemType.egressRefused);
   }
 
   /** Unreachable is not a wrong token: the UI then offers the proxy setting (ADR-093). */
@@ -1169,6 +1180,9 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
     async (request, reply) => {
       const orgId = request.user!.org.id;
       const { type, name, settings: input } = request.body;
+      const userUrl = type === 'slack' ? input.webhookUrl : type === 'webhook' ? input.url : null;
+      const refused = await refusedUrl(reply, userUrl ?? undefined);
+      if (refused) return refused;
       const cfg: Record<string, unknown> = {};
       const secret: Record<string, string> = {};
       let signingSecret: string | undefined;
@@ -1269,6 +1283,11 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
       const cfg = { ...(row.config as Record<string, unknown>) };
       const secret = row.secret ? decryptJson(config.secretKey, row.secret) : {};
       const s = request.body.settings ?? {};
+      const refused = await refusedUrl(
+        reply,
+        row.type === 'slack' ? s.webhookUrl : row.type === 'webhook' ? s.url : undefined,
+      );
+      if (refused) return refused;
       let reverify = false;
       if (row.type === 'slack' && s.webhookUrl) secret.webhookUrl = s.webhookUrl;
       if (row.type === 'email' && s.recipients) cfg.recipients = s.recipients;

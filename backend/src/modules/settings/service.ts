@@ -194,14 +194,17 @@ export class SettingsService {
     };
     // The environment's proxy is already in the HTTP client; a proxy from Settings is
     // used for Telegram's calls only.
-    const tg = await this.telegram();
-    if (tg.source === 'db' && tg.proxyUrl) value.telegramProxy = tg.proxyUrl;
+    // Cloud: the installation's settings are the operator's environment (their routes 404),
+    // so a row in the database is never used for where messages go (ADR-181).
+    const tg = this.config.edition === 'cloud' ? null : await this.telegram();
+    if (tg?.source === 'db' && tg.proxyUrl) value.telegramProxy = tg.proxyUrl;
     this.cache = { at: now, value };
     return value;
   }
 
   private async smtpTransport(): Promise<AlertingSettings['smtp']> {
     if (this.config.smtp) return { transport: this.config.smtp.url, from: this.config.smtp.from };
+    if (this.config.edition === 'cloud') return undefined;
     const row = await this.row('smtp');
     if (!row) return undefined;
     const c = row.value as unknown as SmtpConfig;

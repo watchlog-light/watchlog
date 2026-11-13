@@ -4,6 +4,7 @@
 import { createHmac } from 'node:crypto';
 import nodemailer, { type Transporter } from 'nodemailer';
 import { Agent, EnvHttpProxyAgent, ProxyAgent, fetch, type Dispatcher } from 'undici';
+import { EgressRefused, type EgressPolicy } from '../../lib/egress.js';
 import type { NotifyCause } from './likely-cause.js';
 import type { MessagePayload } from './outbox.js';
 import { renderMessage, type RenderedMessage } from './render.js';
@@ -59,12 +60,25 @@ export class UnreachableError extends DeliveryError {
   }
 }
 
+/** How a request's address came to us. */
+export interface PostOptions {
+  /**
+   * A user gave the URL (a Slack or webhook channel): in Cloud it goes through the egress
+   * policy (ADR-181): checked, connected only to a checked address, never via the proxy.
+   */
+  userUrl?: boolean;
+}
+
 export class HttpClient {
   private readonly dispatcher: Dispatcher;
   /** Agents for proxies set per call (Telegram's proxy from Settings, ADR-093). */
   private readonly proxies = new Map<string, Dispatcher>();
 
-  constructor(proxy: { http?: string; https?: string; no?: string } = {}) {
+  constructor(
+    proxy: { http?: string; https?: string; no?: string } = {},
+    /** Cloud's egress policy for users' URLs (ADR-181); Community has none (ADR-091). */
+    readonly egress: EgressPolicy | null = null,
+  ) {
     this.dispatcher =
       proxy.http || proxy.https
         ? new EnvHttpProxyAgent({
@@ -90,18 +104,29 @@ export class HttpClient {
     body: string,
     headers: Record<string, string> = {},
     proxy?: string,
+    opts: PostOptions = {},
   ): Promise<HttpResponse> {
+    const guarded = opts.userUrl && this.egress;
+    if (guarded) {
+      try {
+        await guarded.assertUrl(url);
+      } catch (err) {
+        throw refused(url, err as EgressRefused);
+      }
+    }
     let res;
     try {
       res = await fetch(url, {
         method: 'POST',
         body,
         headers: { 'content-type': 'application/json', 'user-agent': USER_AGENT, ...headers },
-        dispatcher: this.via(proxy),
+        dispatcher: guarded ? guarded.dispatcher : this.via(proxy),
         signal: AbortSignal.timeout(TIMEOUT_MS),
         redirect: 'error',
       });
     } catch (err) {
+      const cause = (err as { cause?: unknown }).cause;
+      if (cause instanceof EgressRefused) throw refused(url, cause);
       throw unreachable(url, err);
     }
     return { status: res.status, body: (await res.text()).slice(0, 500) };
@@ -126,7 +151,16 @@ export class HttpClient {
   async close(): Promise<void> {
     await Promise.all([this.dispatcher, ...this.proxies.values()].map((d) => d.close()));
     this.proxies.clear();
+    await this.egress?.close();
   }
+}
+
+/** A user's URL the egress policy refused: retrying can't help. */
+function refused(url: string, err: EgressRefused): DeliveryError {
+  return new DeliveryError(
+    `${hostOf(url)} refused: ${err.message}; WatchLog Cloud sends only to public addresses`,
+    true,
+  );
 }
 
 function unreachable(url: string, err: unknown): UnreachableError {
@@ -199,7 +233,10 @@ async function sendSlack(
 ) {
   const url = ch.secret.webhookUrl;
   if (!url) throw new DeliveryError('Slack webhook URL is not set', true);
-  check(await ctx.http.post(url, JSON.stringify(slackBody(m, p))), 'Slack');
+  check(
+    await ctx.http.post(url, JSON.stringify(slackBody(m, p)), {}, undefined, { userUrl: true }),
+    'Slack',
+  );
 }
 
 // ---------------------------------------------------------------- Telegram
@@ -405,7 +442,7 @@ async function sendWebhook(
       Math.floor(now / 1000),
     );
   }
-  check(await ctx.http.post(url, body, headers), 'Webhook');
+  check(await ctx.http.post(url, body, headers, undefined, { userUrl: true }), 'Webhook');
 }
 
 /** Sends one message to one channel; throws DeliveryError with the provider's answer. */
