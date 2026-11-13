@@ -89,7 +89,8 @@ export function linksOf(ev: Evidence): Link[] {
     return [holderLink(ev, f.code, f.facts.holder, null)];
   }
   if (f.code === 'connections_near_max' && typeof f.facts.top === 'string') {
-    const m = HOLDER.exec(f.facts.top);
+    // The first of "a (36), b (1), c (1)": the client holding most.
+    const m = HOLDER.exec(f.facts.top.split(', ')[0]!);
     if (!m || IP.test(m[1]!)) return [];
     const who = m[1]!;
     const n = Number(m[2]);

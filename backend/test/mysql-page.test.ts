@@ -7,6 +7,8 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
 import { VictoriaQueryClient } from '../src/lib/victoria.js';
+import type { Evidence } from '../src/modules/causes/evidence.js';
+import { linksOf } from '../src/modules/causes/rules/application-finding.js';
 import { reasonSentence } from '../src/modules/mcp/tools/applications.js';
 import {
   TEST_VM_URL,
@@ -102,6 +104,8 @@ async function pod(clusterId: string, ns: string, name: string, workload: string
     })
     .execute();
 }
+
+type Panel = { id: string; state: string; [k: string]: unknown };
 
 const TABS = ['overview', 'connections', 'queries', 'locks', 'storage', 'replication'];
 
@@ -373,5 +377,43 @@ describe('the MySQL page', () => {
     expect((top as unknown as { missing: { key: string } }).missing.key).toBe(
       'integrations.mysql.missing.queries.top',
     );
+  });
+});
+
+describe('probable cause follows the finding to the holder', () => {
+  const ev = (platform: string, code: string, facts: Record<string, string | number | null>) =>
+    ({
+      platform,
+      application: {
+        id: 'a',
+        type: 'mysql',
+        name: 'shop/mysql',
+        health: 'warning',
+        reason: { code: 'connected', facts: {} },
+        target: {},
+        reasons: [{ severity: 'warning', code, facts }],
+      },
+    }) as unknown as Evidence;
+
+  it('lock_waits: the holder, a workload on Kubernetes and a container on Docker', () => {
+    expect(linksOf(ev('kubernetes', 'lock_waits', { holder: 'shop/locker' }))[0]).toMatchObject({
+      name: 'shop/locker',
+      target: { kind: 'workload', namespace: 'shop', name: 'locker' },
+    });
+    expect(linksOf(ev('docker', 'lock_waits', { holder: 'shop-locker-1' }))[0]).toMatchObject({
+      target: { kind: 'container', name: 'shop-locker-1' },
+    });
+    // An address the IP map doesn't know: no holder to follow.
+    expect(linksOf(ev('kubernetes', 'lock_waits', { holder: null, who: '10.0.0.9' }))).toEqual([]);
+  });
+
+  it('connections_near_max with several clients: the first, holding most (measured: 36, 1, 1)', () => {
+    expect(
+      linksOf(
+        ev('kubernetes', 'connections_near_max', {
+          top: 'mysql-e2e/leak (36), mysql-e2e/locker (1), mysql-e2e/writer (1)',
+        }),
+      )[0],
+    ).toMatchObject({ name: 'mysql-e2e/leak', n: 36 });
   });
 });
