@@ -378,6 +378,75 @@ describe('the MongoDB page', () => {
       key: 'integrations.mongodb.panels.standaloneNote',
     });
   });
+
+  it('a full primary beside an idle secondary is near its limit (each member its own)', async () => {
+    // Measured on the e2e replica set: the primary at 100 of maxConns 100, the secondary at
+    // 10 with 90 available. max() of each state apart read 100 of 190 (53 %).
+    const k8s = await cluster('kind-rs', 'kubernetes');
+    const id = (
+      await api('POST', '/applications', {
+        clusterId: k8s.id,
+        type: 'mongodb',
+        target: {
+          kind: 'workload',
+          namespace: 'db',
+          workload_kind: 'StatefulSet',
+          workload: 'mongo',
+          port: 27017,
+        },
+      })
+    ).json().application.id as string;
+    await status(k8s.token, '', [
+      {
+        id,
+        state: 'ok',
+        service_version: '8.0.38',
+        members: [
+          { name: 'mongo-0', up: true },
+          { name: 'mongo-1', up: true },
+        ],
+        extra: { clients: [] },
+      },
+    ]);
+    const m = (member: string, state: string) => ({
+      service: id,
+      service_type: 'mongodb',
+      member,
+      state,
+    });
+    await Promise.all([
+      write(k8s.id, 'watchlog_mongodb_connections', m('mongo-0', 'current'), () => 100),
+      write(k8s.id, 'watchlog_mongodb_connections', m('mongo-0', 'available'), () => 0),
+      write(k8s.id, 'watchlog_mongodb_connections', m('mongo-1', 'current'), () => 10),
+      write(k8s.id, 'watchlog_mongodb_connections', m('mongo-1', 'available'), () => 90),
+    ]);
+    await fetch(`${TEST_VM_URL}/internal/force_flush`);
+    const reasons = (await api('GET', `/applications/${id}`)).json().reasons as {
+      code: string;
+      facts: Record<string, unknown>;
+    }[];
+    expect(reasons.find((r) => r.code === 'connections_near_max')?.facts).toMatchObject({
+      n: 100,
+      max: 100,
+      pct: 100,
+    });
+    const overview = (await api('GET', `/applications/${id}/panels?tab=overview`)).json()
+      .panels as Panel[];
+    const tiles = overview.find((p) => p.id === 'summary')!.tiles as {
+      id: string;
+      value: unknown;
+      sub?: { values: { max: number } };
+    }[];
+    expect(tiles.find((t) => t.id === 'connections')).toMatchObject({
+      value: 100,
+      sub: { values: { max: 100 } },
+    });
+    const list = (await api('GET', '/applications/metrics')).json().metrics[id];
+    expect(list.keyMetrics.find((k: { id: string }) => k.id === 'connections')).toMatchObject({
+      value: 1,
+      unit: 'ratio',
+    });
+  });
 });
 
 describe('probable cause follows slow_collscan to the client', () => {
