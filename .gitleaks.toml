@@ -20,4 +20,8 @@ regexes = [
   # Reviewed 2026-11-13: a metric key in the rule editor's list (web/src/lib/alerts.ts,
   # commit 76477a9), `key: 'traefik.latency.p95'`, read as a generic API key.
   '''traefik\.latency\.p95''',
+  # Reviewed 2026-11-13: base64 of the placeholder "WATCHLOG_INSTALL_TOKEN" in the rendered
+  # install manifest (backend/assets/install-manifest.yaml, commit 150eed1), which the
+  # backend replaces with each cluster's token (ADR-176); never a credential.
+  '''V0FUQ0hMT0dfSU5TVEFMTF9UT0tFTg==''',
 ]
