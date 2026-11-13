@@ -444,7 +444,7 @@ Access: nothing; the plugin ships with RabbitMQ. If it is off, the generated com
 
 ### MySQL and MariaDB (status variables, performance_schema, InnoDB tables; MySQL 8.0+, MariaDB 10.6+) — v0.5.0 (ADR-163)
 
-Access: a user with `PROCESS`, `REPLICATION CLIENT`, `SELECT` on `performance_schema.*` and `SELECT` on `mysql.innodb_table_stats`, at most 2 connections. It reads statistics, never table data. The session is read-only with a 5 s statement limit. One type for both servers, named by `version_comment`.
+Access: a user with `PROCESS` (required), `REPLICATION CLIENT` (MariaDB: and `SLAVE MONITOR`), `SELECT` on `performance_schema.*` and `SELECT` on `mysql.innodb_table_stats`, at most 2 connections; each missing optional privilege costs the panels it names. It reads statistics, never table data. The session is read-only with a 5 s statement limit. One type for both servers, named by `version_comment`.
 
 | Tab | Panels and sources |
 |---|---|

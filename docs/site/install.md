@@ -91,8 +91,8 @@ read-only access:
   `docker run` command (it joins the host's network to reach containers on any network).
 
 Each integration has its own page: [Redis](integrations/redis.md),
-[PostgreSQL](integrations/postgres.md), [Nginx](integrations/nginx.md) and
-[RabbitMQ](integrations/rabbitmq.md).
+[PostgreSQL](integrations/postgres.md), [MySQL and MariaDB](integrations/mysql.md),
+[Nginx](integrations/nginx.md) and [RabbitMQ](integrations/rabbitmq.md).
 
 ## Upgrade
 
