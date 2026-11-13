@@ -187,3 +187,7 @@ export type CauseObject = Causes['subject'];
 export type LikelyCause = NonNullable<AlertDetail['likelyCause']>;
 /** A possible cause on a Needs-attention problem with no likely one (ADR-156). */
 export type PossibleCause = NonNullable<OverviewProblem['possibleCauses']>[number];
+// Right-sizing hints (ADR-168).
+export type RightSizing = JsonBody<Responses<'/api/v1/clusters/{id}/right-sizing', 'get'>[200]>;
+export type RightSizingHint = RightSizing['hints'][number];
+export type RightSizingShort = RightSizing['notEnoughHistory'][number];

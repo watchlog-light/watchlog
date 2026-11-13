@@ -46,6 +46,11 @@ export interface Config {
   proxy: { http?: string; https?: string; no?: string };
   /** Read-only public demo (ADR-122): passwordless viewer sessions, every change refused. */
   demoMode: boolean;
+  /**
+   * Right-sizing (ADR-168): the window of use, in hours (7 days), and the history a container
+   * needs before it is judged (24 hours). Shorter values are for tests.
+   */
+  rightSizing: { windowHours: number; minHistoryHours: number };
   /** Timeout of one VictoriaMetrics query from the API, in ms (10 s in demo mode). */
   queryTimeoutMs: number;
   /** A header a trusted proxy sets to the visitor's address, e.g. X-Real-IP (rate limits). */
@@ -122,6 +127,18 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   const alertRetentionDays = Number(env.WATCHLOG_ALERT_RETENTION_DAYS ?? 90);
   if (!Number.isInteger(alertRetentionDays) || alertRetentionDays < 1 || alertRetentionDays > 400) {
     throw new Error(`Invalid WATCHLOG_ALERT_RETENTION_DAYS: ${env.WATCHLOG_ALERT_RETENTION_DAYS}`);
+  }
+  const rsWindow = Number(env.WATCHLOG_RIGHT_SIZING_WINDOW_HOURS ?? 168);
+  if (!Number.isInteger(rsWindow) || rsWindow < 1 || rsWindow > 720) {
+    throw new Error(
+      `Invalid WATCHLOG_RIGHT_SIZING_WINDOW_HOURS: ${env.WATCHLOG_RIGHT_SIZING_WINDOW_HOURS}`,
+    );
+  }
+  const rsMin = Number(env.WATCHLOG_RIGHT_SIZING_MIN_HOURS ?? Math.min(24, rsWindow));
+  if (!Number.isFinite(rsMin) || rsMin < 0 || rsMin > rsWindow) {
+    throw new Error(
+      `Invalid WATCHLOG_RIGHT_SIZING_MIN_HOURS: ${env.WATCHLOG_RIGHT_SIZING_MIN_HOURS}`,
+    );
   }
   const workerPort = Number(env.WATCHLOG_WORKER_PORT ?? 4081);
   if (!Number.isInteger(workerPort) || workerPort <= 0 || workerPort > 65535) {
@@ -210,6 +227,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     clientCountryHeader: env.WATCHLOG_CLIENT_COUNTRY_HEADER,
     trustedProxies,
     cookieSecure,
+    rightSizing: { windowHours: rsWindow, minHistoryHours: rsMin },
     queryTimeoutMs: demoMode === 'true' ? 10_000 : 15_000,
     seedFile: env.WATCHLOG_SEED_FILE,
     mcpEnabled: mcpEnabled !== 'false',

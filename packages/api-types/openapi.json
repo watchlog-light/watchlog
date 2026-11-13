@@ -8614,6 +8614,437 @@
         }
       }
     },
+    "/api/v1/clusters/{id}/right-sizing": {
+      "get": {
+        "summary": "Right-sizing hints",
+        "tags": ["right-sizing", "public"],
+        "description": "CPU and memory requests and limits compared with the use over the last 7 days (ADR-168): per workload container on Kubernetes (its busiest pod), per container on Docker. Codes and facts, never a score; OOM risk first. Containers with less than 24 hours of history are listed in `notEnoughHistory`. The use is kept an hour per cluster.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "in": "query",
+            "name": "namespace",
+            "required": false,
+            "description": "Kubernetes: one namespace"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "description": "Kubernetes: the workload kind (Deployment, StatefulSet, DaemonSet)"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "in": "query",
+            "name": "workload",
+            "required": false,
+            "description": "Kubernetes: the workload name"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "in": "query",
+            "name": "host",
+            "required": false,
+            "description": "Docker: the host"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "in": "query",
+            "name": "container",
+            "required": false,
+            "description": "The container (in the pod on Kubernetes)"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "in": "query",
+            "name": "project",
+            "required": false,
+            "description": "Docker: the Compose project"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "in": "query",
+            "name": "service",
+            "required": false,
+            "description": "Docker: the Compose service"
+          },
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "system",
+            "required": false,
+            "description": "Include system namespaces and WatchLog's own containers"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["window", "computedAt", "hints", "notEnoughHistory", "summary"],
+                  "properties": {
+                    "window": {
+                      "type": "object",
+                      "required": ["hours", "minHistoryHours"],
+                      "properties": {
+                        "hours": {
+                          "type": "integer"
+                        },
+                        "minHistoryHours": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "computedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "hints": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "object",
+                          "container",
+                          "resource",
+                          "code",
+                          "facts",
+                          "suggestion",
+                          "giveBack",
+                          "basedOn"
+                        ],
+                        "properties": {
+                          "object": {
+                            "type": "object",
+                            "required": ["kind", "name"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "description": "Deployment, StatefulSet, DaemonSet, or `container` (Docker)"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "namespace": {
+                                "type": "string"
+                              },
+                              "host": {
+                                "type": "string"
+                              },
+                              "composeProject": {
+                                "type": "string"
+                              },
+                              "composeService": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "container": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "The container in the pod (Kubernetes)"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "resource": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["cpu"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["memory"]
+                              }
+                            ]
+                          },
+                          "code": {
+                            "type": "string",
+                            "description": "memory_limit_oom, memory_limit_tight, cpu_limit_throttled, memory_request_low, cpu_request_low, memory_reservation_low, cpu_request_high, memory_request_high, memory_reservation_high, cpu_no_request, memory_no_request, memory_no_limit"
+                          },
+                          "facts": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "suggestion": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "description": "What would cover the use: cores (cpu) or bytes (memory)"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "giveBack": {
+                            "type": "number",
+                            "description": "Cores or bytes all replicas would give back (the *_high hints); 0 otherwise"
+                          },
+                          "basedOn": {
+                            "type": "object",
+                            "required": ["windowHours", "from", "to", "samples", "hours"],
+                            "properties": {
+                              "windowHours": {
+                                "type": "integer"
+                              },
+                              "from": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "to": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "samples": {
+                                "type": "integer",
+                                "description": "Five-minute samples of history"
+                              },
+                              "hours": {
+                                "type": "number"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "notEnoughHistory": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["object", "container", "hours", "needed"],
+                        "properties": {
+                          "object": {
+                            "type": "object",
+                            "required": ["kind", "name"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "description": "Deployment, StatefulSet, DaemonSet, or `container` (Docker)"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "namespace": {
+                                "type": "string"
+                              },
+                              "host": {
+                                "type": "string"
+                              },
+                              "composeProject": {
+                                "type": "string"
+                              },
+                              "composeService": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "container": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "hours": {
+                            "type": "number"
+                          },
+                          "needed": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "required": ["objects", "giveBackObjects", "giveBack", "oomRisk"],
+                      "properties": {
+                        "objects": {
+                          "type": "integer"
+                        },
+                        "giveBackObjects": {
+                          "type": "integer"
+                        },
+                        "giveBack": {
+                          "type": "object",
+                          "required": ["cores", "bytes"],
+                          "properties": {
+                            "cores": {
+                              "type": "number"
+                            },
+                            "bytes": {
+                              "type": "number"
+                            }
+                          }
+                        },
+                        "oomRisk": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/clusters/{id}/overview": {
       "get": {
         "summary": "Overview: status, KPIs, resources, problems, changes, events, nodes (SPEC §4.1)",

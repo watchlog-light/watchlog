@@ -3135,6 +3135,169 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/clusters/{id}/right-sizing': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Right-sizing hints
+     * @description CPU and memory requests and limits compared with the use over the last 7 days (ADR-168): per workload container on Kubernetes (its busiest pod), per container on Docker. Codes and facts, never a score; OOM risk first. Containers with less than 24 hours of history are listed in `notEnoughHistory`. The use is kept an hour per cluster.
+     */
+    get: {
+      parameters: {
+        query?: {
+          /** @description Kubernetes: one namespace */
+          namespace?: string;
+          /** @description Kubernetes: the workload kind (Deployment, StatefulSet, DaemonSet) */
+          kind?: string;
+          /** @description Kubernetes: the workload name */
+          workload?: string;
+          /** @description Docker: the host */
+          host?: string;
+          /** @description The container (in the pod on Kubernetes) */
+          container?: string;
+          /** @description Docker: the Compose project */
+          project?: string;
+          /** @description Docker: the Compose service */
+          service?: string;
+          /** @description Include system namespaces and WatchLog's own containers */
+          system?: boolean;
+        };
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              window: {
+                hours: number;
+                minHistoryHours: number;
+              };
+              /** Format: date-time */
+              computedAt: string;
+              hints: {
+                object: {
+                  /** @description Deployment, StatefulSet, DaemonSet, or `container` (Docker) */
+                  kind: string;
+                  name: string;
+                  namespace?: string;
+                  host?: string;
+                  composeProject?: string;
+                  composeService?: string;
+                };
+                container: string | null;
+                resource: 'cpu' | 'memory';
+                /** @description memory_limit_oom, memory_limit_tight, cpu_limit_throttled, memory_request_low, cpu_request_low, memory_reservation_low, cpu_request_high, memory_request_high, memory_reservation_high, cpu_no_request, memory_no_request, memory_no_limit */
+                code: string;
+                facts: {
+                  [key: string]: string | number | boolean | null;
+                };
+                suggestion: number | null;
+                /** @description Cores or bytes all replicas would give back (the *_high hints); 0 otherwise */
+                giveBack: number;
+                basedOn: {
+                  windowHours: number;
+                  from: string | null;
+                  /** Format: date-time */
+                  to: string;
+                  /** @description Five-minute samples of history */
+                  samples: number;
+                  hours: number;
+                };
+              }[];
+              notEnoughHistory: {
+                object: {
+                  /** @description Deployment, StatefulSet, DaemonSet, or `container` (Docker) */
+                  kind: string;
+                  name: string;
+                  namespace?: string;
+                  host?: string;
+                  composeProject?: string;
+                  composeService?: string;
+                };
+                container: string | null;
+                hours: number;
+                needed: number;
+              }[];
+              summary: {
+                objects: number;
+                giveBackObjects: number;
+                giveBack: {
+                  cores: number;
+                  bytes: number;
+                };
+                oomRisk: number;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        503: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/clusters/{id}/overview': {
     parameters: {
       query?: never;

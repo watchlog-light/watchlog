@@ -25,6 +25,7 @@ const TOOLS = [
   'get_pod',
   'get_problems',
   'get_recent_changes',
+  'get_right_sizing',
   'get_service_map',
   'get_workload',
   'list_alerts',

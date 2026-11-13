@@ -12,6 +12,7 @@ import { getNodeTool } from './nodes.js';
 import { getContainerLogsTool } from './logs.js';
 import { getPodTool } from './pods.js';
 import { getProblemsTool } from './problems.js';
+import { getRightSizingTool } from './rightsizing.js';
 import { getServiceMapTool } from './servicemap.js';
 import { getWorkloadTool } from './workloads.js';
 
@@ -26,6 +27,7 @@ export const TOOLS: ToolDef[] = [
   getWorkloadTool,
   getPodTool,
   getContainerLogsTool,
+  getRightSizingTool,
   getNodeTool,
   listApplicationsTool,
   getApplicationTool,
