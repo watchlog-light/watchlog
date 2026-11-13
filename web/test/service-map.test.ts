@@ -95,6 +95,7 @@ const MAP: ServiceMap = {
       errorRatio: 0.2,
     },
   ],
+  proxies: [],
 };
 const SERIES = {
   step: 15,
@@ -276,6 +277,83 @@ describe('service map page', () => {
     w.unmount();
   });
 
+  it('Traefik (ADR-165): its numbers where eBPF has none, what it answered itself, its entrypoints', async () => {
+    const traefik = W('kube-system', 'traefik');
+    const viaTls = edge(traefik.id, cart.id, {
+      httpSource: 'traefik',
+      http: {
+        requestsPerSecond: 12,
+        clientErrorsPerSecond: 0,
+        serverErrorsPerSecond: 0,
+        serverErrorRatio: 0,
+        p50Seconds: 0.01,
+        p95Seconds: 0.03,
+        p99Seconds: 0.05,
+      },
+    });
+    const down = edge(traefik.id, catalog.id, {
+      connectionsPerSecond: 0,
+      health: 'critical',
+      answeredByProxy: { perSecond: 12, reason: 'no_server_up', proxy: traefik.id, shared: false },
+    });
+    const map: ServiceMap = {
+      ...MAP,
+      nodes: [...MAP.nodes, traefik],
+      edges: [...MAP.edges, viaTls, down],
+      proxies: [
+        {
+          node: traefik.id,
+          integrationId: 'i1',
+          answeredPerSecond: 12,
+          entrypoints: [
+            {
+              name: 'web',
+              requestsPerSecond: 12,
+              serverErrorsPerSecond: 12,
+              tlsRequestsPerSecond: 0,
+            },
+            {
+              name: 'websecure',
+              requestsPerSecond: 12,
+              serverErrorsPerSecond: 0,
+              tlsRequestsPerSecond: 12,
+            },
+          ],
+        },
+      ],
+    };
+    const edgeUrl = (target: string) =>
+      `GET /api/v1/clusters/${CLUSTER.id}/service-map/edge?source=${encodeURIComponent(traefik.id)}&target=${encodeURIComponent(target)}&range=3600&port=8080`;
+    mockFetch({
+      ...routes(map),
+      [edgeUrl(cart.id)]: {
+        status: 200,
+        body: { ...SERIES, context: { target: null, alert: null } },
+      },
+      [edgeUrl(catalog.id)]: { status: 200, body: SERIES },
+    });
+    const { wrapper: w } = await mountPage();
+    // An edge eBPF can't read (TLS): Traefik's numbers, marked, with no eBPF HTTP charts.
+    await w.get(`[data-edge="${viaTls.id}"] .edge-hit`).trigger('click');
+    await flushPromises();
+    expect(w.get('[data-testid="edge-http-source"]').text()).toContain('from Traefik');
+    expect(w.get('[data-testid="edge-http"]').text()).toContain('12/s');
+    expect(w.find('[data-testid="section-http"]').exists()).toBe(false);
+    // The outage: requests Traefik answered itself, then why the backend has no server.
+    await w.get(`[data-edge="${down.id}"] .edge-hit`).trigger('click');
+    await flushPromises();
+    const reason = w.get('[data-testid="edge-reason"]').text();
+    expect(reason).toContain('12/s answered by Traefik: no server up');
+    expect(reason).toContain('catalog has 0 ready pods since');
+    // The Traefik node: requests per entrypoint, TLS included.
+    await w.get(`[data-node="${traefik.id}"]`).trigger('keydown', { key: 'Enter' });
+    await flushPromises();
+    const eps = w.get('[data-testid="node-entrypoints"]').text();
+    expect(eps).toContain('12/s answered by Traefik: no server up');
+    expect(eps).toContain('websecure');
+    w.unmount();
+  });
+
   it('keeps positions across refreshes and reloads; a new service does not move the others', async () => {
     mockFetch(routes(MAP));
     let { wrapper: w } = await mountPage();
@@ -410,6 +488,7 @@ describe('service map page', () => {
       routes({
         mode: 'topology',
         dns: [],
+        proxies: [],
         agents: [
           {
             node: 'old-1',

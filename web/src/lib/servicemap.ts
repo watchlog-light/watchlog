@@ -48,12 +48,16 @@ export function edgeReason(
   if (e.health !== 'critical' && e.health !== 'warning') return null;
   const failed = e.failedRatio ?? 0;
   const errors = e.http?.serverErrorRatio ?? 0;
+  // Requests Traefik answered itself, no server up (ADR-165): eBPF never sees them.
+  const answered = e.answeredByProxy?.perSecond ?? 0;
   const lead =
-    failed >= 0.01
-      ? t(`serviceMap.reason.failed.${e.health}`, { pct: pct(failed) })
-      : errors >= 0.01
-        ? t(`serviceMap.reason.errors.${e.health}`, { pct: pct(errors) })
-        : t('serviceMap.reason.slow', { p95: latency(e.latencyP95Seconds) });
+    answered > 0
+      ? t('serviceMap.proxy.answered', { rate: perSecond(answered) })
+      : failed >= 0.01
+        ? t(`serviceMap.reason.failed.${e.health}`, { pct: pct(failed) })
+        : errors >= 0.01
+          ? t(`serviceMap.reason.errors.${e.health}`, { pct: pct(errors) })
+          : t('serviceMap.reason.slow', { p95: latency(e.latencyP95Seconds) });
   const tg = ctx?.target;
   let detail: string | null = null;
   if (tg && tg.desired === 0)

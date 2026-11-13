@@ -18,7 +18,7 @@ const { t } = useI18n();
 const clusters = useClustersStore();
 onMounted(() => void clusters.ensure());
 
-const TYPES = ['postgres', 'mysql', 'mongodb', 'redis', 'rabbitmq', 'nginx'];
+const TYPES = ['postgres', 'mysql', 'mongodb', 'redis', 'rabbitmq', 'nginx', 'traefik'];
 const clusterId = ref<string | null>(clusters.selectedId);
 // The selected cluster, once the list has loaded.
 watch(

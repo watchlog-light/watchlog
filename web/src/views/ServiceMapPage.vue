@@ -528,6 +528,7 @@ onBeforeUnmount(() => {
         :edges="scoped"
         :summary="totals"
         :scope="scope"
+        :proxies="map?.proxies ?? []"
         @select="(s) => go({ sel: s })"
       />
     </div>

@@ -20,6 +20,7 @@ export const SERVICE_TYPES: Record<string, { name: string; family: Family }> = {
   redis: { name: 'Redis', family: 'caches' },
   rabbitmq: { name: 'RabbitMQ', family: 'queues' },
   nginx: { name: 'Nginx', family: 'proxies' },
+  traefik: { name: 'Traefik', family: 'proxies' },
   elasticsearch: { name: 'Elasticsearch', family: 'search' },
 };
 export const FAMILIES: Family[] = ['databases', 'caches', 'queues', 'proxies', 'search'];
@@ -227,6 +228,21 @@ export function reasonLine(
           f.n === null || f.n === undefined
             ? 'integrations.reasons.dead_letters_growing_queue'
             : 'integrations.reasons.dead_letters_growing',
+        values: { ...f },
+      };
+    case 'no_server_up':
+      // Traefik: the backend when WatchLog knows it, else only Traefik's own 503s.
+      return {
+        key: has(f.backend)
+          ? 'integrations.reasons.no_server_up'
+          : 'integrations.reasons.no_server_up_unknown',
+        values: { ...f },
+      };
+    case 'metrics_off':
+      return {
+        key: f.tried
+          ? 'integrations.reasons.metrics_off_tried'
+          : 'integrations.reasons.metrics_off',
         values: { ...f },
       };
     case 'stub_status_missing':

@@ -296,6 +296,14 @@ export const SERVICE_METRICS_BY_TYPE: Record<string, typeof SERVICE_METRICS> = {
     { key: 'mongodb.ops.rate', unit: 'per_second', start: { op: '>', value: 5000 } },
     { key: 'mongodb.cache.ratio', unit: 'ratio', start: { op: '>', value: 0.95 } },
   ],
+  traefik: [
+    { key: 'traefik.5xx.ratio', unit: 'ratio', start: { op: '>', value: 0.05 } },
+    { key: 'traefik.latency.p95', unit: 'seconds', start: { op: '>', value: 1 } },
+    { key: 'traefik.services.down', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'traefik.certificate.expiry', unit: 'seconds', start: { op: '<', value: 1209600 } },
+    { key: 'traefik.config.reload_failed', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'traefik.requests.rate', unit: 'per_second', start: { op: '>', value: 1000 } },
+  ],
   nginx: [
     { key: 'nginx.5xx.ratio', unit: 'ratio', start: { op: '>', value: 0.05 } },
     { key: 'nginx.latency.p95', unit: 'seconds', start: { op: '>', value: 1 } },

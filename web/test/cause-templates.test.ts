@@ -89,6 +89,7 @@ const HEADLINES: [string, Facts][] = [
     'app_collscan',
     { name: 'mongodb-e2e/mongo', ns: 'shop.events', holder: 'mongodb-e2e/analytics', perMin: 290 },
   ],
+  ['app_no_server', { name: 'kube-system/traefik', backend: 'shop/api', answered: 12.5 }],
   [
     'app_finding_caller',
     {
@@ -281,6 +282,8 @@ const STEPS: [string, Facts][] = [
   ['holds_lock', { held: '69 s', table: 'shop.stock' }],
   ['slow_collscan', { perMin: 290, ns: 'shop.events' }],
   ['sends_collscan', { ns: 'shop.events' }],
+  ['no_server_up', { backend: 'shop/api', service: 'shop-api-80@kubernetes', answered: 12.5 }],
+  ['backend_no_server', { how: 'down' }],
   [
     'app_finding',
     {

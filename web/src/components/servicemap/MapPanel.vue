@@ -1,7 +1,12 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import { ArrowRight, X } from '@lucide/vue';
-import type { ServiceMapEdge, ServiceMapEdgeSeries, ServiceMapNode } from '@watchlog/api-types';
+import type {
+  ServiceMap,
+  ServiceMapEdge,
+  ServiceMapEdgeSeries,
+  ServiceMapNode,
+} from '@watchlog/api-types';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
@@ -30,6 +35,8 @@ const props = defineProps<{
   edges: ServiceMapEdge[];
   summary: Summary;
   scope: string;
+  /** Proxies with their own metrics (Traefik, ADR-165): entrypoints on their node. */
+  proxies?: ServiceMap['proxies'];
 }>();
 const emit = defineEmits<{ select: [sel: Selection] }>();
 const { t } = useI18n();
@@ -65,6 +72,10 @@ const nodeHealth = computed(() => {
   if (all.some((e) => e.health === 'warning')) return 'warning';
   return all.some((e) => e.health === 'ok') ? 'ok' : 'idle';
 });
+// A Traefik node: requests per entrypoint, TLS included (ADR-165).
+const proxy = computed(() =>
+  node.value ? ((props.proxies ?? []).find((p) => p.node === node.value!.id) ?? null) : null,
+);
 const workloadLink = computed(() => {
   const n = node.value;
   if (!n || n.kind !== 'workload') return null;
@@ -75,6 +86,8 @@ const workloadLink = computed(() => {
 });
 
 function rowText(e: ServiceMapEdge): string {
+  if ((e.answeredByProxy?.perSecond ?? 0) > 0)
+    return t('serviceMap.proxy.answeredShort', { rate: perSecond(e.answeredByProxy!.perSecond) });
   if (e.health === 'critical' || e.health === 'warning')
     return (e.failedRatio ?? 0) >= 0.01
       ? t('serviceMap.edge.failed', { pct: formatValue(e.failedRatio, 'ratio') })
@@ -153,7 +166,8 @@ const open = ref<Record<SectionKey, boolean>>({
 watch(
   () => (props.selection ? `${props.selection.type}:${props.selection.id}` : ''),
   () => {
-    const http = !!edge.value?.http;
+    // Traefik's numbers have no series on this edge: its HTTP charts are eBPF's only.
+    const http = !!edge.value?.http && edge.value.httpSource !== 'traefik';
     const callers = incoming.value.length > 0;
     open.value = {
       http,
@@ -285,6 +299,44 @@ watch(
           <dd class="font-mono text-16 tabular-nums text-text">{{ perSecond(sum(outgoing)) }}</dd>
         </div>
       </dl>
+      <section v-if="proxy" class="flex flex-col gap-1" data-testid="node-entrypoints">
+        <h3 class="text-11 font-medium tracking-wide text-text-subtle uppercase">
+          {{ $t('serviceMap.proxy.entrypoints') }}
+        </h3>
+        <p v-if="proxy.answeredPerSecond > 0" class="text-13 text-critical">
+          {{ $t('serviceMap.proxy.answered', { rate: perSecond(proxy.answeredPerSecond) }) }}
+        </p>
+        <p v-if="!proxy.entrypoints.length" class="px-1.5 text-13 text-text-muted">
+          {{ $t('serviceMap.proxy.noEntrypoints') }}
+        </p>
+        <table v-else class="w-full text-13">
+          <thead>
+            <tr class="text-left text-12 text-text-muted">
+              <th class="py-1 font-normal">{{ $t('serviceMap.proxy.entrypoint') }}</th>
+              <th class="py-1 text-right font-normal">{{ $t('serviceMap.proxy.requests') }}</th>
+              <th class="py-1 text-right font-normal">{{ $t('serviceMap.proxy.errors') }}</th>
+              <th class="py-1 text-right font-normal">{{ $t('serviceMap.proxy.tls') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="ep in proxy.entrypoints" :key="ep.name" class="border-t border-border">
+              <td class="py-1 text-text">{{ ep.name }}</td>
+              <td class="py-1 text-right font-mono tabular-nums text-text">
+                {{ perSecond(ep.requestsPerSecond) }}
+              </td>
+              <td
+                class="py-1 text-right font-mono tabular-nums"
+                :class="ep.serverErrorsPerSecond > 0 ? 'text-critical' : 'text-text'"
+              >
+                {{ perSecond(ep.serverErrorsPerSecond) }}
+              </td>
+              <td class="py-1 text-right font-mono tabular-nums text-text">
+                {{ perSecond(ep.tlsRequestsPerSecond) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
       <div class="flex flex-col">
         <PanelSection
           v-for="[key, list, dir] in [
@@ -374,6 +426,9 @@ watch(
         data-testid="edge-reason"
       >
         <p class="font-semibold text-text">{{ reason.lead }}</p>
+        <p v-if="edge.answeredByProxy?.shared" data-testid="edge-answered-shared">
+          {{ $t('serviceMap.proxy.shared') }}
+        </p>
         <p v-if="reason.detail">{{ reason.detail }}</p>
         <RouterLink
           v-if="alert"
@@ -422,6 +477,12 @@ watch(
       <div v-if="edge.http" class="flex flex-col gap-2" data-testid="edge-http">
         <h3 class="text-11 font-medium tracking-wide text-text-subtle uppercase">
           {{ $t('serviceMap.http.title') }}
+          <span
+            v-if="edge.httpSource === 'traefik'"
+            class="ml-1 normal-case tracking-normal text-text-muted"
+            data-testid="edge-http-source"
+            >· {{ $t('serviceMap.proxy.fromTraefik') }}</span
+          >
         </h3>
         <dl class="grid grid-cols-2 gap-2">
           <div class="rounded-control bg-surface-2 px-2.5 py-2">
@@ -466,7 +527,7 @@ watch(
       />
       <div class="flex flex-col">
         <PanelSection
-          v-if="edge.http"
+          v-if="edge.http && edge.httpSource !== 'traefik'"
           v-model:open="open.http"
           :title="$t('serviceMap.sections.http')"
           testid="section-http"

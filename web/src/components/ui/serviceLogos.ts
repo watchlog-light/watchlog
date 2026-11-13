@@ -7,6 +7,7 @@ import nginxUrl from '@/assets/brands/nginx.svg';
 import postgresUrl from '@/assets/brands/postgres.svg';
 import rabbitmqUrl from '@/assets/brands/rabbitmq.svg';
 import redisUrl from '@/assets/brands/redis.svg';
+import traefikUrl from '@/assets/brands/traefik.svg';
 
 // The monitored services' logos (Applications, SPEC §4.12): Simple Icons (CC0) in each
 // brand's colour, noted in TRADEMARKS.md "Other marks". Decorative: the service's name is
@@ -18,6 +19,7 @@ export const SERVICE_LOGO_URL: Record<string, string> = {
   rabbitmq: rabbitmqUrl,
   mysql: mysqlUrl,
   mongodb: mongodbUrl,
+  traefik: traefikUrl,
   elasticsearch: elasticsearchUrl,
 };
 
