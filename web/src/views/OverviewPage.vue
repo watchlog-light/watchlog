@@ -26,6 +26,8 @@ import { useUiStore } from '@/stores/ui';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 import FirstWeekCard from '@/components/onboarding/FirstWeekCard.vue';
+import PlanStrip from '@/components/plan/PlanStrip.vue';
+import { useCompact } from '@/composables/useNarrow';
 
 // The overview (SPEC §4.1, ADR-110): "is anything wrong
 // right now?" in five seconds. One API call for the page, refreshed every 15 s without
@@ -38,6 +40,8 @@ const REFRESH_MS = 15_000;
 const ResourcesCard = defineAsyncComponent(() => import('@/components/overview/ResourcesCard.vue'));
 const ns = useNamespaceFilter();
 const ui = useUiStore();
+// Below 1024 px the sidebar (and its plan strip) is a drawer: the overview shows the strip.
+const compact = useCompact();
 let timer: ReturnType<typeof setInterval> | undefined;
 let clock: ReturnType<typeof setInterval> | undefined;
 
@@ -213,6 +217,7 @@ onBeforeUnmount(() => {
 
       <!-- Cloud: the first week's checklist (ADR-176), hidden once done or dismissed. -->
       <FirstWeekCard v-if="auth.isCloud && !auth.demoMode" />
+      <PlanStrip v-if="auth.isCloud && compact" inline />
       <StatusStrip :overview="o" />
       <KpiRow :overview="o" />
 

@@ -11,7 +11,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api, ApiError, hasProblemType, ProblemType } from '@/api/client';
-import { funnel, problemCode } from '@/api/cloud';
+import { funnel, planLimitKey } from '@/api/cloud';
 import AddChannelForm from '@/components/channels/AddChannelForm.vue';
 import TelegramCard from '@/components/channels/TelegramCard.vue';
 import TypeCard from '@/components/channels/TypeCard.vue';
@@ -106,8 +106,8 @@ async function create() {
   } catch (err) {
     createError.value = hasProblemType(err, ProblemType.nameTaken)
       ? t('clusters.errors.nameTaken')
-      : problemCode(err) === 'plan-limit'
-        ? t('cloud.errors.plan-limit')
+      : planLimitKey(err)
+        ? t(planLimitKey(err)!)
         : err instanceof ApiError && err.status === 400
           ? t('clusters.errors.invalidName')
           : t('clusters.errors.generic');

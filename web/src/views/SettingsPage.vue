@@ -10,17 +10,27 @@ import GeneralSettings from '@/components/settings/GeneralSettings.vue';
 import LogsAccess from '@/components/settings/LogsAccess.vue';
 import SecuritySettings from '@/components/settings/SecuritySettings.vue';
 import SystemNamespaces from '@/components/settings/SystemNamespaces.vue';
+import PlanBilling from '@/components/plan/PlanBilling.vue';
 import { useAuthStore } from '@/stores/auth';
 
 // Settings (alerts redesign): clusters, alert channels with the email server and
 // Telegram, general settings (the public address and the system namespaces) and the
 // user's API tokens (ADR-125). Cloud adds Security: 2FA, sessions, GitHub and Google
-// (ADR-175). ?tab= keeps the view.
-const ALL_TABS = ['clusters', 'channels', 'general', 'users', 'tokens', 'security'] as const;
+// (ADR-175) and Plan & billing (ADR-177). ?tab= keeps the view.
+const ALL_TABS = [
+  'clusters',
+  'channels',
+  'general',
+  'users',
+  'tokens',
+  'billing',
+  'security',
+] as const;
 type Tab = (typeof ALL_TABS)[number];
+const CLOUD_TABS: readonly Tab[] = ['billing', 'security'];
 const auth = useAuthStore();
 const TABS = computed<readonly Tab[]>(() =>
-  auth.isCloud ? ALL_TABS : ALL_TABS.filter((t) => t !== 'security'),
+  auth.isCloud ? ALL_TABS : ALL_TABS.filter((t) => !CLOUD_TABS.includes(t)),
 );
 const route = useRoute();
 const router = useRouter();
@@ -62,6 +72,7 @@ function setTab(t: Tab) {
     <UsersSettings v-else-if="tab === 'users'" class="max-w-6xl" />
     <ApiTokens v-else-if="tab === 'tokens'" />
     <SecuritySettings v-else-if="tab === 'security'" />
+    <PlanBilling v-else-if="tab === 'billing'" />
     <template v-else>
       <GeneralSettings />
       <SystemNamespaces />

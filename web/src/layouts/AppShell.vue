@@ -18,6 +18,8 @@ import AlertingStatusBanner from '@/components/alerts/AlertingStatusBanner.vue';
 import CommandPalette from '@/components/layout/CommandPalette.vue';
 import DemoBanner from '@/components/layout/DemoBanner.vue';
 import VerifyBanner from '@/components/cloud/VerifyBanner.vue';
+import PlanBanner from '@/components/plan/PlanBanner.vue';
+import { PLAN_REFRESH_MS, usePlanStore } from '@/stores/plan';
 import { useOrgsStore } from '@/stores/orgs';
 import { useCompact } from '@/composables/useNarrow';
 import { useAuthStore } from '@/stores/auth';
@@ -32,9 +34,17 @@ const { navOpen } = storeToRefs(useUiStore());
 const auth = useAuthStore();
 // Cloud: the org switcher needs the user's orgs (ADR-175); the narrow sheet reads them too.
 const orgs = useOrgsStore();
+// Cloud: the plan's strip and banners (ADR-177), asked again every minute.
+const plan = usePlanStore();
+let planTimer: ReturnType<typeof setInterval> | undefined;
 onMounted(() => {
   if (auth.isCloud && auth.user && !orgs.loaded) void orgs.load();
+  if (auth.isCloud && auth.user && !auth.demoMode) {
+    void plan.load();
+    planTimer = setInterval(() => void plan.load(), PLAN_REFRESH_MS);
+  }
 });
+onBeforeUnmount(() => clearInterval(planTimer));
 watch([() => route.fullPath, compact], () => (navOpen.value = false));
 // Only the content pane scrolls (main.css): the page is locked while the shell shows.
 onMounted(() => document.documentElement.classList.add('app-shell'));
@@ -67,6 +77,7 @@ onBeforeUnmount(() => document.documentElement.classList.remove('app-shell'));
       <DemoBanner v-if="auth.demoMode" class="flex-none" />
       <AppTopBar :title="title" class="flex-none" />
       <VerifyBanner v-if="auth.isCloud" class="flex-none" />
+      <PlanBanner v-if="auth.isCloud" class="flex-none" />
       <AlertingStatusBanner class="flex-none" />
       <main
         id="main"

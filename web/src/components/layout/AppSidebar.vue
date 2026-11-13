@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useClustersStore } from '@/stores/clusters';
 import { useUiStore } from '@/stores/ui';
 import ClusterSwitcher from './ClusterSwitcher.vue';
+import PlanStrip from '@/components/plan/PlanStrip.vue';
 
 // `drawer`: below 1024 px the shell shows the sidebar as an off-canvas drawer, full width
 // with 44 px rows; the cluster switcher is in the top bar there.
@@ -116,6 +117,11 @@ async function signOut() {
         </li>
       </ul>
     </nav>
+
+    <!-- Cloud: the plan strip (ADR-177, Dashboard.dc.html). -->
+    <div v-if="auth.isCloud && !collapsed" class="px-3 pb-3">
+      <PlanStrip />
+    </div>
 
     <div v-if="auth.user" class="border-t border-border p-3" :aria-label="$t('account.menuLabel')">
       <div class="flex items-center gap-2.5 px-1">

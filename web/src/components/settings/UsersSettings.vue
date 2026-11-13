@@ -4,6 +4,7 @@ import { Check, Copy, Info, MailX, UserPlus, X } from '@lucide/vue';
 import type { CreatedInvite, IssuedLink, UserList, UserRow, InviteRow } from '@watchlog/api-types';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { planLimitKey } from '@/api/cloud';
 import { ApiError, api } from '@/api/client';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
@@ -117,7 +118,9 @@ async function createInvite() {
     showInviteLink(res.invite.email, res.invite.role, res);
     void page.load();
   } catch (err) {
-    inviteError.value = err instanceof ApiError ? err.message : String(err);
+    // Cloud: over the plan's users (ADR-177) in plain words, not the server's.
+    const limit = planLimitKey(err);
+    inviteError.value = limit ? t(limit) : err instanceof ApiError ? err.message : String(err);
   } finally {
     busy.value = false;
   }

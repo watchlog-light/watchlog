@@ -1481,7 +1481,8 @@
       "general": "General",
       "tokens": "API tokens",
       "users": "Users",
-      "security": "Security"
+      "security": "Security",
+      "billing": "Plan & billing"
     },
     "fromEnvironment": "Set by the server's environment",
     "saved": "Saved.",
@@ -3839,7 +3840,7 @@
       "already-member": "You're already a member of this org.",
       "last-sign-in-method": "This is your only way to sign in. Link another one, or set a password, before you remove it.",
       "identity-taken": "That account is already linked to another WatchLog account.",
-      "plan-limit": "Cloud Free has one user. Try Pro to invite your team.",
+      "plan-limit": "Your plan's limit is reached. Try Pro, free during the beta, in Settings › Plan & billing.",
       "oauth-state": "The sign-in took too long or was opened in another tab. Try again.",
       "oauth-cancelled": "Sign-in was cancelled.",
       "oauth-failed": "The provider didn't answer as expected. Try again, or use email and password.",
@@ -4008,6 +4009,76 @@
       "submit": "Join",
       "notNow": "Not now",
       "signIn": "Already have an account? Sign in to join"
+    },
+    "plan": {
+      "label": "Your plan",
+      "name": {
+        "free": "Free plan",
+        "pro": "Pro plan",
+        "enterprise": "Enterprise plan"
+      },
+      "short": {
+        "free": "Free",
+        "pro": "Pro",
+        "enterprise": "Enterprise"
+      },
+      "nodesOf": "{n} of {max} nodes",
+      "nodes": "no nodes | {n} node | {n} nodes",
+      "nodesBar": "Nodes used of the plan",
+      "days": "{n} day of data | {n} days of data",
+      "users": "{n} user | {n} users",
+      "usersUpTo": "up to {n} users",
+      "usersUnlimited": "unlimited users",
+      "tryPro": "Try Pro, free during beta →",
+      "manage": "Plan & billing →",
+      "limitError": {
+        "clusters": "Cloud Free has one cluster or Docker fleet. Try Pro, free during the beta, for unlimited clusters: Settings › Plan & billing.",
+        "users": "Your plan has no room for another user (open invites count too). On Cloud Free, try Pro, free during the beta, to invite your team: Settings › Plan & billing.",
+        "nodes": "This node is over the plan's node limit. Try Pro, free during the beta: Settings › Plan & billing."
+      },
+      "banner": {
+        "label": "Plan limit",
+        "overLimit": "A new node can't send data: {plan} allows {max} nodes, and {used} already send. Its data isn't stored; the nodes already sending keep sending. | {n} new nodes can't send data: {plan} allows {max} nodes, and {used} already send. Their data isn't stored; the nodes already sending keep sending.",
+        "downgrade": "Your plan is now {plan}. Everything already sending keeps sending for {days} more, until {date}; after that {over} beyond the plan stop sending, newest first. Your data is kept until its retention ends.",
+        "days": "{n} day | {n} days",
+        "nodesOver": "{n} node | {n} nodes",
+        "clustersOver": "{n} cluster | {n} clusters",
+        "and": " and "
+      },
+      "billing": {
+        "betaTitle": "WatchLog Cloud is in beta.",
+        "betaBody": "Pro is free until billing starts, and you'll get an email 14 days before. Nothing is charged without a card you add yourself.",
+        "unavailable": "Your plan can't be shown right now. Try again in a minute.",
+        "yourPlan": "Your plan: {plan}",
+        "period": "Period {from}–{to} {month}",
+        "nodes": "Nodes (95th percentile)",
+        "nodesNote": "Sending now: {now} · peak this period: {peak}",
+        "clusters": "Clusters and fleets",
+        "users": "Users",
+        "retention": "Data kept",
+        "daysValue": "{n} day | {n} days",
+        "unlimited": "Unlimited on your plan",
+        "proClusters": "Pro: unlimited",
+        "proUsers": "Pro: up to 10",
+        "countsInvites": "Open invites count too",
+        "proRetention": "Pro: 30 days",
+        "retentionPro": "The longest Cloud keeps",
+        "proLimits": "Unlimited clusters and nodes · 30 days of data · up to 10 users",
+        "proComing": "Multi-cluster view, SLO reports, anomaly detection: coming to Pro",
+        "proSupport": "Email support within 2 business days",
+        "estimateFor": "Estimate for",
+        "perMonth": "${n} / month",
+        "minimum": "$10 minimum · $1 per node",
+        "perNode": "$1 per node",
+        "startSoon": "Starting Pro from this page, free during the beta, comes next. After the beta, upgrading opens Stripe Checkout: card details go to Stripe, and WatchLog never sees or stores them.",
+        "countedTitle": "How nodes are counted",
+        "countedBody": "Every hour we record how many Kubernetes nodes and Docker hosts sent data. Your bill uses the 95th percentile of those counts, so a few hours of autoscaling don’t cost you a month.",
+        "countedExample": "Example: 10 nodes most of the month and 40 for one busy day is billed as 10.",
+        "countedLimit": "The plan's node limit counts the nodes and hosts that sent data in the last 24 hours. A new one over the limit is refused; the ones already sending never are.",
+        "invoicesTitle": "Invoices and payment method",
+        "invoicesBody": "Managed in Stripe’s customer portal: cards, invoices, VAT number and cancelling.",
+        "whenBilling": "Available when billing starts"
+      }
     }
   },
   "onboarding": {

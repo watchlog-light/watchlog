@@ -29,6 +29,41 @@ export interface FirstWeek {
   steps: { id: FirstWeekStepId; done: boolean; blocked: 'plan-limit' | null }[];
 }
 
+/** GET /plan (ADR-177): the org's plan, its limits and what it uses now. */
+export type CloudPlan = 'free' | 'pro' | 'enterprise';
+export interface PlanInfo {
+  plan: CloudPlan;
+  source: string;
+  betaUntil: string | null;
+  proFeatures: boolean;
+  /** null: unlimited. */
+  limits: {
+    clusters: number | null;
+    nodes: number | null;
+    users: number | null;
+    retentionDays: number;
+  };
+  usage: {
+    clusters: number;
+    /** Kubernetes nodes and Docker hosts seen in the last 24 hours (what the limit counts). */
+    nodes: number;
+    kubernetesNodes: number;
+    dockerHosts: number;
+    users: number;
+  };
+  /** This calendar month so far: the bill's 95th percentile and the peak hour. */
+  period: { from: string; to: string; p95: number; peak: number };
+  /** Nodes refused (402) in the last 24 hours. */
+  refusedNodes: number;
+  downgrade: {
+    graceUntil: string;
+    daysLeft: number;
+    ended: boolean;
+    nodesOver: number;
+    clustersOver: number;
+  } | null;
+}
+
 /** Funnel events only the page sees (POST /funnel; SPEC §10.4). */
 export type ClientFunnelEvent =
   | 'install_command_copied'
@@ -117,6 +152,7 @@ export const cloudApi = {
   unlink: (provider: Provider) => api<void>(`/auth/identities/${provider}`, { method: 'DELETE' }),
   firstWeek: () => api<FirstWeek>('/onboarding/first-week'),
   dismissFirstWeek: () => api<void>('/onboarding/first-week/dismiss', { method: 'POST' }),
+  plan: () => api<PlanInfo>('/plan'),
 };
 
 /**
@@ -211,4 +247,16 @@ export function restrictionOf(err: unknown): Restriction | null {
     (code === 'mfa-setup-required' || code === 'email-verification-required')
     ? code
     : null;
+}
+
+/**
+ * The message for a 409/402 `plan-limit` (ADR-177): the limit's own words when the
+ * problem names it (`limit`: clusters, users or nodes), else the general one.
+ */
+export function planLimitKey(err: unknown): string | null {
+  if (problemCode(err) !== 'plan-limit') return null;
+  const limit = (err as ApiError).problem?.limit;
+  return limit === 'clusters' || limit === 'users' || limit === 'nodes'
+    ? `cloud.plan.limitError.${limit}`
+    : 'cloud.errors.plan-limit';
 }
