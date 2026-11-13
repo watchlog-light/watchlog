@@ -31,7 +31,8 @@ const OUT = process.env.WATCHLOG_E2E_OUT ?? join(tmpdir(), 'watchlog-mcp-e2e');
 /** Pinned: the newest release at least two weeks old when this was written. */
 const MCP_REMOTE = 'mcp-remote@0.15.2';
 const QUESTION = "What's wrong with my clusters?";
-const TOOLS = 14;
+// 0.5 added get_container_logs (ADR-167) and get_right_sizing (ADR-168).
+const TOOLS = 16;
 
 interface Cluster {
   id: string;
