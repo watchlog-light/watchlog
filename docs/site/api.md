@@ -170,6 +170,11 @@ curl -H "$H" $WATCHLOG/api/v1/clusters/$FLEET/overview
 curl -H "$H" "$WATCHLOG/api/v1/clusters/$CLUSTER/right-sizing?namespace=shop"
 curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/right-sizing?project=storefront&service=web"
 
+# Find objects by name, as the dashboard's ⌘K search does: workloads, pods and nodes, or
+# hosts, containers and Compose projects, and applications; letters in order, best first
+curl -H "$H" "$WATCHLOG/api/v1/clusters/$CLUSTER/search?q=payments%20api"
+curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/search?q=storefront&limit=10"
+
 # The service map: who talks to whom, with failures and latency (eBPF)
 curl -H "$H" "$WATCHLOG/api/v1/clusters/$CLUSTER/service-map?range=3600"
 curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/service-map?range=3600"

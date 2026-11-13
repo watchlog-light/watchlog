@@ -33,6 +33,16 @@ The node agent reads each node's stats from its own kubelet over TLS. kind and k
 
 To have it verified, let the kubelets get serving certificates signed by the cluster CA: set `serverTLSBootstrap: true` in the kubelet configuration (kubeadm: the `kubelet-config` ConfigMap in `kube-system`, then restart the kubelets; kind: a `KubeletConfiguration` patch in `kubeadmConfigPatches` when you create the cluster), then approve the new certificate requests with `kubectl get csr` and `kubectl certificate approve <name>`. The agent verifies on its next connection; k3s does this out of the box. Set the agent chart's `agent.kubeletTLS` to `verify` to refuse unverified connections.
 
+## How do I find a pod or a container quickly?
+
+Press ⌘K (Ctrl+K on Windows and Linux), or the search button in the top bar, and type part
+of its name. It finds pages, clusters and Docker fleets, and the selected cluster's
+workloads, pods and nodes, or its hosts, containers and Compose projects, and
+applications. The letters only need to appear in order (`pay7d9` finds
+`payments-api-7d9f…`), and one typo is forgiven. Arrows move, Enter opens, Escape closes;
+your last five picks show before you type. The same search is in the API:
+`GET /api/v1/clusters/{id}/search?q=` (see [api.md](api.md)).
+
 ## Can I use it in an air-gapped network?
 
 Yes. Mirror the images (`ghcr.io/watchlog-light/*`, `postgres:16-alpine` and `victoriametrics/victoria-metrics`) and the charts into your registry, then set `image.registry` (and `postgresql.image`, `victoriametrics.image`). Agents connect only to your WatchLog server. For alerts, email works through your SMTP server, and Slack, Telegram and webhooks can go through `HTTPS_PROXY`.
