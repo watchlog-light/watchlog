@@ -85,6 +85,12 @@ export const ROUTES: Record<string, RouteClass> = {
 
   // Cloud plans (ADR-177): the org's plan, limits and usage, for the strip and the banners.
   'GET /api/v1/plan': cloud,
+  // Plan & billing's actions (ADR-178), through the billing service; the org is the
+  // session's, never a parameter. Owner-only writes: B's Owner reaches B's billing only.
+  'GET /api/v1/plan/billing': cloud,
+  'POST /api/v1/plan/beta': cloud,
+  'POST /api/v1/plan/checkout': { kind: 'cloud', body: { interval: 'monthly' } },
+  'POST /api/v1/plan/portal': cloud,
 
   'GET /api/v1/clusters': org,
   'POST /api/v1/clusters': org,
@@ -231,4 +237,5 @@ export const INTERNAL_ROUTES = [
   'GET /internal/orgs/:id/entitlements',
   'PUT /internal/orgs/:id/entitlements',
   'GET /internal/orgs/:id/usage',
+  'GET /internal/orgs/:id/owners',
 ] as const;
