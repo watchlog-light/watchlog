@@ -5,7 +5,6 @@ import { buildApp } from './app.js';
 import { loadConfig, type Config } from './config.js';
 import { createDb, describeDbError, waitForDatabase } from './db/index.js';
 import { checkSecretKey, usePreviousSecretKey } from './lib/secrets.js';
-import { VictoriaQueryClient } from './lib/victoria.js';
 import { HttpClient } from './modules/alerts/channels.js';
 import { workerCauses } from './modules/alerts/likely-cause.js';
 import { CausesService } from './modules/causes/likely.js';
@@ -16,6 +15,11 @@ import { SettingsService } from './modules/settings/service.js';
 import { ensureDefaultRules, lookupEvaluator } from './modules/alerts/rules.js';
 import { AlertWorker } from './modules/alerts/worker.js';
 import { runApiTokenJobs, TOKEN_JOBS_EVERY_MS } from './modules/api-tokens/jobs.js';
+import { EntitlementsService } from './modules/entitlements/service.js';
+import { metricsClient } from './modules/entitlements/metrics.js';
+import { recordUsage, USAGE_EVERY_MS } from './modules/entitlements/usage.js';
+import { LIMIT_MAIL_EVERY_MS, sendLimitEmails } from './modules/entitlements/limit-mail.js';
+import type { WorkerTask } from './modules/alerts/worker.js';
 
 let config: Config;
 try {
@@ -63,6 +67,26 @@ const reads = await buildApp(config, {
   setup: new SetupState(),
   serviceReads: true,
 });
+// Cloud's plans (ADR-177): the metrics tiers, the hourly usage and the limit emails.
+const entitlements = cloud ? new EntitlementsService(systemDb) : null;
+const cloudTasks: WorkerTask[] = cloud
+  ? [
+      {
+        name: 'usage',
+        everyMs: USAGE_EVERY_MS,
+        run: async (now) => {
+          await recordUsage({ systemDb, db }, now);
+        },
+      },
+      {
+        name: 'plan-limit-emails',
+        everyMs: LIMIT_MAIL_EVERY_MS,
+        run: async (now) => {
+          await sendLimitEmails({ systemDb, settings: () => settings.alerting(), log }, now);
+        },
+      },
+    ]
+  : [];
 const channelDeps = {
   db: systemDb,
   secretKey: config.secretKey,
@@ -80,9 +104,7 @@ const worker = new AlertWorker({
   log,
   evaluators: lookupEvaluator,
   prepareOrg: (orgId) => ensureDefaultRules(db, orgId),
-  victoria: config.victoriaMetricsUrl
-    ? new VictoriaQueryClient(config.victoriaMetricsUrl)
-    : undefined,
+  victoria: metricsClient(config, entitlements, log),
   retentionDays: config.alertRetentionDays,
   tasks: [
     { name: 'deliver', everyMs: 2_000, run: (now) => deliverDue(channelDeps, now) },
@@ -95,6 +117,7 @@ const worker = new AlertWorker({
       run: (now) =>
         runApiTokenJobs({ db: systemDb, settings: () => settings.alerting(), log }, now),
     },
+    ...cloudTasks,
   ],
 });
 const server = await worker.listen(config.host, config.workerPort).catch((err: Error) => {

@@ -2,6 +2,7 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyRequest } from 'fastify';
 import { Type } from 'typebox';
+import { refuseCluster } from '../entitlements/limits.js';
 import type { Config } from '../../config.js';
 import { isUniqueViolation, type Database } from '../../db/index.js';
 import { ProblemType, sendProblem } from '../../lib/problem.js';
@@ -139,6 +140,9 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
     },
     async (request, reply) => {
       const { org } = request.user!;
+      // Cloud: a cluster or fleet over the plan answers 409 plan-limit (ADR-177).
+      const entitlements = request.server.entitlements;
+      if (entitlements && (await refuseCluster(db, entitlements, org.id, reply))) return reply;
       try {
         const { cluster, body } = await db.transaction().execute(async (trx) => {
           const cluster = await insertCluster(trx, org.id, request.body.name, request.body.kind);

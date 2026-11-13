@@ -36,6 +36,8 @@ import {
 } from './rate-limit.js';
 import { inspectWriteRequest, RemoteWriteError } from './remote-write.js';
 import type { TokenCache } from './token-cache.js';
+import { isNodeAgent, type NodeGate } from '../entitlements/node-gate.js';
+import { BILLING_PATH, sendPlanLimit } from '../entitlements/limits.js';
 
 /** Limits from ADR-027. */
 export const MAX_COMPRESSED_BYTES = 4 << 20;
@@ -68,6 +70,8 @@ export interface IngestOptions {
   secretKey: Buffer;
   /** Logs on demand (ADR-167): where agents pick up requests and post lines. */
   logs?: LogBroker;
+  /** Cloud: the plan's node limit (ADR-177). Null in Community: nothing is checked. */
+  nodeGate?: NodeGate | null;
 }
 
 const Str = (max: number) => Type.String({ maxLength: max });
@@ -211,6 +215,7 @@ function problemDetail(payload: unknown): string {
 
 export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app, opts) => {
   const { db, tokens, victoria } = opts;
+  const nodeGate = opts.nodeGate ?? null;
   const agentBuckets = new TokenBuckets(opts.agentBucket ?? AGENT_BUCKET);
   const clusterAgentBuckets = new TokenBuckets(opts.clusterAgentBucket ?? CLUSTER_AGENT_BUCKET);
   const clusterBuckets = new TokenBuckets(opts.clusterBucket ?? CLUSTER_BUCKET);
@@ -276,6 +281,25 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
     if (wait > 0) {
       reply.header('retry-after', String(wait));
       return sendProblem(reply, 429, 'Ingest rate limit reached; retry later');
+    }
+    // Cloud's node limit (ADR-177): a node or Docker host the org hasn't seen in 24 hours
+    // gets 402 when the plan is full; one already sending never does. From memory, no
+    // query per write (modules/entitlements/node-gate.ts). The agent drops the batch.
+    const url = request.routeOptions.url ?? '';
+    if (
+      nodeGate &&
+      isNodeAgent(agentId) &&
+      !logs &&
+      !url.startsWith('/ingest/v1/integrations/') &&
+      !(await nodeGate.admit(owner.orgId, owner.clusterId, agentId))
+    ) {
+      return sendPlanLimit(
+        reply,
+        402,
+        'nodes',
+        null,
+        `This node is over the plan's node limit; its data is not stored. Nodes already sending keep sending. Try Pro: ${BILLING_PATH}`,
+      );
     }
   });
 

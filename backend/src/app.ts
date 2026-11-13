@@ -44,7 +44,6 @@ import {
 import { DemoSessions } from './modules/demo/service.js';
 import { parseTrustedProxies, registerClientIp } from './plugins/client-ip.js';
 import { demoRoutes } from './modules/demo/routes.js';
-import { VictoriaQueryClient } from './lib/victoria.js';
 import { dockerRoutes } from './modules/docker/routes.js';
 import { queryRoutes } from './modules/query/routes.js';
 import { alertRoutes } from './modules/alerts/routes.js';
@@ -66,7 +65,10 @@ import { registerServiceIdentity } from './plugins/service-identity.js';
 import { registerOrgScope } from './plugins/org-scope.js';
 import { requestWithoutCodes } from './lib/redact.js';
 import { registerCloudOnly, registerCommunityOnlyGuard } from './plugins/edition.js';
-import { cloudApiRoutes, internalRoutes } from './modules/cloud/routes.js';
+import { cloudApiRoutes } from './modules/cloud/routes.js';
+import { EntitlementsService } from './modules/entitlements/service.js';
+import { NodeGate } from './modules/entitlements/node-gate.js';
+import { metricsClient } from './modules/entitlements/metrics.js';
 import { CloudAccounts } from './modules/accounts/context.js';
 
 export const API_PREFIX = '/api/v1';
@@ -101,6 +103,15 @@ export interface AppDeps {
   serviceReads?: boolean;
   /** Test hook: the `fetch` for Turnstile, Have I Been Pwned and OAuth (Cloud, ADR-175). */
   fetch?: typeof fetch;
+  /** Test hook: Cloud's entitlements (ADR-177), shared with the internal API's app. */
+  entitlements?: EntitlementsService;
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** Cloud's entitlements and limits (ADR-177); null in Community (no row, no checks). */
+    entitlements: EntitlementsService | null;
+  }
 }
 
 export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyInstance> {
@@ -134,6 +145,10 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       ? new CloudAccounts(config.accounts, deps.fetch ?? globalThis.fetch)
       : null;
   app.decorate('accounts', accounts);
+  // Cloud's plans (ADR-177): read across orgs (ingest, the tiers), so on the owner's connection.
+  const entitlements =
+    config.edition === 'cloud' ? (deps.entitlements ?? new EntitlementsService(systemDb)) : null;
+  app.decorate('entitlements', entitlements);
   registerProblemHandlers(app);
   // JSON only: text/plain is a CORS "simple" content type usable for CSRF (ADR-034).
   app.removeContentTypeParser('text/plain');
@@ -187,10 +202,11 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   // Logs on demand (ADR-167): readers and agents meet here, in this process only.
   const logBroker = new LogBroker();
   app.decorate('collectorNotifier', collectors);
-  const victoria = config.victoriaMetricsUrl
-    ? new VictoriaQueryClient(config.victoriaMetricsUrl, 10_000, config.queryTimeoutMs)
-    : undefined;
+  // Cloud with VICTORIAMETRICS_URL_3D and _30D: the org's tier (ADR-177); else the one URL.
+  const victoria = metricsClient(config, entitlements, app.log, 10_000, config.queryTimeoutMs);
   if (!victoria) app.log.warn('VICTORIAMETRICS_URL is not set; ingest will answer 503');
+  // Cloud: a new node over the plan gets 402 at ingest (ADR-177); Community has no gate.
+  const nodeGate = entitlements ? new NodeGate(systemDb, entitlements, app.log) : null;
   // Send test and Telegram's getMe go out through the outbound proxy (ADR-080).
   const alertHttp = new HttpClient(config.proxy);
   app.addHook('onClose', () => alertHttp.close());
@@ -267,13 +283,14 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(causesRoutes, { db: deps.db, causes });
       await api.register(apiTokenRoutes, { db: deps.db });
       // Cloud only (ADR-173): Community never registers these, so they answer 404.
-      if (accounts) {
+      if (accounts && entitlements) {
         await registerCloudOnly(api, config.edition, cloudApiRoutes, {
           db: deps.db,
           systemDb,
           config,
           settings,
           accounts,
+          entitlements,
         });
       }
       await api.register(userRoutes, {
@@ -316,10 +333,8 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     config,
     settings,
   });
-  await registerCloudOnly(app, config.edition, internalRoutes, {
-    db: deps.db,
-    prefix: '/internal',
-  });
+  // The internal API (ADR-177, ADR-178) is not here: it has its own listener
+  // (modules/internal/app.ts), so the public one answers 404 for /internal/*.
   await app.register(ingestRoutes, {
     prefix: '/ingest/v1',
     db: deps.db,
@@ -332,6 +347,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     notifier: collectors,
     secretKey: config.secretKey,
     logs: logBroker,
+    nodeGate,
   });
 
   // Seeded services (ADR-142): monitored as soon as the agents report them, so tried on

@@ -4,6 +4,7 @@
 // links are 256-bit tokens stored as SHA-256 in `email_tokens`, valid for 24 hours.
 import type { FastifyBaseLogger } from 'fastify';
 import type { Database } from '../../db/index.js';
+import { PLAN_DEFAULTS } from '../entitlements/plans.js';
 import { newId } from '../../lib/ids.js';
 import { randomToken, sha256 } from '../../lib/tokens.js';
 
@@ -83,7 +84,7 @@ export async function createAccount(
           .execute();
         await trx
           .insertInto('entitlements')
-          .values({ org_id: orgId, plan: 'free', source: 'signup' })
+          .values({ org_id: orgId, plan: 'free', source: 'signup', ...freeColumns() })
           .execute();
         if (a.identity) {
           await trx
@@ -234,4 +235,16 @@ export function recordFunnelEvent(
     { funnel: e.name, userId: e.userId, orgId: e.orgId, props: e.props ?? {} },
     'funnel event',
   );
+}
+
+/** Cloud Free's limits as entitlement columns (ADR-177). */
+function freeColumns() {
+  const f = PLAN_DEFAULTS.free;
+  return {
+    clusters: f.clusters,
+    nodes: f.nodes,
+    users: f.users,
+    retention_days: f.retentionDays,
+    pro_features: f.proFeatures,
+  };
 }

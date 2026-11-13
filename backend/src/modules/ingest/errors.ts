@@ -18,10 +18,11 @@ export const INGEST_ENDPOINTS: readonly IngestEndpoint[] = [
 /**
  * Whether an answer to an authenticated agent loses or holds back data: server errors,
  * bodies too large or refused. 429 is backpressure the agent waits out; 401 has no
- * cluster to record it on.
+ * cluster to record it on; 402 (Cloud, ADR-177) is a node over the plan, shown by the plan
+ * banner, not "data delayed" for the nodes still sending (and never a write per refusal).
  */
 export function isIngestError(status: number): boolean {
-  return status >= 400 && status !== 429 && status !== 401;
+  return status >= 400 && status !== 429 && status !== 401 && status !== 402;
 }
 
 /** Failing means an error within this window: an agent that stopped sending is "not reporting", not failing. */

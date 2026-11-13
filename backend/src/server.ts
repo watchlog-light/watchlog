@@ -8,6 +8,7 @@ import { SetupState } from './modules/setup/service.js';
 import { syncDemoMcpToken } from './modules/demo/mcp-token.js';
 import { ensureDemoUser } from './modules/demo/service.js';
 import { applySeed, loadSeedFile, type Seed } from './modules/seed/seed.js';
+import { buildInternalApp } from './modules/internal/app.js';
 
 let config: Config;
 try {
@@ -102,4 +103,25 @@ try {
 } catch (err) {
   app.log.error({ err }, 'failed to start');
   process.exit(1);
+}
+
+// Cloud: the internal API for the billing service and staff (ADR-177, ADR-178), on its own
+// listener that the Cloud kit keeps on the Compose network. Off without its token.
+if (cloud && app.entitlements) {
+  if (!config.internalApi) {
+    app.log.warn('WATCHLOG_INTERNAL_TOKEN is not set; the internal API is off');
+  } else {
+    const internal = await buildInternalApp(config.internalApi, {
+      systemDb,
+      entitlements: app.entitlements,
+      logLevel: config.logLevel,
+    });
+    app.addHook('onClose', () => internal.close());
+    try {
+      await internal.listen({ host: config.internalApi.host, port: config.internalApi.port });
+    } catch (err) {
+      app.log.error({ err }, 'the internal API failed to start');
+      process.exit(1);
+    }
+  }
 }

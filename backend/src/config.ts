@@ -86,7 +86,30 @@ export interface Config {
   apiTokenLimits: { restPerMinute: number; mcpCallsPerMinute: number };
   /** Accounts in Cloud (ADR-175); read only with WATCHLOG_EDITION=cloud. */
   accounts: AccountsConfig;
+  /**
+   * The internal API (ADR-177, ADR-178), Cloud only: its own listener for the billing
+   * service and staff, never the public one. Off without WATCHLOG_INTERNAL_TOKEN.
+   */
+  internalApi?: InternalApiConfig;
+  /**
+   * Cloud's two retention tiers (ADR-177): VICTORIAMETRICS_URL_3D and _30D. Unset, the one
+   * VICTORIAMETRICS_URL holds everything (Community, or Cloud with one tier).
+   */
+  victoriaMetricsTiers?: { '3d': string; '30d': string };
 }
+
+export interface InternalApiConfig {
+  /** WATCHLOG_INTERNAL_TOKEN: the bearer the callers send, compared in constant time. */
+  token: string;
+  /** WATCHLOG_INTERNAL_TOKEN_PREVIOUS: still accepted during a rotation. */
+  previousToken?: string;
+  /** WATCHLOG_INTERNAL_HOST (default HOST) and WATCHLOG_INTERNAL_PORT (default 4082). */
+  host: string;
+  port: number;
+}
+
+/** The internal token's minimum length (a 32-byte random value, base64 or hex, is longer). */
+export const INTERNAL_TOKEN_MIN_LENGTH = 32;
 
 export interface OAuthClient {
   clientId: string;
@@ -270,6 +293,50 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     }
     return clientId && clientSecret ? { clientId, clientSecret } : undefined;
   };
+  // Cloud only (ADR-177, ADR-178): the internal API's token and listener, the two tiers.
+  for (const name of [
+    'WATCHLOG_INTERNAL_TOKEN',
+    'WATCHLOG_INTERNAL_TOKEN_PREVIOUS',
+    'VICTORIAMETRICS_URL_3D',
+    'VICTORIAMETRICS_URL_30D',
+  ] as const) {
+    if (env[name] !== undefined && edition !== 'cloud') {
+      throw new Error(`${name} is only read with WATCHLOG_EDITION=cloud`);
+    }
+  }
+  for (const name of ['WATCHLOG_INTERNAL_TOKEN', 'WATCHLOG_INTERNAL_TOKEN_PREVIOUS'] as const) {
+    const v = env[name];
+    if (v !== undefined && (v.length < INTERNAL_TOKEN_MIN_LENGTH || /\s/.test(v))) {
+      throw new Error(
+        `Invalid ${name}: at least ${INTERNAL_TOKEN_MIN_LENGTH} characters, no spaces (e.g. openssl rand -hex 32)`,
+      );
+    }
+  }
+  if (env.WATCHLOG_INTERNAL_TOKEN_PREVIOUS && !env.WATCHLOG_INTERNAL_TOKEN) {
+    throw new Error('WATCHLOG_INTERNAL_TOKEN_PREVIOUS needs WATCHLOG_INTERNAL_TOKEN');
+  }
+  const internalPort = Number(env.WATCHLOG_INTERNAL_PORT ?? 4082);
+  if (!Number.isInteger(internalPort) || internalPort <= 0 || internalPort > 65535) {
+    throw new Error(`Invalid WATCHLOG_INTERNAL_PORT: ${env.WATCHLOG_INTERNAL_PORT}`);
+  }
+  if (env.WATCHLOG_INTERNAL_TOKEN && internalPort === port) {
+    throw new Error(
+      'WATCHLOG_INTERNAL_PORT must differ from PORT: the internal API has its own listener',
+    );
+  }
+  const tier3 = env.VICTORIAMETRICS_URL_3D;
+  const tier30 = env.VICTORIAMETRICS_URL_30D;
+  if (!tier3 !== !tier30) {
+    throw new Error(
+      'VICTORIAMETRICS_URL_3D and VICTORIAMETRICS_URL_30D are set together, or neither',
+    );
+  }
+  for (const [name, v] of [
+    ['VICTORIAMETRICS_URL_3D', tier3],
+    ['VICTORIAMETRICS_URL_30D', tier30],
+  ] as const) {
+    if (v !== undefined && !URL.canParse(v)) throw new Error(`Invalid ${name}: ${v}`);
+  }
   const bootstrapToken = env.WATCHLOG_BOOTSTRAP_CLUSTER_TOKEN;
   if (bootstrapToken !== undefined && !/^wl_ct_[A-Za-z0-9_-]{43}$/.test(bootstrapToken)) {
     throw new Error('Invalid WATCHLOG_BOOTSTRAP_CLUSTER_TOKEN: expected wl_ct_ and 43 characters');
@@ -327,5 +394,14 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
       supportEmail: env.WATCHLOG_SUPPORT_EMAIL ?? 'support@watchlog.io',
       sampleUrl: env.WATCHLOG_SAMPLE_URL ?? 'https://demo.watchlog.io',
     },
+    internalApi: env.WATCHLOG_INTERNAL_TOKEN
+      ? {
+          token: env.WATCHLOG_INTERNAL_TOKEN,
+          previousToken: env.WATCHLOG_INTERNAL_TOKEN_PREVIOUS,
+          host: env.WATCHLOG_INTERNAL_HOST ?? env.HOST ?? '127.0.0.1',
+          port: internalPort,
+        }
+      : undefined,
+    victoriaMetricsTiers: tier3 && tier30 ? { '3d': tier3, '30d': tier30 } : undefined,
   };
 }

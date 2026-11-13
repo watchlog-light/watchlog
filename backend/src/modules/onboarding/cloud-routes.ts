@@ -22,6 +22,7 @@ import { ProblemSchema } from '../auth/schemas.js';
 import { installTarget } from '../clusters/install.js';
 import type { SettingsService } from '../settings/service.js';
 import { resolveInstallCode } from './install-codes.js';
+import type { EntitlementsService } from '../entitlements/service.js';
 import { installManifest } from './manifest.js';
 
 /** GET /install.yaml, at the root (the ingest address serves it). */
@@ -85,10 +86,10 @@ const FirstWeekSchema = Type.Object({
 });
 
 /** Under /api/v1, Cloud only: the first-week card and the page's funnel events. */
-export const onboardingCloudRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (
-  app,
-  { db },
-) => {
+export const onboardingCloudRoutes: FastifyPluginAsyncTypebox<{
+  db: Database;
+  entitlements: EntitlementsService;
+}> = async (app, { db, entitlements }) => {
   const signedIn = requireUser();
 
   /** Whether each step is done, from the org's own rows (RLS scopes every read). */
@@ -105,7 +106,6 @@ export const onboardingCloudRoutes: FastifyPluginAsyncTypebox<{ db: Database }> 
         exists('integrations').as('application'),
         exists('mcp_calls').as('mcp'),
         exists('alert_states', sql`and cause is not null`).as('problem'),
-        sql<string | null>`(select plan from entitlements where org_id = ${orgId})`.as('plan'),
       ])
       .executeTakeFirstOrThrow();
     return {
@@ -116,7 +116,8 @@ export const onboardingCloudRoutes: FastifyPluginAsyncTypebox<{ db: Database }> 
         mcp: row.mcp,
         problem: row.problem,
       } satisfies Record<FirstWeekStepId, boolean>,
-      plan: row.plan,
+      // A teammate needs a second user: Cloud Free has one (ADR-177).
+      oneUser: (await entitlements.get(orgId)).users === 1,
     };
   }
 
@@ -132,7 +133,7 @@ export const onboardingCloudRoutes: FastifyPluginAsyncTypebox<{ db: Database }> 
     },
     async (request) => {
       const { id: userId, org } = request.user!;
-      const { done, plan } = await stepsOf(org.id);
+      const { done, oneUser } = await stepsOf(org.id);
       const state = await db
         .selectFrom('onboarding_states')
         .select(['dismissed_at', 'reported'])
@@ -161,8 +162,7 @@ export const onboardingCloudRoutes: FastifyPluginAsyncTypebox<{ db: Database }> 
         steps: STEP_IDS.map((id) => ({
           id,
           done: done[id],
-          blocked:
-            id === 'teammate' && !done.teammate && plan === 'free' ? ('plan-limit' as const) : null,
+          blocked: id === 'teammate' && !done.teammate && oneUser ? ('plan-limit' as const) : null,
         })),
       };
     },

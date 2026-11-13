@@ -532,6 +532,14 @@ export interface Users {
   updated_at: Generated<Timestamp>;
 }
 
+export interface UsageHourly {
+  docker_hosts: Generated<number>;
+  hour: Timestamp;
+  nodes: Generated<number>;
+  org_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface UserIdentities {
   created_at: Generated<Timestamp>;
   email: string | null;
@@ -554,11 +562,36 @@ export interface EmailTokens {
 }
 
 export interface Entitlements {
+  beta_until: Timestamp | null;
+  clusters: number | null;
   created_at: Generated<Timestamp>;
+  grace_until: Timestamp | null;
+  nodes: number | null;
   org_id: string;
   plan: string;
+  previous_retention_days: number | null;
+  pro_features: Generated<boolean>;
+  retention_changed_at: Timestamp | null;
+  retention_days: Generated<number>;
   source: string;
   updated_at: Generated<Timestamp>;
+  users: number | null;
+}
+
+export interface PlanLimitEmails {
+  day: Timestamp;
+  kind: string;
+  org_id: string;
+  sent_at: Generated<Timestamp>;
+}
+
+export interface PlanLimitHits {
+  day: Timestamp;
+  first_at: Generated<Timestamp>;
+  kind: string;
+  last_at: Generated<Timestamp>;
+  org_id: string;
+  subject: Generated<string>;
 }
 
 export interface RecoveryCodes {
@@ -602,6 +635,8 @@ export interface DB {
   onboarding_states: OnboardingStates;
   orgs: Orgs;
   password_resets: PasswordResets;
+  plan_limit_emails: PlanLimitEmails;
+  plan_limit_hits: PlanLimitHits;
   retired_cluster_tokens: RetiredClusterTokens;
   secret_key_check: SecretKeyCheck;
   seed_services: SeedServices;
@@ -610,6 +645,7 @@ export interface DB {
   sessions: Sessions;
   silences: Silences;
   telegram_verifications: TelegramVerifications;
+  usage_hourly: UsageHourly;
   user_identities: UserIdentities;
   users: Users;
 }

@@ -53,4 +53,7 @@ export const ProblemSchema = Type.Object({
   instance: Type.Optional(Type.String()),
   /** A word clients branch on, where a route has one (Cloud's accounts, ADR-175). */
   code: Type.Optional(Type.String()),
+  /** Cloud's `plan-limit` (ADR-177): which limit, and the plan's number. */
+  limit: Type.Optional(Type.String()),
+  max: Type.Optional(Type.Integer()),
 });

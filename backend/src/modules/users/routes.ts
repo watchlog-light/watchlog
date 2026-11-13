@@ -5,6 +5,7 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { sql } from 'kysely';
 import { Type } from 'typebox';
+import { refuseInvite } from '../entitlements/limits.js';
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
 import { hashPassword } from '../../lib/passwords.js';
@@ -256,23 +257,10 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
     },
     async (request, reply) => {
       const orgId = request.user!.org.id;
-      // Cloud Free has one user (ADR-175, ADR-177): inviting asks to try Pro first. Slice 4
-      // of the Cloud build replaces this with the entitlements' user limit.
-      if (request.server.edition === 'cloud') {
-        const ent = await db
-          .selectFrom('entitlements')
-          .select('plan')
-          .where('org_id', '=', orgId)
-          .executeTakeFirst();
-        if (ent?.plan === 'free') {
-          return sendCode(
-            reply,
-            409,
-            'plan-limit',
-            'Cloud Free has one user. Try Pro to invite your team.',
-          );
-        }
-      }
+      // Cloud: an invite over the plan's users (members and open invites) answers 409
+      // plan-limit; Free has one user, so inviting asks to try Pro first (ADR-177).
+      const entitlements = request.server.entitlements;
+      if (entitlements && (await refuseInvite(db, entitlements, orgId, reply))) return reply;
       const email = request.body.email.trim().toLowerCase();
       const existing = await db
         .selectFrom('users as u')

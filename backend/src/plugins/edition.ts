@@ -32,8 +32,11 @@ export const CLOUD_ONLY_PATHS = [
   '/api/v1/funnel',
   '/api/v1/onboarding/first-week',
   '/install.yaml',
+  '/api/v1/plan',
   '/internal/orgs',
   '/internal/entitlements',
+  '/internal/orgs/00000000-0000-4000-8000-000000000000/entitlements',
+  '/internal/orgs/00000000-0000-4000-8000-000000000000/usage',
 ] as const;
 
 /** True for a route that answers 404 in Cloud. */
