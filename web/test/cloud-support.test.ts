@@ -100,6 +100,18 @@ describe('the auth store in support mode', () => {
     expect(calls.some((c) => c.path === '/api/v1/auth/account')).toBe(false);
   });
 
+  it('signing out in support mode leaves it (never the refused POST /auth/logout)', async () => {
+    const { calls } = mockFetch({ 'DELETE /api/v1/support/session': { status: 204 } });
+    await createPlugins('/');
+    const auth = useAuthStore();
+    auth.user = { ...USER, role: 'viewer' };
+    auth.support = SUPPORT;
+    await auth.logout();
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(['DELETE /api/v1/support/session']);
+    expect(auth.support).toBeNull();
+    expect(auth.user).toBeNull();
+  });
+
   it('a normal session has no support and loads its account', async () => {
     mockFetch({
       'GET /api/v1/setup': { status: 200, body: { required: false, demoMode: false, smtp: true } },
@@ -168,9 +180,9 @@ describe('Settings › Security: WatchLog staff access (Owners)', () => {
     expect(rows[0]!.text()).toContain('ada@watchlog.io');
     expect(rows[0]!.text()).toContain('Why: Map empty');
     expect(rows[0]!.text()).toContain('Ended');
-    expect(rows[0]!.text()).toContain('Opened 2 pages');
+    expect(rows[0]!.text()).toContain('What it opened (2)');
     expect(rows[1]!.text()).toContain('Link not used');
-    expect(rows[1]!.text()).toContain('Nothing opened.');
+    expect(rows[1]!.text()).toContain('It opened nothing.');
     await rows[0]!.get('button').trigger('click');
     expect(wrapper.get('[data-testid="staff-opened"]').text()).toContain(
       '/api/v1/clusters/c1/service-map',
