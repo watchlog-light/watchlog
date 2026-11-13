@@ -216,8 +216,8 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Cloud: the first week's checklist (ADR-176), hidden once done or dismissed. -->
-      <FirstWeekCard v-if="auth.isCloud && !auth.demoMode" />
       <PlanStrip v-if="auth.isCloud && compact" inline />
+      <FirstWeekCard v-if="auth.isCloud && !auth.demoMode" />
       <StatusStrip :overview="o" />
       <KpiRow :overview="o" />
 

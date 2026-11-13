@@ -135,7 +135,7 @@ const monthly = computed(() => Math.max(10, estimateNodes.value));
         aria-labelledby="pro-title"
         data-testid="pro-card"
       >
-        <h2 id="pro-title" class="text-18 font-semibold text-text">
+        <h2 id="pro-title" class="text-20 font-semibold text-text">
           {{ $t('cloud.plan.short.pro') }}
         </h2>
         <ul class="list-disc pl-4.5 text-14 leading-loose text-text-muted">
@@ -159,7 +159,7 @@ const monthly = computed(() => Math.max(10, estimateNodes.value));
             class="h-7 w-full accent-primary"
           />
           <div class="flex flex-wrap items-baseline gap-2">
-            <span class="text-28 font-bold text-text">{{
+            <span class="text-32 font-bold text-text">{{
               $t('cloud.plan.billing.perMonth', { n: monthly })
             }}</span>
             <span class="text-14 text-text-muted">{{

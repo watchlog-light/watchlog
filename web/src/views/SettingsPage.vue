@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import UsersSettings from '@/components/settings/UsersSettings.vue';
-import { computed } from 'vue';
+import { computed, nextTick, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ChannelSettings from '@/components/alerts/ChannelSettings.vue';
 import ClusterList from '@/components/clusters/ClusterList.vue';
@@ -36,6 +36,14 @@ const route = useRoute();
 const router = useRouter();
 const tab = computed<Tab>(() =>
   TABS.value.includes(route.query.tab as Tab) ? (route.query.tab as Tab) : 'clusters',
+);
+// On a phone the tab list scrolls: show the open tab (a link may open any of them).
+onMounted(() =>
+  nextTick(() =>
+    document
+      .querySelector<HTMLElement>('[role="tablist"] [aria-selected="true"]')
+      ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }),
+  ),
 );
 function setTab(t: Tab) {
   void router.replace({ query: { ...route.query, tab: t === 'clusters' ? undefined : t } });

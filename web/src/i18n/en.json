@@ -4039,7 +4039,7 @@
       "banner": {
         "label": "Plan limit",
         "overLimit": "A new node can't send data: {plan} allows {max} nodes, and {used} already send. Its data isn't stored; the nodes already sending keep sending. | {n} new nodes can't send data: {plan} allows {max} nodes, and {used} already send. Their data isn't stored; the nodes already sending keep sending.",
-        "downgrade": "Your plan is now {plan}. Everything already sending keeps sending for {days} more, until {date}; after that {over} beyond the plan stop sending, newest first. Your data is kept until its retention ends.",
+        "downgrade": "Your plan is now {plan}. Everything already sending keeps sending until {date}, {days} from now; after that {over} beyond the plan stop sending, newest first. Your data is kept until its retention ends.",
         "days": "{n} day | {n} days",
         "nodesOver": "{n} node | {n} nodes",
         "clustersOver": "{n} cluster | {n} clusters",
