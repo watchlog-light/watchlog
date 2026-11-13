@@ -327,7 +327,7 @@ describe('the wizard', () => {
     const panel = wrapper.get('[data-testid="troubleshooting"]');
     expect(panel.attributes('open')).toBeDefined();
     expect(panel.text()).toContain('docker logs --tail 50 watchlog-agent');
-    expect(panel.text()).toContain('allow ingest.watchlog.io on port 443');
+    expect(panel.text()).toContain('allow connections to ingest.watchlog.io:443');
     expect(panel.text()).not.toContain('PodSecurity');
     const help = decodeURIComponent(
       wrapper.get('[data-testid="help-installing"]').attributes('href')!,
