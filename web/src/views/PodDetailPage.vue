@@ -11,6 +11,7 @@ import TimeSeriesChart, { type ChartSeries } from '@/components/charts/TimeSerie
 import CausePanel from '@/components/causes/CausePanel.vue';
 import EventList from '@/components/kube/EventList.vue';
 import TonePill from '@/components/kube/TonePill.vue';
+import LogsPanel from '@/components/logs/LogsPanel.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
 import Skeleton from '@/components/ui/Skeleton.vue';
@@ -365,5 +366,16 @@ onBeforeUnmount(() => clearInterval(timer));
       <EventList v-if="detail.events.length > 0" :events="detail.events" :show-object="false" />
       <p v-else class="text-13 text-text-muted">{{ $t('kube.events.none') }}</p>
     </section>
+
+    <!-- Logs on demand (ADR-167): read only when asked, never stored. -->
+    <LogsPanel
+      v-if="detail && clusterId"
+      :key="`${namespace}/${name}`"
+      kind="pod"
+      :cluster-id="clusterId"
+      :namespace="namespace"
+      :pod="name"
+      :containers="detail.containers.map((c) => ({ name: c.name, init: c.init }))"
+    />
   </div>
 </template>

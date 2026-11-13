@@ -1469,6 +1469,19 @@
       "reset": "Reset to the default",
       "failed": "Could not save the system namespaces.",
       "loadFailed": "Could not load the system namespaces."
+    },
+    "logs": {
+      "title": "Container logs",
+      "intro": "Logs are read on request, redacted in the agent and never stored. Every read is recorded with who, which container and how many lines.",
+      "label": "Who can read container logs",
+      "options": {
+        "all": "Every role",
+        "admins": "Owners and Admins only",
+        "off": "Off"
+      },
+      "current": "Now: {value}",
+      "loadFailed": "Couldn't load the container logs setting.",
+      "failed": "Couldn't save the container logs setting."
     }
   },
   "serviceMap": {
@@ -3633,6 +3646,58 @@
       "root": " — where it starts",
       "possible": "Possible: {name}: {cause}",
       "footer": "From WatchLog: fixed rules over collected data, no AI, no scores."
+    }
+  },
+  "logs": {
+    "title": "Logs",
+    "note": "Read now from the agent, redacted, never stored.",
+    "container": "Container",
+    "initContainer": "{name} (init)",
+    "lines": "Last lines",
+    "previous": "Previous run",
+    "follow": "Follow",
+    "timestamps": "Times",
+    "show": "Show last lines",
+    "refresh": "Refresh",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Copy failed",
+    "idle": "Logs are read only when you ask: the agent reads the last lines now, redacts passwords and tokens, and nothing is kept.",
+    "loading": "Reading the last lines…",
+    "connecting": "Starting to follow…",
+    "waiting": "Following: no lines yet.",
+    "empty": "The container printed nothing in its last {n} lines.",
+    "outputLabel": "Log lines, oldest first",
+    "stderr": "stderr:",
+    "count": "no lines | {n} line | {n} lines",
+    "followingNow": "Following (up to 5 minutes)",
+    "redacted": "no lines redacted | {n} line redacted | {n} lines redacted",
+    "truncated": "Oldest lines dropped to stay within 512 KB",
+    "cut": "no lines cut | {n} line cut at 2 KB | {n} lines cut at 2 KB",
+    "openSettings": "Open Settings",
+    "followEnd": {
+      "limit": "Stopped following after 5 minutes",
+      "done": "The log ended (the container stopped)",
+      "error": "Following stopped: the connection was lost"
+    },
+    "announce": {
+      "loaded": "no log lines loaded | {n} log line loaded | {n} log lines loaded",
+      "following": "Following; {n} line so far | Following; {n} line so far | Following; {n} lines so far"
+    },
+    "errors": {
+      "logs_off": "Container logs are turned off in Settings.",
+      "logs_admins_only": "Only Owners and Admins can read container logs here. Ask an Admin.",
+      "logs_disabled": "Container logs are turned off for this cluster or host.",
+      "container_not_found": "The agent found no such container.",
+      "no_previous_run": "This container has no previous run to read.",
+      "driver_unsupported": "This container's log driver keeps no logs Docker can read back (only json-file, local and journald do).",
+      "read_failed": "The agent could not read the log.",
+      "rate_limited": "Too many log reads in the last minute. Wait a little, then try again.",
+      "no_agent": "No agent picked the request up in 10 seconds."
+    },
+    "hints": {
+      "no_agent": "Logs need agent 0.5.0 or newer, connected to this server.",
+      "logs_disabled": "It was turned off at install time: logs.enabled in the Helm chart, or WATCHLOG_LOGS on the Docker agent."
     }
   }
 }

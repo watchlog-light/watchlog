@@ -7,6 +7,7 @@ import ChannelSettings from '@/components/alerts/ChannelSettings.vue';
 import ClusterList from '@/components/clusters/ClusterList.vue';
 import ApiTokens from '@/components/settings/ApiTokens.vue';
 import GeneralSettings from '@/components/settings/GeneralSettings.vue';
+import LogsAccess from '@/components/settings/LogsAccess.vue';
 import SystemNamespaces from '@/components/settings/SystemNamespaces.vue';
 
 // Settings (alerts redesign): clusters, alert channels with the email server and
@@ -56,6 +57,7 @@ function setTab(t: Tab) {
     <template v-else>
       <GeneralSettings />
       <SystemNamespaces />
+      <LogsAccess />
     </template>
   </div>
 </template>

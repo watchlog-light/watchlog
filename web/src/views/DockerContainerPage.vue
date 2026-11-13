@@ -10,6 +10,7 @@ import TimeSeriesChart, { type ChartSeries } from '@/components/charts/TimeSerie
 import CausePanel from '@/components/causes/CausePanel.vue';
 import ContainerDiagnosis from '@/components/docker/ContainerDiagnosis.vue';
 import ContainerStatePill from '@/components/docker/ContainerStatePill.vue';
+import LogsPanel from '@/components/logs/LogsPanel.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import SkeletonDetailHeader from '@/components/ui/SkeletonDetailHeader.vue';
 import { useLoader } from '@/composables/useLoader';
@@ -234,5 +235,15 @@ onMounted(page.load);
         @retry="io.refresh"
       />
     </div>
+
+    <!-- Logs on demand (ADR-167): read only when asked, never stored. -->
+    <LogsPanel
+      v-if="container && clusterId"
+      :key="`${hostName}/${name}`"
+      kind="container"
+      :cluster-id="clusterId"
+      :host="hostName"
+      :name="name"
+    />
   </div>
 </template>
