@@ -465,7 +465,12 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
     out.push({
       severity: 'critical',
       code: 'member_down',
-      facts: { member: m.name, state: m.state, n: down.length },
+      facts: {
+        member: m.name,
+        state: m.state,
+        error: `replica set state ${m.state}`,
+        n: down.length,
+      },
     });
   }
   const l = valueOf(lag);

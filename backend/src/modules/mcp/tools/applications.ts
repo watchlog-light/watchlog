@@ -96,8 +96,6 @@ const INTEGRATION_SENTENCES: Record<string, string> = {
     "The user can't read mysql.innodb_table_stats, so table sizes are missing.",
   // MongoDB (replica_lag and connections_near_max above mean the same)
   no_primary: 'The replica set (facts.set) has no primary: writes fail until one is elected.',
-  member_down:
-    'A replica set member is down or unhealthy (facts.member, state facts.state; facts.n in all).',
   slow_collscan:
     'Slow operations scan whole collections (facts.perMin a minute, COLLSCAN on facts.ns, mean facts.mean): facts.client sends most of them (facts.holder, its workload or container).',
   cache_pressure:
