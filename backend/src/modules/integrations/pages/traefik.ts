@@ -100,19 +100,28 @@ export async function traefikServices(ctx: PageContext): Promise<TraefikService[
     ),
     backendIndex(ctx.db, ctx.row.cluster_id),
   ]);
-  const totals = await instant(
+  const servers = await instant(
     ctx,
-    `count by (traefik_service) (max by (traefik_service, url) (traefik_service_server_up${svcSel(ctx)}))`,
+    `max by (traefik_service, url) (traefik_service_server_up${svcSel(ctx)})`,
   );
+  const ipsOf = new Map<string, string[]>();
+  const totalOf = new Map<string, number>();
+  for (const x of servers) {
+    const n = x.labels.traefik_service ?? '';
+    totalOf.set(n, (totalOf.get(n) ?? 0) + 1);
+    const ip = urlHost(x.labels.url ?? '');
+    if (ip) ipsOf.set(n, [...(ipsOf.get(n) ?? []), ip]);
+  }
+  const t = ctx.row.target as { kind: string; compose_project?: string };
+  const projects = t.kind === 'compose' ? [t.compose_project ?? null] : [];
   const names = new Set<string>();
   for (const x of [...seen, ...ups]) {
     const n = x.labels.traefik_service;
     if (n && !isInternal(n)) names.add(n);
   }
   const upOf = new Map(ups.map((x) => [x.labels.traefik_service ?? '', val([x]) ?? 0]));
-  const totalOf = new Map(totals.map((x) => [x.labels.traefik_service ?? '', val([x]) ?? 0]));
   return [...names].sort().map((name) => {
-    const backend = resolveTraefikService(name, idx);
+    const backend = resolveTraefikService(name, idx, { ips: ipsOf.get(name), projects });
     const serversUp = upOf.get(name);
     const up = serversUp === undefined ? undefined : serversUp > 0 ? 1 : 0;
     return {
@@ -124,6 +133,15 @@ export async function traefikServices(ctx: PageContext): Promise<TraefikService[
       down: noServerUp(backend, up),
     };
   });
+}
+
+/** The address of a server URL ("http://172.24.0.3:9898" → "172.24.0.3"). */
+export function urlHost(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace(/^\[|\]$/g, '') || null;
+  } catch {
+    return null;
+  }
 }
 
 /** Requests Traefik answered itself (503 on an entrypoint, none on a service), per second. */

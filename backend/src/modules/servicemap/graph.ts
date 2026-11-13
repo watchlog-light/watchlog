@@ -187,7 +187,9 @@ export function health(
   // Keep-alive clients (HTTP/1.1 pools, database pools) open no new connections but
   // still move bytes: that edge is in use, not idle (measured on kind with podinfo).
   const bytes = (e.bytesSentPerSecond ?? 0) + (e.bytesReceivedPerSecond ?? 0);
-  if (e.connectionsPerSecond === 0 && bytes === 0) return 'idle';
+  // Requests on it (Traefik's numbers fill edges eBPF has no HTTP for, ADR-165) are use too.
+  if (e.connectionsPerSecond === 0 && bytes === 0 && !(e.http?.requestsPerSecond ?? 0))
+    return 'idle';
   // Failing means failing now (ADR-116): the failed share is over 5 minutes, but an edge
   // whose last failure is over a minute old has recovered. A keep-alive client opens no
   // new connections once up, so a startup blip would otherwise read "100 % failed" for

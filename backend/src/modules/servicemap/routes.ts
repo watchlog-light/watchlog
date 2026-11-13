@@ -28,6 +28,7 @@ import {
 } from './graph.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import type { IntegrationTarget } from '../integrations/collector-config.js';
+import { urlHost } from '../integrations/pages/traefik.js';
 import { backendIndex, resolveTraefikService } from '../integrations/traefik-backends.js';
 import { addProxies, type ProxyTarget } from './proxies.js';
 
@@ -578,6 +579,8 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
             `sum by (service, entrypoint) (rate(traefik_entrypoint_requests_tls_total${px}[${RATE_WINDOW}]))`,
             `sum by (service, traefik_service) (increase(traefik_service_requests_total${px}[1h])) > 0`,
             `max by (service, traefik_service) (traefik_service_server_up${px})`,
+            // Server addresses, to tell a label-named Docker service's container apart.
+            `max by (traefik_service, url) (traefik_service_server_up${px})`,
           ]
         : [];
       let r: QuerySeries[][];
@@ -630,8 +633,18 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
           entrypointTls,
           seenTraefik,
           serverUp,
+          serverUrls,
         ] = pr.map((x) => x ?? []);
         const idx = await backendIndex(db, cluster.id);
+        const ipsOf = new Map<string, string[]>();
+        for (const x of serverUrls!) {
+          const n = x.labels.traefik_service ?? '';
+          const ip = urlHost(x.labels.url ?? '');
+          if (ip) ipsOf.set(n, [...(ipsOf.get(n) ?? []), ip]);
+        }
+        const projects = targets.map((t) =>
+          t.node.kind === 'container' ? t.node.namespace : null,
+        );
         withProxies = addProxies(
           graph,
           targets,
@@ -645,7 +658,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
             seen: seenTraefik!,
             serverUp: serverUp!,
           },
-          (name) => resolveTraefikService(name, idx),
+          (name) => resolveTraefikService(name, idx, { ips: ipsOf.get(name), projects }),
           namespaces,
         );
       }

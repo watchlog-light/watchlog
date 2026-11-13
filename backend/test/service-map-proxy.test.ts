@@ -37,6 +37,7 @@ const web: MapNode = { ...api, id: 'w:shop/Deployment/web', name: 'web' };
 const idx = (ready: Record<string, number>): BackendIndex => ({
   namespaces: new Set(['shop', 'kube-system']),
   containers: [],
+  workloads: new Map(),
   services: new Map(
     Object.entries(ready).map(([name, n]) => [
       `shop/${name}`,
@@ -223,6 +224,10 @@ describe("Traefik's service names to backends (measured on Traefik 3.6)", () => 
     namespaces: new Set(['traefik-e2e', 'my-shop']),
     services: new Map([
       [
+        'traefik-e2e/api',
+        { namespace: 'traefik-e2e', name: 'api', workloads: [], readyEndpoints: 0 },
+      ],
+      [
         'my-shop/cart-api',
         {
           namespace: 'my-shop',
@@ -235,13 +240,46 @@ describe("Traefik's service names to backends (measured on Traefik 3.6)", () => 
     containers: [
       {
         name: 'traefik-e2e-web-1',
+        ips: ['172.24.0.2'],
         project: 'traefik-e2e',
         composeService: 'web',
         state: 'running',
       },
-      { name: 'traefik-e2e-api-1', project: 'traefik-e2e', composeService: 'api', state: 'exited' },
+      {
+        name: 'causes-e2e-api-1',
+        ips: [],
+        project: 'causes-e2e',
+        composeService: 'api',
+        state: 'exited',
+      },
+      {
+        name: 'traefik-e2e-api-1',
+        ips: ['172.24.0.3'],
+        project: 'traefik-e2e',
+        composeService: 'api',
+        state: 'exited',
+      },
     ],
+    workloads: new Map([['traefik-e2e/api', 'Deployment']]),
   };
+
+  it('a Service scaled to 0 lists no workload: the same-named one stands in (measured)', () => {
+    expect(resolveTraefikService('traefik-e2e-api-9898@kubernetes', index)).toMatchObject({
+      label: 'traefik-e2e/api',
+      kind: 'workload',
+      mapNode: 'w:traefik-e2e/Deployment/api',
+      readyEndpoints: 0,
+    });
+  });
+
+  it("a label's name shared by several projects: the server's address, then Traefik's project", () => {
+    expect(resolveTraefikService('api@docker', index, { ips: ['172.24.0.3'] }).mapNode).toBe(
+      'c:traefik-e2e-api-1',
+    );
+    expect(resolveTraefikService('api@docker', index, { projects: ['traefik-e2e'] }).mapNode).toBe(
+      'c:traefik-e2e-api-1',
+    );
+  });
 
   it('splits dashed namespaces and Services against the objects', () => {
     expect(resolveTraefikService('my-shop-cart-api-8080@kubernetes', index)).toMatchObject({
@@ -262,10 +300,12 @@ describe("Traefik's service names to backends (measured on Traefik 3.6)", () => 
       mapNode: 'c:traefik-e2e-web-1',
       label: 'web (traefik-e2e)',
     });
-    expect(resolveTraefikService('api@docker', index)).toMatchObject({
-      mapNode: 'c:traefik-e2e-api-1',
-      state: 'exited',
-    });
+    expect(resolveTraefikService('api@docker', index, { projects: ['traefik-e2e'] })).toMatchObject(
+      {
+        mapNode: 'c:traefik-e2e-api-1',
+        state: 'exited',
+      },
+    );
     expect(resolveTraefikService('nope@file', index).kind).toBe('unknown');
   });
 });
