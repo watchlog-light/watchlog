@@ -20,6 +20,7 @@ import { createPlugins } from './helpers';
 const ID = '01a1c446-a818-76d4-b058-f1b1aa7dc501';
 const CONFIG: CloudConfig = {
   signup: true,
+  signupMode: 'public',
   providers: { github: false, google: false },
   turnstileSiteKey: null,
   passwordMinLength: 10,

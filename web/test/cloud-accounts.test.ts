@@ -35,6 +35,7 @@ import { createPlugins } from './helpers';
 
 const CONFIG: CloudConfig = {
   signup: true,
+  signupMode: 'public',
   providers: { github: true, google: false },
   turnstileSiteKey: null,
   passwordMinLength: 10,
@@ -369,6 +370,74 @@ describe('the sign-up page', () => {
     const { wrapper } = await mountCloud(SignupPage, '/signup');
     await fillAndSubmit(wrapper, 'short');
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('the sign-up page in invite waves (ADR-173)', () => {
+  const INVITE = { ...CONFIG, signupMode: 'invite' as const };
+  const CODE = 'wl_si_abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG';
+
+  it('without an invite, says Cloud opens in waves and links to the waitlist', async () => {
+    const { fetchMock } = mockFetch({});
+    const { wrapper } = await mountCloud(SignupPage, '/signup', { config: INVITE });
+    expect(wrapper.text()).toContain('opening in waves');
+    expect(wrapper.get('[data-testid="signup-waitlist"]').attributes('href')).toBe(
+      'https://watchlog.io/pricing/#cloud',
+    );
+    expect(wrapper.find('form').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="provider-github"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="signup-invite-invalid"]').exists()).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('with an invite, fills in its address and hands the code to the signup and to GitHub', async () => {
+    const { calls } = mockFetch({
+      'POST /api/v1/auth/signup-invite': {
+        status: 200,
+        body: { email: 'wave@acme.dev', expiresAt: '2026-11-28T10:00:00.000Z' },
+      },
+      'POST /api/v1/auth/signup': { status: 201, body: { accepted: true, verificationSent: true } },
+      'GET /api/v1/me': { status: 200, body: { user: USER } },
+      'GET /api/v1/auth/account': { status: 200, body: ACCOUNT },
+    });
+    const { wrapper, router } = await mountCloud(SignupPage, `/signup?invite=${CODE}`, {
+      config: INVITE,
+    });
+    expect(calls[0]).toMatchObject({ path: '/api/v1/auth/signup-invite', body: { invite: CODE } });
+    expect(wrapper.get('[data-testid="signup-invited"]').text()).toContain('wave@acme.dev');
+    expect(wrapper.get('[data-testid="signup-invited"]').text()).toContain('2026-11-28');
+    const emailInput = wrapper.findAll('form input')[0]!;
+    expect((emailInput.element as HTMLInputElement).value).toBe('wave@acme.dev');
+    expect(emailInput.attributes('readonly')).toBeDefined();
+    const gh = new URL(
+      wrapper.get('[data-testid="provider-github"]').attributes('href')!,
+      'https://cloud.example',
+    );
+    expect(gh.searchParams.get('invite')).toBe(CODE);
+    await wrapper.findAll('form input')[1]!.setValue('correct-horse-9');
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+    expect(calls.find((c) => c.path === '/api/v1/auth/signup')!.body).toEqual({
+      email: 'wave@acme.dev',
+      password: 'correct-horse-9',
+      invite: CODE,
+    });
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/onboarding'));
+  });
+
+  it('says when the invite link no longer works, with the waitlist', async () => {
+    mockFetch({ 'POST /api/v1/auth/signup-invite': cloudProblem(404, 'invite-invalid') });
+    const { wrapper } = await mountCloud(SignupPage, `/signup?invite=${CODE}`, { config: INVITE });
+    expect(wrapper.get('[data-testid="signup-invite-invalid"]').text()).toContain('expired');
+    expect(wrapper.find('[data-testid="signup-waitlist"]').exists()).toBe(true);
+    expect(wrapper.find('form').exists()).toBe(false);
+  });
+
+  it('public mode shows the form to everyone, as before', async () => {
+    mockFetch({});
+    const { wrapper } = await mountCloud(SignupPage, '/signup');
+    expect(wrapper.find('form').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="signup-waves"]').exists()).toBe(false);
   });
 });
 

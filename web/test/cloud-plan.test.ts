@@ -16,6 +16,7 @@ import { createPlugins } from './helpers';
 
 const CONFIG: CloudConfig = {
   signup: true,
+  signupMode: 'public',
   providers: { github: false, google: false },
   turnstileSiteKey: null,
   passwordMinLength: 10,

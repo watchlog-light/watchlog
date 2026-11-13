@@ -4,6 +4,7 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import type { AlertChannel } from '@watchlog/api-types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { CloudConfig } from '@/api/cloud';
 import ChannelSettings from '@/components/alerts/ChannelSettings.vue';
 import { useAuthStore } from '@/stores/auth';
 import { mockFetch, USER, type Routes } from './fetch-mock';
@@ -27,6 +28,16 @@ const BASE: Routes = {
   },
   'GET /api/v1/settings/smtp': { status: 200, body: { smtp: null } },
 };
+const CLOUD: CloudConfig = {
+  signup: true,
+  signupMode: 'invite',
+  providers: { github: false, google: false },
+  turnstileSiteKey: null,
+  passwordMinLength: 10,
+  verifyGraceDays: 7,
+  supportEmail: 'support@watchlog.io',
+  sampleUrl: 'https://demo.watchlog.io',
+};
 const channel = (over: Partial<AlertChannel>): AlertChannel => ({
   id: '01a19300-0000-7000-8000-0000000000cc',
   type: 'webhook',
@@ -42,10 +53,11 @@ const channel = (over: Partial<AlertChannel>): AlertChannel => ({
   ...over,
 });
 
-async function mountChannels(routes: Routes) {
+async function mountChannels(routes: Routes, opts: { cloud?: boolean } = {}) {
   const { calls } = mockFetch({ ...BASE, ...routes });
   const p = await createPlugins('/settings?tab=channels');
   useAuthStore().user = USER;
+  if (opts.cloud) useAuthStore().cloud = CLOUD;
   const w = mount(ChannelSettings, {
     attachTo: document.body,
     global: { plugins: [p.router, p.i18n, p.pinia] },
@@ -55,6 +67,27 @@ async function mountChannels(routes: Routes) {
 }
 
 describe('email server (SMTP) card', () => {
+  it("in Cloud, email is the operator's: no server call, no error, recipients can be added", async () => {
+    const { w, calls } = await mountChannels(
+      {
+        'GET /api/v1/alert-channels': { status: 200, body: { channels: [] } },
+        // What Cloud answers (Settings' SMTP routes are Community-only).
+        'GET /api/v1/settings/smtp': { status: 404, body: { title: 'Not Found', status: 404 } },
+      },
+      { cloud: true },
+    );
+    expect(calls.some((c) => c.path.startsWith('/api/v1/settings/smtp'))).toBe(false);
+    const card = w.find('[data-testid="smtp-card"]');
+    expect(card.text()).not.toContain('Could not load the email server');
+    expect(card.find('[data-testid="smtp-cloud"]').text()).toContain('WatchLog Cloud sends');
+    expect(card.text()).toContain('Ready');
+    expect(card.find('input').exists()).toBe(false);
+    const add = card.find('[data-testid="add-email"]');
+    expect(add.attributes('disabled')).toBeUndefined();
+    await add.trigger('click');
+    expect(card.text()).not.toContain('Set up the email server first');
+  });
+
   it('tests the settings before saving and shows the server error, then saves', async () => {
     const { w, calls } = await mountChannels({
       'GET /api/v1/alert-channels': { status: 200, body: { channels: [] } },
