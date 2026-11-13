@@ -65,6 +65,18 @@ const TOKEN_READS: Record<string, 'cluster' | 'api'> = {
   'GET /api/v1/api-tokens/:id': 'api',
 };
 
+/** What every page asks on load: not worth listing as "opened" for the Owners. */
+const NOT_LISTED = new Set([
+  '/api/v1/auth/config',
+  '/api/v1/setup',
+  '/api/v1/me',
+  '/api/v1/orgs',
+  '/api/v1/plan',
+  '/api/v1/alerting/status',
+  '/api/v1/health',
+  '/api/v1/clusters',
+]);
+
 export function clearSupportCookie(request: FastifyRequest, reply: FastifyReply): void {
   reply.clearCookie(SUPPORT_COOKIE, {
     path: '/',
@@ -109,6 +121,7 @@ export function registerSupportMode(app: FastifyInstance, opts: { systemDb: Data
     if (!s || request.method !== 'GET' || reply.statusCode >= 400) return;
     const route = request.routeOptions.url ?? '';
     if (!route.startsWith('/api/v1/') || route.startsWith('/api/v1/support/')) return;
+    if (NOT_LISTED.has(route)) return;
     const orgId = request.user!.org.id;
     try {
       const path = request.url.split('?')[0]!;
