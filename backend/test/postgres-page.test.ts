@@ -575,4 +575,42 @@ describe('the PostgreSQL page', () => {
     });
     expect(d.application.health).toBe('critical');
   });
+
+  it('an idle server (nobody but WatchLog connected) has 0 connections, not none', async () => {
+    // The collector sends the per-state backends only for states that have one, and leaves
+    // its own session out: an idle server has only the per-database series (label db).
+    const fleet = await cluster('docker-02', 'docker');
+    const id = (
+      await api('POST', '/applications', {
+        clusterId: fleet.id,
+        type: 'postgres',
+        target: {
+          kind: 'compose',
+          host: 'docker-02',
+          compose_project: 'idle',
+          compose_service: 'db',
+          port: 5432,
+        },
+      })
+    ).json().application.id as string;
+    await status(fleet.token, 'docker-02', [
+      { id, state: 'ok', members: [{ name: 'idle-db-1', up: true }], extra: {} },
+    ]);
+    const m = { service: id, service_type: 'postgres', member: 'idle-db-1' };
+    await Promise.all([
+      write(fleet.id, 'watchlog_postgres_setting', { ...m, name: 'max_connections' }, () => 40),
+      write(fleet.id, 'watchlog_postgres_backends', { ...m, db: 'postgres' }, () => 1),
+    ]);
+    await fetch(`${TEST_VM_URL}/internal/force_flush`);
+    const ov = (await api('GET', `/applications/${id}/panels?tab=overview`)).json()
+      .panels as Panel[];
+    const summary = ov.find((p) => p.id === 'summary')!;
+    expect(summary.state).toBe('ok');
+    expect((summary.tiles as { id: string; value: unknown }[])[0]).toMatchObject({
+      id: 'connections',
+      value: 0,
+    });
+    const list = (await api('GET', '/applications/metrics')).json().metrics[id];
+    expect(list.keyMetrics[0]).toMatchObject({ id: 'connections', value: 0, unit: 'ratio' });
+  });
 });
