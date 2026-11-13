@@ -462,9 +462,15 @@ export interface Sessions {
   created_at: Generated<Timestamp>;
   expires_at: Timestamp;
   id: string;
+  ip: string | null;
   last_seen_at: Generated<Timestamp>;
+  mfa_attempts: Generated<number>;
+  current_org_id: string | null;
+  mfa_passed_at: Timestamp | null;
+  stage: Generated<string>;
   token_hash: Buffer;
   updated_at: Generated<Timestamp>;
+  user_agent: string | null;
   user_id: string;
 }
 
@@ -492,14 +498,55 @@ export interface TelegramVerifications {
 
 export interface Users {
   created_at: Generated<Timestamp>;
+  disabled_at: Timestamp | null;
   email: string;
   email_verified_at: Timestamp | null;
   id: string;
   locale: Generated<string>;
   name: string;
-  password_hash: string;
+  password_hash: string | null;
   signup_source: Json | null;
+  totp_enabled_at: Timestamp | null;
+  totp_last_step: Int8 | null;
+  totp_secret: string | null;
   updated_at: Generated<Timestamp>;
+}
+
+export interface UserIdentities {
+  created_at: Generated<Timestamp>;
+  email: string | null;
+  id: string;
+  last_used_at: Timestamp | null;
+  provider: string;
+  provider_user_id: string;
+  user_id: string;
+}
+
+export interface EmailTokens {
+  created_at: Generated<Timestamp>;
+  email: string;
+  expires_at: Timestamp;
+  id: string;
+  purpose: string;
+  token_hash: Buffer;
+  used_at: Timestamp | null;
+  user_id: string;
+}
+
+export interface Entitlements {
+  created_at: Generated<Timestamp>;
+  org_id: string;
+  plan: string;
+  source: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface RecoveryCodes {
+  code_hash: Buffer;
+  created_at: Generated<Timestamp>;
+  id: string;
+  used_at: Timestamp | null;
+  user_id: string;
 }
 
 export interface DB {
@@ -516,6 +563,8 @@ export interface DB {
   cluster_tokens: ClusterTokens;
   clusters: Clusters;
   discovery_ignores: DiscoveryIgnores;
+  email_tokens: EmailTokens;
+  entitlements: Entitlements;
   ingest_errors: IngestErrors;
   integration_collectors: IntegrationCollectors;
   integration_credentials: IntegrationCredentials;
@@ -535,8 +584,10 @@ export interface DB {
   secret_key_check: SecretKeyCheck;
   seed_services: SeedServices;
   server_settings: ServerSettings;
+  recovery_codes: RecoveryCodes;
   sessions: Sessions;
   silences: Silences;
   telegram_verifications: TelegramVerifications;
+  user_identities: UserIdentities;
   users: Users;
 }

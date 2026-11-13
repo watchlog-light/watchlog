@@ -84,6 +84,27 @@ export interface Config {
   mcpEnabled: boolean;
   /** Per API token and minute (ADR-125): REST requests, and MCP tool calls (v0.2 slice 4). */
   apiTokenLimits: { restPerMinute: number; mcpCallsPerMinute: number };
+  /** Accounts in Cloud (ADR-175); read only with WATCHLOG_EDITION=cloud. */
+  accounts: AccountsConfig;
+}
+
+export interface OAuthClient {
+  clientId: string;
+  clientSecret: string;
+}
+
+export interface AccountsConfig {
+  /**
+   * Cloudflare Turnstile: TURNSTILE_SITE_KEY for the pages, TURNSTILE_SECRET_KEY for the
+   * server-side check. Without the secret the check is off (tests, development).
+   */
+  turnstile: { siteKey?: string; secretKey?: string };
+  /** GitHub sign-in; off unless both the client id and secret are set. */
+  github?: OAuthClient;
+  /** Google sign-in; off unless both the client id and secret are set. */
+  google?: OAuthClient;
+  /** More disposable-email domains, one per line (WATCHLOG_DISPOSABLE_DOMAINS_FILE). */
+  disposableDomainsFile?: string;
 }
 
 /** ADR-125's rate limits per API token; fixed by the decision, not by an environment variable. */
@@ -224,10 +245,26 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   } catch (err) {
     throw new Error(`Invalid WATCHLOG_TRUSTED_PROXIES: ${(err as Error).message}`, { cause: err });
   }
-  const cookieSecure = env.WATCHLOG_COOKIE_SECURE ?? 'auto';
+  // Cloud: the session cookie is always Secure (ADR-175).
+  const cookieSecure = env.WATCHLOG_COOKIE_SECURE ?? (edition === 'cloud' ? 'always' : 'auto');
   if (cookieSecure !== 'auto' && cookieSecure !== 'always' && cookieSecure !== 'never') {
     throw new Error(`Invalid WATCHLOG_COOKIE_SECURE: ${cookieSecure} (auto, always or never)`);
   }
+  if (edition === 'cloud' && cookieSecure !== 'always') {
+    throw new Error(
+      'With WATCHLOG_EDITION=cloud the session cookie is always Secure: unset WATCHLOG_COOKIE_SECURE',
+    );
+  }
+  const oauthClient = (name: 'GITHUB' | 'GOOGLE') => {
+    const clientId = env[`WATCHLOG_${name}_CLIENT_ID`];
+    const clientSecret = env[`WATCHLOG_${name}_CLIENT_SECRET`];
+    if (!clientId !== !clientSecret) {
+      throw new Error(
+        `WATCHLOG_${name}_CLIENT_ID and WATCHLOG_${name}_CLIENT_SECRET are set together, or neither`,
+      );
+    }
+    return clientId && clientSecret ? { clientId, clientSecret } : undefined;
+  };
   const bootstrapToken = env.WATCHLOG_BOOTSTRAP_CLUSTER_TOKEN;
   if (bootstrapToken !== undefined && !/^wl_ct_[A-Za-z0-9_-]{43}$/.test(bootstrapToken)) {
     throw new Error('Invalid WATCHLOG_BOOTSTRAP_CLUSTER_TOKEN: expected wl_ct_ and 43 characters');
@@ -276,6 +313,12 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     apiTokenLimits: {
       restPerMinute: API_TOKEN_REST_PER_MINUTE,
       mcpCallsPerMinute: API_TOKEN_MCP_CALLS_PER_MINUTE,
+    },
+    accounts: {
+      turnstile: { siteKey: env.TURNSTILE_SITE_KEY, secretKey: env.TURNSTILE_SECRET_KEY },
+      github: oauthClient('GITHUB'),
+      google: oauthClient('GOOGLE'),
+      disposableDomainsFile: env.WATCHLOG_DISPOSABLE_DOMAINS_FILE,
     },
   };
 }

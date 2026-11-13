@@ -51,4 +51,6 @@ export const ProblemSchema = Type.Object({
   status: Type.Integer(),
   detail: Type.Optional(Type.String()),
   instance: Type.Optional(Type.String()),
+  /** A word clients branch on, where a route has one (Cloud's accounts, ADR-175). */
+  code: Type.Optional(Type.String()),
 });

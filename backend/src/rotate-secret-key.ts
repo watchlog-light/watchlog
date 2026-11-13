@@ -23,7 +23,7 @@ try {
   db = createDb(databaseUrl);
   const n = await rotateSecretKey(db, oldKey, newKey);
   console.log(
-    `re-encrypted ${n.channels} alert channel, ${n.settings} settings, ${n.integrations} integration and ${n.probes} probe secrets with the new key`,
+    `re-encrypted ${n.channels} alert channel, ${n.settings} settings, ${n.integrations} integration, ${n.probes} probe and ${n.totp} TOTP secrets with the new key`,
   );
 } catch (err) {
   console.error(

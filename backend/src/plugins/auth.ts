@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Session authentication for /api/v1 routes (ADR-033).
 import type { FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from 'fastify';
+import type { Edition } from '../config.js';
 import type { Database } from '../db/index.js';
 import { bindOrg } from '../db/org-context.js';
 import { sendProblem } from '../lib/problem.js';
@@ -8,6 +9,7 @@ import {
   clearSessionCookie,
   findSessionUser,
   SESSION_COOKIE,
+  restrictionOf,
   type CurrentUser,
   type Role,
 } from '../modules/auth/sessions.js';
@@ -22,14 +24,30 @@ declare module 'fastify' {
      * such as the session lookup here. A test allow-lists the files that use it.
      */
     systemDb: Database;
+    /** WATCHLOG_EDITION (ADR-173), for the few checks that differ in Cloud. */
+    edition: Edition;
   }
 }
+
+const RESTRICTED: Record<string, string> = {
+  'mfa-setup-required':
+    'Set up two-factor authentication first: it is required for Owners of a paid organization.',
+  'email-verification-required': 'Verify your email address to keep using WatchLog.',
+};
 
 /**
  * preHandler that rejects requests without a valid session with 401, and binds the
  * request to the user's org (ADR-174).
  */
-export function requireUser(): preHandlerAsyncHookHandler {
+export function requireUser(
+  opts: {
+    /**
+     * Cloud: the route also serves a session that must first verify its email or set up
+     * 2FA (ADR-175), such as those two steps themselves. Others answer 403 with the step.
+     */
+    allowRestricted?: boolean;
+  } = {},
+): preHandlerAsyncHookHandler {
   return async function (this: unknown, request: FastifyRequest, reply: FastifyReply) {
     // Already signed in by a demo cookie (ADR-122), an API token or the service identity.
     if (request.user) {
@@ -45,6 +63,22 @@ export function requireUser(): preHandlerAsyncHookHandler {
     }
     request.user = user;
     bindOrg(user.org.id);
+    if (request.server.edition === 'cloud' && !opts.allowRestricted) {
+      const restriction = restrictionOf(user);
+      if (restriction) {
+        return reply
+          .code(403)
+          .type('application/problem+json')
+          .send({
+            type: `urn:watchlog:problem:${restriction}`,
+            title: 'Forbidden',
+            status: 403,
+            detail: RESTRICTED[restriction],
+            instance: request.url,
+            code: restriction,
+          });
+      }
+    }
   };
 }
 

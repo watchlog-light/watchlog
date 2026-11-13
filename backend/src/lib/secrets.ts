@@ -152,7 +152,13 @@ export async function rotateSecretKey(
   db: Database,
   oldKey: Buffer,
   newKey: Buffer,
-): Promise<{ channels: number; settings: number; integrations: number; probes: number }> {
+): Promise<{
+  channels: number;
+  settings: number;
+  integrations: number;
+  probes: number;
+  totp: number;
+}> {
   const move = (ct: string, aad?: string) =>
     encryptSecret(newKey, decryptWith(oldKey, ct, aad), aad);
   return db.transaction().execute(async (trx) => {
@@ -218,6 +224,19 @@ export async function rotateSecretKey(
         .where('id', '=', p.id)
         .execute();
     }
+    // Cloud's TOTP secrets (ADR-175), bound to their user.
+    const totp = await trx
+      .selectFrom('users')
+      .select(['id', 'totp_secret'])
+      .where('totp_secret', 'is not', null)
+      .execute();
+    for (const u of totp) {
+      await trx
+        .updateTable('users')
+        .set({ totp_secret: move(u.totp_secret!, `totp:${u.id}`) })
+        .where('id', '=', u.id)
+        .execute();
+    }
     await trx
       .insertInto('secret_key_check')
       .values({ id: 1, canary: encryptSecret(newKey, CANARY) })
@@ -228,6 +247,7 @@ export async function rotateSecretKey(
       settings: settings.length,
       integrations: creds.length,
       probes: probes.length,
+      totp: totp.length,
     };
   });
 }

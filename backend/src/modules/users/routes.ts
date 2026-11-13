@@ -9,6 +9,7 @@ import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
 import { hashPassword } from '../../lib/passwords.js';
 import { sendProblem } from '../../lib/problem.js';
+import { sendCode } from '../accounts/checks.js';
 import { sha256 } from '../../lib/tokens.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { Email, NewPassword, ProblemSchema, UserEnvelope } from '../auth/schemas.js';
@@ -255,6 +256,23 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
     },
     async (request, reply) => {
       const orgId = request.user!.org.id;
+      // Cloud Free has one user (ADR-175, ADR-177): inviting asks to try Pro first. Slice 4
+      // of the Cloud build replaces this with the entitlements' user limit.
+      if (request.server.edition === 'cloud') {
+        const ent = await db
+          .selectFrom('entitlements')
+          .select('plan')
+          .where('org_id', '=', orgId)
+          .executeTakeFirst();
+        if (ent?.plan === 'free') {
+          return sendCode(
+            reply,
+            409,
+            'plan-limit',
+            'Cloud Free has one user. Try Pro to invite your team.',
+          );
+        }
+      }
       const email = request.body.email.trim().toLowerCase();
       const existing = await db
         .selectFrom('users as u')
@@ -872,15 +890,32 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
         summary:
           'Email a reset link (SMTP set up); the same answer whether the account exists or not',
         tags: ['users'],
-        body: Type.Object({ email: Email }, { additionalProperties: false }),
+        body: Type.Object(
+          {
+            email: Email,
+            /** Cloud: the Turnstile widget's token, when Turnstile is on (ADR-175). */
+            turnstileToken: Type.Optional(Type.String({ maxLength: 2048 })),
+          },
+          { additionalProperties: false },
+        ),
         response: {
           202: Type.Object({ emailed: Type.Boolean() }),
+          400: ProblemSchema,
           409: ProblemSchema,
           429: ProblemSchema,
         },
       },
     },
     async (request, reply) => {
+      const cloud = request.server.accounts;
+      if (cloud && !(await cloud.turnstile(request, request.body.turnstileToken))) {
+        return sendCode(
+          reply,
+          400,
+          'turnstile-failed',
+          "We couldn't check you're human. Try again.",
+        );
+      }
       if (!(await smtpConfigured(settings))) {
         return sendProblem(
           reply,
@@ -894,8 +929,11 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
         .innerJoin('memberships as m', 'm.user_id', 'u.id')
         .select(['u.id', 'u.email'])
         .where('u.email', '=', email)
+        // Accounts made with GitHub or Google sign in there (Cloud).
+        .where('u.password_hash', 'is not', null)
         .executeTakeFirst();
-      if (user) {
+      // Cloud: 3 emails an hour per account; the answer stays the same (ADR-175).
+      if (user && (!cloud || cloud.resetsPerEmail.hit(email))) {
         const { token } = await createResetLink(systemDb, {
           userId: user.id,
           via: 'email',

@@ -33,6 +33,7 @@
     "kysely": "^0.29.7",
     "node-pg-migrate": "^9.0.0",
     "nodemailer": "^10.3.1",
+    "otpauth": "9.5.2",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
     "snappy": "^7.4.3",

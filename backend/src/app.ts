@@ -64,6 +64,7 @@ import { registerServiceIdentity } from './plugins/service-identity.js';
 import { registerOrgScope } from './plugins/org-scope.js';
 import { registerCloudOnly, registerCommunityOnlyGuard } from './plugins/edition.js';
 import { cloudApiRoutes, internalRoutes } from './modules/cloud/routes.js';
+import { CloudAccounts } from './modules/accounts/context.js';
 
 export const API_PREFIX = '/api/v1';
 
@@ -95,6 +96,8 @@ export interface AppDeps {
    * the backend that serves the API.
    */
   serviceReads?: boolean;
+  /** Test hook: the `fetch` for Turnstile, Have I Been Pwned and OAuth (Cloud, ADR-175). */
+  fetch?: typeof fetch;
 }
 
 export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyInstance> {
@@ -119,6 +122,13 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   registerCommunityOnlyGuard(app, config.edition);
   const systemDb = deps.systemDb ?? deps.db;
   app.decorate('systemDb', systemDb);
+  app.decorate('edition', config.edition);
+  // Cloud's account checks and limits (ADR-175); `fetch` is replaced in tests.
+  const accounts =
+    config.edition === 'cloud'
+      ? new CloudAccounts(config.accounts, deps.fetch ?? globalThis.fetch)
+      : null;
+  app.decorate('accounts', accounts);
   registerProblemHandlers(app);
   // JSON only: text/plain is a CORS "simple" content type usable for CSRF (ADR-034).
   app.removeContentTypeParser('text/plain');
@@ -246,7 +256,15 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(causesRoutes, { db: deps.db, causes });
       await api.register(apiTokenRoutes, { db: deps.db });
       // Cloud only (ADR-173): Community never registers these, so they answer 404.
-      await registerCloudOnly(api, config.edition, cloudApiRoutes, { db: deps.db });
+      if (accounts) {
+        await registerCloudOnly(api, config.edition, cloudApiRoutes, {
+          db: deps.db,
+          systemDb,
+          config,
+          settings,
+          accounts,
+        });
+      }
       await api.register(userRoutes, {
         db: deps.db,
         systemDb,

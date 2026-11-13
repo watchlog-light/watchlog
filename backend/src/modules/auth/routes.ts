@@ -15,6 +15,7 @@ import {
   setSessionCookie,
 } from './sessions.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
+import { startMfaSession } from '../accounts/routes.js';
 
 const INVALID_CREDENTIALS = 'Invalid email or password';
 
@@ -43,25 +44,51 @@ export const authRoutes: FastifyPluginAsyncTypebox<{
           email: Email,
           password: Type.String({ minLength: 1, maxLength: MAX_PASSWORD_LENGTH }),
         }),
-        response: { 200: UserEnvelope, 401: ProblemSchema, 429: ProblemSchema },
+        response: {
+          200: UserEnvelope,
+          // Cloud, with TOTP on (ADR-175): the code goes to POST /auth/2fa/verify next.
+          202: Type.Object({ mfaRequired: Type.Literal(true) }),
+          401: ProblemSchema,
+          429: ProblemSchema,
+        },
       },
     },
     async (request, reply) => {
       const email = request.body.email.trim().toLowerCase();
+      const cloud = request.server.accounts;
+      // Cloud: password attempts per account too, from any address (ADR-175).
+      if (cloud && !cloud.loginsPerAccount.hit(email)) {
+        return sendProblem(reply, 429, 'Too many attempts. Try again in 15 minutes.');
+      }
       const user = await systemDb
         .selectFrom('users')
-        .select(['id', 'password_hash'])
+        .select(['id', 'password_hash', 'totp_enabled_at', 'disabled_at'])
         .where('email', '=', email)
+        // Accounts made with GitHub or Google have no password (Cloud).
+        .where('password_hash', 'is not', null)
         .executeTakeFirst();
       if (!user) {
         await verifyDummyPassword(request.body.password);
         return sendProblem(reply, 401, INVALID_CREDENTIALS);
       }
-      if (!(await verifyPassword(user.password_hash, request.body.password))) {
+      if (!(await verifyPassword(user.password_hash!, request.body.password)) || user.disabled_at) {
         return sendProblem(reply, 401, INVALID_CREDENTIALS);
       }
+      if (cloud) {
+        // Sessions rotate at sign-in: the one this browser had ends.
+        const old = request.cookies[SESSION_COOKIE];
+        if (old) await deleteSession(systemDb, old);
+        if (user.totp_enabled_at) {
+          await startMfaSession(systemDb, request, reply, user.id);
+          return reply.code(202).send({ mfaRequired: true as const });
+        }
+      }
 
-      const { token, expiresAt } = await createSession(systemDb, user.id);
+      const { token, expiresAt } = await createSession(
+        systemDb,
+        user.id,
+        cloud ? { ip: request.clientIp, userAgent: request.headers['user-agent'] ?? null } : {},
+      );
       const current = await findSessionUser(systemDb, token);
       if (!current) {
         // A user without a membership cannot sign in; this indicates broken data.
@@ -94,7 +121,9 @@ export const authRoutes: FastifyPluginAsyncTypebox<{
   app.get(
     '/me',
     {
-      preHandler: requireUser(),
+      // Cloud: a session that must first verify or set up 2FA still learns who it is; the
+      // page then sends it to that step (ADR-175).
+      preHandler: requireUser({ allowRestricted: true }),
       schema: {
         summary: 'The signed-in user and their organisation, and the API token used',
         tags: ['auth', PUBLIC_TAG],
