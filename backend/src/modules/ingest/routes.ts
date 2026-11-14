@@ -3,7 +3,6 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createGunzip } from 'node:zlib';
-import { sql } from 'kysely';
 import { bindOrg } from '../../db/org-context.js';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
@@ -24,6 +23,7 @@ import {
   type IngestEndpoint,
 } from './errors.js';
 import { dockerMarkers } from './docker-markers.js';
+import { recordHeartbeat } from './heartbeat.js';
 import { EventsBody, storeKubernetesEvents } from './kubernetes-events.js';
 import { KubernetesObjectsBody, storeKubernetesObjects } from './kubernetes-objects.js';
 import {
@@ -675,47 +675,8 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
     async (request, reply) => {
       const owner = request.ingestOwner!;
       const hb = request.body;
-      const now = new Date();
-      await db.transaction().execute(async (trx) => {
-        await trx
-          .insertInto('agent_instances')
-          .values({
-            id: newId(),
-            cluster_id: owner.clusterId,
-            org_id: owner.orgId,
-            node: hb.node,
-            mode: hb.mode,
-            agent_version: hb.agent_version,
-            capabilities: JSON.stringify(hb.capabilities),
-            series: hb.series,
-            last_seen_at: now,
-          })
-          .onConflict((oc) =>
-            oc.columns(['cluster_id', 'node']).doUpdateSet({
-              mode: hb.mode,
-              agent_version: hb.agent_version,
-              capabilities: JSON.stringify(hb.capabilities),
-              series: hb.series,
-              last_seen_at: now,
-            }),
-          )
-          .execute();
-        const staleBefore = new Date(now.getTime() - AGENT_STALE_MS);
-        await trx
-          .updateTable('clusters')
-          .set({
-            last_seen_at: now,
-            first_seen_at: sql`coalesce(first_seen_at, ${now})`,
-            agent_version: hb.agent_version,
-            status: 'active',
-            // Hosts or nodes: the cluster-agent is not one.
-            node_count: sql`(select count(*) from agent_instances
-              where cluster_id = ${owner.clusterId} and last_seen_at > ${staleBefore}
-              and mode <> 'cluster')`,
-          })
-          .where('id', '=', owner.clusterId)
-          .execute();
-      });
+      // At most one write a minute per agent and cluster; changes at once (heartbeat.ts).
+      await recordHeartbeat(db, owner, hb);
       // Cloud's funnel (ADR-179): the cluster's first heartbeat, once (the database decides;
       // the recorder's memory keeps it off the hot path after that).
       const funnel = request.server.funnel;
