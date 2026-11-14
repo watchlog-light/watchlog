@@ -14,8 +14,12 @@ import { withOrg, markReadOnly, enterRequestScope } from '../../src/db/org-conte
 import { enterSupportSession, openSupportSession } from '../../src/modules/support/service.js';
 import { METRIC_KEYS } from '../../src/modules/query/catalog.js';
 import { TEST_VM_URL } from '../helpers.js';
+import { newId } from '../../src/lib/ids.js';
+import { createSession } from '../../src/modules/auth/sessions.js';
+import { createResetLink } from '../../src/modules/users/service.js';
 import {
   cloudWorld,
+  hashOf,
   seedOrg,
   unknownLinkToken,
   writeSeries,
@@ -146,8 +150,17 @@ function requestFor(route: string, cls: RouteClass, o: SeededOrg) {
   return { url: pathFor(route, o), query, body };
 }
 
-/** Calls a route as `as`'s Owner (a fresh session each time) with `ids`' ids. */
-async function call(route: string, as: SeededOrg, ids: SeededOrg, extra: object = {}) {
+/**
+ * Calls a route as `as`'s Owner (a fresh session each time) with `ids`' ids; `cookie`
+ * names another of the org's users instead (its Admin or Viewer).
+ */
+async function call(
+  route: string,
+  as: SeededOrg,
+  ids: SeededOrg,
+  extra: object = {},
+  cookie: () => Promise<string> = () => as.session(),
+) {
   const cls = ROUTES[route]!;
   const method = route.split(' ')[0]!;
   const { url, query, body } = requestFor(route, cls, ids);
@@ -155,7 +168,7 @@ async function call(route: string, as: SeededOrg, ids: SeededOrg, extra: object 
     method: method as 'GET',
     url,
     query,
-    cookies: { wl_session: await as.session() },
+    cookies: { wl_session: await cookie() },
     ...(body !== undefined && method !== 'GET' ? { payload: body } : {}),
     ...extra,
   });
@@ -293,25 +306,31 @@ describe('every REST route as org B with org A ids', () => {
     expect(config.json().org.id).toBe(B.orgId);
   });
 
-  it('changes: B with A ids gets 404 or 403, and none of A rows changes', async () => {
-    const before = await fingerprint(A.orgId);
-    const problems: string[] = [];
-    let calls = 0;
-    for (const [route, cls] of Object.entries(ROUTES)) {
-      if (isRead(route) || cls.kind === 'mcp' || cls.kind === 'ingest') continue;
-      const b = await call(route, B, A);
-      calls++;
-      const found = leaks(b.body, b.sent);
-      if (found.length) problems.push(`${route}: B saw ${found.join(', ')} (${b.statusCode})`);
-      if (cls.kind === 'installation' && b.statusCode !== 404)
-        problems.push(`${route}: ${b.statusCode}, expected 404 in Cloud`);
-      if (cls.kind === 'org' && hasParams(route) && ![403, 404].includes(b.statusCode))
-        problems.push(`${route}: B got ${b.statusCode} with A's ids: ${b.body.slice(0, 160)}`);
-    }
-    expect(problems).toEqual([]);
-    expect(calls).toBeGreaterThan(40);
-    expect(await fingerprint(A.orgId)).toEqual(before);
-  }, 120_000);
+  it.each(['owner', 'admin', 'viewer'] as const)(
+    "changes: B's %s with A ids gets 404 or 403, and none of A rows changes",
+    async (role) => {
+      const cookie = () =>
+        role === 'owner' ? B.session() : B.sessionOf(role === 'admin' ? B.adminId : B.viewerId);
+      const before = await fingerprint(A.orgId);
+      const problems: string[] = [];
+      let calls = 0;
+      for (const [route, cls] of Object.entries(ROUTES)) {
+        if (isRead(route) || cls.kind === 'mcp' || cls.kind === 'ingest') continue;
+        const b = await call(route, B, A, {}, cookie);
+        calls++;
+        const found = leaks(b.body, b.sent);
+        if (found.length) problems.push(`${route}: B saw ${found.join(', ')} (${b.statusCode})`);
+        if (cls.kind === 'installation' && b.statusCode !== 404)
+          problems.push(`${route}: ${b.statusCode}, expected 404 in Cloud`);
+        if (cls.kind === 'org' && hasParams(route) && ![403, 404].includes(b.statusCode))
+          problems.push(`${route}: B got ${b.statusCode} with A's ids: ${b.body.slice(0, 160)}`);
+      }
+      expect(problems).toEqual([]);
+      expect(calls).toBeGreaterThan(40);
+      expect(await fingerprint(A.orgId)).toEqual(before);
+    },
+    120_000,
+  );
 });
 
 // ------------------------------------------------------------------------------- streams
@@ -700,4 +719,186 @@ describe('support mode (ADR-179): a session of B, read-only, never reaching A', 
     expect(cluster.statusCode).toBe(404);
     expect(leaks(cluster.body, A.k8s.id)).toEqual([]);
   });
+});
+
+// -------------------------------------------------------------------------- shared member
+
+/**
+ * The review's SR-1 and SR-24: in Cloud an account is global and may belong to several
+ * orgs. S is a Viewer in A and in B and the Owner of their own org, with 2FA on. Nothing A's Owner
+ * or Admin can do may touch S's account (password, sessions, reset links, sign-in
+ * methods, verification links, recovery codes) or S's own org.
+ */
+describe('a user who belongs to both orgs (shared member)', () => {
+  let S: { id: string; email: string; session: string; sessionId: string; orgId: string };
+
+  beforeAll(async () => {
+    const id = newId();
+    // S's own org (an org has one Owner).
+    const orgId = newId();
+    await w.owner
+      .insertInto('orgs')
+      .values({ id: orgId, name: 'zzshared Org', slug: 'zzshared-org', plan: 'pro' })
+      .execute();
+    const email = 'shared@zzshared.test';
+    await w.owner
+      .insertInto('users')
+      .values({
+        id,
+        email,
+        name: 'zzshared Member',
+        password_hash: 'x',
+        // 2FA on (as an Owner of a paid org must have it); the secret itself isn't needed.
+        totp_enabled_at: new Date(),
+        totp_secret: 'not-a-real-secret',
+      })
+      .execute();
+    await w.owner
+      .insertInto('memberships')
+      .values([
+        { id: newId(), org_id: orgId, user_id: id, role: 'owner' },
+        { id: newId(), org_id: A.orgId, user_id: id, role: 'viewer' },
+        // And a Viewer of B, so that a change aimed at S can't reach a third org either.
+        { id: newId(), org_id: B.orgId, user_id: id, role: 'viewer' },
+      ])
+      .execute();
+    const { token } = await createSession(w.owner, id, { orgId });
+    const row = await w.owner
+      .selectFrom('sessions')
+      .select('id')
+      .where('token_hash', '=', hashOf(token))
+      .executeTakeFirstOrThrow();
+    S = { id, email, session: token, sessionId: row.id, orgId };
+  });
+
+  /** S's rows in the global tables, read as the owner (S's sessions outside A only). */
+  async function account(): Promise<Record<string, string>> {
+    const out: Record<string, string> = {};
+    const tables = {
+      users: sql`id = ${S.id}`,
+      sessions: sql`user_id = ${S.id} AND current_org_id IS DISTINCT FROM ${A.orgId}::uuid`,
+      password_resets: sql`user_id = ${S.id}`,
+      user_identities: sql`user_id = ${S.id}`,
+      email_tokens: sql`user_id = ${S.id}`,
+      recovery_codes: sql`user_id = ${S.id}`,
+    };
+    for (const [name, where] of Object.entries(tables)) {
+      const res = await sql<{ h: string | null; n: string }>`
+        SELECT md5(string_agg(t::text, '|' ORDER BY t::text)) AS h, count(*) AS n
+          FROM ${sql.table(name)} t WHERE ${where}`.execute(w.owner);
+      out[name] = `${res.rows[0]!.n}:${res.rows[0]!.h}`;
+    }
+    return out;
+  }
+
+  /** S is back in A as a Viewer (a sweep may remove or promote them). */
+  async function restoreMembership() {
+    await w.owner
+      .deleteFrom('memberships')
+      .where('org_id', '=', A.orgId)
+      .where('user_id', '=', S.id)
+      .execute();
+    await w.owner
+      .insertInto('memberships')
+      .values({ id: newId(), org_id: A.orgId, user_id: S.id, role: 'viewer' })
+      .execute();
+  }
+
+  it.each(['owner', 'admin'] as const)(
+    "A's %s can't get a link that signs in as S (no reset link in Cloud)",
+    async (role) => {
+      const before = await account();
+      const cookie = role === 'owner' ? await A.session() : await A.sessionOf(A.adminId);
+      const res = await w.app.inject({
+        method: 'POST',
+        url: `/api/v1/users/${S.id}/reset-link`,
+        cookies: { wl_session: cookie },
+      });
+      expect(res.statusCode).toBe(404);
+      expect(res.body).not.toContain('/reset/');
+      expect(await account()).toEqual(before);
+    },
+  );
+
+  it('a reset link for a 2FA account never signs in without the second factor', async () => {
+    // Whoever holds S's link (from S's mailbox, say) sets a password and gets only the
+    // 2FA step: no session, no way into S's org.
+    const { token } = await createResetLink(w.owner, {
+      userId: S.id,
+      via: 'email',
+      createdBy: null,
+    });
+    const res = await w.app.inject({
+      method: 'POST',
+      url: `/api/v1/password-resets/${token}`,
+      payload: { password: 'a-new-password-for-s' },
+    });
+    expect(res.statusCode).toBe(202);
+    expect(res.json()).toEqual({ mfaRequired: true });
+    const full = res.cookies.find((c) => c.name === 'wl_session' && c.value);
+    expect(full).toBeUndefined();
+    const sessions = await w.owner
+      .selectFrom('sessions')
+      .select(['stage'])
+      .where('user_id', '=', S.id)
+      .execute();
+    // Every earlier session ended with the reset; only the pending 2FA step is left.
+    expect(sessions.map((x) => x.stage)).toEqual(['mfa']);
+    // S signs in again for the rest of the suite.
+    await w.owner.deleteFrom('sessions').where('user_id', '=', S.id).execute();
+    const { token: again } = await createSession(w.owner, S.id, { orgId: S.orgId });
+    S.session = again;
+    S.sessionId = (
+      await w.owner
+        .selectFrom('sessions')
+        .select('id')
+        .where('token_hash', '=', hashOf(again))
+        .executeTakeFirstOrThrow()
+    ).id;
+  });
+
+  it.each(['owner', 'admin'] as const)(
+    "every change A's %s can make, aimed at S, leaves S's account and S's org alone",
+    async (role) => {
+      const cookie = () => (role === 'owner' ? A.session() : A.sessionOf(A.adminId));
+      // A's routes with A's own ids, except that every user id is S's.
+      const asS: SeededOrg = { ...A, viewerId: S.id };
+      const beforeAccount = await account();
+      const beforeB = await fingerprint(B.orgId);
+      const beforeOwn = await fingerprint(S.orgId);
+      const problems: string[] = [];
+      let calls = 0;
+      const routes = Object.entries(ROUTES)
+        .filter(([r, c]) => !isRead(r) && c.kind !== 'mcp' && c.kind !== 'ingest')
+        // The routes about users first, while A is whole.
+        .sort(([a], [b]) => Number(b.includes('/users')) - Number(a.includes('/users')));
+      for (const [route] of routes) {
+        await restoreMembership();
+        const res = await call(route, A, asS, {}, cookie);
+        calls++;
+        if (res.statusCode >= 500 && res.statusCode !== 503)
+          problems.push(`${route}: ${res.statusCode} ${res.body.slice(0, 200)}`);
+        const now = await account();
+        for (const [t, h] of Object.entries(now))
+          if (h !== beforeAccount[t]) {
+            problems.push(`${route} (${res.statusCode}) changed S's ${t}`);
+            beforeAccount[t] = h;
+          }
+      }
+      expect(problems).toEqual([]);
+      expect(calls).toBeGreaterThan(40);
+      expect(await fingerprint(B.orgId)).toEqual(beforeB);
+      expect(await fingerprint(S.orgId)).toEqual(beforeOwn);
+      // S still signs in to their own org, as its Owner.
+      const me = await w.app.inject({
+        method: 'GET',
+        url: '/api/v1/me',
+        cookies: { wl_session: S.session },
+      });
+      expect(me.statusCode).toBe(200);
+      expect(me.json().user.org.id).toBe(S.orgId);
+      expect(me.json().user.role).toBe('owner');
+    },
+    120_000,
+  );
 });

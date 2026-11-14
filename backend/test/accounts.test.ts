@@ -26,6 +26,7 @@ import {
 } from '../src/modules/accounts/checks.js';
 import { safeNext } from '../src/modules/accounts/oauth.js';
 import { createVerifyToken, orgNameFor, slugFor } from '../src/modules/accounts/service.js';
+import { createResetLink } from '../src/modules/users/service.js';
 import {
   issueSignupInvite,
   listSignupInvites,
@@ -594,6 +595,54 @@ describe('TOTP', () => {
     for (let i = 0; i < 4; i++) await verify('111111', third);
     const gone = await verify(recovery[1]!, third);
     expect(gone.statusCode).toBe(401);
+  });
+
+  it('a reset link with 2FA on sets the password, ends every session, and asks for the code (SR-2)', async () => {
+    await cloudContext();
+    const { cookie, user } = await signedUp('r@example.com');
+    const { secret, res } = await enable(cookie);
+    const before = cookieOf(res)!.value;
+    // Whoever reads the mailbox has the link; it must not be enough on its own.
+    const { token } = await createResetLink(ctx.db, {
+      userId: user.id,
+      via: 'email',
+      createdBy: null,
+    });
+    const reset = await call('POST', `/api/v1/password-resets/${token}`, undefined, {
+      password: 'another long password',
+    });
+    expect(reset.statusCode, reset.body).toBe(202);
+    expect(reset.json()).toEqual({ mfaRequired: true });
+    expect(cookieOf(reset)).toBeUndefined();
+    const pending = cookieOf(reset, 'wl_mfa')!.value;
+    expect((await call('GET', '/api/v1/me', pending)).statusCode).toBe(401);
+    // Every session the account had ended with the reset.
+    expect((await call('GET', '/api/v1/me', before)).statusCode).toBe(401);
+    const ok = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/2fa/verify',
+      cookies: { wl_mfa: pending },
+      payload: { code: totpCode(secret, Date.now() + 30_000) },
+    });
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect((await call('GET', '/api/v1/me', cookieOf(ok)!.value)).statusCode).toBe(200);
+    // The new password works (and asks for the code too).
+    expect((await login('r@example.com', 'another long password')).statusCode).toBe(202);
+  });
+
+  it("an Admin's reset link doesn't exist in Cloud: 404, nothing made (SR-1)", async () => {
+    await cloudContext();
+    const owner = await signedUp('boss@example.com');
+    const member = await signedUp('member@example.com');
+    const orgId = (await call('GET', '/api/v1/me', owner.cookie)).json().user.org.id as string;
+    await ctx.db
+      .insertInto('memberships')
+      .values({ id: newId(), org_id: orgId, user_id: member.user.id, role: 'viewer' })
+      .execute();
+    const res = await call('POST', `/api/v1/users/${member.user.id}/reset-link`, owner.cookie);
+    expect(res.statusCode).toBe(404);
+    const n = await sql<{ n: string }>`SELECT count(*) AS n FROM password_resets`.execute(ctx.db);
+    expect(n.rows[0]!.n).toBe('0');
   });
 
   it('is required for Owners of a billed org before anything else, and stays on', async () => {

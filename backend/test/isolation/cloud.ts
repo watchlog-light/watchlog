@@ -163,9 +163,13 @@ export interface SeededOrg {
   label: 'zzalpha' | 'zzbeta';
   orgId: string;
   ownerId: string;
+  /** An Admin and a Viewer of the org (the review's SR-24: B is not always the Owner). */
+  adminId: string;
   viewerId: string;
   /** A fresh session of the org's Owner (signing out in the sweep ends earlier ones). */
   session(): Promise<string>;
+  /** A fresh session of another of the org's users (its Admin or Viewer). */
+  sessionOf(userId: string): Promise<string>;
   /** One more session of the Owner, kept: its id (Cloud's session routes) and token. */
   kept: { id: string; token: string };
   k8s: { id: string; token: string; tokenId: string };
@@ -238,6 +242,7 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
   const { app, owner } = w;
   const orgId = newId();
   const ownerId = newId();
+  const adminId = newId();
   const viewerId = newId();
   await owner
     .insertInto('orgs')
@@ -247,6 +252,7 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     .insertInto('users')
     .values([
       { id: ownerId, email: `owner@${label}.test`, name: `${label} Owner`, password_hash: 'x' },
+      { id: adminId, email: `admin@${label}.test`, name: `${label} Admin`, password_hash: 'x' },
       { id: viewerId, email: `viewer@${label}.test`, name: `${label} Viewer`, password_hash: 'x' },
     ])
     .execute();
@@ -254,6 +260,7 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     .insertInto('memberships')
     .values([
       { id: newId(), org_id: orgId, user_id: ownerId, role: 'owner' },
+      { id: newId(), org_id: orgId, user_id: adminId, role: 'admin' },
       { id: newId(), org_id: orgId, user_id: viewerId, role: 'viewer' },
     ])
     .execute();
@@ -263,6 +270,7 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     .values({ org_id: orgId, plan: 'pro', source: 'staff', users: 10, retention_days: 30 })
     .execute();
   const session = async () => (await createSession(owner, ownerId)).token;
+  const sessionOf = async (userId: string) => (await createSession(owner, userId)).token;
   const keptToken = (await createSession(owner, ownerId)).token;
   const kept = {
     token: keptToken,
@@ -550,8 +558,10 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     label,
     orgId,
     ownerId,
+    adminId,
     viewerId,
     session,
+    sessionOf,
     kept,
     k8s,
     docker,

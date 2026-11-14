@@ -7,7 +7,8 @@
 //                   answer of B's ever carries A's data.
 //   - public:       answers before anyone is signed in (or about the caller only); still
 //                   never carries A's data.
-//   - installation: the installation's own settings; 404 in Cloud (plugins/edition.ts).
+//   - installation: Community only (the installation's own settings, an Admin's reset
+//                   link); 404 in Cloud (plugins/edition.ts).
 //   - stream:       an event stream (logs follow); org B with A's ids gets 404.
 //   - ingest:       a cluster token's; the cluster comes from the token (ingest tests).
 //   - mcp:          the MCP endpoint; every tool is called as B (MCP tests).
@@ -218,7 +219,8 @@ export const ROUTES: Record<string, RouteClass> = {
   'POST /api/v1/users/invites/:id/renew': org,
   'DELETE /api/v1/users/invites/:id': org,
   'PATCH /api/v1/users/:id': org,
-  'POST /api/v1/users/:id/reset-link': org,
+  // Cloud: 404 (SR-1): an account there spans orgs, so an Admin's reset link is Community's.
+  'POST /api/v1/users/:id/reset-link': installation,
   'DELETE /api/v1/users/:id': org,
   'POST /api/v1/users/:id/owner': org,
 
