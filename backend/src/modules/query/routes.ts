@@ -4,6 +4,7 @@ import { nginxSources } from './nginx.js';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { sendProblem } from '../../lib/problem.js';
+import { OrgQueriesBusy } from '../../lib/org-queries.js';
 import { VictoriaError, type VictoriaQueryClient } from '../../lib/victoria.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
@@ -103,6 +104,7 @@ export const queryRoutes: FastifyPluginAsyncTypebox<{
         const series = await victoria.queryRange(cluster.scope, q.expr, from, to, step);
         return { metric, unit: q.unit, step, series };
       } catch (err) {
+        if (err instanceof OrgQueriesBusy) throw err; // 429 with Retry-After (SR-9)
         request.log.error({ err: (err as Error).message, metric }, 'range query failed');
         if (err instanceof VictoriaError && err.status >= 400 && err.status < 500) {
           return sendProblem(reply, 400, 'The query could not be run');

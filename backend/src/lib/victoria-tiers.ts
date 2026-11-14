@@ -8,6 +8,7 @@
 //     and merge the series by their labels, the current tier's point winning where both
 //     have one at the same time (otherwise the old tier's fills the gap).
 // With one VictoriaMetrics (Community, or Cloud without the two URLs) this class isn't used.
+import type { OrgQueryLimiter } from './org-queries.js';
 import { VictoriaQueryClient, type ClusterScope, type QuerySeries } from './victoria.js';
 
 export type Tier = '3d' | '30d';
@@ -73,6 +74,12 @@ export class TieredVictoriaClient extends VictoriaQueryClient {
       '3d': new VictoriaQueryClient(urls['3d'], timeoutMs, queryTimeoutMs),
       '30d': new VictoriaQueryClient(urls['30d'], timeoutMs, queryTimeoutMs),
     };
+  }
+
+  override limitPerOrg(limiter: OrgQueryLimiter): void {
+    super.limitPerOrg(limiter);
+    this.tiers['3d'].limitPerOrg(limiter);
+    this.tiers['30d'].limitPerOrg(limiter);
   }
 
   private async placement(scope: ClusterScope): Promise<TierPlacement> {

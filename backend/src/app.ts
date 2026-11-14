@@ -70,6 +70,7 @@ import { cloudApiRoutes } from './modules/cloud/routes.js';
 import { EntitlementsService } from './modules/entitlements/service.js';
 import { SeriesGate } from './modules/entitlements/series-gate.js';
 import { OrgLimits } from './plugins/org-limits.js';
+import { OrgQueryLimiter } from './lib/org-queries.js';
 import { NodeGate } from './modules/entitlements/node-gate.js';
 import { metricsClient } from './modules/entitlements/metrics.js';
 import { CloudAccounts } from './modules/accounts/context.js';
@@ -93,6 +94,8 @@ export interface AppDeps {
   setup: SetupState;
   /** Cloud: the per-org request and stream limits (SR-9); tests may pass their own. */
   orgLimits?: OrgLimits;
+  /** Cloud: each org's concurrent VictoriaMetrics queries (SR-9); tests pass their own. */
+  orgQueries?: OrgQueryLimiter;
   /** Test overrides for the ingest rate limits (ADR-027). */
   ingestBuckets?: { agent?: BucketSpec; clusterAgent?: BucketSpec; cluster?: BucketSpec };
   /** Alert rules from WATCHLOG_SEED_FILE, applied again once first-run setup made an org. */
@@ -230,6 +233,9 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   // Cloud with VICTORIAMETRICS_URL_3D and _30D: the org's tier (ADR-177); else the one URL.
   const victoria = metricsClient(config, entitlements, app.log, 10_000, config.queryTimeoutMs);
   if (!victoria) app.log.warn('VICTORIAMETRICS_URL is not set; ingest will answer 503');
+  // Cloud: each org's concurrent metric queries are capped (SR-9, lib/org-queries.ts).
+  if (victoria && config.edition === 'cloud')
+    victoria.limitPerOrg(deps.orgQueries ?? new OrgQueryLimiter());
   // Cloud: a new node over the plan gets 402 at ingest (ADR-177); Community has no gate.
   const nodeGate = entitlements ? new NodeGate(systemDb, entitlements, app.log) : null;
   // Cloud: each org's active series, capped at ingest (SR-3).

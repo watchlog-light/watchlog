@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // VictoriaMetrics client. Every call carries the cluster it is scoped to, and the
 // server enforces it with extra_label (measured: it cannot be escaped; ADR-026/028).
+import { currentOrgId } from '../db/org-context.js';
+import type { OrgQueryLimiter } from './org-queries.js';
 
 export class VictoriaError extends Error {
   constructor(
@@ -164,7 +166,28 @@ function toNumber(v: string): number | null {
 }
 
 export class VictoriaQueryClient extends VictoriaClient {
-  private async get(
+  private limiter: OrgQueryLimiter | null = null;
+
+  /**
+   * Cloud (SR-9): each org's queries share ORG_QUERIES slots; the org is the request's
+   * (db/org-context.ts). Queries outside an org's request are not counted.
+   */
+  limitPerOrg(limiter: OrgQueryLimiter): void {
+    this.limiter = limiter;
+  }
+
+  private get(
+    path: string,
+    scope: ClusterScope,
+    params: Record<string, string>,
+  ): Promise<PromResponse> {
+    const orgId = this.limiter ? currentOrgId() : null;
+    return orgId
+      ? this.limiter!.run(orgId, () => this.fetchQuery(path, scope, params))
+      : this.fetchQuery(path, scope, params);
+  }
+
+  private async fetchQuery(
     path: string,
     scope: ClusterScope,
     params: Record<string, string>,

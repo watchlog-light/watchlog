@@ -74,6 +74,10 @@ export function registerProblemHandlers(app: FastifyInstance): void {
     }
     // Never leak internal error messages on 5xx.
     const detail = status >= 500 ? undefined : error.message;
+    // A limit that clears by itself says when to try again (OrgQueriesBusy, SR-9).
+    const retryAfter = (error as { retryAfter?: unknown }).retryAfter;
+    if (status === 429 && typeof retryAfter === 'number')
+      reply.header('retry-after', String(retryAfter));
     return reply
       .code(status)
       .type(PROBLEM_CONTENT_TYPE)

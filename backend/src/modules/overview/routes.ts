@@ -5,6 +5,7 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
+import { OrgQueriesBusy } from '../../lib/org-queries.js';
 import { sendProblem } from '../../lib/problem.js';
 import type { ClusterScope, QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
 import { requireUser } from '../../plugins/auth.js';
@@ -102,6 +103,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
       exprs.map((e) =>
         victoria
           ? victoria.query(scope, e).catch((err: Error) => {
+              if (err instanceof OrgQueriesBusy) throw err; // the org's cap: 429 (SR-9)
               app.log.warn({ err: err.message }, 'overview query failed');
               return [] as QuerySeries[];
             })
@@ -114,6 +116,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
       exprs.map((e) =>
         victoria
           ? victoria.queryRange(scope, e, start, end, step).catch((err: Error) => {
+              if (err instanceof OrgQueriesBusy) throw err;
               app.log.warn({ err: err.message }, 'overview range query failed');
               return [] as QuerySeries[];
             })
