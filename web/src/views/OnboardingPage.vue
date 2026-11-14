@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import logoUrl from '@watchlog/design-tokens/assets/logo.svg';
-import { ArrowRight, Check, ExternalLink, Mail } from '@lucide/vue';
+import { ArrowLeft, ArrowRight, Check, ExternalLink, Mail } from '@lucide/vue';
 import type {
   AlertChannelList,
   CreateClusterResponse,
@@ -68,6 +68,8 @@ const created = ref<{
   install: CreateClusterResponse['install'];
 } | null>(null);
 const step = computed<'choose' | 'install'>(() => (clusterId.value ? 'install' : 'choose'));
+/** The empty cluster being changed after "back" from the install step. */
+const changing = ref<{ id: string; name: string; kind: Kind } | null>(null);
 const startedAt = ref(Date.now());
 
 const known = computed(() => clusters.list.find((c) => c.id === clusterId.value) ?? null);
@@ -87,6 +89,8 @@ async function create() {
     createError.value = t('clusters.errors.invalidName');
     return;
   }
+  if (changing.value && !(await applyChange(changing.value, value))) return;
+  if (step.value === 'install') return;
   creating.value = true;
   try {
     const res = await api<CreateClusterResponse>('/clusters', {
@@ -194,6 +198,73 @@ const troubled = computed(
 watch(troubled, (on) => {
   if (on) funnel('onboarding_troubleshooting_shown', { kind: currentKind.value });
 });
+
+// ------------------------------------------------------------------ back to step 1
+// Until an agent has connected, the install step can go back to change the type or the
+// name (the browser's back button too). The cluster is still empty, so Continue then
+// renames it (the command stays valid: it doesn't carry the name), replaces it when the
+// type changed (a new command; Free holds one cluster, so the empty one goes first), or
+// returns to the same command when nothing changed.
+const lastInstall = ref<{ id: string; name: string; kind: Kind; heard: boolean } | null>(null);
+watch(
+  [current, heard],
+  ([c, h]) => {
+    if (step.value === 'install' && c)
+      lastInstall.value = { id: c.id, name: c.name, kind: c.kind, heard: h };
+  },
+  { immediate: true },
+);
+const canGoBack = computed(() => step.value === 'install' && !!current.value && !heard.value);
+async function back() {
+  await router.push({ name: 'onboarding' });
+}
+watch(step, (s) => {
+  const last = lastInstall.value;
+  if (s !== 'choose' || !last || last.heard) {
+    changing.value = null;
+    return;
+  }
+  changing.value = { id: last.id, name: last.name, kind: last.kind };
+  nameEdited.value = true;
+  kind.value = last.kind;
+  name.value = last.name;
+  createError.value = undefined;
+});
+
+/** Applies a change to the empty cluster; false when it failed (the error is shown). */
+async function applyChange(prev: { id: string; name: string; kind: Kind }, value: string) {
+  creating.value = true;
+  const path = `/clusters/${encodeURIComponent(prev.id)}`;
+  try {
+    if (prev.kind === kind.value) {
+      if (prev.name !== value) {
+        await api(path, { method: 'PATCH', body: { name: value } });
+        if (created.value?.id === prev.id) created.value = { ...created.value, name: value };
+        await clusters.load().catch(() => undefined);
+      }
+      changing.value = null;
+      await router.push({ name: 'onboarding', query: { id: prev.id } });
+      return true;
+    }
+    await api(path, { method: 'DELETE' });
+    changing.value = null;
+    lastInstall.value = null;
+    if (created.value?.id === prev.id) created.value = null;
+    await clusters.load().catch(() => undefined);
+    return true;
+  } catch (err) {
+    createError.value = hasProblemType(err, ProblemType.nameTaken)
+      ? t('clusters.errors.nameTaken')
+      : err instanceof ApiError && err.status === 403
+        ? t('onboarding.choose.change.ownerOnly', { name: prev.name })
+        : err instanceof ApiError && err.status === 400
+          ? t('clusters.errors.invalidName')
+          : t('clusters.errors.generic');
+    return false;
+  } finally {
+    creating.value = false;
+  }
+}
 const helpHref = computed(() => {
   const subject = t('onboarding.trouble.helpSubject');
   const body = t('onboarding.trouble.helpBody', {
@@ -341,6 +412,13 @@ const steps = computed(() => [
           </label>
         </div>
       </fieldset>
+      <p
+        v-if="changing"
+        class="rounded-card border border-border bg-surface-1 p-4 text-14 leading-relaxed text-text-muted"
+        data-testid="wizard-changing"
+      >
+        {{ $t('onboarding.choose.change.note', { name: changing.name }) }}
+      </p>
       <form class="flex flex-col gap-8" novalidate @submit.prevent="create">
         <div class="max-w-[420px]">
           <TextField
@@ -389,6 +467,16 @@ const steps = computed(() => [
     >
       <section class="flex min-w-0 flex-[999_1_600px] flex-col gap-6">
         <div class="flex flex-col gap-2">
+          <button
+            v-if="canGoBack"
+            type="button"
+            class="-ml-1 inline-flex min-h-11 items-center gap-1.5 self-start px-1 text-14 font-medium text-primary hover:text-primary-hover lg:min-h-9"
+            data-testid="wizard-back"
+            @click="back"
+          >
+            <ArrowLeft class="size-4" aria-hidden="true" />
+            {{ $t('onboarding.install.back') }}
+          </button>
           <h1 class="text-24 font-semibold md:text-32">{{ $t('onboarding.install.title') }}</h1>
           <p class="text-16 text-text-muted">
             {{ $t(`onboarding.install.intro.${currentKind}`, { name: current?.name ?? '' }) }}

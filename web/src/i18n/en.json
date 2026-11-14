@@ -4239,7 +4239,11 @@
         "docker": "Name this Docker fleet"
       },
       "nameHint": "Shown in the cluster switcher and in alert messages. Lowercase letters, digits and dashes.",
-      "continue": "Continue"
+      "continue": "Continue",
+      "change": {
+        "note": "You're changing {name}. No agent has connected to it yet: a new name keeps the same command, and another type replaces it with a new one.",
+        "ownerOnly": "Only an Owner can replace {name} with another type. Keep its type, or ask an Owner."
+      }
     },
     "sample": {
       "first": "Look around a sample organisation first",
@@ -4249,6 +4253,7 @@
     },
     "install": {
       "title": "Install the agent",
+      "back": "Change the type or name",
       "intro": {
         "kubernetes": "Run this where kubectl points at {name}. Your cluster token is already in the command.",
         "docker": "Run this on each host of {name}. Your token is already in the command."
