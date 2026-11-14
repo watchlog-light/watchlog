@@ -51,6 +51,8 @@ export interface AdminDeps {
   /** The email server and public address (support links and the Owners' email). */
   settings?: () => Promise<Pick<AlertingSettings, 'smtp' | 'publicUrl'>>;
   now?: () => number;
+  /** WATCHLOG_STAFF_EMAILS: the only addresses X-WatchLog-Staff may name (SR-5); unset: any. */
+  staffEmails?: string[];
 }
 
 const Iso = Type.String({ format: 'date-time' });
@@ -123,6 +125,9 @@ export const adminRoutes: FastifyPluginAsyncTypebox<AdminDeps> = async (app, dep
     const email = (Array.isArray(raw) ? raw[0] : raw)?.trim().toLowerCase() ?? '';
     if (!EMAIL.test(email)) {
       return sendProblem(reply, 400, `Name the staff member in ${STAFF_HEADER}: <email>`);
+    }
+    if (deps.staffEmails && !deps.staffEmails.includes(email)) {
+      return sendProblem(reply, 403, `${email} is not in WATCHLOG_STAFF_EMAILS`);
     }
     request.staffEmail = email;
   });

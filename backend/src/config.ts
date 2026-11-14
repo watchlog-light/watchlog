@@ -114,6 +114,18 @@ export interface InternalApiConfig {
   token: string;
   /** WATCHLOG_INTERNAL_TOKEN_PREVIOUS: still accepted during a rotation. */
   previousToken?: string;
+  /**
+   * WATCHLOG_INTERNAL_ADMIN_TOKEN (and _PREVIOUS): the Cloud admin's own token, the only one
+   * /internal/admin/* accepts, and accepted nowhere else (SR-5). The billing service keeps
+   * WATCHLOG_INTERNAL_TOKEN, which /internal/admin/* refuses. Unset: the admin API is off.
+   */
+  adminToken?: string;
+  previousAdminToken?: string;
+  /**
+   * WATCHLOG_STAFF_EMAILS: the staff addresses X-WatchLog-Staff may name (comma-separated,
+   * lower-cased). Unset: any address.
+   */
+  staffEmails?: string[];
   /** WATCHLOG_INTERNAL_HOST (default HOST) and WATCHLOG_INTERNAL_PORT (default 4082). */
   host: string;
   port: number;
@@ -308,6 +320,9 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   for (const name of [
     'WATCHLOG_INTERNAL_TOKEN',
     'WATCHLOG_INTERNAL_TOKEN_PREVIOUS',
+    'WATCHLOG_INTERNAL_ADMIN_TOKEN',
+    'WATCHLOG_INTERNAL_ADMIN_TOKEN_PREVIOUS',
+    'WATCHLOG_STAFF_EMAILS',
     'VICTORIAMETRICS_URL_3D',
     'VICTORIAMETRICS_URL_30D',
     'WATCHLOG_BILLING_URL',
@@ -317,7 +332,12 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
       throw new Error(`${name} is only read with WATCHLOG_EDITION=cloud`);
     }
   }
-  for (const name of ['WATCHLOG_INTERNAL_TOKEN', 'WATCHLOG_INTERNAL_TOKEN_PREVIOUS'] as const) {
+  for (const name of [
+    'WATCHLOG_INTERNAL_TOKEN',
+    'WATCHLOG_INTERNAL_TOKEN_PREVIOUS',
+    'WATCHLOG_INTERNAL_ADMIN_TOKEN',
+    'WATCHLOG_INTERNAL_ADMIN_TOKEN_PREVIOUS',
+  ] as const) {
     const v = env[name];
     if (v !== undefined && (v.length < INTERNAL_TOKEN_MIN_LENGTH || /\s/.test(v))) {
       throw new Error(
@@ -328,6 +348,28 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   if (env.WATCHLOG_INTERNAL_TOKEN_PREVIOUS && !env.WATCHLOG_INTERNAL_TOKEN) {
     throw new Error('WATCHLOG_INTERNAL_TOKEN_PREVIOUS needs WATCHLOG_INTERNAL_TOKEN');
   }
+  if (env.WATCHLOG_INTERNAL_ADMIN_TOKEN && !env.WATCHLOG_INTERNAL_TOKEN) {
+    throw new Error(
+      'WATCHLOG_INTERNAL_ADMIN_TOKEN needs WATCHLOG_INTERNAL_TOKEN (the internal listener)',
+    );
+  }
+  if (env.WATCHLOG_INTERNAL_ADMIN_TOKEN_PREVIOUS && !env.WATCHLOG_INTERNAL_ADMIN_TOKEN) {
+    throw new Error('WATCHLOG_INTERNAL_ADMIN_TOKEN_PREVIOUS needs WATCHLOG_INTERNAL_ADMIN_TOKEN');
+  }
+  const callerTokens = [env.WATCHLOG_INTERNAL_TOKEN, env.WATCHLOG_INTERNAL_TOKEN_PREVIOUS];
+  for (const admin of [
+    env.WATCHLOG_INTERNAL_ADMIN_TOKEN,
+    env.WATCHLOG_INTERNAL_ADMIN_TOKEN_PREVIOUS,
+  ]) {
+    if (admin && callerTokens.includes(admin)) {
+      throw new Error(
+        "WATCHLOG_INTERNAL_ADMIN_TOKEN must differ from WATCHLOG_INTERNAL_TOKEN: each caller has its own (the billing service's can't reach the admin API)",
+      );
+    }
+  }
+  const staffEmails = env.WATCHLOG_STAFF_EMAILS?.split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
   const internalPort = Number(env.WATCHLOG_INTERNAL_PORT ?? 4082);
   if (!Number.isInteger(internalPort) || internalPort <= 0 || internalPort > 65535) {
     throw new Error(`Invalid WATCHLOG_INTERNAL_PORT: ${env.WATCHLOG_INTERNAL_PORT}`);
@@ -428,6 +470,9 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
       ? {
           token: env.WATCHLOG_INTERNAL_TOKEN,
           previousToken: env.WATCHLOG_INTERNAL_TOKEN_PREVIOUS,
+          adminToken: env.WATCHLOG_INTERNAL_ADMIN_TOKEN,
+          previousAdminToken: env.WATCHLOG_INTERNAL_ADMIN_TOKEN_PREVIOUS,
+          ...(staffEmails?.length ? { staffEmails } : {}),
           host: env.WATCHLOG_INTERNAL_HOST ?? env.HOST ?? '127.0.0.1',
           port: internalPort,
         }

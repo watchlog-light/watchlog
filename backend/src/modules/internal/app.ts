@@ -87,13 +87,22 @@ export async function buildInternalApp(
   registerProblemHandlers(app);
   app.removeContentTypeParser('text/plain');
 
-  // Every request, also to an unknown path: the token first.
+  // Every request, also to an unknown path: the token first. Each caller has its own
+  // (SR-5): /internal/admin/* takes only the Cloud admin's token, everything else only the
+  // billing service's, so a leak from one service reaches only its own routes.
   app.addHook('onRequest', async (request, reply) => {
     const header = request.headers.authorization ?? '';
     const given = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-    if (!internalTokenMatches(given, cfg)) {
-      return sendProblem(reply, 401, 'Missing or invalid internal token');
-    }
+    const path = request.url.split('?')[0]!;
+    const admin = path === '/internal/admin' || path.startsWith('/internal/admin/');
+    const ok = admin
+      ? cfg.adminToken !== undefined &&
+        internalTokenMatches(given, {
+          token: cfg.adminToken,
+          previousToken: cfg.previousAdminToken,
+        })
+      : internalTokenMatches(given, cfg);
+    if (!ok) return sendProblem(reply, 401, 'Missing or invalid internal token');
   });
 
   const orgExists = async (id: string) =>
@@ -256,6 +265,7 @@ export async function buildInternalApp(
     funnel: deps.funnel,
     settings: deps.settings,
     now: deps.now,
+    staffEmails: cfg.staffEmails,
   });
 
   return app;
