@@ -266,6 +266,10 @@ describe('alert rules', () => {
       forSeconds: 300,
       enabled: false,
     });
+    // An empty change answers the rule as it is (it was a 500: an UPDATE with no columns).
+    const same = await patch(disk.id, {});
+    expect(same.statusCode).toBe(200);
+    expect(same.json()).toMatchObject({ forSeconds: 300, enabled: false });
     expect((await api('DELETE', `/alert-rules/${crash.id}`)).statusCode).toBe(409);
   });
 });
