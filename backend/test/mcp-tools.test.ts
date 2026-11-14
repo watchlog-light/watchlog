@@ -11,6 +11,11 @@ import { closeTestContext, createTestContext, setupAdmin, type TestContext } fro
 import { testWorker } from './support/alerts.js';
 import { container, dockerFleet, kindCluster, strings } from './support/mcp-fixtures.js';
 import { mcpClient, type McpTestClient } from './support/mcp.js';
+import { TEST_SMTP_URL } from './support/mock-providers.js';
+
+// The test mail server (WATCHLOG_TEST_SMTP_URL), never a fixed port: locally, :1025 may be
+// someone's own Mailpit.
+const SMTP = new URL(TEST_SMTP_URL);
 
 let ctx: TestContext | undefined;
 let mcp: McpTestClient | undefined;
@@ -374,8 +379,8 @@ describe('secrets', () => {
       url: '/api/v1/settings/smtp',
       cookies: { wl_session: cookie },
       payload: {
-        host: '127.0.0.1',
-        port: 1025,
+        host: SMTP.hostname,
+        port: Number(SMTP.port),
         security: 'none',
         username: 'alerts@acme.test',
         password: SMTP_PASSWORD,
