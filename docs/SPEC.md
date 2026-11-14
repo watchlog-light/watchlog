@@ -668,7 +668,7 @@ Self-hosted footprint target (10 nodes, 15 d retention): backend 256 MB, Victori
 WatchLog Cloud starts on **the current production server** (36 GB), beside the site, the waitlist and the live demo, as its **own Docker Compose project**. It is enough for the first ~1,000 monitored nodes.
 
 - **Where:** the Compose kit lives in the private Cloud repository (`deploy/cloud/`), with the billing service; it runs the public release's images. Its own network, volumes and data directory; every port on 127.0.0.1; memory and CPU limits on every container.
-- **Services:** `backend` (API + ingest), `alert-worker`, `web`, `vm-3d`, `vm-30d`, `postgres`, `redis`, `billing` (`anomaly-worker` in Phase 6).
+- **Services:** `backend` (API + ingest), `alert-worker`, `web`, `vm-3d`, `vm-30d`, `postgres`, `billing` (`anomaly-worker` in Phase 6); `redis` once the per-org rate-limit buckets use it (ADR-180 "As built").
 - **Proxy:** the host's existing nginx (it owns 80/443), with new vhost files for `cloud.watchlog.io` (dashboard and API) and `ingest.watchlog.io` (agents only), behind Cloudflare. No Caddy. `app.watchlog.io` stays the v1 app.
 - **Status page:** `status.watchlog.io` is an external uptime service's page, so it stays up when the server doesn't.
 - **Backups:** nightly `pg_dump` + WAL archiving and VictoriaMetrics snapshots, encrypted on the server before they leave it, shipped to S3-compatible storage; a restore test runs monthly by script.
