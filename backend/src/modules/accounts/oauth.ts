@@ -71,10 +71,35 @@ export function openState(key: Buffer, cookie: string | undefined, now = Date.no
 export const stateMatches = (s: OAuthState, state: string | undefined) =>
   !!state && safeEqual(s.state, state);
 
-/** A path on this site, or undefined: never another origin (no open redirect). */
+const NEXT_BASE = 'https://watchlog.invalid';
+/** Control characters, which browsers drop from a Location (`/\t/evil` is `//evil`), and `\`. */
+// eslint-disable-next-line no-control-regex -- control characters are what it looks for
+const UNSAFE_IN_NEXT = /[\u0000-\u001f\u007f\\]/;
+
+/**
+ * A path on this site, or undefined: never another origin (no open redirect, SR-7). The
+ * value and its percent-decoded form must both be a plain absolute path, and resolving it
+ * must stay on this origin; the answer is the resolved path, query and fragment.
+ */
 export function safeNext(next: string | undefined): string | undefined {
-  if (!next || !next.startsWith('/') || next.startsWith('//') || next.includes('\\')) return;
-  return next.length <= 512 ? next : undefined;
+  if (!next || next.length > 512) return;
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(next);
+  } catch {
+    return;
+  }
+  for (const v of [next, decoded]) {
+    if (!v.startsWith('/') || v.startsWith('//') || UNSAFE_IN_NEXT.test(v)) return;
+  }
+  let url: URL;
+  try {
+    url = new URL(next, NEXT_BASE);
+  } catch {
+    return;
+  }
+  if (url.origin !== NEXT_BASE) return;
+  return url.pathname + url.search + url.hash;
 }
 
 export function newFlow(
