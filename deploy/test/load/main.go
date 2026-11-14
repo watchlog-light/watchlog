@@ -519,10 +519,21 @@ func newAgent(kind, id, hostLabel string, set []series) *agent {
 	for i, s := range set {
 		// Each node's values start apart from the template's; most gauges (limits,
 		// capacities, info) stay put, the rest move a little every interval.
-		a.values[i] = s.value * (0.5 + a.rng.Float64())
+		a.values[i] = s.round(s.value * (0.5 + a.rng.Float64()))
 		a.static[i] = !s.counter && a.rng.Float64() < 0.7
 	}
 	return a
+}
+
+// round keeps a value to its series' precision, as agents report it: whole numbers
+// (bytes, counts) stay whole, the rest keep three decimals. Random float64 noise in every
+// bit would not compress like real samples do (the first 9b run: about 10 bytes a sample
+// against 2.5 for the real agents' data).
+func (s series) round(v float64) float64 {
+	if s.value == math.Trunc(s.value) {
+		return math.Round(v)
+	}
+	return math.Round(v*1000) / 1000
 }
 
 // tick moves the values one interval on: counters grow, moving gauges wander.
@@ -530,9 +541,9 @@ func (a *agent) tick() {
 	for i, s := range a.set {
 		switch {
 		case s.counter:
-			a.values[i] += a.rng.Float64() * math.Max(1, math.Abs(s.value)*2e-4)
+			a.values[i] = s.round(a.values[i] + a.rng.Float64()*math.Max(1, math.Abs(s.value)*2e-4))
 		case !a.static[i]:
-			a.values[i] *= 1 + a.rng.NormFloat64()*0.02
+			a.values[i] = s.round(a.values[i] * (1 + a.rng.NormFloat64()*0.02))
 		}
 	}
 }
