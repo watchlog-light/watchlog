@@ -27,6 +27,7 @@ export type AccountErrorCode =
   | 'token-expired'
   | 'already-verified'
   | 'mfa-invalid'
+  | 'mfa-locked'
   | 'mfa-already-enabled'
   | 'mfa-not-enabled'
   | 'mfa-required'

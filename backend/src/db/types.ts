@@ -562,6 +562,8 @@ export interface Users {
   id: string;
   lifecycle_unsubscribed_at: Timestamp | null;
   locale: Generated<string>;
+  mfa_failures: Generated<number>;
+  mfa_locked_until: Timestamp | null;
   name: string;
   password_hash: string | null;
   signup_source: Json | null;

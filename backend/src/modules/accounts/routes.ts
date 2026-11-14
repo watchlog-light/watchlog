@@ -5,6 +5,7 @@
 // across the user's orgs, so on the owner's connection (systemDb, ADR-174); nothing here
 // reads an org's tenant data.
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
+import { sql } from 'kysely';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Type } from 'typebox';
 import type { Config } from '../../config.js';
@@ -55,6 +56,7 @@ import {
   createAccount,
   createVerifyToken,
   existingAccountMail,
+  mfaLockedMail,
   useVerifyToken,
   verifyMail,
 } from './service.js';
@@ -73,6 +75,8 @@ import {
 export const MFA_COOKIE = 'wl_mfa';
 const MFA_COOKIE_PATH = '/api/v1/auth/2fa';
 const MFA_MAX_ATTEMPTS = 5;
+/** Wrong second-factor codes in a row, across sign-ins, before the account's 2FA locks (SR-6). */
+export const MFA_LOCK_AFTER = 10;
 
 const TurnstileToken = Type.Optional(
   Type.String({ maxLength: 2048, description: 'The Turnstile widget token (when it is on)' }),
@@ -168,9 +172,72 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
   const userRow = (id: string) =>
     systemDb
       .selectFrom('users')
-      .select(['id', 'email', 'password_hash', 'totp_secret', 'totp_enabled_at', 'disabled_at'])
+      .select([
+        'id',
+        'email',
+        'password_hash',
+        'totp_secret',
+        'totp_enabled_at',
+        'disabled_at',
+        'mfa_locked_until',
+      ])
       .where('id', '=', id)
       .executeTakeFirstOrThrow();
+
+  /**
+   * A TOTP or recovery code, counted per account (SR-6): from the 10th wrong code in a row
+   * the account's second factor locks (15 minutes, doubling, at most a day), the user is
+   * emailed when it locks, and a right code resets the count. A locked account's code isn't
+   * even checked.
+   */
+  async function secondFactor(
+    request: FastifyRequest,
+    row: Awaited<ReturnType<typeof userRow>>,
+    code: string,
+  ): Promise<'ok' | 'bad' | 'locked'> {
+    if (row.mfa_locked_until && row.mfa_locked_until.getTime() > Date.now()) return 'locked';
+    if (await acceptSecondFactor(systemDb, key, row, code)) {
+      await systemDb
+        .updateTable('users')
+        .set({ mfa_failures: 0, mfa_locked_until: null })
+        .where('id', '=', row.id)
+        .where('mfa_failures', '>', 0)
+        .execute();
+      return 'ok';
+    }
+    const after = await systemDb
+      .updateTable('users')
+      .set((eb) => ({
+        mfa_failures: eb('mfa_failures', '+', 1),
+        mfa_locked_until: sql<Date | null>`CASE WHEN mfa_failures + 1 >= ${MFA_LOCK_AFTER}
+          THEN now() + least(interval '15 minutes' * power(2, mfa_failures + 1 - ${MFA_LOCK_AFTER}), interval '1 day')
+          ELSE mfa_locked_until END`,
+      }))
+      .where('id', '=', row.id)
+      .returning(['mfa_failures', 'mfa_locked_until'])
+      .executeTakeFirst();
+    if (after && after.mfa_failures >= MFA_LOCK_AFTER && after.mfa_locked_until) {
+      request.log.warn({ userId: row.id, failures: after.mfa_failures }, '2FA locked');
+      const base = await site(request);
+      try {
+        await sendMail(settings, {
+          to: row.email,
+          ...mfaLockedMail({ site: base, until: after.mfa_locked_until }),
+        });
+      } catch (err) {
+        request.log.warn({ err: (err as Error).message }, '2FA lock email not sent');
+      }
+    }
+    return 'bad';
+  }
+
+  const lockedReply = (reply: FastifyReply) =>
+    sendCode(
+      reply,
+      429,
+      'mfa-locked',
+      'Too many wrong codes for this account. Two-factor sign-in is paused; try again later.',
+    );
 
   // ------------------------------------------------------------------ public configuration
 
@@ -651,7 +718,13 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
         summary: 'Turn TOTP off with a current code or a recovery code',
         tags: ['auth'],
         body: Type.Object({ code: Code }, { additionalProperties: false }),
-        response: { 204: Type.Null(), 400: ProblemSchema, 401: ProblemSchema, 409: ProblemSchema },
+        response: {
+          204: Type.Null(),
+          400: ProblemSchema,
+          401: ProblemSchema,
+          409: ProblemSchema,
+          429: ProblemSchema,
+        },
       },
     },
     async (request, reply) => {
@@ -669,9 +742,9 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
           'Owners of a paid organization must keep two-factor authentication on.',
         );
       }
-      if (!(await acceptSecondFactor(systemDb, key, row, request.body.code))) {
-        return sendCode(reply, 400, 'mfa-invalid', "That code isn't right.");
-      }
+      const factor = await secondFactor(request, row, request.body.code);
+      if (factor === 'locked') return lockedReply(reply);
+      if (factor === 'bad') return sendCode(reply, 400, 'mfa-invalid', "That code isn't right.");
       await systemDb.transaction().execute(async (trx) => {
         await trx
           .updateTable('users')
@@ -698,6 +771,7 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
           400: ProblemSchema,
           401: ProblemSchema,
           409: ProblemSchema,
+          429: ProblemSchema,
         },
       },
     },
@@ -708,9 +782,9 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
       if (!row.totp_enabled_at) {
         return sendCode(reply, 409, 'mfa-not-enabled', 'Two-factor authentication is off.');
       }
-      if (!(await acceptSecondFactor(systemDb, key, row, request.body.code))) {
-        return sendCode(reply, 400, 'mfa-invalid', "That code isn't right.");
-      }
+      const factor = await secondFactor(request, row, request.body.code);
+      if (factor === 'locked') return lockedReply(reply);
+      if (factor === 'bad') return sendCode(reply, 400, 'mfa-invalid', "That code isn't right.");
       reply.header('cache-control', 'no-store');
       return { recoveryCodes: await newRecoveryCodes(systemDb, user.id) };
     },
@@ -750,10 +824,9 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
         return sendCode(reply, 401, 'invalid-token', 'Sign in again: this step has expired.');
       }
       const row = await userRow(s.user_id);
-      const ok = row.disabled_at
-        ? null
-        : await acceptSecondFactor(systemDb, key, row, request.body.code);
-      if (!ok) {
+      const factor = row.disabled_at ? 'bad' : await secondFactor(request, row, request.body.code);
+      if (factor === 'locked') return lockedReply(reply);
+      if (factor === 'bad') {
         const attempts = s.mfa_attempts + 1;
         if (attempts >= MFA_MAX_ATTEMPTS) {
           await systemDb.deleteFrom('sessions').where('id', '=', s.id).execute();

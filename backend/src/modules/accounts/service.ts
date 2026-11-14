@@ -194,6 +194,17 @@ export const existingAccountMail = (p: { site: string }) => ({
   ].join('\n'),
 });
 
+export const mfaLockedMail = (p: { site: string; until: Date }) => ({
+  subject: 'Wrong two-factor codes on your WatchLog account',
+  text: [
+    `Someone entered your password at ${p.site} and then too many wrong two-factor codes.`,
+    `Two-factor sign-in for your account is paused until ${p.until.toISOString().slice(0, 16).replace('T', ' ')} UTC.`,
+    '',
+    "If it was you, wait and try again. If it wasn't, your password is known to someone else:",
+    `set a new one from "Forgot your password?" at ${p.site}/signin, and end your other sessions in Settings › Security.`,
+  ].join('\n'),
+});
+
 /** Cloud Free's limits as entitlement columns (ADR-177). */
 function freeColumns() {
   const f = PLAN_DEFAULTS.free;
