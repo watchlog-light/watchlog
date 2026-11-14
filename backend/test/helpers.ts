@@ -49,6 +49,7 @@ export async function createTestContext(
       AppDeps,
       | 'ingestBuckets'
       | 'orgLimits'
+      | 'orgQueries'
       | 'onRoute'
       | 'seed'
       | 'logStream'
