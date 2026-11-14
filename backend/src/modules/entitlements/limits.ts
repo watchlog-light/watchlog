@@ -16,7 +16,7 @@ export const BILLING_PATH = '/settings?tab=billing';
 export function sendPlanLimit(
   reply: FastifyReply,
   status: 402 | 409,
-  limit: LimitKind,
+  limit: LimitKind | 'series',
   max: number | null,
   detail: string,
 ): FastifyReply {

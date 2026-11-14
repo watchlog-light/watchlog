@@ -37,6 +37,7 @@ import {
 import { inspectWriteRequest, RemoteWriteError } from './remote-write.js';
 import type { TokenCache } from './token-cache.js';
 import { isNodeAgent, type NodeGate } from '../entitlements/node-gate.js';
+import type { SeriesGate } from '../entitlements/series-gate.js';
 import { BILLING_PATH, sendPlanLimit } from '../entitlements/limits.js';
 
 /** Limits from ADR-027. */
@@ -72,6 +73,8 @@ export interface IngestOptions {
   logs?: LogBroker;
   /** Cloud: the plan's node limit (ADR-177). Null in Community: nothing is checked. */
   nodeGate?: NodeGate | null;
+  /** Cloud: each org's active-series cap (SR-3). Null in Community: nothing is counted. */
+  seriesGate?: SeriesGate | null;
 }
 
 const Str = (max: number) => Type.String({ maxLength: max });
@@ -221,6 +224,7 @@ const ownerKey = (owner: { orgId: string; clusterId: string }) => ({
 export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app, opts) => {
   const { db, tokens, victoria } = opts;
   const nodeGate = opts.nodeGate ?? null;
+  const seriesGate = opts.seriesGate ?? null;
   const agentBuckets = new TokenBuckets(opts.agentBucket ?? AGENT_BUCKET);
   const clusterAgentBuckets = new TokenBuckets(opts.clusterAgentBucket ?? CLUSTER_AGENT_BUCKET);
   const clusterBuckets = new TokenBuckets(opts.clusterBucket ?? CLUSTER_BUCKET);
@@ -355,14 +359,37 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
       if (request.headers['content-encoding'] !== 'snappy') {
         return sendProblem(reply, 400, 'Expected Content-Encoding: snappy');
       }
+      let summary;
       try {
-        inspectWriteRequest(body, {
+        summary = inspectWriteRequest(body, {
           maxDecodedBytes: MAX_DECODED_BYTES,
           maxSeries: MAX_SERIES_PER_REQUEST,
+          hashSeries: seriesGate !== null,
         });
       } catch (err) {
         if (err instanceof RemoteWriteError) return sendProblem(reply, err.status, err.message);
         throw err;
+      }
+      // Cloud: the org's active-series cap (SR-3). At the cap only series already counted
+      // are stored; a write with new ones gets 402, which the agent drops (ADR-022).
+      if (seriesGate && summary.hashes) {
+        const agentHeader = request.headers['x-watchlog-agent'];
+        const agentId = (Array.isArray(agentHeader) ? agentHeader[0] : agentHeader) || request.ip;
+        const verdict = await seriesGate.admit(
+          owner.orgId,
+          owner.clusterId,
+          agentId,
+          summary.hashes,
+        );
+        if (!verdict.ok) {
+          return sendPlanLimit(
+            reply,
+            402,
+            'series',
+            verdict.cap,
+            `This organization sends more distinct series than its plan allows (${verdict.cap} in the last hour or two); new series are not stored, series already sending keep sending. Contact support if your nodes need more.`,
+          );
+        }
       }
       if (!victoria) {
         reply.header('retry-after', String(UNAVAILABLE_RETRY_AFTER_S));

@@ -94,12 +94,47 @@ export interface WriteSummary {
   series: number;
   samples: number;
   decodedBytes: number;
+  /** With `hashSeries`: a 32-bit hash of each series' labels, in order (SR-3's count). */
+  hashes?: Uint32Array;
 }
 
 export interface WriteLimits {
   maxDecodedBytes: number;
   maxSeries: number;
+  /** Hash each series' labels while reading them (Cloud's per-org series cap). */
+  hashSeries?: boolean;
 }
+
+/**
+ * Folds a label's bytes (name and value with their protobuf framing) into a hash, four
+ * bytes per step (MurmurHash3's body); fmix32 finishes it.
+ */
+function mixLabel(h: number, b: Uint8Array): number {
+  const n = b.length;
+  let i = 0;
+  for (; i + 4 <= n; i += 4) {
+    let k = b[i]! | (b[i + 1]! << 8) | (b[i + 2]! << 16) | (b[i + 3]! << 24);
+    k = Math.imul(k, 0xcc9e2d51);
+    k = (k << 15) | (k >>> 17);
+    h ^= Math.imul(k, 0x1b873593);
+    h = (h << 13) | (h >>> 19);
+    h = (Math.imul(h, 5) + 0xe6546b64) | 0;
+  }
+  let k = n;
+  for (; i < n; i++) k = Math.imul(k ^ b[i]!, 0x01000193);
+  return Math.imul(h ^ k, 0x01000193);
+}
+
+/** MurmurHash3's finaliser: spreads FNV's bits over all 32 (HyperLogLog reads the top ones). */
+function fmix32(h: number): number {
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+let scratch = new Uint32Array(0);
 
 /** Decompresses and validates a remote_write body; throws RemoteWriteError. */
 export function inspectWriteRequest(body: Uint8Array, limits: WriteLimits): WriteSummary {
@@ -118,6 +153,8 @@ export function inspectWriteRequest(body: Uint8Array, limits: WriteLimits): Writ
   const c: Cursor = { buf: raw, pos: 0 };
   let series = 0;
   let samples = 0;
+  const hashing = limits.hashSeries === true;
+  if (hashing && scratch.length < limits.maxSeries) scratch = new Uint32Array(limits.maxSeries);
   while (c.pos < c.buf.length) {
     const tag = readVarint(c);
     const field = Math.floor(tag / 8);
@@ -132,12 +169,15 @@ export function inspectWriteRequest(body: Uint8Array, limits: WriteLimits): Writ
     }
     const ts: Cursor = { buf: readLengthDelimited(c), pos: 0 };
     let hasName = false;
+    let h = 0x811c9dc5;
     while (ts.pos < ts.buf.length) {
       const t = readVarint(ts);
       const f = Math.floor(t / 8);
       const w = t % 8;
       if (f === 1 && w === 2) {
-        const name = readLabelName(readLengthDelimited(ts));
+        const label = readLengthDelimited(ts);
+        if (hashing) h = mixLabel(h, label);
+        const name = readLabelName(label);
         if (name === undefined) throw new RemoteWriteError('label without a name', 400);
         if (RESERVED_LABELS.has(name)) {
           throw new RemoteWriteError(`label "${name}" is reserved and set by the server`, 400);
@@ -151,6 +191,12 @@ export function inspectWriteRequest(body: Uint8Array, limits: WriteLimits): Writ
       }
     }
     if (!hasName) throw new RemoteWriteError('series without __name__', 400);
+    if (hashing) scratch[series - 1] = fmix32(h);
   }
-  return { series, samples, decodedBytes: raw.length };
+  return {
+    series,
+    samples,
+    decodedBytes: raw.length,
+    ...(hashing ? { hashes: scratch.slice(0, series) } : {}),
+  };
 }

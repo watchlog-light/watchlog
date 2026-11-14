@@ -68,6 +68,7 @@ import { requestWithoutCodes } from './lib/redact.js';
 import { registerCloudOnly, registerCommunityOnlyGuard } from './plugins/edition.js';
 import { cloudApiRoutes } from './modules/cloud/routes.js';
 import { EntitlementsService } from './modules/entitlements/service.js';
+import { SeriesGate } from './modules/entitlements/series-gate.js';
 import { NodeGate } from './modules/entitlements/node-gate.js';
 import { metricsClient } from './modules/entitlements/metrics.js';
 import { CloudAccounts } from './modules/accounts/context.js';
@@ -223,6 +224,8 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   if (!victoria) app.log.warn('VICTORIAMETRICS_URL is not set; ingest will answer 503');
   // Cloud: a new node over the plan gets 402 at ingest (ADR-177); Community has no gate.
   const nodeGate = entitlements ? new NodeGate(systemDb, entitlements, app.log) : null;
+  // Cloud: each org's active series, capped at ingest (SR-3).
+  const seriesGate = entitlements ? new SeriesGate(entitlements, app.log) : null;
   // Send test and Telegram's getMe go out through the outbound proxy (ADR-080).
   // Cloud: users' Slack and webhook URLs go through the egress policy (ADR-181).
   const alertHttp = new HttpClient(
@@ -369,6 +372,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     secretKey: config.secretKey,
     logs: logBroker,
     nodeGate,
+    seriesGate,
   });
 
   // Seeded services (ADR-142): monitored as soon as the agents report them, so tried on
