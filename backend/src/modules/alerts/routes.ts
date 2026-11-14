@@ -784,7 +784,10 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
         });
         if (err) return sendProblem(reply, 400, err);
       }
-      await db.updateTable('alert_rules').set(change.set).where('id', '=', rule.id).execute();
+      // An empty change is a no-op, not an UPDATE without columns (which throws).
+      if (Object.keys(change.set).length) {
+        await db.updateTable('alert_rules').set(change.set).where('id', '=', rule.id).execute();
+      }
       return (await ruleViews(orgId, rule.id))[0]!;
     },
   );
