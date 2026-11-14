@@ -280,6 +280,32 @@ describe('the checks, alone', () => {
     expect(safeNext('//evil.example')).toBeUndefined();
     expect(safeNext('https://evil.example')).toBeUndefined();
     expect(safeNext('/\\evil')).toBeUndefined();
+    // SR-7: what browsers turn into another origin, raw or percent-encoded.
+    for (const bad of [
+      '/\t/evil.com',
+      '/%09/evil.com',
+      '/\n/evil.com',
+      '/%0a/evil.com',
+      '/\r//evil.com',
+      '/%2F/evil.com',
+      '/%2f%2fevil.com',
+      '%2F%2Fevil.com',
+      '/%5Cevil.com',
+      '\\/evil.com',
+      '/\u0000/evil.com',
+      '/%00/evil.com',
+      '/\u007f/evil.com',
+      'https:evil.com',
+      'javascript:alert(1)',
+      ' /clusters',
+      '/%E0%A4%A',
+      '/'.padEnd(513, 'x'),
+    ]) {
+      expect(safeNext(bad), JSON.stringify(bad)).toBeUndefined();
+    }
+    expect(safeNext('/clusters/abc?tab=nodes#top')).toBe('/clusters/abc?tab=nodes#top');
+    expect(safeNext('/a/../settings')).toBe('/settings');
+    expect(safeNext('/search?q=a%20b')).toBe('/search?q=a%20b');
   });
 
   it('config: Cloud cookies are always Secure; OAuth needs both id and secret', () => {
