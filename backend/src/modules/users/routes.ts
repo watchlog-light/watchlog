@@ -4,6 +4,7 @@
 // "Forgot your password?". Every change is audited, never with a token or password.
 import { recordFunnelEvent } from '../funnel/recorder.js';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
+import type { FastifyRequest } from 'fastify';
 import { sql } from 'kysely';
 import { Type } from 'typebox';
 import { refuseInvite } from '../entitlements/limits.js';
@@ -11,7 +12,7 @@ import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
 import { hashPassword } from '../../lib/passwords.js';
 import { sendProblem } from '../../lib/problem.js';
-import { sendCode } from '../accounts/checks.js';
+import { isBreachedPassword, sendCode } from '../accounts/checks.js';
 import { startMfaSession } from '../accounts/routes.js';
 import { sha256 } from '../../lib/tokens.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
@@ -500,6 +501,12 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
     },
   );
 
+  /** Cloud: the password is in known breaches (Have I Been Pwned, k-anonymity; ADR-175). */
+  const breached = (request: FastifyRequest, password: string) =>
+    request.server.accounts
+      ? isBreachedPassword(request.server.accounts.fetch, password, request.log)
+      : Promise.resolve(false);
+
   app.post(
     '/users/:id/reset-link',
     {
@@ -773,6 +780,15 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
       if (taken)
         return sendProblem(reply, 409, `${i.email} already has an account: sign in instead`);
       const userId = newId();
+      // Cloud: the same breached-password check as signup on every path that sets one (SR-12).
+      if (await breached(request, request.body.password)) {
+        return sendCode(
+          reply,
+          400,
+          'password-breached',
+          'This password appears in known data breaches. Choose another one.',
+        );
+      }
       const passwordHash = await hashPassword(request.body.password);
       await systemDb.transaction().execute(async (trx) => {
         await trx
@@ -797,7 +813,7 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
       await audit(systemDb, {
         orgId: i.org_id,
         action: 'invite_accepted',
-        actor: { id: userId, name: request.body.name.trim(), ip: request.ip },
+        actor: { id: userId, name: request.body.name.trim(), ip: request.clientIp },
         subjectEmail: i.email,
         details: { role: i.role },
       });
@@ -868,6 +884,7 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
           200: UserEnvelope,
           /** Cloud, 2FA on: the password is set; the TOTP step signs in (ADR-175). */
           202: Type.Object({ mfaRequired: Type.Literal(true) }),
+          400: ProblemSchema,
           404: ProblemSchema,
           410: ProblemSchema,
           429: ProblemSchema,
@@ -884,6 +901,15 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
           r.used_at
             ? 'This reset link has been used.'
             : 'This reset link has expired. Ask for a new one.',
+        );
+      }
+      // Cloud: the same breached-password check as signup on every path that sets one (SR-12).
+      if (await breached(request, request.body.password)) {
+        return sendCode(
+          reply,
+          400,
+          'password-breached',
+          'This password appears in known data breaches. Choose another one.',
         );
       }
       const passwordHash = await hashPassword(request.body.password);
@@ -916,7 +942,7 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
       await audit(systemDb, {
         orgId: r.org_id,
         action: 'password_reset',
-        actor: { id: r.user_id, name: r.email, ip: request.ip },
+        actor: { id: r.user_id, name: r.email, ip: request.clientIp },
         subjectEmail: r.email,
         details: { via: r.via },
       });

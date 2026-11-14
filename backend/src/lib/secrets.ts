@@ -41,7 +41,7 @@ export function usePreviousSecretKey(key: Buffer | undefined): void {
 
 export function encryptSecret(key: Buffer, plaintext: string, aad?: string): string {
   const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const cipher = createCipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
   if (aad !== undefined) cipher.setAAD(Buffer.from(aad, 'utf8'));
   const data = Buffer.concat([
     cipher.update(plaintext, 'utf8'),
@@ -55,7 +55,9 @@ function decryptWith(key: Buffer, ciphertext: string, aad: string | undefined): 
   const [version, iv, data] = ciphertext.split(':');
   if (version !== VERSION || !iv || !data) throw new SecretKeyError('unknown secret format');
   const raw = Buffer.from(data, 'base64url');
-  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
+  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'), {
+    authTagLength: 16,
+  });
   if (aad !== undefined) decipher.setAAD(Buffer.from(aad, 'utf8'));
   decipher.setAuthTag(raw.subarray(raw.length - 16));
   try {

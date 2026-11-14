@@ -54,13 +54,22 @@ interface LoggedRequest {
 }
 
 /**
- * Fastify's request log line with the values of `code=` in the URL masked: an install code
- * (ADR-176) is a credential for 24 hours, and OAuth's code for a few minutes.
+ * A URL as the request log may keep it: the values of `code=` and `token=` masked (an
+ * install code, ADR-176, is a credential for 24 hours, OAuth's code for a few minutes, an
+ * unsubscribe token for good), and the link tokens in the path of a password reset or an
+ * invite (security review SR-11).
  */
+export function urlWithoutSecrets(url: string): string {
+  return url
+    .replace(/([?&](?:code|token)=)[^&#]*/g, `$1${URL_SECRET_MASK}`)
+    .replace(/(\/(?:password-resets|invites)\/)[^/?#]+/g, `$1${URL_SECRET_MASK}`);
+}
+
+/** Fastify's request log line, with urlWithoutSecrets' URL. */
 export function requestWithoutCodes(req: LoggedRequest) {
   return {
     method: req.method,
-    url: req.url.replace(/([?&]code=)[^&#]*/g, `$1${URL_SECRET_MASK}`),
+    url: urlWithoutSecrets(req.url),
     version: req.headers?.['accept-version'] as string | undefined,
     host: req.host,
     remoteAddress: req.ip,

@@ -53,7 +53,7 @@ export interface Actor {
 export const actorOf = (request: FastifyRequest): Actor => ({
   id: request.user!.id,
   name: request.user!.name || request.user!.email,
-  ip: request.ip,
+  ip: request.clientIp,
 });
 
 /** The command line inside the backend container (ADR-140). */

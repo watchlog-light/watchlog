@@ -323,7 +323,7 @@ const PROBE_COLUMNS = [
 
 const actor = (request: FastifyRequest) => ({
   user: { id: request.user!.id, name: request.user!.name, email: request.user!.email },
-  ip: request.ip,
+  ip: request.clientIp,
 });
 
 export const connectRoutes: FastifyPluginAsyncTypebox<{

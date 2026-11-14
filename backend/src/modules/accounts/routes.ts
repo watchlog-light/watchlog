@@ -1085,7 +1085,7 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
       await audit(systemDb, {
         orgId: i.org_id,
         action: 'invite_accepted',
-        actor: { id: user.id, name: user.name || user.email, ip: request.ip },
+        actor: { id: user.id, name: user.name || user.email, ip: request.clientIp },
         subjectEmail: i.email,
         details: { role: i.role, existingAccount: true },
       });

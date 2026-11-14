@@ -214,6 +214,13 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
       'With WATCHLOG_EDITION=cloud, DATABASE_URL must be the watchlog_app role, not DATABASE_SYSTEM_URL',
     );
   }
+  // Cloud mails links (resets, invites, support) to people: without its own address the
+  // links would follow the request's Host, which a proxy may pass from the client (SR-13).
+  if (edition === 'cloud' && !env.WATCHLOG_PUBLIC_URL) {
+    throw new Error(
+      'WATCHLOG_PUBLIC_URL is required with WATCHLOG_EDITION=cloud (e.g. https://cloud.watchlog.io)',
+    );
+  }
   for (const name of [
     'WATCHLOG_PUBLIC_URL',
     'WATCHLOG_INGEST_URL',

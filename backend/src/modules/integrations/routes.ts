@@ -849,7 +849,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
       }
       const who = {
         user: { id: request.user!.id, name: request.user!.name, email: request.user!.email },
-        ip: request.ip,
+        ip: request.clientIp,
       };
       await recordEvent(db, { orgId, integrationId: id, action: 'monitored', ...who });
       if (body.probeId) {
@@ -917,7 +917,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         integrationId: request.params.id,
         action: 'removed',
         user: { id: request.user!.id, name: request.user!.name, email: request.user!.email },
-        ip: request.ip,
+        ip: request.clientIp,
         details: { name: row.name, type: row.type },
       });
       notifier.notify(row.cluster_id);

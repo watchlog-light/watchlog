@@ -118,7 +118,7 @@ export const supportRoutes: FastifyPluginAsyncTypebox<{
       if (!s) return sendProblem(reply, 404, 'Not in support mode');
       await endSupportSession(systemDb, s.sessionId, request.user!.org.id, {
         staffEmail: s.staffEmail,
-        ip: request.ip,
+        ip: request.clientIp,
       });
       clearSupportCookie(request, reply);
       return reply.code(204).send(null);

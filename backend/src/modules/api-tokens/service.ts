@@ -292,8 +292,8 @@ export async function revokeApiToken(
 }
 
 /**
- * The user and token behind a bearer value, or null: unknown, revoked, expired, or its
- * user is no longer a member of the token's org. Checked on every request, without a cache.
+ * The user and token behind a bearer value, or null: unknown, revoked, expired, its user
+ * disabled, or no longer a member of the token's org. Checked on every request, without a cache.
  */
 export async function verifyApiToken(
   db: Database,
@@ -327,6 +327,8 @@ export async function verifyApiToken(
     ])
     .where('t.token_hash', '=', sha256(value))
     .where('t.revoked_at', 'is', null)
+    // A disabled account's tokens stop with its sessions (SR-17).
+    .where('u.disabled_at', 'is', null)
     .where((eb) => eb.or([eb('t.expires_at', 'is', null), eb('t.expires_at', '>', now)]))
     .executeTakeFirst();
   if (!row) return null;
