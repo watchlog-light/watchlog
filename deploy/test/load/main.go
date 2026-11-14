@@ -4,7 +4,8 @@
 // like real ones, for the Cloud load test (Cloud slice 9, ADR-177 and ADR-180).
 //
 //	loadgen setup -web http://127.0.0.1:8084 -internal http://<backend>:4082 \
-//	    -internal-token-file token -state state.json        # orgs, clusters, real tokens
+//	    -internal-token-file token -internal-admin-token-file admin-token \
+//	    -state state.json                                    # orgs, clusters, real tokens
 //	loadgen run -ingest http://127.0.0.1:8085 -web http://127.0.0.1:8084 \
 //	    -state state.json -ramp 10m -duration 45m             # the load, a report a minute
 //	loadgen sizes                                           # series and bytes per write
@@ -341,7 +342,8 @@ func setupCmd(args []string) error {
 	fs := flag.NewFlagSet("setup", flag.ExitOnError)
 	web := fs.String("web", "http://127.0.0.1:8084", "the dashboard's address (the web container)")
 	internal := fs.String("internal", "", "the backend's internal API, http://<ip>:4082")
-	tokenFile := fs.String("internal-token-file", "", "file holding WATCHLOG_INTERNAL_TOKEN")
+	tokenFile := fs.String("internal-token-file", "", "file holding WATCHLOG_INTERNAL_TOKEN (billing's: entitlements)")
+	adminTokenFile := fs.String("internal-admin-token-file", "", "file holding WATCHLOG_INTERNAL_ADMIN_TOKEN (the admin API: signup mode)")
 	statePath := fs.String("state", "state.json", "where the orgs and their tokens are written (keep it private)")
 	free := fs.Int("free", 150, "Free orgs")
 	pro := fs.Int("pro", 50, "Pro (beta) orgs")
@@ -354,14 +356,23 @@ func setupCmd(args []string) error {
 	if err != nil {
 		return fmt.Errorf("internal token: %w", err)
 	}
+	adminTok, err := os.ReadFile(*adminTokenFile)
+	if err != nil {
+		return fmt.Errorf("internal admin token: %w", err)
+	}
 	internalHeaders := map[string]string{
-		"Authorization":    "Bearer " + strings.TrimSpace(string(tok)),
+		"Authorization": "Bearer " + strings.TrimSpace(string(tok)),
+		"Content-Type":  "application/json",
+	}
+	// Each internal caller has its own token: the admin API takes only the admin's.
+	adminHeaders := map[string]string{
+		"Authorization":    "Bearer " + strings.TrimSpace(string(adminTok)),
 		"Content-Type":     "application/json",
 		"X-WatchLog-Staff": "load-test@watchlog.io",
 	}
 	c := newClient()
 	ctx := context.Background()
-	st, b, _, err := c.do(ctx, http.MethodPut, *internal+"/internal/admin/signup-mode", []byte(`{"mode":"public"}`), internalHeaders)
+	st, b, _, err := c.do(ctx, http.MethodPut, *internal+"/internal/admin/signup-mode", []byte(`{"mode":"public"}`), adminHeaders)
 	if err != nil || st != 200 {
 		return fmt.Errorf("signup mode public: %d %s %v", st, b, err)
 	}
