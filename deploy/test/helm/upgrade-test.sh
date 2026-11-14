@@ -5,8 +5,9 @@
 # chart's defaults with the old release's computed values; this renders the new
 # templates exactly that way (values.yaml swapped for pre-phase4/*.values.yaml) and
 # checks the node agent DaemonSet, plus a fresh install, --reset-then-reuse-values and an
-# explicit opt-out; and the same from 0.2.0's values (v0.2.0/) and 0.4.0's (v0.4.0/, where
-# logs on demand and its pods/log grant come on). Needs helm; run from anywhere.
+# explicit opt-out; and the same from 0.2.0's values (v0.2.0/), 0.4.0's (v0.4.0/, where
+# logs on demand and its pods/log grant come on) and 0.5.0's (v0.5.0/). Needs helm; run
+# from anywhere.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
@@ -210,5 +211,38 @@ for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
     fails=$((fails + 1))
   fi
 done
+
+# From 0.5.0 (v0.5.0/, the released charts' values): 0.6.0 adds no chart value, so a
+# --reuse-values upgrade keeps eBPF, logs on demand and the collector as they were, and
+# renders exactly what 0.5.0's own charts render from the same values (when the v0.5.0 tag
+# is in this checkout).
+V050="$ROOT/deploy/test/helm/v0.5.0"
+expect "agent chart, --reuse-values from 0.5.0" on "$(ds "$(reused "$AGENT" "$V050/watchlog-agent.values.yaml")" "$AGENT_DS")"
+logs "agent chart, --reuse-values from 0.5.0" on "$(reused "$AGENT" "$V050/watchlog-agent.values.yaml")"
+logs "watchlog chart, --reuse-values from 0.5.0" on "$(reused "$UMBRELLA" "$V050/watchlog.values.yaml")"
+collector "agent chart, --reuse-values from 0.5.0" present \
+  "$(helm template rel "$(reused "$AGENT" "$V050/watchlog-agent.values.yaml")" -n ns)"
+if git -C "$ROOT" rev-parse -q --verify 'v0.5.0^{commit}' >/dev/null; then
+  mkdir -p "$TMP/v0.5.0"
+  git -C "$ROOT" archive v0.5.0 deploy/helm | tar -x -C "$TMP/v0.5.0"
+  helm dependency build "$TMP/v0.5.0/deploy/helm/watchlog" >/dev/null
+  # Generated anew on every render: the pod map's certificates (and their checksum), and the
+  # Secrets' database password, secret key and first cluster token.
+  certless() { grep -vE '^ *(ca\.crt|tls\.crt|tls\.key|checksum/[a-z-]+|password|key|token):'; }
+  for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
+    chart="${pair%%:*}" fixture="${pair##*:}"
+    old="$(helm template rel "$TMP/v0.5.0/deploy/helm/$fixture" -n ns -f "$V050/$fixture.values.yaml" | certless)"
+    new="$(helm template rel "$chart" -n ns -f "$V050/$fixture.values.yaml" | certless)"
+    if [[ "$old" == "$new" ]]; then
+      echo "PASS  $fixture chart from 0.5.0's values renders as 0.5.0's chart"
+    else
+      echo "FAIL  $fixture chart from 0.5.0's values differs from 0.5.0's chart:"
+      diff <(echo "$old") <(echo "$new") | cut -c1-160 | head -20
+      fails=$((fails + 1))
+    fi
+  done
+else
+  echo "SKIP  0.5.0's own charts: no v0.5.0 tag in this checkout"
+fi
 
 [[ $fails -eq 0 ]] || { echo "$fails upgrade check(s) failed"; exit 1; }
