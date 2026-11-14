@@ -38,6 +38,7 @@ import {
 } from './service.js';
 import { issueClusterToken, type IssuedToken } from './tokens.js';
 import type { SettingsService } from '../settings/service.js';
+import type { VictoriaClient } from '../../lib/victoria.js';
 import type { TokenCache } from '../ingest/token-cache.js';
 import { ingestFailures } from '../ingest/errors.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
@@ -49,7 +50,9 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
   config: Config;
   tokens: TokenCache;
   settings: SettingsService;
-}> = async (app, { db, config, tokens, settings }) => {
+  /** Cloud: a deleted cluster's series go with it (SR-15). */
+  victoria?: VictoriaClient | null;
+}> = async (app, { db, config, tokens, settings, victoria }) => {
   const signedIn = requireUser();
   const canManage = [signedIn, requireRole('owner', 'admin')];
   const { image, version, endpointFor } = installTarget(config, settings);
@@ -270,6 +273,11 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
+      // Cloud: the cluster's scope, to delete its series after its rows (SR-15).
+      const found =
+        config.edition === 'cloud' && victoria
+          ? await clusterForOrg(db, request.user!.org.id, request.params.id)
+          : null;
       // Token hashes outlive the cluster so the Helm bootstrap cannot recreate it (ADR-069).
       const result = await db.transaction().execute(async (trx) => {
         const cluster = await trx
@@ -296,6 +304,21 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
       if (!result || result.numDeletedRows === 0n) return sendProblem(reply, 404, NOT_FOUND);
       tokens.invalidateCluster(request.params.id);
       request.log.info({ clusterId: request.params.id }, 'cluster deleted');
+      // Cloud: its metrics go too, in both tiers, so an org's later deletion leaves none
+      // behind (ADR-181). In the background: the answer doesn't wait for VictoriaMetrics.
+      if (found && victoria) {
+        void victoria
+          .deleteSeries(found.scope)
+          .then((n) =>
+            request.log.info({ clusterId: found.id, series: n }, 'cluster series deleted'),
+          )
+          .catch((err: Error) =>
+            request.log.warn(
+              { err: err.message, clusterId: found.id },
+              'cluster series not deleted',
+            ),
+          );
+      }
       return reply.code(204).send(null);
     },
   );

@@ -69,6 +69,7 @@ import { registerCloudOnly, registerCommunityOnlyGuard } from './plugins/edition
 import { cloudApiRoutes } from './modules/cloud/routes.js';
 import { EntitlementsService } from './modules/entitlements/service.js';
 import { SeriesGate } from './modules/entitlements/series-gate.js';
+import { OrgLimits } from './plugins/org-limits.js';
 import { NodeGate } from './modules/entitlements/node-gate.js';
 import { metricsClient } from './modules/entitlements/metrics.js';
 import { CloudAccounts } from './modules/accounts/context.js';
@@ -90,6 +91,8 @@ export interface AppDeps {
    */
   systemDb?: Database;
   setup: SetupState;
+  /** Cloud: the per-org request and stream limits (SR-9); tests may pass their own. */
+  orgLimits?: OrgLimits;
   /** Test overrides for the ingest rate limits (ADR-027). */
   ingestBuckets?: { agent?: BucketSpec; clusterAgent?: BucketSpec; cluster?: BucketSpec };
   /** Alert rules from WATCHLOG_SEED_FILE, applied again once first-run setup made an org. */
@@ -152,6 +155,11 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       ? new CloudAccounts(config.accounts, deps.fetch ?? globalThis.fetch)
       : null;
   app.decorate('accounts', accounts);
+  // Cloud: each org's share of reads and streams (SR-9).
+  app.decorate(
+    'orgLimits',
+    config.edition === 'cloud' ? (deps.orgLimits ?? new OrgLimits()) : null,
+  );
   // Cloud's plans (ADR-177): read across orgs (ingest, the tiers), so on the owner's connection.
   const entitlements =
     config.edition === 'cloud' ? (deps.entitlements ?? new EntitlementsService(systemDb)) : null;
@@ -266,7 +274,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         demoMode: config.demoMode,
         sessions: demoSessions,
       });
-      await api.register(clusterRoutes, { db: deps.db, config, tokens, settings });
+      await api.register(clusterRoutes, { db: deps.db, config, tokens, settings, victoria });
       await api.register(queryRoutes, { db: deps.db, victoria });
       await api.register(dockerRoutes, { db: deps.db, victoria });
       await api.register(kubernetesRoutes, { db: deps.db, victoria, settings });

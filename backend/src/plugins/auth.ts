@@ -52,6 +52,7 @@ export function requireUser(
     // Already signed in by a demo cookie (ADR-122), an API token or the service identity.
     if (request.user) {
       bindOrg(request.user.org.id);
+      if (request.server.orgLimits?.refuse(request, reply, request.user.org.id)) return reply;
       return;
     }
     const token = request.cookies[SESSION_COOKIE];
@@ -63,6 +64,8 @@ export function requireUser(
     }
     request.user = user;
     bindOrg(user.org.id);
+    // Cloud: the org's share of the backend (SR-9).
+    if (request.server.orgLimits?.refuse(request, reply, user.org.id)) return reply;
     if (request.server.edition === 'cloud' && !opts.allowRestricted) {
       const restriction = restrictionOf(user);
       if (restriction) {
