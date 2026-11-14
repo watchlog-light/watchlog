@@ -671,6 +671,57 @@ describe('TOTP', () => {
     expect(n.rows[0]!.n).toBe('0');
   });
 
+  it("locks the account's 2FA after 10 wrong codes across sign-ins; a right password never resets it (SR-6)", async () => {
+    await cloudContext();
+    const { cookie, user } = await signedUp('g@example.com');
+    const { secret } = await enable(cookie);
+    // From many addresses, as an attacker would (the per-address limit isn't the point).
+    const verify = (mfa: string, code: string) =>
+      ctx.app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/2fa/verify',
+        remoteAddress: nextIp(),
+        cookies: { wl_mfa: mfa },
+        payload: { code },
+      });
+    const pendingOf = async () => cookieOf(await login('g@example.com'), 'wl_mfa')!.value;
+    // Four wrong codes per sign-in (the fifth would end the step), three sign-ins: the
+    // count goes on across them.
+    let wrong = 0;
+    let last;
+    while (wrong < 10) {
+      const mfa = await pendingOf();
+      for (let i = 0; i < 4 && wrong < 10; i++, wrong++) last = await verify(mfa, '000000');
+    }
+    expect(last!.json().code).toBe('mfa-invalid');
+    const row = await ctx.db
+      .selectFrom('users')
+      .select(['mfa_failures', 'mfa_locked_until'])
+      .where('id', '=', user.id)
+      .executeTakeFirstOrThrow();
+    expect(row.mfa_failures).toBe(10);
+    expect(row.mfa_locked_until!.getTime() - Date.now()).toBeGreaterThan(14 * 60_000);
+    // Locked: even the right code is refused, and isn't spent.
+    const code = totpCode(secret, Date.now() + 30_000);
+    const locked = await verify(await pendingOf(), code);
+    expect(locked.statusCode).toBe(429);
+    expect(locked.json().code).toBe('mfa-locked');
+    // Once the lock has passed, the right code signs in and the count starts again.
+    await ctx.db
+      .updateTable('users')
+      .set({ mfa_locked_until: new Date(Date.now() - 1000) })
+      .where('id', '=', user.id)
+      .execute();
+    const ok = await verify(await pendingOf(), code);
+    expect(ok.statusCode, ok.body).toBe(200);
+    const after = await ctx.db
+      .selectFrom('users')
+      .select(['mfa_failures', 'mfa_locked_until'])
+      .where('id', '=', user.id)
+      .executeTakeFirstOrThrow();
+    expect(after).toEqual({ mfa_failures: 0, mfa_locked_until: null });
+  });
+
   it('is required for Owners of a billed org before anything else, and stays on', async () => {
     await cloudContext();
     const { cookie, user } = await signedUp('owner@paid.example');
