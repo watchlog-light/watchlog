@@ -426,7 +426,10 @@ const auditText = (a: UserList['audit'][number]) =>
                       @click="dialog = { kind: 'owner', user: r.user! }"
                       >{{ $t('users.makeOwner') }}</BaseButton
                     >
+                    <!-- Cloud: no reset link (an account there spans orgs); members use
+                         "Forgot password" -->
                     <BaseButton
+                      v-if="!auth.isCloud"
                       variant="secondary"
                       data-testid="reset-link"
                       :loading="busy"

@@ -12,7 +12,8 @@ import { useLoader } from '@/composables/useLoader';
 import { useAuthStore } from '@/stores/auth';
 
 // Set a new password from a reset link (ADR-140): it works once and for one hour;
-// setting it signs the account out everywhere, then signs in here.
+// setting it signs the account out everywhere, then signs in here (Cloud with 2FA on:
+// after the code).
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
@@ -33,10 +34,15 @@ async function save() {
   }
   busy.value = true;
   try {
-    const res = await api<UserEnvelope>(`/password-resets/${token.value}`, {
+    const res = await api<UserEnvelope | { mfaRequired: true }>(`/password-resets/${token.value}`, {
       method: 'POST',
       body: { password: password.value },
     });
+    // Cloud with 2FA on: the password is set; the code signs in (a link is no second factor).
+    if ('mfaRequired' in res) {
+      await router.replace({ name: 'signin-2fa' });
+      return;
+    }
     auth.user = res.user;
     await router.replace('/');
   } catch (err) {
