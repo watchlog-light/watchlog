@@ -12,6 +12,7 @@ import { newId } from '../../lib/ids.js';
 import { hashPassword } from '../../lib/passwords.js';
 import { sendProblem } from '../../lib/problem.js';
 import { sendCode } from '../accounts/checks.js';
+import { startMfaSession } from '../accounts/routes.js';
 import { sha256 } from '../../lib/tokens.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { Email, NewPassword, ProblemSchema, UserEnvelope } from '../auth/schemas.js';
@@ -502,6 +503,10 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
   app.post(
     '/users/:id/reset-link',
     {
+      // Cloud: 404 (SR-1). An account there is global and may belong to other orgs, the
+      // user's own among them, so a link an Admin holds would sign in as that user
+      // everywhere. Members reset their password by email instead (ADR-175).
+      config: { communityOnly: true },
       preHandler: canManage,
       schema: {
         summary: 'A single-use password reset link for one hour, also emailed when SMTP is set up',
@@ -859,7 +864,14 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
         tags: ['users'],
         params: Type.Object({ token: Token }),
         body: Type.Object({ password: NewPassword }, { additionalProperties: false }),
-        response: { 200: UserEnvelope, 404: ProblemSchema, 410: ProblemSchema, 429: ProblemSchema },
+        response: {
+          200: UserEnvelope,
+          /** Cloud, 2FA on: the password is set; the TOTP step signs in (ADR-175). */
+          202: Type.Object({ mfaRequired: Type.Literal(true) }),
+          404: ProblemSchema,
+          410: ProblemSchema,
+          429: ProblemSchema,
+        },
       },
     },
     async (request, reply) => {
@@ -908,6 +920,17 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
         subjectEmail: r.email,
         details: { via: r.via },
       });
+      // A reset link proves the mailbox, not the second factor (SR-2): with 2FA on, the
+      // browser gets only the TOTP step, as a password sign-in does.
+      const mfa = await systemDb
+        .selectFrom('users')
+        .select(['totp_enabled_at', 'disabled_at'])
+        .where('id', '=', r.user_id)
+        .executeTakeFirst();
+      if (mfa?.totp_enabled_at && !mfa.disabled_at) {
+        await startMfaSession(systemDb, request, reply, r.user_id);
+        return reply.code(202).send({ mfaRequired: true as const });
+      }
       const { token, expiresAt } = await createSession(systemDb, r.user_id);
       setSessionCookie(request, reply, token, expiresAt);
       return { user: (await findSessionUser(systemDb, token))! };
