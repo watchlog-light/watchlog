@@ -18,6 +18,9 @@ import { inject } from 'vitest';
 
 const TOKEN = 'i'.repeat(48);
 const PREVIOUS = 'p'.repeat(48);
+/** The Cloud admin's own token (SR-5); TOKEN is the billing service's. */
+const ADMIN = 'a'.repeat(48);
+const isAdminRoute = (route: string) => route.split(' ')[1]!.startsWith('/internal/admin');
 
 let w: CloudWorld;
 let A: SeededOrg;
@@ -28,7 +31,7 @@ beforeAll(async () => {
   w = await cloudWorld();
   A = await seedOrg(w, 'zzalpha');
   internal = await buildInternalApp(
-    { token: TOKEN, previousToken: PREVIOUS, host: '127.0.0.1', port: 0 },
+    { token: TOKEN, previousToken: PREVIOUS, adminToken: ADMIN, host: '127.0.0.1', port: 0 },
     {
       systemDb: w.owner,
       entitlements: w.app.entitlements!,
@@ -105,6 +108,9 @@ describe('the internal API (its own listener)', () => {
         { authorization: 'Bearer wrong' },
         { authorization: `Bearer ${TOKEN}x` },
         { authorization: TOKEN },
+        // The other caller's token (SR-5): billing's on the admin API, the admin's elsewhere.
+        { authorization: `Bearer ${isAdminRoute(route) ? TOKEN : ADMIN}` },
+        { authorization: `Bearer ${isAdminRoute(route) ? PREVIOUS : ADMIN}` },
         { cookie: `wl_session=${cookie}` },
       ]) {
         const r = await internal.inject({
@@ -136,6 +142,62 @@ describe('the internal API (its own listener)', () => {
         headers: { authorization: `Bearer ${TOKEN}` },
       });
       expect(r.statusCode).toBe(404);
+    }
+  });
+
+  it("each caller's token reaches only its own routes (SR-5)", async () => {
+    const as = (token: string, url: string) =>
+      internal.inject({
+        method: 'GET',
+        url,
+        headers: { authorization: `Bearer ${token}`, 'x-watchlog-staff': 'staff@watchlog.io' },
+      });
+    expect((await as(ADMIN, '/internal/admin/orgs')).statusCode).toBe(200);
+    expect((await as(TOKEN, '/internal/admin/orgs')).statusCode).toBe(401);
+    expect((await as(TOKEN, '/internal/admin/orgs?x=/internal/orgs')).statusCode).toBe(401);
+    expect((await as(TOKEN, `/internal/orgs/${A.orgId}/entitlements`)).statusCode).toBe(200);
+    expect((await as(ADMIN, `/internal/orgs/${A.orgId}/entitlements`)).statusCode).toBe(401);
+    // Without an admin token configured, the admin API is off.
+    const off = await buildInternalApp(
+      { token: TOKEN, host: '127.0.0.1', port: 0 },
+      { systemDb: w.owner, entitlements: w.app.entitlements!, logLevel: 'silent' },
+    );
+    try {
+      for (const t of [TOKEN, ADMIN]) {
+        const r = await off.inject({
+          method: 'GET',
+          url: '/internal/admin/orgs',
+          headers: { authorization: `Bearer ${t}`, 'x-watchlog-staff': 'staff@watchlog.io' },
+        });
+        expect(r.statusCode).toBe(401);
+      }
+    } finally {
+      await off.close();
+    }
+  });
+
+  it('names only allowed staff when WATCHLOG_STAFF_EMAILS is set (SR-5)', async () => {
+    const strict = await buildInternalApp(
+      {
+        token: TOKEN,
+        adminToken: ADMIN,
+        staffEmails: ['grace@watchlog.io'],
+        host: '127.0.0.1',
+        port: 0,
+      },
+      { systemDb: w.owner, entitlements: w.app.entitlements!, logLevel: 'silent' },
+    );
+    try {
+      const as = (staff: string) =>
+        strict.inject({
+          method: 'GET',
+          url: '/internal/admin/orgs',
+          headers: { authorization: `Bearer ${ADMIN}`, 'x-watchlog-staff': staff },
+        });
+      expect((await as('Grace@watchlog.io')).statusCode).toBe(200);
+      expect((await as('mallory@watchlog.io')).statusCode).toBe(403);
+    } finally {
+      await strict.close();
     }
   });
 

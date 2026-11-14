@@ -13,6 +13,7 @@ import { openSupportSession } from '../src/modules/support/service.js';
 import { cloudWorld, seedOrg, type CloudWorld, type SeededOrg } from './isolation/cloud.js';
 
 const TOKEN = 'a'.repeat(48);
+const BILLING_TOKEN = 'b'.repeat(48);
 const STAFF = 'grace@watchlog.test';
 const quiet = { warn: () => {} };
 
@@ -26,7 +27,8 @@ beforeAll(async () => {
   A = await seedOrg(w, 'zzalpha');
   B = await seedOrg(w, 'zzbeta');
   internal = await buildInternalApp(
-    { token: TOKEN, host: '127.0.0.1', port: 0 },
+    // The Cloud admin's own token (SR-5); billing's is another.
+    { token: BILLING_TOKEN, adminToken: TOKEN, host: '127.0.0.1', port: 0 },
     {
       systemDb: w.owner,
       entitlements: w.app.entitlements!,
@@ -184,7 +186,7 @@ describe('the internal admin API', () => {
       source: 'staff',
       status: 'active',
       clusters: 2,
-      members: 2,
+      members: 3,
     });
     expect(row.nodesNow).toBeGreaterThanOrEqual(1);
     expect(row.lastDataAt).not.toBeNull();
@@ -197,6 +199,7 @@ describe('the internal admin API', () => {
     expect(r.statusCode).toBe(200);
     const body = r.json();
     expect(body.members.map((m: { email: string }) => m.email).sort()).toEqual([
+      'admin@zzalpha.test',
       'owner@zzalpha.test',
       'viewer@zzalpha.test',
     ]);
@@ -205,7 +208,7 @@ describe('the internal admin API', () => {
     expect(body).not.toHaveProperty('password_hash');
     expect(r.body).not.toContain('zzbeta');
     const members = await staff('GET', `/internal/admin/orgs/${A.orgId}/members`);
-    expect(members.json().members).toHaveLength(2);
+    expect(members.json().members).toHaveLength(3);
     const usage = await staff('GET', `/internal/admin/orgs/${A.orgId}/usage`);
     expect(usage.statusCode).toBe(200);
     expect(usage.json()).toMatchObject({ orgId: A.orgId, p95: 0 });
@@ -336,7 +339,7 @@ describe('the internal admin API', () => {
     const r = await internal.inject({
       method: 'POST',
       url: `/internal/orgs/${A.orgId}/beta-notice`,
-      headers: { authorization: `Bearer ${TOKEN}` },
+      headers: { authorization: `Bearer ${BILLING_TOKEN}` },
       payload: { billingStartsAt: '2027-02-01T00:00:00Z' },
     });
     expect(r.statusCode).toBe(202);

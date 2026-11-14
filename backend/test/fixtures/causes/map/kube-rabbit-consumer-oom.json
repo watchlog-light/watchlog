@@ -1,19 +1,1337 @@
 {
-  "cluster": {"id":"00000000-0000-4000-8000-00000000000a","name":"kind","kind":"kubernetes"},
+  "cluster": { "id": "00000000-0000-4000-8000-00000000000a", "name": "kind", "kind": "kubernetes" },
   "subject": "application:rabbitmq-e2e/rabbitmq",
   "now": 1794341041433,
-  "expected": {"state":"likely","headline":"app_consumer_oom","rule":"application_finding","chain":["queue_no_consumers","oom_killed_restarts"]},
+  "expected": {
+    "state": "likely",
+    "headline": "app_consumer_oom",
+    "rule": "application_finding",
+    "chain": ["queue_no_consumers", "oom_killed_restarts"]
+  },
   "reads": {
-    "GET /applications [[\"cluster\",\"00000000-0000-4000-8000-00000000000a\"]]": {"status":200,"body":{"applications":[{"id":"01a1c650-0ab9-70f0-89db-5ad0abff32e8","type":"rabbitmq","name":"rabbitmq-e2e/rabbitmq","version":"4.1.8","product":null,"cluster":{"id":"00000000-0000-4000-8000-00000000000a","name":"kind","kind":"kubernetes"},"where":{"group":"rabbitmq-e2e","host":null,"address":null},"target":{"kind":"workload","namespace":"rabbitmq-e2e","workload_kind":"StatefulSet","workload":"rabbitmq","port":5672},"health":"critical","reason":{"code":"connected","facts":{"up":1,"members":1}},"members":{"up":1,"total":1},"monitoredSince":"2026-11-10T16:34:56.839Z","lastReportAt":"2026-11-10T20:03:55.773Z","finding":{"severity":"critical","code":"queue_no_consumers","facts":{"queue":"orders","queues":1,"ready":347,"perMin":20,"sinceAt":1794341010,"since":"24 s ago","consumer":"rabbitmq-e2e/consumer","how":"OOMKilled","when":"47 s ago"},"links":[{"kind":"workload","id":"rabbitmq-e2e/Deployment/consumer","name":"rabbitmq-e2e/consumer"},{"kind":"workload","id":"rabbitmq-e2e/Deployment/publisher","name":"rabbitmq-e2e/publisher"}]}},{"id":"01a1c447-8f01-7081-96cf-9e301a81b0a6","type":"postgres","name":"shop/postgres","version":null,"product":null,"cluster":{"id":"00000000-0000-4000-8000-00000000000a","name":"kind","kind":"kubernetes"},"where":{"group":"shop","host":null,"address":null},"target":{"kind":"workload","namespace":"shop","workload_kind":"StatefulSet","workload":"postgres","port":5432},"health":"critical","reason":{"code":"unreachable","facts":{"error":"the collector may not read the Secret watchlog-e2e/shop-postgres-watchlog: run the role and rolebinding commands WatchLog shows","up":0,"members":0}},"members":{"up":0,"total":0},"monitoredSince":"2026-11-10T07:06:26.506Z","lastReportAt":"2026-11-10T20:03:55.773Z","finding":null},{"id":"01a1c650-0a87-76f8-a674-2b68cda291f3","type":"postgres","name":"causes-e2e/pg","version":"16.15","product":null,"cluster":{"id":"00000000-0000-4000-8000-00000000000a","name":"kind","kind":"kubernetes"},"where":{"group":"causes-e2e","host":null,"address":null},"target":{"kind":"workload","namespace":"causes-e2e","workload_kind":"Deployment","workload":"pg","port":5432},"health":"ok","reason":{"code":"connected","facts":{"up":1,"members":1}},"members":{"up":1,"total":1},"monitoredSince":"2026-11-10T16:34:56.790Z","lastReportAt":"2026-11-10T20:03:55.773Z","finding":null},{"id":"01a1c447-8ef9-73ff-87e8-59ec10810312","type":"redis","name":"shop/redis","version":"7.4.12","product":null,"cluster":{"id":"00000000-0000-4000-8000-00000000000a","name":"kind","kind":"kubernetes"},"where":{"group":"shop","host":null,"address":null},"target":{"kind":"workload","namespace":"shop","workload_kind":"Deployment","workload":"redis","port":6379},"health":"ok","reason":{"code":"connected","facts":{"up":1,"members":1}},"members":{"up":1,"total":1},"monitoredSince":"2026-11-10T07:06:26.497Z","lastReportAt":"2026-11-10T20:03:55.773Z","finding":null}]}},
-    "GET /applications/01a1c650-0ab9-70f0-89db-5ad0abff32e8 []": {"status":200,"body":{"application":{"id":"01a1c650-0ab9-70f0-89db-5ad0abff32e8","type":"rabbitmq","name":"rabbitmq-e2e/rabbitmq","version":"4.1.8","product":null,"cluster":{"id":"00000000-0000-4000-8000-00000000000a","name":"kind","kind":"kubernetes"},"where":{"group":"rabbitmq-e2e","host":null,"address":null},"target":{"kind":"workload","namespace":"rabbitmq-e2e","workload_kind":"StatefulSet","workload":"rabbitmq","port":5672},"health":"critical","reason":{"code":"connected","facts":{"up":1,"members":1}},"members":{"up":1,"total":1},"monitoredSince":"2026-11-10T16:34:56.839Z","lastReportAt":"2026-11-10T20:03:55.773Z","finding":{"severity":"critical","code":"queue_no_consumers","facts":{"queue":"orders","queues":1,"ready":347,"perMin":20,"sinceAt":1794341010,"since":"24 s ago","consumer":"rabbitmq-e2e/consumer","how":"OOMKilled","when":"47 s ago"},"links":[{"kind":"workload","id":"rabbitmq-e2e/Deployment/consumer","name":"rabbitmq-e2e/consumer"},{"kind":"workload","id":"rabbitmq-e2e/Deployment/publisher","name":"rabbitmq-e2e/publisher"}]}},"reasons":[{"severity":"critical","code":"queue_no_consumers","facts":{"queue":"orders","queues":1,"ready":347,"perMin":20,"sinceAt":1794341010,"since":"24 s ago","consumer":"rabbitmq-e2e/consumer","how":"OOMKilled","when":"47 s ago"},"links":[{"kind":"workload","id":"rabbitmq-e2e/Deployment/consumer","name":"rabbitmq-e2e/consumer"},{"kind":"workload","id":"rabbitmq-e2e/Deployment/publisher","name":"rabbitmq-e2e/publisher"}]},{"severity":"ok","code":"connected","facts":{"up":1,"members":1}}],"connected":{"flows":true,"items":[{"kind":"workload","name":"rabbitmq","namespace":"rabbitmq-e2e","workloadKind":"StatefulSet","composeService":null,"connections":126,"failed":0},{"kind":"workload","name":"consumer","namespace":"rabbitmq-e2e","workloadKind":"Deployment","composeService":null,"connections":6,"failed":0},{"kind":"workload","name":"publisher","namespace":"rabbitmq-e2e","workloadKind":"Deployment","composeService":null,"connections":6,"failed":0}]},"range":3600}},
-    "GET /clusters/00000000-0000-4000-8000-00000000000a/change-markers [[\"from\",1794337441],[\"namespaces\",\"rabbitmq-e2e\"],[\"to\",1794341041]]": {"status":200,"body":{"markers":[{"kind":"scale","target":"Deployment/rabbitmq-e2e/publisher","namespace":"rabbitmq-e2e","details":{"to":0,"from":1},"ts":"2026-11-10T19:07:50.613Z"},{"kind":"scale","target":"Deployment/rabbitmq-e2e/consumer","namespace":"rabbitmq-e2e","details":{"to":0,"from":1},"ts":"2026-11-10T19:07:50.613Z"},{"kind":"scale","target":"Deployment/rabbitmq-e2e/consumer","namespace":"rabbitmq-e2e","details":{"to":1,"from":0},"ts":"2026-11-10T19:08:10.613Z"},{"kind":"scale","target":"Deployment/rabbitmq-e2e/publisher","namespace":"rabbitmq-e2e","details":{"to":1,"from":0},"ts":"2026-11-10T19:08:10.613Z"},{"kind":"scale","target":"Deployment/rabbitmq-e2e/publisher","namespace":"rabbitmq-e2e","details":{"to":0,"from":1},"ts":"2026-11-10T19:14:00.611Z"},{"kind":"scale","target":"Deployment/rabbitmq-e2e/consumer","namespace":"rabbitmq-e2e","details":{"to":0,"from":1},"ts":"2026-11-10T19:14:00.611Z"},{"kind":"scale","target":"Deployment/rabbitmq-e2e/publisher","namespace":"rabbitmq-e2e","details":{"to":1,"from":0},"ts":"2026-11-10T19:19:20.629Z"},{"kind":"scale","target":"Deployment/rabbitmq-e2e/consumer","namespace":"rabbitmq-e2e","details":{"to":1,"from":0},"ts":"2026-11-10T19:19:20.629Z"},{"kind":"scale","target":"Deployment/rabbitmq-e2e/publisher","namespace":"rabbitmq-e2e","details":{"to":0,"from":1},"ts":"2026-11-10T19:25:20.609Z"},{"kind":"scale","target":"Deployment/rabbitmq-e2e/consumer","namespace":"rabbitmq-e2e","details":{"to":0,"from":1},"ts":"2026-11-10T19:25:20.609Z"},{"kind":"scale","target":"Deployment/rabbitmq-e2e/publisher","namespace":"rabbitmq-e2e","details":{"to":1,"from":0},"ts":"2026-11-10T20:01:55.618Z"},{"kind":"scale","target":"Deployment/rabbitmq-e2e/consumer","namespace":"rabbitmq-e2e","details":{"to":1,"from":0},"ts":"2026-11-10T20:01:55.618Z"}],"truncated":false}},
-    "GET /clusters/00000000-0000-4000-8000-00000000000a/events [[\"from\",1794337441],[\"limit\",100],[\"namespaces\",\"rabbitmq-e2e\"],[\"q\",\"consumer\"]]": {"status":200,"body":{"events":[{"type":"Normal","reason":"Started","message":"Container started","count":4,"firstSeen":"2026-11-10T20:01:52.000Z","lastSeen":"2026-11-10T20:03:28.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-w222s","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Pulled","message":"Container image \"pivotalrabbitmq/perf-test:2.25.0\" already present on machine and can be accessed by the pod","count":4,"firstSeen":"2026-11-10T20:01:52.000Z","lastSeen":"2026-11-10T20:03:28.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-w222s","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Created","message":"Container created","count":4,"firstSeen":"2026-11-10T20:01:52.000Z","lastSeen":"2026-11-10T20:03:28.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-w222s","reportingController":"kubelet","host":null},{"type":"Warning","reason":"BackOff","message":"Back-off restarting failed container consumer in pod consumer-59dd4b46b4-w222s_rabbitmq-e2e(1c2f90b3-90de-4fd7-885b-06ce74d6ab43)","count":3,"firstSeen":"2026-11-10T20:02:54.000Z","lastSeen":"2026-11-10T20:03:28.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-w222s","reportingController":"kubelet","host":null},{"type":"Normal","reason":"SuccessfulCreate","message":"Created pod: consumer-59dd4b46b4-w222s","count":4,"firstSeen":"2026-11-10T19:03:25.000Z","lastSeen":"2026-11-10T20:01:51.000Z","namespace":"rabbitmq-e2e","involvedKind":"ReplicaSet","involvedName":"consumer-59dd4b46b4","reportingController":"replicaset-controller","host":null},{"type":"Normal","reason":"Scheduled","message":"Successfully assigned rabbitmq-e2e/consumer-59dd4b46b4-w222s to demo-worker","count":1,"firstSeen":"2026-11-10T20:01:51.000Z","lastSeen":"2026-11-10T20:01:51.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-w222s","reportingController":"default-scheduler","host":null},{"type":"Normal","reason":"ScalingReplicaSet","message":"Scaled up replica set consumer-59dd4b46b4 from 0 to 1","count":30,"firstSeen":"2026-11-10T16:12:55.000Z","lastSeen":"2026-11-10T20:01:51.000Z","namespace":"rabbitmq-e2e","involvedKind":"Deployment","involvedName":"consumer","reportingController":"deployment-controller","host":null},{"type":"Normal","reason":"SuccessfulDelete","message":"Deleted pod: consumer-59dd4b46b4-sx5ns","count":3,"firstSeen":"2026-11-10T19:07:46.000Z","lastSeen":"2026-11-10T19:25:18.000Z","namespace":"rabbitmq-e2e","involvedKind":"ReplicaSet","involvedName":"consumer-59dd4b46b4","reportingController":"replicaset-controller","host":null},{"type":"Warning","reason":"BackOff","message":"Back-off restarting failed container consumer in pod consumer-59dd4b46b4-sx5ns_rabbitmq-e2e(9dcbf6cc-52c0-44cf-a5eb-44e58d9053b6)","count":7,"firstSeen":"2026-11-10T19:20:20.000Z","lastSeen":"2026-11-10T19:24:42.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-sx5ns","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Started","message":"Container started","count":6,"firstSeen":"2026-11-10T19:19:19.000Z","lastSeen":"2026-11-10T19:23:23.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-sx5ns","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Pulled","message":"Container image \"pivotalrabbitmq/perf-test:2.25.0\" already present on machine and can be accessed by the pod","count":6,"firstSeen":"2026-11-10T19:19:18.000Z","lastSeen":"2026-11-10T19:23:23.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-sx5ns","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Created","message":"Container created","count":6,"firstSeen":"2026-11-10T19:19:18.000Z","lastSeen":"2026-11-10T19:23:23.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-sx5ns","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Scheduled","message":"Successfully assigned rabbitmq-e2e/consumer-59dd4b46b4-sx5ns to demo-worker2","count":1,"firstSeen":"2026-11-10T19:19:17.000Z","lastSeen":"2026-11-10T19:19:17.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-sx5ns","reportingController":"default-scheduler","host":null},{"type":"Warning","reason":"BackOff","message":"Back-off restarting failed container consumer in pod consumer-59dd4b46b4-8w8km_rabbitmq-e2e(87ec8729-da8e-4eac-83a3-48759b7d98e6)","count":7,"firstSeen":"2026-11-10T19:09:11.000Z","lastSeen":"2026-11-10T19:13:30.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-8w8km","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Started","message":"Container started","count":6,"firstSeen":"2026-11-10T19:08:09.000Z","lastSeen":"2026-11-10T19:12:13.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-8w8km","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Pulled","message":"Container image \"pivotalrabbitmq/perf-test:2.25.0\" already present on machine and can be accessed by the pod","count":6,"firstSeen":"2026-11-10T19:08:09.000Z","lastSeen":"2026-11-10T19:12:13.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-8w8km","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Created","message":"Container created","count":6,"firstSeen":"2026-11-10T19:08:09.000Z","lastSeen":"2026-11-10T19:12:13.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-8w8km","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Scheduled","message":"Successfully assigned rabbitmq-e2e/consumer-59dd4b46b4-8w8km to demo-worker","count":1,"firstSeen":"2026-11-10T19:08:08.000Z","lastSeen":"2026-11-10T19:08:08.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-8w8km","reportingController":"default-scheduler","host":null},{"type":"Warning","reason":"BackOff","message":"Back-off restarting failed container consumer in pod consumer-59dd4b46b4-7fp7l_rabbitmq-e2e(8fb3b4f0-5bc1-437c-87d5-8a5280d6eaa7)","count":6,"firstSeen":"2026-11-10T19:04:28.000Z","lastSeen":"2026-11-10T19:07:12.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-7fp7l","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Started","message":"Container started","count":6,"firstSeen":"2026-11-10T19:03:26.000Z","lastSeen":"2026-11-10T19:07:11.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-7fp7l","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Pulled","message":"Container image \"pivotalrabbitmq/perf-test:2.25.0\" already present on machine and can be accessed by the pod","count":6,"firstSeen":"2026-11-10T19:03:26.000Z","lastSeen":"2026-11-10T19:07:11.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-7fp7l","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Created","message":"Container created","count":6,"firstSeen":"2026-11-10T19:03:26.000Z","lastSeen":"2026-11-10T19:07:11.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-7fp7l","reportingController":"kubelet","host":null}],"nextCursor":null}},
-    "GET /clusters/00000000-0000-4000-8000-00000000000a/nodes/demo-worker []": {"status":200,"body":{"node":{"name":"demo-worker","status":"Ready","roles":[],"unschedulable":false,"taints":[],"kubeletVersion":"v1.37.0","osImage":"Debian GNU/Linux 13 (trixie)","kernelVersion":"6.8.0-147-generic","architecture":"arm64","containerRuntime":"containerd://2.3.4","internalIp":"172.18.0.2","createdAt":"2026-11-09T15:38:35Z","cpu":{"usageCores":0.13926228333333104,"requestsCores":0.31,"allocatableCores":4},"memory":{"usageBytes":698658816,"requestsBytes":941621248,"allocatableBytes":6198562816},"diskUtilization":null,"pods":{"count":25,"capacity":110},"conditions":[{"type":"MemoryPressure","status":"False","reason":"KubeletHasSufficientMemory","message":"kubelet has sufficient memory available","since":"2026-11-09T15:38:35Z","bad":false},{"type":"DiskPressure","status":"False","reason":"KubeletHasNoDiskPressure","message":"kubelet has no disk pressure","since":"2026-11-09T15:38:35Z","bad":false},{"type":"PIDPressure","status":"False","reason":"KubeletHasSufficientPID","message":"kubelet has sufficient PID available","since":"2026-11-09T15:38:35Z","bad":false},{"type":"Ready","status":"True","reason":"KubeletReady","message":"kubelet is posting ready status","since":"2026-11-09T15:38:53Z","bad":false}],"agent":{"status":"active","version":"e2e","kubeletTls":"unverified","lastSeenAt":"2026-11-10T20:03:59.090Z"}},"events":[]}},
-    "GET /clusters/00000000-0000-4000-8000-00000000000a/pods [[\"namespaces\",\"rabbitmq-e2e\"],[\"workload\",\"consumer\"],[\"workloadKind\",\"Deployment\"]]": {"status":200,"body":{"pods":[{"namespace":"rabbitmq-e2e","name":"consumer-59dd4b46b4-w222s","node":"demo-worker","phase":"Running","status":"OOMKilled","ready":false,"readyContainers":0,"totalContainers":1,"restarts":3,"qosClass":"Burstable","ip":"10.244.2.115","workloadKind":"Deployment","workload":"consumer","createdAt":"2026-11-10T20:01:51Z","startedAt":"2026-11-10T20:01:51Z","lastTermination":{"container":"consumer","reason":"OOMKilled","exitCode":137,"finishedAt":null},"failing":"OOMKilled","cpuRequestCores":0,"cpuLimitCores":null,"memoryRequestBytes":402653184,"memoryLimitBytes":402653184,"cpuCores":0.011485500966602223,"memoryBytes":68202496}],"systemNamespaces":["kube-node-lease","kube-public","kube-system","local-path-storage"]}},
-    "GET /clusters/00000000-0000-4000-8000-00000000000a/pods/rabbitmq-e2e/consumer-59dd4b46b4-w222s []": {"status":200,"body":{"pod":{"namespace":"rabbitmq-e2e","name":"consumer-59dd4b46b4-w222s","node":"demo-worker","phase":"Running","status":"OOMKilled","ready":false,"readyContainers":0,"totalContainers":1,"restarts":3,"qosClass":"Burstable","ip":"10.244.2.115","workloadKind":"Deployment","workload":"consumer","createdAt":"2026-11-10T20:01:51Z","startedAt":"2026-11-10T20:01:51Z","lastTermination":{"container":"consumer","reason":"OOMKilled","exitCode":137,"finishedAt":null},"failing":"OOMKilled","cpuRequestCores":0,"cpuLimitCores":null,"memoryRequestBytes":402653184,"memoryLimitBytes":402653184,"cpuCores":0.011485500966602223,"memoryBytes":68202496},"labels":{"app":"consumer","pod-template-hash":"59dd4b46b4"},"pvcs":[],"containers":[{"name":"consumer","init":false,"image":"pivotalrabbitmq/perf-test:2.25.0","ready":false,"state":"terminated","reason":"OOMKilled","message":null,"exitCode":137,"restartCount":3,"startedAt":"2026-11-10T20:03:28Z","lastTermination":{"reason":"OOMKilled","exitCode":137,"finishedAt":"2026-11-10T20:03:07Z"},"cpuRequestCores":null,"cpuLimitCores":null,"memoryRequestBytes":402653184,"memoryLimitBytes":402653184,"cpuCores":0.011485500966602223,"memoryBytes":68202496}],"message":null,"events":[{"type":"Normal","reason":"Pulled","message":"Container image \"pivotalrabbitmq/perf-test:2.25.0\" already present on machine and can be accessed by the pod","count":4,"firstSeen":"2026-11-10T20:01:52.000Z","lastSeen":"2026-11-10T20:03:28.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-w222s","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Created","message":"Container created","count":4,"firstSeen":"2026-11-10T20:01:52.000Z","lastSeen":"2026-11-10T20:03:28.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-w222s","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Started","message":"Container started","count":4,"firstSeen":"2026-11-10T20:01:52.000Z","lastSeen":"2026-11-10T20:03:28.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-w222s","reportingController":"kubelet","host":null},{"type":"Warning","reason":"BackOff","message":"Back-off restarting failed container consumer in pod consumer-59dd4b46b4-w222s_rabbitmq-e2e(1c2f90b3-90de-4fd7-885b-06ce74d6ab43)","count":3,"firstSeen":"2026-11-10T20:02:54.000Z","lastSeen":"2026-11-10T20:03:28.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-w222s","reportingController":"kubelet","host":null},{"type":"Normal","reason":"Scheduled","message":"Successfully assigned rabbitmq-e2e/consumer-59dd4b46b4-w222s to demo-worker","count":1,"firstSeen":"2026-11-10T20:01:51.000Z","lastSeen":"2026-11-10T20:01:51.000Z","namespace":"rabbitmq-e2e","involvedKind":"Pod","involvedName":"consumer-59dd4b46b4-w222s","reportingController":"default-scheduler","host":null}]}},
-    "GET /clusters/00000000-0000-4000-8000-00000000000a/service-map [[\"namespaces\",\"rabbitmq-e2e\"],[\"range\",3600]]": {"status":200,"body":{"mode":"flows","agents":[{"node":"demo-control-plane","ebpf":"enabled","reason":null,"cause":null,"fix":null},{"node":"demo-worker","ebpf":"enabled","reason":null,"cause":null,"fix":null},{"node":"demo-worker2","ebpf":"enabled","reason":null,"cause":null,"fix":null}],"nodes":[{"id":"w:rabbitmq-e2e/Deployment/consumer","kind":"workload","name":"consumer","namespace":"rabbitmq-e2e","workloadKind":"Deployment","watchlog":false},{"id":"w:rabbitmq-e2e/Deployment/publisher","kind":"workload","name":"publisher","namespace":"rabbitmq-e2e","workloadKind":"Deployment","watchlog":false},{"id":"w:rabbitmq-e2e/StatefulSet/rabbitmq","kind":"workload","name":"rabbitmq","namespace":"rabbitmq-e2e","workloadKind":"StatefulSet","watchlog":false},{"id":"w:watchlog-e2e/Deployment/watchlog-e2e-watchlog-agent-integrations","kind":"workload","name":"watchlog-e2e-watchlog-agent-integrations","namespace":"watchlog-e2e","workloadKind":"Deployment","watchlog":true}],"edges":[{"id":"w:rabbitmq-e2e/Deployment/consumer>w:rabbitmq-e2e/StatefulSet/rabbitmq:5672","source":"w:rabbitmq-e2e/Deployment/consumer","target":"w:rabbitmq-e2e/StatefulSet/rabbitmq","port":5672,"service":"rabbitmq","connectionsPerSecond":0,"failedPerSecond":0,"failedRatio":null,"latencyMeanSeconds":null,"latencyP95Seconds":null,"bytesSentPerSecond":168.00224002986707,"bytesReceivedPerSecond":1120.2282697102628,"retransmitsPerSecond":0,"http":null,"health":"ok","failedLastMinute":0},{"id":"w:rabbitmq-e2e/Deployment/publisher>w:rabbitmq-e2e/StatefulSet/rabbitmq:5672","source":"w:rabbitmq-e2e/Deployment/publisher","target":"w:rabbitmq-e2e/StatefulSet/rabbitmq","port":5672,"service":"rabbitmq","connectionsPerSecond":0,"failedPerSecond":0,"failedRatio":null,"latencyMeanSeconds":null,"latencyP95Seconds":null,"bytesSentPerSecond":2039.067100745564,"bytesReceivedPerSecond":0.5333392593251036,"retransmitsPerSecond":0,"http":null,"health":"ok","failedLastMinute":0},{"id":"w:rabbitmq-e2e/StatefulSet/rabbitmq>w:rabbitmq-e2e/StatefulSet/rabbitmq:25672","source":"w:rabbitmq-e2e/StatefulSet/rabbitmq","target":"w:rabbitmq-e2e/StatefulSet/rabbitmq","port":25672,"service":null,"connectionsPerSecond":0,"failedPerSecond":0,"failedRatio":null,"latencyMeanSeconds":null,"latencyP95Seconds":null,"bytesSentPerSecond":null,"bytesReceivedPerSecond":null,"retransmitsPerSecond":0,"http":null,"health":"idle","failedLastMinute":0},{"id":"w:rabbitmq-e2e/StatefulSet/rabbitmq>w:rabbitmq-e2e/StatefulSet/rabbitmq:4369","source":"w:rabbitmq-e2e/StatefulSet/rabbitmq","target":"w:rabbitmq-e2e/StatefulSet/rabbitmq","port":4369,"service":null,"connectionsPerSecond":0.033333444444814814,"failedPerSecond":0,"failedRatio":0,"latencyMeanSeconds":3.389619999999982e-05,"latencyP95Seconds":0.000475,"bytesSentPerSecond":0.20000066666888888,"bytesReceivedPerSecond":0.8333361111203703,"retransmitsPerSecond":0,"http":null,"health":"ok","failedLastMinute":0},{"id":"w:watchlog-e2e/Deployment/watchlog-e2e-watchlog-agent-integrations>w:rabbitmq-e2e/StatefulSet/rabbitmq:15692","source":"w:watchlog-e2e/Deployment/watchlog-e2e-watchlog-agent-integrations","target":"w:rabbitmq-e2e/StatefulSet/rabbitmq","port":15692,"service":null,"connectionsPerSecond":0.06666688888962963,"failedPerSecond":0,"failedRatio":0,"latencyMeanSeconds":0.0001384680499999999,"latencyP95Seconds":0.0007499999999999998,"bytesSentPerSecond":14.96671655572185,"bytesReceivedPerSecond":832.7327757759192,"retransmitsPerSecond":0,"http":{"requestsPerSecond":0.10000033333444444,"clientErrorsPerSecond":0,"serverErrorsPerSecond":0,"serverErrorRatio":0,"p50Seconds":0.015,"p95Seconds":0.046874999999999986,"p99Seconds":0.08499999999999999},"health":"ok","failedLastMinute":0},{"id":"w:watchlog-e2e/Deployment/watchlog-e2e-watchlog-agent-integrations>w:rabbitmq-e2e/StatefulSet/rabbitmq:5672","source":"w:watchlog-e2e/Deployment/watchlog-e2e-watchlog-agent-integrations","target":"w:rabbitmq-e2e/StatefulSet/rabbitmq","port":5672,"service":null,"connectionsPerSecond":0.06666688888962963,"failedPerSecond":0,"failedRatio":0,"latencyMeanSeconds":0.0001504265499999935,"latencyP95Seconds":0.0005,"bytesSentPerSecond":0,"bytesReceivedPerSecond":0,"retransmitsPerSecond":0,"http":null,"health":"ok","failedLastMinute":0}],"dns":[]}},
-    "GET /clusters/00000000-0000-4000-8000-00000000000a/workloads [[\"namespaces\",\"rabbitmq-e2e\"],[\"range\",3600]]": {"status":200,"body":{"workloads":[{"kind":"Deployment","namespace":"rabbitmq-e2e","name":"consumer","desired":1,"ready":0,"updated":1,"health":"failed","pods":1,"restarts":3,"images":["pivotalrabbitmq/perf-test:2.25.0"],"createdAt":"2026-11-09T23:42:02Z","lastRolloutAt":"2026-11-10T19:03:30.613Z","schedule":null,"lastScheduleAt":null,"cpuRequestCores":0,"cpuLimitCores":null,"memoryRequestBytes":0,"memoryLimitBytes":402653184,"cpuCores":0.011485500966602223,"memoryBytes":68202496,"problem":{"severity":"warning","reason":"OOMKilled 54 s ago · limit 384Mi · 3 restarts","alertId":"01a1c70e-9ee7-75d3-965d-77b548ddef11"},"podStates":["failing"],"restartsInRange":17,"system":false,"lastRun":null},{"kind":"Deployment","namespace":"rabbitmq-e2e","name":"publisher","desired":1,"ready":1,"updated":1,"health":"healthy","pods":1,"restarts":0,"images":["pivotalrabbitmq/perf-test:2.25.0"],"createdAt":"2026-11-09T23:42:02Z","lastRolloutAt":null,"schedule":null,"lastScheduleAt":null,"cpuRequestCores":0,"cpuLimitCores":null,"memoryRequestBytes":0,"memoryLimitBytes":null,"cpuCores":0.008705861764362742,"memoryBytes":117555200,"problem":null,"podStates":["ready"],"restartsInRange":0,"system":false,"lastRun":null},{"kind":"StatefulSet","namespace":"rabbitmq-e2e","name":"rabbitmq","desired":1,"ready":1,"updated":1,"health":"healthy","pods":1,"restarts":2,"images":["rabbitmq:4.1"],"createdAt":"2026-11-09T23:42:02Z","lastRolloutAt":null,"schedule":null,"lastScheduleAt":null,"cpuRequestCores":0,"cpuLimitCores":null,"memoryRequestBytes":0,"memoryLimitBytes":null,"cpuCores":0.016163486058100897,"memoryBytes":105984000,"problem":null,"podStates":["ready"],"restartsInRange":0,"system":false,"lastRun":null}],"range":3600,"step":60,"systemNamespaces":["kube-node-lease","kube-public","kube-system","local-path-storage"]}},
-    "POST /query/range {\"clusterId\":\"00000000-0000-4000-8000-00000000000a\",\"metric\":\"pod.container.memory.working_set\",\"scope\":{\"namespace\":\"rabbitmq-e2e\",\"workload\":\"consumer\",\"workloadKind\":\"Deployment\"},\"from\":1794337441,\"to\":1794341041,\"step\":15}": {"status":200,"body":{"metric":"pod.container.memory.working_set","unit":"bytes","step":15,"series":[{"labels":{"container":"consumer","namespace":"rabbitmq-e2e","pod":"consumer-59dd4b46b4-7fp7l"},"points":[[1794337440,62521344],[1794337455,62775296],[1794337470,62775296]]},{"labels":{"container":"consumer","namespace":"rabbitmq-e2e","pod":"consumer-59dd4b46b4-8w8km"},"points":[[1794337695,63528960],[1794337710,63188992],[1794337725,63893504],[1794337740,64131072],[1794337755,64131072]]},{"labels":{"container":"consumer","namespace":"rabbitmq-e2e","pod":"consumer-59dd4b46b4-sx5ns"},"points":[[1794338385,58396672],[1794338400,59256832],[1794338415,59822080],[1794338430,60006400]]},{"labels":{"container":"consumer","namespace":"rabbitmq-e2e","pod":"consumer-59dd4b46b4-w222s"},"points":[[1794340920,66064384],[1794340935,67530752],[1794340950,68014080],[1794340965,68202496],[1794340980,68202496]]}]}},
-    "POST /query/range {\"clusterId\":\"00000000-0000-4000-8000-00000000000a\",\"metric\":\"pod.restarts\",\"scope\":{\"namespace\":\"rabbitmq-e2e\",\"workload\":\"consumer\",\"workloadKind\":\"Deployment\"},\"from\":1794337441,\"to\":1794341041,\"step\":15}": {"status":200,"body":{"metric":"pod.restarts","unit":"count","step":15,"series":[{"labels":{"namespace":"rabbitmq-e2e","pod":"consumer-59dd4b46b4-7fp7l"},"points":[[1794337440,0],[1794337455,0],[1794337470,0],[1794337485,2],[1794337500,2],[1794337515,3],[1794337530,3],[1794337545,3],[1794337560,4],[1794337575,4],[1794337590,4],[1794337605,4],[1794337620,4],[1794337635,4],[1794337650,5],[1794337665,5],[1794337680,5]]},{"labels":{"namespace":"rabbitmq-e2e","pod":"consumer-59dd4b46b4-8w8km"},"points":[[1794337695,0],[1794337710,0],[1794337725,0],[1794337740,0],[1794337755,0],[1794337770,2],[1794337785,2],[1794337800,3],[1794337815,3],[1794337830,3],[1794337845,3],[1794337860,4],[1794337875,4],[1794337890,4],[1794337905,4],[1794337920,4],[1794337935,4],[1794337950,5],[1794337965,5],[1794337980,5],[1794337995,5],[1794338010,5],[1794338025,5],[1794338040,5],[1794338055,5]]},{"labels":{"namespace":"rabbitmq-e2e","pod":"consumer-59dd4b46b4-sx5ns"},"points":[[1794338370,0],[1794338385,0],[1794338400,0],[1794338415,0],[1794338430,1],[1794338445,2],[1794338460,2],[1794338475,3],[1794338490,3],[1794338505,3],[1794338520,3],[1794338535,4],[1794338550,4],[1794338565,4],[1794338580,4],[1794338595,4],[1794338610,5],[1794338625,5],[1794338640,5],[1794338655,5],[1794338670,5],[1794338685,5],[1794338700,5],[1794338715,5],[1794338730,5]]},{"labels":{"namespace":"rabbitmq-e2e","pod":"consumer-59dd4b46b4-w222s"},"points":[[1794340920,0],[1794340935,0],[1794340950,0],[1794340965,0],[1794340980,1],[1794340995,2],[1794341010,2],[1794341025,2],[1794341040,2]]}]}}
+    "GET /applications [[\"cluster\",\"00000000-0000-4000-8000-00000000000a\"]]": {
+      "status": 200,
+      "body": {
+        "applications": [
+          {
+            "id": "01a1c650-0ab9-70f0-89db-5ad0abff32e8",
+            "type": "rabbitmq",
+            "name": "rabbitmq-e2e/rabbitmq",
+            "version": "4.1.8",
+            "product": null,
+            "cluster": {
+              "id": "00000000-0000-4000-8000-00000000000a",
+              "name": "kind",
+              "kind": "kubernetes"
+            },
+            "where": { "group": "rabbitmq-e2e", "host": null, "address": null },
+            "target": {
+              "kind": "workload",
+              "namespace": "rabbitmq-e2e",
+              "workload_kind": "StatefulSet",
+              "workload": "rabbitmq",
+              "port": 5672
+            },
+            "health": "critical",
+            "reason": { "code": "connected", "facts": { "up": 1, "members": 1 } },
+            "members": { "up": 1, "total": 1 },
+            "monitoredSince": "2026-11-10T16:34:56.839Z",
+            "lastReportAt": "2026-11-10T20:03:55.773Z",
+            "finding": {
+              "severity": "critical",
+              "code": "queue_no_consumers",
+              "facts": {
+                "queue": "orders",
+                "queues": 1,
+                "ready": 347,
+                "perMin": 20,
+                "sinceAt": 1794341010,
+                "since": "24 s ago",
+                "consumer": "rabbitmq-e2e/consumer",
+                "how": "OOMKilled",
+                "when": "47 s ago"
+              },
+              "links": [
+                {
+                  "kind": "workload",
+                  "id": "rabbitmq-e2e/Deployment/consumer",
+                  "name": "rabbitmq-e2e/consumer"
+                },
+                {
+                  "kind": "workload",
+                  "id": "rabbitmq-e2e/Deployment/publisher",
+                  "name": "rabbitmq-e2e/publisher"
+                }
+              ]
+            }
+          },
+          {
+            "id": "01a1c447-8f01-7081-96cf-9e301a81b0a6",
+            "type": "postgres",
+            "name": "shop/postgres",
+            "version": null,
+            "product": null,
+            "cluster": {
+              "id": "00000000-0000-4000-8000-00000000000a",
+              "name": "kind",
+              "kind": "kubernetes"
+            },
+            "where": { "group": "shop", "host": null, "address": null },
+            "target": {
+              "kind": "workload",
+              "namespace": "shop",
+              "workload_kind": "StatefulSet",
+              "workload": "postgres",
+              "port": 5432
+            },
+            "health": "critical",
+            "reason": {
+              "code": "unreachable",
+              "facts": {
+                "error": "the collector may not read the Secret watchlog-e2e/shop-postgres-watchlog: run the role and rolebinding commands WatchLog shows",
+                "up": 0,
+                "members": 0
+              }
+            },
+            "members": { "up": 0, "total": 0 },
+            "monitoredSince": "2026-11-10T07:06:26.506Z",
+            "lastReportAt": "2026-11-10T20:03:55.773Z",
+            "finding": null
+          },
+          {
+            "id": "01a1c650-0a87-76f8-a674-2b68cda291f3",
+            "type": "postgres",
+            "name": "causes-e2e/pg",
+            "version": "16.15",
+            "product": null,
+            "cluster": {
+              "id": "00000000-0000-4000-8000-00000000000a",
+              "name": "kind",
+              "kind": "kubernetes"
+            },
+            "where": { "group": "causes-e2e", "host": null, "address": null },
+            "target": {
+              "kind": "workload",
+              "namespace": "causes-e2e",
+              "workload_kind": "Deployment",
+              "workload": "pg",
+              "port": 5432
+            },
+            "health": "ok",
+            "reason": { "code": "connected", "facts": { "up": 1, "members": 1 } },
+            "members": { "up": 1, "total": 1 },
+            "monitoredSince": "2026-11-10T16:34:56.790Z",
+            "lastReportAt": "2026-11-10T20:03:55.773Z",
+            "finding": null
+          },
+          {
+            "id": "01a1c447-8ef9-73ff-87e8-59ec10810312",
+            "type": "redis",
+            "name": "shop/redis",
+            "version": "7.4.12",
+            "product": null,
+            "cluster": {
+              "id": "00000000-0000-4000-8000-00000000000a",
+              "name": "kind",
+              "kind": "kubernetes"
+            },
+            "where": { "group": "shop", "host": null, "address": null },
+            "target": {
+              "kind": "workload",
+              "namespace": "shop",
+              "workload_kind": "Deployment",
+              "workload": "redis",
+              "port": 6379
+            },
+            "health": "ok",
+            "reason": { "code": "connected", "facts": { "up": 1, "members": 1 } },
+            "members": { "up": 1, "total": 1 },
+            "monitoredSince": "2026-11-10T07:06:26.497Z",
+            "lastReportAt": "2026-11-10T20:03:55.773Z",
+            "finding": null
+          }
+        ]
+      }
+    },
+    "GET /applications/01a1c650-0ab9-70f0-89db-5ad0abff32e8 []": {
+      "status": 200,
+      "body": {
+        "application": {
+          "id": "01a1c650-0ab9-70f0-89db-5ad0abff32e8",
+          "type": "rabbitmq",
+          "name": "rabbitmq-e2e/rabbitmq",
+          "version": "4.1.8",
+          "product": null,
+          "cluster": {
+            "id": "00000000-0000-4000-8000-00000000000a",
+            "name": "kind",
+            "kind": "kubernetes"
+          },
+          "where": { "group": "rabbitmq-e2e", "host": null, "address": null },
+          "target": {
+            "kind": "workload",
+            "namespace": "rabbitmq-e2e",
+            "workload_kind": "StatefulSet",
+            "workload": "rabbitmq",
+            "port": 5672
+          },
+          "health": "critical",
+          "reason": { "code": "connected", "facts": { "up": 1, "members": 1 } },
+          "members": { "up": 1, "total": 1 },
+          "monitoredSince": "2026-11-10T16:34:56.839Z",
+          "lastReportAt": "2026-11-10T20:03:55.773Z",
+          "finding": {
+            "severity": "critical",
+            "code": "queue_no_consumers",
+            "facts": {
+              "queue": "orders",
+              "queues": 1,
+              "ready": 347,
+              "perMin": 20,
+              "sinceAt": 1794341010,
+              "since": "24 s ago",
+              "consumer": "rabbitmq-e2e/consumer",
+              "how": "OOMKilled",
+              "when": "47 s ago"
+            },
+            "links": [
+              {
+                "kind": "workload",
+                "id": "rabbitmq-e2e/Deployment/consumer",
+                "name": "rabbitmq-e2e/consumer"
+              },
+              {
+                "kind": "workload",
+                "id": "rabbitmq-e2e/Deployment/publisher",
+                "name": "rabbitmq-e2e/publisher"
+              }
+            ]
+          }
+        },
+        "reasons": [
+          {
+            "severity": "critical",
+            "code": "queue_no_consumers",
+            "facts": {
+              "queue": "orders",
+              "queues": 1,
+              "ready": 347,
+              "perMin": 20,
+              "sinceAt": 1794341010,
+              "since": "24 s ago",
+              "consumer": "rabbitmq-e2e/consumer",
+              "how": "OOMKilled",
+              "when": "47 s ago"
+            },
+            "links": [
+              {
+                "kind": "workload",
+                "id": "rabbitmq-e2e/Deployment/consumer",
+                "name": "rabbitmq-e2e/consumer"
+              },
+              {
+                "kind": "workload",
+                "id": "rabbitmq-e2e/Deployment/publisher",
+                "name": "rabbitmq-e2e/publisher"
+              }
+            ]
+          },
+          { "severity": "ok", "code": "connected", "facts": { "up": 1, "members": 1 } }
+        ],
+        "connected": {
+          "flows": true,
+          "items": [
+            {
+              "kind": "workload",
+              "name": "rabbitmq",
+              "namespace": "rabbitmq-e2e",
+              "workloadKind": "StatefulSet",
+              "composeService": null,
+              "connections": 126,
+              "failed": 0
+            },
+            {
+              "kind": "workload",
+              "name": "consumer",
+              "namespace": "rabbitmq-e2e",
+              "workloadKind": "Deployment",
+              "composeService": null,
+              "connections": 6,
+              "failed": 0
+            },
+            {
+              "kind": "workload",
+              "name": "publisher",
+              "namespace": "rabbitmq-e2e",
+              "workloadKind": "Deployment",
+              "composeService": null,
+              "connections": 6,
+              "failed": 0
+            }
+          ]
+        },
+        "range": 3600
+      }
+    },
+    "GET /clusters/00000000-0000-4000-8000-00000000000a/change-markers [[\"from\",1794337441],[\"namespaces\",\"rabbitmq-e2e\"],[\"to\",1794341041]]": {
+      "status": 200,
+      "body": {
+        "markers": [
+          {
+            "kind": "scale",
+            "target": "Deployment/rabbitmq-e2e/publisher",
+            "namespace": "rabbitmq-e2e",
+            "details": { "to": 0, "from": 1 },
+            "ts": "2026-11-10T19:07:50.613Z"
+          },
+          {
+            "kind": "scale",
+            "target": "Deployment/rabbitmq-e2e/consumer",
+            "namespace": "rabbitmq-e2e",
+            "details": { "to": 0, "from": 1 },
+            "ts": "2026-11-10T19:07:50.613Z"
+          },
+          {
+            "kind": "scale",
+            "target": "Deployment/rabbitmq-e2e/consumer",
+            "namespace": "rabbitmq-e2e",
+            "details": { "to": 1, "from": 0 },
+            "ts": "2026-11-10T19:08:10.613Z"
+          },
+          {
+            "kind": "scale",
+            "target": "Deployment/rabbitmq-e2e/publisher",
+            "namespace": "rabbitmq-e2e",
+            "details": { "to": 1, "from": 0 },
+            "ts": "2026-11-10T19:08:10.613Z"
+          },
+          {
+            "kind": "scale",
+            "target": "Deployment/rabbitmq-e2e/publisher",
+            "namespace": "rabbitmq-e2e",
+            "details": { "to": 0, "from": 1 },
+            "ts": "2026-11-10T19:14:00.611Z"
+          },
+          {
+            "kind": "scale",
+            "target": "Deployment/rabbitmq-e2e/consumer",
+            "namespace": "rabbitmq-e2e",
+            "details": { "to": 0, "from": 1 },
+            "ts": "2026-11-10T19:14:00.611Z"
+          },
+          {
+            "kind": "scale",
+            "target": "Deployment/rabbitmq-e2e/publisher",
+            "namespace": "rabbitmq-e2e",
+            "details": { "to": 1, "from": 0 },
+            "ts": "2026-11-10T19:19:20.629Z"
+          },
+          {
+            "kind": "scale",
+            "target": "Deployment/rabbitmq-e2e/consumer",
+            "namespace": "rabbitmq-e2e",
+            "details": { "to": 1, "from": 0 },
+            "ts": "2026-11-10T19:19:20.629Z"
+          },
+          {
+            "kind": "scale",
+            "target": "Deployment/rabbitmq-e2e/publisher",
+            "namespace": "rabbitmq-e2e",
+            "details": { "to": 0, "from": 1 },
+            "ts": "2026-11-10T19:25:20.609Z"
+          },
+          {
+            "kind": "scale",
+            "target": "Deployment/rabbitmq-e2e/consumer",
+            "namespace": "rabbitmq-e2e",
+            "details": { "to": 0, "from": 1 },
+            "ts": "2026-11-10T19:25:20.609Z"
+          },
+          {
+            "kind": "scale",
+            "target": "Deployment/rabbitmq-e2e/publisher",
+            "namespace": "rabbitmq-e2e",
+            "details": { "to": 1, "from": 0 },
+            "ts": "2026-11-10T20:01:55.618Z"
+          },
+          {
+            "kind": "scale",
+            "target": "Deployment/rabbitmq-e2e/consumer",
+            "namespace": "rabbitmq-e2e",
+            "details": { "to": 1, "from": 0 },
+            "ts": "2026-11-10T20:01:55.618Z"
+          }
+        ],
+        "truncated": false
+      }
+    },
+    "GET /clusters/00000000-0000-4000-8000-00000000000a/events [[\"from\",1794337441],[\"limit\",100],[\"namespaces\",\"rabbitmq-e2e\"],[\"q\",\"consumer\"]]": {
+      "status": 200,
+      "body": {
+        "events": [
+          {
+            "type": "Normal",
+            "reason": "Started",
+            "message": "Container started",
+            "count": 4,
+            "firstSeen": "2026-11-10T20:01:52.000Z",
+            "lastSeen": "2026-11-10T20:03:28.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-w222s",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Pulled",
+            "message": "Container image \"pivotalrabbitmq/perf-test:2.25.0\" already present on machine and can be accessed by the pod",
+            "count": 4,
+            "firstSeen": "2026-11-10T20:01:52.000Z",
+            "lastSeen": "2026-11-10T20:03:28.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-w222s",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Created",
+            "message": "Container created",
+            "count": 4,
+            "firstSeen": "2026-11-10T20:01:52.000Z",
+            "lastSeen": "2026-11-10T20:03:28.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-w222s",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Warning",
+            "reason": "BackOff",
+            "message": "Back-off restarting failed container consumer in pod consumer-59dd4b46b4-w222s_rabbitmq-e2e(1c2f90b3-90de-4fd7-885b-06ce74d6ab43)",
+            "count": 3,
+            "firstSeen": "2026-11-10T20:02:54.000Z",
+            "lastSeen": "2026-11-10T20:03:28.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-w222s",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "SuccessfulCreate",
+            "message": "Created pod: consumer-59dd4b46b4-w222s",
+            "count": 4,
+            "firstSeen": "2026-11-10T19:03:25.000Z",
+            "lastSeen": "2026-11-10T20:01:51.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "ReplicaSet",
+            "involvedName": "consumer-59dd4b46b4",
+            "reportingController": "replicaset-controller",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Scheduled",
+            "message": "Successfully assigned rabbitmq-e2e/consumer-59dd4b46b4-w222s to demo-worker",
+            "count": 1,
+            "firstSeen": "2026-11-10T20:01:51.000Z",
+            "lastSeen": "2026-11-10T20:01:51.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-w222s",
+            "reportingController": "default-scheduler",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "ScalingReplicaSet",
+            "message": "Scaled up replica set consumer-59dd4b46b4 from 0 to 1",
+            "count": 30,
+            "firstSeen": "2026-11-10T16:12:55.000Z",
+            "lastSeen": "2026-11-10T20:01:51.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Deployment",
+            "involvedName": "consumer",
+            "reportingController": "deployment-controller",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "SuccessfulDelete",
+            "message": "Deleted pod: consumer-59dd4b46b4-sx5ns",
+            "count": 3,
+            "firstSeen": "2026-11-10T19:07:46.000Z",
+            "lastSeen": "2026-11-10T19:25:18.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "ReplicaSet",
+            "involvedName": "consumer-59dd4b46b4",
+            "reportingController": "replicaset-controller",
+            "host": null
+          },
+          {
+            "type": "Warning",
+            "reason": "BackOff",
+            "message": "Back-off restarting failed container consumer in pod consumer-59dd4b46b4-sx5ns_rabbitmq-e2e(9dcbf6cc-52c0-44cf-a5eb-44e58d9053b6)",
+            "count": 7,
+            "firstSeen": "2026-11-10T19:20:20.000Z",
+            "lastSeen": "2026-11-10T19:24:42.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-sx5ns",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Started",
+            "message": "Container started",
+            "count": 6,
+            "firstSeen": "2026-11-10T19:19:19.000Z",
+            "lastSeen": "2026-11-10T19:23:23.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-sx5ns",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Pulled",
+            "message": "Container image \"pivotalrabbitmq/perf-test:2.25.0\" already present on machine and can be accessed by the pod",
+            "count": 6,
+            "firstSeen": "2026-11-10T19:19:18.000Z",
+            "lastSeen": "2026-11-10T19:23:23.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-sx5ns",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Created",
+            "message": "Container created",
+            "count": 6,
+            "firstSeen": "2026-11-10T19:19:18.000Z",
+            "lastSeen": "2026-11-10T19:23:23.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-sx5ns",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Scheduled",
+            "message": "Successfully assigned rabbitmq-e2e/consumer-59dd4b46b4-sx5ns to demo-worker2",
+            "count": 1,
+            "firstSeen": "2026-11-10T19:19:17.000Z",
+            "lastSeen": "2026-11-10T19:19:17.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-sx5ns",
+            "reportingController": "default-scheduler",
+            "host": null
+          },
+          {
+            "type": "Warning",
+            "reason": "BackOff",
+            "message": "Back-off restarting failed container consumer in pod consumer-59dd4b46b4-8w8km_rabbitmq-e2e(87ec8729-da8e-4eac-83a3-48759b7d98e6)",
+            "count": 7,
+            "firstSeen": "2026-11-10T19:09:11.000Z",
+            "lastSeen": "2026-11-10T19:13:30.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-8w8km",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Started",
+            "message": "Container started",
+            "count": 6,
+            "firstSeen": "2026-11-10T19:08:09.000Z",
+            "lastSeen": "2026-11-10T19:12:13.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-8w8km",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Pulled",
+            "message": "Container image \"pivotalrabbitmq/perf-test:2.25.0\" already present on machine and can be accessed by the pod",
+            "count": 6,
+            "firstSeen": "2026-11-10T19:08:09.000Z",
+            "lastSeen": "2026-11-10T19:12:13.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-8w8km",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Created",
+            "message": "Container created",
+            "count": 6,
+            "firstSeen": "2026-11-10T19:08:09.000Z",
+            "lastSeen": "2026-11-10T19:12:13.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-8w8km",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Scheduled",
+            "message": "Successfully assigned rabbitmq-e2e/consumer-59dd4b46b4-8w8km to demo-worker",
+            "count": 1,
+            "firstSeen": "2026-11-10T19:08:08.000Z",
+            "lastSeen": "2026-11-10T19:08:08.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-8w8km",
+            "reportingController": "default-scheduler",
+            "host": null
+          },
+          {
+            "type": "Warning",
+            "reason": "BackOff",
+            "message": "Back-off restarting failed container consumer in pod consumer-59dd4b46b4-7fp7l_rabbitmq-e2e(8fb3b4f0-5bc1-437c-87d5-8a5280d6eaa7)",
+            "count": 6,
+            "firstSeen": "2026-11-10T19:04:28.000Z",
+            "lastSeen": "2026-11-10T19:07:12.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-7fp7l",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Started",
+            "message": "Container started",
+            "count": 6,
+            "firstSeen": "2026-11-10T19:03:26.000Z",
+            "lastSeen": "2026-11-10T19:07:11.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-7fp7l",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Pulled",
+            "message": "Container image \"pivotalrabbitmq/perf-test:2.25.0\" already present on machine and can be accessed by the pod",
+            "count": 6,
+            "firstSeen": "2026-11-10T19:03:26.000Z",
+            "lastSeen": "2026-11-10T19:07:11.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-7fp7l",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Created",
+            "message": "Container created",
+            "count": 6,
+            "firstSeen": "2026-11-10T19:03:26.000Z",
+            "lastSeen": "2026-11-10T19:07:11.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-7fp7l",
+            "reportingController": "kubelet",
+            "host": null
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    "GET /clusters/00000000-0000-4000-8000-00000000000a/nodes/demo-worker []": {
+      "status": 200,
+      "body": {
+        "node": {
+          "name": "demo-worker",
+          "status": "Ready",
+          "roles": [],
+          "unschedulable": false,
+          "taints": [],
+          "kubeletVersion": "v1.37.0",
+          "osImage": "Debian GNU/Linux 13 (trixie)",
+          "kernelVersion": "6.8.0-147-generic",
+          "architecture": "arm64",
+          "containerRuntime": "containerd://2.3.4",
+          "internalIp": "172.18.0.2",
+          "createdAt": "2026-11-09T15:38:35Z",
+          "cpu": {
+            "usageCores": 0.13926228333333104,
+            "requestsCores": 0.31,
+            "allocatableCores": 4
+          },
+          "memory": {
+            "usageBytes": 698658816,
+            "requestsBytes": 941621248,
+            "allocatableBytes": 6198562816
+          },
+          "diskUtilization": null,
+          "pods": { "count": 25, "capacity": 110 },
+          "conditions": [
+            {
+              "type": "MemoryPressure",
+              "status": "False",
+              "reason": "KubeletHasSufficientMemory",
+              "message": "kubelet has sufficient memory available",
+              "since": "2026-11-09T15:38:35Z",
+              "bad": false
+            },
+            {
+              "type": "DiskPressure",
+              "status": "False",
+              "reason": "KubeletHasNoDiskPressure",
+              "message": "kubelet has no disk pressure",
+              "since": "2026-11-09T15:38:35Z",
+              "bad": false
+            },
+            {
+              "type": "PIDPressure",
+              "status": "False",
+              "reason": "KubeletHasSufficientPID",
+              "message": "kubelet has sufficient PID available",
+              "since": "2026-11-09T15:38:35Z",
+              "bad": false
+            },
+            {
+              "type": "Ready",
+              "status": "True",
+              "reason": "KubeletReady",
+              "message": "kubelet is posting ready status",
+              "since": "2026-11-09T15:38:53Z",
+              "bad": false
+            }
+          ],
+          "agent": {
+            "status": "active",
+            "version": "e2e",
+            "kubeletTls": "unverified",
+            "lastSeenAt": "2026-11-10T20:03:59.090Z"
+          }
+        },
+        "events": []
+      }
+    },
+    "GET /clusters/00000000-0000-4000-8000-00000000000a/pods [[\"namespaces\",\"rabbitmq-e2e\"],[\"workload\",\"consumer\"],[\"workloadKind\",\"Deployment\"]]": {
+      "status": 200,
+      "body": {
+        "pods": [
+          {
+            "namespace": "rabbitmq-e2e",
+            "name": "consumer-59dd4b46b4-w222s",
+            "node": "demo-worker",
+            "phase": "Running",
+            "status": "OOMKilled",
+            "ready": false,
+            "readyContainers": 0,
+            "totalContainers": 1,
+            "restarts": 3,
+            "qosClass": "Burstable",
+            "ip": "10.244.2.115",
+            "workloadKind": "Deployment",
+            "workload": "consumer",
+            "createdAt": "2026-11-10T20:01:51Z",
+            "startedAt": "2026-11-10T20:01:51Z",
+            "lastTermination": {
+              "container": "consumer",
+              "reason": "OOMKilled",
+              "exitCode": 137,
+              "finishedAt": null
+            },
+            "failing": "OOMKilled",
+            "cpuRequestCores": 0,
+            "cpuLimitCores": null,
+            "memoryRequestBytes": 402653184,
+            "memoryLimitBytes": 402653184,
+            "cpuCores": 0.011485500966602223,
+            "memoryBytes": 68202496
+          }
+        ],
+        "systemNamespaces": ["kube-node-lease", "kube-public", "kube-system", "local-path-storage"]
+      }
+    },
+    "GET /clusters/00000000-0000-4000-8000-00000000000a/pods/rabbitmq-e2e/consumer-59dd4b46b4-w222s []": {
+      "status": 200,
+      "body": {
+        "pod": {
+          "namespace": "rabbitmq-e2e",
+          "name": "consumer-59dd4b46b4-w222s",
+          "node": "demo-worker",
+          "phase": "Running",
+          "status": "OOMKilled",
+          "ready": false,
+          "readyContainers": 0,
+          "totalContainers": 1,
+          "restarts": 3,
+          "qosClass": "Burstable",
+          "ip": "10.244.2.115",
+          "workloadKind": "Deployment",
+          "workload": "consumer",
+          "createdAt": "2026-11-10T20:01:51Z",
+          "startedAt": "2026-11-10T20:01:51Z",
+          "lastTermination": {
+            "container": "consumer",
+            "reason": "OOMKilled",
+            "exitCode": 137,
+            "finishedAt": null
+          },
+          "failing": "OOMKilled",
+          "cpuRequestCores": 0,
+          "cpuLimitCores": null,
+          "memoryRequestBytes": 402653184,
+          "memoryLimitBytes": 402653184,
+          "cpuCores": 0.011485500966602223,
+          "memoryBytes": 68202496
+        },
+        "labels": { "app": "consumer", "pod-template-hash": "59dd4b46b4" },
+        "pvcs": [],
+        "containers": [
+          {
+            "name": "consumer",
+            "init": false,
+            "image": "pivotalrabbitmq/perf-test:2.25.0",
+            "ready": false,
+            "state": "terminated",
+            "reason": "OOMKilled",
+            "message": null,
+            "exitCode": 137,
+            "restartCount": 3,
+            "startedAt": "2026-11-10T20:03:28Z",
+            "lastTermination": {
+              "reason": "OOMKilled",
+              "exitCode": 137,
+              "finishedAt": "2026-11-10T20:03:07Z"
+            },
+            "cpuRequestCores": null,
+            "cpuLimitCores": null,
+            "memoryRequestBytes": 402653184,
+            "memoryLimitBytes": 402653184,
+            "cpuCores": 0.011485500966602223,
+            "memoryBytes": 68202496
+          }
+        ],
+        "message": null,
+        "events": [
+          {
+            "type": "Normal",
+            "reason": "Pulled",
+            "message": "Container image \"pivotalrabbitmq/perf-test:2.25.0\" already present on machine and can be accessed by the pod",
+            "count": 4,
+            "firstSeen": "2026-11-10T20:01:52.000Z",
+            "lastSeen": "2026-11-10T20:03:28.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-w222s",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Created",
+            "message": "Container created",
+            "count": 4,
+            "firstSeen": "2026-11-10T20:01:52.000Z",
+            "lastSeen": "2026-11-10T20:03:28.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-w222s",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Started",
+            "message": "Container started",
+            "count": 4,
+            "firstSeen": "2026-11-10T20:01:52.000Z",
+            "lastSeen": "2026-11-10T20:03:28.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-w222s",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Warning",
+            "reason": "BackOff",
+            "message": "Back-off restarting failed container consumer in pod consumer-59dd4b46b4-w222s_rabbitmq-e2e(1c2f90b3-90de-4fd7-885b-06ce74d6ab43)",
+            "count": 3,
+            "firstSeen": "2026-11-10T20:02:54.000Z",
+            "lastSeen": "2026-11-10T20:03:28.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-w222s",
+            "reportingController": "kubelet",
+            "host": null
+          },
+          {
+            "type": "Normal",
+            "reason": "Scheduled",
+            "message": "Successfully assigned rabbitmq-e2e/consumer-59dd4b46b4-w222s to demo-worker",
+            "count": 1,
+            "firstSeen": "2026-11-10T20:01:51.000Z",
+            "lastSeen": "2026-11-10T20:01:51.000Z",
+            "namespace": "rabbitmq-e2e",
+            "involvedKind": "Pod",
+            "involvedName": "consumer-59dd4b46b4-w222s",
+            "reportingController": "default-scheduler",
+            "host": null
+          }
+        ]
+      }
+    },
+    "GET /clusters/00000000-0000-4000-8000-00000000000a/service-map [[\"namespaces\",\"rabbitmq-e2e\"],[\"range\",3600]]": {
+      "status": 200,
+      "body": {
+        "mode": "flows",
+        "agents": [
+          {
+            "node": "demo-control-plane",
+            "ebpf": "enabled",
+            "reason": null,
+            "cause": null,
+            "fix": null
+          },
+          { "node": "demo-worker", "ebpf": "enabled", "reason": null, "cause": null, "fix": null },
+          { "node": "demo-worker2", "ebpf": "enabled", "reason": null, "cause": null, "fix": null }
+        ],
+        "nodes": [
+          {
+            "id": "w:rabbitmq-e2e/Deployment/consumer",
+            "kind": "workload",
+            "name": "consumer",
+            "namespace": "rabbitmq-e2e",
+            "workloadKind": "Deployment",
+            "watchlog": false
+          },
+          {
+            "id": "w:rabbitmq-e2e/Deployment/publisher",
+            "kind": "workload",
+            "name": "publisher",
+            "namespace": "rabbitmq-e2e",
+            "workloadKind": "Deployment",
+            "watchlog": false
+          },
+          {
+            "id": "w:rabbitmq-e2e/StatefulSet/rabbitmq",
+            "kind": "workload",
+            "name": "rabbitmq",
+            "namespace": "rabbitmq-e2e",
+            "workloadKind": "StatefulSet",
+            "watchlog": false
+          },
+          {
+            "id": "w:watchlog-e2e/Deployment/watchlog-e2e-watchlog-agent-integrations",
+            "kind": "workload",
+            "name": "watchlog-e2e-watchlog-agent-integrations",
+            "namespace": "watchlog-e2e",
+            "workloadKind": "Deployment",
+            "watchlog": true
+          }
+        ],
+        "edges": [
+          {
+            "id": "w:rabbitmq-e2e/Deployment/consumer>w:rabbitmq-e2e/StatefulSet/rabbitmq:5672",
+            "source": "w:rabbitmq-e2e/Deployment/consumer",
+            "target": "w:rabbitmq-e2e/StatefulSet/rabbitmq",
+            "port": 5672,
+            "service": "rabbitmq",
+            "connectionsPerSecond": 0,
+            "failedPerSecond": 0,
+            "failedRatio": null,
+            "latencyMeanSeconds": null,
+            "latencyP95Seconds": null,
+            "bytesSentPerSecond": 168.00224002986707,
+            "bytesReceivedPerSecond": 1120.2282697102628,
+            "retransmitsPerSecond": 0,
+            "http": null,
+            "health": "ok",
+            "failedLastMinute": 0
+          },
+          {
+            "id": "w:rabbitmq-e2e/Deployment/publisher>w:rabbitmq-e2e/StatefulSet/rabbitmq:5672",
+            "source": "w:rabbitmq-e2e/Deployment/publisher",
+            "target": "w:rabbitmq-e2e/StatefulSet/rabbitmq",
+            "port": 5672,
+            "service": "rabbitmq",
+            "connectionsPerSecond": 0,
+            "failedPerSecond": 0,
+            "failedRatio": null,
+            "latencyMeanSeconds": null,
+            "latencyP95Seconds": null,
+            "bytesSentPerSecond": 2039.067100745564,
+            "bytesReceivedPerSecond": 0.5333392593251036,
+            "retransmitsPerSecond": 0,
+            "http": null,
+            "health": "ok",
+            "failedLastMinute": 0
+          },
+          {
+            "id": "w:rabbitmq-e2e/StatefulSet/rabbitmq>w:rabbitmq-e2e/StatefulSet/rabbitmq:25672",
+            "source": "w:rabbitmq-e2e/StatefulSet/rabbitmq",
+            "target": "w:rabbitmq-e2e/StatefulSet/rabbitmq",
+            "port": 25672,
+            "service": null,
+            "connectionsPerSecond": 0,
+            "failedPerSecond": 0,
+            "failedRatio": null,
+            "latencyMeanSeconds": null,
+            "latencyP95Seconds": null,
+            "bytesSentPerSecond": null,
+            "bytesReceivedPerSecond": null,
+            "retransmitsPerSecond": 0,
+            "http": null,
+            "health": "idle",
+            "failedLastMinute": 0
+          },
+          {
+            "id": "w:rabbitmq-e2e/StatefulSet/rabbitmq>w:rabbitmq-e2e/StatefulSet/rabbitmq:4369",
+            "source": "w:rabbitmq-e2e/StatefulSet/rabbitmq",
+            "target": "w:rabbitmq-e2e/StatefulSet/rabbitmq",
+            "port": 4369,
+            "service": null,
+            "connectionsPerSecond": 0.033333444444814814,
+            "failedPerSecond": 0,
+            "failedRatio": 0,
+            "latencyMeanSeconds": 3.389619999999982e-5,
+            "latencyP95Seconds": 0.000475,
+            "bytesSentPerSecond": 0.20000066666888888,
+            "bytesReceivedPerSecond": 0.8333361111203703,
+            "retransmitsPerSecond": 0,
+            "http": null,
+            "health": "ok",
+            "failedLastMinute": 0
+          },
+          {
+            "id": "w:watchlog-e2e/Deployment/watchlog-e2e-watchlog-agent-integrations>w:rabbitmq-e2e/StatefulSet/rabbitmq:15692",
+            "source": "w:watchlog-e2e/Deployment/watchlog-e2e-watchlog-agent-integrations",
+            "target": "w:rabbitmq-e2e/StatefulSet/rabbitmq",
+            "port": 15692,
+            "service": null,
+            "connectionsPerSecond": 0.06666688888962963,
+            "failedPerSecond": 0,
+            "failedRatio": 0,
+            "latencyMeanSeconds": 0.0001384680499999999,
+            "latencyP95Seconds": 0.0007499999999999998,
+            "bytesSentPerSecond": 14.96671655572185,
+            "bytesReceivedPerSecond": 832.7327757759192,
+            "retransmitsPerSecond": 0,
+            "http": {
+              "requestsPerSecond": 0.10000033333444444,
+              "clientErrorsPerSecond": 0,
+              "serverErrorsPerSecond": 0,
+              "serverErrorRatio": 0,
+              "p50Seconds": 0.015,
+              "p95Seconds": 0.046874999999999986,
+              "p99Seconds": 0.08499999999999999
+            },
+            "health": "ok",
+            "failedLastMinute": 0
+          },
+          {
+            "id": "w:watchlog-e2e/Deployment/watchlog-e2e-watchlog-agent-integrations>w:rabbitmq-e2e/StatefulSet/rabbitmq:5672",
+            "source": "w:watchlog-e2e/Deployment/watchlog-e2e-watchlog-agent-integrations",
+            "target": "w:rabbitmq-e2e/StatefulSet/rabbitmq",
+            "port": 5672,
+            "service": null,
+            "connectionsPerSecond": 0.06666688888962963,
+            "failedPerSecond": 0,
+            "failedRatio": 0,
+            "latencyMeanSeconds": 0.0001504265499999935,
+            "latencyP95Seconds": 0.0005,
+            "bytesSentPerSecond": 0,
+            "bytesReceivedPerSecond": 0,
+            "retransmitsPerSecond": 0,
+            "http": null,
+            "health": "ok",
+            "failedLastMinute": 0
+          }
+        ],
+        "dns": []
+      }
+    },
+    "GET /clusters/00000000-0000-4000-8000-00000000000a/workloads [[\"namespaces\",\"rabbitmq-e2e\"],[\"range\",3600]]": {
+      "status": 200,
+      "body": {
+        "workloads": [
+          {
+            "kind": "Deployment",
+            "namespace": "rabbitmq-e2e",
+            "name": "consumer",
+            "desired": 1,
+            "ready": 0,
+            "updated": 1,
+            "health": "failed",
+            "pods": 1,
+            "restarts": 3,
+            "images": ["pivotalrabbitmq/perf-test:2.25.0"],
+            "createdAt": "2026-11-09T23:42:02Z",
+            "lastRolloutAt": "2026-11-10T19:03:30.613Z",
+            "schedule": null,
+            "lastScheduleAt": null,
+            "cpuRequestCores": 0,
+            "cpuLimitCores": null,
+            "memoryRequestBytes": 0,
+            "memoryLimitBytes": 402653184,
+            "cpuCores": 0.011485500966602223,
+            "memoryBytes": 68202496,
+            "problem": {
+              "severity": "warning",
+              "reason": "OOMKilled 54 s ago · limit 384Mi · 3 restarts",
+              "alertId": "01a1c70e-9ee7-75d3-965d-77b548ddef11"
+            },
+            "podStates": ["failing"],
+            "restartsInRange": 17,
+            "system": false,
+            "lastRun": null
+          },
+          {
+            "kind": "Deployment",
+            "namespace": "rabbitmq-e2e",
+            "name": "publisher",
+            "desired": 1,
+            "ready": 1,
+            "updated": 1,
+            "health": "healthy",
+            "pods": 1,
+            "restarts": 0,
+            "images": ["pivotalrabbitmq/perf-test:2.25.0"],
+            "createdAt": "2026-11-09T23:42:02Z",
+            "lastRolloutAt": null,
+            "schedule": null,
+            "lastScheduleAt": null,
+            "cpuRequestCores": 0,
+            "cpuLimitCores": null,
+            "memoryRequestBytes": 0,
+            "memoryLimitBytes": null,
+            "cpuCores": 0.008705861764362742,
+            "memoryBytes": 117555200,
+            "problem": null,
+            "podStates": ["ready"],
+            "restartsInRange": 0,
+            "system": false,
+            "lastRun": null
+          },
+          {
+            "kind": "StatefulSet",
+            "namespace": "rabbitmq-e2e",
+            "name": "rabbitmq",
+            "desired": 1,
+            "ready": 1,
+            "updated": 1,
+            "health": "healthy",
+            "pods": 1,
+            "restarts": 2,
+            "images": ["rabbitmq:4.1"],
+            "createdAt": "2026-11-09T23:42:02Z",
+            "lastRolloutAt": null,
+            "schedule": null,
+            "lastScheduleAt": null,
+            "cpuRequestCores": 0,
+            "cpuLimitCores": null,
+            "memoryRequestBytes": 0,
+            "memoryLimitBytes": null,
+            "cpuCores": 0.016163486058100897,
+            "memoryBytes": 105984000,
+            "problem": null,
+            "podStates": ["ready"],
+            "restartsInRange": 0,
+            "system": false,
+            "lastRun": null
+          }
+        ],
+        "range": 3600,
+        "step": 60,
+        "systemNamespaces": ["kube-node-lease", "kube-public", "kube-system", "local-path-storage"]
+      }
+    },
+    "POST /query/range {\"clusterId\":\"00000000-0000-4000-8000-00000000000a\",\"metric\":\"pod.container.memory.working_set\",\"scope\":{\"namespace\":\"rabbitmq-e2e\",\"workload\":\"consumer\",\"workloadKind\":\"Deployment\"},\"from\":1794337441,\"to\":1794341041,\"step\":15}": {
+      "status": 200,
+      "body": {
+        "metric": "pod.container.memory.working_set",
+        "unit": "bytes",
+        "step": 15,
+        "series": [
+          {
+            "labels": {
+              "container": "consumer",
+              "namespace": "rabbitmq-e2e",
+              "pod": "consumer-59dd4b46b4-7fp7l"
+            },
+            "points": [
+              [1794337440, 62521344],
+              [1794337455, 62775296],
+              [1794337470, 62775296]
+            ]
+          },
+          {
+            "labels": {
+              "container": "consumer",
+              "namespace": "rabbitmq-e2e",
+              "pod": "consumer-59dd4b46b4-8w8km"
+            },
+            "points": [
+              [1794337695, 63528960],
+              [1794337710, 63188992],
+              [1794337725, 63893504],
+              [1794337740, 64131072],
+              [1794337755, 64131072]
+            ]
+          },
+          {
+            "labels": {
+              "container": "consumer",
+              "namespace": "rabbitmq-e2e",
+              "pod": "consumer-59dd4b46b4-sx5ns"
+            },
+            "points": [
+              [1794338385, 58396672],
+              [1794338400, 59256832],
+              [1794338415, 59822080],
+              [1794338430, 60006400]
+            ]
+          },
+          {
+            "labels": {
+              "container": "consumer",
+              "namespace": "rabbitmq-e2e",
+              "pod": "consumer-59dd4b46b4-w222s"
+            },
+            "points": [
+              [1794340920, 66064384],
+              [1794340935, 67530752],
+              [1794340950, 68014080],
+              [1794340965, 68202496],
+              [1794340980, 68202496]
+            ]
+          }
+        ]
+      }
+    },
+    "POST /query/range {\"clusterId\":\"00000000-0000-4000-8000-00000000000a\",\"metric\":\"pod.restarts\",\"scope\":{\"namespace\":\"rabbitmq-e2e\",\"workload\":\"consumer\",\"workloadKind\":\"Deployment\"},\"from\":1794337441,\"to\":1794341041,\"step\":15}": {
+      "status": 200,
+      "body": {
+        "metric": "pod.restarts",
+        "unit": "count",
+        "step": 15,
+        "series": [
+          {
+            "labels": { "namespace": "rabbitmq-e2e", "pod": "consumer-59dd4b46b4-7fp7l" },
+            "points": [
+              [1794337440, 0],
+              [1794337455, 0],
+              [1794337470, 0],
+              [1794337485, 2],
+              [1794337500, 2],
+              [1794337515, 3],
+              [1794337530, 3],
+              [1794337545, 3],
+              [1794337560, 4],
+              [1794337575, 4],
+              [1794337590, 4],
+              [1794337605, 4],
+              [1794337620, 4],
+              [1794337635, 4],
+              [1794337650, 5],
+              [1794337665, 5],
+              [1794337680, 5]
+            ]
+          },
+          {
+            "labels": { "namespace": "rabbitmq-e2e", "pod": "consumer-59dd4b46b4-8w8km" },
+            "points": [
+              [1794337695, 0],
+              [1794337710, 0],
+              [1794337725, 0],
+              [1794337740, 0],
+              [1794337755, 0],
+              [1794337770, 2],
+              [1794337785, 2],
+              [1794337800, 3],
+              [1794337815, 3],
+              [1794337830, 3],
+              [1794337845, 3],
+              [1794337860, 4],
+              [1794337875, 4],
+              [1794337890, 4],
+              [1794337905, 4],
+              [1794337920, 4],
+              [1794337935, 4],
+              [1794337950, 5],
+              [1794337965, 5],
+              [1794337980, 5],
+              [1794337995, 5],
+              [1794338010, 5],
+              [1794338025, 5],
+              [1794338040, 5],
+              [1794338055, 5]
+            ]
+          },
+          {
+            "labels": { "namespace": "rabbitmq-e2e", "pod": "consumer-59dd4b46b4-sx5ns" },
+            "points": [
+              [1794338370, 0],
+              [1794338385, 0],
+              [1794338400, 0],
+              [1794338415, 0],
+              [1794338430, 1],
+              [1794338445, 2],
+              [1794338460, 2],
+              [1794338475, 3],
+              [1794338490, 3],
+              [1794338505, 3],
+              [1794338520, 3],
+              [1794338535, 4],
+              [1794338550, 4],
+              [1794338565, 4],
+              [1794338580, 4],
+              [1794338595, 4],
+              [1794338610, 5],
+              [1794338625, 5],
+              [1794338640, 5],
+              [1794338655, 5],
+              [1794338670, 5],
+              [1794338685, 5],
+              [1794338700, 5],
+              [1794338715, 5],
+              [1794338730, 5]
+            ]
+          },
+          {
+            "labels": { "namespace": "rabbitmq-e2e", "pod": "consumer-59dd4b46b4-w222s" },
+            "points": [
+              [1794340920, 0],
+              [1794340935, 0],
+              [1794340950, 0],
+              [1794340965, 0],
+              [1794340980, 1],
+              [1794340995, 2],
+              [1794341010, 2],
+              [1794341025, 2],
+              [1794341040, 2]
+            ]
+          }
+        ]
+      }
+    }
   }
 }

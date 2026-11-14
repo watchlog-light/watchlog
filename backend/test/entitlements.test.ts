@@ -200,10 +200,32 @@ describe('configuration', () => {
     expect(c.internalApi).toEqual({
       token: 'x'.repeat(40),
       previousToken: undefined,
+      adminToken: undefined,
+      previousAdminToken: undefined,
       host: '127.0.0.1',
       port: 4082,
     });
     expect(c.victoriaMetricsTiers).toEqual({ '3d': 'http://vm3:8428', '30d': 'http://vm30:8428' });
+    // SR-5: the Cloud admin's own token, never billing's, and the staff it may name.
+    const withAdmin = {
+      ...cloudEnv,
+      WATCHLOG_INTERNAL_TOKEN: 'x'.repeat(40),
+      WATCHLOG_INTERNAL_ADMIN_TOKEN: 'y'.repeat(40),
+      WATCHLOG_STAFF_EMAILS: ' Grace@watchlog.io, ada@watchlog.io ',
+    };
+    expect(loadConfig(withAdmin).internalApi).toMatchObject({
+      adminToken: 'y'.repeat(40),
+      staffEmails: ['grace@watchlog.io', 'ada@watchlog.io'],
+    });
+    expect(() =>
+      loadConfig({ ...withAdmin, WATCHLOG_INTERNAL_ADMIN_TOKEN: 'x'.repeat(40) }),
+    ).toThrow(/must differ/);
+    expect(() =>
+      loadConfig({ ...cloudEnv, WATCHLOG_INTERNAL_ADMIN_TOKEN: 'y'.repeat(40) }),
+    ).toThrow(/needs WATCHLOG_INTERNAL_TOKEN/);
+    expect(() => loadConfig({ ...base, WATCHLOG_INTERNAL_ADMIN_TOKEN: 'y'.repeat(40) })).toThrow(
+      /only read with WATCHLOG_EDITION=cloud/,
+    );
     // Community: unchanged, none of it.
     const community = loadConfig(base);
     expect(community.internalApi).toBeUndefined();

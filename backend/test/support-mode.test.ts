@@ -13,6 +13,7 @@ import { cloudWorld, seedOrg, type CloudWorld, type SeededOrg } from './isolatio
 import { mailpitMessages, mailpitText, TEST_SMTP_URL } from './support/mock-providers.js';
 
 const TOKEN = 's'.repeat(48);
+const BILLING_TOKEN = 'b'.repeat(48);
 const SITE = 'https://cloud.watchlog.test';
 const STAFF = 'ada@watchlog.test';
 
@@ -32,7 +33,8 @@ beforeAll(async () => {
     .where('id', '=', A.ownerId)
     .execute();
   internal = await buildInternalApp(
-    { token: TOKEN, host: '127.0.0.1', port: 0 },
+    // The Cloud admin's own token (SR-5); billing's is another.
+    { token: BILLING_TOKEN, adminToken: TOKEN, host: '127.0.0.1', port: 0 },
     {
       systemDb: w.owner,
       entitlements: w.app.entitlements!,
