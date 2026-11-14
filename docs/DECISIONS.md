@@ -2700,6 +2700,16 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Measured on kind and Docker** (slice 3's quick look; the backend on the Mac in Cloud mode, images already on the nodes, the command run as soon as the cluster was made): kind (3 nodes, Helm) agent and cluster agent +2.5 s, eBPF +2.5 s, first metrics +32 s, service map +47 s; Docker (`docker run`) agent and eBPF +1.5 s, first metrics +31 s, service map +31 s. The first metrics wait for the agents' first remote write. Slice 9 times the whole flow from the landing page.
   - **No region** on any page (the screens' "Hosted in the EU").
 
+- As built (Cloud slice 9d, 2026-11-14; activation timed end to end, SPEC §13): the Cloud kit, the server kit (the site with Cloud on) and the waitlist in a throwaway VM behind its host nginx, a browser (Chrome, 1280 px) driven by a script with stated human pauses: 5 s to read a page, 3 s per field typed, 2 s per click, 5 s to switch to the email or the terminal. The path: the landing → "Start free" → the sign-up page (invite mode: "opening in waves") → the invite link from the wave's email (issued through the admin panel) → the password → the wizard → the type and the name → the install command copied → run in the VM → the live checklist → "Open dashboard" → the overview with its first chart point. A brand-new one-node k3d cluster (the kubectl command) and the VM's Docker (the `docker run`, twice, each a new org and a new agent state):
+
+  | Run              | Sign-up (landing → wizard) | Wizard → checklist ready | Wizard → first data | Landing → first data |
+  | ---------------- | -------------------------- | ------------------------ | ------------------- | -------------------- |
+  | Kubernetes (k3d) | 18 s                       | 29 s                     | 92 s                | 110 s                |
+  | Docker, 1        | 17 s                       | 26 s                     | 44 s                | 60 s                 |
+  | Docker, 2        | 16 s                       | 26 s                     | 89 s                | 105 s                |
+
+  All within the targets (sign-up ≤ 60 s, wizard to data ≤ 3 min, landing to data ≤ 5 min). The checklist is ready (agent connected, first metrics, eBPF, the map) 8 to 9 s after the command; most of what follows is the overview's charts: they end at the last whole step (60 s for the hour shown), so their first point comes 15 to 75 s after the first metrics, while the counts, nodes and hosts above them show at once (the script reloaded the page every 15 s, so a first point may have come up to 15 s sooner). Test-only differences, which a real run doesn't have: the agent images were already on the node and the host (a real pull adds seconds), the VM resolved `ingest.watchlog.io` itself and the agents were given the test certificate's CA.
+
 ## ADR-177: Plans and entitlements: what each plan allows, how limits answer, two retention tiers
 
 - Date: 2026-11-13 · Status: accepted (Cloud slice 0; pre-approved, reviewed after the fact; uses ADR-027's 402)
