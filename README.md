@@ -24,7 +24,7 @@
 ### Kubernetes
 
 ```bash
-helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version 0.5.0 \
+helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version 0.6.0 \
   --namespace watchlog --create-namespace
 kubectl -n watchlog port-forward svc/watchlog-web 8080
 ```
@@ -35,8 +35,8 @@ Open http://localhost:8080 and enter the setup code from `kubectl -n watchlog lo
 
 ```bash
 mkdir watchlog && cd watchlog
-curl -fsSLO https://raw.githubusercontent.com/watchlog-light/watchlog/v0.5.0/deploy/docker/compose.yaml
-curl -fsSL -o .env https://raw.githubusercontent.com/watchlog-light/watchlog/v0.5.0/deploy/docker/.env.example
+curl -fsSLO https://raw.githubusercontent.com/watchlog-light/watchlog/v0.6.0/deploy/docker/compose.yaml
+curl -fsSL -o .env https://raw.githubusercontent.com/watchlog-light/watchlog/v0.6.0/deploy/docker/.env.example
 # set WATCHLOG_DB_PASSWORD, WATCHLOG_SECRET_KEY (openssl rand -base64 32), WATCHLOG_PUBLIC_URL in .env
 docker compose up -d && docker compose logs backend | grep "setup code"
 ```
@@ -47,7 +47,7 @@ The [install guide](docs/site/install.md) covers requirements, PodSecurity, more
 
 ## Documentation
 
-- [Install](docs/site/install.md) · [Configuration](docs/site/configuration.md) · [Security: what the agent can access](docs/site/security.md) · [FAQ](docs/site/faq.md)
+- [Install](docs/site/install.md) · [Configuration](docs/site/configuration.md) · [WatchLog Cloud (beta)](docs/site/cloud.md) · [Security: what the agent can access](docs/site/security.md) · [FAQ](docs/site/faq.md)
 - [Probable cause](docs/site/probable-cause.md) · [Container logs on demand](docs/site/logs.md) · [Right-sizing hints](docs/site/right-sizing.md) · [Alerts and notifications](docs/site/alerts.md) · [Ask your cluster (MCP)](docs/site/mcp.md) · [REST API](docs/site/api.md)
 - Applications: [Redis](docs/site/integrations/redis.md) · [PostgreSQL](docs/site/integrations/postgres.md) · [MySQL and MariaDB](docs/site/integrations/mysql.md) · [MongoDB](docs/site/integrations/mongodb.md) · [Nginx](docs/site/integrations/nginx.md) · [Traefik](docs/site/integrations/traefik.md) · [RabbitMQ](docs/site/integrations/rabbitmq.md) · [Kafka](docs/site/integrations/kafka.md)
 - [Specification](docs/SPEC.md) and [architecture decisions](docs/DECISIONS.md)

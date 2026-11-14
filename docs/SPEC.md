@@ -654,7 +654,7 @@ For every alert and every problem, WatchLog names the probable cause and shows t
 
 Self-hosted footprint target (10 nodes, 15 d retention): backend 256 MB, VictoriaMetrics 512 MB, PostgreSQL 256 MB, agent ≤ 64 MB per node.
 
-## 5.4 Multi-tenancy (Cloud) — Cloud, 0.6.0 (planned; ADR-174, ADR-177, ADR-182)
+## 5.4 Multi-tenancy (Cloud) — Cloud (shipped in 0.6.0; ADR-174, ADR-177, ADR-182)
 
 - **The switch:** `WATCHLOG_EDITION=cloud` turns on every Cloud-only path. Unset, the product is Community and behaves exactly as 0.5.0: one default org, no limits, no signup, no billing; the Cloud routes answer 404 (ADR-173).
 - **PostgreSQL:** every tenant table has `org_id` (cluster-keyed tables gain it, backfilled), with Row-Level Security policies on `watchlog.org_id` as a second layer. In Cloud the request path connects as `watchlog_app`, a role that can't bypass RLS, and the org is set on every connection checkout from the request's context; an allow-listed `systemDb` (the owner role) handles the lookups that come before the org is known and the cross-org jobs. Community keeps connecting as the owner, so RLS doesn't change it (ADR-174).
@@ -663,7 +663,7 @@ Self-hosted footprint target (10 nodes, 15 d retention): backend 256 MB, Victori
 - **Rate limits and ingest quotas** per org in Redis (Community keeps in-memory buckets).
 - **Proof:** the cross-org isolation suite calls every REST route, MCP tool, curated query key, ingest path and SSE stream as another org, in CI on every push (ADR-182).
 
-## 5.5 Cloud production hosting — Cloud, 0.6.0 (planned; ADR-180)
+## 5.5 Cloud production hosting — Cloud (shipped in 0.6.0; ADR-180)
 
 WatchLog Cloud starts on **the current production server** (36 GB), beside the site, the waitlist and the live demo, as its **own Docker Compose project**. It is enough for the first ~1,000 monitored nodes.
 
@@ -921,7 +921,7 @@ Built with Nuxt 4 in static mode, dark theme only (§11), English only. The mark
 - Each page: unique `<title>`, meta description, Open Graph image (dark, green accent), JSON-LD (`SoftwareApplication`, `FAQPage`).
 - Site analytics: Microsoft Clarity on the marketing site only, loaded only after the visitor accepts, form fields masked, never on token pages; never in the product (ADR-119). UTM parameters captured into `users.signup_source` on signup.
 
-# 10. Signup and onboarding — Cloud, 0.6.0 (planned; ADR-175, ADR-176, ADR-179)
+# 10. Signup and onboarding — Cloud (shipped in 0.6.0; ADR-175, ADR-176, ADR-179)
 
 The onboarding flow is the most important part of the product. Every step has a target time. Signup, the sample link, the first-week checklist, funnel events and lifecycle emails are Cloud only; the live connection checklist (step 4) also helps Community's "Add cluster" (ADR-176).
 
@@ -1118,7 +1118,7 @@ Each phase ends with a demo-able result and explicit acceptance criteria. Durati
 
 **→ Open-source launch (Community):** GitHub public, docs site, Show HN, Reddit (r/kubernetes, r/selfhosted, r/docker), Product Hunt, CNCF Slack, dev.to / Medium posts.
 
-## Phase 5 — Cloud and launch (≈ 3-4 weeks) — Cloud beta in 0.6.0, before the launch (planned; ADR-173)
+## Phase 5 — Cloud and launch (≈ 3-4 weeks) — Cloud beta in 0.6.0, before the launch (shipped in 0.6.0; ADR-173)
 
 Brought forward on 2026-11-13: the Cloud opens as a beta by invite from the waitlist (Free, and Pro free during the beta), released as 0.6.0. Billing is built and tested but stays off until the payment entity exists. Decisions: ADR-173 (scope, the `WATCHLOG_EDITION` switch), ADR-174 (tenancy), ADR-175 (accounts), ADR-176 (onboarding), ADR-177 (plans and limits), ADR-178 (billing), ADR-179 (funnel, emails, admin, support mode), ADR-180 (hosting on the current server), ADR-181 (security baseline), ADR-182 (the isolation suite).
 
