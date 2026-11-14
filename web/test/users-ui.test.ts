@@ -284,6 +284,57 @@ describe('the links', () => {
     w.unmount();
   });
 
+  it('Cloud with 2FA on: the reset sets the password, then asks for the code', async () => {
+    mockFetch({
+      'GET /api/v1/password-resets/tok_reset_0123456789abcde': {
+        status: 200,
+        body: { email: 'omar@example.com', status: 'valid', expiresAt: iso(3_600_000) },
+      },
+      'POST /api/v1/password-resets/tok_reset_0123456789abcde': {
+        status: 202,
+        body: { mfaRequired: true },
+      },
+    });
+    const { w, router } = await mountAt(
+      ResetPasswordPage,
+      '/reset/tok_reset_0123456789abcde',
+      'owner',
+      false,
+    );
+    await w.get('input').setValue('a brand new password');
+    await w.get('form').trigger('submit');
+    await flushPromises();
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('signin-2fa'));
+    expect(useAuthStore().user).toBeNull();
+    w.unmount();
+  });
+
+  it('Cloud: no "Reset password" button (an account there spans orgs)', async () => {
+    mockFetch({ 'GET /api/v1/users': { status: 200, body: LIST } });
+    const plugins = await createPlugins('/settings?tab=users');
+    const auth = useAuthStore();
+    auth.user = { ...USER, role: 'owner' };
+    auth.cloud = {
+      signup: true,
+      signupMode: 'public',
+      providers: { github: false, google: false },
+      turnstileSiteKey: null,
+      passwordMinLength: 10,
+      verifyGraceDays: 7,
+      supportEmail: 'support@watchlog.io',
+      sampleUrl: 'https://demo.watchlog.io',
+    };
+    const w = mount(UsersSettings as never, {
+      global: { plugins: [plugins.router, plugins.i18n, plugins.pinia] },
+      attachTo: document.body,
+    });
+    await flushPromises();
+    expect(w.findAll('[data-testid="user-row"]').length).toBeGreaterThan(2);
+    expect(w.find('[data-testid="reset-link"]').exists()).toBe(false);
+    expect(w.text()).not.toContain('Reset password');
+    w.unmount();
+  });
+
   it('"Forgot your password?" emails a link with SMTP, and shows the command without', async () => {
     for (const smtp of [false, true]) {
       const { calls } = mockFetch({
