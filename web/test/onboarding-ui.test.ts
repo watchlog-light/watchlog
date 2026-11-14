@@ -307,6 +307,132 @@ describe('the wizard', () => {
     ).toBe('sara@acme.dev');
   });
 
+  describe('back from the install step', () => {
+    async function toInstall(kind: 'kubernetes' | 'docker' = 'kubernetes', more = {}) {
+      const mock = mockFetch({
+        'POST /api/v1/clusters': [{ status: 201, body: created(kind) }],
+        'GET /api/v1/clusters': { status: 200, body: { clusters: [created(kind).cluster] } },
+        'POST /api/v1/funnel': { status: 204 },
+        ...more,
+      });
+      const mounted = await mountWith(OnboardingPage, '/onboarding');
+      if (kind === 'docker')
+        await mounted.wrapper.get('[data-testid="kind-docker"] input').setValue(true);
+      await mounted.wrapper.get('form').trigger('submit');
+      await flushPromises();
+      expect(mounted.wrapper.find('[data-testid="wizard-install"]').exists()).toBe(true);
+      return { ...mounted, ...mock };
+    }
+    const input = (w: Awaited<ReturnType<typeof toInstall>>['wrapper']) =>
+      w.get('[data-testid="cluster-name"] input');
+
+    it('goes back prefilled, and returns to the same command when nothing changed', async () => {
+      const { wrapper, router, calls } = await toInstall();
+      await wrapper.get('[data-testid="wizard-back"]').trigger('click');
+      await flushPromises();
+      expect(wrapper.find('[data-testid="wizard-choose"]').exists()).toBe(true);
+      expect(router.currentRoute.value.query.id).toBeUndefined();
+      expect((input(wrapper).element as HTMLInputElement).value).toBe('acme-prod');
+      expect(
+        (wrapper.get('[data-testid="kind-kubernetes"] input').element as HTMLInputElement).checked,
+      ).toBe(true);
+      expect(wrapper.get('[data-testid="wizard-changing"]').text()).toContain('acme-prod');
+      await wrapper.get('form').trigger('submit');
+      await flushPromises();
+      expect(router.currentRoute.value.query.id).toBe(ID);
+      expect(wrapper.get('[data-testid="install-command"]').text()).toContain('helm install');
+      expect(calls.filter((c) => c.method !== 'GET' && c.path !== '/api/v1/funnel')).toHaveLength(
+        1,
+      );
+    });
+
+    it('a new name renames the empty cluster and keeps its command', async () => {
+      const renamed = { cluster: { ...created('kubernetes').cluster, name: 'shop-prod' } };
+      const { wrapper, router, calls } = await toInstall('kubernetes', {
+        [`PATCH /api/v1/clusters/${ID}`]: { status: 200, body: renamed },
+      });
+      await wrapper.get('[data-testid="wizard-back"]').trigger('click');
+      await flushPromises();
+      await input(wrapper).setValue('shop-prod');
+      await wrapper.get('form').trigger('submit');
+      await flushPromises();
+      expect(calls.find((c) => c.method === 'PATCH')).toMatchObject({
+        path: `/api/v1/clusters/${ID}`,
+        body: { name: 'shop-prod' },
+      });
+      expect(
+        calls.filter((c) => c.method === 'POST' && c.path === '/api/v1/clusters'),
+      ).toHaveLength(1);
+      expect(router.currentRoute.value.query.id).toBe(ID);
+      expect(wrapper.get('[data-testid="install-command"]').text()).toContain('helm install');
+      expect(wrapper.get('[data-testid="wizard-context"]').text()).toContain('shop-prod');
+    });
+
+    it('another type replaces the empty cluster with a new one', async () => {
+      const NEW = '01a1c446-a818-76d4-b058-f1b1aa7dc502';
+      const docker = created('docker');
+      const mock = mockFetch({
+        'POST /api/v1/clusters': [
+          { status: 201, body: created('kubernetes') },
+          { status: 201, body: { ...docker, cluster: { ...docker.cluster, id: NEW } } },
+        ],
+        'GET /api/v1/clusters': {
+          status: 200,
+          body: { clusters: [created('kubernetes').cluster] },
+        },
+        [`DELETE /api/v1/clusters/${ID}`]: { status: 204 },
+        'POST /api/v1/funnel': { status: 204 },
+      });
+      const { wrapper, router } = await mountWith(OnboardingPage, '/onboarding');
+      await wrapper.get('form').trigger('submit');
+      await flushPromises();
+      await wrapper.get('[data-testid="wizard-back"]').trigger('click');
+      await flushPromises();
+      await wrapper.get('[data-testid="kind-docker"] input').setValue(true);
+      // The name was kept (edited counts as the user's), not switched to the Docker suggestion.
+      expect((input(wrapper).element as HTMLInputElement).value).toBe('acme-prod');
+      await input(wrapper).setValue('acme-hosts');
+      await wrapper.get('form').trigger('submit');
+      await flushPromises();
+      const writes = mock.calls.filter((c) => c.method !== 'GET' && c.path !== '/api/v1/funnel');
+      expect(writes.map((c) => `${c.method} ${c.path}`)).toEqual([
+        'POST /api/v1/clusters',
+        `DELETE /api/v1/clusters/${ID}`,
+        'POST /api/v1/clusters',
+      ]);
+      expect(writes[2]!.body).toEqual({ name: 'acme-hosts', kind: 'docker' });
+      expect(router.currentRoute.value.query.id).toBe(NEW);
+      expect(wrapper.find('[data-testid="tab-dockerRun"]').exists()).toBe(true);
+    });
+
+    it("an Admin can't replace it: says so, and nothing is created", async () => {
+      const { wrapper, calls } = await toInstall('kubernetes', {
+        [`DELETE /api/v1/clusters/${ID}`]: {
+          status: 403,
+          body: { type: 'about:blank', title: 'Forbidden', status: 403 },
+        },
+      });
+      await wrapper.get('[data-testid="wizard-back"]').trigger('click');
+      await flushPromises();
+      await wrapper.get('[data-testid="kind-docker"] input').setValue(true);
+      await wrapper.get('form').trigger('submit');
+      await flushPromises();
+      expect(wrapper.text()).toContain('Only an Owner can replace acme-prod with another type');
+      expect(
+        calls.filter((c) => c.method === 'POST' && c.path === '/api/v1/clusters'),
+      ).toHaveLength(1);
+      expect(wrapper.find('[data-testid="wizard-choose"]').exists()).toBe(true);
+    });
+
+    it('is gone once an agent has connected', async () => {
+      const { wrapper } = await toInstall();
+      expect(wrapper.find('[data-testid="wizard-back"]').exists()).toBe(true);
+      lastSource().emit('status', status('kubernetes', ['agent']));
+      await flushPromises();
+      expect(wrapper.find('[data-testid="wizard-back"]').exists()).toBe(false);
+    });
+  });
+
   it('shows troubleshooting after 2 minutes without a heartbeat, with help by email', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     mockFetch({
