@@ -12749,6 +12749,18 @@ export interface paths {
           };
         };
         /** @description Default Response */
+        202: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              /** @enum {boolean} */
+              mfaRequired: true;
+            };
+          };
+        };
+        /** @description Default Response */
         404: {
           headers: {
             [name: string]: unknown;
