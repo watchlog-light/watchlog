@@ -165,6 +165,15 @@ describe('API tokens API', () => {
     expect(after.at(-1)).toMatchObject({ id: created.token.id, status: 'revoked' });
   });
 
+  it("stops a disabled account's tokens, as its sessions stop (SR-17)", async () => {
+    ctx = await createTestContext();
+    const cookie = await setupAdmin(ctx.app);
+    const created = await createToken(cookie, { name: 'CI' });
+    expect((await api('GET', '/clusters', { token: created.value })).statusCode).toBe(200);
+    await ctx.db.updateTable('users').set({ disabled_at: new Date() }).execute();
+    expect((await api('GET', '/clusters', { token: created.value })).statusCode).toBe(401);
+  });
+
   it("validates the body and keeps each user's tokens to themselves", async () => {
     ctx = await createTestContext();
     const cookie = await setupAdmin(ctx.app);

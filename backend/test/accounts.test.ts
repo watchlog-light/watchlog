@@ -314,7 +314,12 @@ describe('the checks, alone', () => {
       DATABASE_SYSTEM_URL: 'postgres://owner@h/db',
       WATCHLOG_SECRET_KEY: TEST_SECRET_KEY,
       WATCHLOG_EDITION: 'cloud',
+      WATCHLOG_PUBLIC_URL: 'https://cloud.watchlog.example',
     };
+    // SR-13: Cloud never builds links from the request's Host.
+    expect(() => loadConfig({ ...base, WATCHLOG_PUBLIC_URL: undefined })).toThrow(
+      /WATCHLOG_PUBLIC_URL is required/,
+    );
     const c = loadConfig(base);
     expect(c.cookieSecure).toBe('always');
     expect(c.accounts).toEqual({
@@ -654,6 +659,26 @@ describe('TOTP', () => {
     expect((await call('GET', '/api/v1/me', cookieOf(ok)!.value)).statusCode).toBe(200);
     // The new password works (and asks for the code too).
     expect((await login('r@example.com', 'another long password')).statusCode).toBe(202);
+  });
+
+  it('a reset refuses a breached password, as signup does (SR-12)', async () => {
+    await cloudContext();
+    const { user } = await signedUp('b@example.com');
+    const { token } = await createResetLink(ctx.db, {
+      userId: user.id,
+      via: 'email',
+      createdBy: null,
+    });
+    const res = await call('POST', `/api/v1/password-resets/${token}`, undefined, {
+      password: BREACHED,
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('password-breached');
+    // The link still works for a good password.
+    const ok = await call('POST', `/api/v1/password-resets/${token}`, undefined, {
+      password: 'a much better password',
+    });
+    expect(ok.statusCode).toBe(200);
   });
 
   it("an Admin's reset link doesn't exist in Cloud: 404, nothing made (SR-1)", async () => {

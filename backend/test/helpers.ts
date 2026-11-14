@@ -47,7 +47,14 @@ export async function createTestContext(
   deps: Partial<
     Pick<
       AppDeps,
-      'ingestBuckets' | 'onRoute' | 'seed' | 'logStream' | 'causes' | 'serviceReads' | 'fetch'
+      | 'ingestBuckets'
+      | 'orgLimits'
+      | 'onRoute'
+      | 'seed'
+      | 'logStream'
+      | 'causes'
+      | 'serviceReads'
+      | 'fetch'
     >
   > = {},
 ): Promise<TestContext> {

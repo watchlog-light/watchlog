@@ -177,6 +177,7 @@ describe('configuration', () => {
     WATCHLOG_EDITION: 'cloud',
     DATABASE_URL: 'postgres://watchlog_app@h/db',
     DATABASE_SYSTEM_URL: 'postgres://owner@h/db',
+    WATCHLOG_PUBLIC_URL: 'https://cloud.watchlog.example',
   };
   it('reads the internal API and the two tiers in Cloud only, both URLs or neither', () => {
     expect(() => loadConfig({ ...base, WATCHLOG_INTERNAL_TOKEN: 'x'.repeat(40) })).toThrow(

@@ -426,6 +426,21 @@ describe('request logs', () => {
       '/cb?state=s&code=****',
     );
   });
+
+  it('mask reset and invite link tokens and token= (SR-11)', () => {
+    const url = (u: string) => requestWithoutCodes({ method: 'POST', url: u }).url;
+    expect(url('/api/v1/password-resets/tok_abcdefghijklmnopqrstu')).toBe(
+      '/api/v1/password-resets/****',
+    );
+    expect(url('/api/v1/invites/inv_abcdefghijklmnop/accept')).toBe('/api/v1/invites/****/accept');
+    expect(url('/api/v1/invites/inv_abcdefghijklmnop/join?x=1')).toBe(
+      '/api/v1/invites/****/join?x=1',
+    );
+    expect(url('/api/v1/email/unsubscribe?token=abc&y=2')).toBe(
+      '/api/v1/email/unsubscribe?token=****&y=2',
+    );
+    expect(url('/api/v1/clusters?tab=x')).toBe('/api/v1/clusters?tab=x');
+  });
 });
 
 describe('the first-week card (Cloud)', () => {

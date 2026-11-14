@@ -45,6 +45,29 @@ async function join(owner: string, email: string, role: 'admin' | 'viewer') {
 }
 
 describe('invites', () => {
+  it("the audit trail records the visitor's address from the proxy, not the proxy's (SR-14)", async () => {
+    ctx = await createTestContext({
+      publicUrl: 'https://watchlog.company.com',
+      clientIpHeader: 'x-real-ip',
+    });
+    const owner = await setupAdmin(ctx.app);
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/users/invites',
+      remoteAddress: '10.0.0.2',
+      headers: { 'x-real-ip': '198.51.100.23' },
+      cookies: { wl_session: owner },
+      payload: { email: 'audit@example.com', role: 'viewer' },
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    const row = await ctx.db
+      .selectFrom('audit_events')
+      .select(['ip'])
+      .where('action', '=', 'invite_created')
+      .executeTakeFirstOrThrow();
+    expect(row.ip).toBe('198.51.100.23');
+  });
+
   it('without SMTP: a link to copy, copied again, accepted once', async () => {
     ctx = await createTestContext({ publicUrl: 'https://watchlog.company.com' });
     const owner = await setupAdmin(ctx.app);

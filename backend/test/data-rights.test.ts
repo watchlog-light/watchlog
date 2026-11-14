@@ -91,7 +91,11 @@ describe('exports', () => {
       [A.k8s.id, A.docker.id].sort(),
     );
     expect(body.channels[0].settings).toEqual({ url: 'https://zzalpha.example.com/hook' });
-    expect(body.members.map((m: { role: string }) => m.role).sort()).toEqual(['owner', 'viewer']);
+    expect(body.members.map((m: { role: string }) => m.role).sort()).toEqual([
+      'admin',
+      'owner',
+      'viewer',
+    ]);
     for (const key of ['alertRules', 'silences', 'applications', 'apiTokens', 'plan']) {
       expect(body, key).toHaveProperty(key);
     }
@@ -230,7 +234,7 @@ describe('scenario 17: delete, undo on day 3, delete again', () => {
     expect(rec.org_name).toBe('zzalpha Org');
     expect(rec.requested_by).toBe(A.ownerId);
     expect([...rec.cluster_ids].sort()).toEqual([A.k8s.id, A.docker.id].sort());
-    expect(rec.users_deleted).toBe(2);
+    expect(rec.users_deleted).toBe(3);
     expect((rec.series as { all: number }).all).toBeGreaterThan(0);
   });
 });
@@ -365,5 +369,26 @@ describe.skipIf(!tiers['3d'] || !tiers['30d'])('both tiers', () => {
       Math.floor(now / 1000) + 60,
     );
     expect((await Promise.all(after.map((p) => p.text()))).join('').trim()).toBe('');
+  });
+});
+
+describe('deleting a cluster (SR-15)', () => {
+  it("takes its series with it in Cloud; the org's other clusters keep theirs", async () => {
+    const made = await as(B, 'POST', '/clusters', { name: 'zzbeta-gone', kind: 'docker' });
+    expect(made.statusCode, made.body).toBe(201);
+    const id = made.json().cluster.id as string;
+    const token = made.json().token.value as string;
+    await writeSeries(w.app, token, [
+      { labels: { __name__: 'zz_sr15', host: 'h' }, value: 1, timestampMs: Date.now() },
+    ]);
+    await writeSeries(w.app, B.k8s.token, [
+      { labels: { __name__: 'zz_sr15', node: 'n' }, value: 1, timestampMs: Date.now() },
+    ]);
+    expect(await seriesOf(id)).toBeGreaterThan(0);
+    const kept = await seriesOf(B.k8s.id);
+    expect((await as(B, 'DELETE', `/clusters/${id}`)).statusCode).toBe(204);
+    // The deletion runs after the answer.
+    await expect.poll(() => seriesOf(id), { timeout: 10_000, interval: 250 }).toBe(0);
+    expect(await seriesOf(B.k8s.id)).toBe(kept);
   });
 });

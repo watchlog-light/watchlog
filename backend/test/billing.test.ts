@@ -237,6 +237,7 @@ describe('WATCHLOG_BILLING_URL', () => {
     WATCHLOG_EDITION: 'cloud',
     DATABASE_URL: 'postgres://watchlog_app@h/db',
     DATABASE_SYSTEM_URL: 'postgres://owner@h/db',
+    WATCHLOG_PUBLIC_URL: 'https://cloud.watchlog.example',
   };
   it('is Cloud only, an origin, and needs the internal token', () => {
     expect(() => loadConfig({ ...base, WATCHLOG_BILLING_URL: 'http://billing:8090' })).toThrow(

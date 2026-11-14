@@ -12,6 +12,7 @@ import type { FastifyInstance, RouteOptions } from 'fastify';
 import pg from 'pg';
 import { inject } from 'vitest';
 import { buildApp } from '../../src/app.js';
+import { OrgLimits } from '../../src/plugins/org-limits.js';
 import type { Resolver } from '../../src/lib/egress.js';
 import { grantAppRole } from '../../src/db/app-role.js';
 import { createDb, type Database } from '../../src/db/index.js';
@@ -108,6 +109,8 @@ export async function cloudWorld(opts: { resolve?: Resolver } = {}): Promise<Clo
       // never reaches an outside service.
       fetch: offlineFetch,
       resolve: opts.resolve ?? testResolver,
+      // The sweeps call every route as one org within seconds: far above a person's pace.
+      orgLimits: new OrgLimits({ ratePerSec: 100_000, burst: 100_000 }),
       onRoute: (r) => {
         for (const m of [r.method].flat()) {
           if (m !== 'HEAD') routes.push({ key: `${m} ${r.url}`, opts: r });
