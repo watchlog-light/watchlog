@@ -168,6 +168,11 @@ The Egress page says "Learning until <date>". The other two rules don't wait.
   seen from the flow series still retained. An upgrade doesn't raise one alert per destination.
 - **A cluster added later** starts learning when it first reports.
 
+In the first few minutes after an upgrade or a cluster's first report, until WatchLog has looked
+back through the retained flow series for first-seen times, nothing is marked New and the page
+says "Learning first-seen times from the traffic history… Nothing is marked New until that is
+done, in a few minutes." The API says so in `learning.firstSeenPending`.
+
 Change the length (0 to 90 days, fractions allowed) with the Helm value
 `alerting.egressLearningDays` or, for the Docker Compose server, `WATCHLOG_EGRESS_LEARNING_DAYS`
 in `.env` ([configuration](configuration.md)). `0.25` is 6 hours, as on the live demo.
