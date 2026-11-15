@@ -114,3 +114,64 @@ describe('inspectWriteRequest', () => {
     expect(goldenRaw.subarray(0, fromTs.length).equals(Buffer.from(fromTs))).toBe(true);
   });
 });
+
+describe('the nodes a write names (SR-8, ADR-194)', () => {
+  const at = Date.now();
+  const s = (labels: Record<string, string>) => ({ labels, value: 1, timestampMs: at });
+
+  it('collects `node` and `host` values; the state series name nodes but do not send', () => {
+    const body = encode([
+      s({ __name__: 'watchlog_node_load1', node: 'n1' }),
+      s({ __name__: 'watchlog_container_cpu_seconds_total', node: 'n1', pod: 'web' }),
+      s({ __name__: 'watchlog_node_load1', host: 'h1' }),
+      // The cluster-agent's list of the API's Nodes (label before the name, too).
+      s({ node: 'n2', __name__: 'watchlog_kube_node_info' }),
+      s({ __name__: 'watchlog_kube_pod_info', node: 'n3', pod: 'db' }),
+      // Empty values and other labels name nothing.
+      s({ __name__: 'watchlog_kube_pod_info', node: '', pod: 'pending' }),
+      s({ __name__: 'watchlog_flow_bytes_total', dst_node: 'n9', tls_host: 'x.example' }),
+    ]);
+    const summary = inspectWriteRequest(body, { ...LIMITS, collectNodes: true });
+    expect([...summary.nodes!].sort()).toEqual(['h1', 'n1', 'n2', 'n3']);
+    expect([...summary.senders!].sort()).toEqual(['h1', 'n1']);
+    // Off (Community): nothing collected.
+    expect(inspectWriteRequest(body, LIMITS).nodes).toBeUndefined();
+  });
+
+  it('the Go agent golden fixture names its node', () => {
+    const summary = inspectWriteRequest(golden, { ...LIMITS, collectNodes: true });
+    expect(summary.series).toBe(goldenDescription.length);
+    expect(summary.nodes!.size).toBeLessThanOrEqual(summary.series);
+  });
+
+  it('rejects a node label that is not UTF-8 with 400', () => {
+    const body = encode([s({ __name__: 'watchlog_node_load1', node: 'n1' })]);
+    const raw = uncompressSync(body) as Buffer;
+    const i = raw.indexOf(Buffer.from('n1'));
+    raw[i] = 0xff;
+    expect(() => inspectWriteRequest(compressSync(raw), { ...LIMITS, collectNodes: true })).toThrow(
+      /not valid UTF-8/,
+    );
+  });
+
+  it('costs little on a 1,000-series node write; measured', () => {
+    const series = [];
+    for (let i = 0; i < 1000; i++) {
+      series.push(s({ __name__: `watchlog_container_m${i % 40}`, node: 'node-1', pod: `p${i}` }));
+    }
+    const body = encode(series);
+    const N = 300;
+    const time = (collectNodes: boolean) => {
+      const t0 = process.hrtime.bigint();
+      for (let i = 0; i < N; i++) inspectWriteRequest(body, { ...LIMITS, collectNodes });
+      return Number(process.hrtime.bigint() - t0) / N / 1e3;
+    };
+    time(true);
+    const off = time(false);
+    const on = time(true);
+    console.log(`reader: ${off.toFixed(0)} µs without, ${on.toFixed(0)} µs collecting nodes`);
+    expect(inspectWriteRequest(body, { ...LIMITS, collectNodes: true }).senders).toEqual(
+      new Set(['node-1']),
+    );
+  });
+});

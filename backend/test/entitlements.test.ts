@@ -87,7 +87,18 @@ const heartbeat = (c: TestContext, token: string, node: string, mode = 'node') =
     payload: { agent_version: '0.6.0', mode, node, capabilities: {}, series: 10 },
   });
 
-const write = (c: TestContext, token: string, agent: string) =>
+/**
+ * A remote_write from `agent` (the X-WatchLog-Agent header; null sends none) whose series
+ * name `node` in `label` (`node` on Kubernetes, `host` on Docker; null: no such label).
+ */
+const write = (
+  c: TestContext,
+  token: string,
+  agent: string | null,
+  node: string | null = agent,
+  label: 'node' | 'host' = 'node',
+  metric = 'watchlog_node_load1',
+) =>
   c.app.inject({
     method: 'POST',
     url: '/ingest/v1/write',
@@ -95,11 +106,11 @@ const write = (c: TestContext, token: string, agent: string) =>
       authorization: `Bearer ${token}`,
       'content-type': 'application/x-protobuf',
       'content-encoding': 'snappy',
-      'x-watchlog-agent': agent,
+      ...(agent === null ? {} : { 'x-watchlog-agent': agent }),
     },
     payload: encode([
       {
-        labels: { __name__: 'watchlog_node_load1', node: agent, run: RUN },
+        labels: { __name__: metric, ...(node === null ? {} : { [label]: node }), run: RUN },
         value: 1,
         timestampMs: Date.now() - 30_000,
       },
@@ -375,7 +386,8 @@ describe('limits (scenarios 9 and 10)', () => {
     }
     // The cluster-agent and integrations collectors aren't nodes.
     expect((await heartbeat(c, k.token, 'cluster-agent', 'cluster')).statusCode).toBe(204);
-    expect((await write(c, k.token, 'integrations:db')).statusCode).toBe(204);
+    // (Measured: on Kubernetes, integrations series carry no node label.)
+    expect((await write(c, k.token, 'integrations:db', null)).statusCode).toBe(204);
     const sixth = await heartbeat(c, k.token, 'n6');
     expect(sixth.statusCode).toBe(402);
     expect(sixth.json()).toMatchObject({ code: 'plan-limit', limit: 'nodes' });
@@ -573,5 +585,219 @@ describe('usage_hourly and the 95th percentile', () => {
     // So far, 100 hours into the period: 4 busy hours of 100 stay under 5 %.
     const soFar = await usageReport(c.db, orgId, from, to, Date.parse('2026-11-05T03:30:00Z'));
     expect(soFar).toMatchObject({ hoursInPeriod: 100, p95: 12, peak: 42 });
+  });
+});
+
+// ------------------------------------------------- SR-8: counts the header can't lower
+
+/** A heartbeat whose header and body may disagree (a modified agent). */
+const spoofedHeartbeat = (
+  c: TestContext,
+  token: string,
+  header: string | null,
+  node: string,
+  mode: string,
+) =>
+  c.app.inject({
+    method: 'POST',
+    url: '/ingest/v1/heartbeat',
+    headers: {
+      authorization: `Bearer ${token}`,
+      ...(header === null ? {} : { 'x-watchlog-agent': header }),
+    },
+    payload: { agent_version: '0.7.2', mode, node, capabilities: {}, series: 10 },
+  });
+
+const dockerObjects = (c: TestContext, token: string, header: string | null, node: string) =>
+  c.app.inject({
+    method: 'POST',
+    url: '/ingest/v1/objects',
+    headers: {
+      authorization: `Bearer ${token}`,
+      ...(header === null ? {} : { 'x-watchlog-agent': header }),
+    },
+    payload: {
+      kind: 'snapshot',
+      source: 'docker',
+      node,
+      inventory: {
+        host: {
+          docker_version: '27.0',
+          api_version: '1.46',
+          os: 'linux',
+          arch: 'arm64',
+          kernel_version: '6.8',
+        },
+        containers: [],
+      },
+    },
+  });
+
+const dockerEvents = (c: TestContext, token: string, header: string | null, host: string) =>
+  c.app.inject({
+    method: 'POST',
+    url: '/ingest/v1/events',
+    headers: {
+      authorization: `Bearer ${token}`,
+      ...(header === null ? {} : { 'x-watchlog-agent': header }),
+    },
+    payload: {
+      events: [
+        {
+          uid: `${host}:web:Started`,
+          host,
+          involved: { kind: 'Container', name: 'web', uid: 'web-1' },
+          type: 'Normal',
+          reason: 'Started',
+          message: 'Started',
+          count: 1,
+          first_ts: new Date().toISOString(),
+          last_ts: new Date().toISOString(),
+          reporting_controller: 'docker',
+        },
+      ],
+    },
+  });
+
+/** The usage job's row for the current hour, after the sightings in flight landed. */
+async function usageNow(c: TestContext, orgId: string) {
+  await new Promise((r) => setTimeout(r, 50)); // sightings are written off the request
+  await recordUsage({ systemDb: c.db, db: c.db }, Date.now());
+  return c.db
+    .selectFrom('usage_hourly')
+    .select([
+      'nodes',
+      'docker_hosts',
+      'reported_nodes',
+      'reported_docker_hosts',
+      'observed_nodes',
+      'observed_docker_hosts',
+    ])
+    .where('org_id', '=', orgId)
+    .where('hour', '=', hourOf(Date.now()))
+    .executeTakeFirstOrThrow();
+}
+
+describe('SR-8: a changed or missing X-WatchLog-Agent header (ADR-194)', () => {
+  it('Kubernetes: no sixth Free node, whatever the header says', async () => {
+    const { c, call } = await cloud();
+    const k = await newCluster(call, 'prod');
+    for (const n of ['n1', 'n2', 'n3', 'n4', 'n5']) {
+      expect((await heartbeat(c, k.token, n)).statusCode).toBe(204);
+      expect((await write(c, k.token, n)).statusCode).toBe(204);
+    }
+    // The sixth node's agent, rebuilt to claim another name in its header, or none.
+    for (const header of ['cluster-agent', 'integrations:db', 'n1', null]) {
+      const w = await write(c, k.token, header, 'n6');
+      expect(w.statusCode, `write as ${header}`).toBe(402);
+      expect(w.json()).toMatchObject({ code: 'plan-limit', limit: 'nodes' });
+      expect((await spoofedHeartbeat(c, k.token, header, 'n6', 'node')).statusCode).toBe(402);
+    }
+    // The cluster-agent's state series name every Node the API lists, n6 included: they
+    // are stored (a full plan never blinds the cluster view) and n6 still can't send.
+    expect(
+      (await write(c, k.token, 'cluster-agent', 'n6', 'node', 'watchlog_kube_node_info'))
+        .statusCode,
+    ).toBe(204);
+    expect((await write(c, k.token, 'cluster-agent', 'n6')).statusCode).toBe(402);
+    // The five keep sending, with or without their header.
+    for (const n of ['n1', 'n2', 'n3', 'n4', 'n5']) {
+      expect((await write(c, k.token, null, n)).statusCode).toBe(204);
+    }
+  });
+
+  it('Docker: no sixth Free host, whatever the header says', async () => {
+    const { c, call } = await cloud();
+    const d = await newCluster(call, 'fleet', 'docker');
+    for (const h of ['h1', 'h2', 'h3', 'h4', 'h5']) {
+      expect((await heartbeat(c, d.token, h, 'docker')).statusCode).toBe(204);
+      expect((await write(c, d.token, h, h, 'host')).statusCode).toBe(204);
+    }
+    for (const header of ['cluster-agent', 'integrations:h6', 'h1', null]) {
+      expect((await write(c, d.token, header, 'h6', 'host')).statusCode, `${header}`).toBe(402);
+      expect((await spoofedHeartbeat(c, d.token, header, 'h6', 'docker')).statusCode).toBe(402);
+      expect((await dockerObjects(c, d.token, header, 'h6')).statusCode).toBe(402);
+      expect((await dockerEvents(c, d.token, header, 'h6')).statusCode).toBe(402);
+    }
+    // An integrations collector on an admitted host names that host: it passes.
+    expect((await write(c, d.token, 'integrations:h1', 'h1', 'host')).statusCode).toBe(204);
+    expect((await dockerObjects(c, d.token, null, 'h2')).statusCode).toBe(204);
+    expect((await dockerEvents(c, d.token, null, 'h3')).statusCode).toBe(204);
+  });
+
+  it('a node that never sends a heartbeat keeps its place across refreshes; no sixth gets in', async () => {
+    const { c, call, orgId } = await cloud();
+    const k = await newCluster(call, 'prod');
+    let now = Date.now();
+    const gate = new NodeGate(c.db, new EntitlementsService(c.db, () => now), silent, () => now);
+    for (const n of ['s1', 's2', 's3', 's4', 's5']) {
+      expect(await gate.admitAll(orgId, k.id, [n])).toBe(true);
+    }
+    expect(await gate.admitAll(orgId, k.id, ['s6'])).toBe(false);
+    // A refresh (no agent_instances rows for them) and an entitlements change.
+    now += 61_000;
+    gate.forget(orgId);
+    expect(await gate.admitAll(orgId, k.id, ['s6'])).toBe(false);
+    for (const n of ['s1', 's2', 's3', 's4', 's5']) {
+      expect(await gate.admitAll(orgId, k.id, [n])).toBe(true);
+    }
+    // 24 hours without sending: the place is free again.
+    now += 24 * 3_600_000 + 1;
+    gate.forget(orgId);
+    expect(await gate.admitAll(orgId, k.id, ['s6'])).toBe(true);
+  });
+
+  it('Kubernetes: the bill counts the nodes the series and the API name, never fewer than reported', async () => {
+    const { c, call, orgId } = await cloud();
+    await c.app.entitlements!.put(orgId, { plan: 'pro', source: 'beta' });
+    const k = await newCluster(call, 'prod');
+    // Three node agents that claim to be the cluster-agent in header and heartbeat.
+    for (const n of ['k1', 'k2', 'k3']) {
+      expect((await spoofedHeartbeat(c, k.token, 'cluster-agent', n, 'cluster')).statusCode).toBe(
+        204,
+      );
+      expect((await write(c, k.token, 'cluster-agent', n)).statusCode).toBe(204);
+    }
+    expect(await usageNow(c, orgId)).toMatchObject({
+      nodes: 3,
+      reported_nodes: 0,
+      observed_nodes: 3,
+    });
+    // The cluster-agent lists a fourth Node from the API, which runs no agent: it counts too.
+    expect(
+      (await write(c, k.token, 'cluster-agent', 'k4', 'node', 'watchlog_kube_node_info'))
+        .statusCode,
+    ).toBe(204);
+    expect(await usageNow(c, orgId)).toMatchObject({ nodes: 4, observed_nodes: 4 });
+    // An honest agent that heartbeats but whose series were never stored: reported wins.
+    for (const n of ['k5', 'k6', 'k7', 'k8', 'k9']) await heartbeat(c, k.token, n);
+    expect(await usageNow(c, orgId)).toMatchObject({
+      nodes: 5,
+      reported_nodes: 5,
+      observed_nodes: 4,
+    });
+  });
+
+  it('Docker: the bill counts the hosts the series name; a header change or rename never lowers it', async () => {
+    const { c, call, orgId } = await cloud();
+    await c.app.entitlements!.put(orgId, { plan: 'pro', source: 'beta' });
+    const d = await newCluster(call, 'fleet', 'docker');
+    // Two hosts with no heartbeat and no header.
+    for (const h of ['d1', 'd2']) {
+      expect((await write(c, d.token, null, h, 'host')).statusCode).toBe(204);
+    }
+    expect(await usageNow(c, orgId)).toMatchObject({
+      docker_hosts: 2,
+      reported_docker_hosts: 0,
+      observed_docker_hosts: 2,
+      nodes: 0,
+    });
+    // d1 changes its header: the same host. d2 renames itself: one more within the hour.
+    expect((await write(c, d.token, 'other', 'd1', 'host')).statusCode).toBe(204);
+    expect((await write(c, d.token, 'd2b', 'd2b', 'host')).statusCode).toBe(204);
+    expect(await usageNow(c, orgId)).toMatchObject({ docker_hosts: 3, observed_docker_hosts: 3 });
+    // A later run that sees fewer (the sightings gone) keeps the hour's highest.
+    await c.db.deleteFrom('node_sightings').where('org_id', '=', orgId).execute();
+    expect(await usageNow(c, orgId)).toMatchObject({ docker_hosts: 3, observed_docker_hosts: 3 });
   });
 });
