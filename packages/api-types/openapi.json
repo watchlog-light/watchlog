@@ -9653,6 +9653,740 @@
         }
       }
     },
+    "/api/v1/egress/expected": {
+      "get": {
+        "summary": "Expected destinations",
+        "tags": ["egress"],
+        "description": "A cluster's or fleet's expected destinations (ADR-186): exact names, `*.` patterns and CIDRs, for one source or every source, one port or any, newest first, with how many inventory rows each covers now.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "query",
+            "name": "cluster",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["items"],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "pattern",
+                          "port",
+                          "source",
+                          "comment",
+                          "createdAt",
+                          "createdBy",
+                          "matches"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "pattern": {
+                            "type": "string",
+                            "description": "An exact name, *. and a suffix, or a CIDR"
+                          },
+                          "port": {
+                            "anyOf": [
+                              {
+                                "type": "integer"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Null: any port"
+                          },
+                          "source": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "namespace": {
+                                    "type": "string"
+                                  },
+                                  "workloadKind": {
+                                    "type": "string"
+                                  },
+                                  "workload": {
+                                    "type": "string"
+                                  },
+                                  "composeProject": {
+                                    "type": "string"
+                                  },
+                                  "composeService": {
+                                    "type": "string"
+                                  },
+                                  "host": {
+                                    "type": "string"
+                                  },
+                                  "container": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Null: every source"
+                          },
+                          "comment": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "createdBy": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Who marked it"
+                          },
+                          "matches": {
+                            "type": "integer",
+                            "description": "Inventory rows it covers now"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Mark a destination expected",
+        "tags": ["egress"],
+        "description": "Marks a destination, or a pattern of destinations, expected (ADR-186): an exact name (`api.stripe.com`), `*.` and a suffix of at least two labels (`*.amazonaws.com`: any name under it, not the suffix itself), or a CIDR of at least /8 (IPv4) or /32 (IPv6) for raw networks. For one source (in the cluster's vocabulary) or every source (`source` left out), one port or any. Covers destinations not seen yet. \"New external destination\" stays quiet for them; Raw IP and Large upload don't. Owner or Admin, by session.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["cluster", "pattern"],
+                "properties": {
+                  "cluster": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "pattern": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 253
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "source": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "namespace": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253,
+                            "description": "Kubernetes: the namespace"
+                          },
+                          "workloadKind": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253,
+                            "description": "Kubernetes: the workload kind"
+                          },
+                          "workload": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253,
+                            "description": "Kubernetes: the workload"
+                          },
+                          "composeProject": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253,
+                            "description": "Docker: the Compose project"
+                          },
+                          "composeService": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253,
+                            "description": "Docker: the Compose service"
+                          },
+                          "host": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253,
+                            "description": "Docker: the host (a container outside Compose)"
+                          },
+                          "container": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253,
+                            "description": "Docker: the container (outside Compose)"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "comment": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["expectation", "updated"],
+                  "properties": {
+                    "expectation": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "pattern",
+                        "port",
+                        "source",
+                        "comment",
+                        "createdAt",
+                        "createdBy",
+                        "matches"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "pattern": {
+                          "type": "string",
+                          "description": "An exact name, *. and a suffix, or a CIDR"
+                        },
+                        "port": {
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Null: any port"
+                        },
+                        "source": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "namespace": {
+                                  "type": "string"
+                                },
+                                "workloadKind": {
+                                  "type": "string"
+                                },
+                                "workload": {
+                                  "type": "string"
+                                },
+                                "composeProject": {
+                                  "type": "string"
+                                },
+                                "composeService": {
+                                  "type": "string"
+                                },
+                                "host": {
+                                  "type": "string"
+                                },
+                                "container": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Null: every source"
+                        },
+                        "comment": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "createdBy": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Who marked it"
+                        },
+                        "matches": {
+                          "type": "integer",
+                          "description": "Inventory rows it covers now"
+                        }
+                      }
+                    },
+                    "updated": {
+                      "type": "integer",
+                      "description": "Inventory rows that became expected"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/egress/expected/{id}": {
+      "delete": {
+        "summary": "Remove an expected destination",
+        "tags": ["egress"],
+        "description": "Removes an expectation (ADR-186). Its destinations alert again on their next new use, not for past traffic. Owner or Admin, by session.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/egress": {
       "get": {
         "summary": "External destinations",
@@ -10118,10 +10852,11 @@
                             "anyOf": [
                               {
                                 "type": "object",
-                                "required": ["pattern", "at"],
+                                "required": ["pattern", "at", "by", "ids"],
                                 "properties": {
                                   "pattern": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "The covering expectation: a name, *.suffix or CIDR"
                                   },
                                   "at": {
                                     "anyOf": [
@@ -10133,6 +10868,25 @@
                                         "type": "null"
                                       }
                                     ]
+                                  },
+                                  "by": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "description": "Who marked it"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "ids": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "format": "uuid"
+                                    },
+                                    "description": "The expectations covering the sources (removing them all undoes it)"
                                   }
                                 }
                               },

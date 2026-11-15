@@ -8,6 +8,7 @@ import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
 import type { ClusterScope, QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
 import { escapeLabelValue } from '../query/catalog.js';
+import { bestExpectation, loadExpectations } from './expected.js';
 import {
   sourceOf,
   type ClusterKind,
@@ -17,6 +18,13 @@ import {
 
 /** "New": first seen from its source in the last 24 hours (ADR-188). */
 export const EGRESS_NEW_MS = 24 * 3_600_000;
+/**
+ * The classes that can be "New" (ADR-188's slice 4 note): the ones that raise "New external
+ * destination". Private networks and local names are listed but never New, as the alert
+ * skips them (ADR-185, ADR-187 slice 1 notes); "Internet" names nothing. The session lead's
+ * reversible default for the owner: add 'local_name' and 'private_network' here to undo it.
+ */
+export const EGRESS_NEW_CLASSES: ReadonlySet<string> = new Set(['name', 'public_network']);
 /** The learning period (ADR-187); slice 5's rules read WATCHLOG_EGRESS_LEARNING_DAYS. */
 export const EGRESS_LEARNING_DAYS = 7;
 /** At most this many rows; `truncated` and `total` say how many matched (ADR-189). */
@@ -81,7 +89,14 @@ export interface EgressRow {
   failed: number | null;
   failedRatio: number | null;
   badges: EgressBadge[];
-  expected: { pattern: string; at: string | null } | null;
+  expected: {
+    pattern: string;
+    at: string | null;
+    /** Who marked it (their name), when they are still a user. */
+    by: string | null;
+    /** The expectations that cover this row's sources: removing them all is "Undo". */
+    ids: string[];
+  } | null;
   alertId: string | null;
 }
 
@@ -116,6 +131,7 @@ interface InventoryRow {
   last_seen: Date;
   pattern: string | null;
   approved_at: Date | null;
+  approved_by: string | null;
 }
 
 /** A source's key whatever its key order (jsonb reorders keys: shorter ones first). */
@@ -296,6 +312,7 @@ export async function readEgress(
       'last_seen',
       'pattern',
       'approved_at',
+      'approved_by',
     ])
     .where('org_id', '=', orgId)
     .where('cluster_id', '=', cluster.id)
@@ -313,7 +330,7 @@ export async function readEgress(
     label('compose_project', f.project);
     label('compose_service', f.service);
   }
-  const [rows, oldest] = await Promise.all([
+  const [rows, oldest, expectations] = await Promise.all([
     q.execute() as Promise<InventoryRow[]>,
     db
       .selectFrom('egress_sources')
@@ -321,7 +338,19 @@ export async function readEgress(
       .where('org_id', '=', orgId)
       .where('cluster_id', '=', cluster.id)
       .executeTakeFirst(),
+    loadExpectations(db, orgId, cluster.id),
   ]);
+  // Who marked the rows' expectations, by name (the copy keeps the user's id).
+  const markers = [...new Set(rows.map((r) => r.approved_by).filter((x): x is string => !!x))];
+  const names = new Map<string, string>();
+  if (markers.length) {
+    for (const u of await db
+      .selectFrom('users')
+      .select(['id', 'name', 'email'])
+      .where('id', 'in', markers)
+      .execute())
+      names.set(u.id, u.name || u.email);
+  }
 
   let traffic: ReturnType<typeof trafficByEdge> | null = null;
   if (victoria) {
@@ -362,7 +391,7 @@ export async function readEgress(
     let last = head.last_seen;
     for (const m of members) {
       const isNew =
-        cls !== 'internet' &&
+        EGRESS_NEW_CLASSES.has(cls) &&
         !m.first_seen_before &&
         nowMs - m.first_seen.getTime() < EGRESS_NEW_MS;
       sources.push({
@@ -396,9 +425,18 @@ export async function readEgress(
       (failedRatio ?? 0) >= EGRESS_FAILING_RATIO
     )
       badges.push('failing');
-    // Expected once every source's row is covered (ADR-186; the matcher is slice 4's).
+    // Expected once every source's row is covered (ADR-186: the copy the matcher keeps).
     const covered = members.every((m) => m.pattern);
     if (covered) badges.push('expected');
+    const ids = covered
+      ? [
+          ...new Set(
+            members
+              .map((m) => bestExpectation(expectations, m)?.id)
+              .filter((x): x is string => !!x),
+          ),
+        ]
+      : [];
     sources.sort((a, b) => Number(b.new) - Number(a.new) || b.lastSeen.localeCompare(a.lastSeen));
     all.push({
       destination: head.destination,
@@ -417,7 +455,12 @@ export async function readEgress(
       failedRatio,
       badges,
       expected: covered
-        ? { pattern: head.pattern!, at: head.approved_at ? head.approved_at.toISOString() : null }
+        ? {
+            pattern: head.pattern!,
+            at: head.approved_at ? head.approved_at.toISOString() : null,
+            by: head.approved_by ? (names.get(head.approved_by) ?? null) : null,
+            ids,
+          }
         : null,
       alertId: null,
     });

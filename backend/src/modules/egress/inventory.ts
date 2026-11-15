@@ -14,6 +14,7 @@ import type { Database } from '../../db/index.js';
 import { withOrg } from '../../db/org-context.js';
 import type { ClusterScope, QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
 import { clusterForOrg, listClusters } from '../clusters/service.js';
+import { bestExpectation, copyOf, loadExpectations } from './expected.js';
 
 export const EGRESS_MINUTE_EVERY_MS = 60_000;
 export const EGRESS_BACKFILL_EVERY_MS = 5 * 60_000;
@@ -158,8 +159,14 @@ interface Upsert {
   before?: boolean;
 }
 
-/** Inserts rows or widens their first and last seen; sources the same. Idempotent. */
+/**
+ * Inserts rows or widens their first and last seen; sources the same. Idempotent. A new row
+ * gets the copy of the expectation that covers it (ADR-186), so a pattern covers destinations
+ * not seen when it was made; a row without one picks it up too. Changes to the expectations
+ * themselves re-sync every row (expected.ts, syncExpected).
+ */
 async function upsert(db: Database, orgId: string, clusterId: string, rows: Upsert[]) {
+  const expectations = await loadExpectations(db, orgId, clusterId);
   const sources = new Map<string, { source: SourceIdentity; first: Date; last: Date }>();
   for (const r of rows) {
     const k = sourceKey(r.edge.source);
@@ -185,6 +192,7 @@ async function upsert(db: Database, orgId: string, clusterId: string, rows: Upse
           first_seen: r.firstSeen,
           first_seen_before: r.before ?? false,
           last_seen: r.lastSeen,
+          ...copyOf(expectations.length ? bestExpectation(expectations, r.edge) : null),
         })),
       )
       .onConflict((oc) =>
@@ -193,6 +201,13 @@ async function upsert(db: Database, orgId: string, clusterId: string, rows: Upse
           first_seen_before: sql<boolean>`CASE WHEN excluded.first_seen < egress_destinations.first_seen THEN excluded.first_seen_before ELSE egress_destinations.first_seen_before END`,
           first_seen: sql<Date>`LEAST(egress_destinations.first_seen, excluded.first_seen)`,
           last_seen: sql<Date>`GREATEST(egress_destinations.last_seen, excluded.last_seen)`,
+          // A row without an expectation's copy takes the one just matched; one with a copy
+          // keeps it (only a change to the expectations moves it).
+          approved_by: sql<
+            string | null
+          >`CASE WHEN egress_destinations.pattern IS NULL THEN excluded.approved_by ELSE egress_destinations.approved_by END`,
+          approved_at: sql<Date | null>`CASE WHEN egress_destinations.pattern IS NULL THEN excluded.approved_at ELSE egress_destinations.approved_at END`,
+          pattern: sql<string | null>`COALESCE(egress_destinations.pattern, excluded.pattern)`,
         }),
       )
       .execute();

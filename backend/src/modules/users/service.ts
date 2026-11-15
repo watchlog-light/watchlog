@@ -42,7 +42,10 @@ export type AuditAction =
   | 'org_deletion_cancelled'
   | 'org_inactive_warned'
   | 'org_inactive_suspended'
-  | 'org_reactivated';
+  | 'org_reactivated'
+  // Egress watch (ADR-186): an expected destination marked or removed.
+  | 'egress_expected_added'
+  | 'egress_expected_removed';
 
 export interface Actor {
   id: string | null;

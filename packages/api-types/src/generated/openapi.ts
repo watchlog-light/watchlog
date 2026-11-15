@@ -3511,6 +3511,369 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/egress/expected': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Expected destinations
+     * @description A cluster's or fleet's expected destinations (ADR-186): exact names, `*.` patterns and CIDRs, for one source or every source, one port or any, newest first, with how many inventory rows each covers now.
+     */
+    get: {
+      parameters: {
+        query: {
+          cluster: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              items: {
+                /** Format: uuid */
+                id: string;
+                /** @description An exact name, *. and a suffix, or a CIDR */
+                pattern: string;
+                /** @description Null: any port */
+                port: number | null;
+                /** @description Null: every source */
+                source: {
+                  namespace?: string;
+                  workloadKind?: string;
+                  workload?: string;
+                  composeProject?: string;
+                  composeService?: string;
+                  host?: string;
+                  container?: string;
+                } | null;
+                comment: string | null;
+                /** Format: date-time */
+                createdAt: string;
+                /** @description Who marked it */
+                createdBy: string | null;
+                /** @description Inventory rows it covers now */
+                matches: number;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    /**
+     * Mark a destination expected
+     * @description Marks a destination, or a pattern of destinations, expected (ADR-186): an exact name (`api.stripe.com`), `*.` and a suffix of at least two labels (`*.amazonaws.com`: any name under it, not the suffix itself), or a CIDR of at least /8 (IPv4) or /32 (IPv6) for raw networks. For one source (in the cluster's vocabulary) or every source (`source` left out), one port or any. Covers destinations not seen yet. "New external destination" stays quiet for them; Raw IP and Large upload don't. Owner or Admin, by session.
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** Format: uuid */
+            cluster: string;
+            pattern: string;
+            port?: number;
+            source?: {
+              /** @description Kubernetes: the namespace */
+              namespace?: string;
+              /** @description Kubernetes: the workload kind */
+              workloadKind?: string;
+              /** @description Kubernetes: the workload */
+              workload?: string;
+              /** @description Docker: the Compose project */
+              composeProject?: string;
+              /** @description Docker: the Compose service */
+              composeService?: string;
+              /** @description Docker: the host (a container outside Compose) */
+              host?: string;
+              /** @description Docker: the container (outside Compose) */
+              container?: string;
+            } | null;
+            comment?: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              expectation: {
+                /** Format: uuid */
+                id: string;
+                /** @description An exact name, *. and a suffix, or a CIDR */
+                pattern: string;
+                /** @description Null: any port */
+                port: number | null;
+                /** @description Null: every source */
+                source: {
+                  namespace?: string;
+                  workloadKind?: string;
+                  workload?: string;
+                  composeProject?: string;
+                  composeService?: string;
+                  host?: string;
+                  container?: string;
+                } | null;
+                comment: string | null;
+                /** Format: date-time */
+                createdAt: string;
+                /** @description Who marked it */
+                createdBy: string | null;
+                /** @description Inventory rows it covers now */
+                matches: number;
+              };
+              /** @description Inventory rows that became expected */
+              updated: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/egress/expected/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Remove an expected destination
+     * @description Removes an expectation (ADR-186). Its destinations alert again on their next new use, not for past traffic. Owner or Admin, by session.
+     */
+    delete: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        204: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/egress': {
     parameters: {
       query?: never;
@@ -3629,8 +3992,12 @@ export interface paths {
                 failedRatio: number | null;
                 badges: ('new' | 'raw_ip' | 'failing' | 'expected')[];
                 expected: {
+                  /** @description The covering expectation: a name, *.suffix or CIDR */
                   pattern: string;
                   at: string | null;
+                  by: string | null;
+                  /** @description The expectations covering the sources (removing them all undoes it) */
+                  ids: string[];
                 } | null;
                 alertId: string | null;
               }[];

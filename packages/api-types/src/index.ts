@@ -203,6 +203,10 @@ export type RightSizingShort = RightSizing['notEnoughHistory'][number];
 export type Egress = JsonBody<Responses<'/api/v1/egress', 'get'>[200]>;
 export type EgressRow = Egress['rows'][number];
 export type EgressSource = EgressRow['sources'][number];
+/** Expected destinations (ADR-186): a name, `*.` pattern or CIDR, for one source or all. */
+export type EgressExpectations = JsonBody<Responses<'/api/v1/egress/expected', 'get'>[200]>;
+export type EgressExpectation = EgressExpectations['items'][number];
+export type EgressExpectationCreated = JsonBody<Responses<'/api/v1/egress/expected', 'post'>[201]>;
 // The ⌘K palette's search (ADR-169).
 export type SearchResponse = JsonBody<Responses<'/api/v1/clusters/{id}/search', 'get'>[200]>;
 export type SearchResult = SearchResponse['results'][number];
