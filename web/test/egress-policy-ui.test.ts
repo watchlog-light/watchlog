@@ -46,7 +46,11 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-async function mountWith(props: object) {
+async function mountWith(props: {
+  clusterId: string;
+  kind: 'kubernetes' | 'docker';
+  workload?: typeof workload;
+}) {
   const plugins = await createPlugins('/workloads');
   const w = mount(EgressPolicy, {
     props,
