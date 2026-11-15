@@ -380,6 +380,24 @@ export async function readEgress(
     groups.get(k)!.push(r);
   }
 
+  // The open egress alerts (ADR-187), for each row's "View alert": the newest that fired for
+  // this destination and port, from any of its sources.
+  const firingAlerts = await db
+    .selectFrom('alert_states as s')
+    .innerJoin('alert_rules as r', 'r.id', 's.rule_id')
+    .select([
+      's.id',
+      sql<string>`s.labels->>'destination'`.as('destination'),
+      sql<string>`s.labels->>'port'`.as('port'),
+    ])
+    .where('s.org_id', '=', orgId)
+    .where('s.cluster_id', '=', cluster.id)
+    .where('s.state', '=', 'firing')
+    .where('r.rule_key', 'like', 'egress.%')
+    .orderBy('s.fired_at', 'asc')
+    .execute();
+  const alertOf = new Map(firingAlerts.map((a) => [groupKey(a.destination, Number(a.port)), a.id]));
+
   const all: EgressRow[] = [];
   for (const members of groups.values()) {
     const head = members[0]!;
@@ -461,7 +479,7 @@ export async function readEgress(
             ids,
           }
         : null,
-      alertId: null,
+      alertId: alertOf.get(groupKey(head.destination, head.port)) ?? null,
     });
   }
 
