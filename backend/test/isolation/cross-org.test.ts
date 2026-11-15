@@ -351,6 +351,46 @@ describe('every REST route as org B with org A ids', () => {
     expect(await fingerprint(A.orgId)).toEqual(before);
   });
 
+  it("egress policy (ADR-190, ADR-192): B can't get A's workloads' policy, by session or token; B's own and A's control", async () => {
+    const policy = async (as: SeededOrg, cluster: string, workload: string, token = false) =>
+      w.app.inject({
+        method: 'GET',
+        url: '/api/v1/egress/policy',
+        query: { cluster, workload },
+        ...(token
+          ? { headers: { authorization: `Bearer ${as.apiToken.value}` } }
+          : { cookies: { wl_session: await as.session() } }),
+      });
+    const aWorkload = 'shop/Deployment/zzalpha-orders';
+    for (const token of [false, true]) {
+      for (const id of [A.k8s.id, A.docker.id]) {
+        for (const workload of [aWorkload, 'shop/Deployment/zzbeta-orders']) {
+          const b = await policy(B, id, workload, token);
+          expect(b.statusCode, `${id} ${workload}`).toBe(404);
+          // Another org's Docker fleet is "not found", never Docker's reason.
+          expect(b.json().detail).toBe('Cluster not found');
+          expect(leaks(b.body, id + aWorkload)).toEqual([]);
+        }
+      }
+      const own = await policy(B, B.k8s.id, 'shop/Deployment/zzbeta-orders', token);
+      expect(own.statusCode, own.body).toBe(200);
+      expect(own.body).toContain('api.zzbeta.example.org');
+      expect(own.body).toContain('*.zzbeta.example.org');
+      expect(leaks(own.body)).toEqual([]);
+      const ownDocker = await policy(B, B.docker.id, 'shop/Deployment/zzbeta-orders', token);
+      expect(ownDocker.statusCode).toBe(404);
+      expect(ownDocker.json().detail).toContain('Docker has no egress policy object');
+      // B's own cluster with A's workload name: nothing of A's there.
+      const cross = await policy(B, B.k8s.id, aWorkload, token);
+      expect(cross.statusCode).toBe(404);
+      expect(leaks(cross.body, aWorkload)).toEqual([]);
+      // The control: A gets its own.
+      const a = await policy(A, A.k8s.id, aWorkload, token);
+      expect(a.statusCode, a.body).toBe(200);
+      expect(a.body).toContain('api.zzalpha.example.org');
+    }
+  });
+
   it("exports (ADR-181): B can't reach A's clusters, and B's own exports hold nothing of A", async () => {
     const now = Math.floor(Date.now() / 1000);
     const range = { from: String(now - 3600), to: String(now) };

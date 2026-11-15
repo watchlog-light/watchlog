@@ -50,6 +50,7 @@ const ALLOWED = [
   'GET /api/v1/clusters/:id/workloads',
   'GET /api/v1/egress',
   'GET /api/v1/egress/expected',
+  'GET /api/v1/egress/policy',
   'GET /api/v1/health',
   'GET /api/v1/me',
   'GET /api/v1/openapi.json',

@@ -151,6 +151,9 @@ export const ROUTES: Record<string, RouteClass> = {
   'GET /api/v1/egress/expected': org,
   'POST /api/v1/egress/expected': org,
   'DELETE /api/v1/egress/expected/:id': org,
+  // The policy suggestion (ADR-190): B with A's clusters and workload gets 404, never the
+  // Docker reason; B's own and A's control (cross-org.test.ts, "egress policy").
+  'GET /api/v1/egress/policy': org,
   'GET /api/v1/clusters/:id/search': { kind: 'org', query: { q: 'web' } },
   'GET /api/v1/clusters/:id/overview': org,
   'GET /api/v1/clusters/:id/service-map': org,

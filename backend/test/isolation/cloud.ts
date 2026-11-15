@@ -593,6 +593,25 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
       .executeTakeFirstOrThrow();
     expectedIds.push(expected.id);
   }
+  // A running pod of the Kubernetes source, so the policy suggestion (ADR-190) has a selector.
+  await owner
+    .insertInto('objects')
+    .values({
+      id: newId(),
+      org_id: orgId,
+      cluster_id: k8s.id,
+      source: 'kubernetes',
+      kind: 'Pod',
+      namespace: 'shop',
+      name: `${label}-orders-1`,
+      uid: newId(),
+      spec_summary: JSON.stringify({
+        workload: { kind: 'Deployment', name: `${label}-orders` },
+        labels: { app: `${label}-orders` },
+      }),
+      status_summary: JSON.stringify({ phase: 'Running' }),
+    })
+    .execute();
   const token = await api('POST', '/api-tokens', { name: `${label}-token` });
   const invite = await api('POST', '/users/invites', {
     email: `invitee@${label}.test`,
