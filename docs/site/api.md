@@ -192,6 +192,12 @@ curl -H "$H" "$WATCHLOG/api/v1/egress?cluster=$CLUSTER&firstSeenAfter=1794150000
 # need a browser session (an Owner or Admin): tokens can't
 curl -H "$H" "$WATCHLOG/api/v1/egress/expected?cluster=$CLUSTER"
 
+# A suggested egress policy for one Kubernetes workload, as YAML text: a standard
+# NetworkPolicy and a CiliumNetworkPolicy (toFQDNs), the flavour detected on the cluster
+# first. WatchLog never applies it. A Docker fleet answers 404: Docker has no egress policy object
+curl -H "$H" "$WATCHLOG/api/v1/egress/policy?cluster=$CLUSTER&workload=shop/Deployment/orders"
+curl -H "$H" "$WATCHLOG/api/v1/egress/policy?cluster=$CLUSTER&workload=shop/Deployment/orders&flavour=kubernetes"
+
 # Event counts over time, and change markers (deploys, restarts) between two times
 curl -H "$H" $WATCHLOG/api/v1/clusters/$CLUSTER/events/summary
 curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/change-markers?from=1794150000&to=1794153600"
