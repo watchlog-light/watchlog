@@ -92,7 +92,7 @@ const K8S_ROWS: EgressRow[] = [
   row('10.96.0.0/24', { kind: 'network', class: 'private_network', private: true }),
   row('s3.eu-central-1.amazonaws.com', {
     badges: ['expected'],
-    expected: { pattern: '*.amazonaws.com', at: iso(D) },
+    expected: { pattern: '*.amazonaws.com', at: iso(D), by: 'Ada Admin', ids: ['e1'] },
     sources: [
       row('x').sources[0]!,
       { ...row('x').sources[0]!, workloadKind: 'StatefulSet', workload: 'db' },
@@ -336,7 +336,7 @@ describe('the Egress page', () => {
       },
     });
     const { w } = await mountWith(EgressPage, '/egress?project=storefront&service=api');
-    expect(calls.at(-1)!.path).toBe(
+    expect(calls.filter((c) => c.path.startsWith('/api/v1/egress?')).at(-1)!.path).toBe(
       `/api/v1/egress?cluster=${FLEET.id}&project=storefront&service=api`,
     );
     expect(w.get('[data-testid="egress-service"]').text()).toBe('Compose service storefront · api');
