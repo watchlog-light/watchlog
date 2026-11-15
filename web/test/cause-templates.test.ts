@@ -54,6 +54,11 @@ const HEADLINES: [string, Facts][] = [
   ],
   ['job_failed_exit', { name: 'report', job: 'report-e2e-1794332238', exitCode: 2 }],
   ['job_failed', { name: 'report', job: 'report-29001' }],
+  // v0.7 slice 5 (ADR-187): the egress alerts' rule, Kubernetes and Docker changes.
+  ['change_before_egress_image', { name: 'orders', n: 7, image: 'shop/orders:3.8.2' }],
+  ['change_before_egress_rollout', { name: 'orders', n: 1, to: '5' }],
+  ['change_before_egress_recreate', { name: 'causes-e2e-release-1', n: 3, image: 'busybox:1.36' }],
+  ['change_before_egress_compose', { name: 'web', n: 8, project: 'causes-e2e' }],
   // Slice 3: the rules across the map (measured on the kind and Docker e2e demos).
   ['dependency_down', { name: 'web', target: 'api' }],
   ['dependency_down_scaled', { name: 'web', target: 'api' }],
@@ -330,6 +335,7 @@ const STEPS: [string, Facts][] = [
   ['on_host', { host: 'docker-01', state: 'restarting' }],
   ['cpu_throttled', { container: 'hot', pct: 98, limitCores: 0.02 }],
   ['cpu_throttled_share', { container: 'causes-e2e-hot-1', pct: 100 }],
+  ['egress_first_connection', { destination: 'cdn-update-check.xyz:443' }],
 ];
 
 /** Causes of the catalog's rules: the short line (Needs attention, notifications). */
@@ -389,6 +395,16 @@ const CAUSES: [string, Facts][] = [
     { name: 'caller', target: 'hot', container: 'hot', pct: 98, limitCores: 0.02, p95Ms: 233 },
   ],
   ['cpu_throttled', { name: 'hot', container: 'hot', pct: 98, limitCores: null }],
+  [
+    'change_before_egress',
+    {
+      name: 'orders',
+      destination: 'cdn-update-check.xyz:443',
+      change: 'image',
+      target: 'Deployment/shop/orders',
+      minutes: 7,
+    },
+  ],
 ];
 
 const raw = (key: string): string | undefined =>
