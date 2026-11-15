@@ -17,6 +17,7 @@ import { inject } from 'vitest';
 import { buildApp } from '../../src/app.js';
 import { createDb } from '../../src/db/index.js';
 import { SetupState } from '../../src/modules/setup/service.js';
+import { insertCluster } from '../../src/modules/clusters/service.js';
 import {
   closeTestContext,
   createTestContext,
@@ -112,6 +113,21 @@ describe('Community (WATCHLOG_EDITION unset)', () => {
         });
         expect(res.statusCode, `${method} ${path}`).toBe(404);
       }
+    }
+  });
+
+  it('What changed (ADR-202): 404 for a Kubernetes cluster and a Docker fleet, as if absent', async () => {
+    const org = await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow();
+    for (const kind of ['kubernetes', 'docker'] as const) {
+      const cluster = await insertCluster(ctx.db, org.id, `wc-${kind}`, kind);
+      const r = await ctx.app.inject({
+        method: 'GET',
+        url: '/api/v1/what-changed',
+        query: { cluster: cluster.id },
+        cookies: { wl_session: cookie },
+      });
+      expect(r.statusCode).toBe(404);
+      expect(r.body).not.toContain('Pro');
     }
   });
 

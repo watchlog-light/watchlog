@@ -154,6 +154,10 @@ export const ROUTES: Record<string, RouteClass> = {
   // The policy suggestion (ADR-190): B with A's clusters and workload gets 404, never the
   // Docker reason; B's own and A's control (cross-org.test.ts, "egress policy").
   'GET /api/v1/egress/policy': org,
+  // What changed (ADR-199, ADR-202): Pro only. B with A's cluster or A's alert gets 404, a
+  // Free org 403 `pro-feature` with nothing of A's, B's own and A's control
+  // (cross-org.test.ts, "what changed"); Community's 404 is in community.test.ts.
+  'GET /api/v1/what-changed': org,
   'GET /api/v1/clusters/:id/search': { kind: 'org', query: { q: 'web' } },
   'GET /api/v1/clusters/:id/overview': org,
   'GET /api/v1/clusters/:id/service-map': org,

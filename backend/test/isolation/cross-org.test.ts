@@ -306,6 +306,64 @@ describe('every REST route as org B with org A ids', () => {
     }
   });
 
+  it("what changed (ADR-202): B gets 404 for A's clusters and alert, 403 as Free; each org reads its own", async () => {
+    const wc = async (as: SeededOrg, query: Record<string, string>) =>
+      w.app.inject({
+        method: 'GET',
+        url: '/api/v1/what-changed',
+        // The window that holds the seeded periods (30 minutes ago, still open).
+        query,
+        cookies: { wl_session: await as.session() },
+      });
+    for (const id of [A.k8s.id, A.docker.id]) {
+      const b = await wc(B, { cluster: id });
+      expect(b.statusCode, id).toBe(404);
+      expect(leaks(b.body, id)).toEqual([]);
+    }
+    // A's alert with B's own cluster, and with A's.
+    for (const cluster of [B.k8s.id, A.k8s.id]) {
+      const b = await wc(B, { cluster, alert: A.alertId });
+      expect(b.statusCode).toBe(404);
+      expect(leaks(b.body, cluster + A.alertId)).toEqual([]);
+    }
+    // Each org reads its own periods, on both platforms, under RLS.
+    for (const [o, other] of [
+      [A, B],
+      [B, A],
+    ] as const) {
+      for (const id of [o.k8s.id, o.docker.id]) {
+        const own = await wc(o, { cluster: id });
+        expect(own.statusCode, own.body).toBe(200);
+        expect(own.json().rows).toHaveLength(1);
+        expect(own.body).toContain(o.label);
+        expect(leaks(own.body, '', other)).toEqual([]);
+      }
+      const around = await wc(o, { cluster: o.k8s.id, alert: o.alertId });
+      expect(around.statusCode).toBe(200);
+      expect(leaks(around.body, '', other)).toEqual([]);
+    }
+    // B without pro_features (Free): 403 pro-feature, for its own cluster and for A's.
+    const flip = async (on: boolean) => {
+      await w.owner
+        .updateTable('entitlements')
+        .set({ pro_features: on })
+        .where('org_id', '=', B.orgId)
+        .execute();
+      w.app.entitlements!.invalidate(B.orgId);
+    };
+    await flip(false);
+    try {
+      for (const id of [B.k8s.id, A.k8s.id, A.docker.id]) {
+        const r = await wc(B, { cluster: id });
+        expect(r.statusCode).toBe(403);
+        expect(r.json().type).toBe('urn:watchlog:problem:pro-feature');
+        expect(leaks(r.body, id)).toEqual([]);
+      }
+    } finally {
+      await flip(true);
+    }
+  });
+
   it("expectations (ADR-186, ADR-192): B can't list, add or remove A's; B's own work under RLS", async () => {
     const as = async (o: SeededOrg, method: 'GET' | 'POST' | 'DELETE', url: string, extra = {}) =>
       w.app.inject({ method, url, cookies: { wl_session: await o.session() }, ...extra });

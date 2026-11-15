@@ -269,10 +269,18 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
       { id: newId(), org_id: orgId, user_id: viewerId, role: 'viewer' },
     ])
     .execute();
-  // Pro, set by staff (ADR-177): each org has a cluster and a fleet, over Free's one.
+  // Pro, set by staff (ADR-177): each org has a cluster and a fleet, over Free's one, and
+  // What changed (`pro_features`, ADR-195).
   await owner
     .insertInto('entitlements')
-    .values({ org_id: orgId, plan: 'pro', source: 'staff', users: 10, retention_days: 30 })
+    .values({
+      org_id: orgId,
+      plan: 'pro',
+      source: 'staff',
+      users: 10,
+      retention_days: 30,
+      pro_features: true,
+    })
     .execute();
   const session = async () => (await createSession(owner, ownerId)).token;
   const sessionOf = async (userId: string) => (await createSession(owner, userId)).token;
