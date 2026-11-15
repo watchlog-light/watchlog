@@ -27,7 +27,7 @@ import {
   type SeededOrg,
 } from './cloud.js';
 import { GLOBAL_TABLES } from './tables.js';
-import { ROUTES, STREAMS, type RouteClass } from './classification.js';
+import { MCP_TOOLS, ROUTES, STREAMS, type RouteClass } from './classification.js';
 
 let w: CloudWorld;
 let A: SeededOrg;
@@ -483,6 +483,106 @@ describe('every MCP tool', () => {
     );
     return client;
   }
+
+  it('classifies every tool, and none is gone', async () => {
+    const asB = await connect(B.apiToken.value);
+    const { tools } = await asB.listTools();
+    await asB.close();
+    expect(tools.map((t) => t.name).sort()).toEqual(Object.keys(MCP_TOOLS).sort());
+  });
+
+  it("egress tools (ADR-192): B with A's Kubernetes and Docker clusters gets an error and nothing of A; B's own and A's control", async () => {
+    const asB = await connect(B.apiToken.value);
+    const asA = await connect(A.apiToken.value);
+    const call = async (c: Client, name: string, args: Record<string, unknown>) => {
+      const r = await c.callTool({ name, arguments: args });
+      const t = (r.content as { type: string; text?: string }[])
+        .map((x) => x.text ?? '')
+        .join('\n');
+      return { isError: r.isError === true, text: t };
+    };
+    const tools: [string, Record<string, unknown>, string][] = [
+      ['get_egress', { hours: 168 }, 'api.%s.example.org'],
+      ['get_new_destinations', { hours: 168 }, 'api.%s.example.org'],
+      ['get_expected_destinations', {}, '*.%s.example.org'],
+    ];
+    for (const [tool, extra, marker] of tools) {
+      // A's clusters by id and by name, with each platform's source filters.
+      for (const [cluster, filters] of [
+        [A.k8s.id, { namespace: 'shop' }],
+        [A.docker.id, { composeService: 'zzalpha-shop/api' }],
+        ['zzalpha-k8s', {}],
+        ['zzalpha-fleet', {}],
+      ] as const) {
+        const args = {
+          cluster,
+          ...extra,
+          ...(tool === 'get_expected_destinations' ? {} : filters),
+        };
+        const b = await call(asB, tool, args);
+        expect(b.isError, `${tool} ${cluster}`).toBe(true);
+        expect(JSON.parse(b.text).error, tool).toBe('No cluster with this name or id.');
+        expect(leaks(b.text, JSON.stringify(args)), `${tool} ${cluster}`).toEqual([]);
+      }
+      for (const cluster of [B.k8s.id, B.docker.id]) {
+        const own = await call(asB, tool, { cluster, ...extra });
+        expect(own.isError, `${tool} B ${own.text.slice(0, 200)}`).toBe(false);
+        expect(own.text).toContain(marker.replace('%s', 'zzbeta'));
+        expect(leaks(own.text), tool).toEqual([]);
+      }
+      for (const cluster of [A.k8s.id, A.docker.id]) {
+        const a = await call(asA, tool, { cluster, ...extra });
+        expect(a.isError, tool).toBe(false);
+        expect(a.text).toContain(marker.replace('%s', 'zzalpha'));
+      }
+    }
+    await asA.close();
+    await asB.close();
+  });
+
+  it("the egress routes with B's API token: A's clusters 404, B's own, A's token reads A's", async () => {
+    const read = (o: SeededOrg, url: string, cluster: string) =>
+      w.app.inject({
+        method: 'GET',
+        url,
+        query: { cluster, from: String(Math.floor(Date.now() / 1000) - 7 * 86_400) },
+        headers: { authorization: `Bearer ${o.apiToken.value}` },
+      });
+    for (const url of ['/api/v1/egress', '/api/v1/egress/expected']) {
+      for (const id of [A.k8s.id, A.docker.id]) {
+        const b = await read(B, url, id);
+        expect(b.statusCode, `${url} ${id}`).toBe(404);
+        expect(leaks(b.body, id)).toEqual([]);
+      }
+      for (const id of [B.k8s.id, B.docker.id]) {
+        const own = await read(B, url, id);
+        expect(own.statusCode, `${url} ${own.body}`).toBe(200);
+        expect(own.body).toContain('zzbeta.example.org');
+        expect(leaks(own.body)).toEqual([]);
+      }
+      for (const id of [A.k8s.id, A.docker.id]) {
+        const a = await read(A, url, id);
+        expect(a.statusCode).toBe(200);
+        expect(a.body).toContain('zzalpha.example.org');
+      }
+    }
+    // A write with a token is refused before any cluster is looked at.
+    const before = await fingerprint(A.orgId);
+    const add = await w.app.inject({
+      method: 'POST',
+      url: '/api/v1/egress/expected',
+      payload: { cluster: A.k8s.id, pattern: '*.zzalpha.example.org' },
+      headers: { authorization: `Bearer ${B.apiToken.value}` },
+    });
+    expect(add.statusCode).toBe(403);
+    const del = await w.app.inject({
+      method: 'DELETE',
+      url: `/api/v1/egress/expected/${A.expectedIds[0]}`,
+      headers: { authorization: `Bearer ${B.apiToken.value}` },
+    });
+    expect(del.statusCode).toBe(403);
+    expect(await fingerprint(A.orgId)).toEqual(before);
+  });
 
   it("as B with A's ids: never a marker of A; A gets its own", async () => {
     const asB = await connect(B.apiToken.value);

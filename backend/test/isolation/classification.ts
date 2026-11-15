@@ -247,6 +247,37 @@ export const ROUTES: Record<string, RouteClass> = {
   'POST /ingest/v1/heartbeat': ingest,
 };
 
+/**
+ * Every MCP tool (ADR-182, ADR-192): how it reaches an org's data. The sweep in
+ * cross-org.test.ts ("every MCP tool") calls each one as B with A's Kubernetes and Docker
+ * ids and as A; a tool missing here fails it, so each new tool is classified when it is added.
+ *   - cluster: takes a cluster (name or id) and reads it through the public API as the token;
+ *   - id:      takes one of an org's object ids (an alert's);
+ *   - org:     lists the token's own org (no id to pass).
+ */
+export const MCP_TOOLS: Record<string, 'cluster' | 'id' | 'org'> = {
+  list_clusters: 'org',
+  get_problems: 'cluster',
+  list_alerts: 'cluster',
+  explain_alert: 'id',
+  explain_problem: 'cluster',
+  get_workload: 'cluster',
+  get_pod: 'cluster',
+  get_container_logs: 'cluster',
+  get_right_sizing: 'cluster',
+  get_node: 'cluster',
+  list_applications: 'cluster',
+  get_application: 'cluster',
+  get_service_map: 'cluster',
+  // Egress watch (ADR-189): also asserted one by one in cross-org.test.ts ("egress tools").
+  get_egress: 'cluster',
+  get_new_destinations: 'cluster',
+  get_expected_destinations: 'cluster',
+  get_events: 'cluster',
+  get_recent_changes: 'cluster',
+  query_metric: 'cluster',
+};
+
 /** Event streams: a route and how it is asked for one (ADR-167's logs follow, ADR-176). */
 export const STREAMS: { route: string; query: Record<string, string> }[] = [
   { route: 'GET /api/v1/clusters/:id/onboarding-status', query: {} },
