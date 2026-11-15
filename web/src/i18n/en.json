@@ -3350,7 +3350,9 @@
       "org_deletion_cancelled": "Undid the organization’s deletion",
       "org_inactive_warned": "Warned: no data from any agent for 30 days",
       "org_inactive_suspended": "Suspended after {days} days without data",
-      "org_reactivated": "Reactivated the organization"
+      "org_reactivated": "Reactivated the organization",
+      "egress_expected_added": "Marked {pattern} expected (port {port}, {source})",
+      "egress_expected_removed": "Removed the expectation {pattern} (port {port}, {source})"
     },
     "inviteTitle": "Invite someone",
     "inviteDescription": "They choose their own name and password when they open the link.",
@@ -4459,7 +4461,8 @@
       "lastSeen": "Last seen",
       "bytes": "Sent / received",
       "connections": "Conns",
-      "failed": "Failed"
+      "failed": "Failed",
+      "actions": "Actions"
     },
     "badge": {
       "new": "New",
@@ -4520,6 +4523,45 @@
         "kubernetes": "See the whole cluster's egress →",
         "docker": "See the whole fleet's egress →"
       }
+    },
+    "expected": {
+      "mark": "Mark expected",
+      "undo": "Undo",
+      "undoPattern": "Removes {pattern}, for every destination it covers",
+      "title": "Mark expected",
+      "description": "\"New external destination\" stays quiet for what you mark. It is kept until someone removes it, and covers names not seen yet.",
+      "for": "For",
+      "onlySource": "Only {source}",
+      "every": "Every {units}",
+      "what": "What",
+      "exact": "This destination",
+      "pattern": "A pattern",
+      "patternLabel": "Pattern",
+      "patternHint": "A name, *. and a suffix (*.amazonaws.com covers every name under it), or a CIDR for raw networks (203.0.113.0/24).",
+      "anyPort": "Any port, not only {port}",
+      "stillAlerts": "Raw IP and large uploads still alert: an expected name doesn't make a raw address or a large upload expected.",
+      "save": "Mark expected",
+      "marked": "Marked expected.",
+      "undone": "No longer expected: new use alerts again.",
+      "refused": "Not accepted: {reason}",
+      "failed": "Couldn't save that. Try again.",
+      "markedBy": "Marked expected by {by}"
+    },
+    "expectations": {
+      "title": "Expected destinations",
+      "intro": "Kept until removed; patterns cover names not seen yet.",
+      "error": "Couldn't load the expected destinations.",
+      "empty": "Nothing is marked expected yet. Mark a destination from its row, or add a pattern such as *.amazonaws.com.",
+      "anyPort": "any port",
+      "covers": "covers {n} destination now | covers {n} destinations now",
+      "by": "by {by}, {when}",
+      "remove": "Remove",
+      "removeOne": "Remove {pattern}",
+      "addLabel": "Add a pattern for every {units}",
+      "placeholder": "*.amazonaws.com",
+      "port": "Port",
+      "add": "Add",
+      "badPort": "A port is a number from 1 to 65535, or empty for any port."
     }
   }
 }

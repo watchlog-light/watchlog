@@ -9,6 +9,7 @@ import Skeleton from '@/components/ui/Skeleton.vue';
 import { useLoader } from '@/composables/useLoader';
 import { egressPath, firstSeenText, percent, type EgressQuery } from '@/lib/egress';
 import EgressBadges from './EgressBadges.vue';
+import ExpectedActions from './ExpectedActions.vue';
 
 // "Talks to the internet" on a source's page (ADR-188): the workload's, Compose service's or
 // container's destinations over the last 30 days, each with since when, today's connections,
@@ -109,7 +110,17 @@ const link = computed(() => ({
             >
             <span class="text-12 text-text-muted">{{ line(row, today) }}</span>
           </div>
-          <EgressBadges :row="row" />
+          <div class="flex flex-wrap items-center gap-2">
+            <EgressBadges :row="row" />
+            <ExpectedActions
+              v-if="row.sources.length"
+              :row="row"
+              :cluster-id="clusterId"
+              :kind="kind"
+              :source="row.sources[0]"
+              @changed="page.load"
+            />
+          </div>
         </li>
       </ul>
       <p v-else class="px-4 py-3 text-13 text-text-muted" data-testid="talks-empty">

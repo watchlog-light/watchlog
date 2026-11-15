@@ -143,3 +143,30 @@ export function learningText(l: Egress['learning'], t: Translate): string {
   }
   return t('egress.learnedFrom', { n: l.days }, l.days);
 }
+
+/** The API's source for an expectation, from a row's source (ADR-186). */
+export function sourceInput(s: EgressSource): Record<string, string> {
+  if (s.workload !== undefined) {
+    return { namespace: s.namespace!, workloadKind: s.workloadKind!, workload: s.workload };
+  }
+  if (s.composeService !== undefined) {
+    return { composeProject: s.composeProject!, composeService: s.composeService };
+  }
+  return { host: s.host!, container: s.container! };
+}
+
+/**
+ * The pattern "Mark expected" offers first: `*.` and the name's last two labels for a name of
+ * three or more (`s3.eu-central-1.amazonaws.com` → `*.amazonaws.com`), otherwise the
+ * destination itself (a two-label name, a local name, a raw network).
+ */
+export function suggestPattern(r: Pick<EgressRow, 'destination' | 'class'>): string {
+  if (r.class !== 'name') return r.destination;
+  const labels = r.destination.split('.');
+  return labels.length >= 3 ? `*.${labels.slice(-2).join('.')}` : r.destination;
+}
+
+/** Whether an expectation's label needs its pattern ("Expected · *.amazonaws.com"). */
+export function showsPattern(r: Pick<EgressRow, 'destination' | 'expected'>): boolean {
+  return !!r.expected && r.expected.pattern !== r.destination.toLowerCase();
+}

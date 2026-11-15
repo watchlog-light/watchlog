@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import EgressTable from '@/components/egress/EgressTable.vue';
+import ExpectationsList from '@/components/egress/ExpectationsList.vue';
 import SegmentedControl from '@/components/overview/SegmentedControl.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
@@ -80,6 +81,12 @@ const answer = computed(() => page.data.value?.answer ?? null);
 const docker = computed(() => cluster.value?.kind === 'docker');
 const unit = (n: number) => t(docker.value ? 'egress.unit.docker' : 'egress.unit.kubernetes', n);
 const filtered = computed(() => Object.keys(query.value).length > 0);
+/** Bumped when a row's "Mark expected" or "Undo" changes the expectations list. */
+const expectationsVersion = ref(0);
+function onRowChanged() {
+  expectationsVersion.value++;
+  void page.load();
+}
 
 const uniq = (xs: (string | undefined)[]) =>
   [...new Set(xs.filter((x): x is string => !!x))].sort();
@@ -343,7 +350,13 @@ onBeforeUnmount(() => clearInterval(timer));
           }}
         </p>
 
-        <EgressTable v-if="answer.rows.length" :rows="answer.rows" :cluster-id="cluster.id" />
+        <EgressTable
+          v-if="answer.rows.length"
+          :rows="answer.rows"
+          :cluster-id="cluster.id"
+          :kind="docker ? 'docker' : 'kubernetes'"
+          @changed="onRowChanged"
+        />
         <EmptyState
           v-else-if="filtered"
           :icon="SearchX"
@@ -363,6 +376,13 @@ onBeforeUnmount(() => clearInterval(timer));
           :title="$t('egress.empty.none.title')"
           :description="$t(`egress.empty.none.${docker ? 'docker' : 'kubernetes'}`)"
           data-testid="egress-empty"
+        />
+
+        <ExpectationsList
+          :cluster-id="cluster.id"
+          :kind="docker ? 'docker' : 'kubernetes'"
+          :version="expectationsVersion"
+          @changed="page.load"
         />
 
         <p

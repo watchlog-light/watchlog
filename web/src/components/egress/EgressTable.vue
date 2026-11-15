@@ -4,12 +4,21 @@ import type { EgressRow } from '@watchlog/api-types';
 import { formatBytes } from '@watchlog/cause-words';
 import { useI18n } from 'vue-i18n';
 import { ago, firstSeenText, percent, sourceLink, sourceName } from '@/lib/egress';
+import { useAuthStore } from '@/stores/auth';
 import EgressBadges from './EgressBadges.vue';
+import ExpectedActions from './ExpectedActions.vue';
 
 // The Egress page's destinations (ADR-188): a table from 768 px, one card per destination
 // on phones. Names are text (from DNS answers, ADR-129), never links.
-const props = defineProps<{ rows: EgressRow[]; clusterId: string; now?: number }>();
+const props = defineProps<{
+  rows: EgressRow[];
+  clusterId: string;
+  kind: 'kubernetes' | 'docker';
+  now?: number;
+}>();
+const emit = defineEmits<{ changed: [] }>();
 const { t } = useI18n();
+const auth = useAuthStore();
 const at = () => props.now ?? Date.now();
 const dest = (r: EgressRow) => (r.class === 'internet' ? t('egress.internetRow') : r.destination);
 const bytes = (r: EgressRow) =>
@@ -50,6 +59,9 @@ const failing = (r: EgressRow) => r.badges.includes('failing');
             </th>
             <th class="border-b border-border px-4 py-2.5 text-right font-medium">
               {{ $t('egress.col.failed') }}
+            </th>
+            <th v-if="auth.canManage" class="border-b border-border px-4 py-2.5">
+              <span class="sr-only">{{ $t('egress.col.actions') }}</span>
             </th>
           </tr>
         </thead>
@@ -108,6 +120,14 @@ const failing = (r: EgressRow) => r.badges.includes('failing');
             >
               {{ percent(r.failedRatio) }}
             </td>
+            <td v-if="auth.canManage" class="border-b border-border px-4 py-2 text-right">
+              <ExpectedActions
+                :row="r"
+                :cluster-id="clusterId"
+                :kind="kind"
+                @changed="emit('changed')"
+              />
+            </td>
           </tr>
         </tbody>
       </table>
@@ -152,6 +172,14 @@ const failing = (r: EgressRow) => r.badges.includes('failing');
             }}</span>
           </dd>
         </dl>
+        <div v-if="auth.canManage && r.class !== 'internet'" class="flex">
+          <ExpectedActions
+            :row="r"
+            :cluster-id="clusterId"
+            :kind="kind"
+            @changed="emit('changed')"
+          />
+        </div>
       </li>
     </ul>
   </div>
