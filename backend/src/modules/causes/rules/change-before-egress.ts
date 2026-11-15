@@ -8,6 +8,7 @@
 // The alert's subject is the source (egress/rules.ts labels it as a workload, a Compose
 // service or a container), so the evidence is the source's own changes; the alert starts at
 // the first connection (its `since` is the inventory's first seen).
+import { EGRESS_ALERT_KEYS } from '../catalog.js';
 import { shortName } from '../checks.js';
 import { focusObject } from '../resolve.js';
 import type { EvMarker, Evidence } from '../evidence.js';
@@ -17,9 +18,8 @@ import { changeStep, images, SAME_MS, versionChanges } from './common.js';
 /** The change must come at most this long before the first connection. */
 export const EGRESS_CHANGE_MS = 60 * 60_000;
 
-const EGRESS_KEYS = new Set(['egress.new_destination', 'egress.raw_ip', 'egress.large_upload_new']);
 export const isEgressAlert = (ev: Pick<Evidence, 'alert'>) =>
-  !!ev.alert && EGRESS_KEYS.has(ev.alert.rule.key ?? '');
+  !!ev.alert && EGRESS_ALERT_KEYS.has(ev.alert.rule.key ?? '');
 
 /** The headline's facts for the change: which words, and what it changed to. */
 function changeFacts(m: EvMarker): { code: string; facts: Record<string, string> } {

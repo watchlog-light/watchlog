@@ -15,6 +15,7 @@ import type {
   Focus,
   Reader,
 } from './evidence.js';
+import { EGRESS_ALERT_KEYS } from './catalog.js';
 import { notFound, soft } from './gather.js';
 import { edgeId, type Subject } from './subject.js';
 import type { ObjectRef, Platform } from './types.js';
@@ -442,7 +443,11 @@ export async function resolveTarget(
         focus,
         alert,
         edge,
-        symptomAt: a.firedAt ?? a.startedAt,
+        // An egress alert's symptom is its first connection (ADR-187): it may fire later, after
+        // a learning period or a worker restart, and the change looked for is the hour before it.
+        symptomAt: EGRESS_ALERT_KEYS.has(a.rule.key ?? '')
+          ? a.startedAt
+          : (a.firedAt ?? a.startedAt),
         resolvedAt: a.state === 'resolved' ? a.resolvedAt : null,
       };
     }
