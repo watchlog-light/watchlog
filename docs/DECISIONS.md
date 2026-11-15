@@ -3223,6 +3223,28 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Time:** buckets are UTC hours. The dashboard labels a bucket in the viewer's local time; messages say UTC, as every message does today. A daylight-saving change moves a local pattern by an hour for up to 14 days; accepted.
 - Alternatives: mean and standard deviation (rejected: one incident drags them; the median and MAD ignore up to half the bucket); a per-day-of-hour baseline over 7 days (rejected: weekends differ); ML models (out of scope, SPEC §4.8, until data proves the need); pooling neighbouring hours (not chosen now; slice 1 checks whether two occurrences per bucket are too few, and an amendment adds it if so).
 - Consequences: everything time-based is tested with synthetic series and an injectable clock: 14 days are generated in a test, never waited for.
+- As built (slice 1, 2026-11-16; measured on the e2e stack: a kind cluster of 3 nodes and a Docker host, 5.4 days of VictoriaMetrics data with about 29 hours of minutes in them, every catalog key read at a 60-second step through its own template; spreads per hour-of-week bucket with at least 30 minutes):
+  - **The scored keys** (slice 2 builds these, nothing else):
+    - Kubernetes: `node.cpu.utilization`, `node.memory.utilization`, `node.network.bytes`, `node.disk.io`, `workload.cpu.usage`, `workload.memory.working_set`;
+    - Docker: `host.cpu.utilization`, `host.memory.utilization`, `host.network.bytes`, `host.disk.io`, `container.cpu.usage`, `container.memory.working_set`, `container.network.bytes`;
+    - both: three new keys for the requests a workload or container serves, `workload.http.requests.rate`, `workload.http.errors.ratio`, `workload.http.latency.p95` (grouped by the `dst_*` labels of `watchlog_http_requests_total` and its duration histogram; on Docker the destination container); the map's edges `http.requests.rate`, `http.latency.p95` and `connections.rate` between a source and a destination; and the integrations' rates, ratios, latencies, connections, lag and queue depth (29 keys: no up/down, missing, alarm, certificate, size or XID key).
+  - **Left out, with the reason measured:**
+    - pods (`pod.*`, `pod.container.*`): they churn. 566 pod series in 5.4 days, 402 lived under an hour, 40 spanned 3 days; the workload carries them (52 of 95 workload series spanned 3 days, the rest were e2e fixtures);
+    - flat or event-like keys, which their default rules already cover: throttling (88–96 % of buckets flat), restarts and OOM kills (96 %), limits (100 %), `node.condition` (100 %), `dns.nxdomain.rate` (96–97 %), `flow.failed.ratio` (98–100 %), the integrations' booleans (100 %);
+    - `connect.p95` on edges: `histogram_quantile` lands on the bucket bounds, so 58–79 % of buckets are flat;
+    - duplicates in another unit (`node.cpu.usage`, `node.memory.used`, `host.memory.used`), `namespace.*` (sums of workloads) and the filesystem keys (slow trends with their own rule).
+  - **Main's rows are not catalog keys today:** p95 response time, errors and requests per workload exist only as service-map series (ADR-139). Adding the three keys above costs about 11 series a node on Kubernetes and 17 a Docker host. Like the map, they come from the caller's side (HTTP/1.x seen by eBPF).
+  - **Docker subjects:** the catalog has no Compose-service key. The subject is the container, whose name a Compose re-create keeps (ADR-029); its `compose_project` and `compose_service` labels name the service on the page. 33 of 82 container series spanned 3 days; the rest were e2e fixtures.
+  - **How alerts name their subject** (the exclusion's input; fired alerts' labels in the e2e database):
+    - Kubernetes: `namespace, workload_kind, workload`, with `pod` and `node` on pod alerts, plus `container` on throttling and `dst_*` on failed connections;
+    - Docker: `container` and **`node` for the host**, while the series say `host`; Compose-level alerts (egress) carry `compose_project, compose_service` and no container;
+    - agent alerts carry `agent`.
+    - So the exclusion matches a Kubernetes series on its workload and a Docker series on its container or Compose service, with `node` read as `host`.
+  - **Spreads (1.4826 × MAD, median of the buckets per key):** cores 0.0003–0.0005 (p90 0.002–0.007); bytes 70–160 KB (p90 3–13 MB); ratios 0.002–0.03; bytes a second 0.3–70 KB/s; requests a second 0.006–0.012 (p90 0.15); seconds 0.2–0.8 ms (p90 13–34 ms). Flat buckets (MAD 0): node and host keys 0–3 %, CPU 4–8 %, memory 11–14 %, workload HTTP 1–14 %, edges' connections 42–60 %.
+  - **The floors, per kind** (`max(floor, 5 % of the median)`): **cores 0.05, bytes 32 MiB, ratios 0.02, bytes a second 100 KiB/s, rates 0.5 a second, seconds 0.05, counts 2.** With these, a scored series moves at least 0.2 cores, 128 MiB, 8 points, 400 KiB/s, 2 requests a second, 200 ms or 8 before it is unusual. Lower floors (0.01 cores, 4 MiB, 0.01, 1 KiB/s, 0.1/s, 10 ms, 1) gave 4× the unusual periods on the same data.
+  - **The usual range reads as usual:** scoring each day against the same hour of two other days (the data held no repeated hour of the week), `median ± 2 spreads` held 97.0 % of the minutes on Kubernetes and 92.1 % on Docker; 1.6 % and 5.1 % of minutes were past 4.
+  - **Unusual periods (score past 4 for 10 minutes):** 7 on Kubernetes and 15 on Docker in about 340 and 170 series-hours scored. These hours had e2e fixtures and chaos in them, so this is an upper bound, not a quiet week, but at 300 series a cluster it would still be too many alerts. ADR-200's alert rule needs the alert-count measurement on the demo (slice 7) before release.
+  - **Two occurrences a bucket are kept; no pooling amendment.** Pooling the neighbouring hours gave the same count on Kubernetes (7) and fewer on Docker (9 against 15). With other floors it went the other way. Slice 7 checks again on the demo's 14 days.
 
 ## ADR-197: A separate anomaly-worker, Cloud and the demo only, its budget measured at 1,000 nodes
 
@@ -3235,6 +3257,11 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **The budget** is measured with the load test's 1,000 nodes (ADR-177's slice 9b), all of them treated as Pro for the worst case, and written here: the worker's CPU and memory, the storage (ADR-198), and the added VictoriaMetrics query load. Targets (agent's default): at most 1 core on average and 1 GB of memory for the worker, baselines at most 2 GB in PostgreSQL, and the load test's write p95 and chart p95 no more than 20 % above their 0.6.0 values (37 ms and 70 ms). **If it doesn't fit the current server, the catalog it scores shrinks before anything else.**
 - Alternatives: a task in the alert worker (rejected: a slow baseline hour would delay every alert); VictoriaMetrics' recording rules (rejected: per-org gating and the firing-alert exclusion can't be expressed there).
 - Consequences: Community runs exactly the processes it runs today. The release's load test runs with the worker on.
+- As built (slice 1, 2026-11-16; measured, not the release's load test; the worker's own CPU and memory come in slice 9):
+  - **Series at 1,000 nodes:** the scored keys of ADR-196 measured 113 series a Kubernetes node and 303 a Docker host on the e2e stack. Its host runs 38 containers; the load test's templates have 10 to 22 a host and 17 to 27 pods a node. At the load test's mix (641 nodes in 172 clusters, 359 Docker hosts in 78 fleets) that is **about 180,000 series**. The whole catalog, pods included, would be about 490,000.
+  - **The worker's compute** (`backend/scripts/anomaly-baseline-bench.ts`, 14 synthetic days at minute resolution, an injectable clock; median and MAD of 2,000 series): one bucket's recompute (120 values) takes 0.006 ms a series, so **about 1 s of CPU an hour** at 180,000 series. A full recompute of all 168 buckets takes 1.9 ms a series (6 minutes once, only for a backfill). The minute's scoring is under 1 µs a series.
+  - **VictoriaMetrics reads:** for one e2e cluster (41 queries, about 190 series), the minute's read of 11 minutes took **85 ms** in all (median of 5) and the hourly read of two hours 165 ms. At 250 clusters that is about 170 queries a second and 21 s of query time a minute. The worker should query only the keys a cluster has, since its monitored services are known: about 12 queries a cluster, 50 a second. The hourly read is 41 s an hour. The added chart p95 is measured in slice 9's load test.
+  - **The budget fits** (storage in ADR-198), so **the scored catalog was not shrunk for the budget.** It is smaller than the whole catalog for the reasons in ADR-196's as-built note.
 
 ## ADR-198: Where baselines and unusual periods are kept: PostgreSQL first, decided in slice 1 after measuring
 
@@ -3247,6 +3274,13 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Feedback** ("normal for us", ADR-200) is a row per series and bucket.
   - **Cloud:** every new table is a tenant table with `org_id` under RLS (ADR-174), in the isolation suite's table check (ADR-182). Baselines and periods of an org that loses Pro are kept 30 days, so an upgrade back resumes, then deleted by the worker; periods are kept for the org's retention.
 - Consequences: the migration that adds the tables is automatic (ADR-107) and makes empty tables in Community too.
+- As built (slice 1, 2026-11-16): **PostgreSQL. The decision stands.**
+  - **Measured** with `backend/scripts/anomaly-baseline-bench.ts` in a PostgreSQL 16 container:
+    - a row with two `real[168]`, a `smallint[168]`, the subject as jsonb and a hash key takes **2,172 bytes** with its index (1,972 the row, under the TOAST threshold);
+    - 180,000 rows (1,000 nodes) take **373 MiB**, and 537 MiB after one hourly update until vacuum: under ADR-197's 2 GB;
+    - the hourly update of one element in every row took **24 s** in batches of 1,000 and wrote 3.2 KB of WAL a row, about 580 MB an hour, which the server's disk absorbs. Slice 2 uses `fillfactor` below 100 so the update stays HOT. If slice 9's load test shows the write p95 hurt, the row splits into seven day-of-week rows of 24 values, which cuts the WAL about seven times;
+    - reading one cluster's current bucket (720 rows) took 8.7 ms.
+  - **VictoriaMetrics would cost more:** two series (median, spread) for each of the 180,000 is 360,000 more active series. At ADR-177's 1.8 MiB a node for about 1,050 series that is **about 630 MB more VictoriaMetrics memory** in the Pro tier. Disk would be 789 bytes a series for 14 days of hourly samples (measured with 40,000 series: 284 MB at scale). The minute's scoring would also need a second query for each key.
 
 ## ADR-199: The What changed page and the "What changed around it" card on every alert
 
