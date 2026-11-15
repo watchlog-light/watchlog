@@ -151,9 +151,17 @@ func run(args []string, stdout io.Writer) int {
 			log.Error("cannot watch events", "err", err)
 			return
 		}
+		// Cilium from API discovery, at start and every 10 minutes (ADR-191): no RBAC, no object read.
+		cilium := &k8s.CiliumDetector{Discovery: cs.Discovery(), Log: log}
+		caps := sender.Capabilities{EBPF: "disabled", Cgroup: "none", Logs: onOff(*logsOn)}
 		r := &runner.Runner{Mode: "cluster", Version: version.Version, Host: agentID, Interval: *interval,
 			SeriesCap: k8s.StateSeriesCap, Sources: cluster.StateSources(), Buffer: buf, Sender: snd, Log: log,
-			Capabilities: sender.Capabilities{EBPF: "disabled", Cgroup: "none", Logs: onOff(*logsOn)}}
+			Capabilities: caps, CapabilitiesFunc: func() sender.Capabilities {
+				c := caps
+				c.Cilium = cilium.Installed()
+				return c
+			}}
+		go cilium.Run(ctx, k8s.CiliumRecheck)
 		go shipper.Run(ctx)
 		go events.Run(ctx)
 		if *logsOn {

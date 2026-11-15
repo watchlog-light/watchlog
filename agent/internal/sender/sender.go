@@ -271,6 +271,10 @@ type Capabilities struct {
 	// Logs is "on" or "off" on agents that read container logs on demand (ADR-167): the
 	// cluster-agent and Docker agents. Off, the backend says so instead of waiting.
 	Logs string `json:"logs,omitempty"`
+	// Cilium is the cluster-agent's answer from API discovery: does cilium.io/v2 serve
+	// ciliumnetworkpolicies (ADR-191)? Left out while unknown (no answer yet, or another
+	// kind of agent), which the backend reads as "unknown".
+	Cilium *bool `json:"cilium,omitempty"`
 }
 
 // SendHeartbeat posts one heartbeat and returns its outcome.
