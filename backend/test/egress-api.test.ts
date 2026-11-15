@@ -398,6 +398,18 @@ describe('GET /api/v1/egress: a Docker fleet', () => {
     ).json();
     expect(container.rows.map((r: Row) => r.destination)).toEqual(['api.openai.com']);
     expect(container.rows[0].connections).toBe(120);
+    // A replica with no traffic in the range still shows its service's rows, with 0.
+    const idle = (
+      await get({
+        cluster: id,
+        host: 'h3',
+        container: 'storefront-api-3',
+        project: 'storefront',
+        service: 'api',
+      })
+    ).json();
+    expect(idle.rows.map((r: Row) => r.destination)).toEqual(['api.openai.com']);
+    expect(idle.rows[0].connections).toBe(0);
     const plain = (await get({ cluster: id, host: 'h2', container: 'cron' })).json();
     expect(plain.rows.map((r: Row) => r.destination)).toEqual(['hooks.slack.com']);
   });
