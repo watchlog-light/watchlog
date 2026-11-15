@@ -52,6 +52,7 @@ import { settingsRoutes } from './modules/settings/routes.js';
 import { LogBroker } from './modules/logs/broker.js';
 import { logsRoutes } from './modules/logs/routes.js';
 import { rightSizingRoutes } from './modules/rightsizing/routes.js';
+import { egressRoutes } from './modules/egress/routes.js';
 import { RightSizingService } from './modules/rightsizing/service.js';
 import { searchRoutes } from './modules/search/routes.js';
 import { userRoutes } from './modules/users/routes.js';
@@ -118,6 +119,8 @@ export interface AppDeps {
   resolve?: Resolver;
   /** Test hook: Cloud's entitlements (ADR-177), shared with the internal API's app. */
   entitlements?: EntitlementsService;
+  /** Test hook: the clock of the egress read's "New" badge and default range (ADR-188). */
+  now?: () => number;
 }
 
 declare module 'fastify' {
@@ -286,6 +289,11 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(kubernetesRoutes, { db: deps.db, victoria, settings });
       await api.register(logsRoutes, { db: deps.db, settings, broker: logBroker });
       await api.register(rightSizingRoutes, { db: deps.db, rightSizing });
+      await api.register(egressRoutes, {
+        db: deps.db,
+        victoria: victoria ?? null,
+        ...(deps.now ? { now: deps.now } : {}),
+      });
       await api.register(searchRoutes, { db: deps.db });
       await api.register(overviewRoutes, { db: deps.db, victoria, settings, causes });
       await api.register(serviceMapRoutes, { db: deps.db, victoria, config, settings });

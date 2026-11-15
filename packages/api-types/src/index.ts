@@ -199,6 +199,10 @@ export type PossibleCause = NonNullable<OverviewProblem['possibleCauses']>[numbe
 export type RightSizing = JsonBody<Responses<'/api/v1/clusters/{id}/right-sizing', 'get'>[200]>;
 export type RightSizingHint = RightSizing['hints'][number];
 export type RightSizingShort = RightSizing['notEnoughHistory'][number];
+/** Egress watch (ADR-188, ADR-189): a cluster's or fleet's external destinations. */
+export type Egress = JsonBody<Responses<'/api/v1/egress', 'get'>[200]>;
+export type EgressRow = Egress['rows'][number];
+export type EgressSource = EgressRow['sources'][number];
 // The ⌘K palette's search (ADR-169).
 export type SearchResponse = JsonBody<Responses<'/api/v1/clusters/{id}/search', 'get'>[200]>;
 export type SearchResult = SearchResponse['results'][number];

@@ -56,6 +56,7 @@ export async function createTestContext(
       | 'causes'
       | 'serviceReads'
       | 'fetch'
+      | 'now'
     >
   > = {},
 ): Promise<TestContext> {
