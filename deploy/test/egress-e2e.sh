@@ -202,7 +202,7 @@ PLATFORMS = {
 NAME, RAW = ("example.org", 443), ("1.1.1.0/24", 443)
 
 # An API token for steps 4 and 5, revoked at the end whatever happens.
-created = call("POST", "/api-tokens", {"name": f"egress-e2e {run}", "expiresInDays": 1})
+created = call("POST", "/api-tokens", {"name": f"egress-e2e {run}", "expiresInDays": 30})
 token = created["value"]
 
 def mcp(tool, args):
@@ -263,8 +263,9 @@ try:
         raw = wait(lambda: alert("egress.raw_ip", RAW))
         if check(f"{kind} alert New external destination for example.org:443", bool(new)):
             check(f"{kind} its title", new["title"] == f"{p['who']} started talking to example.org:443", new["title"])
+            # "nothing else in the cluster talks to it", "1 other workload talks to it" or "N other … talk to it".
             check(f"{kind} its message", "first connection at" in new["why"]
-                  and (f"in the {p['unit']} talks to it" in new["why"] or "talk to it" in new["why"]), new["why"])
+                  and (new["why"].endswith("talks to it") or new["why"].endswith("talk to it")), new["why"])
             row = next((x for x in call("GET", f"/egress?{q()}")["rows"] if (x["destination"], x["port"]) == NAME), {})
             check(f"{kind} the row's View alert (alertId)", row.get("alertId") == new["id"], str(row.get("alertId")))
         if check(f"{kind} alert Raw IP egress for 1.1.1.0/24:443", bool(raw)):
@@ -316,7 +317,7 @@ try:
             check(f"{kind} mark example.org:443 expected for the client", s in (201, 409), f"{s} {json.dumps(b)[:200]}")
             row = next((x for x in call("GET", f"/egress?{q()}")["rows"] if (x["destination"], x["port"]) == NAME), {})
             check(f"{kind} the row is Expected", "expected" in row.get("badges", []), str(row.get("badges")))
-            gone = wait(lambda: call("GET", f"/alerts/{new['id']}").get("resolvedAt"))
+            gone = wait(lambda: call("GET", f"/alerts/{new['id']}")["alert"].get("resolvedAt"))
             check(f"{kind} the New alert resolved", bool(gone), str(gone))
             check(f"{kind} Raw IP still firing", bool(alert("egress.raw_ip", RAW)))
 finally:
