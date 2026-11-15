@@ -19,6 +19,7 @@ import AlertTable from '@/components/alerts/AlertTable.vue';
 import SilenceForm from '@/components/alerts/SilenceForm.vue';
 import CausePanel from '@/components/causes/CausePanel.vue';
 import EgressAlertCard from '@/components/egress/EgressAlertCard.vue';
+import WhatChangedAlertCard from '@/components/what-changed/WhatChangedAlertCard.vue';
 import TonePill from '@/components/kube/TonePill.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import CodeBlock from '@/components/ui/CodeBlock.vue';
@@ -227,6 +228,11 @@ onMounted(() => {
         :subject="`alert:${page.data.value.alert.id}`"
         :name="alertTargetName(page.data.value.alert) || undefined"
         @answer="(a) => (cause = a)"
+      />
+
+      <WhatChangedAlertCard
+        :key="`wc-${page.data.value.alert.id}`"
+        :alert="page.data.value.alert"
       />
 
       <EgressAlertCard

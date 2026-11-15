@@ -10,6 +10,7 @@ import {
   Globe,
   LayoutDashboard,
   Network,
+  Radar,
   ScrollText,
   Server,
   Settings,
@@ -73,6 +74,8 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Database,
   },
   { name: 'events', path: '/events', titleKey: 'nav.events', icon: ScrollText },
+  // What changed (ADR-199): Pro; Cloud Free and Community see a placeholder (ADR-195).
+  { name: 'what-changed', path: '/what-changed', titleKey: 'nav.whatChanged', icon: Radar },
   { name: 'service-map', path: '/service-map', titleKey: 'nav.serviceMap', icon: Network },
   // Egress watch (ADR-188): external destinations, for both kinds of cluster.
   { name: 'egress', path: '/egress', titleKey: 'nav.egress', icon: Globe },
@@ -104,6 +107,7 @@ const views: Record<string, () => Promise<Component>> = {
   applications: () => import('@/views/ApplicationsPage.vue'),
   'service-map': () => import('@/views/ServiceMapPage.vue'),
   egress: () => import('@/views/EgressPage.vue'),
+  'what-changed': () => import('@/views/WhatChangedPage.vue'),
   alerts: () => import('@/views/AlertsPage.vue'),
   settings: () => import('@/views/SettingsPage.vue'),
 };
