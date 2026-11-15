@@ -155,6 +155,10 @@ export function alertScope(a: Pick<Alert, 'labels' | 'cluster' | 'podCount'>): {
     };
   }
   if (a.cluster.kind === 'docker') {
+    // An egress alert's Compose service (ADR-187).
+    if (l.compose_service) {
+      return { kind: 'compose', name: `${l.compose_project}/${l.compose_service}`, extra: null };
+    }
     return { kind: 'host', name: l.node ?? '', extra: l.container ?? null };
   }
   if (l.agent === 'cluster') return { kind: 'cluster-agent', name: a.cluster.name, extra: null };

@@ -1145,6 +1145,7 @@
       "Pod": "Pod",
       "PVC": "Volume",
       "host": "Host",
+      "compose": "Compose service",
       "node": "Node",
       "cluster-agent": "Cluster-agent of",
       "kubernetes": "Kubernetes cluster",
