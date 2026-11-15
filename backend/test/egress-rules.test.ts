@@ -24,6 +24,7 @@ import { DEFAULT_RULES, ensureDefaultRules, lookupEvaluator } from '../src/modul
 import { alertText } from '../src/modules/alerts/text.js';
 import type { AlertWorker } from '../src/modules/alerts/worker.js';
 import { setEgressLearningDays } from '../src/modules/egress/learning.js';
+import { readEgress, type EgressCluster } from '../src/modules/egress/read.js';
 import { EGRESS_RULES, LARGE_UPLOAD_BYTES } from '../src/modules/egress/rules.js';
 import {
   closeTestContext,
@@ -338,6 +339,38 @@ describe('New external destination', () => {
       .execute();
     await cycles(T0 + 3 * MIN);
     expect((await alerts(NEW)).map((a) => a.state)).toEqual(['resolved']);
+  });
+
+  it('the Egress page’s row carries its firing alert ("View alert")', async () => {
+    await setup('kubernetes');
+    await seen(ORDERS, 'example.org', 443, T0);
+    await seen(ORDERS, 'api.stripe.com', 443, T0 - 10 * DAY, { lastSeen: T0 });
+    await cycle(T0 + MIN);
+    const [a] = await ctx.db
+      .selectFrom('alert_states')
+      .select('id')
+      .where('state', '=', 'firing')
+      .execute();
+    const cluster = (await ctx.db
+      .selectFrom('clusters')
+      .selectAll()
+      .where('id', '=', clusterId)
+      .executeTakeFirstOrThrow()) as unknown as EgressCluster;
+    const page = await readEgress(
+      ctx.db,
+      null,
+      orgId,
+      cluster,
+      {},
+      { fromMs: T0 - DAY, toMs: T0 + MIN },
+      T0 + MIN,
+    );
+    expect(page.rows.map((r) => [r.destination, r.alertId])).toEqual(
+      expect.arrayContaining([
+        ['example.org', a!.id],
+        ['api.stripe.com', null],
+      ]),
+    );
   });
 
   it('Docker: a Compose service and a plain container, each in its vocabulary', async () => {
