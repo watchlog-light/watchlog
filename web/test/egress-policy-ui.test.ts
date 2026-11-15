@@ -72,7 +72,7 @@ describe('the suggested policy on a Kubernetes workload', () => {
       'Cilium is installed on this cluster, so the policy can allow exactly the names checkout used',
     );
     expect(w.get('[data-testid="policy-window"]').text()).toBe(
-      'In-cluster destinations from 2026-11-01 (the flow series: 30 days, or the metrics retention if shorter); external destinations from 2026-10-16; to 2026-11-15.',
+      'In-cluster destinations from 2026-11-01 (the flow series: 30 days, or the metrics retention if shorter) and external destinations from 2026-10-16, up to 2026-11-15.',
     );
     expect(w.get('[data-testid="policy-never"]').text()).toContain(
       'WatchLog never applies it: copy it, review it, try it in staging first.',
