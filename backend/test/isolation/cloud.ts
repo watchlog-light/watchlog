@@ -593,6 +593,57 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
       .executeTakeFirstOrThrow();
     expectedIds.push(expected.id);
   }
+  // What changed (ADR-198, v0.8 slice 2): the learning row, a baseline and an unusual period
+  // for each platform, so every RLS check reads rows of both orgs.
+  await owner
+    .insertInto('anomaly_orgs')
+    .values({
+      org_id: orgId,
+      learning_since: new Date(now - 8 * 86_400_000),
+      entitled_at: new Date(now),
+    })
+    .execute();
+  for (const [clusterId, metric, subject] of [
+    [k8s.id, 'workload.cpu.usage', k8sSource],
+    [docker.id, 'container.memory.working_set', { host, container: `${label}-api-1` }],
+  ] as const) {
+    const seriesHash = sha256(`${label}:${metric}`);
+    await owner
+      .insertInto('anomaly_baselines')
+      .values({
+        org_id: orgId,
+        cluster_id: clusterId,
+        series_hash: seriesHash,
+        metric,
+        subject: JSON.stringify(subject),
+        medians: Array(168).fill(1),
+        mads: Array(168).fill(0.1),
+        minutes: Array(168).fill(120),
+        first_seen: new Date(now - 8 * 86_400_000),
+        last_seen: new Date(now),
+      })
+      .execute();
+    await owner
+      .insertInto('anomaly_periods')
+      .values({
+        org_id: orgId,
+        cluster_id: clusterId,
+        series_hash: seriesHash,
+        metric,
+        subject: JSON.stringify(subject),
+        started_at: new Date(now - 1_800_000),
+        bucket: 0,
+        median: 1,
+        usual_low: 0.7,
+        usual_high: 1.3,
+        peak_score: 9,
+        peak_value: 2,
+        peak_at: new Date(now - 1_200_000),
+        last_value: 1.8,
+        last_at: new Date(now - 60_000),
+      })
+      .execute();
+  }
   // A running pod of the Kubernetes source, so the policy suggestion (ADR-190) has a selector.
   await owner
     .insertInto('objects')

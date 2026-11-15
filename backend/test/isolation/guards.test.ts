@@ -18,6 +18,12 @@ const SYSTEM_DB: Record<string, string> = {
   'alert-worker.ts':
     'wiring: the worker lists orgs (alerts, the egress inventory) and runs the outbox and token jobs',
   'modules/alerts/worker.ts': 'lists the orgs and prunes history across them',
+  'anomaly-worker.ts':
+    'wiring: the anomaly-worker lists the orgs with What changed and their learning rows (ADR-197)',
+  'modules/anomaly/gate.ts':
+    'the orgs with pro_features (Cloud) or the demo’s org: the list the anomaly-worker scores',
+  'modules/anomaly/jobs.ts':
+    'housekeeping lists the learning rows across orgs; every write is made withOrg',
   'modules/auth/routes.ts': 'sign-in, before the org is known',
   'modules/accounts/routes.ts':
     "Cloud accounts: signup, OAuth, 2FA, the user's sessions and orgs, joining from an invite",
