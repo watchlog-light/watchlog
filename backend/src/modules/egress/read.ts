@@ -339,7 +339,7 @@ export async function readEgress(
     const s = (typeof r.source === 'string' ? JSON.parse(r.source) : r.source) as SourceIdentity;
     r.source = s;
     if (!sourceMatches(kind, s, f)) continue;
-    if (kind === 'docker' && f.host) {
+    if (kind === 'docker' && f.host && !(f.project && f.service)) {
       // A plain container names its host; a Compose service is on the hosts its series came from.
       const onHost =
         s.host !== undefined
