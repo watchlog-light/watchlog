@@ -3874,6 +3874,191 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/egress/policy': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Suggested egress policy for a workload
+     * @description A suggested egress policy for one Kubernetes workload (ADR-190), built from what it was seen using: in-cluster destinations from the flow series (30 days, or the metrics retention if shorter), external names and networks from the egress inventory (last seen in 30 days), the expectations that cover it, and DNS to kube-dns. Two flavours: a standard NetworkPolicy (addresses only: a name becomes any public address on its port) and a CiliumNetworkPolicy with toFQDNs; the detected one first (ADR-191). YAML text only: WatchLog never applies it. A Docker fleet answers 404: Docker has no egress policy object.
+     */
+    get: {
+      parameters: {
+        query: {
+          cluster: string;
+          /** @description namespace/Kind/name, as `shop/Deployment/checkout` */
+          workload: string;
+          /** @description Only this flavour (both when left out) */
+          flavour?: 'kubernetes' | 'cilium';
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              cluster: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: 'kubernetes';
+              };
+              workload: {
+                namespace: string;
+                kind: string;
+                name: string;
+              };
+              /** @description Cilium detected by the cluster-agent (ADR-191); null: unknown (an older cluster-agent, or no answer yet) */
+              cilium: boolean | null;
+              window: {
+                /** Format: date-time */
+                to: string;
+                /** @description In-cluster destinations: the flow series, 30 days or the metrics retention if shorter; null when none is retained */
+                inCluster: {
+                  /** Format: date-time */
+                  from: string;
+                  /** Format: date-time */
+                  to: string;
+                } | null;
+                /** @description External destinations: the egress inventory, last seen in the last 30 days */
+                external: {
+                  /** Format: date-time */
+                  from: string;
+                  /** Format: date-time */
+                  to: string;
+                };
+              };
+              counts: {
+                inCluster: number;
+                names: number;
+                networks: number;
+                /** @description Expectations covering the workload */
+                expected: number;
+                /** @description Destinations left out: not a valid name, network or label */
+                skipped: number;
+                /** @description In-cluster destinations whose pods' labels are unknown (no running pods) */
+                unresolved: number;
+              };
+              /** @description The detected flavour first (Cilium only when detected) */
+              policies: {
+                flavour: 'cilium' | 'kubernetes';
+                /** @description The suggested policy: copy it, review it, never applied by WatchLog */
+                yaml: string;
+                notes: string[];
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        503: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/egress': {
     parameters: {
       query?: never;

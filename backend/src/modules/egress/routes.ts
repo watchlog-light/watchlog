@@ -9,6 +9,8 @@
 // POST /egress/expected and DELETE /egress/expected/:id change them (Owner or Admin, by
 // session: API tokens are read-only, ADR-125), each change audited, and each re-syncs the
 // inventory rows' copy of the expectation that covers them.
+// GET /egress/policy suggests a policy for one Kubernetes workload as YAML text (ADR-190):
+// read-only, public for tokens like the other GETs; a Docker fleet gets 404 with the reason.
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
@@ -29,6 +31,15 @@ import {
   type ParsedExpectation,
 } from './expected.js';
 import type { ClusterKind, SourceIdentity } from './inventory.js';
+import {
+  flavourOrder,
+  gatherPolicy,
+  notesOf,
+  parseWorkload,
+  POLICY_FLAVOURS,
+  renderCilium,
+  renderKubernetes,
+} from './policy.js';
 import {
   EGRESS_BADGES,
   EGRESS_MAX_RANGE_S,
@@ -170,6 +181,49 @@ export const ExpectationSchema = Type.Object({
   createdAt: Type.String({ format: 'date-time' }),
   createdBy: Type.Union([Type.String(), Type.Null()], { description: 'Who marked it' }),
   matches: Type.Integer({ description: 'Inventory rows it covers now' }),
+});
+
+const DateTime = Type.String({ format: 'date-time' });
+export const PolicySchema = Type.Object({
+  cluster: Type.Object({ id: Type.String({ format: 'uuid' }), kind: Type.Literal('kubernetes') }),
+  workload: Type.Object({ namespace: Type.String(), kind: Type.String(), name: Type.String() }),
+  cilium: Type.Union([Type.Boolean(), Type.Null()], {
+    description:
+      'Cilium detected by the cluster-agent (ADR-191); null: unknown (an older cluster-agent, or no answer yet)',
+  }),
+  window: Type.Object({
+    to: DateTime,
+    inCluster: Type.Union([Type.Object({ from: DateTime, to: DateTime }), Type.Null()], {
+      description:
+        'In-cluster destinations: the flow series, 30 days or the metrics retention if shorter; null when none is retained',
+    }),
+    external: Type.Object(
+      { from: DateTime, to: DateTime },
+      { description: 'External destinations: the egress inventory, last seen in the last 30 days' },
+    ),
+  }),
+  counts: Type.Object({
+    inCluster: Type.Integer(),
+    names: Type.Integer(),
+    networks: Type.Integer(),
+    expected: Type.Integer({ description: 'Expectations covering the workload' }),
+    skipped: Type.Integer({
+      description: 'Destinations left out: not a valid name, network or label',
+    }),
+    unresolved: Type.Integer({
+      description: "In-cluster destinations whose pods' labels are unknown (no running pods)",
+    }),
+  }),
+  policies: Type.Array(
+    Type.Object({
+      flavour: Type.Union([Type.Literal('cilium'), Type.Literal('kubernetes')]),
+      yaml: Type.String({
+        description: 'The suggested policy: copy it, review it, never applied by WatchLog',
+      }),
+      notes: Type.Array(Type.String()),
+    }),
+    { description: 'The detected flavour first (Cilium only when detected)' },
+  ),
 });
 
 /** The API's source, in the cluster's vocabulary, as the inventory's identity (ADR-185). */
@@ -414,6 +468,103 @@ export const egressRoutes: FastifyPluginAsyncTypebox<{
         },
       });
       return reply.code(204).send(null);
+    },
+  );
+
+  app.get(
+    '/egress/policy',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary: 'Suggested egress policy for a workload',
+        description:
+          'A suggested egress policy for one Kubernetes workload (ADR-190), built from what it was seen using: in-cluster destinations from the flow series (30 days, or the metrics retention if shorter), external names and networks from the egress inventory (last seen in 30 days), the expectations that cover it, and DNS to kube-dns. Two flavours: a standard NetworkPolicy (addresses only: a name becomes any public address on its port) and a CiliumNetworkPolicy with toFQDNs; the detected one first (ADR-191). YAML text only: WatchLog never applies it. A Docker fleet answers 404: Docker has no egress policy object.',
+        tags: ['egress', PUBLIC_TAG],
+        querystring: Type.Object({
+          cluster: Type.String({ format: 'uuid' }),
+          workload: Type.String({
+            minLength: 5,
+            maxLength: 330,
+            description: 'namespace/Kind/name, as `shop/Deployment/checkout`',
+          }),
+          flavour: Type.Optional(
+            Type.Union(
+              POLICY_FLAVOURS.map((f) => Type.Literal(f)),
+              { description: 'Only this flavour (both when left out)' },
+            ),
+          ),
+        }),
+        response: {
+          200: PolicySchema,
+          400: ProblemSchema,
+          401: ProblemSchema,
+          404: ProblemSchema,
+          409: ProblemSchema,
+          503: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const query = request.query;
+      const orgId = request.user!.org.id;
+      const row = await clusterForOrg(db, orgId, query.cluster);
+      if (!row || (row.kind !== 'kubernetes' && row.kind !== 'docker')) {
+        return sendProblem(reply, 404, 'Cluster not found');
+      }
+      if (row.kind === 'docker') {
+        // ADR-190, ADR-124's exception: nothing to suggest on Docker.
+        return sendProblem(
+          reply,
+          404,
+          'Docker has no egress policy object: its egress controls are per network (internal: true) or host firewall rules, so WatchLog suggests no policy for a Docker fleet',
+        );
+      }
+      const w = parseWorkload(query.workload);
+      if (!w.ok) return sendProblem(reply, 400, w.reason);
+      const nowMs = now();
+      let gathered;
+      try {
+        gathered = await gatherPolicy({
+          db,
+          victoria,
+          orgId,
+          cluster: { id: row.id, scope: row.scope },
+          workload: { namespace: w.namespace, kind: w.kind, name: w.name },
+          nowMs,
+        });
+      } catch (err) {
+        request.log.warn({ err: (err as Error).message }, 'egress policy read failed');
+        return sendProblem(reply, 503, 'Metrics storage temporarily unavailable');
+      }
+      if (!gathered.ok) return sendProblem(reply, gathered.status, gathered.reason);
+      const p = gathered.input;
+      const order = flavourOrder(p.cilium).filter((f) => !query.flavour || f === query.flavour);
+      const iso = (d: Date) => d.toISOString();
+      return {
+        cluster: { id: row.id, kind: 'kubernetes' as const },
+        workload: p.workload,
+        cilium: p.cilium,
+        window: {
+          to: iso(p.window.to),
+          inCluster: p.window.inClusterFrom
+            ? { from: iso(p.window.inClusterFrom), to: iso(p.window.to) }
+            : null,
+          external: { from: iso(p.window.externalFrom), to: iso(p.window.to) },
+        },
+        counts: {
+          inCluster: p.peers.length,
+          names: p.names.length,
+          networks: p.networks.length,
+          expected: p.patterns.length + p.expectedNames.length + p.expectedNetworks.length,
+          skipped: p.skipped,
+          unresolved: p.unresolved,
+        },
+        policies: order.map((flavour) => ({
+          flavour,
+          yaml: flavour === 'cilium' ? renderCilium(p) : renderKubernetes(p),
+          notes: notesOf(p, flavour),
+        })),
+      };
     },
   );
 

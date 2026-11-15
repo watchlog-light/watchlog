@@ -199,6 +199,8 @@ const HeartbeatBody = Type.Object({
       /** cgroup scope: the node's capacity measured from its cgroup limits (ADR-121). */
       node_cpu_cores: Type.Optional(Type.Number({ minimum: 0, maximum: 1_000_000 })),
       node_memory_bytes: Type.Optional(Type.Number({ minimum: 0, maximum: 2 ** 60 })),
+      /** The cluster-agent: Cilium found by API discovery (ADR-191); left out while unknown. */
+      cilium: Type.Optional(Type.Boolean()),
     },
     { additionalProperties: false },
   ),

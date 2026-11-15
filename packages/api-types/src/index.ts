@@ -207,6 +207,9 @@ export type EgressSource = EgressRow['sources'][number];
 export type EgressExpectations = JsonBody<Responses<'/api/v1/egress/expected', 'get'>[200]>;
 export type EgressExpectation = EgressExpectations['items'][number];
 export type EgressExpectationCreated = JsonBody<Responses<'/api/v1/egress/expected', 'post'>[201]>;
+/** The suggested egress policy for a Kubernetes workload (ADR-190): YAML text, never applied. */
+export type EgressPolicy = JsonBody<Responses<'/api/v1/egress/policy', 'get'>[200]>;
+export type EgressPolicyFlavour = EgressPolicy['policies'][number];
 // The ⌘K palette's search (ADR-169).
 export type SearchResponse = JsonBody<Responses<'/api/v1/clusters/{id}/search', 'get'>[200]>;
 export type SearchResult = SearchResponse['results'][number];

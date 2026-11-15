@@ -10387,6 +10387,406 @@
         }
       }
     },
+    "/api/v1/egress/policy": {
+      "get": {
+        "summary": "Suggested egress policy for a workload",
+        "tags": ["egress", "public"],
+        "description": "A suggested egress policy for one Kubernetes workload (ADR-190), built from what it was seen using: in-cluster destinations from the flow series (30 days, or the metrics retention if shorter), external names and networks from the egress inventory (last seen in 30 days), the expectations that cover it, and DNS to kube-dns. Two flavours: a standard NetworkPolicy (addresses only: a name becomes any public address on its port) and a CiliumNetworkPolicy with toFQDNs; the detected one first (ADR-191). YAML text only: WatchLog never applies it. A Docker fleet answers 404: Docker has no egress policy object.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "query",
+            "name": "cluster",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 5,
+              "maxLength": 330
+            },
+            "in": "query",
+            "name": "workload",
+            "required": true,
+            "description": "namespace/Kind/name, as `shop/Deployment/checkout`"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["kubernetes"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["cilium"]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "flavour",
+            "required": false,
+            "description": "Only this flavour (both when left out)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["cluster", "workload", "cilium", "window", "counts", "policies"],
+                  "properties": {
+                    "cluster": {
+                      "type": "object",
+                      "required": ["id", "kind"],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": ["kubernetes"]
+                        }
+                      }
+                    },
+                    "workload": {
+                      "type": "object",
+                      "required": ["namespace", "kind", "name"],
+                      "properties": {
+                        "namespace": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "cilium": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Cilium detected by the cluster-agent (ADR-191); null: unknown (an older cluster-agent, or no answer yet)"
+                    },
+                    "window": {
+                      "type": "object",
+                      "required": ["to", "inCluster", "external"],
+                      "properties": {
+                        "to": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "inCluster": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["from", "to"],
+                              "properties": {
+                                "from": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "to": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "In-cluster destinations: the flow series, 30 days or the metrics retention if shorter; null when none is retained"
+                        },
+                        "external": {
+                          "type": "object",
+                          "required": ["from", "to"],
+                          "properties": {
+                            "from": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "to": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "description": "External destinations: the egress inventory, last seen in the last 30 days"
+                        }
+                      }
+                    },
+                    "counts": {
+                      "type": "object",
+                      "required": [
+                        "inCluster",
+                        "names",
+                        "networks",
+                        "expected",
+                        "skipped",
+                        "unresolved"
+                      ],
+                      "properties": {
+                        "inCluster": {
+                          "type": "integer"
+                        },
+                        "names": {
+                          "type": "integer"
+                        },
+                        "networks": {
+                          "type": "integer"
+                        },
+                        "expected": {
+                          "type": "integer",
+                          "description": "Expectations covering the workload"
+                        },
+                        "skipped": {
+                          "type": "integer",
+                          "description": "Destinations left out: not a valid name, network or label"
+                        },
+                        "unresolved": {
+                          "type": "integer",
+                          "description": "In-cluster destinations whose pods' labels are unknown (no running pods)"
+                        }
+                      }
+                    },
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["flavour", "yaml", "notes"],
+                        "properties": {
+                          "flavour": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["cilium"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["kubernetes"]
+                              }
+                            ]
+                          },
+                          "yaml": {
+                            "type": "string",
+                            "description": "The suggested policy: copy it, review it, never applied by WatchLog"
+                          },
+                          "notes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "description": "The detected flavour first (Cilium only when detected)"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/egress": {
       "get": {
         "summary": "External destinations",
