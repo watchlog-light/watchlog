@@ -146,6 +146,11 @@ export const ROUTES: Record<string, RouteClass> = {
   // Egress watch (ADR-189, ADR-192): the cluster is a query parameter, so its 404 for B with
   // A's ids and A's control are asserted in cross-org.test.ts ("egress").
   'GET /api/v1/egress': org,
+  // Expectations (ADR-186): B with A's cluster or A's expectation id gets 404 and A's rows
+  // stay; B's own create and remove work under RLS (cross-org.test.ts, "expectations").
+  'GET /api/v1/egress/expected': org,
+  'POST /api/v1/egress/expected': org,
+  'DELETE /api/v1/egress/expected/:id': org,
   'GET /api/v1/clusters/:id/search': { kind: 'org', query: { q: 'web' } },
   'GET /api/v1/clusters/:id/overview': org,
   'GET /api/v1/clusters/:id/service-map': org,

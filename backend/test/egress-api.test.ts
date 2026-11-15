@@ -248,9 +248,14 @@ describe('GET /api/v1/egress: a Kubernetes cluster', () => {
       kind: 'network',
       class: 'private_network',
       private: true,
-      badges: ['new'],
+      // Listed but never New: private networks don't raise the alert (slice 4's default).
+      badges: [],
     });
-    expect(find(rows, 'api', 80)).toMatchObject({ kind: 'name', class: 'local_name' });
+    expect(find(rows, 'api', 80)).toMatchObject({
+      kind: 'name',
+      class: 'local_name',
+      badges: [],
+    });
     const internet = find(rows, 'Internet')!;
     expect(internet).toMatchObject({ kind: 'internet', class: 'internet', port: 0 });
     expect(internet.badges).toEqual([]); // names nothing: never New (ADR-185)
@@ -263,10 +268,10 @@ describe('GET /api/v1/egress: a Kubernetes cluster', () => {
     expect(stripe.expected).toMatchObject({ pattern: 'api.stripe.com' });
     // No series for a row: zeros, not "unknown".
     expect(stripe.connections).toBe(0);
-    expect(summary).toEqual({ destinations: 7, sources: 7, new: 4, rawIp: 1, failing: 1 });
+    expect(summary).toEqual({ destinations: 7, sources: 7, new: 2, rawIp: 1, failing: 1 });
     // New first, then Raw IP, then Failing.
-    expect(rows.slice(0, 4).every((r: Row) => r.badges.includes('new'))).toBe(true);
-    expect(rows[4].destination).toBe('api.mailgun.net');
+    expect(rows.slice(0, 2).every((r: Row) => r.badges.includes('new'))).toBe(true);
+    expect(rows[2].destination).toBe('api.mailgun.net');
   });
 
   it('the New badge follows the clock: 24 hours after first seen it is gone', async () => {

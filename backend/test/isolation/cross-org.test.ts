@@ -68,6 +68,7 @@ function pathFor(route: string, o: SeededOrg): string {
     .replace('/alert-rules/:id', `/alert-rules/${o.ruleId}`)
     .replace('/alert-channels/:id', `/alert-channels/${o.channelId}`)
     .replace('/discovered/ignore/:id', `/discovered/ignore/${o.ignoreId}`)
+    .replace('/egress/expected/:id', `/egress/expected/${o.expectedIds[0]}`)
     .replace('/probes/:id', `/probes/${o.probeId}`)
     .replace('/applications/:id', `/applications/${o.serviceId}`)
     .replace('/api-tokens/:id', `/api-tokens/${o.apiToken.id}`)
@@ -303,6 +304,51 @@ describe('every REST route as org B with org A ids', () => {
       expect(a.statusCode).toBe(200);
       expect(a.body).toContain('api.zzalpha.example.org');
     }
+  });
+
+  it("expectations (ADR-186, ADR-192): B can't list, add or remove A's; B's own work under RLS", async () => {
+    const as = async (o: SeededOrg, method: 'GET' | 'POST' | 'DELETE', url: string, extra = {}) =>
+      w.app.inject({ method, url, cookies: { wl_session: await o.session() }, ...extra });
+    const before = await fingerprint(A.orgId);
+    for (const id of [A.k8s.id, A.docker.id]) {
+      const l = await as(B, 'GET', '/api/v1/egress/expected', { query: { cluster: id } });
+      expect(l.statusCode, id).toBe(404);
+      expect(leaks(l.body, id)).toEqual([]);
+      const add = await as(B, 'POST', '/api/v1/egress/expected', {
+        payload: { cluster: id, pattern: '*.zzalpha.example.org' },
+      });
+      expect(add.statusCode, id).toBe(404);
+      expect(leaks(add.body, id + 'zzalpha')).toEqual([]);
+    }
+    for (const eid of A.expectedIds) {
+      const del = await as(B, 'DELETE', `/api/v1/egress/expected/${eid}`);
+      expect(del.statusCode).toBe(404);
+      expect(leaks(del.body, eid)).toEqual([]);
+    }
+    expect(await fingerprint(A.orgId)).toEqual(before);
+
+    // B's own: listed, added (its inventory row gets the copy), removed, nothing of A.
+    for (const id of [B.k8s.id, B.docker.id]) {
+      const l = await as(B, 'GET', '/api/v1/egress/expected', { query: { cluster: id } });
+      expect(l.statusCode).toBe(200);
+      expect(leaks(l.body)).toEqual([]);
+      expect(l.json().items.map((e: { pattern: string }) => e.pattern)).toEqual([
+        '*.zzbeta.example.org',
+      ]);
+      const add = await as(B, 'POST', '/api/v1/egress/expected', {
+        payload: { cluster: id, pattern: 'api.zzbeta.example.org', port: 443 },
+      });
+      expect(add.statusCode, add.body).toBe(201);
+      expect(add.json().updated).toBe(1);
+      expect(leaks(add.body)).toEqual([]);
+      const del = await as(B, 'DELETE', `/api/v1/egress/expected/${add.json().expectation.id}`);
+      expect(del.statusCode).toBe(204);
+    }
+    // The control: A lists its own.
+    const a = await as(A, 'GET', '/api/v1/egress/expected', { query: { cluster: A.k8s.id } });
+    expect(a.statusCode).toBe(200);
+    expect(a.body).toContain('*.zzalpha.example.org');
+    expect(await fingerprint(A.orgId)).toEqual(before);
   });
 
   it("exports (ADR-181): B can't reach A's clusters, and B's own exports hold nothing of A", async () => {

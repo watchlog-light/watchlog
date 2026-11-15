@@ -188,6 +188,8 @@ export interface SeededOrg {
   serviceId: string;
   probeId: string;
   ignoreId: string;
+  /** The org's expected destinations (ADR-186): Kubernetes, then Docker. */
+  expectedIds: [string, string];
   apiToken: { id: string; value: string };
   inviteId: string;
   /** Strings and ids that only this org's data contains. */
@@ -548,6 +550,7 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     })
     .execute();
   // Egress watch's inventory and an expectation (ADR-192), for both platforms.
+  const expectedIds: string[] = [];
   const k8sSource = { namespace: 'shop', workload_kind: 'Deployment', workload: `${label}-orders` };
   const dockerSource = { compose_project: `${label}-shop`, compose_service: 'api' };
   for (const [clusterId, source] of [
@@ -578,7 +581,7 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
         last_seen: new Date(now),
       })
       .execute();
-    await owner
+    const expected = await owner
       .insertInto('egress_expected')
       .values({
         org_id: orgId,
@@ -586,7 +589,9 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
         pattern: `*.${label}.example.org`,
         created_by: ownerId,
       })
-      .execute();
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    expectedIds.push(expected.id);
   }
   const token = await api('POST', '/api-tokens', { name: `${label}-token` });
   const invite = await api('POST', '/users/invites', {
@@ -620,6 +625,7 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     serviceId,
     probeId,
     ignoreId,
+    expectedIds: expectedIds as [string, string],
     apiToken: { id: token.token.id as string, value: token.value as string },
     inviteId,
     markers,
