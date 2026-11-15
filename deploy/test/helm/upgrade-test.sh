@@ -6,7 +6,8 @@
 # templates exactly that way (values.yaml swapped for pre-phase4/*.values.yaml) and
 # checks the node agent DaemonSet, plus a fresh install, --reset-then-reuse-values and an
 # explicit opt-out; and the same from 0.2.0's values (v0.2.0/), 0.4.0's (v0.4.0/, where
-# logs on demand and its pods/log grant come on) and 0.5.0's (v0.5.0/). Needs helm; run
+# logs on demand and its pods/log grant come on), 0.5.0's (v0.5.0/) and 0.6.0's (v0.6.0/,
+# where alerting.egressLearningDays is new and read nil-safe). Needs helm; run
 # from anywhere.
 set -euo pipefail
 
@@ -243,6 +244,71 @@ if git -C "$ROOT" rev-parse -q --verify 'v0.5.0^{commit}' >/dev/null; then
   done
 else
   echo "SKIP  0.5.0's own charts: no v0.5.0 tag in this checkout"
+fi
+
+# From 0.6.0 (v0.6.0/, the released charts' values): 0.7.0 adds one value,
+# alerting.egressLearningDays (ADR-187), read nil-safe. Values without it render no
+# WATCHLOG_EGRESS_LEARNING_DAYS (the backend's default of 7 days), so a --reuse-values
+# upgrade renders exactly what 0.6.0's own charts render; set, even to 0, it reaches the
+# backend and the alert worker.
+V060="$ROOT/deploy/test/helm/v0.6.0"
+# learning <name> <want value|unset> <chart dir> [helm args...]
+learning() {
+  local name="$1" want="$2" chart="$3" be wk
+  shift 3
+  be="$(helm template rel "$chart" -n ns --show-only templates/backend.yaml "$@" |
+    sed -n 's/.*name: WATCHLOG_EGRESS_LEARNING_DAYS, value: "\(.*\)" }.*/\1/p' | sort -u | tr '\n' ' ')"
+  wk="$(helm template rel "$chart" -n ns --show-only templates/alert-worker.yaml "$@" |
+    sed -n 's/.*name: WATCHLOG_EGRESS_LEARNING_DAYS, value: "\(.*\)" }.*/\1/p' | sort -u | tr '\n' ' ')"
+  be="${be% }" wk="${wk% }"
+  if [[ "${be:-unset}" == "$want" && "${wk:-unset}" == "$want" ]]; then
+    echo "PASS  $name: egress learning days $want"
+  else
+    echo "FAIL  $name: egress learning days backend ${be:-unset}, worker ${wk:-unset}, want $want"
+    fails=$((fails + 1))
+  fi
+}
+expect "agent chart, --reuse-values from 0.6.0" on "$(ds "$(reused "$AGENT" "$V060/watchlog-agent.values.yaml")" "$AGENT_DS")"
+logs "agent chart, --reuse-values from 0.6.0" on "$(reused "$AGENT" "$V060/watchlog-agent.values.yaml")"
+logs "watchlog chart, --reuse-values from 0.6.0" on "$(reused "$UMBRELLA" "$V060/watchlog.values.yaml")"
+collector "agent chart, --reuse-values from 0.6.0" present \
+  "$(helm template rel "$(reused "$AGENT" "$V060/watchlog-agent.values.yaml")" -n ns)"
+learning "watchlog chart, fresh install" unset "$UMBRELLA"
+learning "watchlog chart, --reuse-values from 0.6.0" unset "$(reused "$UMBRELLA" "$V060/watchlog.values.yaml")"
+learning "watchlog chart, --reuse-values from 0.6.0 plus egressLearningDays=0.25" 0.25 \
+  "$(reused "$UMBRELLA" "$V060/watchlog.values.yaml")" --set alerting.egressLearningDays=0.25
+learning "watchlog chart, egressLearningDays=0 (kept, not the default)" 0 "$UMBRELLA" \
+  --set alerting.egressLearningDays=0
+learning "watchlog chart, egressLearningDays as a string" 3 "$UMBRELLA" \
+  --set-string alerting.egressLearningDays=3
+for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
+  chart="${pair%%:*}" fixture="${pair##*:}"
+  if helm template rel "$(reused "$chart" "$V060/$fixture.values.yaml")" -n ns >/dev/null 2>"$TMP/err"; then
+    echo "PASS  $fixture chart renders from 0.6.0's values"
+  else
+    echo "FAIL  $fixture chart renders from 0.6.0's values: $(cat "$TMP/err")"
+    fails=$((fails + 1))
+  fi
+done
+if git -C "$ROOT" rev-parse -q --verify 'v0.6.0^{commit}' >/dev/null; then
+  mkdir -p "$TMP/v0.6.0"
+  git -C "$ROOT" archive v0.6.0 deploy/helm | tar -x -C "$TMP/v0.6.0"
+  helm dependency build "$TMP/v0.6.0/deploy/helm/watchlog" >/dev/null
+  certless() { grep -vE '^ *(ca\.crt|tls\.crt|tls\.key|checksum/[a-z-]+|password|key|token):'; }
+  for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
+    chart="${pair%%:*}" fixture="${pair##*:}"
+    old="$(helm template rel "$TMP/v0.6.0/deploy/helm/$fixture" -n ns -f "$V060/$fixture.values.yaml" | certless)"
+    new="$(helm template rel "$(reused "$chart" "$V060/$fixture.values.yaml")" -n ns | certless)"
+    if [[ "$old" == "$new" ]]; then
+      echo "PASS  $fixture chart, --reuse-values from 0.6.0, renders as 0.6.0's chart"
+    else
+      echo "FAIL  $fixture chart, --reuse-values from 0.6.0, differs from 0.6.0's chart:"
+      diff <(echo "$old") <(echo "$new") | cut -c1-160 | head -20
+      fails=$((fails + 1))
+    fi
+  done
+else
+  echo "SKIP  0.6.0's own charts: no v0.6.0 tag in this checkout"
 fi
 
 [[ $fails -eq 0 ]] || { echo "$fails upgrade check(s) failed"; exit 1; }
