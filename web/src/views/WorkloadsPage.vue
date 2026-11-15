@@ -7,6 +7,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import CausePanel from '@/components/causes/CausePanel.vue';
 import TalksToInternet from '@/components/egress/TalksToInternet.vue';
+import EgressPolicy from '@/components/egress/EgressPolicy.vue';
 import RightSizingPanel from '@/components/rightsizing/RightSizingPanel.vue';
 import PodList from '@/components/kube/PodList.vue';
 import WorkloadList from '@/components/kube/WorkloadList.vue';
@@ -301,6 +302,14 @@ onBeforeUnmount(() => clearInterval(timer));
             kind: owner.kind || undefined,
             workload: owner.name,
           }"
+        />
+        <!-- The suggested egress policy, copy-only (ADR-190). -->
+        <EgressPolicy
+          v-if="view === 'pods' && owner && owner.kind && page.data.value"
+          :key="`policy-${owner.namespace}/${owner.kind}/${owner.name}`"
+          :cluster-id="page.data.value.clusterId"
+          kind="kubernetes"
+          :workload="{ namespace: owner.namespace, kind: owner.kind, name: owner.name }"
         />
 
         <SkeletonTable

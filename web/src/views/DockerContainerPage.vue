@@ -9,6 +9,7 @@ import { api } from '@/api/client';
 import TimeSeriesChart, { type ChartSeries } from '@/components/charts/TimeSeriesChart.vue';
 import CausePanel from '@/components/causes/CausePanel.vue';
 import TalksToInternet from '@/components/egress/TalksToInternet.vue';
+import EgressPolicy from '@/components/egress/EgressPolicy.vue';
 import ContainerDiagnosis from '@/components/docker/ContainerDiagnosis.vue';
 import ContainerStatePill from '@/components/docker/ContainerStatePill.vue';
 import LogsPanel from '@/components/logs/LogsPanel.vue';
@@ -207,6 +208,8 @@ onMounted(page.load);
         service: container.composeProject ? (container.composeService ?? undefined) : undefined,
       }"
     />
+    <!-- Why there is no egress policy on Docker (ADR-190, ADR-124's exception). -->
+    <EgressPolicy v-if="container && clusterId" :cluster-id="clusterId" kind="docker" />
 
     <div v-if="!notFound" class="grid gap-4 lg:grid-cols-2">
       <TimeSeriesChart

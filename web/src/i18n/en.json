@@ -4536,6 +4536,31 @@
         "docker": "See the whole fleet's egress →"
       }
     },
+    "policy": {
+      "title": "Suggested egress policy",
+      "subtitle": "Built from what {name} actually reached in up to 30 days. WatchLog never applies it: copy it, review it, try it in staging first.",
+      "flavour": "Policy flavour",
+      "tab": {
+        "cilium": "Cilium: by name",
+        "kubernetes": "Standard NetworkPolicy"
+      },
+      "note": {
+        "cilium": "Cilium is installed on this cluster, so the policy can allow exactly the names {name} used. Anything else is blocked. toFQDNs needs Cilium's DNS proxy: the policy's DNS rule turns it on.",
+        "ciliumMissing": "Cilium wasn't detected on this cluster. This flavour needs Cilium with its DNS proxy; the standard NetworkPolicy works on any network plugin that enforces policies.",
+        "ciliumUnknown": "WatchLog doesn't know yet whether Cilium is installed: the cluster-agent reports it from version 0.7.0. This flavour needs Cilium with its DNS proxy.",
+        "kubernetes": "Standard NetworkPolicy can only match addresses, not DNS names. This version allows the in-cluster destinations {name} uses and the ports of its names to any public address; it blocks everything else."
+      },
+      "window": "In-cluster destinations from {inCluster} (the flow series: 30 days, or the metrics retention if shorter); external destinations from {external}; to {to}.",
+      "windowNoFlows": "No in-cluster flow series retained; external destinations from {external} to {to}.",
+      "copy": "Copy YAML",
+      "dockerLine": "Docker fleets don’t get this section: Docker has no standard egress policy object.",
+      "noPods": "No running pod of this workload: the policy selects its pods by the labels they share, so it can be suggested once a pod runs.",
+      "error": "Couldn't build the suggested policy.",
+      "docker": {
+        "title": "No egress policy for Docker",
+        "body": "Docker has no standard egress policy object, so WatchLog doesn't suggest one. To limit egress, put containers that need no internet on a network created with internal: true (it cuts off all egress), or add host firewall rules (the DOCKER-USER chain in iptables or nftables)."
+      }
+    },
     "expected": {
       "mark": "Mark expected",
       "undo": "Undo",

@@ -8,6 +8,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import CausePanel from '@/components/causes/CausePanel.vue';
 import TalksToInternet from '@/components/egress/TalksToInternet.vue';
+import EgressPolicy from '@/components/egress/EgressPolicy.vue';
 import RightSizingPanel from '@/components/rightsizing/RightSizingPanel.vue';
 import ContainerList from '@/components/docker/ContainerList.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
@@ -230,6 +231,11 @@ onBeforeUnmount(() => clearInterval(timer));
           :cluster-id="page.data.value.fleetId"
           kind="docker"
           :query="{ project: filter.scope.value.project, service }"
+        />
+        <EgressPolicy
+          v-if="service && page.data.value"
+          :cluster-id="page.data.value.fleetId"
+          kind="docker"
         />
 
         <ContainerList
