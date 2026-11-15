@@ -3192,3 +3192,128 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - Integrations collectors no longer skip the limit by their header: on Docker their series name the host they run on, which counts with that host's agent (one node); a collector on a host with no agent counts that host.
   - The reader decodes the `node` and `host` values while it validates (Cloud only): measured 719 µs without and 785 µs with on a 1,000-series write. One insert per node and hour.
   - The plan page's current "nodes sending" count still reads the heartbeats; the bill and the limit don't.
+
+## ADR-195: What changed in 0.8.0: anomaly detection, basic, for Pro only; Free and Community see an upgrade page
+
+- Date: 2026-11-16 · Status: accepted (v0.8 slice 0; the owner chose What changed for 0.8.0 on 2026-11-15 and pre-approved the plan with its defaults; the points marked "agent's default" are the agent's; reviewed after the fact)
+- Context: SPEC §4.8 and Phase 6 (§13) planned basic anomaly detection for Pro, and Cloud has said "coming to Pro" since 0.6.0 (ADR-173). Probable cause (ADR-146) explains an alert from fixed rules, but nothing shows what else left its normal range around it, in the order it happened. Pro has nothing yet beyond its limits (ADR-177: `pro_features` gates only what is built).
+- Decision:
+  - **Release 0.8.0, "What changed":** "See what changed first in every Kubernetes and Docker incident." Each metric in WatchLog's catalog learns its own normal week (ADR-196); when something breaks, one list shows everything that left its range, in the order it happened, with the probable cause underneath (ADR-199); anomaly alerts fire on "unusual for a Tuesday at 14:00" with no threshold to write (ADR-200). Only basic anomaly detection is in it; the multi-cluster view and SLO reports stay "coming to Pro".
+  - **Pro only:** Cloud Pro, and Cloud Enterprise (staff-set, ADR-177). The gate is the org's `pro_features` entitlement, read through the existing 60-second cache. Orgs on the Pro beta (`source: beta`, ADR-173) have it. Self-hosted Enterprise gets it when the licence key exists (Phase 7); until then no self-hosted install runs it, except the live demo (ADR-203).
+  - **Cloud Free and Community never get the data:** the anomaly-worker never scores their clusters (ADR-197), the routes and the MCP tool refuse them (ADR-202), and they see the upgrade page (ADR-201) in its place.
+  - **Community is unchanged otherwise:** no new process, container, chart value, query or table work on a self-hosted install; it gains only the "What changed" entry in the navigation, which opens the upgrade page. Monitoring, alerts, the service map, probable cause and Egress watch stay free on every plan (SPEC §3.1).
+  - **Statistics only:** median and MAD (ADR-196). No machine learning, no AI calls, no data leaving WatchLog. The same data always gives the same answer.
+  - **Kubernetes and Docker both (ADR-124),** each in its own vocabulary: namespaces, workloads and pods; hosts, Compose projects and containers.
+  - **The code is public (agent's default):** the worker, routes and pages live in this repository under AGPL-3.0 like the rest of the product Cloud runs (ADR-173, ADR-180), not in `ee/`. The gate is the edition and the entitlement, not secrecy.
+  - **Copy claims only what is built:** "each metric in WatchLog's catalog", never "every metric", unless that becomes true. The site gets `/features/what-changed/`, pricing rows and `docs/site/what-changed.md` (plan §3.7).
+- Alternatives: Community for all of it (rejected by the owner: SPEC §3.1 names intelligence among what Pro sells, and baselines need the history and the compute Pro pays for, SPEC §3.2); `ee/` under the commercial licence (rejected: `ee/` is for Enterprise modules behind a licence key, and Cloud runs the public images); waiting for the whole of Phase 6 (rejected: anomaly detection alone gives Pro a reason to exist before the launch).
+- Consequences: SPEC §3.2, §4.8, §5.1 and §5.5 describe it; the site's "coming to Pro" for anomaly detection becomes the feature. Pro's first gated feature uses `pro_features` for the first time, so slice 2 adds one shared check that every route, page and tool of the feature uses.
+
+## ADR-196: The method: median and MAD per hour of the week over 14 days; unusual is a score over 4 for 10 minutes
+
+- Date: 2026-11-16 · Status: accepted (v0.8 slice 0; the method is the owner's plan and roadmap v1.3 §10; the spread floors, the usual range and the time zone are the agent's defaults; the floors are set by slice 1's measurements)
+- Decision:
+  - **Which series:** the curated catalog keys (ADR-028) for workloads, pods, nodes, Docker hosts, containers, Compose services and applications (SPEC §4.12), plus the service map's HTTP and connection series between workloads. Never raw MetricsQL, never unbounded label sets: a subject is a named object, and a key's labels are the catalog's. Slice 1 counts the series per node and chooses the keys; if the budget (ADR-197) doesn't fit, the catalog shrinks first. Keys a default rule already covers as an event (restarts, OOM kills, conditions) are left to those rules unless slice 1 shows a reason.
+  - **One-minute values:** each series is read at a 60-second step through the catalog's own template, for the baseline and for scoring alike.
+  - **Baselines:** per series, per hour of the week (168 buckets, **UTC**, agent's default), the median and the MAD of that bucket's minute values over the last 14 days. A bucket holds two occurrences of its hour (one after 7 days). A series is used only once it has **7 days** of data; until then it is "learning".
+  - **How unusual:** `score = |value − median| / max(1.4826 × MAD, floor)`. The **floor** keeps a flat series from making every wobble infinite. It is chosen per metric kind (cores, bytes, ratios, seconds, rates, counts), as the larger of an absolute floor for the kind and a share of the median (agent's default: 5 %). The values come from slice 1's measured spreads and are recorded here as built.
+  - **Unusual:** a score over **4** for **10 consecutive minutes**. It ends after 10 minutes at 4 or less. 4 and 10 are fixed in 0.8.0 (SPEC §4.8's sensitivity setting isn't built); tests and the demo can change them through environment variables.
+  - **Learning leaves incidents out:** a minute is left out of a series' baseline when an alert other than an anomaly alert was firing on its subject, the subject's workload or Compose service, or a pod or container of it. Anomaly alerts' own minutes stay in, so a lasting change becomes the new normal within the window instead of alerting for good.
+  - **The usual range** shown on the page, in alerts and in the API is `median ± 2 × spread` for the bucket (clipped at 0 for values that can't be negative), rounded for reading (agent's default). A series is listed only when it stays past score 4, so "far outside the usual range" is literally true.
+  - **Time:** buckets are UTC hours. The dashboard labels a bucket in the viewer's local time; messages say UTC, as every message does today. A daylight-saving change moves a local pattern by an hour for up to 14 days; accepted.
+- Alternatives: mean and standard deviation (rejected: one incident drags them; the median and MAD ignore up to half the bucket); a per-day-of-hour baseline over 7 days (rejected: weekends differ); ML models (out of scope, SPEC §4.8, until data proves the need); pooling neighbouring hours (not chosen now; slice 1 checks whether two occurrences per bucket are too few, and an amendment adds it if so).
+- Consequences: everything time-based is tested with synthetic series and an injectable clock: 14 days are generated in a test, never waited for.
+
+## ADR-197: A separate anomaly-worker, Cloud and the demo only, its budget measured at 1,000 nodes
+
+- Date: 2026-11-16 · Status: accepted (v0.8 slice 0; the separate worker and the budget rule are the owner's; the schedule and the targets are the agent's defaults)
+- Decision:
+  - **A third Node.js process** from the backend image and codebase (`anomaly-worker`, SPEC §5.1), beside `backend` and `alert-worker`, so its load never slows the API or alert evaluation.
+  - **Where it runs:** it starts only with `WATCHLOG_EDITION=cloud` (ADR-173) or in demo mode (ADR-203); otherwise it exits at start saying why. The Helm chart and the Community Compose file get no worker, value or table work for it in 0.8.0 (ADR-195). The Cloud kit adds the container with memory and CPU limits in the release slice.
+  - **What it does:** it lists the clusters of orgs with `pro_features` on `systemDb` (ADR-174's allow-list) and works inside each org under RLS. Every minute it scores the last 11 minutes of each catalog series and opens, extends or ends unusual periods. Every hour it recomputes the baselines of the hour-of-week bucket that just ended, leaving out the firing-alert minutes (ADR-196). Clusters are spread over the minute so queries don't burst.
+  - **Anomaly alerts** are opened by the alert worker from the stored periods, through the existing rule, state, notification and probable-cause pipeline (ADR-200); the anomaly-worker sends nothing itself.
+  - **The budget** is measured with the load test's 1,000 nodes (ADR-177's slice 9b), all of them treated as Pro for the worst case, and written here: the worker's CPU and memory, the storage (ADR-198), and the added VictoriaMetrics query load. Targets (agent's default): at most 1 core on average and 1 GB of memory for the worker, baselines at most 2 GB in PostgreSQL, and the load test's write p95 and chart p95 no more than 20 % above their 0.6.0 values (37 ms and 70 ms). **If it doesn't fit the current server, the catalog it scores shrinks before anything else.**
+- Alternatives: a task in the alert worker (rejected: a slow baseline hour would delay every alert); VictoriaMetrics' recording rules (rejected: per-org gating and the firing-alert exclusion can't be expressed there).
+- Consequences: Community runs exactly the processes it runs today. The release's load test runs with the worker on.
+
+## ADR-198: Where baselines and unusual periods are kept: PostgreSQL first, decided in slice 1 after measuring
+
+- Date: 2026-11-16 · Status: accepted (v0.8 slice 0; the choice is made in slice 1 after measuring, as the plan says; the default to try first is the agent's)
+- Decision:
+  - **The default to try first: PostgreSQL,** one row per org, cluster and series (the catalog key and its subject labels) with the 168 medians and spreads as two `real[168]` arrays, the number of minutes behind each bucket, and when the series was first seen; about 1.4 KB a series. An hour's recompute rewrites one array element per series.
+  - **The alternative:** baselines as VictoriaMetrics series (`watchlog_baseline_median`, `_spread`), written by the worker. Cheaper to read beside the data, but each series doubles or triples the catalog's cardinality in the tiers (ADR-177) and the gating and RLS story moves into labels.
+  - **Slice 1 measures** the catalog's series per node, the baselines' size and the hourly recompute's time at 1,000 nodes for both, and records the choice and the numbers here. PostgreSQL stays unless it misses ADR-197's targets.
+  - **Unusual periods** are PostgreSQL rows either way (org, cluster, series, start, end, peak score, peak value, the usual range at the start): small, queried by time, and what the page, the API, MCP and the alert worker read.
+  - **Feedback** ("normal for us", ADR-200) is a row per series and bucket.
+  - **Cloud:** every new table is a tenant table with `org_id` under RLS (ADR-174), in the isolation suite's table check (ADR-182). Baselines and periods of an org that loses Pro are kept 30 days, so an upgrade back resumes, then deleted by the worker; periods are kept for the org's retention.
+- Consequences: the migration that adds the tables is automatic (ADR-107) and makes empty tables in Community too.
+
+## ADR-199: The What changed page and the "What changed around it" card on every alert
+
+- Date: 2026-11-16 · Status: accepted (v0.8 slice 0; the page is the owner's plan and screens `Main` and `Anomaly`; the window bounds and how the cause card is chosen are the agent's defaults)
+- Decision:
+  - **The page,** for a Kubernetes cluster and a Docker fleet:
+    - **windows:** around an alert (from 60 minutes before it started to 15 minutes after, or now), the last hour, the last 6 hours, or a custom range of at most 24 hours within the retention;
+    - **the unusual-activity chart:** how many series were unusual each minute, with the window marked;
+    - **ranked rows:** when it started, what (the subject and the metric in its platform's words, e.g. "reports-worker · connections to postgres"), and usual → now (the usual range at the start's hour, then the latest value while it lasts or the furthest one once it ended), with a bar for how far out it went; ordered by "first to move" (start, the default) or "furthest out" (peak score); at most 50 rows, with "and N more";
+    - **the probable-cause card underneath:** the existing probable-cause answer (ADR-146 to ADR-160), for the alert in alert mode or for the first row's subject otherwise, with its "What we checked", "Open the evidence", "Copy as text" and "Ask your AI";
+    - **the footnote:** how the usual range is worked out, that nothing is sent to an AI, and "learning until <date>" while the org or cluster is learning (ADR-204).
+  - **Not correlation:** the list is ordered by time and nothing more. No rule draws a cause from which anomaly came first or links anomalies across the map: that is Enterprise (SPEC §4.8 advanced, Phase 7). The cause card is probable cause's own answer.
+  - **On every alert detail,** for Pro, a "What changed around it" card: the first three rows around the alert and a link to the page in alert mode. Cloud Free sees a one-line locked card that opens the upgrade page; Community sees no card (ADR-195).
+  - **Design quality:** the screens' hero card, ranked bars, type scale and monospace labels are matched, with colours from the design tokens only.
+- Consequences: the page reads the stored periods (ADR-198), never scores on request, so it costs one query however large the cluster. Viewers can read it.
+
+## ADR-200: Anomaly alerts: one default rule for Pro, quiet after a rollout, one alert per subject and metric, "normal for us" feedback
+
+- Date: 2026-11-16 · Status: accepted (v0.8 slice 0; the rule, the 30-minute quiet, the message form, the feedback and the aim are the owner's plan; the details marked are the agent's defaults)
+- Decision:
+  - **A new default rule kind,** "Unusual for this hour" (`anomaly.unusual`), severity warning, on by default for orgs with `pro_features` (and the demo, ADR-203), added by the worker's default-rule upkeep as every new default rule is (no manual step). It can be turned off and its severity and channels changed like any default rule; the score and duration come from ADR-196 and aren't editable in 0.8.0. Orgs without Pro don't get the rule; an org that loses Pro has the rule turned off and its open anomaly alerts ended without a message.
+  - **One alert per subject and metric** (fingerprint `anomaly:<subject>:<key>`), opened when a period has lasted 10 minutes and ended when the period ends. Re-notify, silences and held clusters (ADR-094) work as for every rule.
+  - **Quiet after a rollout:** no anomaly alert opens on a subject within **30 minutes** of a change to it or its workload or Compose service: on Kubernetes a rollout or image change, on Docker a re-created container or an image or Compose change (the change markers probable cause reads). If the series is still unusual when the quiet ends, the alert opens then, and the change is usually its likely cause. The page still lists the period during the quiet. This replaces SPEC §4.8's "± 15 minutes around deploy markers"; maintenance windows aren't built (SPEC §4.7, P1).
+  - **Messages** (ADR-095: what, where, since when, link): the title "checkout (shop): p95 response time unusual for a Tuesday at 14:00 UTC", the line "usual for Tuesday 14:00 UTC: 120–180 ms; now 2.4 s", and the "Likely cause:" line when there is one (ADR-157). Docker messages name the container or Compose service and the host. The link opens the alert, whose page shows the series against its usual band for the day and the What changed card.
+  - **"Was this worth an alert?"** on the alert page: "Yes, keep alerting" is stored for tuning; **"No, this is normal for us"** widens that series' usual range for that hour of the week so the value it reached scores 4 or less, and ends the alert. Owners and Admins answer (Viewers are read-only, ADR-140); each answer is audited, shown on the series ("widened on <date> by <name>") and can be undone. The widening is kept until undone (agent's default).
+  - **Aim: fewer than 3 anomaly alerts a day per cluster,** measured on the demo and the load test and recorded here. If it is over, slice 4 narrows which keys may alert (the page still lists every key) before anything else changes; there is no hidden daily cap.
+- Alternatives: a per-rule threshold the user edits (rejected: "no thresholds to write" is the point); muting a signal for good (SPEC §4.8; replaced by "normal for us", which keeps alerting on larger changes).
+- Consequences: probable cause runs for anomaly alerts as for every alert, with the period's start as the symptom's time.
+
+## ADR-201: The upgrade page: what Cloud Free and Community see in place of What changed
+
+- Date: 2026-11-16 · Status: accepted (v0.8 slice 0; the contents are the owner's plan and the `Locked` screen; the billing-off behaviour and who may upgrade are the agent's defaults)
+- Decision:
+  - **Where:** the "What changed" entry opens it for Cloud Free and Community; Cloud Free's locked alert card (ADR-199) opens it too.
+  - **What it shows:** the demo's example, labelled "Live demo · not your cluster" (static, from the demo, never another org's data); the org's own last alerts, from the alerts it already has, each with "What changed: Pro" (Community: "What changed: Cloud Pro"); the three reasons (the first thing that moved, alerts with no thresholds, 30 days to learn from); the real price ($1 per node a month, $10 minimum, billed on the 95th percentile of hourly nodes, SPEC §3.3); and that probable cause, alerts, the service map and egress stay free on every plan.
+  - **Cloud Free's button, "Upgrade to Pro":** when billing is live, it opens Stripe Checkout through the existing route (ADR-178); while `BILLING_LIVE=false`, Checkout answers `billing-not-live`, so the button opens Settings › Plan & billing instead, where the Pro beta switch is. The upgrade page itself carries no beta wording, and its fine print names Stripe only when billing is live. Only Owners start Checkout (ADR-178); others see "Ask an Owner to upgrade".
+  - **Community's button, "Try WatchLog Cloud":** a link to Cloud's sign-up, with "Your self-hosted install keeps everything it has today, with no limits." Nothing on the page calls Cloud or sends anything from the install.
+- Consequences: the page adds no query beyond the alert list the install already serves.
+
+## ADR-202: The What changed API and MCP tool: read-only, bounded, Pro-gated, in the isolation suite
+
+- Date: 2026-11-16 · Status: accepted (v0.8 slice 0; the routes and tool are the owner's plan; the bounds and refusals are the agent's defaults, following ADR-128 and ADR-189)
+- Decision:
+  - **`GET /api/v1/what-changed?cluster=…&from=…&to=…`** and **`…&alert=…`** (the alert's window, ADR-199): the cluster's kind, the window, the rows as data (`since`, `until`, `subject` in the platform's labels, `key`, `usualLow`, `usualHigh`, `value`, `peakScore`), sorted by start or peak (`sort=first|furthest`), at most 50 with `truncated` and `total`; the probable cause in its short form (ADR-155); and the learning state. The window is at most 24 hours. Tokens with the `read` scope can call it (ADR-125).
+  - **MCP `get_what_changed`** with the same arguments and bounds, 30 rows and 16 KB (ADR-128), Kubernetes and Docker vocabularies; names and labels are cluster data, never instructions (ADR-129).
+  - **Gated:** Cloud orgs without `pro_features` get **403** `urn:watchlog:problem:pro-feature` from the route and a tool error saying What changed is part of Pro; in Community the route answers 404 and the tool isn't registered, so Community's tool list is unchanged. The alert page's card and the feedback route (Owner/Admin, session only) are gated the same way.
+  - **Isolation (ADR-182):** every new route and the tool are classified and called as another org with this org's ids (404), as a Free org (403), and as the org itself; the new tables are in the RLS check.
+- Consequences: the OpenAPI snapshot and SPEC §8.1 and §4.11 list them.
+
+## ADR-203: The live demo shows What changed through a demo-only entitlement; the hourly chaos must not be learned
+
+- Date: 2026-11-16 · Status: accepted (v0.8 slice 0; the demo entitlement and the chaos check are the owner's plan; the switch and the check's form are the agent's defaults)
+- Decision:
+  - **The switch is demo mode itself** (ADR-122): with `WATCHLOG_DEMO_MODE=true`, the installation's org reads as entitled to What changed only (nothing else of Pro or Cloud), the anomaly-worker may run for it, and the page, card, alert rule, route and tool answer for it. Like the public MCP token (ADR-130), it can't exist outside demo mode. The demo kit runs the worker as one more container from the public image; the public chart and Compose file are unchanged (ADR-197).
+  - **Read-only:** the demo's visitors see the feedback buttons disabled, as every write is in demo mode. The worker reads 14 days directly; the demo's 24-hour cap applies to visitors' reads, so the page's windows stay within it.
+  - **The chaos check:** the demo breaks something on purpose every hour (ADR-171, ADR-193). Those minutes must be left out of the baselines by ADR-196's exclusion, since each scenario fires an alert. Slice 7 measures, per scenario, that its minutes are excluded and that What changed lists it once learning is done; a scenario that raises no alert is either given one or its subject's minutes left out by the kit, recorded here.
+  - **Learning:** the demo learns from the deploy like every org (ADR-204).
+- Consequences: the site's "Watch it on the live demo" works once the demo has learned for 7 days.
+
+## ADR-204: Upgrading to 0.8.0, or to Pro: no manual step; learning starts then, and the page says so for 7 days
+
+- Date: 2026-11-16 · Status: accepted (v0.8 slice 0; the owner's requirement, ADR-107)
+- Decision:
+  - **No manual step:** automatic migrations add the tables (ADR-198); the default-rule upkeep adds the anomaly rule to Pro orgs (ADR-200); Helm and Compose values are unchanged; the Cloud kit's new container is part of the release's update steps.
+  - **Learning starts at the upgrade:** each Pro org's `anomaly_learning_since` is set when the worker first sees it with `pro_features` (the 0.8.0 deploy for existing Pro and beta orgs, the switch to Pro for the rest). Baselines read only data from then on, never the history before it, even where the tier keeps 30 days. A cluster added later, or a series first seen later, starts when it first reports.
+  - **The page says so:** until 7 days have passed, the page, the alert card and the API say "Learning <cluster>'s usual week until <date>", list nothing, and raise no anomaly alert. After 7 days, each series with 7 days of data is used; the rest stay learning.
+  - **A downgrade** stops scoring at once; an upgrade within 30 days resumes from the kept baselines (ADR-198).
+  - **The helm upgrade test from 0.7.2** passes unchanged, and Community's upgrade starts no new process.
+- Alternatives: baselines from the retained history at the upgrade, like Egress's first-seen look-back (ADR-185) (not chosen by the owner: Free orgs moving to Pro have 3 days, the alert history needed for the exclusion is uneven before the upgrade, and a look-back over every Pro series at once is a load spike at deploy).
+- Consequences: nothing is listed for the first 7 days after the deploy, on Cloud and on the demo; the release notes say so.
