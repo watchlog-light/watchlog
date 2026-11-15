@@ -4550,7 +4550,7 @@
         "ciliumUnknown": "WatchLog doesn't know yet whether Cilium is installed: the cluster-agent reports it from version 0.7.0. This flavour needs Cilium with its DNS proxy.",
         "kubernetes": "Standard NetworkPolicy can only match addresses, not DNS names. This version allows the in-cluster destinations {name} uses and the ports of its names to any public address; it blocks everything else."
       },
-      "window": "In-cluster destinations from {inCluster} (the flow series: 30 days, or the metrics retention if shorter); external destinations from {external}; to {to}.",
+      "window": "In-cluster destinations from {inCluster} (the flow series: 30 days, or the metrics retention if shorter) and external destinations from {external}, up to {to}.",
       "windowNoFlows": "No in-cluster flow series retained; external destinations from {external} to {to}.",
       "copy": "Copy YAML",
       "dockerLine": "Docker fleets don’t get this section: Docker has no standard egress policy object.",
