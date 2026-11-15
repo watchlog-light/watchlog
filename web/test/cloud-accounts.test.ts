@@ -232,6 +232,13 @@ describe('the sign-in page', () => {
     expect(wrapper.get('[data-testid="oauth-error"]').text()).toContain('already linked');
   });
 
+  it('says an address with an account signs in its way and links the provider (ADR-183)', async () => {
+    const { wrapper } = await mountCloud(LoginPage, '/login?error=account-exists');
+    const text = wrapper.get('[data-testid="oauth-error"]').text();
+    expect(text).toContain('already has a WatchLog account');
+    expect(text).toContain('Settings › Security');
+  });
+
   it('goes to the 2FA step when the password step asks for a code', async () => {
     mockFetch({ 'POST /api/v1/auth/login': { status: 202, body: { mfaRequired: true } } });
     const { wrapper, router } = await mountCloud(LoginPage, '/login?redirect=/alerts');
