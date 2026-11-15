@@ -86,7 +86,8 @@ function setTab(t: Tab) {
     <PlanBilling v-else-if="tab === 'billing'" />
     <DataSettings v-else-if="tab === 'data'" />
     <template v-else>
-      <GeneralSettings />
+      <!-- The public address is the operator's in Cloud (404 there, ADR-174). -->
+      <GeneralSettings v-if="!auth.isCloud" />
       <SystemNamespaces />
       <LogsAccess />
     </template>

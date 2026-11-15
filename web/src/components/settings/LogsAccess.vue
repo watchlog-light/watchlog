@@ -15,7 +15,9 @@ type Access = 'all' | 'admins' | 'off';
 const OPTIONS: Access[] = ['all', 'admins', 'off'];
 
 const { t } = useI18n();
-const canManage = useAuthStore().canManage;
+// In Cloud this is the operator's setting (the backend answers 404 to a change): read-only.
+const auth = useAuthStore();
+const canManage = auth.canManage && !auth.isCloud;
 const access = ref<Access>('all');
 const page = useLoader(async () => {
   const s = await api<{ access: Access }>('/settings/logs');

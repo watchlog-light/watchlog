@@ -16,7 +16,9 @@ import { useKubeStore } from '@/stores/kube';
 // workloads hide by default, and whether WatchLog's own namespace counts as one.
 const { t } = useI18n();
 const kube = useKubeStore();
-const canManage = useAuthStore().canManage;
+// In Cloud this is the operator's setting (the backend answers 404 to a change): read-only.
+const auth = useAuthStore();
+const canManage = auth.canManage && !auth.isCloud;
 const system = ref<string[]>([]);
 const watchlog = ref(true);
 const known = ref<string[]>([]);
