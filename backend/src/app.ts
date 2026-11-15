@@ -25,6 +25,7 @@ import { installTarget } from './modules/clusters/install.js';
 import { connectRoutes } from './modules/integrations/connect.js';
 import { applicationRoutes } from './modules/integrations/routes.js';
 import { causesRoutes } from './modules/causes/routes.js';
+import { whatChangedRoutes } from './modules/anomaly/routes.js';
 import { CausesService } from './modules/causes/likely.js';
 import { kubernetesRoutes } from './modules/kubernetes/routes.js';
 import { overviewRoutes } from './modules/overview/routes.js';
@@ -331,6 +332,13 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         secretKey: config.secretKey,
       });
       await api.register(causesRoutes, { db: deps.db, causes });
+      // What changed (ADR-199, ADR-202): Pro only; Community answers 404.
+      await api.register(whatChangedRoutes, {
+        db: deps.db,
+        config,
+        causes,
+        ...(deps.now ? { now: deps.now } : {}),
+      });
       await api.register(apiTokenRoutes, { db: deps.db });
       // Cloud only (ADR-173): Community never registers these, so they answer 404.
       if (accounts && entitlements) {

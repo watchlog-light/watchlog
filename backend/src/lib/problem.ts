@@ -35,6 +35,8 @@ export const ProblemType = {
   orgDeleting: 'urn:watchlog:problem:org-deleting',
   /** Cloud: the deletion's confirmation didn't match the org's name (ADR-181). */
   confirmMismatch: 'urn:watchlog:problem:confirm-mismatch',
+  /** Cloud: a Pro feature (What changed, ADR-202) asked for by an org without it. */
+  proFeature: 'urn:watchlog:problem:pro-feature',
 } as const;
 export type ProblemType = (typeof ProblemType)[keyof typeof ProblemType];
 

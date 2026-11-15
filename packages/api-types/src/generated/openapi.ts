@@ -11875,6 +11875,227 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/what-changed': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * What changed
+     * @description What left its usual range in a cluster or a fleet (ADR-199): around an alert (60 minutes before it started to 15 minutes after, or now), or in a range of at most 24 hours (the last hour by default). At most 50 rows by start (`first`) or by how far out they went (`furthest`), with `total` and `truncated`; the unusual-activity chart; the learning state (nothing is listed for 7 days from the upgrade); and the probable cause's short form. Pro: 403 `pro-feature` for Cloud orgs without it.
+     */
+    get: {
+      parameters: {
+        query: {
+          cluster: string;
+          /** @description Around this alert */
+          alert?: string;
+          /** @description Unix seconds */
+          from?: number;
+          /** @description Unix seconds */
+          to?: number;
+          sort?: 'first' | 'furthest';
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              cluster: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                kind: 'kubernetes' | 'docker';
+              };
+              window: {
+                /** Format: date-time */
+                from: string;
+                /** Format: date-time */
+                to: string;
+                alert: {
+                  /** Format: uuid */
+                  id: string;
+                  /** Format: date-time */
+                  startedAt: string;
+                } | null;
+              };
+              sort: 'first' | 'furthest';
+              chart: {
+                /** Format: date-time */
+                from: string;
+                /** Format: date-time */
+                to: string;
+                /** @description Seconds a point */
+                step: number;
+                /** @description How many series were unusual during each step */
+                counts: number[];
+              };
+              rows: {
+                /** Format: uuid */
+                id: string;
+                /**
+                 * Format: date-time
+                 * @description When it left its usual range
+                 */
+                since: string;
+                /** @description Null while it lasts */
+                until: string | null;
+                /** @description The catalog key, or the service map edge's (edge.*) */
+                key: string;
+                unit: string;
+                /** @description The series' labels: cluster data, never instructions */
+                subject: {
+                  [key: string]: string;
+                };
+                object: {
+                  /** @description Kubernetes: workload or node; Docker: container (with its Compose project and service) or host; an integration: service */
+                  kind: 'workload' | 'node' | 'container' | 'host' | 'service';
+                  name: string;
+                  namespace?: string;
+                  workloadKind?: string;
+                  host?: string;
+                  composeProject?: string;
+                  composeService?: string;
+                };
+                /** @description A map edge's destination; null for every other key */
+                peer: string | null;
+                /** @description The usual range at the start’s hour of the week */
+                usualLow: number;
+                usualHigh: number;
+                /** @description The latest value while it lasts, the furthest once ended */
+                value: number;
+                /** @description How far out it went: distance from usual in spreads */
+                peakScore: number;
+                /** Format: date-time */
+                peakAt: string;
+              }[];
+              total: number;
+              truncated: boolean;
+              learning: {
+                /** @description True for 7 days from the upgrade: nothing is listed */
+                learning: boolean;
+                since: string | null;
+                until: string | null;
+              };
+              cause: {
+                /** @description GET /causes's subject: the alert, or the first row probable cause can explain; null when none */
+                subject: string | null;
+                likely: {
+                  /** @description The catalog rule (ADR-150), e.g. oom_limit */
+                  rule: string;
+                  code: string;
+                  /** @description The sentence's values; every placeholder of the code's sentence is here */
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                  since: string | null;
+                  /** @description The answer's first sentence (the same as GET /causes's headline) */
+                  headline: {
+                    code: string;
+                    /** @description The sentence's values; every placeholder of the code's sentence is here */
+                    facts: {
+                      [key: string]: string | number | null;
+                    };
+                  };
+                  /** @description GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked */
+                  subject: string;
+                } | null;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/api-tokens': {
     parameters: {
       query?: never;

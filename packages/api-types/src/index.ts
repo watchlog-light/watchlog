@@ -210,6 +210,10 @@ export type EgressExpectationCreated = JsonBody<Responses<'/api/v1/egress/expect
 /** The suggested egress policy for a Kubernetes workload (ADR-190): YAML text, never applied. */
 export type EgressPolicy = JsonBody<Responses<'/api/v1/egress/policy', 'get'>[200]>;
 export type EgressPolicyFlavour = EgressPolicy['policies'][number];
+/** What changed (ADR-199, ADR-202): a cluster's or fleet's unusual periods in a window. Pro. */
+export type WhatChanged = JsonBody<Responses<'/api/v1/what-changed', 'get'>[200]>;
+export type WhatChangedRow = WhatChanged['rows'][number];
+export type WhatChangedObject = WhatChangedRow['object'];
 // The ⌘K palette's search (ADR-169).
 export type SearchResponse = JsonBody<Responses<'/api/v1/clusters/{id}/search', 'get'>[200]>;
 export type SearchResult = SearchResponse['results'][number];

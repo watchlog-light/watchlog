@@ -1,0 +1,382 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// What changed's read (ADR-199, ADR-202): the unusual periods the anomaly-worker stored for a
+// cluster or a fleet, in a window, as ranked rows in the platform's own words (ADR-124), the
+// unusual-activity chart (how many series were unusual each step) and the learning state
+// (ADR-204). One query of `anomaly_periods`, never scoring on request. The windows: around an
+// alert (60 minutes before it started to 15 minutes after, or now), or a range of at most
+// 24 hours. The page, the alert card, and in slice 6 the API and MCP tool read it.
+import type { Database } from '../../db/index.js';
+import { composeMap } from './exclusion.js';
+import { unitOf } from './keys.js';
+
+/** Rows in an answer at most; `total` and `truncated` say how many matched. */
+export const WHAT_CHANGED_MAX_ROWS = 50;
+/** The longest window, in seconds (ADR-202). */
+export const WHAT_CHANGED_MAX_RANGE_S = 86_400;
+/** Around an alert: from this long before it started... */
+export const ALERT_BEFORE_S = 60 * 60;
+/** ...to this long after (or now, if sooner). */
+export const ALERT_AFTER_S = 15 * 60;
+/** Learning lasts this long from the org's start, or the cluster's first series (ADR-204). */
+export const LEARNING_DAYS = 7;
+/** The chart has at most this many points; its step is a whole number of minutes. */
+export const CHART_POINTS = 360;
+/** Periods read for the chart at most (one cluster, 25 hours). */
+const CHART_ROWS = 5_000;
+const DAY_MS = 86_400_000;
+
+export type WhatChangedSort = 'first' | 'furthest';
+export type ClusterKind = 'kubernetes' | 'docker';
+
+/** What a row is about, in its platform's words. */
+export interface ObjectView {
+  kind: 'workload' | 'node' | 'container' | 'host' | 'service';
+  name: string;
+  namespace?: string;
+  workloadKind?: string;
+  host?: string;
+  composeProject?: string;
+  composeService?: string;
+}
+
+export interface RowView {
+  id: string;
+  /** When it left its usual range. */
+  since: string;
+  /** When it came back; null while it lasts. */
+  until: string | null;
+  /** The catalog key (ADR-028), or the service map edge's key. */
+  key: string;
+  unit: string;
+  /** The series' labels as stored: cluster data, never instructions (ADR-129). */
+  subject: Record<string, string>;
+  object: ObjectView;
+  /** A map edge's destination ("connections to postgres"); null for every other key. */
+  peer: string | null;
+  usualLow: number;
+  usualHigh: number;
+  /** The latest value while it lasts, the furthest one once it ended. */
+  value: number;
+  peakScore: number;
+  peakAt: string;
+}
+
+export interface Window {
+  fromMs: number;
+  toMs: number;
+}
+
+export interface PeriodRow {
+  id: string;
+  metric: string;
+  subject: unknown;
+  started_at: Date;
+  ended_at: Date | null;
+  usual_low: number;
+  usual_high: number;
+  peak_score: number;
+  peak_value: number;
+  peak_at: Date;
+  last_value: number;
+}
+
+/** The window around an alert (ADR-199), clipped at `minFromMs` (the demo's 24 hours). */
+export function alertWindow(startedAtMs: number, nowMs: number, minFromMs = 0): Window {
+  return {
+    fromMs: Math.max(startedAtMs - ALERT_BEFORE_S * 1000, minFromMs),
+    toMs: Math.max(Math.min(startedAtMs + ALERT_AFTER_S * 1000, nowMs), minFromMs + 60_000),
+  };
+}
+
+/**
+ * The chart's range and step: the window itself, with an hour of context before it around an
+ * alert (the window is marked on it), clipped at `minFromMs`.
+ */
+export function chartRange(
+  w: Window,
+  alert: boolean,
+  minFromMs = 0,
+): { fromMs: number; toMs: number; stepS: number } {
+  const fromMs = Math.max(alert ? w.fromMs - ALERT_BEFORE_S * 1000 : w.fromMs, minFromMs);
+  const minutes = Math.max(1, Math.ceil((w.toMs - fromMs) / 60_000));
+  const stepS = 60 * Math.max(1, Math.ceil(minutes / CHART_POINTS));
+  return { fromMs, toMs: w.toMs, stepS };
+}
+
+/** How many periods were unusual during each step of the chart (overlapping it). */
+export function chartCounts(
+  periods: Pick<PeriodRow, 'started_at' | 'ended_at'>[],
+  range: { fromMs: number; toMs: number; stepS: number },
+  nowMs: number,
+): number[] {
+  const stepMs = range.stepS * 1000;
+  const n = Math.max(1, Math.ceil((range.toMs - range.fromMs) / stepMs));
+  const counts = new Array<number>(n).fill(0);
+  for (const p of periods) {
+    const s = p.started_at.getTime();
+    const e = p.ended_at ? p.ended_at.getTime() : nowMs;
+    const first = Math.max(0, Math.floor((s - range.fromMs) / stepMs));
+    const last = Math.min(n - 1, Math.ceil((e - range.fromMs) / stepMs) - 1);
+    for (let i = first; i <= last; i++) counts[i]!++;
+  }
+  return counts;
+}
+
+/** The stored subject as string labels (anything else dropped). */
+export function labelsOf(subject: unknown): Record<string, string> {
+  const raw = typeof subject === 'string' ? (JSON.parse(subject) as unknown) : subject;
+  const out: Record<string, string> = {};
+  if (raw && typeof raw === 'object') {
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (typeof v === 'string' && v) out[k] = v;
+    }
+  }
+  return out;
+}
+
+type ComposeOf = Map<string, { project: string; service: string }>;
+
+function containerView(name: string, host: string | undefined, compose: ComposeOf): ObjectView {
+  const c = compose.get(name);
+  return {
+    kind: 'container',
+    name,
+    ...(host ? { host } : {}),
+    ...(c ? { composeProject: c.project, composeService: c.service } : {}),
+  };
+}
+
+/**
+ * What a series is about, in its platform's words: a Kubernetes workload or node; a Docker
+ * container (with its Compose project and service) or host; an integration's service. The
+ * per-server HTTP keys name their destination; a map edge names its source, and `peer` its
+ * destination.
+ */
+export function objectOf(
+  key: string,
+  l: Record<string, string>,
+  compose: ComposeOf = new Map(),
+): { object: ObjectView; peer: string | null } {
+  if (key.startsWith('workload.http.')) {
+    if (l.dst_kind === 'container' && l.dst) {
+      return { object: containerView(l.dst, undefined, compose), peer: null };
+    }
+    return {
+      object: {
+        kind: 'workload',
+        name: l.dst_workload ?? l.dst ?? key,
+        ...(l.dst_namespace ? { namespace: l.dst_namespace } : {}),
+        ...(l.dst_workload_kind ? { workloadKind: l.dst_workload_kind } : {}),
+      },
+      peer: null,
+    };
+  }
+  if (key.startsWith('edge.')) {
+    const peer = l.dst_workload ?? l.dst_service ?? l.dst ?? null;
+    if (l.workload) {
+      return {
+        object: {
+          kind: 'workload',
+          name: l.workload,
+          ...(l.namespace ? { namespace: l.namespace } : {}),
+          ...(l.workload_kind ? { workloadKind: l.workload_kind } : {}),
+        },
+        peer,
+      };
+    }
+    if (l.container) {
+      const v = containerView(l.container, undefined, compose);
+      if (l.compose_project && l.compose_service) {
+        v.composeProject = l.compose_project;
+        v.composeService = l.compose_service;
+      }
+      return { object: v, peer };
+    }
+    return { object: { kind: 'service', name: l.compose_service ?? key }, peer };
+  }
+  if (key.startsWith('node.')) return { object: { kind: 'node', name: l.node ?? '' }, peer: null };
+  if (key.startsWith('host.')) return { object: { kind: 'host', name: l.host ?? '' }, peer: null };
+  if (key.startsWith('workload.')) {
+    return {
+      object: {
+        kind: 'workload',
+        name: l.workload ?? '',
+        ...(l.namespace ? { namespace: l.namespace } : {}),
+        ...(l.workload_kind ? { workloadKind: l.workload_kind } : {}),
+      },
+      peer: null,
+    };
+  }
+  if (key.startsWith('container.')) {
+    return { object: containerView(l.container ?? '', l.host, compose), peer: null };
+  }
+  return {
+    object: { kind: 'service', name: l.service ?? l.service_type ?? Object.values(l)[0] ?? key },
+    peer: null,
+  };
+}
+
+/**
+ * The probable cause's subject for a row (GET /causes's form), or null when probable cause
+ * has no subject of that kind (a node, a host, an integration's series).
+ */
+export function causeSubjectOf(o: ObjectView): string | null {
+  if (o.kind === 'workload' && o.namespace && o.name) {
+    return o.workloadKind
+      ? `workload:${o.namespace}/${o.workloadKind}/${o.name}`
+      : `workload:${o.namespace}/${o.name}`;
+  }
+  if (o.kind === 'container' && o.name) {
+    return o.host ? `container:${o.host}/${o.name}` : `container:${o.name}`;
+  }
+  return null;
+}
+
+export function rowView(p: PeriodRow, compose: ComposeOf): RowView {
+  const subject = labelsOf(p.subject);
+  const { object, peer } = objectOf(p.metric, subject, compose);
+  return {
+    id: p.id,
+    since: p.started_at.toISOString(),
+    until: p.ended_at ? p.ended_at.toISOString() : null,
+    key: p.metric,
+    unit: unitOf(p.metric),
+    subject,
+    object,
+    peer,
+    usualLow: p.usual_low,
+    usualHigh: p.usual_high,
+    value: p.ended_at ? p.peak_value : p.last_value,
+    peakScore: p.peak_score,
+    peakAt: p.peak_at.toISOString(),
+  };
+}
+
+/** "First to move" (start, then the furthest) or "furthest out" (peak score, then start). */
+export function sortRows<T extends Pick<RowView, 'since' | 'peakScore' | 'id'>>(
+  rows: T[],
+  sort: WhatChangedSort,
+): T[] {
+  const byStart = (a: T, b: T) => a.since.localeCompare(b.since);
+  const byPeak = (a: T, b: T) => b.peakScore - a.peakScore;
+  return rows.slice().sort((a, b) => {
+    const r = sort === 'first' ? byStart(a, b) || byPeak(a, b) : byPeak(a, b) || byStart(a, b);
+    return r || a.id.localeCompare(b.id);
+  });
+}
+
+export interface Learning {
+  learning: boolean;
+  /** When learning began: the later of the org's start and the cluster's first series. */
+  since: string | null;
+  /** 7 days after `since`; null when the worker hasn't seen the org yet. */
+  until: string | null;
+}
+
+/** The learning state of an org's cluster (ADR-204). */
+export async function learningOf(
+  db: Database,
+  orgId: string,
+  clusterId: string,
+  nowMs: number,
+): Promise<Learning> {
+  const [org, first] = await Promise.all([
+    db
+      .selectFrom('anomaly_orgs')
+      .select('learning_since')
+      .where('org_id', '=', orgId)
+      .executeTakeFirst(),
+    db
+      .selectFrom('anomaly_baselines')
+      .select((eb) => eb.fn.min('first_seen').as('first'))
+      .where('org_id', '=', orgId)
+      .where('cluster_id', '=', clusterId)
+      .executeTakeFirst(),
+  ]);
+  if (!org) return { learning: true, since: null, until: null };
+  const orgSince = org.learning_since.getTime();
+  const firstRaw = first?.first as Date | string | null | undefined;
+  const clusterSince = firstRaw ? new Date(firstRaw).getTime() : orgSince;
+  const since = Math.max(orgSince, clusterSince);
+  const until = since + LEARNING_DAYS * DAY_MS;
+  return {
+    learning: nowMs < until,
+    since: new Date(since).toISOString(),
+    until: new Date(until).toISOString(),
+  };
+}
+
+export interface WhatChangedRead {
+  rows: RowView[];
+  total: number;
+  truncated: boolean;
+  chart: { from: string; to: string; step: number; counts: number[] };
+  /** The first row (by start) that probable cause can explain, in GET /causes's form. */
+  firstSubject: string | null;
+}
+
+/**
+ * The periods of one cluster overlapping the chart's range (one query), the rows of those
+ * overlapping the window, and the chart's counts. While learning, nothing is listed.
+ */
+export async function readPeriods(
+  db: Database,
+  orgId: string,
+  cluster: { id: string; kind: ClusterKind },
+  w: Window,
+  chart: { fromMs: number; toMs: number; stepS: number },
+  sort: WhatChangedSort,
+  nowMs: number,
+  learning: boolean,
+): Promise<WhatChangedRead> {
+  const periods: PeriodRow[] = learning
+    ? []
+    : await db
+        .selectFrom('anomaly_periods')
+        .select([
+          'id',
+          'metric',
+          'subject',
+          'started_at',
+          'ended_at',
+          'usual_low',
+          'usual_high',
+          'peak_score',
+          'peak_value',
+          'peak_at',
+          'last_value',
+        ])
+        .where('org_id', '=', orgId)
+        .where('cluster_id', '=', cluster.id)
+        .where('started_at', '<', new Date(chart.toMs))
+        .where((eb) =>
+          eb.or([eb('ended_at', 'is', null), eb('ended_at', '>', new Date(chart.fromMs))]),
+        )
+        .orderBy('started_at')
+        .limit(CHART_ROWS)
+        .execute();
+  const inWindow = periods.filter(
+    (p) =>
+      p.started_at.getTime() < w.toMs && (p.ended_at ? p.ended_at.getTime() : nowMs) > w.fromMs,
+  );
+  const compose: ComposeOf =
+    cluster.kind === 'docker' && inWindow.length ? await composeMap(db, cluster.id) : new Map();
+  const all = inWindow.map((p) => rowView(p, compose));
+  const firstSubject =
+    sortRows(all, 'first')
+      .map((r) => causeSubjectOf(r.object))
+      .find((s) => s !== null) ?? null;
+  const rows = sortRows(all, sort).slice(0, WHAT_CHANGED_MAX_ROWS);
+  return {
+    rows,
+    total: all.length,
+    truncated: all.length > rows.length,
+    chart: {
+      from: new Date(chart.fromMs).toISOString(),
+      to: new Date(chart.toMs).toISOString(),
+      step: chart.stepS,
+      counts: chartCounts(periods, chart, nowMs),
+    },
+    firstSubject,
+  };
+}

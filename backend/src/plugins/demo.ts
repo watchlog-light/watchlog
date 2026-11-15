@@ -149,6 +149,8 @@ export const DEMO_QUERY_ROUTES: readonly string[] = [
   'GET /api/v1/clusters/:id/service-map/edge',
   // Probable cause reads several of the above in-process (ADR-155).
   'GET /api/v1/causes',
+  // What changed's answer carries the probable cause (ADR-199).
+  'GET /api/v1/what-changed',
 ];
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
