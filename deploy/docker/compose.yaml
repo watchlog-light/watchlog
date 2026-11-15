@@ -18,6 +18,9 @@ x-alerting: &alerting # Encrypts alert channel secrets; back it up with the data
   WATCHLOG_TELEGRAM_API_URL: ${WATCHLOG_TELEGRAM_API_URL:-}
   HTTPS_PROXY: ${HTTPS_PROXY:-}
   NO_PROXY: ${NO_PROXY:-}
+  # Days "New external destination" stays quiet while a fleet or a new container learns
+  # its destinations (ADR-187).
+  WATCHLOG_EGRESS_LEARNING_DAYS: ${WATCHLOG_EGRESS_LEARNING_DAYS:-7}
 
 services:
   postgres:

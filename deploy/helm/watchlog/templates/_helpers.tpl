@@ -78,6 +78,11 @@ secret key, the public URL for links, SMTP, the Telegram API and the outbound pr
 {{- with $alerting.noProxy }}
 - { name: NO_PROXY, value: {{ . | quote }} }
 {{- end }}
+{{- if ne (toString $alerting.egressLearningDays) "" }}
+# "New external destination" learns for this many days (ADR-187); the backend and the
+# worker read it. Unset: 7.
+- { name: WATCHLOG_EGRESS_LEARNING_DAYS, value: {{ $alerting.egressLearningDays | toString | quote }} }
+{{- end }}
 {{- end -}}
 
 {{/*
@@ -95,7 +100,7 @@ even to 0 or false, is kept.
 {{- toYaml $out -}}
 {{- end -}}
 {{- define "watchlog.alerting" -}}
-{{- include "watchlog.withDefaults" (list .Values.alerting (dict "smtpUrl" "" "smtpFrom" "WatchLog <alerts@example.com>" "telegramApiUrl" "" "httpsProxy" "" "noProxy" "")) -}}
+{{- include "watchlog.withDefaults" (list .Values.alerting (dict "smtpUrl" "" "smtpFrom" "WatchLog <alerts@example.com>" "telegramApiUrl" "" "httpsProxy" "" "noProxy" "" "egressLearningDays" "")) -}}
 {{- end -}}
 {{- define "watchlog.alertWorker" -}}
 {{- include "watchlog.withDefaults" (list .Values.alertWorker (dict "replicas" 1 "resources" (dict "requests" (dict "cpu" "50m" "memory" "128Mi") "limits" (dict "memory" "256Mi")))) -}}

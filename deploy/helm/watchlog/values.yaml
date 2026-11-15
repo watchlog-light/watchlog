@@ -82,6 +82,9 @@ alerting:
   # Outbound proxy for Slack, Telegram and webhook deliveries.
   httpsProxy: ''
   noProxy: ''
+  # Days "New external destination" stays quiet while a cluster or a new workload or
+  # container is learning its destinations (0 to 90, fractions allowed). Empty: 7.
+  egressLearningDays: ''
 
 web:
   replicas: 1
