@@ -52,7 +52,7 @@ export interface CloudWorld {
 }
 
 /** The test database's URL as watchlog_app. */
-function appUrlOf(ownerUrl: string): string {
+export function appUrlOf(ownerUrl: string): string {
   const u = new URL(ownerUrl);
   u.username = APP_ROLE;
   u.password = APP_PASSWORD;
@@ -547,6 +547,47 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
       label: `${label} ignored`,
     })
     .execute();
+  // Egress watch's inventory and an expectation (ADR-192), for both platforms.
+  const k8sSource = { namespace: 'shop', workload_kind: 'Deployment', workload: `${label}-orders` };
+  const dockerSource = { compose_project: `${label}-shop`, compose_service: 'api' };
+  for (const [clusterId, source] of [
+    [k8s.id, k8sSource],
+    [docker.id, dockerSource],
+  ] as const) {
+    await owner
+      .insertInto('egress_destinations')
+      .values({
+        org_id: orgId,
+        cluster_id: clusterId,
+        source: JSON.stringify(source),
+        destination: `api.${label}.example.org`,
+        dst_kind: 'external',
+        port: 443,
+        destination_class: 'name',
+        first_seen: new Date(now - 3_600_000),
+        last_seen: new Date(now),
+      })
+      .execute();
+    await owner
+      .insertInto('egress_sources')
+      .values({
+        org_id: orgId,
+        cluster_id: clusterId,
+        source: JSON.stringify(source),
+        first_seen: new Date(now - 3_600_000),
+        last_seen: new Date(now),
+      })
+      .execute();
+    await owner
+      .insertInto('egress_expected')
+      .values({
+        org_id: orgId,
+        cluster_id: clusterId,
+        pattern: `*.${label}.example.org`,
+        created_by: ownerId,
+      })
+      .execute();
+  }
   const token = await api('POST', '/api-tokens', { name: `${label}-token` });
   const invite = await api('POST', '/users/invites', {
     email: `invitee@${label}.test`,

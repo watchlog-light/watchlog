@@ -15,7 +15,8 @@ const SRC = fileURLToPath(new URL('../../src', import.meta.url));
 const SYSTEM_DB: Record<string, string> = {
   'app.ts': 'wiring: hands systemDb to the modules below only',
   'server.ts': 'wiring: setup, secret key check, demo user, bootstrap cluster, seed',
-  'alert-worker.ts': 'wiring: the worker lists orgs and runs the outbox and token jobs',
+  'alert-worker.ts':
+    'wiring: the worker lists orgs (alerts, the egress inventory) and runs the outbox and token jobs',
   'modules/alerts/worker.ts': 'lists the orgs and prunes history across them',
   'modules/auth/routes.ts': 'sign-in, before the org is known',
   'modules/accounts/routes.ts':
