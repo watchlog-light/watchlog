@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { CATALOG } from '../src/modules/causes/catalog.js';
 import type { EvAlert, EvMarker, Evidence } from '../src/modules/causes/evidence.js';
 import { rank } from '../src/modules/causes/rank.js';
+import { resolveTarget } from '../src/modules/causes/resolve.js';
 import { EGRESS_CAUSE_RULES, runRules } from '../src/modules/causes/rules.js';
 import {
   changeBeforeEgress,
@@ -215,6 +216,36 @@ describe('change_before_egress on Docker', () => {
       }),
     ]);
     expect(top(ev).state).toBe('none');
+  });
+});
+
+describe('the symptom of an egress alert is its first connection', () => {
+  it('an alert that fired hours after its first connection looks at the hour before that connection', async () => {
+    const cluster = { id: 'c1', name: 'prod', kind: 'kubernetes' as const };
+    const reader = (key: string, firedAt: string) => ({
+      get: async <T>() =>
+        ({
+          alert: { ...egressAlert(KUBE, key), firedAt, cluster: { id: 'c1' } },
+        }) as T,
+    });
+    const id = '00000000-0000-4000-8000-000000000001';
+    const late = '2026-11-10T19:00:00.000Z';
+    const egress = await resolveTarget(reader('egress.new_destination', late), cluster, {
+      kind: 'alert',
+      id,
+    });
+    expect(egress.symptomAt).toBe(FIRST);
+    expect(egress.focus).toEqual({
+      kind: 'workload',
+      namespace: 'causes-e2e',
+      workloadKind: 'Deployment',
+      name: 'web',
+    });
+    const other = await resolveTarget(reader('k8s.pod.crashloop', late), cluster, {
+      kind: 'alert',
+      id,
+    });
+    expect(other.symptomAt).toBe(late);
   });
 });
 
