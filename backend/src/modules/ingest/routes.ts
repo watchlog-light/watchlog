@@ -36,7 +36,8 @@ import {
 } from './rate-limit.js';
 import { inspectWriteRequest, RemoteWriteError } from './remote-write.js';
 import type { TokenCache } from './token-cache.js';
-import { isNodeAgent, type NodeGate } from '../entitlements/node-gate.js';
+import type { NodeGate } from '../entitlements/node-gate.js';
+import type { NodeSightings } from '../entitlements/node-sightings.js';
 import type { SeriesGate } from '../entitlements/series-gate.js';
 import { BILLING_PATH, sendPlanLimit } from '../entitlements/limits.js';
 
@@ -75,6 +76,8 @@ export interface IngestOptions {
   nodeGate?: NodeGate | null;
   /** Cloud: each org's active-series cap (SR-3). Null in Community: nothing is counted. */
   seriesGate?: SeriesGate | null;
+  /** Cloud: the nodes the written series name, for the bill (SR-8). Null in Community. */
+  nodeSightings?: NodeSightings | null;
 }
 
 const Str = (max: number) => Type.String({ maxLength: max });
@@ -218,6 +221,10 @@ function problemDetail(payload: unknown): string {
   }
 }
 
+const NODE_OVER_PLAN = `This node is over the plan's node limit; its data is not stored. Nodes already sending keep sending. Try Pro: ${BILLING_PATH}`;
+const nodeOverPlan = (reply: FastifyReply) =>
+  sendPlanLimit(reply, 402, 'nodes', null, NODE_OVER_PLAN);
+
 const ownerKey = (owner: { orgId: string; clusterId: string }) => ({
   orgId: owner.orgId,
   clusterId: owner.clusterId,
@@ -227,6 +234,7 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
   const { db, tokens, victoria } = opts;
   const nodeGate = opts.nodeGate ?? null;
   const seriesGate = opts.seriesGate ?? null;
+  const sightings = opts.nodeSightings ?? null;
   const agentBuckets = new TokenBuckets(opts.agentBucket ?? AGENT_BUCKET);
   const clusterAgentBuckets = new TokenBuckets(opts.clusterAgentBucket ?? CLUSTER_AGENT_BUCKET);
   const clusterBuckets = new TokenBuckets(opts.clusterBucket ?? CLUSTER_BUCKET);
@@ -313,25 +321,9 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
       reply.header('retry-after', String(wait));
       return sendProblem(reply, 429, 'Ingest rate limit reached; retry later');
     }
-    // Cloud's node limit (ADR-177): a node or Docker host the org hasn't seen in 24 hours
-    // gets 402 when the plan is full; one already sending never does. From memory, no
-    // query per write (modules/entitlements/node-gate.ts). The agent drops the batch.
-    const url = request.routeOptions.url ?? '';
-    if (
-      nodeGate &&
-      isNodeAgent(agentId) &&
-      !logs &&
-      !url.startsWith('/ingest/v1/integrations/') &&
-      !(await nodeGate.admit(owner.orgId, owner.clusterId, agentId))
-    ) {
-      return sendPlanLimit(
-        reply,
-        402,
-        'nodes',
-        null,
-        `This node is over the plan's node limit; its data is not stored. Nodes already sending keep sending. Try Pro: ${BILLING_PATH}`,
-      );
-    }
+    // Cloud's node limit (ADR-177) isn't decided by this header (SR-8, ADR-194): each route
+    // that carries a node's data checks the node it names (the series' `node` or `host`
+    // label, the heartbeat's or Docker inventory's `node`, the Docker events' `host`).
   });
 
   app.post(
@@ -367,10 +359,20 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
           maxDecodedBytes: MAX_DECODED_BYTES,
           maxSeries: MAX_SERIES_PER_REQUEST,
           hashSeries: seriesGate !== null,
+          collectNodes: nodeGate !== null || sightings !== null,
         });
       } catch (err) {
         if (err instanceof RemoteWriteError) return sendProblem(reply, err.status, err.message);
         throw err;
+      }
+      // Cloud's node limit by the nodes the series come from, whatever the header says
+      // (SR-8, ADR-194): a node agent names itself in `node` or `host` on every series.
+      if (
+        nodeGate &&
+        summary.senders &&
+        !(await nodeGate.admitAll(owner.orgId, owner.clusterId, summary.senders))
+      ) {
+        return nodeOverPlan(reply);
       }
       // Cloud: the org's active-series cap (SR-3). At the cap only series already counted
       // are stored; a write with new ones gets 402, which the agent drops (ADR-022).
@@ -412,6 +414,10 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
         reply.header('retry-after', String(UNAVAILABLE_RETRY_AFTER_S));
         return sendProblem(reply, 503, 'Metrics storage temporarily unavailable');
       }
+      // Cloud's bill (SR-8): the nodes and Docker hosts the stored series name.
+      if (sightings && summary.nodes && summary.nodes.size > 0) {
+        sightings.see(owner.orgId, owner.clusterId, summary.nodes);
+      }
       // Cloud's funnel (ADR-179): the cluster's first stored batch, once.
       const funnel = request.server.funnel;
       const first = { name: 'first_metrics_received', ...ownerKey(owner) } as const;
@@ -452,6 +458,10 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
         return reply.code(204).send(null);
       }
       const { kind, node, inventory } = request.body;
+      // A Docker host's inventory is checked against the node limit by the host it names.
+      if (nodeGate && !(await nodeGate.admit(owner.orgId, owner.clusterId, node))) {
+        return nodeOverPlan(reply);
+      }
       const now = new Date();
       const containers = inventory.containers;
       await db.transaction().execute(async (trx) => {
@@ -644,6 +654,12 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
       },
     },
     async (request, reply) => {
+      // Docker events name their host: checked against the node limit like its other data.
+      const hosts = new Set(request.body.events.flatMap((e) => (e.host ? [e.host] : [])));
+      const owner = request.ingestOwner!;
+      if (nodeGate && !(await nodeGate.admitAll(owner.orgId, owner.clusterId, hosts))) {
+        return nodeOverPlan(reply);
+      }
       await storeKubernetesEvents(
         db,
         request.ingestOwner!.clusterId,
@@ -677,6 +693,14 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
     async (request, reply) => {
       const owner = request.ingestOwner!;
       const hb = request.body;
+      // The node limit by the node the heartbeat names, whatever the header says (SR-8).
+      if (
+        nodeGate &&
+        hb.mode !== 'cluster' &&
+        !(await nodeGate.admit(owner.orgId, owner.clusterId, hb.node))
+      ) {
+        return nodeOverPlan(reply);
+      }
       // At most one write a minute per agent and cluster; changes at once (heartbeat.ts).
       await recordHeartbeat(db, owner, hb);
       // Cloud's funnel (ADR-179): the cluster's first heartbeat, once (the database decides;

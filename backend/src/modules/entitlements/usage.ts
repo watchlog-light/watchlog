@@ -7,6 +7,12 @@
 // that stopped keeps its last time), so the job runs every few minutes and keeps the
 // highest count. An hour the worker missed has no row and counts as 0.
 //
+// SR-8 (ADR-194): heartbeats are what the agent says about itself, so a changed header or
+// heartbeat, or none, lowered that count. Ingest also records the nodes and Docker hosts
+// the written series name (node_sightings, node-sightings.ts; on Kubernetes that includes
+// every Node the API lists). Each hour keeps both counts (`reported_*`, `observed_*`) and
+// bills the higher (`nodes`, `docker_hosts`), never less than either.
+//
 // The alert worker runs it across orgs: it lists the orgs with agents seen in the hour on
 // the owner's connection (systemDb), then writes each org's row inside `withOrg` on the
 // app connection, under Row-Level Security (ADR-174).
@@ -29,10 +35,18 @@ export interface UsageJobDeps {
   db: Database;
 }
 
-/** Records the current hour's counts for every org with an agent seen in it. */
+/** Sightings are kept two days: the job counts the current hour only. */
+const SIGHTINGS_KEPT_MS = 48 * HOUR_MS;
+
+interface Counts {
+  nodes: number;
+  docker_hosts: number;
+}
+
+/** Records the current hour's counts for every org with an agent or a sighting in it. */
 export async function recordUsage(deps: UsageJobDeps, nowMs: number): Promise<number> {
   const hour = hourOf(nowMs);
-  const counts = await deps.systemDb
+  const reported = await deps.systemDb
     .selectFrom('agent_instances')
     .select([
       'org_id',
@@ -43,22 +57,61 @@ export async function recordUsage(deps: UsageJobDeps, nowMs: number): Promise<nu
     .where('mode', '<>', 'cluster')
     .groupBy('org_id')
     .execute();
-  for (const c of counts) {
-    await withOrg(c.org_id, () =>
+  // A node is one per cluster (the primary key); the cluster's kind says which it is.
+  const observed = await deps.systemDb
+    .selectFrom('node_sightings as s')
+    .innerJoin('clusters as c', 'c.id', 's.cluster_id')
+    .select([
+      's.org_id',
+      sql<number>`count(*) filter (where c.kind = 'kubernetes')::int`.as('nodes'),
+      sql<number>`count(*) filter (where c.kind = 'docker')::int`.as('docker_hosts'),
+    ])
+    .where('s.hour', '=', hour)
+    .groupBy('s.org_id')
+    .execute();
+  const zero: Counts = { nodes: 0, docker_hosts: 0 };
+  const orgs = new Map<string, { reported: Counts; observed: Counts }>();
+  for (const r of reported) orgs.set(r.org_id, { reported: r, observed: zero });
+  for (const o of observed) {
+    const row = orgs.get(o.org_id);
+    if (row) row.observed = o;
+    else orgs.set(o.org_id, { reported: zero, observed: o });
+  }
+  const higher = (col: string) =>
+    sql<number>`greatest(usage_hourly.${sql.ref(col)}, excluded.${sql.ref(col)})`;
+  for (const [orgId, { reported: r, observed: o }] of orgs) {
+    await withOrg(orgId, () =>
       deps.db
         .insertInto('usage_hourly')
-        .values({ org_id: c.org_id, hour, nodes: c.nodes, docker_hosts: c.docker_hosts })
+        .values({
+          org_id: orgId,
+          hour,
+          nodes: Math.max(r.nodes, o.nodes),
+          docker_hosts: Math.max(r.docker_hosts, o.docker_hosts),
+          reported_nodes: r.nodes,
+          reported_docker_hosts: r.docker_hosts,
+          observed_nodes: o.nodes,
+          observed_docker_hosts: o.docker_hosts,
+        })
         .onConflict((oc) =>
           oc.columns(['org_id', 'hour']).doUpdateSet({
-            nodes: sql`greatest(usage_hourly.nodes, excluded.nodes)`,
-            docker_hosts: sql`greatest(usage_hourly.docker_hosts, excluded.docker_hosts)`,
+            nodes: higher('nodes'),
+            docker_hosts: higher('docker_hosts'),
+            reported_nodes: higher('reported_nodes'),
+            reported_docker_hosts: higher('reported_docker_hosts'),
+            observed_nodes: higher('observed_nodes'),
+            observed_docker_hosts: higher('observed_docker_hosts'),
             updated_at: sql`now()`,
           }),
         )
         .execute(),
     );
   }
-  return counts.length;
+  await deps.systemDb
+    .deleteFrom('node_sightings')
+    .where('hour', '<', new Date(hour.getTime() - SIGHTINGS_KEPT_MS))
+    .execute();
+  return orgs.size;
 }
 
 export interface UsageHour {

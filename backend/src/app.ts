@@ -74,6 +74,7 @@ import { SeriesGate } from './modules/entitlements/series-gate.js';
 import { OrgLimits } from './plugins/org-limits.js';
 import { OrgQueryLimiter } from './lib/org-queries.js';
 import { NodeGate } from './modules/entitlements/node-gate.js';
+import { NodeSightings } from './modules/entitlements/node-sightings.js';
 import { metricsClient } from './modules/entitlements/metrics.js';
 import { CloudAccounts } from './modules/accounts/context.js';
 import { FunnelRecorder } from './modules/funnel/recorder.js';
@@ -243,6 +244,8 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     victoria.limitPerOrg(deps.orgQueries ?? new OrgQueryLimiter());
   // Cloud: a new node over the plan gets 402 at ingest (ADR-177); Community has no gate.
   const nodeGate = entitlements ? new NodeGate(systemDb, entitlements, app.log) : null;
+  // Cloud: the nodes the written series name, counted for the bill next to heartbeats (SR-8).
+  const nodeSightings = entitlements ? new NodeSightings(deps.db, app.log) : null;
   // Cloud: each org's active series, capped at ingest (SR-3).
   const seriesGate = entitlements ? new SeriesGate(entitlements, app.log) : null;
   // Send test and Telegram's getMe go out through the outbound proxy (ADR-080).
@@ -397,6 +400,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     logs: logBroker,
     nodeGate,
     seriesGate,
+    nodeSightings,
   });
 
   // Seeded services (ADR-142): monitored as soon as the agents report them, so tried on

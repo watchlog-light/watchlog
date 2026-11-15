@@ -1,15 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// The node limit at ingest (ADR-177, ADR-027's 402), Cloud only. An agent instance (a
-// Kubernetes node's agent or a Docker host's, named by X-WatchLog-Agent within its
-// cluster) that the org saw in the last 24 hours always passes; a new one passes while the
-// org has room, and gets 402 once it hasn't. After a downgrade's 14-day grace, the oldest
-// instances up to the limit pass and the newest beyond it get 402.
+// The node limit at ingest (ADR-177, ADR-027's 402), Cloud only. A node or Docker host
+// within its cluster that the org saw in the last 24 hours always passes; a new one passes
+// while the org has room, and gets 402 once it hasn't. After a downgrade's 14-day grace,
+// the oldest instances up to the limit pass and the newest beyond it get 402.
+//
+// What names a node (ADR-194, SR-8): the `node` or `host` label on the series it writes,
+// the heartbeat's and the Docker inventory's `node`, the Docker events' `host`; never the
+// X-WatchLog-Agent header, so changing or dropping it doesn't let a node past the limit.
+// The set holds the nodes heartbeats recorded in 24 hours plus those this process
+// admitted in 24 hours, so a node that never heartbeats keeps its place and doesn't win a
+// new one at each refresh.
 //
 // The hot path never queries PostgreSQL per write: each org's set is loaded once and
 // refreshed every 60 seconds in the background (the stale set answers meanwhile). A
 // refusal is recorded once an hour per instance (plan_limit_hits), for the banner and
-// the Owners' email. The cluster-agent, integrations collectors and logs on demand aren't
-// nodes and are never checked.
+// the Owners' email. The cluster-agent's own data (its state series, the Kubernetes
+// inventory and events) and logs on demand name no sending node and aren't checked.
 import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
 import { SEEN_WINDOW_MS, type Entitlement } from './plans.js';
@@ -27,7 +33,10 @@ interface OrgNodes {
   refreshing: boolean;
 }
 
-/** The agent ids that aren't nodes: the cluster-agent and integrations collectors. */
+/**
+ * The agent ids that aren't nodes: the cluster-agent and integrations collectors. Only the
+ * series cap's headroom reads it (series-gate.ts); the node limit and the bill don't.
+ */
 export function isNodeAgent(agentId: string): boolean {
   return agentId !== 'cluster-agent' && !agentId.startsWith('integrations');
 }
@@ -40,6 +49,11 @@ export class NodeGate {
   private readonly orgs = new Map<string, OrgNodes>();
   private readonly loading = new Map<string, Promise<OrgNodes>>();
   private readonly recorded = new Map<string, number>();
+  /**
+   * Per org, the nodes this process admitted under a limit and when last: kept across
+   * refreshes and entitlement changes for 24 hours (at most the limit's worth per org).
+   */
+  private readonly admitted = new Map<string, Map<string, number>>();
   /** PostgreSQL reads made (tests and the hot-path measurement). */
   loads = 0;
 
@@ -68,13 +82,24 @@ export class NodeGate {
     }
     if (state.limit === null) return true;
     const key = `${clusterId}\u0000${agentId}`;
-    if (state.allowed.has(key)) return true;
-    if (state.allowed.size < state.limit) {
+    if (state.allowed.has(key) || state.allowed.size < state.limit) {
       state.allowed.add(key);
+      let mine = this.admitted.get(orgId);
+      if (!mine) this.admitted.set(orgId, (mine = new Map()));
+      mine.set(key, this.now());
       return true;
     }
     this.refused(orgId, clusterId, agentId);
     return false;
+  }
+
+  /**
+   * True when every named node may send (a write names one, a Docker events batch may name
+   * several). Stops at the first refused.
+   */
+  async admitAll(orgId: string, clusterId: string, nodes: Iterable<string>): Promise<boolean> {
+    for (const node of nodes) if (!(await this.admit(orgId, clusterId, node))) return false;
+    return true;
   }
 
   /** Drops an org's set (its entitlements changed here). */
@@ -110,6 +135,15 @@ export class NodeGate {
       const keys = rows.map((r) => `${r.cluster_id}\u0000${r.node}`);
       allowed = new Set(graceOver(ent, nowMs) ? keys.slice(0, ent.nodes) : keys);
     }
+    // Nodes admitted here in 24 hours keep their place while there is room: one that never
+    // sends a heartbeat (so has no agent_instances row) doesn't lose it to another at each
+    // refresh.
+    const mine = this.admitted.get(orgId);
+    for (const [key, at] of mine ?? []) {
+      if (ent.nodes === null || nowMs - at > SEEN_WINDOW_MS) mine!.delete(key);
+      else if (!allowed.has(key) && allowed.size < ent.nodes) allowed.add(key);
+    }
+    if (mine?.size === 0) this.admitted.delete(orgId);
     const state: OrgNodes = { limit: ent.nodes, allowed, loadedAt: nowMs, refreshing: false };
     this.orgs.set(orgId, state);
     return state;

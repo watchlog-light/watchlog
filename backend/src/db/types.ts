@@ -386,6 +386,13 @@ export interface Memberships {
   user_id: string;
 }
 
+export interface NodeSightings {
+  cluster_id: string;
+  hour: Timestamp;
+  node: string;
+  org_id: Generated<string>;
+}
+
 export interface NotificationAlerts {
   alert_state_id: string;
   notification_id: string;
@@ -579,7 +586,11 @@ export interface UsageHourly {
   docker_hosts: Generated<number>;
   hour: Timestamp;
   nodes: Generated<number>;
+  observed_docker_hosts: Generated<number>;
+  observed_nodes: Generated<number>;
   org_id: string;
+  reported_docker_hosts: Generated<number>;
+  reported_nodes: Generated<number>;
   updated_at: Generated<Timestamp>;
 }
 
@@ -761,6 +772,7 @@ export interface DB {
   k8s_events: K8sEvents;
   mcp_calls: McpCalls;
   memberships: Memberships;
+  node_sightings: NodeSightings;
   notification_alerts: NotificationAlerts;
   notifications: Notifications;
   objects: Objects;

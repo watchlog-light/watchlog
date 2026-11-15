@@ -69,9 +69,11 @@ function skipField(c: Cursor, wireType: number): void {
 
 const decoder = new TextDecoder('utf-8', { fatal: true });
 
-function readLabelName(label: Uint8Array): string | undefined {
+/** A label's name and its value's bytes (decoded only when needed). */
+function readLabel(label: Uint8Array): { name: string | undefined; value: Uint8Array } {
   const c: Cursor = { buf: label, pos: 0 };
   let name: string | undefined;
+  let value: Uint8Array = EMPTY;
   while (c.pos < c.buf.length) {
     const tag = readVarint(c);
     const field = Math.floor(tag / 8);
@@ -83,11 +85,45 @@ function readLabelName(label: Uint8Array): string | undefined {
         if (err instanceof RemoteWriteError) throw err;
         throw new RemoteWriteError('label name is not valid UTF-8', 400);
       }
+    } else if (field === 2 && wire === 2) {
+      value = readLengthDelimited(c);
     } else {
       skipField(c, wire);
     }
   }
-  return name;
+  return { name, value };
+}
+
+const EMPTY = new Uint8Array(0);
+/**
+ * The labels that name the node or Docker host a series is about (SR-8): the node agent
+ * sets `node` (Kubernetes) or `host` (Docker) on every series it sends.
+ */
+const NODE_LABELS = new Set(['node', 'host']);
+/**
+ * The cluster-agent's state series (`watchlog_kube_*`) name every Node the Kubernetes API
+ * lists: they say which nodes exist, not which node the data comes from.
+ */
+const STATE_PREFIX = new TextEncoder().encode('watchlog_kube_');
+
+function hasPrefix(b: Uint8Array, prefix: Uint8Array): boolean {
+  if (b.length < prefix.length) return false;
+  for (let i = 0; i < prefix.length; i++) if (b[i] !== prefix[i]) return false;
+  return true;
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function labelValue(b: Uint8Array): string {
+  try {
+    return decoder.decode(b);
+  } catch {
+    throw new RemoteWriteError('label value is not valid UTF-8', 400);
+  }
 }
 
 export interface WriteSummary {
@@ -96,6 +132,16 @@ export interface WriteSummary {
   decodedBytes: number;
   /** With `hashSeries`: a 32-bit hash of each series' labels, in order (SR-3's count). */
   hashes?: Uint32Array;
+  /**
+   * With `collectNodes` (SR-8): every `node` and `host` label value in the write, the
+   * nodes and Docker hosts it shows exist (the count for the bill).
+   */
+  nodes?: Set<string>;
+  /**
+   * With `collectNodes`: the values on series other than the cluster-agent's state series:
+   * the nodes and Docker hosts the data comes from (the node limit's identity).
+   */
+  senders?: Set<string>;
 }
 
 export interface WriteLimits {
@@ -103,6 +149,8 @@ export interface WriteLimits {
   maxSeries: number;
   /** Hash each series' labels while reading them (Cloud's per-org series cap). */
   hashSeries?: boolean;
+  /** Collect the `node` and `host` label values (Cloud's node count and limit, SR-8). */
+  collectNodes?: boolean;
 }
 
 /**
@@ -154,6 +202,11 @@ export function inspectWriteRequest(body: Uint8Array, limits: WriteLimits): Writ
   let series = 0;
   let samples = 0;
   const hashing = limits.hashSeries === true;
+  const collecting = limits.collectNodes === true;
+  const nodes = new Set<string>();
+  const senders = new Set<string>();
+  let lastBytes: Uint8Array = EMPTY;
+  let lastNode = '';
   if (hashing && scratch.length < limits.maxSeries) scratch = new Uint32Array(limits.maxSeries);
   while (c.pos < c.buf.length) {
     const tag = readVarint(c);
@@ -169,6 +222,8 @@ export function inspectWriteRequest(body: Uint8Array, limits: WriteLimits): Writ
     }
     const ts: Cursor = { buf: readLengthDelimited(c), pos: 0 };
     let hasName = false;
+    let state = false;
+    let nodeValues: Uint8Array[] | null = null;
     let h = 0x811c9dc5;
     while (ts.pos < ts.buf.length) {
       const t = readVarint(ts);
@@ -177,12 +232,17 @@ export function inspectWriteRequest(body: Uint8Array, limits: WriteLimits): Writ
       if (f === 1 && w === 2) {
         const label = readLengthDelimited(ts);
         if (hashing) h = mixLabel(h, label);
-        const name = readLabelName(label);
+        const { name, value } = readLabel(label);
         if (name === undefined) throw new RemoteWriteError('label without a name', 400);
         if (RESERVED_LABELS.has(name)) {
           throw new RemoteWriteError(`label "${name}" is reserved and set by the server`, 400);
         }
-        if (name === '__name__') hasName = true;
+        if (name === '__name__') {
+          hasName = true;
+          if (collecting) state = hasPrefix(value, STATE_PREFIX);
+        } else if (collecting && value.length > 0 && NODE_LABELS.has(name)) {
+          (nodeValues ??= []).push(value);
+        }
       } else if (f === 2 && w === 2) {
         readLengthDelimited(ts);
         samples++;
@@ -192,11 +252,23 @@ export function inspectWriteRequest(body: Uint8Array, limits: WriteLimits): Writ
     }
     if (!hasName) throw new RemoteWriteError('series without __name__', 400);
     if (hashing) scratch[series - 1] = fmix32(h);
+    if (nodeValues) {
+      for (const v of nodeValues) {
+        // A node's write names the same node on every series: decode it once.
+        if (!sameBytes(v, lastBytes)) {
+          lastBytes = v;
+          lastNode = labelValue(v);
+          nodes.add(lastNode);
+        }
+        if (!state) senders.add(lastNode);
+      }
+    }
   }
   return {
     series,
     samples,
     decodedBytes: raw.length,
     ...(hashing ? { hashes: scratch.slice(0, series) } : {}),
+    ...(collecting ? { nodes, senders } : {}),
   };
 }
