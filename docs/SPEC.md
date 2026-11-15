@@ -185,7 +185,7 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 - **P1:** TCP retransmits and resets per edge; "connection refused" detection; per-namespace map filter.
 - **v0.3:** HTTP-level stats (method, status code, latency) for plain-text HTTP/1.x, from the first bytes of each message on traced connections; no paths or bodies; TLS payloads are never decrypted (ADR-139).
 - Fallback when eBPF is unavailable: map built from Kubernetes Services/Endpoints only, clearly labelled "topology only, no traffic data".
-- **v0.7 (planned for 0.7.0):** the external destinations over time, with first seen, new-destination alerts and expected destinations, are Egress watch (§4.14, ADR-184).
+- **v0.7 (shipped in 0.7.0):** the external destinations over time, with first seen, new-destination alerts and expected destinations, are Egress watch (§4.14, ADR-184).
 
 ## 4.6 Kubernetes events and change tracking — P0, All
 
@@ -212,9 +212,9 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 | Docker container unhealthy / restarting | health = unhealthy or > 3 restarts in 10 min | warning |
 | Service-to-service failed connections | > 5 % of connections fail for 5 min | warning |
 | Agent not reporting | no heartbeat for 3 min; one alert for the whole cluster when all its agents are silent | critical |
-| New external destination (v0.7, planned for 0.7.0; Kubernetes and Docker) | a source talks to a destination it never used and no expectation covers; quiet for a 7-day learning period (ADR-187, §4.14) | warning |
-| Raw IP egress (v0.7, planned) | ≥ 5 connections in 10 min to the same public network and port with no DNS name (ADR-187) | warning |
-| Large upload to a new destination (v0.7, planned) | > 100 MB sent in 1 h to a destination first seen in the last 24 h (ADR-187) | warning |
+| New external destination (v0.7, shipped in 0.7.0; Kubernetes and Docker) | a source talks to a destination it never used and no expectation covers; quiet for a 7-day learning period (ADR-187, §4.14) | warning |
+| Raw IP egress (v0.7, shipped in 0.7.0) | ≥ 5 connections in 10 min to the same public network and port with no DNS name (ADR-187) | warning |
+| Large upload to a new destination (v0.7, shipped in 0.7.0) | > 100 MB sent in 1 h to a destination first seen in the last 24 h (ADR-187) | warning |
 
 **Custom threshold rules:** pick metric → scope (cluster / namespace / workload / node / label selector) → condition → duration → severity → channels. No PromQL required. P1: advanced mode with raw MetricsQL.
 
@@ -600,9 +600,9 @@ For every alert and every problem, WatchLog names the probable cause and shows t
 - Anomaly correlation and root-cause hints across the map stay Enterprise (§4.8).
 
 
-## 4.14 Egress watch ("What is my cluster talking to?") — v0.7, All (planned for 0.7.0)
+## 4.14 Egress watch ("What is my cluster talking to?") — v0.7, All (shipped in 0.7.0)
 
-See every place a cluster or Docker fleet talks to on the internet, and know when something new starts talking (ADR-184 to ADR-193; the user page will be `docs/site/egress.md`). Community, in every edition and plan.
+See every place a cluster or Docker fleet talks to on the internet, and know when something new starts talking (ADR-184 to ADR-193; the user page is `docs/site/egress.md`). Community, in every edition and plan.
 
 - **Nothing new is read from traffic:** the inventory is built from the flow series the agent already sends (§6.4, ADR-106): connections, bytes and failures per edge, with external destinations named by the DNS answers the container received (ADR-104), else a `/24` (IPv6 `/48`) network, and "Internet" beyond the agent's cap per source. No payload, no TLS SNI, no HTTP host (ADR-102). The agent's budgets (§6.1) don't move; if the cap is measured to hide destinations, it is raised for named destinations only, with an ADR (ADR-184).
 - **The inventory (ADR-185):** one row per source, destination and port with first and last seen, updated every minute by the alert worker; sources are workloads (Kubernetes) or Compose services, else containers on their host (Docker). Destinations in use at the upgrade get their first seen from the retained series. Rows are forgotten 90 days after they were last seen. Cluster addresses are never external (ADR-116, ADR-158).
@@ -755,7 +755,7 @@ Labels on container series: `cluster_id` (server-injected), `node`, `namespace`,
 - **Pod filter** (Kubernetes mode, default on, ADR-121): the kernel records a connection or DNS query only when the task's cgroup is below one of the node's kubepods cgroups; anything else on the same kernel (host daemons, plain containers, another cluster's pods) is only counted. User space still drops flows of unknown cgroups as a second line.
 - Per-connection state is aggregated **in user space every 15 s** into edges keyed by `(src_workload, dst_workload | dst_external, dst_port)`.
 - IP → workload resolution uses the pod/service cache received from the cluster-agent (node agents subscribe to a lightweight endpoint on the cluster-agent, not to the API server directly, to protect the API server at scale).
-- External destinations are aggregated by DNS name when known (from the DNS collector), otherwise by `/24` network + port, and collapsed into "Internet" beyond 50 distinct externals per workload. v0.7 (planned) measures how often the cap hides named destinations; if it does, the cap is raised for named destinations only, within §6.1's budget (ADR-184).
+- External destinations are aggregated by DNS name when known (from the DNS collector), otherwise by `/24` network + port, and collapsed into "Internet" beyond 50 distinct externals per workload. v0.7 measured how often the cap hides named destinations: only past 50, which no real source came near, so the cap stays at 50 (ADR-184, as built).
 - eBPF is **opt-out** (`agent.networkFlows.enabled=true` by default, ADR-107). If disabled or unsupported, everything else still works, and the service map says why and shows the fix.
 
 ## 6.5 Cluster-agent
@@ -848,9 +848,9 @@ All tables have `id` (UUID v7), `created_at`, `updated_at`. Tenant tables have `
 | `integration_credentials` | integration_id, method (`generated`/`entered`/`reference`), username, secret (AES-256-GCM, bound to the row), reference (jsonb: Secret name/key or file path), set_by, set_at, verified_at | Write-only (ADR-133) |
 | `integration_events` | integration_id, actor_id, action, ip, ts, details (jsonb, never a secret) | Credential and settings changes (ADR-133) |
 | `integration_texts` | integration_id, fingerprint, text (normalised, ≤ 1 KB), first_seen, last_seen | Statement and slow-log texts; deleted when query text is turned off (ADR-138) |
-| `egress_destinations` (v0.7, planned) | org_id, cluster_id, source, destination, dst_kind, port, first_seen, last_seen, approved_by, approved_at, pattern | The egress inventory, updated every minute, forgotten 90 days after last seen (ADR-185); RLS (ADR-192) |
-| `egress_sources` (v0.7, planned) | org_id, cluster_id, source, first_seen | Starts each source's learning period (ADR-185, ADR-187) |
-| `egress_expected` (v0.7, planned) | org_id, cluster_id, pattern, port, source (null = all), created_by, comment | Expected destinations and patterns, kept until removed (ADR-186) |
+| `egress_destinations` (v0.7) | org_id, cluster_id, source, destination, dst_kind, port, first_seen, last_seen, approved_by, approved_at, pattern | The egress inventory, updated every minute, forgotten 90 days after last seen (ADR-185); RLS (ADR-192) |
+| `egress_sources` (v0.7) | org_id, cluster_id, source, first_seen | Starts each source's learning period (ADR-185, ADR-187) |
+| `egress_expected` (v0.7) | org_id, cluster_id, pattern, port, source (null = all), created_by, comment | Expected destinations and patterns, kept until removed (ADR-186) |
 | `funnel_events` | user_id, org_id, name, props (jsonb), ts | §10.4 |
 | `subscriptions` (Cloud repo) | org_id, plan, stripe_subscription_id, nodes_billed_p95, period_start, period_end, status | Private Cloud repository; source of truth is Stripe, synced via webhooks |
 | `audit_log` (E) | org_id, actor_id, action, target, diff (jsonb), ip, ts | `ee/` |
