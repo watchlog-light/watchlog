@@ -261,7 +261,8 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
       `Invalid WATCHLOG_RIGHT_SIZING_MIN_HOURS: ${env.WATCHLOG_RIGHT_SIZING_MIN_HOURS}`,
     );
   }
-  const egressLearningDays = Number(env.WATCHLOG_EGRESS_LEARNING_DAYS ?? 7);
+  // Blank means the default: Number(' ') is 0, which would turn learning off.
+  const egressLearningDays = Number(env.WATCHLOG_EGRESS_LEARNING_DAYS?.trim() || 7);
   if (!Number.isFinite(egressLearningDays) || egressLearningDays < 0 || egressLearningDays > 90) {
     throw new Error(`Invalid WATCHLOG_EGRESS_LEARNING_DAYS: ${env.WATCHLOG_EGRESS_LEARNING_DAYS}`);
   }
