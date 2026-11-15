@@ -54,6 +54,8 @@ The Owners get one email about each limit a day at most.
 
 Every hour WatchLog records how many nodes and Docker hosts sent data. A month's bill uses the **95th percentile** of those hourly counts, so a short autoscaling spike doesn't raise it: 10 nodes for most of the month and 40 for one day is billed as 10. The cluster agent and the applications' collectors aren't nodes. Settings › Plan & billing shows this month's count so far.
 
+A node is counted by what WatchLog itself sees: the node or Docker host named on the metrics it stores and, on Kubernetes, the nodes the Kubernetes API lists. What an agent says about itself (its name in a request header, or its heartbeat) can't lower the count or let a node past the plan's limit.
+
 ## Pro is free during the beta
 
 While Cloud is in beta, an Owner can switch the organization to Pro in Settings › Plan & billing, without a card: unlimited clusters and nodes, 30 days of history and up to 10 users. Before billing starts, every Owner of a beta Pro organization gets **14 days' notice by email**. Nothing is ever charged without a card you add yourself, and the prices above don't change.
