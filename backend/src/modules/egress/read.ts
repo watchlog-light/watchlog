@@ -56,6 +56,8 @@ export interface EgressFilters {
   container?: string;
   badge?: EgressBadgeFilter;
   q?: string;
+  /** Unix seconds: only edges first seen at or after it, not "before" (the MCP tool's "new"). */
+  firstSeenAfter?: number;
 }
 
 /** A source in its platform's vocabulary (ADR-124). */
@@ -328,6 +330,11 @@ export async function readEgress(
   } else {
     label('compose_project', f.project);
     label('compose_service', f.service);
+  }
+  if (f.firstSeenAfter !== undefined) {
+    q = q
+      .where('first_seen', '>=', new Date(f.firstSeenAfter * 1000))
+      .where('first_seen_before', '=', false);
   }
   const [rows, oldest, expectations] = await Promise.all([
     q.execute() as Promise<InventoryRow[]>,

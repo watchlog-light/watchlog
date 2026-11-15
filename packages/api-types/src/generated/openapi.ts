@@ -3911,6 +3911,8 @@ export interface paths {
           from?: number;
           /** @description Unix seconds */
           to?: number;
+          /** @description Unix seconds: only sources that first used the destination at or after this time (not the ones in use before the oldest retained sample). Narrows the rows and the summary like the source filters */
+          firstSeenAfter?: number;
         };
         header?: never;
         path?: never;
