@@ -124,6 +124,45 @@ export interface AlertWorkerHeartbeats {
   worker_id: string;
 }
 
+export interface AnomalyBaselines {
+  cluster_id: string;
+  first_seen: Timestamp;
+  last_seen: Timestamp;
+  mads: number[];
+  medians: number[];
+  metric: string;
+  minutes: number[];
+  org_id: Generated<string>;
+  series_hash: Buffer;
+  subject: Json;
+}
+
+export interface AnomalyOrgs {
+  entitled_at: Timestamp;
+  learning_since: Timestamp;
+  org_id: Generated<string>;
+}
+
+export interface AnomalyPeriods {
+  bucket: number;
+  cluster_id: string;
+  ended_at: Timestamp | null;
+  id: Generated<string>;
+  last_at: Timestamp;
+  last_value: number;
+  median: number;
+  metric: string;
+  org_id: Generated<string>;
+  peak_at: Timestamp;
+  peak_score: number;
+  peak_value: number;
+  series_hash: Buffer;
+  started_at: Timestamp;
+  subject: Json;
+  usual_high: number;
+  usual_low: number;
+}
+
 export interface ApiTokenEvents {
   at: Generated<Timestamp>;
   country: string | null;
@@ -745,6 +784,9 @@ export interface DB {
   alert_states: AlertStates;
   alert_worker_heartbeats: AlertWorkerHeartbeats;
   alerting_periods: AlertingPeriods;
+  anomaly_baselines: AnomalyBaselines;
+  anomaly_orgs: AnomalyOrgs;
+  anomaly_periods: AnomalyPeriods;
   api_token_events: ApiTokenEvents;
   api_tokens: ApiTokens;
   audit_events: AuditEvents;

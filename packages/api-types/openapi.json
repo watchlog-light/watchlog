@@ -2875,6 +2875,18 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["workload.http.requests.rate"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["workload.http.errors.ratio"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["workload.http.latency.p95"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["namespace.cpu.usage"]
                       },
                       {

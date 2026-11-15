@@ -325,6 +325,28 @@ const ENTRIES = {
     expr: (s, _r, a) =>
       `${a} by (namespace, workload_kind, workload) (watchlog_container_memory_working_set_bytes${s('pod!=""')})`,
   },
+  // The requests a workload (Kubernetes) or container (Docker) serves (v0.8 slice 2, ADR-196):
+  // the service map's HTTP/1.x series (ADR-139), seen from the callers' side and grouped by
+  // the destination, so the subject is the server. Its scope names the destination.
+  'workload.http.requests.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (_s, r, a, scope) =>
+      `${a} by (${HTTP_DST}) (rate(watchlog_http_requests_total${dstSel(scope)}[${r}]))`,
+  },
+  /** The share of the requests answered 5xx; no series while nothing is served. */
+  'workload.http.errors.ratio': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (_s, r, _a, scope) =>
+      `sum by (${HTTP_DST}) (rate(watchlog_http_requests_total${dstSel(scope, 'class="5xx"')}[${r}])) / (sum by (${HTTP_DST}) (rate(watchlog_http_requests_total${dstSel(scope)}[${r}])) > 0)`,
+  },
+  'workload.http.latency.p95': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (_s, r, _a, scope) =>
+      `histogram_quantile(0.95, sum by (${HTTP_DST}, le) (rate(watchlog_http_request_duration_seconds_bucket${dstSel(scope)}[${r}])))`,
+  },
   'namespace.cpu.usage': {
     unit: 'cores',
     agg: 'sum',
@@ -859,6 +881,38 @@ function matchers(scope: QueryScope): string[] {
     out.push(`service_type="${escapeLabelValue(scope.serviceType)}"`);
   }
   return out;
+}
+
+/** The labels that name the server of an HTTP series: a workload, or a Docker container. */
+const HTTP_DST = 'dst_kind, dst_namespace, dst_workload_kind, dst_workload, dst';
+
+/**
+ * The selector of the workload.http.* keys: the scope names the destination, so a workload
+ * or namespace matches `dst_*`, and a Docker container matches `dst`.
+ */
+function dstSel(scope: QueryScope, ...extra: string[]): string {
+  const out = [...extra];
+  out.push(
+    scope.container !== undefined
+      ? `dst_kind="container",dst="${escapeLabelValue(scope.container)}"`
+      : scope.namespace !== undefined ||
+          scope.namespaces?.length ||
+          scope.workload !== undefined ||
+          scope.workloadKind !== undefined
+        ? 'dst_kind="workload"'
+        : 'dst_kind=~"workload|container"',
+  );
+  if (scope.namespace !== undefined) {
+    out.push(`dst_namespace="${escapeLabelValue(scope.namespace)}"`);
+  }
+  if (scope.namespaces?.length) out.push(`dst_namespace=~"${anyOf(scope.namespaces)}"`);
+  if (scope.workloadKind !== undefined) {
+    out.push(`dst_workload_kind="${escapeLabelValue(scope.workloadKind)}"`);
+  }
+  if (scope.workload !== undefined) {
+    out.push(`dst_workload="${escapeLabelValue(scope.workload)}"`);
+  }
+  return `{${out.join(',')}}`;
 }
 
 /** A series selector with the scope's matchers, for fixed expressions outside the catalog. */

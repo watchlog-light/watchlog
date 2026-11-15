@@ -8,9 +8,11 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:worker": "NODE_ENV=development tsx watch src/alert-worker.ts",
+    "dev:anomaly-worker": "NODE_ENV=development tsx watch src/anomaly-worker.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "start:worker": "node dist/alert-worker.js",
+    "start:anomaly-worker": "node dist/anomaly-worker.js",
     "migrate": "tsx src/migrate.ts",
     "rotate-secret-key": "tsx src/rotate-secret-key.ts",
     "cli": "tsx src/cli.ts",
