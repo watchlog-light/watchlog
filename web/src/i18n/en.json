@@ -1014,6 +1014,9 @@
         "docker_container_restarts": "A container **restarts more than {value} times** in **10 min**",
         "docker_container_throttling": "A container is **CPU-throttled** more than **{value}** of the time",
         "agent_not_reporting": "A cluster or host **stops reporting** for **3 min**",
+        "egress_new_destination": "A workload or container **talks to a new external destination**, after a **7-day learning period**",
+        "egress_raw_ip": "A workload or container opens **more than {value} connections** in **10 min** to one **public IP network** and port",
+        "egress_large_upload_new": "A workload or container **sends more than {value}** in **1 h** to a destination **first seen in the last 24 h**",
         "custom": "{metric} of **{scope}** {op} **{value}**",
         "for": " for **{d}**",
         "critical": " (critical above **{value}**)",
@@ -1204,7 +1207,9 @@
         "k8s_container_throttling": "CPU throttling",
         "docker_container_restarts": "Restarts in 10 min",
         "docker_container_throttling": "CPU throttling",
-        "network_connections_failed": "Failed connections"
+        "network_connections_failed": "Failed connections",
+        "egress_raw_ip": "Connections in 10 min",
+        "egress_large_upload_new": "Bytes sent in 1 h"
       },
       "defaultScope": {
         "node_cpu_high": "every node or host",
@@ -1213,7 +1218,9 @@
         "k8s_container_throttling": "every container",
         "docker_container_restarts": "every container",
         "docker_container_throttling": "every container",
-        "network_connections_failed": "every workload and destination"
+        "network_connections_failed": "every workload and destination",
+        "egress_raw_ip": "every source and public IP network",
+        "egress_large_upload_new": "every source and new destination"
       },
       "everyOfType": "every {type} service"
     },
@@ -1227,7 +1234,9 @@
         "phases": "Pod phases",
         "replicas": "Replicas",
         "health": "Health checks",
-        "samples": "Samples received per minute"
+        "samples": "Samples received per minute",
+        "connections": "Connections per minute to the destination",
+        "sent": "Bytes sent per minute to the destination"
       },
       "threshold": {
         "warning": "Warning {value}",
@@ -3420,6 +3429,7 @@
       "image_pull": "Can't pull its image {image}",
       "unschedulable": "No node can take it",
       "job_failed": "Its run {job} failed",
+      "change_before_egress": "Started after a change to {name}",
       "node_or_host": "The node or host under it",
       "cpu_throttled": "CPU-throttled {pct}% of the time",
       "dependency_down": "{target} is down",
@@ -3520,6 +3530,7 @@
       "last_event": "Last warning: {reason}, “{message}”.",
       "new_version_crash": "Its new pods exit with code {exitCode} ({reason}).",
       "new_container_crash": "The new container exits with code {exitCode}.",
+      "egress_first_connection": "First connection to {destination}.",
       "new_version_oom": "The new version is OOM-killed at its {limit} memory limit.",
       "new_version_oom_no_limit": "The new version is OOM-killed.",
       "changed_image": "Image changed from {from} to {to}.",
@@ -4562,6 +4573,22 @@
       "port": "Port",
       "add": "Add",
       "badPort": "A port is a number from 1 to 65535, or empty for any port."
+    },
+    "alert": {
+      "title": "Where it talks",
+      "firstConnection": "First connection",
+      "connections": "Connections",
+      "failed": "{pct} failed",
+      "bytes": "Sent / received",
+      "others": "Other {units} using it",
+      "none": "none",
+      "open": "Open in Egress",
+      "view": "View alert",
+      "loadError": "Couldn't load the traffic for this destination.",
+      "expected": "Expected · {pattern}. The alert resolves at the next check.",
+      "expectedResolved": "Expected · {pattern}.",
+      "quiet": "Why this alert is quiet most of the time: it waited {days} days to learn what {cluster} normally talks to, and stays silent for anything marked expected. One alert per {unit} and destination.",
+      "stillAlerts": "Marking a destination expected doesn't silence Raw IP or Large upload: an expected name doesn't make a raw address or a large upload expected."
     }
   }
 }

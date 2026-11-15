@@ -18,6 +18,7 @@ import AlertChart from '@/components/alerts/AlertChart.vue';
 import AlertTable from '@/components/alerts/AlertTable.vue';
 import SilenceForm from '@/components/alerts/SilenceForm.vue';
 import CausePanel from '@/components/causes/CausePanel.vue';
+import EgressAlertCard from '@/components/egress/EgressAlertCard.vue';
 import TonePill from '@/components/kube/TonePill.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import CodeBlock from '@/components/ui/CodeBlock.vue';
@@ -31,6 +32,7 @@ import {
   alertTargetName,
   alertWhere,
   duration,
+  isEgressAlert,
   severityTone,
   stateTone,
 } from '@/lib/alerts';
@@ -225,6 +227,12 @@ onMounted(() => {
         :subject="`alert:${page.data.value.alert.id}`"
         :name="alertTargetName(page.data.value.alert) || undefined"
         @answer="(a) => (cause = a)"
+      />
+
+      <EgressAlertCard
+        v-if="isEgressAlert(page.data.value.alert)"
+        :key="page.data.value.alert.id"
+        :alert="page.data.value.alert"
       />
 
       <AlertChart

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // What an alert is about, where to look, and how long it lasted (ADR-075, ADR-081).
-import type { Alert } from '@watchlog/api-types';
+import type { Alert, EgressSource } from '@watchlog/api-types';
 import type { RouteLocationRaw } from 'vue-router';
 import type { Tone } from './kube';
 
@@ -16,6 +16,8 @@ export function alertWhere(a: Pick<Alert, 'labels'>): string {
   if (l.agent === 'all') return 'all agents';
   if (l.agent === 'cluster') return 'cluster-agent';
   if (l.agent) return `${l.agent === 'docker' ? 'host' : 'node'} ${l.node}`;
+  // An egress alert on a Compose service (ADR-187).
+  if (l.compose_service) return `${l.compose_project}/${l.compose_service} (Compose service)`;
   if (l.container) return `${l.node}/${l.container}`;
   if (l.mount) return `${l.node} ${l.mount}`;
   if (l.node) return l.condition ? `node ${l.node} (${l.condition})` : `node ${l.node}`;
@@ -30,6 +32,12 @@ export function alertTarget(a: Pick<Alert, 'labels' | 'cluster'>): RouteLocation
     return { name: 'cluster-settings', params: { id: a.cluster.id } };
   }
   if (a.cluster.kind === 'docker') {
+    if (l.compose_service && l.compose_project) {
+      return {
+        name: 'containers',
+        query: { project: l.compose_project, service: l.compose_service },
+      };
+    }
     if (l.container && l.node) {
       return { name: 'docker-container', params: { host: l.node, name: l.container } };
     }
@@ -51,6 +59,7 @@ export function alertTarget(a: Pick<Alert, 'labels' | 'cluster'>): RouteLocation
 export function alertTargetName(a: Pick<Alert, 'labels' | 'cluster'>): string {
   const l = a.labels;
   if (l.agent === 'all' || l.agent === 'cluster') return a.cluster.name;
+  if (l.compose_service) return `${l.compose_project}/${l.compose_service}`;
   return l.pod ?? l.workload ?? l.container ?? l.pvc ?? l.node ?? a.cluster.name;
 }
 
@@ -75,6 +84,37 @@ export function duration(fromIso: string, toIso: string): string {
   if (d > 0) return `${d}d ${h}h`;
   if (h > 0) return `${h}h ${m}m`;
   return `${m}m`;
+}
+
+/** The egress alerts' rule keys (ADR-187). */
+export const isEgressAlert = (a: Pick<Alert, 'rule'>) => !!a.rule.key?.startsWith('egress.');
+
+/** An egress alert's source, as the Egress API names sources (its `sources[]`). */
+export function egressSourceOf(a: Pick<Alert, 'labels'>): EgressSource {
+  const l = a.labels;
+  if (l.workload) {
+    return {
+      namespace: l.namespace,
+      workloadKind: l.workload_kind,
+      workload: l.workload,
+    } as EgressSource;
+  }
+  if (l.compose_service) {
+    return { composeProject: l.compose_project, composeService: l.compose_service } as EgressSource;
+  }
+  return { host: l.node, container: l.container } as EgressSource;
+}
+
+/** The Egress page's query for an egress alert: its source and its destination. */
+export function egressQueryOf(a: Pick<Alert, 'labels'>): Record<string, string> {
+  const l = a.labels;
+  const q: Record<string, string> = {};
+  if (l.workload)
+    Object.assign(q, { namespace: l.namespace, kind: l.workload_kind, workload: l.workload });
+  else if (l.compose_service)
+    Object.assign(q, { project: l.compose_project, service: l.compose_service });
+  else Object.assign(q, { host: l.node, container: l.container });
+  return q;
 }
 
 /** Silence matchers for an alert: its rule and cluster plus its scope (ADR-077). */

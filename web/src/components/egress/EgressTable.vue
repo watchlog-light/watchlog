@@ -79,6 +79,13 @@ const failing = (r: EgressRow) => r.badges.includes('failing');
                   }}<span v-if="r.port" class="text-text-muted">:{{ r.port }}</span></span
                 >
                 <EgressBadges :row="r" />
+                <RouterLink
+                  v-if="r.alertId"
+                  :to="{ name: 'alert', params: { id: r.alertId } }"
+                  class="text-12 text-warning hover:underline"
+                  data-testid="egress-view-alert"
+                  >{{ $t('egress.alert.view') }}</RouterLink
+                >
               </div>
             </td>
             <td class="border-b border-border px-4 py-3">
@@ -145,6 +152,13 @@ const failing = (r: EgressRow) => r.badges.includes('failing');
           >{{ dest(r) }}<span v-if="r.port" class="text-text-muted">:{{ r.port }}</span></span
         >
         <EgressBadges :row="r" />
+        <RouterLink
+          v-if="r.alertId"
+          :to="{ name: 'alert', params: { id: r.alertId } }"
+          class="text-13 text-warning hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+          data-testid="egress-view-alert"
+          >{{ $t('egress.alert.view') }}</RouterLink
+        >
         <p class="text-13 text-text">
           <template v-for="(s, i) in r.sources" :key="sourceName(s)"
             ><span v-if="i">, </span
