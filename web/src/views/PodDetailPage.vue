@@ -9,6 +9,7 @@ import { useRoute } from 'vue-router';
 import { api } from '@/api/client';
 import TimeSeriesChart, { type ChartSeries } from '@/components/charts/TimeSeriesChart.vue';
 import CausePanel from '@/components/causes/CausePanel.vue';
+import TalksToInternet from '@/components/egress/TalksToInternet.vue';
 import EventList from '@/components/kube/EventList.vue';
 import TonePill from '@/components/kube/TonePill.vue';
 import LogsPanel from '@/components/logs/LogsPanel.vue';
@@ -249,6 +250,19 @@ onBeforeUnmount(() => clearInterval(timer));
         :subject="`pod:${pod.namespace}/${pod.name}`"
         :name="pod.name"
         quiet
+      />
+      <!-- Its workload's external destinations (ADR-188): flows have no pod label. -->
+      <TalksToInternet
+        v-if="clusterId && pod.workload"
+        :key="`egress-${pod.namespace}/${pod.workloadKind}/${pod.workload}`"
+        :cluster-id="clusterId"
+        kind="kubernetes"
+        :query="{
+          namespace: pod.namespace,
+          kind: pod.workloadKind ?? undefined,
+          workload: pod.workload,
+        }"
+        pod-note
       />
 
       <section>

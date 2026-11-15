@@ -6,6 +6,7 @@ import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import CausePanel from '@/components/causes/CausePanel.vue';
+import TalksToInternet from '@/components/egress/TalksToInternet.vue';
 import RightSizingPanel from '@/components/rightsizing/RightSizingPanel.vue';
 import PodList from '@/components/kube/PodList.vue';
 import WorkloadList from '@/components/kube/WorkloadList.vue';
@@ -288,6 +289,18 @@ onBeforeUnmount(() => clearInterval(timer));
             system: 'true',
           }"
           :name="owner.name"
+        />
+        <!-- What it talks to on the internet, over 30 days (ADR-188). -->
+        <TalksToInternet
+          v-if="view === 'pods' && owner && page.data.value"
+          :key="`egress-${owner.namespace}/${owner.kind}/${owner.name}`"
+          :cluster-id="page.data.value.clusterId"
+          kind="kubernetes"
+          :query="{
+            namespace: owner.namespace,
+            kind: owner.kind || undefined,
+            workload: owner.name,
+          }"
         />
 
         <SkeletonTable

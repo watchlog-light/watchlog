@@ -3,12 +3,13 @@
 import logoUrl from '@watchlog/design-tokens/assets/logo.svg';
 import { LogOut, PanelLeftClose, PanelLeftOpen, X } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { navFor, type NavItem } from '@/router';
 import { useApplicationsStore } from '@/stores/applications';
 import { useAuthStore } from '@/stores/auth';
 import { useClustersStore } from '@/stores/clusters';
+import { useEgressStore } from '@/stores/egress';
 import { useUiStore } from '@/stores/ui';
 import ClusterSwitcher from './ClusterSwitcher.vue';
 import PlanStrip from '@/components/plan/PlanStrip.vue';
@@ -30,6 +31,17 @@ const route = useRoute();
 // Applications shows how many monitored services have a problem (SPEC §4.12).
 const applications = useApplicationsStore();
 const badge = (item: NavItem) => (item.name === 'applications' ? applications.problems : 0);
+// Egress shows how many destinations are new in 24 hours (ADR-188), in the warning tone.
+const egress = useEgressStore();
+const newCount = (item: NavItem) =>
+  item.name === 'egress' && clusters.selected ? (egress.newCount[clusters.selected.id] ?? 0) : 0;
+watch(
+  () => clusters.selected?.id,
+  (id) => {
+    if (id) void egress.load(id);
+  },
+  { immediate: true },
+);
 
 /** Exact match for Overview; path prefix for sections with nested pages (e.g. Settings). */
 function isCurrent(item: NavItem): boolean {
@@ -49,6 +61,7 @@ async function signOut() {
   await auth.logout();
   clusters.reset();
   applications.reset();
+  egress.reset();
   await router.replace({ name: 'login' });
 }
 </script>
@@ -111,6 +124,19 @@ async function signOut() {
               >
                 <span class="sr-only">{{ $t('nav.problems', { n: badge(item) }) }}</span>
                 <span aria-hidden="true">{{ badge(item) }}</span>
+              </span>
+              <span
+                v-else-if="newCount(item) > 0"
+                data-testid="nav-new"
+                :class="[
+                  'flex h-5 items-center justify-center rounded-full bg-warning/15 px-1.5 text-12 font-semibold whitespace-nowrap text-warning',
+                  collapsed ? 'absolute -top-0.5 right-0.5 h-4 min-w-4 px-1' : 'ml-auto',
+                ]"
+              >
+                <span class="sr-only">{{ $t('nav.newDestinations', { n: newCount(item) }) }}</span>
+                <span aria-hidden="true">{{
+                  collapsed ? newCount(item) : $t('nav.newShort', { n: newCount(item) })
+                }}</span>
               </span>
             </a>
           </RouterLink>

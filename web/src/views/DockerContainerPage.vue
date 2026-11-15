@@ -8,6 +8,7 @@ import { useRoute } from 'vue-router';
 import { api } from '@/api/client';
 import TimeSeriesChart, { type ChartSeries } from '@/components/charts/TimeSeriesChart.vue';
 import CausePanel from '@/components/causes/CausePanel.vue';
+import TalksToInternet from '@/components/egress/TalksToInternet.vue';
 import ContainerDiagnosis from '@/components/docker/ContainerDiagnosis.vue';
 import ContainerStatePill from '@/components/docker/ContainerStatePill.vue';
 import LogsPanel from '@/components/logs/LogsPanel.vue';
@@ -191,6 +192,20 @@ onMounted(page.load);
       :cluster-id="clusterId"
       :query="{ host: hostName, container: name, system: 'true' }"
       :name="name"
+    />
+    <!-- Its external destinations (ADR-188): a Compose container shows its service's rows
+         with its own traffic. -->
+    <TalksToInternet
+      v-if="container && clusterId"
+      :key="`egress-${hostName}/${name}`"
+      :cluster-id="clusterId"
+      kind="docker"
+      :query="{
+        host: hostName,
+        container: name,
+        project: container.composeService ? (container.composeProject ?? undefined) : undefined,
+        service: container.composeProject ? (container.composeService ?? undefined) : undefined,
+      }"
     />
 
     <div v-if="!notFound" class="grid gap-4 lg:grid-cols-2">

@@ -20,7 +20,10 @@
     "open": "Open navigation",
     "close": "Close navigation",
     "applications": "Applications",
-    "problems": "{n} with a problem | {n} with problems"
+    "problems": "{n} with a problem | {n} with problems",
+    "egress": "Egress",
+    "newDestinations": "{n} new destination in 24 hours | {n} new destinations in 24 hours",
+    "newShort": "{n} new"
   },
   "clusterSwitcher": {
     "label": "Cluster",
@@ -4396,6 +4399,126 @@
           "title": "See your first explained problem",
           "body": "When something breaks, it shows up with its likely cause."
         }
+      }
+    }
+  },
+  "egress": {
+    "title": "What {cluster} talks to on the internet",
+    "learnedFrom": "Learned from {n} day of traffic. | Learned from {n} days of traffic.",
+    "learningUntil": "Learning until {until}: new destinations are recorded, and alerts start after that.",
+    "namesFrom": "Names come from the DNS answers your {units} received; nothing else is read.",
+    "range": "Range",
+    "ranges": {
+      "1h": "1h",
+      "24h": "24h",
+      "7d": "7d",
+      "30d": "30d"
+    },
+    "unit": {
+      "kubernetes": "workload | workloads",
+      "docker": "container or Compose service | containers and Compose services"
+    },
+    "summary": {
+      "destinations": "Destinations",
+      "from": "from {n} {units}",
+      "new": "New in 24 hours",
+      "newSub": "never seen before from their {unit}",
+      "rawIp": "Raw IP, no DNS name",
+      "rawIpSub": "public address dialled directly",
+      "failing": "Failing",
+      "failingSub": "≥ 5 % of connections fail"
+    },
+    "filter": {
+      "label": "Filter destinations",
+      "all": "All",
+      "new": "New",
+      "raw_ip": "Raw IP",
+      "failing": "Failing",
+      "not_expected": "Not marked expected",
+      "namespace": "Namespace",
+      "workload": "Workload",
+      "host": "Host",
+      "project": "Compose project",
+      "container": "Container",
+      "allNamespaces": "All namespaces",
+      "allWorkloads": "All workloads",
+      "allHosts": "All hosts",
+      "allProjects": "All Compose projects",
+      "allContainers": "All containers",
+      "search": "Search destinations",
+      "placeholder": {
+        "kubernetes": "Search a destination or workload",
+        "docker": "Search a destination or container"
+      },
+      "service": "Compose service {project} · {service}"
+    },
+    "col": {
+      "destination": "Destination",
+      "from": "Talks from",
+      "firstSeen": "First seen",
+      "lastSeen": "Last seen",
+      "bytes": "Sent / received",
+      "connections": "Conns",
+      "failed": "Failed"
+    },
+    "badge": {
+      "new": "New",
+      "raw_ip": "Raw IP",
+      "failing": "Failing",
+      "expected": "Expected",
+      "expectedPattern": "Expected · {pattern}"
+    },
+    "class": {
+      "localName": "Local name",
+      "privateNetwork": "Private network",
+      "publicNetwork": "Public network",
+      "internet": "Names not kept"
+    },
+    "internetRow": "Other destinations",
+    "newSource": "new",
+    "failedShort": "{p} failed",
+    "before": "before {day}",
+    "ago": {
+      "now": "now",
+      "minutes": "{n} min ago",
+      "hours": "{n} h ago",
+      "days": "{n} day ago | {n} days ago"
+    },
+    "showing": "Showing {n} destination. | Showing {n} destinations.",
+    "truncated": "Showing {shown} of {total}: narrow the filters to see the rest.",
+    "forgotten": "Destinations last seen more than 90 days ago are forgotten.",
+    "shortLived": "A process that connects and exits within 15 seconds isn't attributed.",
+    "errors": {
+      "load": "Couldn't load the destinations."
+    },
+    "empty": {
+      "noCluster": {
+        "title": "No cluster yet",
+        "description": "Connect a Kubernetes cluster or a Docker fleet to see what it talks to on the internet."
+      },
+      "noMatch": {
+        "title": "No destination matches",
+        "description": "Nothing in this range matches the filters."
+      },
+      "none": {
+        "title": "Nothing has talked to the internet yet",
+        "kubernetes": "No workload connected to an external destination in this range. Destinations appear here within a minute of their first connection.",
+        "docker": "No container connected to an external destination in this range. Destinations appear here within a minute of their first connection."
+      }
+    },
+    "talks": {
+      "title": "Talks to the internet",
+      "window": "last 30 days",
+      "line": "first seen {since} · {connections} connections today · {failed} failed",
+      "podNote": "These are the pod's workload's destinations: connections are recorded per workload, not per pod.",
+      "error": "Couldn't load the external destinations.",
+      "empty": {
+        "kubernetes": "No external destination in the last 30 days.",
+        "docker": "No external destination in the last 30 days."
+      },
+      "link": {
+        "kubernetes": "See the whole cluster's egress →",
+        "docker": "See the whole fleet's egress →"
       }
     }
   }

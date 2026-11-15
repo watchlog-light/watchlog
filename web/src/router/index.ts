@@ -7,6 +7,7 @@ import {
   Boxes,
   Container,
   Database,
+  Globe,
   LayoutDashboard,
   Network,
   ScrollText,
@@ -73,6 +74,8 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { name: 'events', path: '/events', titleKey: 'nav.events', icon: ScrollText },
   { name: 'service-map', path: '/service-map', titleKey: 'nav.serviceMap', icon: Network },
+  // Egress watch (ADR-188): external destinations, for both kinds of cluster.
+  { name: 'egress', path: '/egress', titleKey: 'nav.egress', icon: Globe },
   { name: 'alerts', path: '/alerts', titleKey: 'nav.alerts', icon: Bell },
   { name: 'settings', path: '/settings', titleKey: 'nav.settings', icon: Settings },
 ];
@@ -100,6 +103,7 @@ const views: Record<string, () => Promise<Component>> = {
   containers: () => import('@/views/ContainersPage.vue'),
   applications: () => import('@/views/ApplicationsPage.vue'),
   'service-map': () => import('@/views/ServiceMapPage.vue'),
+  egress: () => import('@/views/EgressPage.vue'),
   alerts: () => import('@/views/AlertsPage.vue'),
   settings: () => import('@/views/SettingsPage.vue'),
 };
