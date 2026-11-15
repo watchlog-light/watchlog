@@ -179,6 +179,19 @@ curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/search?q=storefront&limit=10"
 curl -H "$H" "$WATCHLOG/api/v1/clusters/$CLUSTER/service-map?range=3600"
 curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/service-map?range=3600"
 
+# External destinations (Egress watch): one row per destination and port, with its sources,
+# first and last seen, bytes, connections and failures over the range (24 hours by default,
+# at most 30 days, at most 500 rows). Filter by namespace, kind and workload (Kubernetes) or
+# host, project, service and container (Docker), by badge (new, raw_ip, failing, expected,
+# not_expected) or text (q); firstSeenAfter keeps the sources that started since then
+curl -H "$H" "$WATCHLOG/api/v1/egress?cluster=$CLUSTER&namespace=shop&workload=orders"
+curl -H "$H" "$WATCHLOG/api/v1/egress?cluster=$FLEET&project=storefront&service=api&badge=new"
+curl -H "$H" "$WATCHLOG/api/v1/egress?cluster=$CLUSTER&firstSeenAfter=1794150000"
+
+# The destinations marked expected, and how many rows each covers. Marking and removing
+# need a browser session (an Owner or Admin): tokens can't
+curl -H "$H" "$WATCHLOG/api/v1/egress/expected?cluster=$CLUSTER"
+
 # Event counts over time, and change markers (deploys, restarts) between two times
 curl -H "$H" $WATCHLOG/api/v1/clusters/$CLUSTER/events/summary
 curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/change-markers?from=1794150000&to=1794153600"

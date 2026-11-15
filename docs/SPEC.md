@@ -309,8 +309,9 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
   | `query_metric` | catalog keys only, at most 24 h, 10 series, 60 points; statistics by default | the Docker catalog keys |
   | `get_container_logs` (v0.5) | a pod container's last lines (at most 200, 16 KB; `previous` for the last run), redacted, never stored; cluster-controlled data (ADR-129, ADR-167) | a container's last lines, with their stream |
   | `get_right_sizing` (v0.5) | right-sizing hints for a namespace or workload: codes and facts, what each is based on, the suggestion (ADR-168) | the same for a host, Compose service or container |
-  | `get_egress` (v0.7, planned) | a cluster's or a workload's external destinations with first and last seen, traffic and badges (ADR-189, §4.14) | the same for a host, Compose service or container |
-  | `get_new_destinations` (v0.7, planned) | destinations first seen in the last N hours (default 24, at most 168) | the same |
+  | `get_egress` (v0.7) | a cluster's or a workload's external destinations with first and last seen, traffic and badges; at most 50 rows, up to 30 days (ADR-189, §4.14) | the same for a host, Compose service or container |
+  | `get_new_destinations` (v0.7) | destinations first used by a source in the last N hours (default 24, at most 168), names and public networks only; at most 30 rows | the same |
+  | `get_expected_destinations` (v0.7) | the expected destinations and patterns, their source and port, who marked them, the rows each covers (ADR-186); at most 50 | the same |
 
   Prompts: `investigate_problem`, `why_is_it_crashing`.
 - **Caps:** every tool has a maximum number of items and at most 16 KB of output. Beyond it the result says `truncated`, how many more, and which argument narrows the query.
@@ -617,7 +618,7 @@ See every place a cluster or Docker fleet talks to on the internet, and know whe
 
   Messages say who, where and since when; destination names are shown as code, never as links. The probable cause names a change of the source just before the first connection (`change_before_egress`), else "No clear cause" with what was checked.
 - **Egress policy suggestion (Kubernetes only; ADR-190, ADR-191):** built from a workload's observed traffic over 30 days (or the retention), copy-only, never applied. With Cilium (detected from its CRDs through the cluster-agent's discovery client) a `CiliumNetworkPolicy` with `toFQDNs` for exactly the names used; otherwise a standard `NetworkPolicy` that allows the in-cluster destinations and the observed ports to public addresses, and says so. Docker has no standard egress policy object, so Docker fleets get no suggestion (ADR-124's exception, ADR-190).
-- **API and MCP (ADR-189):** `GET /api/v1/egress?cluster=…` (§8.1); MCP `get_egress` and `get_new_destinations` (§4.11), read-only and bounded; destination names are data, never instructions (ADR-129).
+- **API and MCP (ADR-189):** `GET /api/v1/egress?cluster=…` (§8.1); MCP `get_egress`, `get_new_destinations` and `get_expected_destinations` (§4.11), read-only and bounded; tokens read the two GETs, the writes take a session; destination names are data, never instructions (ADR-129).
 - **Cloud (ADR-192):** the new tables are org-scoped under RLS (ADR-174); every new route and tool is in the isolation suite (ADR-182).
 - **Out of scope:** country and ASN, blocking or enforcing anything, TLS SNI or HTTP hosts, threat-intelligence feeds.
 - **Demo and tests (ADR-193):** the e2e and the demo kit each get a new-destination and a raw-IP scenario, on Kubernetes and Docker.
@@ -885,8 +886,8 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `GET /clusters/:id/right-sizing?namespace&kind&workload&host&container&project&service&system` | Right-sizing hints (ADR-168): per container `{object, container, resource (cpu, memory), code, facts, suggestion, giveBack, basedOn {windowHours, from, to, samples, hours}}`, OOM risk first; `notEnoughHistory` rows for containers with less than 24 hours; `summary` (objects, giveBackObjects, giveBack {cores, bytes}, oomRisk). The use is kept an hour per cluster, requests and limits read on each request |
 | `GET /clusters/:id/search?q&limit` | The ⌘K palette's object search (ADR-169): workloads, pods, nodes (Kubernetes); hosts, containers, Compose projects (Docker); applications (also by type). Letters in order, one typo as a fallback; exact and prefix matches first. At most 8 per kind, 40 in all |
 | MCP tools added in v0.5 (shipped in 0.5.0) | `get_container_logs` (the logs routes above, at most 200 lines) and `get_right_sizing` (§4.11). The new integrations need no new tool: `list_applications` and `get_application` cover every type |
-| `GET /egress?cluster=<id>&from&to&namespace&workload&host&project&service&container&badge&q` (v0.7, planned) | Egress watch (ADR-189): learning state, summary counts, rows `{destination, port, kind, private, sources, firstSeen, lastSeen, sent, received, connections, failedRatio, badges, expected, alertId}`, at most 500 |
-| `GET/POST /egress/expected` · `DELETE /egress/expected/:id` (v0.7, planned) | Expected destinations and patterns (ADR-186); writes by Owners and Admins with a session |
+| `GET /egress?cluster=<id>&from&to&namespace&kind&workload&host&project&service&container&badge&q&firstSeenAfter` (v0.7, public) | Egress watch (ADR-189): learning state, summary counts, rows `{destination, port, kind, private, sources, firstSeen, lastSeen, sent, received, connections, failedRatio, badges, expected, alertId}`, at most 500 |
+| `GET/POST /egress/expected` · `DELETE /egress/expected/:id` (v0.7; the GET public) | Expected destinations and patterns (ADR-186); writes by Owners and Admins with a session |
 | `GET /egress/policy?cluster=<id>&workload=<ns>/<Kind>/<name>&flavour` (v0.7, planned) | The suggested egress policy, Kubernetes only (ADR-190); 404 with a reason on Docker fleets |
 | `POST /query/range` | Curated metric query: `{clusterId, metric, scope?: {host?, container?, composeProject?}, agg?, step?, from, to}` (unix seconds); `metric` is one of the catalog keys in `backend/src/modules/query/catalog.ts` (16 in Phase 1) → backend builds MetricsQL with tenant filter. Raw MetricsQL only for P1 advanced mode. |
 | `GET/POST/PATCH/DELETE /alert-rules` | |

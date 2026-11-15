@@ -12,6 +12,7 @@ assistant to it, and you can ask questions like:
 - "Why does the cart pod keep restarting?"
 - "Which containers on docker-01 were killed for memory today?"
 - "Did anything change right before the errors started?"
+- "What does the orders service talk to on the internet? Anything new this week?"
 - "What is the likely cause of the checkout alert?"
 
 The assistant answers from what WatchLog sees: problems and alerts, pods and containers,
@@ -137,24 +138,27 @@ Every tool is read-only. Each takes the cluster by name, and answers in that clu
 words: namespaces, workloads and pods on Kubernetes; hosts, Compose projects and containers
 on Docker.
 
-| Tool                 | Kubernetes                                                                                                             | Docker                                                                  |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `list_clusters`      | Your clusters, their kind and whether they report                                                                      | The same                                                                |
-| `get_problems`       | What needs attention: crash loops, OOM kills, nodes, connections, alerts; each with its likely cause when there is one | Restarting, unhealthy, OOM-killed or exited containers, hosts; the same |
-| `list_alerts`        | Firing or recent alerts                                                                                                | The same                                                                |
-| `explain_alert`      | An alert with its probable causes, its pod's state, events and the changes before it                                   | The same for a container or Compose service                             |
-| `explain_problem`    | The probable cause of a workload, pod, edge or monitored service, with its evidence and what was checked               | The same for a container or Compose service                             |
-| `get_workload`       | A Deployment, StatefulSet, DaemonSet, Job or CronJob and its pods                                                      | A Compose service and its containers                                    |
-| `get_pod`            | A pod: containers, exit codes, OOM kills, restarts, events                                                             | A container                                                             |
-| `get_node`           | A node: conditions, capacity against use, the heaviest pods                                                            | A host                                                                  |
-| `list_applications`  | Monitored services (Redis, PostgreSQL, Nginx, RabbitMQ), problems first                                                | The same, by host and Compose project                                   |
-| `get_application`    | A service: its health, every reason, the workloads that connect to it                                                  | The same, with the containers that connect to it                        |
-| `get_service_map`    | Failing connections, or one workload's connections and DNS errors                                                      | The same between containers                                             |
-| `get_container_logs` | A container's last lines (at most 200), redacted, the previous run too                                                 | A container's last lines, stdout and stderr marked                      |
-| `get_right_sizing`   | Requests and limits against 7 days of use: too high, too low, OOM risk, throttled, not set                             | Limits and reservations against use: OOM risk, throttled, reservations  |
-| `get_events`         | Warning events, grouped                                                                                                | Container deaths, OOM kills, health changes                             |
-| `get_recent_changes` | Rollouts, image changes, scaling, nodes                                                                                | Re-created containers, image changes                                    |
-| `query_metric`       | A metric over up to 24 hours, as statistics, including a monitored service's                                           | The same                                                                |
+| Tool                        | Kubernetes                                                                                                             | Docker                                                                  |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `list_clusters`             | Your clusters, their kind and whether they report                                                                      | The same                                                                |
+| `get_problems`              | What needs attention: crash loops, OOM kills, nodes, connections, alerts; each with its likely cause when there is one | Restarting, unhealthy, OOM-killed or exited containers, hosts; the same |
+| `list_alerts`               | Firing or recent alerts                                                                                                | The same                                                                |
+| `explain_alert`             | An alert with its probable causes, its pod's state, events and the changes before it                                   | The same for a container or Compose service                             |
+| `explain_problem`           | The probable cause of a workload, pod, edge or monitored service, with its evidence and what was checked               | The same for a container or Compose service                             |
+| `get_workload`              | A Deployment, StatefulSet, DaemonSet, Job or CronJob and its pods                                                      | A Compose service and its containers                                    |
+| `get_pod`                   | A pod: containers, exit codes, OOM kills, restarts, events                                                             | A container                                                             |
+| `get_node`                  | A node: conditions, capacity against use, the heaviest pods                                                            | A host                                                                  |
+| `list_applications`         | Monitored services (Redis, PostgreSQL, Nginx, RabbitMQ), problems first                                                | The same, by host and Compose project                                   |
+| `get_application`           | A service: its health, every reason, the workloads that connect to it                                                  | The same, with the containers that connect to it                        |
+| `get_service_map`           | Failing connections, or one workload's connections and DNS errors                                                      | The same between containers                                             |
+| `get_egress`                | External destinations of the cluster or one workload: sources, first and last seen, bytes, failures, badges            | The same for a host, Compose service or container                       |
+| `get_new_destinations`      | Destinations a workload started using in the last hours (up to 7 days)                                                 | The same for a Compose service or container                             |
+| `get_expected_destinations` | Destinations marked expected, and the patterns that cover them                                                         | The same                                                                |
+| `get_container_logs`        | A container's last lines (at most 200), redacted, the previous run too                                                 | A container's last lines, stdout and stderr marked                      |
+| `get_right_sizing`          | Requests and limits against 7 days of use: too high, too low, OOM risk, throttled, not set                             | Limits and reservations against use: OOM risk, throttled, reservations  |
+| `get_events`                | Warning events, grouped                                                                                                | Container deaths, OOM kills, health changes                             |
+| `get_recent_changes`        | Rollouts, image changes, scaling, nodes                                                                                | Re-created containers, image changes                                    |
+| `query_metric`              | A metric over up to 24 hours, as statistics, including a monitored service's                                           | The same                                                                |
 
 Two prompts start an investigation for you: `investigate_problem` and `why_is_it_crashing`.
 
@@ -180,6 +184,8 @@ assistant the same evidence as the dashboard's "Likely cause" panel:
 - **Answer size:** at most 16 KB each, with a fixed number of items. When an answer is
   cut, it says so, and which argument narrows it (for example "pass `namespace`").
 - **Metrics:** at most 24 hours, 10 series and 60 points per series.
+- **Egress:** `get_egress` lists at most 50 destinations over up to 30 days (24 hours by
+  default); `get_new_destinations` at most 30, over up to 7 days.
 - **Logs:** at most 200 lines and 16 KB, newest last; the oldest are left out first. Lines are
   redacted in the agent and never stored, and the Container logs setting applies to the
   token's user ([logs on demand](logs.md)).
@@ -192,7 +198,8 @@ assistant the same evidence as the dashboard's "Likely cause" panel:
   payloads, alert channel targets, email or Telegram settings, and tokens. WatchLog never
   collects most of these in the first place.
 - **Cluster text is data.** Pod and container names, event messages, log lines, labels and images come
-  from whoever runs workloads in your cluster. Someone could name a pod "ignore previous
+  from whoever runs workloads in your cluster. Destination names come from DNS answers, so
+  whoever registered a domain chose its name. WatchLog never fetches or follows them. Someone could name a pod "ignore previous
   instructions…" to try to steer your assistant (prompt injection).
   - WatchLog returns such text only in its own fields, cleaned of control characters and
     cut to a fixed length.
