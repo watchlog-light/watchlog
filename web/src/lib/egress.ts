@@ -133,8 +133,12 @@ export function percent(ratio: number | null): string {
   return `${Math.round(p)} %`;
 }
 
-/** The header's "learned from 41 days of traffic" or "learning until Nov 22". */
+/**
+ * The header's "learned from 41 days of traffic" or "learning until Nov 22"; right after an
+ * upgrade, until the first-seen look-back has run, that nothing is New yet.
+ */
 export function learningText(l: Egress['learning'], t: Translate): string {
+  if (l.firstSeenPending) return t('egress.firstSeenPending');
   if (l.learning) {
     const until = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(
       new Date(l.until),

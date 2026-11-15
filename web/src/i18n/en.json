@@ -4420,6 +4420,7 @@
     "title": "What {cluster} talks to on the internet",
     "learnedFrom": "Learned from {n} day of traffic. | Learned from {n} days of traffic.",
     "learningUntil": "Learning until {until}: new destinations are recorded, and alerts start after that.",
+    "firstSeenPending": "Learning first-seen times from the traffic history… Nothing is marked New until that is done, in a few minutes.",
     "namesFrom": "Names come from the DNS answers your {units} received; nothing else is read.",
     "range": "Range",
     "ranges": {
