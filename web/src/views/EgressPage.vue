@@ -20,13 +20,14 @@ import { useListFilter } from '@/composables/useListFilter';
 import { useLoader } from '@/composables/useLoader';
 import {
   EGRESS_BADGE_FILTERS,
-  EGRESS_RANGES,
+  egressRanges,
   egressPath,
   learningText,
   type EgressBadgeFilter,
   type EgressQuery,
   type EgressRange,
 } from '@/lib/egress';
+import { useAuthStore } from '@/stores/auth';
 import { useClustersStore } from '@/stores/clusters';
 import { useEgressStore } from '@/stores/egress';
 
@@ -42,8 +43,11 @@ const egress = useEgressStore();
 let timer: ReturnType<typeof setInterval> | undefined;
 
 const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
+const auth = useAuthStore();
+// The demo answers at most 24 hours, so it offers only 1 h and 24 h (a 7 d link opens 24 h).
+const ranges = computed(() => egressRanges(auth.demoMode));
 const range = computed<EgressRange>(() =>
-  (EGRESS_RANGES as string[]).includes(String(route.query.range))
+  (ranges.value as string[]).includes(String(route.query.range))
     ? (route.query.range as EgressRange)
     : '24h',
 );
@@ -197,7 +201,7 @@ onBeforeUnmount(() => clearInterval(timer));
           <SegmentedControl
             :model-value="range"
             :label="$t('egress.range')"
-            :options="EGRESS_RANGES.map((r) => ({ value: r, label: $t(`egress.ranges.${r}`) }))"
+            :options="ranges.map((r) => ({ value: r, label: $t(`egress.ranges.${r}`) }))"
             data-testid="egress-range"
             @update:model-value="(v: string) => setQuery({ range: v === '24h' ? undefined : v })"
           />

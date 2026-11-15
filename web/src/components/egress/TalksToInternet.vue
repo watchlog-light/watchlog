@@ -7,7 +7,14 @@ import { useI18n } from 'vue-i18n';
 import { api } from '@/api/client';
 import Skeleton from '@/components/ui/Skeleton.vue';
 import { useLoader } from '@/composables/useLoader';
-import { egressPath, firstSeenText, percent, type EgressQuery } from '@/lib/egress';
+import {
+  egressHistoryRange,
+  egressPath,
+  firstSeenText,
+  percent,
+  type EgressQuery,
+} from '@/lib/egress';
+import { useAuthStore } from '@/stores/auth';
 import EgressBadges from './EgressBadges.vue';
 import ExpectedActions from './ExpectedActions.vue';
 
@@ -25,11 +32,13 @@ const props = defineProps<{
   now?: number;
 }>();
 const { t } = useI18n();
+// The demo answers at most 24 hours: there the rows are the last day's.
+const auth = useAuthStore();
 
 const page = useLoader(async () => {
   const now = props.now ?? Date.now();
   const [month, today] = await Promise.all([
-    api<Egress>(egressPath(props.clusterId, props.query, '30d', now)),
+    api<Egress>(egressPath(props.clusterId, props.query, egressHistoryRange(auth.demoMode), now)),
     api<Egress>(egressPath(props.clusterId, props.query, '24h', now)),
   ]);
   const todays = new Map(today.rows.map((r) => [`${r.destination}:${r.port}`, r]));

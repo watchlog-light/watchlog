@@ -9,7 +9,8 @@ import { api } from '@/api/client';
 import Skeleton from '@/components/ui/Skeleton.vue';
 import { useLoader } from '@/composables/useLoader';
 import { egressQueryOf, egressSourceOf } from '@/lib/alerts';
-import { egressPath, percent } from '@/lib/egress';
+import { egressHistoryRange, egressPath, percent } from '@/lib/egress';
+import { useAuthStore } from '@/stores/auth';
 import { formatDateTime } from '@/lib/format';
 import ExpectedActions from './ExpectedActions.vue';
 
@@ -20,6 +21,7 @@ import ExpectedActions from './ExpectedActions.vue';
 // and why "New" alerts are rare. The numbers come from the Egress route, as the page shows them.
 const props = defineProps<{ alert: AlertDetail['alert']; now?: number }>();
 const { t } = useI18n();
+const auth = useAuthStore();
 
 const kind = computed(() => (props.alert.cluster.kind === 'docker' ? 'docker' : 'kubernetes'));
 const destination = computed(() => props.alert.labels.destination ?? '');
@@ -35,9 +37,11 @@ const same = (r: EgressRow) => r.destination === destination.value && r.port ===
 const page = useLoader(async () => {
   const now = props.now ?? Date.now();
   const q = { q: destination.value };
+  // The demo answers at most 24 hours: there the card reads the last day.
+  const history = egressHistoryRange(auth.demoMode);
   const [mine, all] = await Promise.all([
-    api<Egress>(egressPath(props.alert.cluster.id, { ...sourceQuery.value, ...q }, '30d', now)),
-    api<Egress>(egressPath(props.alert.cluster.id, q, '30d', now)),
+    api<Egress>(egressPath(props.alert.cluster.id, { ...sourceQuery.value, ...q }, history, now)),
+    api<Egress>(egressPath(props.alert.cluster.id, q, history, now)),
   ]);
   return {
     row: mine.rows.find(same) ?? null,

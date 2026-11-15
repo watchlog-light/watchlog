@@ -13,6 +13,13 @@ export const EGRESS_RANGE_SECONDS: Record<EgressRange, number> = {
   '7d': 7 * 86_400,
   '30d': 30 * 86_400,
 };
+/** The public demo answers at most the last 24 hours (the backend's demo range cap). */
+export const DEMO_EGRESS_RANGES: EgressRange[] = ['1h', '24h'];
+/** The ranges the Egress page offers: up to 30 days, up to 24 hours in the demo. */
+export const egressRanges = (demo: boolean): EgressRange[] =>
+  demo ? DEMO_EGRESS_RANGES : EGRESS_RANGES;
+/** The history a source's or an alert's card reads: 30 days, 24 hours in the demo. */
+export const egressHistoryRange = (demo: boolean): EgressRange => (demo ? '24h' : '30d');
 export const EGRESS_BADGE_FILTERS = ['new', 'raw_ip', 'failing', 'not_expected'] as const;
 export type EgressBadgeFilter = (typeof EGRESS_BADGE_FILTERS)[number];
 
