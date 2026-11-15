@@ -116,6 +116,7 @@ describe('the selected cluster', () => {
       'Applications',
       'Events',
       'Service Map',
+      'Egress',
       'Alerts',
       'Settings',
     ]);
@@ -128,6 +129,7 @@ describe('the selected cluster', () => {
       'Applications',
       'Events',
       'Service Map',
+      'Egress',
       'Alerts',
       'Settings',
     ]);
