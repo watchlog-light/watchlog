@@ -358,7 +358,7 @@ export const egressRoutes: FastifyPluginAsyncTypebox<{
         details: {
           cluster: row.id,
           pattern: parsed.pattern.text,
-          port,
+          port: port ?? 'any',
           source: sourceLabel(source),
         },
       });
@@ -407,7 +407,7 @@ export const egressRoutes: FastifyPluginAsyncTypebox<{
         details: {
           cluster: gone.cluster_id,
           pattern: gone.pattern,
-          port: gone.port,
+          port: gone.port ?? 'any',
           source: sourceLabel(source),
         },
       });
