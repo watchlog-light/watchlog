@@ -104,7 +104,13 @@ export interface EgressRow {
 export interface EgressAnswer {
   cluster: { id: string; kind: ClusterKind };
   range: { from: string; to: string };
-  learning: { since: string; until: string; learning: boolean; days: number };
+  learning: {
+    since: string;
+    until: string;
+    learning: boolean;
+    days: number;
+    firstSeenPending: boolean;
+  };
   traffic: boolean;
   summary: { destinations: number; sources: number; new: number; rawIp: number; failing: number };
   rows: EgressRow[];
@@ -117,6 +123,8 @@ export interface EgressCluster {
   kind: ClusterKind;
   scope: ClusterScope;
   egress_learning_since: Date | null;
+  /** When the first-seen look-back ran (ADR-185); null until it has. */
+  egress_backfilled_at: Date | null;
   first_seen_at: Date | null;
   created_at: Date;
 }
@@ -264,7 +272,12 @@ const kindOf = (cls: string): EgressRow['kind'] =>
       ? 'network'
       : 'name';
 
-/** The learning state (ADR-187): from the upgrade for existing clusters, else first report. */
+/**
+ * The learning state (ADR-187): from the upgrade for existing clusters, else first report.
+ * `firstSeenPending` until the first-seen look-back has run for the cluster (ADR-185; up to
+ * the worker's look-back interval after an upgrade or a first report): until then a
+ * destination in use before the upgrade looks first seen at the upgrade, so nothing is New.
+ */
 export function learningOf(c: EgressCluster, oldestFirstSeen: Date | null, nowMs: number) {
   const since = learningStart(c);
   const until = new Date(since.getTime() + egressLearningMs());
@@ -274,6 +287,7 @@ export function learningOf(c: EgressCluster, oldestFirstSeen: Date | null, nowMs
     until: until.toISOString(),
     learning: nowMs < until.getTime(),
     days: Math.max(0, Math.floor((nowMs - from) / DAY_MS)),
+    firstSeenPending: !c.egress_backfilled_at,
   };
 }
 
@@ -288,7 +302,9 @@ const rank = (r: EgressRow) => {
  * one per destination and port, with every source that used it. A source is "new" when its
  * row was first seen in the last 24 hours (and not only "before" the oldest retained sample);
  * a destination is New when one of its sources is. "Internet" (beyond the agent's cap) names
- * nothing, so it is never New (ADR-185).
+ * nothing, so it is never New (ADR-185). Nothing is New until the cluster's first-seen
+ * look-back has run (`egress_backfilled_at`), as the alert rules wait for it: before that, a
+ * destination in use before the upgrade looks first seen at the upgrade.
  */
 export async function readEgress(
   db: Database,
@@ -405,6 +421,7 @@ export async function readEgress(
     .execute();
   const alertOf = new Map(firingAlerts.map((a) => [groupKey(a.destination, Number(a.port)), a.id]));
 
+  const lookedBack = !!cluster.egress_backfilled_at;
   const all: EgressRow[] = [];
   for (const members of groups.values()) {
     const head = members[0]!;
@@ -415,6 +432,7 @@ export async function readEgress(
     let last = head.last_seen;
     for (const m of members) {
       const isNew =
+        lookedBack &&
         EGRESS_NEW_CLASSES.has(cls) &&
         !m.first_seen_before &&
         nowMs - m.first_seen.getTime() < EGRESS_NEW_MS;

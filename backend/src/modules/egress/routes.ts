@@ -132,6 +132,10 @@ export const EgressSchema = Type.Object({
     until: Type.String({ format: 'date-time' }),
     learning: Type.Boolean(),
     days: Type.Integer({ description: 'Days of traffic the inventory has learned from' }),
+    firstSeenPending: Type.Boolean({
+      description:
+        "True until the first look-back over the retained flow series has set first seen for the cluster's destinations (a few minutes after an upgrade or a first report): until then no row is New",
+    }),
   }),
   traffic: Type.Boolean({ description: 'False when metrics storage is not configured' }),
   summary: Type.Object({
@@ -641,6 +645,7 @@ export const egressRoutes: FastifyPluginAsyncTypebox<{
             kind: row.kind as ClusterKind,
             scope: row.scope,
             egress_learning_since: row.egress_learning_since,
+            egress_backfilled_at: row.egress_backfilled_at,
             first_seen_at: row.first_seen_at,
             created_at: row.created_at,
           },

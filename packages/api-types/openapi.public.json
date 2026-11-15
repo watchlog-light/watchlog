@@ -8084,7 +8084,7 @@
                     },
                     "learning": {
                       "type": "object",
-                      "required": ["since", "until", "learning", "days"],
+                      "required": ["since", "until", "learning", "days", "firstSeenPending"],
                       "properties": {
                         "since": { "type": "string", "format": "date-time" },
                         "until": { "type": "string", "format": "date-time" },
@@ -8092,6 +8092,10 @@
                         "days": {
                           "type": "integer",
                           "description": "Days of traffic the inventory has learned from"
+                        },
+                        "firstSeenPending": {
+                          "type": "boolean",
+                          "description": "True until the first look-back over the retained flow series has set first seen for the cluster's destinations (a few minutes after an upgrade or a first report): until then no row is New"
                         }
                       }
                     },

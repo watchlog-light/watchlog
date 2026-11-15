@@ -4131,6 +4131,8 @@ export interface paths {
                 learning: boolean;
                 /** @description Days of traffic the inventory has learned from */
                 days: number;
+                /** @description True until the first look-back over the retained flow series has set first seen for the cluster's destinations (a few minutes after an upgrade or a first report): until then no row is New */
+                firstSeenPending: boolean;
               };
               /** @description False when metrics storage is not configured */
               traffic: boolean;
