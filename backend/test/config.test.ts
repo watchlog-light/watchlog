@@ -24,6 +24,22 @@ describe('loadConfig', () => {
     expect(c.telegramApiUrl).toBe('https://api.telegram.org');
   });
 
+  it('reads an empty or blank WATCHLOG_EGRESS_LEARNING_DAYS as the default of 7, not 0 (ADR-187)', () => {
+    const base = { DATABASE_URL: 'x', WATCHLOG_SECRET_KEY: KEY };
+    expect(loadConfig(base).egressLearningDays).toBe(7);
+    for (const blank of ['', ' ', '\t', '  \n'])
+      expect(loadConfig({ ...base, WATCHLOG_EGRESS_LEARNING_DAYS: blank }).egressLearningDays).toBe(
+        7,
+      );
+    expect(loadConfig({ ...base, WATCHLOG_EGRESS_LEARNING_DAYS: '0' }).egressLearningDays).toBe(0);
+    expect(loadConfig({ ...base, WATCHLOG_EGRESS_LEARNING_DAYS: ' 3 ' }).egressLearningDays).toBe(
+      3,
+    );
+    expect(() => loadConfig({ ...base, WATCHLOG_EGRESS_LEARNING_DAYS: 'seven' })).toThrow(
+      /WATCHLOG_EGRESS_LEARNING_DAYS/,
+    );
+  });
+
   it('reads the country header and the fixed API token limits (ADR-125)', () => {
     const base = { DATABASE_URL: 'x', WATCHLOG_SECRET_KEY: KEY };
     expect(loadConfig(base).mcpEnabled).toBe(true);
