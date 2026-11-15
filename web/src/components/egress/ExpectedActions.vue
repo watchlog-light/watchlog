@@ -165,7 +165,6 @@ async function undo() {
           <TextField
             v-if="what === 'pattern'"
             v-model="pattern"
-            mono
             required
             :maxlength="253"
             :label="$t('egress.expected.patternLabel')"

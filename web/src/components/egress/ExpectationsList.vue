@@ -175,10 +175,9 @@ const forText = (e: EgressExpectation) =>
         <TextField
           v-model="pattern"
           class="min-w-48 flex-1"
-          mono
           required
           :maxlength="253"
-          :label="$t('egress.expectations.addLabel', { units: $t(`egress.unit.${kind}`, 2) })"
+          :label="$t('egress.expectations.addLabel', { units: $t(`egress.unit.${kind}`, 1) })"
           :placeholder="$t('egress.expectations.placeholder')"
           data-testid="expectations-pattern"
         />
