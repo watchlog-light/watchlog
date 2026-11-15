@@ -192,9 +192,44 @@ describe('alert titles and "why" lines', () => {
         'causes-e2e-hot-1 is CPU-throttled',
         'throttled 100% of the time · threshold 25%',
       ],
+      // Egress (ADR-187): the source in its platform's words, the destination with its port.
+      [
+        'egress.new_destination',
+        {
+          namespace: 'shop',
+          workload_kind: 'Deployment',
+          workload: 'orders',
+          destination: 'cdn-update-check.xyz',
+          port: '443',
+        },
+        { destination: 'cdn-update-check.xyz', port: 443, firstSeen: min(3), others: 0 },
+        'orders started talking to cdn-update-check.xyz:443',
+        'first connection at 11:57 UTC · nothing else in the cluster talks to it',
+      ],
+      [
+        'egress.raw_ip',
+        { compose_project: 'shop', compose_service: 'api', destination: '1.1.1.0/24', port: '443' },
+        { destination: '1.1.1.0/24', port: 443, connections: 5 },
+        'shop/api connects to 1.1.1.0/24:443 by IP address',
+        '5 connections in 10 min · no DNS name behind it',
+      ],
+      [
+        'egress.large_upload_new',
+        { node: 'docker-01', container: 'backup', destination: 'files.example.org', port: '443' },
+        {
+          destination: 'files.example.org',
+          port: 443,
+          sentBytes: 125_829_120,
+          threshold: 104_857_600,
+          firstSeen: min(120),
+        },
+        'backup sent 120 MiB to files.example.org:443',
+        'in the last hour · threshold 100 MiB · first seen at 10:00 UTC',
+      ],
     ];
   it.each(cases)('%s: %s', (key, labels, details, title, why) => {
-    expect(text(key, labels, details)).toEqual({ title, why });
+    const t = text(key, labels, details);
+    expect({ title: t.title, why: t.why }).toEqual({ title, why });
   });
 
   it('covers every default rule', () => {
