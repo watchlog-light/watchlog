@@ -133,7 +133,7 @@ describe('finding sentences', () => {
     const { key, values } = reasonLine(r, cluster, (iso) => iso, NOW);
     const text = i18n.t(key, values as Record<string, unknown>);
     expect(text).toMatch(
-      /^orders has had no consumers since \d\d:\d\d \(3 min ago\) and grows by 181 a minute/,
+      /^orders has had no consumers since (?:[A-Z][a-z]{2} \d{1,2}, )?\d\d:\d\d \(3 min ago\) and grows by 181 a minute/,
     );
   });
 });

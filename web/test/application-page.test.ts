@@ -544,7 +544,7 @@ describe('Application page', () => {
     const { wrapper } = await mountPage(`/applications/${ID}?cluster=${K8S.id}`);
     const rs = wrapper.findAll('[data-testid="reason"]').map((r) => r.text().replace(/\s+/g, ' '));
     expect(rs[0]).toMatch(
-      /orders has had no consumers since \d\d:\d\d \(6 min ago\) and grows by 600 a minute \(4200 ready\)\. shop\/worker, connected to RabbitMQ until then, was OOMKilled, CrashLoopBackOff 6 min ago\./,
+      /orders has had no consumers since (?:[A-Z][a-z]{2} \d{1,2}, )?\d\d:\d\d \(6 min ago\) and grows by 600 a minute \(4200 ready\)\. shop\/worker, connected to RabbitMQ until then, was OOMKilled, CrashLoopBackOff 6 min ago\./,
     );
     expect(rs[1]).toContain(
       'No client that was connected to RabbitMQ in the last 24 hours ended in that time.',
