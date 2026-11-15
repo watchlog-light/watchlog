@@ -1249,6 +1249,16 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
         // mode it needs the invite the sign-up page started with (ADR-173); the code itself
         // reached the invited mailbox, so the provider's address may differ from it.
         const email = profile.email!;
+        // An address that already has an account (password, GitHub or Google) gets no second
+        // one (ADR-183): the person signs in the way they signed up and links this provider in
+        // Settings › Security. Nothing is linked by address. The provider has verified the
+        // address, so saying it has an account tells only its owner.
+        const existing = await systemDb
+          .selectFrom('users')
+          .select('id')
+          .where(sql<string>`lower(email)`, '=', email.toLowerCase())
+          .executeTakeFirst();
+        if (existing) return fail('account-exists');
         const { mode, invite } = await inviteFor(s.invite);
         if (mode === 'invite' && !invite) return fail('invite-required');
         if (isDisposable(accounts.disposable, email)) return fail('email-disposable');

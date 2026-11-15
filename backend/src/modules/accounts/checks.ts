@@ -33,6 +33,7 @@ export type AccountErrorCode =
   | 'mfa-required'
   | 'oauth-disabled'
   | 'identity-taken'
+  | 'account-exists'
   | 'last-sign-in-method'
   | 'invite-other-email'
   | 'already-member'
