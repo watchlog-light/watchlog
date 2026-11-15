@@ -105,7 +105,13 @@ const K8S_ROWS: EgressRow[] = [
 const answer = (rows: EgressRow[], over: Partial<Egress> = {}): Egress => ({
   cluster: { id: CLUSTER.id, kind: 'kubernetes' },
   range: { from: iso(D), to: iso(0) },
-  learning: { since: iso(41 * D), until: iso(34 * D), learning: false, days: 41 },
+  learning: {
+    since: iso(41 * D),
+    until: iso(34 * D),
+    learning: false,
+    days: 41,
+    firstSeenPending: false,
+  },
   traffic: true,
   summary: { destinations: rows.length, sources: 5, new: 2, rawIp: 1, failing: 1 },
   rows,
@@ -353,7 +359,13 @@ describe('the Egress page', () => {
         status: 200,
         body: answer([], {
           cluster: { id: FLEET.id, kind: 'docker' },
-          learning: { since: iso(D), until: iso(-6 * D), learning: true, days: 1 },
+          learning: {
+            since: iso(D),
+            until: iso(-6 * D),
+            learning: true,
+            days: 1,
+            firstSeenPending: false,
+          },
           summary: { destinations: 0, sources: 0, new: 0, rawIp: 0, failing: 0 },
         }),
       },
@@ -362,6 +374,49 @@ describe('the Egress page', () => {
     expect(w.get('[data-testid="egress-empty"]').text()).toContain('No container connected');
     expect(w.get('[data-testid="egress-learning"]').text()).toContain('Learning until Nov 21');
     w.unmount();
+  });
+
+  it('right after an upgrade, until the first-seen look-back has run: says so, and nothing is New', async () => {
+    // The API's answer in that window (slice 10b): no New badge, a count of 0, firstSeenPending.
+    for (const [c, url] of [
+      [CLUSTER, egressUrl()],
+      [FLEET, dockerUrl()],
+    ] as const) {
+      mockFetch({
+        'GET /api/v1/clusters': { status: 200, body: { clusters: [c] } },
+        [url]: {
+          status: 200,
+          body: answer(
+            K8S_ROWS.map((r) => ({
+              ...r,
+              badges: r.badges.filter((b) => b !== 'new'),
+              sources: r.sources.map((s) => ({ ...s, new: false })),
+            })),
+            {
+              cluster: { id: c.id, kind: c.kind as 'kubernetes' | 'docker' },
+              learning: {
+                since: iso(0),
+                until: iso(-7 * D),
+                learning: true,
+                days: 41,
+                firstSeenPending: true,
+              },
+              summary: { destinations: K8S_ROWS.length, sources: 5, new: 0, rawIp: 1, failing: 1 },
+            },
+          ),
+        },
+      });
+      const { w } = await mountWith(EgressPage, '/egress');
+      const line = w.get('[data-testid="egress-learning"]').text();
+      expect(line).toContain('Learning first-seen times from the traffic history…');
+      expect(line).not.toContain('Learning until');
+      const rows = w.findAll('[data-testid="egress-row"]');
+      expect(rows).toHaveLength(K8S_ROWS.length);
+      expect(rows.filter((r) => /\bNew\b/.test(r.text()))).toEqual([]);
+      expect(useEgressStore().newCount[c.id]).toBe(0);
+      w.unmount();
+      vi.unstubAllGlobals();
+    }
   });
 
   it('no cluster: says to connect one', async () => {
@@ -544,6 +599,36 @@ describe('the navigation', () => {
       const egress = w.findAll('nav a').find((a) => a.text().startsWith('Egress'))!;
       expect(egress.get('[data-testid="nav-new"]').text()).toContain('2 new');
       expect(egress.get('[data-testid="nav-new"]').classes()).toContain('text-warning');
+      w.unmount();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('shows no count while the API says 0 (the first-seen look-back hasn’t run yet)', async () => {
+    for (const c of [CLUSTER, FLEET]) {
+      mockFetch({
+        [`GET /api/v1/egress?cluster=${c.id}`]: {
+          status: 200,
+          body: answer([], {
+            learning: {
+              since: iso(0),
+              until: iso(-7 * D),
+              learning: true,
+              days: 41,
+              firstSeenPending: true,
+            },
+            summary: { destinations: 3, sources: 1, new: 0, rawIp: 0, failing: 0 },
+          }),
+        },
+      });
+      const { router, i18n, pinia } = await createPlugins('/');
+      const clusters = useClustersStore();
+      clusters.list = [c as never];
+      clusters.selectedId = c.id;
+      const w = mount(AppSidebar, { global: { plugins: [router, i18n, pinia] } });
+      await flushPromises();
+      const egress = w.findAll('nav a').find((a) => a.text().startsWith('Egress'))!;
+      expect(egress.find('[data-testid="nav-new"]').exists()).toBe(false);
       w.unmount();
       vi.unstubAllGlobals();
     }

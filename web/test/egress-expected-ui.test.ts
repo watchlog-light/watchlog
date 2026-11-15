@@ -322,7 +322,13 @@ describe('"Talks to the internet": marking from a source page', () => {
   const answer = (rows: EgressRow[]) => ({
     cluster: { id: FLEET, kind: 'docker' },
     range: { from: iso(D), to: iso(0) },
-    learning: { since: iso(41 * D), until: iso(34 * D), learning: false, days: 41 },
+    learning: {
+      since: iso(41 * D),
+      until: iso(34 * D),
+      learning: false,
+      days: 41,
+      firstSeenPending: false,
+    },
     traffic: true,
     summary: { destinations: rows.length, sources: 1, new: 0, rawIp: 0, failing: 0 },
     rows,
