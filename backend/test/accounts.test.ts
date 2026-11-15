@@ -69,6 +69,8 @@ function mockServices(): Mock {
     google: {
       'g-carol': { sub: 'g-1', email: 'carol@example.com', verified: true },
       'g-unverified': { sub: 'g-2', email: 'dan@example.com', verified: false },
+      'g-alice': { sub: 'g-3', email: 'Alice@Example.com', verified: true },
+      'g-bob': { sub: 'g-4', email: 'BOB@example.com', verified: true },
     },
     fetch: async (input, init) => {
       const url = String(input);
@@ -1004,29 +1006,50 @@ describe('GitHub and Google sign-in', () => {
     );
   });
 
-  it('scenario 5: email first, then GitHub with the same address, are two accounts until linked', async () => {
+  it('scenario 5: an address with an account gets no second one from GitHub or Google; the account links them', async () => {
     await cloudContext(OAUTH);
     const pw = await signedUp('alice@example.com');
-    const gh = await callback('github', 'gh-alice');
-    const ghUser = (await call('GET', '/api/v1/me', cookieOf(gh)!.value)).json().user;
-    expect(ghUser.id).not.toBe(pw.user.id);
-    expect(
+    const accounts = async (email: string) =>
       (
         await ctx.db
           .selectFrom('users')
           .select('id')
-          .where('email', '=', 'alice@example.com')
+          .where(sql<string>`lower(email)`, '=', email)
           .execute()
-      ).length,
-    ).toBe(2);
-    // The password account links another GitHub account after signing in.
-    const linked = await callback('github', 'gh-bob', { cookie: pw.cookie });
-    expect(linked.headers.location).toBe('/settings/security?linked=github');
-    const via = await callback('github', 'gh-bob');
-    expect((await call('GET', '/api/v1/me', cookieOf(via)!.value)).json().user.id).toBe(pw.user.id);
-    // A GitHub account already linked elsewhere can't be linked again.
-    const taken = await callback('github', 'gh-alice', { cookie: cookieOf(via)!.value });
+      ).length;
+    // GitHub, then Google with the address in other letters: refused, no session, no account.
+    for (const [p, who] of [
+      ['github', 'gh-alice'],
+      ['google', 'g-alice'],
+    ] as const) {
+      const res = await callback(p, who);
+      expect(res.headers.location).toBe('/signin?error=account-exists');
+      expect(cookieOf(res)).toBeUndefined();
+    }
+    expect(await accounts('alice@example.com')).toBe(1);
+    // A GitHub account first, then Google with its address: refused too (the owner's case).
+    const gh = await callback('github', 'gh-bob');
+    const bob = (await call('GET', '/api/v1/me', cookieOf(gh)!.value)).json().user;
+    expect((await callback('google', 'g-bob')).headers.location).toBe(
+      '/signin?error=account-exists',
+    );
+    expect(await accounts('bob@example.com')).toBe(1);
+    // The password account links GitHub and Google after signing in; both then open it.
+    for (const [p, who] of [
+      ['github', 'gh-alice'],
+      ['google', 'g-alice'],
+    ] as const) {
+      const linked = await callback(p, who, { cookie: pw.cookie });
+      expect(linked.headers.location).toBe(`/settings/security?linked=${p}`);
+      const via = await callback(p, who);
+      expect((await call('GET', '/api/v1/me', cookieOf(via)!.value)).json().user.id).toBe(
+        pw.user.id,
+      );
+    }
+    // A provider account already linked elsewhere can't be linked again.
+    const taken = await callback('github', 'gh-alice', { cookie: cookieOf(gh)!.value });
     expect(taken.headers.location).toBe('/settings/security?error=identity-taken');
+    expect(bob.id).not.toBe(pw.user.id);
   });
 
   it("refuses GitHub's unverified primary address, Google's unverified one, and a wrong state", async () => {
