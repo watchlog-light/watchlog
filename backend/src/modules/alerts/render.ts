@@ -10,6 +10,8 @@ export interface RenderedItem {
   title: string;
   /** "last exit: Error (code 1) · 9 restarts" */
   why: string | null;
+  /** Names from outside in the title and why (an egress destination): code in the channels. */
+  code?: string[];
   /** "wl-test/web (Deployment)", "node worker-1", "host-1/redis". */
   where: string;
   /** "wl-test/web (Deployment) · cluster prod · since 12:04 UTC (5 min)" */
@@ -85,6 +87,7 @@ function where(l: Record<string, string>): string {
     return l.container && !l.pod ? `${base} · ${l.container}` : base;
   }
   if (l.agent) return `${l.agent === 'cluster' ? 'cluster-agent' : 'agent'} on ${l.node}`;
+  if (l.compose_service) return `${l.compose_project}/${l.compose_service} (Compose service)`;
   // A Docker edge's alert names its container but not the host.
   if (l.container) return l.node ? `${l.node}/${l.container}` : l.container;
   if (l.mount) return `${l.node} ${l.mount}`;
@@ -102,6 +105,8 @@ function link(
   const q = `?cluster=${encodeURIComponent(cluster.id)}`;
   const e = encodeURIComponent;
   let path: string;
+  // An egress alert: the Egress page, filtered to its source and destination (ADR-187).
+  if (l.destination) return egressLink(base, l, cluster.id);
   if (l.service) path = `/applications/${e(l.service)}`;
   else if (l.pod) path = `/pods/${e(l.namespace!)}/${e(l.pod)}`;
   else if (l.workload || l.pvc) path = `/workloads${q}&ns=${e(l.namespace!)}`;
@@ -111,6 +116,24 @@ function link(
   else if (l.node && l.agent !== 'cluster') path = `/nodes/${e(l.node)}`;
   else path = '/';
   return `${base.replace(/\/+$/, '')}${path}${path.includes('?') ? '' : q}`;
+}
+
+/** The Egress page for one source and destination, in the page's own query words. */
+export function egressLink(base: string, l: Record<string, string>, clusterId: string): string {
+  const q = new URLSearchParams({ cluster: clusterId });
+  if (l.workload) {
+    q.set('namespace', l.namespace ?? '');
+    q.set('kind', l.workload_kind ?? '');
+    q.set('workload', l.workload);
+  } else if (l.compose_service) {
+    q.set('project', l.compose_project ?? '');
+    q.set('service', l.compose_service);
+  } else {
+    if (l.node) q.set('host', l.node);
+    if (l.container) q.set('container', l.container);
+  }
+  q.set('q', l.destination ?? '');
+  return `${base.replace(/\/+$/, '')}/egress?${q.toString()}`;
 }
 
 export function renderMessage(p: MessagePayload, publicUrl?: string): RenderedMessage {

@@ -15585,6 +15585,14 @@
                               {
                                 "type": "string",
                                 "enum": ["samples"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["connections"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["sent"]
                               }
                             ]
                           },
@@ -19937,6 +19945,14 @@
                                       {
                                         "type": "string",
                                         "enum": ["samples"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["connections"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["sent"]
                                       }
                                     ]
                                   },

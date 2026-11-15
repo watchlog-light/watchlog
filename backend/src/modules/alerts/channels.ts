@@ -199,14 +199,31 @@ const SLACK_COLOR: Record<string, string> = {
   resolved: 'good',
 };
 
+/**
+ * Escapes a line and sets the names from outside it holds as code (ADR-187: destination names
+ * come from DNS answers anyone can register, so they never become links).
+ */
+function withCode(
+  text: string,
+  code: string[] | undefined,
+  esc: (s: string) => string,
+  wrap: (s: string) => string,
+): string {
+  let out = esc(text);
+  for (const c of new Set(code ?? [])) out = out.split(esc(c)).join(wrap(esc(c)));
+  return out;
+}
+const slackCode = (s: string, code?: string[]) => withCode(s, code, escSlack, (c) => `\`${c}\``);
+
 export function slackBody(m: RenderedMessage, p: MessagePayload): object {
+  const headCode = m.single ? m.items[0]?.code : undefined;
   const blocks: object[] = [
-    { type: 'section', text: { type: 'mrkdwn', text: `*${escSlack(m.title)}*` } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*${slackCode(m.title, headCode)}*` } },
   ];
   for (const it of m.items) {
     const lines = [
-      m.single ? null : `*${escSlack(it.title)}*`,
-      it.why ? escSlack(it.why) : null,
+      m.single ? null : `*${slackCode(it.title, it.code)}*`,
+      it.why ? slackCode(it.why, it.code) : null,
       `_${escSlack(it.context)}_`,
       it.cause ? escSlack(it.cause) : null,
       it.link ? `<${it.link}|Open in WatchLog>` : null,
@@ -243,12 +260,15 @@ async function sendSlack(
 
 const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+const htmlCode = (s: string, code?: string[]) =>
+  withCode(s, code, escHtml, (c) => `<code>${c}</code>`);
+
 export function telegramText(m: RenderedMessage): string {
-  const lines = [`<b>${escHtml(m.title)}</b>`];
+  const lines = [`<b>${htmlCode(m.title, m.single ? m.items[0]?.code : undefined)}</b>`];
   for (const it of m.items) {
     lines.push('');
-    if (!m.single) lines.push(`<b>${escHtml(it.title)}</b>`);
-    if (it.why) lines.push(escHtml(it.why));
+    if (!m.single) lines.push(`<b>${htmlCode(it.title, it.code)}</b>`);
+    if (it.why) lines.push(htmlCode(it.why, it.code));
     lines.push(`<i>${escHtml(it.context)}</i>`);
     if (it.cause) lines.push(escHtml(it.cause));
     if (it.link) lines.push(`<a href="${escHtml(it.link)}">Open in WatchLog</a>`);

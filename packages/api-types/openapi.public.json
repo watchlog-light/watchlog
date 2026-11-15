@@ -977,7 +977,9 @@
                               { "type": "string", "enum": ["phases"] },
                               { "type": "string", "enum": ["replicas"] },
                               { "type": "string", "enum": ["health"] },
-                              { "type": "string", "enum": ["samples"] }
+                              { "type": "string", "enum": ["samples"] },
+                              { "type": "string", "enum": ["connections"] },
+                              { "type": "string", "enum": ["sent"] }
                             ]
                           },
                           "kind": {

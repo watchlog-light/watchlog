@@ -155,6 +155,8 @@ export const ChartPanelSchema = Type.Object({
     Type.Literal('replicas'),
     Type.Literal('health'),
     Type.Literal('samples'),
+    Type.Literal('connections'),
+    Type.Literal('sent'),
   ]),
   kind: Type.Union([Type.Literal('line'), Type.Literal('bands')]),
   metric: NullableString,

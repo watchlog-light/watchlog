@@ -53,6 +53,7 @@ import { LogBroker } from './modules/logs/broker.js';
 import { logsRoutes } from './modules/logs/routes.js';
 import { rightSizingRoutes } from './modules/rightsizing/routes.js';
 import { egressRoutes } from './modules/egress/routes.js';
+import { setEgressLearningDays } from './modules/egress/learning.js';
 import { RightSizingService } from './modules/rightsizing/service.js';
 import { searchRoutes } from './modules/search/routes.js';
 import { userRoutes } from './modules/users/routes.js';
@@ -131,6 +132,7 @@ declare module 'fastify' {
 }
 
 export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyInstance> {
+  setEgressLearningDays(config.egressLearningDays);
   const app = Fastify({
     trustProxy: config.trustProxy,
     logger: {

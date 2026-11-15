@@ -65,6 +65,8 @@ export interface Config {
    * needs before it is judged (24 hours). Shorter values are for tests.
    */
   rightSizing: { windowHours: number; minHistoryHours: number };
+  /** "New external destination"'s learning period, days (ADR-187; tests and the demo kit shorten it). */
+  egressLearningDays: number;
   /** Timeout of one VictoriaMetrics query from the API, in ms (10 s in demo mode). */
   queryTimeoutMs: number;
   /** A header a trusted proxy sets to the visitor's address, e.g. X-Real-IP (rate limits). */
@@ -258,6 +260,10 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(
       `Invalid WATCHLOG_RIGHT_SIZING_MIN_HOURS: ${env.WATCHLOG_RIGHT_SIZING_MIN_HOURS}`,
     );
+  }
+  const egressLearningDays = Number(env.WATCHLOG_EGRESS_LEARNING_DAYS ?? 7);
+  if (!Number.isFinite(egressLearningDays) || egressLearningDays < 0 || egressLearningDays > 90) {
+    throw new Error(`Invalid WATCHLOG_EGRESS_LEARNING_DAYS: ${env.WATCHLOG_EGRESS_LEARNING_DAYS}`);
   }
   const workerPort = Number(env.WATCHLOG_WORKER_PORT ?? 4081);
   if (!Number.isInteger(workerPort) || workerPort <= 0 || workerPort > 65535) {
@@ -458,6 +464,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     trustedProxies,
     cookieSecure,
     rightSizing: { windowHours: rsWindow, minHistoryHours: rsMin },
+    egressLearningDays,
     queryTimeoutMs: demoMode === 'true' ? 10_000 : 15_000,
     seedFile: env.WATCHLOG_SEED_FILE,
     mcpEnabled: mcpEnabled !== 'false',

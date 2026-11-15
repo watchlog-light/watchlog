@@ -11,6 +11,7 @@
 import type { RuleCode } from './catalog.js';
 import type { Evidence, Focus } from './evidence.js';
 import { applicationFinding } from './rules/application-finding.js';
+import { changeBeforeEgress } from './rules/change-before-egress.js';
 import { connectionRefused } from './rules/connection-refused.js';
 import { dependencyDown } from './rules/dependency-down.js';
 import { dnsNxdomain } from './rules/dns-nxdomain.js';
@@ -65,6 +66,12 @@ export const RULES: Rule[] = [
  * of them doesn't stop the walk, since what it calls may explain it better (a name that no
  * longer resolves because the container behind it stopped; a finding with a consumer behind it).
  */
+/**
+ * The egress alerts' catalog (ADR-187): a new destination, a raw IP or an upload isn't a crash
+ * or a dependency's failure, so only change_before_egress is asked, and no edge is followed.
+ */
+export const EGRESS_CAUSE_RULES: Rule[] = [changeBeforeEgress];
+
 export const CALL_RULES: readonly string[] = ['dns_nxdomain', 'application_finding'];
 
 /** Every rule that applies to the snapshot's object, asked in catalog order. */

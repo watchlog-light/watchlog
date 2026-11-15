@@ -6,10 +6,11 @@ import { newId } from '../../lib/ids.js';
 import { STATE_RULES, type DefaultRule } from './defaults.js';
 import type { EvaluatorLookup } from './engine.js';
 import { METRIC_RULES } from './metric-rules.js';
+import { EGRESS_RULES } from '../egress/rules.js';
 import { thresholdEvaluator, type ThresholdScope } from './threshold.js';
 import type { Condition } from './defaults.js';
 
-export const DEFAULT_RULES: DefaultRule[] = [...STATE_RULES, ...METRIC_RULES];
+export const DEFAULT_RULES: DefaultRule[] = [...STATE_RULES, ...METRIC_RULES, ...EGRESS_RULES];
 const BY_KEY = new Map(DEFAULT_RULES.map((r) => [r.key, r]));
 
 export const lookupEvaluator: EvaluatorLookup = (rule) => {

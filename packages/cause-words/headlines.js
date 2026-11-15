@@ -45,6 +45,15 @@ export const HEADLINES = {
   job_failed_exit:
     "{name}'s run {job} failed: its pods exited with code {exitCode} until it gave up.",
   job_failed: "{name}'s run {job} failed.",
+  // ADR-187: the egress alerts' rule; `n` is the minutes from the change to the first connection.
+  change_before_egress_image:
+    'Started 1 minute after {name} was changed to image {image}. | Started {n} minutes after {name} was changed to image {image}.',
+  change_before_egress_rollout:
+    'Started 1 minute after {name} rolled out revision {to}. | Started {n} minutes after {name} rolled out revision {to}.',
+  change_before_egress_recreate:
+    'Started 1 minute after {name} was re-created from {image}. | Started {n} minutes after {name} was re-created from {image}.',
+  change_before_egress_compose:
+    'Started 1 minute after Compose project {project} was brought up. | Started {n} minutes after Compose project {project} was brought up.',
   node_or_host_held_cordoned:
     "{name} can't be scheduled: node {node}, where it may run, is cordoned and takes no new pods.",
   node_or_host_held_not_ready:

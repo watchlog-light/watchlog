@@ -21,7 +21,8 @@ import {
   sourceFocus,
   type ClusterRef,
 } from './resolve.js';
-import { CALL_RULES, RULES, runRules, type Rule } from './rules.js';
+import { CALL_RULES, EGRESS_CAUSE_RULES, RULES, runRules, type Rule } from './rules.js';
+import { isEgressAlert } from './rules/change-before-egress.js';
 import { linksOf, throughLink, type Link } from './rules/application-finding.js';
 import type { Subject } from './subject.js';
 import type { Candidate, Cause, Check, FlowsOff, ObjectRef, Sentence, State } from './types.js';
@@ -69,8 +70,10 @@ export async function explain(
 ): Promise<CausesAnswer> {
   const reader = memoReader(api);
   const now = opts.now ?? Date.now();
-  const rules = opts.rules ?? RULES;
   const target = await resolveTarget(reader, cluster, subject);
+  // An egress alert asks its own rule only, on the source itself (ADR-187).
+  const egress = isEgressAlert(target);
+  const rules = opts.rules ?? (egress ? EGRESS_CAUSE_RULES : RULES);
   const end = target.resolvedAt ? Date.parse(target.resolvedAt) : now;
   const anchor = target.symptomAt ? Math.min(Date.parse(target.symptomAt), end) : end;
   const window = {
@@ -110,7 +113,7 @@ export async function explain(
   const look = async (e: Evidence, hops: number, seen: Set<string>): Promise<Candidate[]> => {
     const own = runRules(e, rules, hops);
     const blocks = own.some((c) => c.complete && !CALL_RULES.includes(c.rule));
-    if (hops >= MAX_HOPS || blocks) return own;
+    if (egress || hops >= MAX_HOPS || blocks) return own;
     const edges =
       e.map.mode === 'flows' ? dependenciesOf(e).filter((d) => !seen.has(d.target)) : [];
     const links = linksOf(e).filter((l) => !seen.has(l.key));

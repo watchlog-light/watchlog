@@ -3,6 +3,7 @@
 import { pino } from 'pino';
 import { buildApp } from './app.js';
 import { loadConfig, type Config } from './config.js';
+import { setEgressLearningDays } from './modules/egress/learning.js';
 import { createDb, describeDbError, waitForDatabase } from './db/index.js';
 import { checkSecretKey, usePreviousSecretKey } from './lib/secrets.js';
 import { HttpClient } from './modules/alerts/channels.js';
@@ -69,6 +70,7 @@ try {
   process.exit(1);
 }
 usePreviousSecretKey(config.previousSecretKey);
+setEgressLearningDays(config.egressLearningDays);
 try {
   await checkSecretKey(systemDb, config.secretKey);
 } catch (err) {

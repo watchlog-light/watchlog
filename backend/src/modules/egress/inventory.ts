@@ -33,7 +33,7 @@ const CONNECTIONS = `watchlog_flow_connections_total{${EXTERNAL}}`;
 const BYTES = `watchlog_flow_bytes_total{${EXTERNAL}}`;
 const DEST = 'dst_kind, dst, dst_port';
 /** The source labels each platform's flow series carry (slice 1: `node` is summed away). */
-const SOURCE_LABELS = {
+export const SOURCE_LABELS = {
   kubernetes: 'namespace, workload_kind, workload',
   docker: 'host, container, compose_project, compose_service',
 } as const;
@@ -111,7 +111,7 @@ export function sourceOf(kind: ClusterKind, l: Record<string, string>): SourceId
 }
 
 /** One inventory row from a series' labels: "Internet" is port 0 (it has no `dst_port`). */
-function edgeOf(kind: ClusterKind, l: Record<string, string>) {
+export function edgeOf(kind: ClusterKind, l: Record<string, string>) {
   const source = sourceOf(kind, l);
   if (!source || !l.dst || (l.dst_kind !== 'external' && l.dst_kind !== 'internet')) return null;
   const port = l.dst_kind === 'internet' ? 0 : Number(l.dst_port ?? 0);

@@ -15,6 +15,8 @@ export const CATALOG = [
   'dns_nxdomain',
   'cpu_throttled',
   'job_failed',
+  // ADR-187: the egress alerts' own rule, asked only for them.
+  'change_before_egress',
 ] as const;
 export type RuleCode = (typeof CATALOG)[number];
 

@@ -5422,7 +5422,9 @@ export interface paths {
                   | 'phases'
                   | 'replicas'
                   | 'health'
-                  | 'samples';
+                  | 'samples'
+                  | 'connections'
+                  | 'sent';
                 kind: 'line' | 'bands';
                 metric: string | null;
                 unit: string | null;
@@ -7007,7 +7009,9 @@ export interface paths {
                     | 'phases'
                     | 'replicas'
                     | 'health'
-                    | 'samples';
+                    | 'samples'
+                    | 'connections'
+                    | 'sent';
                   kind: 'line' | 'bands';
                   metric: string | null;
                   unit: string | null;

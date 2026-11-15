@@ -9,6 +9,7 @@ import type { Database } from '../../db/index.js';
 import type { ClusterScope, QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
 import { escapeLabelValue } from '../query/catalog.js';
 import { bestExpectation, loadExpectations } from './expected.js';
+import { egressLearningMs, learningStart } from './learning.js';
 import {
   sourceOf,
   type ClusterKind,
@@ -25,8 +26,6 @@ export const EGRESS_NEW_MS = 24 * 3_600_000;
  * reversible default for the owner: add 'local_name' and 'private_network' here to undo it.
  */
 export const EGRESS_NEW_CLASSES: ReadonlySet<string> = new Set(['name', 'public_network']);
-/** The learning period (ADR-187); slice 5's rules read WATCHLOG_EGRESS_LEARNING_DAYS. */
-export const EGRESS_LEARNING_DAYS = 7;
 /** At most this many rows; `truncated` and `total` say how many matched (ADR-189). */
 export const EGRESS_MAX_ROWS = 500;
 /** The longest range the page offers (ADR-188). */
@@ -265,8 +264,8 @@ const kindOf = (cls: string): EgressRow['kind'] =>
 
 /** The learning state (ADR-187): from the upgrade for existing clusters, else first report. */
 export function learningOf(c: EgressCluster, oldestFirstSeen: Date | null, nowMs: number) {
-  const since = c.egress_learning_since ?? c.first_seen_at ?? c.created_at;
-  const until = new Date(since.getTime() + EGRESS_LEARNING_DAYS * DAY_MS);
+  const since = learningStart(c);
+  const until = new Date(since.getTime() + egressLearningMs());
   const from = Math.min(since.getTime(), oldestFirstSeen?.getTime() ?? Infinity);
   return {
     since: since.toISOString(),

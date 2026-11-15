@@ -12,6 +12,8 @@
 //   Deployment unavailable          desired vs ready replicas (two step lines)
 //   Docker unhealthy                health check results (✓/✕ strip) + CPU and memory
 //   agent / cluster not reporting   samples received per minute, the silent gap marked
+//   egress (ADR-187)                connections per minute from the source to the
+//                                   destination and port; bytes sent for a large upload
 //
 // Every query is scoped to the alert's object (node, pod, workload, container), one
 // series per object, at most MAX_SERIES with the rest counted.
@@ -19,6 +21,7 @@ import { authorisedScope, type QuerySeries, type VictoriaQueryClient } from '../
 import {
   buildQuery,
   chooseStep,
+  escapeLabelValue,
   metricUnit,
   selector,
   type MetricKey,
@@ -38,7 +41,9 @@ export type PanelId =
   | 'phases'
   | 'replicas'
   | 'health'
-  | 'samples';
+  | 'samples'
+  | 'connections'
+  | 'sent';
 export type Tone = 'ok' | 'warning' | 'critical' | 'neutral';
 
 export interface ChartLine {
@@ -338,6 +343,43 @@ const restartsAndUsage: Definition = async (c, t) => {
   return { panels: [restarts, ...usage], marks: [] };
 };
 
+/**
+ * An egress alert's chart: the source's connections (or bytes sent) to its destination and port,
+ * per minute, summed over nodes, or over a Compose service's containers. Every label value is
+ * escaped: destinations come from DNS answers.
+ */
+async function egressChart(
+  c: Ctx,
+  t: ChartTarget,
+  what: 'connections' | 'sent',
+): ReturnType<Definition> {
+  const l = t.labels;
+  const m: string[] = ['dst_kind="external"'];
+  const add = (k: string, v: string | undefined) => {
+    if (v !== undefined) m.push(`${k}="${escapeLabelValue(v)}"`);
+  };
+  add('namespace', l.namespace);
+  add('workload_kind', l.workload_kind);
+  add('workload', l.workload);
+  add('compose_project', l.compose_project);
+  add('compose_service', l.compose_service);
+  add('host', l.compose_service ? undefined : l.node);
+  add('container', l.compose_service ? undefined : l.container);
+  add('dst', l.destination);
+  add('dst_port', l.port);
+  if (what === 'sent') m.push('dir="sent"');
+  const step = Math.max(60, c.step);
+  const metric = what === 'sent' ? 'watchlog_flow_bytes_total' : 'watchlog_flow_connections_total';
+  const series = await c.range(`sum(increase(${metric}{${m.join(', ')}}[${step}s]))`, step);
+  const wide = { ...c, step };
+  const panel = linePanel(
+    what,
+    what === 'sent' ? 'bytes' : 'count',
+    lines(wide, series, { name: () => `${l.destination ?? ''}${l.port ? `:${l.port}` : ''}` }),
+  );
+  return { panels: [panel], marks: [] };
+}
+
 export const RULE_CHARTS: Record<string, Definition> = {
   'k8s.pod.crashloop': restartsAndUsage,
 
@@ -461,6 +503,10 @@ export const RULE_CHARTS: Record<string, Definition> = {
       marks: [],
     };
   },
+
+  'egress.new_destination': (c, t) => egressChart(c, t, 'connections'),
+  'egress.raw_ip': (c, t) => egressChart(c, t, 'connections'),
+  'egress.large_upload_new': (c, t) => egressChart(c, t, 'sent'),
 
   'docker.container.restarts': async (c, t) => {
     const [metric, usage] = await Promise.all([metricPanel(c, t, { step: true }), cpuMemory(c, t)]);

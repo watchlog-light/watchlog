@@ -32,6 +32,8 @@ export const RULE_MEANS: Record<string, string> = {
   cpu_throttled:
     'Its CPU limit throttles it (facts.pct % of the time) while it, or what calls it, is slow.',
   job_failed: 'A Job or CronJob run failed: its exit codes and its back-off.',
+  change_before_egress:
+    'Egress alerts only: the source was rolled out, changed to a new image, re-created or brought up by Compose in the 60 minutes before its first connection to the destination (facts.minutes).',
 };
 
 /** How to read a cause, for the tool descriptions. */

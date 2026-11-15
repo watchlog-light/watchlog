@@ -20,6 +20,11 @@ export interface AlertTextInput {
 export interface AlertText {
   title: string;
   why: string | null;
+  /**
+   * Strings in the title and why that are names from outside (an egress destination: DNS
+   * answers anyone can register, ADR-187). The channels set them as code, never as links.
+   */
+  code?: string[];
 }
 
 const pct = (v: unknown) => (typeof v === 'number' ? `${Math.round(v * 100)}%` : '');
@@ -63,6 +68,7 @@ export function alertText(a: AlertTextInput): AlertText {
   // Agent alerts written before `lastSeen` carry the time in their summary only.
   const lastSeen = str(d.lastSeen) ?? str(d.summary)?.match(ISO)?.[0] ?? null;
   const wl = subject(l);
+  if (a.ruleKey?.startsWith('egress.')) return egressText(a) ?? fallback;
   switch (a.ruleKey) {
     case 'k8s.pod.crashloop':
       return {
@@ -247,4 +253,76 @@ export function alertText(a: AlertTextInput): AlertText {
     };
   }
   return fallback;
+}
+
+/** "orders", "shop/api" (a Compose service), "redis": the source of an egress alert. */
+export function egressSource(l: Record<string, string>): string {
+  if (l.workload) return l.workload;
+  if (l.compose_service)
+    return l.compose_project ? `${l.compose_project}/${l.compose_service}` : l.compose_service;
+  return l.container ?? '';
+}
+
+/** "08:12 UTC": messages write times in UTC, as the alert's other facts do. */
+function utcClock(iso: unknown): string | null {
+  const t = typeof iso === 'string' ? Date.parse(iso) : NaN;
+  return Number.isNaN(t) ? null : `${new Date(t).toISOString().slice(11, 16)} UTC`;
+}
+
+const mib = (b: number) => `${Math.round(b / 2 ** 20)} MiB`;
+
+/**
+ * The egress alerts' words (ADR-187, ADR-095): what, where, since when. The destination is the
+ * `dst` label (a DNS name or a raw network) with its port; it is data, so it goes in `code`.
+ */
+function egressText(a: AlertTextInput): AlertText | null {
+  const l = a.labels;
+  const d = a.details;
+  const who = egressSource(l);
+  const dest = str(d.destination) ?? l.destination;
+  if (!who || !dest) return null;
+  const port = num(d.port) ?? (l.port ? Number(l.port) : null);
+  const target = port ? `${dest}:${port}` : dest;
+  const docker = !l.workload;
+  switch (a.ruleKey) {
+    case 'egress.new_destination': {
+      const others = num(d.others);
+      return {
+        title: `${who} started talking to ${target}`,
+        why: join(
+          utcClock(d.firstSeen) && `first connection at ${utcClock(d.firstSeen)}`,
+          others === 0
+            ? `nothing else in the ${docker ? 'fleet' : 'cluster'} talks to it`
+            : others !== null &&
+                plural(
+                  others,
+                  `1 other ${docker ? 'container' : 'workload'} talks to it`,
+                  `{n} other ${docker ? 'containers' : 'workloads'} talk to it`,
+                ),
+        ),
+        code: [target],
+      };
+    }
+    case 'egress.raw_ip':
+      return {
+        title: `${who} connects to ${target} by IP address`,
+        why: join(
+          num(d.connections) !== null &&
+            plural(num(d.connections)!, '1 connection in 10 min', '{n} connections in 10 min'),
+          'no DNS name behind it',
+        ),
+        code: [target],
+      };
+    case 'egress.large_upload_new':
+      return {
+        title: `${who} sent ${mib(num(d.sentBytes) ?? 0)} to ${target}`,
+        why: join(
+          'in the last hour',
+          num(d.threshold) !== null && `threshold ${mib(num(d.threshold)!)}`,
+          utcClock(d.firstSeen) && `first seen at ${utcClock(d.firstSeen)}`,
+        ),
+        code: [target],
+      };
+  }
+  return null;
 }
