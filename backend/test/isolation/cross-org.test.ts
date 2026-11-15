@@ -271,6 +271,40 @@ describe('every REST route as org B with org A ids', () => {
     expect(q.body).toContain('zzalpha-pod');
   });
 
+  it("egress (ADR-192): B can't read A's clusters' destinations, and B's own hold none of A's", async () => {
+    const egressOf = async (as: SeededOrg, cluster: string, extra: Record<string, string> = {}) =>
+      w.app.inject({
+        method: 'GET',
+        url: '/api/v1/egress',
+        query: { cluster, from: String(Math.floor(Date.now() / 1000) - 7 * 86_400), ...extra },
+        cookies: { wl_session: await as.session() },
+      });
+    for (const id of [A.k8s.id, A.docker.id]) {
+      const extras: Record<string, string>[] = [
+        {},
+        { namespace: 'shop' },
+        { project: 'zzalpha-shop', service: 'api' },
+      ];
+      for (const extra of extras) {
+        const b = await egressOf(B, id, extra);
+        expect(b.statusCode, id).toBe(404);
+        expect(leaks(b.body, id + JSON.stringify(extra))).toEqual([]);
+      }
+    }
+    for (const id of [B.k8s.id, B.docker.id]) {
+      const own = await egressOf(B, id);
+      expect(own.statusCode).toBe(200);
+      expect(leaks(own.body)).toEqual([]);
+      expect(own.body).toContain('api.zzbeta.example.org');
+    }
+    // The control: A reads its own rows on both platforms.
+    for (const id of [A.k8s.id, A.docker.id]) {
+      const a = await egressOf(A, id);
+      expect(a.statusCode).toBe(200);
+      expect(a.body).toContain('api.zzalpha.example.org');
+    }
+  });
+
   it("exports (ADR-181): B can't reach A's clusters, and B's own exports hold nothing of A", async () => {
     const now = Math.floor(Date.now() / 1000);
     const range = { from: String(now - 3600), to: String(now) };

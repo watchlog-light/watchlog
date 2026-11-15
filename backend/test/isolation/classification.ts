@@ -143,6 +143,9 @@ export const ROUTES: Record<string, RouteClass> = {
     control: 'needs a connected agent to answer',
   },
   'GET /api/v1/clusters/:id/right-sizing': org,
+  // Egress watch (ADR-189, ADR-192): the cluster is a query parameter, so its 404 for B with
+  // A's ids and A's control are asserted in cross-org.test.ts ("egress").
+  'GET /api/v1/egress': org,
   'GET /api/v1/clusters/:id/search': { kind: 'org', query: { q: 'web' } },
   'GET /api/v1/clusters/:id/overview': org,
   'GET /api/v1/clusters/:id/service-map': org,
