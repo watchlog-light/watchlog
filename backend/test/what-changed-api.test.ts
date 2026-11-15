@@ -298,6 +298,28 @@ describe('the pure parts', () => {
       composeProject: 'shop',
       composeService: 'web',
     });
+    // A Docker edge's destination container reads as its Compose service.
+    expect(
+      objectOf(
+        'edge.connections.rate',
+        {
+          container: 'shop-api-1',
+          compose_project: 'shop',
+          compose_service: 'api',
+          dst_kind: 'container',
+          dst: 'shop-web-1',
+        },
+        compose,
+      ),
+    ).toEqual({
+      object: {
+        kind: 'container',
+        name: 'shop-api-1',
+        composeProject: 'shop',
+        composeService: 'api',
+      },
+      peer: 'web',
+    });
     expect(objectOf('host.disk.io', { host: 'h1' }).object).toEqual({ kind: 'host', name: 'h1' });
     expect(objectOf('redis.ops.rate', { service: 'cache', service_type: 'redis' }).object).toEqual({
       kind: 'service',
