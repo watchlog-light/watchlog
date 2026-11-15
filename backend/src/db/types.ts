@@ -189,6 +189,8 @@ export interface CloudSettings {
 export interface Clusters {
   agent_version: string | null;
   created_at: Generated<Timestamp>;
+  egress_backfilled_at: Timestamp | null;
+  egress_learning_since: Timestamp | null;
   first_seen_at: Timestamp | null;
   id: string;
   k8s_version: string | null;
@@ -591,6 +593,43 @@ export interface UserIdentities {
   user_id: string;
 }
 
+export interface EgressDestinations {
+  approved_at: Timestamp | null;
+  approved_by: string | null;
+  cluster_id: string;
+  destination: string;
+  destination_class: string;
+  dst_kind: string;
+  first_seen: Timestamp;
+  first_seen_before: Generated<boolean>;
+  id: Generated<string>;
+  last_seen: Timestamp;
+  org_id: Generated<string>;
+  pattern: string | null;
+  port: number;
+  source: Json;
+}
+
+export interface EgressExpected {
+  cluster_id: string;
+  comment: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  org_id: Generated<string>;
+  pattern: string;
+  port: number | null;
+  source: Json | null;
+}
+
+export interface EgressSources {
+  cluster_id: string;
+  first_seen: Timestamp;
+  last_seen: Timestamp;
+  org_id: Generated<string>;
+  source: Json;
+}
+
 export interface EmailTokens {
   created_at: Generated<Timestamp>;
   email: string;
@@ -704,6 +743,9 @@ export interface DB {
   cloud_settings: CloudSettings;
   clusters: Clusters;
   discovery_ignores: DiscoveryIgnores;
+  egress_destinations: EgressDestinations;
+  egress_expected: EgressExpected;
+  egress_sources: EgressSources;
   email_tokens: EmailTokens;
   entitlements: Entitlements;
   funnel_events: FunnelEvents;

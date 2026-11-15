@@ -91,6 +91,11 @@ export class AlertWorker {
     return this.locks.count;
   }
 
+  /** Whether this worker looks after the org now (its bucket's lock, ADR-087). */
+  holdsOrg(orgId: string): boolean {
+    return this.locks.holds(bucketOf(orgId));
+  }
+
   /** One cycle. Never throws: errors are logged and recorded in the heartbeat. */
   async runCycle(): Promise<CycleReport> {
     const report: CycleReport = {

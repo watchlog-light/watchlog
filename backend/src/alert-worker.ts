@@ -25,6 +25,15 @@ import { FunnelRecorder } from './modules/funnel/recorder.js';
 import { DAY7_EVERY_MS, recordDay7Active } from './modules/funnel/day7.js';
 import { LIFECYCLE_EVERY_MS, sendLifecycleEmails } from './modules/lifecycle/job.js';
 import {
+  EGRESS_BACKFILL_EVERY_MS,
+  EGRESS_FORGET_EVERY_MS,
+  EGRESS_MINUTE_EVERY_MS,
+  runEgressBackfill,
+  runEgressForget,
+  runEgressMinute,
+  type EgressDeps,
+} from './modules/egress/inventory.js';
+import {
   DATA_RIGHTS_EVERY_MS,
   runDeletions,
   runInactivity,
@@ -141,6 +150,38 @@ const cloudTasks: WorkerTask[] = funnel
       },
     ]
   : [];
+// Egress watch's inventory (ADR-185, ADR-192), Community and Cloud: each org this worker's
+// buckets hold, inside withOrg on the app connection; the metrics through clusterForOrg.
+const egress: EgressDeps | null = victoria
+  ? {
+      db,
+      victoria,
+      orgs: async () =>
+        (await systemDb.selectFrom('orgs').select('id').execute())
+          .map((o) => o.id)
+          .filter((id) => worker.holdsOrg(id)),
+      log,
+    }
+  : null;
+const egressTasks: WorkerTask[] = egress
+  ? [
+      {
+        name: 'egress-minute',
+        everyMs: EGRESS_MINUTE_EVERY_MS,
+        run: (now) => runEgressMinute(egress, now),
+      },
+      {
+        name: 'egress-backfill',
+        everyMs: EGRESS_BACKFILL_EVERY_MS,
+        run: (now) => runEgressBackfill(egress, now),
+      },
+      {
+        name: 'egress-forget',
+        everyMs: EGRESS_FORGET_EVERY_MS,
+        run: (now) => runEgressForget(egress, now),
+      },
+    ]
+  : [];
 const channelDeps = {
   db: systemDb,
   secretKey: config.secretKey,
@@ -172,6 +213,7 @@ const worker = new AlertWorker({
       run: (now) =>
         runApiTokenJobs({ db: systemDb, settings: () => settings.alerting(), log }, now),
     },
+    ...egressTasks,
     ...cloudTasks,
   ],
 });
