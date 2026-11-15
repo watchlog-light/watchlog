@@ -172,7 +172,9 @@ export function objectOf(
     };
   }
   if (key.startsWith('edge.')) {
-    const peer = l.dst_workload ?? l.dst_service ?? l.dst ?? null;
+    // A Docker destination container reads as its Compose service, as on the map.
+    const dstService = l.dst ? compose.get(l.dst)?.service : undefined;
+    const peer = l.dst_workload ?? l.dst_service ?? dstService ?? l.dst ?? null;
     if (l.workload) {
       return {
         object: {
