@@ -2928,6 +2928,11 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 - Out of scope (later, if users ask): country and ASN of destinations (a GeoIP database and its licence), blocking or enforcing, reading TLS SNI or HTTP hosts, threat-intelligence feeds.
 - Alternatives: reading TLS SNI to name destinations reached by IP (rejected: ADR-102, and it reads payload); a per-connection event stream to the backend (rejected: ADR-099's aggregation, and the agent's budget).
 - Consequences: SPEC §4.14 describes the feature. DNS over TCP, DoT and DoH stay invisible (ADR-104), so a source that resolves names that way appears with raw networks; the page says names come from DNS answers only.
+- As built (v0.7 slice 1, 2026-11-15; measured on the e2e kind cluster and Docker host): **the agent doesn't change; the cap stays 50.**
+  - **The cap does hide names, but only past 50:** a test pod and a test container each dialled 70 distinct public names on 443. Each got exactly 50 named series and one `internet` series; the other 20 names were hidden, the same on both platforms. The cap counts distinct destination-and-port pairs per source, per node agent, in the last hour.
+  - **No real source comes near it:** over the 7 retained days, the most distinct externals any real source had in one hour on one agent was 8: a kind node seen as a container by the Docker agent, pulling images. On Kubernetes the most was 5.
+  - **A higher cap costs cardinality first, then memory:** each external edge is 19 series (12 latency buckets). The agent's hard limit is 20,000 series per node (SPEC §6.3), and about 1,050 external edges would reach it. Measured in the collector's own types, each edge keeps about 0.55 KiB, but each 15 s collect allocates about 14.9 KiB per edge for its samples. 20 sources with 200 names each would allocate about 57 MiB per collect, against the 64 MB budget.
+  - **If users meet the cap later:** names past 50 could be sent in a lighter shape (connections and bytes only, 3 series) instead of the full edge. That needs a new ADR and a benchmark; it is not needed for 0.7.0.
 
 ## ADR-185: The egress inventory: one row per source, destination and port, updated every minute, forgotten 90 days after it was last seen
 
@@ -2947,6 +2952,28 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Deleted clusters** take their rows with them (foreign key to `clusters`, `ON DELETE CASCADE`), and so does an org's deletion through the data-rights job.
 - Alternatives: a new series per destination with its first-seen time (rejected: series aren't kept 90 days and can't be updated); keeping it in the agent (rejected: agents restart and a source spans nodes); one row per destination for the whole cluster (rejected: "new for this workload" is the signal).
 - Consequences: the table grows with sources × destinations × ports; with the cap of 50 per source it stays small next to `objects`. The isolation suite covers both tables (ADR-192).
+- As built (v0.7 slice 1, 2026-11-15; measured on the e2e kind cluster and Docker host, 7 days of retained series):
+  - **Labels as sent.** Kubernetes series carry `namespace`, `workload_kind`, `workload` and **`node`**. Docker series carry `host` (always), `container`, and `compose_project` and `compose_service` when the container has them. A workload on three nodes is three series per destination, so the minute job sums `node` away. The identity stays the one above.
+  - **Which workload a pod belongs to:**
+    - a bare pod is `Pod/<pod name>`;
+    - a CronJob's pods are `CronJob/<cronjob name>`, the same across runs, so one CronJob has one learning period, not one per Job;
+    - a plain Job is `Job/<job name>`;
+    - a static pod is `StaticPod/<pod name>`, which includes the node's name.
+  - **Short-lived processes are invisible.** A pod or container that dials and exits before the agent's next drain (15 s) is never attributed. Its connections are counted only in `watchlog_agent_flow_unattributed_connections_total`. Measured: a CronJob whose pod lived 1 s left no series in 10 runs, and neither did a 1 s `docker run --rm`. The same CronJob sleeping 40 s after the dial was attributed. The page and the docs say so, and the demo kit's raw-IP job stays alive after it dials (ADR-193).
+  - **"Internet" has no port:** its series is `dst="Internet"` with no `dst_port` label. It is one row per source, with port 0.
+  - **Used in a minute means connections or bytes, confirmed.** 35 source and destination pairs had hours with bytes and no connections, up to 17 MB in one hour, all on keep-alive connections (ADR-108).
+  - **The minute query:** one query per cluster for connections and one for bytes:
+    - `sum by (<identity>, dst_kind, dst, dst_port) (increase(watchlog_flow_connections_total{cluster_id="…", dst_kind=~"external|internet"}[2m]))`, run every minute, with idempotent upserts;
+    - about 1 ms each on the e2e VictoriaMetrics (58 rows, 60–120 series fetched; VictoriaMetrics estimates about 1 KiB of RAM per series);
+    - VictoriaMetrics counts a new series' first value as an increase, so a destination's first minute is not lost.
+    - An idle edge keeps sending its unchanged counters every 15 s until it ends 10 minutes after its last use. Used again, the same series comes back from 0. `increase()` over 1, 2, 5, 15 and 30 minutes counted exactly the connections made on both platforms, with the gap and the reset in the window.
+    - So `last_seen` moves only when the increase is above 0. A sample's presence would make it 10 minutes late.
+  - **The look-back at the upgrade reads `watchlog_flow_connections_total` only.** Every edge sends it, even with 0 connections, and adding the bytes series gave the same rows (86 and 89) for three times the samples. Over everything retained (7 days on the e2e stack) it took about 4 ms and scanned 451,000 samples, with about 725 KiB of estimated RAM. `tfirst_over_time` scans every sample, though: an edge that stays busy sends 5,760 samples a day, so 30 days of 6,000 busy edges would pass VictoriaMetrics' default limit of 10⁹ samples per query. The job therefore looks back one day per query (`tfirst_over_time(…[1d] offset <n>d)`, keeping the oldest), once per cluster, outside the minute loop.
+  - **Private raw networks and single-label names are listed, but don't raise "New external destination" by default.** Here the numbers contradict the decision above. The page labels them "Private network" or "Local name". The owner can still reverse this (ADR-161's open point).
+    - Kubernetes: 28 of 33 real external series were private raw networks. All of them were cluster addresses that the IP map missed or the host the backend runs on: pods' `10.244.x.0/24` after a pod restart, the `kubernetes` Service's `10.96.0.0/24:443`, nodes' `172.18.0.0/24:6443` and `:10250`. They appeared in 11 scattered hours of 7 days (boots and pod churn, ADR-158), so each pod restart would have raised a "new destination".
+    - Docker: 16 of 36 were private: the kind nodes' pod networks (ADR-158), the backend's host, and Compose networks of containers stopped for longer than the one-hour hold.
+    - Single-label names were never internet destinations: `api` and `slow` (Compose services whose containers were stopped) and `demo-control-plane` (a node's hostname).
+  - **Public destinations were named:** every public destination of an ordinary pod or container was named (the 70-name dialers: 50 of 50 named, none raw). The only public raw networks (7 on Docker, none on Kubernetes) came from the kind nodes' containerd pulling images. One of them is an address of `registry-1.docker.io`, which the same node also had as a name. That is a nested runtime whose lookups the names map doesn't match.
 
 ## ADR-186: Expected destinations: one destination or a pattern, for one source or all, kept until someone removes them
 
@@ -2976,6 +3003,12 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Probable cause:** the alert's subject is the source. A thirteenth rule in ADR-150's catalog, for the egress alerts only, `change_before_egress`, finds a rollout or image change (Docker: a re-created container, an image or Compose change) of the source in the 60 minutes before the first connection, and makes it Likely: "Started 7 minutes after orders was changed to image 3.8.2". Without one, the answer is No clear cause with what was checked (changes, other sources using the destination, failures). The headline comes from the shared cause words and goes into the "Likely cause:" line as for every alert (ADR-157).
 - Alternatives: a learning period from the cluster's creation for clusters that exist at the upgrade (rejected: the inventory starts empty at the upgrade, so it would alert on everything in use); per-address raw IP counting (rejected: needs the address as a label, against the cardinality rule, or new collection).
 - Consequences: the alert screen's step "looked the name up in DNS for the first time" isn't built: names are never stored or sent apart from an edge's destination (ADR-104), so WatchLog doesn't know when a lookup happened. Time-based behaviour (the learning period, first seen, the 24-hour resolve) is tested with an injectable clock. `WATCHLOG_EGRESS_LEARNING_DAYS` (default 7) shortens the learning period for tests and the demo kit, as `WATCHLOG_RIGHT_SIZING_MIN_HOURS` does for right-sizing.
+- As built (v0.7 slice 1, 2026-11-15; measured on the e2e kind cluster and Docker host):
+  - **5 connections in 10 minutes is quiet on public networks:** over 7 days no real source reached 5 connections to a public raw network in any 10-minute window. The most was 1: kind nodes to Docker Hub's CDN. Only the test sources reached it.
+  - **Private networks would be loud,** so they stay out of "Raw IP" (ADR-185). 24 real source and network pairs reached 5 in 10 minutes, and the highest reached 667 (agents to their backend, kubelet probes of pod networks seen from Docker).
+  - **The units are exact.** Five TCP connects to `1.1.1.1:443` showed as `increase(…[10m]) = 5` on the `1.1.1.0/24:443` series, on both platforms. `watchlog_flow_connections_total` counts attempts, failed ones included: one of the five failed on kind and still counted. That is what the rule wants, since a source dialling a dead address is still dialling it. A 120 MiB upload showed as exactly 125,829,120 bytes in `bytes_total{dir="sent"}` on both platforms.
+  - **"100 MB" is 100 MiB** (104,857,600 bytes), because alert thresholds are typed and shown in MiB.
+  - **"New external destination" skips** private raw networks and single-label names by default (ADR-185's as-built note).
 
 ## ADR-188: The Egress page and "Talks to the internet" on the source pages
 
@@ -3043,3 +3076,4 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
     - both on the demo's Docker host too, when it is on.
   - Both demo scenarios run outside the existing chaos windows, so each alert's cause stays clear.
 - Consequences: the release slice runs the egress e2e with the causes and integrations e2e; the demo kit's version moves to 0.7.0.
+- As built (v0.7 slice 1, 2026-11-15): **every scenario client stays alive for at least 30 s after its last connection.** That covers the e2e's clients, the hourly client and the raw-IP job. A pod or container that exits before the agent's next drain (15 s) is never attributed (ADR-185's as-built note). A CronJob is fine for the raw-IP job if its pod sleeps after dialling; its series are `CronJob/<name>`.
