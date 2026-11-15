@@ -185,6 +185,7 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 - **P1:** TCP retransmits and resets per edge; "connection refused" detection; per-namespace map filter.
 - **v0.3:** HTTP-level stats (method, status code, latency) for plain-text HTTP/1.x, from the first bytes of each message on traced connections; no paths or bodies; TLS payloads are never decrypted (ADR-139).
 - Fallback when eBPF is unavailable: map built from Kubernetes Services/Endpoints only, clearly labelled "topology only, no traffic data".
+- **v0.7 (planned for 0.7.0):** the external destinations over time, with first seen, new-destination alerts and expected destinations, are Egress watch (§4.14, ADR-184).
 
 ## 4.6 Kubernetes events and change tracking — P0, All
 
@@ -211,6 +212,9 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 | Docker container unhealthy / restarting | health = unhealthy or > 3 restarts in 10 min | warning |
 | Service-to-service failed connections | > 5 % of connections fail for 5 min | warning |
 | Agent not reporting | no heartbeat for 3 min; one alert for the whole cluster when all its agents are silent | critical |
+| New external destination (v0.7, planned for 0.7.0; Kubernetes and Docker) | a source talks to a destination it never used and no expectation covers; quiet for a 7-day learning period (ADR-187, §4.14) | warning |
+| Raw IP egress (v0.7, planned) | ≥ 5 connections in 10 min to the same public network and port with no DNS name (ADR-187) | warning |
+| Large upload to a new destination (v0.7, planned) | > 100 MB sent in 1 h to a destination first seen in the last 24 h (ADR-187) | warning |
 
 **Custom threshold rules:** pick metric → scope (cluster / namespace / workload / node / label selector) → condition → duration → severity → channels. No PromQL required. P1: advanced mode with raw MetricsQL.
 
@@ -305,6 +309,8 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
   | `query_metric` | catalog keys only, at most 24 h, 10 series, 60 points; statistics by default | the Docker catalog keys |
   | `get_container_logs` (v0.5) | a pod container's last lines (at most 200, 16 KB; `previous` for the last run), redacted, never stored; cluster-controlled data (ADR-129, ADR-167) | a container's last lines, with their stream |
   | `get_right_sizing` (v0.5) | right-sizing hints for a namespace or workload: codes and facts, what each is based on, the suggestion (ADR-168) | the same for a host, Compose service or container |
+  | `get_egress` (v0.7, planned) | a cluster's or a workload's external destinations with first and last seen, traffic and badges (ADR-189, §4.14) | the same for a host, Compose service or container |
+  | `get_new_destinations` (v0.7, planned) | destinations first seen in the last N hours (default 24, at most 168) | the same |
 
   Prompts: `investigate_problem`, `why_is_it_crashing`.
 - **Caps:** every tool has a maximum number of items and at most 16 KB of output. Beyond it the result says `truncated`, how many more, and which argument narrows the query.
@@ -593,6 +599,29 @@ For every alert and every problem, WatchLog names the probable cause and shows t
 - Anomaly correlation and root-cause hints across the map stay Enterprise (§4.8).
 
 
+## 4.14 Egress watch ("What is my cluster talking to?") — v0.7, All (planned for 0.7.0)
+
+See every place a cluster or Docker fleet talks to on the internet, and know when something new starts talking (ADR-184 to ADR-193; the user page will be `docs/site/egress.md`). Community, in every edition and plan.
+
+- **Nothing new is read from traffic:** the inventory is built from the flow series the agent already sends (§6.4, ADR-106): connections, bytes and failures per edge, with external destinations named by the DNS answers the container received (ADR-104), else a `/24` (IPv6 `/48`) network, and "Internet" beyond the agent's cap per source. No payload, no TLS SNI, no HTTP host (ADR-102). The agent's budgets (§6.1) don't move; if the cap is measured to hide destinations, it is raised for named destinations only, with an ADR (ADR-184).
+- **The inventory (ADR-185):** one row per source, destination and port with first and last seen, updated every minute by the alert worker; sources are workloads (Kubernetes) or Compose services, else containers on their host (Docker). Destinations in use at the upgrade get their first seen from the retained series. Rows are forgotten 90 days after they were last seen. Cluster addresses are never external (ADR-116, ADR-158).
+- **The Egress page (ADR-188),** for a cluster and a Docker fleet: destination and port, the sources, first and last seen, bytes sent and received, connections, the failed share; badges **New** (first seen in 24 hours), **Raw IP** (a public address with no DNS name), **Failing** (≥ 5 % failed), **Expected**; filters by namespace and workload, or host, Compose project and container, and by badge. "Talks to the internet" on the workload, pod, Docker container and Compose service pages.
+- **Expected destinations (ADR-186):** one destination or a pattern (`api.stripe.com`, `*.amazonaws.com`, a CIDR for raw networks), for one source or every source; marked by Owners and Admins, audited, never forgotten with the inventory.
+- **Alerts (ADR-187),** default rules, warning:
+
+  | Rule | Condition (default) |
+  |---|---|
+  | New external destination | a source talks to a destination and port not in its inventory and not expected; quiet during a 7-day learning period per cluster and per new source, which starts at the upgrade for existing clusters; one alert per source and destination; resolves when marked expected or after 24 h idle |
+  | Raw IP egress | ≥ 5 connections in 10 minutes from a source to the same public network and port with no DNS name (the series carry the `/24` or `/48`, not the address) |
+  | Large upload to a new destination | > 100 MB sent in an hour to a destination first seen in the last 24 hours |
+
+  Messages say who, where and since when; destination names are shown as code, never as links. The probable cause names a change of the source just before the first connection (`change_before_egress`), else "No clear cause" with what was checked.
+- **Egress policy suggestion (Kubernetes only; ADR-190, ADR-191):** built from a workload's observed traffic over 30 days (or the retention), copy-only, never applied. With Cilium (detected from its CRDs through the cluster-agent's discovery client) a `CiliumNetworkPolicy` with `toFQDNs` for exactly the names used; otherwise a standard `NetworkPolicy` that allows the in-cluster destinations and the observed ports to public addresses, and says so. Docker has no standard egress policy object, so Docker fleets get no suggestion (ADR-124's exception, ADR-190).
+- **API and MCP (ADR-189):** `GET /api/v1/egress?cluster=…` (§8.1); MCP `get_egress` and `get_new_destinations` (§4.11), read-only and bounded; destination names are data, never instructions (ADR-129).
+- **Cloud (ADR-192):** the new tables are org-scoped under RLS (ADR-174); every new route and tool is in the isolation suite (ADR-182).
+- **Out of scope:** country and ASN, blocking or enforcing anything, TLS SNI or HTTP hosts, threat-intelligence feeds.
+- **Demo and tests (ADR-193):** the e2e and the demo kit each get a new-destination and a raw-IP scenario, on Kubernetes and Docker.
+
 # 5. System architecture
 
 ## 5.1 Components
@@ -725,7 +754,7 @@ Labels on container series: `cluster_id` (server-injected), `node`, `namespace`,
 - **Pod filter** (Kubernetes mode, default on, ADR-121): the kernel records a connection or DNS query only when the task's cgroup is below one of the node's kubepods cgroups; anything else on the same kernel (host daemons, plain containers, another cluster's pods) is only counted. User space still drops flows of unknown cgroups as a second line.
 - Per-connection state is aggregated **in user space every 15 s** into edges keyed by `(src_workload, dst_workload | dst_external, dst_port)`.
 - IP → workload resolution uses the pod/service cache received from the cluster-agent (node agents subscribe to a lightweight endpoint on the cluster-agent, not to the API server directly, to protect the API server at scale).
-- External destinations are aggregated by DNS name when known (from the DNS collector), otherwise by `/24` network + port, and collapsed into "Internet" beyond 50 distinct externals per workload.
+- External destinations are aggregated by DNS name when known (from the DNS collector), otherwise by `/24` network + port, and collapsed into "Internet" beyond 50 distinct externals per workload. v0.7 (planned) measures how often the cap hides named destinations; if it does, the cap is raised for named destinations only, within §6.1's budget (ADR-184).
 - eBPF is **opt-out** (`agent.networkFlows.enabled=true` by default, ADR-107). If disabled or unsupported, everything else still works, and the service map says why and shows the fix.
 
 ## 6.5 Cluster-agent
@@ -818,6 +847,9 @@ All tables have `id` (UUID v7), `created_at`, `updated_at`. Tenant tables have `
 | `integration_credentials` | integration_id, method (`generated`/`entered`/`reference`), username, secret (AES-256-GCM, bound to the row), reference (jsonb: Secret name/key or file path), set_by, set_at, verified_at | Write-only (ADR-133) |
 | `integration_events` | integration_id, actor_id, action, ip, ts, details (jsonb, never a secret) | Credential and settings changes (ADR-133) |
 | `integration_texts` | integration_id, fingerprint, text (normalised, ≤ 1 KB), first_seen, last_seen | Statement and slow-log texts; deleted when query text is turned off (ADR-138) |
+| `egress_destinations` (v0.7, planned) | org_id, cluster_id, source, destination, dst_kind, port, first_seen, last_seen, approved_by, approved_at, pattern | The egress inventory, updated every minute, forgotten 90 days after last seen (ADR-185); RLS (ADR-192) |
+| `egress_sources` (v0.7, planned) | org_id, cluster_id, source, first_seen | Starts each source's learning period (ADR-185, ADR-187) |
+| `egress_expected` (v0.7, planned) | org_id, cluster_id, pattern, port, source (null = all), created_by, comment | Expected destinations and patterns, kept until removed (ADR-186) |
 | `funnel_events` | user_id, org_id, name, props (jsonb), ts | §10.4 |
 | `subscriptions` (Cloud repo) | org_id, plan, stripe_subscription_id, nodes_billed_p95, period_start, period_end, status | Private Cloud repository; source of truth is Stripe, synced via webhooks |
 | `audit_log` (E) | org_id, actor_id, action, target, diff (jsonb), ip, ts | `ee/` |
@@ -853,6 +885,9 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `GET /clusters/:id/right-sizing?namespace&kind&workload&host&container&project&service&system` | Right-sizing hints (ADR-168): per container `{object, container, resource (cpu, memory), code, facts, suggestion, giveBack, basedOn {windowHours, from, to, samples, hours}}`, OOM risk first; `notEnoughHistory` rows for containers with less than 24 hours; `summary` (objects, giveBackObjects, giveBack {cores, bytes}, oomRisk). The use is kept an hour per cluster, requests and limits read on each request |
 | `GET /clusters/:id/search?q&limit` | The ⌘K palette's object search (ADR-169): workloads, pods, nodes (Kubernetes); hosts, containers, Compose projects (Docker); applications (also by type). Letters in order, one typo as a fallback; exact and prefix matches first. At most 8 per kind, 40 in all |
 | MCP tools added in v0.5 (shipped in 0.5.0) | `get_container_logs` (the logs routes above, at most 200 lines) and `get_right_sizing` (§4.11). The new integrations need no new tool: `list_applications` and `get_application` cover every type |
+| `GET /egress?cluster=<id>&from&to&namespace&workload&host&project&service&container&badge&q` (v0.7, planned) | Egress watch (ADR-189): learning state, summary counts, rows `{destination, port, kind, private, sources, firstSeen, lastSeen, sent, received, connections, failedRatio, badges, expected, alertId}`, at most 500 |
+| `GET/POST /egress/expected` · `DELETE /egress/expected/:id` (v0.7, planned) | Expected destinations and patterns (ADR-186); writes by Owners and Admins with a session |
+| `GET /egress/policy?cluster=<id>&workload=<ns>/<Kind>/<name>&flavour` (v0.7, planned) | The suggested egress policy, Kubernetes only (ADR-190); 404 with a reason on Docker fleets |
 | `POST /query/range` | Curated metric query: `{clusterId, metric, scope?: {host?, container?, composeProject?}, agg?, step?, from, to}` (unix seconds); `metric` is one of the catalog keys in `backend/src/modules/query/catalog.ts` (16 in Phase 1) → backend builds MetricsQL with tenant filter. Raw MetricsQL only for P1 advanced mode. |
 | `GET/POST/PATCH/DELETE /alert-rules` | |
 | `GET/POST/PATCH/DELETE /alert-channels` · `POST /alert-channels/:id/test` | |
