@@ -311,4 +311,29 @@ else
   echo "SKIP  0.6.0's own charts: no v0.6.0 tag in this checkout"
 fi
 
+# 0.8.0 adds anomalyWorker (ADR-197), off by default and read nil-safe: a fresh install
+# and a --reuse-values upgrade from 0.6.0's values render no anomaly-worker, so Community
+# runs exactly the processes it ran before; the live demo turns it on with demoMode.
+# anomaly <name> <want present|absent> <chart dir> [helm args...]
+anomaly() {
+  local name="$1" want="$2" chart="$3" out got=absent
+  shift 3
+  out="$(helm template rel "$chart" -n ns "$@")"
+  if grep -q 'name: rel-anomaly-worker$' <<<"$out"; then
+    got=present
+    grep -q 'args: \[dist/anomaly-worker.js\]' <<<"$out" || got=inconsistent
+  fi
+  if [[ "$got" == "$want" ]]; then
+    echo "PASS  $name: anomaly-worker $got"
+  else
+    echo "FAIL  $name: anomaly-worker $got, want $want"
+    fails=$((fails + 1))
+  fi
+}
+anomaly "watchlog chart, fresh install" absent "$UMBRELLA"
+anomaly "watchlog chart, --reuse-values from 0.6.0" absent "$(reused "$UMBRELLA" "$V060/watchlog.values.yaml")"
+anomaly "watchlog chart, --reuse-values from 0.6.0 plus anomalyWorker.enabled" present \
+  "$(reused "$UMBRELLA" "$V060/watchlog.values.yaml")" --set anomalyWorker.enabled=true --set demoMode=true
+anomaly "watchlog chart, demoMode alone" absent "$UMBRELLA" --set demoMode=true
+
 [[ $fails -eq 0 ]] || { echo "$fails upgrade check(s) failed"; exit 1; }

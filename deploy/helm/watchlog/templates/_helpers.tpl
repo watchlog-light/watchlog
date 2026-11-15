@@ -105,3 +105,6 @@ even to 0 or false, is kept.
 {{- define "watchlog.alertWorker" -}}
 {{- include "watchlog.withDefaults" (list .Values.alertWorker (dict "replicas" 1 "resources" (dict "requests" (dict "cpu" "50m" "memory" "128Mi") "limits" (dict "memory" "256Mi")))) -}}
 {{- end -}}
+{{- define "watchlog.anomalyWorker" -}}
+{{- include "watchlog.withDefaults" (list .Values.anomalyWorker (dict "enabled" false "resources" (dict "requests" (dict "cpu" "50m" "memory" "128Mi") "limits" (dict "memory" "512Mi")))) -}}
+{{- end -}}

@@ -1,0 +1,62 @@
+{{/* SPDX-License-Identifier: AGPL-3.0-only */}}
+{{/*
+What changed's anomaly-worker (ADR-197): from the backend image, one replica. Off by
+default and read nil-safe (an upgrade with --reuse-values from an older release has no
+anomalyWorker map): it runs only in Cloud or demo mode and exits anywhere else, so only
+the live demo turns it on with this chart. /livez restarts a stuck loop.
+*/}}
+{{- $worker := include "watchlog.anomalyWorker" . | fromYaml }}
+{{- if $worker.enabled }}
+{{- $name := printf "%s-anomaly-worker" .Release.Name }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels: {{- include "watchlog.labels" . | nindent 4 }}
+    app.kubernetes.io/component: anomaly-worker
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: {{- include "watchlog.selector" (list .Release.Name "anomaly-worker") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "watchlog.labels" . | nindent 8 }}
+        app.kubernetes.io/component: anomaly-worker
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {{- include "watchlog.podSecurity" 65532 | nindent 8 }}
+      containers:
+        - name: anomaly-worker
+          image: {{ include "watchlog.image" (list . "backend") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [dist/anomaly-worker.js]
+          env:
+            {{- include "watchlog.databaseEnv" . | nindent 12 }}
+            - name: VICTORIAMETRICS_URL
+              value: http://{{ .Release.Name }}-victoriametrics:8428
+            - name: WATCHLOG_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secret-key, key: key } }
+            {{- if .Values.demoMode }}
+            - { name: WATCHLOG_DEMO_MODE, value: 'true' }
+            {{- end }}
+            - { name: WATCHLOG_ANOMALY_WORKER_PORT, value: '4082' }
+          ports:
+            - { name: health, containerPort: 4082 }
+          # It waits for PostgreSQL and the migrations on a fresh install (ADR-118).
+          startupProbe:
+            httpGet: { path: /livez, port: health }
+            periodSeconds: 5
+            failureThreshold: 72
+          livenessProbe:
+            httpGet: { path: /livez, port: health }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          resources: {{- toYaml $worker.resources | nindent 12 }}
+          securityContext: {{- include "watchlog.containerSecurity" . | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+{{- end }}

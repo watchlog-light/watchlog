@@ -72,6 +72,16 @@ alertWorker:
     requests: { cpu: 50m, memory: 128Mi }
     limits: { memory: 256Mi }
 
+# What changed's anomaly-worker (ADR-197): learns each series' usual week and records
+# unusual periods. Pro only: it runs only in WatchLog Cloud or with demoMode (the live demo),
+# and exits at start anywhere else, so it is off by default and a self-hosted install
+# needs nothing here.
+anomalyWorker:
+  enabled: false
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+
 alerting:
   # SMTP server for email channels, e.g. smtp://user:password@smtp.example.com:587
   # (stored in a Secret). Without it email channels report an error.
