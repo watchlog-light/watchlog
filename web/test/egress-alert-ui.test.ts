@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import EgressAlertCard from '@/components/egress/EgressAlertCard.vue';
 import EgressTable from '@/components/egress/EgressTable.vue';
 import {
+  alertScope,
   alertTarget,
   alertTargetName,
   alertWhere,
@@ -156,6 +157,7 @@ describe('the labels of an egress alert', () => {
       query: { project: 'storefront', service: 'api' },
     });
     expect(egressQueryOf(c)).toEqual({ project: 'storefront', service: 'api' });
+    expect(alertScope(c)).toEqual({ kind: 'compose', name: 'storefront/api', extra: null });
     const p = alert({
       labels: { node: 'docker-01', container: 'redis', destination: '8.8.8.0/24', port: '53' },
       cluster: FLEET,
