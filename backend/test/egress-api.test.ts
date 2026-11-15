@@ -5,8 +5,13 @@
 // measured from an injected clock, never by waiting. Cloud's org scoping is the isolation
 // suite's (test/isolation/cross-org.test.ts, "egress").
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
-import { classifyDestination } from '../src/modules/egress/inventory.js';
+import {
+  authorisedScope,
+  VictoriaQueryClient,
+  type ClusterScope,
+  type QuerySeries,
+} from '../src/lib/victoria.js';
+import { classifyDestination, runEgressBackfill } from '../src/modules/egress/inventory.js';
 import { EGRESS_MAX_ROWS } from '../src/modules/egress/read.js';
 import {
   closeTestContext,
@@ -53,8 +58,19 @@ async function cluster(kind: 'kubernetes' | 'docker', name: string = kind) {
     cookies: { wl_session: cookie },
     payload: { name, kind },
   });
-  return res.json().cluster.id as string;
+  const id = res.json().cluster.id as string;
+  await lookedBack(id);
+  return id;
 }
+
+/** The first-seen look-back has run, as it has a few minutes after a cluster first reports. */
+const lookedBack = (clusterId: string) =>
+  ctx.db
+    .updateTable('clusters')
+    .set({ egress_backfilled_at: new Date(NOW - DAY) })
+    .where('id', '=', clusterId)
+    .where('egress_backfilled_at', 'is', null)
+    .execute();
 
 /** An inventory row as the minute job writes it (the class worked out the same way). */
 async function inventory(
@@ -499,5 +515,147 @@ describe('GET /api/v1/egress: bounds and roles', () => {
       failedRatio: null,
       badges: ['new'],
     });
+  });
+});
+
+describe('GET /api/v1/egress: after an upgrade, until the first-seen look-back has run', () => {
+  // The upgrade at NOW - 3 min; the minute job has written what it saw since then, so every
+  // destination's first seen is the upgrade's minute. The look-back (the worker's, every few
+  // minutes) moves first seen back to the retained series' first sample. Until it has run,
+  // nothing is New: the page's summary and the nav count say 0, as the alert rules wait.
+  const UPGRADE = NOW - 3 * MIN;
+
+  /** The look-back's per-day answers: labels and the first sample's time, today's window. */
+  const lookback =
+    (first: [Record<string, string>, number][]) =>
+    async (_scope: ClusterScope, expr: string): Promise<QuerySeries[]> =>
+      /offset \d+d/.test(expr)
+        ? []
+        : first.map(([labels, ms]) => ({ labels, points: [[0, ms / 1000]] }));
+
+  async function upgraded(kind: 'kubernetes' | 'docker') {
+    await open();
+    const id = await cluster(kind, `upgraded-${kind}`);
+    await ctx.db
+      .updateTable('clusters')
+      .set({
+        first_seen_at: new Date(NOW - 60 * DAY),
+        egress_learning_since: new Date(UPGRADE),
+        egress_backfilled_at: null,
+      })
+      .where('id', '=', id)
+      .execute();
+    const { org_id } = await ctx.db
+      .selectFrom('clusters')
+      .select('org_id')
+      .where('id', '=', id)
+      .executeTakeFirstOrThrow();
+    return { id, orgId: org_id };
+  }
+
+  const lookBack = (orgId: string, answer: ReturnType<typeof lookback>) =>
+    runEgressBackfill(
+      {
+        db: ctx.db,
+        victoria: { query: answer },
+        orgs: async () => [orgId],
+        log: { warn: () => {} },
+      },
+      NOW,
+    );
+
+  it('Kubernetes: no row is New and the count is 0; after the look-back, only the destination first used since the upgrade is', async () => {
+    const { id, orgId } = await upgraded('kubernetes');
+    await inventory(id, shop('checkout'), 'api.stripe.com', 443, NOW - UPGRADE + MIN);
+    await inventory(id, shop('importer'), '185.220.101.0/24', 9001, NOW - UPGRADE + MIN);
+    await inventory(id, shop('orders'), 'example.org', 443, 2 * MIN);
+
+    const before = (await get({ cluster: id })).json();
+    expect(before.learning.firstSeenPending).toBe(true);
+    expect(before.summary).toMatchObject({ destinations: 3, new: 0, rawIp: 1 });
+    for (const r of before.rows as Row[]) {
+      expect(r.badges).not.toContain('new');
+      expect(r.sources.map((s) => s.new)).toEqual([false]);
+    }
+    // The badge filter agrees with the count.
+    expect((await get({ cluster: id, badge: 'new' })).json().rows).toEqual([]);
+
+    const report = await lookBack(
+      orgId,
+      lookback([
+        [
+          { ...shop('checkout'), dst_kind: 'external', dst: 'api.stripe.com', dst_port: '443' },
+          NOW - 20 * DAY,
+        ],
+        [
+          { ...shop('importer'), dst_kind: 'external', dst: '185.220.101.0/24', dst_port: '9001' },
+          NOW - 9 * DAY,
+        ],
+        [
+          { ...shop('orders'), dst_kind: 'external', dst: 'example.org', dst_port: '443' },
+          NOW - 2 * MIN,
+        ],
+      ]),
+    );
+    expect(report.errors).toEqual([]);
+
+    const after = (await get({ cluster: id })).json();
+    expect(after.learning.firstSeenPending).toBe(false);
+    expect(after.summary.new).toBe(1);
+    expect(find(after.rows, 'example.org')!.badges).toEqual(['new']);
+    expect(find(after.rows, 'api.stripe.com')!.badges).toEqual([]);
+    expect(find(after.rows, '185.220.101.0/24')!.badges).toEqual(['raw_ip']);
+  });
+
+  it('Docker: the same for a Compose service and a plain container', async () => {
+    const { id, orgId } = await upgraded('docker');
+    const api = { compose_project: 'storefront', compose_service: 'api' };
+    await inventory(id, api, 'api.openai.com', 443, NOW - UPGRADE + MIN);
+    await inventory(id, { host: 'h2', container: 'cron' }, 'hooks.slack.com', 443, 2 * MIN);
+
+    const before = (await get({ cluster: id })).json();
+    expect(before.learning.firstSeenPending).toBe(true);
+    expect(before.summary).toMatchObject({ destinations: 2, new: 0 });
+    expect(find(before.rows, 'api.openai.com')!.sources).toEqual([
+      expect.objectContaining({ composeProject: 'storefront', composeService: 'api', new: false }),
+    ]);
+    expect(find(before.rows, 'hooks.slack.com')!.sources).toEqual([
+      expect.objectContaining({ host: 'h2', container: 'cron', new: false }),
+    ]);
+
+    await lookBack(
+      orgId,
+      lookback([
+        [
+          {
+            host: 'h1',
+            container: 'storefront-api-1',
+            ...api,
+            dst_kind: 'external',
+            dst: 'api.openai.com',
+            dst_port: '443',
+          },
+          NOW - 12 * DAY,
+        ],
+        [
+          {
+            host: 'h2',
+            container: 'cron',
+            dst_kind: 'external',
+            dst: 'hooks.slack.com',
+            dst_port: '443',
+          },
+          NOW - 2 * MIN,
+        ],
+      ]),
+    );
+
+    const after = (await get({ cluster: id })).json();
+    expect(after.learning.firstSeenPending).toBe(false);
+    expect(after.summary.new).toBe(1);
+    expect(find(after.rows, 'api.openai.com')!.badges).toEqual([]);
+    expect(find(after.rows, 'hooks.slack.com')!.sources).toEqual([
+      expect.objectContaining({ host: 'h2', container: 'cron', new: true }),
+    ]);
   });
 });

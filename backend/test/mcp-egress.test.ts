@@ -46,6 +46,15 @@ async function open() {
   cookie = await setupAdmin(ctx.app);
 }
 
+/** The first-seen look-back has run, as it has a few minutes after a cluster first reports. */
+const lookedBack = (clusterId: string) =>
+  ctx!.db
+    .updateTable('clusters')
+    .set({ egress_backfilled_at: new Date(Date.now() - DAY) })
+    .where('id', '=', clusterId)
+    .where('egress_backfilled_at', 'is', null)
+    .execute();
+
 /** An inventory row as the minute job writes it (the class worked out the same way). */
 async function inventory(
   clusterId: string,
@@ -56,6 +65,7 @@ async function inventory(
   lastAgoMs = 0,
 ) {
   const now = Date.now();
+  await lookedBack(clusterId);
   await ctx!.db
     .insertInto('egress_destinations')
     .values({

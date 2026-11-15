@@ -148,6 +148,15 @@ beforeEach(async () => {
 });
 afterEach(() => closeTestContext(ctx));
 
+/** The first-seen look-back has run, as it has a few minutes after a cluster first reports. */
+const lookedBack = (clusterId: string) =>
+  ctx.db
+    .updateTable('clusters')
+    .set({ egress_backfilled_at: new Date(Date.now() - DAY) })
+    .where('id', '=', clusterId)
+    .where('egress_backfilled_at', 'is', null)
+    .execute();
+
 async function cluster(kind: 'kubernetes' | 'docker') {
   const res = await ctx.app.inject({
     method: 'POST',
@@ -156,6 +165,7 @@ async function cluster(kind: 'kubernetes' | 'docker') {
     payload: { name: kind, kind },
   });
   const id = res.json().cluster.id as string;
+  await lookedBack(id);
   const { org_id } = await ctx.db
     .selectFrom('clusters')
     .select('org_id')
