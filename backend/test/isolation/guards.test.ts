@@ -71,6 +71,7 @@ const AUTHORISED_SCOPE: Record<string, string> = {
   'modules/alerts/metric-rules.ts': "the alert worker's rules, read under withOrg",
   'modules/alerts/routes.ts': "the org's clusters, read with its filter",
   'modules/alerts/rule-charts.ts': "charts of the org's own alerts and rules",
+  'modules/egress/rules.ts': "the alert worker's egress rules (ADR-187), read under withOrg",
   'modules/integrations/discovery.ts': "the org's clusters, read with its filter",
   'modules/integrations/routes.ts': "services read with the org's filter (composite key)",
 };
