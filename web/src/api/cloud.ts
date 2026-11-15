@@ -300,6 +300,7 @@ export const CLOUD_ERROR_CODES = [
   'already-member',
   'last-sign-in-method',
   'identity-taken',
+  'account-exists',
   'plan-limit',
   'oauth-state',
   'oauth-cancelled',

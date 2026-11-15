@@ -3856,6 +3856,7 @@
       "already-member": "You're already a member of this org.",
       "last-sign-in-method": "This is your only way to sign in. Link another one, or set a password, before you remove it.",
       "identity-taken": "That account is already linked to another WatchLog account.",
+      "account-exists": "This email already has a WatchLog account. Sign in the way you signed up, then add this sign-in option in Settings › Security.",
       "plan-limit": "Your plan's limit is reached. Try Pro, free during the beta, in Settings › Plan & billing.",
       "oauth-state": "The sign-in took too long or was opened in another tab. Try again.",
       "oauth-cancelled": "Sign-in was cancelled.",
