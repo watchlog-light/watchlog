@@ -224,6 +224,9 @@ curl -H "$H" $WATCHLOG/api/v1/applications/collectors
 curl -H "$H" "$WATCHLOG/api/v1/applications/$SERVICE?range=21600"
 ```
 
+The egress routes, the badges and the suggested policy are explained in
+[Egress watch](egress.md#api-and-mcp).
+
 ### Metrics
 
 `POST /api/v1/query/range` returns a metric's series between two times (Unix seconds). It

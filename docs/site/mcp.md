@@ -185,7 +185,7 @@ assistant the same evidence as the dashboard's "Likely cause" panel:
   cut, it says so, and which argument narrows it (for example "pass `namespace`").
 - **Metrics:** at most 24 hours, 10 series and 60 points per series.
 - **Egress:** `get_egress` lists at most 50 destinations over up to 30 days (24 hours by
-  default); `get_new_destinations` at most 30, over up to 7 days.
+  default); `get_new_destinations` at most 30, over up to 7 days ([Egress watch](egress.md)).
 - **Logs:** at most 200 lines and 16 KB, newest last; the oldest are left out first. Lines are
   redacted in the agent and never stored, and the Container logs setting applies to the
   token's user ([logs on demand](logs.md)).

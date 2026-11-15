@@ -10,8 +10,8 @@ escalates, keeps firing past the reminder interval, flaps, and when it resolves.
 cover crash loops, OOM kills, pods stuck pending, image pull errors, unavailable deployments,
 node pressure and NotReady nodes, unhealthy or restarting Docker containers, containers
 throttled at their CPU limit more than 25% of the time for 15 minutes (pods and Docker
-containers), failing connections between services and agents that stop reporting. Each rule sends to the channels
-you pick for it.
+containers), failing connections between services, agents that stop reporting, and new or unusual
+external destinations ([Egress watch](egress.md)). Each rule sends to the channels you pick for it.
 
 ## Channels
 
