@@ -31,6 +31,7 @@ import {
   type ClusterKind,
   type ScoredKey,
 } from '../src/modules/anomaly/keys.js';
+import { alertTokens, seriesTokens } from '../src/modules/anomaly/exclusion.js';
 import { bucketOf, medianAndMad } from '../src/modules/anomaly/stats.js';
 
 const MIN = 60_000;
@@ -242,8 +243,10 @@ async function fireEveryHour(
       state: 'resolved',
       severity: 'warning',
       labels: JSON.stringify(p.alertLabels),
+      // Pending from the chaos's start, firing 5 minutes later (the rule's "for"), as the
+      // demo's own alerts do: the exclusion starts at the start.
       started_at: new Date(from),
-      fired_at: new Date(from),
+      fired_at: new Date(from + 5 * MIN),
       resolved_at: new Date(h + chaos.to * MIN),
     });
   }
@@ -355,7 +358,8 @@ describe.each(platforms)('$kind: the demo’s look-back and its chaos', (p) => {
   it('hourly chaos with its alert is left out of every bucket, and is listed when it comes back', async () => {
     const { orgId, clusterId } = await orgWith(p.kind);
     const vm = new FakeVictoria();
-    // Every hour from :15 to :30 the subject breaks, and the demo's own alert fires on it.
+    // Every hour from :15 to :30 the subject breaks, and the demo's own alert fires on it
+    // after its rule's 5 minutes.
     const chaos = { from: 15, to: 30, add: p.add };
     const series: Series = { ...p.series, chaos };
     // A twin subject with the same chaos and no alert: its minutes stay in (for contrast).
@@ -389,5 +393,65 @@ describe.each(platforms)('$kind: the demo’s look-back and its chaos', (p) => {
     const listed = await periods(clusterId);
     expect(listed.map((r) => r.subject)).toContainEqual(subjectOf(series.labels));
     expect(listed.find((r) => r.metric === series.key)!.started_at.getTime()).toBe(next);
+  });
+});
+
+describe('the chaos’s alerts name what they break (ADR-203)', () => {
+  it('Kubernetes: failed connections leave out the destination workload as well as the caller', () => {
+    const alert = alertTokens('kubernetes', {
+      namespace: 'shop',
+      workload_kind: 'Deployment',
+      workload: 'frontend',
+      dst_kind: 'workload',
+      dst_namespace: 'shop',
+      dst_workload_kind: 'Deployment',
+      dst_workload: 'api',
+    });
+    // The requests api serves (seen from the callers) and api's own CPU.
+    const served = seriesTokens('kubernetes', {
+      dst_kind: 'workload',
+      dst_namespace: 'shop',
+      dst_workload_kind: 'Deployment',
+      dst_workload: 'api',
+    });
+    const own = seriesTokens('kubernetes', {
+      namespace: 'shop',
+      workload_kind: 'Deployment',
+      workload: 'api',
+    });
+    for (const t of [served, own]) expect([...t].some((x) => alert.has(x))).toBe(true);
+    // Another workload stays in.
+    const other = seriesTokens('kubernetes', {
+      namespace: 'shop',
+      workload_kind: 'Deployment',
+      workload: 'backend',
+    });
+    expect([...other].some((x) => alert.has(x))).toBe(false);
+  });
+
+  it('Docker: failed connections leave out the destination container and its Compose service', () => {
+    const compose = new Map([['storefront-api-1', { project: 'storefront', service: 'api' }]]);
+    const alert = alertTokens(
+      'docker',
+      {
+        container: 'storefront-web-1',
+        node: 'demo-docker-host',
+        dst_kind: 'container',
+        dst: 'storefront-api-1',
+      },
+      compose,
+    );
+    const own = seriesTokens(
+      'docker',
+      { host: 'demo-docker-host', container: 'storefront-api-1' },
+      compose,
+    );
+    expect([...own].some((x) => alert.has(x))).toBe(true);
+    const other = seriesTokens(
+      'docker',
+      { host: 'demo-docker-host', container: 'storefront-db-1' },
+      compose,
+    );
+    expect([...other].some((x) => alert.has(x))).toBe(false);
   });
 });
