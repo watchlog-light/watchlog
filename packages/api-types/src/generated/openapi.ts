@@ -12148,13 +12148,15 @@ export interface paths {
                 [key: string]: string;
               };
               object: {
-                kind: string;
+                /** @description Kubernetes: workload or node; Docker: container (with its Compose project and service) or host; an integration: service */
+                kind: 'workload' | 'node' | 'container' | 'host' | 'service';
                 name: string;
                 namespace?: string;
                 workloadKind?: string;
                 host?: string;
                 composeProject?: string;
                 composeService?: string;
+                /** @description A monitored service's id, for its page */
                 id?: string;
               };
               peer: string | null;

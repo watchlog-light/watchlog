@@ -35,7 +35,7 @@ import {
 const DateTime = Type.String({ format: 'date-time' });
 const Opt = <T extends Parameters<typeof Type.Optional>[0]>(t: T) => Type.Optional(t);
 
-const ObjectSchema = Type.Object({
+export const ObjectSchema = Type.Object({
   kind: Type.Union(
     [
       Type.Literal('workload'),

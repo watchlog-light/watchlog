@@ -33041,7 +33041,29 @@
                       "required": ["kind", "name"],
                       "properties": {
                         "kind": {
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["workload"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["node"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["container"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["host"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["service"]
+                            }
+                          ],
+                          "description": "Kubernetes: workload or node; Docker: container (with its Compose project and service) or host; an integration: service"
                         },
                         "name": {
                           "type": "string"
@@ -33062,7 +33084,8 @@
                           "type": "string"
                         },
                         "id": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "A monitored service's id, for its page"
                         }
                       }
                     },
