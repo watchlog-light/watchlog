@@ -18,7 +18,8 @@ import WhatChangedRows from './WhatChangedRows.vue';
 
 // "What changed around it" on an alert's page (ADR-199, the screen Anomaly): the first three
 // rows of the alert's window and a link to the page in alert mode. Cloud Free sees one locked
-// line that opens the page (the upgrade page, slice 5); Community sees nothing (ADR-195).
+// line that opens the page, which is the upgrade page for it (ADR-201); Community sees
+// nothing (ADR-195).
 const CARD_ROWS = 3;
 const props = defineProps<{ alert: AlertDetail['alert'] }>();
 const auth = useAuthStore();

@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { Hourglass, Lock, Radar } from '@lucide/vue';
+import { Hourglass, Radar } from '@lucide/vue';
 import type { Cluster, WhatChanged } from '@watchlog/api-types';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -13,6 +13,7 @@ import Skeleton from '@/components/ui/Skeleton.vue';
 import WhatChangedCauseCard from '@/components/what-changed/WhatChangedCauseCard.vue';
 import WhatChangedChart from '@/components/what-changed/WhatChangedChart.vue';
 import WhatChangedRows from '@/components/what-changed/WhatChangedRows.vue';
+import WhatChangedUpgrade from '@/components/what-changed/WhatChangedUpgrade.vue';
 import { useLoader } from '@/composables/useLoader';
 import { formatDateTime } from '@/lib/format';
 import {
@@ -35,8 +36,8 @@ import { useClustersStore } from '@/stores/clusters';
 // What changed (ADR-199, the screen Main): what left its usual range in a cluster or a fleet,
 // in the order it happened, with the probable cause underneath. Windows: around an alert (when
 // opened from one), the last hour, the last 6 hours, a custom range of at most 24 hours (in
-// the demo, within its last 24 hours). Pro only: Cloud Free and Community see a placeholder
-// until the upgrade page (slice 5). Everything is in the URL, so the alert card links here.
+// the demo, within its last 24 hours). Pro only: Cloud Free and Community see the upgrade
+// page (ADR-201) in its place. Everything is in the URL, so the alert card links here.
 const REFRESH_MS = 60_000;
 const route = useRoute();
 const router = useRouter();
@@ -198,21 +199,11 @@ onBeforeUnmount(() => clearInterval(timer));
         action-to="/settings"
       />
 
-      <!-- Cloud Free and Community: a placeholder until the upgrade page (slice 5). -->
-      <EmptyState
+      <!-- Cloud Free and Community: the upgrade page (ADR-201). -->
+      <WhatChangedUpgrade
         v-else-if="access === 'free' || access === 'community'"
-        :icon="Lock"
-        :title="$t('whatChanged.locked.title')"
-        :description="$t(`whatChanged.locked.${access}`)"
-        v-bind="
-          access === 'free'
-            ? {
-                actionLabel: $t('whatChanged.locked.plan'),
-                actionTo: { name: 'settings', query: { tab: 'billing' } },
-              }
-            : {}
-        "
-        :data-testid="`wc-locked-${access}`"
+        :access="access"
+        :cluster="cluster"
       />
 
       <template v-else-if="answer">

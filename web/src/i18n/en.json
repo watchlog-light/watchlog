@@ -4753,12 +4753,6 @@
       "retry": "Try again"
     },
     "footnote": "Usual range: what each metric did at this hour of the week over the last 14 days. Something is listed when it stays far outside that range for 10 minutes. Worked out inside WatchLog; nothing is sent to an AI.",
-    "locked": {
-      "title": "What changed is part of Pro",
-      "free": "See what left its usual range around every alert, in the order it happened. Pro shows it for your clusters and fleets.",
-      "community": "What changed is part of WatchLog Cloud Pro. Monitoring, alerts, the service map, probable cause and Egress watch stay free.",
-      "plan": "Plan & billing"
-    },
     "card": {
       "title": "What changed around it",
       "open": "What changed · {n} thing | What changed · {n} things",
@@ -4770,6 +4764,79 @@
     },
     "errors": {
       "load": "Couldn't load What changed."
+    },
+    "upgrade": {
+      "badge": {
+        "free": "Pro · {perNode} per node a month",
+        "freeNoPrice": "Pro",
+        "community": "WatchLog Cloud Pro"
+      },
+      "title": "Know what moved first.",
+      "titleMuted": "Before you start guessing.",
+      "lead": {
+        "kubernetes": "Each metric in WatchLog's catalog learns its own normal week. When something breaks in {cluster}, you get one list of everything that left its range, in the order it happened, with the probable cause underneath.",
+        "docker": "Each metric in WatchLog's catalog learns its own normal week. When something breaks on {cluster}, you get one list of everything that left its range, in the order it happened, with the probable cause underneath."
+      },
+      "cta": {
+        "free": "Upgrade to Pro",
+        "community": "Try WatchLog Cloud",
+        "demo": "See it on the live demo",
+        "newTab": "(opens in a new tab)"
+      },
+      "fine": {
+        "kubernetes": "{perNode} per node a month, {minimum} minimum, billed on the 95th percentile of your nodes.",
+        "docker": "{perNode} per Docker host a month, {minimum} minimum, billed on the 95th percentile of your hosts.",
+        "stripe": "Paid through Stripe; cancel any time.",
+        "community": "Your self-hosted install keeps everything it has today, with no limits."
+      },
+      "askOwner": "Ask an Owner to upgrade",
+      "owners": "Owners: {names}",
+      "ownersUnknown": "Owners can upgrade in Settings › Plan & billing.",
+      "demo": {
+        "title": "What changed",
+        "label": "Live demo · not your cluster",
+        "labelDocker": "Live demo · not your fleet",
+        "cause": {
+          "kubernetes": "Connections are at 97% of max_connections (97 of 100). Most are held by nightly-export.",
+          "docker": "storefront-worker-1 was OOM-killed at its 64 MiB memory limit. orders' calls to it fail meanwhile."
+        }
+      },
+      "alerts": {
+        "title": "Your last alerts in {cluster}",
+        "subFree": "each would open with a What changed list",
+        "subCommunity": "in Cloud Pro, each would open with a What changed list",
+        "lockedFree": "What changed: Pro",
+        "lockedCommunity": "What changed: Cloud Pro",
+        "none": {
+          "kubernetes": "No alerts in {cluster} yet. When one fires, Pro opens it with what left its usual range around it.",
+          "docker": "No alerts on {cluster} yet. When one fires, Pro opens it with what left its usual range around it."
+        },
+        "error": "Couldn't load your alerts.",
+        "label": "Your last alerts"
+      },
+      "reasons": {
+        "label": "Why Pro",
+        "first": {
+          "title": "The first thing that moved",
+          "body": "Ordered by when each metric left its range, so the cause is near the top, not buried under its symptoms."
+        },
+        "alerts": {
+          "title": "Alerts with no thresholds",
+          "kubernetes": "“Unusual for a Tuesday at 14:00” catches slow drifts no fixed number would. One alert per workload and metric, quiet for 30 minutes after a rollout.",
+          "docker": "“Unusual for a Tuesday at 14:00” catches slow drifts no fixed number would. One alert per container and metric, quiet for 30 minutes after a re-create or a Compose change."
+        },
+        "history": {
+          "title": "30 days to learn from",
+          "kubernetes": "A normal week needs two weeks of history. Pro keeps 30 days, plus unlimited clusters and nodes and up to 10 users.",
+          "docker": "A normal week needs two weeks of history. Pro keeps 30 days, plus unlimited fleets and Docker hosts and up to 10 users."
+        }
+      },
+      "bottom": {
+        "free": "Start learning {cluster}'s week today.",
+        "community": "Want it for {cluster}? Point one agent at Cloud.",
+        "free_note": "Probable cause, alerts, the service map and Egress watch stay free on every plan."
+      },
+      "checkoutError": "Couldn't open Checkout."
     }
   },
   "anomaly": {

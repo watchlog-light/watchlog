@@ -60,6 +60,14 @@ export interface PlanInfo {
   period: { from: string; to: string; p95: number; peak: number };
   /** Nodes refused (402) in the last 24 hours. */
   refusedNodes: number;
+  /** Pro's price from the plans config (SPEC §3.3), whole US dollars; the upgrade page quotes it. */
+  price?: {
+    currency: string;
+    perNodeMonth: number;
+    minimumMonth: number;
+    annualPerNode: number;
+    annualMinimumNodes: number;
+  };
   downgrade: {
     graceUntil: string;
     daysLeft: number;
