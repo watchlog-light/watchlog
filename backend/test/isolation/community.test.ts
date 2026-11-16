@@ -131,6 +131,42 @@ describe('Community (WATCHLOG_EDITION unset)', () => {
     }
   });
 
+  it('What changed by API token (ADR-202): the route 404s and get_what_changed is not listed', async () => {
+    const org = await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow();
+    const created = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/api-tokens',
+      cookies: { wl_session: cookie },
+      payload: { name: 'community what changed' },
+    });
+    const auth = { authorization: `Bearer ${created.json().value as string}` };
+    for (const kind of ['kubernetes', 'docker'] as const) {
+      const cluster = await insertCluster(ctx.db, org.id, `wc-token-${kind}`, kind);
+      const r = await ctx.app.inject({
+        method: 'GET',
+        url: '/api/v1/what-changed',
+        query: { cluster: cluster.id },
+        headers: auth,
+      });
+      expect(r.statusCode).toBe(404);
+      expect(r.body).not.toContain('Pro');
+    }
+    const list = await ctx.app.inject({
+      method: 'POST',
+      url: '/mcp',
+      headers: {
+        ...auth,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        'mcp-protocol-version': '2025-11-25',
+      },
+      payload: { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} },
+    });
+    expect(list.statusCode, list.body).toBe(200);
+    expect(list.body).toContain('get_recent_changes');
+    expect(list.body).not.toContain('get_what_changed');
+  });
+
   it("anomaly alerts' page and feedback (ADR-200): 404, as if absent", async () => {
     for (const [method, url] of [
       ['GET', `/api/v1/alerts/00000000-0000-4000-8000-000000000001/anomaly`],

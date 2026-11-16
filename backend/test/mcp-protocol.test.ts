@@ -15,6 +15,8 @@ afterEach(async () => {
   ctx = undefined;
 });
 
+// Community's tools: get_what_changed (ADR-202) is registered only in Cloud and the live demo
+// (mcp-what-changed.test.ts), so this list is unchanged by it.
 const TOOLS = [
   'explain_alert',
   'explain_problem',

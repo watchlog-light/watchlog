@@ -154,9 +154,10 @@ export const ROUTES: Record<string, RouteClass> = {
   // The policy suggestion (ADR-190): B with A's clusters and workload gets 404, never the
   // Docker reason; B's own and A's control (cross-org.test.ts, "egress policy").
   'GET /api/v1/egress/policy': org,
-  // What changed (ADR-199, ADR-202): Pro only. B with A's cluster or A's alert gets 404, a
-  // Free org 403 `pro-feature` with nothing of A's, B's own and A's control
-  // (cross-org.test.ts, "what changed"); Community's 404 is in community.test.ts.
+  // What changed (ADR-199, ADR-202): Pro only, and public: API tokens read it too. B with A's
+  // cluster or A's alert gets 404, a Free org 403 `pro-feature` with nothing of A's, B's own
+  // and A's control, by session (cross-org.test.ts, "what changed") and by API token and MCP
+  // ("what changed tool"); Community's 404 and absent tool are in community.test.ts.
   'GET /api/v1/what-changed': org,
   // Anomaly alerts' page and feedback (ADR-200): Pro only. B with A's anomaly alert gets 404
   // (Free: 403 `pro-feature`), B's own answer and undo work under RLS, A's are untouched
@@ -299,6 +300,9 @@ export const MCP_TOOLS: Record<string, 'cluster' | 'id' | 'org'> = {
   get_expected_destinations: 'cluster',
   get_events: 'cluster',
   get_recent_changes: 'cluster',
+  // What changed (ADR-202): Cloud and the demo only; also asserted one by one in
+  // cross-org.test.ts ("what changed tool"), and absent in community.test.ts.
+  get_what_changed: 'cluster',
   query_metric: 'cluster',
 };
 

@@ -32,8 +32,17 @@ const OUT = process.env.WATCHLOG_E2E_OUT ?? join(tmpdir(), 'watchlog-mcp-e2e');
 const MCP_REMOTE = 'mcp-remote@0.15.2';
 const QUESTION = "What's wrong with my clusters?";
 // 0.5 added get_container_logs (ADR-167) and get_right_sizing (ADR-168); 0.7 added
-// get_egress, get_new_destinations and get_expected_destinations (ADR-189).
-const TOOLS = 19;
+// get_egress, get_new_destinations and get_expected_destinations (ADR-189). 0.8 added
+// get_what_changed (ADR-202), registered only in Cloud and the live demo: a Community
+// server lists 19, a Cloud or demo server 20.
+const COMMUNITY_TOOLS = 19;
+const PRO_TOOLS = ['get_what_changed'];
+
+/** Whether the listed tools are Community's 19, or those and What changed's. */
+function toolCount(tools: { name: string }[]): boolean {
+  const extra = tools.filter((t) => PRO_TOOLS.includes(t.name)).length;
+  return tools.length === COMMUNITY_TOOLS + extra && (extra === 0 || extra === PRO_TOOLS.length);
+}
 
 interface Cluster {
   id: string;
@@ -128,7 +137,11 @@ function problemNames(data: Json): Record<string, string[]> {
 /** The checks every client runs: the tools, and the real problems of both clusters. */
 async function contract(label: string, client: Client, kube: Cluster, docker: Cluster) {
   const { tools } = await client.listTools();
-  check(`${label}: ${TOOLS} tools`, tools.length === TOOLS, `${tools.length}`);
+  check(
+    `${label}: ${COMMUNITY_TOOLS} tools (+${PRO_TOOLS.length} in Cloud or the demo)`,
+    toolCount(tools),
+    `${tools.length}`,
+  );
   check(
     `${label}: every tool read-only`,
     tools.every((t) => t.annotations?.readOnlyHint === true),
@@ -352,8 +365,8 @@ async function causesMain() {
     const client = await httpClient(created.value, { pin: '2026-07-28' });
     const { tools } = await client.listTools();
     check(
-      `${TOOLS} tools, explain_problem among them`,
-      tools.length === TOOLS && tools.some((t) => t.name === 'explain_problem'),
+      `${COMMUNITY_TOOLS} tools (+${PRO_TOOLS.length} in Cloud or the demo), explain_problem among them`,
+      toolCount(tools) && tools.some((t) => t.name === 'explain_problem'),
       `${tools.length}`,
     );
     const problems = new Map<string, Json[]>();

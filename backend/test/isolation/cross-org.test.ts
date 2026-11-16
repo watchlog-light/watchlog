@@ -13,6 +13,7 @@ import { SUPPORT_ALLOWED } from '../../src/plugins/support.js';
 import { withOrg, markReadOnly, enterRequestScope } from '../../src/db/org-context.js';
 import { enterSupportSession, openSupportSession } from '../../src/modules/support/service.js';
 import { METRIC_KEYS } from '../../src/modules/query/catalog.js';
+import { PRO_REFUSAL } from '../../src/modules/mcp/tools/whatchanged.js';
 import { TEST_VM_URL } from '../helpers.js';
 import { newId } from '../../src/lib/ids.js';
 import { createSession } from '../../src/modules/auth/sessions.js';
@@ -693,6 +694,90 @@ describe('every MCP tool', () => {
         expect(a.isError, tool).toBe(false);
         expect(a.text).toContain(marker.replace('%s', 'zzalpha'));
       }
+    }
+    await asA.close();
+    await asB.close();
+  });
+
+  it("what changed tool and route by token (ADR-202): B with A's clusters and alert gets an error and nothing of A; B's own, A's control; Free refused", async () => {
+    const asB = await connect(B.apiToken.value);
+    const asA = await connect(A.apiToken.value);
+    const call = async (c: Client, args: Record<string, unknown>) => {
+      const r = await c.callTool({ name: 'get_what_changed', arguments: args });
+      const t = (r.content as { type: string; text?: string }[])
+        .map((x) => x.text ?? '')
+        .join('\n');
+      return { isError: r.isError === true, text: t };
+    };
+    // A's clusters by id and by name.
+    for (const cluster of [A.k8s.id, A.docker.id, 'zzalpha-k8s', 'zzalpha-fleet']) {
+      const b = await call(asB, { cluster });
+      expect(b.isError, cluster).toBe(true);
+      expect(JSON.parse(b.text).error).toBe('No cluster with this name or id.');
+      expect(leaks(b.text, cluster)).toEqual([]);
+    }
+    // A's alert with B's own cluster.
+    const alert = await call(asB, { cluster: B.k8s.id, alert: A.alertId });
+    expect(alert.isError).toBe(true);
+    expect(JSON.parse(alert.text).error).toBe('No alert with this id in this cluster.');
+    expect(leaks(alert.text, A.alertId)).toEqual([]);
+    // B's own rows and A's control, on both platforms.
+    for (const [o, c, other] of [
+      [B, asB, A],
+      [A, asA, B],
+    ] as const) {
+      for (const cluster of [o.k8s.id, o.docker.id]) {
+        const own = await call(c, { cluster });
+        expect(own.isError, own.text.slice(0, 200)).toBe(false);
+        expect(JSON.parse(own.text).changes).toHaveLength(1);
+        expect(own.text).toContain(o.label);
+        expect(leaks(own.text, '', other)).toEqual([]);
+      }
+    }
+    // The route with B's token: A's clusters 404, B's own 200.
+    const read = (o: SeededOrg, cluster: string) =>
+      w.app.inject({
+        method: 'GET',
+        url: '/api/v1/what-changed',
+        query: { cluster },
+        headers: { authorization: `Bearer ${o.apiToken.value}` },
+      });
+    for (const id of [A.k8s.id, A.docker.id]) {
+      const b = await read(B, id);
+      expect(b.statusCode, id).toBe(404);
+      expect(leaks(b.body, id)).toEqual([]);
+    }
+    for (const id of [B.k8s.id, B.docker.id]) {
+      const own = await read(B, id);
+      expect(own.statusCode, own.body).toBe(200);
+      expect(leaks(own.body)).toEqual([]);
+    }
+    // B without pro_features (Free): the tool refuses in-band and the route answers 403, for
+    // B's own clusters and A's, with nothing of A's.
+    const flip = async (on: boolean) => {
+      await w.owner
+        .updateTable('entitlements')
+        .set({ pro_features: on })
+        .where('org_id', '=', B.orgId)
+        .execute();
+      w.app.entitlements!.invalidate(B.orgId);
+    };
+    await flip(false);
+    try {
+      for (const cluster of [B.k8s.id, B.docker.id]) {
+        const t = await call(asB, { cluster });
+        expect(t.isError).toBe(true);
+        expect(JSON.parse(t.text).error).toBe(PRO_REFUSAL);
+        expect(leaks(t.text)).toEqual([]);
+      }
+      for (const id of [B.k8s.id, A.k8s.id, A.docker.id]) {
+        const r = await read(B, id);
+        expect(r.statusCode, id).toBe(403);
+        expect(r.json().type).toBe('urn:watchlog:problem:pro-feature');
+        expect(leaks(r.body, id)).toEqual([]);
+      }
+    } finally {
+      await flip(true);
     }
     await asA.close();
     await asB.close();
