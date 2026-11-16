@@ -412,6 +412,14 @@ describe('limits (scenarios 9 and 10)', () => {
       usage: { clusters: 1, nodes: 5, kubernetesNodes: 5, dockerHosts: 0, users: 1 },
       refusedNodes: 1,
       downgrade: null,
+      // Pro's price from the plans config, which the upgrade page quotes (ADR-201).
+      price: {
+        currency: 'USD',
+        perNodeMonth: 1,
+        minimumMonth: 10,
+        annualPerNode: 10,
+        annualMinimumNodes: 10,
+      },
     });
     // One email to the Owners per limit and day.
     const deps = {
