@@ -49,7 +49,9 @@ export function heroGeometry(
   const from = Date.parse(a.chart.from);
   const to = Date.parse(a.chart.to);
   const span = Math.max(1, to - from);
-  const pts = a.chart.points.filter((p): p is [number, number] => p[1] !== null);
+  const pts = a.chart.points
+    .filter((p) => typeof p[0] === 'number' && typeof p[1] === 'number')
+    .map((p) => [p[0], p[1]] as [number, number]);
   const bands = a.chart.band.map((b) => {
     const s = Math.max(from, Date.parse(b.from));
     return { s, e: Math.min(to, Date.parse(b.from) + 3_600_000), low: b.low, high: b.high };
