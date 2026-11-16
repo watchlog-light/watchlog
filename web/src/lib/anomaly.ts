@@ -22,6 +22,23 @@ export function bucketWords(bucket: number, locale = 'en'): { day: string; hour:
   return { day, hour: `${String(b % 24).padStart(2, '0')}:00` };
 }
 
+/**
+ * The hour of the week a period is unusual for, in the viewer's local time: the dashboard
+ * labels a bucket locally, messages say UTC (ADR-196). The bucket is the UTC hour the period
+ * began in, so this is that hour on the viewer's clock.
+ */
+export function localHourWords(sinceIso: string, locale = 'en'): { day: string; hour: string } {
+  const d = new Date(Math.floor(Date.parse(sinceIso) / 3_600_000) * 3_600_000);
+  return {
+    day: new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(d),
+    hour: new Intl.DateTimeFormat(locale, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(d),
+  };
+}
+
 export interface HeroGeometry {
   /** The band as one polygon: the highs left to right, then the lows back. */
   band: string;

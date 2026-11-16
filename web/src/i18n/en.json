@@ -4774,7 +4774,7 @@
   },
   "anomaly": {
     "hero": {
-      "title": "Anomaly · unusual for a {day} at {hour} UTC",
+      "title": "Anomaly · unusual for a {day} at {hour}",
       "now": "Now",
       "peak": "Furthest",
       "usual": "Usual at this hour",
@@ -4792,7 +4792,7 @@
       "hint": "Your answer tunes this series’ usual range. Anomaly alerts aim for fewer than 3 a day per cluster.",
       "viewer": "Owners and Admins answer this; an answer tunes this series’ usual range.",
       "usefulDone": "Thanks. This kind of change keeps alerting.",
-      "normalDone": "Got it. The usual range on {day} at {hour} UTC is now {range}; the same change won’t alert again there.",
+      "normalDone": "Got it. The usual range on {day} at {hour} is now {range}; the same change won’t alert again there.",
       "widenedBy": "Widened on {date} by {name}.",
       "answeredBy": "Answered on {date} by {name}.",
       "someone": "a former member",

@@ -8,7 +8,7 @@ import { api, ApiError } from '@/api/client';
 import CausePanel from '@/components/causes/CausePanel.vue';
 import Skeleton from '@/components/ui/Skeleton.vue';
 import { useLoader } from '@/composables/useLoader';
-import { bucketWords, heroGeometry } from '@/lib/anomaly';
+import { heroGeometry, localHourWords } from '@/lib/anomaly';
 import { formatDateTime } from '@/lib/format';
 import {
   hhmm,
@@ -54,7 +54,10 @@ const answer = computed(() =>
 const W = 1000;
 const H = 200;
 const geo = computed(() => (a.value ? heroGeometry(a.value, W, H, locale.value) : null));
-const when = computed(() => bucketWords(a.value?.bucket ?? 0, locale.value));
+// The bucket in the viewer's local time, as the dashboard labels buckets (ADR-196).
+const when = computed(() =>
+  localHourWords(a.value?.since ?? new Date(0).toISOString(), locale.value),
+);
 const metric = computed(() => (a.value ? metricText(a.value, tr) : ''));
 const who = computed(() => (a.value ? objectName(a.value.object) : ''));
 const open = computed(() => !!a.value && !a.value.until && a.value.alert.state !== 'resolved');

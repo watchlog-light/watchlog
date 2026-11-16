@@ -9,7 +9,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CloudConfig } from '@/api/cloud';
 import AnomalyAlertView from '@/components/what-changed/AnomalyAlertView.vue';
-import { bucketWords, heroGeometry, isAnomalyAlert } from '@/lib/anomaly';
+import { bucketWords, heroGeometry, isAnomalyAlert, localHourWords } from '@/lib/anomaly';
 import { whatChangedPath } from '@/lib/what-changed';
 import { useAuthStore } from '@/stores/auth';
 import { FLEET } from './docker-fixtures';
@@ -175,8 +175,10 @@ describe('an anomaly alert’s page', () => {
   it('Kubernetes: now, the usual range at this hour, the band, then What changed and the cause, then the feedback', async () => {
     mockFetch(routes(K8S, hero(K8S)));
     const w = await open(K8S, 'owner');
+    // The bucket in the viewer's local time (ADR-196); messages say UTC.
+    const local = localHourWords(iso(10 * MIN));
     expect(w.get('[data-testid="anomaly-when"]').text()).toBe(
-      'Anomaly · unusual for a Tuesday at 14:00 UTC',
+      `Anomaly · unusual for a ${local.day} at ${local.hour}`,
     );
     expect(w.get('[data-testid="anomaly-what"]').text()).toBe('checkout · p95 response time');
     expect(w.get('[data-testid="anomaly-now"]').text()).toBe('2.4 s');
