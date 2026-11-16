@@ -227,6 +227,8 @@ describe('Cloud Free, an Owner', () => {
         },
       });
       const { w } = await open(c, 'free', 'owner');
+      // A space before Stripe's sentence (Vue drops a template's leading whitespace).
+      expect(w.get('[data-testid="wc-up-fine"]').text()).toMatch(/\. Paid through Stripe/);
       expect(w.get('[data-testid="wc-up-fine"]').text()).toContain(
         'Paid through Stripe; cancel any time.',
       );
@@ -336,7 +338,10 @@ describe('Cloud Free, an Admin or a Viewer', () => {
         );
         expect(w.find('[data-testid="wc-up-checkout"]').exists()).toBe(false);
         expect(w.find('[data-testid="wc-up-plan"]').exists()).toBe(false);
-        expect(calls.some((x) => x.path.startsWith('/api/v1/plan/'))).toBe(false);
+        // No Checkout or beta switch for an Admin (the plan strip may read the billing state).
+        expect(calls.some((x) => x.method === 'POST' && x.path.startsWith('/api/v1/plan/'))).toBe(
+          false,
+        );
         expect(w.findAll('[data-testid="wc-up-alert"]')).toHaveLength(ALERTS[platformOf(c)].length);
         expect(w.get('[data-testid="wc-up-badge"]').text()).toBe('Pro · $1 per node a month');
         done();

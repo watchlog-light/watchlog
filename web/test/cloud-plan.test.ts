@@ -92,6 +92,66 @@ describe('the plan strip', () => {
     expect(wrapper.get('[data-testid="plan-try-pro"]').text()).toBe('Plan & billing →');
   });
 
+  it('Free with billing live: "Upgrade to Pro · $1 per node", the price from GET /plan (ADR-205)', async () => {
+    const billing = (live: boolean) => ({
+      available: true,
+      live,
+      customer: false,
+      subscription: null,
+      beta: null,
+      dunning: null,
+    });
+    const price = {
+      currency: 'USD',
+      perNodeMonth: 1,
+      minimumMonth: 10,
+      annualPerNode: 10,
+      annualMinimumNodes: 10,
+    };
+    for (const live of [false, true]) {
+      mockFetch({
+        'GET /api/v1/plan': { status: 200, body: { ...FREE, price } },
+        'GET /api/v1/plan/billing': { status: 200, body: billing(live) },
+      });
+      const { wrapper } = await mountWith(PlanStrip);
+      await usePlanStore().load();
+      await flushPromises();
+      const link = wrapper.get('[data-testid="plan-try-pro"]');
+      expect(link.text()).toBe(
+        live ? 'Upgrade to Pro · $1 per node →' : 'Try Pro, free during beta →',
+      );
+      expect(link.attributes('href')).toBe('/settings?tab=billing');
+      wrapper.unmount();
+    }
+  });
+
+  it('Pro never asks billing for the strip; a billing error keeps the beta text', async () => {
+    const pro = mockFetch({
+      'GET /api/v1/plan': {
+        status: 200,
+        body: { ...FREE, plan: 'pro', proFeatures: true, limits: { ...FREE.limits, nodes: null } },
+      },
+    });
+    const a = await mountWith(PlanStrip);
+    await usePlanStore().load();
+    await flushPromises();
+    expect(a.wrapper.get('[data-testid="plan-try-pro"]').text()).toBe('Plan & billing →');
+    expect(pro.calls.map((c) => c.path)).toEqual(['/api/v1/plan']);
+    a.wrapper.unmount();
+
+    mockFetch({
+      'GET /api/v1/plan': { status: 200, body: FREE },
+      'GET /api/v1/plan/billing': { status: 502 },
+    });
+    const b = await mountWith(PlanStrip);
+    await usePlanStore().load();
+    await flushPromises();
+    expect(b.wrapper.get('[data-testid="plan-try-pro"]').text()).toBe(
+      'Try Pro, free during beta →',
+    );
+    expect(usePlanStore().billingLive).toBe(false);
+  });
+
   it('shows nothing when the plan could not be read (Community never asks)', async () => {
     mockFetch({ 'GET /api/v1/plan': { status: 404 } });
     const { wrapper } = await mountWith(PlanStrip);
