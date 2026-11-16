@@ -260,7 +260,14 @@ describe('the job (test SMTP)', () => {
     const u = await owner('beta', 20 * DAY);
     await w.owner
       .insertInto('entitlements')
-      .values({ org_id: u.orgId, plan: 'pro', source: 'beta', users: 10, retention_days: 30 })
+      .values({
+        org_id: u.orgId,
+        plan: 'pro',
+        source: 'beta',
+        users: 10,
+        retention_days: 30,
+        pro_features: true,
+      })
       .execute();
     await w.owner
       .updateTable('users')

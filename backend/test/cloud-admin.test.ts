@@ -10,6 +10,9 @@ import { recordDay7Active } from '../src/modules/funnel/day7.js';
 import { FunnelRecorder, onceKey } from '../src/modules/funnel/recorder.js';
 import { CLIENT_FUNNEL_EVENT_NAMES } from '../src/modules/funnel/events.js';
 import { openSupportSession } from '../src/modules/support/service.js';
+import { readFileSync } from 'node:fs';
+import { sql } from 'kysely';
+import { entitledOrgs } from '../src/modules/anomaly/gate.js';
 import { cloudWorld, seedOrg, type CloudWorld, type SeededOrg } from './isolation/cloud.js';
 
 const TOKEN = 'a'.repeat(48);
@@ -441,5 +444,129 @@ describe('the Cloud admin, slice 6c: invite waves, support sessions and deletion
       usersDeleted: 1,
       series: { '3d': 10, '30d': 12 },
     });
+  });
+});
+
+describe('Pro features follow the plan (ADR-205)', () => {
+  const ent = () =>
+    w.owner
+      .selectFrom('entitlements')
+      .select(['plan', 'pro_features'])
+      .where('org_id', '=', A.orgId)
+      .executeTakeFirstOrThrow();
+  const audits = async () =>
+    (
+      await w.owner
+        .selectFrom('audit_events')
+        .select('id')
+        .where('org_id', '=', A.orgId)
+        .where('action', '=', 'staff_entitlements_set')
+        .execute()
+    ).length;
+  const whatChanged = async () =>
+    w.app.inject({
+      method: 'GET',
+      url: `/api/v1/what-changed?cluster=${A.docker.id}`,
+      cookies: { wl_session: await A.session() },
+    });
+  const CLOUD = { edition: 'cloud' as const, demoMode: false };
+
+  it('refuses Free with Pro features (staff and billing), writing nothing', async () => {
+    await staff('PUT', `/internal/admin/orgs/${A.orgId}/entitlements`, { plan: 'pro', note: 'x' });
+    const before = await ent();
+    const audited = await audits();
+    const r = await staff('PUT', `/internal/admin/orgs/${A.orgId}/entitlements`, {
+      plan: 'free',
+      proFeatures: true,
+      note: 'the checkbox left ticked',
+    });
+    expect(r.statusCode, r.body).toBe(400);
+    expect(r.json().detail).toContain('Pro features follow the plan');
+    const billing = await internal.inject({
+      method: 'PUT',
+      url: `/internal/orgs/${A.orgId}/entitlements`,
+      headers: { authorization: `Bearer ${BILLING_TOKEN}` },
+      payload: { plan: 'pro', source: 'billing', proFeatures: false },
+    });
+    expect(billing.statusCode, billing.body).toBe(400);
+    expect(await ent()).toEqual(before);
+    expect(await audits()).toBe(audited);
+  });
+
+  it('staff moving an org from Pro to Free takes What changed away everywhere', async () => {
+    const pro = await staff('PUT', `/internal/admin/orgs/${A.orgId}/entitlements`, {
+      plan: 'pro',
+      proFeatures: true,
+      note: 'design partner',
+    });
+    expect(pro.json()).toMatchObject({ plan: 'pro', proFeatures: true });
+    expect((await whatChanged()).statusCode).not.toBe(403);
+    expect(await entitledOrgs(CLOUD, w.owner)).toContain(A.orgId);
+    try {
+      // What the admin panel sends now: the plan alone.
+      const free = await staff('PUT', `/internal/admin/orgs/${A.orgId}/entitlements`, {
+        plan: 'free',
+        note: 'back to Free',
+      });
+      expect(free.statusCode, free.body).toBe(200);
+      expect(free.json()).toMatchObject({ plan: 'free', proFeatures: false });
+      expect(await ent()).toEqual({ plan: 'free', pro_features: false });
+      // The sidebar's plan (GET /plan) and every What changed gate agree.
+      const plan = await w.app.inject({
+        method: 'GET',
+        url: '/api/v1/plan',
+        cookies: { wl_session: await A.session() },
+      });
+      expect(plan.json()).toMatchObject({ plan: 'free', proFeatures: false });
+      const r = await whatChanged();
+      expect(r.statusCode).toBe(403);
+      expect(r.json().type).toBe('urn:watchlog:problem:pro-feature');
+      expect(await entitledOrgs(CLOUD, w.owner)).not.toContain(A.orgId);
+    } finally {
+      await staff('PUT', `/internal/admin/orgs/${A.orgId}/entitlements`, {
+        plan: 'pro',
+        note: 'restore the seed',
+      });
+    }
+  });
+
+  it('the database refuses a row that disagrees, and the migration fixes one already there', async () => {
+    await expect(
+      w.owner
+        .updateTable('entitlements')
+        .set({ plan: 'free', pro_features: true })
+        .where('org_id', '=', A.orgId)
+        .execute(),
+    ).rejects.toThrow(/entitlements_pro_features_follow_plan/);
+    // A row from before 0.8.1 (as on Cloud: Free with Pro features), then the migration.
+    const migration = readFileSync(
+      new URL('../migrations/1796000000000_pro-features-follow-plan.sql', import.meta.url),
+      'utf8',
+    );
+    await sql`ALTER TABLE entitlements DROP CONSTRAINT entitlements_pro_features_follow_plan`.execute(
+      w.owner,
+    );
+    try {
+      await w.owner
+        .updateTable('entitlements')
+        .set({ plan: 'free', pro_features: true })
+        .where('org_id', '=', A.orgId)
+        .execute();
+      await sql.raw(migration).execute(w.owner);
+      expect(await ent()).toEqual({ plan: 'free', pro_features: false });
+    } finally {
+      await sql`ALTER TABLE entitlements DROP CONSTRAINT IF EXISTS entitlements_pro_features_follow_plan`.execute(
+        w.owner,
+      );
+      await w.owner
+        .updateTable('entitlements')
+        .set({ plan: 'pro', pro_features: true })
+        .where('org_id', '=', A.orgId)
+        .execute();
+      await sql`ALTER TABLE entitlements ADD CONSTRAINT entitlements_pro_features_follow_plan CHECK (pro_features = (plan <> 'free'))`.execute(
+        w.owner,
+      );
+      w.app.entitlements!.invalidate(A.orgId);
+    }
   });
 });

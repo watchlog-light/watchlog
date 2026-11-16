@@ -243,7 +243,7 @@ describe('inactive Free orgs', () => {
   it('warned after 30 days without data, suspended 7 days later; data cancels it', async () => {
     await w.owner
       .updateTable('entitlements')
-      .set({ plan: 'free', source: 'signup' })
+      .set({ plan: 'free', source: 'signup', pro_features: false })
       .where('org_id', '=', B.orgId)
       .execute();
     const deps = {
@@ -318,7 +318,7 @@ describe('inactive Free orgs', () => {
   it('a Pro org is never warned', async () => {
     await w.owner
       .updateTable('entitlements')
-      .set({ plan: 'pro', source: 'staff' })
+      .set({ plan: 'pro', source: 'staff', pro_features: true })
       .where('org_id', '=', B.orgId)
       .execute();
     const deps = { systemDb: w.owner, settings: noMail, log };

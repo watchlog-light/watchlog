@@ -321,7 +321,7 @@ describe('the entitlements service', () => {
     expect((await svc.get(orgId)).plan).toBe('free');
     await c.db
       .updateTable('entitlements')
-      .set({ plan: 'pro' })
+      .set({ plan: 'pro', pro_features: true })
       .where('org_id', '=', orgId)
       .execute();
     expect((await svc.get(orgId)).plan).toBe('free');

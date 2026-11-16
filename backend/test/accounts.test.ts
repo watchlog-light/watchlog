@@ -759,7 +759,7 @@ describe('TOTP', () => {
       .executeTakeFirstOrThrow();
     await ctx.db
       .updateTable('entitlements')
-      .set({ plan: 'pro', source: 'billing' })
+      .set({ plan: 'pro', source: 'billing', pro_features: true })
       .where('org_id', '=', org.org_id)
       .execute();
     const blocked = await call('GET', '/api/v1/clusters', cookie);

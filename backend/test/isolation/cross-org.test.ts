@@ -347,7 +347,7 @@ describe('every REST route as org B with org A ids', () => {
     const flip = async (on: boolean) => {
       await w.owner
         .updateTable('entitlements')
-        .set({ pro_features: on })
+        .set({ pro_features: on, plan: on ? 'pro' : 'free' }) // ADR-205: they move together
         .where('org_id', '=', B.orgId)
         .execute();
       w.app.entitlements!.invalidate(B.orgId);
@@ -407,7 +407,7 @@ describe('every REST route as org B with org A ids', () => {
     const flip = async (on: boolean) => {
       await w.owner
         .updateTable('entitlements')
-        .set({ pro_features: on })
+        .set({ pro_features: on, plan: on ? 'pro' : 'free' }) // ADR-205: they move together
         .where('org_id', '=', B.orgId)
         .execute();
       w.app.entitlements!.invalidate(B.orgId);
@@ -757,7 +757,7 @@ describe('every MCP tool', () => {
     const flip = async (on: boolean) => {
       await w.owner
         .updateTable('entitlements')
-        .set({ pro_features: on })
+        .set({ pro_features: on, plan: on ? 'pro' : 'free' }) // ADR-205: they move together
         .where('org_id', '=', B.orgId)
         .execute();
       w.app.entitlements!.invalidate(B.orgId);
