@@ -97,7 +97,7 @@ _Not part of the public specification._
 | Users | Unlimited: Owner, Admin, Viewer (ADR-140) | 1 | Up to 10 | Unlimited |
 | Unified multi-cluster view | — | — | ✓ (Phase 6) | ✓ |
 | SLO / availability reports | — | — | ✓ (Phase 6) | ✓ |
-| Anomaly detection — basic: What changed and anomaly alerts (0.8.0 plan, ADR-195) | — (upgrade page) | — (upgrade page) | ✓ | ✓ |
+| Anomaly detection — basic: What changed and anomaly alerts (0.8.0, ADR-195) | — (upgrade page) | — (upgrade page) | ✓ | ✓ |
 | Anomaly detection — advanced (correlation & root-cause hints) | — | — | — | ✓ |
 | SSO (OIDC/SAML), LDAP | — | — | — | ✓ |
 | RBAC (per-cluster / per-namespace roles) | — | — | — | ✓ |
@@ -105,7 +105,7 @@ _Not part of the public specification._
 | Air-gapped install, offline license | — | — | — | ✓ |
 | Support | GitHub issues, community chat | Community | Email (2 business days) | SLA + dedicated channel |
 
-Rows marked (Phase 6) are not in 0.6.0: Cloud pages and the site say "coming to Pro" for them (ADR-173). Basic anomaly detection is planned for 0.8.0 as What changed (§4.8, ADR-195): Pro and Enterprise in Cloud, and the live demo (ADR-203); Cloud Free and Community see an upgrade page in its place (ADR-201). Self-hosted Enterprise gets it with the licence key (Phase 7). Cloud limits and how they answer (409 `plan-limit`, 402 on ingest for new nodes only): ADR-177.
+Rows marked (Phase 6) are not in 0.6.0: Cloud pages and the site say "coming to Pro" for them (ADR-173). Basic anomaly detection shipped in 0.8.0 as What changed (§4.8, ADR-195): Pro and Enterprise in Cloud, and the live demo (ADR-203); Cloud Free and Community see an upgrade page in its place (ADR-201). Self-hosted Enterprise gets it with the licence key (Phase 7). Cloud limits and how they answer (409 `plan-limit`, 402 on ingest for new nodes only): ADR-177.
 
 **Why anomaly detection is paid:** it needs at least 7-14 days of history to learn weekly seasonality, which only the paid retention tiers provide, and it costs real compute per series.
 
@@ -215,7 +215,7 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 | New external destination (v0.7, shipped in 0.7.0; Kubernetes and Docker) | a source talks to a destination it never used and no expectation covers; quiet for a 7-day learning period (ADR-187, §4.14) | warning |
 | Raw IP egress (v0.7, shipped in 0.7.0) | ≥ 5 connections in 10 min to the same public network and port with no DNS name (ADR-187) | warning |
 | Large upload to a new destination (v0.7, shipped in 0.7.0) | > 100 MB sent in 1 h to a destination first seen in the last 24 h (ADR-187) | warning |
-| Unusual for this hour (0.8.0 plan; Pro and the live demo only; Kubernetes and Docker) | a catalog series' score against its hour-of-week baseline over 4 for 10 min; quiet 30 min after a rollout of the subject; one alert per subject and metric (ADR-200, §4.8) | warning |
+| Unusual for this hour (shipped in 0.8.0; Pro and the live demo only; Kubernetes and Docker) | a catalog series' score against its hour-of-week baseline over 4 for 10 min; quiet 30 min after a rollout of the subject; one alert per subject and metric (ADR-200, §4.8) | warning |
 
 **Custom threshold rules:** pick metric → scope (cluster / namespace / workload / node / label selector) → condition → duration → severity → channels. No PromQL required. P1: advanced mode with raw MetricsQL.
 
@@ -229,20 +229,20 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 
 **Server settings (ADR-093):** the public address, the email server (SMTP, password encrypted and write-only) and Telegram's HTTPS proxy are set in Settings and stored in the database. An environment variable, when set, overrides the stored value and the UI shows it read-only as set by the server's environment.
 
-## 4.8 Anomaly detection ("What changed") — Pro (basic, 0.8.0 plan) / Enterprise (advanced)
+## 4.8 Anomaly detection ("What changed") — Pro (basic, shipped in 0.8.0) / Enterprise (advanced)
 
 **Goal:** alerts with zero configuration. Sold as "we notice what is abnormal for *your* cluster", not as "AI".
 
-**Basic (Pro): "What changed", planned for 0.8.0 (ADR-195 to ADR-204).** "See what changed first in every Kubernetes and Docker incident." Each metric in WatchLog's catalog learns its own normal week; when something breaks, one list shows everything that left its range, in the order it happened, with the probable cause underneath. Statistics only, worked out inside WatchLog: nothing is sent to an AI, and the same data always gives the same answer.
+**Basic (Pro): "What changed", shipped in 0.8.0 (ADR-195 to ADR-204; the user page is `docs/site/what-changed.md`).** "See what changed first in every Kubernetes and Docker incident." Each metric in WatchLog's catalog learns its own normal week; when something breaks, one list shows everything that left its range, in the order it happened, with the probable cause underneath. Statistics only, worked out inside WatchLog: nothing is sent to an AI, and the same data always gives the same answer.
 
 - **Editions (ADR-195):** Cloud Pro and Cloud Enterprise (the org's `pro_features` entitlement, ADR-177), including the Pro beta; the live demo through a demo-only entitlement (ADR-203). Cloud Free and Community never run the anomaly-worker and never get the data: the "What changed" entry opens an upgrade page (ADR-201). Community is otherwise unchanged: no new process or load. Kubernetes and Docker both, each in its own vocabulary (ADR-124).
-- **Which series (ADR-196):** the curated catalog keys (ADR-028) for workloads, pods, nodes, Docker hosts, containers, Compose services and applications (§4.12), plus the service map's HTTP and connection series. Never raw MetricsQL or unbounded label sets. Slice 1 measures the series per node and chooses the keys.
+- **Which series (ADR-196):** the curated catalog keys (ADR-028) for workloads, pods, nodes, Docker hosts, containers, Compose services and applications (§4.12), plus the service map's HTTP and connection series. Never raw MetricsQL or unbounded label sets. The scored keys were chosen by measuring (ADR-196 as built): nodes, workloads, Docker hosts and containers, three new per-workload HTTP keys (requests, errors, p95), the map's edges and the integrations' behaviour keys; pods (they churn) and flat or event-like keys that a default rule covers are left out. About 113 series a Kubernetes node and 303 a Docker host.
 - **Baselines (ADR-196):** per series, per **hour of the week** (168 UTC buckets), the **median and MAD** of the one-minute values over the last **14 days**; a series is used once it has **7 days** of data. Minutes when another alert was firing on the subject (or its workload or Compose service) are left out, so incidents don't become normal.
 - **Score:** `|value − median| / max(1.4826 × MAD, floor)`, with a floor on the spread chosen per metric kind from measured spreads, so a flat series doesn't make every wobble infinite. **Unusual:** a score over **4 for 10 consecutive minutes**. The usual range shown is the median ± 2 spreads. 4 and 10 are fixed in 0.8.0; no sensitivity setting yet.
 - **The What changed page (ADR-199):** windows around an alert, the last hour, the last 6 hours or a custom range (at most 24 hours); the unusual-activity chart with the window marked; ranked rows (when it started, what, usual → now) by "first to move" or "furthest out"; the probable-cause card (§4.13) underneath. On every alert detail, a "What changed around it" card with the first three rows (Cloud Free: a locked line to the upgrade page).
-- **Anomaly alerts (ADR-200):** a default rule, "Unusual for this hour", warning, on for Pro; quiet for 30 minutes after a rollout of the same subject (Docker: a re-created container, an image or Compose change); one alert per subject and metric; messages say "usual for <weekday> <hour> UTC: X–Y; now Z" and add the likely cause when there is one (§4.7). "Was this worth an alert?": "normal for us" (Owners and Admins, audited) widens that series' range for that hour. Aimed at fewer than 3 a day per cluster, measured on the demo and the load test. Maintenance windows aren't built (§4.7).
+- **Anomaly alerts (ADR-200):** a default rule, "Unusual for this hour", warning, on for Pro; quiet for 30 minutes after a rollout of the same subject (Docker: a re-created container, an image or Compose change); one alert per subject and metric; messages say "usual for <weekday> <hour> UTC: X–Y; now Z" and add the likely cause when there is one (§4.7). "Was this worth an alert?": "normal for us" (Owners and Admins, audited) widens that series' range for that hour. No anomaly alert opens while another alert fires on the same subject; `WATCHLOG_ANOMALY_ALERT_KEYS` (alert worker) chooses which keys may alert (default all but the map's edges). Aimed at fewer than 3 a day per cluster: the demo's hourly chaos raises none (ADR-200 as built). Maintenance windows aren't built (§4.7).
 - **API and MCP (ADR-202):** `GET /api/v1/what-changed?cluster=…&from=…&to=…` or `…&alert=…` (§8.1) and MCP `get_what_changed` (§4.11): read-only, bounded (50 rows, 30 through MCP, 24 hours), Pro-gated (403 `pro-feature` for Cloud Free; 404 and no tool in Community), in the isolation suite (ADR-182).
-- **Upgrades (ADR-204):** no manual step. Learning starts at the upgrade (or the switch to Pro), never from older history; until 7 days have passed the page says "learning until <date>" and nothing alerts. The live demo is the one exception: in demo mode the worker learns from the history the demo keeps at its first start, so the demo lists its chaos the day it is deployed (ADR-203).
+- **Upgrades (ADR-204):** no manual step. Learning starts at the upgrade (or the switch to Pro), never from older history; until 7 days have passed the page says "learning until <date>" and nothing alerts. The live demo is the one exception: in demo mode the worker learns from the history the demo keeps at its first start, so the demo's page has rows the day it is deployed (ADR-203).
 
 **Advanced (Enterprise, P2):** correlate anomalies that start within the same 5-minute window and are connected on the service map; produce a "likely root cause" hint (earliest anomaly upstream in the graph). The 0.8.0 list is ordered by time only and draws no cause from that order (ADR-199).
 
@@ -638,7 +638,7 @@ See every place a cluster or Docker fleet talks to on the internet, and know whe
 | `backend` | Node.js 24 LTS, TypeScript, Fastify | Server / Cloud | Auth, REST API, ingest gateway, metadata, alert rules, query proxy |
 | `integrations` | Go (third binary of the agent module, ADR-131) | Deployment, 1 per K8s cluster; one container per Docker host with monitored services | Read monitored services (Redis, PostgreSQL, Nginx, …) with read-only access; push metrics and status (§4.12) |
 | `alert-worker` | Node.js (same codebase, separate process) | Server / Cloud | Evaluate rules every 30 s, manage state, send notifications |
-| `anomaly-worker` | Node.js (same codebase, separate process; 0.8.0 plan, ADR-197) | Cloud and the live demo only, never Community | Baselines and anomaly scoring for Pro orgs (§4.8) |
+| `anomaly-worker` | Node.js (same codebase, separate process; 0.8.0, ADR-197) | Cloud and the live demo only, never Community | Baselines and anomaly scoring for Pro orgs (§4.8) |
 | `web` | Vue 3, Vite, TypeScript, Tailwind, Pinia, Apache ECharts | Browser | Dashboard SPA |
 | `site` | Nuxt 4 (static generation) | CDN / static host | Landing page, pricing, docs, blog |
 | Metrics store | **VictoriaMetrics** (single-node; cluster version for Cloud scale) | Server | Time series, Prometheus-compatible, low RAM, built-in retention |
@@ -846,7 +846,10 @@ All tables have `id` (UUID v7), `created_at`, `updated_at`. Tenant tables have `
 | `telegram_verifications` | channel_id, code_hash, expires_at | Telegram deep-link connection |
 | `notifications` | org_id, channel_id, kind (`firing`/`resolved`/`renotify`/`escalated`/`flapping`/`test`), payload (jsonb), status (`pending`/`sending`/`sent`/`failed`/`dropped`), attempts, next_attempt_at, dedupe_key, error, sent_at | The outbox: one row per channel and message (ADR-074); `notification_alerts` links a message to the alerts it covers |
 | `silences` | org_id, matchers (jsonb), starts_at, ends_at, created_by, comment | |
-| `anomaly_baselines` (P1) | series_key, hour_of_week, median, mad, samples, updated_at | |
+| `anomaly_orgs` (v0.8) | org_id, learning_since, entitled_at | When an org started learning What changed (ADR-204); RLS |
+| `anomaly_baselines` (v0.8) | org_id, cluster_id, series_hash, metric, subject (jsonb), medians, mads (`real[168]`), minutes (`smallint[168]`), first_seen, last_seen | One row per scored series, 168 UTC hour-of-week buckets over 14 days, fillfactor 70 (ADR-198); RLS |
+| `anomaly_periods` (v0.8) | org_id, cluster_id, series_hash, metric, subject, started_at, ended_at, bucket, median, usual_low, usual_high, peak_score, peak_value, peak_at, last_value, last_at | Unusual periods, one open per series, kept for the org's retention (ADR-198); RLS |
+| `anomaly_feedback` (v0.8) | org_id, cluster_id, series_hash, metric, subject, bucket, answer (`useful`/`normal`), alert_id, value, median, min_spread, created_by, undone_at | "Was this worth an alert?" (ADR-200); RLS |
 | `discovered_services` | org_id, cluster_id, type, target (jsonb: workload / Compose service / container / host:port), image, ports, confidence, ignored_at, ignored_image | From images, ports and flows (ADR-132) |
 | `integrations` | org_id, cluster_id, type, name, target (jsonb), version, status, status_details (jsonb: per-tab permission states, last error), settings (jsonb: query text on/off), collector (host for Docker), created_by, monitored_since | One row per monitored service instance (§4.12) |
 | `integration_credentials` | integration_id, method (`generated`/`entered`/`reference`), username, secret (AES-256-GCM, bound to the row), reference (jsonb: Secret name/key or file path), set_by, set_at, verified_at | Write-only (ADR-133) |
