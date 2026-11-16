@@ -19,11 +19,17 @@
 //     every minute (runAnomalyMinute). Prints the periods and the anomaly alerts per cluster
 //     and day (ADR-200's aim: fewer than 3) for the default WATCHLOG_ANOMALY_ALERT_KEYS and
 //     with no filter, split into alerts that duplicate an alert already firing on the subject
-//     and new information, with the 30-minute quiet after a rollout applied; and, per chaos
+//     and new information, with the 30-minute quiet after a rollout applied, and how many
+//     remain with slice 7b's rule (none while another alert fires on the subject); per chaos
 //     scenario (SCENARIOS, below), whether its minutes are left out of the baselines.
 //     NO_ALERTS=1 replays without the alerts (no exclusion), for comparison; MINUTES=n scores
 //     with WATCHLOG_ANOMALY_MINUTES=n instead of 10; SCENARIOS_ONLY=1
 //     prints only the scenarios' table (no 14 days).
+//   showcase: DATABASE_URL=postgres://…/scratch [DAYS=21] npx tsx scripts/anomaly-replay.ts showcase
+//     Slice 7b: the demo kit's What changed showcase (manifests/drift.yaml, the Docker host's
+//     search and search-client) on generated data, both platforms: its periods per drift,
+//     how long each is unusual, the anomaly alerts per drift, and whether the second and
+//     third weeks still list it (not learned as normal).
 import { readFileSync, writeFileSync } from 'node:fs';
 import pg from 'pg';
 import { createDb } from '../src/db/index.js';
@@ -550,6 +556,8 @@ async function replay() {
       let dup = 0;
       let fresh = 0;
       let quiet = 0;
+      let held = 0;
+      let late = 0;
       const subjects = new Map<string, number>();
       for (const p of mine) {
         if (!allow(p.metric)) continue;
@@ -575,6 +583,20 @@ async function replay() {
         const tokens = seriesTokens(c.kind, subject, composeOf(c));
         if (excluded(at, tokens, firing)) dup++;
         else fresh++;
+        // Slice 7b: no new alert while another alert fires on the subject; it opens at the
+        // first minute of the period outside the quiet with none firing, if there is one.
+        let opened: number | null = null;
+        for (let t = at; t <= Math.max(at, end); t += MIN) {
+          const recent = markers.filter(
+            (m) => m.ts.getTime() <= t && m.ts.getTime() > t - ROLLOUT_QUIET_MS,
+          );
+          if (!inQuiet(c.kind, labels, containers, recent) && !excluded(t, tokens, firing)) {
+            opened = t;
+            break;
+          }
+        }
+        if (opened === null) held++;
+        else if (opened > at) late++;
         const name = `${p.metric} ${Object.values(subject).join('/')}`;
         subjects.set(name, (subjects.get(name) ?? 0) + 1);
       }
@@ -583,6 +605,11 @@ async function replay() {
         `   alerts, filter ${fname}: ${(total / scoreDays).toFixed(1)} a day ` +
           `(${(dup / scoreDays).toFixed(1)} duplicate an alert firing on the subject, ` +
           `${(fresh / scoreDays).toFixed(1)} new); ${quiet} kept quiet by a rollout in ${scoreDays} days`,
+      );
+      console.log(
+        `   with slice 7b (none while another alert fires on the subject): ` +
+          `${((total - held) / scoreDays).toFixed(1)} a day; ${(held / scoreDays).toFixed(1)} a day held ` +
+          `back for the whole period, ${(late / scoreDays).toFixed(1)} a day opened after the other alert resolved`,
       );
       for (const [n, k] of [...subjects].sort((a, b) => b[1] - a[1]).slice(0, 12)) {
         console.log(`      ${(k / scoreDays).toFixed(1)}/day  ${n}`);
@@ -690,10 +717,259 @@ async function replay() {
   await db.destroy();
 }
 
+// ------------------------------------------------------------------------------ showcase
+
+/**
+ * Slice 7b: the demo kit's What changed showcase (deploy/demo manifests/drift.yaml and the
+ * Docker host's compose.yaml), on generated data. `search` answers a request a second in
+ * 8–12 ms; at 03:50, 11:50 and 19:50 UTC its response time climbs to 800 ms in 10 minutes,
+ * to 1 s in 10 more, and back to 10 ms in 8 (the kit's CGI script, to the millisecond).
+ */
+export function driftMs(t: number): number {
+  const s = Math.floor(t / 1000);
+  const into = (((s - 13_800) % 28_800) + 28_800) % 28_800;
+  if (into < 600) return 10 + Math.floor((into * 790) / 600);
+  if (into < 1200) return 800 + Math.floor((into - 600) / 3);
+  if (into < 1680) return 1000 - Math.floor(((into - 1200) * 99) / 48);
+  // The quiet answer: 8–12 ms (a fixed pseudo-random sequence).
+  return 8 + (((s * 2_654_435_761) >>> 0) % 5);
+}
+
+/** The agent's HTTP buckets (agent/internal/ebpf/types.go HTTPBuckets), in seconds. */
+const HTTP_BUCKETS = [
+  0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10,
+];
+
+/**
+ * The minute's p95 and request rate as the catalog reads them: histogram_quantile(0.95) over
+ * a 2-minute rate window of a sequential client (a request, its answer, a second's sleep).
+ */
+function httpAt(t: number): { p95: number; rate: number } {
+  const durations: number[] = [];
+  for (let at = t - 120_000; at < t;) {
+    const d = driftMs(at);
+    durations.push(d / 1000);
+    at += d + 1000;
+  }
+  const counts = HTTP_BUCKETS.map((le) => durations.filter((d) => d <= le).length);
+  const rank = 0.95 * durations.length;
+  const i = counts.findIndex((c) => c >= rank);
+  const lo = i > 0 ? HTTP_BUCKETS[i - 1]! : 0;
+  const below = i > 0 ? counts[i - 1]! : 0;
+  const p95 = lo + ((HTTP_BUCKETS[i]! - lo) * (rank - below)) / (counts[i]! - below);
+  return { p95, rate: durations.length / 120 };
+}
+
+async function showcase() {
+  const url = process.env.DATABASE_URL!;
+  const days = Number(process.env.DAYS ?? 21);
+  await migrateUp(url);
+  const db = createDb(url);
+  const rule = DEFAULT_RULE;
+  const R0 = Date.UTC(2026, 9, 5);
+  for (const t of ['anomaly_periods', 'anomaly_baselines', 'anomaly_orgs'] as const) {
+    await db.deleteFrom(t).execute();
+  }
+  const orgId = newId();
+  await db
+    .insertInto('orgs')
+    .values({ id: orgId, name: 'Showcase', slug: `showcase-${orgId.slice(-8)}`, plan: 'community' })
+    .execute();
+  const noise = (t: number, k: number) => ((((t / MIN) * 7919 + k * 104_729) >>> 0) % 1000) / 1000;
+  // Per platform: the server's and client's names, and the generated series by key.
+  const platforms = {
+    kubernetes: {
+      server: {
+        dst_kind: 'workload',
+        dst_namespace: 'shop',
+        dst_workload_kind: 'Deployment',
+        dst_workload: 'search',
+      },
+      edge: { namespace: 'shop', workload_kind: 'Deployment', workload: 'search-client' },
+      own: { namespace: 'shop', workload_kind: 'Deployment', workload: 'search' },
+      cpu: 'workload.cpu.usage',
+      mem: 'workload.memory.working_set',
+      host: { node: 'k3d-watchlog-demo-agent-0' },
+      hostMem: 'node.memory.utilization',
+    },
+    docker: {
+      server: { dst_kind: 'container', dst: 'storefront-search-1' },
+      edge: {
+        container: 'storefront-search-client-1',
+        compose_project: 'storefront',
+        compose_service: 'search-client',
+      },
+      own: { container: 'storefront-search-1', host: 'demo-docker-host' },
+      cpu: 'container.cpu.usage',
+      mem: 'container.memory.working_set',
+      host: { host: 'demo-docker-host' },
+      hostMem: 'host.memory.utilization',
+    },
+  } as const;
+  const ids = new Map<string, ClusterKind>();
+  for (const kind of ['kubernetes', 'docker'] as const) {
+    const id = newId();
+    ids.set(id, kind);
+    await db
+      .insertInto('clusters')
+      .values({ id, org_id: orgId, name: `showcase-${kind}`, kind })
+      .execute();
+    if (kind === 'docker') {
+      for (const name of ['storefront-search-1', 'storefront-search-client-1']) {
+        await db
+          .insertInto('objects')
+          .values({
+            id: newId(),
+            org_id: orgId,
+            cluster_id: id,
+            source: 'docker',
+            kind: 'DockerContainer',
+            namespace: 'storefront',
+            name,
+            node: 'demo-docker-host',
+            uid: newId(),
+            spec_summary: JSON.stringify({ compose_service: name.slice(11, -2) }),
+            status_summary: JSON.stringify({}),
+          })
+          .execute();
+      }
+    }
+  }
+  const keyOf = new Map<string, string>();
+  for (const kind of ['kubernetes', 'docker'] as const) {
+    for (const q of queriesFor(kind, [])) keyOf.set(q.expr, q.key);
+  }
+  /** One generated value of a key at minute t, or null when the showcase has no such series. */
+  const valueOf = (
+    kind: ClusterKind,
+    key: string,
+    t: number,
+  ): [Record<string, string>, number] | null => {
+    const p = platforms[kind];
+    const http = () => httpAt(t);
+    switch (key) {
+      case 'workload.http.latency.p95':
+        return [p.server, http().p95];
+      case 'workload.http.requests.rate':
+        return [p.server, http().rate];
+      case 'workload.http.errors.ratio':
+        return [p.server, 0];
+      case 'edge.http.latency.p95':
+        return [{ ...p.edge, ...p.server, dst_port: '8080' }, http().p95];
+      case 'edge.http.requests.rate':
+        return [{ ...p.edge, ...p.server, dst_port: '8080' }, http().rate];
+      case p.cpu:
+        // A CGI script per request: a little CPU, the same at 10 ms or 1 s.
+        return [p.own, 0.004 + 0.002 * noise(t, 1)];
+      case p.mem:
+        // One more sleeping shell at the peak: about 1 MiB.
+        return [p.own, (3 + noise(t, 2) + (driftMs(t) > 100 ? 1 : 0)) * 2 ** 20];
+      case p.hostMem:
+        return [p.host, 0.5 + 0.02 * noise(t, 3)];
+      default:
+        return null;
+    }
+  };
+  const victoria = {
+    async queryRange(scope: ClusterScope, expr: string, start: number, end: number, step: number) {
+      const kind = ids.get(scope.clusterId);
+      const key = keyOf.get(expr);
+      if (!kind || !key) return [];
+      let labels: Record<string, string> | null = null;
+      const points: [number, number | null][] = [];
+      for (let t = start; t <= end; t += step) {
+        const v = valueOf(kind, key, t * 1000);
+        if (!v) return [];
+        labels = v[0];
+        points.push([t, v[1]]);
+      }
+      return labels ? [{ labels, points }] : [];
+    },
+  };
+  const deps: AnomalyDeps = {
+    db,
+    systemDb: db,
+    victoria,
+    orgs: async () => [orgId],
+    rule,
+    log: { warn: (o, m) => console.warn(m, o) },
+  };
+  const began = Date.now();
+  await runAnomalyMinute(deps, R0);
+  for (let h = R0; h < R0 + days * DAY; h += HOUR) {
+    if (h >= R0 + 7 * DAY) for (let m = h; m < h + HOUR; m += MIN) await runAnomalyMinute(deps, m);
+    await runAnomalyHour(deps, h + HOUR + 5 * MIN);
+    if ((h - R0) % DAY === 0)
+      console.error(`day ${(h - R0) / DAY} (${Math.round((Date.now() - began) / 1000)} s)`);
+  }
+
+  const periods = await db
+    .selectFrom('anomaly_periods')
+    .select([
+      'cluster_id',
+      'metric',
+      'started_at',
+      'ended_at',
+      'usual_high',
+      'peak_value',
+      'peak_score',
+    ])
+    .orderBy('started_at')
+    .execute();
+  const allow = parseAlertKeys(DEFAULT_ALERT_KEYS);
+  const scored = (days - 7) * 3;
+  console.log(
+    `\nshowcase: ${days} days from ${new Date(R0).toISOString()} (days 0–6 learn, 7–${days - 1} scored: ` +
+      `${scored} drifts a platform at 03:50, 11:50, 19:50 UTC), past ${rule.score} for ${rule.minutes} min`,
+  );
+  for (const [id, kind] of ids) {
+    const mine = periods.filter((p) => p.cluster_id === id);
+    const alerting = mine.filter((p) => allow(p.metric));
+    const byKey = new Map<string, number>();
+    for (const p of mine) byKey.set(p.metric, (byKey.get(p.metric) ?? 0) + 1);
+    // Each drift: its periods (listed when they last 10 minutes past the score) by key.
+    const starts: number[] = [];
+    for (let d = 7; d < days; d++)
+      for (const h of [3, 11, 19]) starts.push(R0 + d * DAY + h * HOUR + 50 * MIN);
+    const perDrift = starts.map(
+      (s) => alerting.filter((p) => Math.abs(p.started_at.getTime() - s) < 30 * MIN).length,
+    );
+    const fmt = (ms: number) => `+${Math.round(ms / MIN)} min`;
+    const p95 = mine.filter((p) => p.metric === 'workload.http.latency.p95');
+    const lengths = p95.map((p) => ((p.ended_at?.getTime() ?? 0) - p.started_at.getTime()) / MIN);
+    const offsets = p95.map((p) => {
+      const s = starts.find((x) => Math.abs(p.started_at.getTime() - x) < 30 * MIN);
+      return s === undefined ? null : p.started_at.getTime() - s;
+    });
+    const week = (from: number, to: number) =>
+      p95.filter(
+        (p) => p.started_at.getTime() >= R0 + from * DAY && p.started_at.getTime() < R0 + to * DAY,
+      ).length;
+    console.log(
+      `\n== ${kind}: ${mine.length} periods; by key: ${[...byKey].map(([k, n]) => `${k} ${n}`).join(', ')}`,
+    );
+    console.log(
+      `   anomaly alerts (default keys ${DEFAULT_ALERT_KEYS}): ${alerting.length} for ${scored} drifts; ` +
+        `per drift: ${[...new Set(perDrift)].join(' or ')}; outside a drift: ${alerting.length - perDrift.reduce((a, b) => a + b, 0)}`,
+    );
+    console.log(
+      `   p95 periods: start ${[...new Set(offsets.map((o) => (o === null ? 'outside' : fmt(o))))].join(', ')} after the drift's start; ` +
+        `${Math.min(...lengths)}–${Math.max(...lengths)} min unusual (listed: 10 or more); ` +
+        `usual up to ${[...new Set(p95.map((p) => `${Math.round(p.usual_high * 1000)} ms`))].slice(0, 6).join(', ')}; ` +
+        `peak ${Math.round(Math.max(...p95.map((p) => p.peak_value)) * 1000)} ms`,
+    );
+    console.log(
+      `   learned as normal? drifts listed in days 7–13: ${week(7, 14)} of 21, in days 14–${days - 1}: ${week(14, days)} of ${(days - 14) * 3}`,
+    );
+  }
+  await db.destroy();
+}
+
 const mode = process.argv[2];
 if (mode === 'capture') await capture();
 else if (mode === 'replay') await replay();
+else if (mode === 'showcase') await showcase();
 else {
-  console.error('usage: anomaly-replay.ts capture|replay (see the header)');
+  console.error('usage: anomaly-replay.ts capture|replay|showcase (see the header)');
   process.exit(2);
 }

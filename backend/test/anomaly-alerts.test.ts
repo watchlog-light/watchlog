@@ -28,6 +28,7 @@ import {
   valueWords,
 } from '../src/modules/anomaly/alerts.js';
 import { runAnomalyMinute } from '../src/modules/anomaly/jobs.js';
+import { alertWindow, readPeriods } from '../src/modules/anomaly/read.js';
 import { queriesFor, seriesHash, subjectOf } from '../src/modules/anomaly/keys.js';
 import { bucketOf, DEFAULT_RULE, widenedSpread } from '../src/modules/anomaly/stats.js';
 import { closeTestContext, createTestContext, type TestContext } from './helpers.js';
@@ -390,6 +391,186 @@ describe('quiet for 30 minutes after a rollout (ADR-200)', () => {
     });
     await cycle(clock.now + MIN);
     expect(await anomalyAlerts(clusterId)).toHaveLength(1);
+  });
+});
+
+/** Another rule's alert firing on a subject (no evaluator here, so the cycles leave it). */
+async function otherAlert(
+  orgId: string,
+  clusterId: string,
+  labels: Record<string, string>,
+  startedAt: number,
+) {
+  const ruleId = newId();
+  await ctx.db
+    .insertInto('alert_rules')
+    .values({
+      id: ruleId,
+      org_id: orgId,
+      name: 'Queue growing',
+      type: 'default',
+      rule_key: `test.other.${ruleId.slice(-6)}`,
+      severity: 'critical',
+    })
+    .execute();
+  const id = newId();
+  await ctx.db
+    .insertInto('alert_states')
+    .values({
+      id,
+      org_id: orgId,
+      rule_id: ruleId,
+      cluster_id: clusterId,
+      fingerprint: `other:${id}`,
+      state: 'firing',
+      severity: 'critical',
+      labels: JSON.stringify(labels),
+      started_at: new Date(startedAt),
+      fired_at: new Date(startedAt + 5 * MIN),
+    })
+    .execute();
+  return {
+    id,
+    resolve: (at: number) =>
+      ctx.db
+        .updateTable('alert_states')
+        .set({ state: 'resolved', resolved_at: new Date(at) })
+        .where('id', '=', id)
+        .execute(),
+  };
+}
+
+/** The rows the other alert's "What changed around it" card lists (its window, now). */
+async function cardRows(
+  orgId: string,
+  clusterId: string,
+  kind: 'kubernetes' | 'docker',
+  since: number,
+) {
+  const w = alertWindow(since, clock.now);
+  const r = await readPeriods(
+    ctx.db,
+    orgId,
+    { id: clusterId, kind },
+    w,
+    { fromMs: w.fromMs, toMs: w.toMs, stepS: 60 },
+    'first',
+    clock.now,
+    false,
+  );
+  return r.rows.map((row) => row.key);
+}
+
+describe('no anomaly alert while another alert fires on the subject (ADR-200, slice 7b)', () => {
+  it("Kubernetes: the workload's crash-loop alert holds back its unusual p95; it opens when that resolves; a monitored service the same", async () => {
+    const { orgId, clusterId } = await setup('kubernetes');
+    await cycle(T0);
+    const since = T0 - 20 * MIN;
+    const crash = await otherAlert(
+      orgId,
+      clusterId,
+      { ...CHECKOUT, pod: 'checkout-7d9-abc', node: 'worker-1' },
+      since,
+    );
+    // RabbitMQ (slice 7's 47.7 duplicates a day): the queue's alert and its own series.
+    const queue = await otherAlert(orgId, clusterId, { service: 'int-rabbit' }, since);
+    // A node alert is about the node, not the workloads on it.
+    await otherAlert(orgId, clusterId, { node: 'worker-1' }, since);
+    await period(ctx.db, orgId, clusterId, { ...P95, startedAt: T0 - 10 * MIN });
+    await period(ctx.db, orgId, clusterId, {
+      metric: 'rabbitmq.messages.ready',
+      subject: { service: 'int-rabbit' },
+      usual: [0, 20],
+      median: 5,
+      last: 4000,
+      startedAt: T0 - 10 * MIN,
+    });
+    const PAYMENTS = { namespace: 'shop', workload_kind: 'Deployment', workload: 'payments' };
+    await period(ctx.db, orgId, clusterId, {
+      metric: 'workload.cpu.usage',
+      subject: PAYMENTS,
+      usual: [0.1, 0.3],
+      median: 0.2,
+      last: 1.6,
+      startedAt: T0 - 10 * MIN,
+    });
+    await cycle(T0 + MIN);
+    await cycle(T0 + 2 * MIN);
+    expect((await anomalyAlerts(clusterId)).map((a) => a.fingerprint)).toEqual([
+      'anomaly:shop/payments/Deployment:workload.cpu.usage',
+    ]);
+    // Still listed: on the page's window and on the crash-loop alert's card.
+    expect((await cardRows(orgId, clusterId, 'kubernetes', since)).sort()).toEqual([
+      'rabbitmq.messages.ready',
+      'workload.cpu.usage',
+      'workload.http.latency.p95',
+    ]);
+
+    // The crash loop resolves while the p95 stays unusual: its alert opens, from the
+    // period's start; the queue's alert still holds back the queue's.
+    await crash.resolve(T0 + 4 * MIN);
+    await cycle(T0 + 5 * MIN);
+    const list = await anomalyAlerts(clusterId);
+    expect(list.map((a) => [a.fingerprint, a.state])).toEqual([
+      ['anomaly:shop/payments/Deployment:workload.cpu.usage', 'firing'],
+      ['anomaly:workload/shop/checkout/Deployment:workload.http.latency.p95', 'firing'],
+    ]);
+    expect(list[1]!.started_at.getTime()).toBe(T0 - 10 * MIN);
+    await queue.resolve(T0 + 6 * MIN);
+    await cycle(T0 + 7 * MIN);
+    expect((await anomalyAlerts(clusterId)).map((a) => a.fingerprint)).toContain(
+      'anomaly:int-rabbit:rabbitmq.messages.ready',
+    );
+
+    // An anomaly alert already open stays open when another alert starts on its subject.
+    await otherAlert(orgId, clusterId, PAYMENTS, T0 + 7 * MIN);
+    await cycle(T0 + 13 * MIN);
+    expect((await anomalyAlerts(clusterId)).every((a) => a.state === 'firing')).toBe(true);
+  });
+
+  it("Docker: an alert on the container, on another container of its Compose service, or on the Compose service holds it back; a host alert doesn't", async () => {
+    const { orgId, clusterId } = await setup('docker');
+    await cycle(T0);
+    const since = T0 - 20 * MIN;
+    // shop-web-2 is the other replica of the Compose service shop/web.
+    const replica = await otherAlert(
+      orgId,
+      clusterId,
+      { node: 'docker-01', container: 'shop-web-2' },
+      since,
+    );
+    const service = await otherAlert(
+      orgId,
+      clusterId,
+      { compose_project: 'shop', compose_service: 'web' },
+      since,
+    );
+    await otherAlert(orgId, clusterId, { node: 'docker-01', mount: '/' }, since);
+    await period(ctx.db, orgId, clusterId, { ...DOCKER_MEM, startedAt: T0 - 10 * MIN });
+    // A plain container on the same host: only the host alert names it, and that doesn't count.
+    await period(ctx.db, orgId, clusterId, {
+      ...DOCKER_MEM,
+      subject: { container: 'cron-1', host: 'docker-01' },
+      startedAt: T0 - 10 * MIN,
+    });
+    await cycle(T0 + MIN);
+    expect((await anomalyAlerts(clusterId)).map((a) => a.fingerprint)).toEqual([
+      'anomaly:cron-1/docker-01:container.memory.working_set',
+    ]);
+    expect(await cardRows(orgId, clusterId, 'docker', since)).toHaveLength(2);
+
+    // One of the two resolves: the other still holds it back.
+    await replica.resolve(T0 + 2 * MIN);
+    await cycle(T0 + 3 * MIN);
+    expect(await anomalyAlerts(clusterId)).toHaveLength(1);
+    await service.resolve(T0 + 4 * MIN);
+    await cycle(T0 + 5 * MIN);
+    const list = await anomalyAlerts(clusterId);
+    expect(list.map((a) => [a.fingerprint, a.state])).toEqual([
+      ['anomaly:cron-1/docker-01:container.memory.working_set', 'firing'],
+      ['anomaly:shop-web-1/docker-01:container.memory.working_set', 'firing'],
+    ]);
+    expect(list[1]!.started_at.getTime()).toBe(T0 - 10 * MIN);
   });
 });
 
