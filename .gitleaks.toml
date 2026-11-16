@@ -24,4 +24,8 @@ regexes = [
   # install manifest (backend/assets/install-manifest.yaml, commit 150eed1), which the
   # backend replaces with each cluster's token (ADR-176); never a credential.
   '''V0FUQ0hMT0dfSU5TVEFMTF9UT0tFTg==''',
+  # Reviewed 2026-11-16: a default rule's key in the demo replay's test fixture
+  # (backend/test/anomaly-demo.test.ts, commit 9ddd345), `ruleKey: 'k8s.cpu.throttled'`,
+  # read as a generic API key.
+  '''k8s\.cpu\.throttled''',
 ]
