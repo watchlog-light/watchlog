@@ -364,6 +364,66 @@ describe('every REST route as org B with org A ids', () => {
     }
   });
 
+  it("anomaly feedback (ADR-200): B gets 404 for A's anomaly alert, 403 as Free; B's own answer and undo work under RLS", async () => {
+    const as = async (o: SeededOrg, method: 'GET' | 'POST' | 'DELETE', url: string, extra = {}) =>
+      w.app.inject({ method, url, cookies: { wl_session: await o.session() }, ...extra });
+    const answers = (orgId: string) =>
+      w.owner
+        .selectFrom('anomaly_feedback')
+        .select(['id', 'undone_at'])
+        .where('org_id', '=', orgId)
+        .execute();
+    const aBefore = await answers(A.orgId);
+    const page = `/api/v1/alerts/${A.anomalyAlertId}/anomaly`;
+    const fb = `/api/v1/alerts/${A.anomalyAlertId}/anomaly-feedback`;
+    for (const [method, url, extra] of [
+      ['GET', page, {}],
+      ['POST', fb, { payload: { answer: 'normal' } }],
+      ['DELETE', fb, {}],
+    ] as const) {
+      const r = await as(B, method, url, extra);
+      expect(r.statusCode, `${method} ${url}`).toBe(404);
+      expect(leaks(r.body, A.anomalyAlertId)).toEqual([]);
+    }
+    expect(await answers(A.orgId)).toEqual(aBefore);
+    // Each org's own: the page, an answer and its undo, under RLS, on its own rows only.
+    for (const [o, other] of [
+      [A, B],
+      [B, A],
+    ] as const) {
+      const own = await as(o, 'GET', `/api/v1/alerts/${o.anomalyAlertId}/anomaly`);
+      expect(own.statusCode, own.body).toBe(200);
+      expect(leaks(own.body, '', other)).toEqual([]);
+      const url = `/api/v1/alerts/${o.anomalyAlertId}/anomaly-feedback`;
+      const add = await as(o, 'POST', url, { payload: { answer: 'useful' } });
+      expect(add.statusCode, add.body).toBe(201);
+      expect((await as(o, 'DELETE', url)).statusCode).toBe(204);
+      const mine = await answers(o.orgId);
+      expect(mine.length).toBeGreaterThan(0);
+      expect(mine.every((r) => r.undone_at !== null)).toBe(true);
+    }
+    // B without pro_features (Free): 403 pro-feature, for its own alert and for A's.
+    const flip = async (on: boolean) => {
+      await w.owner
+        .updateTable('entitlements')
+        .set({ pro_features: on })
+        .where('org_id', '=', B.orgId)
+        .execute();
+      w.app.entitlements!.invalidate(B.orgId);
+    };
+    await flip(false);
+    try {
+      for (const id of [B.anomalyAlertId, A.anomalyAlertId]) {
+        const r = await as(B, 'GET', `/api/v1/alerts/${id}/anomaly`);
+        expect(r.statusCode).toBe(403);
+        expect(r.json().type).toBe('urn:watchlog:problem:pro-feature');
+        expect(leaks(r.body, id)).toEqual([]);
+      }
+    } finally {
+      await flip(true);
+    }
+  });
+
   it("expectations (ADR-186, ADR-192): B can't list, add or remove A's; B's own work under RLS", async () => {
     const as = async (o: SeededOrg, method: 'GET' | 'POST' | 'DELETE', url: string, extra = {}) =>
       w.app.inject({ method, url, cookies: { wl_session: await o.session() }, ...extra });

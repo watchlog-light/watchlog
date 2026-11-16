@@ -21,6 +21,7 @@ import { newId } from '../../src/lib/ids.js';
 import { randomToken, sha256 } from '../../src/lib/tokens.js';
 import { createSession } from '../../src/modules/auth/sessions.js';
 import { ensureDefaultRules } from '../../src/modules/alerts/rules.js';
+import { ensureAnomalyRule } from '../../src/modules/anomaly/alerts.js';
 import { SetupState } from '../../src/modules/setup/service.js';
 import { TEST_SETUP_CODE, TEST_VM_URL, testConfig } from '../helpers.js';
 import { encode, type TestSeries } from '../support/remote-write.js';
@@ -183,6 +184,8 @@ export interface SeededOrg {
   container: string;
   ruleId: string;
   alertId: string;
+  /** An "Unusual for this hour" alert on the Kubernetes period (ADR-200). */
+  anomalyAlertId: string;
   channelId: string;
   silenceId: string;
   serviceId: string;
@@ -611,6 +614,7 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
       entitled_at: new Date(now),
     })
     .execute();
+  const periodIds: string[] = [];
   for (const [clusterId, metric, subject] of [
     [k8s.id, 'workload.cpu.usage', k8sSource],
     [docker.id, 'container.memory.working_set', { host, container: `${label}-api-1` }],
@@ -650,8 +654,35 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
         last_value: 1.8,
         last_at: new Date(now - 60_000),
       })
-      .execute();
+      .returning('id')
+      .executeTakeFirstOrThrow()
+      .then((r) => periodIds.push(r.id));
   }
+  // The anomaly rule (Pro, ADR-200) and its alert on the Kubernetes period.
+  await withOrg(orgId, () => ensureAnomalyRule(w.appDb, orgId, true));
+  const anomalyRule = await owner
+    .selectFrom('alert_rules')
+    .select('id')
+    .where('org_id', '=', orgId)
+    .where('rule_key', '=', 'anomaly.unusual')
+    .executeTakeFirstOrThrow();
+  const anomalyAlertId = newId();
+  await owner
+    .insertInto('alert_states')
+    .values({
+      id: anomalyAlertId,
+      org_id: orgId,
+      rule_id: anomalyRule.id,
+      cluster_id: k8s.id,
+      fingerprint: `anomaly:${label}`,
+      state: 'firing',
+      severity: 'warning',
+      labels: JSON.stringify({ ...k8sSource, metric: 'workload.cpu.usage' }),
+      details: JSON.stringify({ period: periodIds[0], key: 'workload.cpu.usage' }),
+      started_at: new Date(now - 1_800_000),
+      fired_at: new Date(now - 1_800_000),
+    })
+    .execute();
   // A running pod of the Kubernetes source, so the policy suggestion (ADR-190) has a selector.
   await owner
     .insertInto('objects')
@@ -698,6 +729,7 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     container,
     ruleId: rule.id,
     alertId,
+    anomalyAlertId,
     channelId,
     silenceId,
     serviceId,

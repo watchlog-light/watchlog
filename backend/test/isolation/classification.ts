@@ -158,6 +158,23 @@ export const ROUTES: Record<string, RouteClass> = {
   // Free org 403 `pro-feature` with nothing of A's, B's own and A's control
   // (cross-org.test.ts, "what changed"); Community's 404 is in community.test.ts.
   'GET /api/v1/what-changed': org,
+  // Anomaly alerts' page and feedback (ADR-200): Pro only. B with A's anomaly alert gets 404
+  // (Free: 403 `pro-feature`), B's own answer and undo work under RLS, A's are untouched
+  // (cross-org.test.ts, "anomaly feedback"); Community's 404 is in community.test.ts.
+  'GET /api/v1/alerts/:id/anomaly': {
+    kind: 'org',
+    control:
+      'needs an anomaly alert: the seed\'s alertId is a crash-loop alert (cross-org.test.ts, "anomaly feedback")',
+  },
+  'POST /api/v1/alerts/:id/anomaly-feedback': {
+    kind: 'org',
+    body: { answer: 'normal' },
+    control: 'needs an anomaly alert (cross-org.test.ts, "anomaly feedback")',
+  },
+  'DELETE /api/v1/alerts/:id/anomaly-feedback': {
+    kind: 'org',
+    control: 'needs an anomaly alert (cross-org.test.ts, "anomaly feedback")',
+  },
   'GET /api/v1/clusters/:id/search': { kind: 'org', query: { q: 'web' } },
   'GET /api/v1/clusters/:id/overview': org,
   'GET /api/v1/clusters/:id/service-map': org,

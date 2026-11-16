@@ -131,6 +131,23 @@ describe('Community (WATCHLOG_EDITION unset)', () => {
     }
   });
 
+  it("anomaly alerts' page and feedback (ADR-200): 404, as if absent", async () => {
+    for (const [method, url] of [
+      ['GET', `/api/v1/alerts/00000000-0000-4000-8000-000000000001/anomaly`],
+      ['POST', `/api/v1/alerts/00000000-0000-4000-8000-000000000001/anomaly-feedback`],
+      ['DELETE', `/api/v1/alerts/00000000-0000-4000-8000-000000000001/anomaly-feedback`],
+    ] as const) {
+      const r = await ctx.app.inject({
+        method,
+        url,
+        cookies: { wl_session: cookie },
+        ...(method === 'POST' ? { payload: { answer: 'normal' } } : {}),
+      });
+      expect(r.statusCode, `${method} ${url}`).toBe(404);
+      expect(r.body).not.toContain('Pro');
+    }
+  });
+
   it("keeps the installation's settings (Cloud-only 404s don't apply)", async () => {
     expect(routes.filter(isCommunityOnly).length).toBeGreaterThan(5);
     const res = await ctx.app.inject({
