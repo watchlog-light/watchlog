@@ -37,6 +37,8 @@ export interface ObjectView {
   host?: string;
   composeProject?: string;
   composeService?: string;
+  /** A monitored service's id (its page); its name is the integration's. */
+  id?: string;
 }
 
 export interface RowView {
@@ -212,10 +214,46 @@ export function objectOf(
   if (key.startsWith('container.')) {
     return { object: containerView(l.container ?? '', l.host, compose), peer: null };
   }
+  // An integration's series: the collector labels them service=<integration id>.
   return {
-    object: { kind: 'service', name: l.service ?? l.service_type ?? Object.values(l)[0] ?? key },
+    object: {
+      kind: 'service',
+      name: l.service ?? l.service_type ?? Object.values(l)[0] ?? key,
+      ...(l.service ? { id: l.service } : {}),
+    },
     peer: null,
   };
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Monitored services read by their names, not their ids (one query, only when listed). */
+async function nameServices(
+  db: Database,
+  orgId: string,
+  clusterId: string,
+  rows: RowView[],
+): Promise<void> {
+  const ids = [
+    ...new Set(
+      rows.flatMap((r) =>
+        r.object.kind === 'service' && r.object.id && UUID.test(r.object.id) ? [r.object.id] : [],
+      ),
+    ),
+  ];
+  if (!ids.length) return;
+  const found = await db
+    .selectFrom('integrations')
+    .select(['id', 'name'])
+    .where('org_id', '=', orgId)
+    .where('cluster_id', '=', clusterId)
+    .where('id', 'in', ids)
+    .execute();
+  const names = new Map(found.map((r) => [r.id, r.name]));
+  for (const r of rows) {
+    const name = r.object.id ? names.get(r.object.id) : undefined;
+    if (r.object.kind === 'service' && name) r.object.name = name;
+  }
 }
 
 /**
@@ -364,6 +402,7 @@ export async function readPeriods(
   const compose: ComposeOf =
     cluster.kind === 'docker' && inWindow.length ? await composeMap(db, cluster.id) : new Map();
   const all = inWindow.map((p) => rowView(p, compose));
+  await nameServices(db, orgId, cluster.id, all);
   const firstSubject =
     sortRows(all, 'first')
       .map((r) => causeSubjectOf(r.object))

@@ -55,6 +55,7 @@ const ObjectSchema = Type.Object({
   host: Opt(Type.String()),
   composeProject: Opt(Type.String()),
   composeService: Opt(Type.String()),
+  id: Opt(Type.String({ description: "A monitored service's id, for its page" })),
 });
 
 const RowSchema = Type.Object({

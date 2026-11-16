@@ -32595,6 +32595,10 @@
                               },
                               "composeService": {
                                 "type": "string"
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "A monitored service's id, for its page"
                               }
                             }
                           },

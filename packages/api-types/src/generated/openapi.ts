@@ -11966,6 +11966,8 @@ export interface paths {
                   host?: string;
                   composeProject?: string;
                   composeService?: string;
+                  /** @description A monitored service's id, for its page */
+                  id?: string;
                 };
                 /** @description A map edge's destination; null for every other key */
                 peer: string | null;
