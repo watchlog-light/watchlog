@@ -9,7 +9,7 @@ import { loadConfig, type Config } from './config.js';
 import { createDb, describeDbError, waitForDatabase } from './db/index.js';
 import { EntitlementsService } from './modules/entitlements/service.js';
 import { metricsClient } from './modules/entitlements/metrics.js';
-import { entitledOrgs, workerRefusal } from './modules/anomaly/gate.js';
+import { entitledOrgs, lookBackDays, workerRefusal } from './modules/anomaly/gate.js';
 import { loadAnomalySettings, type AnomalySettings } from './modules/anomaly/settings.js';
 import { AnomalyWorker } from './modules/anomaly/worker.js';
 
@@ -71,6 +71,8 @@ const worker = new AnomalyWorker({
       entitlements ? (await entitlements.get(orgId)).retentionDays : config.alertRetentionDays,
     rule: settings.rule,
     spreadMs: settings.spreadMs,
+    // The live demo learns from its retained history at once (ADR-203); nobody else does.
+    lookBackDays: lookBackDays(gate),
     log,
   },
   version: config.version,

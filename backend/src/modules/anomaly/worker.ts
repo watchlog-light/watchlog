@@ -5,7 +5,14 @@
 // restarts a stuck loop; /readyz says the database answered on the last run.
 import { createServer, type Server } from 'node:http';
 import { HOUR_MS } from './stats.js';
-import { runAnomalyHour, runAnomalyMinute, type AnomalyDeps, type AnomalyReport } from './jobs.js';
+import {
+  runAnomalyHour,
+  runAnomalyLookBack,
+  runAnomalyMinute,
+  type AnomalyDeps,
+  type AnomalyReport,
+  type LookBackState,
+} from './jobs.js';
 
 const MINUTE_MS = 60_000;
 /** The hour's recompute waits this long after the hour, for samples still arriving. */
@@ -33,6 +40,8 @@ export class AnomalyWorker {
   private stopped = false;
   /** The end of the last hour whose bucket was recomputed. */
   private lastHourDone = 0;
+  /** The live demo's look-back, per cluster (ADR-203); empty everywhere else. */
+  private readonly lookBack: LookBackState = new Map();
   lastLoopAt: number;
   private ready = false;
 
@@ -41,7 +50,10 @@ export class AnomalyWorker {
     this.lastLoopAt = this.now();
   }
 
-  /** One tick: the minute's scoring, then the hour's work when an hour has ended. */
+  /**
+   * One tick: the minute's scoring, then the hour's work when an hour has ended, then (the
+   * live demo only) a day of the look-back while it lasts.
+   */
   async tick(): Promise<{ minute: AnomalyReport; hour: AnomalyReport | null }> {
     const now = this.now();
     let minute: AnomalyReport;
@@ -56,6 +68,16 @@ export class AnomalyWorker {
           { clusters: hour.clusters, series: hour.series, ms: this.now() - now },
           'anomaly baselines recomputed',
         );
+      }
+      if (this.opts.deps.lookBackDays) {
+        const began = this.now();
+        const back = await runAnomalyLookBack(this.opts.deps, now, this.lookBack);
+        if (back.clusters) {
+          this.opts.log.info(
+            { clusters: back.clusters, series: back.series, ms: this.now() - began },
+            'anomaly look-back: retained history learned (live demo)',
+          );
+        }
       }
       this.ready = true;
     } catch (err) {

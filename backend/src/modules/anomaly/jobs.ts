@@ -5,6 +5,8 @@
 //   - every hour: the bucket of the hour that just ended, from that hour and the same hour
 //     7 days before (two occurrences in 14 days), minus the minutes under a firing alert on
 //     the series' subject; never data older than the org's `learning_since`;
+//   - the live demo only (ADR-203): the look-back, the 168 buckets before the worker's start
+//     recomputed from the retained history, a day of them a run;
 //   - with the hourly run: the housekeeping. Orgs that lost What changed stop at once (their
 //     open periods end); 30 days later their baselines are deleted. Periods older than the
 //     org's retention, and series gone for 14 days, are deleted.
@@ -66,6 +68,11 @@ export interface AnomalyDeps {
   rule?: Rule;
   /** Spreads one minute's clusters over this many ms, so queries don't burst (0 in tests). */
   spreadMs?: number;
+  /**
+   * Days of retained history a newly seen org learns from (gate.ts lookBackDays): the live
+   * demo's 14, everywhere else 0, so learning starts at the upgrade (ADR-203, ADR-204).
+   */
+  lookBackDays?: number;
   log: AnomalyLogger;
 }
 
@@ -106,11 +113,12 @@ interface Target {
 export async function syncOrgs(deps: AnomalyDeps, nowMs: number): Promise<Map<string, number>> {
   const out = new Map<string, number>();
   const now = new Date(nowMs);
+  const since = new Date(nowMs - (deps.lookBackDays ?? 0) * DAY_MS);
   for (const orgId of await deps.orgs()) {
     const row = await withOrg(orgId, () =>
       deps.db
         .insertInto('anomaly_orgs')
-        .values({ org_id: orgId, learning_since: now, entitled_at: now })
+        .values({ org_id: orgId, learning_since: since, entitled_at: now })
         .onConflict((oc) => oc.column('org_id').doUpdateSet({ entitled_at: now }))
         .returning('learning_since')
         .executeTakeFirstOrThrow(),
@@ -507,6 +515,46 @@ export async function recomputeBucket(deps: AnomalyDeps, t: Target, hour: number
        WHERE b.cluster_id = ${t.clusterId}::uuid AND b.series_hash = u.h`.execute(deps.db);
   }
   return rows.length;
+}
+
+// ------------------------------------------------------------------------------ the look-back
+
+/** The look-back's progress per cluster: the hour it started from, and the hours done. */
+export type LookBackState = Map<string, { anchor: number; done: number }>;
+/** Hours of the look-back recomputed per cluster and run (a day: 7 runs for the week). */
+export const LOOK_BACK_HOURS_PER_RUN = 24;
+
+/**
+ * The live demo only (ADR-203): once per worker process, each cluster's 168 buckets before
+ * the hour that had ended when it was first seen, recomputed from the retained history (back
+ * to the org's `learning_since`, which the look-back put 14 days back), with the same
+ * firing-alert exclusion as every hour. So the demo's baselines exist the day it is deployed,
+ * and a series with 7 days of retained data is scored at once. A day of buckets a run keeps
+ * each tick short; a restart does it again (the recompute is idempotent). Does nothing
+ * without `lookBackDays`, so Cloud and Community never read history from before the upgrade.
+ */
+export async function runAnomalyLookBack(
+  deps: AnomalyDeps,
+  nowMs: number,
+  state: LookBackState,
+): Promise<AnomalyReport> {
+  const report = emptyReport();
+  if (!deps.lookBackDays) return report;
+  const list = (await targets(deps, await syncOrgs(deps, nowMs))).filter(
+    (t) => (state.get(t.clusterId)?.done ?? 0) < BUCKETS,
+  );
+  await eachTarget(deps, 'look-back', list, report, async (t) => {
+    const s = state.get(t.clusterId) ?? {
+      anchor: Math.floor(nowMs / HOUR_MS) * HOUR_MS - HOUR_MS,
+      done: 0,
+    };
+    state.set(t.clusterId, s);
+    const stop = Math.min(BUCKETS, s.done + LOOK_BACK_HOURS_PER_RUN);
+    for (; s.done < stop; s.done++) {
+      report.series += await recomputeBucket(deps, t, s.anchor - s.done * HOUR_MS);
+    }
+  });
+  return report;
 }
 
 // ------------------------------------------------------------------------------ housekeeping

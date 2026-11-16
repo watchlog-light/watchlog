@@ -48,6 +48,15 @@ export async function hasWhatChanged(
 }
 
 /**
+ * Days of retained history the worker learns from when it first sees an org (ADR-203): the
+ * live demo only, so its What changed works on the day of the deploy instead of 7 days
+ * later. 14 (ADR-196's window) reads whatever the demo keeps (7 days). Everywhere else 0:
+ * learning starts at the upgrade (ADR-204), Cloud included, even with demo mode set.
+ */
+export const lookBackDays = (config: GateConfig): number =>
+  config.edition !== 'cloud' && config.demoMode ? 14 : 0;
+
+/**
  * The orgs the worker scores now, read on the owner's connection (ADR-174's allow-list):
  * Cloud, orgs with `pro_features` that are neither suspended nor being deleted; demo mode,
  * the installation's org; Community otherwise, none.
