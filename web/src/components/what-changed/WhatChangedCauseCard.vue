@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { Check, CircleCheck, Copy, Sparkles } from '@lucide/vue';
+import { Check, Copy, Sparkles } from '@lucide/vue';
 import type { Causes } from '@watchlog/api-types';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -122,11 +122,7 @@ onBeforeUnmount(() => clearInterval(timer));
           :data-result="f.result"
           data-testid="wc-cause-fact"
         >
-          <component
-            :is="f.result === 'explains' ? CircleCheck : Check"
-            class="mt-1 size-4 shrink-0 text-ok"
-            aria-hidden="true"
-          />
+          <Check class="mt-1 size-4 shrink-0 text-ok" aria-hidden="true" />
           <span>{{ factText(f.lines) }}</span>
         </li>
       </ul>

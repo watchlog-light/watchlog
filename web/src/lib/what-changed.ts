@@ -308,12 +308,13 @@ export interface CauseFact {
 /**
  * The card's row of checked facts: where the answer started (the alert, or what moved first),
  * then what the answer itself checked and found, the findings that explain it first, at most
- * `max` in all. Only checks that were run (explains or ok); the full list is the evidence.
+ * `max` in all (the screen's one line of three). Only checks that were run (explains or ok);
+ * the full list is the evidence.
  */
 export function causeFacts(
   checks: Pick<CauseCheck, 'topic' | 'code' | 'facts' | 'result'>[],
   fromAlert: boolean,
-  max = 4,
+  max = 3,
 ): CauseFact[] {
   const out: CauseFact[] = [
     {
