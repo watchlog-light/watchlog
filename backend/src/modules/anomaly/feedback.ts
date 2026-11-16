@@ -82,7 +82,8 @@ export const AnomalyAlertSchema = Type.Object({
     from: DateTime,
     to: DateTime,
     step: Type.Integer(),
-    points: Type.Array(Type.Tuple([Type.Number(), Type.Union([Type.Number(), Type.Null()])]), {
+    // [unix seconds, value] pairs, as the alert chart's (a tuple doesn't serialize).
+    points: Type.Array(Type.Array(Type.Union([Type.Number(), Type.Null()])), {
       description: '[unix seconds, value]',
     }),
     band: Type.Array(Type.Object({ from: DateTime, low: Type.Number(), high: Type.Number() }), {

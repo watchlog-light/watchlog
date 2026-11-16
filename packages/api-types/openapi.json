@@ -33156,23 +33156,16 @@
                           "type": "array",
                           "items": {
                             "type": "array",
-                            "additionalItems": false,
-                            "items": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "anyOf": [
-                                  {
-                                    "type": "number"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              }
-                            ],
-                            "minItems": 2
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
                           },
                           "description": "[unix seconds, value]"
                         },

@@ -12179,7 +12179,7 @@ export interface paths {
                 to: string;
                 step: number;
                 /** @description [unix seconds, value] */
-                points: [number, number | null][];
+                points: (number | null)[][];
                 /** @description Each hour's usual range (with any widening), from the last 14 days */
                 band: {
                   /** Format: date-time */
