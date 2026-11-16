@@ -31,6 +31,16 @@
 #                                                Needs the alert worker running from this checkout
 #                                                against WATCHLOG_URL and WATCHLOG_E2E_MAILPIT_URL
 #                                                (the backend's Mailpit)
+#   causes-e2e.sh baseline                       the hour before the trigger, without waiting
+#                                                for it: the fixtures' minutes since `up` (run it
+#                                                3+ minutes after `up`, nothing triggered) copied
+#                                                back over the last BASELINE_MINUTES (default 60)
+#                                                into WATCHLOG_E2E_VM_URL's VictoriaMetrics, each
+#                                                counter carried on so it only rises. Only the
+#                                                time before each series' first real sample is
+#                                                filled, so a rerun adds nothing. The checks
+#                                                read a usual hour (cpu-throttle's usual p95 on
+#                                                Docker above all) as after an hour's wait
 #   causes-e2e.sh down                           removes only what `up` made
 #
 # Runs after the agents report with network flows on (eBPF: the service map, HTTP and
@@ -55,6 +65,7 @@
 #   VM                     the Lima VM (default watchlog-demo)
 #   WATCHLOG_E2E_MAILPIT_URL   Mailpit's API for `notify` (default http://127.0.0.1:8025)
 #   NOTIFY_TIMEOUT         seconds `notify` waits for each message (default 900)
+#   WATCHLOG_E2E_VM_URL    the backend's VictoriaMetrics as seen from this machine (`baseline`)
 # shellcheck disable=SC2016
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -541,6 +552,58 @@ elif mode == "unmonitor":
             if (typ, name) in {(t, n) for t, n, _ in APPS}:
                 call("DELETE", f"/applications/{a['id']}")
                 print(f"{kind} {name}: no longer monitored")
+elif mode == "baseline":
+    # Generated past, not a wait (the owner's rule on time): the hour the checks compare with
+    # is the fixtures' own normal minutes, repeated backwards. Counters (_total, _bucket,
+    # _count, _sum) are shifted down by their increase per copy so rate() reads the same.
+    vm_url = os.environ.get("WATCHLOG_E2E_VM_URL") or sys.exit("baseline needs WATCHLOG_E2E_VM_URL")
+    minutes = int(os.environ.get("BASELINE_MINUTES") or 60)
+    now_ms = int(time.time() * 1000)
+    since_ms = now_ms - minutes * 60_000
+    series = {}
+    for kind in ("kubernetes", "docker"):
+        cid = cluster(kind)["id"]
+        for label in ("namespace", "dst_namespace", "compose_project", "container", "pod", "dst", "name"):
+            q = urllib.parse.urlencode({"match[]": f'{{cluster_id="{cid}",{label}=~".*causes-e2e.*"}}',
+                                        "start": str(since_ms // 1000 - 3600), "end": str(now_ms // 1000)})
+            with urllib.request.urlopen(f"{vm_url}/api/v1/export?{q}", timeout=120) as res:
+                for line in res:
+                    if line.strip():
+                        row = json.loads(line)
+                        series[json.dumps(row["metric"], sort_keys=True)] = row
+    counter = ("_total", "_bucket", "_count", "_sum")
+    out, points, spans = [], 0, []
+    for row in series.values():
+        ts, vs = row["timestamps"], row["values"]
+        if len(ts) < 3 or ts[0] <= since_ms:
+            continue  # too new to copy, or it already has the hour
+        span = ts[-1] - ts[0]
+        step = max(1, round(span / (len(ts) - 1)))
+        if span < 120_000:
+            continue
+        spans.append(span)
+        rises = row["metric"].get("__name__", "").endswith(counter)
+        per_copy = (vs[-1] - vs[0]) * (span + step) / span if rises else 0
+        nts, nvs, k = [], [], 1
+        while ts[-1] - k * (span + step) >= since_ms:
+            for t, v in zip(ts, vs):
+                t2 = t - k * (span + step)
+                if since_ms <= t2 < ts[0]:
+                    nts.append(t2)
+                    nvs.append(v - k * per_copy)
+            k += 1
+        if nts:
+            order = sorted(range(len(nts)), key=nts.__getitem__)
+            out.append(json.dumps({"metric": row["metric"], "values": [nvs[i] for i in order],
+                                   "timestamps": [nts[i] for i in order]}))
+            points += len(nts)
+    if not out:
+        sys.exit("baseline: nothing to copy (run it 3+ minutes after `up`, or the hour is there already)")
+    req = urllib.request.Request(f"{vm_url}/api/v1/import", data="\n".join(out).encode(), method="POST")
+    urllib.request.urlopen(req, timeout=120).read()
+    urllib.request.urlopen(f"{vm_url}/internal/resetRollupResultCache", timeout=30).read()
+    print(f"baseline: {len(out)} series of {len(series)}, {points} points over the last {minutes} min, "
+          f"from {min(spans) // 60000}-{max(spans) // 60000} min of real data each")
 elif mode == "check":
     rows = [l.split() for l in os.environ["SCENARIOS"].strip().splitlines()]
     if args:
@@ -812,7 +875,8 @@ case "$cmd" in
     say "Docker: Compose project causes-e2e"
     compose_file | in_vm "cat > $dir/compose.yaml"
     printf '%s\n' "$pg_init" | in_vm "mkdir -p $dir/initdb && cat > $dir/initdb/watchlog.sh"
-    in_vm "docker pull -q busybox:1.37 >/dev/null && docker pull -q busybox:1.36 >/dev/null && $compose up -d --quiet-pull 2>&1 | tail -n 1"
+    # An image already in the VM isn't pulled again (Docker Hub may be unreachable from it).
+    in_vm "for i in busybox:1.37 busybox:1.36; do docker image inspect \$i >/dev/null 2>&1 || docker pull -q \$i >/dev/null || exit 1; done && $compose up -d --pull missing --quiet-pull 2>&1 | tail -n 1"
     # The scenarios' containers are removed too: a run cut off before its restore leaves them,
     # and their restart policy starts them again whenever Docker starts (a reboot, say).
     in_vm "s=\$(comm -13 <($compose config --services | sort) <($compose --profile scenario config --services | sort)); [ -z \"\$s\" ] || $compose --profile scenario rm -sf \$s 2>&1 | tail -n 1"
@@ -868,6 +932,9 @@ GRANT pg_monitor TO watchlog;"
     ;;
   subjects)
     api subjects "$@"
+    ;;
+  baseline)
+    api baseline
     ;;
   mcp)
     : "${WATCHLOG_E2E_EMAIL:?}" "${WATCHLOG_E2E_PASSWORD:?}"
@@ -926,7 +993,7 @@ GRANT pg_monitor TO watchlog;"
       rm -rf $dir"
     ;;
   *)
-    sed -n '3,34p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '3,44p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 2
     ;;
 esac
