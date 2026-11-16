@@ -10,7 +10,13 @@
 //     a Compose change (the change markers probable cause reads). An alert already open stays;
 //     the page still lists the period during the quiet;
 //   - only the keys the alert-key setting allows may alert (ADR-200's narrowing; the page
-//     still lists every key), with no daily cap.
+//     still lists every key), with no daily cap;
+//   - no new alert while another alert (not an anomaly alert) is firing on the same subject:
+//     the workload, the container or its Compose service, the monitored service, matched as
+//     the baselines' exclusion matches them (exclusion.ts). The incident already has its
+//     alert; the page and the alert's "What changed around it" card still list the period,
+//     and the anomaly alert may open once the other alert resolves (ADR-200, slice 7b). An
+//     alert already open stays.
 // The labels name the subject in its platform's words, as the other rules do, so silences,
 // links and probable cause read them (`node` is Docker's host).
 import type { Database } from '../../db/index.js';
@@ -18,7 +24,13 @@ import { newId } from '../../lib/ids.js';
 import type { DefaultRule } from '../alerts/defaults.js';
 import type { EvalContext, RuleEvaluator } from '../alerts/engine.js';
 import type { Observation, Severity } from '../alerts/state-machine.js';
-import { ANOMALY_RULE_KEY } from './exclusion.js';
+import {
+  ANOMALY_RULE_KEY,
+  type ComposeOf,
+  excluded,
+  firingAlerts,
+  seriesTokens,
+} from './exclusion.js';
 import { unitOf } from './keys.js';
 import { labelsOf } from './read.js';
 
@@ -145,6 +157,15 @@ export function rangeWords(low: number, high: number, unit: string): string {
 
 /** Containers of a Docker fleet: host, Compose project and service, by container name. */
 type Containers = Map<string, { host: string; project: string | null; service: string | null }>;
+
+/** The containers' Compose project and service, as the exclusion reads them. */
+function composeOfContainers(containers: Containers): ComposeOf {
+  const out: ComposeOf = new Map();
+  for (const [name, c] of containers) {
+    if (c.project && c.service) out.set(name, { project: c.project, service: c.service });
+  }
+  return out;
+}
 
 async function containersOf(db: Database, clusterId: string): Promise<Containers> {
   const rows = await db
@@ -364,14 +385,22 @@ const anomalyEvaluator: RuleEvaluator = {
       kind === 'docker' ? containersOf(ctx.db, ctx.cluster.id) : Promise.resolve(new Map()),
       servicesOf(ctx.db, ctx.cluster.id),
     ]);
+    // The other alerts firing now on the cluster (slice 7b): read only when a new alert
+    // could open, as the baselines' exclusion reads them (from the condition's start).
+    const composeOf = composeOfContainers(containers as Containers);
+    const firing = allowed.some((p) => !open.has(anomalyFingerprint(p.metric, labelsOf(p.subject))))
+      ? await firingAlerts(ctx.db, kind, ctx.cluster.id, ctx.now, ctx.now + 1, composeOf)
+      : [];
     const out: Observation[] = [];
     for (const p of allowed) {
       const subject = labelsOf(p.subject);
       const fingerprint = anomalyFingerprint(p.metric, subject);
       const labels = anomalyLabels(kind, p.metric, subject, containers as Containers);
-      // Quiet after a rollout: a new alert waits; one already open stays (ADR-200).
-      if (!open.has(fingerprint) && inQuiet(kind, labels, containers as Containers, markers)) {
-        continue;
+      if (!open.has(fingerprint)) {
+        // Quiet after a rollout: a new alert waits; one already open stays (ADR-200).
+        if (inQuiet(kind, labels, containers as Containers, markers)) continue;
+        // Another alert already firing on the subject: it is the incident's alert (slice 7b).
+        if (excluded(ctx.now, seriesTokens(kind, subject, composeOf), firing)) continue;
       }
       const svc = labels.service ? services.get(labels.service) : undefined;
       if (svc) labels.service_name = svc.name;
