@@ -82,7 +82,6 @@ describe('the cause card: a likely cause', () => {
       'Started from what moved first',
       'Followed api on the service map',
       'No restarts or OOM kills on web',
-      'No warning events in the last 60 minutes',
     ]);
     expect(w.get('[data-testid="wc-cause-label"]').text()).toBe('Likely · where it starts');
     expect(w.get('[data-testid="wc-cause-sentence"]').text()).toMatch(/^web .*api/);
@@ -114,7 +113,7 @@ describe('the cause card: a likely cause', () => {
     expect(w.get('[data-testid="wc-cause"]').attributes('data-state')).toBe('likely');
     const facts = texts(w, 'wc-cause-fact');
     expect(facts[0]).toBe('Started from what moved first');
-    expect(facts).toHaveLength(4);
+    expect(facts).toHaveLength(3);
     // Both findings that explain it come first; one has no short form: what, then what was found.
     expect(w.findAll('[data-testid="wc-cause-fact"]')[1]!.attributes('data-result')).toBe(
       'explains',
@@ -146,7 +145,11 @@ describe('the cause card: no clear cause', () => {
     expect(w.get('[data-testid="wc-cause-label"]').classes()).not.toContain('text-ok');
     expect(w.get('[data-testid="wc-cause-sentence"]').text()).toContain('hot');
     expect(texts(w, 'wc-cause-fact')[0]).toBe('Started from the alert');
-    expect(texts(w, 'wc-cause-fact')).toContain('No rollout of hot in the last 60 minutes');
+    expect(texts(w, 'wc-cause-fact')).toEqual([
+      'Started from the alert',
+      'No restarts or OOM kills on hot',
+      'No warning events in the last 60 minutes',
+    ]);
     await w.get('[data-testid="wc-cause-evidence-toggle"]').trigger('click');
     expect(w.findAll('[data-testid="cause-check"]')).toHaveLength(a.checks.length);
     await w.get('[data-testid="wc-cause-ask-toggle"]').trigger('click');
@@ -212,7 +215,7 @@ describe("the cause card: couldn't run", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('the pure parts: at most 4 facts, explains first; the MCP call', () => {
+  it('the pure parts: at most 3 facts, explains first; the MCP call', () => {
     const checks = answer(kubeDep).checks;
     expect(causeFacts(checks, false, 2).map((f) => f.lines[0]!.key)).toEqual([
       'whatChanged.cause.fact.first',
