@@ -722,12 +722,16 @@ async function replay() {
 /**
  * Slice 7b: the demo kit's What changed showcase (deploy/demo manifests/drift.yaml and the
  * Docker host's compose.yaml), on generated data. `search` answers a request a second in
- * 8–12 ms; at 03:50, 11:50 and 19:50 UTC its response time climbs to 800 ms in 10 minutes,
+ * 8–12 ms; every 2 hours, at :50 past every odd UTC hour (01:50 … 23:50; 03:50, 11:50 and
+ * 19:50 before the kit's 2026-11-16 change, DRIFT_EVERY=28800), its response time climbs to 800 ms in 10 minutes,
  * to 1 s in 10 more, and back to 10 ms in 8 (the kit's CGI script, to the millisecond).
  */
-export function driftMs(t: number): number {
+/** The drift's period in seconds (DRIFT_EVERY; the kit's 7200: :50 past every odd UTC hour). */
+const DRIFT_EVERY = Number(process.env.DRIFT_EVERY ?? 7_200);
+
+export function driftMs(t: number, every = DRIFT_EVERY): number {
   const s = Math.floor(t / 1000);
-  const into = (((s - 13_800) % 28_800) + 28_800) % 28_800;
+  const into = (((s - 13_800) % every) + every) % every;
   if (into < 600) return 10 + Math.floor((into * 790) / 600);
   if (into < 1200) return 800 + Math.floor((into - 600) / 3);
   if (into < 1680) return 1000 - Math.floor(((into - 1200) * 99) / 48);
@@ -917,10 +921,22 @@ async function showcase() {
     .orderBy('started_at')
     .execute();
   const allow = parseAlertKeys(DEFAULT_ALERT_KEYS);
-  const scored = (days - 7) * 3;
+  // The drifts that are still unusual in the scored days (one that starts up to 30 minutes
+  // before them included) and are listed before the replay ends (about 12 minutes after a
+  // drift starts): every DRIFT_EVERY seconds from 03:50 UTC.
+  const everyMs = DRIFT_EVERY * 1000;
+  const starts: number[] = [];
+  const first = R0 + 7 * DAY - 30 * MIN;
+  for (
+    let t = first + ((((13_800_000 - first) % everyMs) + everyMs) % everyMs);
+    t + 15 * MIN <= R0 + days * DAY;
+    t += everyMs
+  )
+    starts.push(t);
+  const scored = starts.length;
   console.log(
     `\nshowcase: ${days} days from ${new Date(R0).toISOString()} (days 0–6 learn, 7–${days - 1} scored: ` +
-      `${scored} drifts a platform at 03:50, 11:50, 19:50 UTC), past ${rule.score} for ${rule.minutes} min`,
+      `${scored} drifts a platform, every ${DRIFT_EVERY / 3600} h from 03:50 UTC), past ${rule.score} for ${rule.minutes} min`,
   );
   for (const [id, kind] of ids) {
     const mine = periods.filter((p) => p.cluster_id === id);
@@ -928,9 +944,6 @@ async function showcase() {
     const byKey = new Map<string, number>();
     for (const p of mine) byKey.set(p.metric, (byKey.get(p.metric) ?? 0) + 1);
     // Each drift: its periods (listed when they last 10 minutes past the score) by key.
-    const starts: number[] = [];
-    for (let d = 7; d < days; d++)
-      for (const h of [3, 11, 19]) starts.push(R0 + d * DAY + h * HOUR + 50 * MIN);
     const perDrift = starts.map(
       (s) => alerting.filter((p) => Math.abs(p.started_at.getTime() - s) < 30 * MIN).length,
     );
@@ -941,10 +954,11 @@ async function showcase() {
       const s = starts.find((x) => Math.abs(p.started_at.getTime() - x) < 30 * MIN);
       return s === undefined ? null : p.started_at.getTime() - s;
     });
+    const inDays = (t: number, from: number, to: number) =>
+      t >= R0 + from * DAY && t < R0 + to * DAY;
     const week = (from: number, to: number) =>
-      p95.filter(
-        (p) => p.started_at.getTime() >= R0 + from * DAY && p.started_at.getTime() < R0 + to * DAY,
-      ).length;
+      p95.filter((p) => inDays(p.started_at.getTime(), from, to)).length;
+    const drifts = (from: number, to: number) => starts.filter((t) => inDays(t, from, to)).length;
     console.log(
       `\n== ${kind}: ${mine.length} periods; by key: ${[...byKey].map(([k, n]) => `${k} ${n}`).join(', ')}`,
     );
@@ -959,7 +973,7 @@ async function showcase() {
         `peak ${Math.round(Math.max(...p95.map((p) => p.peak_value)) * 1000)} ms`,
     );
     console.log(
-      `   learned as normal? drifts listed in days 7–13: ${week(7, 14)} of 21, in days 14–${days - 1}: ${week(14, days)} of ${(days - 14) * 3}`,
+      `   learned as normal? drifts listed in days 7–13: ${week(7, 14)} of ${drifts(7, 14)}, in days 14–${days - 1}: ${week(14, days)} of ${drifts(14, days)}`,
     );
   }
   await db.destroy();
