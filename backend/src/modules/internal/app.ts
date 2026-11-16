@@ -16,7 +16,7 @@ import type { InternalApiConfig } from '../../config.js';
 import type { Database } from '../../db/index.js';
 import { registerProblemHandlers, sendProblem } from '../../lib/problem.js';
 import { ProblemSchema } from '../auth/schemas.js';
-import type { EntitlementsService } from '../entitlements/service.js';
+import { ProFeaturesConflict, type EntitlementsService } from '../entitlements/service.js';
 import { usageReport } from '../entitlements/usage.js';
 import type { FunnelRecorder } from '../funnel/recorder.js';
 import type { AlertingSettings } from '../settings/service.js';
@@ -145,16 +145,22 @@ export async function buildInternalApp(
       const { id } = request.params;
       if (!(await orgExists(id))) return sendProblem(reply, 404, 'No such org');
       const b = request.body;
-      const saved = await entitlements.put(id, {
-        plan: b.plan,
-        source: b.source,
-        clusters: b.clusters,
-        nodes: b.nodes,
-        users: b.users,
-        retentionDays: b.retentionDays,
-        proFeatures: b.proFeatures,
-        betaUntil: b.betaUntil ? new Date(b.betaUntil) : null,
-      });
+      let saved;
+      try {
+        saved = await entitlements.put(id, {
+          plan: b.plan,
+          source: b.source,
+          clusters: b.clusters,
+          nodes: b.nodes,
+          users: b.users,
+          retentionDays: b.retentionDays,
+          proFeatures: b.proFeatures,
+          betaUntil: b.betaUntil ? new Date(b.betaUntil) : null,
+        });
+      } catch (err) {
+        if (err instanceof ProFeaturesConflict) return sendProblem(reply, 400, err.message);
+        throw err;
+      }
       request.log.info(
         { orgId: id, plan: saved.plan, source: saved.source, graceUntil: saved.graceUntil },
         'entitlements set',

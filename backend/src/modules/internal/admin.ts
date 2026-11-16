@@ -12,7 +12,7 @@ import type { Database } from '../../db/index.js';
 import { sendProblem } from '../../lib/problem.js';
 import { transport } from '../alerts/channels.js';
 import { ProblemSchema } from '../auth/schemas.js';
-import type { EntitlementsService } from '../entitlements/service.js';
+import { ProFeaturesConflict, type EntitlementsService } from '../entitlements/service.js';
 import { usageReport } from '../entitlements/usage.js';
 import { funnelByWeek } from '../funnel/report.js';
 import type { FunnelRecorder } from '../funnel/recorder.js';
@@ -484,11 +484,17 @@ export const adminRoutes: FastifyPluginAsyncTypebox<AdminDeps> = async (app, dep
       if (!org) return sendProblem(reply, 404, 'No such org');
       const { note, betaUntil, ...b } = request.body;
       const before = await entitlements.get(org.id);
-      const saved = await entitlements.put(org.id, {
-        ...b,
-        source: 'staff',
-        betaUntil: betaUntil ? new Date(betaUntil) : null,
-      });
+      let saved;
+      try {
+        saved = await entitlements.put(org.id, {
+          ...b,
+          source: 'staff',
+          betaUntil: betaUntil ? new Date(betaUntil) : null,
+        });
+      } catch (err) {
+        if (err instanceof ProFeaturesConflict) return sendProblem(reply, 400, err.message);
+        throw err;
+      }
       await audit(systemDb, {
         orgId: org.id,
         action: 'staff_entitlements_set',

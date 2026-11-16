@@ -38,6 +38,13 @@ export type PlanLimits = Pick<
   'clusters' | 'nodes' | 'users' | 'retentionDays' | 'proFeatures'
 >;
 
+/**
+ * Whether a plan has the Pro features (ADR-205): Pro and Enterprise yes, Free no. The
+ * entitlement's `proFeatures` always equals this (a database CHECK holds it), so the plan's
+ * name in the sidebar and every feature gated on `proFeatures` (What changed, ADR-195) agree.
+ */
+export const planHasProFeatures = (plan: CloudPlan): boolean => plan !== 'free';
+
 /** The defaults (ADR-177): Free 1 cluster or fleet, 5 nodes, 3 days, 1 user; Pro unlimited, 30 days, 10 users. */
 export const PLAN_DEFAULTS: Record<CloudPlan, PlanLimits> = {
   free: { clusters: 1, nodes: 5, users: 1, retentionDays: 3, proFeatures: false },

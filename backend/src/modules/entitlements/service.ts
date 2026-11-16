@@ -12,6 +12,7 @@ import {
   DOWNGRADE_GRACE_MS,
   PLAN_DEFAULTS,
   defaultEntitlement,
+  planHasProFeatures,
   type CloudPlan,
   type Entitlement,
   type EntitlementSource,
@@ -33,6 +34,20 @@ export function tierOf(retentionDays: number): Tier {
 export type Placement = TierPlacement;
 
 /** PUT /internal/orgs/:id/entitlements: the plan, where it comes from, and any override. */
+/**
+ * A write that asks for Pro features the plan doesn't have, or the reverse (ADR-205): the
+ * internal API answers 400 with this message.
+ */
+export class ProFeaturesConflict extends Error {
+  constructor(plan: CloudPlan) {
+    super(
+      `Pro features follow the plan (ADR-205): ${plan} ${planHasProFeatures(plan) ? 'has' : 'has no'} Pro features. ` +
+        'Leave proFeatures out, or change the plan.',
+    );
+    this.name = 'ProFeaturesConflict';
+  }
+}
+
 export interface EntitlementInput {
   plan: CloudPlan;
   source: EntitlementSource;
@@ -40,6 +55,7 @@ export interface EntitlementInput {
   nodes?: number | null;
   users?: number | null;
   retentionDays?: number;
+  /** Optional, and only ever the plan's own value (ADR-205); anything else is refused. */
   proFeatures?: boolean;
   betaUntil?: Date | null;
 }
@@ -149,16 +165,22 @@ export class EntitlementsService {
    * defaults. A lower node or cluster limit starts the 14-day grace (kept, not extended,
    * when one is already running); a higher one ends it. A retention change records the
    * tier the metrics were in, which reads keep merging until its retention has run out.
+   * Pro features follow the plan (ADR-205): a `proFeatures` that disagrees with it throws
+   * ProFeaturesConflict, before anything is written.
    */
   async put(orgId: string, input: EntitlementInput): Promise<Entitlement> {
     const now = new Date(this.now());
     const defaults = PLAN_DEFAULTS[input.plan];
+    const proFeatures = planHasProFeatures(input.plan);
+    if (input.proFeatures !== undefined && input.proFeatures !== proFeatures) {
+      throw new ProFeaturesConflict(input.plan);
+    }
     const next = {
       clusters: input.clusters !== undefined ? input.clusters : defaults.clusters,
       nodes: input.nodes !== undefined ? input.nodes : defaults.nodes,
       users: input.users !== undefined ? input.users : defaults.users,
       retentionDays: input.retentionDays ?? defaults.retentionDays,
-      proFeatures: input.proFeatures ?? defaults.proFeatures,
+      proFeatures,
     };
     const saved = await this.systemDb.transaction().execute(async (trx) => {
       const row = await trx
