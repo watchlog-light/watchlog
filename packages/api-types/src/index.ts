@@ -214,6 +214,9 @@ export type EgressPolicyFlavour = EgressPolicy['policies'][number];
 export type WhatChanged = JsonBody<Responses<'/api/v1/what-changed', 'get'>[200]>;
 export type WhatChangedRow = WhatChanged['rows'][number];
 export type WhatChangedObject = WhatChangedRow['object'];
+/** An anomaly alert's page (ADR-200): now, the usual range, the usual band, the answer given. */
+export type AnomalyAlert = JsonBody<Responses<'/api/v1/alerts/{id}/anomaly', 'get'>[200]>;
+export type AnomalyFeedback = NonNullable<AnomalyAlert['feedback']>;
 // The ⌘K palette's search (ADR-169).
 export type SearchResponse = JsonBody<Responses<'/api/v1/clusters/{id}/search', 'get'>[200]>;
 export type SearchResult = SearchResponse['results'][number];

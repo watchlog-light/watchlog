@@ -3363,7 +3363,9 @@
       "org_inactive_suspended": "Suspended after {days} days without data",
       "org_reactivated": "Reactivated the organization",
       "egress_expected_added": "Marked {pattern} expected (port {port}, {source})",
-      "egress_expected_removed": "Removed the expectation {pattern} (port {port}, {source})"
+      "egress_expected_removed": "Removed the expectation {pattern} (port {port}, {source})",
+      "anomaly_feedback_given": "Answered \"Was this worth an alert?\" on {metric}: {answer}",
+      "anomaly_feedback_undone": "Undid the answer \"{answer}\" on {metric}"
     },
     "inviteTitle": "Invite someone",
     "inviteDescription": "They choose their own name and password when they open the link.",
@@ -4768,6 +4770,37 @@
     },
     "errors": {
       "load": "Couldn't load What changed."
+    }
+  },
+  "anomaly": {
+    "hero": {
+      "title": "Anomaly · unusual for a {day} at {hour} UTC",
+      "now": "Now",
+      "peak": "Furthest",
+      "usual": "Usual at this hour",
+      "firingSince": "Firing since {time}",
+      "ended": "Ended {time}",
+      "chartLabel": "{metric} against its usual range for each hour: usually {usual}, now {value}",
+      "legendBand": "usual for each hour of a {day}, from the last 14 days",
+      "legendLine": "today",
+      "noSeries": "The series has no values in the last 6 hours."
+    },
+    "feedback": {
+      "title": "Was this worth an alert?",
+      "yes": "Yes, keep alerting",
+      "no": "No, this is normal for us",
+      "hint": "Your answer tunes this series’ usual range. Anomaly alerts aim for fewer than 3 a day per cluster.",
+      "viewer": "Owners and Admins answer this; an answer tunes this series’ usual range.",
+      "usefulDone": "Thanks. This kind of change keeps alerting.",
+      "normalDone": "Got it. The usual range on {day} at {hour} UTC is now {range}; the same change won’t alert again there.",
+      "widenedBy": "Widened on {date} by {name}.",
+      "answeredBy": "Answered on {date} by {name}.",
+      "someone": "a former member",
+      "undo": "Undo",
+      "failed": "That didn’t save. Try again."
+    },
+    "message": {
+      "title": "The message in every channel"
     }
   }
 }

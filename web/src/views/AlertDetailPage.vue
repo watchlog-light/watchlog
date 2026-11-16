@@ -19,6 +19,7 @@ import AlertTable from '@/components/alerts/AlertTable.vue';
 import SilenceForm from '@/components/alerts/SilenceForm.vue';
 import CausePanel from '@/components/causes/CausePanel.vue';
 import EgressAlertCard from '@/components/egress/EgressAlertCard.vue';
+import AnomalyAlertView from '@/components/what-changed/AnomalyAlertView.vue';
 import WhatChangedAlertCard from '@/components/what-changed/WhatChangedAlertCard.vue';
 import TonePill from '@/components/kube/TonePill.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
@@ -37,6 +38,7 @@ import {
   severityTone,
   stateTone,
 } from '@/lib/alerts';
+import { isAnomalyAlert } from '@/lib/anomaly';
 import { causeMarkers } from '@/lib/causes';
 import { formatDateTime, formatWhen } from '@/lib/format';
 import { RANGE_SECONDS, since } from '@/lib/time';
@@ -223,7 +225,16 @@ onMounted(() => {
         @cancel="silencing = false"
       />
 
+      <!-- An anomaly alert (ADR-200): its series against the usual band, What changed around
+           it, the probable cause and "Was this worth an alert?", in place of the rule's chart. -->
+      <AnomalyAlertView
+        v-if="isAnomalyAlert(page.data.value.alert)"
+        :key="`an-${page.data.value.alert.id}`"
+        :alert="page.data.value.alert"
+      />
+
       <CausePanel
+        v-if="!isAnomalyAlert(page.data.value.alert)"
         :cluster-id="page.data.value.alert.cluster.id"
         :subject="`alert:${page.data.value.alert.id}`"
         :name="alertTargetName(page.data.value.alert) || undefined"
@@ -231,6 +242,7 @@ onMounted(() => {
       />
 
       <WhatChangedAlertCard
+        v-if="!isAnomalyAlert(page.data.value.alert)"
         :key="`wc-${page.data.value.alert.id}`"
         :alert="page.data.value.alert"
       />
@@ -242,6 +254,7 @@ onMounted(() => {
       />
 
       <AlertChart
+        v-if="!isAnomalyAlert(page.data.value.alert)"
         :chart="chart.data.value ?? null"
         :extra-markers="causeMarks"
         :severity="page.data.value.alert.severity"
