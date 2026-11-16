@@ -63,4 +63,34 @@ describe('AppSidebar', () => {
     const wrapper = mount(AppSidebar, { global: { plugins: [router, i18n, pinia] } });
     expect(wrapper.get('nav a[aria-current="page"]').text()).toBe('Settings');
   });
+
+  it('Cloud marks the Pro sections with a chip; Community has none', async () => {
+    const { router, i18n, pinia } = await createPlugins('/');
+    const wrapper = mount(AppSidebar, { global: { plugins: [router, i18n, pinia] } });
+    expect(wrapper.find('[data-testid="nav-pro"]').exists()).toBe(false);
+
+    const auth = useAuthStore();
+    auth.cloud = {
+      signup: true,
+      signupMode: 'public',
+      providers: { github: false, google: false },
+      turnstileSiteKey: null,
+      passwordMinLength: 10,
+      verifyGraceDays: 7,
+      supportEmail: 'support@example.com',
+      sampleUrl: null,
+    } as unknown as NonNullable<typeof auth.cloud>;
+    await flushPromises();
+    const chips = wrapper.findAll('[data-testid="nav-pro"]');
+    expect(chips).toHaveLength(navFor('kubernetes').filter((i) => i.pro).length);
+    expect(chips.map((c) => c.element.closest('a')?.textContent)).toEqual(['What changedPro']);
+    // Info tone, like the page's own chip; never the primary colour.
+    expect(chips[0]!.classes()).toEqual(expect.arrayContaining(['text-info', 'border-info/50']));
+
+    // Collapsed: no room for the chip, so the tooltip says it.
+    await wrapper.get('[data-testid="sidebar-toggle"]').trigger('click');
+    expect(wrapper.find('[data-testid="nav-pro"]').exists()).toBe(false);
+    expect(wrapper.get('a[href="/what-changed"]').attributes('title')).toBe('What changed · Pro');
+    expect(wrapper.get('a[href="/events"]').attributes('title')).toBe('Events');
+  });
 });

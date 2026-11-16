@@ -4,6 +4,7 @@ import logoUrl from '@watchlog/design-tokens/assets/logo.svg';
 import { LogOut, PanelLeftClose, PanelLeftOpen, X } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import { computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { navFor, type NavItem } from '@/router';
 import { useApplicationsStore } from '@/stores/applications';
@@ -21,6 +22,7 @@ const ui = useUiStore();
 const { sidebarCollapsed } = storeToRefs(ui);
 const collapsed = computed(() => !props.drawer && sidebarCollapsed.value);
 const auth = useAuthStore();
+const { t } = useI18n();
 const clusters = useClustersStore();
 // The pages of the selected cluster's kind (Hosts and Containers for a Docker fleet).
 const items = computed(() =>
@@ -35,6 +37,14 @@ const badge = (item: NavItem) => (item.name === 'applications' ? applications.pr
 const egress = useEgressStore();
 const newCount = (item: NavItem) =>
   item.name === 'egress' && clusters.selected ? (egress.newCount[clusters.selected.id] ?? 0) : 0;
+// Cloud marks the Pro sections, so a Free org knows before it opens one (Community has no plans).
+const pro = (item: NavItem) => auth.isCloud && !!item.pro;
+const linkTitle = (item: NavItem) =>
+  collapsed.value
+    ? pro(item)
+      ? `${t(item.titleKey)} · ${t('nav.pro')}`
+      : t(item.titleKey)
+    : undefined;
 watch(
   () => clusters.selected?.id,
   (id) => {
@@ -101,7 +111,7 @@ async function signOut() {
           <RouterLink v-slot="{ href, navigate }" :to="target(item.path)" custom>
             <a
               :href="href"
-              :title="collapsed ? $t(item.titleKey) : undefined"
+              :title="linkTitle(item)"
               :aria-current="isCurrent(item) ? 'page' : undefined"
               :class="[
                 'relative flex items-center gap-3 rounded-control px-2.5 text-14 transition-colors',
@@ -138,6 +148,12 @@ async function signOut() {
                   collapsed ? newCount(item) : $t('nav.newShort', { n: newCount(item) })
                 }}</span>
               </span>
+              <span
+                v-if="pro(item) && !collapsed"
+                data-testid="nav-pro"
+                class="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-info/50 px-2 text-12 font-semibold text-info"
+                >{{ $t('nav.pro') }}</span
+              >
             </a>
           </RouterLink>
         </li>

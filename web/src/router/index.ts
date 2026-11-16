@@ -46,6 +46,8 @@ export interface NavItem {
   icon: Component;
   /** Shown for this kind of cluster only. */
   kind?: ClusterKind;
+  /** A Pro feature: Cloud's sidebar marks it with a "Pro" chip. */
+  pro?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -75,7 +77,13 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { name: 'events', path: '/events', titleKey: 'nav.events', icon: ScrollText },
   // What changed (ADR-199): Pro; Cloud Free and Community see a placeholder (ADR-195).
-  { name: 'what-changed', path: '/what-changed', titleKey: 'nav.whatChanged', icon: Radar },
+  {
+    name: 'what-changed',
+    path: '/what-changed',
+    titleKey: 'nav.whatChanged',
+    icon: Radar,
+    pro: true,
+  },
   { name: 'service-map', path: '/service-map', titleKey: 'nav.serviceMap', icon: Network },
   // Egress watch (ADR-188): external destinations, for both kinds of cluster.
   { name: 'egress', path: '/egress', titleKey: 'nav.egress', icon: Globe },

@@ -24,7 +24,8 @@
     "egress": "Egress",
     "newDestinations": "{n} new destination in 24 hours | {n} new destinations in 24 hours",
     "newShort": "{n} new",
-    "whatChanged": "What changed"
+    "whatChanged": "What changed",
+    "pro": "Pro"
   },
   "clusterSwitcher": {
     "label": "Cluster",
