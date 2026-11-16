@@ -9,7 +9,7 @@ import type { Database } from '../../db/index.js';
 import { requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { graceOver } from './node-gate.js';
-import { SEEN_WINDOW_MS, daysLeft } from './plans.js';
+import { PRO_PRICE, SEEN_WINDOW_MS, daysLeft } from './plans.js';
 import type { EntitlementsService } from './service.js';
 import { usageReport } from './usage.js';
 
@@ -57,6 +57,14 @@ export const PlanSchema = Type.Object({
     }),
     Type.Null(),
   ]),
+  /** Pro's price (the plans config, SPEC §3.3), for the pages that quote it (ADR-201). */
+  price: Type.Object({
+    currency: Type.Literal('USD'),
+    perNodeMonth: Type.Number(),
+    minimumMonth: Type.Number(),
+    annualPerNode: Type.Number(),
+    annualMinimumNodes: Type.Integer(),
+  }),
 });
 
 export interface PlanRouteOptions {
@@ -147,6 +155,7 @@ export const planRoutes: FastifyPluginAsyncTypebox<PlanRouteOptions> = async (ap
               clustersOver,
             }
           : null,
+        price: { ...PRO_PRICE },
       };
     },
   );

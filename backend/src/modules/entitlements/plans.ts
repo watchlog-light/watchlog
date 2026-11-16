@@ -46,6 +46,21 @@ export const PLAN_DEFAULTS: Record<CloudPlan, PlanLimits> = {
   enterprise: { clusters: null, nodes: null, users: null, retentionDays: 30, proFeatures: true },
 };
 
+/**
+ * Pro's price (SPEC §3.3, ADR-178), in whole US dollars: $1 per node a month with a $10
+ * minimum, billed on the 95th percentile of hourly nodes; annual is $10 per node a year for
+ * at least 10 nodes. The billing service's Stripe prices are made to match; the pages show
+ * these numbers (the upgrade page, ADR-201) instead of writing them into their copy.
+ */
+export const PRO_PRICE = {
+  currency: 'USD',
+  perNodeMonth: 1,
+  minimumMonth: 10,
+  annualPerNode: 10,
+  annualMinimumNodes: 10,
+} as const;
+export type ProPrice = typeof PRO_PRICE;
+
 /** Nodes and clusters already sending keep sending this long after a downgrade (ADR-177). */
 export const DOWNGRADE_GRACE_MS = 14 * 86_400_000;
 /** An agent instance the org saw within this window is "already sending" (ADR-177). */
