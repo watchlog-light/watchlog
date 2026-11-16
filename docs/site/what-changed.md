@@ -201,7 +201,7 @@ Nothing to set: the anomaly-worker runs in WatchLog Cloud, and agents send nothi
   [Configuration](configuration.md).
 - **`WATCHLOG_ANOMALY_ALERT_KEYS`** (the alert worker, Cloud mode): which metrics may raise an
   anomaly alert, as a comma-separated list with `*` as a wildcard and `!` to leave out. The
-  default is `*,!edge.*`: everything but the service map's connections. The page lists every
+  default is `*,!edge.*`: everything but the service map's connections. The page lists every scored
   metric either way.
 
 ## Limits
