@@ -444,36 +444,44 @@ describe('request logs', () => {
 });
 
 describe('the first-week card (Cloud)', () => {
-  it('reads real state, says Free cannot invite, and is dismissed per user', async () => {
-    const { c, cookie } = await cloud();
-    const call = api(c, cookie);
-    let res = await call('GET', '/onboarding/first-week');
-    expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({
-      dismissed: false,
-      steps: [
-        { id: 'channel', done: false, blocked: null },
-        { id: 'teammate', done: false, blocked: 'plan-limit' },
-        { id: 'application', done: false, blocked: null },
-        { id: 'mcp', done: false, blocked: null },
-        { id: 'problem', done: false, blocked: null },
-      ],
-    });
-    const ch = await call('POST', '/alert-channels', {
-      type: 'slack',
-      name: 'Slack',
-      settings: { webhookUrl: 'https://hooks.slack.com/services/T000/B000/XXXX' },
-      useForAllRules: true,
-    });
-    expect(ch.statusCode, ch.body).toBe(201);
-    res = await call('GET', '/onboarding/first-week');
-    expect(res.json().steps[0]).toEqual({ id: 'channel', done: true, blocked: null });
-    const state = await c.db.selectFrom('onboarding_states').selectAll().executeTakeFirstOrThrow();
-    expect(state.reported).toEqual(['channel']);
+  it(
+    'reads real state, says Free cannot invite, and is dismissed per user',
+    // Two apps and the watchlog_app role: over 5 s on a busy CI runner.
+    { timeout: 30_000 },
+    async () => {
+      const { c, cookie } = await cloud();
+      const call = api(c, cookie);
+      let res = await call('GET', '/onboarding/first-week');
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({
+        dismissed: false,
+        steps: [
+          { id: 'channel', done: false, blocked: null },
+          { id: 'teammate', done: false, blocked: 'plan-limit' },
+          { id: 'application', done: false, blocked: null },
+          { id: 'mcp', done: false, blocked: null },
+          { id: 'problem', done: false, blocked: null },
+        ],
+      });
+      const ch = await call('POST', '/alert-channels', {
+        type: 'slack',
+        name: 'Slack',
+        settings: { webhookUrl: 'https://hooks.slack.com/services/T000/B000/XXXX' },
+        useForAllRules: true,
+      });
+      expect(ch.statusCode, ch.body).toBe(201);
+      res = await call('GET', '/onboarding/first-week');
+      expect(res.json().steps[0]).toEqual({ id: 'channel', done: true, blocked: null });
+      const state = await c.db
+        .selectFrom('onboarding_states')
+        .selectAll()
+        .executeTakeFirstOrThrow();
+      expect(state.reported).toEqual(['channel']);
 
-    expect((await call('POST', '/onboarding/first-week/dismiss')).statusCode).toBe(204);
-    expect((await call('GET', '/onboarding/first-week')).json().dismissed).toBe(true);
-  });
+      expect((await call('POST', '/onboarding/first-week/dismiss')).statusCode).toBe(204);
+      expect((await call('GET', '/onboarding/first-week')).json().dismissed).toBe(true);
+    },
+  );
 
   it('takes only the funnel events the page may send', async () => {
     const { c, cookie } = await cloud();

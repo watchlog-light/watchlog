@@ -638,48 +638,53 @@ describe('Cloud: each org inside its own scope, under Row-Level Security', () =>
     await appDb.destroy();
   });
 
-  it('the jobs write each org’s rows as watchlog_app; neither org sees the other’s', async () => {
-    const a = await orgWith('kubernetes');
-    const b = await orgWith('docker');
-    const vm = new FakeVictoria();
-    const at = START + 14 * DAY + 2 * HOUR;
-    vm.series.set(a.clusterId, [
-      { ...platforms[0]!.main, steps: [{ from: at, to: at + 60 * MIN, add: 3 }] },
-    ]);
-    vm.series.set(b.clusterId, [
-      { ...platforms[1]!.main, steps: [{ from: at, to: at + 60 * MIN, add: 2 ** 31 }] },
-    ]);
-    const d = deps(vm, async () => [a.orgId, b.orgId], appDb);
-    await runAnomalyMinute(d, START);
-    await learn(d, START, START + 14 * DAY);
-    const report = await runAnomalyMinute(d, at + 12 * MIN);
-    expect(report.errors).toEqual([]);
-    expect(report.opened).toBe(2);
-    const client = new pg.Client({ connectionString: appUrlOf(inject('databaseUrl')) });
-    await client.connect();
-    try {
-      for (const t of ['anomaly_baselines', 'anomaly_periods', 'anomaly_orgs']) {
-        expect((await client.query(`SELECT count(*) AS n FROM ${t}`)).rows[0].n, t).toBe('0');
-      }
-      await client.query("SELECT set_config('watchlog.org_id', $1, false)", [b.orgId]);
-      for (const t of ['anomaly_baselines', 'anomaly_periods', 'anomaly_orgs']) {
-        const r = await client.query(`SELECT DISTINCT org_id FROM ${t}`);
-        expect(r.rows, t).toEqual([{ org_id: b.orgId }]);
-      }
-      await expect(
-        client.query(
-          `INSERT INTO anomaly_periods (org_id, cluster_id, series_hash, metric, subject, started_at, bucket, median, usual_low, usual_high, peak_score, peak_value, peak_at, last_value, last_at)
+  it(
+    'the jobs write each org’s rows as watchlog_app; neither org sees the other’s',
+    // Two apps and the watchlog_app role: over 5 s on a busy CI runner.
+    { timeout: 30_000 },
+    async () => {
+      const a = await orgWith('kubernetes');
+      const b = await orgWith('docker');
+      const vm = new FakeVictoria();
+      const at = START + 14 * DAY + 2 * HOUR;
+      vm.series.set(a.clusterId, [
+        { ...platforms[0]!.main, steps: [{ from: at, to: at + 60 * MIN, add: 3 }] },
+      ]);
+      vm.series.set(b.clusterId, [
+        { ...platforms[1]!.main, steps: [{ from: at, to: at + 60 * MIN, add: 2 ** 31 }] },
+      ]);
+      const d = deps(vm, async () => [a.orgId, b.orgId], appDb);
+      await runAnomalyMinute(d, START);
+      await learn(d, START, START + 14 * DAY);
+      const report = await runAnomalyMinute(d, at + 12 * MIN);
+      expect(report.errors).toEqual([]);
+      expect(report.opened).toBe(2);
+      const client = new pg.Client({ connectionString: appUrlOf(inject('databaseUrl')) });
+      await client.connect();
+      try {
+        for (const t of ['anomaly_baselines', 'anomaly_periods', 'anomaly_orgs']) {
+          expect((await client.query(`SELECT count(*) AS n FROM ${t}`)).rows[0].n, t).toBe('0');
+        }
+        await client.query("SELECT set_config('watchlog.org_id', $1, false)", [b.orgId]);
+        for (const t of ['anomaly_baselines', 'anomaly_periods', 'anomaly_orgs']) {
+          const r = await client.query(`SELECT DISTINCT org_id FROM ${t}`);
+          expect(r.rows, t).toEqual([{ org_id: b.orgId }]);
+        }
+        await expect(
+          client.query(
+            `INSERT INTO anomaly_periods (org_id, cluster_id, series_hash, metric, subject, started_at, bucket, median, usual_low, usual_high, peak_score, peak_value, peak_at, last_value, last_at)
            VALUES ($1, $2, decode(repeat('00', 32), 'hex'), 'x', '{}', now(), 0, 0, 0, 0, 0, 0, now(), 0, now())`,
-          [b.orgId, a.clusterId],
-        ),
-      ).rejects.toThrow();
-      const upd = await client.query(
-        'UPDATE anomaly_baselines SET last_seen = now() WHERE org_id = $1',
-        [a.orgId],
-      );
-      expect(upd.rowCount).toBe(0);
-    } finally {
-      await client.end();
-    }
-  });
+            [b.orgId, a.clusterId],
+          ),
+        ).rejects.toThrow();
+        const upd = await client.query(
+          'UPDATE anomaly_baselines SET last_seen = now() WHERE org_id = $1',
+          [a.orgId],
+        );
+        expect(upd.rowCount).toBe(0);
+      } finally {
+        await client.end();
+      }
+    },
+  );
 });
