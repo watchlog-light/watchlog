@@ -1,16 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import {
-  ArrowRight,
-  Check,
-  CircleAlert,
-  CircleCheck,
-  Copy,
-  Minus,
-  Route,
-  TriangleAlert,
-} from '@lucide/vue';
-import type { Cause, CauseCheck, Causes } from '@watchlog/api-types';
+import { ArrowRight, Check, CircleAlert, Copy, Route, TriangleAlert } from '@lucide/vue';
+import type { Cause, Causes } from '@watchlog/api-types';
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
@@ -21,8 +12,6 @@ import { useLoader } from '@/composables/useLoader';
 import {
   causeLine,
   causesText,
-  checkLine,
-  checksSummary,
   connectorKey,
   headlineLine,
   likelyOf,
@@ -39,6 +28,7 @@ import {
 } from '@/lib/causes';
 import { formatWhen } from '@/lib/format';
 import { since } from '@/lib/time';
+import CauseChecks from './CauseChecks.vue';
 import CauseChip from './CauseChip.vue';
 import CauseObjectLogo from './CauseObjectLogo.vue';
 
@@ -89,11 +79,6 @@ const nothing = computed(
 const hidden = computed(() => props.quiet && (nothing.value || (!a.value && !!page.error.value)));
 
 const checks = computed(() => a.value?.checks ?? []);
-const summary = computed(() =>
-  checksSummary(checks.value, state.value === 'was')
-    .map((l) => say(tr, l))
-    .join(', '),
-);
 const checksOpen = computed(() => a.value?.state === 'none');
 const flowsNodes = computed(() => (a.value?.flowsOff ?? []).map((f) => f.node).join(', '));
 const meta = computed(() => {
@@ -103,14 +88,6 @@ const meta = computed(() => {
   const ago = since(x.checkedAt);
   return ago === '0s' ? t('causes.panel.checkedNow') : t('causes.panel.checked', { ago });
 });
-
-const CHECK_ICON: Record<CauseCheck['result'], { icon: typeof Check; class: string }> = {
-  explains: { icon: CircleCheck, class: 'text-info' },
-  ok: { icon: Check, class: 'text-ok' },
-  possible: { icon: CircleAlert, class: 'text-warning' },
-  not_run: { icon: CircleAlert, class: 'text-warning' },
-  not_applicable: { icon: Minus, class: 'text-text-subtle' },
-};
 
 const { state: copyState, copy } = useCopy();
 function copyText() {
@@ -386,39 +363,12 @@ onBeforeUnmount(() => clearInterval(timer));
           {{ $t('causes.panel.resolved', { time: time(a.resolvedAt) }) }}
         </p>
 
-        <details
+        <CauseChecks
           v-if="!compact && checks.length"
+          :checks="checks"
           :open="checksOpen"
-          class="group rounded-card border border-border bg-bg px-3.5"
-          data-testid="cause-checks"
-        >
-          <summary
-            class="flex min-h-11 cursor-pointer flex-wrap items-center gap-x-2 py-2 text-13 font-medium text-text marker:text-text-muted"
-          >
-            <span class="whitespace-nowrap">{{ $t('causes.panel.checks') }}</span>
-            <span class="font-normal text-text-muted">· {{ summary }}</span>
-          </summary>
-          <ul class="flex flex-col gap-2 pb-3.5">
-            <li
-              v-for="(c, i) in checks"
-              :key="i"
-              class="grid grid-cols-[1rem_minmax(0,1fr)] gap-2.5 text-13 leading-normal text-text-muted"
-              data-testid="cause-check"
-              :data-result="c.result"
-            >
-              <component
-                :is="CHECK_ICON[c.result].icon"
-                :class="['mt-0.5 size-3.5', CHECK_ICON[c.result].class]"
-                aria-hidden="true"
-              />
-              <span>
-                <span class="sr-only">{{ $t(`causes.panel.checkResult.${c.result}`) }}: </span>
-                <span class="text-text">{{ say(tr, checkLine(c).what) }}</span>
-                — {{ say(tr, checkLine(c).result) }}
-              </span>
-            </li>
-          </ul>
-        </details>
+          :resolved="state === 'was'"
+        />
       </div>
 
       <footer

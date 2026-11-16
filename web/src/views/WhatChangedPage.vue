@@ -6,11 +6,11 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
-import CausePanel from '@/components/causes/CausePanel.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
 import Skeleton from '@/components/ui/Skeleton.vue';
+import WhatChangedCauseCard from '@/components/what-changed/WhatChangedCauseCard.vue';
 import WhatChangedChart from '@/components/what-changed/WhatChangedChart.vue';
 import WhatChangedRows from '@/components/what-changed/WhatChangedRows.vue';
 import { useLoader } from '@/composables/useLoader';
@@ -345,7 +345,7 @@ onBeforeUnmount(() => clearInterval(timer));
                 </button>
               </div>
             </div>
-            <WhatChangedRows :rows="answer.rows" />
+            <WhatChangedRows :rows="answer.rows" :cluster-id="cluster.id" />
             <p v-if="answer.truncated" class="text-13 text-text-muted" data-testid="wc-more">
               {{ $t('whatChanged.more', { n: answer.total - answer.rows.length }) }}
             </p>
@@ -367,20 +367,13 @@ onBeforeUnmount(() => clearInterval(timer));
           <div class="flex justify-center" aria-hidden="true">
             <span class="h-14 w-px bg-warning/70 max-md:h-8" />
           </div>
-          <CausePanel
-            v-if="answer.cause.subject"
-            :key="answer.cause.subject"
+          <WhatChangedCauseCard
+            :key="answer.cause.subject ?? 'none'"
             :cluster-id="cluster.id"
+            :cluster-name="cluster.name"
             :subject="answer.cause.subject"
-            data-testid="wc-cause"
+            :platform="platform"
           />
-          <p
-            v-else
-            class="rounded-card border border-border bg-surface-1 px-5 py-4 text-14 text-text-muted"
-            data-testid="wc-no-cause"
-          >
-            {{ $t(`whatChanged.noCause.${platform}`) }}
-          </p>
         </template>
 
         <p

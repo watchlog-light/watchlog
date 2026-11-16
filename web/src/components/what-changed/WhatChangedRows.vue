@@ -3,11 +3,13 @@
 import type { WhatChangedRow } from '@watchlog/api-types';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { RouterLink } from 'vue-router';
 import {
   barShare,
   hhmm,
   metricText,
   objectContext,
+  objectLink,
   objectName,
   rangeText,
   valueText,
@@ -16,8 +18,9 @@ import {
 // The ranked rows (ADR-199, the screens' Main and Anomaly): when it started, what (the subject
 // and the metric in its platform's words), and usual → now. On the page each row carries a bar
 // for how far out it went; the alert card's rows (`compact`) are plain. Names are cluster data,
-// shown as text only.
-const props = defineProps<{ rows: WhatChangedRow[]; compact?: boolean }>();
+// shown as text only. With `clusterId`, each row opens its subject's page (a workload's pods, a
+// node, a container, a host, a monitored service), focusable from the keyboard.
+const props = defineProps<{ rows: WhatChangedRow[]; compact?: boolean; clusterId?: string }>();
 const { t } = useI18n();
 const tr = (key: string, values?: Record<string, unknown>) => t(key, values ?? {});
 const max = computed(() => Math.max(0, ...props.rows.map((r) => r.peakScore)));
@@ -32,6 +35,7 @@ const view = computed(() =>
     now: valueText(r.value, r.unit),
     ended: r.until !== null,
     share: barShare(r.peakScore, max.value),
+    to: props.clusterId ? objectLink(r.object, props.clusterId) : undefined,
   })),
 );
 </script>
@@ -57,17 +61,22 @@ const view = computed(() =>
         :style="{ width: `${(r.share * 100).toFixed(1)}%` }"
         aria-hidden="true"
       />
-      <span
+      <component
+        :is="r.to ? RouterLink : 'span'"
+        v-bind="r.to ? { to: r.to } : {}"
         :class="[
           'relative flex flex-wrap items-center gap-x-4.5 gap-y-1 font-mono',
           compact ? 'px-4 py-3 text-14 max-md:px-3.5' : 'px-5 py-4 text-14 md:text-16 max-md:px-4',
+          r.to &&
+            'group rounded-[inherit] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary',
         ]"
+        :data-testid="r.to ? 'wc-row-link' : undefined"
       >
         <span class="min-w-11 text-13 text-text-subtle tabular" data-testid="wc-since">{{
           r.since
         }}</span>
         <span class="min-w-0 flex-[1_1_18rem] break-words text-text max-md:flex-[1_1_0%]">
-          <span data-testid="wc-name">{{ r.name }}</span>
+          <span class="group-hover:underline" data-testid="wc-name">{{ r.name }}</span>
           <span class="text-text-subtle" aria-hidden="true"> · </span>
           <span class="sr-only">, </span>
           <span data-testid="wc-metric">{{ r.metric }}</span>
@@ -97,7 +106,7 @@ const view = computed(() =>
             >{{ r.now }}
           </span>
         </span>
-      </span>
+      </component>
     </li>
   </ol>
 </template>

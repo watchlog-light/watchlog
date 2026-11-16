@@ -2,8 +2,15 @@
 // What changed in the dashboard (ADR-199): the windows the page offers, the request path, the
 // rows in each platform's words (ADR-124), "usual → now" and the unusual-activity chart's
 // geometry. The names in a row are cluster data: shown as text, never as markup.
-import type { WhatChanged, WhatChangedObject, WhatChangedRow } from '@watchlog/api-types';
+import type {
+  CauseCheck,
+  WhatChanged,
+  WhatChangedObject,
+  WhatChangedRow,
+} from '@watchlog/api-types';
+import type { RouteLocationRaw } from 'vue-router';
 import { ApiError } from '@/api/client';
+import { checkLine, type Line } from './causes';
 import { formatValue, type Unit } from './units';
 
 export type WhatChangedWindow = 'alert' | '1h' | '6h' | 'custom';
@@ -127,6 +134,44 @@ export function objectContext(o: WhatChangedObject, tr: Tr): string {
   }
 }
 
+/**
+ * Where a row's subject has its own page: a workload's pods (as the Egress page links a
+ * source), a node, a Docker container (its Compose service when the host isn't known), a host,
+ * a monitored service. Undefined when there is none.
+ */
+export function objectLink(o: WhatChangedObject, clusterId: string): RouteLocationRaw | undefined {
+  const cluster = { cluster: clusterId };
+  switch (o.kind) {
+    case 'workload':
+      if (!o.namespace || !o.name) return undefined;
+      return {
+        name: 'workloads',
+        query: {
+          ...cluster,
+          view: 'pods',
+          ...(o.workloadKind ? { wkind: o.workloadKind } : {}),
+          wname: o.name,
+          wns: o.namespace,
+        },
+      };
+    case 'node':
+      return o.name ? { name: 'node', params: { name: o.name }, query: cluster } : undefined;
+    case 'container':
+      if (o.host && o.name)
+        return { name: 'docker-container', params: { host: o.host, name: o.name }, query: cluster };
+      if (o.composeProject && o.composeService)
+        return {
+          name: 'containers',
+          query: { ...cluster, project: o.composeProject, service: o.composeService },
+        };
+      return undefined;
+    case 'host':
+      return o.name ? { name: 'docker-host', params: { host: o.name }, query: cluster } : undefined;
+    default:
+      return o.id ? { name: 'application', params: { id: o.id } } : undefined;
+  }
+}
+
 const KNOWN_METRICS = new Set([
   'node.cpu.utilization',
   'node.memory.utilization',
@@ -230,4 +275,73 @@ export function chartGeometry(
   const winW = Math.max(0, Math.min(W, wr) - winX);
   const ticks = [0, 1, 2, 3].map((k) => hhmm(new Date(from + (span * k) / 3).toISOString()));
   return { line, area, winX, winW, ticks, max };
+}
+
+// ---- The cause card (the screen Main): the probable-cause answer in What changed's form ----
+
+/** The card's tone and label: likely (or was likely), possible, none; couldn't run. */
+export type CauseCardState = 'likely' | 'was' | 'possible' | 'none' | 'error' | 'noSubject';
+
+/** Checks whose finding has a short form in the card's row ("No rollout in the last hour"). */
+const SHORT_FACTS = new Set([
+  'self_ok',
+  'events_none',
+  'changes_none',
+  'changes_cluster_none',
+  'node_ok',
+  'host_ok',
+  'cpu_ok',
+  'dependencies_ok',
+  'dependencies_failing',
+  'dependencies_slower',
+  'dns_ok',
+  'application_ok',
+  'edge_ok',
+]);
+
+export interface CauseFact {
+  /** The fact in words: one sentence, or what was checked and what was found (": "). */
+  lines: Line[];
+  result: CauseCheck['result'];
+}
+
+/**
+ * The card's row of checked facts: where the answer started (the alert, or what moved first),
+ * then what the answer itself checked and found, the findings that explain it first, at most
+ * `max` in all. Only checks that were run (explains or ok); the full list is the evidence.
+ */
+export function causeFacts(
+  checks: Pick<CauseCheck, 'topic' | 'code' | 'facts' | 'result'>[],
+  fromAlert: boolean,
+  max = 4,
+): CauseFact[] {
+  const out: CauseFact[] = [
+    {
+      lines: [{ key: `whatChanged.cause.fact.${fromAlert ? 'alert' : 'first'}`, values: {} }],
+      result: 'ok',
+    },
+  ];
+  const ran = [
+    ...checks.filter((c) => c.result === 'explains'),
+    ...checks.filter((c) => c.result === 'ok'),
+  ];
+  for (const c of ran) {
+    if (out.length >= max) break;
+    const l = checkLine(c);
+    const n = typeof c.facts.n === 'number' ? { plural: c.facts.n } : {};
+    out.push({
+      lines: SHORT_FACTS.has(c.code)
+        ? [{ key: `whatChanged.cause.fact.${c.code}`, values: l.result.values, ...n }]
+        : [l.what, l.result],
+      result: c.result,
+    });
+  }
+  return out;
+}
+
+/** The MCP call that gives the same answer (ADR-148), as the alert page shows it. */
+export function askCall(subject: string, clusterName: string): string {
+  const q = (s: string) => JSON.stringify(s);
+  if (subject.startsWith('alert:')) return `explain_alert(id: ${q(subject.slice(6))})`;
+  return `explain_problem(cluster: ${q(clusterName)}, subject: ${q(subject)})`;
 }

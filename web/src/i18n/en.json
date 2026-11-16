@@ -4714,6 +4714,42 @@
       "kubernetes": "Probable cause explains workloads and pods; none of these rows is one.",
       "docker": "Probable cause explains containers and Compose services; none of these rows is one."
     },
+    "cause": {
+      "title": "Probable cause",
+      "rules": "Fixed rules · no AI · same answer every time",
+      "label": {
+        "likely": "Likely · where it starts",
+        "was": "Was likely · where it started",
+        "possible": "Possible · leads to check",
+        "none": "No clear cause",
+        "error": "Couldn't run",
+        "noSubject": "Couldn't run"
+      },
+      "facts": "What the answer checked",
+      "fact": {
+        "first": "Started from what moved first",
+        "alert": "Started from the alert",
+        "self_ok": "No restarts or OOM kills on {name}",
+        "events_none": "No warning events in the last {minutes} minutes",
+        "changes_none": "No rollout of {name} in the last {minutes} minutes",
+        "changes_cluster_none": "Nothing changed nearby in the last {minutes} minutes",
+        "node_ok": "Node {node} healthy",
+        "host_ok": "Host {host} healthy",
+        "cpu_ok": "CPU not throttled",
+        "dependencies_ok": "Followed its one connection on the service map | Followed its {n} connections on the service map",
+        "dependencies_failing": "Followed {target} on the service map",
+        "dependencies_slower": "Followed {target} on the service map",
+        "dns_ok": "No failed DNS lookups",
+        "application_ok": "{name} connected, no findings",
+        "edge_ok": "No failed connections or slow calls"
+      },
+      "evidence": "Open the evidence",
+      "hideEvidence": "Hide the evidence",
+      "copy": "Copy as text",
+      "copyLabel": "Copy the probable cause and its chain as text",
+      "ask": "Ask your AI",
+      "retry": "Try again"
+    },
     "footnote": "Usual range: what each metric did at this hour of the week over the last 14 days. Something is listed when it stays far outside that range for 10 minutes. Worked out inside WatchLog; nothing is sent to an AI.",
     "locked": {
       "title": "What changed is part of Pro",

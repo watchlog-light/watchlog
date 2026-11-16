@@ -126,7 +126,7 @@ onMounted(() => {
       }}
     </p>
     <template v-else-if="rows.length">
-      <WhatChangedRows :rows="rows" compact />
+      <WhatChangedRows :rows="rows" compact :cluster-id="alert.cluster.id" />
       <RouterLink
         v-if="a.total > rows.length"
         :to="link"
