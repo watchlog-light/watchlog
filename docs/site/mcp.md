@@ -158,6 +158,7 @@ on Docker.
 | `get_right_sizing`          | Requests and limits against 7 days of use: too high, too low, OOM risk, throttled, not set                             | Limits and reservations against use: OOM risk, throttled, reservations  |
 | `get_events`                | Warning events, grouped                                                                                                | Container deaths, OOM kills, health changes                             |
 | `get_recent_changes`        | Rollouts, image changes, scaling, nodes                                                                                | Re-created containers, image changes                                    |
+| `get_what_changed` (Pro)    | What left its usual range around an alert or in a window, first to move or furthest out, with the likely cause         | The same for containers (with their Compose service) and hosts          |
 | `query_metric`              | A metric over up to 24 hours, as statistics, including a monitored service's                                           | The same                                                                |
 
 Two prompts start an investigation for you: `investigate_problem` and `why_is_it_crashing`.
@@ -186,6 +187,10 @@ assistant the same evidence as the dashboard's "Likely cause" panel:
 - **Metrics:** at most 24 hours, 10 series and 60 points per series.
 - **Egress:** `get_egress` lists at most 50 destinations over up to 30 days (24 hours by
   default); `get_new_destinations` at most 30, over up to 7 days ([Egress watch](egress.md)).
+- **What changed:** `get_what_changed` lists at most 30 rows over at most 24 hours (the last
+  hour by default, or the window around an alert). It is part of Pro in WatchLog Cloud: on
+  Cloud Free it answers that What changed is part of Pro, and a self-hosted Community install
+  doesn't list it at all.
 - **Logs:** at most 200 lines and 16 KB, newest last; the oldest are left out first. Lines are
   redacted in the agent and never stored, and the Container logs setting applies to the
   token's user ([logs on demand](logs.md)).

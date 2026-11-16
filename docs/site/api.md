@@ -198,6 +198,16 @@ curl -H "$H" "$WATCHLOG/api/v1/egress/expected?cluster=$CLUSTER"
 curl -H "$H" "$WATCHLOG/api/v1/egress/policy?cluster=$CLUSTER&workload=shop/Deployment/orders"
 curl -H "$H" "$WATCHLOG/api/v1/egress/policy?cluster=$CLUSTER&workload=shop/Deployment/orders&flavour=kubernetes"
 
+# What changed (Pro, in WatchLog Cloud): what left its usual range for that hour of the
+# week, on a Kubernetes cluster or a Docker fleet. Around an alert (an hour before it started
+# to 15 minutes after), or from/to (Unix seconds, at most 24 hours; the last hour by
+# default); sort=first (the first to move, the default) or furthest. At most 50 rows with
+# total and truncated, the learning state and the probable cause's short form. Cloud Free
+# answers 403 pro-feature; a self-hosted Community install answers 404. The anomaly alert's
+# page and "Was this worth an alert?" need a browser session: tokens can't
+curl -H "$H" "$WATCHLOG/api/v1/what-changed?cluster=$CLUSTER&alert=$ALERT"
+curl -H "$H" "$WATCHLOG/api/v1/what-changed?cluster=$FLEET&from=1794150000&to=1794153600&sort=furthest"
+
 # Event counts over time, and change markers (deploys, restarts) between two times
 curl -H "$H" $WATCHLOG/api/v1/clusters/$CLUSTER/events/summary
 curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/change-markers?from=1794150000&to=1794153600"
@@ -294,6 +304,7 @@ Errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problems, sent as
 | 400    | A parameter is invalid. Also `urn:watchlog:problem:token-with-session` when a request carries both a token and a browser session: send only the token.  |
 | 401    | The token is wrong, expired or revoked. `WWW-Authenticate: Bearer error="invalid_token"`.                                                               |
 | 403    | `urn:watchlog:problem:token-scope`: the route is not in the public API, or it changes something. `WWW-Authenticate: Bearer error="insufficient_scope"`. |
+| 403    | `urn:watchlog:problem:pro-feature`: What changed is part of Pro, and the organization is on Cloud Free.                                                 |
 | 404    | No such cluster, pod, node, container or alert, or not one you can see.                                                                                 |
 | 429    | More than 300 requests in a minute with this token. `Retry-After` says how many seconds to wait.                                                        |
 
