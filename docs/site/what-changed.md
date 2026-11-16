@@ -82,9 +82,10 @@ A series is used once it has **7 days** of its own data. Until then, What change
 
 **The live demo is the exception.** It learns from the 7 days of history it keeps when it
 starts, so its page lists changes right away. It also has a scenario of its own for What
-changed: three times a day (03:50, 11:50 and 19:50 UTC), `search`'s response time drifts from
-about 10 ms to a second over 20 minutes and back, on the demo cluster and on its Docker host.
-[Open the live demo](https://demo.watchlog.io/demo) and choose **What changed**.
+changed: every 2 hours, at 50 minutes past every odd hour UTC (01:50, 03:50, … 23:50), `search`'s
+response time drifts from about 10 ms to a second over 20 minutes and back, on the demo cluster
+and on its Docker host. [Open the live demo](https://demo.watchlog.io/demo) and choose **What
+changed** with the **Last 6 hours** window.
 
 ## The What changed page
 
