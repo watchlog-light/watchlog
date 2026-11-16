@@ -11,7 +11,7 @@ import type { Condition } from './defaults.js';
 import type { RuleSnapshot } from './engine.js';
 import { alertingGaps } from './periods.js';
 import { ruleChart, type ChartPanel } from './rule-charts.js';
-import { DEFAULT_RULES } from './rules.js';
+import { defaultRuleOf } from './rules.js';
 import { SILENCE_FIELDS, type SilenceMatchers } from './silences.js';
 
 /** At least this much before the condition started (30 min). */
@@ -119,7 +119,7 @@ export async function alertChart(
 
   const snap = row.rule_snapshot as RuleSnapshot | null;
   const kind = row.cluster_kind as 'kubernetes' | 'docker';
-  const def = row.rule_key ? DEFAULT_RULES.find((d) => d.key === row.rule_key) : undefined;
+  const def = defaultRuleOf(row.rule_key);
   const condition = (snap ? snap.condition : row.condition) as Condition | null;
   const forSeconds = snap?.forSeconds ?? row.for_seconds;
   const metric = def ? (def.metrics?.[kind] ?? null) : (snap?.metric ?? row.metric);

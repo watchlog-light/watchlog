@@ -196,8 +196,8 @@ async function readAll(
 
 interface Baseline {
   firstSeen: number;
-  /** By bucket: median, MAD and minutes. */
-  buckets: Map<number, { median: number; mad: number; minutes: number }>;
+  /** By bucket: median, MAD, minutes and the spread "normal for us" keeps (0: none). */
+  buckets: Map<number, { median: number; mad: number; minutes: number; minSpread: number }>;
 }
 
 async function loadBaselines(db: Database, clusterId: string, buckets: number[]) {
@@ -213,15 +213,39 @@ async function loadBaselines(db: Database, clusterId: string, buckets: number[])
             ARRAY[${sql.join(idx.map((i) => sql`mads[${i}]`))}] AS mad,
             ARRAY[${sql.join(idx.map((i) => sql`minutes[${i}]`))}] AS n
        FROM anomaly_baselines WHERE cluster_id = ${clusterId}`.execute(db);
+  const widened = await loadWidenings(db, clusterId, buckets);
   const out = new Map<string, Baseline>();
   for (const r of rows.rows) {
-    const map = new Map<number, { median: number; mad: number; minutes: number }>();
+    const key = hex(r.series_hash);
+    const map: Baseline['buckets'] = new Map();
     buckets.forEach((b, i) =>
-      map.set(b, { median: r.med[i] ?? 0, mad: r.mad[i] ?? 0, minutes: r.n[i] ?? 0 }),
+      map.set(b, {
+        median: r.med[i] ?? 0,
+        mad: r.mad[i] ?? 0,
+        minutes: r.n[i] ?? 0,
+        minSpread: widened.get(`${key}:${b}`) ?? 0,
+      }),
     );
-    out.set(hex(r.series_hash), { firstSeen: r.first_seen.getTime(), buckets: map });
+    out.set(key, { firstSeen: r.first_seen.getTime(), buckets: map });
   }
   return out;
+}
+
+/**
+ * "Normal for us" answers not undone (ADR-200), for these buckets: the largest spread kept per
+ * series and bucket, keyed `<series hash>:<bucket>`.
+ */
+async function loadWidenings(db: Database, clusterId: string, buckets: number[]) {
+  const rows = await db
+    .selectFrom('anomaly_feedback')
+    .select(['series_hash', 'bucket', (eb) => eb.fn.max('min_spread').as('spread')])
+    .where('cluster_id', '=', clusterId)
+    .where('answer', '=', 'normal')
+    .where('undone_at', 'is', null)
+    .where('bucket', 'in', buckets)
+    .groupBy(['series_hash', 'bucket'])
+    .execute();
+  return new Map(rows.map((r) => [`${hex(r.series_hash)}:${r.bucket}`, Number(r.spread) || 0]));
 }
 
 interface OpenPeriod {
@@ -285,7 +309,10 @@ async function scoreCluster(deps: AnomalyDeps, t: Target, nowMs: number, report:
         return {
           t: m,
           value,
-          score: value === null || !usable ? null : scoreOf(value, b.median, b.mad, q.unit, rule),
+          score:
+            value === null || !usable
+              ? null
+              : scoreOf(value, b.median, b.mad, q.unit, rule, b.minSpread),
         };
       });
       const was = open.get(key);
@@ -297,7 +324,7 @@ async function scoreCluster(deps: AnomalyDeps, t: Target, nowMs: number, report:
         const peak = run.reduce((a, m) => (m.score! > a.score! ? m : a));
         const bucket = bucketOf(v.startedAt);
         const b = base.buckets.get(bucket)!;
-        const range = usualRange(b.median, b.mad, q.unit, rule);
+        const range = usualRange(b.median, b.mad, q.unit, rule, b.minSpread);
         const res = await deps.db
           .insertInto('anomaly_periods')
           .values({

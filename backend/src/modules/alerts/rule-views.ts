@@ -6,14 +6,12 @@ import type { AlertRules } from '../../db/types.js';
 import { metricUnit } from '../query/catalog.js';
 import type { Condition } from './defaults.js';
 import { conditionError, metricKinds } from './conditions.js';
-import { DEFAULT_RULES } from './rules.js';
+import { defaultRuleOf } from './rules.js';
 
 export type RuleRowView = Selectable<AlertRules>;
 
-const BY_KEY = new Map(DEFAULT_RULES.map((r) => [r.key, r]));
-
 export function ruleView(r: RuleRowView, firing: number) {
-  const def = r.rule_key ? BY_KEY.get(r.rule_key) : undefined;
+  const def = defaultRuleOf(r.rule_key);
   const metricRule = def ? !!def.condition : true;
   const unit = def ? (def.unit ?? null) : r.metric ? metricUnit(r.metric) : null;
   const cond = r.condition as Partial<Condition>;

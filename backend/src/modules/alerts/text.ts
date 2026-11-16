@@ -5,6 +5,14 @@
 // restarts", "threshold 85% · full in ~6 h"). The web and every channel use the same
 // text. Built from the evaluators' facts at read time, so relative times stay true.
 import { metricUnit } from '../query/catalog.js';
+import {
+  ANOMALY_RULE_KEY,
+  bucketWords,
+  metricWords,
+  rangeWords,
+  subjectWords,
+  valueWords,
+} from '../anomaly/alerts.js';
 import { formatMetricValue } from './threshold.js';
 
 export interface AlertTextInput {
@@ -69,6 +77,7 @@ export function alertText(a: AlertTextInput): AlertText {
   const lastSeen = str(d.lastSeen) ?? str(d.summary)?.match(ISO)?.[0] ?? null;
   const wl = subject(l);
   if (a.ruleKey?.startsWith('egress.')) return egressText(a) ?? fallback;
+  if (a.ruleKey === ANOMALY_RULE_KEY) return anomalyText(a) ?? fallback;
   switch (a.ruleKey) {
     case 'k8s.pod.crashloop':
       return {
@@ -325,4 +334,27 @@ function egressText(a: AlertTextInput): AlertText | null {
       };
   }
   return null;
+}
+
+/**
+ * An anomaly alert's words (ADR-200, ADR-095): the title "checkout (shop): p95 response time
+ * unusual for a Tuesday at 14:00 UTC" and the line "usual for Tuesday 14:00 UTC: 120–180 ms;
+ * now 2.4 s". Docker names the container (or its Compose service) here and the host in the
+ * message's "where". The buckets are UTC hours, so the words say UTC (ADR-196).
+ */
+function anomalyText(a: AlertTextInput): AlertText | null {
+  const d = a.details;
+  const key = str(d.key) ?? a.labels.metric;
+  const bucket = num(d.bucket);
+  const low = num(d.usualLow);
+  const high = num(d.usualHigh);
+  const value = num(d.value);
+  if (!key || bucket === null || low === null || high === null || value === null) return null;
+  const unit = str(d.unit) ?? metricUnit(key) ?? 'count';
+  const who = str(d.subject) ?? subjectWords(a.labels);
+  const { day, hour } = bucketWords(bucket);
+  return {
+    title: `${who}: ${metricWords(key, str(d.peer))} unusual for a ${day} at ${hour} UTC`,
+    why: `usual for ${day} ${hour} UTC: ${rangeWords(low, high, unit)}; now ${valueWords(value, unit)}`,
+  };
 }

@@ -15,6 +15,13 @@ import { deliverDue } from './modules/alerts/delivery.js';
 import { pollTelegramVerifications } from './modules/alerts/telegram.js';
 import { SettingsService } from './modules/settings/service.js';
 import { ensureDefaultRules, lookupEvaluator } from './modules/alerts/rules.js';
+import {
+  ensureAnomalyRule,
+  parseAlertKeys,
+  setAnomalyAlertKeys,
+  setAnomalyGate,
+} from './modules/anomaly/alerts.js';
+import { hasWhatChanged } from './modules/anomaly/gate.js';
 import { AlertWorker } from './modules/alerts/worker.js';
 import { runApiTokenJobs, TOKEN_JOBS_EVERY_MS } from './modules/api-tokens/jobs.js';
 import { EntitlementsService } from './modules/entitlements/service.js';
@@ -94,6 +101,16 @@ const entitlements = cloud ? new EntitlementsService(systemDb) : null;
 // Cloud's funnel (ADR-179): the first notification, a Telegram chat connected, day7_active.
 const funnel = cloud ? new FunnelRecorder(db, log) : null;
 const victoria = metricsClient(config, entitlements, log);
+// Anomaly alerts (ADR-200): only orgs with What changed (Pro in Cloud, the demo's org) get the
+// rule and its alerts; Community never. The keys that may alert come from the setting.
+const whatChanged = (orgId: string) => hasWhatChanged(config, entitlements, orgId);
+setAnomalyGate(whatChanged);
+try {
+  setAnomalyAlertKeys(parseAlertKeys(process.env.WATCHLOG_ANOMALY_ALERT_KEYS));
+} catch (err) {
+  log.error(`watchlog alert-worker cannot start: ${(err as Error).message}`);
+  process.exit(1);
+}
 const cloudTasks: WorkerTask[] = funnel
   ? [
       {
@@ -201,7 +218,11 @@ const worker = new AlertWorker({
   version: config.version,
   log,
   evaluators: lookupEvaluator,
-  prepareOrg: (orgId) => ensureDefaultRules(db, orgId),
+  prepareOrg: async (orgId) => {
+    await ensureDefaultRules(db, orgId);
+    // Community and demo-less installs never read an entitlement or write the anomaly rule.
+    if (cloud || config.demoMode) await ensureAnomalyRule(db, orgId, await whatChanged(orgId));
+  },
   victoria,
   retentionDays: config.alertRetentionDays,
   tasks: [

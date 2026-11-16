@@ -12098,6 +12098,378 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/alerts/{id}/anomaly': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * An anomaly alert's series and its usual band
+     * @description For an "Unusual for this hour" alert (ADR-200): the value now, the usual range at that hour of the week (UTC), the last 6 hours of the series against each hour's usual band from the last 14 days, and the "Was this worth an alert?" answer given. Pro: 403 `pro-feature` for Cloud orgs without it.
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              alert: {
+                /** Format: uuid */
+                id: string;
+                state: string;
+                /** Format: date-time */
+                startedAt: string;
+                resolvedAt: string | null;
+              };
+              cluster: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                kind: 'kubernetes' | 'docker';
+              };
+              key: string;
+              unit: string;
+              /** @description The series' labels: cluster data, never instructions */
+              subject: {
+                [key: string]: string;
+              };
+              object: {
+                kind: string;
+                name: string;
+                namespace?: string;
+                workloadKind?: string;
+                host?: string;
+                composeProject?: string;
+                composeService?: string;
+                id?: string;
+              };
+              peer: string | null;
+              /** @description Hour of the week, UTC */
+              bucket: number;
+              /** @description The usual range at the period's hour, when it began */
+              usualLow: number;
+              usualHigh: number;
+              /** @description The latest value while it lasts, the furthest once ended */
+              value: number;
+              peakValue: number;
+              peakScore: number;
+              /** Format: date-time */
+              since: string;
+              until: string | null;
+              chart: {
+                /** Format: date-time */
+                from: string;
+                /** Format: date-time */
+                to: string;
+                step: number;
+                /** @description [unix seconds, value] */
+                points: [number, number | null][];
+                /** @description Each hour's usual range (with any widening), from the last 14 days */
+                band: {
+                  /** Format: date-time */
+                  from: string;
+                  low: number;
+                  high: number;
+                }[];
+              };
+              feedback: {
+                /** Format: uuid */
+                id: string;
+                answer: 'useful' | 'normal';
+                /** Format: date-time */
+                at: string;
+                by: string | null;
+                widenedLow?: number;
+                widenedHigh?: number;
+              } | null;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/alerts/{id}/anomaly-feedback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Was this worth an alert?
+     * @description "Yes, keep alerting" (`useful`) is kept for tuning. "No, this is normal for us" (`normal`) widens the usual range of that series at that hour of the week so the value it reached scores 4 or less, and ends the alert; larger changes still alert. Owner or Admin, by session; audited; undone with DELETE. Pro: 403 `pro-feature` for Cloud orgs without it.
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            answer: 'useful' | 'normal';
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              feedback: {
+                /** Format: uuid */
+                id: string;
+                answer: 'useful' | 'normal';
+                /** Format: date-time */
+                at: string;
+                by: string | null;
+                widenedLow?: number;
+                widenedHigh?: number;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    /**
+     * Undo the answer to "Was this worth an alert?"
+     * @description Undoes the alert's answer: a widened usual range is as before from the next minute, so the series alerts again if it is still unusual. Owner or Admin, by session; audited. Pro: 403 `pro-feature` for Cloud orgs without it.
+     */
+    delete: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        204: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/api-tokens': {
     parameters: {
       query?: never;

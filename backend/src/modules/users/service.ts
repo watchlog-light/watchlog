@@ -45,7 +45,10 @@ export type AuditAction =
   | 'org_reactivated'
   // Egress watch (ADR-186): an expected destination marked or removed.
   | 'egress_expected_added'
-  | 'egress_expected_removed';
+  | 'egress_expected_removed'
+  // What changed (ADR-200): "Was this worth an alert?" answered on an anomaly alert, or undone.
+  | 'anomaly_feedback_given'
+  | 'anomaly_feedback_undone';
 
 export interface Actor {
   id: string | null;

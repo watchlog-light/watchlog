@@ -23,7 +23,7 @@ import { ProblemSchema } from '../auth/schemas.js';
 import { UnreachableError, type HttpClient } from './channels.js';
 import { egressMessage } from '../../lib/egress.js';
 import { sendTest, type DeliveryDeps } from './delivery.js';
-import { DEFAULT_RULES, ensureDefaultRules, insertThresholdRule } from './rules.js';
+import { defaultRuleOf, ensureDefaultRules, insertThresholdRule } from './rules.js';
 import {
   AlertChartSchema,
   AlertDetailSchema,
@@ -904,7 +904,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
           .execute();
         return (await ruleViews(orgId, rule.id))[0]!;
       }
-      const def = DEFAULT_RULES.find((r) => r.key === rule.rule_key);
+      const def = defaultRuleOf(rule.rule_key);
       if (!def) return sendProblem(reply, 409, 'Only default rules can be reset');
       await db
         .updateTable('alert_rules')
@@ -947,7 +947,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
             .executeTakeFirst()
         : undefined;
       if (b.ruleId && !rule) return sendProblem(reply, 404, 'Rule not found');
-      const def = rule?.rule_key ? DEFAULT_RULES.find((d) => d.key === rule.rule_key) : undefined;
+      const def = defaultRuleOf(rule?.rule_key);
 
       // State rules cannot be replayed: say how often the rule fired in the last 7 days.
       if (def && !def.condition) {

@@ -67,10 +67,19 @@ export function medianAndMad(values: ArrayLike<number>): { median: number; mad: 
   return { median: med, mad: median(dev) };
 }
 
-/** The score's denominator: the spread, or the floor when the series is flatter than it. */
-export function spreadOf(med: number, mad: number, unit: Unit, rule: Rule = DEFAULT_RULE): number {
+/**
+ * The score's denominator: the spread, or the floor when the series is flatter than it, or
+ * the spread "normal for us" kept for this hour (`minSpread`, ADR-200), whichever is largest.
+ */
+export function spreadOf(
+  med: number,
+  mad: number,
+  unit: Unit,
+  rule: Rule = DEFAULT_RULE,
+  minSpread = 0,
+): number {
   const floor = Math.max(rule.floors[unit] ?? 0, FLOOR_SHARE * Math.abs(med));
-  return Math.max(MAD_SCALE * mad, floor);
+  return Math.max(MAD_SCALE * mad, floor, minSpread);
 }
 
 /** How unusual a value is for its bucket (ADR-196). */
@@ -80,8 +89,9 @@ export function scoreOf(
   mad: number,
   unit: Unit,
   rule: Rule = DEFAULT_RULE,
+  minSpread = 0,
 ): number {
-  return Math.abs(value - med) / spreadOf(med, mad, unit, rule);
+  return Math.abs(value - med) / spreadOf(med, mad, unit, rule, minSpread);
 }
 
 /**
@@ -94,8 +104,9 @@ export function usualRange(
   mad: number,
   unit: Unit,
   rule: Rule = DEFAULT_RULE,
+  minSpread = 0,
 ): { low: number; high: number } {
-  const s = spreadOf(med, mad, unit, rule);
+  const s = spreadOf(med, mad, unit, rule, minSpread);
   return { low: Math.max(0, med - 2 * s), high: med + 2 * s };
 }
 
@@ -129,4 +140,13 @@ export function verdict(minutes: Minute[], open: boolean, rule: Rule = DEFAULT_R
   }
   if (open && !last.some(past)) return { kind: 'end', endedAt: last[0]!.t };
   return { kind: 'none' };
+}
+
+/**
+ * "No, this is normal for us" (ADR-200): the spread to keep for the bucket so that `value`
+ * scores `rule.score` or less there: its distance from the median over the score.
+ */
+export function widenedSpread(value: number, med: number, rule: Rule = DEFAULT_RULE): number {
+  // A hair over, so rounding (baselines are float4) never leaves the value just past the score.
+  return Math.max((Math.abs(value - med) / rule.score) * (1 + 1e-6), Number.MIN_VALUE);
 }

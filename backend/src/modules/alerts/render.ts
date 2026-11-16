@@ -4,6 +4,7 @@
 // channel lays them out.
 import { MAX_ITEMS, type MessageItem, type MessagePayload } from './outbox.js';
 import { alertText } from './text.js';
+import { ANOMALY_RULE_KEY } from '../anomaly/exclusion.js';
 
 export interface RenderedItem {
   /** "payments-api is crash-looping" */
@@ -99,9 +100,14 @@ function link(
   base: string | undefined,
   item: MessageItem,
   cluster: MessagePayload['cluster'],
+  ruleKey: string | null = null,
 ): string | null {
   if (!base) return null;
   const l = item.labels;
+  // An anomaly alert: its own page, the series against its usual band (ADR-200).
+  if (ruleKey === ANOMALY_RULE_KEY && item.alertId) {
+    return `${base.replace(/\/+$/, '')}/alerts/${encodeURIComponent(item.alertId)}`;
+  }
   const q = `?cluster=${encodeURIComponent(cluster.id)}`;
   const e = encodeURIComponent;
   let path: string;
@@ -162,7 +168,7 @@ export function renderMessage(p: MessagePayload, publicUrl?: string): RenderedMe
           : null,
       where: w,
       context: [w, `cluster ${p.cluster.name}`, when].join(' · '),
-      link: link(publicUrl, it, p.cluster),
+      link: link(publicUrl, it, p.cluster, p.rule.key),
     };
   });
   const single = p.total === 1 && items.length === 1;

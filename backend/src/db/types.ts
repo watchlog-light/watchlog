@@ -74,6 +74,7 @@ export interface AlertRules {
   metric: string | null;
   name: string;
   org_id: string;
+  plan_paused: Generated<boolean>;
   renotify_seconds: Generated<number>;
   rule_key: string | null;
   scope: Generated<Json>;
@@ -135,6 +136,27 @@ export interface AnomalyBaselines {
   org_id: Generated<string>;
   series_hash: Buffer;
   subject: Json;
+}
+
+export interface AnomalyFeedback {
+  alert_id: string | null;
+  answer: string;
+  bucket: number;
+  cluster_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  created_by_name: string | null;
+  id: Generated<string>;
+  median: number | null;
+  metric: string;
+  min_spread: number | null;
+  org_id: Generated<string>;
+  series_hash: Buffer;
+  subject: Json;
+  undone_at: Timestamp | null;
+  undone_by: string | null;
+  undone_by_name: string | null;
+  value: number | null;
 }
 
 export interface AnomalyOrgs {
@@ -785,6 +807,7 @@ export interface DB {
   alert_worker_heartbeats: AlertWorkerHeartbeats;
   alerting_periods: AlertingPeriods;
   anomaly_baselines: AnomalyBaselines;
+  anomaly_feedback: AnomalyFeedback;
   anomaly_orgs: AnomalyOrgs;
   anomaly_periods: AnomalyPeriods;
   api_token_events: ApiTokenEvents;

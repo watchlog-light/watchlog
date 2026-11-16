@@ -26,6 +26,7 @@ import { connectRoutes } from './modules/integrations/connect.js';
 import { applicationRoutes } from './modules/integrations/routes.js';
 import { causesRoutes } from './modules/causes/routes.js';
 import { whatChangedRoutes } from './modules/anomaly/routes.js';
+import { anomalyFeedbackRoutes } from './modules/anomaly/feedback.js';
 import { CausesService } from './modules/causes/likely.js';
 import { kubernetesRoutes } from './modules/kubernetes/routes.js';
 import { overviewRoutes } from './modules/overview/routes.js';
@@ -337,6 +338,13 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         db: deps.db,
         config,
         causes,
+        ...(deps.now ? { now: deps.now } : {}),
+      });
+      // Anomaly alerts' page and "Was this worth an alert?" (ADR-200): Pro only, as above.
+      await api.register(anomalyFeedbackRoutes, {
+        db: deps.db,
+        config,
+        victoria,
         ...(deps.now ? { now: deps.now } : {}),
       });
       await api.register(apiTokenRoutes, { db: deps.db });
