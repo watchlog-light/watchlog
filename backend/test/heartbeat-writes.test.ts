@@ -206,8 +206,8 @@ describe('the readers, with a stored time as far behind as the throttle allows',
     owner: { clusterId: string; orgId: string },
     node: string,
     mode: Heartbeat['mode'],
+    now = Date.now(),
   ) {
-    const now = Date.now();
     await recordHeartbeat(c.db, owner, beat(node, mode), new Date(now - LAG_MS));
     // A later beat inside the minute writes nothing (unless it starts a new hour).
     const later = await recordHeartbeat(c.db, owner, beat(node, mode), new Date(now - 15_000));
@@ -260,8 +260,12 @@ describe('the readers, with a stored time as far behind as the throttle allows',
   it('Kubernetes: the alert worker sees no silent agent, and sees one after 3 minutes', async () => {
     const { c, cluster } = await cloud();
     const { owner } = await cluster('prod', 'kubernetes');
-    await lagging(c, owner, 'n1', 'node');
-    await lagging(c, owner, 'cluster-agent', 'cluster');
+    // The injected clock: half past an hour, so both beats fall in one hour and the later one
+    // writes nothing. Near the hour the later beat writes (the hour rule), and the stored time
+    // was then less than 3 minutes old at "later" (the CI failures at 23:01 UTC).
+    const now = hourOf(Date.now()).getTime() - 30 * 60_000;
+    await lagging(c, owner, 'n1', 'node', now);
+    await lagging(c, owner, 'cluster-agent', 'cluster', now);
     const reporting = (now: number) =>
       clusterReporting({
         db: c.db,
@@ -269,11 +273,11 @@ describe('the readers, with a stored time as far behind as the throttle allows',
         now,
         memo: (_k, fn) => fn(),
       } as Pick<EvalContext, 'db' | 'cluster' | 'now' | 'memo'>);
-    const live = await reporting(Date.now());
+    const live = await reporting(now);
     expect(live.silent).toEqual([]);
     expect(live.allSilent).toBe(false);
     // Nothing more arrives: silent once the stored time is 3 minutes old.
-    const later = await reporting(Date.now() - LAG_MS + AGENT_SILENT_MS);
+    const later = await reporting(now - LAG_MS + AGENT_SILENT_MS);
     expect(later.allSilent).toBe(true);
   });
 
