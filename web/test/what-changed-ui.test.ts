@@ -2,7 +2,7 @@
 // What changed in the dashboard (ADR-199; v0.8 slice 3): the page and the alert card on a
 // Kubernetes cluster and a Docker fleet, each in its own words; the windows and the demo's
 // 24 hours; the states (learning, nothing, error); and the gate: Pro (and the demo) see the
-// data, Cloud Free a placeholder and a locked line, Community a placeholder and no card,
+// data, Cloud Free the upgrade page and a locked line to it, Community the upgrade page and no card,
 // without asking the backend.
 import type { AlertDetail, WhatChanged, WhatChangedRow } from '@watchlog/api-types';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
@@ -194,6 +194,20 @@ const wc = (cluster: string, q: Parameters<typeof whatChangedPath>[1] = { window
 const causes = (cluster: string, subject: string) =>
   `GET /api/v1/causes?cluster=${cluster}&subject=${encodeURIComponent(subject)}`;
 const notFound = { status: 404, body: { type: 'about:blank', title: 'Not Found', status: 404 } };
+const noAlerts = (id: string): Routes => {
+  const empty = {
+    status: 200,
+    body: {
+      alerts: [],
+      nextCursor: null,
+      counts: { firing: 0, critical: 0, warning: 0, pending: 0, silenced: 0, held: 0 },
+    },
+  };
+  return {
+    [`GET /api/v1/alerts?view=firing&clusterId=${id}&limit=5`]: empty,
+    [`GET /api/v1/alerts?view=history&clusterId=${id}&limit=5`]: empty,
+  };
+};
 const clusters = (c: object): Routes => ({
   'GET /api/v1/clusters': { status: 200, body: { clusters: [c] } },
 });
@@ -399,7 +413,7 @@ describe('the page on a Pro org', () => {
 });
 
 describe('the gate', () => {
-  it('Cloud Free: the placeholder, both kinds, after the 403', async () => {
+  it('Cloud Free: the upgrade page, both kinds, after the 403', async () => {
     for (const c of [K8S, FLEET]) {
       mockFetch({
         ...clusters(c),
@@ -412,22 +426,27 @@ describe('the gate', () => {
             detail: 'What changed is part of Pro',
           },
         },
+        ...noAlerts(c.id),
+        'GET /api/v1/plan': { status: 404 },
+        'GET /api/v1/users': {
+          status: 200,
+          body: { users: [], invites: [], smtp: false, audit: [] },
+        },
       });
       const { w } = await open(WhatChangedPage, `/what-changed?cluster=${c.id}`, 'free');
-      expect(w.get('[data-testid="wc-locked-free"]').text()).toContain(
-        'What changed is part of Pro',
-      );
+      expect(w.get('[data-testid="wc-upgrade"]').attributes('data-access')).toBe('free');
       expect(w.find('[data-testid="wc-hero"]').exists()).toBe(false);
       mounted!.unmount();
       mounted = null;
     }
   });
 
-  it('Community: the placeholder, both kinds, and What changed is never asked', async () => {
+  it('Community: the upgrade page, both kinds, and What changed is never asked', async () => {
     for (const c of [K8S, FLEET]) {
-      const { calls } = mockFetch(clusters(c));
+      const { calls } = mockFetch({ ...clusters(c), ...noAlerts(c.id) });
       const { w } = await open(WhatChangedPage, `/what-changed?cluster=${c.id}`, 'community');
-      expect(w.get('[data-testid="wc-locked-community"]').text()).toContain('WatchLog Cloud Pro');
+      expect(w.get('[data-testid="wc-upgrade"]').attributes('data-access')).toBe('community');
+      expect(w.text()).toContain('WatchLog Cloud Pro');
       expect(calls.some((x) => x.path.includes('what-changed'))).toBe(false);
       mounted!.unmount();
       mounted = null;
