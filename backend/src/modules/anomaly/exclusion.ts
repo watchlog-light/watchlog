@@ -9,7 +9,7 @@
 //     a node alert has `node` and no workload or pod;
 //   Docker alerts: `container` with the host as `node` (series say `host`); Compose-level
 //     alerts `compose_project, compose_service`; a host alert `node` (and `mount`) alone;
-//   integration alerts: `service`.
+//   integration alerts: `service`; failed connections add their destination (`dst_*`).
 // Both sides become subject tokens; a minute is left out when they share one.
 import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
@@ -73,10 +73,19 @@ export function alertTokens(
   if (l.service) out.push(`i:${l.service}`);
   if (kind === 'kubernetes') {
     out.push(workload(l.namespace, l.workload_kind, l.workload));
+    // Failed connections name their destination too (ADR-203): an outage of the destination
+    // is its own incident, so the destination's minutes are left out as well as the caller's.
+    if (l.dst_kind === 'workload') {
+      out.push(workload(l.dst_namespace, l.dst_workload_kind, l.dst_workload));
+    }
     if (l.node && !l.workload && !l.pod) out.push(`n:${l.node}`);
   } else {
     out.push(container(l.container), compose(l.compose_project, l.compose_service));
     withCompose(out, l.container, composeOf);
+    if (l.dst_kind === 'container') {
+      out.push(container(l.dst));
+      withCompose(out, l.dst, composeOf);
+    }
     // The host is `node` in alerts: a host alert names no container or Compose service.
     if (l.node && !l.container && !l.compose_service) out.push(`h:${l.node}`);
   }
@@ -92,7 +101,9 @@ export interface Firing {
 
 /**
  * The alerts of a cluster that fired in [from, to), other than anomaly alerts, with the
- * time each was firing. Runs inside the org (RLS); `resolved_at` null is still firing.
+ * time each was on: from `started_at` (the condition first held, before the rule's "for")
+ * to `resolved_at`. Alerts that never fired don't count. Runs inside the org (RLS);
+ * `resolved_at` null is still firing.
  */
 export async function firingAlerts(
   db: Database,
@@ -105,17 +116,19 @@ export async function firingAlerts(
   const rows = await db
     .selectFrom('alert_states as s')
     .innerJoin('alert_rules as r', 'r.id', 's.rule_id')
-    .select(['s.labels', 's.fired_at', 's.resolved_at'])
+    .select(['s.labels', 's.started_at', 's.fired_at', 's.resolved_at'])
     .where('s.cluster_id', '=', clusterId)
     .where('s.fired_at', 'is not', null)
-    .where('s.fired_at', '<', new Date(to))
+    .where(sql<boolean>`coalesce(s.started_at, s.fired_at) < ${new Date(to)}`)
     .where((eb) =>
       eb.or([eb('s.resolved_at', 'is', null), eb('s.resolved_at', '>', new Date(from))]),
     )
     .where(sql<boolean>`coalesce(r.rule_key, '') <> ${ANOMALY_RULE_KEY}`)
     .execute();
   return rows.map((r) => ({
-    from: r.fired_at!.getTime(),
+    // From when its condition first held: the rule's "for" (often 5 minutes) only delays the
+    // notification, and a 7-minute incident would otherwise teach its first 5 (ADR-203).
+    from: Math.min(r.started_at?.getTime() ?? Infinity, r.fired_at!.getTime()),
     to: r.resolved_at?.getTime() ?? Number.POSITIVE_INFINITY,
     tokens: alertTokens(kind, (r.labels ?? {}) as Record<string, string>, composeOf),
   }));
