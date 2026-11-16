@@ -6,7 +6,7 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, inject, it, vi } from 'vitest';
 import { createDb, type Database } from '../src/db/index.js';
 import { newId } from '../src/lib/ids.js';
 import type { ClusterScope, QuerySeries } from '../src/lib/victoria.js';
@@ -27,6 +27,11 @@ import {
 } from '../src/modules/anomaly/keys.js';
 import { bucketOf, medianAndMad } from '../src/modules/anomaly/stats.js';
 import { appUrlOf, ensureAppRole } from './isolation/cloud.js';
+
+// Most cases replay 10 to 14 days hour by hour (336 recomputes against PostgreSQL): about 2 s
+// alone, over vitest's 5 s when `pnpm test` runs the web suite beside it (seen in the 0.8.0
+// release run). The time is the replay's, not a wait.
+vi.setConfig({ testTimeout: 30_000 });
 
 const MIN = 60_000;
 const HOUR = 3_600_000;

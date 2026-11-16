@@ -784,58 +784,64 @@ describe('the migration (ADR-107: automatic)', () => {
     }
   });
 
-  it('an upgrade: existing clusters start learning at the migration, later ones have none yet', async () => {
-    const base = new URL(inject('databaseUrl'));
-    const name = 'watchlog_test_egress_upgrade';
-    const admin = new pg.Client({ connectionString: base.toString() });
-    await admin.connect();
-    await admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin.query(`CREATE DATABASE ${name}`);
-    const url = new URL(base);
-    url.pathname = `/${name}`;
-    const files = readdirSync(MIGRATIONS_DIR)
-      .filter((f) => f.endsWith('.sql'))
-      .sort();
-    const before = files.findIndex((f) => f.endsWith('_egress-inventory.sql'));
-    expect(before).toBeGreaterThan(0);
-    const old = createDb(url.toString());
-    try {
-      await runner({
-        databaseUrl: url.toString(),
-        dir: MIGRATIONS_DIR,
-        direction: 'up',
-        count: before,
-        migrationsTable: 'pgmigrations',
-        ignorePattern: '\\..*|.*\\.md',
-        singleTransaction: true,
-        logger: { info: () => {}, warn: () => {}, error: console.error, debug: () => {} },
-      });
-      const orgId = newId();
-      const existing = newId();
-      await sql`INSERT INTO orgs (id, name, slug, plan) VALUES (${orgId}, 'Acme', 'acme', 'community')`.execute(
-        old,
-      );
-      await sql`INSERT INTO clusters (id, org_id, name, kind) VALUES (${existing}, ${orgId}, 'prod', 'kubernetes')`.execute(
-        old,
-      );
-      const ran = await migrateUp(url.toString());
-      expect(ran[0]).toMatch(/_egress-inventory$/);
-      const later = newId();
-      await sql`INSERT INTO clusters (id, org_id, name, kind) VALUES (${later}, ${orgId}, 'new', 'docker')`.execute(
-        old,
-      );
-      const got = await sql<{ id: string; since: Date | null; backfilled: Date | null }>`
-        SELECT id, egress_learning_since AS since, egress_backfilled_at AS backfilled FROM clusters`.execute(
-        old,
-      );
-      const byId = new Map(got.rows.map((r) => [r.id, r]));
-      expect(byId.get(existing)!.since).toBeInstanceOf(Date);
-      expect(byId.get(existing)!.backfilled).toBeNull();
-      expect(byId.get(later)!.since).toBeNull();
-    } finally {
-      await old.destroy();
+  // A scratch database with every migration applied: over vitest's 5 s when `pnpm test` runs
+  // the web suite beside it (seen in the 0.8.0 release run).
+  it(
+    'an upgrade: existing clusters start learning at the migration, later ones have none yet',
+    { timeout: 30_000 },
+    async () => {
+      const base = new URL(inject('databaseUrl'));
+      const name = 'watchlog_test_egress_upgrade';
+      const admin = new pg.Client({ connectionString: base.toString() });
+      await admin.connect();
       await admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-      await admin.end();
-    }
-  });
+      await admin.query(`CREATE DATABASE ${name}`);
+      const url = new URL(base);
+      url.pathname = `/${name}`;
+      const files = readdirSync(MIGRATIONS_DIR)
+        .filter((f) => f.endsWith('.sql'))
+        .sort();
+      const before = files.findIndex((f) => f.endsWith('_egress-inventory.sql'));
+      expect(before).toBeGreaterThan(0);
+      const old = createDb(url.toString());
+      try {
+        await runner({
+          databaseUrl: url.toString(),
+          dir: MIGRATIONS_DIR,
+          direction: 'up',
+          count: before,
+          migrationsTable: 'pgmigrations',
+          ignorePattern: '\\..*|.*\\.md',
+          singleTransaction: true,
+          logger: { info: () => {}, warn: () => {}, error: console.error, debug: () => {} },
+        });
+        const orgId = newId();
+        const existing = newId();
+        await sql`INSERT INTO orgs (id, name, slug, plan) VALUES (${orgId}, 'Acme', 'acme', 'community')`.execute(
+          old,
+        );
+        await sql`INSERT INTO clusters (id, org_id, name, kind) VALUES (${existing}, ${orgId}, 'prod', 'kubernetes')`.execute(
+          old,
+        );
+        const ran = await migrateUp(url.toString());
+        expect(ran[0]).toMatch(/_egress-inventory$/);
+        const later = newId();
+        await sql`INSERT INTO clusters (id, org_id, name, kind) VALUES (${later}, ${orgId}, 'new', 'docker')`.execute(
+          old,
+        );
+        const got = await sql<{ id: string; since: Date | null; backfilled: Date | null }>`
+        SELECT id, egress_learning_since AS since, egress_backfilled_at AS backfilled FROM clusters`.execute(
+          old,
+        );
+        const byId = new Map(got.rows.map((r) => [r.id, r]));
+        expect(byId.get(existing)!.since).toBeInstanceOf(Date);
+        expect(byId.get(existing)!.backfilled).toBeNull();
+        expect(byId.get(later)!.since).toBeNull();
+      } finally {
+        await old.destroy();
+        await admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+        await admin.end();
+      }
+    },
+  );
 });
