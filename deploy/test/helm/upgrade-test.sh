@@ -6,8 +6,9 @@
 # templates exactly that way (values.yaml swapped for pre-phase4/*.values.yaml) and
 # checks the node agent DaemonSet, plus a fresh install, --reset-then-reuse-values and an
 # explicit opt-out; and the same from 0.2.0's values (v0.2.0/), 0.4.0's (v0.4.0/, where
-# logs on demand and its pods/log grant come on), 0.5.0's (v0.5.0/) and 0.6.0's (v0.6.0/,
-# where alerting.egressLearningDays is new and read nil-safe). Needs helm; run
+# logs on demand and its pods/log grant come on), 0.5.0's (v0.5.0/), 0.6.0's (v0.6.0/,
+# where alerting.egressLearningDays is new and read nil-safe) and 0.7.2's (v0.7.2/, where
+# anomalyWorker is new, read nil-safe and renders nothing by default). Needs helm; run
 # from anywhere.
 set -euo pipefail
 
@@ -335,5 +336,53 @@ anomaly "watchlog chart, --reuse-values from 0.6.0" absent "$(reused "$UMBRELLA"
 anomaly "watchlog chart, --reuse-values from 0.6.0 plus anomalyWorker.enabled" present \
   "$(reused "$UMBRELLA" "$V060/watchlog.values.yaml")" --set anomalyWorker.enabled=true --set demoMode=true
 anomaly "watchlog chart, demoMode alone" absent "$UMBRELLA" --set demoMode=true
+
+# From 0.7.2 (v0.7.2/, the released charts' values, the last release before 0.8.0): its
+# values have no anomalyWorker at all, so the new value is read nil-safe. A --reuse-values
+# upgrade renders no anomaly-worker and exactly what 0.7.2's own charts render (Community
+# starts no new process, ADR-204); the demo's switch still works on top of those values,
+# with the resources the old values don't have.
+V072="$ROOT/deploy/test/helm/v0.7.2"
+expect "agent chart, --reuse-values from 0.7.2" on "$(ds "$(reused "$AGENT" "$V072/watchlog-agent.values.yaml")" "$AGENT_DS")"
+expect "watchlog chart, --reuse-values from 0.7.2" on "$(ds "$(reused "$UMBRELLA" "$V072/watchlog.values.yaml")" "$SUB_DS")"
+logs "agent chart, --reuse-values from 0.7.2" on "$(reused "$AGENT" "$V072/watchlog-agent.values.yaml")"
+logs "watchlog chart, --reuse-values from 0.7.2" on "$(reused "$UMBRELLA" "$V072/watchlog.values.yaml")"
+collector "agent chart, --reuse-values from 0.7.2" present \
+  "$(helm template rel "$(reused "$AGENT" "$V072/watchlog-agent.values.yaml")" -n ns)"
+learning "watchlog chart, --reuse-values from 0.7.2" unset "$(reused "$UMBRELLA" "$V072/watchlog.values.yaml")"
+anomaly "watchlog chart, --reuse-values from 0.7.2" absent "$(reused "$UMBRELLA" "$V072/watchlog.values.yaml")"
+anomaly "watchlog chart, --reuse-values from 0.7.2 plus demoMode" absent \
+  "$(reused "$UMBRELLA" "$V072/watchlog.values.yaml")" --set demoMode=true
+anomaly "watchlog chart, --reuse-values from 0.7.2 plus anomalyWorker.enabled and demoMode" present \
+  "$(reused "$UMBRELLA" "$V072/watchlog.values.yaml")" --set anomalyWorker.enabled=true --set demoMode=true
+for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
+  chart="${pair%%:*}" fixture="${pair##*:}"
+  if helm template rel "$(reused "$chart" "$V072/$fixture.values.yaml")" -n ns >/dev/null 2>"$TMP/err"; then
+    echo "PASS  $fixture chart renders from 0.7.2's values"
+  else
+    echo "FAIL  $fixture chart renders from 0.7.2's values: $(cat "$TMP/err")"
+    fails=$((fails + 1))
+  fi
+done
+if git -C "$ROOT" rev-parse -q --verify 'v0.7.2^{commit}' >/dev/null; then
+  mkdir -p "$TMP/v0.7.2"
+  git -C "$ROOT" archive v0.7.2 deploy/helm | tar -x -C "$TMP/v0.7.2"
+  helm dependency build "$TMP/v0.7.2/deploy/helm/watchlog" >/dev/null
+  certless() { grep -vE '^ *(ca\.crt|tls\.crt|tls\.key|checksum/[a-z-]+|password|key|token):'; }
+  for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
+    chart="${pair%%:*}" fixture="${pair##*:}"
+    old="$(helm template rel "$TMP/v0.7.2/deploy/helm/$fixture" -n ns -f "$V072/$fixture.values.yaml" | certless)"
+    new="$(helm template rel "$(reused "$chart" "$V072/$fixture.values.yaml")" -n ns | certless)"
+    if [[ "$old" == "$new" ]]; then
+      echo "PASS  $fixture chart, --reuse-values from 0.7.2, renders as 0.7.2's chart"
+    else
+      echo "FAIL  $fixture chart, --reuse-values from 0.7.2, differs from 0.7.2's chart:"
+      diff <(echo "$old") <(echo "$new") | cut -c1-160 | head -20
+      fails=$((fails + 1))
+    fi
+  done
+else
+  echo "SKIP  0.7.2's own charts: no v0.7.2 tag in this checkout"
+fi
 
 [[ $fails -eq 0 ]] || { echo "$fails upgrade check(s) failed"; exit 1; }
