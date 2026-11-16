@@ -4089,6 +4089,7 @@
       "usersUpTo": "up to {n} users",
       "usersUnlimited": "unlimited users",
       "tryPro": "Try Pro, free during beta →",
+      "upgradePro": "Upgrade to Pro · {perNode} per node →",
       "manage": "Plan & billing →",
       "limitError": {
         "clusters": "Cloud Free has one cluster or Docker fleet. Try Pro, free during the beta, for unlimited clusters: Settings › Plan & billing.",

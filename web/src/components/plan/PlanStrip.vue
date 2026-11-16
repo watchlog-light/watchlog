@@ -1,18 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { money } from '@/lib/what-changed-upgrade';
 import { usePlanStore } from '@/stores/plan';
 
 // The plan strip (ADR-177, Dashboard.dc.html), Cloud only: "Free plan · 3 of 5 nodes ·
 // 3 days of data · 1 user · Try Pro, free during beta →" with the real counts. In the
 // sidebar from 1024 px; on the overview below it (the sidebar is a drawer there). The
-// beta's Pro says "free during beta" next to the plan's name (ADR-178).
+// beta's Pro says "free during beta" next to the plan's name (ADR-178). The plan's name is
+// the org's entitlement, which also decides the Pro features (ADR-205), so the strip and What
+// changed always agree. Free's link: "Try Pro, free during beta" while billing is off,
+// "Upgrade to Pro · $1 per node" once it is live (the price from GET /plan).
 defineProps<{ inline?: boolean }>();
+const { t } = useI18n();
 const plan = usePlanStore();
 const p = computed(() => plan.info);
 const share = computed(() => plan.nodeShare);
 const full = computed(() => share.value !== null && share.value >= 1);
 const BILLING = { name: 'settings', query: { tab: 'billing' } } as const;
+const linkText = computed(() => {
+  const info = p.value;
+  if (!info || info.plan !== 'free') return t('cloud.plan.manage');
+  if (plan.billingLive && info.price) {
+    return t('cloud.plan.upgradePro', {
+      perNode: money(info.price.perNodeMonth, info.price.currency),
+    });
+  }
+  return t('cloud.plan.tryPro');
+});
 </script>
 
 <template>
@@ -72,7 +88,7 @@ const BILLING = { name: 'settings', query: { tab: 'billing' } } as const;
       class="text-13 font-semibold text-primary hover:text-primary-hover"
       data-testid="plan-try-pro"
     >
-      {{ p.plan === 'free' ? $t('cloud.plan.tryPro') : $t('cloud.plan.manage') }}
+      {{ linkText }}
     </RouterLink>
   </section>
 </template>

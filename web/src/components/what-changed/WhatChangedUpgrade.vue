@@ -201,7 +201,7 @@ onMounted(() => {
       <p class="text-14 text-text-subtle" data-testid="wc-up-fine">
         <template v-if="free">
           <template v-if="price">{{ $t(`whatChanged.upgrade.fine.${platform}`, price) }}</template>
-          <template v-if="live"> {{ $t('whatChanged.upgrade.fine.stripe') }}</template>
+          <template v-if="live">{{ ' ' + $t('whatChanged.upgrade.fine.stripe') }}</template>
         </template>
         <template v-else>{{ $t('whatChanged.upgrade.fine.community') }}</template>
       </p>
