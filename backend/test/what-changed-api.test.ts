@@ -324,6 +324,7 @@ describe('the pure parts', () => {
     expect(objectOf('redis.ops.rate', { service: 'cache', service_type: 'redis' }).object).toEqual({
       kind: 'service',
       name: 'cache',
+      id: 'cache',
     });
   });
 });
@@ -422,6 +423,52 @@ describe('GET /what-changed on a Pro org', () => {
     ]);
     expect(a.rows[0].unit).toBe('bytes');
     expect(a.cause.subject).toBe('container:docker-01/shop-api-1');
+  });
+
+  it("a monitored service's row reads as its name, with its id for its page (both platforms)", async () => {
+    const { c, cookie, orgId } = await cloudOrg();
+    for (const [kind, name] of [
+      ['kubernetes', 'shop/postgres'],
+      ['docker', 'shop-db-1'],
+    ] as const) {
+      const cl = await insertCluster(c.db, orgId, `acme-${kind}`, kind);
+      await learned(c, orgId, cl.id);
+      const id = newId();
+      await c.db
+        .insertInto('integrations')
+        .values({
+          id,
+          org_id: orgId,
+          cluster_id: cl.id,
+          type: 'postgres',
+          name,
+          target: JSON.stringify({ kind: 'address', port: 5432 }),
+        })
+        .execute();
+      await period(c, orgId, cl.id, {
+        metric: 'postgres.connections',
+        subject: { service: id, service_type: 'postgres' },
+        startedAgo: 10 * MIN,
+        peak: 9,
+        usual: [18, 30],
+        last: 100,
+      });
+      // A series of a service gone from the list keeps its id as its name.
+      const gone = newId();
+      await period(c, orgId, cl.id, {
+        metric: 'postgres.connections',
+        subject: { service: gone, service_type: 'postgres' },
+        startedAgo: 9 * MIN,
+        peak: 5,
+        usual: [18, 30],
+        last: 60,
+      });
+      const a = (await get(c, cookie, { cluster: cl.id })).json();
+      expect(a.rows.map((r: { object: object }) => r.object)).toEqual([
+        { kind: 'service', name, id },
+        { kind: 'service', name: gone, id: gone },
+      ]);
+    }
   });
 
   it('around an alert: its window, the chart an hour wider, the cause the alert’s own', async () => {
