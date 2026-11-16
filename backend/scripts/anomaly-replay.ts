@@ -1,0 +1,605 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// What changed (0.8.0), slice 7: does the live demo's hourly chaos stay out of its baselines,
+// and how many anomaly alerts a day would it raise? (ADR-196, ADR-200, ADR-203.) Nothing here
+// is product code: it records a few hours of a running demo kit and replays them as 14 days
+// through the anomaly-worker's own jobs on an injectable clock.
+//
+//   capture: VM_URL=http://127.0.0.1:<port> PG_URL=postgres://… FROM=<ISO hour> TO=<ISO hour> \
+//            OUT=capture.json npx tsx scripts/anomaly-replay.ts capture
+//     Every scored key of every cluster (the worker's own queries, 60 s step), the alerts that
+//     fired, the change markers and the Docker container list, read from the demo's
+//     VictoriaMetrics and PostgreSQL (read only).
+//   replay:  IN=capture.json DATABASE_URL=postgres://…/scratch npx tsx scripts/anomaly-replay.ts replay
+//     A scratch database (the migrations are applied; its rows are replaced). The captured
+//     hours are tiled over 14 days on their own minutes of the hour (the demo's chaos is hourly:
+//     each scenario keeps its minute), alerts and markers with them. Days 0–6 learn
+//     (runAnomalyHour every hour, firing-alert exclusion included), days 7–13 also score
+//     every minute (runAnomalyMinute). Prints the periods and the anomaly alerts per cluster
+//     and day (ADR-200's aim: fewer than 3) for the default WATCHLOG_ANOMALY_ALERT_KEYS and
+//     with no filter, split into alerts that duplicate an alert already firing on the subject
+//     and new information, with the 30-minute quiet after a rollout applied; and, per chaos
+//     scenario (SCENARIOS, below), whether its minutes are left out of the baselines.
+//     NO_ALERTS=1 replays without the alerts (no exclusion), for comparison.
+import { readFileSync, writeFileSync } from 'node:fs';
+import pg from 'pg';
+import { createDb } from '../src/db/index.js';
+import { migrateUp } from '../src/db/migrate.js';
+import { newId } from '../src/lib/ids.js';
+import {
+  VictoriaQueryClient,
+  authorisedScope,
+  type ClusterScope,
+  type QuerySeries,
+} from '../src/lib/victoria.js';
+import {
+  ANOMALY_RULE_KEY,
+  DEFAULT_ALERT_KEYS,
+  ROLLOUT_QUIET_MS,
+  QUIET_MARKER_KINDS,
+  anomalyLabels,
+  inQuiet,
+  parseAlertKeys,
+} from '../src/modules/anomaly/alerts.js';
+import {
+  alertTokens,
+  excluded,
+  seriesTokens,
+  type Firing,
+} from '../src/modules/anomaly/exclusion.js';
+import { runAnomalyHour, runAnomalyMinute, type AnomalyDeps } from '../src/modules/anomaly/jobs.js';
+import { queriesFor, subjectOf, unitOf, type ClusterKind } from '../src/modules/anomaly/keys.js';
+import { DEFAULT_RULE, medianAndMad, scoreOf } from '../src/modules/anomaly/stats.js';
+
+const MIN = 60_000;
+const HOUR = 3_600_000;
+const DAY = 86_400_000;
+
+interface CapturedAlert {
+  rule: string;
+  labels: Record<string, string>;
+  fired: number;
+  resolved: number | null;
+}
+interface CapturedCluster {
+  id: string;
+  name: string;
+  kind: ClusterKind;
+  types: string[];
+  /** key → series (labels, [unix s, value][]). */
+  series: Record<string, QuerySeries[]>;
+  alerts: CapturedAlert[];
+  markers: { kind: string; target: string; ts: number }[];
+  containers: { name: string; node: string; project: string | null; service: string | null }[];
+}
+interface Capture {
+  from: number;
+  to: number;
+  clusters: CapturedCluster[];
+}
+
+// ------------------------------------------------------------------------------ capture
+
+async function capture() {
+  const from = Date.parse(process.env.FROM!);
+  const to = Date.parse(process.env.TO!);
+  if (!(from < to) || from % HOUR || to % HOUR)
+    throw new Error('FROM and TO: whole hours, FROM < TO');
+  const vm = new VictoriaQueryClient(process.env.VM_URL!, 60_000, 60_000);
+  const db = new pg.Client({ connectionString: process.env.PG_URL });
+  await db.connect();
+  const out: Capture = { from, to, clusters: [] };
+  const clusters = await db.query<{ id: string; name: string; kind: ClusterKind }>(
+    `SELECT id, name, kind FROM clusters WHERE kind IN ('kubernetes','docker') ORDER BY kind DESC`,
+  );
+  for (const c of clusters.rows) {
+    const types = (
+      await db.query<{ type: string }>(
+        'SELECT DISTINCT type FROM integrations WHERE cluster_id = $1',
+        [c.id],
+      )
+    ).rows.map((r) => r.type);
+    const series: Record<string, QuerySeries[]> = {};
+    for (const q of queriesFor(c.kind, types)) {
+      series[q.key] = await vm.queryRange(
+        authorisedScope(c.id),
+        q.expr,
+        from / 1000,
+        (to - MIN) / 1000,
+        60,
+      );
+    }
+    const alerts = (
+      await db.query<{
+        rule: string;
+        labels: Record<string, string>;
+        fired_at: Date;
+        resolved_at: Date | null;
+      }>(
+        `SELECT coalesce(r.rule_key, r.name) AS rule, s.labels, s.fired_at, s.resolved_at
+           FROM alert_states s JOIN alert_rules r ON r.id = s.rule_id
+          WHERE s.cluster_id = $1 AND s.fired_at IS NOT NULL AND s.fired_at < $3
+            AND (s.resolved_at IS NULL OR s.resolved_at > $2)`,
+        [c.id, new Date(from), new Date(to)],
+      )
+    ).rows.map((r) => ({
+      rule: r.rule,
+      labels: r.labels ?? {},
+      fired: r.fired_at.getTime(),
+      resolved: r.resolved_at?.getTime() ?? null,
+    }));
+    const markers = (
+      await db.query<{ kind: string; target: string; ts: Date }>(
+        `SELECT kind, target, ts FROM change_markers WHERE cluster_id = $1 AND ts >= $2 AND ts < $3`,
+        [c.id, new Date(from - ROLLOUT_QUIET_MS), new Date(to)],
+      )
+    ).rows.map((r) => ({ kind: r.kind, target: r.target, ts: r.ts.getTime() }));
+    const containers = (
+      await db.query<{ name: string; node: string; namespace: string; svc: string | null }>(
+        `SELECT name, node, namespace, spec_summary->>'compose_service' AS svc FROM objects
+          WHERE cluster_id = $1 AND kind = 'DockerContainer' AND deleted_at IS NULL`,
+        [c.id],
+      )
+    ).rows.map((r) => ({
+      name: r.name,
+      node: r.node,
+      project: r.namespace || null,
+      service: r.svc,
+    }));
+    const n = Object.values(series).reduce((a, s) => a + s.length, 0);
+    console.log(
+      `${c.kind} ${c.name}: ${n} series, ${alerts.length} alerts, ${markers.length} markers`,
+    );
+    out.clusters.push({ ...c, types, series, alerts, markers, containers });
+  }
+  await db.end();
+  writeFileSync(process.env.OUT ?? 'capture.json', JSON.stringify(out));
+}
+
+// ------------------------------------------------------------------------------ the chaos
+
+/**
+ * The demo kit's scenarios (deploy/demo: chaos.yaml, shop.yaml, egress.yaml, the Docker
+ * host's compose.yaml), by subject token (exclusion.ts) and minutes of the hour, UTC.
+ */
+interface Scenario {
+  name: string;
+  kind: ClusterKind;
+  tokens: string[];
+  /** [from, to) minutes of the hour; `every` repeats from 0 (report-builder, worker). */
+  minutes: [number, number][];
+}
+const w = (name: string, kind = 'Deployment') => `w:shop/${kind}/${name}`;
+const SCENARIOS: Scenario[] = [
+  {
+    name: 'api-outage (:00, :30)',
+    kind: 'kubernetes',
+    tokens: [w('api')],
+    minutes: [
+      [0, 8],
+      [30, 38],
+    ],
+  },
+  {
+    name: 'analytics (:05)',
+    kind: 'kubernetes',
+    tokens: [w('analytics', 'CronJob'), w('analytics', 'Job')],
+    minutes: [[5, 11]],
+  },
+  { name: 'updater (:12)', kind: 'kubernetes', tokens: [w('updater')], minutes: [[12, 14]] },
+  { name: 'slow-backend (:15)', kind: 'kubernetes', tokens: [w('backend')], minutes: [[15, 22]] },
+  {
+    name: 'nightly-export (:20)',
+    kind: 'kubernetes',
+    tokens: [w('nightly-export', 'CronJob'), w('nightly-export', 'Job')],
+    minutes: [[20, 29]],
+  },
+  { name: 'busy-backend (:41)', kind: 'kubernetes', tokens: [w('backend')], minutes: [[41, 48]] },
+  {
+    name: 'ip-beacon (:47)',
+    kind: 'kubernetes',
+    tokens: [w('ip-beacon', 'CronJob'), w('ip-beacon', 'Job')],
+    minutes: [[47, 49]],
+  },
+  {
+    name: 'inventory-lock (:50)',
+    kind: 'kubernetes',
+    tokens: [w('inventory'), w('inventory-lock', 'CronJob'), w('inventory-lock', 'Job')],
+    minutes: [[50, 56]],
+  },
+  {
+    name: 'report-builder OOM (every 10 min)',
+    kind: 'kubernetes',
+    tokens: [w('report-builder', 'CronJob'), w('report-builder', 'Job')],
+    minutes: [0, 10, 20, 30, 40, 50].map((m) => [m, m + 2] as [number, number]),
+  },
+  {
+    name: 'legacy-importer (crash loop, always)',
+    kind: 'kubernetes',
+    tokens: [w('legacy-importer')],
+    minutes: [[0, 60]],
+  },
+  {
+    name: 'audit (Kafka consumer, 47-min OOM)',
+    kind: 'kubernetes',
+    tokens: [w('audit')],
+    minutes: [[0, 60]],
+  },
+  {
+    name: 'order-events (31-min OOM)',
+    kind: 'kubernetes',
+    tokens: [w('order-events')],
+    minutes: [[0, 60]],
+  },
+  { name: 'dns-typo (always)', kind: 'kubernetes', tokens: [w('dns-typo')], minutes: [[0, 60]] },
+  {
+    name: 'Docker worker OOM (every 20 min)',
+    kind: 'docker',
+    tokens: ['s:storefront/worker'],
+    minutes: [0, 20, 40].map((m) => [m, m + 3] as [number, number]),
+  },
+  {
+    name: 'Docker updater (:12)',
+    kind: 'docker',
+    tokens: ['s:storefront/updater'],
+    minutes: [[12, 14]],
+  },
+  {
+    name: 'Docker ip-beacon (:47)',
+    kind: 'docker',
+    tokens: ['s:storefront/ip-beacon'],
+    minutes: [[47, 49]],
+  },
+];
+const inScenario = (s: Scenario, t: number) => {
+  const m = new Date(t).getUTCMinutes();
+  return s.minutes.some(([a, b]) => m >= a && m < b);
+};
+
+// ------------------------------------------------------------------------------ replay
+
+async function replay() {
+  const cap: Capture = JSON.parse(readFileSync(process.env.IN ?? 'capture.json', 'utf8'));
+  const url = process.env.DATABASE_URL!;
+  const noAlerts = process.env.NO_ALERTS === '1';
+  const days = Number(process.env.DAYS ?? 14);
+  await migrateUp(url);
+  const db = createDb(url);
+  const L = cap.to - cap.from;
+  /** Replay starts on a Monday 00:00 UTC; minutes of the hour match the capture's. */
+  const R0 = Date.UTC(2026, 9, 5);
+  const toCap = (t: number) => cap.from + ((((t - R0) % L) + L) % L);
+  await db.deleteFrom('anomaly_periods').execute();
+  await db.deleteFrom('anomaly_baselines').execute();
+  await db.deleteFrom('anomaly_orgs').execute();
+  const orgId = newId();
+  await db
+    .insertInto('orgs')
+    .values({ id: orgId, name: 'Replay', slug: `replay-${orgId.slice(-8)}`, plan: 'community' })
+    .execute();
+  const ruleIds = new Map<string, string>();
+  const ruleId = async (key: string) => {
+    let id = ruleIds.get(key);
+    if (!id) {
+      id = newId();
+      await db
+        .insertInto('alert_rules')
+        .values({
+          id,
+          org_id: orgId,
+          name: key,
+          type: 'default',
+          rule_key: key,
+          severity: 'warning',
+        })
+        .execute();
+      ruleIds.set(key, id);
+    }
+    return id;
+  };
+  /** Each captured interval tiled over the replay's days. */
+  const tile = (from: number, to: number) => {
+    const out: [number, number][] = [];
+    const a = Math.max(from, cap.from) - cap.from;
+    const b = Math.min(to, cap.to) - cap.from;
+    if (b <= a) return out;
+    for (let k = R0; k < R0 + days * DAY; k += L) out.push([k + a, k + b]);
+    return out;
+  };
+  const replayed = new Map<
+    string,
+    { firing: Firing[]; markers: { target: string; kind: string; ts: Date }[] }
+  >();
+  const ids = new Map<string, string>();
+  for (const c of cap.clusters) {
+    const id = newId();
+    ids.set(c.id, id);
+    await db
+      .insertInto('clusters')
+      .values({ id, org_id: orgId, name: c.name, kind: c.kind })
+      .execute();
+    for (const type of c.types) {
+      await db
+        .insertInto('integrations')
+        .values({
+          id: newId(),
+          org_id: orgId,
+          cluster_id: id,
+          type,
+          name: type,
+          target: JSON.stringify({ kind: 'address', port: 1 }),
+        })
+        .execute();
+    }
+    for (const k of c.containers) {
+      await db
+        .insertInto('objects')
+        .values({
+          id: newId(),
+          org_id: orgId,
+          cluster_id: id,
+          source: 'docker',
+          kind: 'DockerContainer',
+          namespace: k.project ?? '',
+          name: k.name,
+          node: k.node,
+          uid: newId(),
+          spec_summary: JSON.stringify(k.service ? { compose_service: k.service } : {}),
+          status_summary: JSON.stringify({}),
+        })
+        .execute();
+    }
+    const firing: Firing[] = [];
+    const rows: object[] = [];
+    for (const a of c.alerts) {
+      if (a.rule === ANOMALY_RULE_KEY) continue;
+      const rid = await ruleId(a.rule);
+      for (const [f, r] of tile(a.fired, a.resolved ?? cap.to)) {
+        firing.push({ from: f, to: r, tokens: alertTokens(c.kind, a.labels) });
+        rows.push({
+          id: newId(),
+          org_id: orgId,
+          rule_id: rid,
+          cluster_id: id,
+          fingerprint: `${rid}:${f}`,
+          state: 'resolved',
+          severity: 'warning',
+          labels: JSON.stringify(a.labels),
+          started_at: new Date(f),
+          fired_at: new Date(f),
+          resolved_at: new Date(r),
+        });
+      }
+    }
+    if (!noAlerts) {
+      for (let i = 0; i < rows.length; i += 500) {
+        await db
+          .insertInto('alert_states')
+          .values(rows.slice(i, i + 500) as never)
+          .execute();
+      }
+    }
+    const markers = c.markers
+      .filter((m) => (QUIET_MARKER_KINDS as readonly string[]).includes(m.kind))
+      .flatMap((m) =>
+        tile(m.ts, m.ts + 1).map(([t]) => ({ kind: m.kind, target: m.target, ts: new Date(t) })),
+      );
+    replayed.set(id, { firing, markers });
+  }
+
+  // The fake VictoriaMetrics: each scored key's captured series, at the captured minute.
+  const keyOf = new Map<string, string>();
+  for (const c of cap.clusters)
+    for (const q of queriesFor(c.kind, c.types)) keyOf.set(q.expr, q.key);
+  const byCluster = new Map<
+    string,
+    Map<string, { labels: Record<string, string>; at: Map<number, number> }[]>
+  >();
+  for (const c of cap.clusters) {
+    const keys = new Map<string, { labels: Record<string, string>; at: Map<number, number> }[]>();
+    for (const [key, list] of Object.entries(c.series)) {
+      keys.set(
+        key,
+        list.map((s) => ({
+          labels: s.labels,
+          at: new Map(
+            s.points.filter(([, v]) => v !== null).map(([t, v]) => [t * 1000, v as number]),
+          ),
+        })),
+      );
+    }
+    byCluster.set(ids.get(c.id)!, keys);
+  }
+  const victoria = {
+    async queryRange(scope: ClusterScope, expr: string, start: number, end: number, step: number) {
+      const list = byCluster.get(scope.clusterId)?.get(keyOf.get(expr) ?? '') ?? [];
+      const out: QuerySeries[] = [];
+      for (const s of list) {
+        const points: [number, number | null][] = [];
+        for (let t = start; t <= end; t += step) {
+          const v = s.at.get(toCap(t * 1000));
+          if (v !== undefined) points.push([t, v]);
+        }
+        if (points.length) out.push({ labels: s.labels, points });
+      }
+      return out;
+    },
+  };
+  const deps: AnomalyDeps = {
+    db,
+    systemDb: db,
+    victoria,
+    orgs: async () => [orgId],
+    log: { warn: (o, m) => console.warn(m, o) },
+  };
+  const began = Date.now();
+  await runAnomalyMinute(deps, R0);
+  for (let h = R0; h < R0 + days * DAY; h += HOUR) {
+    if (h >= R0 + 7 * DAY) for (let m = h; m < h + HOUR; m += MIN) await runAnomalyMinute(deps, m);
+    await runAnomalyHour(deps, h + HOUR + 5 * MIN);
+    if ((h - R0) % DAY === 0)
+      console.error(`day ${(h - R0) / DAY} (${Math.round((Date.now() - began) / 1000)} s)`);
+  }
+
+  // ---------------------------------------------------------------------------- the counts
+  const periods = await db
+    .selectFrom('anomaly_periods')
+    .select(['cluster_id', 'metric', 'subject', 'started_at', 'ended_at', 'peak_score'])
+    .orderBy('started_at')
+    .execute();
+  const filters = { default: parseAlertKeys(DEFAULT_ALERT_KEYS), none: parseAlertKeys('*') };
+  if (process.env.KEYS) Object.assign(filters, { custom: parseAlertKeys(process.env.KEYS) });
+  const scoreDays = days - 7;
+  console.log(
+    `\nreplay ${days} days from ${new Date(R0).toISOString()}, scored days 7–${days - 1}` +
+      `${noAlerts ? ' (NO alerts: no exclusion)' : ''}; capture ${new Date(cap.from).toISOString()} + ${L / HOUR} h`,
+  );
+  for (const c of cap.clusters) {
+    const id = ids.get(c.id)!;
+    const { firing, markers } = replayed.get(id)!;
+    const containers = new Map(
+      c.containers.map((k) => [k.name, { host: k.node, project: k.project, service: k.service }]),
+    );
+    const mine = periods.filter((p) => p.cluster_id === id);
+    console.log(
+      `\n== ${c.kind} ${c.name}: ${mine.length} periods (${(mine.length / scoreDays).toFixed(1)} a day)`,
+    );
+    const byKey = new Map<string, number>();
+    for (const p of mine) byKey.set(p.metric, (byKey.get(p.metric) ?? 0) + 1);
+    console.log(
+      '   periods by key:',
+      [...byKey]
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, n]) => `${k} ${n}`)
+        .join(', '),
+    );
+    for (const [fname, allow] of Object.entries(filters)) {
+      let dup = 0;
+      let fresh = 0;
+      let quiet = 0;
+      const subjects = new Map<string, number>();
+      for (const p of mine) {
+        if (!allow(p.metric)) continue;
+        const subject = p.subject as Record<string, string>;
+        const labels = anomalyLabels(c.kind, p.metric, subject, containers);
+        const start = p.started_at.getTime() + DEFAULT_RULE.minutes * MIN;
+        const end = p.ended_at?.getTime() ?? start;
+        // The alert opens at the first minute of the period outside a rollout's quiet.
+        let at: number | null = null;
+        for (let t = start; t <= Math.max(start, end); t += MIN) {
+          const recent = markers.filter(
+            (m) => m.ts.getTime() <= t && m.ts.getTime() > t - ROLLOUT_QUIET_MS,
+          );
+          if (!inQuiet(c.kind, labels, containers, recent)) {
+            at = t;
+            break;
+          }
+        }
+        if (at === null) {
+          quiet++;
+          continue;
+        }
+        const tokens = seriesTokens(c.kind, subject);
+        if (excluded(at, tokens, firing)) dup++;
+        else fresh++;
+        const name = `${p.metric} ${Object.values(subject).join('/')}`;
+        subjects.set(name, (subjects.get(name) ?? 0) + 1);
+      }
+      const total = dup + fresh;
+      console.log(
+        `   alerts, filter ${fname}: ${(total / scoreDays).toFixed(1)} a day ` +
+          `(${(dup / scoreDays).toFixed(1)} duplicate an alert firing on the subject, ` +
+          `${(fresh / scoreDays).toFixed(1)} new); ${quiet} kept quiet by a rollout in ${scoreDays} days`,
+      );
+      for (const [n, k] of [...subjects].sort((a, b) => b[1] - a[1]).slice(0, 12)) {
+        console.log(`      ${(k / scoreDays).toFixed(1)}/day  ${n}`);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------- the scenarios
+  console.log('\n== scenarios: their minutes in the baselines, and what scores past 4');
+  const rule = DEFAULT_RULE;
+  for (const sc of SCENARIOS) {
+    const c = cap.clusters.find((x) => x.kind === sc.kind);
+    if (!c) continue;
+    const id = ids.get(c.id)!;
+    const { firing } = replayed.get(id)!;
+    const capFiring: Firing[] = noAlerts
+      ? []
+      : c.alerts
+          .filter((a) => a.rule !== ANOMALY_RULE_KEY)
+          .map((a) => ({
+            from: a.fired,
+            to: a.resolved ?? Infinity,
+            tokens: alertTokens(c.kind, a.labels),
+          }));
+    void firing;
+    let series = 0;
+    let minutes = 0;
+    let out = 0;
+    let past = 0;
+    let pastClean = 0;
+    let longest = 0;
+    const rules = new Set<string>();
+    for (const a of c.alerts) {
+      const t = alertTokens(c.kind, a.labels);
+      if (sc.tokens.some((x) => t.has(x)) && a.rule !== ANOMALY_RULE_KEY) rules.add(a.rule);
+    }
+    for (const [key, list] of Object.entries(c.series)) {
+      for (const s of list) {
+        const tokens = seriesTokens(c.kind, subjectOf(s.labels));
+        if (!sc.tokens.some((x) => tokens.has(x))) continue;
+        series++;
+        // Per captured hour: the bucket as the worker learns it (exclusion applied), and as it
+        // would be without the scenario's minutes at all.
+        for (let h = cap.from; h < cap.to; h += HOUR) {
+          const pts = s.points.filter(
+            ([t, v]) => v !== null && t * 1000 >= h && t * 1000 < h + HOUR,
+          ) as [number, number][];
+          const kept = pts
+            .filter(([t]) => !excluded(t * 1000, tokens, capFiring))
+            .map(([, v]) => v);
+          const clean = pts.filter(([t]) => !inScenario(sc, t * 1000)).map(([, v]) => v);
+          if (kept.length < 30 || clean.length < 10) continue;
+          const b = medianAndMad(kept);
+          const bc = medianAndMad(clean);
+          let run = 0;
+          for (const [t, v] of pts) {
+            if (!inScenario(sc, t * 1000)) {
+              run = 0;
+              continue;
+            }
+            minutes++;
+            if (excluded(t * 1000, tokens, capFiring)) out++;
+            const sc1 = scoreOf(v, b.median, b.mad, unitOf(key), rule);
+            if (sc1 > rule.score) past++;
+            if (scoreOf(v, bc.median, bc.mad, unitOf(key), rule) > rule.score) pastClean++;
+            run = sc1 > rule.score ? run + 1 : 0;
+            longest = Math.max(longest, run);
+          }
+        }
+      }
+    }
+    const listed = periods.filter((p) => {
+      if (p.cluster_id !== id) return false;
+      const t = seriesTokens(c.kind, p.subject as Record<string, string>);
+      return sc.tokens.some((x) => t.has(x));
+    });
+    const pct = (n: number) => (minutes ? `${Math.round((n / minutes) * 100)} %` : '–');
+    console.log(
+      `   ${sc.name}: ${series} series; scenario minutes left out ${pct(out)}; ` +
+        `past 4 against the learned bucket ${pct(past)} (without its minutes ${pct(pastClean)}), ` +
+        `longest run ${longest} min; periods on it ${(listed.length / scoreDays).toFixed(1)} a day; ` +
+        `alerts on it: ${[...rules].join(', ') || 'none'}`,
+    );
+  }
+  await db.destroy();
+}
+
+const mode = process.argv[2];
+if (mode === 'capture') await capture();
+else if (mode === 'replay') await replay();
+else {
+  console.error('usage: anomaly-replay.ts capture|replay (see the header)');
+  process.exit(2);
+}
