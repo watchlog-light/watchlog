@@ -11,7 +11,9 @@ cover crash loops, OOM kills, pods stuck pending, image pull errors, unavailable
 node pressure and NotReady nodes, unhealthy or restarting Docker containers, containers
 throttled at their CPU limit more than 25% of the time for 15 minutes (pods and Docker
 containers), failing connections between services, agents that stop reporting, and new or unusual
-external destinations ([Egress watch](egress.md)). Each rule sends to the channels you pick for it.
+external destinations ([Egress watch](egress.md)). In WatchLog Cloud Pro, one more rule, "Unusual for
+this hour", fires when a metric stays far outside its usual range for that hour of the week
+([What changed](what-changed.md#anomaly-alerts)). Each rule sends to the channels you pick for it.
 
 ## Channels
 

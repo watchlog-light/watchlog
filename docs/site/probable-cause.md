@@ -73,6 +73,8 @@ off, the answer says so, and those rules can't run.
   have a problem.
 - **Service map:** the panel for a failing or slow connection, in the side panel.
 - **Applications:** beside a finding.
+- **What changed** (Pro): under the list of what left its usual range, for the alert or the first
+  workload or container that moved ([What changed](what-changed.md)).
 
 **Copy as text** copies the sentence and the chain, for a ticket or a chat.
 

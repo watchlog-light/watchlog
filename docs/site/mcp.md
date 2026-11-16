@@ -190,7 +190,7 @@ assistant the same evidence as the dashboard's "Likely cause" panel:
 - **What changed:** `get_what_changed` lists at most 30 rows over at most 24 hours (the last
   hour by default, or the window around an alert). It is part of Pro in WatchLog Cloud: on
   Cloud Free it answers that What changed is part of Pro, and a self-hosted Community install
-  doesn't list it at all.
+  doesn't list it at all ([What changed](what-changed.md)).
 - **Logs:** at most 200 lines and 16 KB, newest last; the oldest are left out first. Lines are
   redacted in the agent and never stored, and the Container logs setting applies to the
   token's user ([logs on demand](logs.md)).

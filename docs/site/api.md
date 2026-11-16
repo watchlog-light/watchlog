@@ -235,7 +235,8 @@ curl -H "$H" "$WATCHLOG/api/v1/applications/$SERVICE?range=21600"
 ```
 
 The egress routes, the badges and the suggested policy are explained in
-[Egress watch](egress.md#api-and-mcp).
+[Egress watch](egress.md#api-and-mcp). The usual ranges, the learning period and the rows of
+`/what-changed` are explained in [What changed](what-changed.md#api-and-mcp).
 
 ### Metrics
 

@@ -294,3 +294,6 @@ fleet.
   outlive it. A destination already in use before the oldest retained sample shows "before"
   that date.
 - **No country, owner or reputation** of destinations, and nothing is ever blocked.
+- **Destinations, not volumes:** Egress watch tells you what is new, not whether the amount
+  sent is unusual. In WatchLog Cloud Pro, an egress alert's page also shows what left its usual
+  range around it ([What changed](what-changed.md#on-every-alert)).
