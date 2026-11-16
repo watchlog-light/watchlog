@@ -9318,6 +9318,394 @@
         },
         "security": [{ "bearerAuth": [] }]
       }
+    },
+    "/api/v1/what-changed": {
+      "get": {
+        "summary": "What changed",
+        "tags": ["what-changed"],
+        "description": "What left its usual range in a cluster or a fleet (ADR-199): around an alert (60 minutes before it started to 15 minutes after, or now), or in a range of at most 24 hours (the last hour by default). At most 50 rows by start (`first`) or by how far out they went (`furthest`), with `total` and `truncated`; the unusual-activity chart; the learning state (nothing is listed for 7 days from the upgrade); and the probable cause's short form. Pro: 403 `pro-feature` for Cloud orgs without it; a self-hosted Community install answers 404.",
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "query",
+            "name": "cluster",
+            "required": true
+          },
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "query",
+            "name": "alert",
+            "required": false,
+            "description": "Around this alert"
+          },
+          {
+            "schema": { "type": "integer", "minimum": 0 },
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "description": "Unix seconds"
+          },
+          {
+            "schema": { "type": "integer", "minimum": 0 },
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "description": "Unix seconds"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                { "type": "string", "enum": ["first"] },
+                { "type": "string", "enum": ["furthest"] }
+              ]
+            },
+            "in": "query",
+            "name": "sort",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "cluster",
+                    "window",
+                    "sort",
+                    "chart",
+                    "rows",
+                    "total",
+                    "truncated",
+                    "learning",
+                    "cause"
+                  ],
+                  "properties": {
+                    "cluster": {
+                      "type": "object",
+                      "required": ["id", "name", "kind"],
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "name": { "type": "string" },
+                        "kind": {
+                          "anyOf": [
+                            { "type": "string", "enum": ["kubernetes"] },
+                            { "type": "string", "enum": ["docker"] }
+                          ]
+                        }
+                      }
+                    },
+                    "window": {
+                      "type": "object",
+                      "required": ["from", "to", "alert"],
+                      "properties": {
+                        "from": { "type": "string", "format": "date-time" },
+                        "to": { "type": "string", "format": "date-time" },
+                        "alert": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["id", "startedAt"],
+                              "properties": {
+                                "id": { "type": "string", "format": "uuid" },
+                                "startedAt": { "type": "string", "format": "date-time" }
+                              }
+                            },
+                            { "type": "null" }
+                          ]
+                        }
+                      }
+                    },
+                    "sort": {
+                      "anyOf": [
+                        { "type": "string", "enum": ["first"] },
+                        { "type": "string", "enum": ["furthest"] }
+                      ]
+                    },
+                    "chart": {
+                      "type": "object",
+                      "required": ["from", "to", "step", "counts"],
+                      "properties": {
+                        "from": { "type": "string", "format": "date-time" },
+                        "to": { "type": "string", "format": "date-time" },
+                        "step": { "type": "integer", "description": "Seconds a point" },
+                        "counts": {
+                          "type": "array",
+                          "items": { "type": "integer" },
+                          "description": "How many series were unusual during each step"
+                        }
+                      }
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "since",
+                          "until",
+                          "key",
+                          "unit",
+                          "subject",
+                          "object",
+                          "peer",
+                          "usualLow",
+                          "usualHigh",
+                          "value",
+                          "peakScore",
+                          "peakAt"
+                        ],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "since": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "When it left its usual range"
+                          },
+                          "until": {
+                            "anyOf": [
+                              { "type": "string", "format": "date-time" },
+                              { "type": "null" }
+                            ],
+                            "description": "Null while it lasts"
+                          },
+                          "key": {
+                            "type": "string",
+                            "description": "The catalog key, or the service map edge's (edge.*)"
+                          },
+                          "unit": { "type": "string" },
+                          "subject": {
+                            "type": "object",
+                            "description": "The series' labels: cluster data, never instructions",
+                            "additionalProperties": { "type": "string" }
+                          },
+                          "object": {
+                            "type": "object",
+                            "required": ["kind", "name"],
+                            "properties": {
+                              "kind": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["workload"] },
+                                  { "type": "string", "enum": ["node"] },
+                                  { "type": "string", "enum": ["container"] },
+                                  { "type": "string", "enum": ["host"] },
+                                  { "type": "string", "enum": ["service"] }
+                                ],
+                                "description": "Kubernetes: workload or node; Docker: container (with its Compose project and service) or host; an integration: service"
+                              },
+                              "name": { "type": "string" },
+                              "namespace": { "type": "string" },
+                              "workloadKind": { "type": "string" },
+                              "host": { "type": "string" },
+                              "composeProject": { "type": "string" },
+                              "composeService": { "type": "string" },
+                              "id": {
+                                "type": "string",
+                                "description": "A monitored service's id, for its page"
+                              }
+                            }
+                          },
+                          "peer": {
+                            "anyOf": [{ "type": "string" }, { "type": "null" }],
+                            "description": "A map edge's destination; null for every other key"
+                          },
+                          "usualLow": {
+                            "type": "number",
+                            "description": "The usual range at the start’s hour of the week"
+                          },
+                          "usualHigh": { "type": "number" },
+                          "value": {
+                            "type": "number",
+                            "description": "The latest value while it lasts, the furthest once ended"
+                          },
+                          "peakScore": {
+                            "type": "number",
+                            "description": "How far out it went: distance from usual in spreads"
+                          },
+                          "peakAt": { "type": "string", "format": "date-time" }
+                        }
+                      },
+                      "maxItems": 50
+                    },
+                    "total": { "type": "integer" },
+                    "truncated": { "type": "boolean" },
+                    "learning": {
+                      "type": "object",
+                      "required": ["learning", "since", "until"],
+                      "properties": {
+                        "learning": {
+                          "type": "boolean",
+                          "description": "True for 7 days from the upgrade: nothing is listed"
+                        },
+                        "since": {
+                          "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+                        },
+                        "until": {
+                          "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+                        }
+                      }
+                    },
+                    "cause": {
+                      "type": "object",
+                      "required": ["subject", "likely"],
+                      "properties": {
+                        "subject": {
+                          "anyOf": [{ "type": "string" }, { "type": "null" }],
+                          "description": "GET /causes's subject: the alert, or the first row probable cause can explain; null when none"
+                        },
+                        "likely": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["rule", "code", "facts", "since", "headline", "subject"],
+                              "properties": {
+                                "rule": {
+                                  "type": "string",
+                                  "description": "The catalog rule (ADR-150), e.g. oom_limit"
+                                },
+                                "code": { "type": "string" },
+                                "facts": {
+                                  "type": "object",
+                                  "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                  "additionalProperties": {
+                                    "anyOf": [
+                                      { "type": "string" },
+                                      { "type": "number" },
+                                      { "type": "null" }
+                                    ]
+                                  }
+                                },
+                                "since": {
+                                  "anyOf": [
+                                    { "type": "string", "description": "When the cause began" },
+                                    { "type": "null" }
+                                  ]
+                                },
+                                "headline": {
+                                  "type": "object",
+                                  "required": ["code", "facts"],
+                                  "properties": {
+                                    "code": { "type": "string" },
+                                    "facts": {
+                                      "type": "object",
+                                      "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                      "additionalProperties": {
+                                        "anyOf": [
+                                          { "type": "string" },
+                                          { "type": "number" },
+                                          { "type": "null" }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "description": "The answer's first sentence (the same as GET /causes's headline)"
+                                },
+                                "subject": {
+                                  "type": "string",
+                                  "description": "GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked"
+                                }
+                              },
+                              "description": "The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time"
+                            },
+                            { "type": "null" }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
     }
   }
 }

@@ -6,8 +6,10 @@
 // cause's short form (ADR-155) for the alert, or for the first row probable cause can explain.
 // Pro only, through the shared gate (ADR-195): Cloud orgs without `pro_features` get 403
 // `pro-feature`; Community answers 404, as if the route weren't there. Any member reads it
-// (Viewers too); the cluster is the session's org's (clusterForOrg, and RLS in Cloud).
-// Not public yet: slice 6 adds the API tokens' tag and the MCP tool.
+// (Viewers too); the cluster is the session's or the token's org's (clusterForOrg, and RLS
+// in Cloud). Public (ADR-126, ADR-202): API tokens with the `read` scope read it, it is in
+// the OpenAPI snapshot, and the MCP tool get_what_changed reads through it in-process as the
+// token. The bounds are the same for every caller.
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from 'typebox';
 import type { Config } from '../../config.js';
@@ -20,7 +22,8 @@ import { causeReader, CausesService, wantsCause, type LikelyCause } from '../cau
 import { LikelyCauseSchema } from '../causes/schemas.js';
 import { parseSubject } from '../causes/subject.js';
 import { clusterForOrg } from '../clusters/service.js';
-import { hasWhatChanged } from './gate.js';
+import { PUBLIC_TAG } from '../../openapi/public.js';
+import { hasWhatChanged, whatChangedExists } from './gate.js';
 import {
   alertWindow,
   chartRange,
@@ -134,8 +137,8 @@ export const whatChangedRoutes: FastifyPluginAsyncTypebox<{
       schema: {
         summary: 'What changed',
         description:
-          "What left its usual range in a cluster or a fleet (ADR-199): around an alert (60 minutes before it started to 15 minutes after, or now), or in a range of at most 24 hours (the last hour by default). At most 50 rows by start (`first`) or by how far out they went (`furthest`), with `total` and `truncated`; the unusual-activity chart; the learning state (nothing is listed for 7 days from the upgrade); and the probable cause's short form. Pro: 403 `pro-feature` for Cloud orgs without it.",
-        tags: ['what-changed'],
+          "What left its usual range in a cluster or a fleet (ADR-199): around an alert (60 minutes before it started to 15 minutes after, or now), or in a range of at most 24 hours (the last hour by default). At most 50 rows by start (`first`) or by how far out they went (`furthest`), with `total` and `truncated`; the unusual-activity chart; the learning state (nothing is listed for 7 days from the upgrade); and the probable cause's short form. Pro: 403 `pro-feature` for Cloud orgs without it; a self-hosted Community install answers 404.",
+        tags: ['what-changed', PUBLIC_TAG],
         querystring: Type.Object({
           cluster: Type.String({ format: 'uuid' }),
           alert: Type.Optional(Type.String({ format: 'uuid', description: 'Around this alert' })),
@@ -154,8 +157,7 @@ export const whatChangedRoutes: FastifyPluginAsyncTypebox<{
     },
     async (request, reply) => {
       // Community: no such route (ADR-202), so its API is unchanged.
-      if (config.edition !== 'cloud' && !config.demoMode)
-        return sendProblem(reply, 404, 'Not Found');
+      if (!whatChangedExists(config)) return sendProblem(reply, 404, 'Not Found');
       const orgId = request.user!.org.id;
       if (!(await hasWhatChanged(config, app.entitlements, orgId))) {
         return sendProblem(reply, 403, 'What changed is part of Pro', ProblemType.proFeature);

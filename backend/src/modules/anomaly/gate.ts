@@ -24,6 +24,14 @@ export function workerRefusal(config: GateConfig): string | null {
 }
 
 /**
+ * Whether What changed exists on this installation at all (ADR-202): Cloud or the live demo.
+ * In Community the route answers 404 and the MCP tool `get_what_changed` isn't registered,
+ * so Community's API and tool list are unchanged.
+ */
+export const whatChangedExists = (config: GateConfig): boolean =>
+  config.edition === 'cloud' || config.demoMode;
+
+/**
  * Whether an org has What changed: Cloud with `pro_features`; in demo mode (not Cloud) the
  * installation's org; never in Community otherwise.
  */

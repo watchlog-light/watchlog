@@ -22,6 +22,8 @@ export interface McpRoutesOptions {
   /** In demo mode: the public token's limits per visitor and in total (ADR-130). */
   demo?: DemoMcpLimits;
   now?: () => Date;
+  /** Cloud or the live demo: get_what_changed is registered (ADR-202). */
+  whatChanged?: boolean;
 }
 
 type LimitResult = Awaited<ReturnType<ReturnType<FastifyInstance['createRateLimit']>>>;
@@ -76,6 +78,7 @@ export async function registerMcpRoutes(
         now,
         log: app.log,
         funnel: app.funnel,
+        whatChanged: opts.whatChanged ?? false,
       }),
     {
       legacy: 'stateless',

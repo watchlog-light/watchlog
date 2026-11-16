@@ -26,6 +26,7 @@ import { connectRoutes } from './modules/integrations/connect.js';
 import { applicationRoutes } from './modules/integrations/routes.js';
 import { causesRoutes } from './modules/causes/routes.js';
 import { whatChangedRoutes } from './modules/anomaly/routes.js';
+import { whatChangedExists } from './modules/anomaly/gate.js';
 import { anomalyFeedbackRoutes } from './modules/anomaly/feedback.js';
 import { CausesService } from './modules/causes/likely.js';
 import { kubernetesRoutes } from './modules/kubernetes/routes.js';
@@ -382,6 +383,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       db: deps.db,
       version: config.version,
       callsPerMinute: config.apiTokenLimits.mcpCallsPerMinute,
+      whatChanged: whatChangedExists(config),
       ...(config.demoMode
         ? {
             demo: {
