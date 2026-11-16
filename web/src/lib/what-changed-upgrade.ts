@@ -82,7 +82,7 @@ export function demoExample(platform: 'kubernetes' | 'docker', now = Date.now())
   // A quiet morning, then the incident: a few series at most, rising sharply from 14:18.
   const counts = Array.from({ length: minutes }, (_, i) => {
     const x = i / (minutes - 1);
-    const base = 1 + Math.round(Math.sin(i * 0.55) + 0.6 * Math.sin(i * 1.9));
+    const base = Math.round(1.3 + 0.5 * Math.sin(i * 0.22) + 0.3 * Math.sin(i * 0.9));
     return Math.max(0, base + Math.round(9 * Math.exp(-(((x - 0.79) / 0.06) ** 2))));
   });
   const chart: DemoExample['chart'] = {
