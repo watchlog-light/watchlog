@@ -231,12 +231,24 @@ const GROUP_OF: Record<string, RuleGroup> = {
   'docker.container.unhealthy': 'docker',
   'docker.container.restarts': 'docker',
   'docker.container.throttling': 'docker',
+  'server.unit.failed': 'docker',
+  'server.unit.crashloop': 'docker',
+  'server.process.crashloop': 'docker',
+  'server.unit.oom': 'docker',
+  'server.process.oom': 'docker',
+  'server.process.gone': 'docker',
+  'server.unit.memory': 'docker',
+  'server.unit.throttling': 'docker',
+  'server.memory.high': 'docker',
   'agent.not_reporting': 'watchlog',
 };
 export const RULE_GROUPS: RuleGroup[] = ['pods', 'nodes', 'docker', 'watchlog', 'custom'];
 export function ruleGroup(rule: { type: string; ruleKey: string | null }): RuleGroup {
   if (rule.type === 'threshold' || !rule.ruleKey) return 'custom';
-  return GROUP_OF[rule.ruleKey] ?? (rule.ruleKey.startsWith('docker.') ? 'docker' : 'pods');
+  return (
+    GROUP_OF[rule.ruleKey] ??
+    (rule.ruleKey.startsWith('docker.') || rule.ruleKey.startsWith('server.') ? 'docker' : 'pods')
+  );
 }
 /** Position within its group: built-in rules in GROUP_OF order (most urgent first), then the rest. */
 const ORDER = Object.keys(GROUP_OF);

@@ -995,7 +995,7 @@
       "groups": {
         "pods": "Pods & workloads",
         "nodes": "Nodes",
-        "docker": "Docker",
+        "docker": "Servers",
         "watchlog": "WatchLog itself",
         "custom": "Custom"
       },
@@ -1043,7 +1043,16 @@
         "network_connections_failed": "A workload's **connections fail** more than **{value}**",
         "service": "{name}",
         "serviceRemoved": "a service no longer monitored",
-        "serviceType": "every {type} service"
+        "serviceType": "every {type} service",
+        "server_unit_failed": "A systemd service **fails**",
+        "server_unit_crashloop": "A service **crashes or restarts more than {value} times** in **10 min**",
+        "server_process_crashloop": "A process group **exits with an error more than {value} times** in **10 min**",
+        "server_unit_oom": "A service is **killed for running out of memory**",
+        "server_process_oom": "A process is **killed for running out of memory**",
+        "server_process_gone": "A process group that ran for a while **has no process left**",
+        "server_unit_memory": "A service uses more than **{value}** of its **MemoryMax**",
+        "server_unit_throttling": "A service is **CPU-throttled** at its CPUQuota more than **{value}** of the time",
+        "server_memory_high": "Server **memory** above **{value}**"
       }
     },
     "detail": {
@@ -1217,7 +1226,16 @@
         "docker_container_throttling": "CPU throttling",
         "network_connections_failed": "Failed connections",
         "egress_raw_ip": "Connections in 10 min",
-        "egress_large_upload_new": "Bytes sent in 1 h"
+        "egress_large_upload_new": "Bytes sent in 1 h",
+        "server_unit_failed": "Failed services",
+        "server_unit_crashloop": "Crashes or restarts in 10 min",
+        "server_process_crashloop": "Failed exits in 10 min",
+        "server_unit_oom": "OOM kills in 10 min",
+        "server_process_oom": "OOM kills in 10 min",
+        "server_process_gone": "Processes left",
+        "server_unit_memory": "Memory of MemoryMax",
+        "server_unit_throttling": "CPU throttling",
+        "server_memory_high": "Memory usage"
       },
       "defaultScope": {
         "node_cpu_high": "every node or host",
@@ -1228,7 +1246,16 @@
         "docker_container_throttling": "every container",
         "network_connections_failed": "every workload and destination",
         "egress_raw_ip": "every source and public IP network",
-        "egress_large_upload_new": "every source and new destination"
+        "egress_large_upload_new": "every source and new destination",
+        "server_unit_failed": "every service",
+        "server_unit_crashloop": "every service",
+        "server_process_crashloop": "every process group",
+        "server_unit_oom": "every service",
+        "server_process_oom": "every process group",
+        "server_process_gone": "every process group",
+        "server_unit_memory": "every service with a limit",
+        "server_unit_throttling": "every service with a CPUQuota",
+        "server_memory_high": "every server"
       },
       "everyOfType": "every {type} service"
     },
@@ -1497,7 +1524,31 @@
     "php-fpm_requests_rate": "PHP-FPM requests/s",
     "php-fpm_request_duration_max": "PHP-FPM slowest request",
     "php-fpm_request_duration_p95": "PHP-FPM p95 request time",
-    "php-fpm_request_memory_max": "PHP-FPM largest request memory"
+    "php-fpm_request_memory_max": "PHP-FPM largest request memory",
+    "unit_cpu_usage": "Service CPU",
+    "unit_cpu_throttled_share": "Service CPU throttling",
+    "unit_cpu_limit": "Service CPUQuota",
+    "unit_memory_working_set": "Service memory",
+    "unit_memory_limit": "Service MemoryMax",
+    "unit_memory_utilization": "Service memory of MemoryMax",
+    "unit_io": "Service disk I/O",
+    "unit_tasks": "Service tasks",
+    "unit_restarts": "Service restarts",
+    "unit_restarts_increase": "Service restarts in 10 min",
+    "unit_failed": "Service failed",
+    "unit_exits_failed_increase": "Service failed exits in 10 min",
+    "unit_oom_kills_increase": "Service OOM kills in 10 min",
+    "unit_crashes_increase": "Service crashes or restarts in 10 min",
+    "process_cpu_usage": "Process group CPU",
+    "process_memory_rss": "Process group memory",
+    "process_instances": "Process group instances",
+    "process_threads": "Process group threads",
+    "process_open_files": "Process group open files",
+    "process_starts_increase": "Process group starts in 10 min",
+    "process_exits_failed_increase": "Process group failed exits in 10 min",
+    "process_oom_kills_increase": "Process group OOM kills in 10 min",
+    "process_releases_increase": "Process group releases in 10 min",
+    "process_gone": "Process group gone"
   },
   "combobox": {
     "noMatches": "No matches",
