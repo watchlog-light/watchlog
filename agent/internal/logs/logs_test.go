@@ -315,3 +315,35 @@ func waitFor(t *testing.T, ok func() bool) {
 	}
 	t.Fatal("timed out")
 }
+
+// A server's service and process group requests carry a unit or a group and no container;
+// the runner serves them (measured in the Servers e2e: they were dropped at the poll, and
+// the backend answered "the agent did not finish reading in time"). A request with none of
+// the three is still dropped.
+func TestRunnerServesServiceAndGroupRequests(t *testing.T) {
+	be := &fakeBackend{queue: []Request{
+		{ID: "svc", Unit: "orders.service", Lines: 5},
+		{ID: "grp", Group: "api", Lines: 5},
+		{ID: "none", Lines: 5},
+	}}
+	srv := httptest.NewServer(be)
+	defer srv.Close()
+	r := &Runner{Base: srv.URL, Token: "tok", AgentID: "host-1", Host: "host-1", UserAgent: "test",
+		Reader: fakeReader{lines: []string{"2026-11-17T17:00:00Z started"}}, Log: slog.New(slog.DiscardHandler)}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go r.Run(ctx)
+	waitFor(t, func() bool {
+		done := 0
+		for _, p := range be.snapshot() {
+			if p.Done {
+				done++
+			}
+		}
+		return done == 2
+	})
+	time.Sleep(100 * time.Millisecond)
+	if n := len(be.snapshot()); n != 2 {
+		t.Fatalf("posts %d, want 2 (the request without a container, unit or group is dropped)", n)
+	}
+}

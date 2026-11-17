@@ -128,7 +128,9 @@ func (r *Runner) poll(ctx context.Context) ([]Request, int, error) {
 	}
 	out := body.Requests[:0]
 	for _, q := range body.Requests {
-		if q.ID == "" || q.Container == "" {
+		// A container's request names it; a server's service or process group names its
+		// unit or group instead, with no container.
+		if q.ID == "" || (q.Container == "" && q.Unit == "" && q.Group == "") {
 			continue
 		}
 		q.Lines = max(1, min(q.Lines, MaxLines))
