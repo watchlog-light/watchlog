@@ -3539,6 +3539,12 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Store `docker` and only rename in the API** (rejected: every reader would translate forever; one migration now is cheaper).
   - **Rewrite the series' labels to new names** (rejected: terabytes on Cloud and a gap in history for no user-visible gain).
 - Consequences: SPEC §4.4 becomes part of §4.15. Every feature's checklist says "Kubernetes and Servers". Docs and the site say "Kubernetes, Docker and Linux servers".
+- Amended (0.9 slice 8, as built):
+  - **The routes** answer as named above. `GET /clusters/:id/servers` sorts problems first and, with `?workloads=1`, also lists every workload of the fleet with its server (the Workloads page; at most 5,000). A workload's problem is, worst first: `failed` (systemd's state), `crash_looping` (at least 3 failed exits or systemd restarts in 10 minutes, ADR-208), `oom_killed` (in the last 10 minutes); a container's are the 0.8 ones (OOM killed, restarting, unhealthy, exited non-zero). One workload's route gives the last hour per minute (failed exits, kills, restarts, OOM kills), the releases (its executable replaced) and when the crash loop began.
+  - **The server page's events** are derived from the counters (exits, kills, releases in the last hour, failed and OOM-killed workloads) and the server's firing alerts; no new storage. **Talks to** is eBPF's flows by the `host` label, the 15 busiest.
+  - **System services** (`systemd-*`, ssh, cron, journald, the cloud and VM agents, WatchLog's own…) are folded under a toggle on the server page and left out of the fleet's counts and Workloads page; they are still collected and alertable.
+  - **Process-group rules:** stored per fleet in `process_rules` (at most 50, ordered, Row-Level Security); `PUT /clusters/:id/process-rules` replaces the list (Owners and Admins; not in the API token's read scope). A rule must match on at least one of executable, unit and arguments; the pattern must compile and use no lookaround or backreference (the agent is RE2); the name uses only captures the pattern has. The server agents fetch them from `GET /ingest/v1/process-rules` every minute with an ETag; an older backend's 404 means no rules. The settings page previews a typed process against the rules in the browser and lists the groups the rules name now (`by="rule"`).
+  - **Containers** keep their 0.8 page (logs, health, diagnosis) and the Containers list with Compose filters at `/containers`, linked from Workloads; `/hosts` and `/hosts/:host` redirect to `/servers` and `/servers/:server`.
 
 ## ADR-208: The agent's server mode: services, process groups, exits and crashes, from any language
 
@@ -3581,6 +3587,8 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Series per server, measured** with the installed agent: 679 on Ubuntu 24.04 (about 35 services, 22 process groups, Docker) and 491 on Rocky 9. Counters still at zero (exits by kind, starts, releases, OOM kills) aren't sent until their first event, so a quiet process group costs about 7 series and a service about 10. At both caps (100 services, 50 groups) a server would send about 1,500.
   - **Cloud's cost:** a Kubernetes node sends about 70 samples a second (about 1,050 series), stored at about 15 MB a day (ADR-180's measurement, 2.5 bytes a sample). A measured server sends 490–680 series, 33–45 samples a second, about 7–10 MB a day: less than a node. A server at both caps would cost about 22 MB a day. The per-org series gate (SR-3) allows 5,000 series a node; a server fits it with room, so no trim beyond the zero counters was needed.
   - **Catalog keys:** `unit.*` for systemd services (`service.*` already names Applications) and `process.*` for process groups, scoped by `unit` and `group`; both are server metrics for rules and charts.
+
+- Amended (0.9 slice 8): the agent sends `watchlog_server_info{os,kernel,systemd}` (os-release's PRETTY_NAME from the host root, the kernel from /proc, systemd's Version over D-Bus) for the server page's header, and the rule that named a process group (`pm2`, `supervisord`, `php-fpm`, `gunicorn`, `java`, `script`, `exe`, `rule`) as the `by` label of its `watchlog_process_group_instances` only: no new series.
 
 ## ADR-209: Installing on a server: one command, deb and rpm, `docker run`; its own user and the fewest capabilities
 
