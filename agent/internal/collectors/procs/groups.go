@@ -372,7 +372,8 @@ func groupSamples(g *group) []metrics.Sample {
 	out := []metrics.Sample{
 		metrics.New("watchlog_process_group_cpu_seconds_total", float64(g.deadTicks+g.liveTicks)/ticksPerSecond, l...),
 		metrics.New("watchlog_process_group_memory_rss_bytes", float64(g.rss), l...),
-		metrics.New("watchlog_process_group_instances", float64(g.instances), l...),
+		// The rule that named the group (pm2, php-fpm, script…), on one series: the page says it.
+		metrics.New("watchlog_process_group_instances", float64(g.instances), append(l, "by", g.by)...),
 		metrics.New("watchlog_process_group_threads", float64(g.threads), l...),
 	}
 	for _, c := range []struct {

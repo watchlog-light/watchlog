@@ -312,14 +312,27 @@ func TestRulesAndNames(t *testing.T) {
 	}
 }
 
+func groupOf(s metrics.Sample) string {
+	for _, l := range s.Labels {
+		if l.Name == "group" {
+			return l.Value
+		}
+	}
+	return ""
+}
+
 func TestNoPIDOrCommandLineInLabels(t *testing.T) {
 	at := time.Unix(1_794_900_000, 0)
 	c := newCollector(mapFS(ubuntu(), ubuntuHints()), &at)
 	ss, _ := c.Collect()
+	byRule := map[string]string{}
 	for _, s := range ss {
 		for _, l := range s.Labels {
+			if l.Name == "by" {
+				byRule[groupOf(s)] = l.Value
+			}
 			switch l.Name {
-			case "group", "unit", "exit":
+			case "group", "unit", "exit", "by":
 			default:
 				t.Fatalf("%s has label %s", s.Name, l.Name)
 			}
@@ -327,6 +340,9 @@ func TestNoPIDOrCommandLineInLabels(t *testing.T) {
 				t.Fatalf("%s carries part of a command line: %q", s.Name, l.Value)
 			}
 		}
+	}
+	if byRule["api"] != "pm2" {
+		t.Errorf("api's rule: got %q, want pm2 (%v)", byRule["api"], byRule)
 	}
 }
 
