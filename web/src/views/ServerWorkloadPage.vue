@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { api } from '@/api/client';
 import TonePill from '@/components/kube/TonePill.vue';
+import LogsPanel from '@/components/logs/LogsPanel.vue';
 import SourceChip from '@/components/servers/SourceChip.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
@@ -307,7 +308,12 @@ onMounted(() => {
           {{ $t(c.key, c.vals) }}
         </li>
       </ul>
-      <div class="mt-4 flex gap-2">
+      <div class="mt-4 flex flex-wrap gap-2">
+        <a
+          href="#logs"
+          class="inline-flex items-center rounded-control border border-border px-3 py-1.5 text-13 text-text hover:bg-surface-2 max-lg:min-h-11"
+          >{{ $t('servers.cause.seeLog') }}</a
+        >
         <button
           type="button"
           class="rounded-control border border-border px-3 py-1.5 text-13 text-text hover:bg-surface-2 max-lg:min-h-11"
@@ -449,5 +455,14 @@ onMounted(() => {
         <p v-else class="text-13 text-text-muted">{{ $t('servers.talksTo.empty') }}</p>
       </div>
     </section>
+    <div v-if="w && fleetStore.fleet" id="logs">
+      <LogsPanel
+        :key="`${server}/${id}`"
+        kind="workload"
+        :cluster-id="fleetStore.fleet.id"
+        :host="server"
+        :workload="id"
+      />
+    </div>
   </div>
 </template>

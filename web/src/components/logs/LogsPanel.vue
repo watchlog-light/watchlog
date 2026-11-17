@@ -19,7 +19,7 @@ type LogLine = LogsAnswer['lines'][number];
 type Access = 'all' | 'admins' | 'off';
 
 const props = defineProps<{
-  kind: 'pod' | 'container';
+  kind: 'pod' | 'container' | 'workload';
   clusterId: string;
   /** Kubernetes */
   namespace?: string;
@@ -28,6 +28,8 @@ const props = defineProps<{
   /** Docker */
   host?: string;
   name?: string;
+  /** A server's service or process group (ADR-208): service:<unit> or process:<group>, on host. */
+  workload?: string;
 }>();
 
 const LINE_CHOICES = [100, 200, 500, 1000] as const;
@@ -44,6 +46,7 @@ const CODES = [
   'read_failed',
   'rate_limited',
   'no_agent',
+  'no_log_source',
 ] as const;
 type Code = (typeof CODES)[number];
 
@@ -84,7 +87,9 @@ const blocked = computed<Code | null>(() => {
 const base = computed(() =>
   props.kind === 'pod'
     ? `/clusters/${props.clusterId}/pods/${encodeURIComponent(props.namespace ?? '')}/${encodeURIComponent(props.pod ?? '')}/logs`
-    : `/clusters/${props.clusterId}/docker/hosts/${encodeURIComponent(props.host ?? '')}/containers/${encodeURIComponent(props.name ?? '')}/logs`,
+    : props.kind === 'workload'
+      ? `/clusters/${props.clusterId}/servers/${encodeURIComponent(props.host ?? '')}/workloads/${encodeURIComponent(props.workload ?? '')}/logs`
+      : `/clusters/${props.clusterId}/docker/hosts/${encodeURIComponent(props.host ?? '')}/containers/${encodeURIComponent(props.name ?? '')}/logs`,
 );
 function query(withFollow: boolean): string {
   const q = new URLSearchParams({ lines: String(lines.value) });

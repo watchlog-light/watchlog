@@ -3889,7 +3889,8 @@
       "driver_unsupported": "This container's log driver keeps no logs Docker can read back (only json-file, local and journald do).",
       "read_failed": "The agent could not read the log.",
       "rate_limited": "Too many log reads in the last minute. Wait a little, then try again.",
-      "no_agent": "No agent picked the request up in 10 seconds."
+      "no_agent": "No agent picked the request up in 10 seconds.",
+      "no_log_source": "It was started outside systemd, pm2 and supervisord: its output goes nowhere WatchLog can read. Run it as a systemd service to get its logs here."
     },
     "hints": {
       "no_agent": "Logs need agent 0.5.0 or newer, connected to this server.",
@@ -5233,7 +5234,8 @@
         "cpu_ok": "Not CPU: not throttled"
       },
       "copy": "Copy as text",
-      "copied": "Copied"
+      "copied": "Copied",
+      "seeLog": "See the error in the log"
     }
   }
 }
