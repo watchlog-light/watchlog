@@ -629,7 +629,7 @@ See every place a cluster or Docker fleet talks to on the internet, and know whe
 - **Out of scope:** country and ASN, blocking or enforcing anything, TLS SNI or HTTP hosts, threat-intelligence feeds.
 - **Demo and tests (ADR-193):** the e2e and the demo kit each get a new-destination and a raw-IP scenario, on Kubernetes and Docker.
 
-## 4.15 Servers — v0.9, All (ADR-207 to ADR-211)
+## 4.15 Servers — shipped in 0.9.0, All (ADR-207 to ADR-213)
 
 Every process on a Linux server, in any language, however it was started: systemd services, process groups and containers, with every feature WatchLog has. Community, in every edition and plan; a server is a node for plans and the bill.
 
