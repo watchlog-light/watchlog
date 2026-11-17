@@ -55,9 +55,17 @@ echo "== what the installed agent sees, with a real crash and a real OOM kill"
 # A process started by hand doesn't survive the VM's reboot: start the jar again.
 in_vm 'pgrep -x java >/dev/null || su - app -c "nohup java -jar /opt/wl-apps/billing.jar >/tmp/billing.log 2>&1 &"; sleep 2' >/dev/null
 caps_list="CAP_BPF CAP_PERFMON CAP_SYS_PTRACE CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE"
-BOUND=120 in_vm "rm -f /tmp/once.txt; (systemd-run --quiet --wait --pipe --uid=watchlog --gid=watchlog -p 'AmbientCapabilities=$caps_list' -p NoNewPrivileges=yes \
-    /usr/bin/watchlog-agent --mode=server --once --once-wait=20s --host-proc=/proc --host-sys=/sys --host-root=/ >/tmp/once.txt 2>/tmp/once.err &) ; sleep 6;
-  curl -s -m 2 localhost:8091/crash >/dev/null; sleep 4; curl -s -m 15 localhost:8091/grow >/dev/null; sleep 18; true"
+# The agent's two-scrape run in its own session; the crash and the OOM kill from others. Its
+# output goes through a pipe: SELinux (RHEL) doesn't let systemd write the shell's /tmp file.
+in_vm 'rm -f /tmp/once.txt' >/dev/null
+BOUND=120 in_vm "systemd-run --quiet --wait --pipe --uid=watchlog --gid=watchlog -p 'AmbientCapabilities=$caps_list' -p NoNewPrivileges=yes \
+    /usr/bin/watchlog-agent --mode=server --once --once-wait=20s --host-proc=/proc --host-sys=/sys --host-root=/ 2>/dev/null | cat >/tmp/once.txt" &
+once_job=$!
+sleep 6
+in_vm 'curl -s -m 2 localhost:8091/crash >/dev/null' >/dev/null
+sleep 4
+in_vm 'curl -s -m 15 localhost:8091/grow >/dev/null' >/dev/null
+wait "$once_job"
 once=$(in_vm 'cat /tmp/once.txt')
 check "services: orders.service is listed" "$(grep -c 'watchlog_service_state{unit="orders.service"' <<<"$once")" "1"
 check "services: orders' crash, exit 3, counted from eBPF" "$(grep 'watchlog_service_exits_total{unit="orders.service",exit="error"' <<<"$once" | awk '{print $2}')" "1"
