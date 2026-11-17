@@ -7,8 +7,9 @@
 # checks the node agent DaemonSet, plus a fresh install, --reset-then-reuse-values and an
 # explicit opt-out; and the same from 0.2.0's values (v0.2.0/), 0.4.0's (v0.4.0/, where
 # logs on demand and its pods/log grant come on), 0.5.0's (v0.5.0/), 0.6.0's (v0.6.0/,
-# where alerting.egressLearningDays is new and read nil-safe) and 0.7.2's (v0.7.2/, where
-# anomalyWorker is new, read nil-safe and renders nothing by default). Needs helm; run
+# where alerting.egressLearningDays is new and read nil-safe), 0.7.2's (v0.7.2/, where
+# anomalyWorker is new, read nil-safe and renders nothing by default) and 0.8.2's (v0.8.2/,
+# where demoCache is new and read nil-safe). Needs helm; run
 # from anywhere.
 set -euo pipefail
 
@@ -383,6 +384,42 @@ if git -C "$ROOT" rev-parse -q --verify 'v0.7.2^{commit}' >/dev/null; then
   done
 else
   echo "SKIP  0.7.2's own charts: no v0.7.2 tag in this checkout"
+fi
+
+# From 0.8.2 (v0.8.2/, the released charts' values, the last release before 0.9.0): its
+# values have no demoCache, so the new value is read nil-safe, and a --reuse-values upgrade
+# renders exactly what 0.8.2's own charts render (Server fleets need no chart change).
+V082="$ROOT/deploy/test/helm/v0.8.2"
+expect "agent chart, --reuse-values from 0.8.2" on "$(ds "$(reused "$AGENT" "$V082/watchlog-agent.values.yaml")" "$AGENT_DS")"
+expect "watchlog chart, --reuse-values from 0.8.2" on "$(ds "$(reused "$UMBRELLA" "$V082/watchlog.values.yaml")" "$SUB_DS")"
+for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
+  chart="${pair%%:*}" fixture="${pair##*:}"
+  if helm template rel "$(reused "$chart" "$V082/$fixture.values.yaml")" -n ns --set demoMode=true >/dev/null 2>"$TMP/err"; then
+    echo "PASS  $fixture chart renders from 0.8.2's values, with demoMode and no demoCache"
+  else
+    echo "FAIL  $fixture chart renders from 0.8.2's values with demoMode: $(cat "$TMP/err")"
+    fails=$((fails + 1))
+  fi
+done
+if git -C "$ROOT" rev-parse -q --verify 'v0.8.2^{commit}' >/dev/null; then
+  mkdir -p "$TMP/v0.8.2"
+  git -C "$ROOT" archive v0.8.2 deploy/helm | tar -x -C "$TMP/v0.8.2"
+  helm dependency build "$TMP/v0.8.2/deploy/helm/watchlog" >/dev/null
+  certless() { grep -vE '^ *(ca\.crt|tls\.crt|tls\.key|checksum/[a-z-]+|password|key|token):'; }
+  for pair in "$AGENT:watchlog-agent" "$UMBRELLA:watchlog"; do
+    chart="${pair%%:*}" fixture="${pair##*:}"
+    old="$(helm template rel "$TMP/v0.8.2/deploy/helm/$fixture" -n ns -f "$V082/$fixture.values.yaml" | certless)"
+    new="$(helm template rel "$(reused "$chart" "$V082/$fixture.values.yaml")" -n ns | certless)"
+    if [[ "$old" == "$new" ]]; then
+      echo "PASS  $fixture chart, --reuse-values from 0.8.2, renders as 0.8.2's chart"
+    else
+      echo "FAIL  $fixture chart, --reuse-values from 0.8.2, differs from 0.8.2's chart:"
+      diff <(echo "$old") <(echo "$new") | cut -c1-160 | head -20
+      fails=$((fails + 1))
+    fi
+  done
+else
+  echo "SKIP  0.8.2's own charts: no v0.8.2 tag in this checkout"
 fi
 
 [[ $fails -eq 0 ]] || { echo "$fails upgrade check(s) failed"; exit 1; }
