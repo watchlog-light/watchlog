@@ -3470,3 +3470,41 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 - Alternatives: keeping a staff override "Free with Pro features" and teaching the sidebar about it (rejected: one more state for every page and for billing to explain, and nobody asked for it); reading `plan` instead of `pro_features` in the gate (rejected: the column stays the gate's input, ADR-195, and the CHECK makes the two the same).
 - Consequences: a design partner on Pro features without paying is Pro with source `staff`, which is what the sidebar then says. The billing service never sent `proFeatures` and is unchanged.
 - Tested: `cloud-admin.test.ts` (both APIs refuse a disagreeing write and nothing is written; staff Pro → Free removes What changed from `GET /plan`, the route (403 `pro-feature`) and the worker's list; the CHECK refuses a disagreeing row; the migration fixes one), the isolation suite with its Free flips moving the plan too, the web's plan strip with billing off and live, the admin panel's form. Once, on a scratch Cloud stack with the billing service live against stripe-mock (`STRIPE_API_BASE`, a test key): a new Free Owner's sidebar read "Upgrade to Pro · $1 per node →", What changed answered 403 `pro-feature`, and the upgrade page's Upgrade to Pro opened Stripe Checkout's URL from stripe-mock. That run found the upgrade page's fine print missing a space before "Paid through Stripe" (only shown with billing live), fixed in 0.8.1.
+
+## ADR-206: The demo holds up at launch: a shared answer cache with single-flight, load shedding, and a web that polls less
+
+- Date: 2026-11-17 · Status: accepted (0.8.3; the owner's brief for the launch traffic)
+- Context: from Nov 24 to Dec 9 the launch sends visitors to the live demo (ADR-122) in bursts: hundreds at once on a good Show HN hour. The demo stays on the production server next to WatchLog Cloud, the site and the admin panel, inside fixed caps. In 0.8.2 every visitor queried alone: a page load is about 10 VictoriaMetrics-backed requests, pages poll every 15 to 60 s, nothing pauses in a hidden tab, and VictoriaMetrics runs 4 queries at once (`-search.maxConcurrentRequests=4`) and queues the rest into a 10-second timeout. Yet every visitor sees the same data: one org and one shared viewer. Cost grew linearly with visitors, and an overload showed as red error states and 5xx.
+- Targets (the owner's estimate, not measured traffic):
+  - **T1:** 500 concurrent visitors for 10 minutes, reached at 20 new visitors a second. 0 5xx, 0 panels in an error state, API p95 < 1 s and p99 < 2.5 s, 0 429s for a normal visitor and for 20 visitors behind one address.
+  - **T2:** 2,000 concurrent visitors, a ramp of at most 5 minutes. No 5xx reaches a visitor; what degrades shows the busy state.
+  - **Neighbours:** the demo stays within its caps; the waitlist answers health and a signup in under 1 s throughout.
+- Decision:
+  - **A shared answer cache, demo mode only** (`backend/src/plugins/demo-cache.ts`). Registered only when `WATCHLOG_DEMO_MODE=true`; Community and Cloud never cache an answer across requests (Cloud is multi-tenant), and a test proves it in both.
+    - **What:** a GET under `/api/v1`, `POST /api/v1/query/range`, and the MCP tools' reads (they read the REST API in-process, so they go through the same cache). Only for a signed-in demo viewer (the demo cookie or the demo's public token); anything else passes untouched, so a 401 is never served from or into the cache.
+    - **Key:** the method, the route's URL with its query parameters sorted, the JSON body with its keys sorted, and how the caller signed in (cookie or token).
+    - **Time:** a range relative to now (`range=3600`) is cached for the bucket, so every visitor in it gets the same answer; the bucket is 15 s by default (`WATCHLOG_DEMO_CACHE_SECONDS`, 5 to 60). Absolute `from`/`to` in unix seconds are rounded down, in the request itself and so in the key, to the bucket or to the query's step when that is larger. VictoriaMetrics aligns a range to its step anyway, so the answer is the one the visitor would have had, at most one bucket older.
+    - **Stored:** only a 200 with a JSON body, after the demo's hidden-facts filter: the status, the content type and the body, never another header, so a renewed demo cookie stays with the visitor it belongs to.
+    - **Single-flight:** identical requests in flight share the first one's answer, whatever it is; only a 200 is kept afterwards.
+    - **Size:** an LRU capped at 64 MiB of bodies (`WATCHLOG_DEMO_CACHE_MB`, 8 to 256); an answer over 2 MiB isn't kept.
+    - **Rate limits:** a cached or shared answer doesn't count against the visitor's 120 VictoriaMetrics-backed requests a minute; only a miss does. The limit moves from `onRequest` to a `preHandler`, after the cache.
+    - **The clock is injected,** so the time logic is tested without waiting.
+  - **Load shedding, demo mode only.** At most `WATCHLOG_DEMO_MAX_UPSTREAM` (default 16) cache misses to the VictoriaMetrics-backed routes run at once. One more is answered at once with **503**, `Retry-After: 5`, and the problem type `urn:watchlog:problem:demo-busy`, instead of queueing into VictoriaMetrics' timeout. An in-process read (MCP, probable cause) belongs to a request already admitted and isn't counted again.
+  - **The web, every edition** (these only lower load):
+    - One polling helper (`usePolling`) for every page and panel that refreshes: it pauses while the tab is hidden and refreshes at once when the tab is visible again, and spreads each interval by ±20 %.
+    - **429 and 503 are "busy", never an error.** The loader keeps the last data and retries with backoff (2, 4, 8 … up to 30 s, never sooner than `Retry-After`); the shell shows one small "Busy, retrying…" note while any request is busy. Charts do the same. Neither answer produces a red error state.
+  - **Static files:** the web image serves hashed `/assets/*` with `Cache-Control: public, max-age=31536000, immutable` and `index.html` with `no-cache`, so a CDN (Cloudflare on the demo) can serve the assets.
+  - **The demo's vhost** (the private deployment kit): per-address limits sized from the load test for 20 visitors behind one address; a cap on connections to the upstream; and for HTML navigations on 502, 503 and 504 a static "The demo is busy" page that nginx serves itself, which retries after 20 s. API calls keep their JSON problems.
+  - **Capacity** (replicas, memory, VictoriaMetrics' concurrency and queue time) is set from the measurement below. The demo's node caps don't grow beyond 3 CPUs each, and any change to the server is the owner's.
+  - **The analytics stream** into the waitlist service is batched and drops lines rather than queueing without bound, so the launch stream can't slow the admin panel or signups.
+- Alternatives:
+  - A CDN cache for the API (rejected: the answers are behind a session cookie, and Cloudflare's free plan doesn't cache by cookie safely; the backend cache is a few hundred lines and testable).
+  - A static snapshot of the demo (rejected: the demo should be the real product on a real cluster, ADR-122).
+  - Caching in every edition (rejected: Cloud is multi-tenant and an answer cache across requests is a cross-org leak waiting to happen; Community gains little).
+  - Raising VictoriaMetrics' concurrency or the node caps (rejected as the fix: it moves CPU from Cloud to the demo, and the load still grows with visitors).
+  - A separate server for the demo (rejected: no budget, owner 2026-11-17).
+- Consequences:
+  - The demo's cost grows with the number of distinct pages being looked at in a bucket, not with visitors. Its data can be up to one bucket (15 s) older than before.
+  - A second backend replica would keep its own cache; that is fine (two upstream calls per bucket instead of one).
+  - The busy page and the "Busy, retrying…" note are the deliberate face of overload; a 5xx page or a red panel is a bug.
+- Measured: filled in by the release slice (the load test: the 0.8.2 baseline, T1 and T2).
