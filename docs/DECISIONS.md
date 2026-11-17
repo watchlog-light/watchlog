@@ -3577,6 +3577,11 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Paths:** natively installed, the agent reads `/proc` and `/sys` (`--host-proc=/proc --host-sys=/sys --host-root=/`); the defaults stay the container's `/host/*` (ADR-209's units pass them).
   - The heartbeat's `mode` stays `docker` on the wire for server mode, so a 0.9 agent works against a 0.8 backend; the backend reads it as a server agent.
 
+- Amended 2026-11-17, the budget (0.9 slice 7):
+  - **Series per server, measured** with the installed agent: 679 on Ubuntu 24.04 (about 35 services, 22 process groups, Docker) and 491 on Rocky 9. Counters still at zero (exits by kind, starts, releases, OOM kills) aren't sent until their first event, so a quiet process group costs about 7 series and a service about 10. At both caps (100 services, 50 groups) a server would send about 1,500.
+  - **Cloud's cost:** a Kubernetes node sends about 70 samples a second (about 1,050 series), stored at about 15 MB a day (ADR-180's measurement, 2.5 bytes a sample). A measured server sends 490–680 series, 33–45 samples a second, about 7–10 MB a day: less than a node. A server at both caps would cost about 22 MB a day. The per-org series gate (SR-3) allows 5,000 series a node; a server fits it with room, so no trim beyond the zero counters was needed.
+  - **Catalog keys:** `unit.*` for systemd services (`service.*` already names Applications) and `process.*` for process groups, scoped by `unit` and `group`; both are server metrics for rules and charts.
+
 ## ADR-209: Installing on a server: one command, deb and rpm, `docker run`; its own user and the fewest capabilities
 
 - Date: 2026-11-17 · Status: accepted (0.9.0, slice 0); the capability list is measured in slices 1 and 6 and amended here
