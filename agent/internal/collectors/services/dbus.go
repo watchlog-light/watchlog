@@ -5,6 +5,7 @@ package services
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/godbus/dbus/v5"
@@ -135,3 +136,20 @@ func u32(v dbus.Variant) uint32 { x, _ := v.Value().(uint32); return x }
 func i32(v dbus.Variant) int32  { x, _ := v.Value().(int32); return x }
 func u64(v dbus.Variant) uint64 { x, _ := v.Value().(uint64); return x }
 func str(v dbus.Variant) string { x, _ := v.Value().(string); return x }
+
+// Version is systemd's version ("255" from "255.4-1ubuntu8"), or "" when unknown.
+func (b *DBus) Version() string {
+	conn, err := b.connection()
+	if err != nil {
+		return ""
+	}
+	v, err := conn.Object(dest, managerObj).GetProperty("org.freedesktop.systemd1.Manager.Version")
+	if err != nil {
+		return ""
+	}
+	s, _ := v.Value().(string)
+	if i := strings.IndexAny(s, ".-~ "); i > 0 {
+		s = s[:i]
+	}
+	return s
+}

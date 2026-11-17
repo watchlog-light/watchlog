@@ -214,6 +214,8 @@ func run(args []string, stdout io.Writer) int {
 			}
 		}
 		bus := services.NewDBus(*dbusSocket)
+		// The server page's header: OS, kernel, systemd (ADR-207).
+		sources = append(sources, runner.Source{Name: "server-info", Collect: services.ServerInfo(paths.RootFS, paths.Proc, bus.Version)})
 		if bus.Available() {
 			svc := &services.Collector{Bus: bus, Cgroups: containers.NewReader(paths.Proc, paths.Sys)}
 			if feed != nil {
