@@ -366,6 +366,14 @@ export const SERVICE_METRICS_BY_TYPE: Record<string, typeof SERVICE_METRICS> = {
     { key: 'rabbitmq.alarms', unit: 'count', start: { op: '>', value: 0 } },
     { key: 'rabbitmq.dead_lettered.rate', unit: 'per_second', start: { op: '>', value: 0 } },
   ],
+  'php-fpm': [
+    { key: 'php-fpm.max_children_reached.increase', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'php-fpm.listen_queue', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'php-fpm.processes.busy_ratio', unit: 'ratio', start: { op: '>', value: 0.9 } },
+    { key: 'php-fpm.slow_requests.increase', unit: 'count', start: { op: '>', value: 0 } },
+    { key: 'php-fpm.request.duration.p95', unit: 'seconds', start: { op: '>', value: 1 } },
+    { key: 'php-fpm.requests.rate', unit: 'per_second', start: { op: '>', value: 1000 } },
+  ],
   kafka: [
     { key: 'kafka.partitions.offline', unit: 'count', start: { op: '>', value: 0 } },
     { key: 'kafka.partitions.under_replicated', unit: 'count', start: { op: '>', value: 0 } },

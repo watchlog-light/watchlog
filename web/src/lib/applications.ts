@@ -22,6 +22,7 @@ export const SERVICE_TYPES: Record<string, { name: string; family: Family }> = {
   kafka: { name: 'Kafka', family: 'queues' },
   nginx: { name: 'Nginx', family: 'proxies' },
   traefik: { name: 'Traefik', family: 'proxies' },
+  'php-fpm': { name: 'PHP-FPM', family: 'proxies' },
   elasticsearch: { name: 'Elasticsearch', family: 'search' },
 };
 export const FAMILIES: Family[] = ['databases', 'caches', 'queues', 'proxies', 'search'];

@@ -1487,7 +1487,17 @@
     "kafka_group_lag": "Kafka consumer group lag",
     "kafka_group_lag_growth": "Kafka consumer group lag growth (a minute)",
     "kafka_group_lost": "Kafka consumer group lost its members",
-    "kafka_groups_empty": "Kafka consumer groups without members"
+    "kafka_groups_empty": "Kafka consumer groups without members",
+    "php-fpm_processes_active": "PHP-FPM busy workers",
+    "php-fpm_processes_idle": "PHP-FPM idle workers",
+    "php-fpm_processes_busy_ratio": "PHP-FPM workers busy",
+    "php-fpm_listen_queue": "PHP-FPM requests waiting",
+    "php-fpm_max_children_reached_increase": "PHP-FPM out of workers (pm.max_children)",
+    "php-fpm_slow_requests_increase": "PHP-FPM slow requests",
+    "php-fpm_requests_rate": "PHP-FPM requests/s",
+    "php-fpm_request_duration_max": "PHP-FPM slowest request",
+    "php-fpm_request_duration_p95": "PHP-FPM p95 request time",
+    "php-fpm_request_memory_max": "PHP-FPM largest request memory"
   },
   "combobox": {
     "noMatches": "No matches",
@@ -2507,7 +2517,12 @@
       "group_no_members_long": "Group {group} has had no members for more than 6 hours, and its lag ({lag}) grows by {perMin} a minute. {member}, which was a member, was {how} {when}.",
       "group_no_members_long_nowhen": "Group {group} has had no members for more than 6 hours, and its lag ({lag}) grows by {perMin} a minute. {member}, which was a member, was {how}.",
       "group_no_members_long_last": "Group {group} has had no members for more than 6 hours, and its lag ({lag}) grows by {perMin} a minute. Its last member was {member}.",
-      "group_no_members_long_unknown": "Group {group} has had no members for more than 6 hours, and its lag ({lag}) grows by {perMin} a minute."
+      "group_no_members_long_unknown": "Group {group} has had no members for more than 6 hours, and its lag ({lag}) grows by {perMin} a minute.",
+      "phpfpm_status_off": "The pool's status page is off, so WatchLog sees only that it answers. Add pm.status_path = /status to the pool (and pm.status_listen = 127.0.0.1:9001 when it listens on a socket) and reload PHP-FPM.",
+      "phpfpm_max_children": "Every worker was busy {times} times in the last 10 minutes (pm.max_children reached); {queue} requests are waiting. Raise pm.max_children if the server has memory to spare, or find what makes requests slow.",
+      "phpfpm_queue": "{queue} requests are waiting for a free worker.",
+      "phpfpm_busy": "{busy}% of the workers are busy: close to pm.max_children.",
+      "phpfpm_slow": "{slow} requests took longer than request_slowlog_timeout in the last 10 minutes."
     },
     "page": {
       "since": "monitored since {at}",
@@ -3257,6 +3272,45 @@
         "brokers": {
           "brokers": "WatchLog's user needs {missing} for this panel: add the ACL as an admin."
         }
+      }
+    },
+    "php-fpm": {
+      "tabs": {
+        "requests": "Requests"
+      },
+      "panels": {
+        "summary": "At a glance",
+        "workers": "Workers",
+        "queue": "Requests waiting for a worker",
+        "requests": "Requests/s",
+        "duration": "Request time",
+        "durationNote": "each worker's current or last request, from the status page",
+        "reached": "Out of workers",
+        "memory": "Largest request's memory",
+        "maxActive": "Most workers busy at once (since start)",
+        "series": {
+          "active": "busy",
+          "idle": "idle",
+          "queue": "waiting",
+          "requests": "requests/s",
+          "p95": "p95",
+          "max": "slowest",
+          "reached": "pm.max_children reached",
+          "slow": "slow requests",
+          "memory": "memory",
+          "maxActive": "busy at most"
+        }
+      },
+      "tiles": {
+        "busy": "Busy workers",
+        "busyShare": "Busy",
+        "queue": "Waiting",
+        "rps": "Requests/s",
+        "reached": "Out of workers (24 h)",
+        "slow": "Slow requests (24 h)"
+      },
+      "missing": {
+        "overview": "The pool's status page is off. Add pm.status_path = /status to the pool's configuration (and pm.status_listen = 127.0.0.1:9001 when the pool listens on a socket), then reload PHP-FPM."
       }
     }
   },

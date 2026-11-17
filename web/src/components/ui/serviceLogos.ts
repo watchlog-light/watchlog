@@ -5,6 +5,7 @@ import kafkaUrl from '@/assets/brands/kafka.svg';
 import mongodbUrl from '@/assets/brands/mongodb.svg';
 import mysqlUrl from '@/assets/brands/mysql.svg';
 import nginxUrl from '@/assets/brands/nginx.svg';
+import phpUrl from '@/assets/brands/php.svg';
 import postgresUrl from '@/assets/brands/postgres.svg';
 import rabbitmqUrl from '@/assets/brands/rabbitmq.svg';
 import redisUrl from '@/assets/brands/redis.svg';
@@ -23,6 +24,7 @@ export const SERVICE_LOGO_URL: Record<string, string> = {
   traefik: traefikUrl,
   kafka: kafkaUrl,
   elasticsearch: elasticsearchUrl,
+  'php-fpm': phpUrl,
 };
 
 /** <ServiceLogo type="redis" class="size-8" /> */
