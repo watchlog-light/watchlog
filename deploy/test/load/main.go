@@ -28,7 +28,8 @@
 // VictoriaMetrics in the Cloud test VM: two Kubernetes nodes and the cluster-level series
 // of the live demo's kit (its integrations' series left out), and two Docker hosts (the
 // demo's Docker host and the test VM itself), with cluster_id and the node or host label
-// removed (the generator sets the node's own).
+// removed (the generator sets the node's own); and a 0.9 server agent's series (the demo's
+// server: services, process groups, containers, flows), which -servers sends for Server fleets.
 package main
 
 import (
@@ -97,6 +98,9 @@ type series struct {
 
 type templates struct {
 	K8sNode, DockerHost, ClusterAgent [][]series
+	// Server: a 0.9 server agent's series (services, process groups, containers), from the
+	// demo's server: what a Server fleet's agents send with run -servers.
+	Server [][]series
 }
 
 func loadTemplates(path string) (*templates, error) {
@@ -149,6 +153,9 @@ func loadTemplates(path string) (*templates, error) {
 	if t.ClusterAgent, err = conv(raw["cluster_agent"]); err != nil {
 		return nil, err
 	}
+	if t.Server, err = conv(raw["server"]); err != nil {
+		return nil, err
+	}
 	return t, nil
 }
 
@@ -196,6 +203,7 @@ func sizesCmd(args []string) error {
 	show("k8s_node", "node", t.K8sNode)
 	show("docker_host", "host", t.DockerHost)
 	show("cluster_agent", "", t.ClusterAgent)
+	show("server", "host", t.Server)
 	return nil
 }
 
@@ -683,6 +691,7 @@ func runCmd(args []string) error {
 	readEvery := fs.Duration("read-every", 5*time.Minute, "each org reads its overview and a chart this often (0: no reads)")
 	reportEvery := fs.Duration("report", time.Minute, "a report line this often")
 	summaryPath := fs.String("summary", "", "the hold's numbers as JSON")
+	servers := fs.Bool("servers", false, "Server fleets' agents send a 0.9 server agent's series (the server template) instead of a 0.8 Docker host's")
 	_ = fs.Parse(args)
 	raw, err := os.ReadFile(*statePath)
 	if err != nil {
@@ -722,6 +731,9 @@ func runCmd(args []string) error {
 			for i, n := range cl.Nodes {
 				if cl.Kind == "docker" {
 					set := tpl.DockerHost[(o.Index+i)%len(tpl.DockerHost)]
+					if *servers && len(tpl.Server) > 0 {
+						set = tpl.Server[(o.Index+i)%len(tpl.Server)]
+					}
 					a := newAgent("docker_host", n, "host", set)
 					jobs = append(jobs, job{a: a, cl: cl, objects: func() [][]byte { return [][]byte{dockerSnapshot(a)} }})
 				} else {
