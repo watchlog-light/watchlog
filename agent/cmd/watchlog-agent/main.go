@@ -24,6 +24,7 @@ import (
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/kubepods"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/network"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/runtime"
+	"github.com/watchlog-light/watchlog/agent/internal/collectors/services"
 	"github.com/watchlog-light/watchlog/agent/internal/config"
 	"github.com/watchlog-light/watchlog/agent/internal/docker"
 	"github.com/watchlog-light/watchlog/agent/internal/ebpf"
@@ -79,7 +80,7 @@ func main() {
 
 func run(args []string, stdout io.Writer) int {
 	fs := flag.NewFlagSet("watchlog-agent", flag.ContinueOnError)
-	modeFlag := fs.String("mode", string(config.ModeNode), "collection mode: node, cluster or docker")
+	modeFlag := fs.String("mode", string(config.ModeNode), "collection mode: node, cluster or server (docker is an alias)")
 	showVersion := fs.Bool("version", false, "print version and exit")
 	once := fs.Bool("once", false, "collect one scrape, print it and exit")
 	output := fs.String("output", "text", "output format for --once: text")
@@ -87,6 +88,7 @@ func run(args []string, stdout io.Writer) int {
 	fs.StringVar(&paths.Proc, "host-proc", paths.Proc, "host procfs mount")
 	fs.StringVar(&paths.Sys, "host-sys", paths.Sys, "host sysfs mount")
 	fs.StringVar(&paths.RootFS, "host-root", paths.RootFS, "host root filesystem mount (read-only)")
+	dbusSocket := fs.String("dbus-socket", envOr("WATCHLOG_DBUS_SOCKET", services.DefaultSocket), "systemd's D-Bus system socket (server mode)")
 	hostname := fs.String("hostname", envOr("WATCHLOG_HOSTNAME", os.Getenv("NODE_NAME")),
 		"host or node label (default: NODE_NAME in Kubernetes, else the host's /etc/hostname)")
 	// Kubernetes node mode (ADR-049, ADR-051, ADR-066).
@@ -184,6 +186,16 @@ func run(args []string, stdout io.Writer) int {
 		dockerCollector.HealthOutput = *healthOutput
 		dockerCollector.Host = *hostname
 		sources = append(sources, runner.Source{Name: "docker", Collect: dockerCollector.Collect})
+	}
+	// A server's systemd services (ADR-208); without systemd on D-Bus, process groups only.
+	if mode == config.ModeServer {
+		bus := services.NewDBus(*dbusSocket)
+		if bus.Available() {
+			svc := &services.Collector{Bus: bus, Cgroups: containers.NewReader(paths.Proc, paths.Sys)}
+			sources = append(sources, runner.Source{Name: "services", Collect: svc.Collect})
+		} else {
+			slog.Info("systemd isn't reachable on D-Bus: services are off", "socket", bus.Socket)
+		}
 	}
 	ebpfState := network.Disabled
 	var netCollector *network.Collector

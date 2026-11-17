@@ -11,15 +11,25 @@ type Mode string
 const (
 	ModeNode    Mode = "node"
 	ModeCluster Mode = "cluster"
-	ModeDocker  Mode = "docker"
+	// ModeServer is a server's agent (ADR-207, ADR-208): services, process groups and
+	// containers. Its value is "docker", the name 0.8 used: the heartbeat's mode on the
+	// wire stays the one every backend accepts.
+	ModeServer Mode = "docker"
+	// ModeDocker is ModeServer's 0.8 name.
+	ModeDocker = ModeServer
 )
 
-// ParseMode validates the --mode flag value.
+// ParseMode validates the --mode flag value: node, cluster, server, or docker (an alias of
+// server, so an old install's flag keeps working).
 func ParseMode(s string) (Mode, error) {
-	switch m := Mode(s); m {
-	case ModeNode, ModeCluster, ModeDocker:
-		return m, nil
+	switch s {
+	case "node":
+		return ModeNode, nil
+	case "cluster":
+		return ModeCluster, nil
+	case "server", "docker":
+		return ModeServer, nil
 	default:
-		return "", fmt.Errorf("invalid mode %q: must be one of node, cluster, docker", s)
+		return "", fmt.Errorf("invalid mode %q: must be one of node, cluster, server (or docker)", s)
 	}
 }

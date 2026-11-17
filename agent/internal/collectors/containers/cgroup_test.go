@@ -5,6 +5,7 @@ package containers
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 	"testing/fstest"
 )
@@ -118,5 +119,45 @@ func TestV1ThrottlingFromSyntheticCpuStat(t *testing.T) {
 	s, err := r.Container(id)
 	if err != nil || s.CPUSeconds != 2.5 || s.CPUThrottledSeconds != 0.5 {
 		t.Errorf("stats = %+v, %v", s, err)
+	}
+}
+
+func TestUnitCgroup(t *testing.T) {
+	sys := t.TempDir()
+	cg := filepath.Join(sys, "fs", "cgroup")
+	dir := filepath.Join(cg, "system.slice", "orders.service")
+	files := map[string]string{
+		filepath.Join(cg, "cgroup.controllers"): "cpu memory io pids",
+		filepath.Join(dir, "cpu.stat"):          "usage_usec 4000000\nthrottled_usec 500000\n",
+		filepath.Join(dir, "cpu.max"):           "max 100000",
+		filepath.Join(dir, "memory.current"):    "125829120",
+		filepath.Join(dir, "memory.stat"):       "inactive_file 20971520\n",
+		filepath.Join(dir, "memory.max"):        "209715200",
+		filepath.Join(dir, "io.stat"):           "254:0 rbytes=7 wbytes=9 rios=1 wios=1\n",
+		filepath.Join(dir, "pids.current"):      "8",
+		filepath.Join(dir, "memory.events"):     "low 0\nhigh 0\nmax 3\noom 1\noom_kill 1\noom_group_kill 0\n",
+	}
+	for p, v := range files {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(v), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r := NewReader(t.TempDir(), sys)
+	u, err := r.Unit("/system.slice/orders.service")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.CPUSeconds != 4 || u.CPUThrottledSeconds != 0.5 || u.MemoryWorkingSet != 100<<20 ||
+		u.IOReadBytes != 7 || u.IOWriteBytes != 9 || u.Tasks != 8 || u.OOMKills != 1 || *u.MemoryLimit != 209715200 {
+		t.Fatalf("unit stats: %+v", u)
+	}
+	if _, err := r.Unit("/system.slice/missing.service"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("a missing unit: %v", err)
+	}
+	if _, err := r.Unit(""); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("no control group: %v", err)
 	}
 }

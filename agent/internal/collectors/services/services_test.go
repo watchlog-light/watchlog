@@ -1,0 +1,207 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package services
+
+import (
+	"errors"
+	"math"
+	"sort"
+	"strings"
+	"testing"
+
+	"github.com/watchlog-light/watchlog/agent/internal/collectors/containers"
+	"github.com/watchlog-light/watchlog/agent/internal/metrics"
+)
+
+type fakeBus struct {
+	units []UnitStatus
+	props map[string]Props
+}
+
+func (f fakeBus) Units() ([]UnitStatus, error) { return f.units, nil }
+func (f fakeBus) Props(u UnitStatus) (Props, error) {
+	p, ok := f.props[u.Name]
+	if !ok {
+		return Props{}, errors.New("no such unit " + u.Name)
+	}
+	return p, nil
+}
+
+type fakeCgroups map[string]containers.UnitStats
+
+func (f fakeCgroups) Unit(cg string) (containers.UnitStats, error) {
+	s, ok := f[cg]
+	if !ok {
+		return containers.UnitStats{}, containers.ErrNotFound
+	}
+	return s, nil
+}
+
+func ptr(v float64) *float64 { return &v }
+
+// As measured on Ubuntu 24.04 and Debian 12 (0.9 slice 1, phases/v0.9-measure).
+func measured() (fakeBus, fakeCgroups) {
+	units := []UnitStatus{
+		{Name: "nginx.service", LoadState: "loaded", ActiveState: "active", SubState: "running", Path: "/n"},
+		{Name: "orders.service", LoadState: "loaded", ActiveState: "active", SubState: "running", Path: "/o"},
+		{Name: "postgresql@16-main.service", LoadState: "loaded", ActiveState: "active", SubState: "running", Path: "/p"},
+		{Name: "billing.service", LoadState: "loaded", ActiveState: "failed", SubState: "failed", Path: "/b"},
+		// Left out: a one-shot that ran, the oneshot's target, an unloaded unit, a socket.
+		{Name: "cloud-init.service", LoadState: "loaded", ActiveState: "active", SubState: "exited", Path: "/c"},
+		{Name: "multi-user.target", LoadState: "loaded", ActiveState: "active", SubState: "active", Path: "/t"},
+		{Name: "gone.service", LoadState: "not-found", ActiveState: "inactive", SubState: "dead", Path: "/g"},
+		{Name: "docker.socket", LoadState: "loaded", ActiveState: "active", SubState: "running", Path: "/s"},
+	}
+	props := map[string]Props{
+		"nginx.service": {ControlGroup: "/system.slice/nginx.service", ActiveEnterUsec: 1_794_900_000_000_000},
+		"orders.service": {
+			NRestarts: 2, ExecMainCode: 1, ExecMainStatus: 3, ControlGroup: "/system.slice/orders.service",
+			MemoryMax: ptr(209715200),
+		},
+		"postgresql@16-main.service": {ControlGroup: "/system.slice/system-postgresql.slice/postgresql@16-main.service", CPUQuotaCores: ptr(0.5)},
+		"billing.service":            {ExecMainCode: 2, ExecMainStatus: 9},
+	}
+	cg := fakeCgroups{
+		"/system.slice/nginx.service": {Stats: containers.Stats{CPUSeconds: 12, MemoryWorkingSet: 9 << 20}, Tasks: 5, OOMKills: 0},
+		"/system.slice/orders.service": {
+			Stats: containers.Stats{CPUSeconds: 40, MemoryWorkingSet: 120 << 20, IOReadBytes: 7, IOWriteBytes: 9},
+			Tasks: 8, OOMKills: 1,
+		},
+		"/system.slice/system-postgresql.slice/postgresql@16-main.service": {Stats: containers.Stats{CPUSeconds: 3}, Tasks: 7, OOMKills: -1},
+	}
+	return fakeBus{units: units, props: props}, cg
+}
+
+func byName(ss []metrics.Sample) map[string][]metrics.Sample {
+	out := map[string][]metrics.Sample{}
+	for _, s := range ss {
+		out[s.Name] = append(out[s.Name], s)
+	}
+	return out
+}
+
+func label(s metrics.Sample, name string) string {
+	for _, l := range s.Labels {
+		if l.Name == name {
+			return l.Value
+		}
+	}
+	return ""
+}
+
+func TestWanted(t *testing.T) {
+	bus, _ := measured()
+	var got []string
+	for _, u := range bus.units {
+		if Wanted(u) {
+			got = append(got, u.Name)
+		}
+	}
+	want := []string{"nginx.service", "orders.service", "postgresql@16-main.service", "billing.service"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("wanted %v, got %v", want, got)
+	}
+}
+
+func TestCollect(t *testing.T) {
+	bus, cg := measured()
+	c := &Collector{Bus: bus, Cgroups: cg}
+	ss, err := c.Collect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := byName(ss)
+	states := map[string]string{}
+	for _, s := range m["watchlog_service_state"] {
+		states[label(s, "unit")] = label(s, "state") + "/" + label(s, "sub")
+	}
+	if len(states) != 4 || states["billing.service"] != "failed/failed" || states["orders.service"] != "active/running" {
+		t.Fatalf("states: %v", states)
+	}
+	value := func(name, unit string, extra ...string) float64 {
+		for _, s := range m[name] {
+			if label(s, "unit") != unit {
+				continue
+			}
+			if len(extra) == 2 && label(s, extra[0]) != extra[1] {
+				continue
+			}
+			return s.Value
+		}
+		return math.NaN()
+	}
+	checks := []struct {
+		name, unit string
+		extra      []string
+		want       float64
+	}{
+		{"watchlog_service_restarts_total", "orders.service", nil, 2},
+		{"watchlog_service_last_exit_code", "orders.service", nil, 3},
+		// Killed by SIGKILL: 128 + 9, as a shell and Docker say it.
+		{"watchlog_service_last_exit_code", "billing.service", nil, 137},
+		{"watchlog_service_memory_limit_bytes", "orders.service", nil, 209715200},
+		{"watchlog_service_cpu_limit_cores", "postgresql@16-main.service", nil, 0.5},
+		{"watchlog_service_cpu_seconds_total", "orders.service", nil, 40},
+		{"watchlog_service_memory_working_set_bytes", "orders.service", nil, 120 << 20},
+		{"watchlog_service_io_bytes_total", "orders.service", []string{"dir", "write"}, 9},
+		{"watchlog_service_tasks", "nginx.service", nil, 5},
+		{"watchlog_service_oom_events_total", "orders.service", nil, 1},
+		{"watchlog_service_start_time_seconds", "nginx.service", nil, 1_794_900_000},
+	}
+	for _, c := range checks {
+		if got := value(c.name, c.unit, c.extra...); got != c.want {
+			t.Errorf("%s{unit=%q}: got %v, want %v", c.name, c.unit, got, c.want)
+		}
+	}
+	// No last exit before one happened; no OOM series where memory.events can't be read; a
+	// failed unit with no cgroup sends its state and exit only.
+	if !math.IsNaN(value("watchlog_service_last_exit_code", "nginx.service")) {
+		t.Error("nginx has no exit yet")
+	}
+	if !math.IsNaN(value("watchlog_service_oom_events_total", "postgresql@16-main.service")) {
+		t.Error("no OOM series without memory.events")
+	}
+	if !math.IsNaN(value("watchlog_service_cpu_seconds_total", "billing.service")) {
+		t.Error("billing has no cgroup")
+	}
+	// Labels: the unit and what the series needs, never a PID or a path.
+	for _, s := range ss {
+		for _, l := range s.Labels {
+			switch l.Name {
+			case "unit", "state", "sub", "dir":
+			default:
+				t.Fatalf("%s carries label %q", s.Name, l.Name)
+			}
+		}
+	}
+}
+
+func TestLimitKeepsFailedAndBusiest(t *testing.T) {
+	bus, cg := measured()
+	c := &Collector{Bus: bus, Cgroups: cg, Limit: 2}
+	ss, err := c.Collect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var units []string
+	for _, s := range byName(ss)["watchlog_service_state"] {
+		units = append(units, label(s, "unit"))
+	}
+	sort.Strings(units)
+	// The failed one always, then the busiest by CPU.
+	if strings.Join(units, ",") != "billing.service,orders.service" || c.Dropped != 2 {
+		t.Fatalf("kept %v, dropped %d", units, c.Dropped)
+	}
+}
+
+func TestLimitsFromSystemd(t *testing.T) {
+	if usecToCores(math.MaxUint64) != nil || usecToCores(0) != nil {
+		t.Fatal("unlimited CPU quota is no limit")
+	}
+	if got := *usecToCores(500_000); got != 0.5 {
+		t.Fatalf("500ms/s = %v cores", got)
+	}
+	if bytesLimit(math.MaxUint64) != nil {
+		t.Fatal("infinity is no memory limit")
+	}
+}

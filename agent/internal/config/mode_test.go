@@ -12,7 +12,8 @@ func TestParseMode(t *testing.T) {
 	}{
 		{"node", ModeNode, false},
 		{"cluster", ModeCluster, false},
-		{"docker", ModeDocker, false},
+		{"docker", ModeServer, false},
+		{"server", ModeServer, false},
 		{"", "", true},
 		{"Node", "", true},
 		{"swarm", "", true},

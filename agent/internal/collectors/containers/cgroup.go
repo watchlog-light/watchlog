@@ -292,3 +292,39 @@ func (r *Reader) Network(pid int) (rx, tx float64, err error) {
 	}
 	return rx, tx, sc.Err()
 }
+
+// UnitStats is a systemd unit's cgroup (ADR-208): the container stats plus its tasks and the
+// kernel's OOM kills inside it. Tasks and OOMKills are -1 when unknown.
+type UnitStats struct {
+	Stats
+	Tasks    float64
+	OOMKills float64
+}
+
+// Unit reads the cgroup of a systemd unit by its ControlGroup path (D-Bus), for example
+// /system.slice/nginx.service. cgroup v2 only; on a v1 host it answers ErrNotFound and the
+// unit's state still comes from systemd (best effort, measured in 0.9's slice 1).
+func (r *Reader) Unit(controlGroup string) (UnitStats, error) {
+	u := UnitStats{Tasks: -1, OOMKills: -1}
+	if controlGroup == "" || !r.exists(filepath.Join(r.cgroup, "cgroup.controllers")) {
+		return u, ErrNotFound
+	}
+	dir := filepath.Join(r.cgroup, filepath.Clean("/"+controlGroup))
+	if !r.exists(filepath.Join(dir, "cpu.stat")) {
+		return u, ErrNotFound
+	}
+	s, err := r.readV2(dir)
+	if err != nil {
+		return u, err
+	}
+	u.Stats = s
+	if n, err := r.number(filepath.Join(dir, "pids.current")); err == nil {
+		u.Tasks = n
+	}
+	if ev, err := r.keyed(filepath.Join(dir, "memory.events")); err == nil {
+		if n, ok := ev["oom_kill"]; ok {
+			u.OOMKills = n
+		}
+	}
+	return u, nil
+}
