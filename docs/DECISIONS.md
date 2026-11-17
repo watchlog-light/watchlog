@@ -3603,6 +3603,12 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Without eBPF** (kernel before 5.8, no BTF, no capability): everything but the map, Egress, HTTP and exit codes works; the server page says why and how to fix it (ADR-107).
 - Consequences: two more tracepoints and one ring buffer; the cost is measured against ADR-121's table on a busy server.
 
+- Amended 2026-11-17, as built (0.9 slices 4 and 5):
+  - **Exits:** one BTF raw tracepoint, `sched_process_exit`, for thread-group leaders only: tgid, the kernel's wait status (exit status or signal, core), the cgroup, the comm, and whether the OOM killer chose the task, read from the victim's `signal->oom_mm` (set by `mark_oom_victim`, kernel 4.11+). The `oom/mark_victim` tracepoint isn't used: its arguments changed in 6.8, and its classic form needs tracefs. A unit counts its main process's exits (the `MainPID` systemd reported at the previous scrape), so a failing helper (a cron job under `cron.service`) isn't the service crashing; its last non-zero code replaces systemd's, which reads 0 again after a restart.
+  - **Attribution, by cgroup for now:** a cgroup with exactly one process group (a jar started by hand in a login session) is that group's; otherwise it is its unit's. Process groups that share a unit (pm2's apps under `pm2-<user>.service`) share the unit's edges and HTTP stats until the flow programs record the tgid; their CPU, memory, exits and listening ports are already per group. Containers keep their own cgroups.
+  - **Listening ports:** the process scan matches each process's socket inodes (`/proc/<pid>/fd`) with the host's LISTEN sockets (`/proc/1/net/tcp`, `tcp6`), at most 10 ports a workload. A connection to one of the server's own ports, on loopback or its own addresses, is an edge to the workload listening there instead of no edge (loopback) or an external.
+  - **The server filter:** none in the kernel; the agent's own cgroup has no owner, so its connections are dropped in user space.
+
 ## ADR-211: The live demo's server: a systemd host with services, process groups and Docker, isolated
 
 - Date: 2026-11-17 · Status: accepted (0.9.0, slice 0; plan §4.11); built in slice 13
