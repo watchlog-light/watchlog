@@ -43,6 +43,52 @@ export function usageExprs(platform: 'kubernetes' | 'server', w: string): Record
       present: `max by (host, container, compose_project, compose_service, image) (last_over_time(${ws}[1h]))`,
       hostMemory: `max by (host) (last_over_time(watchlog_node_memory_bytes{state="total"}[1h]))`,
     });
+    // Servers' systemd services with a MemoryMax or CPUQuota (ADR-208): as containers' limits.
+    const u = 'host, unit';
+    const ucpu = 'watchlog_service_cpu_seconds_total';
+    const uws = 'watchlog_service_memory_working_set_bytes';
+    Object.assign(out, {
+      unitCpuP95: `max by (${u}) (quantile_over_time(0.95, rate(${ucpu}[5m])[${w}:5m]))`,
+      unitMemoryPeak: `max by (${u}) (max_over_time(${uws}[${w}]))`,
+      unitMemoryP95: `max by (${u}) (quantile_over_time(0.95, ${uws}[${w}:5m]))`,
+      unitThrottledP95: `max by (${u}) (quantile_over_time(0.95, clamp_max(rate(watchlog_service_cpu_throttled_seconds_total[5m]), 1)[${w}:5m]))`,
+      unitSamples: `count_over_time((max by (${u}) (${uws}))[${w}:5m])`,
+      unitFrom: `min by (${u}) (tfirst_over_time(${uws}[${w}]))`,
+      unitOomKills: `max by (${u}) (increase(watchlog_service_oom_kills_total[${w}]) or increase(watchlog_service_oom_events_total[${w}]))`,
+      unitMemoryLimit: `max by (${u}) (last_over_time(watchlog_service_memory_limit_bytes[1h]))`,
+      unitCpuLimit: `max by (${u}) (last_over_time(watchlog_service_cpu_limit_cores[1h]))`,
+    });
+  }
+  return out;
+}
+
+/** A server's service: host/unit. */
+export const unitKey = (l: Record<string, string>) => `${l.host}/${l.unit}`;
+
+/** Each service's use, from the unit* answers of `usageExprs`. */
+export function unitUsage(series: Series): Map<string, Usage> {
+  const m = (k: string) =>
+    new Map((series[k] ?? []).map((s) => [unitKey(s.labels), value(s)] as const));
+  const [cpu, peak, p95, thr, samples, from, oom] = [
+    'unitCpuP95',
+    'unitMemoryPeak',
+    'unitMemoryP95',
+    'unitThrottledP95',
+    'unitSamples',
+    'unitFrom',
+    'unitOomKills',
+  ].map(m);
+  const out = new Map<string, Usage>();
+  for (const key of samples!.keys()) {
+    out.set(key, {
+      cpuP95: cpu!.get(key) ?? null,
+      memoryPeak: peak!.get(key) ?? null,
+      memoryP95: p95!.get(key) ?? null,
+      throttledP95: thr!.get(key) ?? null,
+      samples: samples!.get(key) ?? 0,
+      from: from!.get(key) ?? null,
+      oomKills: Math.round(oom!.get(key) ?? 0),
+    });
   }
   return out;
 }

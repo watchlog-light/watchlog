@@ -338,6 +338,20 @@ export function kubeHints(
  * a memory reservation is judged as a request is; no memory limit matters only once the
  * container used more than a quarter of its host's memory.
  */
+/** A server's systemd service with a MemoryMax or CPUQuota (ADR-208): its limits only. */
+export function unitHints(
+  object: HintObject,
+  s: { memoryLimit: number | null; cpuLimit: number | null },
+  u: Usage,
+  based: BasedOn,
+): Hint[] {
+  const c: Ctx = { object, container: null, name: object.name, based, replicas: 1 };
+  return [
+    ...(s.memoryLimit ? memoryLimitHints(c, u, s.memoryLimit) : []),
+    ...(s.cpuLimit ? throttleHints(c, u, s.cpuLimit) : []),
+  ];
+}
+
 export function dockerHints(
   object: HintObject,
   s: DockerSettings,

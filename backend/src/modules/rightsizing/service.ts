@@ -12,6 +12,7 @@ import { systemNamespaces, type SettingsService } from '../settings/service.js';
 import {
   basedOn,
   dockerHints,
+  unitHints,
   enoughHistory,
   kubeHints,
   sortHints,
@@ -22,7 +23,17 @@ import {
   type Summary,
   type Usage,
 } from './hints.js';
-import { byKey, HINT_KINDS, keyOf, usageByKey, usageExprs, type Series } from './queries.js';
+import {
+  byKey,
+  HINT_KINDS,
+  keyOf,
+  unitKey,
+  unitUsage,
+  usageByKey,
+  usageExprs,
+  type Series,
+} from './queries.js';
+import { isSystemUnit } from '../servers/workloads.js';
 
 export const RIGHT_SIZING_CACHE_MS = 60 * 60_000;
 
@@ -256,6 +267,32 @@ export class RightSizingService {
             memoryReservation: reservation.get(key) ?? null,
             hostMemory: hostMemory.get(l.host!) ?? null,
           },
+          u,
+          basedOn(u, this.options.windowHours, m.at),
+        ),
+      );
+    }
+    // Services with a MemoryMax or CPUQuota (ADR-208), on their server.
+    const units = unitUsage(s);
+    const uMem = new Map(
+      (s.unitMemoryLimit ?? []).map((x) => [unitKey(x.labels), x.points[0]?.[1] ?? null]),
+    );
+    const uCpu = new Map(
+      (s.unitCpuLimit ?? []).map((x) => [unitKey(x.labels), x.points[0]?.[1] ?? null]),
+    );
+    for (const key of [...new Set([...uMem.keys(), ...uCpu.keys()])].sort()) {
+      const [host, ...rest] = key.split('/');
+      const unit = rest.join('/');
+      if (!host || !unit || (!f.system && isSystemUnit(unit))) continue;
+      if (f.host && host !== f.host) continue;
+      if (f.container || f.project || f.service) continue;
+      const object: HintObject = { kind: 'service', host, name: unit };
+      const u = this.judge(units.get(key), object, null, m.at, short);
+      if (!u) continue;
+      hints.push(
+        ...unitHints(
+          object,
+          { memoryLimit: uMem.get(key) ?? null, cpuLimit: uCpu.get(key) ?? null },
           u,
           basedOn(u, this.options.windowHours, m.at),
         ),
