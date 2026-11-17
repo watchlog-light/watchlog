@@ -40,6 +40,28 @@ describe('loadConfig', () => {
     );
   });
 
+  it("reads the demo cache's settings within their bounds, defaults when unset (ADR-206)", () => {
+    const base = { DATABASE_URL: 'x', WATCHLOG_SECRET_KEY: KEY };
+    expect(loadConfig(base).demoCache).toEqual({ seconds: 15, maxMb: 64, maxUpstream: 16 });
+    expect(
+      loadConfig({
+        ...base,
+        WATCHLOG_DEMO_CACHE_SECONDS: '30',
+        WATCHLOG_DEMO_CACHE_MB: ' 128 ',
+        WATCHLOG_DEMO_MAX_UPSTREAM: '',
+      }).demoCache,
+    ).toEqual({ seconds: 30, maxMb: 128, maxUpstream: 16 });
+    for (const [name, bad] of [
+      ['WATCHLOG_DEMO_CACHE_SECONDS', '4'],
+      ['WATCHLOG_DEMO_CACHE_SECONDS', '61'],
+      ['WATCHLOG_DEMO_CACHE_MB', '1.5'],
+      ['WATCHLOG_DEMO_MAX_UPSTREAM', '0'],
+      ['WATCHLOG_DEMO_MAX_UPSTREAM', 'many'],
+    ] as const) {
+      expect(() => loadConfig({ ...base, [name]: bad })).toThrow(new RegExp(name));
+    }
+  });
+
   it('reads the country header and the fixed API token limits (ADR-125)', () => {
     const base = { DATABASE_URL: 'x', WATCHLOG_SECRET_KEY: KEY };
     expect(loadConfig(base).mcpEnabled).toBe(true);

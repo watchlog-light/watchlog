@@ -36,8 +36,12 @@ import {
   sessionCookie,
   setupAdmin,
   TEST_SECRET_KEY,
+  TEST_SETUP_CODE,
+  testConfig,
   type TestContext,
 } from './helpers.js';
+import { buildApp } from '../src/app.js';
+import { SetupState } from '../src/modules/setup/service.js';
 
 let ctx: TestContext;
 afterEach(() => closeTestContext(ctx));
@@ -66,6 +70,12 @@ const api = (method: string, url: string, cookie?: string, payload?: object) =>
     ...(cookie ? { cookies: { wl_session: cookie } } : {}),
     ...(payload ? { payload } : {}),
   });
+
+/** A valid range query for a cluster that doesn't exist: answered 404 after the limit. */
+const unknownClusterQuery = () => {
+  const to = Math.floor(Date.now() / 1000);
+  return { clusterId: SAMPLE_ID, metric: 'node.cpu.utilization', from: to - 3600, to };
+};
 
 async function enterDemo(cookie?: string) {
   const res = await api('POST', '/demo/session', cookie);
@@ -475,10 +485,12 @@ describe('demo query cost', () => {
         url: '/api/v1/query/range',
         cookies: { wl_session: cookie },
         headers: { 'x-real-ip': ip },
-        payload: {}, // invalid: cheap, and still counted
+        // A cluster that doesn't exist: cheap, never stored (only a 200 is), so each counts.
+        // An invalid body is refused before the limit and not counted (ADR-206).
+        payload: unknownClusterQuery(),
       });
     for (let i = 0; i < DEMO_QUERY_RATE; i++) {
-      expect((await from('203.0.113.7')).statusCode).toBe(400);
+      expect((await from('203.0.113.7')).statusCode).toBe(404);
     }
     const limited = await from('203.0.113.7');
     expect(limited.statusCode).toBe(429);
@@ -493,7 +505,7 @@ describe('demo query cost', () => {
     });
     expect(page.statusCode).toBe(429);
     // Another visitor is not affected; reads that do not query metrics are not limited.
-    expect((await from('198.51.100.9')).statusCode).toBe(400);
+    expect((await from('198.51.100.9')).statusCode).toBe(404);
     expect((await api('GET', '/me', cookie)).statusCode).toBe(200);
   });
 
@@ -507,15 +519,15 @@ describe('demo query cost', () => {
         url: '/api/v1/query/range',
         cookies: { wl_session: cookie },
         headers,
-        payload: {},
+        payload: unknownClusterQuery(),
       });
     // In-process reads (probable cause, MCP) carry the internal mark: the request that made
     // them was counted, so they are not, whatever address they come from.
     for (let i = 0; i < DEMO_QUERY_RATE + 5; i++) {
-      expect((await query({ ...internalCallMark() })).statusCode).toBe(400);
+      expect((await query({ ...internalCallMark() })).statusCode).toBe(404);
     }
     for (let i = 0; i < DEMO_QUERY_RATE - 1; i++) {
-      expect((await query(visitor)).statusCode).toBe(400);
+      expect((await query(visitor)).statusCode).toBe(404);
     }
     const causes = await ctx.app.inject({
       method: 'GET',
@@ -619,4 +631,86 @@ describe('ingest stays token-only', () => {
       expect(await ctx.db.selectFrom('agent_instances').select('id').execute()).toEqual([]);
     });
   }
+});
+
+describe('the shared answer cache (ADR-206)', () => {
+  const demoClusters = async (cookie: string) =>
+    ctx.app.inject({ method: 'GET', url: '/api/v1/clusters', cookies: { wl_session: cookie } });
+  const listed = (res: { json: () => unknown }) =>
+    (res.json() as { clusters: { name: string }[] }).clusters.map((c) => c.name).sort();
+
+  it("serves the demo visitor's reads from the cache for one bucket, on the injected clock", async () => {
+    const t = { now: Date.now() };
+    ctx = await createTestContext({ demoMode: true }, { now: () => t.now });
+    expect(ctx.app.demoCacheOn).toBe(true);
+    const userId = await ensureDemoUser(ctx.db);
+    const { org_id: orgId } = await ctx.db
+      .selectFrom('memberships')
+      .select('org_id')
+      .where('user_id', '=', userId)
+      .executeTakeFirstOrThrow();
+    await insertCluster(ctx.db, orgId, 'first', 'kubernetes');
+    const { cookie } = await enterDemo();
+    const one = await demoClusters(cookie);
+    expect(one.headers['x-watchlog-demo-cache']).toBe('miss');
+    expect(listed(one)).toContain('first');
+
+    await insertCluster(ctx.db, orgId, 'second', 'docker');
+    const two = await demoClusters(cookie);
+    expect(two.headers['x-watchlog-demo-cache']).toBe('hit');
+    expect(two.body).toBe(one.body);
+
+    t.now += 15_000;
+    const three = await demoClusters(cookie);
+    expect(three.headers['x-watchlog-demo-cache']).toBe('miss');
+    expect(listed(three)).toEqual(expect.arrayContaining(['first', 'second']));
+  });
+
+  it('never counts a cached answer against the visitor rate limit', async () => {
+    ctx = await createTestContext({ demoMode: true, clientIpHeader: 'X-Real-IP' });
+    const userId = await ensureDemoUser(ctx.db);
+    const { org_id: orgId } = await ctx.db
+      .selectFrom('memberships')
+      .select('org_id')
+      .where('user_id', '=', userId)
+      .executeTakeFirstOrThrow();
+    const cluster = await insertCluster(ctx.db, orgId, 'demo', 'kubernetes');
+    const { cookie } = await enterDemo();
+    const statuses = new Set<number>();
+    for (let i = 0; i < DEMO_QUERY_RATE + 10; i++) {
+      const res = await ctx.app.inject({
+        method: 'GET',
+        url: `/api/v1/clusters/${cluster.id}/overview`,
+        cookies: { wl_session: cookie },
+        headers: { 'x-real-ip': '203.0.113.20' },
+      });
+      statuses.add(res.statusCode);
+    }
+    expect([...statuses]).toEqual([200]);
+  });
+
+  it('is never registered in Community or Cloud, and Community answers fresh every time', async () => {
+    ctx = await createTestContext({ demoMode: false });
+    expect(ctx.app.demoCacheOn).toBeUndefined();
+    const admin = await setupAdmin(ctx.app);
+    const org = await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow();
+    await insertCluster(ctx.db, org.id, 'first', 'kubernetes');
+    const one = await demoClusters(admin);
+    await insertCluster(ctx.db, org.id, 'second', 'docker');
+    const two = await demoClusters(admin);
+    for (const r of [one, two]) expect(r.headers['x-watchlog-demo-cache']).toBeUndefined();
+    expect(listed(two)).toEqual(expect.arrayContaining(['first', 'second']));
+
+    // Cloud, even with demo mode switched on there: no cache (it is multi-tenant).
+    const cloud = await buildApp(testConfig({ edition: 'cloud', demoMode: true }), {
+      db: ctx.db,
+      setup: new SetupState(() => TEST_SETUP_CODE),
+      fetch: async () => {
+        throw new Error('offline in tests');
+      },
+    });
+    await cloud.ready();
+    expect(cloud.demoCacheOn).toBeUndefined();
+    await cloud.close();
+  });
 });

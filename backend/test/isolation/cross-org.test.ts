@@ -273,6 +273,24 @@ describe('every REST route as org B with org A ids', () => {
     expect(q.body).toContain('zzalpha-pod');
   });
 
+  it('Cloud shares no answer across requests (ADR-206): no demo cache, each org its own', async () => {
+    expect(w.app.demoCacheOn).toBeUndefined();
+    for (const route of [
+      'GET /api/v1/clusters',
+      'GET /api/v1/alerts',
+      'GET /api/v1/applications',
+    ]) {
+      const a = await call(route, A, A);
+      const b = await call(route, B, B);
+      const again = await call(route, A, A);
+      for (const r of [a, b, again])
+        expect(r.headers['x-watchlog-demo-cache'], route).toBeUndefined();
+      expect(leaks(a.body), route).not.toEqual([]);
+      expect(leaks(b.body), route).toEqual([]);
+      expect(leaks(b.body, '', B), route).not.toEqual([]);
+    }
+  });
+
   it("egress (ADR-192): B can't read A's clusters' destinations, and B's own hold none of A's", async () => {
     const egressOf = async (as: SeededOrg, cluster: string, extra: Record<string, string> = {}) =>
       w.app.inject({
