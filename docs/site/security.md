@@ -72,7 +72,10 @@ is sent as its derived name, redacted. The token is in `/etc/watchlog/agent.env`
 root and the `watchlog` group. The integrations collector runs with no capability.
 
 The Docker socket is read only when `watchlog` is in the `docker` group, which the script
-adds (it says so: that group can control Docker); `--no-docker` leaves it out.
+adds (it says so: that group can control Docker); `--no-docker` leaves it out. Podman has no
+`docker` group: the script and the packages give its API socket to the group `watchlog`
+through a systemd drop-in (`/etc/systemd/system/podman.socket.d/watchlog.conf`), say the same,
+and remove it on uninstall; `--no-docker` (`WATCHLOG_DOCKER=no` for the packages) leaves it out.
 
 ### With docker run
 

@@ -54,7 +54,10 @@ enforcing).
   files in each account's home (the home directories from `/etc/passwd`, nothing else of
   them), supervisord's configuration, and the Docker socket read-only when `watchlog` is in
   the `docker` group (the script adds it, and says so: that group can control Docker;
-  `--no-docker` leaves it out, and containers don't show).
+  `--no-docker` leaves it out, and containers don't show). With Podman, which has no `docker`
+  group, the script and the packages give Podman's API socket to the group `watchlog` (a
+  drop-in, `podman.socket.d/watchlog.conf`, removed on uninstall), with the same warning and
+  the same `--no-docker`.
 - **What never leaves the server:** command lines, arguments, environment values, user names
   and process ids. A process group is sent as its derived name only, with secrets redacted.
 - The token is kept in `/etc/watchlog/agent.env`, mode 0640, owned by root and the `watchlog`
