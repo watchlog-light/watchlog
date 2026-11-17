@@ -44,7 +44,14 @@ interface Entry {
   unit: Unit;
   /** Aggregation used when the request does not choose one. */
   agg: Agg;
-  expr: (sel: (...extra: string[]) => string, rate: string, agg: Agg, scope: QueryScope) => string;
+  expr: (
+    sel: (...extra: string[]) => string,
+    rate: string,
+    agg: Agg,
+    scope: QueryScope,
+    /** The step as a window (`60s`): a counter's increase in it is one point's count. */
+    step: string,
+  ) => string;
 }
 
 const ENTRIES = {
@@ -262,6 +269,29 @@ const ENTRIES = {
       return `((${restarts}) >= (${exits})) or (${exits}) or (${restarts})`;
     },
   },
+  // Per-step counts for the workload page's charts (each point is its own step, so an event
+  // is drawn once; the `.increase` keys above count a trailing 10 minutes, for rules).
+  /** systemd restarts of the unit in each step. */
+  'unit.restarts.step': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a, _sc, st) =>
+      `${a} by (host, unit) (increase(watchlog_service_restarts_total${s()}[${st}]))`,
+  },
+  /** Its main process's non-zero and signal exits in each step (eBPF). */
+  'unit.exits.failed.step': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a, _sc, st) =>
+      `${a} by (host, unit) (sum by (host, unit) (increase(watchlog_service_exits_total${s('exit=~"error|signal"')}[${st}])))`,
+  },
+  /** OOM kills in each step: eBPF's, or the cgroup's where eBPF is off. */
+  'unit.oom_kills.step': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a, _sc, st) =>
+      `${a} by (host, unit) (increase(watchlog_service_oom_kills_total${s()}[${st}]) or increase(watchlog_service_oom_events_total${s()}[${st}]))`,
+  },
   'process.cpu.usage': {
     unit: 'cores',
     agg: 'sum',
@@ -308,6 +338,26 @@ const ENTRIES = {
     agg: 'max',
     expr: (s, _r, a) =>
       `${a} by (host, unit, group) (increase(watchlog_process_group_oom_kills_total${s()}[10m]))`,
+  },
+  /** Processes the group started in each step. */
+  'process.starts.step': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a, _sc, st) =>
+      `${a} by (host, unit, group) (increase(watchlog_process_group_starts_total${s()}[${st}]))`,
+  },
+  /** Non-zero and signal exits in each step (eBPF). */
+  'process.exits.failed.step': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a, _sc, st) =>
+      `${a} by (host, unit, group) (sum by (host, unit, group) (increase(watchlog_process_group_exits_total${s('exit=~"error|signal"')}[${st}])))`,
+  },
+  'process.oom_kills.step': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a, _sc, st) =>
+      `${a} by (host, unit, group) (increase(watchlog_process_group_oom_kills_total${s()}[${st}]))`,
   },
   /**
    * 1 for a group with no process left that ran for at least 10 minutes of the last hour
@@ -1175,5 +1225,8 @@ export function buildQuery(
   const entry: Entry = ENTRIES[metric];
   const base = matchers(scope);
   const sel = (...extra: string[]) => `{${[...extra, ...base].join(',')}}`;
-  return { expr: entry.expr(sel, rateWindow(step), agg ?? entry.agg, scope), unit: entry.unit };
+  return {
+    expr: entry.expr(sel, rateWindow(step), agg ?? entry.agg, scope, `${step}s`),
+    unit: entry.unit,
+  };
 }

@@ -2864,6 +2864,18 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["unit.restarts.step"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["unit.exits.failed.step"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["unit.oom_kills.step"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["process.cpu.usage"]
                       },
                       {
@@ -2893,6 +2905,18 @@
                       {
                         "type": "string",
                         "enum": ["process.oom_kills.increase"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["process.starts.step"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["process.exits.failed.step"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["process.oom_kills.step"]
                       },
                       {
                         "type": "string",
@@ -4714,6 +4738,16 @@
           },
           {
             "schema": {
+              "type": "integer",
+              "minimum": 300,
+              "maximum": 604800
+            },
+            "in": "query",
+            "name": "range",
+            "required": false
+          },
+          {
+            "schema": {
               "type": "string",
               "format": "uuid"
             },
@@ -4960,7 +4994,12 @@
                               "ports",
                               "restarts24h",
                               "lastExitCode",
-                              "system"
+                              "system",
+                              "runs",
+                              "cpuLimitCores",
+                              "changedAt",
+                              "expected",
+                              "parent"
                             ],
                             "properties": {
                               "id": {
@@ -5040,6 +5079,14 @@
                                           {
                                             "type": "string",
                                             "enum": ["restarting"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["gone"]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": ["memory_near"]
                                           }
                                         ]
                                       },
@@ -5140,15 +5187,81 @@
                               },
                               "system": {
                                 "type": "boolean"
+                              },
+                              "runs": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "cpuLimitCores": {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "changedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "expected": {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "parent": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             }
                           },
                           {
                             "type": "object",
-                            "required": ["server"],
+                            "required": ["server", "cpuSeries"],
                             "properties": {
                               "server": {
                                 "type": "string"
+                              },
+                              "cpuSeries": {
+                                "type": "array",
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                }
                               }
                             }
                           }
@@ -5801,7 +5914,12 @@
                           "ports",
                           "restarts24h",
                           "lastExitCode",
-                          "system"
+                          "system",
+                          "runs",
+                          "cpuLimitCores",
+                          "changedAt",
+                          "expected",
+                          "parent"
                         ],
                         "properties": {
                           "id": {
@@ -5881,6 +5999,14 @@
                                       {
                                         "type": "string",
                                         "enum": ["restarting"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["gone"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["memory_near"]
                                       }
                                     ]
                                   },
@@ -5981,6 +6107,56 @@
                           },
                           "system": {
                             "type": "boolean"
+                          },
+                          "runs": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "cpuLimitCores": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "changedAt": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "expected": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "parent": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         }
                       }
@@ -6137,7 +6313,12 @@
                         "ports",
                         "restarts24h",
                         "lastExitCode",
-                        "system"
+                        "system",
+                        "runs",
+                        "cpuLimitCores",
+                        "changedAt",
+                        "expected",
+                        "parent"
                       ],
                       "properties": {
                         "id": {
@@ -6217,6 +6398,14 @@
                                     {
                                       "type": "string",
                                       "enum": ["restarting"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["gone"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["memory_near"]
                                     }
                                   ]
                                 },
@@ -6317,6 +6506,56 @@
                         },
                         "system": {
                           "type": "boolean"
+                        },
+                        "runs": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cpuLimitCores": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "changedAt": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "expected": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "parent": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       }
                     },
@@ -6342,7 +6581,12 @@
                           "ports",
                           "restarts24h",
                           "lastExitCode",
-                          "system"
+                          "system",
+                          "runs",
+                          "cpuLimitCores",
+                          "changedAt",
+                          "expected",
+                          "parent"
                         ],
                         "properties": {
                           "id": {
@@ -6422,6 +6666,14 @@
                                       {
                                         "type": "string",
                                         "enum": ["restarting"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["gone"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["memory_near"]
                                       }
                                     ]
                                   },
@@ -6522,6 +6774,56 @@
                           },
                           "system": {
                             "type": "boolean"
+                          },
+                          "runs": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "cpuLimitCores": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "changedAt": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "expected": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "parent": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         }
                       }

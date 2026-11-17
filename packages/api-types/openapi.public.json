@@ -7330,6 +7330,12 @@
             "required": false
           },
           {
+            "schema": { "type": "integer", "minimum": 300, "maximum": 604800 },
+            "in": "query",
+            "name": "range",
+            "required": false
+          },
+          {
             "schema": { "type": "string", "format": "uuid" },
             "in": "path",
             "name": "id",
@@ -7442,7 +7448,12 @@
                               "ports",
                               "restarts24h",
                               "lastExitCode",
-                              "system"
+                              "system",
+                              "runs",
+                              "cpuLimitCores",
+                              "changedAt",
+                              "expected",
+                              "parent"
                             ],
                             "properties": {
                               "id": {
@@ -7473,7 +7484,9 @@
                                           { "type": "string", "enum": ["oom_killed"] },
                                           { "type": "string", "enum": ["unhealthy"] },
                                           { "type": "string", "enum": ["exited"] },
-                                          { "type": "string", "enum": ["restarting"] }
+                                          { "type": "string", "enum": ["restarting"] },
+                                          { "type": "string", "enum": ["gone"] },
+                                          { "type": "string", "enum": ["memory_near"] }
                                         ]
                                       },
                                       "severity": {
@@ -7505,13 +7518,29 @@
                               "lastExitCode": {
                                 "anyOf": [{ "type": "number" }, { "type": "null" }]
                               },
-                              "system": { "type": "boolean" }
+                              "system": { "type": "boolean" },
+                              "runs": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                              "cpuLimitCores": {
+                                "anyOf": [{ "type": "number" }, { "type": "null" }]
+                              },
+                              "changedAt": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                              "expected": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                              "parent": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                             }
                           },
                           {
                             "type": "object",
-                            "required": ["server"],
-                            "properties": { "server": { "type": "string" } }
+                            "required": ["server", "cpuSeries"],
+                            "properties": {
+                              "server": { "type": "string" },
+                              "cpuSeries": {
+                                "type": "array",
+                                "items": {
+                                  "type": "array",
+                                  "items": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                                }
+                              }
+                            }
                           }
                         ]
                       }
@@ -7832,7 +7861,12 @@
                           "ports",
                           "restarts24h",
                           "lastExitCode",
-                          "system"
+                          "system",
+                          "runs",
+                          "cpuLimitCores",
+                          "changedAt",
+                          "expected",
+                          "parent"
                         ],
                         "properties": {
                           "id": {
@@ -7863,7 +7897,9 @@
                                       { "type": "string", "enum": ["oom_killed"] },
                                       { "type": "string", "enum": ["unhealthy"] },
                                       { "type": "string", "enum": ["exited"] },
-                                      { "type": "string", "enum": ["restarting"] }
+                                      { "type": "string", "enum": ["restarting"] },
+                                      { "type": "string", "enum": ["gone"] },
+                                      { "type": "string", "enum": ["memory_near"] }
                                     ]
                                   },
                                   "severity": {
@@ -7887,7 +7923,12 @@
                           "ports": { "type": "array", "items": { "type": "integer" } },
                           "restarts24h": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
                           "lastExitCode": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
-                          "system": { "type": "boolean" }
+                          "system": { "type": "boolean" },
+                          "runs": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "cpuLimitCores": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "changedAt": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "expected": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "parent": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                         }
                       }
                     }
@@ -8001,7 +8042,12 @@
                         "ports",
                         "restarts24h",
                         "lastExitCode",
-                        "system"
+                        "system",
+                        "runs",
+                        "cpuLimitCores",
+                        "changedAt",
+                        "expected",
+                        "parent"
                       ],
                       "properties": {
                         "id": {
@@ -8032,7 +8078,9 @@
                                     { "type": "string", "enum": ["oom_killed"] },
                                     { "type": "string", "enum": ["unhealthy"] },
                                     { "type": "string", "enum": ["exited"] },
-                                    { "type": "string", "enum": ["restarting"] }
+                                    { "type": "string", "enum": ["restarting"] },
+                                    { "type": "string", "enum": ["gone"] },
+                                    { "type": "string", "enum": ["memory_near"] }
                                   ]
                                 },
                                 "severity": {
@@ -8054,7 +8102,12 @@
                         "ports": { "type": "array", "items": { "type": "integer" } },
                         "restarts24h": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
                         "lastExitCode": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
-                        "system": { "type": "boolean" }
+                        "system": { "type": "boolean" },
+                        "runs": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                        "cpuLimitCores": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                        "changedAt": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                        "expected": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                        "parent": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                       }
                     },
                     "server": { "type": "string" },
@@ -8077,7 +8130,12 @@
                           "ports",
                           "restarts24h",
                           "lastExitCode",
-                          "system"
+                          "system",
+                          "runs",
+                          "cpuLimitCores",
+                          "changedAt",
+                          "expected",
+                          "parent"
                         ],
                         "properties": {
                           "id": {
@@ -8108,7 +8166,9 @@
                                       { "type": "string", "enum": ["oom_killed"] },
                                       { "type": "string", "enum": ["unhealthy"] },
                                       { "type": "string", "enum": ["exited"] },
-                                      { "type": "string", "enum": ["restarting"] }
+                                      { "type": "string", "enum": ["restarting"] },
+                                      { "type": "string", "enum": ["gone"] },
+                                      { "type": "string", "enum": ["memory_near"] }
                                     ]
                                   },
                                   "severity": {
@@ -8132,7 +8192,12 @@
                           "ports": { "type": "array", "items": { "type": "integer" } },
                           "restarts24h": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
                           "lastExitCode": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
-                          "system": { "type": "boolean" }
+                          "system": { "type": "boolean" },
+                          "runs": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "cpuLimitCores": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "changedAt": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "expected": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "parent": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                         }
                       }
                     },
@@ -10358,6 +10423,9 @@
                       { "type": "string", "enum": ["unit.exits.failed.increase"] },
                       { "type": "string", "enum": ["unit.oom_kills.increase"] },
                       { "type": "string", "enum": ["unit.crashes.increase"] },
+                      { "type": "string", "enum": ["unit.restarts.step"] },
+                      { "type": "string", "enum": ["unit.exits.failed.step"] },
+                      { "type": "string", "enum": ["unit.oom_kills.step"] },
                       { "type": "string", "enum": ["process.cpu.usage"] },
                       { "type": "string", "enum": ["process.memory.rss"] },
                       { "type": "string", "enum": ["process.instances"] },
@@ -10366,6 +10434,9 @@
                       { "type": "string", "enum": ["process.starts.increase"] },
                       { "type": "string", "enum": ["process.exits.failed.increase"] },
                       { "type": "string", "enum": ["process.oom_kills.increase"] },
+                      { "type": "string", "enum": ["process.starts.step"] },
+                      { "type": "string", "enum": ["process.exits.failed.step"] },
+                      { "type": "string", "enum": ["process.oom_kills.step"] },
                       { "type": "string", "enum": ["process.gone"] },
                       { "type": "string", "enum": ["process.releases.increase"] },
                       { "type": "string", "enum": ["node.cpu.usage"] },

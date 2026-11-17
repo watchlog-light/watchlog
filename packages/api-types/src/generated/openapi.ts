@@ -1358,6 +1358,9 @@ export interface paths {
               | 'unit.exits.failed.increase'
               | 'unit.oom_kills.increase'
               | 'unit.crashes.increase'
+              | 'unit.restarts.step'
+              | 'unit.exits.failed.step'
+              | 'unit.oom_kills.step'
               | 'process.cpu.usage'
               | 'process.memory.rss'
               | 'process.instances'
@@ -1366,6 +1369,9 @@ export interface paths {
               | 'process.starts.increase'
               | 'process.exits.failed.increase'
               | 'process.oom_kills.increase'
+              | 'process.starts.step'
+              | 'process.exits.failed.step'
+              | 'process.oom_kills.step'
               | 'process.gone'
               | 'process.releases.increase'
               | 'node.cpu.usage'
@@ -1887,6 +1893,7 @@ export interface paths {
       parameters: {
         query?: {
           workloads?: '1';
+          range?: number;
         };
         header?: never;
         path: {
@@ -1948,7 +1955,9 @@ export interface paths {
                     | 'oom_killed'
                     | 'unhealthy'
                     | 'exited'
-                    | 'restarting';
+                    | 'restarting'
+                    | 'gone'
+                    | 'memory_near';
                   severity: 'critical' | 'warning';
                   code: number | null;
                 } | null;
@@ -1960,8 +1969,14 @@ export interface paths {
                 restarts24h: number | null;
                 lastExitCode: number | null;
                 system: boolean;
+                runs: string | null;
+                cpuLimitCores: number | null;
+                changedAt: number | null;
+                expected: number | null;
+                parent: string | null;
               } & {
                 server: string;
+                cpuSeries: (number | null)[][];
               })[];
               totals: {
                 servers: number;
@@ -2193,7 +2208,9 @@ export interface paths {
                     | 'oom_killed'
                     | 'unhealthy'
                     | 'exited'
-                    | 'restarting';
+                    | 'restarting'
+                    | 'gone'
+                    | 'memory_near';
                   severity: 'critical' | 'warning';
                   code: number | null;
                 } | null;
@@ -2205,6 +2222,11 @@ export interface paths {
                 restarts24h: number | null;
                 lastExitCode: number | null;
                 system: boolean;
+                runs: string | null;
+                cpuLimitCores: number | null;
+                changedAt: number | null;
+                expected: number | null;
+                parent: string | null;
               }[];
             };
           };
@@ -2298,7 +2320,9 @@ export interface paths {
                     | 'oom_killed'
                     | 'unhealthy'
                     | 'exited'
-                    | 'restarting';
+                    | 'restarting'
+                    | 'gone'
+                    | 'memory_near';
                   severity: 'critical' | 'warning';
                   code: number | null;
                 } | null;
@@ -2310,6 +2334,11 @@ export interface paths {
                 restarts24h: number | null;
                 lastExitCode: number | null;
                 system: boolean;
+                runs: string | null;
+                cpuLimitCores: number | null;
+                changedAt: number | null;
+                expected: number | null;
+                parent: string | null;
               };
               server: string;
               related: {
@@ -2327,7 +2356,9 @@ export interface paths {
                     | 'oom_killed'
                     | 'unhealthy'
                     | 'exited'
-                    | 'restarting';
+                    | 'restarting'
+                    | 'gone'
+                    | 'memory_near';
                   severity: 'critical' | 'warning';
                   code: number | null;
                 } | null;
@@ -2339,6 +2370,11 @@ export interface paths {
                 restarts24h: number | null;
                 lastExitCode: number | null;
                 system: boolean;
+                runs: string | null;
+                cpuLimitCores: number | null;
+                changedAt: number | null;
+                expected: number | null;
+                parent: string | null;
               }[];
               usage: {
                 threads: number | null;

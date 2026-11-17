@@ -73,6 +73,10 @@ const ProblemS = Type.Union([
       Type.Literal('unhealthy'),
       Type.Literal('exited'),
       Type.Literal('restarting'),
+      /** A process group with no process left (it ran within the last 10 minutes). */
+      Type.Literal('gone'),
+      /** At or above 90 % of its (unit's) MemoryMax. */
+      Type.Literal('memory_near'),
     ]),
     severity: Type.Union([Type.Literal('critical'), Type.Literal('warning')]),
     code: N,
@@ -95,7 +99,18 @@ const WorkloadS = Type.Object({
   ports: Type.Array(Type.Integer()),
   restarts24h: N,
   lastExitCode: N,
+  /** The OS's own and WatchLog's own (by unit and binary, or image): hidden by default. */
   system: Type.Boolean(),
+  /** The executable's base name (node, php-fpm8.2) or a container's image; never a command line. */
+  runs: S,
+  /** CPUQuota in cores: the service's, or its unit's for a process group. */
+  cpuLimitCores: N,
+  /** Unix seconds of its last change: the executable replaced, or the unit (re)started. */
+  changedAt: N,
+  /** Instances its manager expects (systemd: 1); null when unknown. */
+  expected: N,
+  /** Nested under: `service:<unit>`, `process:pm2`, `process:supervisord` or `compose:<project>`. */
+  parent: S,
 });
 
 const ServerS = Type.Object({
@@ -210,17 +225,25 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
       q('unit.exits.failed.increase'),
       q('unit.oom_kills.increase'),
       `max by (host, unit) (last_over_time(watchlog_service_last_exit_code${sel()}[2m]))`,
-      `max by (host, unit, group, by) (last_over_time(watchlog_process_group_instances${sel()}[2m]))`,
+      `max by (host, unit, group, by, exe) (last_over_time(watchlog_process_group_instances${sel()}[2m]))`,
       `sum by (host, group) (rate(watchlog_process_group_cpu_seconds_total${sel()}[2m]))`,
       `sum by (host, group) (last_over_time(watchlog_process_group_memory_rss_bytes${sel()}[2m]))`,
       `sum by (host, group) (increase(watchlog_process_group_exits_total${sel('exit=~"error|signal"')}[10m]))`,
-      `sum by (host, group) (increase(watchlog_process_group_exits_total${sel('exit=~"error|signal"')}[${WINDOW_24H}]))`,
+      // A group's restarts in 24 h: a process that ended and another that started, so the
+      // smaller of its starts and its exits (any code). Absent when it had neither.
+      `(sum by (host, group) (increase(watchlog_process_group_starts_total${sel()}[${WINDOW_24H}])) <= on (host, group) sum by (host, group) (increase(watchlog_process_group_exits_total${sel()}[${WINDOW_24H}]))) or on (host, group) (sum by (host, group) (increase(watchlog_process_group_exits_total${sel()}[${WINDOW_24H}])) < on (host, group) sum by (host, group) (increase(watchlog_process_group_starts_total${sel()}[${WINDOW_24H}])))`,
       `sum by (host, group) (increase(watchlog_process_group_oom_kills_total${sel()}[10m]))`,
       `max by (host, source, workload, port) (last_over_time(watchlog_listen_info${sel()}[2m]))`,
       q('container.cpu.usage'),
       `max by (host, container) (increase(watchlog_container_restarts_total${sel()}[${WINDOW_24H}]))`,
       q('container.memory.working_set'),
       q('container.memory.limit'),
+      `max by (host, unit, exe, own) (last_over_time(watchlog_service_exe_info${sel()}[2m]))`,
+      q('unit.cpu.limit'),
+      // The last change: its executable replaced (a release) or the unit (re)started.
+      `max by (host, unit) (tlast_change_over_time(watchlog_service_releases_total${sel()}[${WINDOW_24H}]) or last_over_time(watchlog_service_start_time_seconds${sel()}[2m]))`,
+      `max by (host, group) (tlast_change_over_time(watchlog_process_group_releases_total${sel()}[${WINDOW_24H}]))`,
+      `max by (host, group) (max_over_time(watchlog_process_group_instances${sel()}[10m]))`,
     ]);
     const [
       serviceState,
@@ -236,13 +259,18 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
       groupCpu,
       groupMemory,
       groupFailedExits10m,
-      groupFailedExits24h,
+      groupRestarts24h,
       groupOom10m,
       listen,
       containerCpu,
       containerRestarts24h,
       cMem,
       cLimit,
+      serviceExe,
+      serviceCpuLimit,
+      serviceChanged,
+      groupChanged,
+      groupRecent,
     ] = results as QuerySeries[][];
     const series: WorkloadSeries = {
       serviceState: serviceState!,
@@ -258,11 +286,16 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
       groupCpu: groupCpu!,
       groupMemory: groupMemory!,
       groupFailedExits10m: groupFailedExits10m!,
-      groupFailedExits24h: groupFailedExits24h!,
+      groupRestarts24h: groupRestarts24h!,
       groupOom10m: groupOom10m!,
       listen: listen!,
       containerCpu: containerCpu!,
       containerRestarts24h: containerRestarts24h!,
+      serviceExe: serviceExe!,
+      serviceCpuLimit: serviceCpuLimit!,
+      serviceChanged: serviceChanged!,
+      groupChanged: groupChanged!,
+      groupRecent: groupRecent!,
     };
     const memBy = new Map(cMem!.map((s) => [`${s.labels.host}\u0000${s.labels.container}`, s]));
     const limBy = new Map(cLimit!.map((s) => [`${s.labels.host}\u0000${s.labels.container}`, s]));
@@ -277,6 +310,7 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
       const k = `${r.node}\u0000${r.name}`;
       const spec = (r.spec_summary ?? {}) as {
         ports?: { public_port: number; private_port: number }[];
+        image?: string;
       };
       return {
         node: r.node,
@@ -288,6 +322,7 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
           (p) => p > 0,
         ),
         compose: r.namespace && r.namespace !== 'default' ? r.namespace : null,
+        image: spec.image ?? null,
       };
     });
     return assembleWorkloads(series, containers);
@@ -398,13 +433,24 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
         querystring: Type.Object({
           /** Include every server's workloads (the fleet's Workloads page; at most 5,000). */
           workloads: Type.Optional(Type.Literal('1')),
+          /** Seconds of history for the workloads' CPU sparklines (default 1 h). */
+          range: Type.Optional(Type.Integer({ minimum: 300, maximum: 7 * 86400 })),
         }),
         response: {
           200: Type.Object({
             servers: Type.Array(ServerS),
             /** With ?workloads=1: every workload, with its server; problems first. */
             workloads: Type.Optional(
-              Type.Array(Type.Intersect([WorkloadS, Type.Object({ server: Type.String() })])),
+              Type.Array(
+                Type.Intersect([
+                  WorkloadS,
+                  Type.Object({
+                    server: Type.String(),
+                    /** CPU in cores over the range, for the sparkline: [unix seconds, cores]. */
+                    cpuSeries: Type.Array(Type.Array(N)),
+                  }),
+                ]),
+              ),
             ),
             totals: Type.Object({
               servers: Type.Integer(),
@@ -432,11 +478,44 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
       // Problems first, then by name (the canvas: "Problems first").
       list.sort((a, b) => b.problemCount - a.problemCount || a.name.localeCompare(b.name));
       const all = [...byServer.values()].flat();
+      let trends = new Map<string, (number | null)[][]>();
+      if (request.query.workloads === '1' && cluster.kind === 'server') {
+        const range = request.query.range ?? 3600;
+        const end = Math.floor(Date.now() / 1000);
+        const step = Math.max(60, Math.round(range / 30));
+        const w = `${Math.max(120, 2 * step)}s`;
+        const [svc, grp, ctr] = await ranged(
+          cluster.scope,
+          [
+            `sum by (host, unit) (rate(watchlog_service_cpu_seconds_total[${w}]))`,
+            `sum by (host, group) (rate(watchlog_process_group_cpu_seconds_total[${w}]))`,
+            buildQuery('container.cpu.usage', {}, step).expr,
+          ],
+          end - range,
+          end,
+          step,
+        );
+        trends = new Map([
+          ...svc!.map((x) => [`service:${x.labels.host}\u0000${x.labels.unit}`, x.points] as const),
+          ...grp!.map(
+            (x) => [`process:${x.labels.host}\u0000${x.labels.group}`, x.points] as const,
+          ),
+          ...ctr!.map(
+            (x) => [`container:${x.labels.host}\u0000${x.labels.container}`, x.points] as const,
+          ),
+        ]);
+      }
       const withWorkloads =
         request.query.workloads === '1'
           ? {
               workloads: [...byServer.entries()]
-                .flatMap(([server, ws]) => ws.map((w) => ({ ...w, server })))
+                .flatMap(([server, ws]) =>
+                  ws.map((w) => ({
+                    ...w,
+                    server,
+                    cpuSeries: trends.get(`${w.source}:${server}\u0000${w.name}`) ?? [],
+                  })),
+                )
                 .sort(byProblemThenCpu)
                 .slice(0, 5000),
             }
