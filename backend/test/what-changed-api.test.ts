@@ -287,6 +287,24 @@ describe('the pure parts', () => {
       },
       peer: 'postgres',
     });
+    // A server's service and process group (ADR-208): workloads on their server.
+    expect(
+      objectOf('unit.memory.working_set', { host: 'app-1', unit: 'orders.service' }).object,
+    ).toEqual({
+      kind: 'workload',
+      name: 'orders.service',
+      workloadKind: 'Service',
+      host: 'app-1',
+    });
+    expect(
+      objectOf('process.cpu.usage', { host: 'app-1', unit: 'pm2-app.service', group: 'api' })
+        .object,
+    ).toEqual({
+      kind: 'workload',
+      name: 'api',
+      workloadKind: 'ProcessGroup',
+      host: 'app-1',
+    });
     expect(objectOf('node.cpu.utilization', { node: 'n1' }).object).toEqual({
       kind: 'node',
       name: 'n1',

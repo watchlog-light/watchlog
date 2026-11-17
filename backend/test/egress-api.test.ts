@@ -396,6 +396,42 @@ describe('GET /api/v1/egress: a Docker fleet', () => {
     expect(slack.badges).toEqual(['new']);
   });
 
+  it('shows a service and a process group on a server, filtered by kind and name (ADR-212)', async () => {
+    const native = (workload_kind: string, workload: string, dst: string) => ({
+      host: 'h1',
+      workload_kind,
+      workload,
+      dst_kind: 'external',
+      dst,
+      dst_port: '443',
+    });
+    await inventory(
+      id,
+      { host: 'h1', workload_kind: 'Service', workload: 'orders.service' },
+      'api.stripe.com',
+      443,
+      DAY,
+    );
+    await inventory(
+      id,
+      { host: 'h1', workload_kind: 'ProcessGroup', workload: 'api' },
+      'api.github.com',
+      443,
+      DAY,
+    );
+    await write(id, [
+      ...edge(native('Service', 'orders.service', 'api.stripe.com'), 1, 0),
+      ...edge(native('ProcessGroup', 'api', 'api.github.com'), 1, 0),
+    ]);
+    const body = (await get({ cluster: id })).json();
+    expect(find(body.rows, 'api.stripe.com')!.sources).toEqual([
+      expect.objectContaining({ host: 'h1', workloadKind: 'Service', workload: 'orders.service' }),
+    ]);
+    const groups = (await get({ cluster: id, kind: 'ProcessGroup', workload: 'api' })).json();
+    expect(groups.rows.map((r: Row) => r.destination)).toEqual(['api.github.com']);
+    expect(groups.rows[0].connections).toBeGreaterThan(0);
+  });
+
   it('filters by host (Compose services by the hosts their series came from), project and container', async () => {
     const h1 = (await get({ cluster: id, host: 'h1' })).json();
     expect(h1.rows.map((r: Row) => r.destination)).toEqual(['api.openai.com']);

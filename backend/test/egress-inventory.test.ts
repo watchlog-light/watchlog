@@ -203,6 +203,24 @@ describe('the source, in each platform’s vocabulary', () => {
     expect(sourceOf('server', { host: 'h', dst: 'x.io' })).toBeNull();
   });
 
+  it('Servers: a systemd service or process group on its server (ADR-212)', () => {
+    const l = { host: 'app-1', dst_kind: 'external', dst: 'api.stripe.com', dst_port: '443' };
+    expect(
+      sourceOf('server', { ...l, workload_kind: 'Service', workload: 'orders.service' }),
+    ).toEqual({
+      host: 'app-1',
+      workload_kind: 'Service',
+      workload: 'orders.service',
+    });
+    expect(sourceOf('server', { ...l, workload_kind: 'ProcessGroup', workload: 'api' })).toEqual({
+      host: 'app-1',
+      workload_kind: 'ProcessGroup',
+      workload: 'api',
+    });
+    // A Kubernetes-looking kind on a server isn't a server source.
+    expect(sourceOf('server', { ...l, workload_kind: 'Deployment', workload: 'x' })).toBeNull();
+  });
+
   it('the minute query sums node away and groups by the platform’s labels', () => {
     const q = minuteQuery('kubernetes');
     expect(q).toContain('sum by (namespace, workload_kind, workload, dst_kind, dst, dst_port)');
@@ -212,7 +230,7 @@ describe('the source, in each platform’s vocabulary', () => {
     );
     expect(q).toContain('increase(watchlog_flow_bytes_total{dst_kind=~"external|internet"}[2m])');
     expect(minuteQuery('server')).toContain(
-      'sum by (host, container, compose_project, compose_service, dst_kind, dst, dst_port)',
+      'sum by (host, container, compose_project, compose_service, workload_kind, workload, dst_kind, dst, dst_port)',
     );
   });
 });
