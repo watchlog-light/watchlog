@@ -72,32 +72,37 @@ describe('Cluster overview', () => {
 
   it('keeps the overview through a busy answer (503 demo-busy) and retries, with no error state (ADR-206)', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+    vi.spyOn(Math, 'random').mockReturnValue(0.5); // intervals without their spread
     try {
       const busy = {
         status: 503,
         body: { type: 'urn:watchlog:problem:demo-busy', title: 'Service Unavailable', status: 503 },
       };
+      // The first answer is the page's; every one after it is busy until the demo recovers.
       mockFetch({
         ...routes(OV),
         [`GET ${base}/overview?range=3600`]: [
           { status: 200, body: OV },
-          busy,
-          { status: 200, body: OV },
+          ...Array.from({ length: 20 }, () => busy),
         ],
       });
       const { wrapper: w } = await mountPage(OverviewPage, '/');
       const strip = () => w.find('[data-testid="strip-title"]').exists();
       expect(strip()).toBe(true);
-      await vi.advanceTimersByTimeAsync(18_000); // poll: 15 s ± 20 %
+      await vi.advanceTimersByTimeAsync(15_000); // the poll
+      expect(anyBusy.value).toBe(true);
       expect(strip()).toBe(true);
       expect(w.find('[data-testid="error-state"]').exists()).toBe(false);
-      expect(anyBusy.value).toBe(true);
-      await vi.advanceTimersByTimeAsync(2_400); // the first backoff
+
+      mockFetch(routes(OV)); // the demo answers again
+      await vi.advanceTimersByTimeAsync(40_000); // whichever backoff step it is on
       expect(anyBusy.value).toBe(false);
       expect(strip()).toBe(true);
+      expect(w.find('[data-testid="error-state"]').exists()).toBe(false);
       w.unmount();
     } finally {
       vi.useRealTimers();
+      vi.restoreAllMocks();
     }
   });
 
