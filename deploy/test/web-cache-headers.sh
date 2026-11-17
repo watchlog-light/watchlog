@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # The web image's cache headers (ADR-206), on the image's own Caddy with web/Caddyfile and a
 # stand-in /srv: hashed assets a year and immutable, a missing asset a plain 404 (never the
-# dashboard's HTML), index.html and the dashboard's routes revalidated (no-cache), in both
-# editions. Needs Docker; takes a few seconds. Usage: deploy/test/web-cache-headers.sh
+# dashboard's HTML), index.html and the dashboard's routes revalidated (no-cache), and
+# /install.sh sent to the backend (ADR-209), in both editions. Needs Docker; takes a few seconds. Usage: deploy/test/web-cache-headers.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -48,5 +48,7 @@ for edition in community cloud; do
   check "index.html" / 200 '^cache-control: no-cache$'
   check "a dashboard route" /nodes 200 '^cache-control: no-cache$'
   check "a root file" /favicon.svg 200 '^cache-control: no-cache$'
+  # The install script goes to the backend (unreachable here: 502), never index.html's 200.
+  check "the install script, from the backend" /install.sh 502 '!no-cache'
 done
 exit "$fail"
