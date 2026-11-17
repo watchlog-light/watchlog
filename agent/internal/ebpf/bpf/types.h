@@ -126,6 +126,17 @@ struct signal_struct {
 	struct mm_struct *oom_mm;
 } __attribute__((preserve_access_index));
 
+/* A pid in each namespace it is seen from: numbers[level] is its innermost one. */
+struct upid {
+	int nr;
+	void *ns;
+} __attribute__((preserve_access_index));
+
+struct pid {
+	unsigned int level;
+	struct upid numbers[1];
+} __attribute__((preserve_access_index));
+
 struct task_struct {
 	struct css_set *cgroups;
 	int pid;  /* pid_t */
@@ -133,6 +144,7 @@ struct task_struct {
 	int exit_code;
 	struct signal_struct *signal;
 	struct task_struct *real_parent;
+	struct pid *thread_pid;
 } __attribute__((preserve_access_index));
 
 #define AF_INET 2

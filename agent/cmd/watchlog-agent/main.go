@@ -115,6 +115,8 @@ func run(args []string, stdout io.Writer) int {
 		"node mode: record only this node's pods in the kernel (ADR-121); false records every task and drops the rest in user space")
 	containerFilter := fs.Bool("ebpf-container-filter", envOr("WATCHLOG_EBPF_CONTAINER_FILTER", "false") == "true",
 		"docker mode: record only this Docker daemon's containers in the kernel (ADR-170), e.g. a Docker host inside a container; false records every task and drops the rest in user space")
+	cgroupScope := fs.String("ebpf-cgroup-scope", os.Getenv("WATCHLOG_EBPF_CGROUP_SCOPE"),
+		"server mode: self records exits and connections of this agent's own cgroup namespace only (ADR-211: a server inside a container, such as the live demo's); empty records every task")
 	scopeFlag := fs.String("node-metrics-scope", envOr("WATCHLOG_NODE_METRICS_SCOPE", host.ScopeAuto),
 		"node metrics from the host's /proc (host), the node's own cgroup when the node is a container on a shared kernel (cgroup), or detected (auto)")
 	healthOutput := fs.Bool("health-output", envOr("WATCHLOG_HEALTH_OUTPUT", "true") != "false",
@@ -202,6 +204,13 @@ func run(args []string, stdout io.Writer) int {
 				slog.Info("process exits from eBPF are off: exit codes and OOM kills are unknown", "err", err)
 			} else {
 				defer ex.Close()
+				if *cgroupScope == "self" {
+					if root, err := selfCgroupRoot(paths.Sys); err != nil {
+						slog.Warn("eBPF cgroup scope: the agent's cgroup root is unknown; every exit is recorded", "err", err)
+					} else if err := ex.ScopeTo([]uint64{root}); err != nil {
+						slog.Warn("eBPF cgroup scope", "err", err)
+					}
+				}
 				feed = exits.NewFeed()
 				go func() {
 					err := ex.Read(func(e ebpf.ExitEvent) {
@@ -281,7 +290,12 @@ func run(args []string, stdout io.Writer) int {
 				netCollector.PodFilter = network.NewPodFilter(flows, func() []uint64 { return kubepodsRoots(reader) }, slog.Default())
 				netCollector.PodFilter.Refresh()
 			}
-			if mode == config.ModeDocker && *containerFilter && dockerCollector != nil {
+			if mode == config.ModeServer && *cgroupScope == "self" {
+				if root, err := selfCgroupRoot(paths.Sys); err == nil {
+					netCollector.PodFilter = network.NewContainerFilter(flows, func() []uint64 { return []uint64{root} }, ebpf.RootsMax, slog.Default())
+					netCollector.PodFilter.Refresh()
+				}
+			} else if mode == config.ModeDocker && *containerFilter && dockerCollector != nil {
 				ids := func() []uint64 { return network.DockerRoots(reader, dockerCollector.ContainerIDs(), network.Inode) }
 				netCollector.PodFilter = network.NewContainerFilter(flows, ids, ebpf.RootsMax, slog.Default())
 				netCollector.PodFilter.Refresh()
@@ -544,4 +558,15 @@ type noMaps struct{}
 func (noMaps) Last() *podmap.Map { return nil }
 func (noMaps) Fetch(context.Context) (*podmap.Map, error) {
 	return nil, fmt.Errorf("no pod map configured (WATCHLOG_PODMAP_URL)")
+}
+
+// selfCgroupRoot is the id of this agent's cgroup namespace root: the inode of the cgroup2
+// mount below the host's /sys (inside a container with its own cgroup namespace, the
+// container's cgroup; on a host, the root, which scopes nothing out).
+func selfCgroupRoot(sys string) (uint64, error) {
+	var st syscall.Stat_t
+	if err := syscall.Stat(filepath.Join(sys, "fs", "cgroup"), &st); err != nil {
+		return 0, err
+	}
+	return st.Ino, nil
 }

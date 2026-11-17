@@ -29,6 +29,8 @@ type procsExitEvent struct {
 //
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
+	procsMapExitFilter      = "exit_filter"
+	procsMapExitRoots       = "exit_roots"
 	procsMapExits           = "exits"
 	procsMapExitsDropped    = "exits_dropped"
 	procsProgOnProcessExit  = "on_process_exit"
@@ -84,6 +86,8 @@ type procsProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type procsMapSpecs struct {
+	ExitFilter   *ebpf.MapSpec `ebpf:"exit_filter"`
+	ExitRoots    *ebpf.MapSpec `ebpf:"exit_roots"`
 	Exits        *ebpf.MapSpec `ebpf:"exits"`
 	ExitsDropped *ebpf.MapSpec `ebpf:"exits_dropped"`
 }
@@ -115,12 +119,16 @@ func (o *procsObjects) Close() error {
 //
 // It can be passed to loadProcsObjects or ebpf.CollectionSpec.LoadAndAssign.
 type procsMaps struct {
+	ExitFilter   *ebpf.Map `ebpf:"exit_filter"`
+	ExitRoots    *ebpf.Map `ebpf:"exit_roots"`
 	Exits        *ebpf.Map `ebpf:"exits"`
 	ExitsDropped *ebpf.Map `ebpf:"exits_dropped"`
 }
 
 func (m *procsMaps) Close() error {
 	return _ProcsClose(
+		m.ExitFilter,
+		m.ExitRoots,
 		m.Exits,
 		m.ExitsDropped,
 	)

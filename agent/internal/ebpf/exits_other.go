@@ -20,3 +20,6 @@ func (e *Exits) Dropped() uint64 { return 0 }
 
 // Close does nothing off Linux.
 func (e *Exits) Close() {}
+
+// ScopeTo does nothing off Linux.
+func (e *Exits) ScopeTo([]uint64) error { return nil }

@@ -102,3 +102,22 @@ func cString(b []int8) string {
 	}
 	return string(out)
 }
+
+// ScopeTo records only the exits of tasks below these cgroups (their ids), and turns the
+// filter on (ADR-211: a server inside a container records none of the machine it runs on).
+// An empty list turns it off.
+func (e *Exits) ScopeTo(ids []uint64) error {
+	for i, id := range ids {
+		if i >= 16 {
+			break
+		}
+		if err := e.objs.ExitRoots.Put(id, uint8(1)); err != nil {
+			return err
+		}
+	}
+	var on uint32
+	if len(ids) > 0 {
+		on = 1
+	}
+	return e.objs.ExitFilter.Put(uint32(0), on)
+}
