@@ -3550,7 +3550,8 @@
       "dependency_down": "{target} is down",
       "connection_refused": "Nothing accepts connections on {target}",
       "dns_nxdomain": "A name it looks up doesn't exist",
-      "application_finding": "A problem on {name}"
+      "application_finding": "A problem on {name}",
+      "server_oom": "OOM-killed; it has no memory limit of its own"
     },
     "check": {
       "what": {
@@ -3717,7 +3718,8 @@
       "no_server_up": "{backend} has no server up: Traefik answers {answered} requests a second itself with 503.",
       "backend_no_server": "Has no pod or container serving Traefik's requests ({how}).",
       "group_no_members": "Consumer group {group} has no members: lag {lag}, growing by {perMin} a minute.",
-      "group_member_ended": "A member of the group until it ended: {how}."
+      "group_member_ended": "A member of the group until it ended: {how}.",
+      "executable_changed": "Its executable changed on disk: a new release."
     },
     "connector": {
       "calls": "calls",
@@ -5179,6 +5181,52 @@
       "search": "Filter by name",
       "containersPage": "Containers with their Compose projects"
     },
-    "exitCode": "exit {code}"
+    "exitCode": "exit {code}",
+    "cause": {
+      "title": "Why is {name} {symptom}?",
+      "symptom": {
+        "crash_looping": "restarting",
+        "failed": "failing",
+        "oom_killed": "being killed",
+        "restarting": "restarting",
+        "unhealthy": "unhealthy",
+        "exited": "stopped"
+      },
+      "label": "Probable cause",
+      "likely": "Likely · {what}",
+      "possible": "Possible · {what}",
+      "what": {
+        "release": "the release",
+        "memory_limit": "its memory limit",
+        "oom": "memory",
+        "dependency": "a dependency",
+        "cpu_limit": "its CPU limit"
+      },
+      "headline": {
+        "release": "{name} exits with code {code} since its executable changed at {at}: a new release, {minutes} min before the first crash.",
+        "release_nocode": "{name} fails since its executable changed at {at}: a new release, {minutes} min before the first crash.",
+        "memory_limit": "{name} is OOM-killed at its {limit} memory limit: {n} times in the last hour.",
+        "memory_near": "{name} uses {usage} of its {limit} memory limit.",
+        "oom": "{name} is OOM-killed and has no memory limit of its own: the server ran low on memory.",
+        "dependency": "{name}'s connections to {to} fail.",
+        "cpu_limit": "{name} is throttled {share}% of the time at its CPUQuota.",
+        "none": "Nothing WatchLog checked explains it yet."
+      },
+      "check": {
+        "changes_explains": "The change came first: release at {at}",
+        "changes_ok": "No release in the 30 minutes before",
+        "memory_explains": "Memory: OOM-killed in the last hour",
+        "memory_possible": "Memory: {usage} of {limit}",
+        "memory_ok": "Not memory: no OOM kill, {usage} of {limit}",
+        "memory_ok_nolimit": "Not memory: no OOM kill",
+        "dependencies_possible": "Its connections to {to} fail",
+        "dependencies_ok": "Not its dependencies: {to} answers normally",
+        "dependencies_not_run": "No connections seen in the last 15 minutes",
+        "cpu_possible": "Throttled {share}% of the time at its CPUQuota",
+        "cpu_ok": "Not CPU: not throttled"
+      },
+      "copy": "Copy as text",
+      "copied": "Copied"
+    }
   }
 }

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import type { ServerWorkloadDetail } from '@watchlog/api-types';
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { api } from '@/api/client';
@@ -104,6 +104,71 @@ const at = (unix: number) => {
   return `${((unix - tl.start) / (tl.end - tl.start)) * 100}%`;
 };
 const rate = (v: number) => (v >= 10 ? Math.round(v).toString() : v.toFixed(v >= 1 ? 1 : 2));
+// The probable-cause card (ADR-213; the canvas): the cause's headline and what was checked.
+const cause = computed(() => d.value?.cause);
+const showCause = computed(() => !!w.value?.problem && !!cause.value);
+const factVals = (f: Record<string, string | number | null>) => ({
+  ...f,
+  at: typeof f.releaseAt === 'number' ? clock(f.releaseAt) : '–',
+  usage: typeof f.usage === 'number' ? formatBytes(f.usage) : '–',
+  limit: typeof f.limit === 'number' ? formatBytes(f.limit) : '–',
+  to: f.to ?? '–',
+});
+const causeHeadline = computed(() => {
+  const c = cause.value;
+  const x = w.value;
+  if (!c || !x) return '';
+  const code = typeof c.symptom.exitCode === 'number' ? c.symptom.exitCode : null;
+  const base = { name: x.name, ...factVals(c.facts) };
+  switch (c.code) {
+    case 'release':
+      return t(
+        code !== null ? 'servers.cause.headline.release' : 'servers.cause.headline.release_nocode',
+        {
+          ...base,
+          code,
+          minutes: c.facts.minutesAfter ?? 0,
+        },
+      );
+    case 'memory_limit':
+      return Number(c.facts.oomKills ?? 0) > 0
+        ? t('servers.cause.headline.memory_limit', { ...base, n: c.facts.oomKills })
+        : t('servers.cause.headline.memory_near', base);
+    case 'oom':
+      return t('servers.cause.headline.oom', base);
+    case 'dependency':
+      return t('servers.cause.headline.dependency', base);
+    case 'cpu_limit':
+      return t('servers.cause.headline.cpu_limit', base);
+    default:
+      return t('servers.cause.headline.none', base);
+  }
+});
+const causeChecks = computed(() =>
+  (cause.value?.checks ?? []).map((c) => {
+    let key = `servers.cause.check.${c.topic}_${c.result}`;
+    if (c.topic === 'memory' && c.result === 'ok' && typeof c.facts.limit !== 'number')
+      key = 'servers.cause.check.memory_ok_nolimit';
+    return {
+      key,
+      ok: c.result === 'ok',
+      explains: c.result === 'explains',
+      vals: factVals(c.facts),
+    };
+  }),
+);
+const copied = ref(false);
+async function copyCause() {
+  const lines = [causeHeadline.value, ...causeChecks.value.map((c) => `- ${t(c.key, c.vals)}`)];
+  try {
+    await navigator.clipboard.writeText(lines.join('\n'));
+    copied.value = true;
+    setTimeout(() => (copied.value = false), 2000);
+  } catch {
+    // The clipboard can be refused (an insecure origin): nothing to do.
+  }
+}
+
 const rulesLink = computed(() =>
   fleetStore.fleet
     ? { name: 'cluster-settings', params: { id: fleetStore.fleet.id }, hash: '#process-rules' }
@@ -191,6 +256,67 @@ onMounted(() => {
         >
       </div>
     </header>
+
+    <section
+      v-if="showCause && w && cause"
+      class="rounded-card border border-border bg-surface-1 px-5 py-4"
+      data-testid="cause-card"
+    >
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 class="text-11 tracking-[0.08em] text-text-muted uppercase">
+          {{
+            $t('servers.cause.title', {
+              name: w.name,
+              symptom: $t(`servers.cause.symptom.${w.problem!.kind}`),
+            })
+          }}
+        </h3>
+        <span class="text-11 tracking-[0.08em] text-text-subtle uppercase">{{
+          $t('servers.cause.label')
+        }}</span>
+      </div>
+      <div
+        class="mt-3 border-l-2 pl-4"
+        :class="cause.state === 'likely' ? 'border-primary' : 'border-warning'"
+      >
+        <p
+          v-if="cause.code"
+          class="text-11 tracking-[0.08em] uppercase"
+          :class="cause.state === 'likely' ? 'text-primary' : 'text-warning'"
+        >
+          {{
+            $t(`servers.cause.${cause.state === 'likely' ? 'likely' : 'possible'}`, {
+              what: $t(`servers.cause.what.${cause.code}`),
+            })
+          }}
+        </p>
+        <p class="mt-1 text-20 font-semibold text-text" data-testid="cause-headline">
+          {{ causeHeadline }}
+        </p>
+      </div>
+      <ul class="mt-4 grid gap-2 md:grid-cols-3">
+        <li
+          v-for="c in causeChecks"
+          :key="c.key"
+          class="rounded-control bg-surface-2 px-3 py-2 text-13"
+          :class="c.explains ? 'text-text' : 'text-text-muted'"
+        >
+          <span :class="c.explains ? 'text-primary' : c.ok ? 'text-ok' : 'text-warning'">{{
+            c.explains ? '●' : c.ok ? '✓' : '!'
+          }}</span>
+          {{ $t(c.key, c.vals) }}
+        </li>
+      </ul>
+      <div class="mt-4 flex gap-2">
+        <button
+          type="button"
+          class="rounded-control border border-border px-3 py-1.5 text-13 text-text hover:bg-surface-2 max-lg:min-h-11"
+          @click="copyCause"
+        >
+          {{ copied ? $t('servers.cause.copied') : $t('servers.cause.copy') }}
+        </button>
+      </div>
+    </section>
 
     <dl v-if="tiles.length" class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
       <div

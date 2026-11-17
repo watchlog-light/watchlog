@@ -116,7 +116,7 @@ export function objectLink(o: CauseObject, clusterId: string): RouteLocationRaw 
     case 'node':
       return { name: 'node', params: { name: o.ref }, query: cluster };
     case 'host':
-      return { name: 'docker-host', params: { host: o.ref }, query: cluster };
+      return { name: 'server', params: { server: o.ref }, query: cluster };
     case 'edge':
       return { name: 'service-map', query: { ...cluster, edge: o.ref } };
     case 'application':
@@ -126,6 +126,16 @@ export function objectLink(o: CauseObject, clusterId: string): RouteLocationRaw 
     case 'change':
       // Kind/namespace/name, Node/name; Container/host/name, Compose/host/project.
       if (parts[0] === 'Node') return { name: 'node', params: { name: parts[1] }, query: cluster };
+      // A server's service or process group (ADR-213): Service/host/unit, ProcessGroup/host/group.
+      if ((parts[0] === 'Service' || parts[0] === 'ProcessGroup') && parts.length >= 3)
+        return {
+          name: 'server-workload',
+          params: {
+            server: parts[1],
+            workload: `${parts[0] === 'Service' ? 'service' : 'process'}:${parts.slice(2).join('/')}`,
+          },
+          query: cluster,
+        };
       if (parts[0] === 'Container' && parts.length === 3)
         return {
           name: 'docker-container',
