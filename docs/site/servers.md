@@ -59,7 +59,8 @@ enforcing).
   drop-in, `podman.socket.d/watchlog.conf`, removed on uninstall), with the same warning and
   the same `--no-docker`.
 - **What never leaves the server:** command lines, arguments, environment values, user names
-  and process ids. A process group is sent as its derived name only, with secrets redacted.
+  and process ids. A process group is sent as its derived name only, with secrets redacted,
+  and the base name of the executable it runs (`node`, never a path).
 - The token is kept in `/etc/watchlog/agent.env`, mode 0640, owned by root and the `watchlog`
   group.
 
@@ -100,6 +101,30 @@ arguments, and names the group; `$1`…`$9` are the pattern's captures:
 Rules come first, in order. **Try a process** previews a command line against them in the
 browser; the agents evaluate them on the server, so command lines still never leave it. The
 agents pick up a change within a minute.
+
+## The Workloads page
+
+The fleet's **Workloads** page reads like the Kubernetes one. It is grouped by server, each
+saying how many workloads need attention. Under a server, every service has its process groups
+nested under it; apps that pm2 or supervisord started outside systemd sit under pm2's or
+supervisord's own row; containers sit under their Compose project. Each row shows its status
+(Failing, Degraded or healthy), instances (running out of expected, where systemd knows), its
+restarts in 24 hours, CPU and memory against `CPUQuota` and `MemoryMax`, a CPU trend, what it
+runs (the executable's name, such as `node` or `php-fpm8.3`, or a container's image) and when
+it last changed (a new executable, or the service restarted). Filter by source, by Failing or
+by name.
+
+**Hide system** is on by default and says how many workloads it hid: the OS's own (systemd,
+ssh, cron, journald, containerd and its shims, shells, sudo, apt and dpkg, needrestart,
+unattended-upgrades) and WatchLog's own agent and collector. WatchLog knows its own by their
+units and binaries (`watchlog-agent.service` running `/usr/bin/watchlog-agent`, and the same
+for `watchlog-integrations`) or, with `docker run`, by the image, never by a process's name:
+another program called `watchlog-agent` stays visible. A process group whose processes have
+all ended leaves the list after 10 minutes; its history stays, and the server's events keep it.
+
+A workload's page has its charts over the top bar's time range: CPU and memory against its
+limits, instances, threads and open files (a process group) or tasks and disk I/O (a
+service), and its exits, starts, restarts and OOM kills with its releases marked.
 
 ## Crashes, exits and OOM kills
 
