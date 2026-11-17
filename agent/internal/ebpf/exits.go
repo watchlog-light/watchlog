@@ -30,7 +30,7 @@ func StartExits() (*Exits, error) {
 	}
 	l, err := link.AttachTracing(link.TracingOptions{Program: e.objs.OnProcessExit})
 	if err != nil {
-		e.objs.Close()
+		_ = e.objs.Close()
 		return nil, explain(fmt.Errorf("attach on_process_exit: %w", err))
 	}
 	e.link = l
@@ -82,7 +82,7 @@ func (e *Exits) Close() {
 	if e.link != nil {
 		_ = e.link.Close()
 	}
-	e.objs.Close()
+	_ = e.objs.Close()
 }
 
 func decodeExit(raw procsExitEvent) ExitEvent {
@@ -98,7 +98,7 @@ func cString(b []int8) string {
 		if c == 0 {
 			break
 		}
-		out = append(out, byte(c))
+		out = append(out, byte(c)) //nolint:gosec // a C char's bits, not a number
 	}
 	return string(out)
 }
