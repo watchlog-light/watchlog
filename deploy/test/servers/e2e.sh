@@ -149,7 +149,8 @@ def workloads():
     need = {"service:orders.service", "process:api", "container:redis"}
     return ids if need <= ids and any(i.startswith("process:pool ") for i in ids) else None
 ids = wait(workloads, 120)
-check("workloads: a service, a pm2 app, a PHP-FPM pool and a container", ids is not None, call("GET", base + "/workloads"))
+seen = sorted(x.get("id") for x in call("GET", base + "/workloads").get("workloads", []))
+check("workloads: a service, a pm2 app, a PHP-FPM pool and a container", ids is not None, seen)
 
 print("== a release, then a real crash loop", flush=True)
 vm_root("cp /opt/wl-apps/orders /opt/wl-apps/orders.new && mv -f /opt/wl-apps/orders.new /opt/wl-apps/orders && systemctl restart orders")

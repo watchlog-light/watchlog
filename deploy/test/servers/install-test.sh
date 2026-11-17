@@ -73,6 +73,8 @@ check "services: orders' OOM kill counted from eBPF" "$(grep 'watchlog_service_o
 check "process groups: pm2's api and mailer, by pm2's pid files" "$(grep -cE 'watchlog_process_group_instances\{group="(api|mailer)",unit="pm2-' <<<"$once")" "2"
 check "process groups: PHP-FPM's pool www" "$(grep -c 'watchlog_process_group_instances{group="pool www"' <<<"$once")" "1"
 check "process groups: the jar started by hand" "$(grep -c 'watchlog_process_group_instances{group="billing.jar",unit=""' <<<"$once")" "1"
+# The test stacks' Redis container, through Docker's API or Podman's (the script's drop-in).
+check "containers: redis, through Docker or Podman" "$(grep -c 'watchlog_container_state{container="redis"' <<<"$once")" "1"
 check "listening ports: nginx on 80" "$(grep -c 'watchlog_listen_info{source="service",workload="nginx.service",proto="tcp",port="80"' <<<"$once")" "1"
 check "no command line or pid in any label" "$(grep -cE '/opt/wl-apps|--workers|pid=' <<<"$once")" "0"
 echo "   series in all: $(grep -c '^watchlog_' <<<"$once"), services: $(grep -c '^watchlog_service_' <<<"$once"), process groups: $(grep -c '^watchlog_process_group_' <<<"$once")"
@@ -86,7 +88,7 @@ in_vm "WATCHLOG_INSTALL_FROM=$home/wl-dist sh $home/wl-dist/install.sh --upgrade
 check "upgrade: the configuration kept" "$(in_vm 'grep -c testtokentesttoken /etc/watchlog/agent.env')" "1"
 check "upgrade: running again" "$(in_vm 'systemctl is-active watchlog-agent')" "active"
 in_vm "sh $home/wl-dist/install.sh --uninstall" >/dev/null 2>&1
-check "uninstall: nothing left" "$(in_vm 'ls /usr/bin/watchlog-* /etc/watchlog /etc/systemd/system/watchlog-* 2>/dev/null | wc -l; id watchlog >/dev/null 2>&1 && echo user-left')" "0"
+check "uninstall: nothing left" "$(in_vm 'ls /usr/bin/watchlog-* /etc/watchlog /etc/systemd/system/watchlog-* /etc/systemd/system/podman.socket.d/watchlog.conf 2>/dev/null | wc -l; id watchlog >/dev/null 2>&1 && echo user-left')" "0"
 
 echo "== the package"
 if in_vm 'command -v dpkg >/dev/null'; then
