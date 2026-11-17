@@ -473,3 +473,106 @@ describe('metric rules: trigger and resolve', () => {
     expect((await alerts()).map((a) => a.state)).toEqual(['firing']);
   });
 });
+
+describe('server rules (ADR-208): trigger and resolve', () => {
+  const unit = { host: 'app-1', unit: 'orders.service' };
+  const api = { host: 'app-1', unit: 'pm2-deploy.service', group: 'api' };
+
+  it('server.unit.crashloop: restarts every minute for 6 min fire, then quiet resolves', async () => {
+    await setup('server.unit.crashloop', 'server');
+    // systemd restarts it once a minute from minute 5 to 11 (NRestarts), with exit 1 each time.
+    const looping = (t: number) => (t >= A + 5 * MIN && t < A + 11 * MIN ? 1 / 60 : 0);
+    await write('watchlog_service_restarts_total', unit, (t) => Math.floor(counter(looping)(t)));
+    await write('watchlog_service_exits_total', { ...unit, exit: 'error' }, (t) =>
+      Math.floor(counter(looping)(t)),
+    );
+    // A healthy unit next to it.
+    await write(
+      'watchlog_service_restarts_total',
+      { host: 'app-1', unit: 'nginx.service' },
+      () => 0,
+    );
+    await evaluate(3, 6);
+    expect(await alerts()).toEqual([]);
+    await evaluate(9, 10);
+    expect(await alerts()).toMatchObject([
+      {
+        state: 'firing',
+        fingerprint: 'unit:app-1/orders.service',
+        severity: 'critical',
+        labels: { node: 'app-1', unit: 'orders.service' },
+      },
+    ]);
+    await evaluate(23, 25);
+    expect((await alerts()).map((a) => a.state)).toEqual(['resolved']);
+  });
+
+  it('server.process.crashloop: a pm2 app exiting with errors fires per group', async () => {
+    await setup('server.process.crashloop', 'server');
+    await write('watchlog_process_group_exits_total', { ...api, exit: 'error' }, (t) =>
+      Math.floor(counter(() => (t > A + 5 * MIN ? 1 / 30 : 0))(t)),
+    );
+    await write(
+      'watchlog_process_group_exits_total',
+      { ...api, group: 'worker', exit: 'ok' },
+      () => 0,
+    );
+    await evaluate(9, 10);
+    expect(await alerts()).toMatchObject([
+      {
+        state: 'firing',
+        fingerprint: 'group:app-1/api',
+        labels: { node: 'app-1', group: 'api', unit: 'pm2-deploy.service' },
+      },
+    ]);
+  });
+
+  it('server.unit.failed and server.unit.oom fire from the state and the OOM counter', async () => {
+    await setup('server.unit.failed', 'server');
+    await write(
+      'watchlog_service_state',
+      { ...unit, unit: 'billing.service', state: 'failed', sub: 'failed' },
+      (t) => (t > A + 5 * MIN ? 1 : 0),
+    );
+    await write('watchlog_service_state', { ...unit, state: 'active', sub: 'running' }, () => 1);
+    await evaluate(7, 9);
+    expect(await alerts()).toMatchObject([
+      { state: 'firing', fingerprint: 'unit:app-1/billing.service', severity: 'critical' },
+    ]);
+    await worker.stop();
+    await closeTestContext(ctx);
+    ctx = await createTestContext();
+    await setup('server.unit.oom', 'server');
+    await write('watchlog_service_oom_kills_total', unit, (t) => (t > A + 5 * MIN ? 1 : 0));
+    await evaluate(7, 8);
+    expect(await alerts()).toMatchObject([
+      { state: 'firing', fingerprint: 'unit:app-1/orders.service' },
+    ]);
+    await evaluate(18, 19);
+    expect((await alerts()).map((a) => a.state)).toEqual(['resolved']);
+  });
+
+  it('server.process.gone: a group that ran for long and has no process fires; a short job never does', async () => {
+    await setup('server.process.gone', 'server');
+    // sync.py ran 20 minutes, then every instance exited (the agent keeps it at 0).
+    await write(
+      'watchlog_process_group_instances',
+      { host: 'app-1', unit: '', group: 'sync.py', by: 'script' },
+      (t) => (t < A + 20 * MIN ? 1 : 0),
+    );
+    // A backup job that ran 3 minutes.
+    await write(
+      'watchlog_process_group_instances',
+      { host: 'app-1', unit: '', group: 'backup.sh', by: 'script' },
+      (t) => (t > A + 15 * MIN && t < A + 18 * MIN ? 1 : 0),
+    );
+    await evaluate(21, 23);
+    expect(await alerts()).toMatchObject([
+      {
+        state: 'firing',
+        fingerprint: 'group:app-1/sync.py',
+        labels: { node: 'app-1', group: 'sync.py' },
+      },
+    ]);
+  });
+});
