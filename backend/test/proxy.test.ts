@@ -2,6 +2,7 @@
 // What a proxy in front may tell the backend (ADR-123): the visitor's address for rate
 // limits, and https for the session cookie's Secure attribute, both only from a trusted
 // proxy (by the socket's peer address).
+import { DEMO_SESSIONS_PER_MINUTE } from '../src/modules/demo/constants.js';
 import type { FastifyRequest } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config.js';
@@ -83,7 +84,7 @@ describe('client IP header', () => {
 
   it('gives two visitors behind a trusted proxy separate rate-limit buckets', async () => {
     ctx = await createTestContext({ demoMode: true, clientIpHeader: 'X-Real-IP' });
-    // Starting a demo session: 20 a minute per visitor.
+    // Starting a demo session: DEMO_SESSIONS_PER_MINUTE a minute per visitor.
     const enter = (peer: string, visitor: string) =>
       ctx!.app.inject({
         method: 'POST',
@@ -91,14 +92,14 @@ describe('client IP header', () => {
         remoteAddress: peer,
         headers: { 'x-real-ip': visitor },
       });
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < DEMO_SESSIONS_PER_MINUTE; i++) {
       expect((await enter(TRUSTED_PEER, '203.0.113.1')).statusCode).toBe(200);
       expect((await enter(TRUSTED_PEER, '203.0.113.2')).statusCode).toBe(200);
     }
     expect((await enter(TRUSTED_PEER, '203.0.113.1')).statusCode).toBe(429);
     expect((await enter(TRUSTED_PEER, '203.0.113.3')).statusCode).toBe(200);
     // From an untrusted peer, changing the header does not buy a new bucket.
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < DEMO_SESSIONS_PER_MINUTE; i++) {
       expect((await enter(UNTRUSTED_PEER, `192.0.2.${i}`)).statusCode).toBe(200);
     }
     expect((await enter(UNTRUSTED_PEER, '192.0.2.200')).statusCode).toBe(429);
