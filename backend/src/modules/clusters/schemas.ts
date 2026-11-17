@@ -76,7 +76,14 @@ export const IssuedTokenSchema = Type.Object({
 });
 
 export const InstallSchema = Type.Object({
-  dockerRun: Type.Optional(Type.String({ description: 'docker run command for each Docker host' })),
+  dockerRun: Type.Optional(
+    Type.String({ description: 'docker run command for each server, when not installing on it' }),
+  ),
+  script: Type.Optional(
+    Type.String({ description: "A server's one-command install: the install script (ADR-209)" }),
+  ),
+  deb: Type.Optional(Type.String({ description: 'The deb install, on a release build' })),
+  rpm: Type.Optional(Type.String({ description: 'The rpm install, on a release build' })),
   helm: Type.Optional(
     Type.String({ description: 'helm install command for a Kubernetes cluster (ADR-059)' }),
   ),

@@ -57,12 +57,14 @@ export function dockerRunCommand({
 }: InstallOptions): string {
   return [
     `docker run -d --name ${shellQuote(name)} --restart unless-stopped \\`,
-    '  --pid host \\',
-    // eBPF network flows (ADR-105): uid 0 with only BPF and PERFMON; group 65532 owns
+    // A server's services and processes (ADR-209): the host's pids and cgroups.
+    '  --pid host --cgroupns host \\',
+    // uid 0 with only the server agent's capabilities (ADR-105, ADR-209); group 65532 owns
     // the data volume; root owns the Docker socket.
-    '  --user 0:65532 --cap-drop ALL --cap-add BPF --cap-add PERFMON \\',
-    '  --security-opt no-new-privileges \\',
+    '  --user 0:65532 --cap-drop ALL --cap-add BPF --cap-add PERFMON --cap-add SYS_PTRACE \\',
+    '  --cap-add DAC_READ_SEARCH --cap-add SYS_RESOURCE --security-opt no-new-privileges \\',
     '  -v /var/run/docker.sock:/var/run/docker.sock:ro \\',
+    '  -v /run/dbus/system_bus_socket:/run/dbus/system_bus_socket:ro \\',
     '  -v /proc:/host/proc:ro -v /sys:/host/sys:ro -v /:/host/root:ro,rslave \\',
     // A new name since Phase 4 (ADR-107): volumes of earlier installs are 0755 and owned
     // by uid 65532, which uid 0 without DAC_OVERRIDE cannot write.
@@ -71,8 +73,44 @@ export function dockerRunCommand({
       ? '  -e WATCHLOG_TOKEN \\'
       : `  -e WATCHLOG_TOKEN=${shellQuote(token)} \\`,
     `  -e WATCHLOG_ENDPOINT=${shellQuote(endpoint)} \\`,
-    `  ${shellQuote(image)} --mode=docker`,
+    `  ${shellQuote(image)} --mode=server`,
   ].join('\n');
+}
+
+/** Where releases publish the server packages (.github/workflows/release.yml, ADR-209). */
+const RELEASES = 'https://github.com/watchlog-light/watchlog/releases/download';
+
+/**
+ * A Server fleet's installs (ADR-209): the script this backend serves (its URL and version
+ * filled in), and on a release build the deb and rpm of the same version. The token goes in
+ * the command, as for docker run; the script and the packages write it to a 0640 file.
+ */
+export function serverInstallCommands({
+  token,
+  endpoint,
+  version,
+}: {
+  token: string;
+  endpoint: string;
+  version: string;
+}): { script: string; deb?: string; rpm?: string } {
+  const t = shellQuote(token);
+  const url = shellQuote(endpoint);
+  const out: { script: string; deb?: string; rpm?: string } = {
+    script: `curl -fsSL ${shellQuote(`${endpoint}/install.sh`)} | sudo sh -s -- --token ${t}`,
+  };
+  if (!RELEASE.test(version)) return out;
+  const v = version;
+  out.deb = [
+    `v=${v}; a=$(dpkg --print-architecture)`,
+    `curl -fsSLO "${RELEASES}/v$v/watchlog-agent_\${v}_$a.deb"`,
+    `sudo WATCHLOG_TOKEN=${t} WATCHLOG_URL=${url} apt-get install -y "./watchlog-agent_\${v}_$a.deb"`,
+  ].join('\n');
+  out.rpm = [
+    `v=${v}; a=$(uname -m)`,
+    `sudo WATCHLOG_TOKEN=${t} WATCHLOG_URL=${url} dnf install -y "${RELEASES}/v$v/watchlog-agent-$v-1.$a.rpm"`,
+  ].join('\n');
+  return out;
 }
 
 /**

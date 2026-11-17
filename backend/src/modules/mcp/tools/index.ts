@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The MCP tools (ADR-128; the services of v0.3, ADR-135; probable cause, ADR-148; egress, ADR-189; What changed, ADR-202), in the order clients list them: the usual path of an
 // investigation, from the clusters to one object's facts.
+import { getServerTool, listWorkloadsTool } from './servers.js';
 import { explainAlertTool, listAlertsTool } from './alerts.js';
 import { getApplicationTool, listApplicationsTool } from './applications.js';
 import { explainProblemTool } from './causes.js';
@@ -31,6 +32,8 @@ export const TOOLS: ToolDef[] = [
   getContainerLogsTool,
   getRightSizingTool,
   getNodeTool,
+  getServerTool,
+  listWorkloadsTool,
   listApplicationsTool,
   getApplicationTool,
   getServiceMapTool,

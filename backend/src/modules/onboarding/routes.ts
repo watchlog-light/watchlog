@@ -45,6 +45,9 @@ export const OnboardingStatusSchema = Type.Object({
       since: Nullable(Type.String({ format: 'date-time' })),
       nodes: Count,
       containers: Count,
+      /** metrics, Server fleets: systemd services and process groups found (ADR-208). */
+      units: Count,
+      processGroups: Count,
       enabled: Count,
       agents: Count,
       node: Type.Optional(Nullable(Type.String())),

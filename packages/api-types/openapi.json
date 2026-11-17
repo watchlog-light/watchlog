@@ -1334,7 +1334,19 @@
                       "properties": {
                         "dockerRun": {
                           "type": "string",
-                          "description": "docker run command for each Docker host"
+                          "description": "docker run command for each server, when not installing on it"
+                        },
+                        "script": {
+                          "type": "string",
+                          "description": "A server's one-command install: the install script (ADR-209)"
+                        },
+                        "deb": {
+                          "type": "string",
+                          "description": "The deb install, on a release build"
+                        },
+                        "rpm": {
+                          "type": "string",
+                          "description": "The rpm install, on a release build"
                         },
                         "helm": {
                           "type": "string",
@@ -2366,7 +2378,19 @@
                       "properties": {
                         "dockerRun": {
                           "type": "string",
-                          "description": "docker run command for each Docker host"
+                          "description": "docker run command for each server, when not installing on it"
+                        },
+                        "script": {
+                          "type": "string",
+                          "description": "A server's one-command install: the install script (ADR-209)"
+                        },
+                        "deb": {
+                          "type": "string",
+                          "description": "The deb install, on a release build"
+                        },
+                        "rpm": {
+                          "type": "string",
+                          "description": "The rpm install, on a release build"
                         },
                         "helm": {
                           "type": "string",
@@ -17585,6 +17609,14 @@
                             "minimum": 0
                           },
                           "containers": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "units": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "processGroups": {
                             "type": "integer",
                             "minimum": 0
                           },

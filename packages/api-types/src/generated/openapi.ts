@@ -646,8 +646,14 @@ export interface paths {
                 createdAt: string;
               };
               install: {
-                /** @description docker run command for each Docker host */
+                /** @description docker run command for each server, when not installing on it */
                 dockerRun?: string;
+                /** @description A server's one-command install: the install script (ADR-209) */
+                script?: string;
+                /** @description The deb install, on a release build */
+                deb?: string;
+                /** @description The rpm install, on a release build */
+                rpm?: string;
                 /** @description helm install command for a Kubernetes cluster (ADR-059) */
                 helm?: string;
                 /** @description Cloud: kubectl apply of the manifest behind an install code valid 24 hours (ADR-176) */
@@ -1104,8 +1110,14 @@ export interface paths {
                 createdAt: string;
               };
               install: {
-                /** @description docker run command for each Docker host */
+                /** @description docker run command for each server, when not installing on it */
                 dockerRun?: string;
+                /** @description A server's one-command install: the install script (ADR-209) */
+                script?: string;
+                /** @description The deb install, on a release build */
+                deb?: string;
+                /** @description The rpm install, on a release build */
+                rpm?: string;
                 /** @description helm install command for a Kubernetes cluster (ADR-059) */
                 helm?: string;
                 /** @description Cloud: kubectl apply of the manifest behind an install code valid 24 hours (ADR-176) */
@@ -6058,6 +6070,8 @@ export interface paths {
                 since: string | null;
                 nodes?: number;
                 containers?: number;
+                units?: number;
+                processGroups?: number;
                 enabled?: number;
                 agents?: number;
                 node?: string | null;

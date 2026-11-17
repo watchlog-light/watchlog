@@ -22,6 +22,9 @@ export interface OnboardingStep {
   nodes?: number;
   /** metrics: containers with series. */
   containers?: number;
+  /** metrics, Server fleets: systemd services and process groups found (ADR-208). */
+  units?: number;
+  processGroups?: number;
   /** ebpf: agents with eBPF on, of all node or host agents. */
   enabled?: number;
   agents?: number;
@@ -114,11 +117,23 @@ export async function onboardingStatus(
   // Metrics: asked only once an agent reports, so a waiting wizard costs no queries.
   let metricNodes = 0;
   let containers = 0;
+  let units = 0;
+  let processGroups = 0;
   if (rows.length && deps.victoria) {
     try {
-      [metricNodes, containers] = await Promise.all([
+      [metricNodes, containers, units, processGroups] = await Promise.all([
         count(deps.victoria, cluster.scope, 'watchlog_node_cpu_count'),
         count(deps.victoria, cluster.scope, 'watchlog_container_memory_working_set_bytes'),
+        kind === 'server'
+          ? count(deps.victoria, cluster.scope, 'count by (host, unit) (watchlog_service_state)')
+          : Promise.resolve(0),
+        kind === 'server'
+          ? count(
+              deps.victoria,
+              cluster.scope,
+              'count by (host, group) (watchlog_process_group_instances{group!="other processes"})',
+            )
+          : Promise.resolve(0),
       ]);
     } catch {
       // VictoriaMetrics unreachable: the step keeps waiting; the next poll asks again.
@@ -131,6 +146,7 @@ export async function onboardingStatus(
     since: null,
     nodes: metricNodes,
     containers,
+    ...(kind === 'server' ? { units, processGroups } : {}),
   });
 
   // eBPF: each node or host agent says at start whether its programs loaded (ADR-107).

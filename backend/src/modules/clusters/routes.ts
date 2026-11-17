@@ -11,6 +11,7 @@ import { ProblemSchema } from '../auth/schemas.js';
 import {
   dockerComposeSnippet,
   dockerRunCommand,
+  serverInstallCommands,
   helmInstallCommand,
   installTarget,
   kubectlApplyCommand,
@@ -94,6 +95,7 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
                 : {}),
             }
           : {
+              ...serverInstallCommands({ token: token.value, endpoint, version }),
               dockerRun: dockerRunCommand({ token: token.value, endpoint, image }),
               ...(cloud
                 ? { compose: dockerComposeSnippet({ token: token.value, endpoint, image }) }
