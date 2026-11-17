@@ -143,6 +143,16 @@ export function objectLink(o: WhatChangedObject, clusterId: string): RouteLocati
   const cluster = { cluster: clusterId };
   switch (o.kind) {
     case 'workload':
+      // A server's service or process group (ADR-208): its page on the server.
+      if (o.host && (o.workloadKind === 'Service' || o.workloadKind === 'ProcessGroup'))
+        return {
+          name: 'server-workload',
+          params: {
+            server: o.host,
+            workload: `${o.workloadKind === 'Service' ? 'service' : 'process'}:${o.name}`,
+          },
+          query: cluster,
+        };
       if (!o.namespace || !o.name) return undefined;
       return {
         name: 'workloads',
@@ -166,7 +176,7 @@ export function objectLink(o: WhatChangedObject, clusterId: string): RouteLocati
         };
       return undefined;
     case 'host':
-      return o.name ? { name: 'docker-host', params: { host: o.name }, query: cluster } : undefined;
+      return o.name ? { name: 'server', params: { server: o.name }, query: cluster } : undefined;
     default:
       return o.id ? { name: 'application', params: { id: o.id } } : undefined;
   }
@@ -186,6 +196,10 @@ const KNOWN_METRICS = new Set([
   'container.cpu.usage',
   'container.memory.working_set',
   'container.network.bytes',
+  'unit.cpu.usage',
+  'unit.memory.working_set',
+  'process.cpu.usage',
+  'process.memory.rss',
   'workload.http.requests.rate',
   'workload.http.errors.ratio',
   'workload.http.latency.p95',

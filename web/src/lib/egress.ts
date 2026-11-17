@@ -56,6 +56,8 @@ export function egressPath(
 
 /** A source in its platform's words: "shop / orders", "storefront · api", "cron on h2". */
 export function sourceName(s: EgressSource): string {
+  // A server's service or process group (ADR-212): "orders.service on app-1".
+  if (s.workload !== undefined && s.host !== undefined) return `${s.workload} (${s.host})`;
   if (s.workload !== undefined) return `${s.namespace} / ${s.workload}`;
   if (s.composeService !== undefined) return `${s.composeProject} · ${s.composeService}`;
   return `${s.container} (${s.host})`;
@@ -63,6 +65,16 @@ export function sourceName(s: EgressSource): string {
 
 /** Where a source's own page is: the workload's pods, the Compose service, the container. */
 export function sourceLink(s: EgressSource, clusterId: string): RouteLocationRaw {
+  if (s.workload !== undefined && s.host !== undefined) {
+    return {
+      name: 'server-workload',
+      params: {
+        server: s.host,
+        workload: `${s.workloadKind === 'Service' ? 'service' : 'process'}:${s.workload}`,
+      },
+      query: { cluster: clusterId },
+    };
+  }
   if (s.workload !== undefined) {
     return {
       name: 'workloads',

@@ -4807,7 +4807,11 @@
       "workload_http_latency_p95": "p95 response time",
       "edge_connections_rate": "connections to {peer}",
       "edge_http_requests_rate": "requests to {peer}",
-      "edge_http_latency_p95": "p95 of calls to {peer}"
+      "edge_http_latency_p95": "p95 of calls to {peer}",
+      "unit_cpu_usage": "CPU",
+      "unit_memory_working_set": "memory",
+      "process_cpu_usage": "CPU",
+      "process_memory_rss": "memory"
     },
     "learning": {
       "until": "Learning {cluster}'s usual week until {date}.",
