@@ -16,7 +16,7 @@
   "cluster": {
     "id": "00000000-0000-4000-8000-00000000000b",
     "name": "fleet",
-    "kind": "docker"
+    "kind": "server"
   },
   "state": "likely",
   "checkedAt": "2026-11-10T20:35:37.653Z",

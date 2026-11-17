@@ -158,7 +158,7 @@ describe('scenario 16: staff opens a support session', () => {
     const me = await asSupport(cookie!.value, 'GET', '/api/v1/me');
     expect(me.json().user).toMatchObject({ role: 'viewer', name: 'WatchLog staff' });
     for (const [method, url, body] of [
-      ['POST', '/api/v1/clusters', { name: 'x', kind: 'docker' }],
+      ['POST', '/api/v1/clusters', { name: 'x', kind: 'server' }],
       ['PATCH', `/api/v1/clusters/${A.k8s.id}`, { name: 'renamed' }],
       ['DELETE', `/api/v1/alert-channels/${A.channelId}`, undefined],
       ['POST', '/api/v1/api-tokens', { name: 'staff' }],

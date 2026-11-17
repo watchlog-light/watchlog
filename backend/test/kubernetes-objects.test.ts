@@ -58,7 +58,7 @@ describe('Kubernetes objects ingest', () => {
       method: 'POST',
       url: '/api/v1/clusters',
       cookies: { wl_session: cookie },
-      payload: { name: 'kind', kind: 'docker' },
+      payload: { name: 'kind', kind: 'server' },
     });
     token = res.json().token.value;
     clusterId = res.json().cluster.id;

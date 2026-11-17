@@ -48,7 +48,7 @@ afterAll(async () => {
   );
 });
 
-async function cluster(name: string, kind: 'kubernetes' | 'docker') {
+async function cluster(name: string, kind: 'kubernetes' | 'server') {
   const res = await api('POST', '/clusters', { name, kind });
   return { id: res.json().cluster.id as string, token: res.json().token.value as string };
 }
@@ -494,7 +494,7 @@ describe('the PostgreSQL page', () => {
   });
 
   it('on Docker: the host filesystem is the capacity, and a refused password reads "can\'t log in"', async () => {
-    const fleet = await cluster('docker-01', 'docker');
+    const fleet = await cluster('docker-01', 'server');
     const id = (
       await api('POST', '/applications', {
         clusterId: fleet.id,
@@ -579,7 +579,7 @@ describe('the PostgreSQL page', () => {
   it('an idle server (nobody but WatchLog connected) has 0 connections, not none', async () => {
     // The collector sends the per-state backends only for states that have one, and leaves
     // its own session out: an idle server has only the per-database series (label db).
-    const fleet = await cluster('docker-02', 'docker');
+    const fleet = await cluster('docker-02', 'server');
     const id = (
       await api('POST', '/applications', {
         clusterId: fleet.id,

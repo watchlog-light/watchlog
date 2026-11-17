@@ -157,7 +157,7 @@ const lookedBack = (clusterId: string) =>
     .where('egress_backfilled_at', 'is', null)
     .execute();
 
-async function cluster(kind: 'kubernetes' | 'docker') {
+async function cluster(kind: 'kubernetes' | 'server') {
   const res = await ctx.app.inject({
     method: 'POST',
     url: '/api/v1/clusters',
@@ -401,7 +401,7 @@ describe('the expectation routes (ADR-186, ADR-189)', () => {
   });
 
   it('Docker: one Compose service, every container, and a plain container on its host', async () => {
-    const { id } = await cluster('docker');
+    const { id } = await cluster('server');
     const api = { compose_project: 'storefront', compose_service: 'api' };
     const worker = { compose_project: 'storefront', compose_service: 'worker' };
     const cron = { host: 'docker-02', container: 'cron' };
@@ -443,7 +443,7 @@ describe('the expectation routes (ADR-186, ADR-189)', () => {
 
   it('validation: patterns, sources in the cluster’s vocabulary, duplicates', async () => {
     const k = await cluster('kubernetes');
-    const d = await cluster('docker');
+    const d = await cluster('server');
     const bad = async (body: Record<string, unknown>, reason: RegExp, code = 400) => {
       const r = await mark(body);
       expect(r.statusCode, JSON.stringify(body)).toBe(code);
@@ -542,7 +542,7 @@ describe('the expectation routes (ADR-186, ADR-189)', () => {
   });
 
   it('at most 1000 expectations per cluster', async () => {
-    const { id, orgId } = await cluster('docker');
+    const { id, orgId } = await cluster('server');
     await ctx.db
       .insertInto('egress_expected')
       .values(
@@ -561,7 +561,7 @@ describe('the expectation routes (ADR-186, ADR-189)', () => {
 
 describe('"New" skips private networks and local names (ADR-188, slice 4 default)', () => {
   it('only names and public networks are New; the summary (the nav count) follows', async () => {
-    for (const kind of ['kubernetes', 'docker'] as const) {
+    for (const kind of ['kubernetes', 'server'] as const) {
       const { id } = await cluster(kind);
       const src = kind === 'kubernetes' ? orders : { host: 'h1', container: 'web' };
       await inventory(id, src, 'fresh.example.org', 443, HOUR);

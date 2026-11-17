@@ -40,7 +40,7 @@ const cluster = (id: string, name: string, kind: Cluster['kind']): Cluster => ({
   ingestFailure: null,
 });
 const KIND = cluster('01a191fb-b18c-75a0-be51-47fcaa9eadde', 'kind-demo', 'kubernetes');
-const FLEET = cluster('01a18f2a-22a8-7457-94af-5a66bca41e97', 'edge-fleet', 'docker');
+const FLEET = cluster('01a18f2a-22a8-7457-94af-5a66bca41e97', 'edge-fleet', 'server');
 
 const result = (r: Partial<SearchResult> & Pick<SearchResult, 'kind' | 'name'>): SearchResult => ({
   namespace: null,
@@ -265,7 +265,7 @@ describe('the palette', () => {
     // Empty: the pages of this kind and the clusters.
     expect(groupNames()).toEqual(['page', 'cluster']);
     expect(options()).toContain('Workloads Page');
-    expect(options()).not.toContain('Hosts Page');
+    expect(options()).not.toContain('Servers Page');
     expect(options()).toContain('kind-demo Kubernetes cluster · selected');
     expect(status()).toBe('No recent picks');
 
@@ -357,7 +357,7 @@ describe('the palette', () => {
     expect(status()).toBe("The search didn't answer. Pages and clusters are still listed.");
   });
 
-  it("lists a Docker fleet's hosts, containers and Compose projects, and switches cluster", async () => {
+  it("lists a Server fleet's hosts, containers and Compose projects, and switches cluster", async () => {
     const { router, clusters } = await setup(`/?cluster=${FLEET.id}`, {
       [searchPath(FLEET.id, 'kind')]: {
         status: 200,
@@ -377,14 +377,14 @@ describe('the palette', () => {
       },
     });
     await press('k', { ctrlKey: true });
-    expect(options()).toContain('Hosts Page');
+    expect(options()).toContain('Servers Page');
     expect(options()).not.toContain('Nodes Page');
     await type('shop');
     // Equal ranks keep the kinds' order: hosts before containers.
     expect(groupNames()).toEqual(['compose_project', 'host', 'container']);
     expect(options()).toEqual([
       'shop Compose project · docker-01',
-      'shop-host Docker host',
+      'shop-host Server',
       'shop-api-1 Container · shop on docker-01',
     ]);
     expect($('[data-testid="palette-group-container"] img[data-logo="docker"]')).not.toBeNull();

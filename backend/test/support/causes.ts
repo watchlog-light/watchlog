@@ -94,7 +94,7 @@ export const fakeRule = (
   when: (ev: Evidence) => Partial<Candidate> | null,
 ): Rule => ({
   code,
-  platforms: ['kubernetes', 'docker'],
+  platforms: ['kubernetes', 'server'],
   applies: () => true,
   explains: ['self'],
   match(ev) {

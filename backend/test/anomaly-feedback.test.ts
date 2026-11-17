@@ -97,7 +97,7 @@ const SERIES = {
     value: 2.4,
     unit: 'seconds' as const,
   },
-  docker: {
+  server: {
     key: 'container.memory.working_set',
     subject: { host: 'docker-01', container: 'shop-web-1' },
     median: 230 * 2 ** 20,
@@ -108,7 +108,7 @@ const SERIES = {
 };
 
 /** A baseline, an open period and its firing anomaly alert, as the workers write them. */
-async function anomalyAlert(c: TestContext, orgId: string, kind: 'kubernetes' | 'docker') {
+async function anomalyAlert(c: TestContext, orgId: string, kind: 'kubernetes' | 'server') {
   const cluster = await insertCluster(c.db, orgId, `acme-${kind}`, kind);
   const s = SERIES[kind];
   const subject = subjectOf(s.subject);
@@ -203,7 +203,7 @@ async function audits(c: TestContext, orgId: string) {
 }
 
 describe('an anomaly alert’s page and its feedback', () => {
-  for (const kind of ['kubernetes', 'docker'] as const) {
+  for (const kind of ['kubernetes', 'server'] as const) {
     it(`${kind}: the hero reads now, the usual range and band; "normal for us" widens exactly that bucket and ends the period; undo restores it; roles and audit`, async () => {
       const { c, orgId, owner, admin, viewer } = await cloudOrg();
       const a = await anomalyAlert(c, orgId, kind);
@@ -377,7 +377,7 @@ describe('an anomaly alert’s page and its feedback', () => {
 describe('the gate (ADR-195, ADR-200)', () => {
   it('Cloud Free: 403 pro-feature on both platforms, nothing read or written', async () => {
     const { c, orgId, owner } = await cloudOrg(true);
-    for (const kind of ['kubernetes', 'docker'] as const) {
+    for (const kind of ['kubernetes', 'server'] as const) {
       const a = await anomalyAlert(c, orgId, kind);
       for (const [method, url, body] of [
         ['GET', `/alerts/${a.alertId}/anomaly`, undefined],
@@ -396,7 +396,7 @@ describe('the gate (ADR-195, ADR-200)', () => {
     ctx = await createTestContext({}, { now: () => NOW });
     const cookie = await setupAdmin(ctx.app);
     const org = await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow();
-    for (const kind of ['kubernetes', 'docker'] as const) {
+    for (const kind of ['kubernetes', 'server'] as const) {
       const a = await anomalyAlert(ctx, org.id, kind);
       for (const [method, url, body] of [
         ['GET', `/alerts/${a.alertId}/anomaly`, undefined],

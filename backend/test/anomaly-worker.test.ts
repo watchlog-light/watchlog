@@ -82,7 +82,7 @@ class FakeVictoria {
   asked = new Set<string>();
   private readonly keyOf = new Map<string, ScoredKey>();
   constructor() {
-    for (const kind of ['kubernetes', 'docker'] as ClusterKind[]) {
+    for (const kind of ['kubernetes', 'server'] as ClusterKind[]) {
       for (const q of queriesFor(kind, ['redis'])) this.keyOf.set(q.expr, q.key);
     }
   }
@@ -160,7 +160,7 @@ const platforms: Platform[] = [
     stepAdd: 3,
   },
   {
-    kind: 'docker',
+    kind: 'server',
     main: {
       key: 'container.memory.working_set',
       labels: { host: 'docker-1', container: 'shop-api-1' },
@@ -481,8 +481,8 @@ describe('gating (ADR-195, ADR-197, ADR-204)', () => {
 
   it('Cloud: only orgs with pro_features are scored; a Free org gets no rows', async () => {
     const pro = await orgWith('kubernetes', 'pro');
-    const free = await orgWith('docker', 'free');
-    const none = await orgWith('docker', null);
+    const free = await orgWith('server', 'free');
+    const none = await orgWith('server', null);
     const cloud = { edition: 'cloud' as const, demoMode: false };
     const listed = await entitledOrgs(cloud, db);
     expect(listed).toContain(pro.orgId);
@@ -574,7 +574,7 @@ describe('gating (ADR-195, ADR-197, ADR-204)', () => {
 
 describe('Docker: a Compose service’s alert leaves out its containers’ minutes', () => {
   it('the container list maps the container to its Compose service', async () => {
-    const { orgId, clusterId } = await orgWith('docker');
+    const { orgId, clusterId } = await orgWith('server');
     await db
       .insertInto('objects')
       .values({
@@ -649,7 +649,7 @@ describe('Cloud: each org inside its own scope, under Row-Level Security', () =>
     { timeout: 30_000 },
     async () => {
       const a = await orgWith('kubernetes');
-      const b = await orgWith('docker');
+      const b = await orgWith('server');
       const vm = new FakeVictoria();
       const at = START + 14 * DAY + 2 * HOUR;
       vm.series.set(a.clusterId, [

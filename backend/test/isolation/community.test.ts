@@ -118,7 +118,7 @@ describe('Community (WATCHLOG_EDITION unset)', () => {
 
   it('What changed (ADR-202): 404 for a Kubernetes cluster and a Docker fleet, as if absent', async () => {
     const org = await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow();
-    for (const kind of ['kubernetes', 'docker'] as const) {
+    for (const kind of ['kubernetes', 'server'] as const) {
       const cluster = await insertCluster(ctx.db, org.id, `wc-${kind}`, kind);
       const r = await ctx.app.inject({
         method: 'GET',
@@ -140,7 +140,7 @@ describe('Community (WATCHLOG_EDITION unset)', () => {
       payload: { name: 'community what changed' },
     });
     const auth = { authorization: `Bearer ${created.json().value as string}` };
-    for (const kind of ['kubernetes', 'docker'] as const) {
+    for (const kind of ['kubernetes', 'server'] as const) {
       const cluster = await insertCluster(ctx.db, org.id, `wc-token-${kind}`, kind);
       const r = await ctx.app.inject({
         method: 'GET',

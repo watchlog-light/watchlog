@@ -48,7 +48,7 @@ afterAll(async () => {
   );
 });
 
-async function cluster(name: string, kind: 'kubernetes' | 'docker') {
+async function cluster(name: string, kind: 'kubernetes' | 'server') {
   const res = await api('POST', '/clusters', { name, kind });
   return { id: res.json().cluster.id as string, token: res.json().token.value as string };
 }
@@ -298,7 +298,7 @@ describe('the MySQL page', () => {
   });
 
   it('MariaDB on Docker without performance_schema: the hint, and lock waits name the container', async () => {
-    const docker = await cluster('fleet', 'docker');
+    const docker = await cluster('fleet', 'server');
     await ctx.db
       .insertInto('objects')
       .values({

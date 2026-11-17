@@ -155,7 +155,7 @@ describe('the live connection checklist', () => {
   it('counts the first metrics and the map edges as the map draws them', async () => {
     const { c, cookie } = await community();
     const created = (
-      await api(c, cookie)('POST', '/clusters', { name: 'hosts', kind: 'docker' })
+      await api(c, cookie)('POST', '/clusters', { name: 'hosts', kind: 'server' })
     ).json();
     await heartbeat(c, created.token.value, {
       mode: 'docker',
@@ -200,7 +200,7 @@ describe('the live connection checklist', () => {
       },
       { ...row, scope: authorisedScope(row.id) },
     );
-    expect(s.kind).toBe('docker');
+    expect(s.kind).toBe('server');
     expect(s.steps.map((x) => x.id)).toEqual(['agent', 'metrics', 'ebpf', 'map']);
     expect(step(s, 'metrics')).toMatchObject({ state: 'done', nodes: 1, containers: 7 });
     expect(step(s, 'map')).toMatchObject({ state: 'done', connections: 1 });
@@ -212,7 +212,7 @@ describe('the live connection checklist', () => {
   it('streams Server-Sent Events: the status now, then each change', async () => {
     const { c, cookie } = await community();
     const created = (
-      await api(c, cookie)('POST', '/clusters', { name: 'fleet', kind: 'docker' })
+      await api(c, cookie)('POST', '/clusters', { name: 'fleet', kind: 'server' })
     ).json();
     await c.app.listen({ port: 0, host: '127.0.0.1' });
     const { port } = c.app.server.address() as AddressInfo;
@@ -339,7 +339,7 @@ describe('the install code and its manifest (Cloud)', () => {
   it('Docker gets docker run and Compose, no kubectl', async () => {
     const { c, cookie } = await cloud();
     const created = (
-      await api(c, cookie)('POST', '/clusters', { name: 'hosts', kind: 'docker' })
+      await api(c, cookie)('POST', '/clusters', { name: 'hosts', kind: 'server' })
     ).json();
     expect(Object.keys(created.install).sort()).toEqual(['compose', 'dockerRun']);
     expect(created.install.compose).toContain(`WATCHLOG_TOKEN: "${created.token.value}"`);

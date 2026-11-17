@@ -202,7 +202,7 @@ describe('checks on Docker', () => {
     expect(checksOf(silent).checks.find((c) => c.topic === 'host')).toMatchObject({
       code: 'host_silent',
       facts: { host: 'docker-01', minutes: 5 },
-      object: { kind: 'host', ref: 'docker-01', platform: 'docker' },
+      object: { kind: 'host', ref: 'docker-01', platform: 'server' },
     });
     const full = evidence('docker-compose-healthy', (e) => {
       e.hosts[0]!.diskUtilization = 0.95;

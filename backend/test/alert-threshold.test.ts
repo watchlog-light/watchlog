@@ -38,7 +38,7 @@ beforeEach(async () => {
   cookie = await setupAdmin(ctx.app);
   clusterId = (await api('POST', '/clusters', { name: 'prod', kind: 'kubernetes' })).json().cluster
     .id;
-  dockerId = (await api('POST', '/clusters', { name: 'hosts', kind: 'docker' })).json().cluster.id;
+  dockerId = (await api('POST', '/clusters', { name: 'hosts', kind: 'server' })).json().cluster.id;
 });
 afterEach(() => closeTestContext(ctx));
 afterAll(async () => {
@@ -119,7 +119,7 @@ describe('custom threshold rules: validation', () => {
       '/alert-rules',
       rule({ metric: 'container.memory.working_set', scope: { host: 'h1' }, clusterId: dockerId }),
     );
-    expect(docker.json()).toMatchObject({ appliesTo: ['docker'], clusterId: dockerId });
+    expect(docker.json()).toMatchObject({ appliesTo: ['server'], clusterId: dockerId });
   });
 
   it('rejects a label selector that matches more than 500 pods (ADR-085)', async () => {

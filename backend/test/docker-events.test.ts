@@ -15,7 +15,7 @@ describe('Docker events', () => {
       method: 'POST',
       url: '/api/v1/clusters',
       cookies: { wl_session: cookie },
-      payload: { name: 'fleet', kind: 'docker' },
+      payload: { name: 'fleet', kind: 'server' },
     });
     const id = created.json().cluster.id as string;
     const token = created.json().token.value as string;

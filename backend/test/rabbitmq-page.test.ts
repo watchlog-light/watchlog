@@ -47,7 +47,7 @@ afterAll(async () => {
   );
 });
 
-async function cluster(name: string, kind: 'kubernetes' | 'docker') {
+async function cluster(name: string, kind: 'kubernetes' | 'server') {
   const res = await api('POST', '/clusters', { name, kind });
   return { id: res.json().cluster.id as string, token: res.json().token.value as string };
 }
@@ -411,7 +411,7 @@ describe('the RabbitMQ page', () => {
   });
 
   it('links the exited container on Docker, and says how to enable the plugin', async () => {
-    const docker = await cluster('fleet', 'docker');
+    const docker = await cluster('fleet', 'server');
     await object(
       docker.id,
       'DockerContainer',

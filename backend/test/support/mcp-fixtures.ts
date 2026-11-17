@@ -39,7 +39,7 @@ export async function addCluster(
   ctx: TestContext,
   cookie: string,
   name: string,
-  kind: 'kubernetes' | 'docker',
+  kind: 'kubernetes' | 'server',
 ) {
   const res = await ctx.app.inject({
     method: 'POST',
@@ -70,7 +70,7 @@ export async function addCluster(
       headers: { authorization: `Bearer ${token}`, 'x-watchlog-agent': agent },
       payload: {
         agent_version: 'dev',
-        mode: kind === 'docker' ? 'docker' : 'cluster',
+        mode: kind === 'server' ? 'docker' : 'cluster',
         node: agent,
         capabilities: {},
         series: 10,
@@ -132,7 +132,7 @@ export async function dockerFleet(
   hosts: Record<string, object[]>,
   name = 'fleet',
 ) {
-  const c = await addCluster(ctx, cookie, name, 'docker');
+  const c = await addCluster(ctx, cookie, name, 'server');
   const snapshot = (host: string, containers: object[]) =>
     c.ingest(
       'objects',

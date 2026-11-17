@@ -273,7 +273,7 @@ describe('the service page', () => {
   });
 
   it('finds the containers that connect to a Compose service on a Docker host', async () => {
-    const fleet = await addCluster(ctx, cookie, 'docker-01', 'docker');
+    const fleet = await addCluster(ctx, cookie, 'docker-01', 'server');
     await object(fleet.id, {
       source: 'docker',
       kind: 'DockerContainer',
@@ -381,7 +381,7 @@ describe('the service page', () => {
 
   it('answers list_applications and get_application over MCP, hostile names cleaned', async () => {
     const k8s = await addCluster(ctx, cookie, 'prod-eu', 'kubernetes');
-    const fleet = await addCluster(ctx, cookie, 'docker-01', 'docker');
+    const fleet = await addCluster(ctx, cookie, 'docker-01', 'server');
     const k8sId = await monitor(k8s.id, {
       kind: 'workload',
       namespace: 'shop',

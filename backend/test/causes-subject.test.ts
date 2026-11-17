@@ -114,7 +114,7 @@ describe('parseSubject', () => {
 
   it('knows which platform a kind belongs to', () => {
     expect(platformOf('pod')).toBe('kubernetes');
-    expect(platformOf('compose_service')).toBe('docker');
+    expect(platformOf('compose_service')).toBe('server');
     expect(platformOf('alert')).toBeNull();
   });
 });

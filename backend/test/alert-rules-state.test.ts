@@ -19,7 +19,7 @@ let orgId: string;
 let clusterId: string;
 const clock = { now: T0 };
 
-async function setup(kind: 'kubernetes' | 'docker' = 'kubernetes') {
+async function setup(kind: 'kubernetes' | 'server' = 'kubernetes') {
   ({ orgId, clusterId } = await createOrgCluster(ctx.db, kind));
   worker = testWorker(ctx.db, clock, lookupEvaluator, {
     prepareOrg: (id) => ensureDefaultRules(ctx.db, id),
@@ -354,7 +354,7 @@ describe('state rules: trigger and resolve', () => {
   });
 
   it('docker.container.unhealthy: fires for an unhealthy running container', async () => {
-    await setup('docker');
+    await setup('server');
     const container = (health: string) => ({
       node: 'host-1',
       status: { state: 'running', health, status: `Up 8 minutes (${health})` },

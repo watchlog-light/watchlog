@@ -72,7 +72,7 @@ describe('Docker inventory, hosts, containers and query API', () => {
         method: 'POST',
         url: '/api/v1/clusters',
         cookies: { wl_session: cookie },
-        payload: { name, kind: 'docker' },
+        payload: { name, kind: 'server' },
       });
       clusters.push({ id: res.json().cluster.id, token: res.json().token.value });
     }

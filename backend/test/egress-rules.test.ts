@@ -95,12 +95,12 @@ let worker: AlertWorker;
 let vm: FakeVictoria;
 let orgId: string;
 let clusterId: string;
-let kind: 'kubernetes' | 'docker';
+let kind: 'kubernetes' | 'server';
 const clock = { now: T0 };
 
 /** A cluster that reported from `firstSeenAt`; `learningSince` is the upgrade's mark. */
 async function setup(
-  k: 'kubernetes' | 'docker',
+  k: 'kubernetes' | 'server',
   o: { firstSeenAt?: number; learningSince?: number | null; backfilled?: boolean } = {},
 ) {
   kind = k;
@@ -209,7 +209,7 @@ function text(a: Awaited<ReturnType<typeof alerts>>[number], ruleKey: string) {
     ruleName: a.name,
     labels: a.labels as Record<string, string>,
     details: a.details as Record<string, unknown>,
-    cluster: { name: kind === 'docker' ? 'fleet' : 'prod' },
+    cluster: { name: kind === 'server' ? 'fleet' : 'prod' },
     now: clock.now,
   });
 }
@@ -374,7 +374,7 @@ describe('New external destination', () => {
   });
 
   it('Docker: a Compose service and a plain container, each in its vocabulary', async () => {
-    await setup('docker');
+    await setup('server');
     await seen(API, 'cdn-update-check.xyz', 443, T0);
     await seen(REDIS, 'example.org', 443, T0);
     await seen(API, 'example.org', 443, T0 - 3 * DAY, { lastSeen: T0 });
@@ -474,7 +474,7 @@ describe('Raw IP egress', () => {
   });
 
   it('Docker: a Compose service’s replicas add up; a plain container on its host', async () => {
-    await setup('docker');
+    await setup('server');
     vm.raw = [
       series(dockerSeries('shop-api-1', '2606:4700:4700::/48', '443', ['shop', 'api']), 3),
       series(dockerSeries('shop-api-2', '2606:4700:4700::/48', '443', ['shop', 'api']), 2),
@@ -552,7 +552,7 @@ describe('Large upload to a new destination', () => {
   });
 
   it('Docker: a Compose service’s upload, folded across its containers', async () => {
-    await setup('docker');
+    await setup('server');
     await seen(API, 'upload.example.org', 443, T0 - HOUR);
     vm.sent = [
       series(dockerSeries('shop-api-1', 'upload.example.org', '443', ['shop', 'api']), 60 * MiB),
@@ -596,7 +596,7 @@ describe('against a real VictoriaMetrics (slice 1’s shapes)', () => {
     return out;
   }
 
-  it.each(['kubernetes', 'docker'] as const)(
+  it.each(['kubernetes', 'server'] as const)(
     '%s: 5 connects to 1.1.1.1:443 fire Raw IP; a 120 MiB upload to a new name fires Large upload',
     async (k) => {
       await setup(k);
@@ -695,14 +695,14 @@ describe('the rules arrive with no manual step (ADR-107)', () => {
     ]);
     expect(rules.find((r) => r.rule_key === 'k8s.pod.pending')!.enabled).toBe(false);
     expect(EGRESS_RULES.map((r) => r.evaluator.kinds)).toEqual([
-      ['kubernetes', 'docker'],
-      ['kubernetes', 'docker'],
-      ['kubernetes', 'docker'],
+      ['kubernetes', 'server'],
+      ['kubernetes', 'server'],
+      ['kubernetes', 'server'],
     ]);
   });
 
   it('a raw IP threshold changed by the user is the one used', async () => {
-    await setup('docker');
+    await setup('server');
     await cycle(T0);
     await ctx.db
       .updateTable('alert_rules')
@@ -730,7 +730,7 @@ describe('Cloud: each org’s rules and alerts as watchlog_app, under Row-Level 
     await setup('kubernetes');
     const a = { orgId, clusterId };
     await seen(ORDERS, 'alpha.example.org', 443, T0);
-    await setup('docker');
+    await setup('server');
     const b = { orgId, clusterId };
     await seen(API, 'beta.example.org', 443, T0);
     await sql`DELETE FROM alert_rules`.execute(ctx.db);

@@ -28,7 +28,7 @@ const H = 3_600_000;
 const D = 24 * H;
 const iso = (agoMs: number) => new Date(NOW - agoMs).toISOString();
 const K8S = { id: '01a1de8d-e52d-7188-9878-62ee5fd5309d', name: 'acme-prod', kind: 'kubernetes' };
-const FLEET = { id: '01a1de8d-e52d-7188-9878-62ee5fd5309e', name: 'edge-fleet', kind: 'docker' };
+const FLEET = { id: '01a1de8d-e52d-7188-9878-62ee5fd5309e', name: 'edge-fleet', kind: 'server' };
 
 type Alert = AlertDetail['alert'];
 function alert(over: Partial<Alert> & Pick<Alert, 'labels' | 'cluster'>): Alert {
@@ -99,7 +99,7 @@ function row(destination: string, over: Partial<EgressRow> = {}): EgressRow {
 }
 function answer(rows: EgressRow[], kind = 'kubernetes'): Egress {
   return {
-    cluster: { id: kind === 'docker' ? FLEET.id : K8S.id, kind },
+    cluster: { id: kind === 'server' ? FLEET.id : K8S.id, kind },
     range: { from: iso(30 * D), to: iso(0) },
     learning: {
       since: iso(41 * D),

@@ -640,7 +640,7 @@ describe('application_finding', () => {
 describe('alerts on an application', () => {
   it('an alert of a monitored application is about the application', async () => {
     const reader: Reader = { get: () => Promise.reject(new ApiReadError(404, 'none')) };
-    for (const kind of ['kubernetes', 'docker'] as const)
+    for (const kind of ['kubernetes', 'server'] as const)
       expect(
         await alertFocus(
           reader,

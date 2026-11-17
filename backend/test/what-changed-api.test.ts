@@ -404,12 +404,12 @@ describe('GET /what-changed on a Pro org', () => {
 
   it('Docker: containers with their Compose service, hosts, the cause on the container', async () => {
     const { c, cookie, orgId } = await cloudOrg();
-    const fleet = await insertCluster(c.db, orgId, 'acme-hosts', 'docker');
+    const fleet = await insertCluster(c.db, orgId, 'acme-hosts', 'server');
     await learned(c, orgId, fleet.id);
     await containers(c, orgId, fleet.id);
     for (const p of DOCKER) await period(c, orgId, fleet.id, p);
     const a = (await get(c, cookie, { cluster: fleet.id })).json();
-    expect(a.cluster.kind).toBe('docker');
+    expect(a.cluster.kind).toBe('server');
     expect(a.rows.map((r: { object: object }) => r.object)).toEqual([
       {
         kind: 'container',
@@ -429,7 +429,7 @@ describe('GET /what-changed on a Pro org', () => {
     const { c, cookie, orgId } = await cloudOrg();
     for (const [kind, name] of [
       ['kubernetes', 'shop/postgres'],
-      ['docker', 'shop-db-1'],
+      ['server', 'shop-db-1'],
     ] as const) {
       const cl = await insertCluster(c.db, orgId, `acme-${kind}`, kind);
       await learned(c, orgId, cl.id);
@@ -600,7 +600,7 @@ describe('GET /what-changed on a Pro org', () => {
 describe('the gate (ADR-195, ADR-202)', () => {
   it('Cloud Free: 403 pro-feature, on both kinds of cluster, before anything is read', async () => {
     const { c, cookie, orgId } = await cloudOrg(true);
-    for (const kind of ['kubernetes', 'docker'] as const) {
+    for (const kind of ['kubernetes', 'server'] as const) {
       const cl = await insertCluster(c.db, orgId, kind, kind);
       const r = await get(c, cookie, { cluster: cl.id });
       expect(r.statusCode).toBe(403);
@@ -621,7 +621,7 @@ describe('the gate (ADR-195, ADR-202)', () => {
     ctx = await createTestContext({}, { now: () => NOW });
     const cookie = await setupAdmin(ctx.app);
     const org = await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow();
-    for (const kind of ['kubernetes', 'docker'] as const) {
+    for (const kind of ['kubernetes', 'server'] as const) {
       const cl = await insertCluster(ctx.db, org.id, kind, kind);
       const r = await get(ctx, cookie, { cluster: cl.id });
       expect(r.statusCode).toBe(404);
@@ -659,7 +659,7 @@ describe('the demo (ADR-203, ADR-122)', () => {
   it('reads What changed for both kinds; ranges over the last 24 hours are refused', async () => {
     const { c, cookie, orgId } = await demo();
     const k8s = await insertCluster(c.db, orgId, 'demo', 'kubernetes');
-    const fleet = await insertCluster(c.db, orgId, 'demo-docker', 'docker');
+    const fleet = await insertCluster(c.db, orgId, 'demo-docker', 'server');
     for (const [cl, ps] of [
       [k8s, K8S],
       [fleet, DOCKER],

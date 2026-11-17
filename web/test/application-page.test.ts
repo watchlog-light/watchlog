@@ -233,7 +233,7 @@ const K8S = {
 const DOCKER = {
   id: '01a1c000-0000-7000-8000-000000000002',
   name: 'docker-01',
-  kind: 'docker' as const,
+  kind: 'server' as const,
 };
 const ID = '01a1c000-0000-7000-8000-0000000000aa';
 

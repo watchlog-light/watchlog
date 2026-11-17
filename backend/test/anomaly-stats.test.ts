@@ -125,7 +125,7 @@ describe('the scored keys (ADR-196 as built)', () => {
       expect(k.startsWith('pod.'), k).toBe(false);
     }
     expect(PLATFORM_KEYS.kubernetes).toContain('workload.http.latency.p95');
-    expect(PLATFORM_KEYS.docker).toContain('container.network.bytes');
+    expect(PLATFORM_KEYS.server).toContain('container.network.bytes');
   });
 
   it('a cluster is asked only for its platform’s keys, the edges and its integrations’ types', () => {
@@ -135,15 +135,15 @@ describe('the scored keys (ADR-196 as built)', () => {
     expect(k).toContain('edge.http.latency.p95');
     expect(k).not.toContain('postgres.connections');
     expect(k).not.toContain('container.cpu.usage');
-    const d = queriesFor('docker', []).map((q) => q.key);
+    const d = queriesFor('server', []).map((q) => q.key);
     expect(d).toContain('container.memory.working_set');
     expect(d).not.toContain('node.cpu.utilization');
-    expect(d).toHaveLength(PLATFORM_KEYS.docker.length + 3);
+    expect(d).toHaveLength(PLATFORM_KEYS.server.length + 3);
     // Every query at a 60-second step: rates over 120 s; never cluster_id (VictoriaMetrics adds it).
     for (const q of queriesFor('kubernetes', Object.keys(INTEGRATION_KEYS))) {
       expect(q.expr, q.key).not.toContain('cluster_id');
     }
-    expect(queriesFor('docker', []).find((q) => q.key === 'container.cpu.usage')!.expr).toContain(
+    expect(queriesFor('server', []).find((q) => q.key === 'container.cpu.usage')!.expr).toContain(
       '[120s]',
     );
   });
@@ -218,37 +218,37 @@ describe('how alerts and series name their subject (slice 1)', () => {
     const container = { host: 'docker-1', container: 'shop-api-1' };
     expect(
       shares(
-        alertTokens('docker', { container: 'shop-api-1', node: 'docker-1' }),
-        seriesTokens('docker', container),
+        alertTokens('server', { container: 'shop-api-1', node: 'docker-1' }),
+        seriesTokens('server', container),
       ),
     ).toBe(true);
     expect(
       shares(
-        alertTokens('docker', { mount: '/', node: 'docker-1' }),
-        seriesTokens('docker', { host: 'docker-1' }),
+        alertTokens('server', { mount: '/', node: 'docker-1' }),
+        seriesTokens('server', { host: 'docker-1' }),
       ),
     ).toBe(true);
     // A container alert does not cover its host.
     expect(
       shares(
-        alertTokens('docker', { container: 'shop-api-1', node: 'docker-1' }),
-        seriesTokens('docker', { host: 'docker-1' }),
+        alertTokens('server', { container: 'shop-api-1', node: 'docker-1' }),
+        seriesTokens('server', { host: 'docker-1' }),
       ),
     ).toBe(false);
     const egress = alertTokens(
-      'docker',
+      'server',
       { compose_project: 'shop', compose_service: 'api' },
       compose,
     );
-    expect(shares(egress, seriesTokens('docker', container, compose))).toBe(true);
+    expect(shares(egress, seriesTokens('server', container, compose))).toBe(true);
     expect(
-      shares(egress, seriesTokens('docker', { host: 'docker-1', container: 'shop-db-1' }, compose)),
+      shares(egress, seriesTokens('server', { host: 'docker-1', container: 'shop-db-1' }, compose)),
     ).toBe(false);
     // An integration's alert covers its series.
     expect(
       shares(
-        alertTokens('docker', { service: 'svc-1' }),
-        seriesTokens('docker', { service: 'svc-1', service_type: 'redis' }),
+        alertTokens('server', { service: 'svc-1' }),
+        seriesTokens('server', { service: 'svc-1', service_type: 'redis' }),
       ),
     ).toBe(true);
   });

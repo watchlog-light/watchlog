@@ -48,7 +48,7 @@ afterEach(() => {
 
 async function mountWith(props: {
   clusterId: string;
-  kind: 'kubernetes' | 'docker';
+  kind: 'kubernetes' | 'server';
   workload?: typeof workload;
 }) {
   const plugins = await createPlugins('/workloads');
@@ -81,7 +81,7 @@ describe('the suggested policy on a Kubernetes workload', () => {
     expect(w.get('[data-testid="policy-never"]').text()).toContain(
       'WatchLog never applies it: copy it, review it, try it in staging first.',
     );
-    expect(w.text()).toContain('Docker fleets don’t get this section');
+    expect(w.text()).toContain('Server fleets don’t get this section');
   });
 
   it('switches tabs by click and arrow keys; the note follows', async () => {
@@ -183,7 +183,7 @@ describe('the suggested policy on a Kubernetes workload', () => {
 describe('Docker: why there is no policy', () => {
   it('explains it without asking the API', async () => {
     const { calls } = mockFetch({});
-    const w = await mountWith({ clusterId: FLEET, kind: 'docker' });
+    const w = await mountWith({ clusterId: FLEET, kind: 'server' });
     expect(calls).toEqual([]);
     const s = w.get('[data-testid="egress-policy-docker"]');
     expect(s.text()).toContain('No egress policy for Docker');

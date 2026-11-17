@@ -208,7 +208,7 @@ describe('the tools over MCP', () => {
   it('both platforms, from recorded answers: explain_alert gains causes, get_problems likelyCause', async () => {
     const answers = {
       kubernetes: await recorded('kube-dependency-down'),
-      docker: await recorded('docker-host-silent'),
+      server: await recorded('docker-host-silent'),
     };
     const fake = async (_r: unknown, c: ClusterRef) => answers[c.kind];
     ctx = await createTestContext(

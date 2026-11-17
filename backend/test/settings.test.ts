@@ -46,7 +46,7 @@ describe('public address (Settings → General)', () => {
     expect(saved.json()).toEqual({ publicUrl: 'https://watchlog.acme.dev', publicUrlSource: 'db' });
     expect((await api('GET', '/alerting/status')).json().publicUrlConfigured).toBe(true);
 
-    const created = await api('POST', '/clusters', { name: 'hosts', kind: 'docker' });
+    const created = await api('POST', '/clusters', { name: 'hosts', kind: 'server' });
     expect(created.json().install.dockerRun).toContain('https://watchlog.acme.dev');
 
     const viewer = await createUserSession(ctx.db, {

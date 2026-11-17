@@ -51,7 +51,7 @@ afterEach(() => closeTestContext(ctx));
 const get = (query: Record<string, string>, as = cookie) =>
   ctx.app.inject({ method: 'GET', url: '/api/v1/egress', query, cookies: { wl_session: as } });
 
-async function cluster(kind: 'kubernetes' | 'docker', name: string = kind) {
+async function cluster(kind: 'kubernetes' | 'server', name: string = kind) {
   const res = await ctx.app.inject({
     method: 'POST',
     url: '/api/v1/clusters',
@@ -369,7 +369,7 @@ describe('GET /api/v1/egress: a Docker fleet', () => {
   });
   beforeEach(async () => {
     await open();
-    id = await cluster('docker', 'acme-hosts');
+    id = await cluster('server', 'acme-hosts');
     await inventory(id, api, 'api.openai.com', 443, 9 * DAY);
     await inventory(id, { host: 'h2', container: 'cron' }, 'hooks.slack.com', 443, 2 * HOUR);
     // The Compose service's two replicas on two hosts, and the plain container on h2.
@@ -382,7 +382,7 @@ describe('GET /api/v1/egress: a Docker fleet', () => {
 
   it('shows Compose services and plain containers in the Docker vocabulary', async () => {
     const body = (await get({ cluster: id })).json();
-    expect(body.cluster.kind).toBe('docker');
+    expect(body.cluster.kind).toBe('server');
     const openai = find(body.rows, 'api.openai.com')!;
     expect(openai.sources).toEqual([
       expect.objectContaining({ composeProject: 'storefront', composeService: 'api', new: false }),
@@ -482,7 +482,7 @@ describe('GET /api/v1/egress: bounds and roles', () => {
   });
 
   it('Viewers and Admins read it; another org’s member gets 404', async () => {
-    const id = await cluster('docker');
+    const id = await cluster('server');
     await inventory(id, { host: 'h', container: 'c' }, 'x.example.org', 443, HOUR);
     const orgId = (
       await ctx.db
@@ -533,7 +533,7 @@ describe('GET /api/v1/egress: after an upgrade, until the first-seen look-back h
         ? []
         : first.map(([labels, ms]) => ({ labels, points: [[0, ms / 1000]] }));
 
-  async function upgraded(kind: 'kubernetes' | 'docker') {
+  async function upgraded(kind: 'kubernetes' | 'server') {
     await open();
     const id = await cluster(kind, `upgraded-${kind}`);
     await ctx.db
@@ -608,7 +608,7 @@ describe('GET /api/v1/egress: after an upgrade, until the first-seen look-back h
   });
 
   it('Docker: the same for a Compose service and a plain container', async () => {
-    const { id, orgId } = await upgraded('docker');
+    const { id, orgId } = await upgraded('server');
     const api = { compose_project: 'storefront', compose_service: 'api' };
     await inventory(id, api, 'api.openai.com', 443, NOW - UPGRADE + MIN);
     await inventory(id, { host: 'h2', container: 'cron' }, 'hooks.slack.com', 443, 2 * MIN);

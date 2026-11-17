@@ -140,7 +140,7 @@ describe('seed file', () => {
     const token = `wl_ct_${'Dk9'.repeat(14)}z`;
     const fleet = {
       name: 'demo-docker',
-      kind: 'docker' as const,
+      kind: 'server' as const,
       tokenSha256: sha256(token).toString('hex'),
       tokenPrefix: tokenPrefix(token),
     };
@@ -162,7 +162,7 @@ describe('seed file', () => {
     const owner = await verifyClusterToken(ctx.db, token);
     expect(owner).not.toBeNull();
     const cluster = await ctx.db.selectFrom('clusters').selectAll().executeTakeFirstOrThrow();
-    expect(cluster).toMatchObject({ id: owner!.clusterId, name: 'demo-docker', kind: 'docker' });
+    expect(cluster).toMatchObject({ id: owner!.clusterId, name: 'demo-docker', kind: 'server' });
     // The next start changes nothing; the token itself is nowhere in the database.
     await applySeed(ctx.db, seed, quiet);
     expect(await ctx.db.selectFrom('clusters').selectAll().execute()).toHaveLength(1);

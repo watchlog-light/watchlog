@@ -556,7 +556,7 @@ describe('Needs attention: one line under each problem (ADR-156)', () => {
     const plugins = await createPlugins();
     const many = Array.from({ length: 9 }, (_, i) => ({ ...base, id: `p${i}`, title: `p${i}` }));
     const overview = {
-      kind: 'docker',
+      kind: 'server',
       health: 'critical',
       problems: { items: many, critical: 9, warning: 0, types: [], silenced: 0, oldestSince: null },
     } as unknown as Overview;
@@ -571,10 +571,10 @@ describe('Needs attention: one line under each problem (ADR-156)', () => {
   });
 });
 
-// The Docker fleet's answers carry their own cluster id.
+// The Server fleet's answers carry their own cluster id.
 it('fixtures: kind and Docker answers', () => {
   expect(KUBE).not.toBe(DOCKER);
-  expect(answer(dockerDep).cluster.kind).toBe('docker');
+  expect(answer(dockerDep).cluster.kind).toBe('server');
 });
 
 describe('a step under an application names the product the collector found', () => {

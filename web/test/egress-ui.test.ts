@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Egress watch in the dashboard (ADR-188, v0.7 slice 3): the Egress page for a Kubernetes
-// cluster and a Docker fleet (badges, labels, filters in each platform's words, the empty,
+// cluster and a Server fleet (badges, labels, filters in each platform's words, the empty,
 // loading and error states, the phone cards), "Talks to the internet" on the source pages,
 // and the navigation's "N new". Answers are in the shape the API gave on the slice's own stack.
 import type { Egress, EgressRow } from '@watchlog/api-types';
@@ -305,7 +305,7 @@ describe('the Egress page', () => {
       [dockerUrl()]: {
         status: 200,
         body: answer(DOCKER_ROWS, {
-          cluster: { id: FLEET.id, kind: 'docker' },
+          cluster: { id: FLEET.id, kind: 'server' },
           summary: { destinations: 2, sources: 2, new: 1, rawIp: 0, failing: 0 },
         }),
       },
@@ -338,7 +338,7 @@ describe('the Egress page', () => {
       'GET /api/v1/clusters': { status: 200, body: { clusters: [FLEET] } },
       [dockerUrl('&project=storefront&service=api')]: {
         status: 200,
-        body: answer(DOCKER_ROWS.slice(1), { cluster: { id: FLEET.id, kind: 'docker' } }),
+        body: answer(DOCKER_ROWS.slice(1), { cluster: { id: FLEET.id, kind: 'server' } }),
       },
     });
     const { w } = await mountWith(EgressPage, '/egress?project=storefront&service=api');
@@ -358,7 +358,7 @@ describe('the Egress page', () => {
       [dockerUrl()]: {
         status: 200,
         body: answer([], {
-          cluster: { id: FLEET.id, kind: 'docker' },
+          cluster: { id: FLEET.id, kind: 'server' },
           learning: {
             since: iso(D),
             until: iso(-6 * D),
@@ -393,7 +393,7 @@ describe('the Egress page', () => {
               sources: r.sources.map((s) => ({ ...s, new: false })),
             })),
             {
-              cluster: { id: c.id, kind: c.kind as 'kubernetes' | 'docker' },
+              cluster: { id: c.id, kind: c.kind as 'kubernetes' | 'server' },
               learning: {
                 since: iso(0),
                 until: iso(-7 * D),
@@ -422,7 +422,7 @@ describe('the Egress page', () => {
   it('no cluster: says to connect one', async () => {
     mockFetch({ 'GET /api/v1/clusters': { status: 200, body: { clusters: [] } } });
     const { w } = await mountWith(EgressPage, '/egress');
-    expect(w.text()).toContain('Connect a Kubernetes cluster or a Docker fleet');
+    expect(w.text()).toContain('Connect a Kubernetes cluster or a Server fleet');
     w.unmount();
   });
 
@@ -545,7 +545,7 @@ describe('"Talks to the internet" on a source page', () => {
     });
     const { w } = await mountWith(TalksToInternet, '/containers/docker-01/storefront-api-1', {
       clusterId: FLEET.id,
-      kind: 'docker',
+      kind: 'server',
       query: {
         host: 'docker-01',
         container: 'storefront-api-1',
@@ -580,7 +580,7 @@ describe('"Talks to the internet" on a source page', () => {
 });
 
 describe('the navigation', () => {
-  it('shows "N new" beside Egress for a Kubernetes cluster and a Docker fleet', async () => {
+  it('shows "N new" beside Egress for a Kubernetes cluster and a Server fleet', async () => {
     for (const c of [CLUSTER, FLEET]) {
       mockFetch({
         [`GET /api/v1/egress?cluster=${c.id}`]: {

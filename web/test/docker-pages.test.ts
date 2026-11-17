@@ -77,7 +77,7 @@ describe('Containers page', () => {
   it('explains what to do when no fleet is selected', async () => {
     mockFetch({ 'GET /api/v1/clusters': { status: 200, body: { clusters: [] } } });
     const w = await mountPage(ContainersPage, '/containers');
-    expect(w.text()).toContain('No Docker hosts connected');
+    expect(w.text()).toContain('No servers connected');
     w.unmount();
   });
 

@@ -157,7 +157,7 @@ describe('Containers page loading states', () => {
     await net.reply('/api/v1/clusters', problem(500, 'boom'));
     expect(has(w, 'error-state')).toBe(true);
     expect(has(w, 'container-list')).toBe(false);
-    expect(w.text()).not.toContain('No Docker hosts connected'); // error ≠ empty
+    expect(w.text()).not.toContain('No servers connected'); // error ≠ empty
 
     await w.get('[data-testid="retry"]').trigger('click');
     await answerDocker(net);
@@ -177,7 +177,7 @@ describe('Settings loading states', () => {
 
     await net.reply('/api/v1/clusters', problem(500, 'boom'));
     expect(has(w, 'cluster-list-skeleton')).toBe(false);
-    expect(w.text()).not.toContain('No Docker fleet yet'); // not the empty state
+    expect(w.text()).not.toContain('No Server fleet yet'); // not the empty state
     await w.get('[data-testid="retry"]').trigger('click');
     await net.reply('/api/v1/clusters', ok({ clusters: [FLEET] }));
     expect(w.get('[data-testid="cluster-list"]').text()).toContain('acceptance');

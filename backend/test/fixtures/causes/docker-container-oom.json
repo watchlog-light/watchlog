@@ -1,5 +1,5 @@
 {
-  "platform": "docker",
+  "platform": "server",
   "clusterId": "00000000-0000-4000-8000-00000000000b",
   "focus": {
     "kind": "container",

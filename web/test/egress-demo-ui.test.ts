@@ -2,7 +2,7 @@
 // Egress watch in the public demo: the backend answers at most the last 24 hours there
 // ("The demo shows at most the last 24 hours."), so the Egress page offers 1 h and 24 h only,
 // and the source and alert cards read the last day instead of 30 days, on a Kubernetes
-// cluster and a Docker fleet. A request for longer is not mocked here, so it would fail the
+// cluster and a Server fleet. A request for longer is not mocked here, so it would fail the
 // read and show the error state.
 import type { AlertDetail, Egress, EgressRow } from '@watchlog/api-types';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
@@ -167,7 +167,7 @@ describe('"Talks to the internet" in the demo', () => {
     });
     const { w } = await mountDemo(TalksToInternet, '/containers/docker-01/ip-beacon', {
       clusterId: FLEET.id,
-      kind: 'docker',
+      kind: 'server',
       query: q,
       now: NOW,
     });

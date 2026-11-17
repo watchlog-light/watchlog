@@ -281,7 +281,7 @@ describe('"Mark expected" and "Undo" on the Egress page rows', () => {
       'POST /api/v1/egress/expected': { status: 201, body: { expectation: {}, updated: 1 } },
     });
     const rows = [row('hooks.slack.com', { sources: [composeSource] })];
-    const w = await mountWith(EgressTable, { rows, clusterId: FLEET, kind: 'docker' });
+    const w = await mountWith(EgressTable, { rows, clusterId: FLEET, kind: 'server' });
     await w.get('[data-testid="expected-mark"]').trigger('click');
     await flushPromises();
     const labels = [...dialog()!.querySelectorAll('label')].map((l) => l.textContent!.trim());
@@ -320,7 +320,7 @@ describe('"Talks to the internet": marking from a source page', () => {
   const month = `GET /api/v1/egress?cluster=${FLEET}&project=storefront&service=api&from=${NOW / 1000 - 30 * 86_400}`;
   const today = `GET /api/v1/egress?cluster=${FLEET}&project=storefront&service=api`;
   const answer = (rows: EgressRow[]) => ({
-    cluster: { id: FLEET, kind: 'docker' },
+    cluster: { id: FLEET, kind: 'server' },
     range: { from: iso(D), to: iso(0) },
     learning: {
       since: iso(41 * D),
@@ -358,7 +358,7 @@ describe('"Talks to the internet": marking from a source page', () => {
     });
     const props = {
       clusterId: FLEET,
-      kind: 'docker',
+      kind: 'server',
       query: { project: 'storefront', service: 'api' },
       now: NOW,
     };
@@ -508,7 +508,7 @@ describe('the expectations list', () => {
     });
     const w = await mountWith(
       ExpectationsList,
-      { clusterId: FLEET, kind: 'docker', now: NOW },
+      { clusterId: FLEET, kind: 'server', now: NOW },
       'viewer',
     );
     const items = w.findAll('[data-testid="expectation"]');

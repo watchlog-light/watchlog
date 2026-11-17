@@ -1,5 +1,5 @@
 {
-  "cluster": { "id": "00000000-0000-4000-8000-00000000000b", "name": "fleet", "kind": "docker" },
+  "cluster": { "id": "00000000-0000-4000-8000-00000000000b", "name": "fleet", "kind": "server" },
   "subject": "application:causes-e2e/pg",
   "now": 1794339775472,
   "expected": {
@@ -22,7 +22,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "where": { "group": "storefront", "host": "docker-01", "address": null },
             "target": {
@@ -55,7 +55,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "where": { "group": "storefront", "host": "docker-01", "address": null },
             "target": {
@@ -88,7 +88,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "where": { "group": "causes-e2e", "host": "docker-01", "address": null },
             "target": {
@@ -118,7 +118,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "where": { "group": "rabbitmq-e2e", "host": "docker-01", "address": null },
             "target": {
@@ -150,7 +150,7 @@
           "cluster": {
             "id": "00000000-0000-4000-8000-00000000000b",
             "name": "fleet",
-            "kind": "docker"
+            "kind": "server"
           },
           "where": { "group": "causes-e2e", "host": "docker-01", "address": null },
           "target": {

@@ -39,7 +39,7 @@ const CONFIG: CloudConfig = {
 };
 
 function hero(cluster: typeof K8S, over: Partial<AnomalyAlert> = {}): AnomalyAlert {
-  const docker = cluster.kind === 'docker';
+  const docker = cluster.kind === 'server';
   const from = NOW - 6 * HOUR;
   const points: [number, number | null][] = [];
   for (let t = from; t <= NOW; t += 2 * MIN) {
@@ -88,7 +88,7 @@ const alertOf = (cluster: typeof K8S) =>
   ({
     id: ALERT_ID,
     title:
-      cluster.kind === 'docker'
+      cluster.kind === 'server'
         ? 'web (shop): memory unusual for a Tuesday at 14:00 UTC'
         : 'checkout (shop): p95 response time unusual for a Tuesday at 14:00 UTC',
     why: 'usual for Tuesday 14:00 UTC: 120–180 ms; now 2.4 s',
@@ -216,8 +216,8 @@ describe('an anomaly alert’s page', () => {
                 answer: 'normal',
                 at,
                 by: 'Ada Admin',
-                widenedLow: c.kind === 'docker' ? 0 : 0,
-                widenedHigh: c.kind === 'docker' ? 565 * 2 ** 20 : 1.27,
+                widenedLow: c.kind === 'server' ? 0 : 0,
+                widenedHigh: c.kind === 'server' ? 565 * 2 ** 20 : 1.27,
               },
             },
           },
@@ -229,7 +229,7 @@ describe('an anomaly alert’s page', () => {
       await flushPromises();
       expect(calls.find((x) => x.method === 'POST')!.body).toEqual({ answer: 'normal' });
       expect(w.get('[data-testid="anomaly-feedback-answer"]').text()).toContain(
-        c.kind === 'docker' ? 'is now 0 B–565 MiB' : 'is now 0 ms–1.27 s',
+        c.kind === 'server' ? 'is now 0 B–565 MiB' : 'is now 0 ms–1.27 s',
       );
       expect(w.get('[data-testid="anomaly-feedback-by"]').text()).toMatch(
         /^Widened on .+ by Ada Admin\.$/,

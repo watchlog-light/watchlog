@@ -28,7 +28,7 @@ const cluster = (id: string, name: string, kind: Cluster['kind']): Cluster => ({
   ingestFailure: null,
 });
 const KIND = cluster('01a191fb-b18c-75a0-be51-47fcaa9eadde', 'kind-demo', 'kubernetes');
-const FLEET = cluster('01a18f2a-22a8-7457-94af-5a66bca41e97', 'my-cluster', 'docker');
+const FLEET = cluster('01a18f2a-22a8-7457-94af-5a66bca41e97', 'my-cluster', 'server');
 
 async function setup(path = '/') {
   mockFetch({ 'GET /api/v1/clusters': { status: 200, body: { clusters: [KIND, FLEET] } } });
@@ -45,10 +45,10 @@ describe('the selected cluster', () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => vi.unstubAllGlobals());
 
-  it('stays the Docker fleet on every page of its navigation', async () => {
+  it('stays the Server fleet on every page of its navigation', async () => {
     const { router, store } = await setup(`/?cluster=${FLEET.id}`);
     expect(store.selected?.name).toBe('my-cluster');
-    for (const item of navFor('docker')) {
+    for (const item of navFor('server')) {
       await router.push(item.path);
       expect(router.currentRoute.value.name, item.path).toBe(item.name);
       expect(store.selected?.name, item.path).toBe('my-cluster');
@@ -111,7 +111,7 @@ describe('the selected cluster', () => {
     const labels = () => w.findAll('nav a').map((a) => a.text());
     expect(labels()).toEqual([
       'Overview',
-      'Hosts',
+      'Servers',
       'Containers',
       'Applications',
       'Events',

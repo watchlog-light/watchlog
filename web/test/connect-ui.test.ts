@@ -28,7 +28,7 @@ const K8S = {
 const DOCKER = {
   id: '01a1c000-0000-7000-8000-000000000002',
   name: 'docker-01',
-  kind: 'docker' as const,
+  kind: 'server' as const,
 };
 const PG: ConnectTarget = {
   cluster: K8S,
@@ -369,7 +369,7 @@ describe('add manually', () => {
     cont().click();
     await flushPromises();
     expect(w.emitted('connect')![0]![0]).toMatchObject({
-      cluster: { id: DOCKER.id, kind: 'docker' },
+      cluster: { id: DOCKER.id, kind: 'server' },
       type: 'postgres',
       name: 'db.internal:5432',
       target: { kind: 'address', address: 'db.internal:5432' },

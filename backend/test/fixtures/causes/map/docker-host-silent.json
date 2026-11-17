@@ -1,5 +1,5 @@
 {
-  "cluster": { "id": "00000000-0000-4000-8000-00000000000b", "name": "fleet", "kind": "docker" },
+  "cluster": { "id": "00000000-0000-4000-8000-00000000000b", "name": "fleet", "kind": "server" },
   "subject": "compose_service:causes-e2e/pg",
   "now": 1794342937653,
   "expected": {
@@ -27,7 +27,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "labels": {
               "queue": "orders",
@@ -463,7 +463,7 @@
     "GET /clusters/00000000-0000-4000-8000-00000000000b/overview []": {
       "status": 200,
       "body": {
-        "kind": "docker",
+        "kind": "server",
         "cluster": {
           "id": "00000000-0000-4000-8000-00000000000b",
           "name": "fleet",

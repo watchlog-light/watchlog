@@ -50,7 +50,7 @@ describe('ingest API', () => {
       method: 'POST',
       url: '/api/v1/clusters',
       cookies: { wl_session: cookie },
-      payload: { name: 'fleet', kind: 'docker' },
+      payload: { name: 'fleet', kind: 'server' },
     });
     clusterId = res.json().cluster.id;
     tokenId = res.json().token.id;

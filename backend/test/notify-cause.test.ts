@@ -139,7 +139,7 @@ describe('every channel says it in one line (ADR-148)', () => {
 
   it.each<[RecordingName, MessagePayload['cluster']]>([
     ['kube-dependency-down', { id: 'c1', name: 'kind', kind: 'kubernetes' }],
-    ['docker-dependency-down', { id: 'c2', name: 'docker', kind: 'docker' }],
+    ['docker-dependency-down', { id: 'c2', name: 'docker', kind: 'server' }],
   ])('%s: email, Slack, Telegram and the webhook', async (name, cluster) => {
     const { lc, p } = await with_(name, { cluster });
     const m = renderMessage(p, 'https://watchlog.example.com');
@@ -166,7 +166,7 @@ describe('every channel says it in one line (ADR-148)', () => {
 
   it("a Docker edge's alert (no host label) names its container, never undefined", () => {
     const p = payload({
-      cluster: { id: 'c2', name: 'fleet', kind: 'docker' },
+      cluster: { id: 'c2', name: 'fleet', kind: 'server' },
       items: [
         {
           ...payload().items[0]!,
@@ -303,7 +303,7 @@ async function fourChannels(orgId: string, recipient: string) {
 }
 
 /** One alert that fires, then resolves, on a fake clock, delivered each cycle. */
-async function episode(orgId: string, deps: DeliveryDeps, kind: 'kubernetes' | 'docker') {
+async function episode(orgId: string, deps: DeliveryDeps, kind: 'kubernetes' | 'server') {
   let firing = true;
   const lookup: EvaluatorLookup = () => ({
     kinds: [kind],
@@ -351,9 +351,9 @@ describe('delivery with the likely cause (ADR-157)', () => {
     await closeTestContext(ctx);
   });
 
-  it.each<[RecordingName, 'kubernetes' | 'docker']>([
+  it.each<[RecordingName, 'kubernetes' | 'server']>([
     ['kube-dependency-down', 'kubernetes'],
-    ['docker-dependency-down', 'docker'],
+    ['docker-dependency-down', 'server'],
   ])(
     '%s: worked out once when it fires; every channel says "Likely cause", then "Was likely"',
     async (name, kind) => {

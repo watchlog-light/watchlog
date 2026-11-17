@@ -374,7 +374,7 @@ describe.skipIf(!tiers['3d'] || !tiers['30d'])('both tiers', () => {
 
 describe('deleting a cluster (SR-15)', () => {
   it("takes its series with it in Cloud; the org's other clusters keep theirs", async () => {
-    const made = await as(B, 'POST', '/clusters', { name: 'zzbeta-gone', kind: 'docker' });
+    const made = await as(B, 'POST', '/clusters', { name: 'zzbeta-gone', kind: 'server' });
     expect(made.statusCode, made.body).toBe(201);
     const id = made.json().cluster.id as string;
     const token = made.json().token.value as string;

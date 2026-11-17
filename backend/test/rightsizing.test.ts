@@ -304,7 +304,7 @@ describe('reading the use', () => {
       'max by (namespace, workload_kind, workload, container) (quantile_over_time(0.95, rate(watchlog_container_cpu_seconds_total{pod!="",container!="",workload_kind=~"Deployment|StatefulSet|DaemonSet"}[5m])[168h:5m]))',
     );
     expect(Object.keys(k)).not.toContain('oomKills');
-    const d = usageExprs('docker', '168h');
+    const d = usageExprs('server', '168h');
     expect(d.oomKills).toContain(
       'increase(watchlog_container_oom_events_total{container!="",pod=""}[168h])',
     );
@@ -314,7 +314,7 @@ describe('reading the use', () => {
   it('keys the answers by object and container', () => {
     const l = { host: 'h', container: 'c' };
     const one = (v: number) => [{ labels: l, points: [[NOW, v] as [number, number]] }];
-    const u = usageByKey('docker', {
+    const u = usageByKey('server', {
       cpuP95: one(0.02),
       memoryPeak: one(50 * MIB),
       memoryP95: one(40 * MIB),

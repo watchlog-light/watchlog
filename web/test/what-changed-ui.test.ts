@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // What changed in the dashboard (ADR-199; v0.8 slice 3): the page and the alert card on a
-// Kubernetes cluster and a Docker fleet, each in its own words; the windows and the demo's
+// Kubernetes cluster and a Server fleet, each in its own words; the windows and the demo's
 // 24 hours; the states (learning, nothing, error); and the gate: Pro (and the demo) see the
 // data, Cloud Free the upgrade page and a locked line to it, Community the upgrade page and no card,
 // without asking the backend.

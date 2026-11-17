@@ -198,7 +198,7 @@ describe('Docker overview API', () => {
       method: 'POST',
       url: '/api/v1/clusters',
       cookies: { wl_session: cookie },
-      payload: { name: 'fleet', kind: 'docker' },
+      payload: { name: 'fleet', kind: 'server' },
     });
     const id = res.json().cluster.id as string;
     const headers = {
@@ -303,7 +303,7 @@ describe('Docker overview API', () => {
         cookies: { wl_session: cookie },
       })
     ).json();
-    expect(o.kind).toBe('docker');
+    expect(o.kind).toBe('server');
     expect(o.facts).toMatchObject({ dockerVersions: ['29.9.2'], nodes: 1 });
     expect(o.kpis.pods).toMatchObject({ running: 2, pending: 1, failed: 0, total: 3 });
     expect(o.problems.items.map((p: { title: string }) => p.title)).toEqual([

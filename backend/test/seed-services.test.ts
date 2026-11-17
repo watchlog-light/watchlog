@@ -18,9 +18,9 @@ const SERVICES: SeedService[] = [
     access: { username: 'watchlog', secret: { name: 'shop-postgres-watchlog', key: 'password' } },
     defaultAlerts: ['postgres_connections_high'],
   },
-  { clusterKind: 'docker', type: 'redis', name: 'storefront/cache' },
+  { clusterKind: 'server', type: 'redis', name: 'storefront/cache' },
   {
-    clusterKind: 'docker',
+    clusterKind: 'server',
     type: 'postgres',
     name: 'storefront/db',
     access: { username: 'watchlog', file: 'storefront-db' },
@@ -66,7 +66,7 @@ describe('seeded services', () => {
   it('monitors the demo services once they are reported, once', async () => {
     const k8s = (await api('POST', '/clusters', { name: 'kind-demo', kind: 'kubernetes' })).json()
       .cluster.id as string;
-    const docker = (await api('POST', '/clusters', { name: 'my-cluster', kind: 'docker' })).json()
+    const docker = (await api('POST', '/clusters', { name: 'my-cluster', kind: 'server' })).json()
       .cluster.id as string;
     // Nothing reported yet: nothing monitored, and nothing marked as done.
     expect((await applySeedServices(ctx.db, SERVICES, undefined, log)).monitored).toEqual([]);
@@ -159,7 +159,7 @@ describe('seeded services', () => {
   });
 
   it('gives a service monitored by hand without access the seeded access', async () => {
-    const docker = (await api('POST', '/clusters', { name: 'my-cluster', kind: 'docker' })).json()
+    const docker = (await api('POST', '/clusters', { name: 'my-cluster', kind: 'server' })).json()
       .cluster.id as string;
     const id = (
       await api('POST', '/applications', {

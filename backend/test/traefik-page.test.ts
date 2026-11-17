@@ -47,7 +47,7 @@ afterAll(async () => {
   );
 });
 
-async function cluster(name: string, kind: 'kubernetes' | 'docker') {
+async function cluster(name: string, kind: 'kubernetes' | 'server') {
   const res = await api('POST', '/clusters', { name, kind });
   return { id: res.json().cluster.id as string, token: res.json().token.value as string };
 }
@@ -281,7 +281,7 @@ describe('the Traefik page', () => {
   });
 
   it('metrics off: the setting for a Compose Traefik, the three flags', async () => {
-    const docker = await cluster('edge', 'docker');
+    const docker = await cluster('edge', 'server');
     const id = (
       await api('POST', '/applications', {
         clusterId: docker.id,

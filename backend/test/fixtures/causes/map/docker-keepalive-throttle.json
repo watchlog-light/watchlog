@@ -1,5 +1,5 @@
 {
-  "cluster": { "id": "00000000-0000-4000-8000-00000000000b", "name": "fleet", "kind": "docker" },
+  "cluster": { "id": "00000000-0000-4000-8000-00000000000b", "name": "fleet", "kind": "server" },
   "subject": "compose_service:s9-keepalive/api",
   "now": 1794395683698,
   "expected": {
@@ -27,7 +27,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "labels": {
               "dst": "192.168.5.0/24",
@@ -59,7 +59,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "labels": {
               "dst": "192.168.5.0/24",
@@ -91,7 +91,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "labels": {
               "dst": "storefront-sessions-1",
@@ -123,7 +123,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "labels": { "node": "docker-01", "container": "fx-crashloop" },
             "summary": "30 restarts in 10 min",
@@ -162,7 +162,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "where": { "group": "storefront", "host": "docker-01", "address": null },
             "target": {
@@ -195,7 +195,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "where": { "group": "causes-e2e", "host": "docker-01", "address": null },
             "target": {
@@ -221,7 +221,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "where": { "group": "rabbitmq-e2e", "host": "docker-01", "address": null },
             "target": {
@@ -247,7 +247,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "where": { "group": "storefront", "host": "docker-01", "address": null },
             "target": {
@@ -3329,7 +3329,7 @@
     "GET /clusters/00000000-0000-4000-8000-00000000000b/overview []": {
       "status": 200,
       "body": {
-        "kind": "docker",
+        "kind": "server",
         "cluster": {
           "id": "00000000-0000-4000-8000-00000000000b",
           "name": "fleet",

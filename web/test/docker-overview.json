@@ -1,5 +1,5 @@
 {
-  "kind": "docker",
+  "kind": "server",
   "cluster": { "id": "01a198b9-d3c4-7002-accd-17d990b846bc", "name": "fleet" },
   "range": 3600,
   "step": 60,

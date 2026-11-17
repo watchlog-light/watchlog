@@ -53,7 +53,7 @@ afterAll(async () => {
   );
 });
 
-async function cluster(name: string, kind: 'kubernetes' | 'docker') {
+async function cluster(name: string, kind: 'kubernetes' | 'server') {
   const res = await api('POST', '/clusters', { name, kind });
   return { id: res.json().cluster.id as string, token: res.json().token.value as string };
 }
@@ -130,7 +130,7 @@ describe('alert rules for services', () => {
       clusterId: k8s.id,
       scope: { service: id },
       service: { id, name: 'shop/redis', type: 'redis' },
-      appliesTo: ['kubernetes', 'docker'],
+      appliesTo: ['kubernetes', 'server'],
       condition: { op: '<', value: 1, critical: 0.01 },
     });
     expect(
@@ -181,7 +181,7 @@ describe('alert rules for services', () => {
 
   it('fires naming the service and what its collector said, on Kubernetes and Docker', async () => {
     const k8s = await cluster('prod', 'kubernetes');
-    const fleet = await cluster('docker-01', 'docker');
+    const fleet = await cluster('docker-01', 'server');
     const kid = (
       await api('POST', '/applications', {
         clusterId: k8s.id,
@@ -310,7 +310,7 @@ describe('alert rules for services', () => {
         severity: 'critical',
         at: new Date(clock.now).toISOString(),
         rule: { id: 'r', key: null, name: down.name, metric: down.metric },
-        cluster: { id: fleet.id, name: 'docker-01', kind: 'docker' },
+        cluster: { id: fleet.id, name: 'docker-01', kind: 'server' },
         items: [
           {
             labels: down.labels as Record<string, string>,

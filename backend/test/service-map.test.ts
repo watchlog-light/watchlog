@@ -279,7 +279,7 @@ describe('eBPF fixes per agent (ADR-107)', () => {
         method: 'POST',
         url: '/api/v1/clusters',
         cookies: { wl_session: cookie },
-        payload: { name: 'fleet', kind: 'docker' },
+        payload: { name: 'fleet', kind: 'server' },
       })
     ).json().cluster.id as string;
     const ctr = (name: string, project: string, networks: string[], state = 'running') => ({

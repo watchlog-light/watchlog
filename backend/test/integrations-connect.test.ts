@@ -110,7 +110,7 @@ describe('connect flow', () => {
       ...(payload ? { payload } : {}),
     });
 
-  async function cluster(name: string, kind: 'kubernetes' | 'docker') {
+  async function cluster(name: string, kind: 'kubernetes' | 'server') {
     const res = await api('POST', '/clusters', { name, kind });
     expect(res.statusCode).toBe(201);
     return { id: res.json().cluster.id as string, token: res.json().token.value as string };
@@ -335,7 +335,7 @@ describe('connect flow', () => {
       ).statusCode,
     ).toBe(400);
 
-    const fleet = await cluster('docker-01', 'docker');
+    const fleet = await cluster('docker-01', 'server');
     const cache = { kind: 'container', host: 'docker-01', container: 'cache', port: 6379 };
     const file = await api('POST', '/applications/probes', {
       clusterId: fleet.id,

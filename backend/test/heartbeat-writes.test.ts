@@ -62,7 +62,7 @@ async function cloud() {
     });
   const orgId = (await call('GET', '/me')).json().user.org.id as string;
   await c.app.entitlements!.put(orgId, { plan: 'pro', source: 'beta' });
-  const cluster = async (name: string, kind: 'kubernetes' | 'docker') => {
+  const cluster = async (name: string, kind: 'kubernetes' | 'server') => {
     const r = await call('POST', '/clusters', { name, kind });
     expect(r.statusCode, r.body).toBe(201);
     return {
@@ -95,7 +95,7 @@ const clusterRow = (c: TestContext, id: string) =>
 describe('what a heartbeat writes', () => {
   it('writes the times at most once a minute, a change of state at once', async () => {
     const { c, cluster } = await cloud();
-    const { owner } = await cluster('fleet', 'docker');
+    const { owner } = await cluster('fleet', 'server');
     // Mid-hour, so the hour rule doesn't add a write.
     const t0 = hourOf(Date.now()).getTime() - 30 * 60_000;
     const at = (s: number) => new Date(t0 + s * 1000);
@@ -161,7 +161,7 @@ describe('what a heartbeat writes', () => {
 
   it('writes the first heartbeat of an hour, so usage_hourly counts that hour', async () => {
     const { c, cluster } = await cloud();
-    const { owner } = await cluster('fleet', 'docker');
+    const { owner } = await cluster('fleet', 'server');
     const hour = hourOf(Date.now()).getTime();
     await recordHeartbeat(c.db, owner, beat('h1'), new Date(hour - 20_000));
     expect(await recordHeartbeat(c.db, owner, beat('h1'), new Date(hour - 5_000))).toEqual({
@@ -217,7 +217,7 @@ describe('the readers, with a stored time as far behind as the throttle allows',
 
   it('Docker: status, nodes, the checklist, the overview, the plan and the usage', async () => {
     const { c, call, orgId, cluster } = await cloud();
-    const { owner } = await cluster('fleet', 'docker');
+    const { owner } = await cluster('fleet', 'server');
     await lagging(c, owner, 'h1', 'docker');
 
     const list = (await call('GET', '/clusters')).json().clusters as {
@@ -283,7 +283,7 @@ describe('the readers, with a stored time as far behind as the throttle allows',
 
   it('"data delayed" clears with a good heartbeat that writes nothing', async () => {
     const { c, cluster } = await cloud();
-    const { owner, token } = await cluster('fleet', 'docker');
+    const { owner, token } = await cluster('fleet', 'server');
     const send = (payload: object) =>
       c.app.inject({
         method: 'POST',

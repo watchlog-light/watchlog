@@ -398,7 +398,7 @@ describe('Docker overview', () => {
     const fleet = {
       ...FIX.cluster,
       id: DOCKER_OV.cluster?.id ?? FIX.cluster.id,
-      kind: 'docker',
+      kind: 'server',
       name: 'fleet',
     };
     const fbase = `/api/v1/clusters/${fleet.id}`;

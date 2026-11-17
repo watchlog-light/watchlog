@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The upgrade page (ADR-201; v0.8 slice 5): what Cloud Free and Community see in place of
-// What changed, on a Kubernetes cluster and a Docker fleet. The demo's example labelled, the
+// What changed, on a Kubernetes cluster and a Server fleet. The demo's example labelled, the
 // org's own last alerts, the three reasons, Pro's price from the plans config, and the button
 // by edition, role and billing state: Checkout while billing is live, Settings › Plan & billing
 // while it is off, "Ask an Owner" for Admins and Viewers, "Try WatchLog Cloud" for Community.
@@ -155,7 +155,7 @@ const done = () => {
   mounted = null;
 };
 const platformOf = (c: typeof K8S): 'docker' | 'kubernetes' =>
-  c.kind === 'docker' ? 'docker' : 'kubernetes';
+  c.kind === 'server' ? 'docker' : 'kubernetes';
 
 describe('Cloud Free, an Owner', () => {
   it('billing off: the example labelled, the alerts, the reasons, the price, and Plan & billing', async () => {
@@ -198,7 +198,7 @@ describe('Cloud Free, an Owner', () => {
       expect(w.get('[data-testid="wc-up-badge"]').text()).toBe('Pro · $1 per node a month');
       expect(w.get('[data-testid="wc-up-fine"]').text()).toBe(
         p === 'docker'
-          ? '$1 per Docker host a month, $10 minimum, billed on the 95th percentile of your hosts.'
+          ? '$1 per server a month, $10 minimum, billed on the 95th percentile of your hosts.'
           : '$1 per node a month, $10 minimum, billed on the 95th percentile of your nodes.',
       );
       expect(up.text()).not.toMatch(/beta|Stripe/i);
@@ -242,7 +242,7 @@ describe('Cloud Free, an Owner', () => {
       });
       expect(leaveFor).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/cs_test_1');
       expect(w.find('[data-testid="wc-up-alerts-none"]').text()).toContain(
-        c.kind === 'docker' ? `No alerts on ${c.name} yet` : `No alerts in ${c.name} yet`,
+        c.kind === 'server' ? `No alerts on ${c.name} yet` : `No alerts in ${c.name} yet`,
       );
       vi.mocked(leaveFor).mockReset();
       done();

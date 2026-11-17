@@ -28,7 +28,7 @@ describe('clusters and tokens API', () => {
     as = cookie,
   ) => ctx.app.inject({ method, url: `/api/v1${url}`, cookies: { wl_session: as }, payload });
 
-  const createFleet = (name = 'prod-hosts') => call('POST', '/clusters', { name, kind: 'docker' });
+  const createFleet = (name = 'prod-hosts') => call('POST', '/clusters', { name, kind: 'server' });
 
   it('requires a session', async () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/api/v1/clusters' });
@@ -41,7 +41,7 @@ describe('clusters and tokens API', () => {
     const body = res.json();
     expect(body.cluster).toMatchObject({
       name: 'prod-hosts',
-      kind: 'docker',
+      kind: 'server',
       status: 'pending',
       nodeCount: 0,
     });
@@ -74,7 +74,7 @@ describe('clusters and tokens API', () => {
       url: '/api/v1/clusters',
       headers: { host: 'watchlog.lan:8080' },
       cookies: { wl_session: cookie },
-      payload: { name: 'lab', kind: 'docker' },
+      payload: { name: 'lab', kind: 'server' },
     });
     expect(res.json().install.dockerRun).toContain('WATCHLOG_ENDPOINT=http://watchlog.lan:8080');
   });

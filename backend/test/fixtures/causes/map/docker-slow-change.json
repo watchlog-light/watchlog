@@ -1,5 +1,5 @@
 {
-  "cluster": { "id": "00000000-0000-4000-8000-00000000000b", "name": "fleet", "kind": "docker" },
+  "cluster": { "id": "00000000-0000-4000-8000-00000000000b", "name": "fleet", "kind": "server" },
   "subject": "compose_service:causes-e2e/front",
   "now": 1794339774777,
   "expected": {
@@ -27,7 +27,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "labels": { "node": "docker-01", "container": "causes-e2e-hog-1" },
             "summary": "4 restarts in 10 min",
@@ -55,7 +55,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "labels": { "node": "docker-01", "container": "causes-e2e-crasher-1" },
             "summary": "17 restarts in 10 min",
@@ -83,7 +83,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "labels": { "node": "docker-01", "container": "causes-e2e-release-1" },
             "summary": "13 restarts in 10 min",
@@ -111,7 +111,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "labels": {
               "dst": "causes-e2e-web-1",
@@ -143,7 +143,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "labels": {
               "member": "causes-e2e-pg-1",
@@ -187,7 +187,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "where": { "group": "storefront", "host": "docker-01", "address": null },
             "target": {
@@ -220,7 +220,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "where": { "group": "storefront", "host": "docker-01", "address": null },
             "target": {
@@ -253,7 +253,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "where": { "group": "causes-e2e", "host": "docker-01", "address": null },
             "target": {
@@ -283,7 +283,7 @@
             "cluster": {
               "id": "00000000-0000-4000-8000-00000000000b",
               "name": "fleet",
-              "kind": "docker"
+              "kind": "server"
             },
             "where": { "group": "rabbitmq-e2e", "host": "docker-01", "address": null },
             "target": {

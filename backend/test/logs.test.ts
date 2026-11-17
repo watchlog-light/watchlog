@@ -30,12 +30,12 @@ describe('logs on demand: the relay', () => {
   });
   afterEach(() => closeTestContext(ctx));
 
-  async function cluster(kind: 'docker' | 'kubernetes') {
+  async function cluster(kind: 'server' | 'kubernetes') {
     const res = await ctx.app.inject({
       method: 'POST',
       url: '/api/v1/clusters',
       cookies: { wl_session: cookie },
-      payload: { name: kind === 'docker' ? 'fleet' : 'kind', kind },
+      payload: { name: kind === 'server' ? 'fleet' : 'kind', kind },
     });
     expect(res.statusCode).toBe(201);
     const body = res.json();
@@ -202,7 +202,7 @@ describe('logs on demand: the relay', () => {
   });
 
   it("routes a Docker container to its own host and keeps each line's stream", async () => {
-    const c = await cluster('docker');
+    const c = await cluster('server');
     await addObject(c.id, {
       source: 'docker',
       kind: 'DockerContainer',
@@ -319,7 +319,7 @@ describe('logs on demand: the relay', () => {
 
   it("refuses lines for another cluster's request", async () => {
     const a = await kube();
-    const b = await cluster('docker');
+    const b = await cluster('server');
     const reader = read(`/clusters/${a.id}/pods/logs-e2e/printer/logs`);
     const [req] = await pickUp(a.token);
     expect((await post(b.token, req!.id as string, { lines: [], done: true })).statusCode).toBe(

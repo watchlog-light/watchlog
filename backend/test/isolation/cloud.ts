@@ -376,7 +376,7 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
   if (wr.statusCode !== 204) throw new Error(`write: ${wr.statusCode} ${wr.body}`);
 
   // A Docker fleet: one host, one container.
-  const dRes = await api('POST', '/clusters', { name: `${label}-fleet`, kind: 'docker' });
+  const dRes = await api('POST', '/clusters', { name: `${label}-fleet`, kind: 'server' });
   const docker = { id: dRes.cluster.id as string, token: dRes.token.value as string };
   const host = `${label}-host`;
   const container = `${label}-web`;

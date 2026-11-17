@@ -12,7 +12,7 @@ export const T0 = Date.UTC(2026, 10, 1, 12, 0, 0);
 
 export async function createOrgCluster(
   db: Database,
-  kind: 'kubernetes' | 'docker' = 'kubernetes',
+  kind: 'kubernetes' | 'server' = 'kubernetes',
   name = 'prod',
 ): Promise<{ orgId: string; clusterId: string }> {
   const orgId = newId();

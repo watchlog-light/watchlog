@@ -423,8 +423,8 @@ describe('Events page', () => {
     w.unmount();
   });
 
-  it("shows a Docker fleet's events with host and Compose project facets", async () => {
-    const fleet = { ...FIX.cluster, kind: 'docker' };
+  it("shows a Server fleet's events with host and Compose project facets", async () => {
+    const fleet = { ...FIX.cluster, kind: 'server' };
     const ev = (name: string, host: string, ns: string | null) => ({
       type: 'Warning',
       reason: 'Died',

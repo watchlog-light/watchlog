@@ -59,7 +59,7 @@ const ALLOWED = [
   'POST /api/v1/query/range',
 ];
 
-async function walk(kind: 'kubernetes' | 'docker') {
+async function walk(kind: 'kubernetes' | 'server') {
   const routes: { method: string; url: string; tags?: string[] }[] = [];
   const onRoute = (r: RouteOptions) => {
     const tags = (r.schema as { tags?: string[] } | undefined)?.tags;
@@ -123,7 +123,7 @@ async function walk(kind: 'kubernetes' | 'docker') {
 }
 
 describe('API token read scope', () => {
-  for (const kind of ['kubernetes', 'docker'] as const) {
+  for (const kind of ['kubernetes', 'server'] as const) {
     it(`refuses every route outside the read scope (${kind} cluster)`, async () => {
       const { routes, allowed } = await walk(kind);
       // The app has many routes; an empty list would mean the hook saw nothing.

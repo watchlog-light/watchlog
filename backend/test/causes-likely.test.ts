@@ -78,7 +78,7 @@ describe('problemSubject: what a Needs-attention problem is asked as', () => {
       kind: 'alert',
       id: 'a1',
     });
-    expect(problemSubject({ alertId: 'a1', object: null }, 'docker')).toEqual({
+    expect(problemSubject({ alertId: 'a1', object: null }, 'server')).toEqual({
       kind: 'alert',
       id: 'a1',
     });
@@ -94,23 +94,23 @@ describe('problemSubject: what a Needs-attention problem is asked as', () => {
           alertId: null,
           object: { kind: 'Container', namespace: 'docker-01', name: 'shop-api-1' },
         },
-        'docker',
+        'server',
       ),
     ).toEqual({ kind: 'container', host: 'docker-01', name: 'shop-api-1' });
     for (const [o, p] of [
       [{ kind: 'Node', namespace: null, name: 'w1' }, 'kubernetes'],
       [{ kind: 'PersistentVolumeClaim', namespace: 'shop', name: 'data' }, 'kubernetes'],
-      [{ kind: 'Pod', namespace: 'shop', name: 'x' }, 'docker'],
+      [{ kind: 'Pod', namespace: 'shop', name: 'x' }, 'server'],
       [{ kind: 'Container', namespace: 'docker-01', name: 'x' }, 'kubernetes'],
     ] as const) {
       expect(problemSubject({ alertId: null, object: o }, p)).toBeNull();
     }
-    expect(problemSubject({ alertId: null, object: null }, 'docker')).toBeNull();
+    expect(problemSubject({ alertId: null, object: null }, 'server')).toBeNull();
   });
 });
 
 const kube: ClusterRef = { id: 'c1', name: 'kind', kind: 'kubernetes' };
-const docker: ClusterRef = { id: 'c2', name: 'fleet', kind: 'docker' };
+const docker: ClusterRef = { id: 'c2', name: 'fleet', kind: 'server' };
 const nobody: Reader = { get: () => Promise.reject(new Error('no reads in this test')) };
 const pod = (name: string): ListJob => ({
   cluster: kube,

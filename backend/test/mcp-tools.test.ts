@@ -173,7 +173,7 @@ describe('MCP tools on a Docker fleet', () => {
     mcp = await mcpClient(ctx, cookie);
 
     const problems = await mcp.call('get_problems', { cluster: 'fleet' });
-    expect(problems.data.cluster).toMatchObject({ name: 'fleet', kind: 'docker' });
+    expect(problems.data.cluster).toMatchObject({ name: 'fleet', kind: 'server' });
     const byName = Object.fromEntries(
       problems.data.problems.map((p: { object: { name: string } }) => [p.object.name, p]),
     );

@@ -21,7 +21,7 @@ const K8S = {
 const DOCKER = {
   id: '01a1c000-0000-7000-8000-000000000002',
   name: 'docker-01',
-  kind: 'docker' as const,
+  kind: 'server' as const,
 };
 
 function app(over: Partial<Application> & Pick<Application, 'id' | 'type' | 'name'>): Application {
@@ -159,7 +159,7 @@ describe('Applications page', () => {
     expect(rows[1]!.get('[data-testid="reason"]').text()).toBe(
       'No integrations collector runs on docker-01 yet.',
     );
-    expect(rows[1]!.find('img[data-logo="docker"]').exists()).toBe(true);
+    expect(rows[1]!.find('[data-logo="server"]').exists()).toBe(true);
     expect(rows[2]!.find('img[data-logo="redis"]').exists()).toBe(true);
 
     const found = wrapper.get('[data-testid="discovered"]');

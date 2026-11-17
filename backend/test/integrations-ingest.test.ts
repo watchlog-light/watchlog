@@ -17,12 +17,12 @@ describe('integrations collector ingest', () => {
   });
   afterEach(() => closeTestContext(ctx));
 
-  async function cluster(kind: 'docker' | 'kubernetes') {
+  async function cluster(kind: 'server' | 'kubernetes') {
     const res = await ctx.app.inject({
       method: 'POST',
       url: '/api/v1/clusters',
       cookies: { wl_session: cookie },
-      payload: { name: kind === 'docker' ? 'fleet' : 'kind', kind },
+      payload: { name: kind === 'server' ? 'fleet' : 'kind', kind },
     });
     expect(res.statusCode).toBe(201);
     const body = res.json();
@@ -89,7 +89,7 @@ describe('integrations collector ingest', () => {
   });
 
   it('serves a Docker host its targets with the containers it can reach', async () => {
-    const c = await cluster('docker');
+    const c = await cluster('server');
     await addObject(c.id, {
       source: 'docker',
       kind: 'DockerContainer',
@@ -190,7 +190,7 @@ describe('integrations collector ingest', () => {
   });
 
   it('answers 304 to an unchanged configuration and long-polls until a change', async () => {
-    const c = await cluster('docker');
+    const c = await cluster('server');
     const first = await config(c.token, '?host=docker-01');
     const etag = first.headers.etag as string;
     const same = await config(c.token, '?host=docker-01', { 'if-none-match': etag });
@@ -223,7 +223,7 @@ describe('integrations collector ingest', () => {
   });
 
   it('records the collector and each target it reports, for its own targets only', async () => {
-    const c = await cluster('docker');
+    const c = await cluster('server');
     const mine = await addIntegration(c, {
       type: 'redis',
       name: 'shop/redis',
@@ -272,7 +272,7 @@ describe('integrations collector ingest', () => {
   });
 
   it('cuts an oversized value short instead of refusing the report', async () => {
-    const c = await cluster('docker');
+    const c = await cluster('server');
     const id = await addIntegration(c, {
       type: 'postgres',
       name: 'shop/db',

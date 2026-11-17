@@ -244,7 +244,7 @@ describe('alert rules', () => {
       source: 'metric',
       unit: 'ratio',
       condition: { op: '>', value: 0.85, critical: 0.95 },
-      appliesTo: ['kubernetes', 'docker'],
+      appliesTo: ['kubernetes', 'server'],
     });
 
     const patch = (id: string, body: object) => api('PATCH', `/alert-rules/${id}`, body);

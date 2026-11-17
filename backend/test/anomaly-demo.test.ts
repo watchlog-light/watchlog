@@ -80,7 +80,7 @@ class FakeVictoria {
   asked = 0;
   private readonly keyOf = new Map<string, ScoredKey>();
   constructor() {
-    for (const kind of ['kubernetes', 'docker'] as ClusterKind[]) {
+    for (const kind of ['kubernetes', 'server'] as ClusterKind[]) {
       for (const q of queriesFor(kind, [])) this.keyOf.set(q.expr, q.key);
     }
   }
@@ -129,7 +129,7 @@ const platforms: Platform[] = [
     add: 1.5,
   },
   {
-    kind: 'docker',
+    kind: 'server',
     series: {
       key: 'container.memory.working_set',
       labels: { host: 'demo-docker-host', container: 'storefront-worker-1' },
@@ -263,7 +263,7 @@ describe('the demo entitlement (ADR-203)', () => {
     const demo = { edition: 'community' as const, demoMode: true };
     const cloudDemo = { edition: 'cloud' as const, demoMode: true };
     const community = { edition: 'community' as const, demoMode: false };
-    const free = await orgWith('docker', 'free');
+    const free = await orgWith('server', 'free');
     const pro = await orgWith('kubernetes', 'pro');
     // The demo: no entitlement row at all, and What changed all the same.
     const bare = await orgWith('kubernetes');
@@ -432,7 +432,7 @@ describe('the chaos’s alerts name what they break (ADR-203)', () => {
   it('Docker: failed connections leave out the destination container and its Compose service', () => {
     const compose = new Map([['storefront-api-1', { project: 'storefront', service: 'api' }]]);
     const alert = alertTokens(
-      'docker',
+      'server',
       {
         container: 'storefront-web-1',
         node: 'demo-docker-host',
@@ -442,13 +442,13 @@ describe('the chaos’s alerts name what they break (ADR-203)', () => {
       compose,
     );
     const own = seriesTokens(
-      'docker',
+      'server',
       { host: 'demo-docker-host', container: 'storefront-api-1' },
       compose,
     );
     expect([...own].some((x) => alert.has(x))).toBe(true);
     const other = seriesTokens(
-      'docker',
+      'server',
       { host: 'demo-docker-host', container: 'storefront-db-1' },
       compose,
     );

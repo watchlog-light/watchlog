@@ -218,7 +218,7 @@ beforeEach(async () => {
   docker = newId();
   await ctx.db
     .insertInto('clusters')
-    .values({ id: docker, org_id: orgId, name: 'office-docker', kind: 'docker' })
+    .values({ id: docker, org_id: orgId, name: 'office-docker', kind: 'server' })
     .execute();
 });
 afterEach(() => closeTestContext(ctx));

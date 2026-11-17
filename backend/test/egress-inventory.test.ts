@@ -95,7 +95,7 @@ afterAll(async () => {
 });
 
 async function orgWith(
-  kind: 'kubernetes' | 'docker',
+  kind: 'kubernetes' | 'server',
   firstSeenAt: number | null = T0 - 60 * DAY,
 ): Promise<{ orgId: string; clusterId: string }> {
   const orgId = newId();
@@ -194,13 +194,13 @@ describe('the source, in each platform’s vocabulary', () => {
 
   it('Docker: the Compose service when there is one, else the container on its host', () => {
     expect(
-      sourceOf('docker', docker('shop-api-1', 'x.io', '443', { project: 'shop', service: 'api' })),
+      sourceOf('server', docker('shop-api-1', 'x.io', '443', { project: 'shop', service: 'api' })),
     ).toEqual({ compose_project: 'shop', compose_service: 'api' });
-    expect(sourceOf('docker', docker('redis', 'x.io', '443'))).toEqual({
+    expect(sourceOf('server', docker('redis', 'x.io', '443'))).toEqual({
       host: 'docker-host-1',
       container: 'redis',
     });
-    expect(sourceOf('docker', { host: 'h', dst: 'x.io' })).toBeNull();
+    expect(sourceOf('server', { host: 'h', dst: 'x.io' })).toBeNull();
   });
 
   it('the minute query sums node away and groups by the platform’s labels', () => {
@@ -211,7 +211,7 @@ describe('the source, in each platform’s vocabulary', () => {
       'increase(watchlog_flow_connections_total{dst_kind=~"external|internet"}[2m])',
     );
     expect(q).toContain('increase(watchlog_flow_bytes_total{dst_kind=~"external|internet"}[2m])');
-    expect(minuteQuery('docker')).toContain(
+    expect(minuteQuery('server')).toContain(
       'sum by (host, container, compose_project, compose_service, dst_kind, dst, dst_port)',
     );
   });
@@ -317,7 +317,7 @@ describe('the minute job', () => {
   });
 
   it('Docker: Compose replicas are one source, a re-created container keeps its rows, plain containers by host', async () => {
-    const { orgId, clusterId } = await orgWith('docker');
+    const { orgId, clusterId } = await orgWith('server');
     const vm = new FakeVictoria();
     const api = { project: 'shop', service: 'api' };
     vm.answer = () => [
@@ -346,7 +346,7 @@ describe('the minute job', () => {
 
   it('one cluster’s failing query is reported; the others still run', async () => {
     const a = await orgWith('kubernetes');
-    const b = await orgWith('docker');
+    const b = await orgWith('server');
     const vm = new FakeVictoria();
     vm.answer = (cid) => {
       if (cid === a.clusterId) throw new Error('VictoriaMetrics unreachable');
@@ -397,7 +397,7 @@ describe('first seen from the retained series (once per cluster)', () => {
   });
 
   it('never looks further back than a day before the cluster first reported', async () => {
-    const { orgId } = await orgWith('docker', T0 - 2.5 * DAY);
+    const { orgId } = await orgWith('server', T0 - 2.5 * DAY);
     const vm = new FakeVictoria();
     await runEgressBackfill(depsFor(vm, [orgId]), T0);
     // Days 0 to 3 (the window of day 3 ends 3 days ago, before the first report).
@@ -626,7 +626,7 @@ describe('the queries against a real VictoriaMetrics', () => {
   });
 
   it('Docker: the look-back finds the first sample of each Compose service and container', async () => {
-    const { orgId, clusterId } = await orgWith('docker', A - DAY);
+    const { orgId, clusterId } = await orgWith('server', A - DAY);
     const conn = 'watchlog_flow_connections_total';
     const api = {
       host: 'h1',
@@ -684,7 +684,7 @@ describe('Cloud: each org inside its own scope, under Row-Level Security', () =>
 
   it('the job writes each org’s rows as watchlog_app; neither org sees the other’s', async () => {
     const a = await orgWith('kubernetes');
-    const b = await orgWith('docker');
+    const b = await orgWith('server');
     const vm = new FakeVictoria();
     vm.answer = (cid) =>
       cid === a.clusterId
@@ -826,7 +826,7 @@ describe('the migration (ADR-107: automatic)', () => {
         const ran = await migrateUp(url.toString());
         expect(ran[0]).toMatch(/_egress-inventory$/);
         const later = newId();
-        await sql`INSERT INTO clusters (id, org_id, name, kind) VALUES (${later}, ${orgId}, 'new', 'docker')`.execute(
+        await sql`INSERT INTO clusters (id, org_id, name, kind) VALUES (${later}, ${orgId}, 'new', 'server')`.execute(
           old,
         );
         const got = await sql<{ id: string; since: Date | null; backfilled: Date | null }>`

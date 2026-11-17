@@ -254,7 +254,7 @@ describe('get_what_changed on a Kubernetes cluster', () => {
   it('Kubernetes words, first to move and furthest out, the cause, around an alert', async () => {
     const { c, orgId, mcp } = await cloudOrg();
     const k8s = await insertCluster(c.db, orgId, 'acme-prod', 'kubernetes');
-    await insertCluster(c.db, orgId, 'acme-hosts', 'docker');
+    await insertCluster(c.db, orgId, 'acme-hosts', 'server');
     await learned(c, orgId, k8s.id);
     for (const p of K8S) await period(c, orgId, k8s.id, p);
 
@@ -441,13 +441,13 @@ describe('get_what_changed on a Kubernetes cluster', () => {
 describe('get_what_changed on a Docker fleet', () => {
   it('containers with their host and Compose names, hosts; no Kubernetes words', async () => {
     const { c, orgId, mcp } = await cloudOrg();
-    const fleet = await insertCluster(c.db, orgId, 'acme-hosts', 'docker');
+    const fleet = await insertCluster(c.db, orgId, 'acme-hosts', 'server');
     await learned(c, orgId, fleet.id);
     await composeContainer(c, orgId, fleet.id);
     for (const p of DOCKER) await period(c, orgId, fleet.id, p);
     const r = await mcp.call('get_what_changed', { cluster: 'acme-hosts' });
     expect(r.isError, r.text).toBe(false);
-    expect(r.data.cluster.kind).toBe('docker');
+    expect(r.data.cluster.kind).toBe('server');
     expect(r.data.changes.map((x: { object: object }) => x.object)).toEqual([
       {
         kind: 'container',
@@ -474,7 +474,7 @@ describe('get_what_changed on a Docker fleet', () => {
 
   it('learning: nothing listed, with its end', async () => {
     const { c, orgId, mcp } = await cloudOrg();
-    const fleet = await insertCluster(c.db, orgId, 'acme-hosts', 'docker');
+    const fleet = await insertCluster(c.db, orgId, 'acme-hosts', 'server');
     for (const p of DOCKER) await period(c, orgId, fleet.id, p);
     const r = await mcp.call('get_what_changed', {});
     expect(r.isError, r.text).toBe(false);
@@ -489,7 +489,7 @@ describe('the gate (ADR-202)', () => {
     const { tools } = await mcp.client.listTools();
     const tool = tools.find((t) => t.name === 'get_what_changed');
     expect(tool?.annotations?.readOnlyHint).toBe(true);
-    for (const kind of ['kubernetes', 'docker'] as const) {
+    for (const kind of ['kubernetes', 'server'] as const) {
       const cl = await insertCluster(c.db, orgId, `free-${kind}`, kind);
       await learned(c, orgId, cl.id);
       await period(c, orgId, cl.id, kind === 'kubernetes' ? K8S[0]! : DOCKER[0]!);
@@ -511,7 +511,7 @@ describe('the gate (ADR-202)', () => {
     const cookie = await setupAdmin(ctx.app);
     const org = await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow();
     await insertCluster(ctx.db, org.id, 'kind', 'kubernetes');
-    await insertCluster(ctx.db, org.id, 'fleet', 'docker');
+    await insertCluster(ctx.db, org.id, 'fleet', 'server');
     mcp = await mcpClient(ctx, cookie);
     const { tools } = await mcp.client.listTools();
     expect(tools.map((t) => t.name)).not.toContain('get_what_changed');
@@ -560,7 +560,7 @@ describe('GET /what-changed with an API token (ADR-125, ADR-202)', () => {
   it('a read token reads it on both kinds; another scope, the feedback and the anomaly page are refused', async () => {
     const { c, orgId, mcp } = await cloudOrg();
     const k8s = await insertCluster(c.db, orgId, 'acme-prod', 'kubernetes');
-    const fleet = await insertCluster(c.db, orgId, 'acme-hosts', 'docker');
+    const fleet = await insertCluster(c.db, orgId, 'acme-hosts', 'server');
     for (const [cl, ps] of [
       [k8s, K8S],
       [fleet, DOCKER],

@@ -42,7 +42,7 @@ afterEach(async () => {
 
 const rule = (key: string): DefaultRule => DEFAULT_RULES.find((r) => r.key === key)!;
 
-async function setup(key: string, kind: 'kubernetes' | 'docker' = 'kubernetes') {
+async function setup(key: string, kind: 'kubernetes' | 'server' = 'kubernetes') {
   const created = await createOrgCluster(ctx.db, kind);
   clusterId = created.clusterId;
   worker = testWorker(ctx.db, clock, lookupEvaluator, {
@@ -212,7 +212,7 @@ describe('metric rules: trigger and resolve', () => {
   });
 
   it('node.disk.usage: warning above 85 %, escalates above 95 %, per mount, on a Docker host', async () => {
-    await setup('node.disk.usage', 'docker');
+    await setup('node.disk.usage', 'server');
     const avail = (t: number) => (t < A + 10 * MIN ? 10 : t < A + 20 * MIN ? 3 : 50);
     for (const mount of ['/', '/data']) {
       await write(
@@ -402,7 +402,7 @@ describe('metric rules: trigger and resolve', () => {
   });
 
   it('docker.container.throttling: the same share per container; a share is at most 100 %', async () => {
-    await setup('docker.container.throttling', 'docker');
+    await setup('docker.container.throttling', 'server');
     // A multi-threaded container throttled on two CPUs at once: 1.25 s a second, read as 100 %.
     await write(
       'watchlog_container_cpu_throttled_seconds_total',
@@ -430,7 +430,7 @@ describe('metric rules: trigger and resolve', () => {
   });
 
   it('docker.container.restarts: more than 3 restarts in 10 min fires, a quiet container resolves', async () => {
-    await setup('docker.container.restarts', 'docker');
+    await setup('docker.container.restarts', 'server');
     // One restart a minute until A + 15 min, then none.
     const restarts = (t: number) => Math.floor((Math.min(t, A + 15 * MIN) - A) / MIN);
     await write(

@@ -14,7 +14,7 @@ const TOKEN = `wl_ct_${'x'.repeat(43)}`;
 const CLUSTER = {
   id: CLUSTER_ID,
   name: 'production',
-  kind: 'docker' as const,
+  kind: 'server' as const,
   status: 'pending' as const,
   nodeCount: 0,
   agentVersion: null,
@@ -109,9 +109,9 @@ describe('Settings → Clusters', () => {
     await wrapper.get('[data-testid="add-first-cluster"]').trigger('click');
     // Each kind is offered with its logo.
     const logos = wrapper
-      .findAll('[data-testid="kind-choice"] img')
+      .findAll('[data-testid="kind-choice"] [data-logo]')
       .map((i) => i.attributes('data-logo'));
-    expect(logos).toEqual(['docker', 'kubernetes']);
+    expect(logos).toEqual(['server', 'kubernetes']);
     await wrapper.get('[data-testid="kind-choice"] input[value="kubernetes"]').setValue(true);
     await wrapper.get('[data-testid="create-form"] input[type="text"]').setValue('kind');
     await wrapper.get('[data-testid="create-form"]').trigger('submit');
@@ -130,7 +130,7 @@ describe('Settings → Clusters', () => {
     );
   });
 
-  it('creates the first Docker fleet and shows the token and command once', async () => {
+  it('creates the first Server fleet and shows the token and command once', async () => {
     const { calls } = mockFetch({
       'GET /api/v1/clusters': [
         { status: 200, body: { clusters: [] } },
@@ -139,7 +139,7 @@ describe('Settings → Clusters', () => {
       'POST /api/v1/clusters': { status: 201, body: { cluster: CLUSTER, ...ISSUED } },
     });
     const wrapper = await mountAs(SettingsPage, '/settings');
-    expect(wrapper.text()).toContain('No cluster or Docker fleet yet');
+    expect(wrapper.text()).toContain('No cluster or Server fleet yet');
 
     await wrapper.get('[data-testid="add-first-cluster"]').trigger('click');
     await wrapper.get('[data-testid="create-form"] input[type="text"]').setValue('production');
@@ -148,7 +148,7 @@ describe('Settings → Clusters', () => {
 
     expect(calls.find((c) => c.method === 'POST')!.body).toEqual({
       name: 'production',
-      kind: 'docker',
+      kind: 'server',
     });
     const reveal = wrapper.get('[data-testid="token-reveal"]');
     expect(reveal.text()).toContain('shown only once');
@@ -162,7 +162,7 @@ describe('Settings → Clusters', () => {
     expect(wrapper.text()).not.toContain(TOKEN);
   });
 
-  it('adds a Kubernetes cluster next to an existing Docker fleet (Community, ADR-151)', async () => {
+  it('adds a Kubernetes cluster next to an existing Server fleet (Community, ADR-151)', async () => {
     const k8s = { ...CLUSTER, id: 'k8s-1', name: 'prod-k8s', kind: 'kubernetes' as const };
     mockFetch({
       'GET /api/v1/clusters': [

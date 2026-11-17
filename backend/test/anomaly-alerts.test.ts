@@ -69,7 +69,7 @@ afterEach(async () => {
   setAnomalyAlertKeys(parseAlertKeys(undefined));
 });
 
-async function setup(kind: 'kubernetes' | 'docker') {
+async function setup(kind: 'kubernetes' | 'server') {
   const { orgId, clusterId } = await createOrgCluster(ctx.db, kind);
   worker = testWorker(ctx.db, clock, lookupEvaluator, {
     prepareOrg: async (id) => {
@@ -77,7 +77,7 @@ async function setup(kind: 'kubernetes' | 'docker') {
       await ensureAnomalyRule(ctx.db, id, entitled);
     },
   });
-  if (kind === 'docker') {
+  if (kind === 'server') {
     // The fleet's container list: shop-web-1 and shop-web-2 are the Compose service shop/web.
     for (const name of ['shop-web-1', 'shop-web-2']) {
       await ctx.db
@@ -259,7 +259,7 @@ describe('the rule: one alert per subject and metric', () => {
   });
 
   it('Docker: a container named with its Compose service and its host', async () => {
-    const { orgId, clusterId } = await setup('docker');
+    const { orgId, clusterId } = await setup('server');
     await cycle(T0);
     await period(ctx.db, orgId, clusterId, { ...DOCKER_MEM, startedAt: T0 - 10 * MIN });
     await cycle(T0 + MIN);
@@ -348,7 +348,7 @@ describe('quiet for 30 minutes after a rollout (ADR-200)', () => {
   });
 
   it('Docker: a re-created container of the same Compose service, or a Compose change, keeps it quiet', async () => {
-    const { orgId, clusterId } = await setup('docker');
+    const { orgId, clusterId } = await setup('server');
     // The other replica of shop/web was re-created: the service changed.
     const recreate = T0 - 5 * MIN;
     await ctx.db
@@ -444,7 +444,7 @@ async function otherAlert(
 async function cardRows(
   orgId: string,
   clusterId: string,
-  kind: 'kubernetes' | 'docker',
+  kind: 'kubernetes' | 'server',
   since: number,
 ) {
   const w = alertWindow(since, clock.now);
@@ -529,7 +529,7 @@ describe('no anomaly alert while another alert fires on the subject (ADR-200, sl
   });
 
   it("Docker: an alert on the container, on another container of its Compose service, or on the Compose service holds it back; a host alert doesn't", async () => {
-    const { orgId, clusterId } = await setup('docker');
+    const { orgId, clusterId } = await setup('server');
     await cycle(T0);
     const since = T0 - 20 * MIN;
     // shop-web-2 is the other replica of the Compose service shop/web.
@@ -557,7 +557,7 @@ describe('no anomaly alert while another alert fires on the subject (ADR-200, sl
     expect((await anomalyAlerts(clusterId)).map((a) => a.fingerprint)).toEqual([
       'anomaly:cron-1/docker-01:container.memory.working_set',
     ]);
-    expect(await cardRows(orgId, clusterId, 'docker', since)).toHaveLength(2);
+    expect(await cardRows(orgId, clusterId, 'server', since)).toHaveLength(2);
 
     // One of the two resolves: the other still holds it back.
     await replica.resolve(T0 + 2 * MIN);
@@ -588,7 +588,7 @@ describe('the alert-key setting (ADR-200: narrow which keys alert, no daily cap)
     expect(() => parseAlertKeys('workload.{cpu}')).toThrow(/WATCHLOG_ANOMALY_ALERT_KEYS/);
   });
 
-  for (const kind of ['kubernetes', 'docker'] as const) {
+  for (const kind of ['kubernetes', 'server'] as const) {
     it(`${kind}: an edge's period is listed but doesn't alert by default; a narrowed list holds back the rest`, async () => {
       const { orgId, clusterId } = await setup(kind);
       const edge: Record<string, string> =
@@ -623,7 +623,7 @@ describe('the alert-key setting (ADR-200: narrow which keys alert, no daily cap)
 });
 
 describe('the upkeep (ADR-200, ADR-204): Pro only, no manual step', () => {
-  for (const kind of ['kubernetes', 'docker'] as const) {
+  for (const kind of ['kubernetes', 'server'] as const) {
     it(`${kind}: Pro gets the rule; Free never; a downgrade turns it off and ends its alerts without a message; Pro again turns it back on`, async () => {
       const { orgId, clusterId } = await setup(kind);
       // Free (or Community): the default rules, never the anomaly rule.
@@ -711,7 +711,7 @@ const cause: NotifyCause = {
 };
 
 function payload(
-  kind: 'kubernetes' | 'docker',
+  kind: 'kubernetes' | 'server',
   labels: Record<string, string>,
   details: Record<string, unknown>,
   withCause = true,
@@ -721,7 +721,7 @@ function payload(
     kind: 'firing',
     severity: 'warning',
     rule: { id: 'rule-1', key: ANOMALY_RULE_KEY, name: 'Unusual for this hour' },
-    cluster: { id: 'c-1', name: kind === 'docker' ? 'edge-fleet' : 'acme-prod', kind },
+    cluster: { id: 'c-1', name: kind === 'server' ? 'edge-fleet' : 'acme-prod', kind },
     items: [
       {
         alertId: 'a-1',
@@ -820,7 +820,7 @@ describe('messages in every channel (ADR-200, ADR-095)', () => {
   });
 
   it('Docker: the Compose service in the title, the host and container in where, every channel', () => {
-    const p = payload('docker', DOCKER_LABELS, DOCKER_DETAILS, false);
+    const p = payload('server', DOCKER_LABELS, DOCKER_DETAILS, false);
     const m = renderMessage(p, BASE);
     expect(m.items[0]).toMatchObject({
       title: 'web (shop): memory unusual for a Tuesday at 14:00 UTC',
@@ -885,7 +885,7 @@ function oneSeries(key: string, labels: Record<string, string>, valueAt: (t: num
       start: number,
       end: number,
     ): Promise<QuerySeries[]> {
-      const q = queriesFor('kubernetes', []).concat(queriesFor('docker', []));
+      const q = queriesFor('kubernetes', []).concat(queriesFor('server', []));
       if (!q.some((x) => x.key === key && x.expr === expr)) return [];
       const points: [number, number | null][] = [];
       for (let t = start; t <= end; t += 60) points.push([t, valueAt(t * 1000)]);
@@ -895,7 +895,7 @@ function oneSeries(key: string, labels: Record<string, string>, valueAt: (t: num
 }
 
 describe('"normal for us" in the scoring (ADR-200)', () => {
-  for (const kind of ['kubernetes', 'docker'] as const) {
+  for (const kind of ['kubernetes', 'server'] as const) {
     it(`${kind}: the widening keeps the same value from scoring past 4 in that hour only; undone, it opens again`, async () => {
       const { orgId, clusterId } = await setup(kind);
       const [key, labels, med, mad, value] =

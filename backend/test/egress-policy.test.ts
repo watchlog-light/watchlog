@@ -56,7 +56,7 @@ const get = (query: Record<string, string>, as = cookie) =>
     cookies: { wl_session: as },
   });
 
-async function cluster(kind: 'kubernetes' | 'docker', name: string = kind) {
+async function cluster(kind: 'kubernetes' | 'server', name: string = kind) {
   const res = await ctx.app.inject({
     method: 'POST',
     url: '/api/v1/clusters',
@@ -524,7 +524,7 @@ describe('egress policy suggestion (ADR-190)', () => {
 
   it('Docker is refused with the reason; unknown and pod-less workloads; roles; another org', async () => {
     await open();
-    const docker = await cluster('docker');
+    const docker = await cluster('server');
     let res = await get({ cluster: docker, workload: 'shop/Deployment/checkout' });
     expect(res.statusCode).toBe(404);
     expect(res.json().detail).toContain('Docker has no egress policy object');

@@ -45,7 +45,7 @@ afterAll(async () => {
   );
 });
 
-async function cluster(name: string, kind: 'kubernetes' | 'docker') {
+async function cluster(name: string, kind: 'kubernetes' | 'server') {
   const res = await api('POST', '/clusters', { name, kind });
   return { id: res.json().cluster.id as string, token: res.json().token.value as string };
 }
@@ -404,7 +404,7 @@ describe('the Redis page', () => {
   });
 
   it('names Docker clients by container, and a Compose Redis gets the Redis page', async () => {
-    const fleet = await cluster('docker-01', 'docker');
+    const fleet = await cluster('docker-01', 'server');
     await ctx.db
       .insertInto('objects')
       .values({

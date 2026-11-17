@@ -46,7 +46,7 @@ afterAll(async () => {
   );
 });
 
-async function cluster(name: string, kind: 'kubernetes' | 'docker') {
+async function cluster(name: string, kind: 'kubernetes' | 'server') {
   const res = await api('POST', '/clusters', { name, kind });
   return { id: res.json().cluster.id as string, token: res.json().token.value as string };
 }
@@ -332,7 +332,7 @@ describe('the MongoDB page', () => {
   });
 
   it('a user without clusterMonitor: the panels say so; a standalone server has no members', async () => {
-    const docker = await cluster('fleet', 'docker');
+    const docker = await cluster('fleet', 'server');
     const id = (
       await api('POST', '/applications', {
         clusterId: docker.id,

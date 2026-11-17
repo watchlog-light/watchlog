@@ -224,7 +224,7 @@ describe('GET /causes', () => {
         await ctx!.db
           .selectFrom('clusters')
           .select('id')
-          .where('kind', '=', 'docker')
+          .where('kind', '=', 'server')
           .executeTakeFirstOrThrow()
       ).id,
       subject: `alert:${a.id}`,
@@ -279,7 +279,7 @@ describe('GET /causes', () => {
     expect(host.json().object).toMatchObject({
       kind: 'host',
       ref: 'docker-01',
-      platform: 'docker',
+      platform: 'server',
     });
     expect(host.json().checks.map((c: { code: string }) => c.code)).toContain('host_ok');
   });
@@ -294,9 +294,9 @@ describe('GET /causes', () => {
         kind: 'container',
         ref: 'docker-01/shop-api-1',
         host: 'docker-01',
-        platform: 'docker',
+        platform: 'server',
       },
-      cluster: { kind: 'docker' },
+      cluster: { kind: 'server' },
       state: 'none',
     });
     expect(c.json().checks.find((x: { topic: string }) => x.topic === 'host')).toMatchObject({
@@ -417,7 +417,7 @@ describe('likelyCause on the overview, the alert detail and the applications (AD
   it('from recorded answers, on both platforms: the problems, the alert detail, the subjects asked', async () => {
     const answers = {
       kubernetes: await recorded('kube-dependency-down'),
-      docker: await recorded('docker-host-silent'),
+      server: await recorded('docker-host-silent'),
     };
     const asked: string[] = [];
     const fake = async (_r: unknown, c: ClusterRef, s: Subject) => {
@@ -466,7 +466,7 @@ describe('likelyCause on the overview, the alert detail and the applications (AD
     expect(dd.likelyCause).toMatchObject({ rule: 'node_or_host' });
     // Alerts are asked as alerts, Docker object problems as containers, pods as pods.
     expect(new Set(asked)).toEqual(
-      new Set(['kubernetes alert', 'kubernetes pod', 'docker alert', 'docker container']),
+      new Set(['kubernetes alert', 'kubernetes pod', 'server alert', 'server container']),
     );
     // A list answer reads its causes from the cache: no second explain within 15 s.
     const before = asked.length;

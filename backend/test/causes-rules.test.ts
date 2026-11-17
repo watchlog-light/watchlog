@@ -580,18 +580,18 @@ describe('job_failed', () => {
 describe('the catalog', () => {
   it('has the object rules (slice 2), those under it (slice 4) and those across the map (slice 3), Docker forms where ADR-149 has them', () => {
     expect(RULES.map((r) => [r.code, r.platforms.join('+')])).toEqual([
-      ['bad_change', 'kubernetes+docker'],
-      ['oom_limit', 'kubernetes+docker'],
-      ['crash_exit', 'kubernetes+docker'],
+      ['bad_change', 'kubernetes+server'],
+      ['oom_limit', 'kubernetes+server'],
+      ['crash_exit', 'kubernetes+server'],
       ['image_pull', 'kubernetes'],
       ['unschedulable', 'kubernetes'],
       ['job_failed', 'kubernetes'],
-      ['node_or_host', 'kubernetes+docker'],
-      ['cpu_throttled', 'kubernetes+docker'],
-      ['dependency_down', 'kubernetes+docker'],
-      ['connection_refused', 'kubernetes+docker'],
-      ['dns_nxdomain', 'kubernetes+docker'],
-      ['application_finding', 'kubernetes+docker'],
+      ['node_or_host', 'kubernetes+server'],
+      ['cpu_throttled', 'kubernetes+server'],
+      ['dependency_down', 'kubernetes+server'],
+      ['connection_refused', 'kubernetes+server'],
+      ['dns_nxdomain', 'kubernetes+server'],
+      ['application_finding', 'kubernetes+server'],
     ]);
   });
 });

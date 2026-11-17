@@ -55,7 +55,7 @@ class FakeEventSource {
 const lastSource = () => FakeEventSource.all.at(-1)!;
 
 function status(
-  kind: 'kubernetes' | 'docker',
+  kind: 'kubernetes' | 'server',
   done: string[],
   extra: Partial<OnboardingStatus> = {},
 ): OnboardingStatus {
@@ -154,8 +154,8 @@ describe('useOnboardingStatus', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { calls } = mockFetch({
       [`GET /api/v1/clusters/${ID}/onboarding-status`]: [
-        { status: 200, body: status('docker', []) },
-        { status: 200, body: status('docker', ['agent', 'metrics', 'ebpf', 'map']) },
+        { status: 200, body: status('server', []) },
+        { status: 200, body: status('server', ['agent', 'metrics', 'ebpf', 'map']) },
       ],
     });
     const { wrapper } = await mountWith(Probe, '/', true, { id: ID });
@@ -189,7 +189,7 @@ describe('the live checklist', () => {
   });
 
   it('Docker: hosts, no cluster agent; eBPF off says why and how to fix it', async () => {
-    const s = status('docker', ['agent', 'metrics']);
+    const s = status('server', ['agent', 'metrics']);
     s.steps[2] = {
       id: 'ebpf',
       state: 'off',
@@ -202,7 +202,7 @@ describe('the live checklist', () => {
       fix: null,
     };
     s.steps[3] = { id: 'map', state: 'off', since: null, services: 0, connections: 0 };
-    const { wrapper } = await mountWith(LiveChecklist, '/', true, { status: s, kind: 'docker' });
+    const { wrapper } = await mountWith(LiveChecklist, '/', true, { status: s, kind: 'server' });
     expect(wrapper.find('[data-testid="check-clusterAgent"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="check-agent"]').text()).toContain('on 3 hosts');
     expect(wrapper.get('[data-testid="check-metrics"]').text()).toContain('3 hosts, 41 containers');
@@ -215,10 +215,10 @@ describe('the live checklist', () => {
 });
 
 describe('the wizard', () => {
-  const created = (kind: 'kubernetes' | 'docker') => ({
+  const created = (kind: 'kubernetes' | 'server') => ({
     cluster: {
       id: ID,
-      name: kind === 'docker' ? 'acme-hosts' : 'acme-prod',
+      name: kind === 'server' ? 'acme-servers' : 'acme-prod',
       kind,
       status: 'pending',
       nodeCount: 0,
@@ -230,7 +230,7 @@ describe('the wizard', () => {
     },
     token: { id: ID, prefix: 'abcd1234', value: 'wl_ct_secret', createdAt: '' },
     install:
-      kind === 'docker'
+      kind === 'server'
         ? {
             dockerRun: 'docker run … WATCHLOG_ENDPOINT=https://ingest.watchlog.io',
             compose: 'services: …',
@@ -254,8 +254,8 @@ describe('the wizard', () => {
     expect(wrapper.find('[data-testid="wizard-choose"]').exists()).toBe(true);
     const name = wrapper.get('[data-testid="cluster-name"] input');
     expect((name.element as HTMLInputElement).value).toBe('acme-prod');
-    await wrapper.get('[data-testid="kind-docker"] input').setValue(true);
-    expect((name.element as HTMLInputElement).value).toBe('acme-hosts');
+    await wrapper.get('[data-testid="kind-server"] input').setValue(true);
+    expect((name.element as HTMLInputElement).value).toBe('acme-servers');
     await wrapper.get('[data-testid="kind-kubernetes"] input').setValue(true);
     expect(wrapper.get('[data-testid="sample-link"]').attributes()).toMatchObject({
       href: 'https://demo.watchlog.io',
@@ -308,7 +308,7 @@ describe('the wizard', () => {
   });
 
   describe('back from the install step', () => {
-    async function toInstall(kind: 'kubernetes' | 'docker' = 'kubernetes', more = {}) {
+    async function toInstall(kind: 'kubernetes' | 'server' = 'kubernetes', more = {}) {
       const mock = mockFetch({
         'POST /api/v1/clusters': [{ status: 201, body: created(kind) }],
         'GET /api/v1/clusters': { status: 200, body: { clusters: [created(kind).cluster] } },
@@ -316,8 +316,8 @@ describe('the wizard', () => {
         ...more,
       });
       const mounted = await mountWith(OnboardingPage, '/onboarding');
-      if (kind === 'docker')
-        await mounted.wrapper.get('[data-testid="kind-docker"] input').setValue(true);
+      if (kind === 'server')
+        await mounted.wrapper.get('[data-testid="kind-server"] input').setValue(true);
       await mounted.wrapper.get('form').trigger('submit');
       await flushPromises();
       expect(mounted.wrapper.find('[data-testid="wizard-install"]').exists()).toBe(true);
@@ -370,7 +370,7 @@ describe('the wizard', () => {
 
     it('another type replaces the empty cluster with a new one', async () => {
       const NEW = '01a1c446-a818-76d4-b058-f1b1aa7dc502';
-      const docker = created('docker');
+      const docker = created('server');
       const mock = mockFetch({
         'POST /api/v1/clusters': [
           { status: 201, body: created('kubernetes') },
@@ -388,10 +388,10 @@ describe('the wizard', () => {
       await flushPromises();
       await wrapper.get('[data-testid="wizard-back"]').trigger('click');
       await flushPromises();
-      await wrapper.get('[data-testid="kind-docker"] input').setValue(true);
+      await wrapper.get('[data-testid="kind-server"] input').setValue(true);
       // The name was kept (edited counts as the user's), not switched to the Docker suggestion.
       expect((input(wrapper).element as HTMLInputElement).value).toBe('acme-prod');
-      await input(wrapper).setValue('acme-hosts');
+      await input(wrapper).setValue('acme-servers');
       await wrapper.get('form').trigger('submit');
       await flushPromises();
       const writes = mock.calls.filter((c) => c.method !== 'GET' && c.path !== '/api/v1/funnel');
@@ -400,7 +400,7 @@ describe('the wizard', () => {
         `DELETE /api/v1/clusters/${ID}`,
         'POST /api/v1/clusters',
       ]);
-      expect(writes[2]!.body).toEqual({ name: 'acme-hosts', kind: 'docker' });
+      expect(writes[2]!.body).toEqual({ name: 'acme-servers', kind: 'server' });
       expect(router.currentRoute.value.query.id).toBe(NEW);
       expect(wrapper.find('[data-testid="tab-dockerRun"]').exists()).toBe(true);
     });
@@ -414,7 +414,7 @@ describe('the wizard', () => {
       });
       await wrapper.get('[data-testid="wizard-back"]').trigger('click');
       await flushPromises();
-      await wrapper.get('[data-testid="kind-docker"] input').setValue(true);
+      await wrapper.get('[data-testid="kind-server"] input').setValue(true);
       await wrapper.get('form').trigger('submit');
       await flushPromises();
       expect(wrapper.text()).toContain('Only an Owner can replace acme-prod with another type');
@@ -436,17 +436,17 @@ describe('the wizard', () => {
   it('shows troubleshooting after 2 minutes without a heartbeat, with help by email', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     mockFetch({
-      'POST /api/v1/clusters': { status: 201, body: created('docker') },
-      'GET /api/v1/clusters': { status: 200, body: { clusters: [created('docker').cluster] } },
+      'POST /api/v1/clusters': { status: 201, body: created('server') },
+      'GET /api/v1/clusters': { status: 200, body: { clusters: [created('server').cluster] } },
       'POST /api/v1/funnel': { status: 204 },
     });
     const { wrapper } = await mountWith(OnboardingPage, '/onboarding');
-    await wrapper.get('[data-testid="kind-docker"] input').setValue(true);
+    await wrapper.get('[data-testid="kind-server"] input').setValue(true);
     await wrapper.get('form').trigger('submit');
     await flushPromises();
     expect(wrapper.get('[data-testid="tab-dockerRun"]').attributes('aria-selected')).toBe('true');
     expect(wrapper.find('[data-testid="tab-compose"]').exists()).toBe(true);
-    lastSource().emit('status', status('docker', []));
+    lastSource().emit('status', status('server', []));
     await vi.advanceTimersByTimeAsync(119_000);
     expect(wrapper.find('[data-testid="troubleshooting"]').exists()).toBe(false);
     await vi.advanceTimersByTimeAsync(6_000);

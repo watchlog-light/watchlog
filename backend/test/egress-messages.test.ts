@@ -28,7 +28,7 @@ const cause: NotifyCause = {
 };
 
 function payload(
-  kind: 'kubernetes' | 'docker',
+  kind: 'kubernetes' | 'server',
   key: string,
   labels: Record<string, string>,
   details: Record<string, unknown>,
@@ -39,7 +39,7 @@ function payload(
     kind: 'firing',
     severity: 'warning',
     rule: { id: 'rule-1', key, name: 'New external destination' },
-    cluster: { id: 'c-1', name: kind === 'docker' ? 'edge-fleet' : 'acme-prod', kind },
+    cluster: { id: 'c-1', name: kind === 'server' ? 'edge-fleet' : 'acme-prod', kind },
     items: [
       {
         alertId: 'a-1',
@@ -122,7 +122,7 @@ describe('New external destination, Kubernetes', () => {
 describe('Docker vocabulary', () => {
   it('a Compose service: named with its project, the fleet, the Egress page filtered to it', () => {
     const p = payload(
-      'docker',
+      'server',
       'egress.new_destination',
       { compose_project: 'shop', compose_service: 'api', destination: 'example.org', port: '443' },
       { ...NEW_DETAILS, destination: 'example.org', others: 2 },
@@ -138,7 +138,7 @@ describe('Docker vocabulary', () => {
 
   it('a plain container on its host: raw IP', () => {
     const p = payload(
-      'docker',
+      'server',
       'egress.raw_ip',
       { node: 'docker-01', container: 'redis', destination: '8.8.8.0/24', port: '53' },
       {

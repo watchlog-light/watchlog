@@ -26,7 +26,7 @@ const CONFIG: CloudConfig = {
 const OWNER = { ...USER, org: { ...USER.org, name: 'Acme', plan: 'free' as const } };
 const CLUSTERS = [
   { id: '01a1d6f3-0000-7000-8000-0000000000c1', name: 'prod-eu', kind: 'kubernetes' },
-  { id: '01a1d6f3-0000-7000-8000-0000000000c2', name: 'edge', kind: 'docker' },
+  { id: '01a1d6f3-0000-7000-8000-0000000000c2', name: 'edge', kind: 'server' },
 ].map((c) => ({
   ...c,
   status: 'active',

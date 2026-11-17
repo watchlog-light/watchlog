@@ -72,7 +72,7 @@ async function cloud(email = `owner-${Date.now()}@acme.example`) {
 async function newCluster(
   call: Awaited<ReturnType<typeof cloud>>['call'],
   name: string,
-  kind: 'kubernetes' | 'docker' = 'kubernetes',
+  kind: 'kubernetes' | 'server' = 'kubernetes',
 ) {
   const r = await call('POST', '/clusters', { name, kind });
   expect(r.statusCode, r.body).toBe(201);
@@ -338,7 +338,7 @@ describe('limits (scenarios 9 and 10)', () => {
   it('scenario 10: a second cluster on Free answers 409 plan-limit with the way out', async () => {
     const { c, call, orgId } = await cloud();
     await newCluster(call, 'prod');
-    const second = await call('POST', '/clusters', { name: 'fleet', kind: 'docker' });
+    const second = await call('POST', '/clusters', { name: 'fleet', kind: 'server' });
     expect(second.statusCode).toBe(409);
     expect(second.json()).toMatchObject({
       type: 'urn:watchlog:problem:plan-limit',
@@ -355,7 +355,7 @@ describe('limits (scenarios 9 and 10)', () => {
     expect(hits.map((h) => h.kind)).toEqual(['clusters']);
     // Pro: unlimited.
     await c.app.entitlements!.put(orgId, { plan: 'pro', source: 'beta' });
-    expect((await call('POST', '/clusters', { name: 'fleet', kind: 'docker' })).statusCode).toBe(
+    expect((await call('POST', '/clusters', { name: 'fleet', kind: 'server' })).statusCode).toBe(
       201,
     );
   });
@@ -450,7 +450,7 @@ describe('limits (scenarios 9 and 10)', () => {
   it('Pro has no node limit; a Docker host counts as a node', async () => {
     const { c, call, orgId } = await cloud();
     await c.app.entitlements!.put(orgId, { plan: 'pro', source: 'beta' });
-    const d = await newCluster(call, 'fleet', 'docker');
+    const d = await newCluster(call, 'fleet', 'server');
     for (let i = 0; i < 8; i++) {
       expect((await heartbeat(c, d.token, `host-${i}`, 'docker')).statusCode).toBe(204);
     }
@@ -543,7 +543,7 @@ describe('usage_hourly and the 95th percentile', () => {
     const { c, call, orgId } = await cloud();
     await c.app.entitlements!.put(orgId, { plan: 'pro', source: 'beta' });
     const k = await newCluster(call, 'prod');
-    const d = await newCluster(call, 'fleet', 'docker');
+    const d = await newCluster(call, 'fleet', 'server');
     for (const n of ['n1', 'n2', 'n3']) await heartbeat(c, k.token, n);
     await heartbeat(c, d.token, 'h1', 'docker');
     await heartbeat(c, k.token, 'cluster-agent', 'cluster');
@@ -716,7 +716,7 @@ describe('SR-8: a changed or missing X-WatchLog-Agent header (ADR-194)', () => {
 
   it('Docker: no sixth Free host, whatever the header says', async () => {
     const { c, call } = await cloud();
-    const d = await newCluster(call, 'fleet', 'docker');
+    const d = await newCluster(call, 'fleet', 'server');
     for (const h of ['h1', 'h2', 'h3', 'h4', 'h5']) {
       expect((await heartbeat(c, d.token, h, 'docker')).statusCode).toBe(204);
       expect((await write(c, d.token, h, h, 'host')).statusCode).toBe(204);
@@ -789,7 +789,7 @@ describe('SR-8: a changed or missing X-WatchLog-Agent header (ADR-194)', () => {
   it('Docker: the bill counts the hosts the series name; a header change or rename never lowers it', async () => {
     const { c, call, orgId } = await cloud();
     await c.app.entitlements!.put(orgId, { plan: 'pro', source: 'beta' });
-    const d = await newCluster(call, 'fleet', 'docker');
+    const d = await newCluster(call, 'fleet', 'server');
     // Two hosts with no heartbeat and no header.
     for (const h of ['d1', 'd2']) {
       expect((await write(c, d.token, null, h, 'host')).statusCode).toBe(204);

@@ -49,7 +49,7 @@ afterAll(async () => {
   );
 });
 
-async function cluster(name: string, kind: 'kubernetes' | 'docker') {
+async function cluster(name: string, kind: 'kubernetes' | 'server') {
   const res = await api('POST', '/clusters', { name, kind });
   return { id: res.json().cluster.id as string, token: res.json().token.value as string };
 }
@@ -121,7 +121,7 @@ const KILLED = 100;
 
 describe('the Kafka page', () => {
   it('fills every tab, and links the group that lost its members to the member that ended (Docker)', async () => {
-    const docker = await cluster('fleet', 'docker');
+    const docker = await cluster('fleet', 'server');
     const killedAt = new Date(NOW - 5 * MIN).toISOString();
     await container(docker.id, 'h1', 'kafka-e2e-audit-1', '172.24.0.4', {
       state: 'exited',

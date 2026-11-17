@@ -46,7 +46,7 @@ async function start(overrides = {}) {
     await ctx.app.inject({ method: 'GET', url: '/api/v1/me', cookies: { wl_session: cookie } })
   ).json();
   await insertCluster(ctx.db, me.user.org.id, 'prod-eu', 'kubernetes');
-  await insertCluster(ctx.db, me.user.org.id, 'docker-fleet', 'docker');
+  await insertCluster(ctx.db, me.user.org.id, 'docker-fleet', 'server');
   const created = await ctx.app.inject({
     method: 'POST',
     url: '/api/v1/api-tokens',
@@ -112,7 +112,7 @@ describe('MCP server', () => {
       expect(listed.clusters.map((c: { name: string; kind: string }) => [c.name, c.kind])).toEqual(
         expect.arrayContaining([
           ['prod-eu', 'kubernetes'],
-          ['docker-fleet', 'docker'],
+          ['docker-fleet', 'server'],
         ]),
       );
       // A helpful error, in-band: which argument is missing and what to pass.

@@ -3,7 +3,7 @@
 export const FLEET = {
   id: '01a18f42-06e7-7078-a01a-ea39c791d699',
   name: 'acceptance',
-  kind: 'docker',
+  kind: 'server',
   status: 'active',
   nodeCount: 1,
   agentVersion: '1.0.0',

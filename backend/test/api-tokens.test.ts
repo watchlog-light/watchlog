@@ -526,7 +526,7 @@ describe('authenticating with a token', () => {
     const cookie = await setupAdmin(ctx.app);
     const orgId = (await api('GET', '/me', { cookie })).json().user.org.id;
     const k8s = await insertCluster(ctx.db, orgId, 'prod-eu', 'kubernetes');
-    const docker = await insertCluster(ctx.db, orgId, 'docker-01', 'docker');
+    const docker = await insertCluster(ctx.db, orgId, 'docker-01', 'server');
     const { value } = await createToken(cookie);
     const clusters = await api('GET', '/clusters', { token: value });
     expect(
@@ -534,7 +534,7 @@ describe('authenticating with a token', () => {
         .json()
         .clusters.map((c: { kind: string }) => c.kind)
         .sort(),
-    ).toEqual(['docker', 'kubernetes']);
+    ).toEqual(['kubernetes', 'server']);
     for (const url of [
       `/clusters/${k8s.id}/workloads`,
       `/clusters/${k8s.id}/overview`,

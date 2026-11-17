@@ -152,7 +152,7 @@ describe('demo mode guard', () => {
   it('lets agents send data', async () => {
     await demoContext();
     const orgId = (await createUserSession(ctx.db, { role: 'owner' })).orgId;
-    const cluster = await insertCluster(ctx.db, orgId, 'demo', 'docker');
+    const cluster = await insertCluster(ctx.db, orgId, 'demo', 'server');
     const token = await issueClusterToken(ctx.db, cluster.id);
     const res = await ctx.app.inject({
       method: 'POST',
@@ -667,7 +667,7 @@ describe('the shared answer cache (ADR-206)', () => {
     expect(one.headers['x-watchlog-demo-cache']).toBe('miss');
     expect(listed(one)).toContain('first');
 
-    await insertCluster(ctx.db, orgId, 'second', 'docker');
+    await insertCluster(ctx.db, orgId, 'second', 'server');
     const two = await demoClusters(cookie);
     expect(two.headers['x-watchlog-demo-cache']).toBe('hit');
     expect(two.body).toBe(one.body);
@@ -708,7 +708,7 @@ describe('the shared answer cache (ADR-206)', () => {
     const org = await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow();
     await insertCluster(ctx.db, org.id, 'first', 'kubernetes');
     const one = await demoClusters(admin);
-    await insertCluster(ctx.db, org.id, 'second', 'docker');
+    await insertCluster(ctx.db, org.id, 'second', 'server');
     const two = await demoClusters(admin);
     for (const r of [one, two]) expect(r.headers['x-watchlog-demo-cache']).toBeUndefined();
     expect(listed(two)).toEqual(expect.arrayContaining(['first', 'second']));

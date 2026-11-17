@@ -67,7 +67,7 @@ describe('Applications API', () => {
       ...(payload ? { payload } : {}),
     });
 
-  async function cluster(name: string, kind: 'kubernetes' | 'docker') {
+  async function cluster(name: string, kind: 'kubernetes' | 'server') {
     const res = await api('POST', '/clusters', { name, kind });
     expect(res.statusCode).toBe(201);
     return { id: res.json().cluster.id as string, token: res.json().token.value as string };
@@ -135,7 +135,7 @@ describe('Applications API', () => {
 
   it('discovers services on Kubernetes and Docker, by image first, then by port', async () => {
     const k8s = await cluster('prod', 'kubernetes');
-    const docker = await cluster('docker-01', 'docker');
+    const docker = await cluster('docker-01', 'server');
     // Two replicas of one StatefulSet: one service with two members.
     await pod(
       k8s.id,
@@ -256,7 +256,7 @@ describe('Applications API', () => {
   });
 
   it('monitors a service, wakes its collector and reports its health', async () => {
-    const docker = await cluster('docker-01', 'docker');
+    const docker = await cluster('docker-01', 'server');
     const target = {
       kind: 'compose',
       host: 'docker-01',
@@ -272,7 +272,7 @@ describe('Applications API', () => {
     expect(app).toMatchObject({
       type: 'redis',
       name: 'shop/redis',
-      cluster: { name: 'docker-01', kind: 'docker' },
+      cluster: { name: 'docker-01', kind: 'server' },
       where: { group: 'shop', host: 'docker-01', address: null },
       health: 'unknown',
       reason: { code: 'collector_missing', facts: { host: 'docker-01' } },
@@ -341,7 +341,7 @@ describe('Applications API', () => {
 
   it('checks targets against the cluster and the version', async () => {
     const k8s = await cluster('prod', 'kubernetes');
-    const docker = await cluster('docker-01', 'docker');
+    const docker = await cluster('docker-01', 'server');
     const post = (body: object) => api('POST', '/applications', body);
     const compose = {
       kind: 'compose',
@@ -395,7 +395,7 @@ describe('Applications API', () => {
 
   it('ignores one discovered service or a whole namespace or project, and restores them', async () => {
     const k8s = await cluster('prod', 'kubernetes');
-    const docker = await cluster('docker-01', 'docker');
+    const docker = await cluster('docker-01', 'server');
     await pod(k8s.id, 'shop', 'redis-0', ['StatefulSet', 'redis'], [{ image: 'redis:7.2' }]);
     await pod(k8s.id, 'pg-e2e', 'pg-0', ['StatefulSet', 'pg'], [{ image: 'postgres:17' }]);
     await pod(k8s.id, 'pg-e2e', 'pg2-0', ['StatefulSet', 'pg2'], [{ image: 'postgres:13' }]);
@@ -473,7 +473,7 @@ describe('Applications API', () => {
   });
 
   it('says who paused a service and when', async () => {
-    const docker = await cluster('docker-01', 'docker');
+    const docker = await cluster('docker-01', 'server');
     const target = { kind: 'container', host: 'docker-01', container: 'redis', port: 6379 };
     const id = (
       await api('POST', '/applications', { clusterId: docker.id, type: 'redis', target })
@@ -486,7 +486,7 @@ describe('Applications API', () => {
   });
 
   it('lets viewers read and only owners and admins change', async () => {
-    const docker = await cluster('docker-01', 'docker');
+    const docker = await cluster('docker-01', 'server');
     const viewer = await createUserSession(ctx.db, { role: 'viewer', orgId });
     expect((await api('GET', '/applications', undefined, viewer.cookie)).statusCode).toBe(200);
     expect(
