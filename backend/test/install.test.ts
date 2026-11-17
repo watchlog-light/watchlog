@@ -6,6 +6,7 @@ import {
   dockerRecreateCommand,
   dockerRunCommand,
   helmInstallCommand,
+  serverInstallCommands,
   helmUpgradeCommand,
   shellQuote,
 } from '../src/modules/clusters/install.js';
@@ -24,11 +25,19 @@ describe('dockerRunCommand', () => {
     image: 'ghcr.io/watchlog-light/agent:latest',
   });
 
-  it('runs as uid 0 with only BPF and PERFMON for eBPF flows (ADR-105)', () => {
+  it("runs as uid 0 with only the server agent's five capabilities (ADR-105, ADR-209)", () => {
     expect(cmd).toContain('--user 0:65532 --cap-drop ALL --cap-add BPF --cap-add PERFMON');
     expect(cmd).toContain('--security-opt no-new-privileges');
-    expect(cmd.match(/--cap-add/g)).toHaveLength(2);
-    expect(cmd).not.toMatch(/--privileged|SYS_ADMIN|SYS_PTRACE|NET_ADMIN/);
+    expect(cmd.match(/--cap-add \S+/g)).toEqual([
+      '--cap-add BPF',
+      '--cap-add PERFMON',
+      '--cap-add SYS_PTRACE',
+      '--cap-add DAC_READ_SEARCH',
+      '--cap-add SYS_RESOURCE',
+    ]);
+    expect(cmd).not.toMatch(/--privileged|SYS_ADMIN|NET_ADMIN/);
+    expect(cmd).toContain('--pid host --cgroupns host');
+    expect(cmd).toContain('-v /run/dbus/system_bus_socket:/run/dbus/system_bus_socket:ro');
   });
 
   it('mounts host paths read-only', () => {
@@ -38,10 +47,10 @@ describe('dockerRunCommand', () => {
     expect(cmd).toContain('-v /:/host/root:ro,rslave');
   });
 
-  it('passes the token and endpoint and runs docker mode', () => {
+  it('passes the token and endpoint and runs server mode', () => {
     expect(cmd).toContain(`-e WATCHLOG_TOKEN=${TOKEN}`);
     expect(cmd).toContain('-e WATCHLOG_ENDPOINT=https://watchlog.example.com');
-    expect(cmd.trimEnd().endsWith('ghcr.io/watchlog-light/agent:latest --mode=docker')).toBe(true);
+    expect(cmd.trimEnd().endsWith('ghcr.io/watchlog-light/agent:latest --mode=server')).toBe(true);
   });
 
   it('is valid POSIX shell', () => {
@@ -183,5 +192,32 @@ describe('eBPF fix commands (ADR-107)', () => {
     expect(fix('node', { ebpf: 'disabled' })).toMatchObject({ cause: 'outdated' });
     expect(fix('node', { ebpf: 'disabled' }).fix).toContain('helm upgrade <release>');
     expect(fix('docker', { ebpf: 'disabled' }).fix).toContain('docker rm -f watchlog-agent');
+  });
+});
+
+describe('serverInstallCommands (ADR-209)', () => {
+  const t = 'wl_ct_0123456789abcdef';
+  it("installs with this backend's script, and on a release with the deb and rpm", () => {
+    const c = serverInstallCommands({
+      token: t,
+      endpoint: 'https://watchlog.example.com',
+      version: '0.9.0',
+    });
+    expect(c.script).toBe(
+      `curl -fsSL https://watchlog.example.com/install.sh | sudo sh -s -- --token ${t}`,
+    );
+    expect(c.deb).toContain('releases/download/v$v/watchlog-agent_${v}_$a.deb');
+    expect(c.deb).toContain(
+      `sudo WATCHLOG_TOKEN=${t} WATCHLOG_URL=https://watchlog.example.com apt-get install -y`,
+    );
+    expect(c.rpm).toContain('watchlog-agent-$v-1.$a.rpm');
+    for (const cmd of [c.script, c.deb!, c.rpm!]) {
+      expect(() => execFileSync('sh', ['-n', '-c', cmd])).not.toThrow();
+    }
+  });
+  it('offers the script only on a development build', () => {
+    expect(
+      Object.keys(serverInstallCommands({ token: t, endpoint: 'http://x', version: 'dev' })),
+    ).toEqual(['script']);
   });
 });

@@ -172,6 +172,8 @@ describe('the live connection checklist', () => {
         asked.push(expr);
         if (expr.includes('watchlog_node_cpu_count')) return [series({}, 1)];
         if (expr.includes('watchlog_container_memory')) return [series({}, 7)];
+        if (expr.includes('watchlog_service_state')) return [series({}, 13)];
+        if (expr.includes('watchlog_process_group_instances')) return [series({}, 6)];
         return [
           series(
             {
@@ -202,7 +204,13 @@ describe('the live connection checklist', () => {
     );
     expect(s.kind).toBe('server');
     expect(s.steps.map((x) => x.id)).toEqual(['agent', 'metrics', 'ebpf', 'map']);
-    expect(step(s, 'metrics')).toMatchObject({ state: 'done', nodes: 1, containers: 7 });
+    expect(step(s, 'metrics')).toMatchObject({
+      state: 'done',
+      nodes: 1,
+      containers: 7,
+      units: 13,
+      processGroups: 6,
+    });
     expect(step(s, 'map')).toMatchObject({ state: 'done', connections: 1 });
     expect((step(s, 'map')!.services as number) >= 2).toBe(true);
     expect(s).toMatchObject({ ready: true, complete: true });
@@ -341,7 +349,7 @@ describe('the install code and its manifest (Cloud)', () => {
     const created = (
       await api(c, cookie)('POST', '/clusters', { name: 'hosts', kind: 'server' })
     ).json();
-    expect(Object.keys(created.install).sort()).toEqual(['compose', 'dockerRun']);
+    expect(Object.keys(created.install).sort()).toEqual(['compose', 'dockerRun', 'script']);
     expect(created.install.compose).toContain(`WATCHLOG_TOKEN: "${created.token.value}"`);
     expect(created.install.compose).toContain(
       'WATCHLOG_ENDPOINT: "https://ingest.watchlog.example"',

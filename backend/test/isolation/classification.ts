@@ -305,6 +305,8 @@ export const MCP_TOOLS: Record<string, 'cluster' | 'id' | 'org'> = {
   get_container_logs: 'cluster',
   get_right_sizing: 'cluster',
   get_node: 'cluster',
+  get_server: 'cluster',
+  list_workloads: 'cluster',
   list_applications: 'cluster',
   get_application: 'cluster',
   get_service_map: 'cluster',

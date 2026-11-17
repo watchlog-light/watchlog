@@ -31,11 +31,13 @@ const TOOLS = [
   'get_problems',
   'get_recent_changes',
   'get_right_sizing',
+  'get_server',
   'get_service_map',
   'get_workload',
   'list_alerts',
   'list_applications',
   'list_clusters',
+  'list_workloads',
   'query_metric',
 ];
 

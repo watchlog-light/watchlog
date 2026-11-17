@@ -101,6 +101,13 @@ describe('slice 5 tools on a Kubernetes cluster', () => {
     });
 
     // get_node: the node the OOM pod runs on.
+    // list_workloads on Kubernetes (ADR-207: both kinds): controllers, problems first.
+    const kw = await mcp.call('list_workloads', {});
+    expect(kw.isError, kw.text).toBe(false);
+    expect(kw.data.workloads.length).toBeGreaterThan(0);
+    expect(kw.data.workloads[0]).toHaveProperty('namespace');
+    expect(kw.data.workloads[0]).toHaveProperty('kind');
+
     const node = await mcp.call('get_node', { name: 'watchlog-worker2' });
     expect(node.isError, node.text).toBe(false);
     expect(node.data.node).toMatchObject({
@@ -322,6 +329,33 @@ describe('slice 5 tools on a Docker fleet', () => {
       error: 'No Docker host with this name.',
       hosts: expect.arrayContaining(['docker-01']),
     });
+
+    // get_server and list_workloads (ADR-207): the same host as a server, its containers.
+    const srv = await mcp.call('get_server', { name: 'docker-01' });
+    expect(srv.isError, srv.text).toBe(false);
+    expect(srv.data.server).toMatchObject({ name: 'docker-01', docker: '29.9.2' });
+    expect(srv.data.workloads.map((w: { id: string }) => w.id)).toEqual(
+      expect.arrayContaining(['container:shop-api-1']),
+    );
+    expect(srv.data.workloads[0]).toMatchObject({
+      source: 'container',
+      problem: expect.anything(),
+    });
+    expect((await mcp.call('get_server', { name: 'nope' })).data).toMatchObject({
+      error: 'No server with this name.',
+      servers: expect.arrayContaining(['docker-01']),
+    });
+    const all = await mcp.call('list_workloads', { source: 'container' });
+    expect(all.isError, all.text).toBe(false);
+    expect(all.data.workloads.length).toBeGreaterThan(0);
+    for (const w of all.data.workloads as { source: string; server: string }[]) {
+      expect(w.source).toBe('container');
+      expect(['docker-01', 'docker-02']).toContain(w.server);
+    }
+    const one = await mcp.call('list_workloads', { server: 'docker-01' });
+    expect(
+      (one.data.workloads as { server: string }[]).every((w) => w.server === 'docker-01'),
+    ).toBe(true);
 
     // get_events: on one host.
     const events = await mcp.call('get_events', { host: 'docker-01' });
