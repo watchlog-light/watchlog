@@ -65,7 +65,8 @@ systemd unit running as the user `watchlog`, not root, with exactly five capabil
 
 The unit adds `NoNewPrivileges`, a read-only system (`ProtectSystem=strict`), private `/tmp`,
 `MemoryMax=256M` and the address families it needs. It reads `/proc` (never a process's
-`environ`), the cgroups, and systemd's unit states over D-Bus, which any user may read.
+`environ`), the cgroups, systemd's unit states over D-Bus, which any user may read, and pm2's
+pid and log files in each account's home (only the home field of `/etc/passwd`).
 Command lines, arguments, process ids and user names never leave the server; a process group
 is sent as its derived name, redacted. The token is in `/etc/watchlog/agent.env`, mode 0640,
 root and the `watchlog` group. The integrations collector runs with no capability.

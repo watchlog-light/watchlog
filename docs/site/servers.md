@@ -50,9 +50,11 @@ enforcing).
   capabilities: `CAP_BPF` and `CAP_PERFMON` (its eBPF programs), `CAP_SYS_PTRACE` (to see other
   users' processes), `CAP_DAC_READ_SEARCH` (their open sockets, pm2's files, the journal) and
   `CAP_SYS_RESOURCE` (eBPF maps on kernels before 5.11). The integrations collector has none.
-- **What it reads:** `/proc`, the cgroups, systemd's unit states over D-Bus, and the Docker
-  socket read-only when `watchlog` is in the `docker` group (the script adds it, and says so:
-  that group can control Docker; `--no-docker` leaves it out, and containers don't show).
+- **What it reads:** `/proc`, the cgroups, systemd's unit states over D-Bus, pm2's pid and log
+  files in each account's home (the home directories from `/etc/passwd`, nothing else of
+  them), supervisord's configuration, and the Docker socket read-only when `watchlog` is in
+  the `docker` group (the script adds it, and says so: that group can control Docker;
+  `--no-docker` leaves it out, and containers don't show).
 - **What never leaves the server:** command lines, arguments, environment values, user names
   and process ids. A process group is sent as its derived name only, with secrets redacted.
 - The token is kept in `/etc/watchlog/agent.env`, mode 0640, owned by root and the `watchlog`
