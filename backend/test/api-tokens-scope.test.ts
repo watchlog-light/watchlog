@@ -43,9 +43,14 @@ const ALLOWED = [
   'GET /api/v1/clusters/:id/pods',
   'GET /api/v1/clusters/:id/pods/:namespace/:name',
   'GET /api/v1/clusters/:id/pods/:namespace/:name/logs',
+  'GET /api/v1/clusters/:id/process-rules',
   'GET /api/v1/clusters/:id/right-sizing',
   'GET /api/v1/clusters/:id/search',
   'GET /api/v1/clusters/:id/service-map',
+  'GET /api/v1/clusters/:id/servers',
+  'GET /api/v1/clusters/:id/servers/:server',
+  'GET /api/v1/clusters/:id/servers/:server/workloads',
+  'GET /api/v1/clusters/:id/servers/:server/workloads/:workload',
   'GET /api/v1/clusters/:id/service-map/edge',
   'GET /api/v1/clusters/:id/workloads',
   'GET /api/v1/egress',
@@ -98,6 +103,11 @@ async function walk(kind: 'kubernetes' | 'server') {
     if (r.url.startsWith('/ingest/')) {
       // An API token is not an agent's token.
       expect(res.statusCode, name).toBe(401);
+      continue;
+    }
+    if (r.url === '/install.sh') {
+      // The server install script is public, with or without any token (ADR-209).
+      expect(res.statusCode, name).toBe(200);
       continue;
     }
     // HEAD answers have no body: the header tells a scope refusal.
