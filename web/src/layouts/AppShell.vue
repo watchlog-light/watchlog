@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from 'reka-ui';
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
+import { usePolling } from '@/composables/usePolling';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
@@ -41,19 +42,16 @@ const orgs = useOrgsStore();
 const plan = usePlanStore();
 // Cloud: the deletion, suspension and inactivity banner (ADR-181), asked with the plan.
 const orgStatus = useOrgStatusStore();
-let planTimer: ReturnType<typeof setInterval> | undefined;
+// Paused while the tab is hidden, spread by ±20 % (ADR-206).
+const planPoll = usePolling(() => Promise.all([plan.load(), orgStatus.load()]), PLAN_REFRESH_MS);
 onMounted(() => {
   if (auth.isCloud && auth.user && !orgs.loaded) void orgs.load();
   if (auth.isCloud && auth.user && !auth.demoMode) {
     void plan.load();
     void orgStatus.load();
-    planTimer = setInterval(() => {
-      void plan.load();
-      void orgStatus.load();
-    }, PLAN_REFRESH_MS);
+    planPoll.start();
   }
 });
-onBeforeUnmount(() => clearInterval(planTimer));
 watch([() => route.fullPath, compact], () => (navOpen.value = false));
 // Only the content pane scrolls (main.css): the page is locked while the shell shows.
 onMounted(() => document.documentElement.classList.add('app-shell'));

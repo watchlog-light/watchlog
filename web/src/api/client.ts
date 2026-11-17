@@ -9,6 +9,8 @@ export class ApiError extends Error {
     /** HTTP status, or 0 when the backend could not be reached. */
     readonly status: number,
     readonly problem?: Problem,
+    /** Seconds the server asked us to wait (Retry-After), on a 429 or 503. */
+    readonly retryAfter?: number,
   ) {
     super(problem?.detail ?? problem?.title ?? (status === 0 ? 'Network error' : `HTTP ${status}`));
   }
@@ -65,7 +67,11 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   const data: unknown = res.status === 204 || !isJson ? undefined : await res.json();
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith('/auth/')) unauthorizedHandler?.();
-    const err = new ApiError(res.status, data as Problem | undefined);
+    const err = new ApiError(
+      res.status,
+      data as Problem | undefined,
+      retryAfterSeconds(res.headers.get('retry-after')),
+    );
     if (isDemoReadOnly(err)) readOnlyHandler?.(err.problem?.message ?? err.message);
     const type = err.problem?.type;
     if (res.status === 403 && type && (RESTRICTED_TYPES as readonly string[]).includes(type))
@@ -85,7 +91,30 @@ export const ProblemType = {
   tokenWithSession: 'urn:watchlog:problem:token-with-session',
   telegramUnreachable: 'urn:watchlog:problem:telegram-unreachable',
   demoReadOnly: 'urn:watchlog:problem:demo-read-only',
+  /** The live demo is over capacity: retried by itself (ADR-206). */
+  demoBusy: 'urn:watchlog:problem:demo-busy',
 } as const;
+
+/** Retry-After as seconds: a number, or an HTTP date from now; undefined when absent. */
+export function retryAfterSeconds(value: string | null, now = Date.now()): number | undefined {
+  if (!value) return undefined;
+  const n = Number(value);
+  if (Number.isFinite(n) && n >= 0) return n;
+  const at = Date.parse(value);
+  return Number.isNaN(at) ? undefined : Math.max(0, Math.ceil((at - now) / 1000));
+}
+
+/**
+ * The server is busy, not broken (ADR-206): a 429, or a 503 that says it clears by itself
+ * (Retry-After, the demo's `demo-busy`, or a proxy's page rather than our JSON problem).
+ * A 503 problem without Retry-After (metrics storage down or not set up) stays an error.
+ */
+export function isBusy(err: unknown): err is ApiError {
+  if (!(err instanceof ApiError)) return false;
+  if (err.status === 429) return true;
+  if (err.status !== 503) return false;
+  return err.retryAfter !== undefined || !err.problem || err.problem.type === ProblemType.demoBusy;
+}
 
 /** The read-only demo refused a change (ADR-122). */
 export const DEMO_READ_ONLY_CODE = 'demo_read_only';

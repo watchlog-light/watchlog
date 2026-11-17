@@ -2,7 +2,8 @@
 <script setup lang="ts">
 import { Check, Copy, Sparkles } from '@lucide/vue';
 import type { Causes } from '@watchlog/api-types';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { usePolling } from '@/composables/usePolling';
 import { useI18n } from 'vue-i18n';
 import { api } from '@/api/client';
 import CauseChecks from '@/components/causes/CauseChecks.vue';
@@ -63,7 +64,8 @@ function copyText() {
   if (a.value) void copy(causesText(a.value, tr, (iso) => formatWhen(iso)));
 }
 
-let timer: ReturnType<typeof setInterval> | undefined;
+// Paused while the tab is hidden, spread by ±20 % (ADR-206).
+const poll = usePolling(() => (props.subject ? page.load() : undefined), REFRESH_MS);
 watch(
   () => [props.clusterId, props.subject],
   () => {
@@ -75,11 +77,8 @@ watch(
 onMounted(() => {
   if (!props.subject) return;
   void page.load();
-  timer = setInterval(() => {
-    if (props.subject) void page.load();
-  }, REFRESH_MS);
+  poll.start();
 });
-onBeforeUnmount(() => clearInterval(timer));
 </script>
 
 <template>

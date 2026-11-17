@@ -3,6 +3,7 @@
 import { ChevronDown, Filter, Network } from '@lucide/vue';
 import type { Cluster, ServiceMap } from '@watchlog/api-types';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import { usePolling } from '@/composables/usePolling';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
@@ -315,7 +316,8 @@ const ago = computed(() => {
   if (!at) return null;
   return Math.max(0, Math.round((now.value - at) / 1000));
 });
-let refresh: ReturnType<typeof setInterval> | undefined;
+// Paused while the tab is hidden, spread by ±20 % (ADR-206).
+const poll = usePolling(() => page.load(), REFRESH_MS);
 let clock: ReturnType<typeof setInterval> | undefined;
 watch(
   () => ui.timeRange,
@@ -329,13 +331,10 @@ watch(
 );
 onMounted(() => {
   void page.load();
-  refresh = setInterval(() => void page.load(), REFRESH_MS);
+  poll.start();
   clock = setInterval(() => (now.value = Date.now()), 1000);
 });
-onBeforeUnmount(() => {
-  clearInterval(refresh);
-  clearInterval(clock);
-});
+onBeforeUnmount(() => clearInterval(clock));
 </script>
 
 <template>

@@ -11,7 +11,8 @@ import type {
   ClusterList,
   SilenceList,
 } from '@watchlog/api-types';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { usePolling } from '@/composables/usePolling';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import AlertTable from '@/components/alerts/AlertTable.vue';
@@ -126,18 +127,16 @@ function setView(v: View) {
   });
 }
 
-let timer: ReturnType<typeof setInterval> | undefined;
+// Paused while the tab is hidden, spread by ±20 % (ADR-206).
+const poll = usePolling(() => (view.value === 'firing' ? firing.load() : undefined), REFRESH_MS);
 watch(view, (v) => void loaders[v].load());
 watch(ruleFilter, () => void firing.load());
 onMounted(() => {
   void current.value.load();
   // The Firing and Silences tab counts show on every view, as in the design.
   if (view.value !== 'firing') void firing.load();
-  timer = setInterval(() => {
-    if (view.value === 'firing') void firing.load();
-  }, REFRESH_MS);
+  poll.start();
 });
-onBeforeUnmount(() => clearInterval(timer));
 
 const counts = computed(() => firing.data.value?.list.counts);
 const tabCount = (v: View) =>

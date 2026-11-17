@@ -2,7 +2,8 @@
 <script setup lang="ts">
 import { Hourglass, Radar } from '@lucide/vue';
 import type { Cluster, WhatChanged } from '@watchlog/api-types';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { usePolling } from '@/composables/usePolling';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
@@ -44,7 +45,6 @@ const router = useRouter();
 const { t } = useI18n();
 const auth = useAuthStore();
 const clusters = useClustersStore();
-let timer: ReturnType<typeof setInterval> | undefined;
 
 const num = (v: unknown) => {
   const n = Number(v);
@@ -167,11 +167,12 @@ const learningLine = computed(() => {
 });
 
 watch([win, sort, custom, alertId], () => void page.load());
+// Paused while the tab is hidden, spread by ±20 % (ADR-206).
+const poll = usePolling(() => page.load(), REFRESH_MS);
 onMounted(() => {
   void page.load();
-  timer = setInterval(() => void page.load(), REFRESH_MS);
+  poll.start();
 });
-onBeforeUnmount(() => clearInterval(timer));
 </script>
 
 <template>

@@ -2,7 +2,8 @@
 <script setup lang="ts">
 import { Boxes, Hourglass, SearchX, X } from '@lucide/vue';
 import type { KubePodList, KubeWorkloadList } from '@watchlog/api-types';
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
+import { usePolling } from '@/composables/usePolling';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import CausePanel from '@/components/causes/CausePanel.vue';
@@ -39,7 +40,6 @@ const router = useRouter();
 const kube = useKubeStore();
 const ui = useUiStore();
 const ns = useNamespaceFilter();
-let timer: ReturnType<typeof setInterval> | undefined;
 
 const view = computed(() => (route.query.view === 'pods' ? 'pods' : 'workloads'));
 const str = (v: unknown) => (typeof v === 'string' && v ? v : '');
@@ -136,11 +136,12 @@ watch([ns.query, () => ui.timeRange], () => void page.load());
 watch(view, (v) => {
   if (v === 'pods' && !podsLoaded.value) void page.load();
 });
+// Paused while the tab is hidden, spread by ±20 % (ADR-206).
+const poll = usePolling(() => page.load(), REFRESH_MS);
 onMounted(() => {
   void page.load();
-  timer = setInterval(page.load, REFRESH_MS);
+  poll.start();
 });
-onBeforeUnmount(() => clearInterval(timer));
 </script>
 
 <template>

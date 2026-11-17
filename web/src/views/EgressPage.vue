@@ -2,7 +2,8 @@
 <script setup lang="ts">
 import { Globe, Hourglass, SearchX } from '@lucide/vue';
 import type { Cluster, Egress, EgressSource } from '@watchlog/api-types';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { usePolling } from '@/composables/usePolling';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
@@ -40,7 +41,6 @@ const router = useRouter();
 const { t } = useI18n();
 const clusters = useClustersStore();
 const egress = useEgressStore();
-let timer: ReturnType<typeof setInterval> | undefined;
 
 const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
 const auth = useAuthStore();
@@ -154,11 +154,12 @@ const chips = computed(() => [
 ]);
 
 watch([query, range], () => void page.load());
+// Paused while the tab is hidden, spread by ±20 % (ADR-206).
+const poll = usePolling(() => page.load(), REFRESH_MS);
 onMounted(() => {
   void page.load();
-  timer = setInterval(page.load, REFRESH_MS);
+  poll.start();
 });
-onBeforeUnmount(() => clearInterval(timer));
 </script>
 
 <template>

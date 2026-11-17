@@ -2,7 +2,8 @@
 <script setup lang="ts">
 import { Container, Hourglass, SearchX, X } from '@lucide/vue';
 import type { DockerContainerList } from '@watchlog/api-types';
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
+import { usePolling } from '@/composables/usePolling';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
@@ -38,7 +39,6 @@ const route = useRoute();
 const router = useRouter();
 const fleet = useFleetStore();
 const ui = useUiStore();
-let timer: ReturnType<typeof setInterval> | undefined;
 
 const range = computed(() => Math.max(300, RANGE_SECONDS[ui.timeRange]));
 const failing = computed(() => route.query.problems === '1');
@@ -110,11 +110,12 @@ watch(
   () => ui.timeRange,
   () => void page.load(),
 );
+// Paused while the tab is hidden, spread by ±20 % (ADR-206).
+const poll = usePolling(() => page.load(), REFRESH_MS);
 onMounted(() => {
   void page.load();
-  timer = setInterval(page.load, REFRESH_MS);
+  poll.start();
 });
-onBeforeUnmount(() => clearInterval(timer));
 </script>
 
 <template>

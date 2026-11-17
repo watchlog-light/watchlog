@@ -3,6 +3,7 @@
 import { Hourglass, LayoutDashboard } from '@lucide/vue';
 import type { Cluster, KubeOverview } from '@watchlog/api-types';
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { usePolling } from '@/composables/usePolling';
 import { api } from '@/api/client';
 import { funnel } from '@/api/cloud';
 import { useClustersStore } from '@/stores/clusters';
@@ -43,7 +44,6 @@ const ns = useNamespaceFilter();
 const ui = useUiStore();
 // Below 1024 px the sidebar (and its plan strip) is a drawer: the overview shows the strip.
 const compact = useCompact();
-let timer: ReturnType<typeof setInterval> | undefined;
 let clock: ReturnType<typeof setInterval> | undefined;
 
 // null: no cluster or fleet exists yet. A Kubernetes cluster first, else a Docker fleet.
@@ -97,17 +97,14 @@ watch(
     if (old && id !== old) void page.load();
   },
 );
+// Paused while the tab is hidden, spread by ±20 % (ADR-206).
+const poll = usePolling(() => page.load(), REFRESH_MS);
 onMounted(() => {
   void page.load();
-  timer = setInterval(() => {
-    void page.load();
-  }, REFRESH_MS);
+  poll.start();
   clock = setInterval(() => (now.value = Date.now()), 1000);
 });
-onBeforeUnmount(() => {
-  clearInterval(timer);
-  clearInterval(clock);
-});
+onBeforeUnmount(() => clearInterval(clock));
 </script>
 
 <template>

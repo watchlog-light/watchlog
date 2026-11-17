@@ -25,6 +25,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useClustersStore } from '@/stores/clusters';
 import { useOrgsStore } from '@/stores/orgs';
 import { useUiStore } from '@/stores/ui';
+import BusyNote from '@/components/ui/BusyNote.vue';
 import ClusterSwitcher from './ClusterSwitcher.vue';
 import TimeRangePicker from './TimeRangePicker.vue';
 
@@ -100,6 +101,7 @@ const summary = computed(() =>
       <Menu class="size-5" aria-hidden="true" />
     </button>
     <h1 class="min-w-0 flex-1 truncate text-16 font-semibold text-text">{{ title }}</h1>
+    <BusyNote />
 
     <button
       type="button"

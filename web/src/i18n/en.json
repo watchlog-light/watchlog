@@ -3,6 +3,10 @@
     "name": "WatchLog",
     "skipToContent": "Skip to content"
   },
+  "busy": {
+    "retrying": "Busy, retrying…",
+    "hint": "The server is busy right now. The page keeps what it shows and tries again by itself."
+  },
   "nav": {
     "label": "Main navigation",
     "overview": "Overview",

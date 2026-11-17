@@ -2,7 +2,8 @@
 <script setup lang="ts">
 import { Hourglass, Info, SearchX, Server, X } from '@lucide/vue';
 import type { DockerHostList, KubeNodeList } from '@watchlog/api-types';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { usePolling } from '@/composables/usePolling';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import NodeCard from '@/components/kube/NodeCard.vue';
@@ -41,7 +42,6 @@ const kube = computed(() => ({
     clusters.selected?.kind === (props.hosts ? 'docker' : 'kubernetes') ? clusters.selected : null,
 }));
 const ui = useUiStore();
-let timer: ReturnType<typeof setInterval> | undefined;
 
 const range = computed(() => Math.max(300, RANGE_SECONDS[ui.timeRange]));
 const chosen = computed(() =>
@@ -120,12 +120,13 @@ function setLayout(v: string) {
 
 watch([() => ui.timeRange, chosen], () => void page.load());
 watch(() => kube.value.cluster?.id, readDismissed);
+// Paused while the tab is hidden, spread by ±20 % (ADR-206).
+const poll = usePolling(() => page.load(), REFRESH_MS);
 onMounted(() => {
   readDismissed();
   void page.load();
-  timer = setInterval(page.load, REFRESH_MS);
+  poll.start();
 });
-onBeforeUnmount(() => clearInterval(timer));
 </script>
 
 <template>

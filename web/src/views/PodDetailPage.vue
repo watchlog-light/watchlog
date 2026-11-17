@@ -3,7 +3,8 @@
 import { ArrowLeft, CircleAlert } from '@lucide/vue';
 import type { KubePodDetail, MetricKey, RangeQueryResponse } from '@watchlog/api-types';
 import { storeToRefs } from 'pinia';
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
+import { usePolling } from '@/composables/usePolling';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { api } from '@/api/client';
@@ -38,7 +39,6 @@ const { timeRange } = storeToRefs(useUiStore());
 const namespace = computed(() => String(route.params.namespace));
 const name = computed(() => String(route.params.name));
 const clusterId = computed(() => kube.cluster?.id);
-let timer: ReturnType<typeof setInterval> | undefined;
 
 const page = useLoader(async () => {
   const cluster = await kube.ensure();
@@ -139,11 +139,12 @@ const stateTone = (state: string, reason: string | null): Tone =>
         : 'neutral';
 
 watch([namespace, name], page.load);
+// Paused while the tab is hidden, spread by ±20 % (ADR-206).
+const poll = usePolling(() => page.load(), REFRESH_MS);
 onMounted(() => {
   void page.load();
-  timer = setInterval(page.load, REFRESH_MS);
+  poll.start();
 });
-onBeforeUnmount(() => clearInterval(timer));
 </script>
 
 <template>

@@ -2,7 +2,8 @@
 <script setup lang="ts">
 import { ArrowRight, Check, CircleAlert, Copy, Route, TriangleAlert } from '@lucide/vue';
 import type { Cause, Causes } from '@watchlog/api-types';
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
+import { usePolling } from '@/composables/usePolling';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
 import { api } from '@/api/client';
@@ -94,7 +95,8 @@ function copyText() {
   if (a.value) void copy(causesText(a.value, tr, time));
 }
 
-let timer: ReturnType<typeof setInterval> | undefined;
+// Paused while the tab is hidden, spread by ±20 % (ADR-206).
+const poll = usePolling(() => page.load(), REFRESH_MS);
 watch(
   () => [props.clusterId, props.subject],
   () => void page.load(),
@@ -102,9 +104,8 @@ watch(
 watch(a, (v) => emit('answer', v));
 onMounted(() => {
   void page.load();
-  timer = setInterval(() => void page.load(), REFRESH_MS);
+  poll.start();
 });
-onBeforeUnmount(() => clearInterval(timer));
 </script>
 
 <template>
