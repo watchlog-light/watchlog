@@ -106,7 +106,7 @@ describe('custom threshold rules: validation', () => {
       'Scope "host" does not apply to a Kubernetes metric',
     );
     expect(await bad({ metric: 'host.cpu.utilization', scope: { namespaces: ['a'] } })).toBe(
-      'Scope "namespaces" does not apply to a Docker metric',
+      'Scope "namespaces" does not apply to a server metric',
     );
     expect(await bad({ clusterId: dockerId })).toBe(
       'The cluster does not exist or does not have this metric',
