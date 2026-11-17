@@ -349,3 +349,88 @@ func TestCgroupAndUnit(t *testing.T) {
 		}
 	}
 }
+
+func TestListenersAndOwners(t *testing.T) {
+	at := time.Unix(1_794_900_000, 0)
+	procs := ubuntu()
+	extra := ubuntuHints()
+	// pid → its socket inode; and the LISTEN table (0A) with those inodes.
+	sockets := map[int]uint64{14072: 1001, 26915: 1002, 23875: 1003, 22371: 1004}
+	for pid := range sockets {
+		extra[fmt.Sprintf("proc/%d/fd/7", pid)] = &fstest.MapFile{Data: []byte{}}
+	}
+	extra["proc/1/net/tcp"] = &fstest.MapFile{Data: []byte(
+		"  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n" +
+			"   0: 00000000:0050 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 1001 1\n" +
+			"   1: 00000000:1F9C 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 1002 1\n" +
+			"   2: 0100007F:1F9D 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 1003 1\n" +
+			"   3: 0100007F:9000 0100007F:1F9D 01 00000000:00000000 00:00000000 00000000  1000        0 1005 1\n")}
+	extra["proc/1/net/tcp6"] = &fstest.MapFile{Data: []byte(
+		"  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n" +
+			"   0: 00000000000000000000000000000000:2382 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000   113        0 1004 1\n")}
+	c := newCollector(mapFS(procs, extra), &at)
+	c.Reader.ReadlinkFD = func(pid int, fd string) (string, error) {
+		return fmt.Sprintf("socket:[%d]", sockets[pid]), nil
+	}
+	ss, err := c.Collect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, s := range ss {
+		if s.Name != "watchlog_listen_info" {
+			continue
+		}
+		var src, w, proto, port string
+		for _, l := range s.Labels {
+			switch l.Name {
+			case "source":
+				src = l.Value
+			case "workload":
+				w = l.Value
+			case "proto":
+				proto = l.Value
+			case "port":
+				port = l.Value
+			}
+		}
+		got = append(got, src+"/"+w+"/"+proto+"/"+port)
+	}
+	want := []string{
+		// pm2's api app, the jar started by hand, nginx's service, and php-fpm's master on
+		// 9090 (0x2382) as its process group; the connected socket 1005 isn't a listener.
+		"process/api/tcp/8092", "process/billing.jar/tcp/8093", "service/nginx.service/tcp/80",
+		"process/php-fpm master/tcp6/9090",
+	}
+	if strings.Join(sortStrings(got), ",") != strings.Join(sortStrings(want), ",") {
+		t.Fatalf("listeners:\n got %v\nwant %v", got, want)
+	}
+	owners := c.Owners()
+	cases := map[string]Workload{
+		// One group in a login session: the jar.
+		"/user.slice/user-501.slice/session-6.scope": {Kind: "ProcessGroup", Name: "billing.jar"},
+		// nginx alone in its unit: the service.
+		"/system.slice/nginx.service": {Kind: "Service", Name: "nginx.service"},
+		// pm2's apps and daemon share one unit: the unit, until flows carry the tgid.
+		"/system.slice/pm2-app.service": {Kind: "Service", Name: "pm2-app.service"},
+		// The containers' cgroups are the container source's.
+		"/system.slice/docker-295029bbdb91.scope": {},
+	}
+	for cg, w := range cases {
+		if owners[cg] != w {
+			t.Errorf("owner of %s: %+v, want %+v", cg, owners[cg], w)
+		}
+	}
+}
+
+func sortStrings(s []string) []string {
+	out := append([]string(nil), s...)
+	for i := range out {
+		for j := i + 1; j < len(out); j++ {
+			if out[j] < out[i] {
+				out[i], out[j] = out[j], out[i]
+			}
+		}
+	}
+	return out
+}

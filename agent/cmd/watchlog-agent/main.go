@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -190,6 +191,7 @@ func run(args []string, stdout io.Writer) int {
 		sources = append(sources, runner.Source{Name: "docker", Collect: dockerCollector.Collect})
 	}
 	// A server's systemd services (ADR-208); without systemd on D-Bus, process groups only.
+	var groups *procs.Collector
 	if mode == config.ModeServer {
 		// Exit codes and OOM kills from the kernel (ADR-210); without eBPF they are unknown.
 		var feed *exits.Feed
@@ -221,7 +223,7 @@ func run(args []string, stdout io.Writer) int {
 		}
 		// Process groups (ADR-208): every process outside a container, in any language.
 		root := procs.HostRoot(paths.RootFS)
-		groups := &procs.Collector{
+		groups = &procs.Collector{
 			Reader: procs.NewHostReader(paths.Proc),
 			Hints:  func() procs.Hints { return procs.ReadHints(os.DirFS("/"), root) },
 		}
@@ -246,12 +248,23 @@ func run(args []string, stdout io.Writer) int {
 			defer flows.Close()
 			reader := containers.NewReader(paths.Proc, paths.Sys)
 			owners := func() (map[uint64]network.Owner, error) { return network.PodCgroups(reader, network.Inode) }
-			if mode == config.ModeDocker {
+			if mode == config.ModeServer {
 				owners = func() (map[uint64]network.Owner, error) {
-					if dockerCollector == nil {
-						return nil, nil
+					out := map[uint64]network.Owner{}
+					if dockerCollector != nil {
+						out = network.DockerCgroups(reader, dockerCollector.ContainerIDs(), network.Inode)
 					}
-					return network.DockerCgroups(reader, dockerCollector.ContainerIDs(), network.Inode), nil
+					// Services and process groups (ADR-210): by their cgroup.
+					if groups != nil {
+						for cg, w := range groups.Owners() {
+							if ino, ok := network.Inode(filepath.Join(paths.Sys, "fs", "cgroup", cg)); ok {
+								if _, taken := out[ino]; !taken {
+									out[ino] = network.Owner{WorkloadKind: w.Kind, Workload: w.Name}
+								}
+							}
+						}
+					}
+					return out, nil
 				}
 			}
 			netCollector = network.New(flows, owners, slog.Default())
@@ -286,9 +299,25 @@ func run(args []string, stdout io.Writer) int {
 				}()
 			}
 			switch {
-			case mode == config.ModeDocker && dockerCollector != nil:
-				netCollector.Names = network.DockerNames(dockerCollector.Identities)
-				netCollector.Resolver = network.DockerResolver(dockerCollector.Identities)
+			case mode == config.ModeServer:
+				ids := func() map[string]runtime.Identity { return nil }
+				if dockerCollector != nil {
+					ids = dockerCollector.Identities
+				}
+				netCollector.Names = network.ServerNames(ids)
+				resolve := network.DockerResolver(ids)
+				netCollector.Resolver = func() *network.Resolver {
+					r := resolve()
+					// The server's own listening ports name local destinations (ADR-210).
+					if groups != nil {
+						ports := map[uint16]network.Dest{}
+						for _, l := range groups.Listeners() {
+							ports[l.Port] = network.Dest{Kind: network.DstWorkload, WorkloadKind: l.Kind, Workload: l.Name}
+						}
+						r.SetLocal(ports, network.LocalAddrs())
+					}
+					return r
+				}
 			case podmapClient != nil:
 				netCollector.Names = network.KubeNames(podmapClient.Last)
 				netCollector.Resolver = network.KubeResolver(podmapClient.FetchIPMap, *interval, slog.Default())

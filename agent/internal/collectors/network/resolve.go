@@ -3,6 +3,7 @@
 package network
 
 import (
+	"net"
 	"net/netip"
 	"strconv"
 	"time"
@@ -57,6 +58,10 @@ type Resolver struct {
 	// dialling a stopped container or a deleted pod is failing to reach it, not an
 	// external.
 	departed map[netip.Addr]departure
+	// local are a server's own listening ports (ADR-210): a connection to one of them on
+	// loopback or the server's own addresses is an edge to the workload listening there.
+	local   map[uint16]Dest
+	localIP map[netip.Addr]bool
 	// pending: no IP map yet (Kubernetes, the cluster-agent not answering since the
 	// agent started). Private addresses are then pods, Services and nodes the agent
 	// cannot name, not externals.
@@ -108,6 +113,10 @@ func NewResolver(m *podmap.IPMap, containers map[string]string) *Resolver {
 // addresses: a pod talking to its own sidecar is not an edge.
 func (r *Resolver) Resolve(a netip.Addr, port uint16) (Dest, bool) {
 	a = a.Unmap()
+	if d, ok := r.local[port]; ok && a.IsValid() && (a.IsLoopback() || a.IsUnspecified() || r.localIP[a]) {
+		d.Port = port
+		return d, true
+	}
 	if !a.IsValid() || a.IsLoopback() || a.IsUnspecified() {
 		return Dest{}, false
 	}
@@ -234,4 +243,29 @@ func (e *externals) admit(source string, d Dest, now time.Time) Dest {
 	}
 	set[key] = now
 	return d
+}
+
+// SetLocal names a server's own listening ports: a connection to one on loopback or to one
+// of addrs is an edge to the workload listening there.
+func (r *Resolver) SetLocal(ports map[uint16]Dest, addrs []netip.Addr) {
+	r.local = ports
+	r.localIP = make(map[netip.Addr]bool, len(addrs))
+	for _, a := range addrs {
+		r.localIP[a.Unmap()] = true
+	}
+}
+
+// LocalAddrs are the addresses of this machine's interfaces (a server's own addresses).
+func LocalAddrs() []netip.Addr {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil
+	}
+	var out []netip.Addr
+	for _, a := range addrs {
+		if p, err := netip.ParsePrefix(a.String()); err == nil {
+			out = append(out, p.Addr())
+		}
+	}
+	return out
 }

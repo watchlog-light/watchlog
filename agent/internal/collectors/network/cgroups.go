@@ -17,6 +17,10 @@ import (
 type Owner struct {
 	PodID       string
 	ContainerID string
+	// A server's service or process group (ADR-210): WorkloadKind is Service or
+	// ProcessGroup, Workload its name.
+	WorkloadKind string
+	Workload     string
 }
 
 // Inode is a cgroup v2 directory's inode: the cgroup id bpf_get_current_cgroup_id()

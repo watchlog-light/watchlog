@@ -34,6 +34,8 @@ type Proc struct {
 	PSSBytes   uint64 // 0 when smaps_rollup can't be read
 	OpenFiles  int    // -1 when /proc/<pid>/fd can't be read
 	UID        int
+	// Sockets are the socket inodes the process holds (listening ports), read locally.
+	Sockets []uint64
 }
 
 // Reader reads processes below a procfs root of an fs.FS (the real /proc, or a test tree).
@@ -44,6 +46,8 @@ type Reader struct {
 	ExeIdentity func(pid int) string
 	// Readlink resolves /proc/<pid>/exe; nil leaves Exe empty (tests use Args[0]).
 	Readlink func(pid int) (string, error)
+	// ReadlinkFD resolves /proc/<pid>/fd/<n> (sockets for listening ports); nil skips them.
+	ReadlinkFD func(pid int, fd string) (string, error)
 }
 
 func (r *Reader) read(pid int, name string) (string, error) {
@@ -129,6 +133,7 @@ func (r *Reader) Read(pid int) (Proc, bool) {
 	}
 	if entries, err := fs.ReadDir(r.FS, path.Join(r.Root, strconv.Itoa(pid), "fd")); err == nil {
 		p.OpenFiles = len(entries)
+		p.Sockets = r.socketInodes(pid)
 	}
 	if r.Readlink != nil {
 		if exe, err := r.Readlink(pid); err == nil {

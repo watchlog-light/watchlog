@@ -21,6 +21,9 @@ func NewHostReader(procRoot string) *Reader {
 		Readlink: func(pid int) (string, error) {
 			return os.Readlink(filepath.Join(abs, strconv.Itoa(pid), "exe"))
 		},
+		ReadlinkFD: func(pid int, fd string) (string, error) {
+			return os.Readlink(filepath.Join(abs, strconv.Itoa(pid), "fd", fd))
+		},
 		// The executable's size and modification time: replacing the file (a release)
 		// changes them.
 		ExeIdentity: func(pid int) string {

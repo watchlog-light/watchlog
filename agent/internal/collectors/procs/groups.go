@@ -5,6 +5,8 @@ package procs
 import (
 	"os"
 	"sort"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/watchlog-light/watchlog/agent/internal/metrics"
@@ -51,6 +53,33 @@ type Collector struct {
 	scanned bool
 	// Dropped is how many groups were folded into OtherGroup at the last scrape.
 	Dropped int
+
+	mu sync.Mutex
+	// listeners and owners are the last scrape's listening ports and cgroup owners, for
+	// the network collector (Listeners, Owners).
+	listeners []Listener
+	owners    map[string]Workload
+}
+
+// Listeners are the TCP ports the server's workloads listened on at the last scrape.
+func (c *Collector) Listeners() []Listener {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.listeners
+}
+
+// Owners maps a cgroup path to the workload whose connections it holds: the one process
+// group in it, else its unit (several groups in one unit, like pm2's apps, share the unit).
+func (c *Collector) Owners() map[string]Workload {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.owners
+}
+
+type processWithUnit struct {
+	p          Proc
+	name, unit string
+	by         string
 }
 
 type tracked struct {
@@ -114,12 +143,7 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 	}
 
 	// Name every process; then decide which unit-held groups are worth their own series.
-	type named struct {
-		p          Proc
-		name, unit string
-		by         string
-	}
-	var all []named
+	var all []processWithUnit
 	perUnit := map[string]map[string]bool{}
 	for _, p := range procs {
 		if c.excluded(p) || InContainer(p.Cgroup) {
@@ -128,7 +152,7 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 		unit := Unit(p.Cgroup)
 		parent := procs[p.PPID].Comm
 		name, by := Name(p, parent, unit, rules, hints)
-		all = append(all, named{p, name, unit, by})
+		all = append(all, processWithUnit{p, name, unit, by})
 		if unit != "" {
 			if perUnit[unit] == nil {
 				perUnit[unit] = map[string]bool{}
@@ -138,12 +162,20 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 	}
 
 	seen := map[int]bool{}
+	workloadOf := map[int]Workload{}
+	cgroupGroups := map[string]map[string]bool{}
 	for _, n := range all {
 		// Inside a unit, a group only by a manager's or user's rule, or when the unit holds
 		// several: nginx's processes alone in nginx.service are the service itself.
 		if n.unit != "" && n.by == "exe" && len(perUnit[n.unit]) == 1 {
+			workloadOf[n.p.PID] = Workload{Kind: "Service", Name: n.unit}
 			continue
 		}
+		workloadOf[n.p.PID] = Workload{Kind: "ProcessGroup", Name: n.name}
+		if cgroupGroups[n.p.Cgroup] == nil {
+			cgroupGroups[n.p.Cgroup] = map[string]bool{}
+		}
+		cgroupGroups[n.p.Cgroup][n.name] = true
 		key := n.unit + "\x00" + n.name
 		g := c.groups[key]
 		if g == nil {
@@ -204,7 +236,56 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 		}
 	}
 	c.scanned = true
-	return c.samples(), nil
+	out := c.samples()
+	out = append(out, c.network(all, workloadOf, cgroupGroups)...)
+	return out, nil
+}
+
+// network works out the listening ports and the cgroup owners from this scrape.
+func (c *Collector) network(all []processWithUnit, workloadOf map[int]Workload, cgroupGroups map[string]map[string]bool) []metrics.Sample {
+	inodes := c.Reader.listening()
+	byWorkload := map[Workload]map[Listener]bool{}
+	owners := map[string]Workload{}
+	for _, n := range all {
+		w, ok := workloadOf[n.p.PID]
+		if !ok {
+			continue
+		}
+		for _, ino := range n.p.Sockets {
+			if l, ok := inodes[ino]; ok {
+				l.Workload = w
+				if byWorkload[w] == nil {
+					byWorkload[w] = map[Listener]bool{}
+				}
+				byWorkload[w][l] = true
+			}
+		}
+		if _, done := owners[n.p.Cgroup]; done {
+			continue
+		}
+		switch groups := cgroupGroups[n.p.Cgroup]; {
+		case len(groups) == 1:
+			for name := range groups {
+				owners[n.p.Cgroup] = Workload{Kind: "ProcessGroup", Name: name}
+			}
+		case n.unit != "":
+			owners[n.p.Cgroup] = Workload{Kind: "Service", Name: n.unit}
+		}
+	}
+	listeners := sortedListeners(byWorkload)
+	c.mu.Lock()
+	c.listeners, c.owners = listeners, owners
+	c.mu.Unlock()
+	var out []metrics.Sample
+	for _, l := range listeners {
+		source := "service"
+		if l.Kind == "ProcessGroup" {
+			source = "process"
+		}
+		out = append(out, metrics.New("watchlog_listen_info", 1,
+			"source", source, "workload", l.Name, "proto", l.Proto, "port", strconv.Itoa(int(l.Port))))
+	}
+	return out
 }
 
 // excluded: the agent itself and its children.

@@ -119,3 +119,15 @@ func dockerResolver(ids func() map[string]runtime.Identity, now func() time.Time
 		return r
 	}
 }
+
+// ServerNames names a server's sources (ADR-210): services and process groups by their
+// workload, containers as in Docker mode.
+func ServerNames(ids func() map[string]runtime.Identity) func(Owner) (Source, bool) {
+	docker := DockerNames(ids)
+	return func(o Owner) (Source, bool) {
+		if o.Workload != "" {
+			return Source{WorkloadKind: o.WorkloadKind, Workload: o.Workload}, true
+		}
+		return docker(o)
+	}
+}
