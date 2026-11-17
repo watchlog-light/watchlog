@@ -18,7 +18,7 @@ Likely cause: web fails because api was scaled to 0: nothing answers its calls.
 3. api                               Scaled from 1 to 0 replicas.   (change)   ← where it starts
 ```
 
-It works the same on Kubernetes clusters and Docker hosts, in every edition, with no setup. It
+It works the same on Kubernetes clusters and Linux servers, in every edition, with no setup. It
 uses only what WatchLog already collects: the state of pods, containers and nodes, their events
 and restarts, the metrics, the change markers (rollouts, image changes, scaling), the service
 map's connections and HTTP calls, DNS lookups, and the findings of monitored applications.

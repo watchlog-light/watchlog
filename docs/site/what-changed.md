@@ -6,7 +6,7 @@ description: Anomaly detection for Kubernetes and Docker in WatchLog Pro. Each m
 # What changed
 
 When something breaks, the first question is what changed. What changed answers it for a
-Kubernetes cluster and for a Docker fleet: each metric WatchLog scores learns its own usual
+Kubernetes cluster and for a Server fleet: each metric WatchLog scores learns its own usual
 week, and when something breaks, one list shows everything that left its usual range, in the
 order it happened, with the [probable cause](probable-cause.md) underneath. Anomaly alerts fire
 on "unusual for a Tuesday at 14:00 UTC", with no threshold to write.

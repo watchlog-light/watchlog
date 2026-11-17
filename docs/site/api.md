@@ -1,6 +1,6 @@
 ---
 title: REST API
-description: Read WatchLog from scripts with a personal API token, for Kubernetes clusters and Docker fleets.
+description: Read WatchLog from scripts with a personal API token, for Kubernetes clusters and Server fleets.
 ---
 
 # REST API
@@ -117,11 +117,29 @@ A pod in the list looks like this:
 }
 ```
 
-## Docker fleets
+## Server fleets
 
 ```bash
 H="Authorization: Bearer $TOKEN"
 
+# Servers: OS, kernel, systemd and Docker, CPU, memory and disk, workload counts, problems
+curl -H "$H" $WATCHLOG/api/v1/clusters/$FLEET/servers
+# ...and every workload of the fleet (services, process groups, containers), problems first
+curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/servers?workloads=1"
+
+# One server: its use, events and who it talks to; its workloads
+curl -H "$H" $WATCHLOG/api/v1/clusters/$FLEET/servers/app-1
+curl -H "$H" $WATCHLOG/api/v1/clusters/$FLEET/servers/app-1/workloads
+
+# One workload (service:<unit>, process:<group> or container:<name>): its last hour of exits
+# and restarts, releases, connections and probable cause; and its log on demand
+curl -H "$H" $WATCHLOG/api/v1/clusters/$FLEET/servers/app-1/workloads/service:orders.service
+curl -H "$H" "$WATCHLOG/api/v1/clusters/$FLEET/servers/app-1/workloads/process:api/logs?lines=200"
+
+# The fleet's own process-group rules
+curl -H "$H" $WATCHLOG/api/v1/clusters/$FLEET/process-rules
+
+# The 0.8 Docker routes still answer, for containers:
 # Hosts: Docker version, container counts, CPU, memory and disk
 curl -H "$H" $WATCHLOG/api/v1/clusters/$FLEET/docker/hosts
 
@@ -154,7 +172,7 @@ A container looks like this:
 ```
 
 The Kubernetes routes (pods, workloads, nodes, namespaces) answer with empty lists for a
-Docker fleet, and the Docker routes with empty lists for a Kubernetes cluster.
+Server fleet, and the Docker routes with empty lists for a Kubernetes cluster.
 
 ## For both kinds
 
@@ -194,12 +212,12 @@ curl -H "$H" "$WATCHLOG/api/v1/egress/expected?cluster=$CLUSTER"
 
 # A suggested egress policy for one Kubernetes workload, as YAML text: a standard
 # NetworkPolicy and a CiliumNetworkPolicy (toFQDNs), the flavour detected on the cluster
-# first. WatchLog never applies it. A Docker fleet answers 404: Docker has no egress policy object
+# first. WatchLog never applies it. A Server fleet answers 404: Docker has no egress policy object
 curl -H "$H" "$WATCHLOG/api/v1/egress/policy?cluster=$CLUSTER&workload=shop/Deployment/orders"
 curl -H "$H" "$WATCHLOG/api/v1/egress/policy?cluster=$CLUSTER&workload=shop/Deployment/orders&flavour=kubernetes"
 
 # What changed (Pro, in WatchLog Cloud): what left its usual range for that hour of the
-# week, on a Kubernetes cluster or a Docker fleet. Around an alert (an hour before it started
+# week, on a Kubernetes cluster or a Server fleet. Around an alert (an hour before it started
 # to 15 minutes after), or from/to (Unix seconds, at most 24 hours; the last hour by
 # default); sort=first (the first to move, the default) or furthest. At most 50 rows with
 # total and truncated, the learning state and the probable cause's short form. Cloud Free

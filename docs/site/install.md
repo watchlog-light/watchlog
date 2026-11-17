@@ -1,6 +1,6 @@
 ---
 title: Install
-description: Install WatchLog on Kubernetes with one Helm chart, or on Docker hosts with Docker Compose and one docker run per host. About five minutes.
+description: Install WatchLog on Kubernetes with one Helm chart, or with Docker Compose and one command on each Linux server. About five minutes.
 ---
 
 # Install WatchLog
@@ -10,7 +10,7 @@ WatchLog has two parts: the **server** (backend, web UI, PostgreSQL, VictoriaMet
 ## Requirements
 
 - **Kubernetes:** 1.26 or newer, and Helm 3.8 or newer.
-- **Docker hosts:** Linux with Docker Engine 20.10 or newer, and Docker Compose v2 for the server.
+- **Linux servers:** systemd (Ubuntu 20.04+, Debian 11+, RHEL, Rocky and Alma 8+, Amazon Linux 2023), amd64 or arm64; or Docker Engine 20.10 or newer for the `docker run` agent. Docker Compose v2 to run WatchLog itself with Compose.
 - **Network flows (service map):** Linux 5.8 or newer with BTF (`/sys/kernel/btf/vmlinux`) and cgroup v2. Most distributions since 2021 have both. On other kernels everything else works, and the service map shows topology from Services and says why.
 
 ## Kubernetes
@@ -43,18 +43,18 @@ kubectl -n watchlog get secret watchlog-secret-key -o jsonpath='{.data.key}' | b
 
 To expose the UI permanently, enable the chart's Ingress (`ingress.enabled`, `ingress.host`) and set `publicUrl` so alert links point to it. See [configuration](configuration.md).
 
-### More clusters and Docker fleets
+### More clusters and Server fleets
 
-One WatchLog holds as many Kubernetes clusters and Docker fleets as you run, side by side, with no limit in Community. In the UI, go to **Settings → Clusters → Add cluster**:
+One WatchLog holds as many Kubernetes clusters and Server fleets as you run, side by side, with no limit in Community. In the UI, go to **Settings → Clusters → Add cluster**:
 
 - **Kubernetes:** run the `helm install` command it shows in the new cluster. It installs only the agents (chart `watchlog-agent`), with a token for that cluster.
-- **Docker:** run the `docker run` command it shows on each host of the new fleet. A fleet holds any number of hosts.
+- **Servers:** run the command it shows on each server of the new fleet: one command, a deb or rpm, or `docker run`. A fleet holds any number of servers. See [Linux servers](servers.md).
 
 The cluster switcher at the top of the sidebar moves between them.
 
-## Docker hosts
+## With Docker Compose
 
-**1. The server**, on one Linux host:
+**1. WatchLog itself**, on one Linux host:
 
 ```bash
 mkdir watchlog && cd watchlog
@@ -78,7 +78,7 @@ docker compose logs backend | grep "setup code"
 
 Open `WATCHLOG_PUBLIC_URL`, enter the code and create your admin account. Only port 8080 is published. For anything beyond a trusted network, put a TLS-terminating proxy in front.
 
-**2. The agents.** In the UI, go to **Settings → Clusters → Add cluster → Docker**, then run the `docker run` command it shows on every Docker host, including this one if it runs workloads. Hosts and containers appear within a minute.
+**2. The agents.** In the UI, go to **Settings → Clusters → Add cluster → Servers**, then run the command it shows on every server, including this one if it runs workloads. Each server's services, processes and containers appear within a minute. See [Linux servers](servers.md).
 
 ## Applications (databases, caches, queues, web servers)
 
@@ -87,8 +87,9 @@ WatchLog finds Redis, PostgreSQL, Nginx and RabbitMQ in what the agents already 
 read-only access:
 
 - **Kubernetes:** the chart runs it in each cluster (`integrations.enabled`, on by default).
-- **Docker hosts:** start it on each host that runs the services: the service page shows the
-  `docker run` command (it joins the host's network to reach containers on any network).
+- **Servers:** the install installs it next to the agent and it reads services on the same
+  server; with `docker run` agents, start it on each server that runs services (the service
+  page shows the command).
 
 Each integration has its own page: [Redis](integrations/redis.md),
 [PostgreSQL](integrations/postgres.md), [MySQL and MariaDB](integrations/mysql.md),

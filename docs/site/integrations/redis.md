@@ -6,7 +6,7 @@ description: Monitor Redis and Valkey on Kubernetes and Docker with WatchLog: me
 # Redis
 
 WatchLog finds Redis and Valkey servers from the images and ports your agents already
-see, on Kubernetes clusters and Docker hosts. Open **Applications**, press **Monitor** on
+see, on Kubernetes clusters and Linux servers. Open **Applications**, press **Monitor** on
 the one you want, and choose how WatchLog logs in. Versions 6.2 and later are supported;
 Redis 7 adds the latency histogram.
 

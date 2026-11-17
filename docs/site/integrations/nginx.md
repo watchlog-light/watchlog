@@ -6,7 +6,7 @@ description: Monitor Nginx and ingress-nginx on Kubernetes and Docker with Watch
 # Nginx
 
 WatchLog finds Nginx, OpenResty and ingress-nginx from the images and ports your agents
-already see, on Kubernetes clusters and Docker hosts. Open **Applications** and press
+already see, on Kubernetes clusters and Linux servers. Open **Applications** and press
 **Monitor**: Nginx needs no user or password.
 
 ## What it needs

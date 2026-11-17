@@ -52,7 +52,7 @@ A message gets no line when the causes are only possible, when no cause is clear
 answer isn't ready within 2 seconds: the message is never held back longer for it. The cause
 is worked out once, as the alert fires, and kept with the alert; the alert's page always shows
 today's answer, and its timeline marks the messages that carried the line ("with the likely
-cause"). It works the same for Kubernetes clusters and Docker hosts.
+cause"). It works the same for Kubernetes clusters and Linux servers.
 
 ## Webhook payload
 

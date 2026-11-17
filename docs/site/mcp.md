@@ -1,6 +1,6 @@
 ---
 title: Ask your cluster (MCP)
-description: Connect Claude Code, Claude Desktop, ChatGPT or Cursor to WatchLog and ask about your Kubernetes clusters and Docker hosts.
+description: Connect Claude Code, Claude Desktop, ChatGPT or Cursor to WatchLog and ask about your Kubernetes clusters and Linux servers.
 ---
 
 # Ask your cluster
@@ -138,28 +138,30 @@ Every tool is read-only. Each takes the cluster by name, and answers in that clu
 words: namespaces, workloads and pods on Kubernetes; hosts, Compose projects and containers
 on Docker.
 
-| Tool                        | Kubernetes                                                                                                             | Docker                                                                  |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `list_clusters`             | Your clusters, their kind and whether they report                                                                      | The same                                                                |
-| `get_problems`              | What needs attention: crash loops, OOM kills, nodes, connections, alerts; each with its likely cause when there is one | Restarting, unhealthy, OOM-killed or exited containers, hosts; the same |
-| `list_alerts`               | Firing or recent alerts                                                                                                | The same                                                                |
-| `explain_alert`             | An alert with its probable causes, its pod's state, events and the changes before it                                   | The same for a container or Compose service                             |
-| `explain_problem`           | The probable cause of a workload, pod, edge or monitored service, with its evidence and what was checked               | The same for a container or Compose service                             |
-| `get_workload`              | A Deployment, StatefulSet, DaemonSet, Job or CronJob and its pods                                                      | A Compose service and its containers                                    |
-| `get_pod`                   | A pod: containers, exit codes, OOM kills, restarts, events                                                             | A container                                                             |
-| `get_node`                  | A node: conditions, capacity against use, the heaviest pods                                                            | A host                                                                  |
-| `list_applications`         | Monitored services (Redis, PostgreSQL, Nginx, RabbitMQ), problems first                                                | The same, by host and Compose project                                   |
-| `get_application`           | A service: its health, every reason, the workloads that connect to it                                                  | The same, with the containers that connect to it                        |
-| `get_service_map`           | Failing connections, or one workload's connections and DNS errors                                                      | The same between containers                                             |
-| `get_egress`                | External destinations of the cluster or one workload: sources, first and last seen, bytes, failures, badges            | The same for a host, Compose service or container                       |
-| `get_new_destinations`      | Destinations a workload started using in the last hours (up to 7 days)                                                 | The same for a Compose service or container                             |
-| `get_expected_destinations` | Destinations marked expected, and the patterns that cover them                                                         | The same                                                                |
-| `get_container_logs`        | A container's last lines (at most 200), redacted, the previous run too                                                 | A container's last lines, stdout and stderr marked                      |
-| `get_right_sizing`          | Requests and limits against 7 days of use: too high, too low, OOM risk, throttled, not set                             | Limits and reservations against use: OOM risk, throttled, reservations  |
-| `get_events`                | Warning events, grouped                                                                                                | Container deaths, OOM kills, health changes                             |
-| `get_recent_changes`        | Rollouts, image changes, scaling, nodes                                                                                | Re-created containers, image changes                                    |
-| `get_what_changed` (Pro)    | What left its usual range around an alert or in a window, first to move or furthest out, with the likely cause         | The same for containers (with their Compose service) and hosts          |
-| `query_metric`              | A metric over up to 24 hours, as statistics, including a monitored service's                                           | The same                                                                |
+| Tool                        | Kubernetes                                                                                                             | Docker                                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `list_clusters`             | Your clusters, their kind and whether they report                                                                      | The same                                                                                     |
+| `get_problems`              | What needs attention: crash loops, OOM kills, nodes, connections, alerts; each with its likely cause when there is one | Restarting, unhealthy, OOM-killed or exited containers, hosts; the same                      |
+| `list_alerts`               | Firing or recent alerts                                                                                                | The same                                                                                     |
+| `explain_alert`             | An alert with its probable causes, its pod's state, events and the changes before it                                   | The same for a container or Compose service                                                  |
+| `explain_problem`           | The probable cause of a workload, pod, edge or monitored service, with its evidence and what was checked               | The same for a container or Compose service                                                  |
+| `get_workload`              | A Deployment, StatefulSet, DaemonSet, Job or CronJob and its pods                                                      | A Compose service and its containers                                                         |
+| `get_pod`                   | A pod: containers, exit codes, OOM kills, restarts, events                                                             | A container                                                                                  |
+| `get_node`                  | A node: conditions, capacity against use, the heaviest pods                                                            | A host                                                                                       |
+| `get_server`                | —                                                                                                                      | A server: its facts and use, and its services, process groups and containers, problems first |
+| `list_workloads`            | Every workload, problems first, by namespace                                                                           | Every service, process group and container, by server and source                             |
+| `list_applications`         | Monitored services (Redis, PostgreSQL, Nginx, RabbitMQ), problems first                                                | The same, by host and Compose project                                                        |
+| `get_application`           | A service: its health, every reason, the workloads that connect to it                                                  | The same, with the containers that connect to it                                             |
+| `get_service_map`           | Failing connections, or one workload's connections and DNS errors                                                      | The same between containers                                                                  |
+| `get_egress`                | External destinations of the cluster or one workload: sources, first and last seen, bytes, failures, badges            | The same for a host, Compose service or container                                            |
+| `get_new_destinations`      | Destinations a workload started using in the last hours (up to 7 days)                                                 | The same for a Compose service or container                                                  |
+| `get_expected_destinations` | Destinations marked expected, and the patterns that cover them                                                         | The same                                                                                     |
+| `get_container_logs`        | A container's last lines (at most 200), redacted, the previous run too                                                 | A container's last lines, stdout and stderr marked                                           |
+| `get_right_sizing`          | Requests and limits against 7 days of use: too high, too low, OOM risk, throttled, not set                             | Limits and reservations against use: OOM risk, throttled, reservations                       |
+| `get_events`                | Warning events, grouped                                                                                                | Container deaths, OOM kills, health changes                                                  |
+| `get_recent_changes`        | Rollouts, image changes, scaling, nodes                                                                                | Re-created containers, image changes                                                         |
+| `get_what_changed` (Pro)    | What left its usual range around an alert or in a window, first to move or furthest out, with the likely cause         | The same for containers (with their Compose service) and hosts                               |
+| `query_metric`              | A metric over up to 24 hours, as statistics, including a monitored service's                                           | The same                                                                                     |
 
 Two prompts start an investigation for you: `investigate_problem` and `why_is_it_crashing`.
 

@@ -19,7 +19,7 @@ Signing up needs no card and no company details. You get an organization named a
 
 ## The setup wizard
 
-After signup a short wizard connects your first cluster or Docker fleet:
+After signup a short wizard connects your first cluster or Server fleet:
 
 1. **Choose** Kubernetes or Docker, and a name.
 2. **Install** with one command, which carries the cluster's token (it starts with `wl_ct_`, and is shown once): Helm or a `kubectl` manifest for Kubernetes, `docker run` or a Compose service for Docker. The `kubectl` manifest is fetched with a separate one-time install code, so the token never appears in a URL.
@@ -29,15 +29,15 @@ Then add an alert channel (Slack, Telegram or email) and open the dashboard. Eve
 
 ## Plans and limits
 
-|                                           | Cloud Free | Cloud Pro                                                                                        |
-| ----------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------ |
-| Clusters or Docker fleets                 | 1          | Unlimited                                                                                        |
-| Nodes (Kubernetes nodes and Docker hosts) | 5          | Unlimited                                                                                        |
-| History                                   | 3 days     | 30 days                                                                                          |
-| Users                                     | 1          | Up to 10                                                                                         |
-| What changed and anomaly alerts           |            | ✓                                                                                                |
-| Support                                   |            | Email, within 2 business days                                                                    |
-| Price                                     | Free       | $1 per node a month, $10 minimum; annual: $10 per node a year (2 months free), at least 10 nodes |
+|                                      | Cloud Free | Cloud Pro                                                                                        |
+| ------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------ |
+| Clusters or Server fleets            | 1          | Unlimited                                                                                        |
+| Nodes (Kubernetes nodes and servers) | 5          | Unlimited                                                                                        |
+| History                              | 3 days     | 30 days                                                                                          |
+| Users                                | 1          | Up to 10                                                                                         |
+| What changed and anomaly alerts      |            | ✓                                                                                                |
+| Support                              |            | Email, within 2 business days                                                                    |
+| Price                                | Free       | $1 per node a month, $10 minimum; annual: $10 per node a year (2 months free), at least 10 nodes |
 
 Every monitoring feature is in both plans. Pro adds [What changed](what-changed.md): anomaly detection that learns each metric's usual week, lists what left its range first when something breaks, and raises anomaly alerts. The multi-cluster view and SLO reports are **coming to Pro**; they are not built yet.
 
@@ -53,9 +53,9 @@ The Owners get one email about each limit a day at most.
 
 ### How nodes are counted
 
-Every hour WatchLog records how many nodes and Docker hosts sent data. A month's bill uses the **95th percentile** of those hourly counts, so a short autoscaling spike doesn't raise it: 10 nodes for most of the month and 40 for one day is billed as 10. The cluster agent and the applications' collectors aren't nodes. Settings › Plan & billing shows this month's count so far.
+Every hour WatchLog records how many nodes and servers sent data. A month's bill uses the **95th percentile** of those hourly counts, so a short autoscaling spike doesn't raise it: 10 nodes for most of the month and 40 for one day is billed as 10. The cluster agent and the applications' collectors aren't nodes. Settings › Plan & billing shows this month's count so far.
 
-A node is counted by what WatchLog itself sees: the node or Docker host named on the metrics it stores and, on Kubernetes, the nodes the Kubernetes API lists. What an agent says about itself (its name in a request header, or its heartbeat) can't lower the count or let a node past the plan's limit.
+A node is counted by what WatchLog itself sees: the node or server named on the metrics it stores and, on Kubernetes, the nodes the Kubernetes API lists. What an agent says about itself (its name in a request header, or its heartbeat) can't lower the count or let a node past the plan's limit.
 
 ## Pro is free during the beta
 

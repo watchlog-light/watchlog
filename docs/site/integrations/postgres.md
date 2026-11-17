@@ -6,7 +6,7 @@ description: Monitor PostgreSQL on Kubernetes and Docker with WatchLog: connecti
 # PostgreSQL
 
 WatchLog finds PostgreSQL servers from the images and ports your agents already see, on
-Kubernetes clusters and Docker hosts. Open **Applications**, press **Monitor** on the one
+Kubernetes clusters and Linux servers. Open **Applications**, press **Monitor** on the one
 you want, and choose how WatchLog logs in. Versions 12 and later are supported.
 
 WatchLog logs in with a role that has `pg_monitor`. It reads the statistics views

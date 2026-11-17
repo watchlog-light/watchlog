@@ -1,6 +1,6 @@
 ---
 title: Container logs on demand
-description: Read the last lines of a pod's or a Docker container's log in WatchLog, redacted and never stored, who may read them, and how to turn it off.
+description: Read the last lines of a pod's, a container's or a Linux server's service log in WatchLog, redacted and never stored, who may read them, and how to turn it off.
 ---
 
 # Container logs on demand
@@ -8,6 +8,9 @@ description: Read the last lines of a pod's or a Docker container's log in Watch
 When a pod crash-loops or a container keeps exiting, its last lines are usually the answer.
 WatchLog shows them where you already look: open the pod or the container and read its log,
 without `kubectl logs` or `docker logs`.
+
+On [Linux servers](servers.md) the same panel reads a systemd service's journal, a pm2 app's or
+supervisord program's log files, or a container's log.
 
 **What it is:** the last lines of one container's log, read when you ask, passed through the
 WatchLog server to your browser, and then gone.

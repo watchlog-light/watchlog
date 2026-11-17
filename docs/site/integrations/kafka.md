@@ -7,7 +7,7 @@ description: Monitor Kafka on Kubernetes and Docker with WatchLog: brokers up, o
 
 WatchLog finds Kafka from the images and ports your agents already see
 (`apache/kafka`, `apache/kafka-native`, `bitnami/kafka`, `confluentinc/cp-kafka` and
-Strimzi's, port 9092), on Kubernetes clusters and Docker hosts. Open **Applications**,
+Strimzi's, port 9092), on Kubernetes clusters and Linux servers. Open **Applications**,
 press **Monitor** on the one you want, and choose how WatchLog logs in (on a PLAINTEXT
 listener, nothing). Kafka 3.0 and later is supported, with ZooKeeper or KRaft; WatchLog is
 tested on Kafka 4.1 as a single KRaft node.

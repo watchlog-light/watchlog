@@ -7,7 +7,7 @@ description: Monitor MySQL and MariaDB on Kubernetes and Docker with WatchLog: c
 
 WatchLog finds MySQL, MariaDB and Percona Server from the images and ports your agents
 already see (`mysql`, `mariadb`, `percona`, the Bitnami images and the operators' server
-images, port 3306), on Kubernetes clusters and Docker hosts. Open **Applications**, press
+images, port 3306), on Kubernetes clusters and Linux servers. Open **Applications**, press
 **Monitor** on the one you want, and choose how WatchLog logs in. It is one integration
 for both servers, named by what the server reports: "MySQL 8.4" or "MariaDB 11.4".
 MySQL 8.0 and later and MariaDB 10.6 and later are supported; Percona Server reads as

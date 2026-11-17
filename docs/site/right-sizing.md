@@ -21,7 +21,9 @@ is sent anywhere.
 
 - **Kubernetes:** the **Right-sizing** card on a workload's page (Workloads → a Deployment,
   StatefulSet or DaemonSet), one line per hint, with the container when the pod has several.
-- **Docker:** the same card on a container's page and on a Compose service's page.
+- **Servers:** the same card on a container's page and on a Compose service's page, and for
+  systemd services with a `MemoryMax` or `CPUQuota` (near the memory limit, throttled at the
+  CPU limit).
 - **Overview:** a card with how many workloads (or containers) could give CPU or memory back
   and how much in all, how many are close to their memory limit, and the first three hints, OOM
   risk first. **Show all** opens the whole list; each line opens its workload or container.

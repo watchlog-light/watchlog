@@ -51,18 +51,40 @@ The kernel programs read:
 
 Edges carry workload names, never pod IPs. An external destination is a DNS name or a `/24` network. [Egress watch](egress.md) keeps a record of those external destinations from these same counts, and reads nothing more.
 
-## Docker hosts
+## Linux servers
 
-The install command, and why each setting is there:
+Installed with the script or a package (see [Linux servers](servers.md)), the agent is a
+systemd unit running as the user `watchlog`, not root, with exactly five capabilities:
 
-| Setting                                                         | Why                                                                                                                                                                                                                   |
-| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--user 0:65532 --cap-drop ALL --cap-add BPF --cap-add PERFMON` | Network flows need `BPF` and `PERFMON`. Every other capability is dropped; no `--privileged`.                                                                                                                         |
-| `--security-opt no-new-privileges`                              | No privilege gain through setuid binaries.                                                                                                                                                                            |
-| `-v /var/run/docker.sock:...:ro`                                | Only `/_ping`, `/version`, container list, inspect and stats, `/events`, and a container's logs when someone asks (`WATCHLOG_LOGS=false` turns that off) are called. The client refuses anything else before sending. |
-| `-v /proc`, `/sys`, `/` read-only                               | Host and container metrics, filesystem usage.                                                                                                                                                                         |
-| `--pid host`                                                    | So the mounted `/proc` describes the host, not the agent's container.                                                                                                                                                 |
-| volume `watchlog-agent-state`                                   | Buffer while the server is unreachable.                                                                                                                                                                               |
+| Capability               | Why                                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------------------- |
+| `CAP_BPF`, `CAP_PERFMON` | Its eBPF programs: network flows, HTTP and process exits                                     |
+| `CAP_SYS_PTRACE`         | Other users' `/proc/<pid>/exe`: a process's executable and its releases                      |
+| `CAP_DAC_READ_SEARCH`    | Other users' open sockets (listening ports), pm2's files, and the journal for logs on demand |
+| `CAP_SYS_RESOURCE`       | eBPF maps on kernels before 5.11 (`RLIMIT_MEMLOCK`)                                          |
+
+The unit adds `NoNewPrivileges`, a read-only system (`ProtectSystem=strict`), private `/tmp`,
+`MemoryMax=256M` and the address families it needs. It reads `/proc` (never a process's
+`environ`), the cgroups, and systemd's unit states over D-Bus, which any user may read.
+Command lines, arguments, process ids and user names never leave the server; a process group
+is sent as its derived name, redacted. The token is in `/etc/watchlog/agent.env`, mode 0640,
+root and the `watchlog` group. The integrations collector runs with no capability.
+
+The Docker socket is read only when `watchlog` is in the `docker` group, which the script
+adds (it says so: that group can control Docker); `--no-docker` leaves it out.
+
+### With docker run
+
+The `docker run` agent, and why each setting is there:
+
+| Setting                                                  | Why                                                                                                                                                                                                                   |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--user 0:65532 --cap-drop ALL` and five `--cap-add`     | `BPF` and `PERFMON` for eBPF, `SYS_PTRACE`, `DAC_READ_SEARCH` and `SYS_RESOURCE` as for the unit above. Every other capability is dropped; no `--privileged`.                                                         |
+| `--security-opt no-new-privileges`                       | No privilege gain through setuid binaries.                                                                                                                                                                            |
+| `-v /var/run/docker.sock:...:ro`                         | Only `/_ping`, `/version`, container list, inspect and stats, `/events`, and a container's logs when someone asks (`WATCHLOG_LOGS=false` turns that off) are called. The client refuses anything else before sending. |
+| `-v /proc`, `/sys`, `/` read-only                        | Host and container metrics, filesystem usage.                                                                                                                                                                         |
+| `--pid host --cgroupns host`, the D-Bus socket read-only | So the mounted `/proc` and cgroups describe the host, and systemd's units can be read, not only the agent's container.                                                                                                |
+| volume `watchlog-agent-state`                            | Buffer while the server is unreachable.                                                                                                                                                                               |
 
 Docker's inspect response contains a container's environment variables. The agent never decodes, stores, logs or sends them, nor the command line.
 

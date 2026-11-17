@@ -6,7 +6,7 @@ description: Every external destination your Kubernetes workloads and Docker con
 # Egress watch
 
 "What is my cluster talking to on the internet, and since when?" Egress watch answers it for
-a Kubernetes cluster and for a Docker fleet. WatchLog keeps a record of every external
+a Kubernetes cluster and for a Server fleet. WatchLog keeps a record of every external
 destination each workload or container has used, with its first and last connection, and
 tells you when something starts talking to a destination it never used before.
 

@@ -7,7 +7,7 @@ description: Common questions about WatchLog — cost, data, kernels, air-gapped
 
 ## Is it really free?
 
-Yes. WatchLog Community is open source under AGPL-3.0, and you can self-host it at no cost, with no limit on clusters, Docker fleets, nodes or users. Teams that want a hosted service, a unified view across clusters, longer retention or SSO will be able to use the paid editions; see [pricing](/pricing).
+Yes. WatchLog Community is open source under AGPL-3.0, and you can self-host it at no cost, with no limit on clusters, Server fleets, nodes or users. Teams that want a hosted service, a unified view across clusters, longer retention or SSO will be able to use the paid editions; see [pricing](/pricing).
 
 ## What data leaves my cluster?
 
@@ -36,7 +36,7 @@ To have it verified, let the kubelets get serving certificates signed by the clu
 ## How do I find a pod or a container quickly?
 
 Press ⌘K (Ctrl+K on Windows and Linux), or the search button in the top bar, and type part
-of its name. It finds pages, clusters and Docker fleets, and the selected cluster's
+of its name. It finds pages, clusters and Server fleets, and the selected cluster's
 workloads, pods and nodes, or its hosts, containers and Compose projects, and
 applications. The letters only need to appear in order (`pay7d9` finds
 `payments-api-7d9f…`), and one typo is forgiven. Arrows move, Enter opens, Escape closes;
@@ -55,7 +55,7 @@ The node agent stays within 64 MB of memory and 1 % of a CPU core; we measure th
 
 <!-- TODO before launch (SPEC §16 #6): one sentence each, after running both. -->
 
-WatchLog aims at teams that want answers without building dashboards. One install gives you ready-made views for clusters, workloads and Docker hosts, a service map from eBPF and alerts that work on day one, with a small, read-only agent.
+WatchLog aims at teams that want answers without building dashboards. One install gives you ready-made views for clusters, workloads and servers, a service map from eBPF and alerts that work on day one, with a small, read-only agent.
 
 ## Which alert channels are supported?
 
