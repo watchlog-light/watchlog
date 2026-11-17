@@ -325,4 +325,147 @@ export const METRIC_RULES: DefaultRule[] = [
       summary: (v) => `${Math.round(v)} restarts in 10 min`,
     }),
   },
+  // Servers (ADR-208): systemd services and process groups, per server.
+  {
+    key: 'server.unit.failed',
+    metrics: { server: 'unit.failed' },
+    unit: 'count',
+    name: 'Service failed',
+    severity: 'critical',
+    forSeconds: 60,
+    condition: { op: '>', value: 0 },
+    evaluator: metricRule({
+      metric: { server: 'unit.failed' },
+      scope: (l) => unitScope(l),
+      summary: () => 'failed',
+    }),
+  },
+  {
+    key: 'server.unit.crashloop',
+    metrics: { server: 'unit.crashes.increase' },
+    unit: 'count',
+    name: 'Service crash-looping',
+    severity: 'critical',
+    forSeconds: 0,
+    condition: { op: '>', value: 2 },
+    evaluator: metricRule({
+      metric: { server: 'unit.crashes.increase' },
+      scope: (l) => unitScope(l),
+      summary: (v) => `${Math.round(v)} crashes or restarts in 10 min`,
+    }),
+  },
+  {
+    key: 'server.process.crashloop',
+    metrics: { server: 'process.exits.failed.increase' },
+    unit: 'count',
+    name: 'Process group crash-looping',
+    severity: 'critical',
+    forSeconds: 0,
+    condition: { op: '>', value: 2 },
+    evaluator: metricRule({
+      metric: { server: 'process.exits.failed.increase' },
+      scope: (l) => groupScope(l),
+      summary: (v) => `${Math.round(v)} failed exits in 10 min`,
+    }),
+  },
+  {
+    key: 'server.unit.oom',
+    metrics: { server: 'unit.oom_kills.increase' },
+    unit: 'count',
+    name: 'Service OOM-killed',
+    severity: 'warning',
+    forSeconds: 0,
+    condition: { op: '>', value: 0 },
+    evaluator: metricRule({
+      metric: { server: 'unit.oom_kills.increase' },
+      scope: (l) => unitScope(l),
+      summary: (v) => `${Math.round(v)} OOM kills in 10 min`,
+    }),
+  },
+  {
+    key: 'server.process.oom',
+    metrics: { server: 'process.oom_kills.increase' },
+    unit: 'count',
+    name: 'Process OOM-killed',
+    severity: 'warning',
+    forSeconds: 0,
+    condition: { op: '>', value: 0 },
+    evaluator: metricRule({
+      metric: { server: 'process.oom_kills.increase' },
+      scope: (l) => groupScope(l),
+      summary: (v) => `${Math.round(v)} OOM kills in 10 min`,
+    }),
+  },
+  {
+    key: 'server.process.gone',
+    metrics: { server: 'process.gone' },
+    unit: 'count',
+    name: 'Process group gone',
+    severity: 'warning',
+    forSeconds: 120,
+    condition: { op: '>', value: 0 },
+    evaluator: metricRule({
+      metric: { server: 'process.gone' },
+      scope: (l) => groupScope(l),
+      summary: () => 'no process left',
+    }),
+  },
+  {
+    key: 'server.unit.memory',
+    metrics: { server: 'unit.memory.utilization' },
+    unit: 'ratio',
+    name: 'Service near its memory limit',
+    severity: 'warning',
+    forSeconds: 300,
+    condition: { op: '>', value: 0.9 },
+    evaluator: metricRule({
+      metric: { server: 'unit.memory.utilization' },
+      scope: (l) => unitScope(l),
+      summary: (v) => `${pct(v)} of MemoryMax`,
+    }),
+  },
+  {
+    key: 'server.unit.throttling',
+    metrics: { server: 'unit.cpu.throttled_share' },
+    unit: 'ratio',
+    name: 'Service CPU-throttled',
+    severity: 'warning',
+    forSeconds: 900,
+    condition: { op: '>', value: 0.25 },
+    evaluator: metricRule({
+      metric: { server: 'unit.cpu.throttled_share' },
+      scope: (l) => unitScope(l),
+      summary: (v) => `throttled ${pct(v)} of the time`,
+    }),
+  },
+  {
+    key: 'server.memory.high',
+    metrics: { server: 'host.memory.utilization' },
+    unit: 'ratio',
+    name: 'Server memory high',
+    severity: 'warning',
+    forSeconds: 600,
+    condition: { op: '>', value: 0.9 },
+    evaluator: metricRule({
+      metric: { server: 'host.memory.utilization' },
+      scope: (l) => nodeScope(l),
+      summary: (v) => `memory ${pct(v)}`,
+    }),
+  },
 ];
+
+/** One alert per server and systemd service. */
+function unitScope(l: Record<string, string>) {
+  return l.host && l.unit
+    ? { fingerprint: `unit:${l.host}/${l.unit}`, labels: { node: l.host, unit: l.unit } }
+    : null;
+}
+
+/** One alert per server and process group (its unit, when it has one, as a label). */
+function groupScope(l: Record<string, string>) {
+  if (!l.host || !l.group) return null;
+  return {
+    fingerprint: `group:${l.host}/${l.group}`,
+    labels: { node: l.host, group: l.group, ...(l.unit ? { unit: l.unit } : {}) },
+  };
+}

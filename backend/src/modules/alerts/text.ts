@@ -189,6 +189,66 @@ export function alertText(a: AlertTextInput): AlertText {
         ),
       };
     }
+    // Servers (ADR-208): a systemd service (unit) or a process group (group), on l.node.
+    case 'server.unit.failed':
+      return {
+        title: `${l.unit} failed on ${l.node}`,
+        why: join('systemd marked it failed', str(d.reason)),
+      };
+    case 'server.unit.crashloop':
+    case 'server.process.crashloop': {
+      const who = a.ruleKey === 'server.unit.crashloop' ? l.unit : l.group;
+      return {
+        title: `${who} is crash-looping on ${l.node}`,
+        why: join(
+          a.ruleKey === 'server.unit.crashloop'
+            ? `${Math.round(num(d.value) ?? 0)} crashes or restarts in 10 min`
+            : `${Math.round(num(d.value) ?? 0)} failed exits in 10 min`,
+          a.ruleKey === 'server.process.crashloop' && l.unit ? `in ${l.unit}` : null,
+        ),
+      };
+    }
+    case 'server.unit.oom':
+    case 'server.process.oom': {
+      const who = a.ruleKey === 'server.unit.oom' ? l.unit : l.group;
+      return {
+        title: `${who} was killed for using too much memory on ${l.node}`,
+        why: plural(
+          Math.round(num(d.value) ?? 1),
+          '1 OOM kill in 10 min',
+          '{n} OOM kills in 10 min',
+        ),
+      };
+    }
+    case 'server.process.gone':
+      return {
+        title: `${l.group} has no process left on ${l.node}`,
+        why: join(
+          'every instance exited',
+          l.unit ? `in ${l.unit}` : 'not under systemd: nothing restarts it',
+        ),
+      };
+    case 'server.unit.memory':
+      return {
+        title: `${l.unit} is near its memory limit on ${l.node}`,
+        why: join(`${pct(d.value)} of MemoryMax`, `threshold ${pct(d.threshold)}`),
+      };
+    case 'server.unit.throttling':
+      return {
+        title: `${l.unit} is CPU-throttled on ${l.node}`,
+        why: join(
+          `throttled ${pct(Math.min(1, num(d.value) ?? 0))} of the time at its CPUQuota`,
+          `threshold ${pct(d.threshold)}`,
+        ),
+      };
+    case 'server.memory.high':
+      return {
+        title: `Memory on ${l.node} is at ${pct(d.value)}`,
+        why: join(
+          `threshold ${pct(d.threshold)}`,
+          num(d.forSeconds) ? `for ${humanDuration(num(d.forSeconds)!)}` : null,
+        ),
+      };
     case 'node.cpu.high':
       return {
         title: `CPU on ${l.node} is at ${pct(d.value)}`,

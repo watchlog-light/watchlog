@@ -252,6 +252,16 @@ const ENTRIES = {
     expr: (s, _r, a) =>
       `${a} by (host, unit) (increase(watchlog_service_oom_kills_total${s()}[10m]) or increase(watchlog_service_oom_events_total${s()}[10m]))`,
   },
+  /** systemd restarts or failed exits in the last 10 minutes, whichever is higher: a crash loop at 3. */
+  'unit.crashes.increase': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) => {
+      const restarts = `sum by (host, unit) (increase(watchlog_service_restarts_total${s()}[10m]))`;
+      const exits = `sum by (host, unit) (increase(watchlog_service_exits_total${s('exit=~"error|signal"')}[10m]))`;
+      return `((${restarts}) >= (${exits})) or (${exits}) or (${restarts})`;
+    },
+  },
   'process.cpu.usage': {
     unit: 'cores',
     agg: 'sum',
@@ -298,6 +308,16 @@ const ENTRIES = {
     agg: 'max',
     expr: (s, _r, a) =>
       `${a} by (host, unit, group) (increase(watchlog_process_group_oom_kills_total${s()}[10m]))`,
+  },
+  /**
+   * 1 for a group with no process left that ran for at least 10 minutes of the last hour
+   * (the agent keeps a gone group an hour, ADR-208); a short-lived job is never "gone".
+   */
+  'process.gone': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `(max by (host, unit, group) (watchlog_process_group_instances${s('group!="other processes"')}) == 0) * 0 + 1 and on (host, unit, group) (sum by (host, unit, group) (sum_over_time((max by (host, unit, group) (watchlog_process_group_instances${s('group!="other processes"')}) > bool 0)[1h:1m])) >= 10)`,
   },
   /** Its executable replaced on disk within the last 10 minutes: a new release. */
   'process.releases.increase': {

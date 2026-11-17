@@ -65,10 +65,20 @@ export function problemType(ruleKey: string | null): ProblemType {
   if (
     ruleKey === 'k8s.pod.crashloop' ||
     ruleKey === 'docker.container.restarts' ||
-    ruleKey === 'docker.container.restarting'
+    ruleKey === 'docker.container.restarting' ||
+    ruleKey === 'server.unit.crashloop' ||
+    ruleKey === 'server.process.crashloop' ||
+    ruleKey === 'server.unit.failed'
   )
     return 'crashloop';
-  if (ruleKey === 'k8s.container.oomkilled' || ruleKey === 'docker.container.oom') return 'oom';
+  if (
+    ruleKey === 'k8s.container.oomkilled' ||
+    ruleKey === 'docker.container.oom' ||
+    ruleKey === 'server.unit.oom' ||
+    ruleKey === 'server.process.oom'
+  )
+    return 'oom';
+  if (ruleKey === 'server.memory.high') return 'nodes';
   if (ruleKey === 'network.connections.failed') return 'connections';
   if (ruleKey?.startsWith('k8s.node.') || ruleKey?.startsWith('node.')) return 'nodes';
   return 'other';
