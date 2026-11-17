@@ -3,9 +3,18 @@
 // answer's shape, system namespaces left out unless asked, the filters, and a workload with
 // no history listed under notEnoughHistory rather than judged.
 import { randomUUID } from 'node:crypto';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { closeTestContext, createTestContext, setupAdmin, type TestContext } from './helpers.js';
-import { container, dockerFleet, kindCluster } from './support/mcp-fixtures.js';
+import {
+  addCluster,
+  container,
+  deleteTestSeries,
+  dockerFleet,
+  kindCluster,
+} from './support/mcp-fixtures.js';
+import type { TestSeries } from './support/remote-write.js';
+
+afterAll(deleteTestSeries);
 
 let ctx: TestContext | undefined;
 afterEach(async () => {
@@ -68,5 +77,49 @@ describe('GET /clusters/:id/right-sizing', () => {
     const res = await get(cookie, `/clusters/${fleet.id}/right-sizing?host=docker-01`);
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ hints: [], notEnoughHistory: [] });
+  });
+
+  it("answers for a server's services with a MemoryMax or CPUQuota (ADR-208)", async () => {
+    ctx = await createTestContext();
+    const cookie = await setupAdmin(ctx.app);
+    const fleet = await addCluster(ctx, cookie, 'acme-servers', 'server');
+    // 26 hours of 5-minute samples: orders.service at 190 of its 200 MB; billing throttled at
+    // half a core; nginx without limits (never judged); a system unit left out.
+    const now = Math.floor(Date.now() / 300_000) * 300_000;
+    const out: TestSeries[] = [];
+    for (let i = 0; i <= 26 * 12; i++) {
+      const t = now - (26 * 12 - i) * 300_000;
+      const add = (name: string, unit: string, value: number) =>
+        out.push({ labels: { __name__: name, host: 'app-1', unit }, value, timestampMs: t });
+      add('watchlog_service_memory_working_set_bytes', 'orders.service', 190e6);
+      add('watchlog_service_memory_limit_bytes', 'orders.service', 200e6);
+      add('watchlog_service_cpu_seconds_total', 'orders.service', i * 30);
+      add('watchlog_service_memory_working_set_bytes', 'billing.service', 50e6);
+      add('watchlog_service_cpu_limit_cores', 'billing.service', 0.5);
+      add('watchlog_service_cpu_seconds_total', 'billing.service', i * 150);
+      add('watchlog_service_cpu_throttled_seconds_total', 'billing.service', i * 240);
+      add('watchlog_service_memory_working_set_bytes', 'nginx.service', 40e6);
+      add('watchlog_service_cpu_seconds_total', 'nginx.service', i * 3);
+      add('watchlog_service_memory_working_set_bytes', 'systemd-journald.service', 30e6);
+      add('watchlog_service_memory_limit_bytes', 'systemd-journald.service', 32e6);
+    }
+    await fleet.write(out, 'app-1');
+    const res = await get(cookie, `/clusters/${fleet.id}/right-sizing`);
+    expect(res.statusCode, res.body).toBe(200);
+    const hints = res.json().hints as {
+      object: { kind: string; name: string; host: string };
+      code: string;
+    }[];
+    expect(
+      hints.map((h) => `${h.object.kind} ${h.object.host}/${h.object.name} ${h.code}`).sort(),
+    ).toEqual([
+      'service app-1/billing.service cpu_limit_throttled',
+      'service app-1/orders.service memory_limit_tight',
+    ]);
+    // System units too, when asked.
+    const all = (await get(cookie, `/clusters/${fleet.id}/right-sizing?system=true`)).json();
+    expect(all.hints.map((h: { object: { name: string } }) => h.object.name)).toContain(
+      'systemd-journald.service',
+    );
   });
 });
