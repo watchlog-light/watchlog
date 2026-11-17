@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/fcgi"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -155,4 +156,28 @@ func TestParseCGI(t *testing.T) {
 	if code != 200 || string(body) != "{}" {
 		t.Fatal(code, string(body))
 	}
+}
+
+// TestRealPool reads a real PHP-FPM pool when WATCHLOG_PHPFPM_ADDR names one (the server
+// test VMs: deploy/test/servers/stacks.sh turns its status listener on at 127.0.0.1:9001).
+func TestRealPool(t *testing.T) {
+	addr := os.Getenv("WATCHLOG_PHPFPM_ADDR")
+	if addr == "" {
+		t.Skip("WATCHLOG_PHPFPM_ADDR not set")
+	}
+	res := New().Scrape(context.Background(), integrations.Target{Members: []integrations.Member{{Name: "www", Address: addr}}}, false)
+	if res.State != integrations.StateOK || len(res.Permissions) > 0 {
+		t.Fatalf("%s %s %v %v", res.State, res.Error, res.Permissions, res.Members)
+	}
+	names := map[string]bool{}
+	for _, s := range res.Samples {
+		names[s.Name] = true
+		t.Logf("%s %v = %v", s.Name, s.Labels, s.Value)
+	}
+	for _, n := range []string{"watchlog_phpfpm_processes", "watchlog_phpfpm_accepted_connections_total", "watchlog_phpfpm_request_memory_bytes_max"} {
+		if !names[n] {
+			t.Errorf("missing %s", n)
+		}
+	}
+	t.Logf("facts %v", res.Facts)
 }

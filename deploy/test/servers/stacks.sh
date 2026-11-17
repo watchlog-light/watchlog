@@ -87,6 +87,12 @@ EOF
 if [ "$SUPCONF" = /etc/supervisord.d ] && [ -f "$SUPCONF/worker.conf" ]; then cp "$SUPCONF/worker.conf" "$SUPCONF/worker.ini"; fi
 
 systemctl daemon-reload
+# PHP-FPM's status page for the integration (ADR-212), on the status listener the docs use:
+# the pool itself listens on a socket.
+www=$(ls /etc/php/*/fpm/pool.d/www.conf /etc/php-fpm.d/www.conf 2>/dev/null | head -1)
+if [ -n "$www" ] && ! grep -q '^pm.status_path' "$www"; then
+  printf 'pm.status_path = /status\npm.status_listen = 127.0.0.1:9001\nrequest_slowlog_timeout = 2s\nslowlog = /var/log/php-fpm-www-slow.log\n' >>"$www"
+fi
 for u in nginx "$PHPFPM" postgresql mariadb "$SUP" orders shop; do systemctl enable --now "$u" >/dev/null 2>&1 || echo "   note: $u didn't start"; done
 # supervisord may have started with the package, before worker.conf existed.
 supervisorctl reread >/dev/null 2>&1 || true
