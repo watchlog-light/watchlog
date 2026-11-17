@@ -184,6 +184,8 @@ export function objectOf(
           name: l.workload,
           ...(l.namespace ? { namespace: l.namespace } : {}),
           ...(l.workload_kind ? { workloadKind: l.workload_kind } : {}),
+          // A server's service or process group: on its server.
+          ...(!l.namespace && l.host ? { host: l.host } : {}),
         },
         peer,
       };
@@ -197,6 +199,24 @@ export function objectOf(
       return { object: v, peer };
     }
     return { object: { kind: 'service', name: l.compose_service ?? key }, peer };
+  }
+  // A server's systemd service or process group (ADR-208), on its server.
+  if (key.startsWith('unit.')) {
+    return {
+      object: { kind: 'workload', name: l.unit ?? '', workloadKind: 'Service', host: l.host ?? '' },
+      peer: null,
+    };
+  }
+  if (key.startsWith('process.')) {
+    return {
+      object: {
+        kind: 'workload',
+        name: l.group ?? '',
+        workloadKind: 'ProcessGroup',
+        host: l.host ?? '',
+      },
+      peer: null,
+    };
   }
   if (key.startsWith('node.')) return { object: { kind: 'node', name: l.node ?? '' }, peer: null };
   if (key.startsWith('host.')) return { object: { kind: 'host', name: l.host ?? '' }, peer: null };

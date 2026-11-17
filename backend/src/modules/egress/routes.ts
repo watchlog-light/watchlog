@@ -239,8 +239,20 @@ function identityOf(kind: ClusterKind, s: SourceIn): SourceIdentity | string {
       return 'A Kubernetes source needs namespace, workloadKind and workload';
     return { namespace: s.namespace, workload_kind: s.workloadKind, workload: s.workload };
   }
-  if (s.namespace || s.workloadKind || s.workload)
-    return 'A Docker source is a Compose service, or a container on its host';
+  // A server's service or process group (ADR-212): on its server.
+  if (s.workloadKind || s.workload) {
+    if (s.namespace || s.composeProject || s.composeService || s.container)
+      return 'A server source is a Compose service, a container on its server, or a service or process group on its server';
+    if (
+      !s.host ||
+      !s.workload ||
+      (s.workloadKind !== 'Service' && s.workloadKind !== 'ProcessGroup')
+    )
+      return 'A service or process group source needs host, workloadKind (Service or ProcessGroup) and workload';
+    return { host: s.host, workload_kind: s.workloadKind, workload: s.workload };
+  }
+  if (s.namespace)
+    return 'A server source is a Compose service, a container on its server, or a service or process group on its server';
   if (s.composeProject || s.composeService) {
     if (!s.composeProject || !s.composeService || s.host || s.container)
       return 'A Compose source needs composeProject and composeService (and nothing else)';

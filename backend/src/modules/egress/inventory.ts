@@ -35,7 +35,7 @@ const DEST = 'dst_kind, dst, dst_port';
 /** The source labels each platform's flow series carry (slice 1: `node` is summed away). */
 export const SOURCE_LABELS = {
   kubernetes: 'namespace, workload_kind, workload',
-  server: 'host, container, compose_project, compose_service',
+  server: 'host, container, compose_project, compose_service, workload_kind, workload',
 } as const;
 const UPSERT_CHUNK = 500;
 
@@ -95,8 +95,8 @@ export function classifyDestination(dstKind: string, dst: string): DestinationCl
 
 /**
  * The source of a series in its platform's vocabulary, or null when the labels name none.
- * Docker: the Compose project and service when the container has them, else the container
- * on its host.
+ * Servers: the Compose project and service when the container has them, else the container
+ * on its server, else the service or process group on its server (ADR-212's sources).
  */
 export function sourceOf(kind: ClusterKind, l: Record<string, string>): SourceIdentity | null {
   if (kind === 'kubernetes') {
@@ -106,8 +106,16 @@ export function sourceOf(kind: ClusterKind, l: Record<string, string>): SourceId
   if (l.compose_project && l.compose_service) {
     return { compose_project: l.compose_project, compose_service: l.compose_service };
   }
-  if (!l.host || !l.container) return null;
-  return { host: l.host, container: l.container };
+  if (l.host && l.container) return { host: l.host, container: l.container };
+  // A server's systemd service or process group (ADR-208): it names its server.
+  if (
+    l.host &&
+    l.workload &&
+    (l.workload_kind === 'Service' || l.workload_kind === 'ProcessGroup')
+  ) {
+    return { host: l.host, workload_kind: l.workload_kind, workload: l.workload };
+  }
+  return null;
 }
 
 /** One inventory row from a series' labels: "Internet" is port 0 (it has no `dst_port`). */

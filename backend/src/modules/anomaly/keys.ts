@@ -36,6 +36,11 @@ export const PLATFORM_KEYS: Record<ClusterKind, MetricKey[]> = {
     'container.cpu.usage',
     'container.memory.working_set',
     'container.network.bytes',
+    // Services and process groups (ADR-208): CPU and memory, like containers'.
+    'unit.cpu.usage',
+    'unit.memory.working_set',
+    'process.cpu.usage',
+    'process.memory.rss',
     ...BOTH_HTTP,
   ],
 };

@@ -39,7 +39,7 @@ const DAY_MS = 86_400_000;
 const EXTERNAL = 'dst_kind=~"external|internet"';
 const SOURCE_LABELS = {
   kubernetes: 'namespace, workload_kind, workload',
-  server: 'host, container, compose_project, compose_service',
+  server: 'host, container, compose_project, compose_service, workload_kind, workload',
 } as const;
 
 export type EgressBadge = 'new' | 'raw_ip' | 'failing' | 'expected';
@@ -164,6 +164,9 @@ export function sourceView(
   if (s.compose_project !== undefined) {
     return { composeProject: s.compose_project, composeService: s.compose_service };
   }
+  if (s.workload !== undefined) {
+    return { host: s.host, workloadKind: s.workload_kind, workload: s.workload };
+  }
   return { host: s.host, container: s.container };
 }
 
@@ -180,6 +183,9 @@ export function sourceMatches(kind: ClusterKind, s: SourceIdentity, f: EgressFil
   }
   if (f.project && s.compose_project !== f.project) return false;
   if (f.service && s.compose_service !== f.service) return false;
+  // A server's service or process group (ADR-212).
+  if (f.kind && s.workload_kind !== f.kind) return false;
+  if (f.workload && s.workload !== f.workload) return false;
   // A Compose container's rows are its service's (ADR-188): with project and service the
   // container only narrows the traffic.
   if (f.container && !(f.project && f.service) && s.container !== f.container) return false;
@@ -201,6 +207,8 @@ function seriesMatchers(kind: ClusterKind, f: EgressFilters): string {
     eq('container', f.container);
     eq('compose_project', f.project);
     eq('compose_service', f.service);
+    eq('workload_kind', f.kind);
+    eq('workload', f.workload);
   }
   return m.join(', ');
 }

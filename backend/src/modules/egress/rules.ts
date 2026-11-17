@@ -33,6 +33,10 @@ export const LARGE_UPLOAD_BYTES = 100 * 2 ** 20;
 
 /** A source's labels on its alert, in the platform's vocabulary (ADR-124). */
 export function sourceLabels(s: SourceIdentity): Record<string, string> {
+  // A server's service or process group (ADR-212): on its server.
+  if (s.workload !== undefined && s.host !== undefined) {
+    return { node: s.host, workload_kind: s.workload_kind!, workload: s.workload };
+  }
   if (s.workload !== undefined) {
     return { namespace: s.namespace!, workload_kind: s.workload_kind!, workload: s.workload };
   }
@@ -44,6 +48,8 @@ export function sourceLabels(s: SourceIdentity): Record<string, string> {
 
 /** "shop/Deployment/orders", "shop/api", "docker-01/redis": the fingerprint's source part. */
 function sourceRef(s: SourceIdentity): string {
+  if (s.workload !== undefined && s.host !== undefined)
+    return `${s.host}/${s.workload_kind}/${s.workload}`;
   if (s.workload !== undefined) return `${s.namespace}/${s.workload_kind}/${s.workload}`;
   if (s.compose_service !== undefined) return `${s.compose_project}/${s.compose_service}`;
   return `${s.host}/${s.container}`;
