@@ -1861,7 +1861,9 @@ export interface paths {
     /** A Server fleet's servers: header facts, usage, workload counts and problems */
     get: {
       parameters: {
-        query?: never;
+        query?: {
+          workloads?: '1';
+        };
         header?: never;
         path: {
           id: string;
@@ -1907,6 +1909,36 @@ export interface paths {
                 }[];
                 problemCount: number;
               }[];
+              workloads?: ({
+                /** @description `service:<unit>`, `process:<group>` or `container:<name>` */
+                id: string;
+                source: 'service' | 'process' | 'container';
+                name: string;
+                unit: string | null;
+                note: string | null;
+                state: string;
+                problem: {
+                  kind:
+                    | 'failed'
+                    | 'crash_looping'
+                    | 'oom_killed'
+                    | 'unhealthy'
+                    | 'exited'
+                    | 'restarting';
+                  severity: 'critical' | 'warning';
+                  code: number | null;
+                } | null;
+                cpuCores: number | null;
+                memoryBytes: number | null;
+                memoryLimitBytes: number | null;
+                instances: number | null;
+                ports: number[];
+                restarts24h: number | null;
+                lastExitCode: number | null;
+                system: boolean;
+              } & {
+                server: string;
+              })[];
               totals: {
                 servers: number;
                 needAttention: number;

@@ -295,6 +295,10 @@ describe('Server fleet routes', () => {
       problemCount: 1,
       problems: [{ id: 'process:api', kind: 'crash_looping' }],
     });
+    const all = (await api(`/clusters/${cluster.id}/servers?workloads=1`)).json().workloads;
+    expect(all[0]).toMatchObject({ id: 'process:api', server: HOST });
+    expect(all).toHaveLength(4);
+    expect(body.workloads).toBeUndefined();
     expect(body.totals).toMatchObject({
       servers: 1,
       needAttention: 1,

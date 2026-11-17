@@ -46,6 +46,25 @@ export type DockerContainerList = JsonBody<
   Responses<'/api/v1/clusters/{id}/docker/containers', 'get'>[200]
 >;
 export type DockerContainer = DockerContainerList['containers'][number];
+// Server fleets (ADR-207).
+export type ServerList = JsonBody<Responses<'/api/v1/clusters/{id}/servers', 'get'>[200]>;
+export type ServerRow = ServerList['servers'][number];
+export type FleetWorkload = NonNullable<ServerList['workloads']>[number];
+export type ServerDetail = JsonBody<
+  Responses<'/api/v1/clusters/{id}/servers/{server}', 'get'>[200]
+>;
+export type ServerEdge = ServerDetail['talksTo'][number];
+export type ServerWorkloadList = JsonBody<
+  Responses<'/api/v1/clusters/{id}/servers/{server}/workloads', 'get'>[200]
+>;
+export type ServerWorkload = ServerWorkloadList['workloads'][number];
+export type ServerWorkloadDetail = JsonBody<
+  Responses<'/api/v1/clusters/{id}/servers/{server}/workloads/{workload}', 'get'>[200]
+>;
+export type ProcessRuleList = JsonBody<
+  Responses<'/api/v1/clusters/{id}/process-rules', 'get'>[200]
+>;
+export type ProcessRule = ProcessRuleList['rules'][number];
 export type KubeOverview = JsonBody<Responses<'/api/v1/clusters/{id}/overview', 'get'>[200]>;
 export type OverviewProblem = KubeOverview['problems']['items'][number];
 export type OverviewEvent = KubeOverview['events'][number];

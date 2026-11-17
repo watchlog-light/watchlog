@@ -7243,6 +7243,12 @@
         "tags": ["servers"],
         "parameters": [
           {
+            "schema": { "type": "string", "enum": ["1"] },
+            "in": "query",
+            "name": "workloads",
+            "required": false
+          },
+          {
             "schema": { "type": "string", "format": "uuid" },
             "in": "path",
             "name": "id",
@@ -7332,6 +7338,101 @@
                           },
                           "problemCount": { "type": "integer" }
                         }
+                      }
+                    },
+                    "workloads": {
+                      "type": "array",
+                      "items": {
+                        "allOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "source",
+                              "name",
+                              "unit",
+                              "note",
+                              "state",
+                              "problem",
+                              "cpuCores",
+                              "memoryBytes",
+                              "memoryLimitBytes",
+                              "instances",
+                              "ports",
+                              "restarts24h",
+                              "lastExitCode",
+                              "system"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "`service:<unit>`, `process:<group>` or `container:<name>`"
+                              },
+                              "source": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["service"] },
+                                  { "type": "string", "enum": ["process"] },
+                                  { "type": "string", "enum": ["container"] }
+                                ]
+                              },
+                              "name": { "type": "string" },
+                              "unit": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                              "note": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                              "state": { "type": "string" },
+                              "problem": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "required": ["kind", "severity", "code"],
+                                    "properties": {
+                                      "kind": {
+                                        "anyOf": [
+                                          { "type": "string", "enum": ["failed"] },
+                                          { "type": "string", "enum": ["crash_looping"] },
+                                          { "type": "string", "enum": ["oom_killed"] },
+                                          { "type": "string", "enum": ["unhealthy"] },
+                                          { "type": "string", "enum": ["exited"] },
+                                          { "type": "string", "enum": ["restarting"] }
+                                        ]
+                                      },
+                                      "severity": {
+                                        "anyOf": [
+                                          { "type": "string", "enum": ["critical"] },
+                                          { "type": "string", "enum": ["warning"] }
+                                        ]
+                                      },
+                                      "code": {
+                                        "anyOf": [{ "type": "number" }, { "type": "null" }]
+                                      }
+                                    }
+                                  },
+                                  { "type": "null" }
+                                ]
+                              },
+                              "cpuCores": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                              "memoryBytes": {
+                                "anyOf": [{ "type": "number" }, { "type": "null" }]
+                              },
+                              "memoryLimitBytes": {
+                                "anyOf": [{ "type": "number" }, { "type": "null" }]
+                              },
+                              "instances": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                              "ports": { "type": "array", "items": { "type": "integer" } },
+                              "restarts24h": {
+                                "anyOf": [{ "type": "number" }, { "type": "null" }]
+                              },
+                              "lastExitCode": {
+                                "anyOf": [{ "type": "number" }, { "type": "null" }]
+                              },
+                              "system": { "type": "boolean" }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["server"],
+                            "properties": { "server": { "type": "string" } }
+                          }
+                        ]
                       }
                     },
                     "totals": {

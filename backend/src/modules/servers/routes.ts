@@ -16,6 +16,7 @@ import { PUBLIC_TAG } from '../../openapi/public.js';
 import {
   CRASH_LOOP,
   assembleWorkloads,
+  byProblemThenCpu,
   parseWorkloadId,
   type ContainerRow,
   type Workload,
@@ -361,9 +362,17 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
         summary: "A Server fleet's servers: header facts, usage, workload counts and problems",
         tags: ['servers', PUBLIC_TAG],
         params: Params,
+        querystring: Type.Object({
+          /** Include every server's workloads (the fleet's Workloads page; at most 5,000). */
+          workloads: Type.Optional(Type.Literal('1')),
+        }),
         response: {
           200: Type.Object({
             servers: Type.Array(ServerS),
+            /** With ?workloads=1: every workload, with its server; problems first. */
+            workloads: Type.Optional(
+              Type.Array(Type.Intersect([WorkloadS, Type.Object({ server: Type.String() })])),
+            ),
             totals: Type.Object({
               servers: Type.Integer(),
               needAttention: Type.Integer(),
@@ -383,13 +392,25 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
       const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
       const byServer =
-        cluster.kind === 'server' ? await workloads(cluster.id, cluster.scope) : new Map();
+        cluster.kind === 'server'
+          ? await workloads(cluster.id, cluster.scope)
+          : new Map<string, Workload[]>();
       const list = cluster.kind === 'server' ? await servers(cluster, byServer) : [];
       // Problems first, then by name (the canvas: "Problems first").
       list.sort((a, b) => b.problemCount - a.problemCount || a.name.localeCompare(b.name));
       const all = [...byServer.values()].flat();
+      const withWorkloads =
+        request.query.workloads === '1'
+          ? {
+              workloads: [...byServer.entries()]
+                .flatMap(([server, ws]) => ws.map((w) => ({ ...w, server })))
+                .sort(byProblemThenCpu)
+                .slice(0, 5000),
+            }
+          : {};
       return {
         servers: list,
+        ...withWorkloads,
         totals: {
           servers: list.length,
           needAttention: list.filter((s) => s.problemCount > 0).length,
