@@ -23,6 +23,7 @@ import (
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/host"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/kubepods"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/network"
+	"github.com/watchlog-light/watchlog/agent/internal/collectors/procs"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/runtime"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/services"
 	"github.com/watchlog-light/watchlog/agent/internal/config"
@@ -196,6 +197,13 @@ func run(args []string, stdout io.Writer) int {
 		} else {
 			slog.Info("systemd isn't reachable on D-Bus: services are off", "socket", bus.Socket)
 		}
+		// Process groups (ADR-208): every process outside a container, in any language.
+		root := procs.HostRoot(paths.RootFS)
+		groups := &procs.Collector{
+			Reader: procs.NewHostReader(paths.Proc),
+			Hints:  func() procs.Hints { return procs.ReadHints(os.DirFS("/"), root) },
+		}
+		sources = append(sources, runner.Source{Name: "processes", Collect: groups.Collect})
 	}
 	ebpfState := network.Disabled
 	var netCollector *network.Collector
