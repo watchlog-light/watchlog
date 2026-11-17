@@ -85,6 +85,8 @@ export const ROUTES: Record<string, RouteClass> = {
   'POST /api/v1/onboarding/first-week/dismiss': cloud,
   'POST /api/v1/funnel': { kind: 'cloud', body: { name: 'install_command_copied' } },
   'GET /install.yaml': cloud,
+  // The server install script (ADR-209): public, no token or org data in it.
+  'GET /install.sh': pub,
 
   // Cloud plans (ADR-177): the org's plan, limits and usage, for the strip and the banners.
   'GET /api/v1/plan': cloud,
