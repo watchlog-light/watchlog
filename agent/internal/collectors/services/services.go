@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/containers"
+	"github.com/watchlog-light/watchlog/agent/internal/collectors/exits"
 	"github.com/watchlog-light/watchlog/agent/internal/metrics"
 )
 
@@ -34,6 +35,7 @@ type Props struct {
 	ExecMainCode    int32 // CLD_EXITED (1), CLD_KILLED (2), CLD_DUMPED (3); 0 when none
 	ExecMainStatus  int32 // the exit status, or the signal for KILLED and DUMPED
 	ControlGroup    string
+	MainPID         uint32
 	ActiveEnterUsec uint64
 	MemoryMax       *float64
 	CPUQuotaCores   *float64
@@ -57,6 +59,19 @@ type Collector struct {
 	Limit   int
 	// Dropped is how many services were left out by the limit at the last scrape.
 	Dropped int
+	// Exits, when set, returns the process exits eBPF saw since the last call (ADR-210):
+	// a unit's main process exits are counted, and its last non-zero exit kept, because
+	// systemd's own ExecMainStatus reads 0 again once it restarted the unit (measured).
+	Exits func() []exits.Exit
+
+	mainPID map[string]uint32
+	ex      map[string]*unitExits
+}
+
+type unitExits struct {
+	byKind   map[string]float64
+	oomKills float64
+	last     *int
 }
 
 // Wanted reports whether a unit is a service the server is running or failing: loaded,
@@ -108,6 +123,7 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 		}
 		rows = append(rows, r)
 	}
+	c.countExits(rows)
 	limit := c.Limit
 	if limit <= 0 {
 		limit = Limit
@@ -133,19 +149,65 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 	}
 	var out []metrics.Sample
 	for _, r := range rows {
-		out = append(out, samples(r)...)
+		out = append(out, samples(r, c.ex[r.u.Name])...)
 	}
 	return out, errors.Join(errs...)
 }
 
-func samples(r row) []metrics.Sample {
+// countExits attributes eBPF's exits to the units whose main process they were: the
+// MainPID systemd reported at the previous scrape (the process that just ended).
+func (c *Collector) countExits(rows []row) {
+	if c.mainPID == nil {
+		c.mainPID, c.ex = map[string]uint32{}, map[string]*unitExits{}
+	}
+	if c.Exits != nil {
+		byPID := map[int]string{}
+		for unit, pid := range c.mainPID {
+			if pid != 0 {
+				byPID[int(pid)] = unit
+			}
+		}
+		for _, e := range c.Exits() {
+			unit, ok := byPID[e.PID]
+			if !ok {
+				continue
+			}
+			u := c.ex[unit]
+			if u == nil {
+				u = &unitExits{byKind: map[string]float64{}}
+				c.ex[unit] = u
+			}
+			u.byKind[e.Kind()]++
+			if e.OOM {
+				u.oomKills++
+			}
+			if code := e.Code(); code != 0 {
+				u.last = &code
+			}
+		}
+	}
+	for _, r := range rows {
+		c.mainPID[r.u.Name] = r.p.MainPID
+	}
+}
+
+func samples(r row, ex *unitExits) []metrics.Sample {
 	unit := r.u.Name
 	out := []metrics.Sample{
 		metrics.New("watchlog_service_state", 1, "unit", unit, "state", r.u.ActiveState, "sub", r.u.SubState),
 		metrics.New("watchlog_service_restarts_total", float64(r.p.NRestarts), "unit", unit),
 	}
-	if r.p.ExecMainCode != 0 {
+	switch {
+	case ex != nil && ex.last != nil:
+		out = append(out, metrics.New("watchlog_service_last_exit_code", float64(*ex.last), "unit", unit))
+	case r.p.ExecMainCode != 0:
 		out = append(out, metrics.New("watchlog_service_last_exit_code", float64(exitCode(r.p)), "unit", unit))
+	}
+	if ex != nil {
+		for _, kind := range []string{"ok", "error", "signal"} {
+			out = append(out, metrics.New("watchlog_service_exits_total", ex.byKind[kind], "unit", unit, "exit", kind))
+		}
+		out = append(out, metrics.New("watchlog_service_oom_kills_total", ex.oomKills, "unit", unit))
 	}
 	if r.p.ActiveEnterUsec > 0 {
 		out = append(out, metrics.New("watchlog_service_start_time_seconds", float64(r.p.ActiveEnterUsec)/1e6, "unit", unit))

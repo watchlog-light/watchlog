@@ -117,8 +117,20 @@ struct css_set {
 	struct cgroup *dfl_cgrp;
 } __attribute__((preserve_access_index));
 
+struct mm_struct {
+} __attribute__((preserve_access_index));
+
+/* signal->oom_mm is set by mark_oom_victim() (kernel 4.11+): a task the OOM killer chose. */
+struct signal_struct {
+	struct mm_struct *oom_mm;
+} __attribute__((preserve_access_index));
+
 struct task_struct {
 	struct css_set *cgroups;
+	int pid;  /* pid_t */
+	int tgid; /* pid_t */
+	int exit_code;
+	struct signal_struct *signal;
 } __attribute__((preserve_access_index));
 
 #define AF_INET 2

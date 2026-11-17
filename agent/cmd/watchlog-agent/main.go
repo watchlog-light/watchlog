@@ -20,6 +20,7 @@ import (
 
 	"github.com/watchlog-light/watchlog/agent/internal/buffer"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/containers"
+	"github.com/watchlog-light/watchlog/agent/internal/collectors/exits"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/host"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/kubepods"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/network"
@@ -190,9 +191,30 @@ func run(args []string, stdout io.Writer) int {
 	}
 	// A server's systemd services (ADR-208); without systemd on D-Bus, process groups only.
 	if mode == config.ModeServer {
+		// Exit codes and OOM kills from the kernel (ADR-210); without eBPF they are unknown.
+		var feed *exits.Feed
+		if *ebpfFlag {
+			if ex, err := ebpf.StartExits(); err != nil {
+				slog.Info("process exits from eBPF are off: exit codes and OOM kills are unknown", "err", err)
+			} else {
+				defer ex.Close()
+				feed = exits.NewFeed()
+				go func() {
+					err := ex.Read(func(e ebpf.ExitEvent) {
+						feed.Add(exits.Exit{PID: int(e.Tgid), Cgroup: e.Cgroup, Status: e.Status, Signal: e.Signal, OOM: e.OOM})
+					})
+					if err != nil {
+						slog.Warn("process exits stopped", "err", err)
+					}
+				}()
+			}
+		}
 		bus := services.NewDBus(*dbusSocket)
 		if bus.Available() {
 			svc := &services.Collector{Bus: bus, Cgroups: containers.NewReader(paths.Proc, paths.Sys)}
+			if feed != nil {
+				svc.Exits = feed.TakeAll
+			}
 			sources = append(sources, runner.Source{Name: "services", Collect: svc.Collect})
 		} else {
 			slog.Info("systemd isn't reachable on D-Bus: services are off", "socket", bus.Socket)
@@ -202,6 +224,15 @@ func run(args []string, stdout io.Writer) int {
 		groups := &procs.Collector{
 			Reader: procs.NewHostReader(paths.Proc),
 			Hints:  func() procs.Hints { return procs.ReadHints(os.DirFS("/"), root) },
+		}
+		if feed != nil {
+			groups.Exits = func() map[int]procs.Exit {
+				out := map[int]procs.Exit{}
+				for pid, e := range feed.TakeByPID() {
+					out[pid] = procs.Exit{Code: e.Status, Signal: e.Signal, OOM: e.OOM}
+				}
+				return out
+			}
 		}
 		sources = append(sources, runner.Source{Name: "processes", Collect: groups.Collect})
 	}

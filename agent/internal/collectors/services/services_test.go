@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/containers"
+	"github.com/watchlog-light/watchlog/agent/internal/collectors/exits"
 	"github.com/watchlog-light/watchlog/agent/internal/metrics"
 )
 
@@ -203,5 +204,53 @@ func TestLimitsFromSystemd(t *testing.T) {
 	}
 	if bytesLimit(math.MaxUint64) != nil {
 		t.Fatal("infinity is no memory limit")
+	}
+}
+
+// As measured: orders exits 3, systemd restarts it and reports ExecMainStatus 0 again; then
+// the OOM killer ends it at MemoryMax and the restarted unit's memory.events reads 0.
+func TestExitsFromEBPF(t *testing.T) {
+	bus, cg := measured()
+	o := bus.props["orders.service"]
+	o.ExecMainCode, o.ExecMainStatus, o.MainPID = 0, 0, 100
+	bus.props["orders.service"] = o
+	var feed []exits.Exit
+	c := &Collector{Bus: bus, Cgroups: cg, Exits: func() []exits.Exit { out := feed; feed = nil; return out }}
+	if _, err := c.Collect(); err != nil {
+		t.Fatal(err)
+	}
+	// Its main process 100 exits 3; a helper (pid 555) in the same unit exits 1: not counted.
+	feed = []exits.Exit{{PID: 100, Status: 3}, {PID: 555, Status: 1}}
+	o.MainPID, o.NRestarts = 101, 3
+	bus.props["orders.service"] = o
+	if _, err := c.Collect(); err != nil {
+		t.Fatal(err)
+	}
+	feed = []exits.Exit{{PID: 101, Signal: 9, OOM: true}}
+	o.MainPID = 102
+	bus.props["orders.service"] = o
+	ss, _ := c.Collect()
+	got := map[string]float64{}
+	for _, s := range ss {
+		if label(s, "unit") != "orders.service" {
+			continue
+		}
+		k := s.Name
+		if e := label(s, "exit"); e != "" {
+			k += ":" + e
+		}
+		got[k] = s.Value
+	}
+	want := map[string]float64{
+		"watchlog_service_exits_total:error":  1,
+		"watchlog_service_exits_total:signal": 1,
+		"watchlog_service_oom_kills_total":    1,
+		// The last non-zero exit, SIGKILL: 137, though systemd says 0.
+		"watchlog_service_last_exit_code": 137,
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s = %v, want %v", k, got[k], v)
+		}
 	}
 }

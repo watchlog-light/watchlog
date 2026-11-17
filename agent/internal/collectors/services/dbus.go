@@ -123,6 +123,7 @@ func (b *DBus) Props(u UnitStatus) (Props, error) {
 		ExecMainCode:    i32(svc["ExecMainCode"]),
 		ExecMainStatus:  i32(svc["ExecMainStatus"]),
 		ControlGroup:    str(svc["ControlGroup"]),
+		MainPID:         u32(svc["MainPID"]),
 		ActiveEnterUsec: u64(unit["ActiveEnterTimestamp"]),
 		MemoryMax:       bytesLimit(u64(svc["MemoryMax"])),
 		CPUQuotaCores:   usecToCores(u64(svc["CPUQuotaPerSecUSec"])),
