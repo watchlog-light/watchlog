@@ -25,6 +25,8 @@ export const ProblemType = {
   telegramUnreachable: 'urn:watchlog:problem:telegram-unreachable',
   /** Read-only demo mode (ADR-122); the body also has `code: "demo_read_only"`. */
   demoReadOnly: 'urn:watchlog:problem:demo-read-only',
+  /** The live demo is over capacity: 503 with Retry-After, retried by the web (ADR-206). */
+  demoBusy: 'urn:watchlog:problem:demo-busy',
   /** Cloud: over the plan's clusters, users (409) or nodes (402 at ingest) (ADR-177). */
   planLimit: 'urn:watchlog:problem:plan-limit',
   /** Cloud: staff suspended the org; ingest answers 402 (ADR-179, ADR-181). */

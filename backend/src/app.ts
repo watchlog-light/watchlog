@@ -38,10 +38,13 @@ import { healthRoutes } from './modules/health/routes.js';
 import { setupRoutes } from './modules/setup/routes.js';
 import type { SetupState } from './modules/setup/service.js';
 import { registerCsrfProtection } from './plugins/csrf.js';
+import { demoCacheEnabled, registerDemoCache } from './plugins/demo-cache.js';
 import {
+  DEMO_QUERY_ROUTES,
   registerDemoGuard,
   registerDemoHiddenFacts,
   registerDemoQueryLimits,
+  registerDemoQueryRateLimit,
   registerDemoSessions,
 } from './plugins/demo.js';
 import { DemoSessions } from './modules/demo/service.js';
@@ -222,8 +225,20 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   const demoSessions = new DemoSessions(config.secretKey);
   if (config.demoMode) {
     registerDemoSessions(app, { systemDb, sessions: demoSessions });
-    registerDemoQueryLimits(app);
+    const limit = registerDemoQueryLimits(app);
     registerDemoHiddenFacts(app);
+    // The shared answer cache and load shedding (ADR-206): after the hidden facts, so a
+    // stored answer is the filtered one. Never in Cloud.
+    if (demoCacheEnabled(config))
+      registerDemoCache(app, {
+        bucketS: config.demoCache.seconds,
+        maxBytes: config.demoCache.maxMb * 1024 * 1024,
+        maxUpstream: config.demoCache.maxUpstream,
+        upstreamRoutes: DEMO_QUERY_ROUTES,
+        limit,
+        ...(deps.now ? { now: deps.now } : {}),
+      });
+    else registerDemoQueryRateLimit(app, limit);
   }
   await app.register(swagger, {
     openapi: {

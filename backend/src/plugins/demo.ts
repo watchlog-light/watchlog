@@ -3,8 +3,8 @@
 // included. Only reads, the demo sign-in, sign-out and the agents' ingest get through.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/index.js';
-import { bindOrg } from '../db/org-context.js';
 import { isInternalCall } from '../lib/internal-call.js';
+import { bindOrg } from '../db/org-context.js';
 import { PROBLEM_CONTENT_TYPE, ProblemType, problem, sendProblem } from '../lib/problem.js';
 import { SESSION_COOKIE } from '../modules/auth/sessions.js';
 import {
@@ -181,30 +181,43 @@ export function demoRangeProblem(sources: unknown[], nowS = Date.now() / 1000): 
 }
 
 /**
- * Keeps the public's queries small (ADR-122): ranges of at most 24 hours (400), and one
- * rate limit per visitor for every route that queries VictoriaMetrics (429). The query
+ * Keeps the public's queries small (ADR-122): ranges of at most 24 hours (400). Returns the
+ * visitor's rate limit for the routes that query VictoriaMetrics (429), which the demo cache
+ * applies to its misses only (ADR-206): a cached or shared answer costs nothing. The query
  * timeout is the VictoriaMetrics client's (10 s in demo mode).
  */
-export function registerDemoQueryLimits(app: FastifyInstance): void {
+export function registerDemoQueryLimits(
+  app: FastifyInstance,
+): (request: FastifyRequest, reply: FastifyReply) => Promise<unknown> {
   const limit = app.rateLimit({
     max: DEMO_QUERY_RATE,
     timeWindow: '1 minute',
     keyGenerator: (request: FastifyRequest) => `demo-query:${request.clientIp}`,
-  });
-  const queryRoutes = new Set(DEMO_QUERY_ROUTES);
-  app.addHook('onRequest', async (request, reply) => {
-    // An in-process read (MCP, probable cause) is part of a request already counted: the
-    // visitor's, not the backend's own address shared by every visitor.
-    if (isInternalCall(request)) return;
-    if (queryRoutes.has(`${request.method} ${request.routeOptions.url}`)) {
-      await limit.call(app, request, reply);
-    }
   });
   // After validation: query strings are numbers by now.
   app.addHook('preHandler', async (request, reply) => {
     if (!request.url.startsWith('/api/')) return;
     const why = demoRangeProblem([request.query, request.body]);
     if (why) return sendProblem(reply, 400, why);
+  });
+  return (request, reply) => limit.call(app, request, reply) as Promise<unknown>;
+}
+
+/**
+ * The visitor's rate limit on its own, for demo mode without the answer cache (demo mode in
+ * Cloud, which never caches): every request to a VictoriaMetrics-backed route counts, as in
+ * 0.8.2. An in-process read (MCP, probable cause) is part of a request already counted.
+ */
+export function registerDemoQueryRateLimit(
+  app: FastifyInstance,
+  limit: (request: FastifyRequest, reply: FastifyReply) => Promise<unknown>,
+): void {
+  const queryRoutes = new Set(DEMO_QUERY_ROUTES);
+  app.addHook('preHandler', async (request, reply) => {
+    if (isInternalCall(request)) return;
+    if (!queryRoutes.has(`${request.method} ${request.routeOptions.url}`)) return;
+    await limit(request, reply);
+    if (reply.sent) return reply;
   });
 }
 

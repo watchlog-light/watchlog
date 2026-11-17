@@ -61,6 +61,12 @@ export interface Config {
   /** Read-only public demo (ADR-122): passwordless viewer sessions, every change refused. */
   demoMode: boolean;
   /**
+   * The demo's shared answer cache and load shedding (ADR-206), read only in demo mode:
+   * the cache bucket in seconds (5–60), its size in MiB (8–256), and the cache misses to the
+   * VictoriaMetrics-backed routes that may run at once (1–256) before the next gets 503.
+   */
+  demoCache: { seconds: number; maxMb: number; maxUpstream: number };
+  /**
    * Right-sizing (ADR-168): the window of use, in hours (7 days), and the history a container
    * needs before it is judged (24 hours). Shorter values are for tests.
    */
@@ -282,6 +288,11 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   if (demoMode !== undefined && demoMode !== 'true' && demoMode !== 'false') {
     throw new Error(`Invalid WATCHLOG_DEMO_MODE: ${demoMode} (expected true or false)`);
   }
+  const demoCache = {
+    seconds: boundedInt(env, 'WATCHLOG_DEMO_CACHE_SECONDS', 15, 5, 60),
+    maxMb: boundedInt(env, 'WATCHLOG_DEMO_CACHE_MB', 64, 8, 256),
+    maxUpstream: boundedInt(env, 'WATCHLOG_DEMO_MAX_UPSTREAM', 16, 1, 256),
+  };
   const mcpEnabled = env.WATCHLOG_MCP_ENABLED;
   if (mcpEnabled !== undefined && mcpEnabled !== 'true' && mcpEnabled !== 'false') {
     throw new Error(`Invalid WATCHLOG_MCP_ENABLED: ${mcpEnabled} (expected true or false)`);
@@ -460,6 +471,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
       no: env.NO_PROXY ?? env.no_proxy,
     },
     demoMode: demoMode === 'true',
+    demoCache,
     clientIpHeader: env.WATCHLOG_CLIENT_IP_HEADER,
     clientCountryHeader: env.WATCHLOG_CLIENT_COUNTRY_HEADER,
     trustedProxies,
@@ -496,4 +508,21 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     billingUrl: billingUrl ? new URL(billingUrl).origin : undefined,
     lifecycleFrom: env.WATCHLOG_LIFECYCLE_FROM?.trim() || undefined,
   };
+}
+
+/** An integer setting within bounds, its default when unset or empty; anything else stops the start. */
+function boundedInt(
+  env: NodeJS.ProcessEnv,
+  name: string,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  const raw = env[name]?.trim();
+  if (!raw) return fallback;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < min || n > max) {
+    throw new Error(`Invalid ${name}: ${raw} (expected an integer from ${min} to ${max})`);
+  }
+  return n;
 }
