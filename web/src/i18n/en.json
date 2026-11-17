@@ -2332,7 +2332,10 @@
         "kafka_under_replicated": "When partitions are under-replicated for 5 minutes",
         "kafka_broker_down": "When a broker is down for a minute (critical)",
         "kafka_group_lag_growing": "When a group's lag grows for 10 minutes while it has members",
-        "kafka_group_lost": "When a group has no members and its lag grows for 5 minutes (critical)"
+        "kafka_group_lost": "When a group has no members and its lag grows for 5 minutes (critical)",
+        "phpfpm_max_children_reached": "When every worker is busy (pm.max_children reached)",
+        "phpfpm_listen_queue": "When requests wait for a free worker for 5 minutes",
+        "phpfpm_busy": "When more than 90% of the workers are busy for 10 minutes"
       }
     },
     "metricsError": "Key metrics couldn't be loaded.",
