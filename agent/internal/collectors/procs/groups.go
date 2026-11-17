@@ -4,6 +4,7 @@ package procs
 
 import (
 	"os"
+	"path"
 	"sort"
 	"strconv"
 	"sync"
@@ -63,6 +64,8 @@ type Collector struct {
 	// the network collector (Listeners, Owners).
 	listeners []Listener
 	owners    map[string]Workload
+	// pidOwners: each process group's processes, for flows keyed by process (ADR-210).
+	pidOwners map[int]Workload
 }
 
 // Listeners are the TCP ports the server's workloads listened on at the last scrape.
@@ -70,6 +73,15 @@ func (c *Collector) Listeners() []Listener {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.listeners
+}
+
+// PidOwner is the process group a process belongs to (this scrape's), for flows keyed by
+// process: the connections of pm2's apps, which share their unit's cgroup (ADR-210).
+func (c *Collector) PidOwner(pid int) (Workload, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	w, ok := c.pidOwners[pid]
+	return w, ok
 }
 
 // Owners maps a cgroup path to the workload whose connections it holds: the one process
@@ -101,7 +113,11 @@ type group struct {
 	oomKills   float64
 	releases   float64
 	exeID      string
-	lastSeen   time.Time
+	// exe is the base name of its newest process's executable (node, php-fpm8.2): the page's
+	// "Runs". Never a path or an argument.
+	exe      string
+	exeStart uint64
+	lastSeen time.Time
 	// this scrape
 	instances, threads   int
 	rss, pss             uint64
@@ -149,6 +165,27 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 	// Name every process; then decide which unit-held groups are worth their own series.
 	var all []processWithUnit
 	perUnit := map[string]map[string]bool{}
+	// Each unit's executables (base names, counted) and whether it is WatchLog's own: told by
+	// the unit and the binary together, never by a process's name (a foreign process may be
+	// called watchlog-agent). Counted before excluding the agent, so its own unit is known.
+	unitBins := map[string]map[string]int{}
+	ownUnits := map[string]string{}
+	for _, p := range procs {
+		if InContainer(p.Cgroup) {
+			continue
+		}
+		if unit := Unit(p.Cgroup); unit != "" {
+			if b := exeBase(p); b != "" {
+				if unitBins[unit] == nil {
+					unitBins[unit] = map[string]int{}
+				}
+				unitBins[unit][b]++
+			}
+			if OwnBinary(unit, p.Exe) {
+				ownUnits[unit] = path.Base(p.Exe)
+			}
+		}
+	}
 	for _, p := range procs {
 		if c.excluded(p) || InContainer(p.Cgroup) {
 			continue
@@ -222,6 +259,9 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 		}
 		g.liveTicks += p.CPUTicks
 		g.lastSeen = now
+		if b := exeBase(p); b != "" && (g.exe == "" || p.StartTicks >= g.exeStart) {
+			g.exe, g.exeStart = b, p.StartTicks
+		}
 		// A release: the group's executable replaced on disk (a new binary, a deploy).
 		if p.ExeID != "" {
 			if g.exeID != "" && g.exeID != p.ExeID {
@@ -266,6 +306,7 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 	for unit, v := range c.unitReleases {
 		out = append(out, metrics.New("watchlog_service_releases_total", v, "unit", unit))
 	}
+	out = append(out, unitExeSamples(unitBins, ownUnits)...)
 	out = append(out, c.network(all, workloadOf, cgroupGroups)...)
 	return out, nil
 }
@@ -275,10 +316,14 @@ func (c *Collector) network(all []processWithUnit, workloadOf map[int]Workload, 
 	inodes := c.Reader.listening()
 	byWorkload := map[Workload]map[Listener]bool{}
 	owners := map[string]Workload{}
+	pidOwners := map[int]Workload{}
 	for _, n := range all {
 		w, ok := workloadOf[n.p.PID]
 		if !ok {
 			continue
+		}
+		if w.Kind == "ProcessGroup" {
+			pidOwners[n.p.PID] = w
 		}
 		for _, ino := range n.p.Sockets {
 			if l, ok := inodes[ino]; ok {
@@ -303,7 +348,7 @@ func (c *Collector) network(all []processWithUnit, workloadOf map[int]Workload, 
 	}
 	listeners := sortedListeners(byWorkload)
 	c.mu.Lock()
-	c.listeners, c.owners = listeners, owners
+	c.listeners, c.owners, c.pidOwners = listeners, owners, pidOwners
 	c.mu.Unlock()
 	var out []metrics.Sample
 	for _, l := range listeners {
@@ -402,7 +447,7 @@ func groupSamples(g *group) []metrics.Sample {
 		metrics.New("watchlog_process_group_cpu_seconds_total", float64(g.deadTicks+g.liveTicks)/ticksPerSecond, l...),
 		metrics.New("watchlog_process_group_memory_rss_bytes", float64(g.rss), l...),
 		// The rule that named the group (pm2, php-fpm, script…), on one series: the page says it.
-		metrics.New("watchlog_process_group_instances", float64(g.instances), append(l, "by", g.by)...),
+		metrics.New("watchlog_process_group_instances", float64(g.instances), append(l, "by", g.by, "exe", g.exe)...),
 		metrics.New("watchlog_process_group_threads", float64(g.threads), l...),
 	}
 	for _, c := range []struct {
@@ -424,6 +469,48 @@ func groupSamples(g *group) []metrics.Sample {
 		if g.exits[kind] > 0 {
 			out = append(out, metrics.New("watchlog_process_group_exits_total", g.exits[kind], append(l, "exit", kind)...))
 		}
+	}
+	return out
+}
+
+// OwnBinary reports whether a unit's process is WatchLog's own agent or collector, installed
+// by the script or a package: the unit and the binary must both be ours.
+func OwnBinary(unit, exe string) bool {
+	return (unit == "watchlog-agent.service" && exe == "/usr/bin/watchlog-agent") ||
+		(unit == "watchlog-integrations.service" && exe == "/usr/bin/watchlog-integrations")
+}
+
+// exeBase is a process's executable's base name, or its command name when the path can't be
+// read; never a path or an argument.
+func exeBase(p Proc) string {
+	if p.Exe != "" {
+		return path.Base(p.Exe)
+	}
+	return ""
+}
+
+// unitExeSamples: one watchlog_service_exe_info per unit with processes, naming its most
+// common executable (ties: the alphabetically first), own="true" for WatchLog's units, which
+// name their own binary (not a journalctl the agent runs for a moment).
+func unitExeSamples(bins map[string]map[string]int, own map[string]string) []metrics.Sample {
+	units := make([]string, 0, len(bins))
+	for u := range bins {
+		units = append(units, u)
+	}
+	sort.Strings(units)
+	out := make([]metrics.Sample, 0, len(units))
+	for _, u := range units {
+		best, n := "", 0
+		for b, k := range bins[u] {
+			if k > n || (k == n && b < best) {
+				best, n = b, k
+			}
+		}
+		l := []string{"unit", u, "exe", best}
+		if bin, ok := own[u]; ok {
+			l = []string{"unit", u, "exe", bin, "own", "true"}
+		}
+		out = append(out, metrics.New("watchlog_service_exe_info", 1, l...))
 	}
 	return out
 }

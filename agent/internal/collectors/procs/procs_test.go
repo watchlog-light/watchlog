@@ -332,7 +332,12 @@ func TestNoPIDOrCommandLineInLabels(t *testing.T) {
 				byRule[groupOf(s)] = l.Value
 			}
 			switch l.Name {
-			case "group", "unit", "exit", "by":
+			case "group", "unit", "exit", "by", "own":
+			case "exe":
+				// The executable's base name only: never a path.
+				if strings.Contains(l.Value, "/") {
+					t.Fatalf("%s carries a path: %q", s.Name, l.Value)
+				}
 			default:
 				t.Fatalf("%s has label %s", s.Name, l.Name)
 			}
@@ -494,5 +499,56 @@ func TestServiceRelease(t *testing.T) {
 	ss, _ = c.Collect()
 	if got := release(ss); got != 1 {
 		t.Fatalf("still 1, got %v", got)
+	}
+}
+
+// WatchLog's own agent and collector are told by their unit and binary together, never by a
+// process's name: a foreign process called watchlog-agent (another product's agent under pm2
+// or by hand, or a unit of that name running another binary) is not ours.
+func TestOwnBinaryIsUnitAndPath(t *testing.T) {
+	for _, c := range []struct {
+		unit, exe string
+		own       bool
+	}{
+		{"watchlog-agent.service", "/usr/bin/watchlog-agent", true},
+		{"watchlog-integrations.service", "/usr/bin/watchlog-integrations", true},
+		{"", "/opt/watchlog-v1/watchlog-agent", false},
+		{"pm2-root.service", "/usr/local/bin/watchlog-agent", false},
+		{"watchlog-agent.service", "/opt/watchlog-v1/watchlog-agent", false},
+		{"watchlog-agent.service", "/usr/bin/watchlog-integrations", false},
+	} {
+		if got := OwnBinary(c.unit, c.exe); got != c.own {
+			t.Errorf("OwnBinary(%q, %q) = %v, want %v", c.unit, c.exe, got, c.own)
+		}
+	}
+	ss := unitExeSamples(map[string]map[string]int{
+		"watchlog-agent.service": {"watchlog-agent": 1, "journalctl": 1},
+		"php8.2-fpm.service":     {"php-fpm8.2": 5},
+		"pm2-root.service":       {"node": 3, "watchlog-agent": 1},
+	}, map[string]string{"watchlog-agent.service": "watchlog-agent"})
+	got := map[string]string{}
+	for _, s := range ss {
+		var unit, exe, own string
+		for _, l := range s.Labels {
+			switch l.Name {
+			case "unit":
+				unit = l.Value
+			case "exe":
+				exe = l.Value
+			case "own":
+				own = l.Value
+			}
+		}
+		got[unit] = exe + "/" + own
+	}
+	want := map[string]string{
+		"watchlog-agent.service": "watchlog-agent/true", // its own binary, not journalctl
+		"php8.2-fpm.service":     "php-fpm8.2/",
+		"pm2-root.service":       "node/",
+	}
+	for u, w := range want {
+		if got[u] != w {
+			t.Errorf("%s: got %q, want %q", u, got[u], w)
+		}
 	}
 }
