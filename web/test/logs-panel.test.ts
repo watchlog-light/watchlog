@@ -307,3 +307,41 @@ describe('Settings → Container logs', () => {
     expect(v.get('[data-testid="logs-access-readonly"]').text()).toBe('Now: Off');
   });
 });
+
+describe("a server's service or process group (ADR-208)", () => {
+  const SERVICE_URL = `/api/v1/clusters/${CLUSTER}/servers/app-1/workloads/service%3Aorders.service/logs`;
+  const GROUP_URL = `/api/v1/clusters/${CLUSTER}/servers/app-1/workloads/process%3Async.py/logs`;
+  async function mountWorkload(workload: string, routes: Routes) {
+    mockFetch({ ...SETTINGS, ...routes });
+    const { pinia, router, i18n } = await createPlugins('/');
+    useAuthStore().user = { ...USER };
+    const wrapper = mount(LogsPanel, {
+      props: { kind: 'workload', clusterId: CLUSTER, host: 'app-1', workload },
+      global: { plugins: [pinia, router, i18n] },
+      attachTo: document.body,
+    });
+    await flushPromises();
+    return wrapper;
+  }
+
+  it("reads a service's journal on its server", async () => {
+    const w = await mountWorkload('service:orders.service', {
+      [`GET ${SERVICE_URL}?lines=200`]: answer({ container: '' }),
+    });
+    expect(w.find('[data-testid="logs-container"]').exists()).toBe(false);
+    await w.get('[data-testid="logs-read"]').trigger('submit');
+    await flushPromises();
+    expect(w.findAll('[data-testid="log-line"]')).toHaveLength(2);
+    w.unmount();
+  });
+
+  it('says plainly when a process started by hand has no log source', async () => {
+    const w = await mountWorkload('process:sync.py', {
+      [`GET ${GROUP_URL}?lines=200`]: refusal(422, 'no_log_source'),
+    });
+    await w.get('[data-testid="logs-read"]').trigger('submit');
+    await flushPromises();
+    expect(w.text()).toContain('started outside systemd, pm2 and supervisord');
+    w.unmount();
+  });
+});
