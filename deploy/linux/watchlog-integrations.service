@@ -1,0 +1,35 @@
+# WatchLog's integrations collector (ADR-131): the Applications this server runs (PostgreSQL,
+# MySQL, Redis, nginx, PHP-FPM …), reached like any client. No capability at all.
+# Configuration: /etc/watchlog/agent.env (the same token).
+[Unit]
+Description=WatchLog integrations collector
+Documentation=https://watchlog.io/docs/integrations/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=watchlog
+Group=watchlog
+EnvironmentFile=/etc/watchlog/agent.env
+ExecStart=/usr/bin/watchlog-integrations --mode=server --buffer-dir=/var/lib/watchlog/integrations-buffer
+Restart=always
+RestartSec=5
+CapabilityBoundingSet=
+AmbientCapabilities=
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+StateDirectory=watchlog
+MemoryMax=192M
+
+[Install]
+WantedBy=multi-user.target

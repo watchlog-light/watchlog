@@ -1,0 +1,42 @@
+# WatchLog's server agent (ADR-208, ADR-209): services, process groups, containers, host
+# metrics and eBPF network flows of this server. It runs as the user watchlog with only the
+# capabilities it needs (ADR-209), never as root. Configuration: /etc/watchlog/agent.env.
+[Unit]
+Description=WatchLog agent
+Documentation=https://watchlog.io/docs/servers/
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=watchlog
+Group=watchlog
+EnvironmentFile=/etc/watchlog/agent.env
+ExecStart=/usr/bin/watchlog-agent --mode=server --host-proc=/proc --host-sys=/sys --host-root=/ --buffer-dir=/var/lib/watchlog/agent-buffer
+Restart=always
+RestartSec=5
+
+# The capabilities, as measured (ADR-209): eBPF programs and maps, reading other users'
+# /proc/<pid>/exe and fd (process groups, listening ports), and RLIMIT_MEMLOCK for eBPF
+# maps on kernels before 5.11.
+AmbientCapabilities=CAP_BPF CAP_PERFMON CAP_SYS_PTRACE CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE
+CapabilityBoundingSet=CAP_BPF CAP_PERFMON CAP_SYS_PTRACE CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+SystemCallArchitectures=native
+StateDirectory=watchlog
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

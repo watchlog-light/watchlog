@@ -1,0 +1,31 @@
+# The deb and rpm (ADR-209), built by build.sh with nfpm from the release's binaries.
+name: watchlog-agent
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+section: admin
+priority: optional
+maintainer: WatchLog <hello@watchlog.io>
+description: |
+  WatchLog's server agent and integrations collector: every service, process and container
+  on this server, in any language.
+vendor: WatchLog
+homepage: https://watchlog.io
+license: AGPL-3.0-only
+contents:
+  - src: ${BIN}/watchlog-agent
+    dst: /usr/bin/watchlog-agent
+    file_info: { mode: 0755 }
+  - src: ${BIN}/watchlog-integrations
+    dst: /usr/bin/watchlog-integrations
+    file_info: { mode: 0755 }
+  - src: ./watchlog-agent.service
+    dst: /usr/lib/systemd/system/watchlog-agent.service
+  - src: ./watchlog-integrations.service
+    dst: /usr/lib/systemd/system/watchlog-integrations.service
+  - src: ./agent.env.example
+    dst: /usr/share/doc/watchlog-agent/agent.env.example
+scripts:
+  postinstall: ./postinstall.sh
+  preremove: ./preremove.sh
+  postremove: ./postremove.sh
