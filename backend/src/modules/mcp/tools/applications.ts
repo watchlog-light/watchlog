@@ -244,6 +244,7 @@ export const listApplicationsTool = defineTool({
             Type.Literal('mongodb'),
             Type.Literal('traefik'),
             Type.Literal('kafka'),
+            Type.Literal('php-fpm'),
             Type.Literal('elasticsearch'),
           ],
           { description: 'Only services of this type.' },

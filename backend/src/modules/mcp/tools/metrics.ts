@@ -24,6 +24,7 @@ const DOCKER_PREFIXES = [
   'mongodb.',
   'traefik.',
   'kafka.',
+  'php-fpm.',
 ];
 const KUBERNETES_PREFIXES = [
   'node.',
@@ -42,6 +43,7 @@ const KUBERNETES_PREFIXES = [
   'mongodb.',
   'traefik.',
   'kafka.',
+  'php-fpm.',
 ];
 
 const ScopeValue = (what: string) =>

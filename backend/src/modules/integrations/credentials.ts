@@ -187,6 +187,15 @@ export function connectCommand(
     case 'compose':
     case 'container':
       return `docker exec ${it}${opts.container ?? (target.kind === 'container' ? target.container : `${target.compose_project}-${target.compose_service}-1`)} ${line}`;
+    // Installed on the server (ADR-212): run on it, as the service's own admin.
+    case 'native':
+      return type === 'postgres'
+        ? `sudo -u postgres ${line.replace(' -U postgres', '')}`
+        : type === 'mysql'
+          ? `sudo mysql -e '${mysqlGrants(opts.user ?? DEFAULT_USER, password)}'`
+          : type === 'mongodb'
+            ? `mongosh "mongodb://127.0.0.1:${target.port}/?directConnection=true" -u root -p --authenticationDatabase admin --quiet --eval '${mongoUser(opts.user ?? DEFAULT_USER, password)}'`
+            : line;
     case 'address':
       return type === 'mysql'
         ? `mysql -uroot -p -e '${mysqlGrants(opts.user ?? DEFAULT_USER, password)}'`

@@ -17,6 +17,13 @@ export interface ServiceKind {
   ports: number[];
   /** Shipped in this version; the others are discovered later (ADR-141). */
   available: boolean;
+  /** Matches the image's tag or path too, when the name alone doesn't tell (php:8.3-fpm). */
+  tag?: RegExp;
+  /**
+   * Installed on a server (ADR-212): the systemd unit or process group's name, as the agent
+   * names it (postgresql@16-main.service, mariadb.service, redis-server, pool www).
+   */
+  native?: RegExp;
 }
 
 /** ADR-132's table. Image paths are matched after the registry host is removed. */
@@ -26,6 +33,7 @@ export const SERVICE_KINDS: ServiceKind[] = [
     image: /(^|\/)(redis|redis-stack-server|redis-stack|valkey)$/,
     not: /(exporter|sentinel|commander|insight)/,
     ports: [6379],
+    native: /^(redis|redis-server|valkey|valkey-server)(@[^.]*)?(\.service)?$/,
     available: true,
   },
   {
@@ -33,6 +41,7 @@ export const SERVICE_KINDS: ServiceKind[] = [
     image: /(^|\/)(postgres|postgresql|postgis|timescaledb|timescaledb-ha|postgresql-repmgr)$/,
     not: /(exporter|pgbouncer|pgpool|operator|backup)/,
     ports: [5432],
+    native: /^(postgres|postgresql|postmaster)(-[\d.]+)?(@[^.]*)?(\.service)?$/,
     available: true,
   },
   {
@@ -42,6 +51,7 @@ export const SERVICE_KINDS: ServiceKind[] = [
       /(^|\/)(ingress-nginx\/controller|nginx-ingress-controller|nginx|nginx-unprivileged|openresty)$/,
     not: /(exporter)/,
     ports: [80, 8080, 443],
+    native: /^(nginx|openresty)(\.service)?$/,
     available: true,
   },
   {
@@ -49,6 +59,7 @@ export const SERVICE_KINDS: ServiceKind[] = [
     image: /(^|\/)rabbitmq$/,
     not: /(exporter|operator)/,
     ports: [5672, 15692],
+    native: /^(rabbitmq-server|rabbitmq|beam\.smp)(\.service)?$/,
     available: true,
   },
   {
@@ -59,6 +70,7 @@ export const SERVICE_KINDS: ServiceKind[] = [
       /(^|\/)(mysql|mysql-server|community-server|enterprise-server|mariadb|percona|percona-server|mariadb-galera)$/,
     not: /(exporter|router|operator|backup|sidecar|xtrabackup|maxscale|proxysql|adminer|phpmyadmin)/,
     ports: [3306],
+    native: /^(mysql|mysqld|mariadb|mariadbd)(@[^.]*)?(\.service)?$/,
     available: true,
   },
   {
@@ -69,6 +81,7 @@ export const SERVICE_KINDS: ServiceKind[] = [
       /(^|\/)(mongo|mongodb|mongodb-community-server|mongodb-enterprise-server|percona-server-mongodb)$/,
     not: /(exporter|express|operator|agent|backup|sidecar|compass)/,
     ports: [27017],
+    native: /^(mongod|mongodb)(\.service)?$/,
     available: true,
   },
   {
@@ -79,6 +92,7 @@ export const SERVICE_KINDS: ServiceKind[] = [
     image: /(^|\/)(traefik|mirrored-library-traefik)$/,
     not: /(exporter|mesh|forward-auth|certs-dumper)/,
     ports: [80, 8000, 443, 8443, 8080, 9100],
+    native: /^traefik(\.service)?$/,
     available: true,
   },
   {
@@ -89,6 +103,20 @@ export const SERVICE_KINDS: ServiceKind[] = [
     image: /(^|\/)(kafka|kafka-native|cp-kafka|cp-server)$/,
     not: /(exporter|operator|ui|connect|rest|schema-registry|zookeeper|bridge|mirror|cruise|kafdrop|akhq)/,
     ports: [9092],
+    native: /^(kafka|kafka-server|confluent-server|kafka\.Kafka)(\.service)?$/,
+    available: true,
+  },
+  {
+    // PHP-FPM (ADR-212): the official image's -fpm tags and Bitnami's php-fpm. On a server,
+    // its unit (php8.3-fpm.service) or a pool's process group; the collector reads the
+    // status page over FastCGI on the pool's port, or on the status listener (9001) the
+    // docs set up when the pool listens on a socket.
+    type: 'php-fpm',
+    image: /(^|\/)(php|php-fpm)$/,
+    tag: /fpm/,
+    not: /(exporter)/,
+    native: /^(php[\d.]*-fpm(@[^.]*)?\.service|php-fpm[\d.]*|pool .+)$/,
+    ports: [9000, 9001],
     available: true,
   },
   {
@@ -133,10 +161,33 @@ export function imageVersion(ref: string): string | null {
   return m ? m[1]! : null;
 }
 
+/** The image's tag, lowercase ("8.3-fpm-alpine"), or "". */
+function imageTag(ref: string): string {
+  const noDigest = ref.split('@')[0]!;
+  const slash = noDigest.lastIndexOf('/');
+  const colon = noDigest.lastIndexOf(':');
+  return colon > slash ? noDigest.slice(colon + 1).toLowerCase() : '';
+}
+
 export function kindOfImage(ref: string): ServiceKind | undefined {
   const path = imagePath(ref);
-  return SERVICE_KINDS.find((k) => k.image.test(path) && !(k.not && k.not.test(path)));
+  const tag = imageTag(ref);
+  return SERVICE_KINDS.find(
+    (k) =>
+      k.image.test(path) &&
+      !(k.not && k.not.test(path)) &&
+      (!k.tag || k.tag.test(tag) || k.tag.test(path)),
+  );
 }
+
+/** A server's unit or process group by its name (ADR-212). */
+export function kindOfNative(workload: string): ServiceKind | undefined {
+  return SERVICE_KINDS.find((k) => k.native?.test(workload));
+}
+
+/** Workloads whose sockets are someone else's: container runtimes publish containers' ports. */
+const NOT_A_SERVICE =
+  /^(docker|dockerd|containerd|podman|docker-proxy|rootlessport|conmon|kubelet|k3s|watchlog-.*)(\.service)?$/;
 
 export function kindOfPorts(ports: number[]): ServiceKind | undefined {
   return SERVICE_KINDS.find((k) => k.ports.slice(0, 1).some((p) => ports.includes(p)));
@@ -192,6 +243,8 @@ export function targetKey(clusterId: string, type: string, t: IntegrationTarget)
       return `${clusterId}/${type}/k/${t.host}/${t.container}`;
     case 'address':
       return `${clusterId}/${type}/a/${t.address}`;
+    case 'native':
+      return `${clusterId}/${type}/n/${t.host}/${t.workload}`;
   }
 }
 
@@ -363,6 +416,42 @@ export async function discover(
       target,
     });
   }
+  // Services installed on servers (ADR-212): what listens, by its unit or group's name.
+  if (vm) {
+    const servers = clusters.filter((c) => c.kind === 'server');
+    const native = await Promise.all(servers.map((c) => nativeCandidates(vm, c.id)));
+    for (const [i, list] of native.entries()) {
+      const cluster = servers[i]!;
+      for (const n of list) {
+        const target: IntegrationTarget = {
+          kind: 'native',
+          host: n.host,
+          source: n.source,
+          workload: n.workload,
+          port: n.port,
+        };
+        const key = targetKey(cluster.id, n.kind.type, target);
+        if (taken.has(key) || ignoredKeys.has(key) || found.has(key)) continue;
+        found.set(key, {
+          key,
+          clusterId: cluster.id,
+          clusterName: cluster.name,
+          clusterKind: 'server',
+          type: n.kind.type,
+          name: `${n.host}/${n.workload}`,
+          image: null,
+          version: null,
+          product: n.workload.startsWith('mariadb') ? 'mariadb' : null,
+          port: n.port,
+          confidence: n.byName ? 'image' : 'port',
+          members: 1,
+          host: n.host,
+          group: '',
+          target,
+        });
+      }
+    }
+  }
   // The image tells more than a port: image matches first, then by name.
   return [...found.values()].sort(
     (a, b) =>
@@ -412,4 +501,79 @@ export async function listIgnored(
     label: r.label,
     createdAt: r.created_at,
   }));
+}
+
+interface NativeCandidate {
+  host: string;
+  source: 'service' | 'process';
+  workload: string;
+  port: number;
+  kind: ServiceKind;
+  /** Its name says what it is; else only a well-known port does. */
+  byName: boolean;
+}
+
+/**
+ * A Server fleet's installed services (ADR-212): each unit or process group that listens,
+ * by its name first and its port second, from the agents' watchlog_listen_info; and
+ * PHP-FPM pools that listen on a socket only, from their process groups, on the status
+ * listener's port the docs set up (9001).
+ */
+export async function nativeCandidates(
+  vm: VictoriaQueryClient,
+  clusterId: string,
+): Promise<NativeCandidate[]> {
+  const scope = authorisedScope(clusterId);
+  const [listen, pools] = await Promise.all([
+    vm
+      .query(
+        scope,
+        'max by (host, source, workload, port) (last_over_time(watchlog_listen_info[10m]))',
+      )
+      .catch(() => []),
+    vm
+      .query(
+        scope,
+        'max by (host, unit, group) (last_over_time(watchlog_process_group_instances{by="php-fpm"}[10m]))',
+      )
+      .catch(() => []),
+  ]);
+  const ports = new Map<
+    string,
+    { host: string; source: 'service' | 'process'; workload: string; ports: number[] }
+  >();
+  for (const l of listen) {
+    const { host, source, workload } = l.labels;
+    const port = Number(l.labels.port);
+    if (
+      !host ||
+      !workload ||
+      !Number.isInteger(port) ||
+      (source !== 'service' && source !== 'process')
+    )
+      continue;
+    if (NOT_A_SERVICE.test(workload)) continue;
+    const k = `${host}\u0000${source}\u0000${workload}`;
+    const e = ports.get(k) ?? { host, source, workload, ports: [] };
+    e.ports.push(port);
+    ports.set(k, e);
+  }
+  const out: NativeCandidate[] = [];
+  const phpUnits = new Set<string>();
+  for (const e of ports.values()) {
+    const byName = kindOfNative(e.workload);
+    const kind = byName ?? kindOfPorts(e.ports);
+    if (!kind?.available) continue;
+    if (kind.type === 'php-fpm') phpUnits.add(`${e.host}\u0000${e.workload}`);
+    out.push({ ...e, kind, byName: !!byName, port: pickPort(kind, e.ports) });
+  }
+  const php = SERVICE_KINDS.find((k) => k.type === 'php-fpm')!;
+  for (const p of pools) {
+    const { host, unit, group } = p.labels;
+    if (!host || !group?.startsWith('pool ')) continue;
+    // The unit already listens on TCP: its own candidate reads the pool there.
+    if (unit && phpUnits.has(`${host}\u0000${unit}`)) continue;
+    out.push({ host, source: 'process', workload: group, port: 9001, kind: php, byName: true });
+  }
+  return out;
 }

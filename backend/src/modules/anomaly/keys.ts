@@ -76,6 +76,11 @@ export const INTEGRATION_KEYS: Record<string, MetricKey[]> = {
   ],
   nginx: ['nginx.requests.rate', 'nginx.5xx.ratio', 'nginx.latency.p95'],
   traefik: ['traefik.requests.rate', 'traefik.5xx.ratio', 'traefik.latency.p95'],
+  'php-fpm': [
+    'php-fpm.requests.rate',
+    'php-fpm.processes.busy_ratio',
+    'php-fpm.request.duration.p95',
+  ],
 };
 
 /** The labels of a service-map edge (servicemap/graph.ts EDGE_LABELS). */

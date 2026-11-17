@@ -818,7 +818,9 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
             ? `${target.compose_project}/${target.compose_service}`
             : target.kind === 'container'
               ? target.container
-              : target.address);
+              : target.kind === 'native'
+                ? `${target.host}/${target.workload}`
+                : target.address);
       const id = newId();
       try {
         await db

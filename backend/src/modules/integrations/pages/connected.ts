@@ -96,6 +96,9 @@ export async function destination(ctx: PageContext): Promise<string | null> {
         .map((r) => r.name);
       return names.length ? `dst_kind="container",dst=~"${anyOf(names)}"` : null;
     }
+    // Installed on a server (ADR-212): the flows name its unit or process group.
+    case 'native':
+      return `dst_kind="workload",dst_workload_kind="${t.source === 'service' ? 'Service' : 'ProcessGroup'}",dst_workload="${q(t.workload)}"`;
     case 'address': {
       const m = /^\[?([^\]]+)\]?:(\d+)$/.exec(t.address);
       return m ? `dst_kind="external",dst="${q(m[1]!)}",dst_port="${m[2]}"` : null;

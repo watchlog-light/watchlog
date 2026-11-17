@@ -41,6 +41,17 @@ export const TargetSchema = Type.Union([
     { kind: Type.Literal('container'), host: DockerName, container: DockerName, port: Port },
     { additionalProperties: false },
   ),
+  // A service installed on a server (ADR-212): its systemd unit or process group.
+  Type.Object(
+    {
+      kind: Type.Literal('native'),
+      host: DockerName,
+      source: Type.Union([Type.Literal('service'), Type.Literal('process')]),
+      workload: Type.String({ minLength: 1, maxLength: 256, pattern: '^[^\\u0000-\\u001f]+$' }),
+      port: Port,
+    },
+    { additionalProperties: false },
+  ),
   Type.Object(
     {
       kind: Type.Literal('address'),

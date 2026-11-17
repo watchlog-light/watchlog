@@ -347,6 +347,30 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
       forSeconds: 300,
     },
   ],
+  // PHP-FPM (ADR-212): out of workers first; a queue and a pool that is always busy next.
+  'php-fpm': [
+    {
+      key: 'phpfpm_max_children_reached',
+      name: 'PHP-FPM reached pm.max_children',
+      metric: 'php-fpm.max_children_reached.increase',
+      condition: { op: '>', value: 0 },
+      forSeconds: 0,
+    },
+    {
+      key: 'phpfpm_listen_queue',
+      name: 'PHP-FPM requests waiting for a worker',
+      metric: 'php-fpm.listen_queue',
+      condition: { op: '>', value: 0 },
+      forSeconds: 300,
+    },
+    {
+      key: 'phpfpm_busy',
+      name: 'PHP-FPM workers above 90% busy',
+      metric: 'php-fpm.processes.busy_ratio',
+      condition: { op: '>', value: 0.9 },
+      forSeconds: 600,
+    },
+  ],
 };
 
 /** A default by its key, for "Reset to default". */

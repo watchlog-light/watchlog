@@ -148,6 +148,7 @@ const ProbeBody = Type.Object(
       Type.Literal('traefik'),
       Type.Literal('kafka'),
       Type.Literal('elasticsearch'),
+      Type.Literal('php-fpm'),
     ]),
     target: TargetSchema,
     collectorHost: Type.Optional(
@@ -216,7 +217,7 @@ export async function placementOf(
   }
   const t = body.target;
   const k8sTarget = t.kind === 'workload';
-  const dockerTarget = t.kind === 'compose' || t.kind === 'container';
+  const dockerTarget = t.kind === 'compose' || t.kind === 'container' || t.kind === 'native';
   if ((k8sTarget && cluster.kind !== 'kubernetes') || (dockerTarget && cluster.kind !== 'server')) {
     return {
       ok: false,

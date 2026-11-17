@@ -1453,7 +1453,17 @@ export interface paths {
               | 'traefik.latency.p95'
               | 'traefik.services.down'
               | 'traefik.certificate.expiry'
-              | 'traefik.config.reload_failed';
+              | 'traefik.config.reload_failed'
+              | 'php-fpm.processes.active'
+              | 'php-fpm.processes.idle'
+              | 'php-fpm.processes.busy_ratio'
+              | 'php-fpm.listen_queue'
+              | 'php-fpm.max_children_reached.increase'
+              | 'php-fpm.slow_requests.increase'
+              | 'php-fpm.requests.rate'
+              | 'php-fpm.request.duration.max'
+              | 'php-fpm.request.duration.p95'
+              | 'php-fpm.request.memory.max';
             scope?: {
               host?: string;
               container?: string;
@@ -10058,6 +10068,14 @@ export interface paths {
                     }
                   | {
                       /** @enum {string} */
+                      kind: 'native';
+                      host: string;
+                      source: 'service' | 'process';
+                      workload: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
                       kind: 'address';
                       address: string;
                     };
@@ -10154,7 +10172,8 @@ export interface paths {
               | 'mongodb'
               | 'traefik'
               | 'kafka'
-              | 'elasticsearch';
+              | 'elasticsearch'
+              | 'php-fpm';
             target:
               | {
                   /** @enum {string} */
@@ -10177,6 +10196,14 @@ export interface paths {
                   kind: 'container';
                   host: string;
                   container: string;
+                  port: number;
+                }
+              | {
+                  /** @enum {string} */
+                  kind: 'native';
+                  host: string;
+                  source: 'service' | 'process';
+                  workload: string;
                   port: number;
                 }
               | {
@@ -10239,6 +10266,14 @@ export interface paths {
                       kind: 'container';
                       host: string;
                       container: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'native';
+                      host: string;
+                      source: 'service' | 'process';
+                      workload: string;
                       port: number;
                     }
                   | {
@@ -10459,6 +10494,14 @@ export interface paths {
                       kind: 'container';
                       host: string;
                       container: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'native';
+                      host: string;
+                      source: 'service' | 'process';
+                      workload: string;
                       port: number;
                     }
                   | {
@@ -10814,7 +10857,8 @@ export interface paths {
             | 'mongodb'
             | 'traefik'
             | 'kafka'
-            | 'elasticsearch';
+            | 'elasticsearch'
+            | 'php-fpm';
         };
         header?: never;
         path?: never;
@@ -11033,6 +11077,14 @@ export interface paths {
                       kind: 'container';
                       host: string;
                       container: string;
+                      port: number;
+                    }
+                  | {
+                      /** @enum {string} */
+                      kind: 'native';
+                      host: string;
+                      source: 'service' | 'process';
+                      workload: string;
                       port: number;
                     }
                   | {
@@ -11739,7 +11791,8 @@ export interface paths {
               | 'mongodb'
               | 'traefik'
               | 'kafka'
-              | 'elasticsearch';
+              | 'elasticsearch'
+              | 'php-fpm';
             target:
               | {
                   /** @enum {string} */
@@ -11762,6 +11815,14 @@ export interface paths {
                   kind: 'container';
                   host: string;
                   container: string;
+                  port: number;
+                }
+              | {
+                  /** @enum {string} */
+                  kind: 'native';
+                  host: string;
+                  source: 'service' | 'process';
+                  workload: string;
                   port: number;
                 }
               | {

@@ -3269,6 +3269,46 @@
                       {
                         "type": "string",
                         "enum": ["traefik.config.reload_failed"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["php-fpm.processes.active"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["php-fpm.processes.idle"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["php-fpm.processes.busy_ratio"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["php-fpm.listen_queue"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["php-fpm.max_children_reached.increase"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["php-fpm.slow_requests.increase"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["php-fpm.requests.rate"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["php-fpm.request.duration.max"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["php-fpm.request.duration.p95"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["php-fpm.request.memory.max"]
                       }
                     ]
                   },
@@ -27538,6 +27578,46 @@
                               },
                               {
                                 "type": "object",
+                                "required": ["kind", "host", "source", "workload", "port"],
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": ["native"]
+                                  },
+                                  "host": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "source": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": ["service"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["process"]
+                                      }
+                                    ]
+                                  },
+                                  "workload": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 256,
+                                    "pattern": "^[^\\u0000-\\u001f]+$"
+                                  },
+                                  "port": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 65535
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
                                 "required": ["kind", "address"],
                                 "properties": {
                                   "kind": {
@@ -27879,6 +27959,10 @@
                       {
                         "type": "string",
                         "enum": ["elasticsearch"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["php-fpm"]
                       }
                     ]
                   },
@@ -27971,6 +28055,46 @@
                             "minLength": 1,
                             "maxLength": 253,
                             "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                          },
+                          "port": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": ["kind", "host", "source", "workload", "port"],
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": ["native"]
+                          },
+                          "host": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253,
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                          },
+                          "source": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["service"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["process"]
+                              }
+                            ]
+                          },
+                          "workload": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "pattern": "^[^\\u0000-\\u001f]+$"
                           },
                           "port": {
                             "type": "integer",
@@ -28247,6 +28371,46 @@
                                   "minLength": 1,
                                   "maxLength": 253,
                                   "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "port": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 65535
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "required": ["kind", "host", "source", "workload", "port"],
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": ["native"]
+                                },
+                                "host": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "source": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["service"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["process"]
+                                    }
+                                  ]
+                                },
+                                "workload": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256,
+                                  "pattern": "^[^\\u0000-\\u001f]+$"
                                 },
                                 "port": {
                                   "type": "integer",
@@ -28945,6 +29109,46 @@
                               },
                               {
                                 "type": "object",
+                                "required": ["kind", "host", "source", "workload", "port"],
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": ["native"]
+                                  },
+                                  "host": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                  },
+                                  "source": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": ["service"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["process"]
+                                      }
+                                    ]
+                                  },
+                                  "workload": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 256,
+                                    "pattern": "^[^\\u0000-\\u001f]+$"
+                                  },
+                                  "port": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 65535
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
                                 "required": ["kind", "address"],
                                 "properties": {
                                   "kind": {
@@ -29597,6 +29801,10 @@
                 {
                   "type": "string",
                   "enum": ["elasticsearch"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["php-fpm"]
                 }
               ]
             },
@@ -30161,6 +30369,46 @@
                                   "minLength": 1,
                                   "maxLength": 253,
                                   "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "port": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 65535
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "required": ["kind", "host", "source", "workload", "port"],
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": ["native"]
+                                },
+                                "host": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 253,
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                                },
+                                "source": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["service"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["process"]
+                                    }
+                                  ]
+                                },
+                                "workload": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256,
+                                  "pattern": "^[^\\u0000-\\u001f]+$"
                                 },
                                 "port": {
                                   "type": "integer",
@@ -32462,6 +32710,10 @@
                       {
                         "type": "string",
                         "enum": ["elasticsearch"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["php-fpm"]
                       }
                     ]
                   },
@@ -32554,6 +32806,46 @@
                             "minLength": 1,
                             "maxLength": 253,
                             "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                          },
+                          "port": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": ["kind", "host", "source", "workload", "port"],
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": ["native"]
+                          },
+                          "host": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253,
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                          },
+                          "source": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["service"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["process"]
+                              }
+                            ]
+                          },
+                          "workload": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "pattern": "^[^\\u0000-\\u001f]+$"
                           },
                           "port": {
                             "type": "integer",

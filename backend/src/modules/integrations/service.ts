@@ -193,6 +193,8 @@ export function whereOf(target: IntegrationTarget): {
       return { group: target.compose_project, host: target.host, address: null };
     case 'container':
       return { group: null, host: target.host, address: null };
+    case 'native':
+      return { group: null, host: target.host, address: `127.0.0.1:${target.port}` };
     case 'address':
       return { group: null, host: null, address: target.address };
   }

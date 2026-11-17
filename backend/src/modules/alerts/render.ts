@@ -76,6 +76,7 @@ const SERVICE_NAMES: Record<string, string> = {
   mongodb: 'MongoDB',
   traefik: 'Traefik',
   kafka: 'Kafka',
+  'php-fpm': 'PHP-FPM',
   elasticsearch: 'Elasticsearch',
 };
 

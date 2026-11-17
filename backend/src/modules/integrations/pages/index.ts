@@ -7,6 +7,7 @@ import { kafkaPage } from './kafka.js';
 import { mongodbPage } from './mongodb.js';
 import { mysqlPage } from './mysql.js';
 import { nginxPage } from './nginx.js';
+import { phpFpmPage } from './php-fpm.js';
 import { postgresPage } from './postgres.js';
 import { rabbitmqPage } from './rabbitmq.js';
 import { redisPage } from './redis.js';
@@ -18,6 +19,7 @@ const PAGES: Partial<Record<IntegrationType, IntegrationPage>> = {
   mongodb: mongodbPage,
   mysql: mysqlPage,
   nginx: nginxPage,
+  'php-fpm': phpFpmPage,
   postgres: postgresPage,
   rabbitmq: rabbitmqPage,
   redis: redisPage,

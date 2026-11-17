@@ -975,6 +975,72 @@ const ENTRIES = {
     expr: (s) =>
       `max by (service, service_type) (traefik_config_last_reload_failure${s()} > bool on (service, service_type, member) traefik_config_last_reload_success${s()})`,
   },
+  // PHP-FPM (ADR-212): a pool's status page, per pool. `pool` keeps pools of one master apart.
+  'php-fpm.processes.active': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, pool) (watchlog_phpfpm_processes${s('state="active"')})`,
+  },
+  'php-fpm.processes.idle': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, pool) (watchlog_phpfpm_processes${s('state="idle"')})`,
+  },
+  /** Busy workers out of all of them: near 1, requests start to queue. */
+  'php-fpm.processes.busy_ratio': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, pool) (watchlog_phpfpm_processes${s('state="active"')} / on (service, service_type, member, pool) (sum by (service, service_type, member, pool) (watchlog_phpfpm_processes${s()})))`,
+  },
+  /** Requests waiting for a free worker. */
+  'php-fpm.listen_queue': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, pool) (watchlog_phpfpm_listen_queue${s()})`,
+  },
+  /** Times the pool hit pm.max_children in the last 10 minutes. */
+  'php-fpm.max_children_reached.increase': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, pool) (increase(watchlog_phpfpm_max_children_reached_total${s()}[10m]))`,
+  },
+  /** Requests slower than request_slowlog_timeout in the last 10 minutes. */
+  'php-fpm.slow_requests.increase': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, pool) (increase(watchlog_phpfpm_slow_requests_total${s()}[10m]))`,
+  },
+  'php-fpm.requests.rate': {
+    unit: 'per_second',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (service, service_type, pool) (rate(watchlog_phpfpm_accepted_connections_total${s()}[${r}]))`,
+  },
+  /** The slowest current or last request of the pool's workers. */
+  'php-fpm.request.duration.max': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, pool) (watchlog_phpfpm_request_duration_seconds${s('quantile="1"')})`,
+  },
+  'php-fpm.request.duration.p95': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, pool) (watchlog_phpfpm_request_duration_seconds${s('quantile="0.95"')})`,
+  },
+  'php-fpm.request.memory.max': {
+    unit: 'bytes',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (service, service_type, pool) (watchlog_phpfpm_request_memory_bytes_max${s()})`,
+  },
 } satisfies Record<string, Entry>;
 
 export type MetricKey = keyof typeof ENTRIES;

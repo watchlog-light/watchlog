@@ -17,6 +17,7 @@ export const SERVICE_METRIC_PREFIXES = [
   'mongodb.',
   'traefik.',
   'kafka.',
+  'php-fpm.',
 ] as const;
 export const isServiceMetric = (metric: string) =>
   SERVICE_METRIC_PREFIXES.some((p) => metric.startsWith(p));

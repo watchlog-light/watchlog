@@ -16,6 +16,7 @@ export const INTEGRATION_TYPES = [
   'traefik',
   'kafka',
   'elasticsearch',
+  'php-fpm',
 ] as const;
 export type IntegrationType = (typeof INTEGRATION_TYPES)[number];
 
@@ -30,6 +31,14 @@ export type IntegrationTarget =
       port: number;
     }
   | { kind: 'container'; host: string; container: string; port: number }
+  /** A service installed on a server (ADR-212): a systemd service or a process group. */
+  | {
+      kind: 'native';
+      host: string;
+      source: 'service' | 'process';
+      workload: string;
+      port: number;
+    }
   | { kind: 'address'; address: string };
 
 export interface CollectorMember {
@@ -231,6 +240,9 @@ export async function buildCollectorConfig(
         return podMembers(pods as PodRow[], target).slice(0, MAX_MEMBERS);
       case 'address':
         return [{ name: target.address, address: target.address }];
+      // The collector runs on the same server (ADR-212): the service's port on loopback.
+      case 'native':
+        return [{ name: target.workload, address: joinHostPort('127.0.0.1', target.port) }];
       default:
         return containerMembers(containers as ContainerRow[], target).slice(0, MAX_MEMBERS);
     }
