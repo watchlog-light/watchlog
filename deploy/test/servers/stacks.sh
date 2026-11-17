@@ -98,9 +98,9 @@ for u in nginx "$PHPFPM" postgresql mariadb "$SUP" orders shop; do systemctl ena
 supervisorctl reread >/dev/null 2>&1 || true
 supervisorctl update >/dev/null 2>&1 || true
 
-log "pm2 (api :8092, mailer) as user app, under its systemd unit as after a reboot"
+log "pm2 (api :8092, mailer calling it) as user app, under its systemd unit as after a reboot"
 if ! systemctl is-active --quiet pm2-app; then
-  su - app -c "pm2 start $APPS/api.js --name api -- 8092 >/dev/null; pm2 start $APPS/api.js --name mailer >/dev/null; pm2 save >/dev/null; pm2 kill >/dev/null"
+  su - app -c "pm2 start $APPS/api.js --name api -- 8092 >/dev/null; pm2 start $APPS/api.js --name mailer -- 0 http://127.0.0.1:8092/ >/dev/null; pm2 save >/dev/null; pm2 kill >/dev/null"
   pm2 startup systemd -u app --hp /home/app >/dev/null 2>&1 || true
   systemctl enable --now pm2-app >/dev/null 2>&1 || echo "   note: pm2-app didn't start"
 fi

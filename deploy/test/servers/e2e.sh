@@ -31,13 +31,15 @@ port=${E2E_PORT:-4191}
 db=watchlog_servers_e2e
 work=$(mktemp -d)
 psql() { docker exec "$pg_container" psql -U watchlog -d "$1" -qtA -c "$2"; }
+# npx runs tsx, which runs node: stop the whole tree, not only the pid it wrote.
+killtree() { local c; for c in $(pgrep -P "$1" 2>/dev/null); do killtree "$c"; done; kill "$1" 2>/dev/null; }
 cleanup() {
   if [ -n "${E2E_KEEP:-}" ]; then
     echo "kept: backend :$port (pids $(cat "$work"/*.pid 2>/dev/null | paste -sd' ' -)), logs in $work, agent in $vm"
     return
   fi
-  [ -f "$work/backend.pid" ] && kill "$(cat "$work/backend.pid")" 2>/dev/null
-  [ -f "$work/worker.pid" ] && kill "$(cat "$work/worker.pid")" 2>/dev/null
+  [ -f "$work/backend.pid" ] && killtree "$(cat "$work/backend.pid")"
+  [ -f "$work/worker.pid" ] && killtree "$(cat "$work/worker.pid")"
   if [ -n "${home:-}" ]; then
     in_vm "systemctl stop wl-e2e-egress 2>/dev/null; bash $home/wl-dist/install.sh --uninstall >/dev/null 2>&1" >/dev/null 2>&1
     limactl shell "$vm" bash -c 'rm -rf ~/wl-dist' >/dev/null 2>&1
@@ -92,6 +94,9 @@ read -r cluster token <<<"$created"
 export E2E_CLUSTER=$cluster
 
 echo "== the agent, installed by the script with the fleet's token"
+# mailer (pm2) calls api (pm2) every 2 seconds: connections to attribute to a pm2 group.
+limactl copy "$here/apps/api.js" "$vm:wl-dist/api.js"
+in_vm "install -m 0644 $home/wl-dist/api.js /opt/wl-apps/api.js && su - app -c 'pm2 delete mailer >/dev/null 2>&1; pm2 start /opt/wl-apps/api.js --name mailer -- 0 http://127.0.0.1:8092/ >/dev/null && pm2 save >/dev/null'" >/dev/null 2>&1
 # The test stacks' jar is started by hand and doesn't survive a reboot of the VM.
 in_vm 'pgrep -x java >/dev/null || su - app -c "nohup java -jar /opt/wl-apps/billing.jar >/tmp/billing.log 2>&1 &"' >/dev/null
 in_vm "bash $home/wl-dist/install.sh --uninstall >/dev/null 2>&1; WATCHLOG_INSTALL_FROM=$home/wl-dist sh $home/wl-dist/install.sh --token $token --url http://host.lima.internal:$port --hostname e2e-$distro" >"$work/install.out" 2>&1
@@ -183,6 +188,25 @@ for metric, scope in (("unit.cpu.usage", {"host": host, "unit": "orders.service"
 
 eg = wait(lambda: (lambda r: r if "wl-e2e-egress" in json.dumps(r) else None)(call("GET", f"/egress?cluster={cid}&from={int(time.time()) - 3600}")), 200)
 check("Egress: the service's external destination", eg is not None, call("GET", f"/egress?cluster={cid}&from={int(time.time()) - 3600}"))
+
+print("== the workload page's charts and connections", flush=True)
+now = int(time.time())
+def has_data(metric, scope):
+    r = call("POST", "/query/range", {"clusterId": cid, "metric": metric, "scope": {"host": host, **scope}, "from": now - 900, "to": now})
+    return any(p[1] is not None for s in r.get("series", []) for p in s.get("points", []))
+pool = next((i.split(":", 1)[1] for i in (ids or []) if i.startswith("process:pool ")), "pool www")
+for metric, scope in (("unit.cpu.usage", {"unit": "nginx.service"}), ("unit.memory.working_set", {"unit": "nginx.service"}),
+                      ("unit.tasks", {"unit": "nginx.service"}), ("unit.io", {"unit": "nginx.service"}),
+                      ("unit.restarts.step", {"unit": "orders.service"}), ("unit.exits.failed.step", {"unit": "orders.service"}),
+                      ("process.cpu.usage", {"group": "api"}), ("process.memory.rss", {"group": "api"}),
+                      ("process.instances", {"group": "api"}), ("process.threads", {"group": "api"}),
+                      ("process.open_files", {"group": "api"}), ("process.cpu.usage", {"group": pool}),
+                      ("process.instances", {"group": pool}), ("unit.memory.limit", {"unit": "orders.service"})):
+    check(f"chart data: {metric} for {list(scope.values())[0]}", has_data(metric, scope))
+mailer = f"{base}/workloads/{q('process:mailer', safe='')}"
+conn = wait(lambda: (lambda x: x if any(e.get("port") == 8092 for e in x.get("connections", [])) else None)(call("GET", mailer)), 120)
+check("connections: pm2's mailer → api :8092, attributed to the mailer group", conn is not None,
+      call("GET", mailer).get("connections"))
 
 print("== applications on the server: PHP-FPM installed natively, Redis in a container", flush=True)
 def found(typ, kind):
