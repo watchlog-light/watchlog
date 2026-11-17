@@ -47,3 +47,30 @@ jobs:
               --certificate-oidc-issuer https://token.actions.githubusercontent.com > /dev/null
             echo "verified: $ref:$VERSION"
           done
+      # The server assets (ADR-209): every file on the release, its checksum, the signed
+      # SHA256SUMS, and the install script and the deb doing what a user runs on this runner.
+      - name: Server assets download anonymously, match SHA256SUMS, signature verifies
+        run: |
+          mkdir -p servers && cd servers
+          base="https://github.com/watchlog-light/watchlog/releases/download/v$VERSION"
+          for f in SHA256SUMS SHA256SUMS.sigstore.json install.sh \
+            "watchlog-agent_${VERSION}_linux_amd64.tar.gz" "watchlog-agent_${VERSION}_linux_arm64.tar.gz" \
+            "watchlog-agent_${VERSION}_amd64.deb" "watchlog-agent_${VERSION}_arm64.deb" \
+            "watchlog-agent-${VERSION}-1.x86_64.rpm" "watchlog-agent-${VERSION}-1.aarch64.rpm"; do
+            curl -fsSLO "$base/$f" || { echo "missing on the release: $f"; exit 1; }
+          done
+          sha256sum -c SHA256SUMS --ignore-missing
+          [ "$(sha256sum -c SHA256SUMS --ignore-missing 2>/dev/null | grep -c ': OK')" -ge 6 ] || { echo "too few files checked"; exit 1; }
+          cosign verify-blob --bundle SHA256SUMS.sigstore.json \
+            --certificate-identity-regexp '^https://github.com/watchlog-light/watchlog/\.github/workflows/release\.yml@refs/tags/v' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com SHA256SUMS
+          echo "verified: SHA256SUMS"
+      - name: The install script installs this release, and the agent runs as watchlog
+        run: |
+          curl -fsSL "https://github.com/watchlog-light/watchlog/releases/download/v$VERSION/install.sh" |
+            sudo sh -s -- --token wl_ct_verifyreleaseverifyrelease --url http://127.0.0.1:9 --version "$VERSION"
+          sleep 3
+          systemctl is-active watchlog-agent watchlog-integrations
+          [ "$(ps -o user= -p "$(systemctl show -p MainPID --value watchlog-agent)")" = watchlog ]
+          /usr/bin/watchlog-agent --version | grep -q "$VERSION"
+          curl -fsSL "https://github.com/watchlog-light/watchlog/releases/download/v$VERSION/install.sh" | sudo sh -s -- --uninstall
