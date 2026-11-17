@@ -3568,6 +3568,15 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 - Alternatives: reading process environments for pm2 names (rejected: the agent never reads environment values); a process exporter's per-PID series (rejected: cardinality and privacy); instrumenting runtimes (rejected: SPEC §2.5).
 - Consequences: one more dependency (godbus). The agent reads `/proc` of every process, which needs `CAP_SYS_PTRACE` and `CAP_DAC_READ_SEARCH` for other users' processes (ADR-209).
 
+- Amended 2026-11-17, measured (0.9 slice 1 on Ubuntu 24.04 kernel 6.8 systemd 255, Debian 12 kernel 6.1 systemd 252, Rocky 9 kernel 5.14 systemd 252, all cgroup v2 with BTF; `deploy/test/servers/`):
+  - **Exit codes don't come from D-Bus.** After a unit with `Restart=on-failure` exits with status 3, systemd restarts it and `ExecMainCode`/`ExecMainStatus` read 0 again. D-Bus gives restarts (`NRestarts`) and the exit of a unit that stays stopped (a failed one-shot); every other exit code comes from eBPF's `sched_process_exit` (ADR-210).
+  - **OOM kills don't stay in the unit's cgroup.** The kernel's memcg OOM kill at `MemoryMax` is in the kernel log, but the restarted unit's `memory.events` reads `oom_kill 0`: the agent counts `oom_kill` while the unit lives and needs eBPF's `oom/mark_victim` for kills that restart it (ADR-210).
+  - **pm2's apps are only told apart by its pid files.** pm2 rewrites each app's process title (`node /opt/wl-ap…`) and drops its arguments, so two apps started from the same script look the same in `/proc`; `~/.pm2/pids/<app>-<id>.pid` names them. On Rocky 9 (SELinux) pm2's startup unit stays `activating` and its apps run in a login session; the pid files still name them.
+  - **What a server has:** about 30 running services and about 45 one-shots that ran and exited (left out); 50–60 user-space processes. The services source sends about 10 series a service: 274 for Rocky 9's 28 services, 311 series in all with the host's, read over D-Bus by an unprivileged user (systemd's default policy allows `ListUnits` and `GetAll`).
+  - **Containers on RHEL:** Podman 5 answers on the Docker socket (`/var/run/docker.sock` → `/run/podman/podman.sock` with `podman-docker`).
+  - **Paths:** natively installed, the agent reads `/proc` and `/sys` (`--host-proc=/proc --host-sys=/sys --host-root=/`); the defaults stay the container's `/host/*` (ADR-209's units pass them).
+  - The heartbeat's `mode` stays `docker` on the wire for server mode, so a 0.9 agent works against a 0.8 backend; the backend reads it as a server agent.
+
 ## ADR-209: Installing on a server: one command, deb and rpm, `docker run`; its own user and the fewest capabilities
 
 - Date: 2026-11-17 · Status: accepted (0.9.0, slice 0); the capability list is measured in slices 1 and 6 and amended here
