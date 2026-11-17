@@ -4,6 +4,9 @@
 // sends them (measured on Ubuntu 24.04 and Rocky 9 in slice 1) and a container snapshot.
 import { gzipSync } from 'node:zlib';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { newId } from '../src/lib/ids.js';
+import { serverCause } from '../src/modules/servers/cause.js';
+import { insertRule } from './support/alerts.js';
 import { crashLoopSince } from '../src/modules/servers/routes.js';
 import {
   assembleWorkloads,
@@ -136,6 +139,75 @@ describe('workload assembly', () => {
     expect(crashLoopSince(pts([0, 0, 1, 0, 1, 1, 1, 1]))).toBe(1000 + 2 * 60);
     expect(crashLoopSince(pts([1, 1, 1, ...Array(12).fill(0)]))).toBeNull();
     expect(crashLoopSince(pts([0, 0, 0]))).toBeNull();
+  });
+});
+
+describe('probable cause on a server (ADR-213)', () => {
+  const base = {
+    id: 'service:orders.service',
+    source: 'service' as const,
+    name: 'orders.service',
+    unit: null,
+    note: null,
+    state: 'active · running',
+    cpuCores: 0.2,
+    memoryBytes: 190e6,
+    memoryLimitBytes: 200e6,
+    instances: null,
+    ports: [8080],
+    restarts24h: 9,
+    lastExitCode: 137,
+    system: false,
+    problem: { kind: 'crash_looping' as const, severity: 'critical' as const, code: 137 },
+  };
+  const minutes = (crashFrom: number, oomAt?: number) =>
+    Array.from({ length: 60 }, (_, i) => [
+      1000 + i * 60,
+      0,
+      i >= crashFrom ? 1 : 0,
+      i >= crashFrom ? 1 : 0,
+      i === oomAt ? 1 : 0,
+    ]);
+
+  it('says memory when it was OOM-killed at its MemoryMax', () => {
+    const c = serverCause({
+      workload: base,
+      points: minutes(50, 52),
+      crashLoopSince: 1000 + 50 * 60,
+      releaseAt: null,
+      oomKillsHour: 1,
+      throttledShare: 0,
+      connections: [],
+    });
+    expect(c).toMatchObject({ state: 'likely', code: 'memory_limit', facts: { limit: 200e6 } });
+    expect(c.symptom).toMatchObject({ exitCode: 137, failedExits: 10, restarts: 10 });
+  });
+
+  it('a release long before is not the cause; a failing dependency is possible', () => {
+    const c = serverCause({
+      workload: { ...base, memoryBytes: 50e6 },
+      points: minutes(50),
+      crashLoopSince: 1000 + 50 * 60,
+      releaseAt: 1000 + 50 * 60 - 7200,
+      oomKillsHour: 0,
+      throttledShare: null,
+      connections: [{ to: 'db-1', port: 5432, rate: 2, failed: 1.5 }],
+    });
+    expect(c).toMatchObject({ state: 'possible', code: 'dependency', facts: { to: 'db-1' } });
+    expect(c.checks[0]).toMatchObject({ topic: 'changes', result: 'ok' });
+  });
+
+  it('nothing to explain a healthy workload', () => {
+    const c = serverCause({
+      workload: { ...base, problem: null },
+      points: minutes(99),
+      crashLoopSince: null,
+      releaseAt: null,
+      oomKillsHour: 0,
+      throttledShare: null,
+      connections: [],
+    });
+    expect(c).toMatchObject({ state: 'none', code: null });
   });
 });
 
@@ -339,6 +411,46 @@ describe('Server fleet routes', () => {
     expect(exits).toBeGreaterThanOrEqual(4);
     expect(d.timeline.releases.length).toBeGreaterThanOrEqual(1);
     expect(d.crashLoopSince).toBeGreaterThan(0);
+    // The release came first: likely the cause.
+    expect(d.cause).toMatchObject({ state: 'likely', code: 'release' });
+    expect(
+      d.cause.checks.map((c: { topic: string; result: string }) => `${c.topic}:${c.result}`),
+    ).toEqual(['changes:explains', 'memory:ok', 'dependencies:not_run']);
+
+    // The crash-loop alert on api: probable cause through the causes engine (ADR-213).
+    const orgId = (await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow()).id;
+    const ruleId = await insertRule(ctx.db, orgId, {
+      rule_key: 'server.process.crashloop',
+      name: 'Process group crash-looping',
+    });
+    const alertId = newId();
+    const firedAt = new Date(Date.now() - 4 * 60_000);
+    await ctx.db
+      .insertInto('alert_states')
+      .values({
+        id: alertId,
+        org_id: orgId,
+        rule_id: ruleId,
+        cluster_id: cluster.id,
+        fingerprint: 'group:app-1/api',
+        state: 'firing',
+        severity: 'critical',
+        labels: JSON.stringify({ node: HOST, group: 'api', unit: 'pm2-app.service' }),
+        started_at: firedAt,
+        fired_at: firedAt,
+      })
+      .execute();
+    const causes = await api(`/causes?cluster=${cluster.id}&subject=alert:${alertId}`);
+    expect(causes.statusCode, causes.body).toBe(200);
+    expect(causes.json()).toMatchObject({
+      state: 'likely',
+      headline: { code: 'bad_change', facts: { name: 'api' } },
+      causes: [
+        { rule: 'bad_change', chain: [{ code: 'restarts' }, { code: 'executable_changed' }] },
+      ],
+    });
+    for (const c of causes.json().checks as { topic: string; code: string }[])
+      expect(c.code.startsWith(`${c.topic}_`), c.code).toBe(true);
 
     const parent = await api(
       `/clusters/${cluster.id}/servers/${HOST}/workloads/service:pm2-app.service`,
