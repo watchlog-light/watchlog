@@ -64,7 +64,7 @@ func run(args []string, stdout io.Writer) int {
 	version.Name = "watchlog-integrations"
 	fs := flag.NewFlagSet("watchlog-integrations", flag.ContinueOnError)
 	showVersion := fs.Bool("version", false, "print version and exit")
-	mode := fs.String("mode", envOr("WATCHLOG_COLLECTOR_MODE", defaultMode()), "kubernetes or docker")
+	mode := fs.String("mode", envOr("WATCHLOG_COLLECTOR_MODE", defaultMode()), "kubernetes, or server (docker is an alias)")
 	endpoint := fs.String("endpoint", os.Getenv("WATCHLOG_ENDPOINT"), "WatchLog base URL, e.g. https://watchlog.example.com")
 	host := fs.String("hostname", os.Getenv("WATCHLOG_HOSTNAME"),
 		"docker mode: this host's name as WatchLog knows it (default: the machine's host name)")
@@ -82,7 +82,7 @@ func run(args []string, stdout io.Writer) int {
 	case "kubernetes":
 		// One collector per cluster: it reports with an empty host.
 		*host = ""
-	case "docker":
+	case "docker", "server":
 		if *host == "" {
 			*host, _ = os.Hostname()
 		}

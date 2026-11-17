@@ -86,6 +86,7 @@ func run(args []string, stdout io.Writer) int {
 	modeFlag := fs.String("mode", string(config.ModeNode), "collection mode: node, cluster or server (docker is an alias)")
 	showVersion := fs.Bool("version", false, "print version and exit")
 	once := fs.Bool("once", false, "collect one scrape, print it and exit")
+	onceWait := fs.Duration("once-wait", 0, "with --once: scrape, wait this long, scrape again and print the second (counters such as exits need two)")
 	output := fs.String("output", "text", "output format for --once: text")
 	paths := config.DefaultHostPaths
 	fs.StringVar(&paths.Proc, "host-proc", paths.Proc, "host procfs mount")
@@ -203,7 +204,8 @@ func run(args []string, stdout io.Writer) int {
 				feed = exits.NewFeed()
 				go func() {
 					err := ex.Read(func(e ebpf.ExitEvent) {
-						feed.Add(exits.Exit{PID: int(e.Tgid), Cgroup: e.Cgroup, Status: e.Status, Signal: e.Signal, OOM: e.OOM})
+						feed.Add(exits.Exit{PID: int(e.Tgid), Cgroup: e.Cgroup, Status: e.Status, Signal: e.Signal,
+							OOM: e.OOM, PPID: int(e.PPID), Unit: e.CgroupName})
 					})
 					if err != nil {
 						slog.Warn("process exits stopped", "err", err)
@@ -329,6 +331,12 @@ func run(args []string, stdout io.Writer) int {
 	}
 
 	if *once {
+		if *onceWait > 0 {
+			for _, src := range sources {
+				_, _ = src.Collect()
+			}
+			time.Sleep(*onceWait)
+		}
 		var samples []metrics.Sample
 		for _, src := range sources {
 			s, err := src.Collect()

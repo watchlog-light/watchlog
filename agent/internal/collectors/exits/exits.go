@@ -17,6 +17,10 @@ type Exit struct {
 	Status int  // a normal exit's status
 	Signal int  // the terminating signal, 0 for a normal exit
 	OOM    bool // chosen by the OOM killer
+	// PPID is the parent's pid: 1 for a systemd service's main process.
+	PPID int
+	// Unit is the exiting process's cgroup name when it is a unit (orders.service).
+	Unit string
 }
 
 // Kind is how the exit counts: ok, error (non-zero status), signal (killed).

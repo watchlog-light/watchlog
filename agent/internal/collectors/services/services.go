@@ -154,22 +154,22 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 	return out, errors.Join(errs...)
 }
 
-// countExits attributes eBPF's exits to the units whose main process they were: the
-// MainPID systemd reported at the previous scrape (the process that just ended).
+// countExits attributes eBPF's exits to the units whose main process they were: the exit's
+// cgroup is the unit's (by name: a restart recreates the cgroup with a new id) and the
+// process was systemd's child, or the MainPID systemd reported at the previous scrape. Several
+// restarts between two scrapes all count (measured: a crash, then an OOM kill of the restarted
+// process); a helper the service started (a cron job under cron.service) doesn't.
 func (c *Collector) countExits(rows []row) {
 	if c.mainPID == nil {
 		c.mainPID, c.ex = map[string]uint32{}, map[string]*unitExits{}
 	}
 	if c.Exits != nil {
-		byPID := map[int]string{}
-		for unit, pid := range c.mainPID {
-			if pid != 0 {
-				byPID[int(pid)] = unit
-			}
-		}
 		for _, e := range c.Exits() {
-			unit, ok := byPID[e.PID]
-			if !ok {
+			unit := e.Unit
+			if !strings.HasSuffix(unit, ".service") {
+				continue
+			}
+			if e.PPID != 1 && (e.PID <= 0 || int(c.mainPID[unit]) != e.PID) {
 				continue
 			}
 			u := c.ex[unit]

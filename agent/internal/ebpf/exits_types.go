@@ -12,11 +12,19 @@ type ExitEvent struct {
 	OOM    bool
 	Cgroup uint64
 	Comm   string
+	// PPID is the parent's tgid (1 for a systemd service's main process).
+	PPID uint32
+	// CgroupName is the cgroup's own name: the unit (orders.service) for a service's process.
+	CgroupName string
 }
 
 // exitFromStatus decodes the kernel's wait status: (status << 8) | signal, 0x80 for a core.
 func exitFromStatus(tgid uint32, code int32, cgroup uint64, oom bool, comm string) ExitEvent {
 	e := ExitEvent{Tgid: tgid, Cgroup: cgroup, OOM: oom, Comm: comm}
+	return withStatus(e, code)
+}
+
+func withStatus(e ExitEvent, code int32) ExitEvent {
 	if sig := int(code & 0x7f); sig != 0 {
 		e.Signal = sig
 		e.Core = code&0x80 != 0

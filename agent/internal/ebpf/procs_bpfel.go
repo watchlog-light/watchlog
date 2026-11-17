@@ -14,13 +14,15 @@ import (
 )
 
 type procsExitEvent struct {
-	_        structs.HostLayout
-	Tgid     uint32
-	ExitCode int32
-	Cgroup   uint64
-	Oom      uint8
-	Pad      [7]uint8
-	Comm     [16]int8
+	_          structs.HostLayout
+	Tgid       uint32
+	ExitCode   int32
+	Cgroup     uint64
+	Ppid       uint32
+	Oom        uint8
+	Pad        [3]uint8
+	Comm       [16]int8
+	CgroupName [64]int8
 }
 
 // Names of all BPF objects in the ELF.

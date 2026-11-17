@@ -219,14 +219,21 @@ func TestExitsFromEBPF(t *testing.T) {
 	if _, err := c.Collect(); err != nil {
 		t.Fatal(err)
 	}
-	// Its main process 100 exits 3; a helper (pid 555) in the same unit exits 1: not counted.
-	feed = []exits.Exit{{PID: 100, Status: 3}, {PID: 555, Status: 1}}
+	// Its main process 100 (systemd's child) exits 3; systemd restarts it as 101, which the
+	// OOM killer ends before the next scrape (measured: both must count); a helper (pid 555,
+	// the main process's child) in the same unit exits 1 and doesn't; neither does another
+	// unit's.
+	feed = []exits.Exit{
+		{PID: 100, PPID: 1, Unit: "orders.service", Status: 3},
+		{PID: 555, PPID: 101, Unit: "orders.service", Status: 1},
+		{PID: 101, PPID: 1, Unit: "orders.service", Signal: 9, OOM: true},
+		{PID: 700, PPID: 1, Unit: "cron.service", Status: 2},
+	}
 	o.MainPID, o.NRestarts = 101, 3
 	bus.props["orders.service"] = o
 	if _, err := c.Collect(); err != nil {
 		t.Fatal(err)
 	}
-	feed = []exits.Exit{{PID: 101, Signal: 9, OOM: true}}
 	o.MainPID = 102
 	bus.props["orders.service"] = o
 	ss, _ := c.Collect()

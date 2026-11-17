@@ -101,6 +101,7 @@ struct sockaddr_in {
  * bpf_get_current_cgroup_id() returns and the cgroup directory's inode (5.5+).
  */
 struct kernfs_node {
+	const char *name;
 	__u64 id;
 } __attribute__((preserve_access_index));
 
@@ -131,6 +132,7 @@ struct task_struct {
 	int tgid; /* pid_t */
 	int exit_code;
 	struct signal_struct *signal;
+	struct task_struct *real_parent;
 } __attribute__((preserve_access_index));
 
 #define AF_INET 2

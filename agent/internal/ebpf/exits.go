@@ -86,12 +86,19 @@ func (e *Exits) Close() {
 }
 
 func decodeExit(raw procsExitEvent) ExitEvent {
-	comm := make([]byte, 0, len(raw.Comm))
-	for _, c := range raw.Comm {
+	e := exitFromStatus(raw.Tgid, raw.ExitCode, raw.Cgroup, raw.Oom != 0, cString(raw.Comm[:]))
+	e.PPID = raw.Ppid
+	e.CgroupName = cString(raw.CgroupName[:])
+	return e
+}
+
+func cString(b []int8) string {
+	out := make([]byte, 0, len(b))
+	for _, c := range b {
 		if c == 0 {
 			break
 		}
-		comm = append(comm, byte(c))
+		out = append(out, byte(c))
 	}
-	return exitFromStatus(raw.Tgid, raw.ExitCode, raw.Cgroup, raw.Oom != 0, string(comm))
+	return string(out)
 }

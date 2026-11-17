@@ -23,9 +23,13 @@ struct exit_event {
 	__u32 tgid;
 	__s32 exit_code; /* the kernel's wait status: (status << 8) | signal, 0x80 for a core */
 	__u64 cgroup;    /* the cgroup v2 id of the exiting task */
+	__u32 ppid;      /* the parent's tgid: 1 for a systemd service's main process */
 	__u8 oom;        /* 1 when the OOM killer chose it */
-	__u8 _pad[7];
+	__u8 _pad[3];
 	char comm[16];
+	/* The cgroup's own name (orders.service): a unit is recreated with a new cgroup id on
+	 * every restart, and several restarts can fall between two scrapes (measured). */
+	char cgroup_name[64];
 };
 
 /* Keeps exit_event in the object's BTF for bpf2go's Go type (ring buffers carry no type). */
@@ -63,8 +67,12 @@ int BPF_PROG(on_process_exit, struct task_struct *p)
 	e->exit_code = BPF_CORE_READ(p, exit_code);
 	e->cgroup = bpf_get_current_cgroup_id();
 	e->oom = BPF_CORE_READ(p, signal, oom_mm) != 0;
+	e->ppid = BPF_CORE_READ(p, real_parent, tgid);
 	__builtin_memset(e->_pad, 0, sizeof(e->_pad));
 	bpf_get_current_comm(e->comm, sizeof(e->comm));
+	const char *name = BPF_CORE_READ(p, cgroups, dfl_cgrp, kn, name);
+	if (bpf_probe_read_kernel_str(e->cgroup_name, sizeof(e->cgroup_name), name) < 0)
+		e->cgroup_name[0] = 0;
 	bpf_ringbuf_submit(e, 0);
 	return 0;
 }
