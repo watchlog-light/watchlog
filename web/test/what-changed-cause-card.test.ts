@@ -307,7 +307,7 @@ describe('the rows link to their objects', () => {
     );
     expect(hrefs(w)).toEqual([
       '/containers/docker-01/shop-db-1?cluster=fleet',
-      '/hosts/docker-01?cluster=fleet',
+      '/servers/docker-01?cluster=fleet',
       '/containers?cluster=fleet&project=shop&service=web',
     ]);
   });

@@ -163,6 +163,23 @@ describe('the egress words and paths', () => {
       name: 'docker-container',
       params: { host: 'docker-02', name: 'cron' },
     });
+    // A server's service or process group (ADR-212).
+    const svc = {
+      host: 'app-1',
+      workloadKind: 'Service',
+      workload: 'orders.service',
+      firstSeen: '2026-11-01T00:00:00Z',
+      lastSeen: '2026-11-17T00:00:00Z',
+      new: false,
+    };
+    expect(sourceName(svc)).toBe('orders.service (app-1)');
+    expect(sourceLink(svc, 'c1')).toMatchObject({
+      name: 'server-workload',
+      params: { server: 'app-1', workload: 'service:orders.service' },
+    });
+    expect(
+      sourceLink({ ...svc, workloadKind: 'ProcessGroup', workload: 'api' }, 'c1'),
+    ).toMatchObject({ params: { workload: 'process:api' } });
   });
 
   it('says how long ago, "before" a date, and the failed share', () => {
