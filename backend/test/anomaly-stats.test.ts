@@ -118,8 +118,8 @@ describe('the 10-minute rule', () => {
 });
 
 describe('the scored keys (ADR-196 as built)', () => {
-  it('29 integration keys, every scored key a catalog key or a map edge, no pod key', () => {
-    expect(Object.values(INTEGRATION_KEYS).flat()).toHaveLength(29);
+  it("32 integration keys (PHP-FPM's 3 since 0.9), every scored key a catalog key or a map edge, no pod key", () => {
+    expect(Object.values(INTEGRATION_KEYS).flat()).toHaveLength(32);
     for (const k of allScoredKeys()) {
       expect(k.startsWith('edge.') || (METRIC_KEYS as string[]).includes(k), k).toBe(true);
       expect(k.startsWith('pod.'), k).toBe(false);

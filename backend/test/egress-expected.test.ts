@@ -460,7 +460,7 @@ describe('the expectation routes (ADR-186, ADR-189)', () => {
       { cluster: k.id, pattern: 'x.example.org', source: { namespace: 'shop' } },
       /workloadKind/,
     );
-    await bad({ cluster: d.id, pattern: 'x.example.org', source: ordersApi }, /Docker source/);
+    await bad({ cluster: d.id, pattern: 'x.example.org', source: ordersApi }, /server source/);
     await bad(
       { cluster: d.id, pattern: 'x.example.org', source: { composeProject: 'p' } },
       /composeService/,
