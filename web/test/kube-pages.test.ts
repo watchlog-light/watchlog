@@ -7,6 +7,7 @@ import NodesPage from '@/views/NodesPage.vue';
 import OverviewPage from '@/views/OverviewPage.vue';
 import { mockFetch, problem, USER, type Routes } from './fetch-mock';
 import { createPlugins } from './helpers';
+import { anyBusy } from '@/lib/busy';
 // Responses of the Kubernetes read API on the kind test cluster (captured in slice 7).
 import FIX from './kube-fixtures.json';
 import DOCKER_OV from './docker-overview.json';
@@ -67,6 +68,37 @@ describe('Cluster overview', () => {
     expect(first.text()).toContain('last exit: Error (code 1)');
     expect(first.attributes('href')).toBe(`/alerts/${OV.problems.items[0]!.alertId}`);
     w.unmount();
+  });
+
+  it('keeps the overview through a busy answer (503 demo-busy) and retries, with no error state (ADR-206)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+    try {
+      const busy = {
+        status: 503,
+        body: { type: 'urn:watchlog:problem:demo-busy', title: 'Service Unavailable', status: 503 },
+      };
+      mockFetch({
+        ...routes(OV),
+        [`GET ${base}/overview?range=3600`]: [
+          { status: 200, body: OV },
+          busy,
+          { status: 200, body: OV },
+        ],
+      });
+      const { wrapper: w } = await mountPage(OverviewPage, '/');
+      const strip = () => w.find('[data-testid="strip-title"]').exists();
+      expect(strip()).toBe(true);
+      await vi.advanceTimersByTimeAsync(18_000); // poll: 15 s ± 20 %
+      expect(strip()).toBe(true);
+      expect(w.find('[data-testid="error-state"]').exists()).toBe(false);
+      expect(anyBusy.value).toBe(true);
+      await vi.advanceTimersByTimeAsync(2_400); // the first backoff
+      expect(anyBusy.value).toBe(false);
+      expect(strip()).toBe(true);
+      w.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('says when the data is delayed because ingest is failing (ADR-117)', async () => {

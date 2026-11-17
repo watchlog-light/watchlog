@@ -8,6 +8,7 @@ import SettingsPage from '@/views/SettingsPage.vue';
 import { CONTAINERS, FLEET } from './docker-fixtures';
 import { problem, USER } from './fetch-mock';
 import { createPlugins } from './helpers';
+import { anyBusy } from '@/lib/busy';
 
 type Reply = { status: number; body?: unknown };
 
@@ -78,6 +79,29 @@ afterEach(() => {
 const has = (w: ReturnType<typeof mount>, id: string) => w.find(`[data-testid="${id}"]`).exists();
 
 describe('Containers page loading states', () => {
+  it('keeps the containers through a busy answer (429) and retries, with no error state (ADR-206)', async () => {
+    const net = controlledFetch();
+    const w = await mountPage(ContainersPage, '/containers');
+    await answerDocker(net);
+    expect(has(w, 'container-list')).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(36_000); // poll
+    await net.reply(`${base}/docker/containers?range=3600`, problem(429, 'Too many requests'));
+    expect(has(w, 'container-list')).toBe(true);
+    expect(has(w, 'error-state')).toBe(false);
+    expect(anyBusy.value).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(2_400); // the first backoff, 2 s + up to 20 %
+    expect(net.pending.map((p) => p.path)).toContain(`${base}/docker/containers?range=3600`);
+    await net.reply(
+      `${base}/docker/containers?range=3600`,
+      ok({ containers: CONTAINERS, range: 3600, step: 60 }),
+    );
+    expect(anyBusy.value).toBe(false);
+    expect(has(w, 'container-list')).toBe(true);
+    w.unmount();
+  });
+
   it('shows no skeleton for a response under 150 ms', async () => {
     const net = controlledFetch();
     const w = await mountPage(ContainersPage, '/containers');
@@ -107,8 +131,7 @@ describe('Containers page loading states', () => {
     const w = await mountPage(ContainersPage, '/containers');
     await answerDocker(net);
 
-    await vi.advanceTimersByTimeAsync(30_000); // poll
-    await vi.advanceTimersByTimeAsync(1_000);
+    await vi.advanceTimersByTimeAsync(36_000); // poll: 30 s ± 20 % (ADR-206)
     expect(has(w, 'containers-skeleton')).toBe(false);
     expect(has(w, 'container-list')).toBe(true);
     expect(has(w, 'refreshing')).toBe(true);
