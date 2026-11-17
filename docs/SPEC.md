@@ -51,9 +51,9 @@ This is the single source of truth for **WatchLog v2**, a rebuild of WatchLog as
 
 WatchLog v2 MUST NOT include, in any edition, until explicitly re-scoped:
 
-- Bare-metal / VM agents for Ubuntu or other OSes outside a container runtime (the v1 agent is deprecated).
-- APM / distributed tracing / code-level instrumentation.
-- Log management (search, indexing). Showing the last N lines of a container's log on demand is allowed (P1).
+- Windows and macOS servers. (Linux servers outside a container runtime were a non-goal until 0.9.0; re-scoped by the owner on 2026-11-17: §4.15, ADR-207. The v1 agent stays deprecated.)
+- APM / distributed tracing / profiling / code-level instrumentation, also on servers: WatchLog watches processes, cgroups and the network, never code.
+- Log management (search, indexing). Showing the last N lines of a container's log, a unit's journal or a process manager's log on demand is allowed (P1).
 - Synthetic monitoring, uptime checks from multiple regions, RUM.
 - Custom dashboard builder. Dashboards are opinionated and fixed in v2.0.
 - Docker Swarm, Nomad, OpenShift-specific features (they may work, but are not targeted).
@@ -166,7 +166,9 @@ The first screen after login. Answers "is anything wrong right now?" in 5 second
   - **Who:** every role, Viewers included, unless an Owner or Admin limits it to Owners and Admins or turns it off in Settings; `logs.enabled` (charts) and `WATCHLOG_LOGS` (Docker agent), default on, turn it off for the installation. Every read is audited without its lines. 30 reads a minute and 3 follows per user.
   - **Where:** a Logs tab on the pod page (container picker, "previous run") and the Docker container page; `GET …/logs` (§8.1); MCP `get_container_logs` (at most 200 lines, 16 KB).
 
-## 4.4 Docker hosts — P0, All
+## 4.4 Docker hosts — P0, All (part of Servers, §4.15, from 0.9.0)
+
+From 0.9.0 a Docker fleet is a Server fleet and Docker is one source of workloads on a server (ADR-207); what follows still holds for its containers.
 
 For hosts running Docker or containerd without Kubernetes. Several hosts in one account form a **Docker fleet** (counts as one "cluster" for edition limits).
 
@@ -627,6 +629,24 @@ See every place a cluster or Docker fleet talks to on the internet, and know whe
 - **Out of scope:** country and ASN, blocking or enforcing anything, TLS SNI or HTTP hosts, threat-intelligence feeds.
 - **Demo and tests (ADR-193):** the e2e and the demo kit each get a new-destination and a raw-IP scenario, on Kubernetes and Docker.
 
+## 4.15 Servers — v0.9, All (ADR-207 to ADR-211)
+
+Every process on a Linux server, in any language, however it was started: systemd services, process groups and containers, with every feature WatchLog has. Community, in every edition and plan; a server is a node for plans and the bill.
+
+- **Two kinds (ADR-207):** Kubernetes clusters and **Server fleets**. A Server fleet is a group of Linux servers; Docker fleets became Server fleets by an automatic migration that keeps their data, tokens, rules and history. The API and MCP accept `docker` as an alias of `server` through 1.x.
+- **Three sources of workloads per server**, each with the same pages, metrics, alerts, map, Egress, What changed (Pro) and probable cause:
+  - **Services:** systemd units (state, restarts, last exit code, start time, `MemoryMax`, `CPUQuota`, CPU, memory, I/O, throttling, OOM kills).
+  - **Process groups:** processes grouped by rules: the user's own, then pm2 apps, supervisord programs, PHP-FPM pools, gunicorn and uwsgi masters, Java jars and main classes, an interpreter and its script, else the executable's name; a group inside a unit is its child (ADR-208). CPU, memory, instances, threads, open files, starts, exits with codes, OOM kills; crashes and crash loops for anything, with or without systemd.
+  - **Containers:** Docker as in §4.4.
+- **Pages:** the fleet (servers with CPU, memory and disk, failed services, crash loops, busiest workloads); the server (OS, kernel, systemd, Docker; resources; one workloads table with Service, Process and Container chips grouped by unit; listening ports; events); the workload (resources against limits, instances, restarts and exits, connections and HTTP, logs, alerts, probable cause, What changed); Overview, Workloads, Events, Service map, Egress, What changed and Alerts for Server fleets; the fleet's process-group rules with a preview.
+- **Limits:** at most 50 process groups and 100 services a server, the rest counted; no PID, command line, argument, environment value or user name as a label or field; a group's name is derived and redacted on the server.
+- **Install (ADR-209):** one command (signed release binaries, systemd units, user `watchlog`, the fewest capabilities, systemd hardening), deb and rpm, or `docker run --pid host`; upgrade and uninstall in the script. amd64 and arm64; systemd 239+ for services; without systemd, process groups only; cgroup v1 best effort; eBPF needs kernel 5.8+ with BTF, and without it everything but the map, Egress, HTTP and exit codes works.
+- **Applications on servers:** discovery of host-native PostgreSQL, MySQL/MariaDB, Redis, MongoDB, RabbitMQ, Kafka, nginx, Traefik and PHP-FPM from listening sockets and the executable; the integrations collector runs natively; a PHP-FPM integration (§4.12's eight points).
+- **Alerts (defaults):** a service failed; a service or process group crash-looping; an OOM kill; a process group gone (every instance exited); a unit at its CPU quota or memory limit; the server's CPU, memory, disk and inodes. Probable cause knows a new release (a unit's binary or a group's executable changed) and a limit.
+- **Logs on demand:** a unit's journal, pm2's and supervisord's log files, Docker as before; redacted like container logs.
+- **Right-sizing:** units with `MemoryMax` or `CPUQuota`, as for container limits.
+- **Out of scope:** Windows and macOS, APM and tracing, JVM internals, an apt or yum repository.
+
 # 5. System architecture
 
 ## 5.1 Components
@@ -732,7 +752,7 @@ WatchLog Cloud starts on **the current production server** (36 GB), beside the s
 |---|---|---|---|---|
 | Node | `agent` | `--mode=node` (default) | DaemonSet | Host metrics, cgroup v1/v2 container metrics, kubelet summary, eBPF flows |
 | Cluster | `cluster-agent` | — | Deployment (1 replica, leader election) | K8s objects, events, kube-state style metrics; serves the node-scoped pod map |
-| Docker | `agent` | `--mode=docker` | `docker run` on each host | Host metrics, containers via Docker socket (read-only), eBPF flows |
+| Server | `agent` | `--mode=server` (`--mode=docker` is an alias, ADR-207) | systemd unit (install script, deb, rpm) or `docker run --pid host` on each server | Host metrics, systemd services, process groups, containers via the Docker socket (read-only), eBPF flows, exits and OOM kills (ADR-208, ADR-210) |
 
 Only the cluster-agent links client-go (it adds ~21 MB to the binary and ~11 MB idle RSS, measured), so node and Docker agents keep a small footprint.
 
@@ -775,7 +795,8 @@ Labels on container series: `cluster_id` (server-injected), `node`, `namespace`,
 
 - Cluster-agent ClusterRole is **read-only**: `get, list, watch` on the resources in §6.5, plus `create` on `tokenreviews` (pod map authentication); a namespaced Role for its leader-election Lease. Node agent ClusterRole: `get` on `nodes/stats` only. **No access to Secrets, ConfigMaps or `nodes/proxy`** (ADR-049, ADR-060). `get` on `pods/log` while logs on demand are on (`logs.enabled`, default on from v0.5; ADR-167).
 - Node agent runs with `hostNetwork: false`, `hostPID` only where measured necessary, as a non-root user, read-only root filesystem, all capabilities dropped and none added until eBPF (Phase 4: `BPF`, `PERFMON`, `SYS_RESOURCE`, `SYS_PTRACE` for `/proc/<pid>` of other containers, `NET_ADMIN` only if required by the chosen hook). The release namespace is labelled `pod-security.kubernetes.io/enforce: privileged` because the agent needs read-only hostPath mounts of `/proc` and `/sys`. Document every capability and exception in `docs/security.md`.
-- Docker mode mounts `/var/run/docker.sock` **read-only** and only calls list/inspect/stats/events endpoints, and the container logs endpoint while logs on demand are on (`WATCHLOG_LOGS`, ADR-167).
+- Server mode (ADR-209): installed natively it runs as the user `watchlog` with only the capabilities measured to be needed (listed in ADR-209 and `docs/security.md`) and systemd hardening; it reads `/proc` of every process but never an environment, and sends no PID, command line or argument. With Docker present it joins the `docker` group (root-equivalent; `--no-docker` opts out).
+- Docker (and server) mode mounts `/var/run/docker.sock` **read-only** and only calls list/inspect/stats/events endpoints, and the container logs endpoint while logs on demand are on (`WATCHLOG_LOGS`, ADR-167).
 - Transport: HTTPS with TLS 1.2+; cluster token in `Authorization: Bearer`. Tokens are per cluster, revocable, 256-bit random values stored as a SHA-256 hash in the backend (a slow hash adds cost without security for high-entropy tokens; argon2id is used for passwords; ADR-025).
 - The agent never executes remote commands and has no inbound port except `:8080/healthz` and `:8080/metrics` (self-metrics), bound to pod IP.
 
