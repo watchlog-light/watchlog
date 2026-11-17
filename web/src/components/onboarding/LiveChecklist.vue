@@ -56,6 +56,14 @@ function detail(s: OnboardingStep & { active: boolean }): string {
     case 'clusterAgent':
       return t('onboarding.check.clusterAgent.done');
     case 'metrics':
+      // A server (ADR-208): its systemd services and process groups too.
+      if (props.kind === 'server' && (s.units !== undefined || s.processGroups !== undefined))
+        return t('onboarding.check.metrics.done.servers', {
+          nodes: n(s.nodes),
+          units: n(s.units),
+          groups: n(s.processGroups),
+          containers: n(s.containers),
+        });
       return t(
         `onboarding.check.metrics.done.${unit.value}`,
         { nodes: n(s.nodes), containers: n(s.containers) },

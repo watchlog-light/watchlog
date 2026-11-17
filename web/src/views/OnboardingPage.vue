@@ -32,7 +32,7 @@ import { useClustersStore } from '@/stores/clusters';
 // agent. The cluster's id is in the URL (?id=); the token is shown once, so a reload
 // offers a new command instead.
 type Kind = 'kubernetes' | 'server';
-type Method = 'helm' | 'kubectl' | 'dockerRun' | 'compose';
+type Method = 'helm' | 'kubectl' | 'script' | 'deb' | 'rpm' | 'dockerRun' | 'compose';
 const TROUBLE_AFTER_MS = 2 * 60 * 1000;
 
 const { t } = useI18n();
@@ -143,7 +143,8 @@ async function reissue() {
 // ------------------------------------------------------------------ the commands
 const METHODS: Record<Kind, Method[]> = {
   kubernetes: ['helm', 'kubectl'],
-  server: ['dockerRun', 'compose'],
+  // Servers (ADR-209): the one command first; Docker when nothing goes on the host.
+  server: ['script', 'deb', 'rpm', 'dockerRun', 'compose'],
 };
 const methods = computed(() =>
   METHODS[currentKind.value].filter((m) => !!current.value?.install?.[m]),
@@ -663,10 +664,12 @@ const steps = computed(() => [
                   }}</code>
                 </li>
               </template>
-              <li v-else>
-                <b class="text-text">{{ $t('onboarding.trouble.socket.title') }}</b>
-                {{ $t('onboarding.trouble.socket.body') }}
-              </li>
+              <template v-else>
+                <li v-for="k in ['noSystemd', 'other', 'cgroupV1', 'proxy', 'socket']" :key="k">
+                  <b class="text-text">{{ $t(`onboarding.trouble.${k}.title`) }}</b>
+                  {{ $t(`onboarding.trouble.${k}.body`) }}
+                </li>
+              </template>
               <li>
                 <b class="text-text">{{ $t('onboarding.trouble.kernel.title') }}</b>
                 {{ $t('onboarding.trouble.kernel.body') }}

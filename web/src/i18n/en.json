@@ -4401,14 +4401,20 @@
       "method": {
         "helm": "Helm",
         "kubectl": "kubectl",
-        "dockerRun": "Docker run",
+        "script": "One command",
+        "deb": "deb",
+        "rpm": "rpm",
+        "dockerRun": "Docker",
         "compose": "Compose"
       },
       "note": {
         "helm": "Installs a DaemonSet (one agent per node) and one cluster agent in the watchlog namespace.",
         "kubectl": "The same as the Helm chart, as plain manifests. The link works for 24 hours and holds no token.",
-        "dockerRun": "For a Server fleet: run it once on every host.",
-        "compose": "Add it to the Compose file on each host, then run docker compose up -d."
+        "dockerRun": "When you'd rather not install anything on the server: --pid host and the read-only mounts let it see the server's services and processes as well as its containers.",
+        "compose": "Add it to the Compose file on each host, then run docker compose up -d.",
+        "script": "Detects amd64 or arm64, checks the release's checksum (and its signature when cosign is installed), installs the agent and the integrations collector as systemd units running as the user watchlog, and starts them. Ubuntu 20.04+, Debian 11+, RHEL, Rocky and Alma 8+, Amazon Linux 2023.",
+        "deb": "For Debian and Ubuntu: the package installs the units and reads the token from the command.",
+        "rpm": "For RHEL, Rocky, Alma, Fedora and Amazon Linux."
       },
       "copy": "Copy command",
       "copied": "Copied",
@@ -4443,7 +4449,8 @@
         "waiting": "Waiting for the first metrics…",
         "done": {
           "nodes": "{nodes} nodes, {containers} containers | {nodes} nodes, {containers} container | {nodes} nodes, {containers} containers",
-          "hosts": "{nodes} hosts, {containers} containers | {nodes} hosts, {containers} container | {nodes} hosts, {containers} containers"
+          "hosts": "{nodes} hosts, {containers} containers | {nodes} hosts, {containers} container | {nodes} hosts, {containers} containers",
+          "servers": "{nodes} servers: {units} services, {groups} process groups, {containers} containers"
         }
       },
       "ebpf": {
@@ -4479,7 +4486,7 @@
       "diagnostics": "Diagnostics",
       "commands": {
         "kubernetes": "kubectl -n watchlog get pods\nkubectl -n watchlog logs ds/watchlog-agent --tail=50\nkubectl -n watchlog logs deploy/watchlog-agent-cluster-agent --tail=50",
-        "server": "docker ps -a --filter name=watchlog-agent\ndocker logs --tail 50 watchlog-agent"
+        "server": "systemctl status watchlog-agent watchlog-integrations\njournalctl -u watchlog-agent -n 50 --no-pager\n# with docker run instead:\ndocker logs --tail 50 watchlog-agent"
       },
       "egress": {
         "title": "Outbound HTTPS blocked:",
@@ -4503,7 +4510,23 @@
       },
       "help": "Get help installing: a person answers, usually the same day",
       "helpSubject": "Help installing WatchLog",
-      "helpBody": "Cluster id: {id}\nKind: {kind}\n\nWhat I ran and what I see:\n"
+      "helpBody": "Cluster id: {id}\nKind: {kind}\n\nWhat I ran and what I see:\n",
+      "noSystemd": {
+        "title": "No services, only processes:",
+        "body": "the server doesn't run systemd (Alpine, OpenRC). WatchLog groups its processes instead, and crashes still show from the kernel's exit events. Use the docker run command there."
+      },
+      "other": {
+        "title": "Some processes show as \"other processes\":",
+        "body": "a server shows at most 50 groups. Add a process-group rule in the fleet's settings to give the ones you care about their own name."
+      },
+      "cgroupV1": {
+        "title": "An old cgroup v1 server (CentOS 7, Ubuntu 18.04):",
+        "body": "supported as best effort: services and processes show, per-service CPU throttling doesn't."
+      },
+      "proxy": {
+        "title": "Behind a proxy:",
+        "body": "add HTTPS_PROXY=http://proxy:3128 to /etc/watchlog/agent.env, then systemctl restart watchlog-agent."
+      }
     },
     "firstWeek": {
       "title": "Get the most out of your first week",
