@@ -69,6 +69,17 @@ spec:
             {{- if .Values.demoMode }}
             # A read-only public demo (ADR-122): passwordless viewer sessions, changes refused.
             - { name: WATCHLOG_DEMO_MODE, value: 'true' }
+            {{- $demoCache := .Values.demoCache | default dict }}
+            {{- with $demoCache.seconds }}
+            # The demo's shared answer cache and load shedding (ADR-206).
+            - { name: WATCHLOG_DEMO_CACHE_SECONDS, value: {{ . | quote }} }
+            {{- end }}
+            {{- with $demoCache.maxMb }}
+            - { name: WATCHLOG_DEMO_CACHE_MB, value: {{ . | quote }} }
+            {{- end }}
+            {{- with $demoCache.maxUpstream }}
+            - { name: WATCHLOG_DEMO_MAX_UPSTREAM, value: {{ . | quote }} }
+            {{- end }}
             {{- end }}
             {{- if .Values.admin.email }}
             - name: WATCHLOG_ADMIN_EMAIL

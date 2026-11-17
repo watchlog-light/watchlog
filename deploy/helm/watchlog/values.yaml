@@ -36,6 +36,11 @@ mcp:
 # A read-only public demo (ADR-122): anyone can open the dashboard as a viewer without a
 # password, and every change is refused, admins included. Not for a real installation.
 demoMode: false
+# The demo's shared answer cache and load shedding (ADR-206), read only with demoMode:
+# seconds an answer is shared (5-60, default 15), the cache's MiB (8-256, default 64), and
+# the cache misses to metric-backed pages that run at once before the next gets 503
+# "busy" (1-256, default 16). Empty keeps the defaults.
+demoCache: {}
 # The session cookie's Secure attribute: auto (when the request came over https, from
 # the socket or a trusted proxy's X-Forwarded-Proto), always, or never.
 cookieSecure: auto
