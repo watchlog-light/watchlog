@@ -364,6 +364,9 @@ func (c *Collector) samples() []metrics.Sample {
 	return out
 }
 
+// groupSamples: counters still at zero (no exit, release or OOM kill yet) aren't sent, so
+// a quiet group costs about 7 series, not 13 (ADR-208's budget); VictoriaMetrics counts a
+// counter's first value when it appears, so increase() doesn't miss the first event.
 func groupSamples(g *group) []metrics.Sample {
 	l := []string{"group", g.name, "unit", g.unit}
 	out := []metrics.Sample{
@@ -371,9 +374,15 @@ func groupSamples(g *group) []metrics.Sample {
 		metrics.New("watchlog_process_group_memory_rss_bytes", float64(g.rss), l...),
 		metrics.New("watchlog_process_group_instances", float64(g.instances), l...),
 		metrics.New("watchlog_process_group_threads", float64(g.threads), l...),
-		metrics.New("watchlog_process_group_starts_total", g.starts, l...),
-		metrics.New("watchlog_process_group_releases_total", g.releases, l...),
-		metrics.New("watchlog_process_group_oom_kills_total", g.oomKills, l...),
+	}
+	for _, c := range []struct {
+		name string
+		v    float64
+	}{{"watchlog_process_group_starts_total", g.starts}, {"watchlog_process_group_releases_total", g.releases},
+		{"watchlog_process_group_oom_kills_total", g.oomKills}} {
+		if c.v > 0 {
+			out = append(out, metrics.New(c.name, c.v, l...))
+		}
 	}
 	if g.pssKnown {
 		out = append(out, metrics.New("watchlog_process_group_memory_pss_bytes", float64(g.pss), l...))
@@ -382,7 +391,9 @@ func groupSamples(g *group) []metrics.Sample {
 		out = append(out, metrics.New("watchlog_process_group_open_files", float64(g.openFiles), l...))
 	}
 	for _, kind := range []string{"ok", "error", "signal", "unknown"} {
-		out = append(out, metrics.New("watchlog_process_group_exits_total", g.exits[kind], append(l, "exit", kind)...))
+		if g.exits[kind] > 0 {
+			out = append(out, metrics.New("watchlog_process_group_exits_total", g.exits[kind], append(l, "exit", kind)...))
+		}
 	}
 	return out
 }

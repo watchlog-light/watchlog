@@ -203,11 +203,16 @@ func samples(r row, ex *unitExits) []metrics.Sample {
 	case r.p.ExecMainCode != 0:
 		out = append(out, metrics.New("watchlog_service_last_exit_code", float64(exitCode(r.p)), "unit", unit))
 	}
+	// Counters at zero aren't sent (ADR-208's budget); they appear with the first event.
 	if ex != nil {
 		for _, kind := range []string{"ok", "error", "signal"} {
-			out = append(out, metrics.New("watchlog_service_exits_total", ex.byKind[kind], "unit", unit, "exit", kind))
+			if ex.byKind[kind] > 0 {
+				out = append(out, metrics.New("watchlog_service_exits_total", ex.byKind[kind], "unit", unit, "exit", kind))
+			}
 		}
-		out = append(out, metrics.New("watchlog_service_oom_kills_total", ex.oomKills, "unit", unit))
+		if ex.oomKills > 0 {
+			out = append(out, metrics.New("watchlog_service_oom_kills_total", ex.oomKills, "unit", unit))
+		}
 	}
 	if r.p.ActiveEnterUsec > 0 {
 		out = append(out, metrics.New("watchlog_service_start_time_seconds", float64(r.p.ActiveEnterUsec)/1e6, "unit", unit))
