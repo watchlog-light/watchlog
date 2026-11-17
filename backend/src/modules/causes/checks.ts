@@ -216,7 +216,7 @@ function nodeChecks(ev: Evidence, name: string): Check[] {
   }
   if (!['container', 'compose_service', 'host'].includes(ev.focus.kind)) return [];
   return ev.hosts.map((h) => {
-    const o = nodeObject(h.name, 'docker');
+    const o = nodeObject(h.name, 'server');
     if (h.status !== 'active')
       return h.lastSeenAt
         ? check(

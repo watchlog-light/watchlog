@@ -20,7 +20,7 @@ import {
 import { INGEST_FAILING_RULE } from './defaults.js';
 
 export type RuleRow = Selectable<AlertRules>;
-export type ClusterKind = 'kubernetes' | 'docker';
+export type ClusterKind = 'kubernetes' | 'server';
 
 export interface ClusterRef {
   id: string;

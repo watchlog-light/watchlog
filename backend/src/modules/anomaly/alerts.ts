@@ -191,7 +191,7 @@ async function containersOf(db: Database, clusterId: string): Promise<Containers
  * is the key, so a silence can name it.
  */
 export function anomalyLabels(
-  kind: 'kubernetes' | 'docker',
+  kind: 'kubernetes' | 'server',
   key: string,
   subject: Record<string, string>,
   containers: Containers = new Map(),
@@ -229,7 +229,7 @@ export function anomalyLabels(
     if (l.service) out.service = l.service;
     if (l.service_type) out.service_type = l.service_type;
   }
-  if (kind === 'docker' && out.container && !out.compose_service && l.compose_service) {
+  if (kind === 'server' && out.container && !out.compose_service && l.compose_service) {
     out.compose_project = l.compose_project ?? '';
     out.compose_service = l.compose_service;
   }
@@ -247,7 +247,7 @@ export function anomalyFingerprint(key: string, subject: Record<string, string>)
 
 /** The change-marker targets that quiet a subject's alert (ADR-200), as target patterns. */
 export function quietTargets(
-  kind: 'kubernetes' | 'docker',
+  kind: 'kubernetes' | 'server',
   labels: Record<string, string>,
   containers: Containers,
 ): { exact: Set<string>; containerNames: Set<string>; projects: Set<string> } {
@@ -288,7 +288,7 @@ interface Marker {
 
 /** Whether a change to the subject came within the quiet before `now` (ADR-200). */
 export function inQuiet(
-  kind: 'kubernetes' | 'docker',
+  kind: 'kubernetes' | 'server',
   labels: Record<string, string>,
   containers: Containers,
   markers: Marker[],
@@ -338,7 +338,7 @@ function peerOf(labels: Record<string, string>, containers: Containers): string 
 }
 
 const anomalyEvaluator: RuleEvaluator = {
-  kinds: ['kubernetes', 'docker'],
+  kinds: ['kubernetes', 'server'],
   async evaluate(ctx: EvalContext): Promise<Observation[]> {
     const orgId = ctx.rule.org_id;
     // Only orgs with What changed (ADR-195): a downgrade's open alerts end with the upkeep.
@@ -382,7 +382,7 @@ const anomalyEvaluator: RuleEvaluator = {
         .where('kind', 'in', [...QUIET_MARKER_KINDS])
         .where('ts', '>', new Date(ctx.now - ROLLOUT_QUIET_MS))
         .execute(),
-      kind === 'docker' ? containersOf(ctx.db, ctx.cluster.id) : Promise.resolve(new Map()),
+      kind === 'server' ? containersOf(ctx.db, ctx.cluster.id) : Promise.resolve(new Map()),
       servicesOf(ctx.db, ctx.cluster.id),
     ]);
     // The other alerts firing now on the cluster (slice 7b): read only when a new alert

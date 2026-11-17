@@ -18,7 +18,7 @@ const DOCKER_SEL = '{container!="",pod=""}';
 const sel = (s: string, metric: string) => `${metric}${s}`;
 
 /** The use expressions, in the order of `Usage`'s fields; `w` is the window ("168h"). */
-export function usageExprs(platform: 'kubernetes' | 'docker', w: string): Record<string, string> {
+export function usageExprs(platform: 'kubernetes' | 'server', w: string): Record<string, string> {
   const by = platform === 'kubernetes' ? KUBE_BY : DOCKER_BY;
   const s = platform === 'kubernetes' ? KUBE_SEL : DOCKER_SEL;
   const cpu = sel(s, 'watchlog_container_cpu_seconds_total');
@@ -32,7 +32,7 @@ export function usageExprs(platform: 'kubernetes' | 'docker', w: string): Record
     samples: `count_over_time((max by (${by}) (${ws}))[${w}:5m])`,
     from: `min by (${by}) (tfirst_over_time(${ws}[${w}]))`,
   };
-  if (platform === 'docker') {
+  if (platform === 'server') {
     const last = (m: string) => `max by (${by}) (last_over_time(${sel(s, m)}[1h]))`;
     Object.assign(out, {
       oomKills: `max by (${by}) (increase(${sel(s, 'watchlog_container_oom_events_total')}[${w}]))`,
@@ -52,20 +52,20 @@ export type Series = Record<string, QuerySeries[]>;
 const value = (s: QuerySeries) => s.points[0]?.[1] ?? null;
 
 /** A key per series: namespace/kind/workload/container, or host/container. */
-export function keyOf(platform: 'kubernetes' | 'docker', l: Record<string, string>): string {
+export function keyOf(platform: 'kubernetes' | 'server', l: Record<string, string>): string {
   return platform === 'kubernetes'
     ? `${l.namespace}/${l.workload_kind}/${l.workload}/${l.container}`
     : `${l.host}/${l.container}`;
 }
 
-export function byKey(platform: 'kubernetes' | 'docker', series: QuerySeries[] = []) {
+export function byKey(platform: 'kubernetes' | 'server', series: QuerySeries[] = []) {
   const out = new Map<string, number | null>();
   for (const s of series) out.set(keyOf(platform, s.labels), value(s));
   return out;
 }
 
 /** Usage per key from the answers of `usageExprs` (OOM kills on Kubernetes come from pods). */
-export function usageByKey(platform: 'kubernetes' | 'docker', series: Series): Map<string, Usage> {
+export function usageByKey(platform: 'kubernetes' | 'server', series: Series): Map<string, Usage> {
   const m = Object.fromEntries(
     Object.entries(series).map(([k, v]) => [k, byKey(platform, v)]),
   ) as Record<string, Map<string, number | null>>;

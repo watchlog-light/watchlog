@@ -100,7 +100,7 @@ const iso = (d: Date) => d.toISOString();
  * becomes expected leaves at the next evaluation, which resolves its alert.
  */
 const newDestination: RuleEvaluator = {
-  kinds: ['kubernetes', 'docker'],
+  kinds: ['kubernetes', 'server'],
   async evaluate(ctx) {
     const cluster = await ctx.db
       .selectFrom('clusters')
@@ -213,7 +213,7 @@ function needVictoria(ctx: EvalContext) {
  * stayed below the threshold for 10 minutes. Private networks never fire it (ADR-185).
  */
 const rawIp: RuleEvaluator = {
-  kinds: ['kubernetes', 'docker'],
+  kinds: ['kubernetes', 'server'],
   async evaluate(ctx) {
     const { victoria, cond } = needVictoria(ctx);
     const kind = ctx.cluster.kind;
@@ -251,7 +251,7 @@ const rawIp: RuleEvaluator = {
  * yet is skipped: until then an upgrade's destinations in use look new.
  */
 const largeUpload: RuleEvaluator = {
-  kinds: ['kubernetes', 'docker'],
+  kinds: ['kubernetes', 'server'],
   async evaluate(ctx) {
     const { victoria, cond } = needVictoria(ctx);
     const kind = ctx.cluster.kind;

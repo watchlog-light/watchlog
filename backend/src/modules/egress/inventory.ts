@@ -35,7 +35,7 @@ const DEST = 'dst_kind, dst, dst_port';
 /** The source labels each platform's flow series carry (slice 1: `node` is summed away). */
 export const SOURCE_LABELS = {
   kubernetes: 'namespace, workload_kind, workload',
-  docker: 'host, container, compose_project, compose_service',
+  server: 'host, container, compose_project, compose_service',
 } as const;
 const UPSERT_CHUNK = 500;
 

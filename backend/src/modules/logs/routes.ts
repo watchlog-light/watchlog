@@ -442,7 +442,7 @@ export const logsRoutes: FastifyPluginAsyncTypebox<{
     async (request, reply) => {
       const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
       if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
-      if (cluster.kind !== 'docker') {
+      if (cluster.kind !== 'server') {
         return sendProblem(reply, 400, 'This is a Kubernetes cluster; read a pod instead');
       }
       const denied = await allowed(request);

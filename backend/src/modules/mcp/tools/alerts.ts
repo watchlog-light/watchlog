@@ -22,7 +22,7 @@ export interface ApiAlert {
   severity: string;
   why: string | null;
   rule: { id: string; key: string; name: string };
-  cluster: { id: string; name: string; kind: 'kubernetes' | 'docker' };
+  cluster: { id: string; name: string; kind: 'kubernetes' | 'server' };
   labels: Record<string, string>;
   startedAt: string;
   firedAt: string | null;

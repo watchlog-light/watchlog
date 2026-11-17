@@ -21,7 +21,7 @@ export const REFUSED_RATIO = 0.5;
 
 export const connectionRefused: Rule = {
   code: 'connection_refused',
-  platforms: ['kubernetes', 'docker'],
+  platforms: ['kubernetes', 'server'],
   applies: (f) => ['workload', 'container', 'compose_service'].includes(f.kind),
   match(ev: Evidence): Match | null {
     const via = ev.via;
@@ -52,8 +52,8 @@ export const connectionRefused: Rule = {
       chain: [
         {
           object,
-          source: ev.platform === 'docker' ? 'docker' : 'kubernetes',
-          code: ev.platform === 'docker' ? 'no_listener_running' : 'no_listener_ready',
+          source: ev.platform === 'server' ? 'docker' : 'kubernetes',
+          code: ev.platform === 'server' ? 'no_listener_running' : 'no_listener_ready',
           facts,
           at: null,
           since,

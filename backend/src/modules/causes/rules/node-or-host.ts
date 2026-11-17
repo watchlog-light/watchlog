@@ -485,7 +485,7 @@ function silent(ev: Evidence, name: string): Match | null {
       next: 'because',
     };
     const host: Step = {
-      object: nodeObject(h.name, 'docker'),
+      object: nodeObject(h.name, 'server'),
       source: 'docker',
       code: h.lastSeenAt ? 'host_silent' : 'host_never',
       facts: h.lastSeenAt ? { host: h.name, minutes } : { host: h.name },
@@ -495,7 +495,7 @@ function silent(ev: Evidence, name: string): Match | null {
     };
     return {
       code: 'node_or_host',
-      facts: { name, host: h.name, how: 'silent', minutes, platform: 'docker' },
+      facts: { name, host: h.name, how: 'silent', minutes, platform: 'server' },
       since: h.lastSeenAt,
       chain: [last, host],
       complete: true,
@@ -538,7 +538,7 @@ function dockerOom(ev: Evidence, name: string): Match | null {
     };
     const used = pctOf(h?.memoryUtilization);
     const host: Step = {
-      object: nodeObject(c.host, 'docker'),
+      object: nodeObject(c.host, 'server'),
       source: 'docker',
       code: used === null ? 'host_ran_out' : 'host_memory',
       facts: used === null ? { host: c.host } : { host: c.host, pct: used },
@@ -548,7 +548,7 @@ function dockerOom(ev: Evidence, name: string): Match | null {
     };
     return {
       code: 'node_or_host',
-      facts: { name, host: c.host, how: 'oom', container: c.name, platform: 'docker' },
+      facts: { name, host: c.host, how: 'oom', container: c.name, platform: 'server' },
       since: earliest(iso(kills?.first), c.finishedAt),
       chain: [kill, host],
       complete: f.complete,
@@ -584,7 +584,7 @@ function dockerStrained(ev: Evidence, name: string): Match | null {
         name,
         host: h.name,
         how: what.code === 'host_disk' ? 'disk' : 'memory',
-        platform: 'docker',
+        platform: 'server',
       },
       since: null,
       chain: [
@@ -598,7 +598,7 @@ function dockerStrained(ev: Evidence, name: string): Match | null {
           next: 'because',
         },
         {
-          object: nodeObject(h.name, 'docker'),
+          object: nodeObject(h.name, 'server'),
           source: 'docker',
           code: what.code,
           facts,
@@ -630,7 +630,7 @@ function hostRestarted(ev: Evidence, name: string): Match | null {
       next: 'because',
     };
     const host: Step = {
-      object: nodeObject(c.host, 'docker'),
+      object: nodeObject(c.host, 'server'),
       source: 'docker',
       code: w.how === 'host' ? 'host_rebooted' : 'docker_restarted',
       facts: { host: c.host },
@@ -645,7 +645,7 @@ function hostRestarted(ev: Evidence, name: string): Match | null {
         host: c.host,
         how: w.how === 'host' ? 'rebooted' : 'docker_restarted',
         container: c.name,
-        platform: 'docker',
+        platform: 'server',
         at: w.at,
       },
       since: w.at,
@@ -671,8 +671,8 @@ function docker(ev: Evidence): Match | null {
 
 export const nodeOrHost: Rule = {
   code: 'node_or_host',
-  platforms: ['kubernetes', 'docker'],
+  platforms: ['kubernetes', 'server'],
   applies: (f) => ['pod', 'workload', 'container', 'compose_service'].includes(f.kind),
-  match: (ev) => (ev.platform === 'docker' ? docker(ev) : kube(ev)),
+  match: (ev) => (ev.platform === 'server' ? docker(ev) : kube(ev)),
   explains: ['node', 'host'],
 };

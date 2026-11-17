@@ -77,7 +77,7 @@ export class RightSizingService {
   }
 
   /** The use over the window, kept an hour per cluster. */
-  measure(scope: ClusterScope, platform: 'kubernetes' | 'docker'): Promise<Measured> {
+  measure(scope: ClusterScope, platform: 'kubernetes' | 'server'): Promise<Measured> {
     const clusterId = scope.clusterId;
     return this.cache.get(`${clusterId}/${platform}`, async () => {
       const started = Date.now();
@@ -97,7 +97,7 @@ export class RightSizingService {
 
   async answer(
     /** From clusterForOrg (ADR-174). */
-    cluster: { id: string; kind: 'kubernetes' | 'docker'; scope: ClusterScope },
+    cluster: { id: string; kind: 'kubernetes' | 'server'; scope: ClusterScope },
     f: Filters,
   ): Promise<Answer> {
     const m = await this.measure(cluster.scope, cluster.kind);
@@ -214,12 +214,12 @@ export class RightSizingService {
 
   private docker(f: Filters, usage: Map<string, Usage>, m: Measured) {
     const s = m.series;
-    const memoryLimit = byKey('docker', s.memoryLimit);
-    const cpuLimit = byKey('docker', s.cpuLimit);
-    const reservation = byKey('docker', s.memoryReservation);
+    const memoryLimit = byKey('server', s.memoryLimit);
+    const cpuLimit = byKey('server', s.cpuLimit);
+    const reservation = byKey('server', s.memoryReservation);
     const hostMemory = new Map((s.hostMemory ?? []).map((x) => [x.labels.host, x.points[0]?.[1]]));
     const present = new Map<string, Record<string, string>>();
-    for (const x of s.present ?? []) present.set(keyOf('docker', x.labels), x.labels);
+    for (const x of s.present ?? []) present.set(keyOf('server', x.labels), x.labels);
     const own = f.system
       ? new Set<string>()
       : watchlogComponents(

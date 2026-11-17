@@ -70,7 +70,7 @@ interface ApiCause {
 export interface ApiCauses {
   subject: ApiObject;
   object: ApiObject | null;
-  cluster: { id: string; name: string; kind: 'kubernetes' | 'docker' };
+  cluster: { id: string; name: string; kind: 'kubernetes' | 'server' };
   state: 'likely' | 'possible' | 'none';
   checkedAt: string;
   symptomSince: string | null;

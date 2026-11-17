@@ -69,18 +69,18 @@ export const containerObject = (host: string, name: string): ObjectRef => ({
   kind: 'container',
   ref: `${host}/${name}`,
   name,
-  platform: 'docker',
+  platform: 'server',
   host,
 });
 export const composeObject = (project: string, service: string, host?: string): ObjectRef => ({
   kind: 'compose_service',
   ref: `${project}/${service}`,
   name: `${project}/${service}`,
-  platform: 'docker',
+  platform: 'server',
   ...(host ? { host } : {}),
 });
 export const nodeObject = (name: string, platform: Platform): ObjectRef => ({
-  kind: platform === 'docker' ? 'host' : 'node',
+  kind: platform === 'server' ? 'host' : 'node',
   ref: name,
   name,
   platform,
@@ -267,8 +267,8 @@ export async function sourceFocus(reader: Reader, cluster: ClusterRef, id: strin
 const PLATFORM_ONLY: Record<string, Platform> = {
   pod: 'kubernetes',
   workload: 'kubernetes',
-  container: 'docker',
-  compose_service: 'docker',
+  container: 'server',
+  compose_service: 'server',
 };
 
 /** The target of a subject in a cluster. */
@@ -280,7 +280,7 @@ export async function resolveTarget(
   const only = PLATFORM_ONLY[subject.kind];
   if (only && only !== cluster.kind)
     throw new AmbiguousError(
-      cluster.kind === 'docker'
+      cluster.kind === 'server'
         ? `${subject.kind} is a Kubernetes subject; this cluster is a Docker fleet (use container or compose_service)`
         : `${subject.kind} is a Docker subject; this cluster is a Kubernetes cluster (use pod or workload)`,
     );

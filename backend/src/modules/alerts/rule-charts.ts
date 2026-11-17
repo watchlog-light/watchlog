@@ -89,7 +89,7 @@ export interface ChartTarget {
   ruleKey: string | null;
   /** The catalog metric for this cluster kind (default metric rules and custom rules). */
   metric: string | null;
-  clusterKind: 'kubernetes' | 'docker';
+  clusterKind: 'kubernetes' | 'server';
   labels: Record<string, string>;
   details: Record<string, unknown>;
   condition: Condition | null;
@@ -221,7 +221,7 @@ export function bandRows(
 /** The query scope of an alert's object, from its labels and facts. */
 export function objectScope(t: ChartTarget): QueryScope {
   const l = t.labels;
-  if (t.clusterKind === 'docker') {
+  if (t.clusterKind === 'server') {
     return {
       ...(l.node ? { host: l.node } : {}),
       ...(l.container ? { container: l.container } : {}),

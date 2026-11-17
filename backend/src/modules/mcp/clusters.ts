@@ -7,7 +7,7 @@ import type { ApiReader } from './reader.js';
 export interface ApiCluster {
   id: string;
   name: string;
-  kind: 'kubernetes' | 'docker';
+  kind: 'kubernetes' | 'server';
   status: 'pending' | 'active' | 'inactive';
   nodeCount: number;
   lastSeenAt: string | null;
@@ -17,7 +17,7 @@ export interface ApiCluster {
 export interface ClusterRef {
   id: string;
   name: string;
-  kind: 'kubernetes' | 'docker';
+  kind: 'kubernetes' | 'server';
 }
 
 export async function listClusters(api: ApiReader): Promise<ApiCluster[]> {

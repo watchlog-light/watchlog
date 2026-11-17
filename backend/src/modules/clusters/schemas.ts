@@ -37,10 +37,21 @@ export const IngestFailureSchema = Type.Object({
   ),
 });
 
+/**
+ * A kind as an input (ADR-207): `server`, `kubernetes`, or `docker`, the 0.8 name of a
+ * Server fleet, accepted as an alias through 1.x. Answers always say `server`.
+ */
+export const ClusterKindInput = Type.Union(
+  [Type.Literal('kubernetes'), Type.Literal('server'), Type.Literal('docker')],
+  { description: '`docker` is an alias of `server` (WatchLog 0.8 and earlier)' },
+);
+export const normalizeKind = (k: 'kubernetes' | 'server' | 'docker'): 'kubernetes' | 'server' =>
+  k === 'docker' ? 'server' : k;
+
 export const ClusterSchema = Type.Object({
   id: Type.String({ format: 'uuid' }),
   name: Type.String(),
-  kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
+  kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('server')]),
   status: Type.Union([Type.Literal('pending'), Type.Literal('active'), Type.Literal('inactive')]),
   nodeCount: Type.Integer({ minimum: 0 }),
   agentVersion: Nullable(Type.String()),

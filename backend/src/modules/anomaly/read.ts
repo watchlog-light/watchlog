@@ -26,7 +26,7 @@ const CHART_ROWS = 5_000;
 const DAY_MS = 86_400_000;
 
 export type WhatChangedSort = 'first' | 'furthest';
-export type ClusterKind = 'kubernetes' | 'docker';
+export type ClusterKind = 'kubernetes' | 'server';
 
 /** What a row is about, in its platform's words. */
 export interface ObjectView {
@@ -400,7 +400,7 @@ export async function readPeriods(
       p.started_at.getTime() < w.toMs && (p.ended_at ? p.ended_at.getTime() : nowMs) > w.fromMs,
   );
   const compose: ComposeOf =
-    cluster.kind === 'docker' && inWindow.length ? await composeMap(db, cluster.id) : new Map();
+    cluster.kind === 'server' && inWindow.length ? await composeMap(db, cluster.id) : new Map();
   const all = inWindow.map((p) => rowView(p, compose));
   await nameServices(db, orgId, cluster.id, all);
   const firstSubject =

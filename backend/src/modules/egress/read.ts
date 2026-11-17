@@ -39,7 +39,7 @@ const DAY_MS = 86_400_000;
 const EXTERNAL = 'dst_kind=~"external|internet"';
 const SOURCE_LABELS = {
   kubernetes: 'namespace, workload_kind, workload',
-  docker: 'host, container, compose_project, compose_service',
+  server: 'host, container, compose_project, compose_service',
 } as const;
 
 export type EgressBadge = 'new' | 'raw_ip' | 'failing' | 'expected';
@@ -252,7 +252,7 @@ function trafficByEdge(
       const t = out.get(k) ?? { sent: 0, received: 0, connections: 0, failed: 0 };
       t[f] += v;
       out.set(k, t);
-      if (kind === 'docker' && l.host) {
+      if (kind === 'server' && l.host) {
         const sk = sourceKey(source);
         if (!hostsOf.has(sk)) hostsOf.set(sk, new Set());
         hostsOf.get(sk)!.add(l.host);
@@ -390,7 +390,7 @@ export async function readEgress(
     const s = (typeof r.source === 'string' ? JSON.parse(r.source) : r.source) as SourceIdentity;
     r.source = s;
     if (!sourceMatches(kind, s, f)) continue;
-    if (kind === 'docker' && f.host && !(f.project && f.service)) {
+    if (kind === 'server' && f.host && !(f.project && f.service)) {
       // A plain container names its host; a Compose service is on the hosts its series came from.
       const onHost =
         s.host !== undefined

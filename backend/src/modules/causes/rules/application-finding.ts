@@ -435,7 +435,7 @@ export function throughLink(
 
 export const applicationFinding: Rule = {
   code: 'application_finding',
-  platforms: ['kubernetes', 'docker'],
+  platforms: ['kubernetes', 'server'],
   applies: (f) => ['application', 'workload', 'container', 'compose_service'].includes(f.kind),
   match(ev: Evidence): Match | null {
     const a = ev.application;

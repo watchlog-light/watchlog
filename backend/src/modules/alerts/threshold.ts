@@ -211,14 +211,14 @@ export async function validateThreshold(
   const isService = isServiceMetric(rule.metric);
   const allowed: readonly string[] = isService
     ? SERVICE_FIELDS
-    : kinds.includes('docker')
+    : kinds.includes('server')
       ? DOCKER_FIELDS
       : KUBE_FIELDS;
   const extra = Object.keys(rule.scope).filter(
     (k) => rule.scope[k as keyof ThresholdScope] !== undefined && !allowed.includes(k),
   );
   if (extra.length) {
-    return `Scope "${extra[0]}" does not apply to a ${isService ? 'service' : kinds[0] === 'docker' ? 'Docker' : 'Kubernetes'} metric`;
+    return `Scope "${extra[0]}" does not apply to a ${isService ? 'service' : kinds[0] === 'server' ? 'Docker' : 'Kubernetes'} metric`;
   }
   if (rule.scope.service && rule.scope.serviceType) {
     return 'A rule is about one service or every service of a type, not both';

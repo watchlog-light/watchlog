@@ -8,7 +8,7 @@ const Nullable = <T extends TSchema>(t: T) => Type.Union([t, Type.Null()]);
 const Facts = Type.Record(Type.String(), Type.Union([Type.String(), Type.Number(), Type.Null()]), {
   description: "The sentence's values; every placeholder of the code's sentence is here",
 });
-const Platform = Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]);
+const Platform = Type.Union([Type.Literal('kubernetes'), Type.Literal('server')]);
 
 export const ObjectRefSchema = Type.Object(
   {

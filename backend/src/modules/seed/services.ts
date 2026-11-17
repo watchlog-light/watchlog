@@ -4,6 +4,7 @@
 // referenced from a Secret or a host file (ADR-133), never in the seed. Each entry is
 // applied once per cluster where it is found: a service someone stops monitoring isn't
 // added back, and one already monitored by hand keeps its access, unless it has none.
+import { ClusterKindInput, normalizeKind } from '../clusters/schemas.js';
 import { Type, type Static } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
@@ -20,7 +21,7 @@ const Name = Type.String({ minLength: 1, maxLength: 253 });
 export const SeedServiceSchema = Type.Object(
   {
     /** The kind of cluster it runs on. */
-    clusterKind: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
+    clusterKind: ClusterKindInput,
     /** A cluster's name or id; left out, every cluster of that kind where it is found. */
     cluster: Type.Optional(Name),
     /** redis, postgres, …; checked against the integration types when applied. */
@@ -66,7 +67,8 @@ export interface SeedServicesLogger {
   warn(obj: object, msg: string): void;
 }
 
-const entryKey = (s: SeedService) => `${s.clusterKind}/${s.cluster ?? '*'}/${s.type}/${s.name}`;
+const entryKey = (s: SeedService) =>
+  `${normalizeKind(s.clusterKind)}/${s.cluster ?? '*'}/${s.type}/${s.name}`;
 
 /** Monitors each seeded service found and not applied yet; safe to run again and again. */
 export async function applySeedServices(
@@ -110,7 +112,8 @@ export async function applySeedServices(
     const type = s.type as IntegrationType;
     const inScope = clusters.filter(
       (c) =>
-        c.kind === s.clusterKind && (s.cluster === undefined || [c.id, c.name].includes(s.cluster)),
+        c.kind === normalizeKind(s.clusterKind) &&
+        (s.cluster === undefined || [c.id, c.name].includes(s.cluster)),
     );
     for (const c of inScope) {
       const key = `${entryKey(s)}@${c.id}`;

@@ -121,7 +121,7 @@ const RowSchema = Type.Object({
 export const EgressSchema = Type.Object({
   cluster: Type.Object({
     id: Type.String({ format: 'uuid' }),
-    kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
+    kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('server')]),
   }),
   range: Type.Object({
     from: Type.String({ format: 'date-time' }),
@@ -330,7 +330,7 @@ export const egressRoutes: FastifyPluginAsyncTypebox<{
     async (request, reply) => {
       const orgId = request.user!.org.id;
       const row = await clusterForOrg(db, orgId, request.query.cluster);
-      if (!row || (row.kind !== 'kubernetes' && row.kind !== 'docker')) {
+      if (!row || (row.kind !== 'kubernetes' && row.kind !== 'server')) {
         return sendProblem(reply, 404, 'Cluster not found');
       }
       return { items: await expectationViews(orgId, row.id) };
@@ -374,7 +374,7 @@ export const egressRoutes: FastifyPluginAsyncTypebox<{
       const orgId = request.user!.org.id;
       const body = request.body;
       const row = await clusterForOrg(db, orgId, body.cluster);
-      if (!row || (row.kind !== 'kubernetes' && row.kind !== 'docker')) {
+      if (!row || (row.kind !== 'kubernetes' && row.kind !== 'server')) {
         return sendProblem(reply, 404, 'Cluster not found');
       }
       const parsed = parsePattern(body.pattern);
@@ -512,10 +512,10 @@ export const egressRoutes: FastifyPluginAsyncTypebox<{
       const query = request.query;
       const orgId = request.user!.org.id;
       const row = await clusterForOrg(db, orgId, query.cluster);
-      if (!row || (row.kind !== 'kubernetes' && row.kind !== 'docker')) {
+      if (!row || (row.kind !== 'kubernetes' && row.kind !== 'server')) {
         return sendProblem(reply, 404, 'Cluster not found');
       }
-      if (row.kind === 'docker') {
+      if (row.kind === 'server') {
         // ADR-190, ADR-124's exception: nothing to suggest on Docker.
         return sendProblem(
           reply,
@@ -623,7 +623,7 @@ export const egressRoutes: FastifyPluginAsyncTypebox<{
     async (request, reply) => {
       const query = request.query;
       const row = await clusterForOrg(db, request.user!.org.id, query.cluster);
-      if (!row || (row.kind !== 'kubernetes' && row.kind !== 'docker')) {
+      if (!row || (row.kind !== 'kubernetes' && row.kind !== 'server')) {
         return sendProblem(reply, 404, 'Cluster not found');
       }
       const nowMs = now();

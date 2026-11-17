@@ -279,7 +279,7 @@ export function problemSubject(
   if (platform === 'kubernetes' && o.kind === 'Pod' && o.namespace)
     return { kind: 'pod', namespace: o.namespace, name: o.name };
   // Docker problems name the container's host in `namespace`.
-  if (platform === 'docker' && o.kind === 'Container' && o.namespace)
+  if (platform === 'server' && o.kind === 'Container' && o.namespace)
     return { kind: 'container', host: o.namespace, name: o.name };
   // Nodes and volumes are no subject (ADR-146).
   return null;

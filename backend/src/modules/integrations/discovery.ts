@@ -147,7 +147,7 @@ export interface Discovered {
   key: string;
   clusterId: string;
   clusterName: string;
-  clusterKind: 'kubernetes' | 'docker';
+  clusterKind: 'kubernetes' | 'server';
   type: IntegrationType;
   name: string;
   image: string | null;
@@ -349,7 +349,7 @@ export async function discover(
       key,
       clusterId: o.cluster_id,
       clusterName: cluster.name,
-      clusterKind: cluster.kind as 'kubernetes' | 'docker',
+      clusterKind: cluster.kind as 'kubernetes' | 'server',
       type: kind.type,
       name,
       image: image ?? null,
@@ -375,7 +375,7 @@ export interface Ignored {
   id: string;
   clusterId: string;
   clusterName: string;
-  clusterKind: 'kubernetes' | 'docker';
+  clusterKind: 'kubernetes' | 'server';
   /** One candidate (by its key) or a namespace or Compose project. */
   scope: 'service' | 'group';
   label: string;
@@ -407,7 +407,7 @@ export async function listIgnored(
     id: r.id,
     clusterId: r.cluster_id,
     clusterName: r.name,
-    clusterKind: r.kind as 'kubernetes' | 'docker',
+    clusterKind: r.kind as 'kubernetes' | 'server',
     scope: r.service_key ? 'service' : 'group',
     label: r.label,
     createdAt: r.created_at,

@@ -64,7 +64,7 @@ export async function recordUsage(deps: UsageJobDeps, nowMs: number): Promise<nu
     .select([
       's.org_id',
       sql<number>`count(*) filter (where c.kind = 'kubernetes')::int`.as('nodes'),
-      sql<number>`count(*) filter (where c.kind = 'docker')::int`.as('docker_hosts'),
+      sql<number>`count(*) filter (where c.kind = 'server')::int`.as('docker_hosts'),
     ])
     .where('s.hour', '=', hour)
     .groupBy('s.org_id')

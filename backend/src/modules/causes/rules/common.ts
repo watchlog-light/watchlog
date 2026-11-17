@@ -276,7 +276,7 @@ export function changeObject(ev: Evidence, m: EvMarker): ObjectRef {
     name: parts.length >= 3 ? parts.slice(-1)[0]! : (parts[1] ?? m.target),
     platform: ev.platform,
     workloadKind: parts[0],
-    ...(ev.platform === 'docker' && parts.length >= 3 ? { host: parts[1] } : {}),
+    ...(ev.platform === 'server' && parts.length >= 3 ? { host: parts[1] } : {}),
   };
 }
 

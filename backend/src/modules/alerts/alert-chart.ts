@@ -118,7 +118,7 @@ export async function alertChart(
   if (!row) return null;
 
   const snap = row.rule_snapshot as RuleSnapshot | null;
-  const kind = row.cluster_kind as 'kubernetes' | 'docker';
+  const kind = row.cluster_kind as 'kubernetes' | 'server';
   const def = defaultRuleOf(row.rule_key);
   const condition = (snap ? snap.condition : row.condition) as Condition | null;
   const forSeconds = snap?.forSeconds ?? row.for_seconds;

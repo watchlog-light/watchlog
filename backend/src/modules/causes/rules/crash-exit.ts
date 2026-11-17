@@ -47,7 +47,7 @@ function eventStep(ev: Evidence, object: Step['object'], events: Evidence['event
   return e
     ? {
         object,
-        source: ev.platform === 'docker' ? 'docker' : 'kubernetes',
+        source: ev.platform === 'server' ? 'docker' : 'kubernetes',
         code: 'last_event',
         facts: { reason: e.reason, message: e.message.slice(0, 200) },
         at: e.lastSeen,
@@ -209,8 +209,8 @@ function docker(ev: Evidence): Match | null {
 
 export const crashExit: Rule = {
   code: 'crash_exit',
-  platforms: ['kubernetes', 'docker'],
+  platforms: ['kubernetes', 'server'],
   applies: (f) => ['pod', 'workload', 'container', 'compose_service'].includes(f.kind),
-  match: (ev) => (ev.platform === 'docker' ? docker(ev) : kube(ev)),
+  match: (ev) => (ev.platform === 'server' ? docker(ev) : kube(ev)),
   explains: ['self', 'events'],
 };

@@ -121,7 +121,7 @@ function docker(ev: Evidence): Match | null {
   const name = shortName(ev);
   return {
     code: 'oom_limit',
-    facts: { name, container: c.name, limitBytes: limit, n, platform: 'docker' },
+    facts: { name, container: c.name, limitBytes: limit, n, platform: 'server' },
     // Docker events are aggregated since the first one ever: an older firstSeen says nothing.
     since: failureSince(
       ev,
@@ -138,11 +138,11 @@ function docker(ev: Evidence): Match | null {
 }
 
 /** Whether a pod or container was OOM-killed at its limit in the window (for other rules). */
-export const oomAtLimit = (ev: Evidence) => (ev.platform === 'docker' ? docker(ev) : kube(ev));
+export const oomAtLimit = (ev: Evidence) => (ev.platform === 'server' ? docker(ev) : kube(ev));
 
 export const oomLimit: Rule = {
   code: 'oom_limit',
-  platforms: ['kubernetes', 'docker'],
+  platforms: ['kubernetes', 'server'],
   applies: (f) => ['pod', 'workload', 'container', 'compose_service'].includes(f.kind),
   match: oomAtLimit,
   explains: ['self', 'events'],

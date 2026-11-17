@@ -135,7 +135,7 @@ async function targets(deps: AnomalyDeps, orgs: Map<string, number>): Promise<Ta
     await withOrg(orgId, async () => {
       for (const { id } of await listClusters(deps.db, orgId)) {
         const c = await clusterForOrg(deps.db, orgId, id);
-        if (!c || (c.kind !== 'kubernetes' && c.kind !== 'docker')) continue;
+        if (!c || (c.kind !== 'kubernetes' && c.kind !== 'server')) continue;
         out.push({ orgId, learningSince, clusterId: id, kind: c.kind, scope: c.scope });
       }
     });
@@ -432,7 +432,7 @@ export async function recomputeBucket(deps: AnomalyDeps, t: Target, hour: number
   }
   if (!ranges.length) return 0;
   const composeOf: ComposeOf =
-    t.kind === 'docker' ? await composeMap(deps.db, t.clusterId) : new Map();
+    t.kind === 'server' ? await composeMap(deps.db, t.clusterId) : new Map();
   const firing = await firingAlerts(
     deps.db,
     t.kind,

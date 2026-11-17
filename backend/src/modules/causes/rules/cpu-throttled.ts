@@ -33,7 +33,7 @@ function before(throttledSince: string | null, slowSince: string | null): boolea
 
 export const cpuThrottled: Rule = {
   code: 'cpu_throttled',
-  platforms: ['kubernetes', 'docker'],
+  platforms: ['kubernetes', 'server'],
   applies: (f) => ['pod', 'workload', 'container', 'compose_service'].includes(f.kind),
   match(ev: Evidence): Match | null {
     const t = throttled(ev);

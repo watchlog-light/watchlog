@@ -61,7 +61,7 @@ export const AnomalyAlertSchema = Type.Object({
   cluster: Type.Object({
     id: Type.String({ format: 'uuid' }),
     name: Type.String(),
-    kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
+    kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('server')]),
   }),
   key: Type.String(),
   unit: Type.String(),
@@ -150,12 +150,12 @@ export const anomalyFeedbackRoutes: FastifyPluginAsyncTypebox<{
       !alert ||
       !cluster ||
       !period ||
-      (cluster.kind !== 'kubernetes' && cluster.kind !== 'docker')
+      (cluster.kind !== 'kubernetes' && cluster.kind !== 'server')
     ) {
       sendProblem(reply, 404, 'No anomaly alert with this id');
       return null;
     }
-    return { orgId, alert, cluster, period, kind: cluster.kind as 'kubernetes' | 'docker' };
+    return { orgId, alert, cluster, period, kind: cluster.kind as 'kubernetes' | 'server' };
   }
 
   /** The answer not undone for this alert. */
@@ -241,7 +241,7 @@ export const anomalyFeedbackRoutes: FastifyPluginAsyncTypebox<{
       const { orgId, alert, cluster, period, kind } = found;
       const unit = unitOf(period.metric);
       const subject = labelsOf(period.subject);
-      const compose = kind === 'docker' ? await composeMap(db, cluster.id) : new Map();
+      const compose = kind === 'server' ? await composeMap(db, cluster.id) : new Map();
       const { object, peer } = objectOf(period.metric, subject, compose);
       const nowMs = now();
       const endMs = Math.min(period.ended_at?.getTime() ?? nowMs, nowMs);

@@ -31,7 +31,7 @@ interface Overview {
 function reason(type: OverviewProblem['type'], kind: ClusterRef['kind']): string {
   switch (type) {
     case 'crashloop':
-      return kind === 'docker'
+      return kind === 'server'
         ? 'Restarting repeatedly: the container keeps exiting.'
         : 'Restarting repeatedly (CrashLoopBackOff): a container keeps exiting.';
     case 'oom':
@@ -39,7 +39,7 @@ function reason(type: OverviewProblem['type'], kind: ClusterRef['kind']): string
     case 'connections':
       return 'Connections to it are failing.';
     case 'nodes':
-      return kind === 'docker'
+      return kind === 'server'
         ? 'A Docker host is not reporting or is short of resources.'
         : 'A node is not ready or is under pressure.';
     case 'other':
@@ -54,7 +54,7 @@ function objectField(
   alertLabels?: Record<string, string>,
 ) {
   if (object) {
-    return kind === 'docker' && object.kind === 'Container'
+    return kind === 'server' && object.kind === 'Container'
       ? { kind: 'Container', host: name(object.namespace), name: name(object.name) }
       : { kind: object.kind, namespace: name(object.namespace), name: name(object.name) };
   }
@@ -81,7 +81,7 @@ export const getProblemsTool = defineTool({
   summarize: (a) => summary(a.cluster, a.namespace),
   async run(args, { api }) {
     const cluster = await resolveCluster(api, args.cluster);
-    if (args.namespace && cluster.kind === 'docker') {
+    if (args.namespace && cluster.kind === 'server') {
       throw new ToolError(
         'Namespaces are a Kubernetes notion; this cluster is a Docker fleet.',
         'Leave `namespace` out. Docker problems name their host and container.',

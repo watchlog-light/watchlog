@@ -33,7 +33,7 @@ export interface DefaultRule {
   /** Unit of the condition's thresholds (metric rules). */
   unit?: 'ratio' | 'count' | 'bytes';
   /** The catalog metric per cluster kind (metric rules; the preview queries it). */
-  metrics?: Partial<Record<'kubernetes' | 'docker', string>>;
+  metrics?: Partial<Record<'kubernetes' | 'server', string>>;
   evaluator: RuleEvaluator;
 }
 
@@ -263,7 +263,7 @@ const deploymentUnavailable: RuleEvaluator = {
 };
 
 const dockerUnhealthy: RuleEvaluator = {
-  kinds: ['docker'],
+  kinds: ['server'],
   async evaluate(ctx) {
     const out: Observation[] = [];
     for (const c of await objects(ctx, 'DockerContainer')) {
@@ -296,7 +296,7 @@ const dockerUnhealthy: RuleEvaluator = {
 };
 
 const agentNotReporting: RuleEvaluator = {
-  kinds: ['kubernetes', 'docker'],
+  kinds: ['kubernetes', 'server'],
   async evaluate(ctx) {
     const r = await clusterReporting(ctx);
     const severity = ctx.rule.severity as Severity;
@@ -331,7 +331,7 @@ export const INGEST_FAILING_RULE = 'watchlog.ingest.failing';
 // Ingest failing (ADR-117): the backend answered this cluster's agents with errors since
 // `since`, so its data is delayed or lost. One alert per cluster, firing after 5 min.
 const ingestFailing: RuleEvaluator = {
-  kinds: ['kubernetes', 'docker'],
+  kinds: ['kubernetes', 'server'],
   async evaluate(ctx) {
     const f = (await ingestFailures(ctx.db, [ctx.cluster.id], ctx.now)).get(ctx.cluster.id);
     if (!f) return [];

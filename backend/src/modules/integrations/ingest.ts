@@ -24,7 +24,9 @@ const Host = Type.String({ maxLength: 253, pattern: '^[A-Za-z0-9._-]*$' });
 export const StatusBody = Type.Object(
   {
     host: Host,
-    mode: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
+    // A collector's mode: `docker` (0.8 and earlier) and `server` (0.9, ADR-207) are the same,
+    // a collector on a server; stored as `docker`, the collector's mode, not the fleet's kind.
+    mode: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker'), Type.Literal('server')]),
     version: Type.String({ minLength: 1, maxLength: 64 }),
     config_version: Type.String({ maxLength: 64 }),
     self: Type.Object(
@@ -304,6 +306,7 @@ export function registerIntegrationIngest(
         );
       }
       const now = new Date();
+      const mode = body.mode === 'kubernetes' ? 'kubernetes' : 'docker';
       await db.transaction().execute(async (trx) => {
         await trx
           .insertInto('integration_collectors')
@@ -311,7 +314,7 @@ export function registerIntegrationIngest(
             id: newId(),
             cluster_id: owner.clusterId,
             host: body.host,
-            mode: body.mode,
+            mode,
             version: body.version,
             self: JSON.stringify(body.self),
             config_etag: body.config_version || null,
@@ -319,7 +322,7 @@ export function registerIntegrationIngest(
           })
           .onConflict((oc) =>
             oc.columns(['cluster_id', 'host']).doUpdateSet({
-              mode: body.mode,
+              mode,
               version: body.version,
               self: JSON.stringify(body.self),
               config_etag: body.config_version || null,

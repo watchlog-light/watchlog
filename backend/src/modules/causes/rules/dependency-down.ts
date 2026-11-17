@@ -139,7 +139,7 @@ function docker(ev: Evidence): Match | null {
   };
   return {
     code: 'dependency_down',
-    facts: { name, target, platform: 'docker', exitCode: c.exitCode },
+    facts: { name, target, platform: 'server', exitCode: c.exitCode },
     since,
     chain: own ? tail(own.chain, 2) : [stopped],
     complete: true,
@@ -154,9 +154,9 @@ function docker(ev: Evidence): Match | null {
 
 export const dependencyDown: Rule = {
   code: 'dependency_down',
-  platforms: ['kubernetes', 'docker'],
+  platforms: ['kubernetes', 'server'],
   // Only at the far end of an edge: on its own, a workload scaled to 0 is no problem.
   applies: (f) => ['workload', 'container', 'compose_service'].includes(f.kind),
-  match: (ev) => (!ev.via ? null : ev.platform === 'docker' ? docker(ev) : kube(ev)),
+  match: (ev) => (!ev.via ? null : ev.platform === 'server' ? docker(ev) : kube(ev)),
   explains: ['dependencies'],
 };

@@ -3,6 +3,7 @@
 // the API: how the read-only demo, which refuses every change, gets its alert rules and
 // its public MCP token (ADR-130, modules/demo/mcp-token.ts).
 // Each rule is created once, matched by name, and never overwritten.
+import { ClusterKindInput, normalizeKind } from '../clusters/schemas.js';
 import { readFile } from 'node:fs/promises';
 import { sql } from 'kysely';
 import { Type, type Static } from 'typebox';
@@ -50,7 +51,7 @@ const SeedDemoMcpSchema = Type.Object(
 const SeedClusterSchema = Type.Object(
   {
     name: Type.String({ minLength: 1, maxLength: 63, pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$' }),
-    kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
+    kind: ClusterKindInput,
     /** The cluster token's SHA-256, 64 hex characters. */
     tokenSha256: Type.String({ pattern: '^[0-9a-f]{64}$' }),
     /** The 8 characters after `wl_ct_`, which find the token. */
@@ -129,7 +130,7 @@ export async function applySeed(db: Database, seed: Seed, log: SeedLogger): Prom
   for (const c of seed.clusters ?? []) {
     const outcome = await ensureTokenCluster(db, {
       name: c.name,
-      kind: c.kind,
+      kind: normalizeKind(c.kind),
       hash: Buffer.from(c.tokenSha256, 'hex'),
       prefix: c.tokenPrefix,
     });

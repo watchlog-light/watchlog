@@ -211,7 +211,7 @@ export const onboardingCloudRoutes: FastifyPluginAsyncTypebox<{
                   /** helm, kubectl, docker, compose: which command was copied. */
                   method: Type.Optional(Type.String({ pattern: '^[a-z]{1,16}$' })),
                   kind: Type.Optional(
-                    Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
+                    Type.Union([Type.Literal('kubernetes'), Type.Literal('server')]),
                   ),
                 },
                 { additionalProperties: false },

@@ -544,7 +544,7 @@ export const serviceMapRoutes: FastifyPluginAsyncTypebox<ServiceMapDeps> = async
           proxies: [],
           ...(await markComponents(
             cluster.id,
-            cluster.kind === 'docker'
+            cluster.kind === 'server'
               ? await dockerTopology(cluster.id)
               : await topology(cluster.id, namespaces),
           )),

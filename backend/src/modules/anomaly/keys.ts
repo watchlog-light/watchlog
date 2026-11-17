@@ -6,7 +6,7 @@
 import { createHash } from 'node:crypto';
 import { buildQuery, metricUnit, type MetricKey, type Unit } from '../query/catalog.js';
 
-export type ClusterKind = 'kubernetes' | 'docker';
+export type ClusterKind = 'kubernetes' | 'server';
 
 /** The read's step and the rate window it implies (catalog.rateWindow(60) = 120 s). */
 export const STEP_S = 60;
@@ -28,7 +28,7 @@ export const PLATFORM_KEYS: Record<ClusterKind, MetricKey[]> = {
     'workload.memory.working_set',
     ...BOTH_HTTP,
   ],
-  docker: [
+  server: [
     'host.cpu.utilization',
     'host.memory.utilization',
     'host.network.bytes',
@@ -129,7 +129,7 @@ export function allScoredKeys(): ScoredKey[] {
   return [
     ...new Set<ScoredKey>([
       ...PLATFORM_KEYS.kubernetes,
-      ...PLATFORM_KEYS.docker,
+      ...PLATFORM_KEYS.server,
       ...Object.values(INTEGRATION_KEYS).flat(),
       ...(Object.keys(EDGE_KEYS) as ScoredKey[]),
     ]),

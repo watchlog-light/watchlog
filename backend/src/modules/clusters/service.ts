@@ -10,7 +10,7 @@ import type { IngestFailure } from '../ingest/errors.js';
 /** A cluster is "active" while an agent reported within this window (SPEC §4.7). */
 export const CLUSTER_STALE_MS = 3 * 60 * 1000;
 
-export type ClusterKind = 'kubernetes' | 'docker';
+export type ClusterKind = 'kubernetes' | 'server';
 export type ClusterStatus = 'pending' | 'active' | 'inactive';
 
 /** Active tokens per cluster; enough for overlapping rotations. */

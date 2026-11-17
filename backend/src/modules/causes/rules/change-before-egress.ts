@@ -44,7 +44,7 @@ function changeFacts(m: EvMarker): { code: string; facts: Record<string, string>
 
 export const changeBeforeEgress: Rule = {
   code: 'change_before_egress',
-  platforms: ['kubernetes', 'docker'],
+  platforms: ['kubernetes', 'server'],
   applies: (f) => ['pod', 'workload', 'container', 'compose_service'].includes(f.kind),
   match(ev): Match | null {
     if (!isEgressAlert(ev)) return null;

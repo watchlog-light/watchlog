@@ -159,7 +159,7 @@ export async function attachCauses(
         const w = wanted.get(s.org_id) ?? { orgId: s.org_id, jobs: [] };
         if (!w.jobs.some((j) => j.subject.kind === 'alert' && j.subject.id === it.alertId)) {
           w.jobs.push({
-            cluster: { ...p.cluster, kind: p.cluster.kind as 'kubernetes' | 'docker' },
+            cluster: { ...p.cluster, kind: p.cluster.kind as 'kubernetes' | 'server' },
             subject: { kind: 'alert', id: it.alertId },
           });
         }

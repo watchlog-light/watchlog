@@ -58,7 +58,7 @@ export const causesRoutes: FastifyPluginAsyncTypebox<{
       const orgId = request.user!.org.id;
       const row = await clusterForOrg(db, orgId, request.query.cluster);
       if (!row) return sendProblem(reply, 404, 'Cluster not found');
-      const cluster = { id: row.id, name: row.name, kind: row.kind as 'kubernetes' | 'docker' };
+      const cluster = { id: row.id, name: row.name, kind: row.kind as 'kubernetes' | 'server' };
       try {
         return await causes.answer(causeReader(app, request), orgId, cluster, subject);
       } catch (err) {

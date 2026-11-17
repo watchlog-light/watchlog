@@ -79,7 +79,7 @@ export function dependenciesOf(ev: Evidence): Dependency[] {
         (b.http?.p95Seconds ?? 0) - (a.http?.p95Seconds ?? 0),
     );
   const quiet =
-    ev.platform === 'docker' && lookupsFail(ev)
+    ev.platform === 'server' && lookupsFail(ev)
       ? ev.map.outgoing
           .filter((e) => e.target.startsWith('c:') && !edgeTrouble(e))
           .sort((a, b) => a.connectionsPerSecond - b.connectionsPerSecond)

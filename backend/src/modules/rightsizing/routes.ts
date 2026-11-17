@@ -120,7 +120,7 @@ export const rightSizingRoutes: FastifyPluginAsyncTypebox<{
       }
       try {
         return await rightSizing.answer(
-          { id: row.id, kind: row.kind as 'kubernetes' | 'docker', scope: row.scope },
+          { id: row.id, kind: row.kind as 'kubernetes' | 'server', scope: row.scope },
           request.query,
         );
       } catch (err) {

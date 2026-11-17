@@ -94,7 +94,7 @@ export function checkAccess(
       if (clusterKind === 'kubernetes' && !a.secret) {
         return { ok: false, message: 'On Kubernetes, name the Secret and its key' };
       }
-      if (clusterKind === 'docker' && !a.file) {
+      if (clusterKind === 'server' && !a.file) {
         return { ok: false, message: 'On Docker, name the file under /etc/watchlog/secrets' };
       }
       return {
@@ -217,7 +217,7 @@ export async function placementOf(
   const t = body.target;
   const k8sTarget = t.kind === 'workload';
   const dockerTarget = t.kind === 'compose' || t.kind === 'container';
-  if ((k8sTarget && cluster.kind !== 'kubernetes') || (dockerTarget && cluster.kind !== 'docker')) {
+  if ((k8sTarget && cluster.kind !== 'kubernetes') || (dockerTarget && cluster.kind !== 'server')) {
     return {
       ok: false,
       status: 400,
@@ -226,7 +226,7 @@ export async function placementOf(
   }
   let collectorHost = '';
   if (dockerTarget) collectorHost = t.host;
-  if (t.kind === 'address' && cluster.kind === 'docker') {
+  if (t.kind === 'address' && cluster.kind === 'server') {
     if (!body.collectorHost) {
       return {
         ok: false,

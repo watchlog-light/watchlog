@@ -195,42 +195,42 @@ export const METRIC_RULES: DefaultRule[] = [
   {
     // Phase 4 (ADR-102): eBPF flows; nothing fires without them.
     key: 'network.connections.failed',
-    metrics: { kubernetes: 'flow.failed.ratio', docker: 'flow.failed.ratio' },
+    metrics: { kubernetes: 'flow.failed.ratio', server: 'flow.failed.ratio' },
     unit: 'ratio',
     name: 'Service-to-service failed connections',
     severity: 'warning',
     forSeconds: 300,
     condition: { op: '>', value: 0.05 },
     evaluator: metricRule({
-      metric: { kubernetes: 'flow.failed.ratio', docker: 'flow.failed.ratio' },
+      metric: { kubernetes: 'flow.failed.ratio', server: 'flow.failed.ratio' },
       scope: (l) => flowScope(l),
       summary: (v) => `${pct(v)} of connections failed`,
     }),
   },
   {
     key: 'node.cpu.high',
-    metrics: { kubernetes: 'node.cpu.utilization', docker: 'host.cpu.utilization' },
+    metrics: { kubernetes: 'node.cpu.utilization', server: 'host.cpu.utilization' },
     unit: 'ratio',
     name: 'Node CPU high',
     severity: 'warning',
     forSeconds: 600,
     condition: { op: '>', value: 0.9 },
     evaluator: metricRule({
-      metric: { kubernetes: 'node.cpu.utilization', docker: 'host.cpu.utilization' },
+      metric: { kubernetes: 'node.cpu.utilization', server: 'host.cpu.utilization' },
       scope: (l) => nodeScope(l),
       summary: (v) => `CPU ${pct(v)}`,
     }),
   },
   {
     key: 'node.disk.usage',
-    metrics: { kubernetes: 'node.filesystem.utilization', docker: 'host.filesystem.utilization' },
+    metrics: { kubernetes: 'node.filesystem.utilization', server: 'host.filesystem.utilization' },
     unit: 'ratio',
     name: 'Node disk usage',
     severity: 'warning',
     forSeconds: 0,
     condition: { op: '>', value: 0.85, critical: 0.95 },
     evaluator: metricRule({
-      metric: { kubernetes: 'node.filesystem.utilization', docker: 'host.filesystem.utilization' },
+      metric: { kubernetes: 'node.filesystem.utilization', server: 'host.filesystem.utilization' },
       trend: true,
       scope: (l) => nodeScope(l, 'mount'),
       summary: (v, l) => `${l.mount} ${pct(v)} used`,
@@ -287,14 +287,14 @@ export const METRIC_RULES: DefaultRule[] = [
   {
     // The Docker form (ADR-124, ADR-160): the same share, per container.
     key: 'docker.container.throttling',
-    metrics: { docker: 'container.cpu.throttled_share' },
+    metrics: { server: 'container.cpu.throttled_share' },
     unit: 'ratio',
     name: 'Docker container CPU throttling',
     severity: 'warning',
     forSeconds: 900,
     condition: { op: '>', value: 0.25 },
     evaluator: metricRule({
-      metric: { docker: 'container.cpu.throttled_share' },
+      metric: { server: 'container.cpu.throttled_share' },
       scope: (l) =>
         l.host && l.container
           ? {
@@ -307,14 +307,14 @@ export const METRIC_RULES: DefaultRule[] = [
   },
   {
     key: 'docker.container.restarts',
-    metrics: { docker: 'container.restarts.increase' },
+    metrics: { server: 'container.restarts.increase' },
     unit: 'count',
     name: 'Docker container restarting',
     severity: 'warning',
     forSeconds: 0,
     condition: { op: '>', value: 3 },
     evaluator: metricRule({
-      metric: { docker: 'container.restarts.increase' },
+      metric: { server: 'container.restarts.increase' },
       scope: (l) =>
         l.host && l.container
           ? {

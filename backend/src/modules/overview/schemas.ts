@@ -70,7 +70,7 @@ const Top = Type.Object({
 });
 
 export const OverviewSchema = Type.Object({
-  kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
+  kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('server')]),
   cluster: Type.Object({
     id: Type.String(),
     name: Type.String(),

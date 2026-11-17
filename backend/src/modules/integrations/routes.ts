@@ -72,7 +72,7 @@ const Reason = Type.Object({
 const ClusterRef = Type.Object({
   id: Type.String(),
   name: Type.String(),
-  kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
+  kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('server')]),
 });
 export const ApplicationSchema = Type.Object({
   id: Type.String(),
@@ -169,7 +169,7 @@ function toView(
     cluster: {
       id: row.cluster_id,
       name: row.cluster_name,
-      kind: row.cluster_kind as 'kubernetes' | 'docker',
+      kind: row.cluster_kind as 'kubernetes' | 'server',
     },
     where: whereOf(row.target),
     target: row.target,
@@ -517,7 +517,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         collectors: rows.map((r) => {
           const c = byId.get(r.cluster_id)!;
           return {
-            cluster: { id: c.id, name: c.name, kind: c.kind as 'kubernetes' | 'docker' },
+            cluster: { id: c.id, name: c.name, kind: c.kind as 'kubernetes' | 'server' },
             host: r.host || null,
             version: r.version,
             lastSeenAt: r.last_seen_at.toISOString(),
@@ -693,7 +693,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         page: { id: page.id, tabs: page.tabs.map((t) => ({ id: t.id, title: t.title })) },
         range,
         ...(install &&
-        view.cluster.kind === 'docker' &&
+        view.cluster.kind === 'server' &&
         ctx.row.collector_host &&
         (view.reason.code === 'collector_missing' || view.reason.code === 'collector_silent')
           ? {

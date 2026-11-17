@@ -85,7 +85,7 @@ export const WhatChangedSchema = Type.Object({
   cluster: Type.Object({
     id: Type.String({ format: 'uuid' }),
     name: Type.String(),
-    kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
+    kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('server')]),
   }),
   window: Type.Object({
     from: DateTime,
@@ -164,7 +164,7 @@ export const whatChangedRoutes: FastifyPluginAsyncTypebox<{
       }
       const q = request.query;
       const row = await clusterForOrg(db, orgId, q.cluster);
-      if (!row || (row.kind !== 'kubernetes' && row.kind !== 'docker')) {
+      if (!row || (row.kind !== 'kubernetes' && row.kind !== 'server')) {
         return sendProblem(reply, 404, 'Cluster not found');
       }
       const kind = row.kind as ClusterKind;

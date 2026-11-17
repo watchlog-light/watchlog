@@ -63,7 +63,7 @@ export const getEventsTool = defineTool({
     summary(a.cluster, a.namespace ?? a.host, a.object, a.type, a.since && `${a.since} min`),
   async run(args, { api }) {
     const cluster = await resolveCluster(api, args.cluster);
-    if (cluster.kind === 'docker' && args.namespace) {
+    if (cluster.kind === 'server' && args.namespace) {
       throw new ToolError(
         'Namespaces are a Kubernetes notion; this cluster is a Docker fleet.',
         'Pass `host` instead, or leave both out.',
@@ -128,7 +128,7 @@ export const getEventsTool = defineTool({
           reason: text(g.latest.reason, 128),
           object: {
             kind: text(g.latest.involvedKind, 64),
-            ...(cluster.kind === 'docker'
+            ...(cluster.kind === 'server'
               ? { host: name(g.latest.host) }
               : { namespace: name(g.latest.namespace) }),
             name: name(g.latest.involvedName),
@@ -208,7 +208,7 @@ export const getRecentChangesTool = defineTool({
   summarize: (a) => summary(a.cluster, a.namespace, a.since && `${a.since} min`),
   async run(args, { api }) {
     const cluster = await resolveCluster(api, args.cluster);
-    if (cluster.kind === 'docker' && args.namespace) {
+    if (cluster.kind === 'server' && args.namespace) {
       throw new ToolError(
         'Namespaces are a Kubernetes notion; this cluster is a Docker fleet.',
         'Leave `namespace` out.',

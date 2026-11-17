@@ -123,11 +123,11 @@ export const queryMetricTool = defineTool({
     ),
   async run(args, { api }) {
     const cluster = await resolveCluster(api, args.cluster);
-    const allowed = cluster.kind === 'docker' ? DOCKER_PREFIXES : KUBERNETES_PREFIXES;
+    const allowed = cluster.kind === 'server' ? DOCKER_PREFIXES : KUBERNETES_PREFIXES;
     const metric = args.metric as string;
     if (!allowed.some((p) => metric.startsWith(p))) {
       throw new ToolError(
-        cluster.kind === 'docker'
+        cluster.kind === 'server'
           ? 'This metric is for Kubernetes clusters; this cluster is a Docker fleet.'
           : 'This metric is for Docker fleets; this cluster is Kubernetes.',
         `Use a metric starting with ${allowed.join(', ')}`,

@@ -21,10 +21,10 @@ export const SERVICE_METRIC_PREFIXES = [
 export const isServiceMetric = (metric: string) =>
   SERVICE_METRIC_PREFIXES.some((p) => metric.startsWith(p));
 
-export function metricKinds(metric: string): ('kubernetes' | 'docker')[] {
-  if (isServiceMetric(metric)) return ['kubernetes', 'docker'];
+export function metricKinds(metric: string): ('kubernetes' | 'server')[] {
+  if (isServiceMetric(metric)) return ['kubernetes', 'server'];
   return metric.startsWith('host.') || metric.startsWith('container.')
-    ? ['docker']
+    ? ['server']
     : ['kubernetes'];
 }
 

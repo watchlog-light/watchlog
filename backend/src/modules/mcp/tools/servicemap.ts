@@ -82,7 +82,7 @@ export const getServiceMapTool = defineTool({
   summarize: (a) => summary(a.cluster, a.namespace, a.workload, a.onlyProblems && 'problems'),
   async run(args, { api }) {
     const cluster = await resolveCluster(api, args.cluster);
-    if (cluster.kind === 'docker' && args.namespace) {
+    if (cluster.kind === 'server' && args.namespace) {
       throw new ToolError(
         'Namespaces are a Kubernetes notion; this cluster is a Docker fleet.',
         'Pass a container or Compose service as `workload` instead.',
@@ -100,9 +100,9 @@ export const getServiceMapTool = defineTool({
       return {
         kind: n.workloadKind ?? n.kind,
         ...(n.namespace
-          ? { [cluster.kind === 'docker' ? 'project' : 'namespace']: name(n.namespace) }
+          ? { [cluster.kind === 'server' ? 'project' : 'namespace']: name(n.namespace) }
           : {}),
-        name: name(cluster.kind === 'docker' && n.kind === 'container' ? n.id.slice(2) : n.name),
+        name: name(cluster.kind === 'server' && n.kind === 'container' ? n.id.slice(2) : n.name),
       };
     };
 

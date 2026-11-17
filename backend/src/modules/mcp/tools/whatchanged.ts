@@ -22,7 +22,7 @@ export const MCP_WHAT_CHANGED_ROWS = 30;
 export const PRO_REFUSAL = 'What changed is part of WatchLog Pro; this organization is on Free.';
 
 interface ApiWhatChanged {
-  cluster: { id: string; name: string; kind: 'kubernetes' | 'docker' };
+  cluster: { id: string; name: string; kind: 'kubernetes' | 'server' };
   window: { from: string; to: string; alert: { id: string; startedAt: string } | null };
   sort: 'first' | 'furthest';
   chart: { counts: number[] };

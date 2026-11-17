@@ -25,6 +25,8 @@ import {
   CreateClusterResponseSchema,
   IssueTokenResponseSchema,
   TokenParams,
+  ClusterKindInput,
+  normalizeKind,
 } from './schemas.js';
 import {
   countActiveTokens,
@@ -126,11 +128,11 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
       preHandler: canManage,
       schema: {
         summary:
-          'Create a Docker fleet or Kubernetes cluster; returns its first token (shown once) and the install command',
+          'Create a Server fleet or Kubernetes cluster; returns its first token (shown once) and the install command. `kind: docker` is an alias of `server`.',
         tags: ['clusters'],
         body: Type.Object({
           name: ClusterName,
-          kind: Type.Union([Type.Literal('docker'), Type.Literal('kubernetes')]),
+          kind: ClusterKindInput,
         }),
         response: {
           201: CreateClusterResponseSchema,
@@ -148,7 +150,12 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
       if (entitlements && (await refuseCluster(db, entitlements, org.id, reply))) return reply;
       try {
         const { cluster, body } = await db.transaction().execute(async (trx) => {
-          const cluster = await insertCluster(trx, org.id, request.body.name, request.body.kind);
+          const cluster = await insertCluster(
+            trx,
+            org.id,
+            request.body.name,
+            normalizeKind(request.body.kind),
+          );
           const token = await issueClusterToken(trx, cluster.id);
           return { cluster, body: await issuedTokenBody(request, token, cluster, trx) };
         });

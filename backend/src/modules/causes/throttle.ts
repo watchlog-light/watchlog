@@ -37,7 +37,7 @@ export interface Throttling {
 
 /** Whether the focus runs with a CPU limit (the only way to be throttled). */
 export function hasCpuLimit(ev: Evidence): boolean {
-  return ev.platform === 'docker'
+  return ev.platform === 'server'
     ? ev.containers.some((c) => c.cpuLimitCores !== null && c.cpuLimitCores > 0)
     : ev.pods.some(
         (p) =>
@@ -85,7 +85,7 @@ export function throttlings(ev: Evidence): Throttling[] | null {
     );
     const since = from === null ? null : new Date(from * 1000).toISOString();
     const parts = key.split('/');
-    if (ev.platform === 'docker') {
+    if (ev.platform === 'server') {
       const c: EvContainer | undefined = ev.containers.find((x) => `${x.host}/${x.name}` === key);
       if (!c) continue;
       out.push({

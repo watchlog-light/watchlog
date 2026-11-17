@@ -39,7 +39,7 @@ export function nxdomainSince(ev: Evidence): string | null {
 
 export const dnsNxdomain: Rule = {
   code: 'dns_nxdomain',
-  platforms: ['kubernetes', 'docker'],
+  platforms: ['kubernetes', 'server'],
   applies: (f) => ['pod', 'workload', 'container', 'compose_service'].includes(f.kind),
   match(ev: Evidence): Match | null {
     if (ev.map.mode !== 'flows' || ev.gone) return null;

@@ -206,7 +206,7 @@ export function slowAfterChange(ev: Evidence): Match | null {
 
 export const badChange: Rule = {
   code: 'bad_change',
-  platforms: ['kubernetes', 'docker'],
+  platforms: ['kubernetes', 'server'],
   applies: (f) => ['pod', 'workload', 'container', 'compose_service'].includes(f.kind),
   match(ev): Match | null {
     for (const m of versionChanges(ev)) {

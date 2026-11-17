@@ -257,7 +257,7 @@ async function linkFocus(reader: Reader, cluster: ClusterRef, l: Link): Promise<
       ? { kind: 'workload', namespace: w.namespace, workloadKind: w.kind, name: w.name }
       : { kind: 'none' };
   }
-  if (cluster.kind !== 'docker') return { kind: 'none' };
+  if (cluster.kind !== 'server') return { kind: 'none' };
   const c = await soft(findContainer(reader, cluster, t.name, null), null);
   return c ? { kind: 'container', host: c.host, name: c.name } : { kind: 'none' };
 }

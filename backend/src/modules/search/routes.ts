@@ -275,7 +275,7 @@ export const searchRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (
       const { q } = request.query;
       const p = patterns(q);
       if (!p) return { query: q, results: [], truncated: false };
-      const docker = cluster.kind === 'docker';
+      const docker = cluster.kind === 'server';
       const found = await Promise.all([
         searchObjects(db, cluster.id, docker ? DOCKER_KINDS : KUBE_KINDS, p),
         docker ? searchProjects(db, cluster.id, p) : Promise.resolve([]),

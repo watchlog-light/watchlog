@@ -212,7 +212,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
         step,
       };
       const answer =
-        cluster.kind === 'docker'
+        cluster.kind === 'server'
           ? {
               ...base,
               ...(await docker(cluster.scope, cluster.name, range, step, start, end, nowMs)),
@@ -234,7 +234,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
         const ref = {
           id: cluster.id,
           name: cluster.name,
-          kind: cluster.kind as 'kubernetes' | 'docker',
+          kind: cluster.kind as 'kubernetes' | 'server',
         };
         const items = answer.problems.items;
         const jobs = items.flatMap((p, i) => {
@@ -866,7 +866,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
     };
     const connsNow = first(conns);
     return {
-      kind: 'docker' as const,
+      kind: 'server' as const,
       facts: {
         kubernetesVersion: null,
         dockerVersions: [

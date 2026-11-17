@@ -3,7 +3,7 @@
 // A cause is a code with facts and an evidence chain; a check is what WatchLog looked at and
 // what it found. Sentences are written by the web through i18n (ADR-147), never here.
 
-export type Platform = 'kubernetes' | 'docker';
+export type Platform = 'kubernetes' | 'server';
 
 /** How sure WatchLog is (ADR-147): no numbers, words only. */
 export type Strength = 'likely' | 'possible';

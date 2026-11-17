@@ -22,7 +22,7 @@ export const HOST_SHARE = 0.25;
 /** The 5-minute subqueries' step: one sample is five minutes of history. */
 export const SAMPLE_S = 300;
 
-export type Platform = 'kubernetes' | 'docker';
+export type Platform = 'kubernetes' | 'server';
 export type Resource = 'cpu' | 'memory';
 export type HintCode =
   | 'memory_limit_oom'

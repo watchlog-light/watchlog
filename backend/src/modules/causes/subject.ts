@@ -166,8 +166,8 @@ export const edgeId = (source: string, target: string, port: number | null) =>
   `${source}>${target}:${port ?? ''}`;
 
 /** Which platform a subject kind belongs to; null for both. */
-export function platformOf(kind: SubjectKind): 'kubernetes' | 'docker' | null {
+export function platformOf(kind: SubjectKind): 'kubernetes' | 'server' | null {
   if (kind === 'pod' || kind === 'workload') return 'kubernetes';
-  if (kind === 'container' || kind === 'compose_service') return 'docker';
+  if (kind === 'container' || kind === 'compose_service') return 'server';
   return null;
 }

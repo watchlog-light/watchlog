@@ -484,7 +484,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
         causes && wantsCause(request)
           ? await causes.likely(causeReader(app, request), orgId, [
               {
-                cluster: { ...alert.cluster, kind: alert.cluster.kind as 'kubernetes' | 'docker' },
+                cluster: { ...alert.cluster, kind: alert.cluster.kind as 'kubernetes' | 'server' },
                 subject: { kind: 'alert', id: alert.id },
               },
             ])
@@ -1016,9 +1016,9 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
       } | null = null;
       let unit: string | null = null;
       for (const c of targets) {
-        const key = (custom ?? def?.metrics?.[c.kind as 'kubernetes' | 'docker']) as
+        const key = (custom ?? def?.metrics?.[c.kind as 'kubernetes' | 'server']) as
           MetricKey | undefined;
-        if (!key || (custom && !metricKinds(custom).includes(c.kind as 'kubernetes' | 'docker')))
+        if (!key || (custom && !metricKinds(custom).includes(c.kind as 'kubernetes' | 'server')))
           continue;
         unit = metricUnit(key);
         let q: QueryScope | null;

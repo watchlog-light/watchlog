@@ -116,9 +116,9 @@ function link(
   if (l.service) path = `/applications/${e(l.service)}`;
   else if (l.pod) path = `/pods/${e(l.namespace!)}/${e(l.pod)}`;
   else if (l.workload || l.pvc) path = `/workloads${q}&ns=${e(l.namespace!)}`;
-  else if (cluster.kind === 'docker' && l.container)
+  else if (cluster.kind === 'server' && l.container)
     path = l.node ? `/docker/hosts/${e(l.node)}/containers/${e(l.container)}` : '/containers';
-  else if (cluster.kind === 'docker' && l.node) path = `/docker/hosts/${e(l.node)}`;
+  else if (cluster.kind === 'server' && l.node) path = `/docker/hosts/${e(l.node)}`;
   else if (l.node && l.agent !== 'cluster') path = `/nodes/${e(l.node)}`;
   else path = '/';
   return `${base.replace(/\/+$/, '')}${path}${path.includes('?') ? '' : q}`;

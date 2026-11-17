@@ -29,7 +29,7 @@ const Count = Type.Optional(Type.Integer({ minimum: 0 }));
 
 export const OnboardingStatusSchema = Type.Object({
   clusterId: Type.String({ format: 'uuid' }),
-  kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('docker')]),
+  kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('server')]),
   createdAt: Type.String({ format: 'date-time' }),
   now: Type.String({ format: 'date-time' }),
   steps: Type.Array(
