@@ -20,16 +20,7 @@ func ReadHints(fsys fs.FS, root string) Hints {
 // pm2 rewrites its apps' titles and drops their arguments, so /proc can't tell them apart).
 func pm2Apps(fsys fs.FS, root string) map[int]string {
 	out := map[int]string{}
-	var homes []string
-	if entries, err := fs.ReadDir(fsys, path.Join(root, "home")); err == nil {
-		for _, e := range entries {
-			if e.IsDir() {
-				homes = append(homes, path.Join(root, "home", e.Name()))
-			}
-		}
-	}
-	homes = append(homes, path.Join(root, "root"))
-	for _, home := range homes {
+	for _, home := range userHomes(fsys, root) {
 		dir := path.Join(home, ".pm2", "pids")
 		entries, err := fs.ReadDir(fsys, dir)
 		if err != nil {
@@ -98,6 +89,50 @@ func supervisorPrograms(fsys fs.FS, root string) []Program {
 			}
 		}
 		_ = file.Close()
+	}
+	return out
+}
+
+// maxHomes bounds the home directories looked at for pm2's files (a server with thousands
+// of accounts keeps the scrape cheap).
+const maxHomes = 256
+
+// userHomes lists the home directories where pm2 keeps its files: /root, each directory in
+// /home, and each account's home in /etc/passwd, so pm2 run as www-data (/var/www) or a
+// service account counts too. Only the home field is read, never anything else of the
+// account.
+func userHomes(fsys fs.FS, root string) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(dir string) {
+		if dir == "" || dir == "/" || seen[dir] || len(out) >= maxHomes {
+			return
+		}
+		seen[dir] = true
+		out = append(out, dir)
+	}
+	add(path.Join(root, "root"))
+	if entries, err := fs.ReadDir(fsys, path.Join(root, "home")); err == nil {
+		for _, e := range entries {
+			if e.IsDir() {
+				add(path.Join(root, "home", e.Name()))
+			}
+		}
+	}
+	if f, err := fsys.Open(path.Join(root, "etc", "passwd")); err == nil {
+		defer func() { _ = f.Close() }()
+		sc := bufio.NewScanner(f)
+		for sc.Scan() {
+			fields := strings.Split(sc.Text(), ":")
+			if len(fields) < 7 || !strings.HasPrefix(fields[5], "/") {
+				continue
+			}
+			home := path.Clean(fields[5])
+			if home == "/" || home == "/nonexistent" {
+				continue
+			}
+			add(path.Join(root, strings.TrimPrefix(home, "/")))
+		}
 	}
 	return out
 }

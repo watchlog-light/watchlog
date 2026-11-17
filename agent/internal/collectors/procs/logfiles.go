@@ -29,14 +29,7 @@ func LogFiles(fsys fs.FS, root, group, by string) map[string]string {
 	out := map[string]string{}
 	switch by {
 	case "pm2":
-		homes := []string{path.Join(root, "root")}
-		if entries, err := fs.ReadDir(fsys, path.Join(root, "home")); err == nil {
-			for _, e := range entries {
-				if e.IsDir() {
-					homes = append(homes, path.Join(root, "home", e.Name()))
-				}
-			}
-		}
+		homes := userHomes(fsys, root)
 		// pm2 names the files after the app, its spaces and slashes as dashes.
 		file := strings.NewReplacer(" ", "-", "/", "-").Replace(group)
 		for _, home := range homes {
