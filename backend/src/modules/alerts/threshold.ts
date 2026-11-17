@@ -22,6 +22,10 @@ export interface ThresholdScope {
   node?: string;
   host?: string;
   container?: string;
+  /** A server's systemd service (ADR-208). */
+  unit?: string;
+  /** A server's process group (ADR-208). */
+  group?: string;
   labels?: Record<string, string>;
   /** A monitored service's id (SPEC §4.12). */
   service?: string;
@@ -30,7 +34,7 @@ export interface ThresholdScope {
 }
 
 const KUBE_FIELDS = ['namespaces', 'workload', 'node', 'labels'] as const;
-const DOCKER_FIELDS = ['host', 'container'] as const;
+const DOCKER_FIELDS = ['host', 'container', 'unit', 'group'] as const;
 const SERVICE_FIELDS = ['service', 'serviceType'] as const;
 
 export class SelectorTooBroad extends Error {
@@ -83,6 +87,8 @@ export async function resolveScope(
   if (scope.node) q.node = scope.node;
   if (scope.host) q.host = scope.host;
   if (scope.container) q.container = scope.container;
+  if (scope.unit) q.unit = scope.unit;
+  if (scope.group) q.group = scope.group;
   if (scope.service) q.service = scope.service;
   if (scope.serviceType) q.serviceType = scope.serviceType;
   // Nginx's eBPF series name the workload, not the service: resolve which (nginx.ts).
@@ -218,7 +224,7 @@ export async function validateThreshold(
     (k) => rule.scope[k as keyof ThresholdScope] !== undefined && !allowed.includes(k),
   );
   if (extra.length) {
-    return `Scope "${extra[0]}" does not apply to a ${isService ? 'service' : kinds[0] === 'server' ? 'Docker' : 'Kubernetes'} metric`;
+    return `Scope "${extra[0]}" does not apply to a ${isService ? 'service' : kinds[0] === 'server' ? 'server' : 'Kubernetes'} metric`;
   }
   if (rule.scope.service && rule.scope.serviceType) {
     return 'A rule is about one service or every service of a type, not both';

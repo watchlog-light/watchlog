@@ -23,7 +23,8 @@ export const isServiceMetric = (metric: string) =>
 
 export function metricKinds(metric: string): ('kubernetes' | 'server')[] {
   if (isServiceMetric(metric)) return ['kubernetes', 'server'];
-  return metric.startsWith('host.') || metric.startsWith('container.')
+  // Servers (ADR-207): the host, its containers, systemd services (unit.*) and process groups.
+  return ['host.', 'container.', 'unit.', 'process.'].some((p) => metric.startsWith(p))
     ? ['server']
     : ['kubernetes'];
 }

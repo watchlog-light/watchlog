@@ -52,6 +52,10 @@ export const queryRoutes: FastifyPluginAsyncTypebox<{
                 host: Type.Optional(ScopeValue),
                 container: Type.Optional(ScopeValue),
                 composeProject: Type.Optional(ScopeValue),
+                /** A server's systemd service (unit.* metrics), e.g. nginx.service. */
+                unit: Type.Optional(ScopeValue),
+                /** A server's process group (process.* metrics), e.g. api. */
+                group: Type.Optional(ScopeValue),
                 node: Type.Optional(ScopeValue),
                 namespace: Type.Optional(ScopeValue),
                 namespaces: Type.Optional(Type.Array(ScopeValue, { minItems: 1, maxItems: 50 })),

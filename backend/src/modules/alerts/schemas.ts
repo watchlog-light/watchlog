@@ -240,6 +240,10 @@ export const ThresholdScopeSchema = Type.Object(
     node: Type.Optional(Type.String({ minLength: 1, maxLength: 253 })),
     host: Type.Optional(Type.String({ minLength: 1, maxLength: 253 })),
     container: Type.Optional(Type.String({ minLength: 1, maxLength: 253 })),
+    /** A server's systemd service (unit.* metrics, ADR-208), e.g. nginx.service. */
+    unit: Type.Optional(Type.String({ minLength: 1, maxLength: 253 })),
+    /** A server's process group (process.* metrics, ADR-208), e.g. api. */
+    group: Type.Optional(Type.String({ minLength: 1, maxLength: 63 })),
     /** A monitored service (SPEC §4.12): its id on the Applications page. */
     service: Type.Optional(Type.String({ format: 'uuid' })),
     /** Every monitored service of this type (redis, postgres, nginx…), in its clusters. */

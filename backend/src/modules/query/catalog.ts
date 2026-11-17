@@ -25,6 +25,10 @@ export interface QueryScope {
   workload?: string;
   /** Exactly these pods (a resolved label selector, ADR-085). */
   pods?: string[];
+  /** A server's systemd service (ADR-208): its series carry unit=<name>. */
+  unit?: string;
+  /** A server's process group (ADR-208): its series carry group=<name>. */
+  group?: string;
   /** A monitored service (SPEC §4.12): the collector labels its series service=<id>. */
   service?: string;
   /** Every monitored service of a type: the collector labels them service_type=<type>. */
@@ -167,6 +171,140 @@ const ENTRIES = {
     agg: 'max',
     expr: (s, _r, a) =>
       `${a} by (host, container) (increase(watchlog_container_restarts_total${s()}[10m]))`,
+  },
+  // Servers (ADR-208): systemd services ("unit", since `service.*` names Applications) and
+  // process groups, by the server (host) they run on.
+  'unit.cpu.usage': {
+    unit: 'cores',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (host, unit) (rate(watchlog_service_cpu_seconds_total${s()}[${r}]))`,
+  },
+  /** The share of the time a unit is throttled at its CPUQuota (as for containers). */
+  'unit.cpu.throttled_share': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s, r, a) =>
+      `${a} by (host, unit) (clamp_max(rate(watchlog_service_cpu_throttled_seconds_total${s()}[${r}]), 1))`,
+  },
+  'unit.cpu.limit': {
+    unit: 'cores',
+    agg: 'max',
+    expr: (s, _r, a) => `${a} by (host, unit) (watchlog_service_cpu_limit_cores${s()})`,
+  },
+  'unit.memory.working_set': {
+    unit: 'bytes',
+    agg: 'sum',
+    expr: (s, _r, a) => `${a} by (host, unit) (watchlog_service_memory_working_set_bytes${s()})`,
+  },
+  'unit.memory.limit': {
+    unit: 'bytes',
+    agg: 'max',
+    expr: (s, _r, a) => `${a} by (host, unit) (watchlog_service_memory_limit_bytes${s()})`,
+  },
+  /** Memory used against MemoryMax, for units that have one. */
+  'unit.memory.utilization': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (host, unit) (watchlog_service_memory_working_set_bytes${s()} / on (host, unit) watchlog_service_memory_limit_bytes${s()})`,
+  },
+  'unit.io': {
+    unit: 'bytes_per_second',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (host, unit, dir) (rate(watchlog_service_io_bytes_total${s()}[${r}]))`,
+  },
+  'unit.tasks': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) => `${a} by (host, unit) (watchlog_service_tasks${s()})`,
+  },
+  /** systemd's restarts of the unit (NRestarts), since it was loaded. */
+  'unit.restarts': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) => `${a} by (host, unit) (watchlog_service_restarts_total${s()})`,
+  },
+  'unit.restarts.increase': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (host, unit) (increase(watchlog_service_restarts_total${s()}[10m]))`,
+  },
+  /** 1 while the unit is failed (systemd's ActiveState). */
+  'unit.failed': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) => `${a} by (host, unit) (watchlog_service_state${s('state="failed"')})`,
+  },
+  /** Its main process's non-zero and signal exits within the last 10 minutes (eBPF). */
+  'unit.exits.failed.increase': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (host, unit) (sum by (host, unit) (increase(watchlog_service_exits_total${s('exit=~"error|signal"')}[10m])))`,
+  },
+  /** OOM kills within the last 10 minutes: eBPF's, or the cgroup's where eBPF is off. */
+  'unit.oom_kills.increase': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (host, unit) (increase(watchlog_service_oom_kills_total${s()}[10m]) or increase(watchlog_service_oom_events_total${s()}[10m]))`,
+  },
+  'process.cpu.usage': {
+    unit: 'cores',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (host, unit, group) (rate(watchlog_process_group_cpu_seconds_total${s()}[${r}]))`,
+  },
+  'process.memory.rss': {
+    unit: 'bytes',
+    agg: 'sum',
+    expr: (s, _r, a) =>
+      `${a} by (host, unit, group) (watchlog_process_group_memory_rss_bytes${s()})`,
+  },
+  'process.instances': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) => `${a} by (host, unit, group) (watchlog_process_group_instances${s()})`,
+  },
+  'process.threads': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) => `${a} by (host, unit, group) (watchlog_process_group_threads${s()})`,
+  },
+  'process.open_files': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) => `${a} by (host, unit, group) (watchlog_process_group_open_files${s()})`,
+  },
+  /** New processes within the last 10 minutes: restarts, for groups without a unit. */
+  'process.starts.increase': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (host, unit, group) (increase(watchlog_process_group_starts_total${s()}[10m]))`,
+  },
+  /** Non-zero and signal exits within the last 10 minutes (eBPF). */
+  'process.exits.failed.increase': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (host, unit, group) (sum by (host, unit, group) (increase(watchlog_process_group_exits_total${s('exit=~"error|signal"')}[10m])))`,
+  },
+  'process.oom_kills.increase': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (host, unit, group) (increase(watchlog_process_group_oom_kills_total${s()}[10m]))`,
+  },
+  /** Its executable replaced on disk within the last 10 minutes: a new release. */
+  'process.releases.increase': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (host, unit, group) (increase(watchlog_process_group_releases_total${s()}[10m]))`,
   },
   // Kubernetes nodes: the node agent's host series carry `node` instead of `host`.
   'node.cpu.usage': {
@@ -863,6 +1001,8 @@ function matchers(scope: QueryScope): string[] {
   if (scope.composeProject !== undefined) {
     out.push(`compose_project="${escapeLabelValue(scope.composeProject)}"`);
   }
+  if (scope.unit !== undefined) out.push(`unit="${escapeLabelValue(scope.unit)}"`);
+  if (scope.group !== undefined) out.push(`group="${escapeLabelValue(scope.group)}"`);
   const k8s: [keyof QueryScope, string][] = [
     ['node', 'node'],
     ['namespace', 'namespace'],
