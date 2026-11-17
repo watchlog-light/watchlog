@@ -81,12 +81,19 @@ func New() *PHPFPM {
 func (p *PHPFPM) Scrape(ctx context.Context, t integrations.Target, _ bool) integrations.Result {
 	res := integrations.Result{State: integrations.StateOK}
 	up := 0
+	statusOff := false
 	var pools []map[string]any
 	for _, m := range t.Members {
 		st, samples, ms := p.member(ctx, m)
 		res.Members = append(res.Members, ms)
-		// Up but without its status page is still an error for the service: nothing to read.
-		if !ms.Up || st == nil {
+		if !ms.Up {
+			continue
+		}
+		// The pool answers but its status page is off: a setting to turn on, said on the
+		// page as a missing permission is (ADR-134), not an outage.
+		if st == nil {
+			statusOff = true
+			up++
 			continue
 		}
 		up++
@@ -96,6 +103,9 @@ func (p *PHPFPM) Scrape(ctx context.Context, t integrations.Target, _ bool) inte
 				"pool": st.Pool, "pm": st.ProcessManager, "processes": st.TotalProcesses,
 			})
 		}
+	}
+	if statusOff {
+		res.Permissions = append(res.Permissions, integrations.Permission{Tab: "overview", Missing: "pm.status_path"})
 	}
 	res.Extra = map[string]any{"pools": pools}
 	if len(pools) > 0 {

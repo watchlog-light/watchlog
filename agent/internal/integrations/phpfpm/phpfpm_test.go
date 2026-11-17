@@ -124,16 +124,17 @@ func TestNoStatusPageIsSaidPlainly(t *testing.T) {
 	p.Now = func() time.Time { return now }
 	target := integrations.Target{Members: []integrations.Member{{Name: "www", Address: addr}}}
 	res := p.Scrape(context.Background(), target, false)
-	if res.State != integrations.StateError || !strings.Contains(res.Error, "pm.status_path") {
-		t.Fatalf("%s %s", res.State, res.Error)
+	// The pool answers: not an outage, a setting to turn on, with how in the member's error.
+	if res.State != integrations.StateOK || len(res.Permissions) != 1 || res.Permissions[0].Missing != "pm.status_path" {
+		t.Fatalf("%s %v", res.State, res.Permissions)
 	}
-	if !res.Members[0].Up {
-		t.Error("the pool answers FastCGI: up, with the status page missing")
+	if !res.Members[0].Up || !strings.Contains(res.Members[0].Error, "pm.status_path") {
+		t.Errorf("%+v", res.Members[0])
 	}
 	// Remembered: the next scrape within Recheck doesn't ask again.
 	res = p.Scrape(context.Background(), target, false)
-	if !strings.Contains(res.Error, "pm.status_path") {
-		t.Fatal(res.Error)
+	if len(res.Permissions) != 1 || !strings.Contains(res.Members[0].Error, "pm.status_path") {
+		t.Fatal(res.Members[0].Error)
 	}
 }
 
