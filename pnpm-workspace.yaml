@@ -14,3 +14,10 @@ overrides:
   'minimatch@>=7.0.0 <11.0.1': 11.0.1
   # GHSA-3g3m-2fjr-6pw4: AbortSignal cancellation bypass.
   'glob@>=9.0.0 <14.0.2': 14.0.2
+# Advisories with no fixed release yet that nothing WatchLog runs or ships can reach.
+# Remove each once a patched release exists (then override it as above).
+auditConfig:
+  ignoreGhsas:
+    # picomatch <= 4.0.7 (ReDoS through extglobs): only vue-router's build-time
+    # file-routing plugin reaches it, which the web build doesn't use.
+    - GHSA-fc5q-39xc-vjpf
