@@ -151,6 +151,10 @@ export const ROUTES: Record<string, RouteClass> = {
     kind: 'org',
     control: 'needs a connected agent to answer',
   },
+  'GET /api/v1/clusters/:id/servers/:server/workloads/:workload/logs': {
+    kind: 'org',
+    control: 'needs a connected agent to answer',
+  },
   'GET /api/v1/clusters/:id/right-sizing': org,
   // Egress watch (ADR-189, ADR-192): the cluster is a query parameter, so its 404 for B with
   // A's ids and A's control are asserted in cross-org.test.ts ("egress").
@@ -325,6 +329,10 @@ export const STREAMS: { route: string; query: Record<string, string> }[] = [
   },
   {
     route: 'GET /api/v1/clusters/:id/docker/hosts/:host/containers/:name/logs',
+    query: { follow: 'true' },
+  },
+  {
+    route: 'GET /api/v1/clusters/:id/servers/:server/workloads/:workload/logs',
     query: { follow: 'true' },
   },
 ];

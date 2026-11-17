@@ -51,6 +51,7 @@ const ALLOWED = [
   'GET /api/v1/clusters/:id/servers/:server',
   'GET /api/v1/clusters/:id/servers/:server/workloads',
   'GET /api/v1/clusters/:id/servers/:server/workloads/:workload',
+  'GET /api/v1/clusters/:id/servers/:server/workloads/:workload/logs',
   'GET /api/v1/clusters/:id/service-map/edge',
   'GET /api/v1/clusters/:id/workloads',
   'GET /api/v1/egress',

@@ -229,6 +229,46 @@ describe('logs on demand: the relay', () => {
     expect((await read(`/clusters/${c.id}/pods/x/y/logs`)).statusCode).toBe(400);
   });
 
+  it("reads a server's service journal and a process group's log on its own server (ADR-208)", async () => {
+    const c = await cluster('server');
+    const reader = read(
+      `/clusters/${c.id}/servers/app-1/workloads/service:orders.service/logs?lines=50`,
+    );
+    const [req] = await pickUp(c.token, '?wait=1&host=app-1', 'app-1');
+    expect(req).toMatchObject({ unit: 'orders.service', container: '', host: 'app-1', lines: 50 });
+    expect(req).not.toHaveProperty('group');
+    await post(c.token, req!.id as string, {
+      lines: [
+        { ts: '2026-11-17T08:00:01Z', stream: 'stderr', text: 'panic: db password=*** refused' },
+      ],
+      redacted: 1,
+      done: true,
+    });
+    const res = await reader;
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toMatchObject({ redacted: 1, lines: [{ stream: 'stderr' }] });
+
+    // A process started by hand: no log source, said plainly.
+    const byHand = read(`/clusters/${c.id}/servers/app-1/workloads/process:sync.py/logs`);
+    const [r2] = await pickUp(c.token, '?wait=1&host=app-1', 'app-1');
+    expect(r2).toMatchObject({ group: 'sync.py', container: '' });
+    await post(c.token, r2!.id as string, {
+      lines: [],
+      error: { code: 'no_log_source', detail: 'started outside systemd, pm2 and supervisord' },
+      done: true,
+    });
+    const none = await byHand;
+    expect(none.statusCode).toBe(422);
+    expect(none.json()).toMatchObject({ code: 'no_log_source' });
+
+    expect(
+      (await read(`/clusters/${c.id}/servers/app-1/workloads/service:x;rm/logs`)).statusCode,
+    ).toBe(400);
+    expect((await read(`/clusters/${c.id}/servers/app-1/workloads/pod:x/logs`)).statusCode).toBe(
+      400,
+    );
+  });
+
   it('streams a follow as server-sent events', async () => {
     const c = await kube();
     const reader = read(`/clusters/${c.id}/pods/logs-e2e/printer/logs?follow=true`, cookie, {
