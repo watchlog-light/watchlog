@@ -8,6 +8,8 @@
 # Ubuntu 22.04+/Debian 12 (apt) and Rocky/Alma 8–9 (dnf). The apps come from ./apps, built
 # on the Mac by servers.sh (the Go binary and the jar). Idempotent.
 set -euo pipefail
+# sudo on RHEL drops /usr/local/bin, where npm -g puts pm2.
+export PATH="/usr/local/bin:$PATH"
 [ "$(id -u)" = 0 ] || { echo "run as root (inside the test VM only)" >&2; exit 2; }
 APPS=${APPS:-/opt/wl-apps}
 REDIS_IMAGE=${REDIS_IMAGE:-public.ecr.aws/docker/library/redis:7-alpine}
