@@ -6,7 +6,7 @@ import type { Database } from '../db/index.js';
 import { isInternalCall } from '../lib/internal-call.js';
 import { bindOrg } from '../db/org-context.js';
 import { PROBLEM_CONTENT_TYPE, ProblemType, problem, sendProblem } from '../lib/problem.js';
-import { SESSION_COOKIE } from '../modules/auth/sessions.js';
+import { SESSION_COOKIE, type CurrentUser } from '../modules/auth/sessions.js';
 import {
   DEMO_READ_ONLY_CODE,
   DEMO_READ_ONLY_MESSAGE,
@@ -95,6 +95,9 @@ export function setDemoCookie(
   });
 }
 
+/** How long the demo viewer, looked up for the demo cookie, is kept in memory. */
+export const DEMO_USER_MEMO_MS = 10_000;
+
 /**
  * Signs visitors in from a valid demo cookie (no database row). Renews the cookie at most
  * every 10 minutes, so it ends 2 hours after the last request. Out of demo mode a demo
@@ -105,13 +108,22 @@ export function registerDemoSessions(
   /** `systemDb`: the demo user is found before the org is known (ADR-174). */
   opts: { systemDb: Database; sessions: DemoSessions },
 ): void {
+  // Every visitor is the same viewer: looked up once per DEMO_USER_MEMO_MS, not once per
+  // request (ADR-206). A reset demo database is noticed within that time.
+  let memo: { user: CurrentUser; until: number } | null = null;
+  const demoUser = async (now: number) => {
+    if (memo && memo.until > now) return memo.user;
+    const user = await findDemoUser(opts.systemDb);
+    memo = user ? { user, until: now + DEMO_USER_MEMO_MS } : null;
+    return user;
+  };
   app.addHook('onRequest', async (request, reply) => {
     const token = request.cookies[SESSION_COOKIE];
     if (!token) return;
     const now = Date.now();
     const valid = opts.sessions.verify(token, now);
     if (!valid) return;
-    const user = await findDemoUser(opts.systemDb);
+    const user = await demoUser(now);
     if (!user) return;
     request.user = user;
     bindOrg(user.org.id);

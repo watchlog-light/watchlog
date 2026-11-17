@@ -19,3 +19,6 @@ export const DEMO_TOKEN_PREFIX = 'wl_demo.';
 export const DEMO_READ_ONLY_CODE = 'demo_read_only';
 export const DEMO_READ_ONLY_MESSAGE =
   'This is a read-only demo. Install WatchLog to try this on your cluster.';
+
+/** Demo sessions one visitor address may start a minute (ADR-122: 20; ADR-206: 60). */
+export const DEMO_SESSIONS_PER_MINUTE = 60;

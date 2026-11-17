@@ -6,7 +6,7 @@ import type { Database } from '../../db/index.js';
 import { sendProblem } from '../../lib/problem.js';
 import { setDemoCookie } from '../../plugins/demo.js';
 import { ProblemSchema, UserEnvelope } from '../auth/schemas.js';
-import { DEMO_USER_EMAIL } from './constants.js';
+import { DEMO_SESSIONS_PER_MINUTE, DEMO_USER_EMAIL } from './constants.js';
 import { ensureDemoUser, findDemoUser, type DemoSessions } from './service.js';
 
 export const demoRoutes: FastifyPluginAsyncTypebox<{
@@ -18,7 +18,9 @@ export const demoRoutes: FastifyPluginAsyncTypebox<{
   app.post(
     '/demo/session',
     {
-      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+      // Per visitor address; sessions are stateless and cost nothing to keep (ADR-122), so a
+      // group behind one address (an office, a conference) can all come in (ADR-206).
+      config: { rateLimit: { max: DEMO_SESSIONS_PER_MINUTE, timeWindow: '1 minute' } },
       schema: {
         summary: 'Start a read-only session as the demo viewer (demo mode only)',
         tags: ['auth'],
