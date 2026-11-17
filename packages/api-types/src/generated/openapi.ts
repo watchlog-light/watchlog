@@ -1345,6 +1345,7 @@ export interface paths {
               | 'unit.failed'
               | 'unit.exits.failed.increase'
               | 'unit.oom_kills.increase'
+              | 'unit.crashes.increase'
               | 'process.cpu.usage'
               | 'process.memory.rss'
               | 'process.instances'
@@ -1353,6 +1354,7 @@ export interface paths {
               | 'process.starts.increase'
               | 'process.exits.failed.increase'
               | 'process.oom_kills.increase'
+              | 'process.gone'
               | 'process.releases.increase'
               | 'node.cpu.usage'
               | 'node.cpu.utilization'
@@ -2350,6 +2352,24 @@ export interface paths {
                 rate: number;
                 failed: number;
               }[];
+              cause: {
+                state: 'likely' | 'possible' | 'none';
+                code: 'release' | 'memory_limit' | 'oom' | 'dependency' | 'cpu_limit' | null;
+                since: number | null;
+                symptom: {
+                  [key: string]: string | number | null;
+                };
+                facts: {
+                  [key: string]: string | number | null;
+                };
+                checks: {
+                  topic: 'changes' | 'memory' | 'dependencies' | 'cpu';
+                  result: 'explains' | 'possible' | 'ok' | 'not_run';
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                }[];
+              };
             };
           };
         };

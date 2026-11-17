@@ -19,6 +19,8 @@ export const HEADLINES = {
   oom_limit_restarts:
     '{name} is OOM-killed when it reaches its {limit} memory limit; it restarted once in the last hour. | {name} is OOM-killed when it reaches its {limit} memory limit; it restarted {n} times in the last hour.',
   oom_limit_last: '{name} was OOM-killed when it reached its {limit} memory limit.',
+  server_oom:
+    '{name} is OOM-killed: it has no memory limit of its own, so the server ran low on memory. Once in the last hour. | {name} is OOM-killed: it has no memory limit of its own, so the server ran low on memory. {n} times in the last hour.',
   crash_exit:
     '{name} keeps exiting with code {exitCode}: {n} restart in the last hour. | {name} keeps exiting with code {exitCode}: {n} restarts in the last hour.',
   crash_exit_every: '{name} exits with code {exitCode} about every {every}.',

@@ -13,6 +13,7 @@ import { CLUSTER_STALE_MS, clusterForOrg } from '../clusters/service.js';
 import { firingAlerts } from '../overview/problems.js';
 import { buildQuery, escapeLabelValue } from '../query/catalog.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
+import { serverCause } from './cause.js';
 import {
   CRASH_LOOP,
   assembleWorkloads,
@@ -26,6 +27,38 @@ import {
 const N = Type.Union([Type.Number(), Type.Null()]);
 const S = Type.Union([Type.String(), Type.Null()]);
 const Params = Type.Object({ id: Type.String({ format: 'uuid' }) });
+const FactsS = Type.Record(Type.String(), Type.Union([Type.String(), Type.Number(), Type.Null()]));
+const CauseS = Type.Object({
+  state: Type.Union([Type.Literal('likely'), Type.Literal('possible'), Type.Literal('none')]),
+  code: Type.Union([
+    Type.Literal('release'),
+    Type.Literal('memory_limit'),
+    Type.Literal('oom'),
+    Type.Literal('dependency'),
+    Type.Literal('cpu_limit'),
+    Type.Null(),
+  ]),
+  since: Type.Union([Type.Number(), Type.Null()]),
+  symptom: FactsS,
+  facts: FactsS,
+  checks: Type.Array(
+    Type.Object({
+      topic: Type.Union([
+        Type.Literal('changes'),
+        Type.Literal('memory'),
+        Type.Literal('dependencies'),
+        Type.Literal('cpu'),
+      ]),
+      result: Type.Union([
+        Type.Literal('explains'),
+        Type.Literal('possible'),
+        Type.Literal('ok'),
+        Type.Literal('not_run'),
+      ]),
+      facts: FactsS,
+    }),
+  ),
+});
 const ServerParams = Type.Object({
   id: Type.String({ format: 'uuid' }),
   server: Type.String({ minLength: 1, maxLength: 253 }),
@@ -651,6 +684,8 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
             /** Unix seconds the current crash loop began; null when not crash-looping. */
             crashLoopSince: N,
             connections: Type.Array(EdgeS),
+            /** Probable cause (ADR-213): codes and facts; the web words them. */
+            cause: CauseS,
           }),
           400: ProblemSchema,
           401: ProblemSchema,
@@ -693,7 +728,7 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
               `sum(increase(watchlog_service_exits_total{${sel},exit="signal"}${w}))`,
               `sum(increase(watchlog_service_restarts_total{${sel}}${w}))`,
               `sum(increase(watchlog_service_oom_kills_total{${sel}}${w}))`,
-              'vector(0)',
+              `sum(increase(watchlog_service_releases_total{${sel}}${w}))`,
             ]
           : ref.source === 'process'
             ? [
@@ -738,10 +773,27 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
         ref.source === 'container'
           ? `${h},container="${n}"`
           : `${h},workload_kind="${ref.source === 'service' ? 'Service' : 'ProcessGroup'}",workload="${n}"`;
-      const [series, [threads, files, tasks, started, cpuLimit], connections] = await Promise.all([
+      const releasesOf =
+        ref.source === 'service'
+          ? `watchlog_service_releases_total{${sel}}`
+          : ref.source === 'process'
+            ? `watchlog_process_group_releases_total{${sel}}`
+            : null;
+      const [
+        series,
+        [threads, files, tasks, started, cpuLimit],
+        connections,
+        [releaseAt, throttle],
+      ] = await Promise.all([
         ranged(cluster.scope, ranges, start, end, step),
         instant(cluster.scope, instants),
         talksTo(cluster.scope, flowSel),
+        instant(cluster.scope, [
+          releasesOf ? `max(tlast_change_timestamp(${releasesOf}[6h]))` : null,
+          ref.source === 'service'
+            ? `max(clamp_max(rate(watchlog_service_cpu_throttled_seconds_total{${sel}}[5m]), 1))`
+            : null,
+        ]),
       ]);
       const at = (r: QuerySeries[] | undefined) => {
         const m = new Map<number, number>();
@@ -760,6 +812,7 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
         ]);
       }
       const releases = [...rel!.entries()].filter(([, v]) => v >= 0.5).map(([t]) => t);
+      const loopSince = workload.problem?.kind === 'crash_looping' ? crashLoopSince(points) : null;
       const one = (r: QuerySeries[] | undefined) => r?.[0]?.points[0]?.[1] ?? null;
       const related =
         ref.source === 'service'
@@ -782,8 +835,17 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
           cpuLimitCores: one(cpuLimit),
         },
         timeline: { start, end, step, points, releases },
-        crashLoopSince: workload.problem?.kind === 'crash_looping' ? crashLoopSince(points) : null,
+        crashLoopSince: loopSince,
         connections,
+        cause: serverCause({
+          workload,
+          points,
+          crashLoopSince: loopSince,
+          releaseAt: one(releaseAt) ?? (releases.length ? releases[releases.length - 1]! : null),
+          oomKillsHour: points.reduce((n, p) => n + (p[4] ?? 0), 0),
+          throttledShare: one(throttle),
+          connections,
+        }),
       };
     },
   );

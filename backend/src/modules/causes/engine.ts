@@ -3,6 +3,7 @@
 // ask the rules (and, when nothing on the object explains it, the rules at the far end of
 // its failing edges, two hops at most), rank, and say what was checked. The answer is what
 // GET /causes returns and what MCP and notifications will reuse.
+import { serverAnswer, serverWorkloadOf } from './server.js';
 import { checksOf, dnsTotals, shortName } from './checks.js';
 import {
   type Reader,
@@ -71,6 +72,9 @@ export async function explain(
   const reader = memoReader(api);
   const now = opts.now ?? Date.now();
   const target = await resolveTarget(reader, cluster, subject);
+  // A server's service or process group (ADR-213): its own cause, from the workload page.
+  const server = cluster.kind === 'server' ? serverWorkloadOf(target.alert) : null;
+  if (server) return serverAnswer(reader, cluster, target, server, now);
   // An egress alert asks its own rule only, on the source itself (ADR-187).
   const egress = isEgressAlert(target);
   const rules = opts.rules ?? (egress ? EGRESS_CAUSE_RULES : RULES);

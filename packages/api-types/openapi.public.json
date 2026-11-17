@@ -7980,7 +7980,8 @@
                     "usage",
                     "timeline",
                     "crashLoopSince",
-                    "connections"
+                    "connections",
+                    "cause"
                   ],
                   "properties": {
                     "workload": {
@@ -8174,6 +8175,85 @@
                           "port": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
                           "rate": { "type": "number" },
                           "failed": { "type": "number" }
+                        }
+                      }
+                    },
+                    "cause": {
+                      "type": "object",
+                      "required": ["state", "code", "since", "symptom", "facts", "checks"],
+                      "properties": {
+                        "state": {
+                          "anyOf": [
+                            { "type": "string", "enum": ["likely"] },
+                            { "type": "string", "enum": ["possible"] },
+                            { "type": "string", "enum": ["none"] }
+                          ]
+                        },
+                        "code": {
+                          "anyOf": [
+                            { "type": "string", "enum": ["release"] },
+                            { "type": "string", "enum": ["memory_limit"] },
+                            { "type": "string", "enum": ["oom"] },
+                            { "type": "string", "enum": ["dependency"] },
+                            { "type": "string", "enum": ["cpu_limit"] },
+                            { "type": "null" }
+                          ]
+                        },
+                        "since": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                        "symptom": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              { "type": "string" },
+                              { "type": "number" },
+                              { "type": "null" }
+                            ]
+                          }
+                        },
+                        "facts": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              { "type": "string" },
+                              { "type": "number" },
+                              { "type": "null" }
+                            ]
+                          }
+                        },
+                        "checks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["topic", "result", "facts"],
+                            "properties": {
+                              "topic": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["changes"] },
+                                  { "type": "string", "enum": ["memory"] },
+                                  { "type": "string", "enum": ["dependencies"] },
+                                  { "type": "string", "enum": ["cpu"] }
+                                ]
+                              },
+                              "result": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["explains"] },
+                                  { "type": "string", "enum": ["possible"] },
+                                  { "type": "string", "enum": ["ok"] },
+                                  { "type": "string", "enum": ["not_run"] }
+                                ]
+                              },
+                              "facts": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    { "type": "string" },
+                                    { "type": "number" },
+                                    { "type": "null" }
+                                  ]
+                                }
+                              }
+                            }
+                          }
                         }
                       }
                     }
@@ -10043,6 +10123,7 @@
                       { "type": "string", "enum": ["unit.failed"] },
                       { "type": "string", "enum": ["unit.exits.failed.increase"] },
                       { "type": "string", "enum": ["unit.oom_kills.increase"] },
+                      { "type": "string", "enum": ["unit.crashes.increase"] },
                       { "type": "string", "enum": ["process.cpu.usage"] },
                       { "type": "string", "enum": ["process.memory.rss"] },
                       { "type": "string", "enum": ["process.instances"] },
@@ -10051,6 +10132,7 @@
                       { "type": "string", "enum": ["process.starts.increase"] },
                       { "type": "string", "enum": ["process.exits.failed.increase"] },
                       { "type": "string", "enum": ["process.oom_kills.increase"] },
+                      { "type": "string", "enum": ["process.gone"] },
                       { "type": "string", "enum": ["process.releases.increase"] },
                       { "type": "string", "enum": ["node.cpu.usage"] },
                       { "type": "string", "enum": ["node.cpu.utilization"] },
