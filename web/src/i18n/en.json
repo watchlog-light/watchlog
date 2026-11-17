@@ -5121,7 +5121,9 @@
       "oom_killed": "OOM killed",
       "unhealthy": "unhealthy",
       "exited": "exited",
-      "restarting": "restarting"
+      "restarting": "restarting",
+      "gone": "gone: no process left",
+      "memory_near": "near its memory limit"
     },
     "by": {
       "pm2": "pm2",
@@ -5153,7 +5155,11 @@
         "tasks": "Tasks",
         "limit": "of {v}",
         "noLimit": "no limit",
-        "cpuLimit": "limit {v}"
+        "cpuLimit": "limit {v}",
+        "throttled": "Throttled",
+        "throttledSub": "of the time",
+        "diskIo": "Disk I/O",
+        "diskIoSub": "read {r} · write {w}"
       },
       "timeline": {
         "title": "Exits and restarts, last hour",
@@ -5174,7 +5180,53 @@
         "hint": "eBPF, no code changes. TLS is never decrypted."
       },
       "privacy": "Command lines stay on the server; only the group's name is sent.",
-      "ports": "Listens on {ports}"
+      "ports": "Listens on {ports}",
+      "charts": {
+        "cpu": "CPU (cores)",
+        "memory": "Memory",
+        "usage": "usage",
+        "limit": "limit",
+        "workingSet": "working set",
+        "rss": "resident (RSS)",
+        "memoryMax": "MemoryMax",
+        "noMemoryMax": "No MemoryMax on its unit",
+        "noUnit": "Not in a systemd unit: no memory limit",
+        "tasks": "Tasks",
+        "diskIo": "Disk I/O",
+        "noDiskActivity": "No disk activity in this range",
+        "io": {
+          "read": "read",
+          "write": "write"
+        },
+        "instances": "Instances",
+        "threadsFiles": "Threads and open files",
+        "threads": "threads",
+        "openFiles": "open files",
+        "serviceEvents": "Restarts, crashes and OOM kills",
+        "groupEvents": "Starts, exits and OOM kills",
+        "events": {
+          "restarts": "restarts",
+          "crashes": "crashes",
+          "oom": "OOM kills",
+          "starts": "starts",
+          "exits": "failed exits"
+        },
+        "noEvents": "None in this range",
+        "release": "release",
+        "empty": "No data in this time range",
+        "error": "Could not load this chart",
+        "containerPage": "Open the container's page: its charts, logs and right-sizing →",
+        "eventCount": {
+          "restarts": "1 restart | {n} restarts",
+          "crashes": "1 crash | {n} crashes",
+          "oom": "1 OOM kill | {n} OOM kills",
+          "starts": "1 start | {n} starts",
+          "exits": "1 failed exit | {n} failed exits",
+          "release": "1 release | {n} releases"
+        },
+        "eventsIn": "In this window: {list}.",
+        "noEventsLine": "No exits, restarts or OOM kills in this window."
+      }
     },
     "rules": {
       "title": "Process groups",
@@ -5210,7 +5262,33 @@
     "fleetWorkloads": {
       "intro": "Every workload on the fleet's servers: services, process groups and containers.",
       "search": "Filter by name",
-      "containersPage": "Containers with their Compose projects"
+      "containersPage": "Containers with their Compose projects",
+      "columns": {
+        "workload": "Workload",
+        "status": "Status",
+        "instances": "Instances",
+        "restarts": "Restarts 24 h",
+        "cpu": "CPU",
+        "memory": "Memory",
+        "trend": "CPU trend",
+        "runs": "Runs",
+        "changed": "Changed"
+      },
+      "total": "1 workload | {n} workloads",
+      "reasonCode": "{what}, exit {code}",
+      "healthy": "Healthy",
+      "hiddenSystem": "1 system workload hidden | {n} system workloads hidden",
+      "hideSystem": "Hide system",
+      "chips": {
+        "service": "Services",
+        "process": "Processes",
+        "container": "Containers",
+        "failing": "Failing"
+      },
+      "noMatch": "No workload matches these filters",
+      "empty": "No workloads yet: they appear within a minute of a server's agent reporting",
+      "emptyTitle": "No workloads yet",
+      "noMatchHint": "Clear the name filter, the chips or \"Hide system\" to see more."
     },
     "exitCode": "exit {code}",
     "cause": {
@@ -5259,6 +5337,10 @@
       "copy": "Copy as text",
       "copied": "Copied",
       "seeLog": "See the error in the log"
+    },
+    "kindTag": {
+      "compose": "Compose project",
+      "processBy": "Process · {by}"
     }
   }
 }

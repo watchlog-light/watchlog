@@ -8,6 +8,7 @@ import { api } from '@/api/client';
 import TonePill from '@/components/kube/TonePill.vue';
 import LogsPanel from '@/components/logs/LogsPanel.vue';
 import SourceChip from '@/components/servers/SourceChip.vue';
+import WorkloadCharts from '@/components/servers/WorkloadCharts.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
 import SkeletonDetailHeader from '@/components/ui/SkeletonDetailHeader.vue';
@@ -15,7 +16,7 @@ import { useLoader } from '@/composables/useLoader';
 import { usePolling } from '@/composables/usePolling';
 import { formatCores } from '@/lib/resources';
 import { portsText, timelineBars, workloadLink } from '@/lib/servers';
-import { formatBytes } from '@/lib/units';
+import { formatBytes, formatValue } from '@/lib/units';
 import { useFleetStore } from '@/stores/fleet';
 
 // A service or process group on a server (ADR-207/208; the canvas "Workload"): resources
@@ -57,6 +58,12 @@ const describe = computed(() => {
   return where + by;
 });
 
+// A service's throttled share and disk I/O now, from its charts' own queries.
+const latest = ref<{ throttled: number | null; ioRead: number | null; ioWrite: number | null }>({
+  throttled: null,
+  ioRead: null,
+  ioWrite: null,
+});
 const tiles = computed(() => {
   const x = w.value;
   const u = d.value?.usage;
@@ -83,12 +90,30 @@ const tiles = computed(() => {
       out.push({ label: t('servers.workload.tiles.threads'), value: String(u.threads) });
     if (u.openFiles != null)
       out.push({ label: t('servers.workload.tiles.openFiles'), value: String(u.openFiles) });
-  } else if (u.tasks != null) {
-    out.push({ label: t('servers.workload.tiles.tasks'), value: String(u.tasks) });
+  } else {
+    if (u.tasks != null)
+      out.push({ label: t('servers.workload.tiles.tasks'), value: String(u.tasks) });
+    const l = latest.value;
+    if (l.throttled != null)
+      out.push({
+        label: t('servers.workload.tiles.throttled'),
+        value: `${Math.round(l.throttled * 100)} %`,
+        sub: t('servers.workload.tiles.throttledSub'),
+      });
+    if (l.ioRead != null || l.ioWrite != null)
+      out.push({
+        label: t('servers.workload.tiles.diskIo'),
+        value: formatValue((l.ioRead ?? 0) + (l.ioWrite ?? 0), 'bytes_per_second'),
+        sub: t('servers.workload.tiles.diskIoSub', {
+          r: formatValue(l.ioRead ?? 0, 'bytes_per_second'),
+          w: formatValue(l.ioWrite ?? 0, 'bytes_per_second'),
+        }),
+      });
   }
   out.push({
     label: t('servers.workload.tiles.restarts'),
-    value: x.restarts24h == null ? '–' : String(Math.round(x.restarts24h)),
+    // A service's systemd restarts, a group's restarts from its starts and exits: 0 when none.
+    value: String(Math.round(x.restarts24h ?? 0)),
   });
   if (x.lastExitCode != null)
     out.push({ label: t('servers.workload.tiles.lastExit'), value: String(x.lastExitCode) });
@@ -335,6 +360,26 @@ onMounted(() => {
         <dd v-if="x.sub" class="text-12 text-text-subtle">{{ x.sub }}</dd>
       </div>
     </dl>
+
+    <!-- Over the top bar's time range, as on the pod and container pages. -->
+    <WorkloadCharts
+      v-if="w && d && fleetStore.fleet && w.source !== 'container'"
+      :key="`charts-${server}/${id}`"
+      :cluster-id="fleetStore.fleet.id"
+      :host="server"
+      :source="w.source"
+      :name="w.name"
+      :unit="w.source === 'process' ? w.unit : null"
+      :releases="d.timeline.releases"
+      @latest="(v) => (latest = v)"
+    />
+    <RouterLink
+      v-else-if="w?.source === 'container'"
+      :to="{ name: 'docker-container', params: { host: server, name: w.name } }"
+      class="self-start text-13 text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+      data-testid="container-page-link"
+      >{{ $t('servers.workload.charts.containerPage') }}</RouterLink
+    >
 
     <section
       v-if="d"
