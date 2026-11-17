@@ -31,6 +31,8 @@ const HEADLINES: [string, Facts][] = [
   ['oom_limit', { name: 'causes-e2e-hog-1', limitBytes: 50331648, n: 1 }],
   ['oom_limit_restarts', { name: 'hog', limitBytes: 50331648, n: 6 }],
   ['oom_limit_last', { name: 'hog', limitBytes: 50331648 }],
+  // Servers (ADR-213): a service or process group with no MemoryMax.
+  ['server_oom', { name: 'worker', n: 2 }],
   ['crash_exit', { name: 'crasher', exitCode: 3, n: 7 }],
   ['crash_exit_every', { name: 'crasher', exitCode: 3, everyS: 123, n: 7 }],
   ['crash_exit_once', { name: 'causes-e2e-batch-1', exitCode: 2 }],
@@ -331,6 +333,7 @@ const STEPS: [string, Facts][] = [
   ['docker_restarted', { host: 'docker-01' }],
   ['host_memory', { host: 'docker-01', pct: 94 }],
   ['host_ran_out', { host: 'docker-01' }],
+  ['executable_changed', {}],
   ['host_disk', { host: 'docker-01', pct: 95 }],
   ['on_host', { host: 'docker-01', state: 'restarting' }],
   ['cpu_throttled', { container: 'hot', pct: 98, limitCores: 0.02 }],
@@ -340,6 +343,7 @@ const STEPS: [string, Facts][] = [
 
 /** Causes of the catalog's rules: the short line (Needs attention, notifications). */
 const CAUSES: [string, Facts][] = [
+  ['server_oom', { name: 'worker' }],
   [
     'oom_limit',
     { name: 'hog', container: 'hog', limitBytes: 50331648, n: null, platform: 'kubernetes' },
@@ -693,7 +697,14 @@ describe('objectLink', () => {
     expect(objectLink(o('change', 'Container/docker-01/shop-api-1'), C)).toMatchObject({
       name: 'docker-container',
     });
-    expect(objectLink(o('host', 'docker-01'), C)).toMatchObject({ name: 'docker-host' });
+    expect(objectLink(o('host', 'docker-01'), C)).toMatchObject({
+      name: 'server',
+      params: { server: 'docker-01' },
+    });
+    expect(objectLink(o('change', 'ProcessGroup/app-1/api'), C)).toMatchObject({
+      name: 'server-workload',
+      params: { server: 'app-1', workload: 'process:api' },
+    });
     expect(objectLink(o('node', 'demo-worker'), C)).toMatchObject({ name: 'node' });
     expect(objectLink(o('application', 'id'), C)).toMatchObject({ name: 'application' });
     expect(objectLink(o('alert', 'id'), C)).toMatchObject({ name: 'alert' });

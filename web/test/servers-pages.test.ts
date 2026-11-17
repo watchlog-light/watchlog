@@ -243,6 +243,30 @@ describe('Servers pages', () => {
           timeline: { start: end - 3600, end, step: 60, points, releases: [end - 660] },
           crashLoopSince: end - 600,
           connections: [],
+          cause: {
+            state: 'likely',
+            code: 'release',
+            since: end - 600,
+            symptom: { exitCode: 1, failedExits: 10, restarts: 10 },
+            facts: { releaseAt: end - 660, minutesAfter: 1 },
+            checks: [
+              {
+                topic: 'changes',
+                result: 'explains',
+                facts: { releaseAt: end - 660, since: end - 600 },
+              },
+              {
+                topic: 'memory',
+                result: 'ok',
+                facts: { oomKills: 0, usage: 1073741824, limit: null },
+              },
+              {
+                topic: 'dependencies',
+                result: 'not_run',
+                facts: { to: null, port: null, failed: 0 },
+              },
+            ],
+          },
         },
       },
     });
@@ -254,6 +278,12 @@ describe('Servers pages', () => {
     const tight = header.replace(/\s+/g, '');
     expect(tight).toMatch(/^apiProcess.?Crash-loopingsince\d\d:\d\d/);
     expect(header).toContain('inside pm2-app.service on app-1. Grouped by: pm2.');
+    expect(w.get('[data-testid="cause-headline"]').text()).toMatch(
+      /^api exits with code 1 since its executable changed at \d\d:\d\d.*a new release, 1 min before the first crash\.$/,
+    );
+    const card = w.get('[data-testid="cause-card"]').text();
+    expect(card).toContain('Likely · the release');
+    expect(card).toContain('Not memory: no OOM kill');
     expect(w.findAll('[data-testid="release-marker"]')).toHaveLength(1);
     expect(w.get('[data-testid="exit-timeline"]').findAll('.bg-critical')).toHaveLength(10);
     expect(w.text()).toContain('Command lines stay on the server');
