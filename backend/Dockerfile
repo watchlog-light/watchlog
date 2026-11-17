@@ -15,6 +15,8 @@ RUN pnpm install --frozen-lockfile --filter @watchlog/backend...
 # The words the notifications share with the dashboard (ADR-157): plain JavaScript.
 COPY packages/cause-words packages/cause-words
 COPY backend backend
+# The server install script (ADR-209), served at /install.sh.
+COPY deploy/linux/install.sh backend/assets/install.sh
 RUN pnpm --filter @watchlog/backend build \
  && pnpm --filter @watchlog/backend deploy --prod /out \
  && cp -r backend/dist /out/dist

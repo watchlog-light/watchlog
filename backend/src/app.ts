@@ -34,6 +34,7 @@ import { overviewRoutes } from './modules/overview/routes.js';
 import { serviceMapRoutes } from './modules/servicemap/routes.js';
 import { onboardingRoutes } from './modules/onboarding/routes.js';
 import { installManifestRoutes } from './modules/onboarding/cloud-routes.js';
+import { installScriptRoutes } from './modules/onboarding/install-script.js';
 import { healthRoutes } from './modules/health/routes.js';
 import { setupRoutes } from './modules/setup/routes.js';
 import type { SetupState } from './modules/setup/service.js';
@@ -411,6 +412,8 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         : {}),
     });
   }
+  // Every edition: the server install script with this install's address (ADR-209).
+  await app.register(installScriptRoutes, { config, settings });
   // Cloud: the kubectl manifest behind an install code, at the ingest address's root.
   await registerCloudOnly(app, config.edition, installManifestRoutes, {
     systemDb,
