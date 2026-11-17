@@ -46,6 +46,9 @@ type Collector struct {
 	Resolver func() *Resolver
 	// Bytes is whether the byte counters are attached (ebpf.Flows.Bytes).
 	Bytes bool
+	// ByProcess names a flow's connecting process's workload when flows carry it (server
+	// mode, ADR-210): a process group in a cgroup it shares with others (pm2's apps).
+	ByProcess func(tgid uint32) (Owner, bool)
 	// DNSNames names external destinations by what the container looked up (ADR-104);
 	// nil without the DNS hooks, and externals are /24 or /48 networks.
 	DNSNames *Names
@@ -103,6 +106,11 @@ func (c *Collector) Drain() ([]Attributed, error) {
 			rebuilt = true
 			c.rebuild()
 			o, ok = c.idx[f.Cgroup]
+		}
+		if f.Tgid != 0 && c.ByProcess != nil {
+			if po, found := c.ByProcess(f.Tgid); found {
+				o, ok = po, true
+			}
 		}
 		if !ok {
 			c.unattributed += float64(f.Connects)

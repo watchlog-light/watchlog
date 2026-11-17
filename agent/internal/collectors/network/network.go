@@ -33,12 +33,18 @@ var Disabled = State{State: "disabled", Reason: "turned off by configuration (WA
 // Start checks the kernel and loads the flow programs. Any failure is a reason, never
 // fatal: the agent's other collectors keep working (ADR-102).
 func Start(sys string, http bool, log *slog.Logger) (*ebpf.Flows, State) {
+	return StartWith(sys, ebpf.Options{HTTP: http}, log)
+}
+
+// StartWith is Start with every load option (server mode keys flows by process, ADR-210).
+func StartWith(sys string, o ebpf.Options, log *slog.Logger) (*ebpf.Flows, State) {
+	http := o.HTTP
 	release := ebpf.KernelRelease()
 	if s := ebpf.CheckSupport(release, sys); !s.OK {
 		log.Warn("eBPF network flows unsupported", "kernel", release, "reason", s.Reason)
 		return nil, State{State: "unsupported", Reason: s.Reason, Cause: CauseKernel}
 	}
-	flows, err := ebpf.LoadWith(ebpf.Options{HTTP: http})
+	flows, err := ebpf.LoadWith(o)
 	if err != nil {
 		log.Warn("eBPF network flows could not load", "kernel", release, "err", err)
 		return nil, failed(err)

@@ -260,7 +260,8 @@ func run(args []string, stdout io.Writer) int {
 	if mode != config.ModeCluster && *ebpfFlag {
 		// Unsupported or not permitted: reported in the heartbeat, everything else runs.
 		var flows *ebpf.Flows
-		flows, ebpfState = network.Start(paths.Sys, *httpStats, slog.Default())
+		// Server mode keys flows by process too: pm2's apps share their unit's cgroup (ADR-210).
+		flows, ebpfState = network.StartWith(paths.Sys, ebpf.Options{HTTP: *httpStats, ByProcess: mode == config.ModeServer}, slog.Default())
 		if flows != nil {
 			defer flows.Close()
 			reader := containers.NewReader(paths.Proc, paths.Sys)
@@ -285,6 +286,12 @@ func run(args []string, stdout io.Writer) int {
 				}
 			}
 			netCollector = network.New(flows, owners, slog.Default())
+			if mode == config.ModeServer && groups != nil {
+				netCollector.ByProcess = func(tgid uint32) (network.Owner, bool) {
+					w, ok := groups.PidOwner(int(tgid))
+					return network.Owner{WorkloadKind: w.Kind, Workload: w.Name}, ok
+				}
+			}
 			netCollector.Bytes = flows.Bytes
 			if mode == config.ModeNode && *podFilter {
 				netCollector.PodFilter = network.NewPodFilter(flows, func() []uint64 { return kubepodsRoots(reader) }, slog.Default())

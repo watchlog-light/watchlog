@@ -32,7 +32,8 @@ type flowsFlowKey struct {
 	Cgroup uint64
 	Daddr  [16]uint8
 	Dport  uint16
-	Pad    [3]uint16
+	Pad    uint16
+	Tgid   uint32
 }
 
 type flowsFlowVal struct {
@@ -118,6 +119,7 @@ const (
 	flowsProgOnRetransmit  = "on_retransmit"
 	flowsProgOnSend        = "on_send"
 	flowsProgOnState       = "on_state"
+	flowsVarKeyTgid        = "key_tgid"
 )
 
 // loadFlows returns the embedded CollectionSpec for flows.
@@ -201,6 +203,7 @@ type flowsMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type flowsVariableSpecs struct {
+	KeyTgid *ebpf.VariableSpec `ebpf:"key_tgid"`
 }
 
 // flowsObjects contains all objects after they have been loaded into the kernel.
@@ -266,6 +269,7 @@ func (m *flowsMaps) Close() error {
 //
 // It can be passed to loadFlowsObjects or ebpf.CollectionSpec.LoadAndAssign.
 type flowsVariables struct {
+	KeyTgid *ebpf.Variable `ebpf:"key_tgid"`
 }
 
 // flowsPrograms contains all programs after they have been loaded into the kernel.

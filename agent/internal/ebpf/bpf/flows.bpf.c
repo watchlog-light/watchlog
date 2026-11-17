@@ -27,11 +27,17 @@ char LICENSE[] SEC("license") = "Dual MIT/GPL";
 
 #define LAT_BUCKETS 12
 
+/* Server mode (ADR-210): flows are keyed by the connecting process too, so the process
+ * groups that share a cgroup (pm2's apps in one unit) are told apart in user space. Set at
+ * load; 0 elsewhere, where a cgroup is one key (a pod's workers stay one entry). */
+volatile const __u8 key_tgid = 0;
+
 struct flow_key {
 	__u64 cgroup;
 	__u8 daddr[16]; /* IPv4 as ::ffff:a.b.c.d */
 	__u16 dport;
-	__u16 pad[3];
+	__u16 pad;
+	__u32 tgid; /* the connecting process, with key_tgid; else 0 */
 };
 
 struct flow_val {
@@ -137,6 +143,11 @@ static __always_inline int in_scope(__u32 what)
 	if (n)
 		(*n)++;
 	return 0;
+}
+
+static __always_inline __u32 key_process(void)
+{
+	return key_tgid ? (__u32)(bpf_get_current_pid_tgid() >> 32) : 0;
 }
 
 static __always_inline struct flow_val *flow_in(void *map, struct flow_key *k)
@@ -288,6 +299,7 @@ int BPF_PROG(on_state, const struct sock *sk, const int oldstate, const int news
 		if (!in_scope(FILTERED_CONNECTS))
 			return 0;
 		si.key.cgroup = bpf_get_current_cgroup_id();
+		si.key.tgid = key_process();
 		si.start_ns = bpf_ktime_get_ns();
 		bpf_map_update_elem(&socks, &skp, &si, BPF_ANY);
 		struct flow_val *v = flow(&si.key);
@@ -366,6 +378,7 @@ static __always_inline struct sock_info *known_or_adopt(struct sock *sk)
 	if (read_dest(sk, &fresh.key) < 0)
 		return 0;
 	fresh.key.cgroup = bpf_get_current_cgroup_id();
+	fresh.key.tgid = key_process();
 	bpf_map_update_elem(&socks, &skp, &fresh, BPF_NOEXIST);
 	return bpf_map_lookup_elem(&socks, &skp);
 }

@@ -135,3 +135,36 @@ func TestCollectDropsPrivateDestinationsBeforeTheFirstMap(t *testing.T) {
 		t.Errorf("unresolved = %v, want 3", v)
 	}
 }
+
+// Server mode keys flows by process (ADR-210): pm2's apps share pm2-app.service's cgroup, so
+// a flow from mailer is mailer's, not the unit's; a flow without a process (another mode),
+// or from a process the scrape doesn't know, stays with its cgroup's owner.
+func TestFlowsByProcessNameTheGroup(t *testing.T) {
+	addr := netip.MustParseAddr("127.0.0.1")
+	unit := Owner{WorkloadKind: "Service", Workload: "pm2-app.service"}
+	d := &fakeDrainer{flows: [][]ebpf.Flow{{
+		{Cgroup: 7, Tgid: 2213, Addr: addr, Port: 8092, Connects: 30},
+		{Cgroup: 7, Tgid: 9999, Addr: addr, Port: 8092, Connects: 2},
+		{Cgroup: 7, Addr: addr, Port: 5432, Connects: 1},
+	}}}
+	c := New(d, func() (map[uint64]Owner, error) { return map[uint64]Owner{7: unit}, nil },
+		slog.New(slog.NewTextHandler(io.Discard, nil)))
+	c.ByProcess = func(tgid uint32) (Owner, bool) {
+		if tgid == 2213 {
+			return Owner{WorkloadKind: "ProcessGroup", Workload: "mailer"}, true
+		}
+		return Owner{}, false
+	}
+	got, _ := c.Drain()
+	if len(got) != 3 {
+		t.Fatalf("drained %+v", got)
+	}
+	if got[0].Owner.Workload != "mailer" || got[0].Owner.WorkloadKind != "ProcessGroup" {
+		t.Errorf("mailer's flow: %+v", got[0].Owner)
+	}
+	for _, i := range []int{1, 2} {
+		if got[i].Owner != unit {
+			t.Errorf("flow %d: %+v, want the unit", i, got[i].Owner)
+		}
+	}
+}

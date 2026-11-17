@@ -15,7 +15,9 @@ var LatencyBuckets = []float64{0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 
 
 // Flow is one (cgroup, destination, port) aggregate since the previous drain.
 type Flow struct {
-	Cgroup      uint64
+	Cgroup uint64
+	// Tgid is the connecting process, when flows are keyed by process (server mode); 0 else.
+	Tgid        uint32
 	Addr        netip.Addr
 	Port        uint16
 	Connects    uint64

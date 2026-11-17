@@ -76,6 +76,9 @@ type Flows struct {
 type Options struct {
 	// HTTP peeks at the first 16 bytes of TCP messages for HTTP/1.x stats (ADR-139).
 	HTTP bool
+	// ByProcess keys flows by the connecting process as well as its cgroup (server mode,
+	// ADR-210): process groups sharing a cgroup, like pm2's apps, are told apart.
+	ByProcess bool
 }
 
 // Load loads the programs with every hook on and attaches them.
@@ -87,6 +90,15 @@ func LoadWith(o Options) (*Flows, error) {
 	spec, err := loadFlows()
 	if err != nil {
 		return nil, err
+	}
+	if o.ByProcess {
+		v, ok := spec.Variables["key_tgid"]
+		if !ok {
+			return nil, errors.New("the flow program has no key_tgid")
+		}
+		if err := v.Set(uint8(1)); err != nil {
+			return nil, err
+		}
 	}
 	optional := map[string]bool{"on_send": true, "on_recv": true,
 		"on_dns_send": true, "on_dns_send6": true, "on_dns_recv": true, "on_dns_close": true,
@@ -219,7 +231,7 @@ func (f *Flows) Drain() ([]Flow, error) {
 }
 
 func sum(k flowsFlowKey, vals []flowsFlowVal) Flow {
-	f := Flow{Cgroup: k.Cgroup, Addr: netip.AddrFrom16(k.Daddr).Unmap(), Port: k.Dport}
+	f := Flow{Cgroup: k.Cgroup, Tgid: k.Tgid, Addr: netip.AddrFrom16(k.Daddr).Unmap(), Port: k.Dport}
 	for _, v := range vals {
 		f.Connects += v.Connects
 		f.Failures += v.Failures
