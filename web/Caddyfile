@@ -56,6 +56,13 @@
 	handle /.well-known/openid-configuration* {
 		respond 404
 	}
+	# The server install script (ADR-209): the backend writes it with this WatchLog's address,
+	# for `curl -fsSL <public address>/install.sh | sudo sh`. Never the dashboard's HTML.
+	handle /install.sh {
+		reverse_proxy {$WATCHLOG_BACKEND:backend:4080} {
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
 	handle /ingest/* {
 		request_body {
 			max_size 8MB
