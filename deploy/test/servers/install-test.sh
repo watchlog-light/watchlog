@@ -76,6 +76,10 @@ check "process groups: the jar started by hand" "$(grep -c 'watchlog_process_gro
 check "listening ports: nginx on 80" "$(grep -c 'watchlog_listen_info{source="service",workload="nginx.service",proto="tcp",port="80"' <<<"$once")" "1"
 check "no command line or pid in any label" "$(grep -cE '/opt/wl-apps|--workers|pid=' <<<"$once")" "0"
 echo "   series in all: $(grep -c '^watchlog_' <<<"$once"), services: $(grep -c '^watchlog_service_' <<<"$once"), process groups: $(grep -c '^watchlog_process_group_' <<<"$once")"
+# Logs on demand (ADR-208): the agent's own capabilities read a service's journal.
+journal=$(in_vm "systemd-run --quiet --wait --pipe --uid=watchlog --gid=watchlog -p 'AmbientCapabilities=$caps_list' -p NoNewPrivileges=yes \
+    journalctl -u nginx.service -n 3 -o json --no-pager -q 2>&1 | head -3")
+check "logs: the agent's capabilities read nginx.service's journal" "$(grep -c '__REALTIME_TIMESTAMP' <<<"$journal")" "3"
 
 echo "== upgrade and uninstall"
 in_vm "WATCHLOG_INSTALL_FROM=$home/wl-dist sh $home/wl-dist/install.sh --upgrade" >/tmp/wl-upgrade.out 2>&1

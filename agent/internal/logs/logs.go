@@ -38,9 +38,12 @@ type Request struct {
 	Namespace string `json:"namespace,omitempty"`
 	Pod       string `json:"pod,omitempty"`
 	Container string `json:"container"`
-	Previous  bool   `json:"previous"`
-	Lines     int    `json:"lines"`
-	Follow    bool   `json:"follow"`
+	// A server's systemd service, or process group (ADR-208): instead of a container.
+	Unit     string `json:"unit,omitempty"`
+	Group    string `json:"group,omitempty"`
+	Previous bool   `json:"previous"`
+	Lines    int    `json:"lines"`
+	Follow   bool   `json:"follow"`
 }
 
 // Line is one shaped line as posted to the backend.
@@ -63,6 +66,8 @@ const (
 	CodeDriver     = "driver_unsupported"
 	CodeReadFailed = "read_failed"
 	CodeDisabled   = "disabled"
+	// A process group outside systemd whose manager keeps no log file WatchLog knows.
+	CodeNoSource = "no_log_source"
 )
 
 // ReadError is a read that failed in a way the reader understands.

@@ -455,11 +455,24 @@ func run(args []string, stdout io.Writer) int {
 		}
 		go dockerCollector.WatchEvents(ctx)
 		go dockerCollector.ShipEvents(ctx, snd.SendEvents, log)
-		if *logsOn {
-			lr := &logs.Runner{Base: base.String(), Token: token, AgentID: *hostname, Host: *hostname,
-				UserAgent: "watchlog-agent/" + version.Version, Reader: logs.DockerReader{API: dockerClient}, Log: log}
-			go lr.Run(ctx)
+	}
+	// Logs on demand (ADR-167, ADR-208): containers through Docker, and on a server its
+	// services' journal and pm2's and supervisord's log files.
+	if *logsOn && mode == config.ModeServer {
+		reader := logs.ServerReader{FS: os.DirFS("/")}
+		if dockerCollector != nil {
+			reader.Docker = logs.DockerReader{API: dockerClient}
 		}
+		if groups != nil {
+			root := procs.HostRoot(paths.RootFS)
+			reader.Group = groups.GroupInfo
+			reader.LogFiles = func(group, by string) map[string]string {
+				return procs.LogFiles(os.DirFS("/"), root, group, by)
+			}
+		}
+		lr := &logs.Runner{Base: base.String(), Token: token, AgentID: *hostname, Host: *hostname,
+			UserAgent: "watchlog-agent/" + version.Version, Reader: reader, Log: log}
+		go lr.Run(ctx)
 	}
 	if podmapClient != nil && netCollector != nil {
 		// The cluster-agent pushes IP map changes; flows resolve against them at the next
