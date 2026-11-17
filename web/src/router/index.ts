@@ -5,7 +5,6 @@ import { createRouter, createWebHistory, type Router, type RouteRecordRaw } from
 import {
   Bell,
   Boxes,
-  Container,
   Database,
   Globe,
   LayoutDashboard,
@@ -53,21 +52,9 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { name: 'overview', path: '/', titleKey: 'nav.overview', icon: LayoutDashboard },
   { name: 'nodes', path: '/nodes', titleKey: 'nav.nodes', icon: Server, kind: 'kubernetes' },
-  { name: 'hosts', path: '/hosts', titleKey: 'nav.hosts', icon: Server, kind: 'server' },
-  {
-    name: 'workloads',
-    path: '/workloads',
-    titleKey: 'nav.workloads',
-    icon: Boxes,
-    kind: 'kubernetes',
-  },
-  {
-    name: 'containers',
-    path: '/containers',
-    titleKey: 'nav.containers',
-    icon: Container,
-    kind: 'server',
-  },
+  // Server fleets (ADR-207): Servers and Workloads replace 0.8's Hosts and Containers.
+  { name: 'servers', path: '/servers', titleKey: 'nav.servers', icon: Server, kind: 'server' },
+  { name: 'workloads', path: '/workloads', titleKey: 'nav.workloads', icon: Boxes },
   // Services next to the workloads (SPEC §4.12), for both kinds of cluster.
   {
     name: 'applications',
@@ -95,23 +82,14 @@ export const NAV_ITEMS: NavItem[] = [
 export const navFor = (kind: ClusterKind | null | undefined) =>
   NAV_ITEMS.filter((i) => !i.kind || i.kind === (kind ?? 'kubernetes'));
 
-const RANGED = new Set([
-  'overview',
-  'nodes',
-  'hosts',
-  'workloads',
-  'containers',
-  'events',
-  'service-map',
-]);
+const RANGED = new Set(['overview', 'nodes', 'workloads', 'events', 'service-map']);
 
 const views: Record<string, () => Promise<Component>> = {
   overview: () => import('@/views/OverviewPage.vue'),
   nodes: () => import('@/views/NodesPage.vue'),
-  workloads: () => import('@/views/WorkloadsPage.vue'),
+  workloads: () => import('@/views/WorkloadsSwitch.vue'),
   events: () => import('@/views/EventsPage.vue'),
-  hosts: () => import('@/views/HostsPage.vue'),
-  containers: () => import('@/views/ContainersPage.vue'),
+  servers: () => import('@/views/ServersPage.vue'),
   applications: () => import('@/views/ApplicationsPage.vue'),
   'service-map': () => import('@/views/ServiceMapPage.vue'),
   egress: () => import('@/views/EgressPage.vue'),
@@ -222,10 +200,30 @@ export const routes: RouteRecordRaw[] = [
         meta: { titleKey: 'nav.workloads', charts: true, kind: 'kubernetes' },
       },
       {
+        name: 'server',
+        path: 'servers/:server',
+        component: () => import('@/views/ServerPage.vue'),
+        meta: { titleKey: 'nav.servers', charts: true, kind: 'server' },
+      },
+      {
+        name: 'server-workload',
+        path: 'servers/:server/workloads/:workload',
+        component: () => import('@/views/ServerWorkloadPage.vue'),
+        meta: { titleKey: 'nav.servers', kind: 'server' },
+      },
+      // The containers with their Compose projects (0.8's Containers page), from Workloads.
+      {
+        name: 'containers',
+        path: 'containers',
+        component: () => import('@/views/ContainersPage.vue'),
+        meta: { titleKey: 'nav.containers', charts: true, kind: 'server' },
+      },
+      // 0.8's Hosts pages: old links and bookmarks.
+      { name: 'hosts', path: 'hosts', redirect: (to) => ({ name: 'servers', query: to.query }) },
+      {
         name: 'docker-host',
         path: 'hosts/:host',
-        component: () => import('@/views/DockerHostPage.vue'),
-        meta: { titleKey: 'nav.hosts', charts: true, kind: 'server' },
+        redirect: (to) => ({ name: 'server', params: { server: to.params.host }, query: to.query }),
       },
       {
         name: 'docker-container',

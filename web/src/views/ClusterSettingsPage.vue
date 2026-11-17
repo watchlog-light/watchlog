@@ -8,6 +8,7 @@ import { useRoute } from 'vue-router';
 import { api, ApiError, hasProblemType, ProblemType } from '@/api/client';
 import IngestFailureBanner from '@/components/clusters/IngestFailureBanner.vue';
 import TokenReveal from '@/components/clusters/TokenReveal.vue';
+import ProcessRules from '@/components/servers/ProcessRules.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
@@ -207,6 +208,13 @@ onMounted(page.load);
           </li>
         </ul>
       </section>
+
+      <!-- A Server fleet's own process-group rules (ADR-207). -->
+      <ProcessRules
+        v-if="detail.cluster.kind === 'server'"
+        :cluster-id="detail.cluster.id"
+        :can-manage="canManage && !auth.demoMode"
+      />
     </template>
   </div>
 </template>

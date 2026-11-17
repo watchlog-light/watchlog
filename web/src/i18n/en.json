@@ -29,7 +29,8 @@
     "newDestinations": "{n} new destination in 24 hours | {n} new destinations in 24 hours",
     "newShort": "{n} new",
     "whatChanged": "What changed",
-    "pro": "Pro"
+    "pro": "Pro",
+    "servers": "Servers"
   },
   "clusterSwitcher": {
     "label": "Cluster",
@@ -203,7 +204,7 @@
     "detailTitle": "Cluster",
     "add": "Add cluster or fleet",
     "back": "All clusters",
-    "hosts": "no hosts yet | {n} host | {n} hosts",
+    "hosts": "no servers yet | {n} server | {n} servers",
     "lastSeen": "last seen {at}",
     "neverSeen": "waiting for the first agent",
     "kind": {
@@ -4875,5 +4876,204 @@
     "message": {
       "title": "The message in every channel"
     }
+  },
+  "servers": {
+    "title": "no servers | {n} server | {n} servers",
+    "intro": "Every process on them, whatever it runs: systemd services, process groups and containers.",
+    "footnote": "A workload is anything WatchLog watches on a server: a systemd service, a group of processes (a pm2 app, a PHP-FPM pool, a Go binary started by hand) or a container. No code changes, in any language.",
+    "addServers": "Add servers",
+    "problemsFirst": "Problems first",
+    "tiles": {
+      "needAttention": "Need attention",
+      "services": "Services",
+      "servicesFailed": "· {n} failed",
+      "processes": "Process groups",
+      "crashLooping": "· {n} crash-looping",
+      "containers": "Containers"
+    },
+    "columns": {
+      "server": "Server",
+      "cpu": "CPU",
+      "memory": "Memory",
+      "disk": "Disk",
+      "workloads": "Workloads",
+      "attention": "Needs attention",
+      "workload": "Workload",
+      "kind": "Kind",
+      "state": "State",
+      "listens": "Listens",
+      "restarts": "Restarts 24 h",
+      "onServer": "Server"
+    },
+    "chips": {
+      "service": "{n} svc",
+      "process": "{n} proc",
+      "container": "{n} ctr"
+    },
+    "fine": "Nothing",
+    "more": "+{n} more",
+    "empty": {
+      "title": "No servers yet",
+      "description": "Install the agent on a Linux server with one command. Its services, processes and containers appear here within a minute."
+    },
+    "errors": {
+      "load": "Couldn't load the servers.",
+      "notFound": "This server isn't in the fleet.",
+      "workloadNotFound": "This workload isn't on the server any more.",
+      "load1": "Couldn't load the server."
+    },
+    "back": "All servers",
+    "chip": {
+      "cpus": "{n} CPU · {mem}",
+      "up": "up {n} days",
+      "ebpf": "eBPF on · agent {v}",
+      "agent": "agent {v}",
+      "systemd": "systemd {v}",
+      "kernel": "kernel {v}",
+      "docker": "Docker {v}"
+    },
+    "attention": "1 workload needs attention | {n} workloads need attention",
+    "oldAgent": "This server runs an agent older than 0.9: only its containers and host metrics show. Upgrade the agent to see its systemd services and processes.",
+    "usage": {
+      "cpu": "CPU",
+      "memory": "Memory",
+      "disk": "Disk /",
+      "network": "Network",
+      "cpuSub": "{used} of {cores} cores",
+      "ofSub": "{used} of {total}",
+      "netSub": "in {in} · out {out}"
+    },
+    "workloadsOn": "Workloads on {server}",
+    "filter": {
+      "all": "All",
+      "service": "Services",
+      "process": "Processes",
+      "container": "Containers"
+    },
+    "system": "Show system services ({n})",
+    "hideSystem": "Hide system services",
+    "source": {
+      "service": "Service",
+      "process": "Process",
+      "container": "Container"
+    },
+    "instances": "{n} instance | {n} instances",
+    "noWorkloads": "No workloads match.",
+    "events": {
+      "title": "Events",
+      "empty": "Nothing in the last hour.",
+      "exited": "{name} exited with an error | {name} exited with an error {n} times",
+      "killed": "{name} was killed by a signal | {name} was killed {n} times",
+      "release": "{name}: its executable changed",
+      "failed": "{name} failed",
+      "oom_killed": "{name} was OOM killed",
+      "alert": "Alert: {name}"
+    },
+    "talksTo": {
+      "title": "Talks to",
+      "hint": "From eBPF, for every process, any language. Last 15 minutes.",
+      "empty": "No connections in the last 15 minutes.",
+      "rate": "{v}/s",
+      "failed": "{v}/s failed",
+      "ok": "ok"
+    },
+    "problem": {
+      "failed": "failed",
+      "crash_looping": "crash-looping",
+      "oom_killed": "OOM killed",
+      "unhealthy": "unhealthy",
+      "exited": "exited",
+      "restarting": "restarting"
+    },
+    "by": {
+      "pm2": "pm2",
+      "supervisord": "supervisord",
+      "php-fpm": "PHP-FPM",
+      "gunicorn": "gunicorn/uwsgi",
+      "java": "Java",
+      "script": "script",
+      "exe": "executable",
+      "rule": "your rule"
+    },
+    "workload": {
+      "service": "A systemd service on {server}.",
+      "processInUnit": "A process group inside {unit} on {server}.",
+      "processAlone": "A process group started outside systemd on {server}.",
+      "byRule": "Grouped by: {rule}.",
+      "crashSince": "Crash-looping since {t}",
+      "alertRules": "Alert rules",
+      "groupingRule": "Grouping rule",
+      "tiles": {
+        "cpu": "CPU",
+        "memory": "Memory",
+        "instances": "Instances",
+        "threads": "Threads",
+        "openFiles": "Open files",
+        "restarts": "Restarts 24 h",
+        "lastExit": "Last exit code",
+        "started": "Started",
+        "tasks": "Tasks",
+        "limit": "of {v}",
+        "noLimit": "no limit",
+        "cpuLimit": "limit {v}"
+      },
+      "timeline": {
+        "title": "Exits and restarts, last hour",
+        "hint": "From the kernel (sched_process_exit): any process, with or without systemd.",
+        "release": "executable changed",
+        "crashes": "failed exits",
+        "restarts": "restarts",
+        "oom": "OOM kills",
+        "empty": "No exits or restarts in the last hour.",
+        "bar": "{t}: {crashes} failed exits, {restarts} restarts"
+      },
+      "related": {
+        "children": "Process groups in this service",
+        "parent": "Runs in"
+      },
+      "connections": {
+        "title": "Connections",
+        "hint": "eBPF, no code changes. TLS is never decrypted."
+      },
+      "privacy": "Command lines stay on the server; only the group's name is sent.",
+      "ports": "Listens on {ports}"
+    },
+    "rules": {
+      "title": "Process groups",
+      "intro": "WatchLog names a server's processes by pm2, supervisord, PHP-FPM, gunicorn, Java and the script or executable they run. Your rules come first, in order: match on the executable, the systemd unit or a pattern over the arguments, and name the group. The agent evaluates them on the server; command lines never leave it.",
+      "add": "Add a rule",
+      "exe": "Executable",
+      "exeHint": "A glob, e.g. python*",
+      "unit": "Unit",
+      "unitHint": "A glob, e.g. pm2-*.service",
+      "args": "Arguments",
+      "argsHint": "A pattern, e.g. -m (\\w+)",
+      "name": "Group name",
+      "nameHint": "$1…$9 are the pattern's captures",
+      "remove": "Remove",
+      "up": "Move up",
+      "down": "Move down",
+      "save": "Save rules",
+      "saved": "Rules saved. The agents use them within a minute.",
+      "errorSave": "Couldn't save the rules.",
+      "errorLoad": "Couldn't load the rules.",
+      "empty": "No rules of your own: the built-in grouping applies.",
+      "try": "Try a process",
+      "tryExe": "Executable",
+      "tryUnit": "Unit",
+      "tryArgs": "Command line",
+      "result": "Grouped as {name} by rule {n}",
+      "noMatch": "No rule matches: the built-in grouping applies.",
+      "matched": "Named by your rules now",
+      "matchedRow": "{group}: {instances} on {servers}",
+      "none": "Nothing yet.",
+      "viewer": "Only Owners and Admins can change the rules."
+    },
+    "fleetWorkloads": {
+      "intro": "Every workload on the fleet's servers: services, process groups and containers.",
+      "search": "Filter by name",
+      "containersPage": "Containers with their Compose projects"
+    },
+    "exitCode": "exit {code}"
   }
 }
