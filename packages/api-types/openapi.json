@@ -4626,6 +4626,1867 @@
         }
       }
     },
+    "/api/v1/clusters/{id}/servers": {
+      "get": {
+        "summary": "A Server fleet's servers: header facts, usage, workload counts and problems",
+        "tags": ["servers", "public"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["servers", "totals"],
+                  "properties": {
+                    "servers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "status",
+                          "lastSeenAt",
+                          "agentVersion",
+                          "servicesAvailable",
+                          "os",
+                          "kernel",
+                          "systemd",
+                          "docker",
+                          "cores",
+                          "memoryBytes",
+                          "bootTime",
+                          "cpuUtilization",
+                          "memoryUtilization",
+                          "diskUtilization",
+                          "workloads",
+                          "problems",
+                          "problemCount"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["active"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["inactive"]
+                              }
+                            ]
+                          },
+                          "lastSeenAt": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "agentVersion": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "servicesAvailable": {
+                            "type": "boolean"
+                          },
+                          "os": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "kernel": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "systemd": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "docker": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "cores": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "memoryBytes": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "bootTime": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "cpuUtilization": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "memoryUtilization": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "diskUtilization": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "workloads": {
+                            "type": "object",
+                            "required": ["services", "processes", "containers"],
+                            "properties": {
+                              "services": {
+                                "type": "integer"
+                              },
+                              "processes": {
+                                "type": "integer"
+                              },
+                              "containers": {
+                                "type": "integer"
+                              }
+                            }
+                          },
+                          "problems": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["id", "name", "source", "kind", "severity"],
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "severity": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          },
+                          "problemCount": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "totals": {
+                      "type": "object",
+                      "required": [
+                        "servers",
+                        "needAttention",
+                        "services",
+                        "servicesFailed",
+                        "processes",
+                        "crashLooping",
+                        "containers"
+                      ],
+                      "properties": {
+                        "servers": {
+                          "type": "integer"
+                        },
+                        "needAttention": {
+                          "type": "integer"
+                        },
+                        "services": {
+                          "type": "integer"
+                        },
+                        "servicesFailed": {
+                          "type": "integer"
+                        },
+                        "processes": {
+                          "type": "integer"
+                        },
+                        "crashLooping": {
+                          "type": "integer"
+                        },
+                        "containers": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{id}/servers/{server}": {
+      "get": {
+        "summary": "One server: its facts, usage tiles, recent events and who it talks to",
+        "tags": ["servers", "public"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "in": "path",
+            "name": "server",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["server", "usage", "events", "talksTo"],
+                  "properties": {
+                    "server": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "status",
+                        "lastSeenAt",
+                        "agentVersion",
+                        "servicesAvailable",
+                        "os",
+                        "kernel",
+                        "systemd",
+                        "docker",
+                        "cores",
+                        "memoryBytes",
+                        "bootTime",
+                        "cpuUtilization",
+                        "memoryUtilization",
+                        "diskUtilization",
+                        "workloads",
+                        "problems",
+                        "problemCount"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["active"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["inactive"]
+                            }
+                          ]
+                        },
+                        "lastSeenAt": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "agentVersion": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "servicesAvailable": {
+                          "type": "boolean"
+                        },
+                        "os": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "kernel": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "systemd": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "docker": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cores": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "memoryBytes": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "bootTime": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cpuUtilization": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "memoryUtilization": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "diskUtilization": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "workloads": {
+                          "type": "object",
+                          "required": ["services", "processes", "containers"],
+                          "properties": {
+                            "services": {
+                              "type": "integer"
+                            },
+                            "processes": {
+                              "type": "integer"
+                            },
+                            "containers": {
+                              "type": "integer"
+                            }
+                          }
+                        },
+                        "problems": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["id", "name", "source", "kind", "severity"],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "problemCount": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "usage": {
+                      "type": "object",
+                      "required": [
+                        "cpuCores",
+                        "memoryUsedBytes",
+                        "diskUsedBytes",
+                        "diskSizeBytes",
+                        "networkInBytes",
+                        "networkOutBytes"
+                      ],
+                      "properties": {
+                        "cpuCores": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "memoryUsedBytes": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "diskUsedBytes": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "diskSizeBytes": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "networkInBytes": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "networkOutBytes": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["workloadId", "kind", "text", "count", "alertId"],
+                        "properties": {
+                          "workloadId": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          },
+                          "alertId": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "talksTo": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["from", "fromKind", "to", "toKind", "port", "rate", "failed"],
+                        "properties": {
+                          "from": {
+                            "type": "string"
+                          },
+                          "fromKind": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "to": {
+                            "type": "string"
+                          },
+                          "toKind": {
+                            "type": "string"
+                          },
+                          "port": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "rate": {
+                            "type": "number"
+                          },
+                          "failed": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{id}/servers/{server}/workloads": {
+      "get": {
+        "summary": "A server's workloads: systemd services, process groups and containers",
+        "tags": ["servers", "public"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "in": "path",
+            "name": "server",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["workloads"],
+                  "properties": {
+                    "workloads": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "source",
+                          "name",
+                          "unit",
+                          "note",
+                          "state",
+                          "problem",
+                          "cpuCores",
+                          "memoryBytes",
+                          "memoryLimitBytes",
+                          "instances",
+                          "ports",
+                          "restarts24h",
+                          "lastExitCode",
+                          "system"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "`service:<unit>`, `process:<group>` or `container:<name>`"
+                          },
+                          "source": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["service"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["process"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["container"]
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "unit": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "note": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "state": {
+                            "type": "string"
+                          },
+                          "problem": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["kind", "severity", "code"],
+                                "properties": {
+                                  "kind": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": ["failed"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["crash_looping"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["oom_killed"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["unhealthy"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["exited"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["restarting"]
+                                      }
+                                    ]
+                                  },
+                                  "severity": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": ["critical"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["warning"]
+                                      }
+                                    ]
+                                  },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "cpuCores": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "memoryBytes": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "memoryLimitBytes": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "instances": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "ports": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer"
+                            }
+                          },
+                          "restarts24h": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "lastExitCode": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "system": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{id}/servers/{server}/workloads/{workload}": {
+      "get": {
+        "summary": "One workload on a server: usage, the last hour of exits and restarts, connections",
+        "tags": ["servers", "public"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "in": "path",
+            "name": "server",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 300
+            },
+            "in": "path",
+            "name": "workload",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "workload",
+                    "server",
+                    "related",
+                    "usage",
+                    "timeline",
+                    "crashLoopSince",
+                    "connections"
+                  ],
+                  "properties": {
+                    "workload": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "source",
+                        "name",
+                        "unit",
+                        "note",
+                        "state",
+                        "problem",
+                        "cpuCores",
+                        "memoryBytes",
+                        "memoryLimitBytes",
+                        "instances",
+                        "ports",
+                        "restarts24h",
+                        "lastExitCode",
+                        "system"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "`service:<unit>`, `process:<group>` or `container:<name>`"
+                        },
+                        "source": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["service"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["process"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["container"]
+                            }
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "unit": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "note": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "state": {
+                          "type": "string"
+                        },
+                        "problem": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["kind", "severity", "code"],
+                              "properties": {
+                                "kind": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["failed"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["crash_looping"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["oom_killed"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["unhealthy"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["exited"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["restarting"]
+                                    }
+                                  ]
+                                },
+                                "severity": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["critical"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["warning"]
+                                    }
+                                  ]
+                                },
+                                "code": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cpuCores": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "memoryBytes": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "memoryLimitBytes": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "instances": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "ports": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        },
+                        "restarts24h": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "lastExitCode": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "system": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "server": {
+                      "type": "string"
+                    },
+                    "related": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "source",
+                          "name",
+                          "unit",
+                          "note",
+                          "state",
+                          "problem",
+                          "cpuCores",
+                          "memoryBytes",
+                          "memoryLimitBytes",
+                          "instances",
+                          "ports",
+                          "restarts24h",
+                          "lastExitCode",
+                          "system"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "`service:<unit>`, `process:<group>` or `container:<name>`"
+                          },
+                          "source": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["service"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["process"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["container"]
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "unit": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "note": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "state": {
+                            "type": "string"
+                          },
+                          "problem": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["kind", "severity", "code"],
+                                "properties": {
+                                  "kind": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": ["failed"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["crash_looping"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["oom_killed"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["unhealthy"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["exited"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["restarting"]
+                                      }
+                                    ]
+                                  },
+                                  "severity": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": ["critical"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["warning"]
+                                      }
+                                    ]
+                                  },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "cpuCores": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "memoryBytes": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "memoryLimitBytes": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "instances": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "ports": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer"
+                            }
+                          },
+                          "restarts24h": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "lastExitCode": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "system": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    },
+                    "usage": {
+                      "type": "object",
+                      "required": ["threads", "openFiles", "tasks", "startedAt", "cpuLimitCores"],
+                      "properties": {
+                        "threads": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "openFiles": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tasks": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "startedAt": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cpuLimitCores": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "timeline": {
+                      "type": "object",
+                      "required": ["start", "end", "step", "points", "releases"],
+                      "properties": {
+                        "start": {
+                          "type": "integer"
+                        },
+                        "end": {
+                          "type": "integer"
+                        },
+                        "step": {
+                          "type": "integer"
+                        },
+                        "points": {
+                          "type": "array",
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            }
+                          }
+                        },
+                        "releases": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "crashLoopSince": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "connections": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["from", "fromKind", "to", "toKind", "port", "rate", "failed"],
+                        "properties": {
+                          "from": {
+                            "type": "string"
+                          },
+                          "fromKind": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "to": {
+                            "type": "string"
+                          },
+                          "toKind": {
+                            "type": "string"
+                          },
+                          "port": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "rate": {
+                            "type": "number"
+                          },
+                          "failed": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/clusters/{id}/nodes": {
       "get": {
         "summary": "Nodes with status, usage, requests, allocatable, disks and trends (SPEC §4.2)",

@@ -1851,6 +1851,530 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/clusters/{id}/servers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** A Server fleet's servers: header facts, usage, workload counts and problems */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              servers: {
+                name: string;
+                status: 'active' | 'inactive';
+                lastSeenAt: string | null;
+                agentVersion: string | null;
+                servicesAvailable: boolean;
+                os: string | null;
+                kernel: string | null;
+                systemd: string | null;
+                docker: string | null;
+                cores: number | null;
+                memoryBytes: number | null;
+                bootTime: number | null;
+                cpuUtilization: number | null;
+                memoryUtilization: number | null;
+                diskUtilization: number | null;
+                workloads: {
+                  services: number;
+                  processes: number;
+                  containers: number;
+                };
+                problems: {
+                  id: string;
+                  name: string;
+                  source: string;
+                  kind: string;
+                  severity: string;
+                }[];
+                problemCount: number;
+              }[];
+              totals: {
+                servers: number;
+                needAttention: number;
+                services: number;
+                servicesFailed: number;
+                processes: number;
+                crashLooping: number;
+                containers: number;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/clusters/{id}/servers/{server}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** One server: its facts, usage tiles, recent events and who it talks to */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+          server: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              server: {
+                name: string;
+                status: 'active' | 'inactive';
+                lastSeenAt: string | null;
+                agentVersion: string | null;
+                servicesAvailable: boolean;
+                os: string | null;
+                kernel: string | null;
+                systemd: string | null;
+                docker: string | null;
+                cores: number | null;
+                memoryBytes: number | null;
+                bootTime: number | null;
+                cpuUtilization: number | null;
+                memoryUtilization: number | null;
+                diskUtilization: number | null;
+                workloads: {
+                  services: number;
+                  processes: number;
+                  containers: number;
+                };
+                problems: {
+                  id: string;
+                  name: string;
+                  source: string;
+                  kind: string;
+                  severity: string;
+                }[];
+                problemCount: number;
+              };
+              usage: {
+                cpuCores: number | null;
+                memoryUsedBytes: number | null;
+                diskUsedBytes: number | null;
+                diskSizeBytes: number | null;
+                networkInBytes: number | null;
+                networkOutBytes: number | null;
+              };
+              events: {
+                workloadId: string | null;
+                kind: string;
+                text: string;
+                count: number;
+                alertId: string | null;
+              }[];
+              talksTo: {
+                from: string;
+                fromKind: string | null;
+                to: string;
+                toKind: string;
+                port: number | null;
+                rate: number;
+                failed: number;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/clusters/{id}/servers/{server}/workloads': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** A server's workloads: systemd services, process groups and containers */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+          server: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              workloads: {
+                /** @description `service:<unit>`, `process:<group>` or `container:<name>` */
+                id: string;
+                source: 'service' | 'process' | 'container';
+                name: string;
+                unit: string | null;
+                note: string | null;
+                state: string;
+                problem: {
+                  kind:
+                    | 'failed'
+                    | 'crash_looping'
+                    | 'oom_killed'
+                    | 'unhealthy'
+                    | 'exited'
+                    | 'restarting';
+                  severity: 'critical' | 'warning';
+                  code: number | null;
+                } | null;
+                cpuCores: number | null;
+                memoryBytes: number | null;
+                memoryLimitBytes: number | null;
+                instances: number | null;
+                ports: number[];
+                restarts24h: number | null;
+                lastExitCode: number | null;
+                system: boolean;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/clusters/{id}/servers/{server}/workloads/{workload}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** One workload on a server: usage, the last hour of exits and restarts, connections */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+          server: string;
+          workload: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              workload: {
+                /** @description `service:<unit>`, `process:<group>` or `container:<name>` */
+                id: string;
+                source: 'service' | 'process' | 'container';
+                name: string;
+                unit: string | null;
+                note: string | null;
+                state: string;
+                problem: {
+                  kind:
+                    | 'failed'
+                    | 'crash_looping'
+                    | 'oom_killed'
+                    | 'unhealthy'
+                    | 'exited'
+                    | 'restarting';
+                  severity: 'critical' | 'warning';
+                  code: number | null;
+                } | null;
+                cpuCores: number | null;
+                memoryBytes: number | null;
+                memoryLimitBytes: number | null;
+                instances: number | null;
+                ports: number[];
+                restarts24h: number | null;
+                lastExitCode: number | null;
+                system: boolean;
+              };
+              server: string;
+              related: {
+                /** @description `service:<unit>`, `process:<group>` or `container:<name>` */
+                id: string;
+                source: 'service' | 'process' | 'container';
+                name: string;
+                unit: string | null;
+                note: string | null;
+                state: string;
+                problem: {
+                  kind:
+                    | 'failed'
+                    | 'crash_looping'
+                    | 'oom_killed'
+                    | 'unhealthy'
+                    | 'exited'
+                    | 'restarting';
+                  severity: 'critical' | 'warning';
+                  code: number | null;
+                } | null;
+                cpuCores: number | null;
+                memoryBytes: number | null;
+                memoryLimitBytes: number | null;
+                instances: number | null;
+                ports: number[];
+                restarts24h: number | null;
+                lastExitCode: number | null;
+                system: boolean;
+              }[];
+              usage: {
+                threads: number | null;
+                openFiles: number | null;
+                tasks: number | null;
+                startedAt: number | null;
+                cpuLimitCores: number | null;
+              };
+              timeline: {
+                start: number;
+                end: number;
+                step: number;
+                points: number[][];
+                releases: number[];
+              };
+              crashLoopSince: number | null;
+              connections: {
+                from: string;
+                fromKind: string | null;
+                to: string;
+                toKind: string;
+                port: number | null;
+                rate: number;
+                failed: number;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/clusters/{id}/nodes': {
     parameters: {
       query?: never;
