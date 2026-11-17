@@ -92,5 +92,18 @@ describe('server catalog keys (ADR-208)', () => {
     expect(await value('process.instances', group)).toBe(1);
     expect(await value('process.exits.failed.increase', group)).toBeGreaterThanOrEqual(2);
     expect(await value('process.releases.increase', group)).toBeGreaterThanOrEqual(1);
+    // The workload page's per-step counts: each step's own increase, so an event is drawn
+    // once (the .increase keys count a trailing 10 minutes, for rules).
+    for (const k of [
+      'unit.restarts.step',
+      'unit.exits.failed.step',
+      'process.exits.failed.step',
+    ] as const)
+      expect(buildQuery(k, {}, 60).expr).toContain('[60s]');
+    expect(buildQuery('process.starts.step', {}, 300).expr).toContain('[300s]');
+    expect(await value('unit.restarts.step', unit)).toBeGreaterThanOrEqual(3);
+    expect(await value('unit.exits.failed.step', unit)).toBeGreaterThanOrEqual(3);
+    expect(await value('unit.oom_kills.step', unit)).toBeGreaterThanOrEqual(1);
+    expect(await value('process.exits.failed.step', group)).toBeGreaterThanOrEqual(2);
   });
 });

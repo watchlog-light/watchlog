@@ -51,12 +51,137 @@ describe('workload assembly', () => {
     groupCpu: [],
     groupMemory: [],
     groupFailedExits10m: [],
-    groupFailedExits24h: [],
+    groupRestarts24h: [],
     groupOom10m: [],
     listen: [],
     containerCpu: [],
     containerRestarts24h: [],
   };
+
+  it("hides WatchLog's own by unit and binary or image, never a foreign process named watchlog-agent", () => {
+    const by = assembleWorkloads(
+      {
+        ...empty,
+        serviceState: [
+          s({ host: HOST, unit: 'watchlog-agent.service', state: 'active', sub: 'running' }, 1),
+          s({ host: HOST, unit: 'php8.2-fpm.service', state: 'active', sub: 'running' }, 1),
+        ],
+        serviceExe: [
+          s({ host: HOST, unit: 'watchlog-agent.service', exe: 'watchlog-agent', own: 'true' }, 1),
+          s({ host: HOST, unit: 'php8.2-fpm.service', exe: 'php-fpm8.2' }, 1),
+        ],
+        groupInstances: [
+          // Another product's agent (the owner's v1, on :3774) under pm2 or by hand.
+          s({ host: HOST, unit: '', group: 'watchlog-agent', by: 'exe', exe: 'watchlog-agent' }, 1),
+          s({ host: HOST, unit: '', group: 'bash', by: 'exe', exe: 'bash' }, 2),
+          s(
+            { host: HOST, unit: 'containerd.service', group: 'containerd-shim-runc-v2', by: 'exe' },
+            3,
+          ),
+        ],
+      },
+      [
+        {
+          node: HOST,
+          name: 'watchlog-agent',
+          status: { state: 'running' },
+          memoryBytes: 1,
+          memoryLimitBytes: null,
+          ports: [],
+          compose: null,
+          image: 'ghcr.io/watchlog-light/agent:0.6.0',
+        },
+        {
+          node: HOST,
+          name: 'watchlog-agent-v1',
+          status: { state: 'running' },
+          memoryBytes: 1,
+          memoryLimitBytes: null,
+          ports: [],
+          compose: null,
+          image: 'example/watchlog-agent:1.2',
+        },
+      ],
+    ).get(HOST)!;
+    const sys = (id: string) => by.find((w) => w.id === id)?.system;
+    expect(sys('service:watchlog-agent.service')).toBe(true);
+    expect(sys('service:php8.2-fpm.service')).toBe(false);
+    expect(sys('process:watchlog-agent')).toBe(false);
+    expect(sys('process:bash')).toBe(true);
+    expect(sys('process:containerd-shim-runc-v2')).toBe(true);
+    expect(sys('container:watchlog-agent')).toBe(true);
+    expect(sys('container:watchlog-agent-v1')).toBe(false);
+    expect(by.find((w) => w.id === 'service:php8.2-fpm.service')?.runs).toBe('php-fpm8.2');
+    expect(by.find((w) => w.id === 'container:watchlog-agent')?.runs).toBe('agent:0.6.0');
+  });
+
+  it('drops a group 10 minutes after its last process, and calls a recent one gone', () => {
+    const by =
+      assembleWorkloads(
+        {
+          ...empty,
+          groupInstances: [
+            s({ host: HOST, unit: '', group: 'backup.sh', by: 'script' }, 0),
+            s({ host: HOST, unit: '', group: 'report.py', by: 'script' }, 0),
+          ],
+          groupRecent: [
+            s({ host: HOST, group: 'backup.sh' }, 0),
+            s({ host: HOST, group: 'report.py' }, 1),
+          ],
+        },
+        [],
+      ).get(HOST) ?? [];
+    expect(by.map((w) => w.id)).toEqual(['process:report.py']);
+    expect(by[0]!.problem?.kind).toBe('gone');
+  });
+
+  it("nests pm2's apps under pm2 outside systemd, under their unit inside it", () => {
+    const by = assembleWorkloads(
+      {
+        ...empty,
+        serviceState: [
+          s({ host: HOST, unit: 'pm2-root.service', state: 'active', sub: 'running' }, 1),
+        ],
+        groupInstances: [
+          s({ host: HOST, unit: '', group: 'pm2', by: 'pm2' }, 1),
+          s({ host: HOST, unit: '', group: 'activity2', by: 'pm2' }, 1),
+          s({ host: HOST, unit: 'user@0.service', group: 'teleboost', by: 'pm2' }, 1),
+          s({ host: HOST, unit: 'pm2-root.service', group: 'api', by: 'pm2' }, 1),
+        ],
+      },
+      [],
+    ).get(HOST)!;
+    const parent = (id: string) => by.find((w) => w.id === id)?.parent;
+    expect(parent('process:activity2')).toBe('process:pm2');
+    expect(parent('process:teleboost')).toBe('process:pm2');
+    expect(by.find((w) => w.id === 'process:teleboost')?.unit).toBeNull();
+    expect(parent('process:api')).toBe('service:pm2-root.service');
+    expect(parent('process:pm2')).toBeNull();
+  });
+
+  it('counts restarts in 24 h, 0 when there were none (never null)', () => {
+    const by = assembleWorkloads(
+      {
+        ...empty,
+        serviceState: [
+          s({ host: HOST, unit: 'orders.service', state: 'active', sub: 'running' }, 1),
+          s({ host: HOST, unit: 'nginx.service', state: 'active', sub: 'running' }, 1),
+        ],
+        serviceRestarts24h: [s({ host: HOST, unit: 'orders.service' }, 4.2)],
+        groupInstances: [
+          s({ host: HOST, unit: 'pm2-app.service', group: 'api', by: 'pm2' }, 2),
+          s({ host: HOST, unit: '', group: 'sync.py', by: 'script' }, 1),
+        ],
+        groupRestarts24h: [s({ host: HOST, group: 'api' }, 3)],
+      },
+      [],
+    ).get(HOST)!;
+    const r = (id: string) => by.find((w) => w.id === id)?.restarts24h;
+    expect(r('service:orders.service')).toBe(4);
+    expect(r('service:nginx.service')).toBe(0);
+    expect(r('process:api')).toBe(3);
+    expect(r('process:sync.py')).toBe(0);
+  });
 
   it('names the three sources, their problems and ports, problems first', () => {
     const by = assembleWorkloads(
@@ -130,7 +255,8 @@ describe('workload assembly', () => {
     expect(parseWorkloadId('pod:x')).toBeNull();
     expect(parseWorkloadId('service:')).toBeNull();
     expect(isSystemUnit('systemd-journald.service')).toBe(true);
-    expect(isSystemUnit('watchlog-agent.service')).toBe(true);
+    // WatchLog's own is told by unit and binary together (the agent's own="true"), not a name.
+    expect(isSystemUnit('watchlog-agent.service')).toBe(false);
     expect(isSystemUnit('orders.service')).toBe(false);
   });
 
@@ -158,6 +284,11 @@ describe('probable cause on a server (ADR-213)', () => {
     restarts24h: 9,
     lastExitCode: 137,
     system: false,
+    runs: 'orders',
+    cpuLimitCores: null,
+    changedAt: null,
+    expected: 1,
+    parent: null,
     problem: { kind: 'crash_looping' as const, severity: 'critical' as const, code: 137 },
   };
   const minutes = (crashFrom: number, oomAt?: number) =>
