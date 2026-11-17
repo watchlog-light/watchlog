@@ -5,7 +5,7 @@ description: WatchLog run for you, in beta: signing up, the setup wizard, plans 
 
 # WatchLog Cloud
 
-WatchLog Cloud is the same WatchLog as the self-hosted Community edition, run for you at cloud.watchlog.io. You install the agents on your Kubernetes clusters or Docker hosts; we run the backend, keep the data, upgrade it and back it up. Cloud is in **beta**: it is new, and it may change before billing starts.
+WatchLog Cloud is the same WatchLog as the self-hosted Community edition, run for you at cloud.watchlog.io. You install the agents on your Kubernetes clusters or Linux servers; we run the backend, keep the data, upgrade it and back it up. Cloud is in **beta**: it is new, and it may change before billing starts.
 
 If you'd rather run everything yourself, the [Community edition](install.md) is free, open source and has no limits.
 
@@ -21,8 +21,8 @@ Signing up needs no card and no company details. You get an organization named a
 
 After signup a short wizard connects your first cluster or Server fleet:
 
-1. **Choose** Kubernetes or Docker, and a name.
-2. **Install** with one command, which carries the cluster's token (it starts with `wl_ct_`, and is shown once): Helm or a `kubectl` manifest for Kubernetes, `docker run` or a Compose service for Docker. The `kubectl` manifest is fetched with a separate one-time install code, so the token never appears in a URL.
+1. **Choose** Kubernetes or Servers, and a name.
+2. **Install** with one command, which carries the cluster's token (it starts with `wl_ct_`, and is shown once): Helm or a `kubectl` manifest for Kubernetes, one command, a deb, an rpm or `docker run` for Servers. The `kubectl` manifest is fetched with a separate one-time install code, so the token never appears in a URL.
 3. **Watch it connect.** A checklist ticks, live, as the agents report, the first metrics arrive, eBPF starts and the service map gets its first connection. If no agent has reported after 2 minutes, the wizard shows the checks to run and the common causes, and a way to ask us for help.
 
 Then add an alert channel (Slack, Telegram or email) and open the dashboard. Everything after that works as in the [Community edition](install.md): the same views, [alerts](alerts.md), [probable cause](probable-cause.md), [logs](logs.md), the applications ([Redis](integrations/redis.md), [PostgreSQL](integrations/postgres.md) and the others) and [MCP](mcp.md).

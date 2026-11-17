@@ -9,8 +9,8 @@ Everything the dashboard shows about your clusters, you can read from a script: 
 containers, nodes, hosts, events, the service map, alerts and metrics. You authenticate with a
 personal API token. It is read only and can't change anything.
 
-The API covers both kinds of cluster WatchLog watches: **Kubernetes clusters** and **Docker
-fleets** (one or more Docker hosts). The examples below show both.
+The API covers both kinds of cluster WatchLog watches: **Kubernetes clusters** and **Server
+fleets** (one or more Linux servers). The examples below show both.
 
 ## Get a token
 

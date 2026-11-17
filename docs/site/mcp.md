@@ -18,7 +18,7 @@ assistant to it, and you can ask questions like:
 The assistant answers from what WatchLog sees: problems and alerts, pods and containers,
 exit codes and OOM kills, events, recent rollouts, the service map and metrics, and the
 probable cause WatchLog finds for a problem. It works for **Kubernetes clusters** and
-**Docker hosts** alike.
+**Linux servers** alike.
 
 WatchLog doesn't run an AI model itself. It only answers the questions your assistant asks
 through MCP. Nothing about your clusters leaves WatchLog unless you connect a client.

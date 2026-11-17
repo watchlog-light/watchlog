@@ -6,16 +6,16 @@
 
 ## What you get
 
-- **One install.** A Helm chart for Kubernetes, or one `docker run` per Docker host.
-- **Ready-made views.** Cluster overview, nodes, workloads, pods with restart and OOM reasons, events, and Docker hosts and containers. Press ⌘K to jump to any of them by name.
-- **Why it broke.** Every alert and problem gets its probable cause in one sentence, with the evidence behind it: "web fails because api was scaled to 0: nothing answers its calls." Twelve fixed rules over what WatchLog already collects, across the service map, on Kubernetes and Docker; the same line in Slack, Telegram and email. No AI in the product, no scores; see [probable cause](docs/site/probable-cause.md).
+- **One install.** A Helm chart for Kubernetes, or one command per Linux server (a deb, an rpm or `docker run` work too).
+- **Ready-made views.** Cluster overview, nodes, workloads, pods with restart and OOM reasons, events; and on Linux servers, every systemd service, process group and container ([Linux servers](docs/site/servers.md)). Press ⌘K to jump to any of them by name.
+- **Why it broke.** Every alert and problem gets its probable cause in one sentence, with the evidence behind it: "web fails because api was scaled to 0: nothing answers its calls." Twelve fixed rules over what WatchLog already collects, across the service map, on Kubernetes and Linux servers; the same line in Slack, Telegram and email. No AI in the product, no scores; see [probable cause](docs/site/probable-cause.md).
 - **A service map without code changes.** eBPF shows who connects to whom, failed connections, connect latency, bytes and DNS errors. External services are named by DNS.
 - **Your databases, caches, queues and web servers.** Redis, PostgreSQL, MySQL and MariaDB, MongoDB, Nginx, Traefik, RabbitMQ and Kafka are found by themselves; press Monitor for their own page, the reasons behind a problem (the session holding a row lock, the consumer group that lost its members, the upstream sending 5xx) and default alerts. Read-only access, and HTTP stats from eBPF with nothing to set up.
 - **Logs when you need them, and sizes that fit.** A container's last lines on its page, streamed and never stored ([logs on demand](docs/site/logs.md)). Requests and limits compared with what each container really uses, in plain sentences ([right-sizing](docs/site/right-sizing.md)).
 - **Alerts that work on day one.** Crash loops, OOM kills, node pressure, failing connections and more, sent to Slack, Telegram, email or webhooks.
 - **A small, read-only agent.** Under 64 MB of memory and 1 % of a core. It never reads Secrets, ConfigMaps, environment values or payloads; see [what it can access](docs/site/security.md).
 - **For your team.** Owners, Admins and Viewers, invited by email; an MCP server and a REST API for your AI assistant and scripts, read-only.
-- **Self-hosted and free**, for as many Kubernetes clusters, Docker fleets and nodes as you run, under AGPL-3.0.
+- **Self-hosted and free**, for as many Kubernetes clusters, Server fleets, nodes and servers as you run, under AGPL-3.0.
 
 ![The cluster overview: health from firing alerts, what needs attention, recent warnings](docs/images/overview.png)
 
@@ -31,7 +31,7 @@ kubectl -n watchlog port-forward svc/watchlog-web 8080
 
 Open http://localhost:8080 and enter the setup code from `kubectl -n watchlog logs deploy/watchlog-backend -c backend | grep "setup code"`. The cluster appears within a minute.
 
-### Docker hosts
+### Linux servers, with Docker Compose
 
 ```bash
 mkdir watchlog && cd watchlog
@@ -41,7 +41,7 @@ curl -fsSL -o .env https://raw.githubusercontent.com/watchlog-light/watchlog/v0.
 docker compose up -d && docker compose logs backend | grep "setup code"
 ```
 
-Then add your hosts from **Settings → Clusters**: it shows the `docker run` command for each host.
+Then add your servers from **Settings → Clusters → Add cluster → Servers**: it shows the command to run on each one.
 
 The [install guide](docs/site/install.md) covers requirements, PodSecurity, more clusters, upgrades (never with manual steps) and uninstalling.
 

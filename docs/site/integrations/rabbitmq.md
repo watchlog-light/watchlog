@@ -6,7 +6,7 @@ description: Monitor RabbitMQ on Kubernetes and Docker with WatchLog: queues, co
 # RabbitMQ
 
 WatchLog finds RabbitMQ from the images and ports your agents already see, on Kubernetes
-clusters and Docker hosts. Open **Applications** and press **Monitor**: RabbitMQ needs no
+clusters and Linux servers. Open **Applications** and press **Monitor**: RabbitMQ needs no
 user or password. Versions 3.10 and later are supported.
 
 ## What it needs

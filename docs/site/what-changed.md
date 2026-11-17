@@ -52,16 +52,17 @@ is never listed: only a change that lasts.
 
 The curated metrics of WatchLog's catalog, per object, never raw queries:
 
-| Kubernetes                                                                    | Docker                                                                                          |
-| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Workloads: CPU, memory, and the requests, errors and p95 response time served | Containers: CPU, memory, network, and the requests, errors and p95 response time served         |
-| Nodes: CPU, memory, network and disk I/O                                      | Hosts: CPU, memory, network and disk I/O                                                        |
-| Service map connections: connections, requests and p95 between workloads      | Service map connections between containers, the destination named as its Compose service        |
-| Monitored applications: rates, ratios, latency, connections, lag, queue depth | The same for applications on Docker hosts (Redis, PostgreSQL, MySQL, MongoDB, Nginx, and so on) |
+| Kubernetes                                                                    | Servers                                                                                        |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Workloads: CPU, memory, and the requests, errors and p95 response time served | Services and process groups: CPU and memory                                                    |
+|                                                                               | Containers: CPU, memory, network, and the requests, errors and p95 response time served        |
+| Nodes: CPU, memory, network and disk I/O                                      | Servers: CPU, memory, network and disk I/O                                                     |
+| Service map connections: connections, requests and p95 between workloads      | Service map connections between containers, the destination named as its Compose service       |
+| Monitored applications: rates, ratios, latency, connections, lag, queue depth | The same for applications on the servers (Redis, PostgreSQL, MySQL, MongoDB, Nginx, and so on) |
 
 Left out on purpose: pods (they come and go; their workload carries them), restarts, OOM kills,
 throttling and node conditions (default alert rules already cover them as events), and
-up/down, certificate or size metrics. On Docker a container is followed by its name, which a
+up/down, certificate or size metrics. On a server a container is followed by its name, which a
 Compose re-create keeps, and shown with its Compose project and service.
 
 ## The learning period
@@ -84,7 +85,7 @@ A series is used once it has **7 days** of its own data. Until then, What change
 starts, so its page lists changes right away. It also has a scenario of its own for What
 changed: every 2 hours, at 50 minutes past every odd hour UTC (01:50, 03:50, … 23:50), `search`'s
 response time drifts from about 10 ms to a second over 20 minutes and back, on the demo cluster
-and on its Docker host. [Open the live demo](https://demo.watchlog.io/demo) and choose **What
+and on its Server fleet. [Open the live demo](https://demo.watchlog.io/demo) and choose **What
 changed** with the **Last 6 hours** window.
 
 ## The What changed page
