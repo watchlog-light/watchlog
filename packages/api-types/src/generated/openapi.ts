@@ -2375,6 +2375,216 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/clusters/{id}/process-rules': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** A Server fleet's own process-group rules, and the groups they name now */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              rules: {
+                /** @description A glob over the executable's base name */
+                exe?: string;
+                /** @description A glob over the systemd unit */
+                unit?: string;
+                /** @description A pattern (RE2) over the arguments joined by spaces; its captures fill $1…$9 */
+                args?: string;
+                /** @description The group's name: a template */
+                name: string;
+              }[];
+              matches: {
+                group: string;
+                servers: string[];
+                instances: number;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    /** Replace a Server fleet's process-group rules (in order; at most 50) */
+    put: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            rules: {
+              /** @description A glob over the executable's base name */
+              exe?: string;
+              /** @description A glob over the systemd unit */
+              unit?: string;
+              /** @description A pattern (RE2) over the arguments joined by spaces; its captures fill $1…$9 */
+              args?: string;
+              /** @description The group's name: a template */
+              name: string;
+            }[];
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              rules: {
+                /** @description A glob over the executable's base name */
+                exe?: string;
+                /** @description A glob over the systemd unit */
+                unit?: string;
+                /** @description A pattern (RE2) over the arguments joined by spaces; its captures fill $1…$9 */
+                args?: string;
+                /** @description The group's name: a template */
+                name: string;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/clusters/{id}/nodes': {
     parameters: {
       query?: never;

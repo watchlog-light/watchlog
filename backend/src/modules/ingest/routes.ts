@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Agent ingest API (SPEC §8.2): token auth, limits, server-side cluster_id (ADR-025/026/027).
+import { registerProcessRulesIngest } from '../servers/rules.js';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createGunzip } from 'node:zlib';
@@ -672,6 +673,8 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
   );
 
   registerLogsIngest(app, { broker: opts.logs ?? new LogBroker() });
+
+  registerProcessRulesIngest(app, db);
 
   registerIntegrationIngest(app, {
     db,

@@ -548,6 +548,19 @@ export interface PasswordResets {
   via: string;
 }
 
+export interface ProcessRules {
+  args: string | null;
+  cluster_id: string;
+  created_by: string | null;
+  exe: string | null;
+  id: Generated<string>;
+  name: string;
+  org_id: Generated<string>;
+  position: number;
+  unit: string | null;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface RetiredClusterTokens {
   retired_at: Generated<Timestamp>;
   token_hash: Buffer;
@@ -845,6 +858,7 @@ export interface DB {
   org_deletions: OrgDeletions;
   orgs: Orgs;
   password_resets: PasswordResets;
+  process_rules: ProcessRules;
   plan_limit_emails: PlanLimitEmails;
   plan_limit_hits: PlanLimitHits;
   retired_cluster_tokens: RetiredClusterTokens;

@@ -6688,6 +6688,120 @@
         "security": [{ "bearerAuth": [] }]
       }
     },
+    "/api/v1/clusters/{id}/process-rules": {
+      "get": {
+        "summary": "A Server fleet's own process-group rules, and the groups they name now",
+        "tags": ["servers"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["rules", "matches"],
+                  "properties": {
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["name"],
+                        "properties": {
+                          "exe": {
+                            "type": "string",
+                            "maxLength": 100,
+                            "description": "A glob over the executable's base name"
+                          },
+                          "unit": {
+                            "type": "string",
+                            "maxLength": 200,
+                            "description": "A glob over the systemd unit"
+                          },
+                          "args": {
+                            "type": "string",
+                            "maxLength": 300,
+                            "description": "A pattern (RE2) over the arguments joined by spaces; its captures fill $1…$9"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 63,
+                            "description": "The group's name: a template"
+                          }
+                        }
+                      }
+                    },
+                    "matches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["group", "servers", "instances"],
+                        "properties": {
+                          "group": { "type": "string" },
+                          "servers": { "type": "array", "items": { "type": "string" } },
+                          "instances": { "type": "number" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
     "/api/v1/clusters/{id}/right-sizing": {
       "get": {
         "summary": "Right-sizing hints",
