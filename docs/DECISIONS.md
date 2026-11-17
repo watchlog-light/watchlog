@@ -3590,6 +3590,8 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
 
 - Amended (0.9 slice 8): the agent sends `watchlog_server_info{os,kernel,systemd}` (os-release's PRETTY_NAME from the host root, the kernel from /proc, systemd's Version over D-Bus) for the server page's header, and the rule that named a process group (`pm2`, `supervisord`, `php-fpm`, `gunicorn`, `java`, `script`, `exe`, `rule`) as the `by` label of its `watchlog_process_group_instances` only: no new series.
 
+- Amended (0.9 slice 11): **logs on demand on servers**, read only when someone asks, redacted like container logs (ADR-167), never stored: a service's journal (`journalctl -u <unit> -o json`, run by the agent with its own capabilities; the unit name is checked, nothing from the request reaches the command otherwise); a process group's pm2 log files (`~/.pm2/logs/<app>-out.log`, `-error.log`) or supervisord's `stdout_logfile`/`stderr_logfile`, else its unit's journal; containers through Docker as before. A process started by hand has no log source and the page says so (`no_log_source`). The route is `GET /clusters/:id/servers/:server/workloads/:workload/logs`; support sessions are refused, as for other logs. **Right-sizing** covers services with a MemoryMax or CPUQuota (memory-limit and throttling hints, as for container limits); services without limits and the OS's own services are left out unless asked.
+
 ## ADR-209: Installing on a server: one command, deb and rpm, `docker run`; its own user and the fewest capabilities
 
 - Date: 2026-11-17 · Status: accepted (0.9.0, slice 0); the capability list is measured in slices 1 and 6 and amended here
