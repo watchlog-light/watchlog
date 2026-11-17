@@ -193,6 +193,7 @@ func run(args []string, stdout io.Writer) int {
 	}
 	// A server's systemd services (ADR-208); without systemd on D-Bus, process groups only.
 	var groups *procs.Collector
+	var remoteRules *procs.RemoteRules
 	if mode == config.ModeServer {
 		// Exit codes and OOM kills from the kernel (ADR-210); without eBPF they are unknown.
 		var feed *exits.Feed
@@ -240,6 +241,9 @@ func run(args []string, stdout io.Writer) int {
 				return out
 			}
 		}
+		// The fleet's own rules come first (ADR-207); fetched once the sender exists, below.
+		remoteRules = &procs.RemoteRules{Log: slog.Default()}
+		groups.Rules = remoteRules.Rules
 		sources = append(sources, runner.Source{Name: "processes", Collect: groups.Collect})
 	}
 	ebpfState := network.Disabled
@@ -432,6 +436,13 @@ func run(args []string, stdout io.Writer) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	if remoteRules != nil {
+		rulesURL := base.String() + "/ingest/v1/process-rules"
+		remoteRules.Get = func(ctx context.Context, etag string) (int, []byte, string, error) {
+			return snd.Get(ctx, rulesURL, etag)
+		}
+		go remoteRules.Run(ctx, time.Minute)
+	}
 	if dockerCollector != nil {
 		r.Inventory = func() (any, string) { return dockerCollector.Inventory() }
 		r.Changes = dockerCollector.Changes()

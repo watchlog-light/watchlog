@@ -392,3 +392,27 @@ func (o Outcome) String() string {
 	}
 	return fmt.Sprintf("outcome(%d)", int(o))
 }
+
+// Get fetches a small JSON document from the backend (a fleet's process-group rules): the
+// status, the body (at most 256 KiB) and its ETag. A matching etag answers 304, no body.
+func (s *Sender) Get(ctx context.Context, url, etag string) (int, []byte, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return 0, nil, "", err
+	}
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
+	}
+	req.Header.Set("Authorization", "Bearer "+s.cfg.Token)
+	req.Header.Set("User-Agent", s.cfg.UserAgent)
+	req.Header.Set("X-WatchLog-Agent", s.cfg.AgentID)
+	res, err := s.cfg.Client.Do(req)
+	if err != nil {
+		return 0, nil, "", redactErr(err, s.cfg.Token)
+	}
+	defer func() { _ = res.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(res.Body, 256<<10))
+	return res.StatusCode, body, res.Header.Get("ETag"), err
+}
