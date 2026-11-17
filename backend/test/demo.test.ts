@@ -611,6 +611,7 @@ describe('ingest stays token-only', () => {
         '/ingest/v1/logs/:requestId',
         '/ingest/v1/logs/requests',
         '/ingest/v1/objects',
+        '/ingest/v1/process-rules',
         '/ingest/v1/write',
       ]);
       const admin = (await createUserSession(ctx.db, { role: 'owner' })).cookie;
