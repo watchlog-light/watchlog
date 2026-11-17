@@ -37,7 +37,7 @@ describe('keys the backend sends', () => {
     const pages = readdirSync(BACKEND + 'integrations/pages').filter((f) => f.endsWith('.ts'));
     for (const file of pages) {
       const src = read(`integrations/pages/${file}`);
-      const P = /const P = '([a-zA-Z.]+)'/.exec(src)?.[1];
+      const P = /const P = '([a-zA-Z.-]+)'/.exec(src)?.[1];
       if (P) {
         // `${P}.memory`, `${P}.cols.query`; a key built further (`${P}.series.${x}`) ends
         // in a dot and is checked by its own test.
