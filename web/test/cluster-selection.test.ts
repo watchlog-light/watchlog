@@ -61,13 +61,20 @@ describe('the selected cluster', () => {
 
   it('sends pages of the other kind to Overview, keeping the selection', async () => {
     const { router, store } = await setup(`/?cluster=${FLEET.id}`);
-    for (const path of ['/nodes', '/workloads', '/nodes/w1', '/pods/default/web']) {
+    // Workloads is both kinds' page (ADR-207).
+    for (const path of ['/nodes', '/nodes/w1', '/pods/default/web']) {
       await router.push(path);
       expect(router.currentRoute.value.name, path).toBe('overview');
       expect(store.selected?.id).toBe(FLEET.id);
     }
     store.select(KIND.id);
-    for (const path of ['/hosts', '/containers', '/hosts/h1', '/containers/h1/web']) {
+    for (const path of [
+      '/servers',
+      '/containers',
+      '/servers/h1',
+      '/servers/h1/workloads/process:x',
+      '/containers/h1/web',
+    ]) {
       await router.push(path);
       expect(router.currentRoute.value.name, path).toBe('overview');
       expect(store.selected?.id).toBe(KIND.id);
@@ -92,11 +99,11 @@ describe('the selected cluster', () => {
     const { router } = await setup(`/?cluster=${FLEET.id}`);
     await router.push('/docker?host=h1');
     expect(router.currentRoute.value).toMatchObject({ name: 'containers', query: { host: 'h1' } });
+    // 0.8's host page is the server page now (ADR-207).
     await router.push('/docker/hosts/h1');
-    expect(router.currentRoute.value).toMatchObject({
-      name: 'docker-host',
-      params: { host: 'h1' },
-    });
+    expect(router.currentRoute.value).toMatchObject({ name: 'server', params: { server: 'h1' } });
+    await router.push('/hosts/h1');
+    expect(router.currentRoute.value).toMatchObject({ name: 'server', params: { server: 'h1' } });
     await router.push('/docker/hosts/h1/containers/web');
     expect(router.currentRoute.value).toMatchObject({
       name: 'docker-container',
@@ -112,7 +119,7 @@ describe('the selected cluster', () => {
     expect(labels()).toEqual([
       'Overview',
       'Servers',
-      'Containers',
+      'Workloads',
       'Applications',
       'Events',
       'What changed',

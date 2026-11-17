@@ -42,7 +42,7 @@ const AUTH_FILE = new URL(`./.auth/session${demo ? '-demo' : ''}-${TARGET}.json`
 interface Cluster {
   id: string;
   name: string;
-  kind: 'kubernetes' | 'docker';
+  kind: 'kubernetes' | 'server';
   lastSeenAt: string | null;
 }
 
@@ -165,14 +165,14 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
   const pick = (kind: Cluster['kind'], name?: string) =>
     clusters.find((c) => c.kind === kind && (!name || c.name === name));
   const kube = pick('kubernetes', process.env.WATCHLOG_E2E_KUBE);
-  const docker = pick('docker', process.env.WATCHLOG_E2E_DOCKER);
-  if (!kube || !docker) throw new Error('needs a Kubernetes cluster and a Docker fleet with data');
+  const docker = pick('server', process.env.WATCHLOG_E2E_DOCKER);
+  if (!kube || !docker) throw new Error('needs a Kubernetes cluster and a Server fleet with data');
   const k = `?cluster=${kube.id}`;
   const d = `?cluster=${docker.id}`;
-  clustersByKind = { kubernetes: kube, docker };
+  clustersByKind = { kubernetes: kube, server: docker };
   liveClusters = {
     kubernetes: clusters.find((c) => c.kind === 'kubernetes' && isLive(c)),
-    docker: clusters.find((c) => c.kind === 'docker' && isLive(c)),
+    server: clusters.find((c) => c.kind === 'server' && isLive(c)),
   };
 
   const { nodes } = await get<{ nodes: { name: string }[] }>(api, `/clusters/${kube.id}/nodes`);
@@ -180,10 +180,11 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
     api,
     `/clusters/${kube.id}/pods`,
   );
-  const { hosts } = await get<{ hosts: { name: string }[] }>(
-    api,
-    `/clusters/${docker.id}/docker/hosts`,
-  );
+  const { servers: hosts, workloads: serverWorkloads = [] } = await get<{
+    servers: { name: string }[];
+    workloads?: { id: string; server: string; source: string }[];
+  }>(api, `/clusters/${docker.id}/servers?workloads=1`);
+  const workload = serverWorkloads.find((w) => w.source !== 'container');
   const { containers } = await get<{
     containers: {
       host: string;
@@ -291,8 +292,18 @@ async function discover(api: APIRequestContext, baseURL: string | undefined): Pr
         prepare: openSections,
       },
     ]),
-    { name: 'hosts', path: `/hosts${d}`, shot: true },
-    { name: 'host', path: `/hosts/${encodeURIComponent(hosts[0]!.name)}${d}`, shot: true },
+    { name: 'servers', path: `/servers${d}`, shot: true },
+    { name: 'server', path: `/servers/${encodeURIComponent(hosts[0]!.name)}${d}`, shot: true },
+    ...(workload
+      ? [
+          {
+            name: 'server-workload',
+            path: `/servers/${encodeURIComponent(workload.server)}/workloads/${encodeURIComponent(workload.id)}${d}`,
+            shot: true,
+          },
+        ]
+      : []),
+    { name: 'workloads-server', path: `/workloads${d}`, shot: true },
     { name: 'containers', path: `/containers${d}`, shot: true },
     {
       name: 'container',
@@ -423,7 +434,7 @@ function applicationRoutes(
     { url: /\/api\/v1\/alert-rules$/, json: { rules: apps.serviceRules(kube) } },
   ];
   const dockerApp = monitored.find(
-    (a) => a.cluster.kind === 'docker' && a.reason.code === 'collector_missing',
+    (a) => a.cluster.kind === 'server' && a.reason.code === 'collector_missing',
   );
   const many: Answer = {
     url: /\/api\/v1\/applications\/discovered$/,
@@ -1125,12 +1136,12 @@ async function checkRouteLayout(page: Page, route: Route, width: number, failure
   }
 }
 
-for (const kind of ['kubernetes', 'docker'] as const) {
+for (const kind of ['kubernetes', 'server'] as const) {
   test(`service map on a phone (${kind}): Connections first, then the map pans and pinch-zooms by touch`, async ({
     browser,
   }) => {
     const route = routes.find(
-      (r) => r.name === (kind === 'docker' ? 'service-map-docker' : 'service-map'),
+      (r) => r.name === (kind === 'server' ? 'service-map-docker' : 'service-map'),
     );
     test.skip(!route, 'service map not in this run');
     const context = await browser.newContext({ ...viewportFor(390), storageState: storage });
@@ -1151,7 +1162,7 @@ for (const kind of ['kubernetes', 'docker'] as const) {
 // workloads and warning events; the narrow one Needs attention (six problems at most),
 // recent changes and the heatmap. On a narrow page, one column with Needs attention first.
 // The traffic tile's sub-line stays on one line.
-for (const kind of ['kubernetes', 'docker'] as const) {
+for (const kind of ['kubernetes', 'server'] as const) {
   for (const width of [1280, 1440, 390]) {
     test(`overview (${kind}) at ${width}px: columns stack on their own`, async ({ browser }) => {
       const cluster = clustersByKind?.[kind];
@@ -1188,13 +1199,13 @@ for (const kind of ['kubernetes', 'docker'] as const) {
 
 // Optional: the same on a phone with the cluster's own data, when one reported in the last
 // 10 minutes (deploy/test/demo-up.sh). The checks above never need it.
-for (const kind of ['kubernetes', 'docker'] as const) {
+for (const kind of ['kubernetes', 'server'] as const) {
   test(`service map on a phone with live data (${kind})`, async ({ browser }) => {
     const live = liveClusters[kind];
     const last = clustersByKind?.[kind]?.lastSeenAt;
     test.skip(
       !live,
-      `no ${kind === 'docker' ? 'Docker host' : 'Kubernetes cluster'} reported in the last 10 minutes` +
+      `no ${kind === 'server' ? 'server' : 'Kubernetes cluster'} reported in the last 10 minutes` +
         ` (last report: ${last ?? 'never'}); start one with deploy/test/demo-up.sh to run this check`,
     );
     const context = await browser.newContext({ ...viewportFor(390), storageState: storage });
