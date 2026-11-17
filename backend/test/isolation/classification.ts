@@ -127,6 +127,11 @@ export const ROUTES: Record<string, RouteClass> = {
   'POST /api/v1/query/range': org,
   'GET /api/v1/clusters/:id/docker/hosts': org,
   'GET /api/v1/clusters/:id/docker/containers': org,
+  // Server fleets (ADR-207).
+  'GET /api/v1/clusters/:id/servers': org,
+  'GET /api/v1/clusters/:id/servers/:server': org,
+  'GET /api/v1/clusters/:id/servers/:server/workloads': org,
+  'GET /api/v1/clusters/:id/servers/:server/workloads/:workload': org,
   'GET /api/v1/clusters/:id/nodes': org,
   'GET /api/v1/clusters/:id/nodes/:name': org,
   'GET /api/v1/clusters/:id/workloads': org,

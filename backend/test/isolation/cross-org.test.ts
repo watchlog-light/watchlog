@@ -57,13 +57,18 @@ const leaks = (text: string, sent = '', of: SeededOrg = A) =>
 /** The URL of a route with the given org's ids in its path parameters. */
 function pathFor(route: string, o: SeededOrg): string {
   const url = route.split(' ')[1]!;
-  const docker = url.includes('/docker/');
+  const docker = url.includes('/docker/') || url.includes('/servers');
   return url
     .replace(/^\/api\/v1\/clusters\/:id/, `/api/v1/clusters/${docker ? o.docker.id : o.k8s.id}`)
     .replace(':tokenId', o.k8s.tokenId)
     .replace('/nodes/:name', `/nodes/${o.node}`)
     .replace('/pods/:namespace/:name', `/pods/${o.pod.namespace}/${o.pod.name}`)
     .replace('/hosts/:host/containers/:name', `/hosts/${o.host}/containers/${o.container}`)
+    .replace(
+      '/servers/:server/workloads/:workload',
+      `/servers/${o.host}/workloads/container:${o.container}`,
+    )
+    .replace('/servers/:server', `/servers/${o.host}`)
     .replace('/alerts/:id', `/alerts/${o.alertId}`)
     .replace('/silences/:id', `/silences/${o.silenceId}`)
     .replace('/alert-rules/:id', `/alert-rules/${o.ruleId}`)
