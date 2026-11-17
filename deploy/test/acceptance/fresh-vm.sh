@@ -77,7 +77,7 @@ while true; do
   sleep 2
 done
 
-# Docker parity: a container that keeps failing is a problem on the overview, and its
+# Docker parity (a Server fleet since 0.9, ADR-207): a container that keeps failing is a problem on the overview, and its
 # events (died) arrive; hosts report their boot time and disks.
 docker run -d --name wl-acceptance-fail --restart on-failure busybox:1.37 sh -c 'sleep 2; exit 3' >/dev/null
 start=$(date +%s)
@@ -89,7 +89,7 @@ while true; do
   problem=$(echo "$overview" | json "any('wl-acceptance-fail' in p['title'] for p in d.get('problems', {}).get('items', []))")
   died=$(echo "$events" | json "any(e['involvedName'] == 'wl-acceptance-fail' and e['reason'] == 'Died' for e in d['events'])")
   boot=$(echo "$hosts" | json "all(h['bootTime'] and h['disks'] for h in d['hosts']) and len(d['hosts']) > 0")
-  versions=$(echo "$overview" | json "len(d.get('facts', {}).get('dockerVersions', [])) > 0 and d.get('kind') == 'docker'")
+  versions=$(echo "$overview" | json "len(d.get('facts', {}).get('dockerVersions', [])) > 0 and d.get('kind') == 'server'")
   if [ "$problem" = True ] && [ "$died" = True ] && [ "$boot" = True ] && [ "$versions" = True ]; then
     log "Docker parity data after ${elapsed}s"
     echo "$overview" | json "'  overview: ' + ', '.join(p['title'] for p in d['problems']['items']) + ' · Docker ' + ', '.join(d['facts']['dockerVersions'])"
