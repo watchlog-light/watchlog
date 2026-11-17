@@ -541,7 +541,7 @@ export interface paths {
                 /** Format: uuid */
                 id: string;
                 name: string;
-                kind: 'kubernetes' | 'docker';
+                kind: 'kubernetes' | 'server';
                 status: 'pending' | 'active' | 'inactive';
                 nodeCount: number;
                 agentVersion: string | null;
@@ -586,7 +586,7 @@ export interface paths {
       };
     };
     put?: never;
-    /** Create a Docker fleet or Kubernetes cluster; returns its first token (shown once) and the install command */
+    /** Create a Server fleet or Kubernetes cluster; returns its first token (shown once) and the install command. `kind: docker` is an alias of `server`. */
     post: {
       parameters: {
         query?: never;
@@ -598,7 +598,8 @@ export interface paths {
         content: {
           'application/json': {
             name: string;
-            kind: 'docker' | 'kubernetes';
+            /** @description `docker` is an alias of `server` (WatchLog 0.8 and earlier) */
+            kind: 'kubernetes' | 'server' | 'docker';
           };
         };
       };
@@ -614,7 +615,7 @@ export interface paths {
                 /** Format: uuid */
                 id: string;
                 name: string;
-                kind: 'kubernetes' | 'docker';
+                kind: 'kubernetes' | 'server';
                 status: 'pending' | 'active' | 'inactive';
                 nodeCount: number;
                 agentVersion: string | null;
@@ -769,7 +770,7 @@ export interface paths {
                 /** Format: uuid */
                 id: string;
                 name: string;
-                kind: 'kubernetes' | 'docker';
+                kind: 'kubernetes' | 'server';
                 status: 'pending' | 'active' | 'inactive';
                 nodeCount: number;
                 agentVersion: string | null;
@@ -947,7 +948,7 @@ export interface paths {
                 /** Format: uuid */
                 id: string;
                 name: string;
-                kind: 'kubernetes' | 'docker';
+                kind: 'kubernetes' | 'server';
                 status: 'pending' | 'active' | 'inactive';
                 nodeCount: number;
                 agentVersion: string | null;
@@ -4118,7 +4119,7 @@ export interface paths {
               cluster: {
                 /** Format: uuid */
                 id: string;
-                kind: 'kubernetes' | 'docker';
+                kind: 'kubernetes' | 'server';
               };
               range: {
                 /** Format: date-time */
@@ -4415,7 +4416,7 @@ export interface paths {
           };
           content: {
             'application/json': {
-              kind: 'kubernetes' | 'docker';
+              kind: 'kubernetes' | 'server';
               cluster: {
                 id: string;
                 name: string;
@@ -5041,7 +5042,7 @@ export interface paths {
             'application/json': {
               /** Format: uuid */
               clusterId: string;
-              kind: 'kubernetes' | 'docker';
+              kind: 'kubernetes' | 'server';
               /** Format: date-time */
               createdAt: string;
               /** Format: date-time */
@@ -9218,7 +9219,7 @@ export interface paths {
                 cluster: {
                   id: string;
                   name: string;
-                  kind: 'kubernetes' | 'docker';
+                  kind: 'kubernetes' | 'server';
                 };
                 where: {
                   group: string | null;
@@ -9403,7 +9404,7 @@ export interface paths {
                 cluster: {
                   id: string;
                   name: string;
-                  kind: 'kubernetes' | 'docker';
+                  kind: 'kubernetes' | 'server';
                 };
                 where: {
                   group: string | null;
@@ -9618,7 +9619,7 @@ export interface paths {
                 cluster: {
                   id: string;
                   name: string;
-                  kind: 'kubernetes' | 'docker';
+                  kind: 'kubernetes' | 'server';
                 };
                 type: string;
                 name: string;
@@ -9665,7 +9666,7 @@ export interface paths {
                 cluster: {
                   id: string;
                   name: string;
-                  kind: 'kubernetes' | 'docker';
+                  kind: 'kubernetes' | 'server';
                 };
                 scope: 'service' | 'group';
                 label: string;
@@ -9742,7 +9743,7 @@ export interface paths {
                 cluster: {
                   id: string;
                   name: string;
-                  kind: 'kubernetes' | 'docker';
+                  kind: 'kubernetes' | 'server';
                 };
                 scope: 'service' | 'group';
                 label: string;
@@ -9949,7 +9950,7 @@ export interface paths {
                 cluster: {
                   id: string;
                   name: string;
-                  kind: 'kubernetes' | 'docker';
+                  kind: 'kubernetes' | 'server';
                 };
                 host: string | null;
                 version: string;
@@ -10197,7 +10198,7 @@ export interface paths {
                 cluster: {
                   id: string;
                   name: string;
-                  kind: 'kubernetes' | 'docker';
+                  kind: 'kubernetes' | 'server';
                 };
                 where: {
                   group: string | null;
@@ -11643,7 +11644,7 @@ export interface paths {
                 /** @description In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1) */
                 ref: string;
                 name: string;
-                platform: 'kubernetes' | 'docker';
+                platform: 'kubernetes' | 'server';
                 workloadKind?: string;
                 host?: string;
                 /** @description An application: postgres, redis, rabbitmq… */
@@ -11667,7 +11668,7 @@ export interface paths {
                 /** @description In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1) */
                 ref: string;
                 name: string;
-                platform: 'kubernetes' | 'docker';
+                platform: 'kubernetes' | 'server';
                 workloadKind?: string;
                 host?: string;
                 /** @description An application: postgres, redis, rabbitmq… */
@@ -11678,7 +11679,7 @@ export interface paths {
               cluster: {
                 id: string;
                 name: string;
-                kind: 'kubernetes' | 'docker';
+                kind: 'kubernetes' | 'server';
               };
               /** @description likely: one cause explains it; possible: leads to check; none: no clear cause */
               state: 'likely' | 'possible' | 'none';
@@ -11726,7 +11727,7 @@ export interface paths {
                     /** @description In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1) */
                     ref: string;
                     name: string;
-                    platform: 'kubernetes' | 'docker';
+                    platform: 'kubernetes' | 'server';
                     workloadKind?: string;
                     host?: string;
                     /** @description An application: postgres, redis, rabbitmq… */
@@ -11792,7 +11793,7 @@ export interface paths {
                   /** @description In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1) */
                   ref: string;
                   name: string;
-                  platform: 'kubernetes' | 'docker';
+                  platform: 'kubernetes' | 'server';
                   workloadKind?: string;
                   host?: string;
                   /** @description An application: postgres, redis, rabbitmq… */
@@ -11915,7 +11916,7 @@ export interface paths {
                 /** Format: uuid */
                 id: string;
                 name: string;
-                kind: 'kubernetes' | 'docker';
+                kind: 'kubernetes' | 'server';
               };
               window: {
                 /** Format: date-time */
@@ -12139,7 +12140,7 @@ export interface paths {
                 /** Format: uuid */
                 id: string;
                 name: string;
-                kind: 'kubernetes' | 'docker';
+                kind: 'kubernetes' | 'server';
               };
               key: string;
               unit: string;

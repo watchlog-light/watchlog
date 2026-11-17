@@ -941,7 +941,7 @@
                               },
                               {
                                 "type": "string",
-                                "enum": ["docker"]
+                                "enum": ["server"]
                               }
                             ]
                           },
@@ -1109,7 +1109,7 @@
         }
       },
       "post": {
-        "summary": "Create a Docker fleet or Kubernetes cluster; returns its first token (shown once) and the install command",
+        "summary": "Create a Server fleet or Kubernetes cluster; returns its first token (shown once) and the install command. `kind: docker` is an alias of `server`.",
         "tags": ["clusters"],
         "requestBody": {
           "required": true,
@@ -1129,13 +1129,18 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "enum": ["docker"]
+                        "enum": ["kubernetes"]
                       },
                       {
                         "type": "string",
-                        "enum": ["kubernetes"]
+                        "enum": ["server"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["docker"]
                       }
-                    ]
+                    ],
+                    "description": "`docker` is an alias of `server` (WatchLog 0.8 and earlier)"
                   }
                 }
               }
@@ -1181,7 +1186,7 @@
                             },
                             {
                               "type": "string",
-                              "enum": ["docker"]
+                              "enum": ["server"]
                             }
                           ]
                         },
@@ -1559,7 +1564,7 @@
                             },
                             {
                               "type": "string",
-                              "enum": ["docker"]
+                              "enum": ["server"]
                             }
                           ]
                         },
@@ -1865,7 +1870,7 @@
                             },
                             {
                               "type": "string",
-                              "enum": ["docker"]
+                              "enum": ["server"]
                             }
                           ]
                         },
@@ -10996,7 +11001,7 @@
                             },
                             {
                               "type": "string",
-                              "enum": ["docker"]
+                              "enum": ["server"]
                             }
                           ]
                         }
@@ -11817,7 +11822,7 @@
                         },
                         {
                           "type": "string",
-                          "enum": ["docker"]
+                          "enum": ["server"]
                         }
                       ]
                     },
@@ -14337,7 +14342,7 @@
                         },
                         {
                           "type": "string",
-                          "enum": ["docker"]
+                          "enum": ["server"]
                         }
                       ]
                     },
@@ -24706,7 +24711,7 @@
                                   },
                                   {
                                     "type": "string",
-                                    "enum": ["docker"]
+                                    "enum": ["server"]
                                   }
                                 ]
                               }
@@ -25426,7 +25431,7 @@
                                 },
                                 {
                                   "type": "string",
-                                  "enum": ["docker"]
+                                  "enum": ["server"]
                                 }
                               ]
                             }
@@ -26082,7 +26087,7 @@
                                   },
                                   {
                                     "type": "string",
-                                    "enum": ["docker"]
+                                    "enum": ["server"]
                                   }
                                 ]
                               }
@@ -26313,7 +26318,7 @@
                                   },
                                   {
                                     "type": "string",
-                                    "enum": ["docker"]
+                                    "enum": ["server"]
                                   }
                                 ]
                               }
@@ -26451,7 +26456,7 @@
                                 },
                                 {
                                   "type": "string",
-                                  "enum": ["docker"]
+                                  "enum": ["server"]
                                 }
                               ]
                             }
@@ -26803,7 +26808,7 @@
                                   },
                                   {
                                     "type": "string",
-                                    "enum": ["docker"]
+                                    "enum": ["server"]
                                   }
                                 ]
                               }
@@ -27340,7 +27345,7 @@
                                 },
                                 {
                                   "type": "string",
-                                  "enum": ["docker"]
+                                  "enum": ["server"]
                                 }
                               ]
                             }
@@ -31476,7 +31481,7 @@
                             },
                             {
                               "type": "string",
-                              "enum": ["docker"]
+                              "enum": ["server"]
                             }
                           ]
                         },
@@ -31566,7 +31571,7 @@
                                 },
                                 {
                                   "type": "string",
-                                  "enum": ["docker"]
+                                  "enum": ["server"]
                                 }
                               ]
                             },
@@ -31610,7 +31615,7 @@
                             },
                             {
                               "type": "string",
-                              "enum": ["docker"]
+                              "enum": ["server"]
                             }
                           ]
                         }
@@ -31829,7 +31834,7 @@
                                         },
                                         {
                                           "type": "string",
-                                          "enum": ["docker"]
+                                          "enum": ["server"]
                                         }
                                       ]
                                     },
@@ -32131,7 +32136,7 @@
                                   },
                                   {
                                     "type": "string",
-                                    "enum": ["docker"]
+                                    "enum": ["server"]
                                   }
                                 ]
                               },
@@ -32416,7 +32421,7 @@
                             },
                             {
                               "type": "string",
-                              "enum": ["docker"]
+                              "enum": ["server"]
                             }
                           ]
                         }
@@ -33017,7 +33022,7 @@
                             },
                             {
                               "type": "string",
-                              "enum": ["docker"]
+                              "enum": ["server"]
                             }
                           ]
                         }

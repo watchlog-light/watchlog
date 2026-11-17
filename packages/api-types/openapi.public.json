@@ -1327,7 +1327,7 @@
                               "kind": {
                                 "anyOf": [
                                   { "type": "string", "enum": ["kubernetes"] },
-                                  { "type": "string", "enum": ["docker"] }
+                                  { "type": "string", "enum": ["server"] }
                                 ]
                               }
                             }
@@ -1672,7 +1672,7 @@
                             "kind": {
                               "anyOf": [
                                 { "type": "string", "enum": ["kubernetes"] },
-                                { "type": "string", "enum": ["docker"] }
+                                { "type": "string", "enum": ["server"] }
                               ]
                             }
                           }
@@ -2150,7 +2150,7 @@
                               "kind": {
                                 "anyOf": [
                                   { "type": "string", "enum": ["kubernetes"] },
-                                  { "type": "string", "enum": ["docker"] }
+                                  { "type": "string", "enum": ["server"] }
                                 ]
                               }
                             }
@@ -2243,7 +2243,7 @@
                               "kind": {
                                 "anyOf": [
                                   { "type": "string", "enum": ["kubernetes"] },
-                                  { "type": "string", "enum": ["docker"] }
+                                  { "type": "string", "enum": ["server"] }
                                 ]
                               }
                             }
@@ -2386,7 +2386,7 @@
                               "kind": {
                                 "anyOf": [
                                   { "type": "string", "enum": ["kubernetes"] },
-                                  { "type": "string", "enum": ["docker"] }
+                                  { "type": "string", "enum": ["server"] }
                                 ]
                               }
                             }
@@ -2502,7 +2502,7 @@
                         "platform": {
                           "anyOf": [
                             { "type": "string", "enum": ["kubernetes"] },
-                            { "type": "string", "enum": ["docker"] }
+                            { "type": "string", "enum": ["server"] }
                           ]
                         },
                         "workloadKind": { "type": "string" },
@@ -2547,7 +2547,7 @@
                             "platform": {
                               "anyOf": [
                                 { "type": "string", "enum": ["kubernetes"] },
-                                { "type": "string", "enum": ["docker"] }
+                                { "type": "string", "enum": ["server"] }
                               ]
                             },
                             "workloadKind": { "type": "string" },
@@ -2575,7 +2575,7 @@
                         "kind": {
                           "anyOf": [
                             { "type": "string", "enum": ["kubernetes"] },
-                            { "type": "string", "enum": ["docker"] }
+                            { "type": "string", "enum": ["server"] }
                           ]
                         }
                       }
@@ -2697,7 +2697,7 @@
                                     "platform": {
                                       "anyOf": [
                                         { "type": "string", "enum": ["kubernetes"] },
-                                        { "type": "string", "enum": ["docker"] }
+                                        { "type": "string", "enum": ["server"] }
                                       ]
                                     },
                                     "workloadKind": { "type": "string" },
@@ -2847,7 +2847,7 @@
                               "platform": {
                                 "anyOf": [
                                   { "type": "string", "enum": ["kubernetes"] },
-                                  { "type": "string", "enum": ["docker"] }
+                                  { "type": "string", "enum": ["server"] }
                                 ]
                               },
                               "workloadKind": { "type": "string" },
@@ -2992,7 +2992,7 @@
                           "kind": {
                             "anyOf": [
                               { "type": "string", "enum": ["kubernetes"] },
-                              { "type": "string", "enum": ["docker"] }
+                              { "type": "string", "enum": ["server"] }
                             ]
                           },
                           "status": {
@@ -3124,7 +3124,7 @@
                         "kind": {
                           "anyOf": [
                             { "type": "string", "enum": ["kubernetes"] },
-                            { "type": "string", "enum": ["docker"] }
+                            { "type": "string", "enum": ["server"] }
                           ]
                         },
                         "status": {
@@ -5306,7 +5306,7 @@
                     "kind": {
                       "anyOf": [
                         { "type": "string", "enum": ["kubernetes"] },
-                        { "type": "string", "enum": ["docker"] }
+                        { "type": "string", "enum": ["server"] }
                       ]
                     },
                     "cluster": {
@@ -8069,7 +8069,7 @@
                         "kind": {
                           "anyOf": [
                             { "type": "string", "enum": ["kubernetes"] },
-                            { "type": "string", "enum": ["docker"] }
+                            { "type": "string", "enum": ["server"] }
                           ]
                         }
                       }
@@ -9392,7 +9392,7 @@
                         "kind": {
                           "anyOf": [
                             { "type": "string", "enum": ["kubernetes"] },
-                            { "type": "string", "enum": ["docker"] }
+                            { "type": "string", "enum": ["server"] }
                           ]
                         }
                       }
