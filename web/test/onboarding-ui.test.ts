@@ -232,6 +232,10 @@ describe('the wizard', () => {
     install:
       kind === 'server'
         ? {
+            script:
+              'curl -fsSL https://ingest.watchlog.io/install.sh | sudo sh -s -- --token wl_ct_secret',
+            deb: 'v=0.9.0; a=$(dpkg --print-architecture) …',
+            rpm: 'v=0.9.0; a=$(uname -m) …',
             dockerRun: 'docker run … WATCHLOG_ENDPOINT=https://ingest.watchlog.io',
             compose: 'services: …',
           }
@@ -444,7 +448,16 @@ describe('the wizard', () => {
     await wrapper.get('[data-testid="kind-server"] input').setValue(true);
     await wrapper.get('form').trigger('submit');
     await flushPromises();
-    expect(wrapper.get('[data-testid="tab-dockerRun"]').attributes('aria-selected')).toBe('true');
+    // A server (ADR-209): the one command first, then the packages and Docker.
+    expect(wrapper.get('[data-testid="tab-script"]').attributes('aria-selected')).toBe('true');
+    expect(wrapper.findAll('[role="tab"]').map((t) => t.text())).toEqual([
+      'One command',
+      'deb',
+      'rpm',
+      'Docker',
+      'Compose',
+    ]);
+    expect(wrapper.text()).toContain('sudo sh -s -- --token');
     expect(wrapper.find('[data-testid="tab-compose"]').exists()).toBe(true);
     lastSource().emit('status', status('server', []));
     await vi.advanceTimersByTimeAsync(119_000);

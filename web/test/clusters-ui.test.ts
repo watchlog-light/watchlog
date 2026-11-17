@@ -331,3 +331,32 @@ describe('Ingest failing (ADR-117)', () => {
     expect(wrapper.find('[data-testid="ingest-failing"]').exists()).toBe(false);
   });
 });
+
+describe('TokenReveal for a Server fleet (ADR-209)', () => {
+  it('offers the one command, the packages and docker run', async () => {
+    const { default: TokenReveal } = await import('@/components/clusters/TokenReveal.vue');
+    const plugins = await createPlugins('/');
+    const w = mount(TokenReveal, {
+      props: {
+        token: 'wl_ct_secret',
+        install: {
+          script: 'curl -fsSL https://w.example/install.sh | sudo sh -s -- --token wl_ct_secret',
+          deb: 'deb command',
+          rpm: 'rpm command',
+          dockerRun: 'docker run …',
+        },
+      },
+      global: { plugins: [plugins.router, plugins.i18n, plugins.pinia] },
+    });
+    expect(w.findAll('[data-method]').map((b) => b.attributes('data-method'))).toEqual([
+      'script',
+      'deb',
+      'rpm',
+      'dockerRun',
+    ]);
+    expect(w.text()).toContain('sudo sh -s -- --token wl_ct_secret');
+    await w.get('[data-method="deb"]').trigger('click');
+    expect(w.text()).toContain('deb command');
+    expect(w.text()).toContain('For Debian and Ubuntu');
+  });
+});
