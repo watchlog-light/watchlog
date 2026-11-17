@@ -145,9 +145,33 @@ jobs:
           name: charts
           path: dist/charts/*.tgz
 
+  servers:
+    name: Server install (tarballs, deb, rpm)
+    needs: [check]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+      - name: Build the tarballs, packages and checksums (ADR-209)
+        run: deploy/linux/build.sh "${{ needs.check.outputs.version }}" dist/servers
+      - uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.5.0
+      - name: Sign the checksums (keyless; install.sh verifies it where cosign is installed)
+        run: cosign sign-blob --yes --bundle dist/servers/SHA256SUMS.sigstore.json dist/servers/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: servers
+          path: dist/servers/*
+
   release:
     name: GitHub release
-    needs: [check, images, charts]
+    needs: [check, images, charts, servers]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -159,11 +183,15 @@ jobs:
         with:
           name: charts
           path: dist/charts
+      - uses: actions/download-artifact@v4
+        with:
+          name: servers
+          path: dist/servers
       - name: Release notes
         run: scripts/release/changelog.sh "$GITHUB_REF_NAME" > dist/notes.md
       - name: Create the release with the charts attached
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/charts/*.tgz \
+          gh release create "$GITHUB_REF_NAME" dist/charts/*.tgz dist/servers/* \
             --title "WatchLog $GITHUB_REF_NAME" --notes-file dist/notes.md --verify-tag
