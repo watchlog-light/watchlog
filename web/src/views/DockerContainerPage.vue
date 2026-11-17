@@ -200,7 +200,7 @@ onMounted(page.load);
       v-if="container && clusterId"
       :key="`egress-${hostName}/${name}`"
       :cluster-id="clusterId"
-      kind="docker"
+      kind="server"
       :query="{
         host: hostName,
         container: name,
@@ -209,7 +209,7 @@ onMounted(page.load);
       }"
     />
     <!-- Why there is no egress policy on Docker (ADR-190, ADR-124's exception). -->
-    <EgressPolicy v-if="container && clusterId" :cluster-id="clusterId" kind="docker" />
+    <EgressPolicy v-if="container && clusterId" :cluster-id="clusterId" kind="server" />
 
     <div v-if="!notFound" class="grid gap-4 lg:grid-cols-2">
       <TimeSeriesChart

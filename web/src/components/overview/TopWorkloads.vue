@@ -27,7 +27,7 @@ const fmt = (v: number) =>
       : `${+v.toFixed(2)}`
     : formatValue(v, 'bytes');
 const link = (r: (typeof rows.value)[number]) =>
-  props.overview.kind === 'docker'
+  props.overview.kind === 'server'
     ? { name: 'docker-container', params: { host: r.namespace ?? '', name: r.name } }
     : {
         name: 'workloads',
@@ -37,7 +37,7 @@ const link = (r: (typeof rows.value)[number]) =>
 
 <template>
   <OverviewCard
-    :title="$t(overview.kind === 'docker' ? 'overview.top.containers' : 'overview.top.title')"
+    :title="$t(overview.kind === 'server' ? 'overview.top.containers' : 'overview.top.title')"
     testid="card-top"
   >
     <template #actions>
@@ -88,7 +88,7 @@ const link = (r: (typeof rows.value)[number]) =>
     <p v-else class="px-3.5 py-6 text-13 text-text-muted">{{ $t('overview.top.empty') }}</p>
     <div class="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 px-3.5 pb-3 text-12">
       <span class="text-text-subtle">{{
-        $t(overview.kind === 'docker' ? 'overview.top.legendDocker' : 'overview.top.legend')
+        $t(overview.kind === 'server' ? 'overview.top.legendDocker' : 'overview.top.legend')
       }}</span>
       <label
         v-if="hasSystem || !hideSystem"
@@ -100,7 +100,7 @@ const link = (r: (typeof rows.value)[number]) =>
           class="accent-primary"
           data-testid="top-hide-system"
         />
-        {{ $t(overview.kind === 'docker' ? 'overview.top.hideOwn' : 'overview.top.hideSystem') }}
+        {{ $t(overview.kind === 'server' ? 'overview.top.hideOwn' : 'overview.top.hideSystem') }}
       </label>
     </div>
   </OverviewCard>

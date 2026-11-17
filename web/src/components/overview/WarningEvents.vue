@@ -44,7 +44,7 @@ const count = (n: number) => new Intl.NumberFormat('en').format(n);
         <input v-model="hideOwn" type="checkbox" class="accent-primary" data-testid="hide-own" />
         {{
           $t(
-            overview.kind === 'docker'
+            overview.kind === 'server'
               ? 'overview.events.hideOwnDocker'
               : 'overview.events.hideOwn',
           )

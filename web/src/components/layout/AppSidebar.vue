@@ -26,7 +26,7 @@ const { t } = useI18n();
 const clusters = useClustersStore();
 // The pages of the selected cluster's kind (Hosts and Containers for a Docker fleet).
 const items = computed(() =>
-  navFor(clusters.selected?.kind as 'kubernetes' | 'docker' | undefined),
+  navFor(clusters.selected?.kind as 'kubernetes' | 'server' | undefined),
 );
 const router = useRouter();
 const route = useRoute();

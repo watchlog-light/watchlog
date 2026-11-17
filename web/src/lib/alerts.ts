@@ -31,7 +31,7 @@ export function alertTarget(a: Pick<Alert, 'labels' | 'cluster'>): RouteLocation
   if (l.agent === 'all' || l.agent === 'cluster') {
     return { name: 'cluster-settings', params: { id: a.cluster.id } };
   }
-  if (a.cluster.kind === 'docker') {
+  if (a.cluster.kind === 'server') {
     if (l.compose_service && l.compose_project) {
       return {
         name: 'containers',
@@ -154,7 +154,7 @@ export function alertScope(a: Pick<Alert, 'labels' | 'cluster' | 'podCount'>): {
       extra: l.container && !l.pod ? l.container : null,
     };
   }
-  if (a.cluster.kind === 'docker') {
+  if (a.cluster.kind === 'server') {
     // An egress alert's Compose service (ADR-187).
     if (l.compose_service) {
       return { kind: 'compose', name: `${l.compose_project}/${l.compose_service}`, extra: null };

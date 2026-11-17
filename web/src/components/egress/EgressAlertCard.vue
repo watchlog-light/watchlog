@@ -23,7 +23,7 @@ const props = defineProps<{ alert: AlertDetail['alert']; now?: number }>();
 const { t } = useI18n();
 const auth = useAuthStore();
 
-const kind = computed(() => (props.alert.cluster.kind === 'docker' ? 'docker' : 'kubernetes'));
+const kind = computed(() => (props.alert.cluster.kind === 'server' ? 'server' : 'kubernetes'));
 const destination = computed(() => props.alert.labels.destination ?? '');
 const port = computed(() => Number(props.alert.labels.port ?? 0));
 const target = computed(() =>

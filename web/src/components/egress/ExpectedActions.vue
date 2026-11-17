@@ -19,7 +19,7 @@ import { useToastStore } from '@/stores/toast';
 const props = defineProps<{
   row: EgressRow;
   clusterId: string;
-  kind: 'kubernetes' | 'docker';
+  kind: 'kubernetes' | 'server';
   /** On a source's page: only that source is offered, besides every source. */
   source?: EgressSource;
 }>();

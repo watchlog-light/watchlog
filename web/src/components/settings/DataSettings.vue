@@ -42,7 +42,7 @@ const clusterOptions = computed(() =>
   clusters.list.map((c) => ({
     value: c.id,
     label: c.name,
-    description: t(`cloud.dataRights.kind.${c.kind === 'docker' ? 'docker' : 'kubernetes'}`),
+    description: t(`cloud.dataRights.kind.${c.kind === 'server' ? 'docker' : 'kubernetes'}`),
   })),
 );
 watch(

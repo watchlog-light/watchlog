@@ -101,7 +101,7 @@ const page = useLoader(async () => {
 });
 const cluster = computed(() => page.data.value?.cluster ?? null);
 const answer = computed(() => page.data.value?.answer ?? null);
-const docker = computed(() => cluster.value?.kind === 'docker');
+const docker = computed(() => cluster.value?.kind === 'server');
 const platform = computed(() => (docker.value ? 'docker' : 'kubernetes'));
 
 function setQuery(patch: Record<string, string | undefined>) {

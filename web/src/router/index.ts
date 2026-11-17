@@ -37,7 +37,7 @@ declare module 'vue-router' {
   }
 }
 
-export type ClusterKind = 'kubernetes' | 'docker';
+export type ClusterKind = 'kubernetes' | 'server';
 
 export interface NavItem {
   name: string;
@@ -53,7 +53,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { name: 'overview', path: '/', titleKey: 'nav.overview', icon: LayoutDashboard },
   { name: 'nodes', path: '/nodes', titleKey: 'nav.nodes', icon: Server, kind: 'kubernetes' },
-  { name: 'hosts', path: '/hosts', titleKey: 'nav.hosts', icon: Server, kind: 'docker' },
+  { name: 'hosts', path: '/hosts', titleKey: 'nav.hosts', icon: Server, kind: 'server' },
   {
     name: 'workloads',
     path: '/workloads',
@@ -66,7 +66,7 @@ export const NAV_ITEMS: NavItem[] = [
     path: '/containers',
     titleKey: 'nav.containers',
     icon: Container,
-    kind: 'docker',
+    kind: 'server',
   },
   // Services next to the workloads (SPEC §4.12), for both kinds of cluster.
   {
@@ -225,13 +225,13 @@ export const routes: RouteRecordRaw[] = [
         name: 'docker-host',
         path: 'hosts/:host',
         component: () => import('@/views/DockerHostPage.vue'),
-        meta: { titleKey: 'nav.hosts', charts: true, kind: 'docker' },
+        meta: { titleKey: 'nav.hosts', charts: true, kind: 'server' },
       },
       {
         name: 'docker-container',
         path: 'containers/:host/:name',
         component: () => import('@/views/DockerContainerPage.vue'),
-        meta: { titleKey: 'nav.containers', charts: true, kind: 'docker' },
+        meta: { titleKey: 'nav.containers', charts: true, kind: 'server' },
       },
       // The standalone Docker page before the Hosts and Containers pages: old links.
       {

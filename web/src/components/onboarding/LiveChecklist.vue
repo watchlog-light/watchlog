@@ -12,7 +12,7 @@ import CodeBlock from '@/components/ui/CodeBlock.vue';
 // by Settings › Clusters after "Add cluster" (Community too).
 const props = defineProps<{
   status: OnboardingStatus | null;
-  kind: 'kubernetes' | 'docker';
+  kind: 'kubernetes' | 'server';
   /** The clock's start (ms); defaults to when the checklist appeared. */
   since?: number;
   /** Hide the heading (the page has its own). */
@@ -43,7 +43,7 @@ const steps = computed(() => {
   return list.map((s) => ({ ...s, active: s.id === active }));
 });
 
-const unit = computed(() => (props.kind === 'docker' ? 'hosts' : 'nodes'));
+const unit = computed(() => (props.kind === 'server' ? 'hosts' : 'nodes'));
 function detail(s: OnboardingStep & { active: boolean }): string {
   const n = (v: number | undefined) => v ?? 0;
   if (s.state === 'waiting') {

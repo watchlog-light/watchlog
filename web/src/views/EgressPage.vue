@@ -82,8 +82,8 @@ const page = useLoader(async () => {
 });
 const cluster = computed(() => page.data.value?.cluster ?? null);
 const answer = computed(() => page.data.value?.answer ?? null);
-const docker = computed(() => cluster.value?.kind === 'docker');
-const unit = (n: number) => t(docker.value ? 'egress.unit.docker' : 'egress.unit.kubernetes', n);
+const docker = computed(() => cluster.value?.kind === 'server');
+const unit = (n: number) => t(docker.value ? 'egress.unit.server' : 'egress.unit.kubernetes', n);
 const filtered = computed(() => Object.keys(query.value).length > 0);
 /** Bumped when a row's "Mark expected" or "Undo" changes the expectations list. */
 const expectationsVersion = ref(0);
@@ -359,7 +359,7 @@ onMounted(() => {
           v-if="answer.rows.length"
           :rows="answer.rows"
           :cluster-id="cluster.id"
-          :kind="docker ? 'docker' : 'kubernetes'"
+          :kind="docker ? 'server' : 'kubernetes'"
           @changed="onRowChanged"
         />
         <EmptyState
@@ -385,7 +385,7 @@ onMounted(() => {
 
         <ExpectationsList
           :cluster-id="cluster.id"
-          :kind="docker ? 'docker' : 'kubernetes'"
+          :kind="docker ? 'server' : 'kubernetes'"
           :version="expectationsVersion"
           @changed="page.load"
         />

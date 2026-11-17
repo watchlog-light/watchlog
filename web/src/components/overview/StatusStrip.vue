@@ -23,7 +23,7 @@ const ICON = {
 const SYMBOL: Record<string, string> = { critical: '✕', warning: '▲' };
 // Each platform's words (ADR-124): a Docker fleet has crash-looping containers and hosts.
 const types = computed(() =>
-  props.overview.kind === 'docker' ? 'overview.status.typesDocker' : 'overview.status.types',
+  props.overview.kind === 'server' ? 'overview.status.typesDocker' : 'overview.status.types',
 );
 </script>
 

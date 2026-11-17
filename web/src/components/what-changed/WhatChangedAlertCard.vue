@@ -42,7 +42,7 @@ const page = useLoader(async () => {
 });
 const a = computed(() => page.data.value ?? null);
 const rows = computed(() => a.value?.rows.slice(0, CARD_ROWS) ?? []);
-const docker = computed(() => props.alert.cluster.kind === 'docker');
+const docker = computed(() => props.alert.cluster.kind === 'server');
 const link = computed(() => ({
   name: 'what-changed',
   query: { cluster: props.alert.cluster.id, alert: props.alert.id },

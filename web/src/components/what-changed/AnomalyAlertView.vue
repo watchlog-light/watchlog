@@ -232,7 +232,7 @@ onMounted(() => void page.load());
         :cluster-id="alert.cluster.id"
         :cluster-name="alert.cluster.name"
         :subject="`alert:${alert.id}`"
-        :platform="alert.cluster.kind === 'docker' ? 'docker' : 'kubernetes'"
+        :platform="alert.cluster.kind === 'server' ? 'docker' : 'kubernetes'"
       />
 
       <div class="flex flex-wrap gap-5">

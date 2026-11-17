@@ -127,7 +127,7 @@ export function reasonText(
 /** "staging/postgres" with the cluster's words for where it runs. */
 export function whereText(a: Pick<Application, 'cluster' | 'where'>): string {
   const parts = [a.cluster.name];
-  if (a.where.host && a.cluster.kind === 'docker') parts.push(a.where.host);
+  if (a.where.host && a.cluster.kind === 'server') parts.push(a.where.host);
   if (a.where.group) parts.push(a.where.group);
   if (a.where.address) parts.push(a.where.address);
   return parts.join(' · ');
@@ -140,7 +140,7 @@ export function discoveredHint(d: DiscoveredService): {
 } {
   if (d.confidence === 'port')
     return { key: 'applications.discovered.byPort', values: { port: d.port } };
-  return d.cluster.kind === 'docker' && d.group
+  return d.cluster.kind === 'server' && d.group
     ? {
         key: 'applications.discovered.byImageCompose',
         values: { image: d.image, project: d.group, port: d.port },

@@ -39,7 +39,7 @@ const clusters = useClustersStore();
 // The selected cluster when it is of this page's kind.
 const kube = computed(() => ({
   cluster:
-    clusters.selected?.kind === (props.hosts ? 'docker' : 'kubernetes') ? clusters.selected : null,
+    clusters.selected?.kind === (props.hosts ? 'server' : 'kubernetes') ? clusters.selected : null,
 }));
 const ui = useUiStore();
 

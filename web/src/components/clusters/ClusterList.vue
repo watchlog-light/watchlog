@@ -33,12 +33,12 @@ const clusters = computed<Cluster[]>(() => list.data.value ?? []);
 
 const creating = ref(false);
 const name = ref('my-cluster');
-const kind = ref<'docker' | 'kubernetes'>('docker');
+const kind = ref<'server' | 'kubernetes'>('server');
 const createError = ref<string>();
 const submitting = ref(false);
 const revealed = ref<CreateClusterResponse>();
 /** The new cluster's live connection checklist under its install command (ADR-176). */
-const watching = ref<{ id: string; kind: 'docker' | 'kubernetes' } | null>(null);
+const watching = ref<{ id: string; kind: 'server' | 'kubernetes' } | null>(null);
 const { status } = useOnboardingStatus(computed(() => watching.value?.id ?? null));
 
 function createErrorMessage(err: unknown): string {
@@ -121,7 +121,7 @@ onMounted(list.load);
         </legend>
         <div class="flex flex-wrap gap-2" data-testid="kind-choice">
           <label
-            v-for="k in ['docker', 'kubernetes'] as const"
+            v-for="k in ['server', 'kubernetes'] as const"
             :key="k"
             :class="[
               'flex cursor-pointer items-center gap-2 rounded-control border px-3 py-2 text-13 max-lg:min-h-11',

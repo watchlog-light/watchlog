@@ -15,7 +15,7 @@ const props = defineProps<{ overview: Overview }>();
 const { t } = useI18n();
 const ui = useUiStore();
 const k = computed(() => props.overview.kpis);
-const docker = computed(() => props.overview.kind === 'docker');
+const docker = computed(() => props.overview.kind === 'server');
 const period = computed(() => ui.timeRange);
 
 const restarts = computed(() => comparison(k.value.restarts.total, k.value.restarts.previous));

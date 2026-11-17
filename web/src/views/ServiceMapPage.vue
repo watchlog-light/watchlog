@@ -388,7 +388,7 @@ onBeforeUnmount(() => clearInterval(clock));
       class="flex-none"
       :agents="map.agents"
       :mode="map.mode"
-      :docker="page.data.value?.cluster.kind === 'docker'"
+      :docker="page.data.value?.cluster.kind === 'server'"
     />
     <ErrorState
       v-if="page.error.value"
@@ -418,7 +418,7 @@ onBeforeUnmount(() => clearInterval(clock));
         v-if="!foldFilters"
         v-model="filters"
         :namespaces="namespaces"
-        :docker="page.data.value?.cluster.kind === 'docker'"
+        :docker="page.data.value?.cluster.kind === 'server'"
         class="work-side"
       />
 
@@ -439,7 +439,7 @@ onBeforeUnmount(() => clearInterval(clock));
           <MapFilters
             v-model="filters"
             :namespaces="namespaces"
-            :docker="page.data.value?.cluster.kind === 'docker'"
+            :docker="page.data.value?.cluster.kind === 'server'"
             class="rounded-t-none lg:max-h-[40vh] lg:overflow-y-auto lg:overscroll-contain"
           />
         </details>

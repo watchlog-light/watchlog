@@ -18,7 +18,7 @@ import { useToastStore } from '@/stores/toast';
 // destinations not seen yet. Owners and Admins change it; everyone reads it.
 const props = defineProps<{
   clusterId: string;
-  kind: 'kubernetes' | 'docker';
+  kind: 'kubernetes' | 'server';
   /** Bumped by the page when a row's "Mark expected" or "Undo" changed the list. */
   version?: number;
   now?: number;

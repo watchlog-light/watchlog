@@ -15,7 +15,7 @@ import { useLoader } from '@/composables/useLoader';
 // there is none: Docker has no standard egress policy object.
 const props = defineProps<{
   clusterId: string;
-  kind: 'kubernetes' | 'docker';
+  kind: 'kubernetes' | 'server';
   /** Kubernetes: the workload. */
   workload?: { namespace: string; kind: string; name: string };
 }>();
@@ -85,7 +85,7 @@ function onKey(e: KeyboardEvent, i: number) {
 
 <template>
   <section
-    v-if="kind === 'docker'"
+    v-if="kind === 'server'"
     aria-labelledby="policy-docker-title"
     class="rounded-card border border-border bg-surface-1 px-4 py-3"
     data-testid="egress-policy-docker"

@@ -263,7 +263,7 @@ export function leaveFor(url: string): void {
  */
 export function funnel(
   name: ClientFunnelEvent,
-  props?: { method?: string; kind?: 'kubernetes' | 'docker' },
+  props?: { method?: string; kind?: 'kubernetes' | 'server' },
 ): void {
   void api<void>('/funnel', { method: 'POST', body: props ? { name, props } : { name } }).catch(
     () => {},

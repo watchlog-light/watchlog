@@ -34,7 +34,7 @@ const auth = useAuthStore();
 const plan = usePlanStore();
 
 const free = computed(() => props.access === 'free');
-const platform = computed(() => (props.cluster.kind === 'docker' ? 'docker' : 'kubernetes'));
+const platform = computed(() => (props.cluster.kind === 'server' ? 'docker' : 'kubernetes'));
 const example = computed(() => demoExample(platform.value));
 const demoUrl = computed(
   () => `${(auth.cloud?.sampleUrl ?? 'https://demo.watchlog.io').replace(/\/$/, '')}/what-changed`,

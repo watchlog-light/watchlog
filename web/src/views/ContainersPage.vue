@@ -230,13 +230,13 @@ onMounted(() => {
           v-if="service && page.data.value"
           :key="`egress-${filter.scope.value.project}/${service}`"
           :cluster-id="page.data.value.fleetId"
-          kind="docker"
+          kind="server"
           :query="{ project: filter.scope.value.project, service }"
         />
         <EgressPolicy
           v-if="service && page.data.value"
           :cluster-id="page.data.value.fleetId"
-          kind="docker"
+          kind="server"
         />
 
         <ContainerList

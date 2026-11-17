@@ -24,7 +24,7 @@ import ExpectedActions from './ExpectedActions.vue';
 // the same route: 30 days for the rows, today for the numbers.
 const props = defineProps<{
   clusterId: string;
-  kind: 'kubernetes' | 'docker';
+  kind: 'kubernetes' | 'server';
   /** The API's filters for this source (and the Egress page's link). */
   query: EgressQuery;
   /** The pod page: the rows are its workload's (flows have no pod label). */

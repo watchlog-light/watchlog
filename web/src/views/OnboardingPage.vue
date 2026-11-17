@@ -31,7 +31,7 @@ import { useClustersStore } from '@/stores/clusters';
 // metrics, an optional alert channel, and troubleshooting after 2 minutes without an
 // agent. The cluster's id is in the URL (?id=); the token is shown once, so a reload
 // offers a new command instead.
-type Kind = 'kubernetes' | 'docker';
+type Kind = 'kubernetes' | 'server';
 type Method = 'helm' | 'kubectl' | 'dockerRun' | 'compose';
 const TROUBLE_AFTER_MS = 2 * 60 * 1000;
 
@@ -50,7 +50,7 @@ const slug = computed(() =>
     .slice(0, 40),
 );
 const suggested = (k: Kind) =>
-  slug.value ? `${slug.value}-${k === 'docker' ? 'hosts' : 'prod'}` : 'my-cluster';
+  slug.value ? `${slug.value}-${k === 'server' ? 'servers' : 'prod'}` : 'my-cluster';
 const name = ref(suggested('kubernetes'));
 const nameEdited = ref(false);
 watch(kind, (k) => {
@@ -143,7 +143,7 @@ async function reissue() {
 // ------------------------------------------------------------------ the commands
 const METHODS: Record<Kind, Method[]> = {
   kubernetes: ['helm', 'kubectl'],
-  docker: ['dockerRun', 'compose'],
+  server: ['dockerRun', 'compose'],
 };
 const methods = computed(() =>
   METHODS[currentKind.value].filter((m) => !!current.value?.install?.[m]),
@@ -378,7 +378,7 @@ const steps = computed(() => [
         <legend class="sr-only">{{ $t('onboarding.choose.legend') }}</legend>
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label
-            v-for="k in ['kubernetes', 'docker'] as const"
+            v-for="k in ['kubernetes', 'server'] as const"
             :key="k"
             :data-testid="`kind-${k}`"
             :class="[

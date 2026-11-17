@@ -57,9 +57,9 @@ const DOCKER_PAGES = new Set([
 const KUBE_PAGES = new Set(['overview', 'nodes', 'node', 'workloads', 'pod', 'events']);
 const page = computed(() => String(route.name ?? ''));
 const onDocker = computed(
-  () => clusters.selected?.kind === 'docker' && DOCKER_PAGES.has(page.value),
+  () => clusters.selected?.kind === 'server' && DOCKER_PAGES.has(page.value),
 );
-const onKube = computed(() => clusters.selected?.kind !== 'docker' && KUBE_PAGES.has(page.value));
+const onKube = computed(() => clusters.selected?.kind !== 'server' && KUBE_PAGES.has(page.value));
 
 // The ⌘K palette's button (ADR-169): a search field look on desktops, a 44 px icon below.
 const apple = isApple();

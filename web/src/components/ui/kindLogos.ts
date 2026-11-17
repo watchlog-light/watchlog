@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { Server } from '@lucide/vue';
 import { type FunctionalComponent, h } from 'vue';
 import dockerUrl from '@/assets/brands/docker.svg';
 import kubernetesUrl from '@/assets/brands/kubernetes.svg';
@@ -25,4 +26,12 @@ function logo(name: 'kubernetes' | 'docker', src: string): FunctionalComponent {
 
 export const KubernetesLogo = logo('kubernetes', kubernetesUrl);
 export const DockerLogo = logo('docker', dockerUrl);
-export const KIND_LOGO = { kubernetes: KubernetesLogo, docker: DockerLogo } as const;
+/** A Server fleet (ADR-207) is not Docker: a plain server icon; Docker's logo stays for containers. */
+export const ServerLogo: FunctionalComponent = (_, { attrs }) =>
+  h(Server, { 'data-logo': 'server', ...attrs });
+ServerLogo.inheritAttrs = false;
+export const KIND_LOGO = {
+  kubernetes: KubernetesLogo,
+  server: ServerLogo,
+  docker: DockerLogo,
+} as const;

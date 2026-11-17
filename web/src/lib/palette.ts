@@ -31,11 +31,11 @@ export const KIND_ORDER: PaletteKind[] = [
 ];
 
 /** Which platform's vocabulary and logo a group carries. */
-export const PLATFORM: Partial<Record<PaletteKind, 'kubernetes' | 'docker'>> = {
+export const PLATFORM: Partial<Record<PaletteKind, 'kubernetes' | 'server' | 'docker'>> = {
   workload: 'kubernetes',
   pod: 'kubernetes',
   node: 'kubernetes',
-  host: 'docker',
+  host: 'server',
   container: 'docker',
   compose_project: 'docker',
 };

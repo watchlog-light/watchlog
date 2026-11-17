@@ -83,7 +83,7 @@ const error = ref<string>();
 const saving = ref(false);
 
 const kind = computed<'kubernetes' | 'docker'>(() =>
-  props.clusters.find((c) => c.id === form.clusterId)?.kind === 'docker' ? 'docker' : 'kubernetes',
+  props.clusters.find((c) => c.id === form.clusterId)?.kind === 'server' ? 'docker' : 'kubernetes',
 );
 const unit = computed<string | null>(() =>
   isNew.value || props.rule?.type === 'threshold'

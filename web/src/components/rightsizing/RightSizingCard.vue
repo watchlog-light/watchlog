@@ -15,7 +15,7 @@ import RightSizingList from './RightSizingList.vue';
 // first three hints (OOM risk first); "Show all" opens the whole list in place.
 const props = defineProps<{
   clusterId: string;
-  kind: 'kubernetes' | 'docker';
+  kind: 'kubernetes' | 'server';
   /** The top bar's namespace filter (Kubernetes); empty is every namespace. */
   namespaces?: string[];
 }>();
@@ -52,7 +52,7 @@ const objects = computed(
     new Set(hints.value.map((h) => `${h.object.namespace ?? h.object.host}/${h.object.name}`)).size,
 );
 const shown = computed(() => (open.value ? hints.value : hints.value.slice(0, 3)));
-const what = computed(() => (props.kind === 'docker' ? 'containers' : 'workloads'));
+const what = computed(() => (props.kind === 'server' ? 'containers' : 'workloads'));
 </script>
 
 <template>

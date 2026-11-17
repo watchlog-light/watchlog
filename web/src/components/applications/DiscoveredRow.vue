@@ -40,7 +40,7 @@ const emit = defineEmits<{ ignore: []; monitor: [] }>();
         <span class="min-w-0 truncate">
           <template v-if="showWhere"
             >{{ service.cluster.name
-            }}{{ service.host && service.cluster.kind === 'docker' ? ` · ${service.host}` : '' }} ·
+            }}{{ service.host && service.cluster.kind === 'server' ? ` · ${service.host}` : '' }} ·
           </template>
           {{ $t(discoveredHint(service).key, discoveredHint(service).values) }}
         </span>

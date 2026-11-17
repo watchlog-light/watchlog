@@ -8,7 +8,7 @@ import { useClustersStore } from './clusters';
 export const useFleetStore = defineStore('fleet', () => {
   const clusters = useClustersStore();
   const fleet = computed<Cluster | null>(() =>
-    clusters.selected?.kind === 'docker' ? clusters.selected : null,
+    clusters.selected?.kind === 'server' ? clusters.selected : null,
   );
   const loaded = computed(() => clusters.loaded);
 

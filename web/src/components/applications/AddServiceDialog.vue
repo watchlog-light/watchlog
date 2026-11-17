@@ -32,7 +32,7 @@ const address = ref('');
 const host = ref('');
 const name = ref('');
 const cluster = computed(() => clusters.list.find((c) => c.id === clusterId.value) ?? null);
-const docker = computed(() => cluster.value?.kind === 'docker');
+const docker = computed(() => cluster.value?.kind === 'server');
 const ADDRESS = /^(\[[0-9a-fA-F:.]+\]|[A-Za-z0-9][A-Za-z0-9.-]*):[0-9]{1,5}$/;
 const addressError = computed(() =>
   address.value && !ADDRESS.test(address.value.trim())

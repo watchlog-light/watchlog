@@ -288,7 +288,7 @@ onMounted(page.load);
             <EventFacets
               :facets="summary?.facets ?? null"
               :selected="selected"
-              :docker="kube.cluster.kind === 'docker'"
+              :docker="kube.cluster.kind === 'server'"
               @change="setFacet"
             />
           </details>

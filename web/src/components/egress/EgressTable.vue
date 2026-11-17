@@ -13,7 +13,7 @@ import ExpectedActions from './ExpectedActions.vue';
 const props = defineProps<{
   rows: EgressRow[];
   clusterId: string;
-  kind: 'kubernetes' | 'docker';
+  kind: 'kubernetes' | 'server';
   now?: number;
 }>();
 const emit = defineEmits<{ changed: [] }>();

@@ -19,7 +19,7 @@
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar",
     "events": "Events",
-    "hosts": "Hosts",
+    "hosts": "Servers",
     "containers": "Containers",
     "open": "Open navigation",
     "close": "Close navigation",
@@ -67,7 +67,7 @@
       "workload": "{type} · {namespace}",
       "pod": "Pod · {namespace}",
       "node": "Node",
-      "host": "Docker host",
+      "host": "Server",
       "container": "Container · {host}",
       "containerInProject": "Container · {project} on {host}",
       "composeProject": "Compose project · {host}"
@@ -100,7 +100,7 @@
     "connectCluster": "Connect a cluster",
     "overview": {
       "title": "No cluster connected yet",
-      "description": "Install the WatchLog agent on a Kubernetes cluster or Docker host. Within a minute this page shows cluster health, problems that need attention and recent warnings."
+      "description": "Install the WatchLog agent on a Kubernetes cluster or server. Within a minute this page shows cluster health, problems that need attention and recent warnings."
     },
     "nodes": {
       "title": "No nodes reporting",
@@ -111,7 +111,7 @@
       "description": "Connect a Kubernetes cluster to see Deployments, StatefulSets, DaemonSets, Jobs and their pods, including restart reasons such as OOMKilled."
     },
     "docker": {
-      "title": "No Docker hosts connected",
+      "title": "No servers connected",
       "description": "Run the WatchLog agent with one docker run command on each host. Hosts and their containers, grouped by Compose project, appear here."
     },
     "serviceMap": {
@@ -198,8 +198,8 @@
     "close": "Close"
   },
   "clusters": {
-    "title": "Clusters and Docker fleets",
-    "intro": "A Kubernetes cluster or a Docker fleet (the hosts that run the agent with the same token) sends its metrics with one token.",
+    "title": "Clusters and Server fleets",
+    "intro": "A Kubernetes cluster or a Server fleet (the hosts that run the agent with the same token) sends its metrics with one token.",
     "detailTitle": "Cluster",
     "add": "Add cluster or fleet",
     "back": "All clusters",
@@ -207,7 +207,7 @@
     "lastSeen": "last seen {at}",
     "neverSeen": "waiting for the first agent",
     "kind": {
-      "docker": "Docker fleet",
+      "server": "Server fleet",
       "kubernetes": "Kubernetes cluster"
     },
     "status": {
@@ -216,12 +216,12 @@
       "inactive": "Not reporting"
     },
     "empty": {
-      "title": "No cluster or Docker fleet yet",
-      "description": "Add a Kubernetes cluster or a Docker fleet to get a token and the install command. Metrics appear within a minute of starting the agent.",
+      "title": "No cluster or Server fleet yet",
+      "description": "Add a Kubernetes cluster or a Server fleet to get a token and the install command. Metrics appear within a minute of starting the agent.",
       "action": "Add a cluster or fleet"
     },
     "create": {
-      "title": "New cluster or Docker fleet",
+      "title": "New cluster or Server fleet",
       "name": "Name",
       "nameHint": "Lowercase letters, digits and dashes, e.g. production.",
       "submit": "Create and get install command",
@@ -231,7 +231,7 @@
       "title": "Install the agent",
       "once": "The token is shown only once. Copy the command now; you can always create a new token later.",
       "installLabel": {
-        "docker": "Run on each Docker host",
+        "docker": "Run on each server",
         "kubernetes": "Run once, from a checkout of the WatchLog repository, where helm reaches the cluster"
       },
       "installHint": {
@@ -277,7 +277,7 @@
   "docker": {
     "hostsTitle": "Hosts",
     "containersTitle": "Containers",
-    "back": "All Docker hosts",
+    "back": "All servers",
     "hostMeta": "Docker {docker} · kernel {kernel}",
     "agent": "agent {version}",
     "containerCounts": "{running} running · {stopped} stopped",
@@ -286,7 +286,7 @@
     "standalone": "Standalone containers",
     "noHosts": {
       "title": "Waiting for the first host",
-      "description": "Run the install command on a Docker host. Hosts appear here within a minute of starting the agent.",
+      "description": "Run the install command on a server. Servers appear here within a minute of starting the agent.",
       "action": "Show install command"
     },
     "columns": {
@@ -1155,7 +1155,7 @@
       "node": "Node",
       "cluster-agent": "Cluster-agent of",
       "kubernetes": "Kubernetes cluster",
-      "docker": "Docker fleet"
+      "docker": "Server fleet"
     },
     "pods": "no pods | {n} pod | {n} pods",
     "heldMark": "Held back",
@@ -2046,7 +2046,7 @@
       "neverExpires": "This token never expires.",
       "neverWarning": "A token without expiry works until you revoke it. It is flagged “No expiry” in the list.",
       "scopeTitle": "Scope: read only",
-      "scopeText": "Reads clusters, nodes, workloads, pods, containers, metrics, events, alerts and the service map, on Kubernetes clusters and Docker hosts. It can't change anything and never sees secrets.",
+      "scopeText": "Reads clusters, nodes, workloads, pods, containers, metrics, events, alerts and the service map, on Kubernetes clusters and servers. It can't change anything and never sees secrets.",
       "submit": "Create token",
       "failed": "Could not create the token. Try again."
     },
@@ -2124,7 +2124,7 @@
       "limits": "30 calls a minute per visitor · read only · sample data only",
       "otherApps": "Claude Desktop and Cursor →",
       "ownTitle": "Your own tokens",
-      "ownText": "Install WatchLog on a Kubernetes cluster or a Docker host, then create tokens here.",
+      "ownText": "Install WatchLog on a Kubernetes cluster or a server, then create tokens here.",
       "install": "Install WatchLog →"
     }
   },
@@ -2300,7 +2300,7 @@
       "secretName": "Secret name",
       "secretKey": "Key in the Secret",
       "file": "File name",
-      "fileHint": "Under /etc/watchlog/secrets on the Docker host.",
+      "fileHint": "Under /etc/watchlog/secrets on the server.",
       "makeCommand": "Create the command",
       "test": "Test the connection",
       "runOnce": "Run this once. It creates the user with only the rights WatchLog needs:",
@@ -2400,7 +2400,7 @@
       "address": "Address",
       "addressHint": "host:port, as the collector reaches it",
       "addressError": "host:port, for example db.internal:5432",
-      "host": "Docker host",
+      "host": "Server",
       "hostHint": "The host whose integrations collector reaches this address.",
       "name": "Name (optional)",
       "continue": "Continue"
@@ -2525,7 +2525,7 @@
       },
       "connected": {
         "kubernetes": "Connected workloads",
-        "docker": "Connected containers",
+        "server": "Connected containers",
         "from": "From the service map (eBPF), no setup needed.",
         "none": "Nothing connected to it in this time range.",
         "noFlows": "Network flows are off for this cluster, so WatchLog can't see who connects.",
@@ -3713,7 +3713,7 @@
       "compose_service": "Compose service",
       "compose_service_on": "Compose service on {host}",
       "node": "Node",
-      "host": "Docker host",
+      "host": "Server",
       "edge": "connection",
       "application": "application",
       "alert": "alert",
@@ -3964,7 +3964,7 @@
         "intro": "We let people in from the waitlist a group at a time, so every new team gets a good start. Join the waitlist and we'll email you an invite.",
         "invalid": "This invite link has expired, was already used, or was replaced by a newer one. Ask us for a new one, or join the waitlist.",
         "join": "Join the waitlist",
-        "selfHost": "Can't wait? WatchLog is open source: install it on your own cluster or Docker host today.",
+        "selfHost": "Can't wait? WatchLog is open source: install it on your own cluster or server today.",
         "selfHostLink": "Install guide"
       },
       "chips": {
@@ -4097,7 +4097,7 @@
       "upgradePro": "Upgrade to Pro · {perNode} per node →",
       "manage": "Plan & billing →",
       "limitError": {
-        "clusters": "Cloud Free has one cluster or Docker fleet. Try Pro, free during the beta, for unlimited clusters: Settings › Plan & billing.",
+        "clusters": "Cloud Free has one cluster or Server fleet. Try Pro, free during the beta, for unlimited clusters: Settings › Plan & billing.",
         "users": "Your plan has no room for another user (open invites count too). On Cloud Free, try Pro, free during the beta, to invite your team: Settings › Plan & billing.",
         "nodes": "This node is over the plan's node limit. Try Pro, free during the beta: Settings › Plan & billing."
       },
@@ -4163,7 +4163,7 @@
         "annualSaves": "$10 per node a year · saves ${n} a year",
         "annualCommit": "Annual commits to {n} nodes; nodes above it are billed monthly at $1.",
         "countedTitle": "How nodes are counted",
-        "countedBody": "Every hour we record how many Kubernetes nodes and Docker hosts sent data. Your bill uses the 95th percentile of those counts, so a few hours of autoscaling don’t cost you a month.",
+        "countedBody": "Every hour we record how many Kubernetes nodes and servers sent data. Your bill uses the 95th percentile of those counts, so a few hours of autoscaling don’t cost you a month.",
         "countedExample": "Example: 10 nodes most of the month and 40 for one busy day is billed as 10.",
         "countedLimit": "The plan's node limit counts the nodes and hosts that sent data in the last 24 hours. A new one over the limit is refused; the ones already sending never are.",
         "invoicesTitle": "Invoices and payment method",
@@ -4256,14 +4256,14 @@
         "body": "Nodes, workloads, pods, events and the service map. One Helm chart installs a DaemonSet and a cluster agent.",
         "how": "helm · kubectl manifest"
       },
-      "docker": {
-        "title": "Docker host(s)",
+      "server": {
+        "title": "Server(s)",
         "body": "Hosts, Compose projects and containers, with the same service map and alerts. One container per host.",
         "how": "docker run · Compose snippet"
       },
       "name": {
         "kubernetes": "Name this cluster",
-        "docker": "Name this Docker fleet"
+        "server": "Name this Server fleet"
       },
       "nameHint": "Shown in the cluster switcher and in alert messages. Lowercase letters, digits and dashes.",
       "continue": "Continue",
@@ -4283,7 +4283,7 @@
       "back": "Change the type or name",
       "intro": {
         "kubernetes": "Run this where kubectl points at {name}. Your cluster token is already in the command.",
-        "docker": "Run this on each host of {name}. Your token is already in the command."
+        "server": "Run this on each host of {name}. Your token is already in the command."
       },
       "methods": "Install method",
       "method": {
@@ -4295,7 +4295,7 @@
       "note": {
         "helm": "Installs a DaemonSet (one agent per node) and one cluster agent in the watchlog namespace.",
         "kubectl": "The same as the Helm chart, as plain manifests. The link works for 24 hours and holds no token.",
-        "dockerRun": "For a Docker fleet: run it once on every host.",
+        "dockerRun": "For a Server fleet: run it once on every host.",
         "compose": "Add it to the Compose file on each host, then run docker compose up -d."
       },
       "copy": "Copy command",
@@ -4367,7 +4367,7 @@
       "diagnostics": "Diagnostics",
       "commands": {
         "kubernetes": "kubectl -n watchlog get pods\nkubectl -n watchlog logs ds/watchlog-agent --tail=50\nkubectl -n watchlog logs deploy/watchlog-agent-cluster-agent --tail=50",
-        "docker": "docker ps -a --filter name=watchlog-agent\ndocker logs --tail 50 watchlog-agent"
+        "server": "docker ps -a --filter name=watchlog-agent\ndocker logs --tail 50 watchlog-agent"
       },
       "egress": {
         "title": "Outbound HTTPS blocked:",
@@ -4440,7 +4440,7 @@
     },
     "unit": {
       "kubernetes": "workload | workloads",
-      "docker": "container or Compose service | containers and Compose services"
+      "server": "container or Compose service | containers and Compose services"
     },
     "summary": {
       "destinations": "Destinations",
@@ -4519,7 +4519,7 @@
     "empty": {
       "noCluster": {
         "title": "No cluster yet",
-        "description": "Connect a Kubernetes cluster or a Docker fleet to see what it talks to on the internet."
+        "description": "Connect a Kubernetes cluster or a Server fleet to see what it talks to on the internet."
       },
       "noMatch": {
         "title": "No destination matches",
@@ -4539,11 +4539,11 @@
       "error": "Couldn't load the external destinations.",
       "empty": {
         "kubernetes": "No external destination in the last 30 days.",
-        "docker": "No external destination in the last 30 days."
+        "server": "No external destination in the last 30 days."
       },
       "link": {
         "kubernetes": "See the whole cluster's egress →",
-        "docker": "See the whole fleet's egress →"
+        "server": "See the whole fleet's egress →"
       }
     },
     "policy": {
@@ -4563,7 +4563,7 @@
       "window": "In-cluster destinations from {inCluster} (the flow series: 30 days, or the metrics retention if shorter) and external destinations from {external}, up to {to}.",
       "windowNoFlows": "No in-cluster flow series retained; external destinations from {external} to {to}.",
       "copy": "Copy YAML",
-      "dockerLine": "Docker fleets don’t get this section: Docker has no standard egress policy object.",
+      "dockerLine": "Server fleets don’t get this section: a server has no standard egress policy object.",
       "noPods": "No running pod of this workload: the policy selects its pods by the labels they share, so it can be suggested once a pod runs.",
       "error": "Couldn't build the suggested policy.",
       "docker": {
@@ -4710,7 +4710,7 @@
     "empty": {
       "noCluster": {
         "title": "No cluster connected",
-        "description": "Connect a Kubernetes cluster or a Docker host to see what changed in it."
+        "description": "Connect a Kubernetes cluster or a server to see what changed in it."
       },
       "none": {
         "title": "Nothing left its usual range in this window",
@@ -4791,7 +4791,7 @@
       },
       "fine": {
         "kubernetes": "{perNode} per node a month, {minimum} minimum, billed on the 95th percentile of your nodes.",
-        "docker": "{perNode} per Docker host a month, {minimum} minimum, billed on the 95th percentile of your hosts.",
+        "docker": "{perNode} per server a month, {minimum} minimum, billed on the 95th percentile of your hosts.",
         "stripe": "Paid through Stripe; cancel any time.",
         "community": "Your self-hosted install keeps everything it has today, with no limits."
       },
@@ -4834,7 +4834,7 @@
         "history": {
           "title": "30 days to learn from",
           "kubernetes": "A normal week needs two weeks of history. Pro keeps 30 days, plus unlimited clusters and nodes and up to 10 users.",
-          "docker": "A normal week needs two weeks of history. Pro keeps 30 days, plus unlimited fleets and Docker hosts and up to 10 users."
+          "docker": "A normal week needs two weeks of history. Pro keeps 30 days, plus unlimited fleets and servers and up to 10 users."
         }
       },
       "bottom": {

@@ -180,7 +180,7 @@ onBeforeUnmount(() => clearInterval(clock));
           <li>
             {{
               $t(
-                o.kind === 'docker' ? 'overview.facts.hosts' : 'overview.facts.nodes',
+                o.kind === 'server' ? 'overview.facts.hosts' : 'overview.facts.nodes',
                 { n: o.facts.nodes },
                 o.facts.nodes,
               )

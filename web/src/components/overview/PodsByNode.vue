@@ -11,7 +11,7 @@ import OverviewCard from './OverviewCard.vue';
 // by CPU against the request, failing pods marked. Beyond 20 nodes the rows scroll.
 const SCROLL_AFTER = 20;
 const props = defineProps<{ overview: Overview }>();
-const docker = computed(() => props.overview.kind === 'docker');
+const docker = computed(() => props.overview.kind === 'server');
 const rows = computed(() => {
   const by = new Map<string, HeatPod[]>();
   for (const p of props.overview.pods) {
