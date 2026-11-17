@@ -1443,6 +1443,7 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - SPEC §4 states the rule; the workspace's working rules repeat it.
   - Feature estimates include the Docker side from the start.
   - The live demo is Kubernetes only for now; a Docker demo host is a follow-up, not a reason to ship features for Kubernetes only.
+- Amended 2026-11-17 by ADR-207 (0.9.0): the rule is **"Kubernetes and Servers, always both"**. Docker fleets became Server fleets and Docker one source of workloads on a server, so every feature ships for Kubernetes clusters and for Server fleets with all three sources (services, process groups, containers). The vocabulary per side: Kubernetes keeps nodes, pods and workloads; Servers say servers, services, processes and containers.
 
 ## ADR-125: Personal API tokens, read-only in v0.2
 
@@ -3513,3 +3514,91 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - T1 found the API's per-address limit too low for a group of 20 (20 r/s, burst 300: 694 429s); it is 40 r/s with a burst of 400. Hashed files have no per-address limit.
   - T2 (2,000) was dropped by the owner: launch traffic is at most 100–200 at once. The full load test runs again before 1.0.0.
 - Also in this decision, as built: demo sessions 60 a minute per address (ADR-122 had 20, exactly one T1 group); the demo viewer is looked up once per 10 s, not per request; one "Busy, retrying…" note in the top bar rather than one per panel.
+
+## ADR-207: Server fleets replace Docker fleets: two kinds, Kubernetes and Servers; Docker becomes one source of workloads
+
+- Date: 2026-11-17 · Status: accepted (0.9.0, slice 0; the owner's plan `servers-plan.md` §3, approved in advance)
+- Context: SPEC §2.5 kept agents for servers outside a container runtime out of v2. Real teams run PostgreSQL on the host, Node apps under pm2, PHP-FPM, Go binaries under systemd and Java next to a few containers; WatchLog saw such a server's totals and its containers and nothing else. The owner re-scopes (2026-11-17): every process on a Linux server is monitored, in any language, however it was started. Re-scoped here: SPEC §2.5 and a new §4.15.
+- Decision:
+  - **Two kinds:** `kubernetes` and **`server`**. A Server fleet is a group of Linux servers, each a node for plans, limits and the bill (ADR-177, ADR-194: a server is counted by the `host` label its data carries, as Docker hosts were). Docker fleets become Server fleets.
+  - **Three sources of workloads on a server**, each a _workload_ with the same pages, metrics, alerts, map, Egress, What changed and probable cause:
+    1. **Services:** systemd units of type service (ADR-208).
+    2. **Process groups:** processes grouped by built-in and user rules (ADR-208).
+    3. **Containers:** Docker as before.
+  - **The migration (ADR-107):** one automatic database migration sets `clusters.kind` from `docker` to `server` and widens the kind's CHECK; nothing else is rewritten. Tokens, rules, alert history, egress inventory, anomaly baselines, usage and billing rows keep their cluster ids. The series keep their labels (`host` names the server; container series keep `container`, `image`, `compose_*`), so a fleet's history continues on its new pages without a gap. `usage_hourly.docker_hosts` keeps its name and counts servers (billing reads it unchanged).
+  - **Compatibility, through 1.x:**
+    - Every API input that takes a kind accepts `docker` as an alias of `server` (create a cluster, list filters, MCP tool arguments); answers say `server`.
+    - The 0.8 routes `/clusters/:id/docker/hosts`, `/docker/hosts/:host`, `/docker/containers` and `/docker/containers/:host/:name` stay, with the same shapes, and answer for Server fleets (containers only), marked deprecated in the OpenAPI document.
+    - New routes (read-only, bounded, in the isolation suite): `GET /clusters/:id/servers`, `GET /clusters/:id/servers/:server`, `GET /clusters/:id/servers/:server/workloads`, `GET /clusters/:id/servers/:server/workloads/:workload` (the workload id is `service:<unit>`, `process:<group>` or `container:<name>`), `GET /clusters/:id/process-rules` (and its writes for admins).
+    - MCP: `get_server` (one server and its workloads), and `list_workloads` lists a Server fleet's workloads of all three sources; tools that took `kind: docker` take `server` and keep `docker`.
+    - The old Docker agent (`--mode=docker`, `docker run` without `--pid host`) keeps working against a Server fleet: it sends containers and host metrics; the server page says services and processes need the 0.9 agent and shows how.
+  - **Vocabulary (ADR-124 amended):** Kubernetes keeps nodes, pods and workloads; Servers say servers, services, processes and containers. The sidebar of a Server fleet: Overview, Servers, Workloads, Applications, Events, What changed, Service map, Egress, Alerts, Settings. "Hosts" and "Containers" pages become "Servers" and "Workloads" (containers are a source filter); their old addresses redirect.
+  - **Edition:** Community and every Cloud plan; monitoring is never paywalled (SPEC §3.1). What changed stays Pro.
+- Alternatives:
+  - **Keep the Docker kind and add a third, `server`** (rejected by the owner: two kinds of non-Kubernetes fleet for the same machines, and a Docker host is a server).
+  - **Store `docker` and only rename in the API** (rejected: every reader would translate forever; one migration now is cheaper).
+  - **Rewrite the series' labels to new names** (rejected: terabytes on Cloud and a gap in history for no user-visible gain).
+- Consequences: SPEC §4.4 becomes part of §4.15. Every feature's checklist says "Kubernetes and Servers". Docs and the site say "Kubernetes, Docker and Linux servers".
+
+## ADR-208: The agent's server mode: services, process groups, exits and crashes, from any language
+
+- Date: 2026-11-17 · Status: accepted (0.9.0, slice 0; plan §3–§4.1); measured parts amended in slice 1
+- Context: ADR-207's three sources need one agent per server that sees systemd units and every other process, in any language, without instrumenting code, within the node agent's budget (SPEC §6.1), and without sending command lines, environments or PIDs anywhere.
+- Decision:
+  - **Mode:** `--mode=server`; `--mode=docker` is an alias (same code; an old install's flag keeps working). The binary stays the node agent's (ADR-048: no client-go). New dependency: `github.com/godbus/dbus/v5` (pre-approved), for systemd's D-Bus API.
+  - **Services (systemd 239+):** the agent lists units of type service that are loaded and not inactive-dead (active, activating, deactivating, failed, or with restarts), at most 100 a server (the busiest first; the rest counted). Per unit, from D-Bus: `ActiveState`, `SubState`, `NRestarts`, `ExecMainCode`/`ExecMainStatus` (the last exit), `ActiveEnterTimestamp`, `MemoryMax`, `CPUQuotaPerSecUSec`, `FragmentPath`'s unit name only. From the unit's cgroup (v2: `/sys/fs/cgroup/system.slice/<unit>`; v1 best effort): CPU, throttling, memory (working set as for containers), I/O, tasks, and `memory.events`' `oom_kill`. Template instances keep their full name (`postgresql@16-main.service`).
+  - **Process groups:** every 15 s the agent reads `/proc/<pid>/{stat,status,cmdline,exe,cgroup}` locally (never `environ`; the agent never reads environment values, SPEC §6.6) and groups processes by the first rule that matches, in this order:
+    1. the user's rules (per fleet, from the backend; ADR-207's `process-rules`): match on the executable's base name, the unit, and a pattern over the arguments, evaluated on the server; the name is a template;
+    2. **pm2:** the app name, from pm2's pid files (`~/.pm2/pids/<app>-<id>.pid` of each user that runs pm2's daemon), so no environment is read;
+    3. **supervisord:** the program name, from its configuration (`/etc/supervisor*/**/*.conf`, `[program:x]`) matched to the child's command and parent;
+    4. **PHP-FPM:** `pool <name>` from the process title, under its master;
+    5. **gunicorn / uwsgi:** the master's application (`gunicorn: master [app]`, `uwsgi --module`), workers under it;
+    6. **Java:** the `-jar` file's base name or the main class;
+    7. **an interpreter and its script:** `python3 worker.py` → `worker.py` (python, node, ruby, perl, php-cli, bun, deno);
+    8. **the fallback:** the executable's base name.
+       A group inside a service's cgroup is that service's child (pm2's unit holds every pm2 app; PHP-FPM's unit holds its pools). Kernel threads, the agent itself and processes of containers (their cgroups belong to the container source) are never grouped.
+  - **Per group:** CPU seconds, RSS, PSS where `smaps_rollup` is readable (else RSS), instances, threads, open files, starts and exits by class (`ok`, `error`, `signal`), OOM kills, and the executable's identity (inode and mtime) whose change is a **release** event. Exit codes come from eBPF (ADR-210, `sched_process_exit`); without eBPF the agent sees instances disappear and new ones start (restarts, no codes).
+  - **Crashes:** a crash is a non-zero or signal exit of a group's or unit's main process. A **crash loop** is at least 3 crashes or systemd restarts in 10 minutes, decided by the backend from the counters (an injectable clock in tests).
+  - **Limits:** at most 50 process groups a server (by CPU then memory), the rest in one `other processes` group with a counter `watchlog_agent_process_groups_dropped`. At most 100 services.
+  - **Privacy:** no PID, full command line, argument, environment value or user name is ever a label or a field. A group's name is derived by the rules above and passed through `agent/internal/redact` (secrets, tokens, URLs with credentials, long hex and base64 become `****`) and cut at 63 characters. User rules' templates can only use the captured parts the rule names; their output is redacted too.
+  - **Listening sockets** per workload, from `/proc/net/{tcp,tcp6,udp,udp6}` matched to the workload's sockets: at most 10 ports a workload, as a label on one info series (ports are bounded here; SPEC §6.3's port rule is about flow destinations).
+  - **Series (the catalog, ADR-028):** `watchlog_service_{state,restarts_total,last_exit_code,start_time_seconds,cpu_seconds_total,cpu_throttled_seconds_total,memory_working_set_bytes,memory_limit_bytes,cpu_limit_cores,io_bytes_total,tasks,oom_events_total}` labelled `host`, `unit`; `watchlog_process_group_{cpu_seconds_total,memory_rss_bytes,memory_pss_bytes,instances,threads,open_files,starts_total,exits_total{exit},oom_kills_total}` labelled `host`, `group`, `unit` (empty when none); `watchlog_listen_info{host,source,workload,proto,port}`. Release and state changes are events (the Docker events path, generalised).
+  - **Containers** as in Docker mode (socket, read-only API use). Podman's and containerd's Docker-compatible sockets: measured in slice 1 and recorded here.
+  - **Host metrics** as before, with ADR-121's scope switch.
+- Alternatives: reading process environments for pm2 names (rejected: the agent never reads environment values); a process exporter's per-PID series (rejected: cardinality and privacy); instrumenting runtimes (rejected: SPEC §2.5).
+- Consequences: one more dependency (godbus). The agent reads `/proc` of every process, which needs `CAP_SYS_PTRACE` and `CAP_DAC_READ_SEARCH` for other users' processes (ADR-209).
+
+## ADR-209: Installing on a server: one command, deb and rpm, `docker run`; its own user and the fewest capabilities
+
+- Date: 2026-11-17 · Status: accepted (0.9.0, slice 0); the capability list is measured in slices 1 and 6 and amended here
+- Decision:
+  - **The native install:** `curl -fsSL <install URL> | sudo sh -s -- --token <token> [--url <backend>]`. The script:
+    - picks the release's static tarball for the machine (amd64, arm64), checks it against the release's `SHA256SUMS`, and verifies the signature with cosign when cosign is on the machine (keyless, the release workflow's identity); without cosign it says so and how to verify;
+    - creates the system user `watchlog` (no shell, no home login), installs `/usr/bin/watchlog-agent` and `/usr/bin/watchlog-integrations`, `/etc/watchlog/agent.env` (the token, mode 0640 root:watchlog) and two systemd units;
+    - adds `watchlog` to the `docker` group only when Docker is present and `--no-docker` isn't given, and says that this is root-equivalent (the Docker API can't be read without it);
+    - `--upgrade` replaces the binaries and keeps the configuration; `--uninstall` stops and removes the units, binaries, user and `/etc/watchlog`.
+  - **The units:** `User=watchlog`, `AmbientCapabilities`/`CapabilityBoundingSet` limited to what is measured to work (starting point: `CAP_BPF CAP_PERFMON CAP_SYS_PTRACE CAP_DAC_READ_SEARCH`, plus `CAP_SYS_RESOURCE` only on kernels that charge eBPF maps to `RLIMIT_MEMLOCK`, before 5.11), `NoNewPrivileges=yes`, `ProtectSystem=strict`, `ProtectHome=read-only`, `PrivateTmp=yes`, `ProtectKernelModules=yes`, `ProtectControlGroups=yes`, `RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK`, `SystemCallArchitectures=native`, `LockPersonality=yes`, `MemoryMax=256M`, `StateDirectory=watchlog` (the disk buffer). The integrations collector gets no capability at all (it connects to services like any client), as today.
+  - **Packages:** `watchlog-agent_<v>_<arch>.deb` and `.rpm`, built with nfpm (pre-approved) in the release workflow from the same binaries and units; release assets, no repository yet (plan §5).
+  - **`docker run`:** still supported for servers: `--pid host`, `--cgroupns host`, read-only `/proc`, `/sys`, `/sys/fs/cgroup`, the D-Bus system socket and the Docker socket, `--cap-add` with the same list; an old `docker run` without them keeps sending containers and host metrics.
+  - **Self-hosted:** the backend serves the script at `/install.sh` with its own address filled in; the binaries come from GitHub Releases. Cloud's short URL (`get.watchlog.io`) is the owner's DNS step; until then the script's URL is the release asset's.
+- Alternatives: running as root (rejected: least privilege); an apt/yum repository (later, plan §5); a static binary inside the script (rejected: unverifiable).
+- Consequences: the release workflow gains tarballs, checksums, signatures and packages for two architectures. SPEC §6.6 gains the server agent's privileges.
+
+## ADR-210: eBPF on servers: attributing connections, HTTP and exits to services and process groups
+
+- Date: 2026-11-17 · Status: accepted (0.9.0, slice 0); amended with measurements in slices 1 and 5
+- Decision:
+  - **Attribution:** the flow programs (ADR-099) already record the cgroup id at connect; in server mode they also record the thread group id. User space maps a cgroup to a service (the unit's cgroup) or a container, and a tgid to a process group through the agent's process table, kept current by `sched_process_exec` and `sched_process_exit`. A connection is the process group's when it has one, else the unit's. HTTP/1.x stats (ADR-139) read socket bytes, so they work for any language; they are attributed the same way.
+  - **The server filter:** ADR-121's filter, in server mode, records everything on the host except the agent's own cgroup (the opposite of the pod filter). With `WATCHLOG_EBPF_CONTAINER_FILTER` (the demo, ADR-170) the roots stay those of its containers and services.
+  - **Exits and OOM kills:** `sched_process_exit` reports a group leader's exit code (only leaders, so threads don't count) through a ring buffer; `oom/mark_victim` reports the victim's pid. Both are attributed to the group and the unit, then dropped: no pid leaves the agent.
+  - **Without eBPF** (kernel before 5.8, no BTF, no capability): everything but the map, Egress, HTTP and exit codes works; the server page says why and how to fix it (ADR-107).
+- Consequences: two more tracepoints and one ring buffer; the cost is measured against ADR-121's table on a busy server.
+
+## ADR-211: The live demo's server: a systemd host with services, process groups and Docker, isolated
+
+- Date: 2026-11-17 · Status: accepted (0.9.0, slice 0; plan §4.11); built in slice 13
+- Decision:
+  - **The host:** the demo's Docker host (ADR-170) becomes a server: one container with systemd as PID 1 (pinned image, privileged as dind was, caps of 1 CPU and 1 GiB), running nginx, PHP-FPM, a Go service under systemd, a Node app under pm2, a Python worker under supervisord, PostgreSQL or MariaDB installed natively, and Docker inside with Redis. The 0.9 agent is installed in it by the install script, as a user would.
+  - **Isolation:** cgroup scope (ADR-121) and the server filter limited to the container's own cgroup, so the real server's processes never show.
+  - **Chaos, one failure each, placed around the existing hourly chaos:** PHP-FPM reaching `max_children`; the Go service crash-looping after a bad release; the pm2 app OOM-killed at its limit; a log filling the disk; one slow drift for What changed.
+- Consequences: the demo's fleet `demo-docker` migrates to a Server fleet (ADR-207) and keeps its history.
