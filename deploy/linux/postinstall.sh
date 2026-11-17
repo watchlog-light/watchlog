@@ -9,6 +9,12 @@ if ! id watchlog >/dev/null 2>&1; then
 fi
 if [ "${WATCHLOG_DOCKER:-yes}" = yes ] && getent group docker >/dev/null 2>&1; then
   usermod -aG docker watchlog
+elif [ "${WATCHLOG_DOCKER:-yes}" = yes ] && systemctl cat podman.socket >/dev/null 2>&1; then
+  # Podman has no docker group: the group watchlog gets its API socket (removed on purge).
+  install -d -m 0755 /etc/systemd/system/podman.socket.d
+  printf '[Socket]\nSocketGroup=watchlog\n' >/etc/systemd/system/podman.socket.d/watchlog.conf
+  systemctl daemon-reload >/dev/null 2>&1 || true
+  if systemctl is-active --quiet podman.socket; then systemctl restart podman.socket >/dev/null 2>&1 || true; fi
 fi
 install -d -m 0750 -o root -g watchlog /etc/watchlog
 systemctl daemon-reload >/dev/null 2>&1 || true

@@ -8,7 +8,7 @@
 #   … | sudo sh -s -- --uninstall        the units, binaries, user and /etc/watchlog removed
 #
 # Options: --version <x.y.z> (default: the latest release), --hostname <name>, --no-docker
-# (don't add watchlog to the docker group: containers won't show). The binaries come from
+# (don't add watchlog to the docker group, or give it Podman's socket: containers won't show). The binaries come from
 # GitHub Releases and are checked against the release's SHA256SUMS, and its signature when
 # cosign is installed. WATCHLOG_INSTALL_FROM=<dir> installs from a directory with the same
 # files instead (tests).
@@ -50,12 +50,18 @@ uninstall() {
     systemctl disable --now "$u" >/dev/null 2>&1 || true
     rm -f "/etc/systemd/system/$u.service"
   done
+  if [ -f /etc/systemd/system/podman.socket.d/watchlog.conf ]; then
+    rm -f /etc/systemd/system/podman.socket.d/watchlog.conf
+    rmdir /etc/systemd/system/podman.socket.d 2>/dev/null || true
+    systemctl daemon-reload
+    if systemctl is-active --quiet podman.socket; then systemctl restart podman.socket; fi
+  fi
   systemctl daemon-reload
   rm -f /usr/bin/watchlog-agent /usr/bin/watchlog-integrations
   rm -rf /etc/watchlog /var/lib/watchlog
   if id watchlog >/dev/null 2>&1; then userdel watchlog >/dev/null 2>&1 || true; fi
   if getent group watchlog >/dev/null 2>&1; then groupdel watchlog >/dev/null 2>&1 || true; fi
-  say "WatchLog removed: its units, binaries, user and /etc/watchlog."
+  say "WatchLog removed: its units, binaries, user, /etc/watchlog and its Podman socket drop-in."
 }
 
 if [ "$ACTION" = uninstall ]; then
@@ -124,6 +130,14 @@ fi
 if [ "$DOCKER" = yes ] && getent group docker >/dev/null 2>&1; then
   usermod -aG docker watchlog
   say "watchlog joined the docker group, so containers show. That gives it root-equivalent access through the Docker API; --no-docker leaves it out."
+elif [ "$DOCKER" = yes ] && systemctl cat podman.socket >/dev/null 2>&1; then
+  # Podman (RHEL and its kin) has no docker group: its API socket is root's. The group
+  # watchlog gets it through a drop-in, which --uninstall removes.
+  install -d -m 0755 /etc/systemd/system/podman.socket.d
+  printf '[Socket]\nSocketGroup=watchlog\n' >/etc/systemd/system/podman.socket.d/watchlog.conf
+  systemctl daemon-reload
+  if systemctl is-active --quiet podman.socket; then systemctl restart podman.socket; fi
+  say "Podman's API socket now belongs to the group watchlog, so containers show. That gives it root-equivalent access through the Podman API; --no-docker leaves it out."
 fi
 
 for u in $UNITS; do systemctl stop "$u" >/dev/null 2>&1 || true; done
