@@ -356,3 +356,83 @@ describe('Server fleet routes', () => {
     expect((await api(`/clusters/${kube}/servers/${HOST}`)).statusCode).toBe(404);
   });
 });
+
+describe('process-group rules (ADR-207)', () => {
+  let ctx: TestContext;
+  let cookie: string;
+  let cluster: { id: string; token: string };
+
+  beforeEach(async () => {
+    ctx = await createTestContext();
+    cookie = await setupAdmin(ctx.app);
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/clusters',
+      cookies: { wl_session: cookie },
+      payload: { name: 'acme-servers', kind: 'server' },
+    });
+    cluster = { id: res.json().cluster.id, token: res.json().token.value };
+  });
+
+  afterEach(() => closeTestContext(ctx));
+
+  const put = (rules: object[]) =>
+    ctx.app.inject({
+      method: 'PUT',
+      url: `/api/v1/clusters/${cluster.id}/process-rules`,
+      cookies: { wl_session: cookie },
+      payload: { rules },
+    });
+  const agent = (etag?: string) =>
+    ctx.app.inject({
+      method: 'GET',
+      url: '/ingest/v1/process-rules',
+      headers: {
+        authorization: `Bearer ${cluster.token}`,
+        'x-watchlog-agent': HOST,
+        ...(etag ? { 'if-none-match': etag } : {}),
+      },
+    });
+
+  it('stores the ordered list, checks each rule, and serves it to the agents with an ETag', async () => {
+    const first = await agent();
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toEqual({ rules: [] });
+
+    const rules = [
+      { exe: 'python*', args: '-m (\\w+)', name: 'py $1' },
+      { unit: 'pm2-*.service', name: 'pm2 apps' },
+    ];
+    const ok = await put(rules);
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().rules).toEqual(rules);
+
+    const got = await agent(first.headers.etag as string);
+    expect(got.statusCode).toBe(200);
+    expect(got.json().rules).toEqual(rules);
+    expect((await agent(got.headers.etag as string)).statusCode).toBe(304);
+
+    const read = await ctx.app.inject({
+      method: 'GET',
+      url: `/api/v1/clusters/${cluster.id}/process-rules`,
+      cookies: { wl_session: cookie },
+    });
+    expect(read.json()).toMatchObject({ rules, matches: [] });
+
+    for (const [bad, why] of [
+      [{ name: 'x' }, 'matches on'],
+      [{ args: '(?=a)b', name: 'x' }, 'lookaround'],
+      [{ args: '(', name: 'x' }, 'not a valid'],
+      [{ args: '-m (\\w+)', name: '$2' }, '1 capture'],
+    ] as const) {
+      const res = await put([bad]);
+      expect(res.statusCode).toBe(400);
+      expect(res.json().detail).toContain(why);
+    }
+    expect(
+      (await put(Array.from({ length: 51 }, () => ({ exe: 'x', name: 'x' })))).statusCode,
+    ).toBe(400);
+    // Unchanged after the refusals.
+    expect((await agent(got.headers.etag as string)).statusCode).toBe(304);
+  });
+});
