@@ -3507,4 +3507,9 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - The demo's cost grows with the number of distinct pages being looked at in a bucket, not with visitors. Its data can be up to one bucket (15 s) older than before.
   - A second backend replica would keep its own cache; that is fine (two upstream calls per bucket instead of one).
   - The busy page and the "Busy, retrying…" note are the deliberate face of overload; a 5xx page or a red panel is a bug.
-- Measured: filled in by the release slice (the load test: the 0.8.2 baseline, T1 and T2).
+- Measured (2026-11-17, a throwaway VM with the demo kit and the server's caps, the loader on a host; a browser-recorded journey over the Kubernetes cluster and the Docker fleet; groups of 20 visitors behind one address):
+  - **0.8.2, a ramp toward 2,000 visitors in 5 minutes:** 38,097 5xx, 33,855 API answers that would show a red panel, 4,242 broken pages, 7,174 429s for grouped visitors, API p99 3 s. The 502s came from k3d's own load balancer giving up under one new connection per request. Also found: through 0.8.2's vhost a fresh browser (about 140 hashed files on a cold cache) got 429s on scripts and no dashboard.
+  - **This decision, T1 (500 visitors, 10 minutes steady):** 84,033 API requests; p50 2.2 ms, p95 7.4 ms, p99 38.5 ms; 0 5xx, 0 red panels, 0 429s single or grouped; cache hit rate 98.8 %; 0 shed; VictoriaMetrics 18 queries a second; the demo's nodes at about a third of their CPU caps on average; the waitlist's health p95 4.4 ms and a signup p95 1.9 ms.
+  - T1 found the API's per-address limit too low for a group of 20 (20 r/s, burst 300: 694 429s); it is 40 r/s with a burst of 400. Hashed files have no per-address limit.
+  - T2 (2,000) was dropped by the owner: launch traffic is at most 100–200 at once. The full load test runs again before 1.0.0.
+- Also in this decision, as built: demo sessions 60 a minute per address (ADR-122 had 20, exactly one T1 group); the demo viewer is looked up once per 10 s, not per request; one "Busy, retrying…" note in the top bar rather than one per panel.
