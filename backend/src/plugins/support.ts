@@ -46,6 +46,7 @@ export const SUPPORT_BLOCKED_READS: readonly string[] = [
   ...DEMO_BLOCKED_READS,
   '/api/v1/clusters/:id/pods/:namespace/:name/logs',
   '/api/v1/clusters/:id/docker/hosts/:host/containers/:name/logs',
+  '/api/v1/clusters/:id/servers/:server/workloads/:workload/logs',
   '/api/v1/auth/account',
   '/api/v1/auth/sessions',
 ];

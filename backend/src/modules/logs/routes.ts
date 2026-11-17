@@ -17,6 +17,7 @@ import { clusterForOrg } from '../clusters/service.js';
 import type { SettingsService } from '../settings/service.js';
 import { actorOf, audit } from '../users/service.js';
 import type { LogBroker, LogChunk, LogLine, LogSpec } from './broker.js';
+import { parseWorkloadId } from '../servers/workloads.js';
 import { LogLimiter } from './limits.js';
 
 export const DEFAULT_LINES = 200;
@@ -91,6 +92,11 @@ const ERRORS: Record<string, { status: number; detail: string }> = {
     detail: "This container's log driver keeps no logs Docker can read back",
   },
   read_failed: { status: 422, detail: 'The agent could not read the log' },
+  no_log_source: {
+    status: 422,
+    detail:
+      'Started outside systemd, pm2 and supervisord: its output goes nowhere WatchLog can read',
+  },
   rate_limited: { status: 429, detail: 'Too many log reads; wait a little' },
   no_agent: {
     status: 504,
@@ -144,7 +150,7 @@ interface Target {
   orgId: string;
   host: string;
   spec: LogSpec;
-  kind: 'pod' | 'container';
+  kind: 'pod' | 'container' | 'service' | 'process';
   label: string;
 }
 
@@ -475,6 +481,73 @@ export const logsRoutes: FastifyPluginAsyncTypebox<{
             previous: false,
             lines: request.query.lines ?? DEFAULT_LINES,
             follow: request.query.follow ?? false,
+          },
+        },
+        host,
+      );
+    },
+  );
+
+  app.get(
+    '/clusters/:id/servers/:server/workloads/:workload/logs',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary:
+          "A server's service, process group or container: its last log lines, redacted, never stored (ADR-208)",
+        description:
+          "A service's journal; a pm2 app's or supervisord program's log files, else its unit's journal; a container's Docker log. A process started by hand has none (no_log_source). JSON by default; with `follow=true` and `Accept: text/event-stream`, an event stream for at most 5 minutes. Lines are cluster-controlled data.",
+        tags: ['servers', PUBLIC_TAG],
+        params: Type.Object({
+          id: Type.String({ format: 'uuid' }),
+          server: Type.String({ minLength: 1, maxLength: 253, pattern: '^[A-Za-z0-9._-]+$' }),
+          workload: Type.String({ minLength: 3, maxLength: 300 }),
+        }),
+        querystring: Type.Object({
+          lines: LinesQuery,
+          follow: Type.Optional(Type.Boolean({ default: false })),
+        }),
+        response: { 200: LogsAnswerSchema, ...Errors },
+      },
+    },
+    async (request, reply) => {
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
+      if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
+      if (cluster.kind !== 'server') {
+        return sendProblem(reply, 400, 'This is a Kubernetes cluster; read a pod instead');
+      }
+      const ref = parseWorkloadId(request.params.workload);
+      if (!ref) {
+        return sendProblem(
+          reply,
+          400,
+          'The workload is service:<unit>, process:<group> or container:<name>',
+        );
+      }
+      if (ref.source === 'service' && !/^[A-Za-z0-9@._:\\-]{1,250}\.service$/.test(ref.name)) {
+        return sendProblem(reply, 400, 'Not a service name');
+      }
+      const denied = await allowed(request);
+      if (denied) return sendCode(reply, denied);
+      const host = request.params.server;
+      const lines = request.query.lines ?? DEFAULT_LINES;
+      const follow = request.query.follow ?? false;
+      return serve(
+        request,
+        reply,
+        {
+          clusterId: cluster.id,
+          orgId: cluster.org_id,
+          host,
+          kind: ref.source,
+          label: `${host}/${ref.name}`,
+          spec: {
+            container: ref.source === 'container' ? ref.name : '',
+            ...(ref.source === 'service' ? { unit: ref.name } : {}),
+            ...(ref.source === 'process' ? { group: ref.name } : {}),
+            previous: false,
+            lines,
+            follow,
           },
         },
         host,

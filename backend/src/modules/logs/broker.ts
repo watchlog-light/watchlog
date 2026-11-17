@@ -13,6 +13,9 @@ export interface LogSpec {
   namespace?: string;
   pod?: string;
   container: string;
+  /** A server's systemd service (its journal) or process group (ADR-208), instead of a container. */
+  unit?: string;
+  group?: string;
   /** Kubernetes only: the container's last run. */
   previous: boolean;
   lines: number;
