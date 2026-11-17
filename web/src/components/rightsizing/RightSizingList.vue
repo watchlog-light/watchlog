@@ -22,6 +22,13 @@ const ICON: Record<Tone, typeof Gauge> = {
 
 function target(h: RightSizingHint) {
   const o = h.object;
+  // A server's systemd service (ADR-208): its page on the server.
+  if (o.kind === 'service' && o.host !== undefined) {
+    return {
+      name: 'server-workload',
+      params: { server: o.host, workload: `service:${o.name}` },
+    };
+  }
   if (o.host !== undefined) {
     return { name: 'docker-container', params: { host: o.host, name: o.name } };
   }
