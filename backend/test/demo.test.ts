@@ -11,6 +11,7 @@ import {
   DEMO_READ_ONLY_MESSAGE,
   DEMO_SESSION_IDLE_MS,
   DEMO_SESSION_REFRESH_MS,
+  DEMO_SESSIONS_PER_MINUTE,
   DEMO_USER_EMAIL,
 } from '../src/modules/demo/constants.js';
 import { DemoSessions, ensureDemoUser } from '../src/modules/demo/service.js';
@@ -474,6 +475,17 @@ describe('demo query cost', () => {
       to: t,
     });
     expect(res.statusCode).toBe(200);
+  });
+
+  it('lets 60 demo sessions a minute start from one address: a group behind one address gets in (ADR-206)', async () => {
+    ctx = await createTestContext({ demoMode: true, clientIpHeader: 'X-Real-IP' });
+    const start = (ip: string) =>
+      ctx.app.inject({ method: 'POST', url: '/api/v1/demo/session', headers: { 'x-real-ip': ip } });
+    for (let i = 0; i < DEMO_SESSIONS_PER_MINUTE; i++) {
+      expect((await start('203.0.113.30')).statusCode).toBe(200);
+    }
+    expect((await start('203.0.113.30')).statusCode).toBe(429);
+    expect((await start('198.51.100.30')).statusCode).toBe(200);
   });
 
   it('rate-limits the queries of each visitor (429), by the configured client IP header', async () => {
