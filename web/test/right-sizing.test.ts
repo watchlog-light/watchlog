@@ -301,3 +301,27 @@ describe('RightSizingCard', () => {
     expect(w.findAll('[data-testid="rightsizing-hint"]')).toHaveLength(2);
   });
 });
+
+describe("a server's service (ADR-208)", () => {
+  it('links its hint to the service on its server', async () => {
+    const svc = hint(
+      { kind: 'service', host: 'app-1', name: 'orders.service' },
+      'memory_limit_tight',
+      'memory',
+      { limitBytes: 200e6, peakBytes: 190e6 },
+      240e6,
+    );
+    mockFetch({
+      [`GET /api/v1/clusters/${CLUSTER}/right-sizing`]: { status: 200, body: answer([svc]) },
+    });
+    const { pinia, router, i18n } = await createPlugins('/');
+    const w = mount(RightSizingCard, {
+      props: { clusterId: CLUSTER, kind: 'server' },
+      global: { plugins: [pinia, router, i18n] },
+    });
+    await flushPromises();
+    const link = w.get('[data-testid="rightsizing-hint"] a');
+    expect(link.attributes('href')).toBe('/servers/app-1/workloads/service:orders.service');
+    w.unmount();
+  });
+});
