@@ -209,7 +209,8 @@ export const routes: RouteRecordRaw[] = [
         name: 'server-workload',
         path: 'servers/:server/workloads/:workload',
         component: () => import('@/views/ServerWorkloadPage.vue'),
-        meta: { titleKey: 'nav.servers', kind: 'server' },
+        // Its charts follow the top bar's time range (the pod and container pages' picker).
+        meta: { titleKey: 'nav.servers', charts: true, kind: 'server' },
       },
       // The containers with their Compose projects (0.8's Containers page), from Workloads.
       {

@@ -62,7 +62,7 @@ const count = computed(() => props.servers.reduce((n, s) => n + s.rows.length, 0
         <col class="w-[26%]" />
         <col class="w-[104px]" />
         <col class="w-[92px]" />
-        <col class="w-[86px]" />
+        <col class="w-[112px]" />
         <col class="w-[140px]" />
         <col class="w-[140px]" />
         <col class="w-[110px]" />
