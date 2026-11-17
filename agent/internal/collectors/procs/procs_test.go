@@ -450,3 +450,49 @@ func sortStrings(s []string) []string {
 	}
 	return out
 }
+
+func TestServiceRelease(t *testing.T) {
+	at := time.Unix(1_794_900_000, 0)
+	procs := ubuntu()
+	c := newCollector(mapFS(procs, ubuntuHints()), &at)
+	ids := map[int]string{23655: "orders-v1"}
+	c.Reader.ExeIdentity = func(pid int) string { return ids[pid] }
+	release := func(ss []metrics.Sample) float64 {
+		for _, s := range ss {
+			if s.Name == "watchlog_service_releases_total" && groupOf(s) == "" {
+				for _, l := range s.Labels {
+					if l.Name == "unit" && l.Value == "orders.service" {
+						return s.Value
+					}
+				}
+			}
+		}
+		return -1
+	}
+	ss, _ := c.Collect()
+	if release(ss) != -1 {
+		t.Fatal("no release yet: the counter isn't sent")
+	}
+	// A deploy: systemd restarts orders.service on a new binary (a new pid, started later).
+	at = at.Add(15 * time.Second)
+	next := []fakeProc{}
+	for _, p := range procs {
+		if p.pid != 23655 {
+			next = append(next, p)
+		}
+	}
+	next = append(next, fakeProc{pid: 27100, ppid: 1, comm: "orders", cmdline: "/opt/wl-apps/orders\x00",
+		cgroup: "/system.slice/orders.service", cpu: 1, start: 900, threads: 5, rssKB: 6000})
+	c.Reader.FS = mapFS(next, ubuntuHints())
+	ids[27100] = "orders-v2"
+	ss, _ = c.Collect()
+	if got := release(ss); got != 1 {
+		t.Fatalf("orders.service releases %v, want 1", got)
+	}
+	// The same binary again: no new release.
+	at = at.Add(15 * time.Second)
+	ss, _ = c.Collect()
+	if got := release(ss); got != 1 {
+		t.Fatalf("still 1, got %v", got)
+	}
+}

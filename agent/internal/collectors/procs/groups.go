@@ -51,6 +51,10 @@ type Collector struct {
 	live    map[int]tracked
 	groups  map[string]*group
 	scanned bool
+	// A service that is one binary (no group of its own): its newest process's executable
+	// identity and how often it changed, a release (ADR-208, probable cause).
+	unitExe      map[string]string
+	unitReleases map[string]float64
 	// Dropped is how many groups were folded into OtherGroup at the last scrape.
 	Dropped int
 
@@ -163,12 +167,24 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 
 	seen := map[int]bool{}
 	workloadOf := map[int]Workload{}
+	newest := map[string]struct {
+		start uint64
+		exe   string
+	}{}
 	cgroupGroups := map[string]map[string]bool{}
 	for _, n := range all {
 		// Inside a unit, a group only by a manager's or user's rule, or when the unit holds
 		// several: nginx's processes alone in nginx.service are the service itself.
 		if n.unit != "" && n.by == "exe" && len(perUnit[n.unit]) == 1 {
 			workloadOf[n.p.PID] = Workload{Kind: "Service", Name: n.unit}
+			if n.p.ExeID != "" {
+				if cur, ok := newest[n.unit]; !ok || n.p.StartTicks > cur.start {
+					newest[n.unit] = struct {
+						start uint64
+						exe   string
+					}{n.p.StartTicks, n.p.ExeID}
+				}
+			}
 			continue
 		}
 		workloadOf[n.p.PID] = Workload{Kind: "ProcessGroup", Name: n.name}
@@ -235,8 +251,21 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 			delete(c.groups, key)
 		}
 	}
+	if c.unitExe == nil {
+		c.unitExe, c.unitReleases = map[string]string{}, map[string]float64{}
+	}
+	for unit, n := range newest {
+		if prev, ok := c.unitExe[unit]; ok && prev != n.exe {
+			c.unitReleases[unit]++
+		}
+		c.unitExe[unit] = n.exe
+	}
 	c.scanned = true
 	out := c.samples()
+	// Counters still at zero aren't sent (ADR-208's budget).
+	for unit, v := range c.unitReleases {
+		out = append(out, metrics.New("watchlog_service_releases_total", v, "unit", unit))
+	}
 	out = append(out, c.network(all, workloadOf, cgroupGroups)...)
 	return out, nil
 }
