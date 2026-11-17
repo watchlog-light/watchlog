@@ -1332,6 +1332,28 @@ export interface paths {
               | 'container.oom_kills'
               | 'dns.nxdomain.rate'
               | 'container.restarts.increase'
+              | 'unit.cpu.usage'
+              | 'unit.cpu.throttled_share'
+              | 'unit.cpu.limit'
+              | 'unit.memory.working_set'
+              | 'unit.memory.limit'
+              | 'unit.memory.utilization'
+              | 'unit.io'
+              | 'unit.tasks'
+              | 'unit.restarts'
+              | 'unit.restarts.increase'
+              | 'unit.failed'
+              | 'unit.exits.failed.increase'
+              | 'unit.oom_kills.increase'
+              | 'process.cpu.usage'
+              | 'process.memory.rss'
+              | 'process.instances'
+              | 'process.threads'
+              | 'process.open_files'
+              | 'process.starts.increase'
+              | 'process.exits.failed.increase'
+              | 'process.oom_kills.increase'
+              | 'process.releases.increase'
               | 'node.cpu.usage'
               | 'node.cpu.utilization'
               | 'node.memory.used'
@@ -1436,6 +1458,8 @@ export interface paths {
               host?: string;
               container?: string;
               composeProject?: string;
+              unit?: string;
+              group?: string;
               node?: string;
               namespace?: string;
               namespaces?: string[];
@@ -6196,6 +6220,8 @@ export interface paths {
                   node?: string;
                   host?: string;
                   container?: string;
+                  unit?: string;
+                  group?: string;
                   /** Format: uuid */
                   service?: string;
                   /** @description A service type */
@@ -6325,6 +6351,8 @@ export interface paths {
               node?: string;
               host?: string;
               container?: string;
+              unit?: string;
+              group?: string;
               /** Format: uuid */
               service?: string;
               /** @description A service type */
@@ -6374,6 +6402,8 @@ export interface paths {
                 node?: string;
                 host?: string;
                 container?: string;
+                unit?: string;
+                group?: string;
                 /** Format: uuid */
                 service?: string;
                 /** @description A service type */
@@ -6641,6 +6671,8 @@ export interface paths {
               node?: string;
               host?: string;
               container?: string;
+              unit?: string;
+              group?: string;
               /** Format: uuid */
               service?: string;
               /** @description A service type */
@@ -6680,6 +6712,8 @@ export interface paths {
                 node?: string;
                 host?: string;
                 container?: string;
+                unit?: string;
+                group?: string;
                 /** Format: uuid */
                 service?: string;
                 /** @description A service type */
@@ -6837,6 +6871,8 @@ export interface paths {
                   node?: string;
                   host?: string;
                   container?: string;
+                  unit?: string;
+                  group?: string;
                   /** Format: uuid */
                   service?: string;
                   /** @description A service type */
@@ -6996,6 +7032,8 @@ export interface paths {
                 node?: string;
                 host?: string;
                 container?: string;
+                unit?: string;
+                group?: string;
                 /** Format: uuid */
                 service?: string;
                 /** @description A service type */
@@ -7157,6 +7195,8 @@ export interface paths {
               node?: string;
               host?: string;
               container?: string;
+              unit?: string;
+              group?: string;
               /** Format: uuid */
               service?: string;
               /** @description A service type */
