@@ -320,4 +320,36 @@ func TestServiceEvents(t *testing.T) {
 	if oomText(Props{MemoryMax: &mem}) != "OOM-killed at its MemoryMax of 200 MiB" || oomText(Props{}) != "OOM-killed by the kernel: the server ran out of memory" {
 		t.Errorf("OOM texts")
 	}
+
+	// A child killed at the unit's MemoryMax (a shell's command, measured on the e2e VM:
+	// `sh -c '…; tail /dev/zero'`) counts as the service's OOM kill, and the event says so.
+	var feed []exits.Exit
+	c.Exits = func() []exits.Exit { out := feed; feed = nil; return out }
+	bus.props["nginx.service"] = Props{MainPID: 100, MemoryMax: &mem}
+	if _, err := c.Collect(); err != nil {
+		t.Fatal(err)
+	}
+	s.got = nil
+	feed = []exits.Exit{{PID: 101, PPID: 100, Signal: 9, OOM: true, Unit: "nginx.service"}}
+	if _, err := c.Collect(); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.got) != 1 || s.got[0].name != "nginx.service" || s.got[0].reason != "OOMKilled" || s.got[0].msg != "OOM-killed at its MemoryMax of 200 MiB" {
+		t.Errorf("a child's OOM kill: %+v", s.got)
+	}
+
+	// systemd's verdict when no counter saw it: a unit failed with result oom-kill.
+	s.got = nil
+	bus.units = append(bus.units, UnitStatus{Name: "batch.service", LoadState: "loaded", ActiveState: "failed", SubState: "failed"})
+	bus.props["batch.service"] = Props{Result: "oom-kill", ExecMainCode: 1, ExecMainStatus: 137}
+	if _, err := c.Collect(); err != nil {
+		t.Fatal(err)
+	}
+	reasons := map[string]string{}
+	for _, e := range s.got {
+		reasons[e.name+"/"+e.reason] = e.msg
+	}
+	if reasons["batch.service/OOMKilled"] != "OOM-killed by the kernel: the server ran out of memory" || reasons["batch.service/Failed"] != "failed (oom-kill, exit code 137)" {
+		t.Errorf("oom-kill result: %+v", s.got)
+	}
 }
