@@ -7,7 +7,7 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import DockerScopeFilter from '@/components/docker/DockerScopeFilter.vue';
-import { agentBefore, objectLink, splitWorkload } from '@/lib/events';
+import { agentBefore, groupEvents, groupTitle, objectLink, splitWorkload } from '@/lib/events';
 import { eventObjectLink } from '@/lib/overview';
 import { useAuthStore } from '@/stores/auth';
 import { useDockerScopeStore } from '@/stores/dockerScope';
@@ -94,7 +94,12 @@ const SUMMARY = {
     ],
   },
 };
-const EMPTY = { ...SUMMARY, total: 0, histogram: [], facets: { ...SUMMARY.facets, workloads: [] } };
+const EMPTY = {
+  ...SUMMARY,
+  total: 0,
+  histogram: [],
+  facets: { ...SUMMARY.facets, kinds: [], workloads: [] },
+};
 
 // Grouped pages ask for 300 events.
 const eventRoutes = (fleet: object, q: string, events = EVENTS, summary = SUMMARY): Routes => ({
@@ -404,5 +409,18 @@ describe('server events, helpers', () => {
       params: { server: 'web-1', workload: 'service:orders.service' },
     });
     expect(eventObjectLink({ kind: 'Image', namespace: null, name: 'x' })).toBeUndefined();
+    // Two services failing together are one row: "Failed: 2 services".
+    const both = groupEvents([
+      { ...EVENTS[1]!, involvedName: 'a.service', workload: 'service:a.service' },
+      { ...EVENTS[1]!, involvedName: 'b.service', workload: 'service:b.service' },
+    ] as never);
+    const t = (k: string, v?: Record<string, unknown>, n?: number) =>
+      k === 'kube.events.group.server'
+        ? `${v!.reason}: ${v!.what}`
+        : k.endsWith('serverKinds.Service')
+          ? `${n} services`
+          : k;
+    expect(both[0]!.type).toBe('group');
+    expect(groupTitle(both[0] as never, t)).toBe('Failed: 2 services');
   });
 });
