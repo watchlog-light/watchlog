@@ -46,7 +46,7 @@ const learning = useWhatChangedLearningStore();
 const learningDay = (item: NavItem) => {
   if (item.name !== 'what-changed' || !clusters.selected) return 0;
   const l = learning.state[clusters.selected.id];
-  return l?.learning && l.since ? dayOf(l, Date.now()) : 0;
+  return l?.learning && l.since ? dayOf(l) : 0;
 };
 // Cloud marks the Pro sections, so a Free org knows before it opens one (Community has no plans).
 const pro = (item: NavItem) => auth.isCloud && !!item.pro && !learningDay(item);

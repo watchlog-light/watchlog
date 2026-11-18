@@ -5112,19 +5112,21 @@
         "textDay": "{day}: {n} of 24 hours learned ({hours}).",
         "textDayNone": "{day}: not seen yet.",
         "textNow": "This hour is {hour}.",
-        "why": "Each square is one hour of the week. What changed compares “now” with the same hour on the same weekday, so it has to see every square once. Minutes when an alert was firing are left out, so an incident never becomes “normal”.",
+        "why": "Each square is one hour of the week. What changed compares “now” with the same hour on the same weekday, so it has to learn every square once: an hour when no data came, or when this organization was not on Pro, stays empty until it comes round again. Minutes when an alert was firing are left out, so an incident never becomes “normal”.",
         "whyWaiting": "Each square is one hour of the week. On Pro, What changed fills them in over 7 days, then compares “now” with the same hour on the same weekday. Nothing is learned before the upgrade.",
         "zone": "Hours are in your time zone ({zone}).",
-        "zoneRounded": "Hours are in your time zone ({zone}), to the nearest hour."
+        "zoneRounded": "Hours are in your time zone ({zone}), to the nearest hour.",
+        "quiet": "no data",
+        "textQuiet": "{n} hour had no data both times it was looked at. | {n} hours had no data both times they were looked at."
       },
       "next": {
         "title": "What happens next",
         "learning": {
           "title": "Days 1 to 7: learning",
-          "body": "It watches quietly and builds each metric's usual range. You see this page."
+          "body": "It watches quietly and builds each metric's usual range, an hour of the week at a time. You see this page until every hour is learned."
         },
         "list": {
-          "title": "Day 7: the list turns on",
+          "title": "When the week is learned: the list turns on",
           "body": "When something breaks, one list shows everything that left its range, in the order it happened, with the probable cause underneath."
         },
         "alerts": {
@@ -5144,7 +5146,8 @@
         "map": "The service map"
       },
       "strip": "{n} of {total} series is still learning (it joined later). It is ready on {date}, about {time}. | {n} of {total} series are still learning (they joined later). The last is ready on {date}, about {time}.",
-      "footnote": "Statistics only (a median and its spread per hour of the week), worked out inside WatchLog. Nothing is sent to an AI, and the same data always gives the same answer."
+      "footnote": "Statistics only (a median and its spread per hour of the week), worked out inside WatchLog. Nothing is sent to an AI, and the same data always gives the same answer.",
+      "resumed": "Learning resumed on {date} at {time}. What it learned before still counts; the hours in between are learned as they come round."
     }
   },
   "anomaly": {

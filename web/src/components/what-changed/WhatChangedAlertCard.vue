@@ -48,7 +48,7 @@ const learning = computed(() => {
   const l = a.value?.learning;
   if (!l?.learning) return null;
   return {
-    day: dayOf(l, Date.now()),
+    day: dayOf(l),
     days: LEARNING_DAYS,
     ready: l.until ? readyParts(Date.parse(l.until)) : null,
   };

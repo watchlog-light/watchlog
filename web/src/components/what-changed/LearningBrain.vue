@@ -3,13 +3,14 @@
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useMotion } from '@/composables/useMotion';
-import { ringSegments } from '@/lib/what-changed-learning';
+import { ringSegments, waitingSegments } from '@/lib/what-changed-learning';
 
 // The learning week's centrepiece (ADR-216, the screen Learning): a brain drawn in strokes
 // whose folds light up in turn, a pulsing halo, orbiting dots, and a ring of 7 day segments
-// (past days done, today pulsing, the rest to come) with the weekdays from the day learning
-// started. SVG and CSS only.
-//   - `learning`: day `day` of 7, from `start`.
+// with the weekdays from the day learning started. SVG and CSS only.
+//   - `learning`: the ring is the week as the worker has learned it (ADR-217): a day is done
+//     when all its 24 hours are learned, today pulses, and a day that wasn't learned (the org
+//     was off Pro, no data came) shows only the share it has, or stays empty.
 //   - `waiting` (the upgrade page, ADR-201): nothing is learning. The brain is dim and calm,
 //     every segment is empty, and it never looks as if it were learning. `preview` (the
 //     Upgrade button hovered or focused) fills the first segment and brightens the brain, as
@@ -22,13 +23,16 @@ import { ringSegments } from '@/lib/what-changed-learning';
 const props = withDefaults(
   defineProps<{
     state: 'learning' | 'waiting';
-    /** The day of learning, 1 to 7 (ignored while waiting). */
+    /** The day of learning, 1 to 7, as the API counts it (the label; ignored while waiting). */
     day?: number;
     /** The first day's time: when learning started, or now on the upgrade page. */
     start: number;
+    /** While learning: the API's week (which hours are learned) and the clock. */
+    week?: string;
+    now?: number;
     preview?: boolean;
   }>(),
-  { day: 1, preview: false },
+  { day: 1, week: '', now: undefined, preview: false },
 );
 const { t } = useI18n();
 const root = ref<HTMLElement | null>(null);
@@ -38,7 +42,13 @@ const waiting = computed(() => props.state === 'waiting');
 /** The preview of day 1, only where motion is allowed. */
 const previewing = computed(() => waiting.value && props.preview && motion.value !== 'off');
 const segments = computed(() =>
-  ringSegments(waiting.value ? (previewing.value ? 1 : 0) : props.day, props.start),
+  waiting.value
+    ? waitingSegments(props.start, previewing.value)
+    : ringSegments(props.week, props.start, props.now ?? Date.now()),
+);
+/** A day partly learned and not today: its learned share is drawn over the empty track. */
+const partial = computed(() =>
+  segments.value.filter((s) => s.state === 'todo' && s.share > 0 && !waiting.value),
 );
 const label = computed(() =>
   waiting.value
@@ -85,9 +95,22 @@ const FOLDS: { d: string; turn: (typeof TURNS)[number] }[] = [
         :d="s.d"
         :class="['lb-seg', `lb-seg-${s.state}`]"
         :data-testid="`ring-${s.state}`"
+        :data-share="s.share.toFixed(2)"
         fill="none"
         stroke-width="9"
         stroke-linecap="round"
+      />
+      <path
+        v-for="s in partial"
+        :key="`p${s.d}`"
+        :d="s.d"
+        class="lb-seg lb-seg-part"
+        data-testid="ring-part"
+        fill="none"
+        stroke-width="9"
+        stroke-linecap="round"
+        pathLength="1"
+        :stroke-dasharray="`${s.share.toFixed(3)} 1`"
       />
       <text
         v-for="(s, i) in segments"
@@ -204,6 +227,10 @@ const FOLDS: { d: string; turn: (typeof TURNS)[number] }[] = [
 }
 .lb-seg-todo {
   stroke: var(--border);
+}
+/* The part of a day that is learned, over its empty track. */
+.lb-seg-part {
+  stroke: var(--primary);
 }
 /* The preview of day 1 on the upgrade page: the first segment fills, in Pro's own green. */
 .lb[data-preview='on'] .lb-seg-today {

@@ -35,7 +35,10 @@ const cells = computed(() =>
   weekCells(props.waiting ? '' : props.week, props.waiting ? null : props.now, offset.value),
 );
 const days = computed(() => weekSummary(cells.value));
-const learned = computed(() => cells.value.filter((c) => c.state === 'learned').length);
+// Every learned hour, "this hour" included when it already has a baseline: the same count
+// as the page's bar and tile.
+const learned = computed(() => cells.value.filter((c) => c.learned).length);
+const quiet = computed(() => cells.value.filter((c) => c.state === 'quiet').length);
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 /** The grid's hours are whole hours: say so where the viewer's zone is off by 30 or 45 minutes. */
 const rounded = computed(() => offset.value !== offsetHours(offset.value) * 60);
@@ -64,6 +67,9 @@ const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
             ><span class="wk-key wk-now" />{{ $t('whatChanged.learn.week.now') }}</span
           >
         </template>
+        <span v-if="quiet" class="flex items-center gap-1.5" data-testid="wc-week-quiet"
+          ><span class="wk-key wk-quiet" />{{ $t('whatChanged.learn.week.quiet') }}</span
+        >
         <span class="flex items-center gap-1.5"
           ><span class="wk-key wk-todo" />{{ $t('whatChanged.learn.week.todo') }}</span
         >
@@ -99,6 +105,9 @@ const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
             ? $t('whatChanged.learn.week.textWaiting')
             : $t('whatChanged.learn.week.text', { n: learned })
         }}
+        <template v-if="quiet">{{
+          ' ' + $t('whatChanged.learn.week.textQuiet', { n: quiet }, quiet)
+        }}</template>
       </p>
       <ul v-if="!waiting">
         <li v-for="d in days" :key="d.row">
@@ -170,6 +179,11 @@ const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
 }
 .wk-todo {
   background: var(--surface-3);
+}
+/* Looked at twice, no data: nothing to learn there. An outline, not a fill. */
+.wk-quiet {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 /* "This hour" pulses: opacity only, on its own layer. */
 .wk-cell.wk-now {

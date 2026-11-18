@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// The learning week in the dashboard (ADR-216): everything the learning page, the upgrade
-// page's hero, the alert card and the sidebar say about it, worked out from the API's answer
-// (when learning started, which hours of the week have a baseline) and the viewer's clock and
-// time zone. Pure functions: nothing here is a number of its own.
+// The learning week in the dashboard (ADR-216, ADR-217): everything the learning page, the
+// upgrade page's hero, the alert card and the sidebar say about it, worked out from the API's
+// answer and the viewer's time zone. The answer is the anomaly-worker's own state: which
+// hours of the week it has learned, which day that makes, and when it will be ready by the
+// rule it scores with. Nothing here counts days on the calendar: an hour the worker didn't
+// learn (the org was off Pro, no data came) is not learned on the page either.
 import type { WhatChangedLearning } from '@watchlog/api-types';
 
 export const LEARNING_DAYS = 7;
@@ -20,6 +22,8 @@ export interface RingSegment {
   /** The arc's path. */
   d: string;
   state: SegmentState;
+  /** How much of this day's 24 hours of the week is learned, 0 to 1. */
+  share: number;
   /** The weekday it stands for, short ("Wed"), in the viewer's time zone. */
   label: string;
   x: number;
@@ -38,40 +42,88 @@ function arc(i: number): string {
   return `M${p(a0)} A${RING.r} ${RING.r} 0 0 1 ${p(a1)}`;
 }
 
+/** The hour-of-week slot of a time (UTC; Sunday 00:00 is 0), as the API's `week` counts. */
+const slotOf = (ms: number): number => {
+  const d = new Date(ms);
+  return d.getUTCDay() * 24 + d.getUTCHours();
+};
+
+function segment(i: number, startMs: number, weekday: Intl.DateTimeFormat) {
+  const a = ((-90 + (i + 0.5) * (360 / LEARNING_DAYS)) * Math.PI) / 180;
+  return {
+    d: arc(i),
+    label: weekday.format(new Date(startMs + i * DAY_MS)),
+    x: Number((RING.c + RING.labelR * Math.cos(a)).toFixed(1)),
+    y: Number((RING.c + 4 + RING.labelR * Math.sin(a)).toFixed(1)),
+  };
+}
+
 /**
- * The ring's 7 segments, one per day of learning from `startMs` (the day learning started,
- * or today on the upgrade page): days before `day` are done, `day` is today, the rest are to
- * come. `day` 0 leaves every segment empty (nothing is learning).
+ * The ring while learning: 7 segments, each the 24 hours of the week that begin where
+ * learning began (so the first is the weekday it started on). A segment is done when all its
+ * 24 hours are learned, "today" when it holds the current hour, and otherwise shows the
+ * share it has: a day the worker didn't learn (the org was off Pro, no data came) stays
+ * empty, however long ago it was. From the API's `week`, never from the calendar.
  */
 export function ringSegments(
-  day: number,
+  week: string,
   startMs: number,
+  nowMs: number,
   locale = 'en',
   timeZone?: string,
 ): RingSegment[] {
   const weekday = new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone });
+  const first = slotOf(startMs);
+  const now = slotOf(nowMs);
   return Array.from({ length: LEARNING_DAYS }, (_, i) => {
-    const a = ((-90 + (i + 0.5) * (360 / LEARNING_DAYS)) * Math.PI) / 180;
+    let learned = 0;
+    let current = false;
+    for (let h = 0; h < 24; h++) {
+      const slot = (first + i * 24 + h) % WEEK_HOURS;
+      // An hour looked at twice with nothing to learn is done with, like a learned one.
+      if (week[slot] === '1' || week[slot] === '2') learned++;
+      if (slot === now) current = true;
+    }
     return {
-      d: arc(i),
-      state: day <= 0 ? 'todo' : i < day - 1 ? 'done' : i === day - 1 ? 'today' : 'todo',
-      label: weekday.format(new Date(startMs + i * DAY_MS)),
-      x: Number((RING.c + RING.labelR * Math.cos(a)).toFixed(1)),
-      y: Number((RING.c + 4 + RING.labelR * Math.sin(a)).toFixed(1)),
+      ...segment(i, startMs, weekday),
+      state: current ? 'today' : learned === 24 ? 'done' : 'todo',
+      share: learned / 24,
     };
   });
 }
 
+/**
+ * The ring on the upgrade page, where nothing is learning: every segment empty, the weekdays
+ * from today. `preview` shows day 1 (the Upgrade button hovered or focused).
+ */
+export function waitingSegments(
+  startMs: number,
+  preview = false,
+  locale = 'en',
+  timeZone?: string,
+): RingSegment[] {
+  const weekday = new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone });
+  return Array.from({ length: LEARNING_DAYS }, (_, i) => ({
+    ...segment(i, startMs, weekday),
+    state: preview && i === 0 ? 'today' : 'todo',
+    share: 0,
+  }));
+}
+
 // ---- the time: which day, how long to go, when it is ready ----
 
-/** The day of learning, 1 to 7: the API's, or from `since` when the answer is older. */
-export function dayOf(l: Pick<WhatChangedLearning, 'day' | 'since'>, nowMs: number): number {
-  if (l.since) {
-    const d = Math.floor((nowMs - Date.parse(l.since)) / DAY_MS) + 1;
-    return Math.min(LEARNING_DAYS, Math.max(1, d));
-  }
-  return l.day ?? 1;
-}
+/**
+ * The day of learning, 1 to 7, as the worker counts it: one for every 24 hours of the week
+ * it has learned. Day 1 until the answer has one.
+ */
+export const dayOf = (l: Pick<WhatChangedLearning, 'day'>): number => l.day ?? 1;
+
+/**
+ * The date the upgrade page promises ("Upgrade today and it's ready on…"): the worker's own
+ * rule for an org that starts now and has no gap, which is 7 days of data, ready within the
+ * hour after they are up. An org that returns with baselines still kept is ready sooner.
+ */
+export const readyIfStartedAt = (nowMs: number): number => nowMs + LEARNING_DAYS * DAY_MS + HOUR_MS;
 
 export interface Remaining {
   days: number;
@@ -127,13 +179,17 @@ export function readyParts(
 
 // ---- the 7 × 24 grid of hours of the week ----
 
-export type CellState = 'learned' | 'now' | 'todo';
+/** `quiet`: the worker looked twice and there was no data: nothing to learn in that hour. */
+export type CellState = 'learned' | 'now' | 'todo' | 'quiet';
 export interface WeekCell {
   /** Monday is row 0, Sunday row 6. */
   row: number;
   /** The hour of the day, 0 to 23, in the viewer's time zone. */
   col: number;
+  /** How it is drawn: "this hour" is drawn as now, whether or not it is learned yet. */
   state: CellState;
+  /** It has a baseline (also true of "this hour" once a week has passed). */
+  learned: boolean;
 }
 
 /** The viewer's offset from UTC in minutes (east is positive). */
@@ -151,7 +207,8 @@ export function zoneLabel(offsetMin: number): string {
 }
 
 /**
- * The API's week (168 characters, UTC, Sunday 00:00 first; `1` has a baseline) as the grid's
+ * The API's week (168 characters, UTC, Sunday 00:00 first; `1` has a baseline, `2` was looked
+ * at twice with no data) as the grid's
  * cells, Monday to Sunday by hour of the day in the viewer's time zone. The hour of `nowMs`
  * is "this hour"; leave `nowMs` out and no cell is (the upgrade page: nothing is learning).
  */
@@ -175,7 +232,8 @@ export function weekCells(
     cells.push({
       row: (weekday + 6) % 7,
       col: local % 24,
-      state: b === now ? 'now' : week[b] === '1' ? 'learned' : 'todo',
+      state: b === now ? 'now' : week[b] === '1' ? 'learned' : week[b] === '2' ? 'quiet' : 'todo',
+      learned: week[b] === '1',
     });
   }
   return cells.sort((a, b) => a.row - b.row || a.col - b.col);
@@ -199,7 +257,7 @@ export function weekSummary(cells: WeekCell[]): DaySummary[] {
     const ranges: [number, number][] = [];
     let learned = 0;
     for (const c of day) {
-      if (c.state !== 'learned') continue;
+      if (!c.learned) continue;
       learned++;
       const last = ranges.at(-1);
       if (last && last[1] === c.col - 1) last[1] = c.col;

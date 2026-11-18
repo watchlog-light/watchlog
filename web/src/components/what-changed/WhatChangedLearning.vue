@@ -21,7 +21,10 @@ import LearningWeekGrid from './LearningWeekGrid.vue';
 // The learning week (ADR-216, the screen Learning): what a Pro org sees in place of the list
 // for its cluster's or fleet's first 7 days. What is happening, why it takes a week and when
 // it is ready, all from the API's answer: when learning started, which hours of the week have
-// a baseline, how many series it reads. Nothing here shortens the learning (ADR-204).
+// a baseline, how many series it reads. The day, the ring, the bar, the time to go and
+// "Ready on" are all the anomaly-worker's own (ADR-217): the hours it has really learned and
+// the moment it will start scoring, never days counted on the calendar. After a gap it says
+// when learning resumed.
 const props = defineProps<{
   cluster: Cluster;
   learning: WhatChangedLearning;
@@ -58,7 +61,10 @@ onBeforeUnmount(() => {
 
 const since = computed(() => (props.learning.since ? Date.parse(props.learning.since) : null));
 const until = computed(() => (props.learning.until ? Date.parse(props.learning.until) : null));
-const day = computed(() => dayOf(props.learning, clock.value));
+const day = computed(() => dayOf(props.learning));
+const resumed = computed(() =>
+  props.learning.resumedAt ? readyParts(Date.parse(props.learning.resumedAt)) : null,
+);
 const ready = computed(() => (until.value === null ? null : readyParts(until.value)));
 const toGo = computed(() =>
   until.value === null ? '' : remainingText(remaining(until.value, clock.value), t),
@@ -160,7 +166,13 @@ const STEPS = ['learning', 'list', 'alerts'] as const;
       aria-labelledby="wc-learn-title"
     >
       <div class="mx-auto w-full max-w-[340px] min-w-[220px] flex-[0_1_340px] max-md:max-w-[260px]">
-        <LearningBrain state="learning" :day="day" :start="since ?? clock" />
+        <LearningBrain
+          state="learning"
+          :day="day"
+          :start="since ?? clock"
+          :week="learning.week"
+          :now="clock"
+        />
       </div>
       <div class="flex min-w-0 flex-[1_1_26rem] flex-col gap-4.5 max-md:gap-3.5">
         <span
@@ -176,6 +188,9 @@ const STEPS = ['learning', 'list', 'alerts'] as const;
         </h2>
         <p class="text-16 leading-relaxed text-text-muted">
           {{ $t(`whatChanged.learn.lead.${platform}`) }}
+        </p>
+        <p v-if="resumed" class="text-14 text-text-muted" data-testid="wc-learn-resumed">
+          {{ $t('whatChanged.learn.resumed', resumed) }}
         </p>
         <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1" data-testid="wc-learn-ready">
           <template v-if="ready">

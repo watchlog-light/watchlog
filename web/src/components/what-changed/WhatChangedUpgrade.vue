@@ -10,7 +10,7 @@ import { cloudApi, leaveFor, problemCode, type BillingState } from '@/api/cloud'
 import Skeleton from '@/components/ui/Skeleton.vue';
 import { rememberCheckoutOrigin } from '@/lib/checkout-return';
 import { LINKS } from '@/lib/links';
-import { LEARNING_DAYS, readyParts } from '@/lib/what-changed-learning';
+import { readyIfStartedAt, readyParts } from '@/lib/what-changed-learning';
 import {
   alertWhen,
   demoExample,
@@ -69,10 +69,11 @@ const price = computed(() => {
 });
 const live = computed(() => !!(billing.value?.available && billing.value.live));
 
-// "Upgrade today and it's ready on <date>": today plus the 7 days of learning (ADR-204), in
-// the viewer's time zone. The date moves with the clock, so it is always a promise Pro keeps.
+// "Upgrade today and it's ready on <date>": when the worker would be ready if it started
+// now and nothing interrupted it (7 days of data, ADR-217), in the viewer's time zone. The
+// date moves with the clock, so it is always a promise Pro keeps.
 const today = computed(() => props.now ?? Date.now());
-const readyOn = computed(() => readyParts(today.value + LEARNING_DAYS * 86_400_000).date);
+const readyOn = computed(() => readyParts(readyIfStartedAt(today.value)).date);
 // The Upgrade button hovered or focused: the ring previews day 1.
 const preview = ref(false);
 
