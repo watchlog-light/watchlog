@@ -189,18 +189,20 @@ func (c *Collector) countExits(rows []row) {
 			if !strings.HasSuffix(unit, ".service") {
 				continue
 			}
-			if e.PPID != 1 && (e.PID <= 0 || int(c.mainPID[unit]) != e.PID) {
-				continue
-			}
 			u := c.ex[unit]
 			if u == nil {
 				u = &unitExits{byKind: map[string]float64{}}
 				c.ex[unit] = u
 			}
-			u.byKind[e.Kind()]++
+			// An OOM kill of any of its processes is the service's: a child killed at its
+			// MemoryMax (a shell's command, a worker) counts like its main process.
 			if e.OOM {
 				u.oomKills++
 			}
+			if e.PPID != 1 && (e.PID <= 0 || int(c.mainPID[unit]) != e.PID) {
+				continue
+			}
+			u.byKind[e.Kind()]++
 			if code := e.Code(); code != 0 {
 				u.last = &code
 			}
@@ -333,7 +335,13 @@ func (c *Collector) events(rows []row) {
 		if cur.needReload && (!had || !old.needReload) {
 			add(unit, serverevents.UnitChanged, serverevents.Normal, "its unit file changed on disk (not yet reloaded by systemd)")
 		}
-		if had && (cur.oomKills > old.oomKills || cur.oomEvents > old.oomEvents) {
+		oom := had && (cur.oomKills > old.oomKills || cur.oomEvents > old.oomEvents)
+		// systemd's own verdict when no counter saw it: a process killed within a second of
+		// starting, or the unit's cgroup gone with its memory.events once it failed.
+		if !oom && cur.active == "failed" && (!had || old.active != "failed") && r.p.Result == "oom-kill" {
+			oom = true
+		}
+		if oom {
 			add(unit, serverevents.OOMKilled, serverevents.Warning, oomText(r.p))
 		}
 	}
