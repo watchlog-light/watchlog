@@ -15,6 +15,7 @@ import {
   learnedHours,
   learningDay,
   recordLook,
+  resumedAt,
   seriesReady,
   weekString,
   type Coverage,
@@ -85,6 +86,10 @@ describe('gaps', () => {
     expect(c.readyAt).toBeNull();
     expect(seriesReady(c, START, START + 7 * DAY + HOUR)).toBe(false);
     expect(estimateReady(c, START + 7 * DAY)).toBe(ready);
+    // A week on, the looks are one run again; what was recorded stays until it is ready.
+    const almost = learn(c, FIRST + 7 * DAY, FIRST + 10 * DAY - HOUR);
+    expect(resumedAt(almost)).toBeNull();
+    expect(almost.resumedAt).toBe(back);
     c = learn(c, FIRST + 7 * DAY, FIRST + 10 * DAY);
     expect(c.readyAt).toBe(FIRST + 10 * DAY + 5 * MIN);
     expect(seriesReady(c, START, FIRST + 10 * DAY + 5 * MIN)).toBe(true);
@@ -161,6 +166,17 @@ describe('baselines learned before the coverage was recorded (0.8.0 to 0.9.5)', 
     expect(c.readyAt).toBeNull();
     expect(c.lookedAt[39]).toBe(Date.UTC(2026, 10, 16, 15));
     expect(c.lookedAt[87]).toBe(Date.UTC(2026, 10, 18, 15));
+    // It resumed on Wednesday at 15:00, and says so although the gap is older than the record.
+    expect(resumedAt(c)).toBe(Date.UTC(2026, 10, 18, 15));
+    expect(c.resumedAt).toBe(Date.UTC(2026, 10, 18, 15));
+    // 0.9.6 stored such a row without it: the next look fills it in, from the looks.
+    const next = recordLook(
+      { ...c, resumedAt: null },
+      Date.UTC(2026, 10, 18, 16),
+      69,
+      Date.UTC(2026, 10, 18, 17, 6),
+    );
+    expect(next.resumedAt).toBe(Date.UTC(2026, 10, 18, 15));
     // The rule before 0.9.6: 7 days after the first sighting.
     expect(new Date(first + 7 * DAY).toISOString()).toBe('2026-11-23T15:06:00.000Z');
     // The worker's rule: the last hour it hasn't learned is Wednesday 14:00, read at 15:06.

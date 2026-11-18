@@ -546,9 +546,29 @@ describe.each(platforms)('$kind: the learning week, hour by hour', (p) => {
       .executeTakeFirstOrThrow();
     expect(row.looked_at.filter((t) => t !== null)).toHaveLength(3);
     expect(row.looks.filter((n) => n > 0)).toHaveLength(3);
+    // 0.9.6 stored the looks of such a row without the resume (its gap was older than the
+    // record): the answer still says it, from the looks, and the next run stores it.
+    await w.c.db
+      .updateTable('anomaly_learning')
+      .set({ resumed_at: null })
+      .where('cluster_id', '=', w.cluster.id)
+      .execute();
+    expect((await w.read()).resumedAt).toBe(iso(Math.floor((START + 2 * DAY) / HOUR) * HOUR));
+    await w.advance(START + 2 * DAY + 2 * HOUR);
+    expect(
+      (
+        await w.c.db
+          .selectFrom('anomaly_learning')
+          .select('resumed_at')
+          .where('cluster_id', '=', w.cluster.id)
+          .executeTakeFirstOrThrow()
+      ).resumed_at?.toISOString(),
+    ).toBe(iso(Math.floor((START + 2 * DAY) / HOUR) * HOUR));
     // At the old date the worker scores nothing; a week after the resume it scores all.
     await w.advance(UNTIL);
     expect(await w.agree('the old date')).toMatchObject({ learning: true, hoursLearned: 122 });
+    // Still said five days after it resumed, when the looks alone no longer show the gap.
+    expect((await w.read()).resumedAt).toBe(iso(Math.floor((START + 2 * DAY) / HOUR) * HOUR));
     await w.advance(ready);
     l = await w.agree('ready');
     expect(l).toMatchObject({ learning: false, hoursLearned: 168 });
