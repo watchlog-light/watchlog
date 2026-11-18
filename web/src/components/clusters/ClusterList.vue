@@ -6,7 +6,7 @@ import { KIND_LOGO } from '@/components/ui/kindLogos';
 import type { Cluster, ClusterList, CreateClusterResponse } from '@watchlog/api-types';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { planLimitKey } from '@/api/cloud';
+import { useProOffer } from '@/composables/useProOffer';
 import { useClustersStore } from '@/stores/clusters';
 import { api, ApiError, hasProblemType, ProblemType } from '@/api/client';
 import TokenReveal from '@/components/clusters/TokenReveal.vue';
@@ -24,6 +24,8 @@ import { formatDateTime } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
 
 const { t } = useI18n();
+// Cloud: how a plan-limit refusal offers Pro (the price from GET /plan).
+const offer = useProOffer();
 const auth = useAuthStore();
 const canManage = auth.canManage;
 
@@ -44,8 +46,8 @@ const { status } = useOnboardingStatus(computed(() => watching.value?.id ?? null
 function createErrorMessage(err: unknown): string {
   if (hasProblemType(err, ProblemType.nameTaken)) return t('clusters.errors.nameTaken');
   // Cloud: over the plan's clusters (ADR-177).
-  const limit = planLimitKey(err);
-  if (limit) return t(limit);
+  const limit = offer.limitMessage(err);
+  if (limit) return limit;
   if (err instanceof ApiError && err.status === 400) return t('clusters.errors.invalidName');
   return t('clusters.errors.generic');
 }

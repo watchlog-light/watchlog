@@ -3,15 +3,21 @@
 import { CalendarClock, CircleAlert } from '@lucide/vue';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useProOffer } from '@/composables/useProOffer';
 import { usePlanStore } from '@/stores/plan';
 
 // The plan's banners (ADR-177), Cloud only, over every page:
 //   - over the limit: how many new nodes were refused (402) and the way out;
 //   - after a downgrade: the days left before the nodes beyond the plan stop sending.
-// Plain words, the count, one link to Settings › Plan & billing.
+// Plain words, the count, one link to Settings › Plan & billing: the offer every page makes
+// (useProOffer) for a Free org, "Plan & billing" for an org that already pays.
 const { t } = useI18n();
 const plan = usePlanStore();
 const BILLING = { name: 'settings', query: { tab: 'billing' } } as const;
+const offer = useProOffer();
+const linkText = computed(() =>
+  plan.info?.plan === 'free' ? offer.link.value : t('cloud.plan.manage'),
+);
 
 const downgrade = computed(() => {
   const g = plan.info?.downgrade;
@@ -70,8 +76,9 @@ const text = computed(() => {
     <RouterLink
       :to="BILLING"
       class="font-semibold whitespace-nowrap text-primary hover:text-primary-hover max-sm:basis-full max-sm:pl-7"
+      data-testid="banner-link"
     >
-      {{ $t('cloud.plan.tryPro') }}
+      {{ linkText }}
     </RouterLink>
   </div>
 </template>

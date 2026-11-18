@@ -157,7 +157,7 @@ export async function fetchCloudConfig(): Promise<CloudConfig | null> {
 export interface BillingState {
   /** False: no billing service, or it can't be reached now. */
   available: boolean;
-  /** The live switch: false = "Pro free during beta"; true = Checkout and the portal. */
+  /** The live switch: false = the beta's free Pro; true = Checkout and the portal. */
   live: boolean;
   customer: boolean;
   subscription: {
@@ -366,14 +366,10 @@ export function restrictionOf(err: unknown): Restriction | null {
     : null;
 }
 
-/**
- * The message for a 409/402 `plan-limit` (ADR-177): the limit's own words when the
- * problem names it (`limit`: clusters, users or nodes), else the general one.
- */
-export function planLimitKey(err: unknown): string | null {
+/** Which limit a 409/402 `plan-limit` problem names (ADR-177), or null for any other error. */
+export type PlanLimitKind = 'clusters' | 'users' | 'nodes' | 'other';
+export function planLimitKind(err: unknown): PlanLimitKind | null {
   if (problemCode(err) !== 'plan-limit') return null;
   const limit = (err as ApiError).problem?.limit;
-  return limit === 'clusters' || limit === 'users' || limit === 'nodes'
-    ? `cloud.plan.limitError.${limit}`
-    : 'cloud.errors.plan-limit';
+  return limit === 'clusters' || limit === 'users' || limit === 'nodes' ? limit : 'other';
 }

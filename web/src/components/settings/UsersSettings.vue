@@ -4,7 +4,7 @@ import { Check, Copy, Info, MailX, UserPlus, X } from '@lucide/vue';
 import type { CreatedInvite, IssuedLink, UserList, UserRow, InviteRow } from '@watchlog/api-types';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { planLimitKey } from '@/api/cloud';
+import { useProOffer } from '@/composables/useProOffer';
 import { ApiError, api } from '@/api/client';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
@@ -24,6 +24,8 @@ import { useToastStore } from '@/stores/toast';
 // link to copy, also emailed when SMTP is set up), change roles, reset links, remove,
 // hand ownership over, and the log. Viewers see the same page with the controls locked.
 const { t, tm, rt } = useI18n();
+// Cloud: how a plan-limit refusal offers Pro (the price from GET /plan).
+const offer = useProOffer();
 const auth = useAuthStore();
 const toast = useToastStore();
 const narrow = useNarrow();
@@ -119,8 +121,8 @@ async function createInvite() {
     void page.load();
   } catch (err) {
     // Cloud: over the plan's users (ADR-177) in plain words, not the server's.
-    const limit = planLimitKey(err);
-    inviteError.value = limit ? t(limit) : err instanceof ApiError ? err.message : String(err);
+    inviteError.value =
+      offer.limitMessage(err) ?? (err instanceof ApiError ? err.message : String(err));
   } finally {
     busy.value = false;
   }

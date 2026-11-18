@@ -4,12 +4,15 @@ import { Check, ChevronRight, X } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 import type { RouteLocationRaw } from 'vue-router';
 import { cloudApi, type FirstWeek, type FirstWeekStepId } from '@/api/cloud';
+import { useProOffer } from '@/composables/useProOffer';
 
 // "Get the most out of your first week" on the overview (ADR-176, Dashboard.dc.html),
 // Cloud only: connect a channel, invite a teammate, connect an application, try MCP, see
 // your first explained problem. Each step comes from the org's real state (the server
 // reports each to the funnel once); the card hides when every step is done or when this
-// user dismisses it. Cloud Free can't invite (one user): that step says Pro is needed.
+// user dismisses it. Cloud Free can't invite (one user): that step says Pro is needed, with
+// the offer every page makes (useProOffer).
+const offer = useProOffer();
 const data = ref<FirstWeek | null>(null);
 const dismissing = ref(false);
 
@@ -119,7 +122,7 @@ async function dismiss() {
             </span>
             <span class="text-13 text-text-muted">{{
               s.blocked === 'plan-limit'
-                ? $t('onboarding.firstWeek.needsPro')
+                ? $t('onboarding.firstWeek.needsPro', { offer: offer.sentence.value })
                 : $t(`onboarding.firstWeek.steps.${s.id}.body`)
             }}</span>
           </span>

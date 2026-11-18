@@ -17,7 +17,8 @@ import { usePlanStore } from '@/stores/plan';
 
 // Settings › Plan & billing (ADR-177, ADR-178, Billing.dc.html), Cloud only: the plan, what
 // the org uses against it, the Pro card with the monthly/annual estimate, and how nodes are
-// counted. While billing is off (the live switch), an Owner starts "Pro, free during beta";
+// counted. While the billing service says it is off (the live switch), an Owner starts the
+// beta's free Pro;
 // once it's live, Upgrade opens Stripe Checkout and Manage billing the Customer Portal, both
 // through the product's routes to the billing service. The Phase 6 features say "coming to
 // Pro" (ADR-173).
@@ -213,8 +214,10 @@ async function run(kind: 'beta' | 'checkout' | 'portal') {
 
 <template>
   <div class="flex max-w-5xl flex-col gap-5" data-testid="plan-billing">
+    <!-- Only while the billing service itself says the beta is on: never when it is live,
+         and never when it couldn't be reached. -->
     <div
-      v-if="!billing?.live"
+      v-if="billing?.available && !billing.live"
       class="rounded-card border border-info/35 bg-info/10 px-4 py-3.5 text-14 leading-relaxed text-text"
       data-testid="beta-notice"
     >
