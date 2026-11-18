@@ -134,7 +134,7 @@ describe('slice 5 tools on a Kubernetes cluster', () => {
       count: expect.any(Number),
     });
     expect((await mcp.call('get_events', { host: 'h1' })).data.error).toBe(
-      'Hosts are a Docker notion; this cluster is Kubernetes.',
+      'Servers and their workloads are a Server fleet notion; this cluster is Kubernetes.',
     );
 
     // get_recent_changes: a new image for web, from a second snapshot.
@@ -362,11 +362,16 @@ describe('slice 5 tools on a Docker fleet', () => {
     expect(events.data.groups).toEqual([
       expect.objectContaining({
         reason: 'Died',
-        object: { kind: 'Container', host: 'docker-01', name: 'shop-api-1' },
+        object: {
+          kind: 'Container',
+          host: 'docker-01',
+          name: 'shop-api-1',
+          workload: 'container:shop-api-1',
+        },
       }),
     ]);
     expect((await mcp.call('get_events', { namespace: 'shop' })).data.error).toMatch(
-      /Docker fleet/,
+      /Server fleet/,
     );
 
     // get_recent_changes: shop-web-1 re-created with a new image.
