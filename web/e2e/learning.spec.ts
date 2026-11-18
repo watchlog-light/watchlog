@@ -306,6 +306,8 @@ async function open(
 ) {
   const context = await browser.newContext({
     ...viewportFor(width),
+    // WATCHLOG_E2E_SCALE=2 for screenshots at twice the pixels (the docs' image).
+    deviceScaleFactor: Number(process.env.WATCHLOG_E2E_SCALE ?? 1),
     timezoneId: opts.zone ?? ZONE,
     locale: 'en-GB',
     reducedMotion: opts.reducedMotion ? 'reduce' : 'no-preference',
