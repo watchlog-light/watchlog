@@ -168,6 +168,15 @@ type Server = Static<typeof ServerS>;
 
 const WINDOW_24H = '24h';
 
+/** True when an agent version (`0.9.2`, `v0.9.2-rc.1`) is `min` or newer; unknown is false. */
+export function versionAtLeast(version: string | null | undefined, min: string): boolean {
+  const a = (version ?? '').replace(/^v/, '').split(/[.-]/).slice(0, 3).map(Number);
+  if (a.length < 3 || a.some(Number.isNaN)) return false;
+  const b = min.split('.').map(Number);
+  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i]! > b[i]!;
+  return true;
+}
+
 export const serverRoutes: FastifyPluginAsyncTypebox<{
   db: Database;
   victoria?: VictoriaQueryClient;
@@ -631,16 +640,6 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
           alertId: a.id,
         });
       }
-      for (const w of byServer.get(name) ?? []) {
-        if (w.problem?.kind === 'failed' || w.problem?.kind === 'oom_killed')
-          events.push({
-            workloadId: w.id,
-            kind: w.problem.kind,
-            text: w.name,
-            count: 1,
-            alertId: null,
-          });
-      }
       // The server's own events (0.9.2), the last 24 hours; derived from counters when it has
       // none (an agent before 0.9.2).
       const since = new Date(Date.now() - 86400_000);
@@ -654,6 +653,20 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
         .orderBy('last_ts', 'desc')
         .limit(30)
         .execute();
+      // A 0.9.2 agent sends its events: they are the one source (a failed or OOM-killed
+      // workload is a stored event too). Before it, they are derived from the workloads'
+      // problems and the exit and release counters.
+      const agentEvents = stored.length > 0 || versionAtLeast(server.agentVersion, '0.9.2');
+      for (const w of agentEvents ? [] : (byServer.get(name) ?? [])) {
+        if (w.problem?.kind === 'failed' || w.problem?.kind === 'oom_killed')
+          events.push({
+            workloadId: w.id,
+            kind: w.problem.kind,
+            text: w.name,
+            count: 1,
+            alertId: null,
+          });
+      }
       for (const e of stored)
         events.push({
           workloadId: workloadId(e.involved_kind, e.involved_name),
@@ -667,7 +680,7 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
           at: Math.floor(e.last_ts.getTime() / 1000),
         });
       const count = (s: QuerySeries) => Math.round(s.points[0]?.[1] ?? 0);
-      for (const s of stored.length ? [] : svcEv!)
+      for (const s of agentEvents ? [] : svcEv!)
         events.push({
           workloadId: `service:${s.labels.unit}`,
           kind: s.labels.exit === 'signal' ? 'killed' : 'exited',
@@ -675,7 +688,7 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
           count: count(s),
           alertId: null,
         });
-      for (const s of stored.length ? [] : grpEv!)
+      for (const s of agentEvents ? [] : grpEv!)
         events.push({
           workloadId: `process:${s.labels.group}`,
           kind: s.labels.exit === 'signal' ? 'killed' : 'exited',
@@ -683,7 +696,7 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
           count: count(s),
           alertId: null,
         });
-      for (const s of stored.length ? [] : rel!)
+      for (const s of agentEvents ? [] : rel!)
         events.push({
           workloadId: `process:${s.labels.group}`,
           kind: 'release',
@@ -702,7 +715,7 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
           networkOutBytes: dir('tx'),
         },
         events: events.slice(0, 30),
-        eventsStored: stored.length > 0,
+        eventsStored: agentEvents,
         talksTo: edges,
       };
     },
