@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { takeCheckoutOrigin } from '@/lib/checkout-return';
 import type { Component } from 'vue';
 import type { Restriction } from '@/api/cloud';
 import { createRouter, createWebHistory, type Router, type RouteRecordRaw } from 'vue-router';
@@ -370,9 +371,29 @@ export function installClusterGuard(router: Router, clusters: () => ClusterState
   });
 }
 
+/**
+ * Stripe Checkout returns to Settings › Plan & billing. When it was started on What changed's
+ * upgrade page, the browser goes back there, where the page turns into the learning page as
+ * soon as Pro is on (ADR-216). A Checkout started on Plan & billing stays there.
+ */
+export function installCheckoutReturn(router: Router): void {
+  router.beforeEach((to) => {
+    const c = to.query.checkout;
+    if (to.name !== 'settings' || (c !== 'done' && c !== 'cancelled')) return true;
+    const from = takeCheckoutOrigin();
+    if (!from) return true;
+    return {
+      name: 'what-changed',
+      query: { cluster: from.cluster, checkout: c },
+      replace: true,
+    };
+  });
+}
+
 export function createAppRouter(auth: () => AuthState, clusters: () => ClusterState): Router {
   const router = createRouter({ history: createWebHistory(), routes });
   installAuthGuard(router, auth);
+  installCheckoutReturn(router);
   installClusterGuard(router, clusters);
   return router;
 }

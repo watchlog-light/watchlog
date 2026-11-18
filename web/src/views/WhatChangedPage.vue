@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { Hourglass, Radar } from '@lucide/vue';
 import type { Cluster, WhatChanged } from '@watchlog/api-types';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { usePolling } from '@/composables/usePolling';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
@@ -13,10 +13,10 @@ import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
 import Skeleton from '@/components/ui/Skeleton.vue';
 import WhatChangedCauseCard from '@/components/what-changed/WhatChangedCauseCard.vue';
 import WhatChangedChart from '@/components/what-changed/WhatChangedChart.vue';
+import WhatChangedLearning from '@/components/what-changed/WhatChangedLearning.vue';
 import WhatChangedRows from '@/components/what-changed/WhatChangedRows.vue';
 import WhatChangedUpgrade from '@/components/what-changed/WhatChangedUpgrade.vue';
 import { useLoader } from '@/composables/useLoader';
-import { formatDateTime } from '@/lib/format';
 import {
   clampCustom,
   customBounds,
@@ -31,20 +31,34 @@ import {
   type WhatChangedSort,
   type WhatChangedWindow,
 } from '@/lib/what-changed';
+import { partlyLearning, readyParts } from '@/lib/what-changed-learning';
 import { useAuthStore } from '@/stores/auth';
 import { useClustersStore } from '@/stores/clusters';
+import { usePlanStore } from '@/stores/plan';
+import { useWhatChangedLearningStore } from '@/stores/whatChangedLearning';
 
 // What changed (ADR-199, the screen Main): what left its usual range in a cluster or a fleet,
 // in the order it happened, with the probable cause underneath. Windows: around an alert (when
 // opened from one), the last hour, the last 6 hours, a custom range of at most 24 hours (in
 // the demo, within its last 24 hours). Pro only: Cloud Free and Community see the upgrade
 // page (ADR-201) in its place. Everything is in the URL, so the alert card links here.
+// For the first 7 days the learning page (ADR-216) stands in the list's place; afterwards a
+// strip says how many series that joined later still learn. Back from Stripe Checkout
+// (`?checkout=done`), the upgrade page asks again every few seconds and turns into the
+// learning page the moment Pro is on, without a reload.
 const REFRESH_MS = 60_000;
+/** After Checkout: how often the page asks whether Pro is on, and for how long. */
+const CHECKOUT_POLL_MS = 3_000;
+const CHECKOUT_POLL_FOR_MS = 3 * 60_000;
+/** While the worker hasn't seen the org yet (the first minute of Pro). */
+const STARTING_POLL_MS = 10_000;
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
 const auth = useAuthStore();
 const clusters = useClustersStore();
+const plan = usePlanStore();
+const sidebar = useWhatChangedLearningStore();
 
 const num = (v: unknown) => {
   const n = Number(v);
@@ -90,6 +104,8 @@ const page = useLoader(async () => {
       }),
     );
     access.value = 'pro';
+    // The sidebar's "day 3/7" follows the page.
+    sidebar.set(cluster.id, answer.learning);
     return { cluster, answer };
   } catch (err) {
     if (isProFeature(err)) {
@@ -155,23 +171,63 @@ const countLine = computed(() => {
     ? t('whatChanged.count.at', { n: a.total, at: first })
     : t('whatChanged.count.between', { n: a.total, from: first, to: last });
 });
-const learningLine = computed(() => {
+const learning = computed(() => !!answer.value?.learning.learning);
+/** The list is on, and some series that joined later still learn: the strip's line. */
+const partly = computed(() => {
   const l = answer.value?.learning;
-  if (!l || !cluster.value) return '';
-  return l.until
-    ? t('whatChanged.learning.until', {
-        cluster: cluster.value.name,
-        date: formatDateTime(l.until),
-      })
-    : t('whatChanged.learning.starting', { cluster: cluster.value.name });
+  if (!l || !partlyLearning(l)) return '';
+  const at = readyParts(Date.parse(l.series.readyAt!));
+  return t(
+    'whatChanged.learn.strip',
+    {
+      n: l.series.learning.toLocaleString('en'),
+      total: (l.series.total ?? l.series.learning).toLocaleString('en'),
+      ...at,
+    },
+    l.series.learning,
+  );
 });
+
+// Back from Stripe Checkout (the router brings the browser here, ADR-216).
+const checkoutReturn = computed(() => {
+  const c = route.query.checkout;
+  return c === 'done' || c === 'cancelled' ? c : null;
+});
+let fast: ReturnType<typeof setTimeout> | undefined;
+let fastUntil = 0;
+/** Asks again soon while something is about to change: Pro after Checkout, or the first minute. */
+function planFast() {
+  clearTimeout(fast);
+  const waitingForPro = checkoutReturn.value === 'done' && access.value === 'free';
+  const starting = access.value === 'pro' && !!answer.value && !answer.value.learning.since;
+  if (!waitingForPro && !starting) return;
+  if (!fastUntil) fastUntil = Date.now() + CHECKOUT_POLL_FOR_MS;
+  if (Date.now() > fastUntil) return;
+  fast = setTimeout(
+    async () => {
+      if (document.visibilityState !== 'hidden') await page.load();
+      planFast();
+    },
+    waitingForPro ? CHECKOUT_POLL_MS : STARTING_POLL_MS,
+  );
+}
+watch([access, () => answer.value?.learning.since, checkoutReturn], planFast);
+// Pro is on: the query has done its work, and the shell's plan strip should say Pro too.
+watch(access, (a, was) => {
+  if (a === 'pro' && was === 'free' && checkoutReturn.value) {
+    void plan.load();
+    setQuery({ checkout: undefined });
+  }
+});
+onBeforeUnmount(() => clearTimeout(fast));
 
 watch([win, sort, custom, alertId], () => void page.load());
 // Paused while the tab is hidden, spread by ±20 % (ADR-206).
 const poll = usePolling(() => page.load(), REFRESH_MS);
-onMounted(() => {
-  void page.load();
+onMounted(async () => {
   poll.start();
+  await page.load();
+  planFast();
 });
 </script>
 
@@ -205,6 +261,7 @@ onMounted(() => {
         v-else-if="access === 'free' || access === 'community'"
         :access="access"
         :cluster="cluster"
+        :checkout-return="checkoutReturn"
       />
 
       <template v-else-if="answer">
@@ -225,6 +282,7 @@ onMounted(() => {
             >
           </div>
           <div
+            v-if="!learning"
             class="flex flex-wrap gap-1 rounded-card border border-border bg-surface-1/60 p-1"
             role="group"
             :aria-label="$t('whatChanged.windows.label')"
@@ -250,7 +308,7 @@ onMounted(() => {
         </header>
 
         <div
-          v-if="win === 'custom'"
+          v-if="win === 'custom' && !learning"
           class="mb-5 flex flex-wrap items-end gap-3 text-13 text-text-muted"
           data-testid="wc-custom"
         >
@@ -283,7 +341,16 @@ onMounted(() => {
           }}</span>
         </div>
 
+        <!-- The first 7 days (ADR-204, ADR-216): the learning page in the list's place. -->
+        <WhatChangedLearning
+          v-if="learning"
+          :cluster="cluster"
+          :learning="answer.learning"
+          @changed="page.load"
+        />
+
         <section
+          v-else
           class="flex flex-col gap-5.5 rounded-2xl border border-border bg-surface-1/45 p-7 max-md:gap-4.5 max-md:p-4"
           aria-labelledby="wc-hero"
           data-testid="wc-hero"
@@ -297,20 +364,17 @@ onMounted(() => {
 
           <WhatChangedChart :answer="answer" />
 
-          <!-- Learning (ADR-204): the first 7 days list nothing. -->
-          <div
-            v-if="answer.learning.learning"
-            class="flex items-start gap-3.5 rounded-card border border-border bg-surface-1 px-5 py-4.5 max-md:px-4"
-            data-testid="wc-learning"
+          <!-- The list is on; some series that joined later still learn (ADR-216). -->
+          <p
+            v-if="partly"
+            class="flex items-start gap-3 rounded-card border border-border bg-surface-1 px-4.5 py-3 text-14 text-text-muted max-md:px-4"
+            data-testid="wc-partly"
           >
-            <Hourglass class="mt-0.5 size-5 shrink-0 text-info" aria-hidden="true" />
-            <div class="flex flex-col gap-1">
-              <p class="text-16 font-medium text-text">{{ learningLine }}</p>
-              <p class="text-14 text-text-muted">{{ $t('whatChanged.learning.why') }}</p>
-            </div>
-          </div>
+            <Hourglass class="mt-0.5 size-4 shrink-0 text-info" aria-hidden="true" />
+            <span>{{ partly }}</span>
+          </p>
 
-          <template v-else-if="answer.rows.length">
+          <template v-if="answer.rows.length">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <span class="text-14 text-text-muted" data-testid="wc-count">{{ countLine }}</span>
               <div
@@ -372,10 +436,7 @@ onMounted(() => {
           class="mt-5 flex flex-wrap items-center gap-x-1.5 px-1 text-13 leading-relaxed text-text-subtle"
           data-testid="wc-footnote"
         >
-          {{ $t('whatChanged.footnote') }}
-          <span v-if="answer.learning.learning && answer.learning.until">{{
-            $t('whatChanged.learning.footnote', { date: formatDateTime(answer.learning.until) })
-          }}</span>
+          {{ learning ? $t('whatChanged.learn.footnote') : $t('whatChanged.footnote') }}
           <LoadingIndicator :active="page.refreshing.value" class="ml-1" />
         </p>
       </template>

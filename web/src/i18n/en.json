@@ -30,7 +30,9 @@
     "newShort": "{n} new",
     "whatChanged": "What changed",
     "pro": "Pro",
-    "servers": "Servers"
+    "servers": "Servers",
+    "learning": "Learning: day {day} of {days}",
+    "learningShort": "day {day}/{days}"
   },
   "clusterSwitcher": {
     "label": "Cluster",
@@ -4293,7 +4295,7 @@
         "ownerOnly": "Only an Owner can change the plan.",
         "unavailableNow": "Billing can't be reached right now. Try again in a minute.",
         "paymentFailed": "Your last payment failed. Update the payment method in Manage billing before {date}, or the org moves to Free (your data is kept).",
-        "checkoutDone": "Thanks. Your plan updates as soon as Stripe confirms the payment.",
+        "checkoutDone": "Thanks. Your plan updates as soon as Stripe confirms the payment. What changed starts learning then and is ready 7 days later.",
         "checkoutCancelled": "Checkout was cancelled; nothing was charged.",
         "monthly": "Monthly",
         "annual": "Annual · 2 months free",
@@ -4795,7 +4797,7 @@
     "pro": "Pro",
     "platform": {
       "kubernetes": "Kubernetes",
-      "docker": "Docker"
+      "docker": "Servers"
     },
     "windows": {
       "label": "Time window",
@@ -4869,10 +4871,7 @@
       "process_memory_rss": "memory"
     },
     "learning": {
-      "until": "Learning {cluster}'s usual week until {date}.",
-      "starting": "Learning {cluster}'s usual week: it starts within a minute and takes 7 days.",
-      "why": "Nothing is listed until then: each metric needs 7 days of its own history first.",
-      "footnote": "Learning until {date}."
+      "starting": "Learning {cluster}'s usual week: it starts within a minute and takes 7 days."
     },
     "empty": {
       "noCluster": {
@@ -4933,7 +4932,8 @@
       "none": {
         "kubernetes": "Nothing else in this cluster left its usual range around this alert.",
         "docker": "Nothing else in this fleet left its usual range around this alert."
-      }
+      },
+      "learning": "Learning {cluster}'s usual week, day {day} of {days}. What changed is ready on {date}, about {time}."
     },
     "errors": {
       "load": "Couldn't load What changed."
@@ -4944,12 +4944,6 @@
         "freeNoPrice": "Pro",
         "community": "WatchLog Cloud Pro"
       },
-      "title": "Know what moved first.",
-      "titleMuted": "Before you start guessing.",
-      "lead": {
-        "kubernetes": "Each metric in WatchLog's catalog learns its own normal week. When something breaks in {cluster}, you get one list of everything that left its range, in the order it happened, with the probable cause underneath.",
-        "docker": "Each metric in WatchLog's catalog learns its own normal week. When something breaks on {cluster}, you get one list of everything that left its range, in the order it happened, with the probable cause underneath."
-      },
       "cta": {
         "free": "Upgrade to Pro",
         "community": "Try WatchLog Cloud",
@@ -4958,7 +4952,7 @@
       },
       "fine": {
         "kubernetes": "{perNode} per node a month, {minimum} minimum, billed on the 95th percentile of your nodes.",
-        "docker": "{perNode} per server a month, {minimum} minimum, billed on the 95th percentile of your hosts.",
+        "docker": "{perNode} per server a month, {minimum} minimum, billed on the 95th percentile of your servers.",
         "stripe": "Paid through Stripe; cancel any time.",
         "community": "Your self-hosted install keeps everything it has today, with no limits."
       },
@@ -5005,11 +4999,139 @@
         }
       },
       "bottom": {
-        "free": "Start learning {cluster}'s week today.",
-        "community": "Want it for {cluster}? Point one agent at Cloud.",
         "free_note": "Probable cause, alerts, the service map and Egress watch stay free on every plan."
       },
-      "checkoutError": "Couldn't open Checkout."
+      "checkoutError": "Couldn't open Checkout.",
+      "hero": {
+        "label": "Not learning yet",
+        "title": "What changed learns your normal week.",
+        "titleFree": "It starts the minute you upgrade.",
+        "titleCloud": "It is part of WatchLog Cloud Pro.",
+        "ready": "Upgrade today and it's ready on {date}.",
+        "community": {
+          "kubernetes": "For 7 days it learns the usual range of each workload, node and service map connection in {cluster}, for every hour of the week. Then one list shows what left it, in the order it happened, with the probable cause underneath. It runs in WatchLog Cloud, not in a self-hosted install.",
+          "docker": "For 7 days it learns the usual range of each server, service, container and service map connection on {cluster}, for every hour of the week. Then one list shows what left it, in the order it happened, with the probable cause underneath. It runs in WatchLog Cloud, not in a self-hosted install."
+        },
+        "checkoutDone": "Thanks. What changed starts learning as soon as Stripe confirms the payment, and is ready 7 days later. This page updates by itself."
+      }
+    },
+    "learn": {
+      "day": "Learning · day {day} of {days}",
+      "title": "Learning what normal looks like for {cluster}.",
+      "lead": {
+        "kubernetes": "WatchLog is reading every workload, node and service map connection in this cluster and learning each one's usual range for every hour of the week. It needs one full week before it can tell you what's unusual, so a busy Monday morning is never mistaken for a problem.",
+        "server": "WatchLog is reading every server, service, process group, container and service map connection in this fleet and learning each one's usual range for every hour of the week. It needs one full week before it can tell you what's unusual, so a busy Monday morning is never mistaken for a problem."
+      },
+      "ready": "Ready on {date}, about {time}",
+      "toGo": "{time} to go",
+      "starting": "Learning starts within a minute and takes 7 days.",
+      "time": {
+        "days": "{n} day | {n} days",
+        "hours": "{n} hour | {n} hours",
+        "minutes": "{n} minute | {n} minutes",
+        "soon": "less than a minute"
+      },
+      "hours": {
+        "label": "Hours of the week learned",
+        "value": "{n} of {total}",
+        "sub": "every weekday and hour, once"
+      },
+      "series": {
+        "label": "Series watched",
+        "counting": "Counting…",
+        "firstRead": "The first hour is read at {time}.",
+        "none": {
+          "kubernetes": "no node or workload has reported in the last hour",
+          "server": "no server has reported in the last hour"
+        }
+      },
+      "toGoTile": {
+        "label": "Time to go",
+        "week": "7 days",
+        "sub": "no action needed from you"
+      },
+      "breakdown": {
+        "nodes": "{n} node | {n} nodes",
+        "workloads": "{n} workload | {n} workloads",
+        "servers": "{n} server | {n} servers",
+        "services": "{n} service | {n} services",
+        "processGroups": "{n} process group | {n} process groups",
+        "containers": "{n} container | {n} containers",
+        "applications": "{n} application | {n} applications"
+      },
+      "email": {
+        "off": "Email me when it's ready",
+        "on": "We'll email you when it's ready",
+        "note": "One email to {email}, the minute the list turns on. Press the button again to undo.",
+        "error": "Couldn't save that. Try again."
+      },
+      "demo": "See it working on the live demo",
+      "ring": {
+        "learning": "Day {day} of 7 of learning",
+        "waiting": "Not learning yet: the ring is empty, and nothing is learned before the upgrade"
+      },
+      "week": {
+        "title": "The week it is learning",
+        "titleWaiting": "The week it will learn",
+        "learned": "learned",
+        "now": "this hour",
+        "todo": "not seen yet",
+        "days": {
+          "mon": "Mon",
+          "tue": "Tue",
+          "wed": "Wed",
+          "thu": "Thu",
+          "fri": "Fri",
+          "sat": "Sat",
+          "sun": "Sun"
+        },
+        "daysLong": {
+          "mon": "Monday",
+          "tue": "Tuesday",
+          "wed": "Wednesday",
+          "thu": "Thursday",
+          "fri": "Friday",
+          "sat": "Saturday",
+          "sun": "Sunday"
+        },
+        "text": "{n} of the 168 hours of the week learned so far.",
+        "textWaiting": "None of the 168 hours of the week is learned: nothing is learned before the upgrade.",
+        "textDay": "{day}: {n} of 24 hours learned ({hours}).",
+        "textDayNone": "{day}: not seen yet.",
+        "textNow": "This hour is {hour}.",
+        "why": "Each square is one hour of the week. What changed compares “now” with the same hour on the same weekday, so it has to see every square once. Minutes when an alert was firing are left out, so an incident never becomes “normal”.",
+        "whyWaiting": "Each square is one hour of the week. On Pro, What changed fills them in over 7 days, then compares “now” with the same hour on the same weekday. Nothing is learned before the upgrade.",
+        "zone": "Hours are in your time zone ({zone}).",
+        "zoneRounded": "Hours are in your time zone ({zone}), to the nearest hour."
+      },
+      "next": {
+        "title": "What happens next",
+        "learning": {
+          "title": "Days 1 to 7: learning",
+          "body": "It watches quietly and builds each metric's usual range. You see this page."
+        },
+        "list": {
+          "title": "Day 7: the list turns on",
+          "body": "When something breaks, one list shows everything that left its range, in the order it happened, with the probable cause underneath."
+        },
+        "alerts": {
+          "title": "From then: “Unusual for this hour” alerts",
+          "body": "With no thresholds to write. It keeps learning every week, so it follows your traffic as it grows."
+        }
+      },
+      "working": {
+        "title": "Already working today",
+        "lead": "Nothing else waits for the learning week.",
+        "alerts": {
+          "kubernetes": "Alerts for crash loops, OOM kills and nodes under pressure",
+          "server": "Alerts for failed services, OOM kills and full disks"
+        },
+        "cause": "Probable cause on every alert",
+        "egress": "Egress watch",
+        "map": "The service map"
+      },
+      "strip": "{n} of {total} series is still learning (it joined later). It is ready on {date}, about {time}. | {n} of {total} series are still learning (they joined later). The last is ready on {date}, about {time}.",
+      "footnote": "Statistics only (a median and its spread per hour of the week), worked out inside WatchLog. Nothing is sent to an AI, and the same data always gives the same answer."
     }
   },
   "anomaly": {

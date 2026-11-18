@@ -10,8 +10,11 @@ import { navFor, type NavItem } from '@/router';
 import { useApplicationsStore } from '@/stores/applications';
 import { useAuthStore } from '@/stores/auth';
 import { useClustersStore } from '@/stores/clusters';
+import { dayOf, LEARNING_DAYS } from '@/lib/what-changed-learning';
 import { useEgressStore } from '@/stores/egress';
+import { usePlanStore } from '@/stores/plan';
 import { useUiStore } from '@/stores/ui';
+import { useWhatChangedLearningStore } from '@/stores/whatChangedLearning';
 import ClusterSwitcher from './ClusterSwitcher.vue';
 import PlanStrip from '@/components/plan/PlanStrip.vue';
 
@@ -37,8 +40,16 @@ const badge = (item: NavItem) => (item.name === 'applications' ? applications.pr
 const egress = useEgressStore();
 const newCount = (item: NavItem) =>
   item.name === 'egress' && clusters.selected ? (egress.newCount[clusters.selected.id] ?? 0) : 0;
+// What changed says which day of its learning week it is (ADR-216), for an org with Pro.
+const plan = usePlanStore();
+const learning = useWhatChangedLearningStore();
+const learningDay = (item: NavItem) => {
+  if (item.name !== 'what-changed' || !clusters.selected) return 0;
+  const l = learning.state[clusters.selected.id];
+  return l?.learning && l.since ? dayOf(l, Date.now()) : 0;
+};
 // Cloud marks the Pro sections, so a Free org knows before it opens one (Community has no plans).
-const pro = (item: NavItem) => auth.isCloud && !!item.pro;
+const pro = (item: NavItem) => auth.isCloud && !!item.pro && !learningDay(item);
 const linkTitle = (item: NavItem) =>
   collapsed.value
     ? pro(item)
@@ -49,6 +60,13 @@ watch(
   () => clusters.selected?.id,
   (id) => {
     if (id) void egress.load(id);
+  },
+  { immediate: true },
+);
+watch(
+  () => [clusters.selected?.id, plan.info?.proFeatures] as const,
+  ([id, hasPro]) => {
+    if (id && auth.isCloud && hasPro) void learning.load(id);
   },
   { immediate: true },
 );
@@ -72,6 +90,7 @@ async function signOut() {
   clusters.reset();
   applications.reset();
   egress.reset();
+  learning.reset();
   await router.replace({ name: 'login' });
 }
 </script>
@@ -146,6 +165,22 @@ async function signOut() {
                 <span class="sr-only">{{ $t('nav.newDestinations', { n: newCount(item) }) }}</span>
                 <span aria-hidden="true">{{
                   collapsed ? newCount(item) : $t('nav.newShort', { n: newCount(item) })
+                }}</span>
+              </span>
+              <span
+                v-if="learningDay(item) > 0"
+                data-testid="nav-learning"
+                :class="[
+                  'flex items-center gap-1.5 text-12 font-medium whitespace-nowrap text-text-muted',
+                  collapsed ? 'absolute top-1 right-1' : 'ml-auto',
+                ]"
+              >
+                <span class="size-1.5 shrink-0 rounded-full bg-warning" aria-hidden="true" />
+                <span class="sr-only">{{
+                  $t('nav.learning', { day: learningDay(item), days: LEARNING_DAYS })
+                }}</span>
+                <span v-if="!collapsed" aria-hidden="true">{{
+                  $t('nav.learningShort', { day: learningDay(item), days: LEARNING_DAYS })
                 }}</span>
               </span>
               <span

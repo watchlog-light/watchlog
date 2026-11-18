@@ -1,25 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { ArrowRight, CircleAlert, Lock } from '@lucide/vue';
+import { ArrowRight, CircleAlert, Hourglass, Lock } from '@lucide/vue';
 import type { AlertDetail, WhatChanged } from '@watchlog/api-types';
 import { computed, onMounted, ref, watch } from 'vue';
 import { api } from '@/api/client';
 import Skeleton from '@/components/ui/Skeleton.vue';
 import { useLoader } from '@/composables/useLoader';
-import { formatDateTime } from '@/lib/format';
 import {
   initialAccess,
   isProFeature,
   whatChangedPath,
   type WhatChangedAccess,
 } from '@/lib/what-changed';
+import { dayOf, LEARNING_DAYS, readyParts } from '@/lib/what-changed-learning';
 import { useAuthStore } from '@/stores/auth';
 import WhatChangedRows from './WhatChangedRows.vue';
 
 // "What changed around it" on an alert's page (ADR-199, the screen Anomaly): the first three
 // rows of the alert's window and a link to the page in alert mode. Cloud Free sees one locked
 // line that opens the page, which is the upgrade page for it (ADR-201); Community sees
-// nothing (ADR-195).
+// nothing (ADR-195). During the learning week (ADR-216) it is one line with the day and when
+// it is ready, opening the learning page, instead of an empty card.
 const CARD_ROWS = 3;
 const props = defineProps<{ alert: AlertDetail['alert'] }>();
 const auth = useAuthStore();
@@ -43,6 +44,15 @@ const page = useLoader(async () => {
 const a = computed(() => page.data.value ?? null);
 const rows = computed(() => a.value?.rows.slice(0, CARD_ROWS) ?? []);
 const docker = computed(() => props.alert.cluster.kind === 'server');
+const learning = computed(() => {
+  const l = a.value?.learning;
+  if (!l?.learning) return null;
+  return {
+    day: dayOf(l, Date.now()),
+    days: LEARNING_DAYS,
+    ready: l.until ? readyParts(Date.parse(l.until)) : null,
+  };
+});
 const link = computed(() => ({
   name: 'what-changed',
   query: { cluster: props.alert.cluster.id, alert: props.alert.id },
@@ -72,6 +82,27 @@ onMounted(() => {
     <span class="font-semibold text-info">{{ $t('whatChanged.pro') }}</span>
   </RouterLink>
 
+  <!-- The learning week: one line with the ready date. -->
+  <RouterLink
+    v-else-if="learning"
+    :to="{ name: 'what-changed', query: { cluster: alert.cluster.id } }"
+    class="flex min-h-11 items-center gap-3 rounded-card border border-border bg-surface-1 px-4.5 py-3 text-13 text-text-muted hover:border-border-strong hover:text-text max-md:px-4"
+    data-testid="wc-card-learning"
+  >
+    <Hourglass class="size-4 shrink-0 text-info" aria-hidden="true" />
+    <span class="min-w-0 flex-1">{{
+      learning.ready
+        ? $t('whatChanged.card.learning', {
+            cluster: alert.cluster.name,
+            day: learning.day,
+            days: learning.days,
+            ...learning.ready,
+          })
+        : $t('whatChanged.learning.starting', { cluster: alert.cluster.name })
+    }}</span>
+    <ArrowRight class="size-3.5 shrink-0" aria-hidden="true" />
+  </RouterLink>
+
   <section
     v-else-if="access !== 'community'"
     class="flex flex-col gap-4 rounded-2xl border border-border bg-surface-1/45 p-5.5 max-md:p-4"
@@ -83,7 +114,7 @@ onMounted(() => {
     >
       <h3 id="wc-card-title" class="font-medium text-text">{{ $t('whatChanged.card.title') }}</h3>
       <RouterLink
-        v-if="a && !a.learning.learning"
+        v-if="a"
         :to="link"
         class="inline-flex min-h-6 items-center gap-1 text-text-subtle hover:text-text max-lg:min-h-11"
         data-testid="wc-card-link"
@@ -112,20 +143,6 @@ onMounted(() => {
         {{ $t('common.retry') }}
       </button>
     </div>
-    <p
-      v-else-if="a.learning.learning"
-      class="text-14 text-text-muted"
-      data-testid="wc-card-learning"
-    >
-      {{
-        a.learning.until
-          ? $t('whatChanged.learning.until', {
-              cluster: alert.cluster.name,
-              date: formatDateTime(a.learning.until),
-            })
-          : $t('whatChanged.learning.starting', { cluster: alert.cluster.name })
-      }}
-    </p>
     <template v-else-if="rows.length">
       <WhatChangedRows :rows="rows" compact :cluster-id="alert.cluster.id" />
       <RouterLink
