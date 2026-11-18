@@ -222,7 +222,7 @@ function problemDetail(payload: unknown): string {
   }
 }
 
-const NODE_OVER_PLAN = `This node is over the plan's node limit; its data is not stored. Nodes already sending keep sending. Try Pro: ${BILLING_PATH}`;
+const NODE_OVER_PLAN = `This node is over the plan's node limit; its data is not stored. Nodes already sending keep sending. Upgrade to Pro: ${BILLING_PATH}`;
 const nodeOverPlan = (reply: FastifyReply) =>
   sendPlanLimit(reply, 402, 'nodes', null, NODE_OVER_PLAN);
 

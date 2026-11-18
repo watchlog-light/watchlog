@@ -3,11 +3,14 @@
 // refused with 402, a cluster or an invite refused with 409. The day's email is claimed
 // with a row in plan_limit_emails first, so two workers never send it twice; a failed
 // send removes the claim for the next run. Without an email server it waits, like the
-// API token reminders (ADR-125). Across orgs: the owner's connection (systemDb).
+// API token reminders (ADR-125). Across orgs: the owner's connection (systemDb). A Free org
+// is offered Pro at its price from the plans config (ADR-215), never as free; an org that
+// already pays is pointed to its plan page.
 import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
 import { transport } from '../alerts/channels.js';
 import type { AlertingSettings } from '../settings/service.js';
+import { proPriceLine } from '../lifecycle/texts.js';
 import { PLAN_DEFAULTS, type CloudPlan, type LimitKind } from './plans.js';
 
 export const LIMIT_MAIL_EVERY_MS = 5 * 60_000;
@@ -55,7 +58,9 @@ export function limitEmail(m: {
       '',
       ...what,
       '',
-      `To lift the limit, try Pro (free during the beta): ${link}`,
+      ...(m.plan === 'free'
+        ? [`To lift the limit, upgrade to Pro. It is ${proPriceLine()}`, link]
+        : [`Your plan and its limits are here: ${link}`]),
       '',
       'You get at most one email like this per limit and day.',
       '',

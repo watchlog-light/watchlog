@@ -57,7 +57,7 @@ export async function refuseCluster(
     409,
     'clusters',
     ent.clusters,
-    `${PLAN_NAME[ent.plan]} has ${ent.clusters} cluster or Docker fleet. Try Pro for unlimited clusters: ${BILLING_PATH}`,
+    `${PLAN_NAME[ent.plan]} has ${ent.clusters} cluster or Docker fleet. Upgrade to Pro for unlimited clusters: ${BILLING_PATH}`,
   );
   return true;
 }
@@ -86,7 +86,7 @@ export async function refuseInvite(
     'users',
     ent.users,
     ent.users === 1
-      ? `${PLAN_NAME[ent.plan]} has one user. Try Pro to invite your team: ${BILLING_PATH}`
+      ? `${PLAN_NAME[ent.plan]} has one user. Upgrade to Pro to invite your team: ${BILLING_PATH}`
       : `${PLAN_NAME[ent.plan]} has ${ent.users} users, counting open invites. Remove one, or ask about Enterprise.`,
   );
   return true;

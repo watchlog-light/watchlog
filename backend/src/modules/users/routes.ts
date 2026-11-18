@@ -261,7 +261,7 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
     async (request, reply) => {
       const orgId = request.user!.org.id;
       // Cloud: an invite over the plan's users (members and open invites) answers 409
-      // plan-limit; Free has one user, so inviting asks to try Pro first (ADR-177).
+      // plan-limit; Free has one user, so inviting asks to upgrade to Pro first (ADR-177).
       const entitlements = request.server.entitlements;
       if (entitlements && (await refuseInvite(db, entitlements, orgId, reply))) return reply;
       const email = request.body.email.trim().toLowerCase();
