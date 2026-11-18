@@ -22,6 +22,7 @@ import {
   learnedHours,
   learningDay,
   recordLook,
+  resumedAt,
   seriesReady,
   weekString,
   type Coverage,
@@ -165,6 +166,7 @@ export async function coverageOf(
   return row ? fromRow(row as LearningRow, nowMs) : fromBaselines(db, clusterId, nowMs);
 }
 
+const iso = (v: number | null) => (v === null ? null : new Date(v).toISOString());
 const least = (values: number[]) => values.reduce((a, v) => (v < a ? v : a), Infinity);
 const greatest = (values: number[]) => values.reduce((a, v) => (v > a ? v : a), -Infinity);
 
@@ -191,7 +193,6 @@ export async function recordLearning(
     c = { ...c, firstSeen: c.firstSeen === null ? first : Math.min(c.firstSeen, first) };
   }
   c = recordLook(c, hourMs, read ? stats.withData : null, nowMs);
-  const iso = (v: number | null) => (v === null ? null : new Date(v).toISOString());
   const lookedAt = c.lookedAt.map(iso);
   await sql`
     INSERT INTO anomaly_learning
@@ -337,7 +338,8 @@ export async function learningOf(
     since: new Date(since).toISOString(),
     until: new Date(until).toISOString(),
     day: learningDay(c),
-    resumedAt: learning && c.resumedAt !== null ? new Date(c.resumedAt).toISOString() : null,
+    // What the worker recorded, or, for a gap older than the record, what the looks show.
+    resumedAt: learning ? iso(c.resumedAt ?? resumedAt(c)) : null,
     series: {
       total,
       learning: stillLearning,

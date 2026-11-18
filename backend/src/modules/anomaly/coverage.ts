@@ -41,7 +41,10 @@ export interface Coverage {
    * while learning; it can be some minutes ahead right after the last slot was learned.
    */
   readyAt: number | null;
-  /** The hour learning went on after at least one missed hour; null if it never stopped. */
+  /**
+   * The hour learning went on after its last gap, as `resumedAt()` works it out from the
+   * looks (kept in the row for reading with SQL); null if it never stopped.
+   */
   resumedAt: number | null;
   /** The cluster's earliest series. */
   firstSeen: number | null;
@@ -81,6 +84,24 @@ export function allSettled(c: Coverage): boolean {
   return true;
 }
 
+/**
+ * When learning last went on after a gap: the first hour looked at after at least one missed
+ * hour, from the looks themselves. So it is the same whether the gap happened yesterday or
+ * before the looks were recorded (a coverage made from baselines, 0.9.6's own rows). Null
+ * when the hours looked at are one unbroken run, which they are again a week after any gap
+ * (`recordLook` keeps what it found in the coverage until the cluster is ready).
+ */
+export function resumedAt(c: Coverage): number | null {
+  const times: number[] = [];
+  for (const t of c.lookedAt) if (t !== null) times.push(t);
+  times.sort((a, b) => a - b);
+  let at: number | null = null;
+  for (let i = 1; i < times.length; i++) {
+    if (times[i]! - times[i - 1]! > HOUR_MS) at = times[i]!;
+  }
+  return at;
+}
+
 /** The day of learning, 1 to 7: a day for every 24 hours of the week learned. */
 export const learningDay = (c: Coverage): number =>
   Math.min(LEARNING_DAYS, Math.floor(learnedHours(c) / 24) + 1);
@@ -105,10 +126,6 @@ export function recordLook(
     lookedAt: c.lookedAt.slice(),
     looks: c.looks.slice(),
   };
-  let latest: number | null = null;
-  for (const t of c.lookedAt) if (t !== null && (latest === null || t > latest)) latest = t;
-  // Going on after a gap (not the demo's look-back, which walks backwards).
-  if (latest !== null && hourMs - latest > HOUR_MS && c.readyAt === null) next.resumedAt = hourMs;
   if (withData !== null) next.hours[slot] = withData;
   const before = c.lookedAt[slot] ?? null;
   if (before !== hourMs) next.looks[slot] = Math.min(SILENT_LOOKS, (c.looks[slot] ?? 0) + 1);
@@ -119,6 +136,9 @@ export function recordLook(
       next.firstSeen === null ? nowMs : sevenDaysAfter(next.firstSeen),
     );
   }
+  // Only while it is still learning: a ready cluster that missed an hour didn't "resume".
+  // Once seen it is kept: a week later the looks are one run again, but it is still true.
+  if (c.readyAt === null) next.resumedAt = resumedAt(next) ?? c.resumedAt;
   return next;
 }
 
@@ -207,6 +227,7 @@ export function coverageFromBaselines(
     c.lookedAt[s] = Math.max(latestOf(s), floorHour(firstSeenMs));
     c.looks[s] = 1;
   }
+  c.resumedAt = resumedAt(c);
   return c;
 }
 
