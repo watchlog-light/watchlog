@@ -422,6 +422,99 @@ describe('every REST route as org B with org A ids', () => {
     }
   });
 
+  it("the learning week (ADR-216): B gets 404 for A's clusters, reading or opting in, 403 as Free; each org reads and changes only its own", async () => {
+    const read = async (as: SeededOrg, cluster: string) =>
+      w.app.inject({
+        method: 'GET',
+        url: '/api/v1/what-changed/learning',
+        query: { cluster },
+        cookies: { wl_session: await as.session() },
+      });
+    const choose = async (as: SeededOrg, cluster: string, enabled: boolean, cookie?: string) =>
+      w.app.inject({
+        method: 'PUT',
+        url: '/api/v1/what-changed/ready-email',
+        payload: { cluster, enabled },
+        cookies: { wl_session: cookie ?? (await as.session()) },
+      });
+    const asked = (orgId: string) =>
+      w.owner
+        .selectFrom('anomaly_ready_emails')
+        .select(['cluster_id', 'user_id'])
+        .where('org_id', '=', orgId)
+        .orderBy('cluster_id')
+        .orderBy('user_id')
+        .execute();
+    const before = await asked(A.orgId);
+    for (const id of [A.k8s.id, A.docker.id]) {
+      const r = await read(B, id);
+      expect(r.statusCode, id).toBe(404);
+      expect(leaks(r.body, id)).toEqual([]);
+      for (const enabled of [true, false]) {
+        const p = await choose(B, id, enabled);
+        expect(p.statusCode, id).toBe(404);
+        expect(leaks(p.body, id)).toEqual([]);
+      }
+    }
+    // Nothing of A's was added or removed by B.
+    expect(await asked(A.orgId)).toEqual(before);
+    // Each org reads its own, under RLS: the seeded row's 168 hours, and the Owner's choice.
+    for (const o of [A, B]) {
+      for (const id of [o.k8s.id, o.docker.id]) {
+        const own = await read(o, id);
+        expect(own.statusCode, own.body).toBe(200);
+        expect(own.json().learning).toMatchObject({
+          learning: false,
+          hoursLearned: 168,
+          emailWhenReady: true,
+          series: { total: 1, breakdown: { workloads: 1 } },
+        });
+      }
+    }
+    // A choice is the user's own: B's Viewer sees none, and undoing as the Viewer leaves the Owner's.
+    const viewer = await B.sessionOf(B.viewerId);
+    const asViewer = await w.app.inject({
+      method: 'GET',
+      url: '/api/v1/what-changed/learning',
+      query: { cluster: B.k8s.id },
+      cookies: { wl_session: viewer },
+    });
+    expect(asViewer.json().learning.emailWhenReady).toBe(false);
+    expect((await choose(B, B.k8s.id, false, viewer)).statusCode).toBe(200);
+    expect((await read(B, B.k8s.id)).json().learning.emailWhenReady).toBe(true);
+    // The seeded clusters finished learning: opting in now is refused, for anyone.
+    expect((await choose(B, B.k8s.id, true, viewer)).statusCode).toBe(409);
+    // An API token reads the public route only: neither of these.
+    const byToken = await w.app.inject({
+      method: 'PUT',
+      url: '/api/v1/what-changed/ready-email',
+      payload: { cluster: B.k8s.id, enabled: false },
+      headers: { authorization: `Bearer ${B.apiToken.value}` },
+    });
+    expect([401, 403]).toContain(byToken.statusCode);
+    expect((await read(B, B.k8s.id)).json().learning.emailWhenReady).toBe(true);
+    // B without Pro: 403 for its own cluster and for A's, reading and opting in.
+    const flip = async (on: boolean) => {
+      await w.owner
+        .updateTable('entitlements')
+        .set({ pro_features: on, plan: on ? 'pro' : 'free' })
+        .where('org_id', '=', B.orgId)
+        .execute();
+      w.app.entitlements!.invalidate(B.orgId);
+    };
+    await flip(false);
+    try {
+      for (const id of [B.k8s.id, A.k8s.id]) {
+        const r = await read(B, id);
+        expect(r.statusCode).toBe(403);
+        expect(r.json().type).toBe('urn:watchlog:problem:pro-feature');
+        expect((await choose(B, id, true)).statusCode).toBe(403);
+      }
+    } finally {
+      await flip(true);
+    }
+  });
+
   it("anomaly feedback (ADR-200): B gets 404 for A's anomaly alert, 403 as Free; B's own answer and undo work under RLS", async () => {
     const as = async (o: SeededOrg, method: 'GET' | 'POST' | 'DELETE', url: string, extra = {}) =>
       w.app.inject({ method, url, cookies: { wl_session: await o.session() }, ...extra });

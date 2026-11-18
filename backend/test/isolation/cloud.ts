@@ -659,6 +659,23 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
         last_seen: new Date(now),
       })
       .execute();
+    // The learning row the page reads, and the Owner's "email me when it's ready" (ADR-216).
+    await owner
+      .insertInto('anomaly_learning')
+      .values({
+        org_id: orgId,
+        cluster_id: clusterId,
+        hours: Array(168).fill(1),
+        series: 1,
+        first_seen: new Date(now - 8 * 86_400_000),
+        breakdown: JSON.stringify({ workloads: 1 }),
+        updated_at: new Date(now),
+      })
+      .execute();
+    await owner
+      .insertInto('anomaly_ready_emails')
+      .values({ org_id: orgId, cluster_id: clusterId, user_id: ownerId })
+      .execute();
     await owner
       .insertInto('anomaly_periods')
       .values({

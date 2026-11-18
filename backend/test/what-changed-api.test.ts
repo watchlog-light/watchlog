@@ -586,15 +586,30 @@ describe('GET /what-changed on a Pro org', () => {
     const k8s = await insertCluster(c.db, orgId, 'acme-prod', 'kubernetes');
     // Not seen by the worker yet.
     let a = (await get(c, cookie, { cluster: k8s.id })).json();
-    expect(a.learning).toEqual({ learning: true, since: null, until: null });
+    expect(a.learning).toEqual({
+      learning: true,
+      since: null,
+      until: null,
+      day: null,
+      hoursLearned: 0,
+      hoursTotal: 168,
+      week: '0'.repeat(168),
+      series: { total: null, learning: 0, readyAt: null, breakdown: {} },
+      emailWhenReady: false,
+    });
     const since = NOW - 2 * DAY;
     await learned(c, orgId, k8s.id, since);
     for (const p of K8S) await period(c, orgId, k8s.id, p);
     a = (await get(c, cookie, { cluster: k8s.id })).json();
-    expect(a.learning).toEqual({
+    // The worker's hourly run hasn't written the learning row yet: the times are right, the
+    // hours and the series not known.
+    expect(a.learning).toMatchObject({
       learning: true,
       since: new Date(since).toISOString(),
       until: new Date(since + 7 * DAY).toISOString(),
+      day: 3,
+      hoursLearned: 0,
+      series: { total: null, learning: 0 },
     });
     expect(a.rows).toEqual([]);
     expect(a.chart.counts.every((n: number) => n === 0)).toBe(true);

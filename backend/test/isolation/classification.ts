@@ -172,6 +172,16 @@ export const ROUTES: Record<string, RouteClass> = {
   // and A's control, by session (cross-org.test.ts, "what changed") and by API token and MCP
   // ("what changed tool"); Community's 404 and absent tool are in community.test.ts.
   'GET /api/v1/what-changed': org,
+  // The learning week (ADR-216): the learning state alone, and a member's own "email me when
+  // it's ready". B with A's clusters gets 404 for both (Free: 403), nothing of A's is added
+  // or removed, and each org reads and changes only its own (cross-org.test.ts, "the learning
+  // week"); Community's 404s are in community.test.ts.
+  'GET /api/v1/what-changed/learning': org,
+  'PUT /api/v1/what-changed/ready-email': {
+    kind: 'org',
+    control:
+      'needs a cluster still learning: the seed\'s have finished (cross-org.test.ts, "the learning week")',
+  },
   // Anomaly alerts' page and feedback (ADR-200): Pro only. B with A's anomaly alert gets 404
   // (Free: 403 `pro-feature`), B's own answer and undo work under RLS, A's are untouched
   // (cross-org.test.ts, "anomaly feedback"); Community's 404 is in community.test.ts.

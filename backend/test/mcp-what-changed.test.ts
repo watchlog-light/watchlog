@@ -268,7 +268,14 @@ describe('get_what_changed on a Kubernetes cluster', () => {
       alert: null,
     });
     expect(d.sort).toBe('first');
-    expect(d.learning).toEqual({ learning: false, until: expect.any(String) });
+    expect(d.learning).toEqual({
+      learning: false,
+      since: expect.any(String),
+      until: expect.any(String),
+      day: 7,
+      hoursLearned: 0,
+      hoursTotal: 168,
+    });
     expect(d.mostAtOnce).toBe(3);
     expect(d.changes.map((x: { key: string }) => x.key)).toEqual([
       'edge.connections.rate',

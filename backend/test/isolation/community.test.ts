@@ -128,7 +128,26 @@ describe('Community (WATCHLOG_EDITION unset)', () => {
       });
       expect(r.statusCode).toBe(404);
       expect(r.body).not.toContain('Pro');
+      // The learning week's routes (ADR-216): absent too.
+      const learning = await ctx.app.inject({
+        method: 'GET',
+        url: '/api/v1/what-changed/learning',
+        query: { cluster: cluster.id },
+        cookies: { wl_session: cookie },
+      });
+      expect(learning.statusCode).toBe(404);
+      const email = await ctx.app.inject({
+        method: 'PUT',
+        url: '/api/v1/what-changed/ready-email',
+        payload: { cluster: cluster.id, enabled: true },
+        cookies: { wl_session: cookie },
+      });
+      expect(email.statusCode).toBe(404);
+      expect(email.body).not.toContain('Pro');
     }
+    expect(
+      (await ctx.db.selectFrom('anomaly_ready_emails').select('user_id').execute()).length,
+    ).toBe(0);
   });
 
   it('What changed by API token (ADR-202): the route 404s and get_what_changed is not listed', async () => {
