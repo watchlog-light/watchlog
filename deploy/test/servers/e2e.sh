@@ -7,7 +7,9 @@
 # followed by a real crash loop, with its exits, the release on the timeline, probable cause
 # "release" and the default rule firing; a service's log on demand; a service's external
 # destination in Egress; the series What changed scores for services and process groups;
-# PHP-FPM installed natively and Redis in a container, discovered and monitored. Root inside
+# PHP-FPM installed natively and Redis in a container, discovered and monitored; the server's
+# own events (0.9.2): a pm2 app killed, a unit failing, an OOM kill, a release, each on Events
+# within a minute. Root inside
 # the VM only (the owner's exception: testing the installer). Leaves nothing behind: the
 # agent is uninstalled, the backend stopped and its database dropped.
 #   deploy/test/servers/e2e.sh <distro>
@@ -18,6 +20,8 @@
 #   E2E_SMTP_URL       SMTP for the backend (smtp://127.0.0.1:1025)
 #   E2E_PORT           the backend's port, reachable from the VM (4191; +1 internal, +2 worker)
 #   E2E_KEEP=1         leave the backend, its database and the agent running afterwards (debugging)
+#   E2E_ONLY=events    stop after the server's own events (0.9.2): a pm2 app killed, a unit
+#                      failing, an OOM kill under MemoryMax, an executable replaced
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../../.." && pwd)"
@@ -54,7 +58,7 @@ arch=$(limactl list --format '{{.Arch}}' "$vm")
 case "$arch" in aarch64) arch=arm64 ;; x86_64) arch=amd64 ;; esac
 echo "== the agent's assets ($arch)"
 GOPROXY=${GOPROXY:-'https://proxy.golang.org|https://goproxy.io,direct'} \
-  bounded 290 "$root/deploy/linux/build.sh" 0.9.0-e2e "$work/dist" "$arch" >/dev/null || { echo "build failed"; exit 1; }
+  bounded 290 "$root/deploy/linux/build.sh" 0.9.2-e2e "$work/dist" "$arch" >/dev/null || { echo "build failed"; exit 1; }
 limactl shell "$vm" bash -c 'rm -rf ~/wl-dist && mkdir -p ~/wl-dist'
 for f in "$work/dist"/*; do limactl copy "$f" "$vm:wl-dist/"; done
 home=$(limactl shell "$vm" bash -c 'echo $HOME')
@@ -107,7 +111,7 @@ printf '%s\n' 'for i in $(seq 1 40); do curl -s -o /dev/null -m 5 https://github
 limactl copy "$work/egress.sh" "$vm:wl-dist/egress.sh"
 in_vm "systemd-run --unit=wl-e2e-egress --collect /bin/sh $home/wl-dist/egress.sh" >/dev/null 2>&1
 
-bounded 540 python3 - <<'EOF'
+bounded "$([ "${E2E_ONLY:-}" = events ] && echo 280 || echo 540)" python3 - <<'EOF'
 import http.cookiejar, json, os, subprocess, sys, time, urllib.parse, urllib.request
 jar = http.cookiejar.MozillaCookieJar(os.environ["E2E_WORK"] + "/cookies")
 jar.load(ignore_discard=True)
@@ -156,6 +160,50 @@ def workloads():
 ids = wait(workloads, 120)
 seen = sorted(x.get("id") for x in call("GET", base + "/workloads").get("workloads", []))
 check("workloads: a service, a pm2 app, a PHP-FPM pool and a container", ids is not None, seen)
+
+print("== the server's own events (0.9.2): each on Events within a minute", flush=True)
+def events_of(q=""):
+    return call("GET", f"/clusters/{cid}/events?limit=200&from={int(time.time()) - 3600}{q}").get("events", [])
+def event(kind, name, reason, text=""):
+    def find():
+        return next((e for e in events_of() if e.get("involvedKind") == kind and e.get("involvedName") == name
+                     and e.get("reason") == reason and text in (e.get("message") or "")), None)
+    return wait(find, 60)
+# A pm2 app killed: pm2 starts it again.
+vm_root("kill -9 $(su - app -c 'pm2 pid mailer')")
+e = event("Process", "mailer", "FailedExit", "SIGKILL")
+check("a pm2 app killed: Process mailer FailedExit (SIGKILL)", e is not None, [x for x in events_of() if x.get("involvedName") == "mailer"])
+check("  its workload id and server", bool(e) and e.get("workload") == "process:mailer" and e.get("host") == host, e)
+# A unit that fails with exit code 3 (it runs long enough to be seen started).
+vm_root("systemctl reset-failed wl-e2e-fail 2>/dev/null; systemd-run --unit=wl-e2e-fail /bin/sh -c 'sleep 25; exit 3'")
+e = event("Service", "wl-e2e-fail.service", "Started")
+check("a unit started: Service wl-e2e-fail.service Started", e is not None, [x for x in events_of() if "wl-e2e" in x.get("involvedName", "")])
+e = event("Service", "wl-e2e-fail.service", "Failed", "exit code 3")
+check("a unit failed: Service wl-e2e-fail.service Failed (exit-code, exit code 3)", e is not None, [x for x in events_of() if "wl-e2e" in x.get("involvedName", "")])
+# OOM-killed under MemoryMax: tail of /dev/zero holds what it reads (no newline ever comes).
+vm_root("systemctl reset-failed wl-e2e-oom 2>/dev/null; systemd-run --unit=wl-e2e-oom -p MemoryMax=64M -p MemorySwapMax=0 /bin/sh -c 'sleep 25; tail /dev/zero'")
+oom = wait(lambda: next((x for x in events_of() if x.get("reason") == "OOMKilled" and "64 MiB" in (x.get("message") or "")
+                         and x.get("involvedName") in ("wl-e2e-oom.service", "tail")), None), 75)
+check("OOM-killed under MemoryMax: OOMKilled with its limit of 64 MiB", oom is not None, [x for x in events_of() if x.get("reason") == "OOMKilled" or "oom" in x.get("involvedName", "")])
+# An executable replaced on disk: a release.
+vm_root("cp /opt/wl-apps/orders /opt/wl-apps/orders.new && mv -f /opt/wl-apps/orders.new /opt/wl-apps/orders && systemctl restart orders")
+rel = wait(lambda: next((x for x in events_of() if x.get("reason") == "Release" and x.get("involvedName") in ("orders.service", "orders")), None), 75)
+check("an executable changed: Release for orders", rel is not None, [x for x in events_of() if "orders" in x.get("involvedName", "")])
+# Never a pid or a command line in what is stored.
+mine = events_of("&kinds=Service,Process")
+check("no event carries a command line", not any("/opt/wl-apps" in (x.get("message") or "") or "tail /dev/zero" in (x.get("message") or "") for x in mine), mine[:5])
+# Hide system leaves our events and drops the agent's own unit's.
+hidden = {x.get("involvedName") for x in events_of("&system=hide")}
+check("Hide system keeps the workloads' events", {"mailer", "wl-e2e-fail.service"} <= hidden, sorted(hidden))
+check("Hide system drops WatchLog's own units", not ({"watchlog-agent.service", "watchlog-integrations.service"} & hidden), sorted(hidden))
+d = call("GET", base)
+check("the server page reads the stored events", d.get("eventsStored") is True and any(x.get("kind") == "event" for x in d.get("events", [])), {k: d.get(k) for k in ("eventsStored", "events")})
+wd = call("GET", f"{base}/workloads/{q('process:mailer', safe='')}")
+check("the workload page lists its events", any(x.get("reason") == "FailedExit" for x in wd.get("events", [])), wd.get("events"))
+vm_root("systemctl reset-failed wl-e2e-fail wl-e2e-oom 2>/dev/null")
+if os.environ.get("E2E_ONLY") == "events":
+    print(f"{fails} check(s) failed", flush=True)
+    sys.exit(1 if fails else 0)
 
 print("== a release, then a real crash loop", flush=True)
 vm_root("cp /opt/wl-apps/orders /opt/wl-apps/orders.new && mv -f /opt/wl-apps/orders.new /opt/wl-apps/orders && systemctl restart orders")
