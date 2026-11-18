@@ -13,6 +13,7 @@ import FirstWeekCard from '@/components/onboarding/FirstWeekCard.vue';
 import LiveChecklist from '@/components/onboarding/LiveChecklist.vue';
 import { POLL_MS, useOnboardingStatus } from '@/composables/useOnboardingStatus';
 import { useAuthStore } from '@/stores/auth';
+import { usePlanStore } from '@/stores/plan';
 import OnboardingPage from '@/views/OnboardingPage.vue';
 import { mockFetch, USER } from './fetch-mock';
 import { createPlugins } from './helpers';
@@ -94,6 +95,33 @@ afterEach(() => {
   vi.unstubAllGlobals();
   document.body.innerHTML = '';
 });
+
+const FREE_PLAN = {
+  plan: 'free',
+  source: 'signup',
+  betaUntil: null,
+  proFeatures: false,
+  limits: { clusters: 1, nodes: 5, users: 1, retentionDays: 3 },
+  usage: { clusters: 1, nodes: 3, kubernetesNodes: 3, dockerHosts: 0, users: 1 },
+  period: { from: '2026-11-01T00:00:00.000Z', to: '2026-12-01T00:00:00.000Z', p95: 3, peak: 4 },
+  refusedNodes: 0,
+  downgrade: null,
+  price: {
+    currency: 'USD',
+    perNodeMonth: 3,
+    minimumMonth: 15,
+    annualPerNode: 30,
+    annualMinimumNodes: 5,
+  },
+};
+const BILLING_LIVE = {
+  available: true,
+  live: true,
+  customer: false,
+  subscription: null,
+  beta: null,
+  dunning: null,
+};
 
 async function mountWith(component: unknown, path: string, cloud = true, props = {}) {
   const plugins = await createPlugins(path);
@@ -243,6 +271,38 @@ describe('the wizard', () => {
             helm: 'helm install … --set watchlog.endpoint=https://ingest.watchlog.io',
             kubectl: "kubectl apply -f 'https://ingest.watchlog.io/install.yaml?code=wl_ic_x'",
           },
+  });
+
+  it('a second cluster on Cloud Free: the refusal offers Pro at the price from GET /plan, read then', async () => {
+    const { calls } = mockFetch({
+      'POST /api/v1/clusters': {
+        status: 409,
+        body: {
+          type: 'urn:watchlog:problem:plan-limit',
+          title: 'Conflict',
+          status: 409,
+          code: 'plan-limit',
+          limit: 'clusters',
+          detail:
+            'Cloud Free has 1 cluster or Docker fleet. Upgrade to Pro for unlimited clusters: /settings?tab=billing',
+        },
+      },
+      'POST /api/v1/funnel': { status: 204 },
+      'GET /api/v1/plan': { status: 200, body: FREE_PLAN },
+      'GET /api/v1/plan/billing': { status: 200, body: BILLING_LIVE },
+    });
+    const { wrapper } = await mountWith(OnboardingPage, '/onboarding');
+    // The wizard is outside the shell: nothing has read the plan before the refusal.
+    expect(calls.some((c) => c.path === '/api/v1/plan')).toBe(false);
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+    await flushPromises();
+    const said = wrapper.get('form').text();
+    expect(said).toContain(
+      'Cloud Free has one cluster or Server fleet; Pro has no limit on them. Upgrade to Pro in Settings › Plan & billing: $3 per node or server a month, $15 minimum.',
+    );
+    expect(said).not.toMatch(/beta|free during|Docker fleet/i);
+    expect(calls.filter((c) => c.path === '/api/v1/plan')).toHaveLength(1);
   });
 
   it('chooses, names, creates, then installs with the live checklist', async () => {
@@ -514,16 +574,23 @@ describe('the first-week card', () => {
     })),
   });
 
-  it('shows real progress, says Free needs Pro to invite, and hides when dismissed', async () => {
+  it('shows real progress, says Free needs Pro to invite (at its real price), and hides when dismissed', async () => {
     const { calls } = mockFetch({
       'GET /api/v1/onboarding/first-week': { status: 200, body: week(['channel']) },
       'POST /api/v1/onboarding/first-week/dismiss': { status: 204 },
+      'GET /api/v1/plan': { status: 200, body: FREE_PLAN },
+      'GET /api/v1/plan/billing': { status: 200, body: BILLING_LIVE },
     });
     const { wrapper } = await mountWith(FirstWeekCard, '/');
+    await usePlanStore().load();
+    await flushPromises();
     expect(wrapper.get('[data-testid="first-week-count"]').text()).toBe('1 of 5');
     expect(wrapper.get('[data-testid="first-week-channel"]').attributes('data-done')).toBe('true');
     const team = wrapper.get('[data-testid="first-week-teammate"]');
-    expect(team.text()).toContain('Pro adds your team');
+    expect(team.text()).toContain(
+      'Cloud Free has one user; Pro has room for your team. Upgrade to Pro in Settings › Plan & billing: $3 per node or server a month, $15 minimum.',
+    );
+    expect(team.text()).not.toMatch(/beta|free during/i);
     expect(team.get('a').attributes('href')).toBe('/settings?tab=billing');
     expect(wrapper.get('[data-testid="first-week-mcp"] a').attributes('href')).toBe(
       '/settings?tab=tokens',
