@@ -190,7 +190,9 @@ assistant the same evidence as the dashboard's "Likely cause" panel:
 - **Egress:** `get_egress` lists at most 50 destinations over up to 30 days (24 hours by
   default); `get_new_destinations` at most 30, over up to 7 days ([Egress watch](egress.md)).
 - **What changed:** `get_what_changed` lists at most 30 rows over at most 24 hours (the last
-  hour by default, or the window around an alert). It is part of Pro in WatchLog Cloud: on
+  hour by default, or the window around an alert). During the first 7 days it lists
+  nothing and says so: `learning` carries when learning started (`since`), when it is ready
+  (`until`), the `day` (1 to 7) and `hoursLearned` of the week's 168. It is part of Pro in WatchLog Cloud: on
   Cloud Free it answers that What changed is part of Pro, and a self-hosted Community install
   doesn't list it at all ([What changed](what-changed.md)).
 - **Logs:** at most 200 lines and 16 KB, newest last; the oldest are left out first. Lines are

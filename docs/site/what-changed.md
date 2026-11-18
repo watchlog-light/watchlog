@@ -71,15 +71,45 @@ A series is used once it has **7 days** of its own data. Until then, What change
 "learning":
 
 - **Learning starts when your organization gets Pro:** at the 0.8.0 update for organizations
-  already on Pro, or when you upgrade. The baselines read only the data from then on, never the
-  history before it.
-- **The page says so.** For the first 7 days the page, the alert card and the API say
-  "Learning acme-prod's usual week until <date>", list nothing, and no anomaly alert fires.
-  After that, each series with 7 days of data is used; a cluster, workload or container added
-  later starts learning when it first reports.
+  already on Pro, or the minute you upgrade. The baselines read only the data from then on,
+  never the history before it.
+- **Nothing is listed for the first 7 days,** and no anomaly alert fires. After that, each
+  series with 7 days of data is used; a cluster, workload, server or container added later
+  starts learning when it first reports.
 - **After 14 days** each hour of the week has two weeks behind it.
 - **A downgrade** stops the scoring at once. The baselines are kept for 30 days, so upgrading
   again within that time picks up where it stopped.
+
+### What the first week looks like
+
+For those 7 days the page shows the learning week instead of the list:
+
+![The learning page on day 3: a ring of seven days around a brain, the ready date, the series watched, and the hours of the week learned so far](../images/what-changed-learning.png)
+
+- **Which day it is and when it is ready:** "Learning · day 3 of 7" and "Ready on Wed 25 Nov,
+  about 14:10", in your own time zone, with the time to go.
+- **What it is reading:** the number of series, and what they are in your platform's words
+  (nodes, workloads and applications; or servers, services, process groups, containers and
+  applications).
+- **The week it is learning:** one square for each of the week's 168 hours: learned, this
+  hour, or not seen yet. What changed compares "now" with the same hour on the same weekday,
+  so it needs to see every square once. An hour in which your agents sent nothing stays empty,
+  and so does one in which an alert was firing on everything.
+- **Email me when it's ready:** one email to your own address the minute the list turns on,
+  for that cluster or fleet. Every member can ask, Viewers too, and pressing the button again
+  undoes it. Nothing is sent if the organization has left Pro by then.
+- **What already works:** alerts, probable cause, Egress watch and the service map don't wait
+  for the learning week.
+
+Elsewhere the same is said in small: an alert's "What changed around it" card is one line with
+the ready date, and the navigation shows "day 3/7" beside What changed.
+
+Later, when the list is on and a server or workload that joined afterwards is still inside its
+own 7 days, a line above the list says how many series are still learning and when the last is
+ready.
+
+On Cloud Free the page shows the same picture waiting, labelled "Not learning yet": nothing is
+learned on Free, and the date on it is when What changed would be ready if you upgraded today.
 
 **The live demo is the exception.** It learns from the 7 days of history it keeps when it
 starts, so its page lists changes right away. It also has a scenario of its own for What
@@ -182,7 +212,9 @@ sends nothing anywhere: your install keeps everything it has, with no limits.
 ## API and MCP
 
 - **REST:** `GET /api/v1/what-changed?cluster=…&alert=…` or `…&from=…&to=…` (Unix seconds, at
-  most 24 hours), `sort=first|furthest`: at most 50 rows with the learning state and the
+  most 24 hours), `sort=first|furthest`: at most 50 rows with the learning state (`learning`: whether it is
+  learning, `since`, `until`, `day`, `hoursLearned` of 168, the `week` as 168 characters and
+  the `series`) and the
   probable cause's short form. API tokens with the read scope can call it. See
   [API](api.md#for-both-kinds).
 - **MCP:** `get_what_changed` with the same arguments, at most 30 rows and 16 KB, each row in

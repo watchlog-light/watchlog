@@ -220,7 +220,9 @@ curl -H "$H" "$WATCHLOG/api/v1/egress/policy?cluster=$CLUSTER&workload=shop/Depl
 # week, on a Kubernetes cluster or a Server fleet. Around an alert (an hour before it started
 # to 15 minutes after), or from/to (Unix seconds, at most 24 hours; the last hour by
 # default); sort=first (the first to move, the default) or furthest. At most 50 rows with
-# total and truncated, the learning state and the probable cause's short form. Cloud Free
+# total and truncated, the learning state (for the first 7 days nothing is listed: `learning`
+# says which day it is, when it is ready and which hours of the week are learned) and the
+# probable cause's short form. Cloud Free
 # answers 403 pro-feature; a self-hosted Community install answers 404. The anomaly alert's
 # page and "Was this worth an alert?" need a browser session: tokens can't
 curl -H "$H" "$WATCHLOG/api/v1/what-changed?cluster=$CLUSTER&alert=$ALERT"
