@@ -421,6 +421,30 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     },
     host,
   );
+  // The fleet's own events (0.9.2): a process group's failed exit and a service's failure.
+  await ingest(
+    app,
+    docker.token,
+    'events',
+    {
+      events: [
+        ['Process', `${label}-worker`, 'FailedExit', `${label} exited with code 1`],
+        ['Service', `${label}-orders.service`, 'Failed', `${label} failed (exit-code)`],
+      ].map(([kind, name, reason, message]) => ({
+        uid: `sv-${label}-${reason}`,
+        host,
+        involved: { kind, name },
+        type: 'Warning',
+        reason,
+        message,
+        count: 2,
+        first_ts: new Date(now - 600_000).toISOString(),
+        last_ts: new Date(now - 60_000).toISOString(),
+        reporting_controller: 'watchlog-agent',
+      })),
+    },
+    host,
+  );
   await writeSeries(
     app,
     docker.token,

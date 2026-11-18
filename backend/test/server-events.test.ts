@@ -5,12 +5,24 @@
 // and kind, faceted by workload, and "Hide system" leaves out the OS's own by identity, never
 // a foreign process named like ours. The server page and a workload page read them.
 import { afterEach, describe, expect, it } from 'vitest';
+import { versionAtLeast } from '../src/modules/servers/routes.js';
 import { closeTestContext, createTestContext, setupAdmin, type TestContext } from './helpers.js';
 
 let ctx: TestContext;
-afterEach(() => closeTestContext(ctx));
+afterEach(async () => {
+  if (ctx) await closeTestContext(ctx);
+});
 
 describe('server events', () => {
+  it("tell a 0.9.2 agent's server by its version", () => {
+    expect(versionAtLeast('0.9.2', '0.9.2')).toBe(true);
+    expect(versionAtLeast('0.10.0', '0.9.2')).toBe(true);
+    expect(versionAtLeast('v1.0.0-rc.1', '0.9.2')).toBe(true);
+    expect(versionAtLeast('0.9.1', '0.9.2')).toBe(false);
+    expect(versionAtLeast('dev', '0.9.2')).toBe(false);
+    expect(versionAtLeast(null, '0.9.2')).toBe(false);
+  });
+
   it('are stored, grouped, listed with their workload, filtered, faceted and hidden by identity', async () => {
     ctx = await createTestContext();
     const cookie = await setupAdmin(ctx.app);

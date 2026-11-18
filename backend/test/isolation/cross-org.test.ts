@@ -297,6 +297,39 @@ describe('every REST route as org B with org A ids', () => {
     }
   });
 
+  it("server events (0.9.2): B can't read A's fleet's events by any filter, and B's own hold none of A's", async () => {
+    const eventsOf = async (as: SeededOrg, cluster: string, path: string, q: object) =>
+      w.app.inject({
+        method: 'GET',
+        url: `/api/v1/clusters/${cluster}/events${path}`,
+        query: { from: String(Math.floor(Date.now() / 1000) - 3600), ...q },
+        cookies: { wl_session: await as.session() },
+      });
+    const filters = (o: SeededOrg) => [
+      {},
+      { system: 'hide' },
+      { workloads: `process:${o.label}-worker`, system: 'hide' },
+      { kinds: 'Service,Process', hosts: `${o.label}-host` },
+    ];
+    for (const path of ['', '/summary']) {
+      for (const q of filters(A)) {
+        const b = await eventsOf(B, A.docker.id, path, q);
+        expect(b.statusCode, path + JSON.stringify(q)).toBe(404);
+        expect(leaks(b.body, A.docker.id + JSON.stringify(q))).toEqual([]);
+        // B's own fleet with A's workload names: nothing of A.
+        const own = await eventsOf(B, B.docker.id, path, q);
+        expect(own.statusCode).toBe(200);
+        expect(leaks(own.body, JSON.stringify(q))).toEqual([]);
+      }
+      // The control: each reads its own fleet's events, filtered by its own workload.
+      for (const o of [A, B]) {
+        const own = await eventsOf(o, o.docker.id, path, filters(o)[2]!);
+        expect(own.statusCode).toBe(200);
+        expect(own.body).toContain(`process:${o.label}-worker`);
+      }
+    }
+  });
+
   it("egress (ADR-192): B can't read A's clusters' destinations, and B's own hold none of A's", async () => {
     const egressOf = async (as: SeededOrg, cluster: string, extra: Record<string, string> = {}) =>
       w.app.inject({
@@ -718,6 +751,39 @@ describe('every MCP tool', () => {
         expect(a.isError, tool).toBe(false);
         expect(a.text).toContain(marker.replace('%s', 'zzalpha'));
       }
+    }
+    await asA.close();
+    await asB.close();
+  });
+
+  it("get_events' server filters (0.9.2): B with A's fleet gets an error and nothing of A; B's own, A's control", async () => {
+    const asB = await connect(B.apiToken.value);
+    const asA = await connect(A.apiToken.value);
+    const call = async (c: Client, args: Record<string, unknown>) => {
+      const r = await c.callTool({ name: 'get_events', arguments: args });
+      const t = (r.content as { type: string; text?: string }[])
+        .map((x) => x.text ?? '')
+        .join('\n');
+      return { isError: r.isError === true, text: t };
+    };
+    for (const cluster of [A.docker.id, 'zzalpha-fleet']) {
+      const args = { cluster, workload: 'process:zzalpha-worker', kind: 'Process' };
+      const b = await call(asB, args);
+      expect(b.isError, cluster).toBe(true);
+      expect(leaks(b.text, JSON.stringify(args))).toEqual([]);
+    }
+    for (const [o, c, other] of [
+      [B, asB, A],
+      [A, asA, B],
+    ] as const) {
+      const own = await call(c, {
+        cluster: o.docker.id,
+        workload: `process:${o.label}-worker`,
+        kind: 'Process',
+      });
+      expect(own.isError, own.text.slice(0, 200)).toBe(false);
+      expect(own.text).toContain(`process:${o.label}-worker`);
+      expect(leaks(own.text, '', other)).toEqual([]);
     }
     await asA.close();
     await asB.close();
