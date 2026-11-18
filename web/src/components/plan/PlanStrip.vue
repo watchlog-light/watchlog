@@ -11,7 +11,7 @@ import { usePlanStore } from '@/stores/plan';
 // beta's Pro says "free during beta" next to the plan's name (ADR-178). The plan's name is
 // the org's entitlement, which also decides the Pro features (ADR-205), so the strip and What
 // changed always agree. Free's link: "Try Pro, free during beta" while billing is off,
-// "Upgrade to Pro · $1 per node" once it is live (the price from GET /plan).
+// "Upgrade to Pro · $3 per node" once it is live (the price from GET /plan).
 defineProps<{ inline?: boolean }>();
 const { t } = useI18n();
 const plan = usePlanStore();

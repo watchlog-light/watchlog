@@ -11,6 +11,7 @@ import {
   type BillingState,
 } from '@/api/cloud';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import { money } from '@/lib/what-changed-upgrade';
 import { useAuthStore } from '@/stores/auth';
 import { usePlanStore } from '@/stores/plan';
 
@@ -109,25 +110,52 @@ const meters = computed<Meter[]>(() => {
   ];
 });
 
-// The estimate (the screen's slider): $1 a node a month, $10 minimum; annual is $10 a node
-// a year for at least 10 nodes, two months free (SPEC §3.2, ADR-178).
+// The estimate (the screen's slider), from Pro's price in GET /plan (the plans config, SPEC
+// §3.3, ADR-215): a price per node a month with a minimum that covers the first nodes;
+// annual is a committed count at ten months' price, with a smallest commitment.
 const estimateNodes = ref(12);
 const interval = ref<BillingInterval>('monthly');
-const billed = computed(() => Math.max(10, estimateNodes.value));
-const price = computed(() =>
-  interval.value === 'annual'
-    ? t('cloud.plan.billing.perYear', { n: billed.value * 10 })
-    : t('cloud.plan.billing.perMonth', { n: billed.value }),
+const pr = computed(() => p.value?.price ?? null);
+const usd = (amount: number) => money(amount, pr.value?.currency ?? 'USD');
+/** How many nodes the monthly minimum covers. */
+const minimumNodes = computed(() =>
+  pr.value ? Math.ceil(pr.value.minimumMonth / pr.value.perNodeMonth) : 0,
 );
+/** The count a subscription is for: annual commits to at least its smallest commitment. */
+const billed = computed(() =>
+  Math.max(
+    interval.value === 'annual' ? (pr.value?.annualMinimumNodes ?? 0) : minimumNodes.value,
+    estimateNodes.value,
+  ),
+);
+const price = computed(() => {
+  if (!pr.value) return '';
+  return interval.value === 'annual'
+    ? t('cloud.plan.billing.perYear', { amount: usd(billed.value * pr.value.annualPerNode) })
+    : t('cloud.plan.billing.perMonth', {
+        amount: usd(Math.max(pr.value.minimumMonth, estimateNodes.value * pr.value.perNodeMonth)),
+      });
+});
 const priceNote = computed(() => {
+  const x = pr.value;
+  if (!x) return '';
   if (interval.value === 'annual') {
-    return estimateNodes.value < 10
-      ? t('cloud.plan.billing.annualMinimum')
-      : t('cloud.plan.billing.annualSaves', { n: billed.value * 2 });
+    return estimateNodes.value < x.annualMinimumNodes
+      ? t('cloud.plan.billing.annualMinimum', {
+          n: x.annualMinimumNodes,
+          perNode: usd(x.annualPerNode),
+        })
+      : t('cloud.plan.billing.annualSaves', {
+          perNode: usd(x.annualPerNode),
+          saves: usd(billed.value * (12 * x.perNodeMonth - x.annualPerNode)),
+        });
   }
-  return estimateNodes.value < 10
-    ? t('cloud.plan.billing.minimum')
-    : t('cloud.plan.billing.perNode');
+  return estimateNodes.value < minimumNodes.value
+    ? t('cloud.plan.billing.minimum', {
+        minimum: usd(x.minimumMonth),
+        perNode: usd(x.perNodeMonth),
+      })
+    : t('cloud.plan.billing.perNode', { perNode: usd(x.perNodeMonth) });
 });
 
 const PAYING = ['active', 'trialing', 'past_due', 'unpaid'];
@@ -342,7 +370,7 @@ async function run(kind: 'beta' | 'checkout' | 'portal') {
                 action === 'beta'
                   ? $t('cloud.plan.billing.startBetaNote')
                   : interval === 'annual'
-                    ? `${$t('cloud.plan.billing.annualCommit', { n: billed })} ${$t('cloud.plan.billing.upgradeNote')}`
+                    ? `${$t('cloud.plan.billing.annualCommit', { n: billed, perNode: usd(pr?.perNodeMonth ?? 0) })} ${$t('cloud.plan.billing.upgradeNote')}`
                     : $t('cloud.plan.billing.upgradeNote')
               }}
             </p>
@@ -372,7 +400,12 @@ async function run(kind: 'beta' | 'checkout' | 'portal') {
               }}
             </p>
             <p v-if="subscribed.committedNodes" class="text-13 text-text-muted">
-              {{ $t('cloud.plan.billing.committed', { n: subscribed.committedNodes }) }}
+              {{
+                $t('cloud.plan.billing.committed', {
+                  n: subscribed.committedNodes,
+                  perNode: usd(pr?.perNodeMonth ?? 0),
+                })
+              }}
             </p>
             <p
               v-if="subscribed.cancelAtPeriodEnd && subscribed.currentPeriodEnd"

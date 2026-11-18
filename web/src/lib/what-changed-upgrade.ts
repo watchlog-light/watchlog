@@ -24,7 +24,7 @@ export function upgradeAction(
   return billing?.available && billing.live ? 'checkout' : 'plan';
 }
 
-/** "$1", "$10": whole amounts in the plans config's currency. */
+/** "$3", "$15": whole amounts in the plans config's currency. */
 export function money(amount: number, currency: string, locale = 'en'): string {
   return new Intl.NumberFormat(locale, {
     style: 'currency',

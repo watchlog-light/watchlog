@@ -13,7 +13,7 @@ export const usePlanStore = defineStore('plan', () => {
   const loaded = ref(false);
   /**
    * The billing service's live switch (ADR-178), read once a session for a Free org: the
-   * strip's "Try Pro, free during beta" while it is off, "Upgrade to Pro · $1 per node" once
+   * strip's "Try Pro, free during beta" while it is off, "Upgrade to Pro · $3 per node" once
    * it is on (ADR-205). Null: not asked, or billing couldn't be reached (the beta's text).
    */
   const billing = ref<BillingState | null>(null);
