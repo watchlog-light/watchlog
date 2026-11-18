@@ -176,9 +176,12 @@ describe('server events', () => {
     ).toBe(204);
     const server = await get('/servers/web-1');
     expect(server.eventsStored).toBe(true);
-    expect(
-      server.events.filter((e: { kind: string }) => e.kind === 'event').length,
-    ).toBeGreaterThanOrEqual(6);
+    // The OS's own (cron.service, bash) are left out, as Hide system does; another product's
+    // watchlog-agent stays.
+    const names = server.events
+      .filter((e: { kind: string }) => e.kind === 'event')
+      .map((e: { text: string }) => e.text);
+    expect(names.sort()).toEqual(['activity2', 'activity2', 'orders.service', 'watchlog-agent']);
     expect(server.events.find((e: { reason?: string }) => e.reason === 'Failed')).toMatchObject({
       workloadId: 'service:orders.service',
       type: 'Warning',
