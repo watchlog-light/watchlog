@@ -3,6 +3,18 @@
 // and every claim true of the product as it ships (alerts every 30 s, the default rules,
 // the likely cause, the service map, MCP, the install page's checks after 2 minutes, the
 // Free limits). Each ends with how to stop them; the beta notice is a service notice.
+// Pro's price in the notice comes from the plans config (ADR-215), never written here.
+import { PRO_PRICE } from '../entitlements/plans.js';
+
+const usd = (n: number) =>
+  new Intl.NumberFormat('en', {
+    style: 'currency',
+    currency: PRO_PRICE.currency,
+    minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+  }).format(n);
+/** "$3 per node (or server) a month, $15 minimum (the first 5 nodes); or $30 per node a year." */
+export const proPriceLine = (): string =>
+  `${usd(PRO_PRICE.perNodeMonth)} per node (or server) a month, ${usd(PRO_PRICE.minimumMonth)} minimum (the first ${Math.ceil(PRO_PRICE.minimumMonth / PRO_PRICE.perNodeMonth)} nodes); or ${usd(PRO_PRICE.annualPerNode)} per node a year.`;
 
 export type LifecycleKind =
   'welcome' | 'no_data' | 'first_alert' | 'day3_tips' | 'near_limit' | 'beta_notice';
@@ -135,7 +147,7 @@ export function lifecycleEmail(
           `${c.orgName} has ${c.nodes ?? 0} nodes sending data. Cloud Free includes ${c.nodeLimit ?? 5}.`,
           '',
           'A node beyond the limit is refused and its data is not stored; the nodes already sending',
-          'keep sending. Pro has no node limit and is free during the beta:',
+          'keep sending. Pro has no node limit; what it costs is on the plan page:',
           `${c.site}/settings?tab=billing`,
           ...sign,
           ...footer(c),
@@ -150,7 +162,7 @@ export function lifecycleEmail(
           `${c.orgName} is on Pro, free during the beta. Billing for Pro starts on ${c.billingStartsAt ? day(c.billingStartsAt) : 'the date in Settings › Plan & billing'}.`,
           '',
           'Before then, choose what happens:',
-          '- keep Pro: add a payment method in Settings › Plan & billing;',
+          `- keep Pro: add a payment method in Settings › Plan & billing. Pro is ${proPriceLine()}`,
           '- or do nothing: the org moves to Free. Your data stays until its retention ends.',
           `${c.site}/settings?tab=billing`,
           '',

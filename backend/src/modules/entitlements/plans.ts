@@ -54,17 +54,19 @@ export const PLAN_DEFAULTS: Record<CloudPlan, PlanLimits> = {
 };
 
 /**
- * Pro's price (SPEC §3.3, ADR-178), in whole US dollars: $1 per node a month with a $10
- * minimum, billed on the 95th percentile of hourly nodes; annual is $10 per node a year for
- * at least 10 nodes. The billing service's Stripe prices are made to match; the pages show
- * these numbers (the upgrade page, ADR-201) instead of writing them into their copy.
+ * Pro's price (SPEC §3.3, ADR-215, which amends ADR-177 and ADR-178), in whole US dollars:
+ * $3 per node (or server) a month with a $15 minimum, which covers the first 5 nodes,
+ * billed on the 95th percentile of hourly nodes; annual is $30 per node a year (ten months'
+ * price) for at least 5 nodes. The billing service's Stripe prices are made to match; the
+ * pages show these numbers (the plan page, the plan strip, the upgrade page, ADR-201)
+ * instead of writing them into their copy.
  */
 export const PRO_PRICE = {
   currency: 'USD',
-  perNodeMonth: 1,
-  minimumMonth: 10,
-  annualPerNode: 10,
-  annualMinimumNodes: 10,
+  perNodeMonth: 3,
+  minimumMonth: 15,
+  annualPerNode: 30,
+  annualMinimumNodes: 5,
 } as const;
 export type ProPrice = typeof PRO_PRICE;
 
