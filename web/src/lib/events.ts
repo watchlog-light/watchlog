@@ -41,6 +41,9 @@ export function objectName(e: Pick<KubeEvent, 'namespace' | 'involvedName' | 'ho
 
 /** Where an event's object can be opened. */
 export function objectLink(e: KubeEvent): RouteLocationRaw | undefined {
+  // A Server fleet's service, process group or container: its workload page (0.9.2).
+  if (e.workload && e.host)
+    return { name: 'server-workload', params: { server: e.host, workload: e.workload } };
   if (e.involvedKind === 'Pod' && e.namespace)
     return { name: 'pod', params: { namespace: e.namespace, name: e.involvedName } };
   if (e.involvedKind === 'Node') return { name: 'node', params: { name: e.involvedName } };
@@ -199,4 +202,24 @@ export function groupTitle(
             kind: shortKind(item.kind),
           });
   }
+}
+
+/** A workload id's kind and name: `process:pm2` → { kind: 'process', name: 'pm2' }. */
+export function splitWorkload(id: string): { kind: string; name: string } {
+  const i = id.indexOf(':');
+  return i > 0 ? { kind: id.slice(0, i), name: id.slice(i + 1) } : { kind: '', name: id };
+}
+
+/** True when an agent version is older than `min` (both `major.minor.patch`). */
+export function agentBefore(version: string | null | undefined, min: string): boolean {
+  if (!version) return false;
+  const a = version.replace(/^v/, '').split(/[.-]/).map(Number);
+  const b = min.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const x = a[i] ?? 0;
+    const y = b[i] ?? 0;
+    if (Number.isNaN(x)) return false;
+    if (x !== y) return x < y;
+  }
+  return false;
 }

@@ -2,27 +2,39 @@
 <script setup lang="ts">
 import type { KubeEventSummary } from '@watchlog/api-types';
 import { computed, reactive } from 'vue';
+import { splitWorkload } from '@/lib/events';
 
 // Facets for the Events page: kind, namespace (with "cluster-wide") and reason, each
 // value with its count. Nothing ticked means all; ticking narrows to the ticked values.
 // Long lists show the top values first.
-export type Facet = 'kinds' | 'ns' | 'reasons' | 'hosts';
+export type Facet = 'kinds' | 'ns' | 'reasons' | 'hosts' | 'workloads';
 const TOP = 8;
-// Docker fleets: a host facet, and Compose projects (Standalone for the rest).
+// Server fleets (`docker`): Server and Workload facets (a workload with its kind); the
+// Compose project only within containers (Container ticked, or a project chosen).
 const props = defineProps<{
   facets: KubeEventSummary['facets'] | null;
   selected: Record<Facet, string[]>;
   docker?: boolean;
 }>();
-const FACETS = computed<Facet[]>(() =>
-  props.docker ? ['kinds', 'hosts', 'ns', 'reasons'] : ['kinds', 'ns', 'reasons'],
-);
+const FACETS = computed<Facet[]>(() => {
+  if (!props.docker) return ['kinds', 'ns', 'reasons'];
+  const projects = props.selected.kinds.includes('Container') || props.selected.ns.length > 0;
+  return projects
+    ? ['kinds', 'hosts', 'workloads', 'ns', 'reasons']
+    : ['kinds', 'hosts', 'workloads', 'reasons'];
+});
+const LABEL: Partial<Record<Facet, string>> = {
+  hosts: 'servers',
+  ns: 'projects',
+  workloads: 'workloads',
+};
 const emit = defineEmits<{ change: [facet: Facet, values: string[]] }>();
 const expanded = reactive<Record<Facet, boolean>>({
   kinds: false,
   ns: false,
   reasons: false,
   hosts: false,
+  workloads: false,
 });
 const fmt = new Intl.NumberFormat('en');
 
@@ -34,7 +46,9 @@ const rows = (f: Facet) => {
         ? props.facets?.namespaces
         : f === 'hosts'
           ? props.facets?.hosts
-          : props.facets?.reasons;
+          : f === 'workloads'
+            ? props.facets?.workloads
+            : props.facets?.reasons;
   const values = (list ?? []).map((x) => ({ value: x.value, count: x.count }));
   // Ticked values stay listed even when they have nothing in this range.
   for (const v of props.selected[f])
@@ -51,7 +65,7 @@ function toggle(f: Facet, value: string) {
   <aside class="facets" data-testid="event-facets">
     <div v-for="f in FACETS" :key="f" :data-testid="`facet-${f}`">
       <div class="mb-1.5 flex items-center justify-between">
-        <h3>{{ $t(`kube.events.facets.${docker && f === 'ns' ? 'projects' : f}`) }}</h3>
+        <h3>{{ $t(`kube.events.facets.${(docker && LABEL[f]) || f}`) }}</h3>
         <button
           v-if="selected[f].length"
           type="button"
@@ -72,7 +86,18 @@ function toggle(f: Facet, value: string) {
           :checked="selected[f].includes(r.value)"
           @change="toggle(f, r.value)"
         />
-        <span class="min-w-0 truncate" :title="r.value">{{
+        <template v-if="f === 'workloads'">
+          <span class="min-w-0 truncate font-mono text-12" :title="r.value">{{
+            splitWorkload(r.value).name
+          }}</span>
+          <span class="kt">{{
+            $t(
+              `kube.events.facets.kind.${splitWorkload(r.value).kind}`,
+              splitWorkload(r.value).kind,
+            )
+          }}</span>
+        </template>
+        <span v-else class="min-w-0 truncate" :title="r.value">{{
           f === 'ns' && r.value === '-'
             ? $t(docker ? 'kube.events.facets.standalone' : 'kube.events.facets.clusterWide')
             : r.value
@@ -131,6 +156,11 @@ h3 {
 .fc input {
   margin: 0;
   accent-color: var(--primary);
+}
+.kt {
+  flex-shrink: 0;
+  color: var(--text-subtle);
+  font-size: 12px;
 }
 .n {
   margin-left: auto;

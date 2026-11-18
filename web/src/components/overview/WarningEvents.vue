@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
-import { EVENT_HINTS, visibleEvents, type Overview } from '@/lib/overview';
+import { EVENT_HINTS, eventObjectLink, visibleEvents, type Overview } from '@/lib/overview';
 import { since } from '@/lib/time';
 import OverviewCard from './OverviewCard.vue';
 
@@ -70,7 +70,14 @@ const count = (n: number) => new Intl.NumberFormat('en').format(n);
             :title="`${e.kind} ${e.namespace ? `${e.namespace}/` : ''}${e.name}`"
           >
             {{ e.kind }}
-            <code class="font-mono text-12"
+            <RouterLink
+              v-if="eventObjectLink(e)"
+              :to="eventObjectLink(e)!"
+              class="font-mono text-12 hover:underline"
+              data-testid="event-object-link"
+              >{{ e.namespace ? `${e.namespace}/` : '' }}{{ e.name }}</RouterLink
+            >
+            <code v-else class="font-mono text-12"
               >{{ e.namespace ? `${e.namespace}/` : '' }}{{ e.name }}</code
             >
           </span>

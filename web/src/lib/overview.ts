@@ -86,6 +86,24 @@ export function markerLink(m: OverviewMarker): RouteLocationRaw | undefined {
   return undefined;
 }
 
+/**
+ * Where a warning event's object opens: a server's service or process group (its server
+ * in `namespace`, 0.9.2) on its workload page; a pod or a node on theirs.
+ */
+export function eventObjectLink(
+  e: Pick<OverviewEvent, 'kind' | 'namespace' | 'name'>,
+): RouteLocationRaw | undefined {
+  if ((e.kind === 'Service' || e.kind === 'Process') && e.namespace)
+    return {
+      name: 'server-workload',
+      params: { server: e.namespace, workload: `${e.kind.toLowerCase()}:${e.name}` },
+    };
+  if (e.kind === 'Pod' && e.namespace)
+    return { name: 'pod', params: { namespace: e.namespace, name: e.name } };
+  if (e.kind === 'Node') return { name: 'node', params: { name: e.name } };
+  return undefined;
+}
+
 /** Where a problem leads: its alert, else its object. */
 export function problemLink(p: OverviewProblem): RouteLocationRaw {
   if (p.alertId) return { name: 'alert', params: { id: p.alertId } };

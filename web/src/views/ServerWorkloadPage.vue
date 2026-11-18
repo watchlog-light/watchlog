@@ -122,6 +122,14 @@ const tiles = computed(() => {
   return out;
 });
 
+// "14:05", or "Nov 17 14:05" before today.
+const eventTime = (unix: number) => {
+  const t = new Date(unix * 1000);
+  const hm = t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return t.toDateString() === new Date().toDateString()
+    ? hm
+    : `${t.toLocaleDateString('en', { month: 'short', day: 'numeric' })} ${hm}`;
+};
 const bars = computed(() => (d.value ? timelineBars(d.value.timeline.points) : []));
 const quiet = computed(() => bars.value.every((b) => b.crashes === 0 && b.restarts === 0));
 const at = (unix: number) => {
@@ -433,6 +441,40 @@ onMounted(() => {
         <p v-if="quiet" class="mt-2 text-13 text-text-muted">
           {{ $t('servers.workload.timeline.empty') }}
         </p>
+      </div>
+
+      <div data-testid="workload-events">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 class="text-14 font-semibold text-text">
+            {{ $t('servers.workload.events.title') }}
+          </h3>
+          <RouterLink
+            :to="{ name: 'events', query: { host: server, workload: id, type: 'all' } }"
+            class="text-12 text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+            data-testid="workload-events-link"
+            >{{ $t('servers.workload.events.all') }}</RouterLink
+          >
+        </div>
+        <ul v-if="d.events.length" class="mt-2 flex flex-col gap-1.5 text-13">
+          <li
+            v-for="e in d.events"
+            :key="`${e.reason}/${e.lastSeen}`"
+            class="flex flex-wrap items-baseline gap-x-2"
+            data-testid="workload-event"
+          >
+            <span class="font-mono text-12 text-text-subtle">{{ eventTime(e.lastSeen) }}</span>
+            <span
+              class="font-medium"
+              :class="e.type === 'Warning' ? 'text-warning' : 'text-text'"
+              >{{ e.reason }}</span
+            >
+            <span class="min-w-0 text-text-muted">{{ e.message }}</span>
+            <span v-if="e.count > 1" class="font-mono text-12 text-text-subtle"
+              >×{{ e.count }}</span
+            >
+          </li>
+        </ul>
+        <p v-else class="mt-2 text-13 text-text-muted">{{ $t('servers.workload.events.empty') }}</p>
       </div>
 
       <div v-if="d.related.length">

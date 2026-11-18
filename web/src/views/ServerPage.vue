@@ -131,7 +131,11 @@ const chips = computed(() => {
 });
 
 const eventText = (e: ServerDetail['events'][number]) =>
-  t(`servers.events.${e.kind}`, { name: e.text, n: e.count }, e.count);
+  e.kind === 'event'
+    ? t('servers.events.event', { name: e.text, reason: e.reason ?? '' })
+    : t(`servers.events.${e.kind}`, { name: e.text, n: e.count }, e.count);
+const eventClock = (unix: number) =>
+  new Date(unix * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const eventLink = (e: ServerDetail['events'][number]) =>
   e.alertId
     ? { name: 'alert', params: { id: e.alertId } }
@@ -412,14 +416,49 @@ onMounted(() => {
       >
         <h3 class="mb-3 text-16 font-semibold text-text">{{ $t('servers.events.title') }}</h3>
         <ul v-if="detail.events.length" class="flex flex-col gap-2 text-13">
-          <li v-for="(e, i) in detail.events" :key="i">
-            <RouterLink v-if="eventLink(e)" :to="eventLink(e)!" class="text-text hover:underline">
+          <li
+            v-for="(e, i) in detail.events"
+            :key="i"
+            class="flex min-w-0 flex-wrap items-baseline gap-x-2"
+            data-testid="server-event"
+          >
+            <span v-if="e.at" class="font-mono text-12 text-text-subtle">{{
+              eventClock(e.at)
+            }}</span>
+            <RouterLink
+              v-if="eventLink(e)"
+              :to="eventLink(e)!"
+              class="hover:underline"
+              :class="e.type === 'Warning' ? 'text-warning' : 'text-text'"
+            >
               {{ eventText(e) }}
             </RouterLink>
             <span v-else class="text-text">{{ eventText(e) }}</span>
+            <span v-if="e.message" class="min-w-0 text-text-muted">{{ e.message }}</span>
+            <span
+              v-if="e.kind === 'event' && e.count > 1"
+              class="font-mono text-12 text-text-subtle"
+              >×{{ e.count }}</span
+            >
           </li>
         </ul>
-        <p v-else class="text-13 text-text-muted">{{ $t('servers.events.empty') }}</p>
+        <p v-else class="text-13 text-text-muted">
+          {{ $t(detail.eventsStored ? 'servers.events.emptyStored' : 'servers.events.empty') }}
+        </p>
+        <p
+          v-if="!detail.eventsStored"
+          class="mt-3 text-12 text-text-subtle"
+          data-testid="server-events-old-agent"
+        >
+          {{ $t('servers.events.oldAgent') }}
+        </p>
+        <RouterLink
+          v-else
+          :to="{ name: 'events', query: { host: name, type: 'all' } }"
+          class="mt-3 inline-block text-12 text-primary hover:underline max-lg:min-h-11"
+          data-testid="server-events-link"
+          >{{ $t('servers.events.all') }}</RouterLink
+        >
       </section>
       <section
         class="rounded-card border border-border bg-surface-1 px-5 py-4"

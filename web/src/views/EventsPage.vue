@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { Hourglass, ScrollText, SearchX } from '@lucide/vue';
+import { EyeOff, Hourglass, ScrollText, SearchX } from '@lucide/vue';
 import type { KubeEvent, KubeEventPage, KubeEventSummary } from '@watchlog/api-types';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -20,9 +20,10 @@ import { useListFilter } from '@/composables/useListFilter';
 import { useNarrow } from '@/composables/useNarrow';
 import { useLoader } from '@/composables/useLoader';
 import { useNamespaceFilter, withQuery } from '@/composables/useNamespaceFilter';
-import { groupEvents, ungrouped } from '@/lib/events';
+import { agentBefore, groupEvents, ungrouped } from '@/lib/events';
 import { clockTime, RANGE_SECONDS } from '@/lib/time';
 import { useClustersStore } from '@/stores/clusters';
+import { useDockerScopeStore } from '@/stores/dockerScope';
 import { useUiStore } from '@/stores/ui';
 
 // Kubernetes events (SPEC §4.6, ADR-111): events per
@@ -30,6 +31,9 @@ import { useUiStore } from '@/stores/ui';
 // newest first with day separators, grouped by default, paged with "Load older".
 // Warnings are the default (?type=all|Normal); facets are ?kinds=, ?ns= ("-" is
 // cluster-wide), ?reasons=; a zoomed range is ?from=&to= (Unix seconds).
+// Server fleets (0.9.2, ADR-207/208 amended): their services', process groups' and
+// containers' events, with Server and Workload facets (?hosts=, ?workloads=; the top bar's
+// ?host= and ?workload= add to them) and "Hide system" on by default (?system=show).
 // Grouping folds many events into few rows, so grouped pages are larger.
 const PAGE = 100;
 const GROUPED_PAGE = 300;
@@ -42,6 +46,14 @@ const kube = computed(() => ({ cluster: clusters.selected }));
 const ui = useUiStore();
 const ns = useNamespaceFilter();
 const filter = useListFilter();
+const scope = useDockerScopeStore();
+const isServer = computed(() => clusters.selected?.kind === 'server');
+const showSystem = computed(() => route.query.system === 'show');
+// Services' and process groups' events come from the 0.9.2 agent; an older one sends only
+// its containers' events.
+const oldAgent = computed(
+  () => isServer.value && agentBefore(clusters.selected?.agentVersion, '0.9.2'),
+);
 const str = (v: unknown) => (typeof v === 'string' && v ? v : '');
 const csv = (v: unknown) => str(v).split(',').filter(Boolean);
 
@@ -62,6 +74,7 @@ const selected = computed<Record<Facet, string[]>>(() => ({
   ns: [...new Set([...csv(route.query.ns), ...csv(route.query.project)])],
   reasons: csv(route.query.reasons),
   hosts: [...new Set([...csv(route.query.hosts), ...csv(route.query.host)])],
+  workloads: [...new Set([...csv(route.query.workloads), ...csv(route.query.workload)])],
 }));
 const name = computed(() => str(route.query.name));
 const grouped = computed(() => route.query.group !== '0');
@@ -83,6 +96,8 @@ function params(w: { from: number; to: number }) {
   if (selected.value.ns.length) q.set('ns', selected.value.ns.join(','));
   if (selected.value.reasons.length) q.set('reasons', selected.value.reasons.join(','));
   if (selected.value.hosts.length) q.set('hosts', selected.value.hosts.join(','));
+  if (selected.value.workloads.length) q.set('workloads', selected.value.workloads.join(','));
+  if (isServer.value && !showSystem.value) q.set('system', 'hide');
   if (name.value) q.set('name', name.value);
   if (filter.query.value.trim()) q.set('q', filter.query.value.trim());
   q.set('from', String(w.from));
@@ -109,6 +124,10 @@ const page = useLoader(async () => {
   ]);
   events.value = res.events;
   cursor.value = res.nextCursor;
+  if (cluster.kind === 'server') {
+    scope.workloads = (summary.facets.workloads ?? []).map((w) => w.value);
+    scope.hosts = [...new Set([...scope.hosts, ...summary.facets.hosts.map((h) => h.value)])];
+  }
   return { summary };
 });
 const summary = computed(() => page.data.value?.summary ?? null);
@@ -161,6 +180,7 @@ function clearFilters() {
     ns: undefined,
     reasons: undefined,
     hosts: undefined,
+    workloads: undefined,
     name: undefined,
   });
 }
@@ -175,6 +195,7 @@ watch(
     filter.query.value,
     ns.query.value,
     ui.timeRange,
+    showSystem.value,
   ],
   () => void page.load(),
   { deep: true },
@@ -231,6 +252,13 @@ onMounted(page.load);
           />
           <LoadingIndicator :active="page.refreshing.value" />
           <span class="flex-1" />
+          <ToggleSwitch
+            v-if="isServer"
+            :model-value="!showSystem"
+            data-testid="hide-system"
+            @update:model-value="(v: boolean) => setQuery({ system: v ? undefined : 'show' })"
+            >{{ $t('servers.fleetWorkloads.hideSystem') }}</ToggleSwitch
+          >
           <ToggleSwitch
             :model-value="grouped"
             data-testid="group-toggle"
@@ -293,6 +321,9 @@ onMounted(page.load);
             />
           </details>
           <div class="flex min-w-0 flex-col gap-3">
+            <p v-if="oldAgent" class="note" data-testid="events-old-agent">
+              {{ $t('kube.eventsPage.server.oldAgent', { v: kube.cluster.agentVersion }) }}
+            </p>
             <EventFeed
               v-if="items.length"
               :items="items"
@@ -302,12 +333,36 @@ onMounted(page.load);
               v-else-if="filtered"
               :icon="SearchX"
               :title="$t('kube.eventsPage.noMatch.title')"
-              :description="$t('kube.events.noMatch')"
+              :description="
+                isServer && !showSystem
+                  ? `${$t('kube.events.noMatch')} ${$t('kube.eventsPage.server.hidden.note')}`
+                  : $t('kube.events.noMatch')
+              "
               data-testid="no-events"
             >
               <template #action>
                 <BaseButton variant="secondary" @click="clearFilters">{{
                   $t('docker.filter.clear')
+                }}</BaseButton>
+                <BaseButton
+                  v-if="isServer && !showSystem"
+                  variant="ghost"
+                  data-testid="show-system"
+                  @click="setQuery({ system: 'show' })"
+                  >{{ $t('kube.eventsPage.server.hidden.show') }}</BaseButton
+                >
+              </template>
+            </EmptyState>
+            <EmptyState
+              v-else-if="isServer && !showSystem"
+              :icon="EyeOff"
+              :title="$t('kube.eventsPage.server.hidden.title')"
+              :description="$t('kube.eventsPage.server.hidden.description')"
+              data-testid="no-events-system-hidden"
+            >
+              <template #action>
+                <BaseButton variant="secondary" @click="setQuery({ system: 'show' })">{{
+                  $t('kube.eventsPage.server.hidden.show')
                 }}</BaseButton>
               </template>
             </EmptyState>
@@ -315,7 +370,12 @@ onMounted(page.load);
               v-else
               :icon="Hourglass"
               :title="$t('kube.eventsPage.empty.title')"
-              :description="$t('kube.eventsPage.empty.description')"
+              :description="
+                isServer
+                  ? $t('kube.eventsPage.server.empty')
+                  : $t('kube.eventsPage.empty.description')
+              "
+              data-testid="no-events-yet"
             />
             <div v-if="events.length" class="flex flex-wrap items-center gap-3">
               <BaseButton
@@ -408,6 +468,14 @@ onMounted(page.load);
   .fold > :not(summary) {
     border: 0;
   }
+}
+.note {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 13px;
 }
 .text-critical {
   color: var(--critical);

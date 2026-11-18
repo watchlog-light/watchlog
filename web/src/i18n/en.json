@@ -428,7 +428,11 @@
       "host": "Host",
       "allHosts": "All hosts",
       "project": "Compose project",
-      "allProjects": "All Compose projects"
+      "allProjects": "All Compose projects",
+      "server": "Server",
+      "allServers": "All servers",
+      "workload": "Workload",
+      "allWorkloads": "All workloads"
     },
     "hosts": {
       "reporting": "Reporting",
@@ -582,7 +586,14 @@
         "toggle": "Filters | Filters · {n} selected | Filters · {n} selected",
         "hosts": "Host",
         "projects": "Compose project",
-        "standalone": "Standalone"
+        "standalone": "Standalone",
+        "servers": "Server",
+        "workloads": "Workload",
+        "kind": {
+          "service": "service",
+          "process": "process",
+          "container": "container"
+        }
       },
       "days": {
         "today": "Today",
@@ -871,6 +882,16 @@
       },
       "noMatch": {
         "title": "No events match"
+      },
+      "server": {
+        "empty": "Events appear as the agents report them: services failing, starting, stopping and restarting, process groups' failed exits and crash loops, OOM kills, releases, and containers starting and dying.",
+        "oldAgent": "This fleet's agent is {v}: only containers' events show. Services' and process groups' events need agent 0.9.2 or later; upgrade the agent to see them.",
+        "hidden": {
+          "title": "No events from your workloads",
+          "description": "The OS's own services and processes, and WatchLog's own agent and collector, are hidden. Their events are kept.",
+          "note": "The OS's own workloads' events are hidden.",
+          "show": "Show system"
+        }
       }
     },
     "cron": {
@@ -5105,7 +5126,11 @@
       "release": "{name}: its executable changed",
       "failed": "{name} failed",
       "oom_killed": "{name} was OOM killed",
-      "alert": "Alert: {name}"
+      "alert": "Alert: {name}",
+      "event": "{name}: {reason}",
+      "emptyStored": "Nothing in the last 24 hours.",
+      "all": "All its events",
+      "oldAgent": "Derived from counters: this server's agent is older than 0.9.2. Upgrade it to see its services' and processes' own events (started, stopped, failed, crash loops, OOM kills)."
     },
     "talksTo": {
       "title": "Talks to",
@@ -5226,6 +5251,11 @@
         },
         "eventsIn": "In this window: {list}.",
         "noEventsLine": "No exits, restarts or OOM kills in this window."
+      },
+      "events": {
+        "title": "Events",
+        "all": "All its events",
+        "empty": "No events in the last 24 hours."
       }
     },
     "rules": {
