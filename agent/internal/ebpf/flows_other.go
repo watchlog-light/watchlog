@@ -17,7 +17,7 @@ type Flows struct {
 }
 
 // Options choose the optional hooks.
-type Options struct{ HTTP bool }
+type Options struct{ HTTP, ByProcess bool }
 
 // LoadWith fails outside Linux.
 func LoadWith(Options) (*Flows, error) { return nil, errors.New("eBPF needs Linux") }
