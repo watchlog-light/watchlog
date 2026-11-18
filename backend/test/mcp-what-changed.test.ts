@@ -273,7 +273,7 @@ describe('get_what_changed on a Kubernetes cluster', () => {
       since: expect.any(String),
       until: expect.any(String),
       day: 7,
-      hoursLearned: 0,
+      hoursLearned: 168,
       hoursTotal: 168,
     });
     expect(d.mostAtOnce).toBe(3);

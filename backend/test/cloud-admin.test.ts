@@ -570,3 +570,195 @@ describe('Pro features follow the plan (ADR-205)', () => {
     }
   });
 });
+
+describe('a plan change takes the new plan’s limits (0.9.6): an org set to Pro is not left with Free’s', () => {
+  const PRO = { clusters: null, nodes: null, users: 10, retentionDays: 30 };
+  const FREE = { clusters: 1, nodes: 5, users: 1, retentionDays: 3 };
+  const NONE = { clusters: false, nodes: false, users: false, retentionDays: false };
+  const put = (payload: object) =>
+    staff('PUT', `/internal/admin/orgs/${B.orgId}/entitlements`, { note: 'test', ...payload });
+  const billing = (payload: object) =>
+    internal.inject({
+      method: 'PUT',
+      url: `/internal/orgs/${B.orgId}/entitlements`,
+      headers: { authorization: `Bearer ${BILLING_TOKEN}` },
+      payload,
+    });
+  /**
+   * What the org itself reads: the plan strip's and the plan page's numbers. As its Viewer:
+   * the Owner of a billed org must set up 2FA before anything else (ADR-175).
+   */
+  const plan = async () => {
+    const r = await w.app.inject({
+      method: 'GET',
+      url: '/api/v1/plan',
+      cookies: { wl_session: await B.sessionOf(B.viewerId) },
+    });
+    expect(r.statusCode, r.body).toBe(200);
+    return r.json();
+  };
+  const retention = async () =>
+    (
+      await w.owner
+        .selectFrom('entitlements')
+        .select(['retention_days', 'previous_retention_days'])
+        .where('org_id', '=', B.orgId)
+        .executeTakeFirstOrThrow()
+    ).retention_days;
+
+  it('staff: Free, then Pro with the form’s old limits filled in, is Pro with Pro’s limits', async () => {
+    let r = await put({ plan: 'free' });
+    expect(r.json()).toMatchObject({ plan: 'free', source: 'staff', ...FREE, custom: NONE });
+    // The admin form showed the org's limits (Free's) and sent them with the new plan.
+    r = await put({ plan: 'pro', ...FREE });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json()).toMatchObject({
+      plan: 'pro',
+      source: 'staff',
+      ...PRO,
+      proFeatures: true,
+      custom: NONE,
+    });
+    // The org reads Pro's numbers: 30 days of data, up to 10 users, no node limit.
+    const seen = await plan();
+    expect(seen.plan).toBe('pro');
+    expect(seen.limits).toEqual({ clusters: null, nodes: null, users: 10, retentionDays: 30 });
+    expect(await retention()).toBe(30);
+    // And back: Free with the form's Pro limits filled in is Free with Free's limits.
+    r = await put({ plan: 'free', ...PRO });
+    expect(r.json()).toMatchObject({ plan: 'free', ...FREE, custom: NONE });
+    expect((await plan()).limits).toEqual(FREE);
+  });
+
+  it('a number of the org’s own is kept across a plan change, and any number without one', async () => {
+    await put({ plan: 'free' });
+    // Pro with a contract of 50 nodes (not Free's default): kept, the rest are Pro's.
+    let r = await put({ plan: 'pro', ...FREE, nodes: 50 });
+    expect(r.json()).toMatchObject({ plan: 'pro', ...PRO, nodes: 50 });
+    expect(r.json().custom).toEqual({ ...NONE, nodes: true });
+    // No plan change: every limit sent is taken as it is, even Free's.
+    r = await put({ plan: 'pro', users: 1, retentionDays: 3 });
+    expect(r.json()).toMatchObject({
+      plan: 'pro',
+      clusters: null,
+      nodes: null,
+      users: 1,
+      retentionDays: 3,
+    });
+    expect(r.json().custom).toEqual({ ...NONE, users: true, retentionDays: true });
+    // A limit left out is the plan's default again.
+    r = await put({ plan: 'pro' });
+    expect(r.json()).toMatchObject({ plan: 'pro', ...PRO, custom: NONE });
+    // "Unlimited" is null and stays null: validation used to turn it into 0 nodes.
+    r = await put({ plan: 'enterprise', clusters: null, nodes: null, users: null });
+    expect(r.json()).toMatchObject({
+      plan: 'enterprise',
+      clusters: null,
+      nodes: null,
+      users: null,
+    });
+    r = await put({ plan: 'enterprise', nodes: 0, users: 25 });
+    expect(r.json()).toMatchObject({ plan: 'enterprise', clusters: null, nodes: 0, users: 25 });
+    r = await billing({ plan: 'pro', source: 'billing', nodes: null, users: null });
+    expect(r.json()).toMatchObject({ plan: 'pro', nodes: null, users: null });
+    await put({ plan: 'pro' });
+  });
+
+  it('a paid org (billing): Pro’s limits on the subscription, Free’s when it ends', async () => {
+    await put({ plan: 'free' });
+    let r = await billing({ plan: 'pro', source: 'billing' });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json()).toMatchObject({ plan: 'pro', source: 'billing', ...PRO, proFeatures: true });
+    const seen = await plan();
+    expect(seen).toMatchObject({ plan: 'pro', source: 'billing' });
+    expect(seen.limits).toEqual({ clusters: null, nodes: null, users: 10, retentionDays: 30 });
+    r = await billing({ plan: 'free', source: 'billing' });
+    expect(r.json()).toMatchObject({ plan: 'free', ...FREE, proFeatures: false });
+    expect((await plan()).limits).toEqual(FREE);
+  });
+
+  it('the migration repairs a staff Pro row left with Free’s limits, and nothing else', async () => {
+    const migration = readFileSync(
+      new URL('../migrations/1796500000000_staff-plan-limits.sql', import.meta.url),
+      'utf8',
+    );
+    const row = (orgId: string) =>
+      w.owner
+        .selectFrom('entitlements')
+        .select([
+          'plan',
+          'source',
+          'clusters',
+          'nodes',
+          'users',
+          'retention_days',
+          'previous_retention_days',
+        ])
+        .where('org_id', '=', orgId)
+        .executeTakeFirstOrThrow();
+    const write = (orgId: string, v: object) =>
+      w.owner.updateTable('entitlements').set(v).where('org_id', '=', orgId).execute();
+    try {
+      // As on Cloud before 0.9.6: Pro by staff, with every limit Free's.
+      await write(B.orgId, {
+        plan: 'pro',
+        source: 'staff',
+        pro_features: true,
+        clusters: 1,
+        nodes: 5,
+        users: 1,
+        retention_days: 3,
+        previous_retention_days: null,
+        retention_changed_at: null,
+      });
+      // A Pro contract with one number of its own that happens to be small: left alone.
+      await write(A.orgId, {
+        plan: 'pro',
+        source: 'staff',
+        pro_features: true,
+        clusters: null,
+        nodes: 5,
+        users: 10,
+        retention_days: 30,
+      });
+      await sql.raw(migration).execute(w.owner);
+      expect(await row(B.orgId)).toEqual({
+        plan: 'pro',
+        source: 'staff',
+        clusters: null,
+        nodes: null,
+        users: 10,
+        retention_days: 30,
+        // The tier change is on record: reads merge the 3-day tier until it has run out.
+        previous_retention_days: 3,
+      });
+      expect(await row(A.orgId)).toMatchObject({ clusters: null, nodes: 5, users: 10 });
+      // A Free org is never touched, whoever set it.
+      await write(B.orgId, {
+        plan: 'free',
+        source: 'staff',
+        pro_features: false,
+        clusters: 1,
+        nodes: 5,
+        users: 1,
+        retention_days: 3,
+        previous_retention_days: null,
+      });
+      await sql.raw(migration).execute(w.owner);
+      expect(await row(B.orgId)).toMatchObject({
+        plan: 'free',
+        nodes: 5,
+        users: 1,
+        retention_days: 3,
+      });
+    } finally {
+      w.app.entitlements!.invalidate(A.orgId);
+      w.app.entitlements!.invalidate(B.orgId);
+      await staff('PUT', `/internal/admin/orgs/${A.orgId}/entitlements`, {
+        plan: 'pro',
+        note: 'x',
+      });
+      await put({ plan: 'pro' });
+    }
+  });
+});

@@ -1,18 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// The learning week as data (ADR-216), for a Kubernetes cluster and a Server fleet, on an
-// injectable clock: the days are generated and replayed hour by hour through the worker's
-// own jobs, never waited for. What the worker records with each hourly recompute (the hours
-// of the week that have a baseline, the series and their objects in the kind's words), what
-// GET /what-changed and GET /what-changed/learning answer on day 1, 3, 6, in the last hour
-// and afterwards, a series that joins later, the one-time fill from existing baselines, and
-// "email me when it's ready": the member's own choice, the one email at the right minute, and
-// nothing when the org left Pro. Cloud's org scoping is the isolation suite's.
+// The learning week as data (ADR-216, ADR-217), for a Kubernetes cluster and a Server fleet,
+// on an injectable clock: the days are generated and replayed hour by hour through the
+// worker's own jobs, never waited for. Every case checks the page against the worker's own
+// decision: the answer says "learning" exactly while the worker scores nothing, and "ready
+// on" is when it starts.
+//   - a week without gaps (day 1, 3, 6, the last hour), and one with an hour of no data;
+//   - Pro, Free for 2 days, Pro again; two hours of Pro, two days off, Pro again (WatchLog
+//     Cloud's own fleet on 18 November, from a row as 0.9.5 left it);
+//   - a cancel and a resubscribe, within the 30 days the baselines are kept and after them;
+//   - a server that joins late;
+//   - "email me when it's ready": the member's own choice, one email when the worker says
+//     ready, nothing when the org left Pro.
+// Cloud's org scoping is the isolation suite's.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Config } from '../src/config.js';
 import { newId } from '../src/lib/ids.js';
 import type { ClusterScope, QuerySeries } from '../src/lib/victoria.js';
 import { runAnomalyHour, runAnomalyMinute, type AnomalyDeps } from '../src/modules/anomaly/jobs.js';
 import { queriesFor, type ClusterKind, type ScoredKey } from '../src/modules/anomaly/keys.js';
+import { RECOMPUTE_LAG_MS } from '../src/modules/anomaly/coverage.js';
 import { breakdownOf } from '../src/modules/anomaly/learning.js';
 import { createSession } from '../src/modules/auth/sessions.js';
 import { insertCluster } from '../src/modules/clusters/service.js';
@@ -260,7 +266,28 @@ async function world(p: Platform) {
       },
       now,
     );
+  /** The worker's own decision at `at`: how many series it scores in that minute. */
+  const scored = async (at = clock.now) => (await runAnomalyMinute(d, at)).series;
+  /**
+   * The page against the worker: the answer says "learning" exactly while the worker scores
+   * nothing. Returns the answer.
+   */
+  const agree = async (what: string, as?: string) => {
+    const l = await read(as);
+    const n = await scored();
+    expect(
+      l.learning,
+      `${what}: the page says learning=${l.learning}, the worker scores ${n}`,
+    ).toBe(n === 0);
+    return l;
+  };
+  const setPlan = async (plan: 'pro' | 'free', source: 'staff' | 'billing' = 'staff') => {
+    await c.app.entitlements!.put(orgId, { plan, source });
+  };
   return {
+    scored,
+    agree,
+    setPlan,
     c,
     clock,
     cookie,
@@ -304,7 +331,9 @@ describe('the objects behind the series, in the kind’s words', () => {
 });
 
 describe.each(platforms)('$kind: the learning week, hour by hour', (p) => {
-  it('day 1, 3 and 6, an hour without data, the last hour, and the minute it is ready', async () => {
+  const N = p.series.length;
+
+  it('a week without a gap: day 1, 3 and 6, the last hour, and ready at exactly 7 days', async () => {
     const w = await world(p);
     // The minute of the upgrade: started, nothing read yet.
     expect(await w.read()).toEqual({
@@ -315,18 +344,20 @@ describe.each(platforms)('$kind: the learning week, hour by hour', (p) => {
       hoursLearned: 0,
       hoursTotal: 168,
       week: '0'.repeat(168),
+      resumedAt: null,
       series: { total: null, learning: 0, readyAt: iso(UNTIL), breakdown: {} },
       emailWhenReady: false,
     });
+    expect(await w.scored()).toBe(0);
 
     // Day 1, 17:20: the worker read 14:10–15:00, 15:00–16:00 and 16:00–17:00.
     await w.advance(START + 3 * HOUR + 10 * MIN);
-    let l = await w.read();
-    expect(l).toMatchObject({ learning: true, day: 1, hoursLearned: 3, since: iso(START) });
+    let l = await w.agree('day 1');
+    expect(l).toMatchObject({ learning: true, day: 1, hoursLearned: 3, until: iso(UNTIL) });
     expect(ones(l.week)).toEqual([bucket(START), bucket(START) + 1, bucket(START) + 2]);
     expect(l.series).toEqual({
-      total: p.series.length,
-      learning: p.series.length,
+      total: N,
+      learning: N,
       readyAt: iso(UNTIL),
       breakdown: p.breakdown,
     });
@@ -342,88 +373,303 @@ describe.each(platforms)('$kind: the learning week, hour by hour', (p) => {
     expect(page.learning).toEqual(l);
     expect(page.rows).toEqual([]);
 
-    // Day 3, 03:10: 61 hours in, 61 learned.
+    // Day 3, 03:10: 61 hours in, 61 learned. Day 6, 20:10: 126.
     await w.advance(START + 2 * DAY + 13 * HOUR);
-    l = await w.read();
-    expect(l).toMatchObject({ learning: true, day: 3, hoursLearned: 61 });
-
-    // Day 4: the agents are down from 09:00 to 10:00. That hour of the week isn't learned.
-    const gap = Math.floor((START + 3 * DAY + 19 * HOUR) / HOUR) * HOUR;
-    w.vm.gaps.push([gap, gap + HOUR]);
-    // Day 6, 20:10.
+    expect(await w.agree('day 3')).toMatchObject({ day: 3, hoursLearned: 61, until: iso(UNTIL) });
     await w.advance(START + 5 * DAY + 6 * HOUR);
-    l = await w.read();
-    expect(l).toMatchObject({ learning: true, day: 6, hoursLearned: 5 * 24 + 6 - 1 });
-    expect(l.week[bucket(gap)]).toBe('0');
-    expect(l.week[bucket(gap) - 1]).toBe('1');
-    expect(l.week[bucket(gap) + 1]).toBe('1');
+    expect(await w.agree('day 6')).toMatchObject({ day: 6, hoursLearned: 126, until: iso(UNTIL) });
 
-    // The last hour: 20 minutes to go, still nothing listed.
-    await w.advance(UNTIL - 20 * MIN);
-    l = await w.read();
-    expect(l).toMatchObject({ learning: true, day: 7, until: iso(UNTIL), hoursLearned: 166 });
-    // The current hour of the week (Wednesday 14:00) is the one it started in, already seen.
-    expect(l.week[bucket(UNTIL)]).toBe('1');
+    // The last hour, and the minute before: still learning, and the worker scores nothing.
+    await w.advance(UNTIL - 38 * MIN);
+    expect(await w.agree('the last hour')).toMatchObject({ day: 7, hoursLearned: 167 });
+    await w.advance(UNTIL - MIN);
+    l = await w.agree('a minute before');
+    expect(l).toMatchObject({
+      learning: true,
+      hoursLearned: 168,
+      until: iso(UNTIL),
+      resumedAt: null,
+    });
 
-    // The minute it is ready.
+    // Exactly 7 days after the first series: the list is on, and the worker scores all of them.
     await w.advance(UNTIL);
-    l = await w.read();
+    l = await w.agree('ready');
     expect(l).toMatchObject({
       learning: false,
+      until: iso(UNTIL),
       day: 7,
-      hoursLearned: 167,
-      series: { total: p.series.length, learning: 0, readyAt: null, breakdown: p.breakdown },
+      hoursLearned: 168,
+      week: '1'.repeat(168),
+      series: { total: N, learning: 0, readyAt: null, breakdown: p.breakdown },
     });
+    expect(await w.scored()).toBe(N);
   });
 
-  it('a series that joins later: the list is on, and the answer says how many still learn and until when', async () => {
+  it('an hour with no data is not learned: the list waits until that hour of the week comes round', async () => {
+    const w = await world(p);
+    // Day 4: the agents are down from Sunday 09:00 to 10:00.
+    const gap = Math.floor((START + 3 * DAY + 19 * HOUR) / HOUR) * HOUR;
+    w.vm.gaps.push([gap, gap + HOUR]);
+    await w.advance(START + 5 * DAY + 6 * HOUR);
+    // The worker looked at that hour and found nothing: it comes round in a week.
+    const made = gap + 7 * DAY + HOUR + RECOMPUTE_LAG_MS;
+    let l = await w.agree('day 6, an hour missing');
+    expect(l).toMatchObject({ learning: true, day: 6, hoursLearned: 125, until: iso(made) });
+    expect(l.week[bucket(gap)]).toBe('0');
+    expect(l.week[bucket(gap) - 1]).toBe('1');
+    // 7 days on the calendar are not 7 days of data: still learning, and nothing is scored.
+    await w.advance(UNTIL + HOUR);
+    l = await w.agree('7 days after the start');
+    expect(l).toMatchObject({ learning: true, day: 7, hoursLearned: 167, until: iso(made) });
+    // The hour comes round and is learned: ready, within a minute of what the page said.
+    await w.advance(made - 2 * MIN);
+    expect((await w.agree('just before')).learning).toBe(true);
+    await w.advance(made);
+    l = await w.agree('made up');
+    expect(l).toMatchObject({ learning: false, hoursLearned: 168 });
+    expect(Math.abs(Date.parse(l.until) - made)).toBeLessThanOrEqual(MIN);
+    expect(await w.scored()).toBe(N);
+  });
+
+  it('an hour that is silent every week is settled after two looks, not learned forever', async () => {
+    const w = await world(p);
+    // The fleet is off every Sunday 09:00–10:00.
+    const quiet = Math.floor((START + 3 * DAY + 19 * HOUR) / HOUR) * HOUR;
+    w.vm.gaps.push([quiet, quiet + HOUR], [quiet + 7 * DAY, quiet + 7 * DAY + HOUR]);
+    await w.advance(quiet + 7 * DAY + HOUR + 4 * MIN);
+    expect((await w.agree('before the second look')).learning).toBe(true);
+    await w.advance(quiet + 7 * DAY + HOUR + 5 * MIN);
+    const l = await w.agree('after the second look');
+    expect(l).toMatchObject({ learning: false, hoursLearned: 167 });
+    // Looked at twice, nothing to learn there: neither learned nor "not seen yet".
+    expect(l.week[bucket(quiet)]).toBe('2');
+    expect(await w.scored()).toBe(N);
+  });
+
+  it('Pro, Free for 2 days, Pro again: the two days are not learned, what was learned before still counts, and the page says it resumed', async () => {
+    const w = await world(p);
+    // A day of Pro: 24 hours of the week learned.
+    await w.advance(START + DAY);
+    expect(await w.agree('before the downgrade')).toMatchObject({ day: 2, hoursLearned: 24 });
+    await w.setPlan('free');
+    // Free: the worker stops; the page is the upgrade page (403).
+    await w.advance(START + 3 * DAY);
+    expect(await w.scored()).toBe(0);
+    expect(
+      (
+        await w.c.app.inject({
+          method: 'GET',
+          url: '/api/v1/what-changed/learning',
+          query: { cluster: w.cluster.id },
+          cookies: { wl_session: w.cookie },
+        })
+      ).statusCode,
+    ).toBe(403);
+    await w.setPlan('pro');
+    // Pro again, the same minute: the 24 hours are still there (the worker kept the
+    // baselines and scores with them), and the 48 hours of the gap are still to learn. They
+    // come round a week after the gap: 10 days after the start, not 7.
+    const ready = START + 10 * DAY - HOUR - 10 * MIN + HOUR + RECOMPUTE_LAG_MS;
+    let l = await w.agree('Pro again');
+    expect(l).toMatchObject({
+      learning: true,
+      since: iso(START),
+      day: 2,
+      hoursLearned: 24,
+      until: iso(ready),
+      resumedAt: null,
+    });
+    // Two hours later it has learned two more, and says when it resumed.
+    await w.advance(START + 3 * DAY + 2 * HOUR);
+    l = await w.agree('resumed');
+    const resumed = Math.floor((START + 3 * DAY) / HOUR) * HOUR;
+    expect(l).toMatchObject({
+      day: 2,
+      hoursLearned: 26,
+      until: iso(ready),
+      resumedAt: iso(resumed),
+    });
+    // 7 days after the first sighting, where the rule before 0.9.6 turned the list on: 5 days
+    // of data, still learning, and the worker scores nothing.
+    await w.advance(UNTIL);
+    l = await w.agree('7 days after the first sighting');
+    expect(l).toMatchObject({ learning: true, day: 6, hoursLearned: 120, until: iso(ready) });
+    // The gap's last hour comes round: ready, and the worker scores every series.
+    await w.advance(ready - 2 * MIN);
+    expect((await w.agree('just before')).learning).toBe(true);
+    await w.advance(ready);
+    l = await w.agree('ready');
+    expect(l).toMatchObject({ learning: false, hoursLearned: 168, resumedAt: null });
+    expect(Math.abs(Date.parse(l.until) - ready)).toBeLessThanOrEqual(MIN);
+    expect(await w.scored()).toBe(N);
+  });
+
+  it('two hours of Pro, two days off, Pro again, from a row as 0.9.5 left it (WatchLog Cloud’s fleet on 18 November)', async () => {
+    const w = await world(p);
+    // Pro from 14:10: the hours from 14:00 and 15:00 are learned; then no Pro features.
+    await w.advance(START + 2 * HOUR);
+    await w.setPlan('free');
+    await w.advance(START + 2 * DAY);
+    await w.setPlan('pro');
+    // 0.9.4 and 0.9.5 recorded the hours learned, not when the worker looked.
+    await w.c.db
+      .updateTable('anomaly_learning')
+      .set({
+        looked_at: Array(168).fill(null),
+        looks: Array(168).fill(0),
+        ready_at: null,
+        resumed_at: null,
+      })
+      .where('cluster_id', '=', w.cluster.id)
+      .execute();
+    // The page before 0.9.6: day 3 of 7, ready 7 days after the first sighting. Now: day 1,
+    // 2 of 168 hours, and ready a week after it really resumed.
+    const ready = START + 9 * DAY - HOUR - 10 * MIN + HOUR + RECOMPUTE_LAG_MS;
+    let l = await w.agree('from the old row');
+    expect(l).toMatchObject({
+      learning: true,
+      since: iso(START),
+      day: 1,
+      hoursLearned: 2,
+      until: iso(ready),
+    });
+    expect(ones(l.week)).toEqual([bucket(START), bucket(START) + 1]);
+    // The next hourly run stores the looks; the answer is the same, plus the resume.
+    await w.advance(START + 2 * DAY + HOUR);
+    l = await w.agree('after the next run');
+    expect(l).toMatchObject({ day: 1, hoursLearned: 3, until: iso(ready) });
+    expect(l.resumedAt).toBe(iso(Math.floor((START + 2 * DAY) / HOUR) * HOUR));
+    const row = await w.c.db
+      .selectFrom('anomaly_learning')
+      .select(['looked_at', 'looks'])
+      .where('cluster_id', '=', w.cluster.id)
+      .executeTakeFirstOrThrow();
+    expect(row.looked_at.filter((t) => t !== null)).toHaveLength(3);
+    expect(row.looks.filter((n) => n > 0)).toHaveLength(3);
+    // At the old date the worker scores nothing; a week after the resume it scores all.
+    await w.advance(UNTIL);
+    expect(await w.agree('the old date')).toMatchObject({ learning: true, hoursLearned: 122 });
+    await w.advance(ready);
+    l = await w.agree('ready');
+    expect(l).toMatchObject({ learning: false, hoursLearned: 168 });
+    expect(await w.scored()).toBe(N);
+  });
+
+  it('a cancel and a resubscribe within 30 days: the list is back at once, as the worker scores at once', async () => {
+    const w = await world(p);
+    // Read as a Viewer: the Owner of a billed org must first set up 2FA (ADR-175).
+    const viewer = (await w.member('viewer')).cookie;
+    await w.advance(UNTIL + DAY);
+    expect(await w.agree('ready', viewer)).toMatchObject({ learning: false });
+    await w.setPlan('free', 'billing');
+    await w.advance(UNTIL + 4 * DAY);
+    expect(await w.scored()).toBe(0);
+    await w.setPlan('pro', 'billing');
+    // The baselines were kept (ADR-198) and the worker scores with them from this minute.
+    const l = await w.agree('resubscribed', viewer);
+    expect(l).toMatchObject({
+      learning: false,
+      since: iso(START),
+      until: iso(UNTIL),
+      resumedAt: null,
+    });
+    expect(await w.scored()).toBe(N);
+  });
+
+  it('a cancel and a resubscribe after the 30 days: the worker starts over, and so does the page, at day 1', async () => {
+    const w = await world(p);
+    const viewer = (await w.member('viewer')).cookie;
+    await w.advance(UNTIL + DAY);
+    await w.setPlan('free', 'billing');
+    // 31 days later the hourly housekeeping has deleted the baselines and the learning row.
+    const back = UNTIL + 32 * DAY + 20 * MIN;
+    await w.advance(back);
+    expect(await w.c.db.selectFrom('anomaly_learning').select('cluster_id').execute()).toHaveLength(
+      0,
+    );
+    await w.setPlan('pro', 'billing');
+    expect(await w.scored(back)).toBe(0);
+    let l = await w.agree('started over', viewer);
+    expect(l).toMatchObject({
+      learning: true,
+      since: iso(back),
+      until: iso(back + 7 * DAY),
+      day: 1,
+      hoursLearned: 0,
+      resumedAt: null,
+    });
+    await w.advance(back + 7 * DAY - MIN);
+    expect((await w.agree('a minute before', viewer)).learning).toBe(true);
+    await w.advance(back + 7 * DAY);
+    l = await w.agree('ready again', viewer);
+    expect(l).toMatchObject({ learning: false, hoursLearned: 168 });
+    expect(await w.scored()).toBe(N);
+  });
+
+  it('a server or workload that joins late: the list is on, its own series wait 7 days, and the answer counts them as the worker does', async () => {
     const w = await world(p);
     await w.advance(UNTIL + DAY);
-    expect(await w.read()).toMatchObject({ learning: false, series: { learning: 0 } });
+    expect(await w.agree('ready')).toMatchObject({ learning: false, series: { learning: 0 } });
     const joined = UNTIL + DAY + 30 * MIN;
     w.vm.series.push({ ...p.late, since: joined });
     await w.advance(UNTIL + DAY + 3 * HOUR);
-    let l = await w.read();
+    let l = await w.agree('one joined');
     expect(l).toMatchObject({ learning: false, since: iso(START), until: iso(UNTIL) });
     expect(l.series).toEqual({
-      total: p.series.length + 1,
+      total: N + 1,
       learning: 1,
       readyAt: iso(joined + 7 * DAY),
       breakdown: p.lateBreakdown,
     });
-    // Its own 7 days later, nothing is learning any more (the row is up to an hour old).
+    // The worker scores the old series and not the new one, until its own 7 days are up.
+    expect(await w.scored()).toBe(N);
+    await w.advance(joined + 7 * DAY - MIN);
+    expect(await w.scored()).toBe(N);
+    await w.advance(joined + 7 * DAY);
+    expect(await w.scored()).toBe(N + 1);
+    // The count on the page is the last hourly run's: none learning from the next one.
     await w.advance(joined + 7 * DAY + 2 * HOUR);
     l = await w.read();
-    expect(l.series).toMatchObject({ total: p.series.length + 1, learning: 0, readyAt: null });
+    expect(l.series).toMatchObject({ total: N + 1, learning: 0, readyAt: null });
   });
 
-  it('a cluster that was learning before the learning row existed: its hours are filled from the baselines, once', async () => {
+  it('a cluster that learned before the learning row existed: the answer comes from its baselines at once, and the row once', async () => {
     const w = await world(p);
     await w.advance(START + 2 * DAY);
-    const before = await w.read();
+    const before = await w.agree('before');
     expect(before.hoursLearned).toBe(48);
-    // As after the upgrade to 0.9.4: baselines, no learning row.
+    // As after an upgrade from 0.9.3: baselines, no learning row.
     await w.c.db.deleteFrom('anomaly_learning').where('cluster_id', '=', w.cluster.id).execute();
-    const bare = await w.read();
+    const bare = await w.agree('no row');
     expect(bare).toMatchObject({
       learning: true,
       since: before.since,
       until: before.until,
       day: 3,
-      hoursLearned: 0,
+      hoursLearned: 48,
+      week: before.week,
       series: { total: null },
     });
     await w.advance(START + 2 * DAY + HOUR);
-    const after = await w.read();
+    const after = await w.agree('after the next run');
     expect(after.hoursLearned).toBe(49);
     expect(ones(after.week)).toEqual(
       [...ones(before.week), bucket(START + 2 * DAY)].sort((a, b) => a - b),
     );
-    expect(after.series).toMatchObject({ total: p.series.length, breakdown: p.breakdown });
-    expect(after.since).toBe(before.since);
+    expect(after.series).toMatchObject({ total: N, breakdown: p.breakdown });
+    expect(after.until).toBe(before.until);
+    // A cluster that was already listing under the rule before 0.9.6 goes on listing.
+    await w.advance(UNTIL + 2 * DAY);
+    await w.c.db
+      .updateTable('anomaly_learning')
+      .set({ looked_at: Array(168).fill(null), looks: Array(168).fill(0), ready_at: null })
+      .where('cluster_id', '=', w.cluster.id)
+      .execute();
+    expect(await w.agree('an old ready row')).toMatchObject({ learning: false, until: iso(UNTIL) });
+    expect(await w.scored()).toBe(N);
   });
 
-  it('“email me when it’s ready”: the member’s own choice, one email at the minute it is ready, never twice', async () => {
+  it('“email me when it’s ready”: the member’s own choice, one email when the worker says ready, never twice', async () => {
     const w = await world(p);
     // Cloud: not before the address is verified.
     let r = await w.choose(true);
@@ -453,8 +699,9 @@ describe.each(platforms)('$kind: the learning week, hour by hour', (p) => {
     expect(await w.mail(w.clock.now)).toBe(0);
     expect(await mailpitMessages(w.owner.email)).toHaveLength(0);
 
-    // Ready: one each to the two who asked, none to the Admin who undid it.
+    // Ready by the worker's rule: one each to the two who asked, none to the Admin who undid it.
     await w.advance(UNTIL);
+    expect((await w.agree('ready')).learning).toBe(false);
     expect(await w.mail(w.clock.now)).toBe(2);
     const [msg] = await mailpitMessages(w.owner.email);
     expect(msg!.Subject).toBe(`What changed is ready for ${w.cluster.name}`);
@@ -475,11 +722,11 @@ describe.each(platforms)('$kind: the learning week, hour by hour', (p) => {
     expect((await w.choose(true, admin.cookie)).statusCode).toBe(409);
   });
 
-  it('nothing is sent while the org is without Pro, or for a cluster that never sent data', async () => {
+  it('the email follows the worker, not the calendar: nothing while the org is off Pro or still making up a gap, nothing for a cluster that never sent data', async () => {
     const w = await world(p);
     await w.verify(w.owner.id);
     expect((await w.choose(true)).statusCode).toBe(200);
-    // A second cluster with no agent: asked for too, never ready.
+    // A second cluster with no agent: asked for too.
     const empty = await insertCluster(w.c.db, w.orgId, 'no-data-yet', p.kind);
     const asked = await w.c.app.inject({
       method: 'PUT',
@@ -489,16 +736,22 @@ describe.each(platforms)('$kind: the learning week, hour by hour', (p) => {
     });
     expect(asked.statusCode, asked.body).toBe(200);
     await w.advance(START + 6 * DAY);
-    // The org leaves Pro on day 6: the worker stops, and the week isn't finished.
-    await w.c.app.entitlements!.put(w.orgId, { plan: 'free', source: 'staff' });
+    // The org leaves Pro on day 6, for two days.
+    await w.setPlan('free');
     expect((await w.choose(true)).statusCode).toBe(403);
     await w.advance(UNTIL + DAY);
     expect(await w.mail(w.clock.now)).toBe(0);
-    expect(await mailpitMessages(w.owner.email)).toHaveLength(0);
-    // Back on Pro within 30 days: the kept baselines resume, and the email goes out, once,
-    // for the cluster with data only.
-    await w.c.app.entitlements!.put(w.orgId, { plan: 'pro', source: 'staff' });
+    // Back on Pro: 7 days have passed on the calendar, but two of them were not learned.
+    await w.setPlan('pro');
     await w.advance(UNTIL + DAY + 2 * HOUR);
+    expect((await w.agree('back, a gap to make up')).learning).toBe(true);
+    expect(await w.mail(w.clock.now)).toBe(0);
+    expect(await mailpitMessages(w.owner.email)).toHaveLength(0);
+    // A week after the gap began its hours have come round: ready, and the email goes out,
+    // once, for the cluster with data only.
+    const ready = UNTIL + DAY + 7 * DAY - HOUR - 10 * MIN + HOUR + RECOMPUTE_LAG_MS;
+    await w.advance(ready);
+    expect((await w.agree('ready')).learning).toBe(false);
     expect(await w.mail(w.clock.now)).toBe(1);
     const got = await mailpitMessages(w.owner.email);
     expect(got.map((m) => m.Subject)).toEqual([`What changed is ready for ${w.cluster.name}`]);
