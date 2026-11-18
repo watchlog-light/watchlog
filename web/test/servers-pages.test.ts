@@ -243,6 +243,7 @@ describe('Servers pages', () => {
           timeline: { start: end - 3600, end, step: 60, points, releases: [end - 660] },
           crashLoopSince: end - 600,
           connections: [],
+          events: [],
           cause: {
             state: 'likely',
             code: 'release',

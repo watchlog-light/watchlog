@@ -423,7 +423,7 @@ describe('Events page', () => {
     w.unmount();
   });
 
-  it("shows a Server fleet's events with host and Compose project facets", async () => {
+  it("shows a Server fleet's events with server and Compose project facets", async () => {
     const fleet = { ...FIX.cluster, kind: 'server' };
     const ev = (name: string, host: string, ns: string | null) => ({
       type: 'Warning',
@@ -453,8 +453,13 @@ describe('Events page', () => {
     mockFetch(
       bothLimits({
         'GET /api/v1/clusters': { status: 200, body: { clusters: [fleet] } },
-        [`GET ${base}/events/summary?types=Warning&${range}`]: { status: 200, body: summary },
-        [`GET ${base}/events?types=Warning&${range}&limit=100`]: {
+        // Hide system is on by default (0.9.2); the Compose project facet shows within
+        // containers.
+        [`GET ${base}/events/summary?types=Warning&kinds=Container&system=hide&${range}`]: {
+          status: 200,
+          body: summary,
+        },
+        [`GET ${base}/events?types=Warning&kinds=Container&system=hide&${range}&limit=100`]: {
           status: 200,
           body: {
             events: [ev('demo-web-1', 'h1', 'demo'), ev('solo', 'h1', null)],
@@ -463,9 +468,9 @@ describe('Events page', () => {
         },
       }),
     );
-    const { wrapper: w } = await mountPage(EventsPage, '/events');
+    const { wrapper: w } = await mountPage(EventsPage, '/events?kinds=Container');
     const facets = w.get('[data-testid="event-facets"]').text();
-    expect(facets).toContain('Host');
+    expect(facets).toContain('Server');
     expect(facets).toContain('Compose project');
     expect(facets).toContain('Standalone');
     expect(facets).not.toContain('cluster-wide');

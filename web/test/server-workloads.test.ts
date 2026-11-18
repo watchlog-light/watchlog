@@ -249,6 +249,7 @@ describe("a workload's charts", () => {
     timeline: { start: end - 3600, end, step: 60, points: [], releases: [] },
     crashLoopSince: null,
     connections: [],
+    events: [],
     cause: null,
   });
   const range = { status: 200, body: { metric: 'x', unit: 'count', step: 60, series: [] } };
