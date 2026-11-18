@@ -17,7 +17,14 @@ import { sparkStep } from '../overview/step.js';
 import { anyOf, buildQuery, type QueryScope } from '../query/catalog.js';
 import { watchlogComponents } from '../servicemap/graph.js';
 import { systemNamespaces, type SettingsService } from '../settings/service.js';
-import { eventSummary, eventWhere, isClusterScoped, type EventFilter } from './events.js';
+import {
+  eventSummary,
+  eventWhere,
+  isClusterScoped,
+  workloadId,
+  type EventFilter,
+} from './events.js';
+import { systemEventKeys } from '../servers/system-events.js';
 import { lastRuns, workloadKey, workloadProblems } from './workload-problems.js';
 import {
   ContainerSchema,
@@ -119,6 +126,7 @@ function eventView(e: Selectable<K8sEvents>) {
     involvedKind: e.involved_kind,
     involvedName: e.involved_name,
     reportingController: e.reporting_controller || null,
+    workload: e.host ? workloadId(e.involved_kind, e.involved_name) : null,
   };
 }
 
@@ -743,8 +751,12 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
     reasons: List,
     /** The page's namespace (Docker: Compose project) facet; "-" stands for the rest. */
     ns: List,
-    /** Docker hosts. */
+    /** Docker hosts; a Server fleet's servers. */
     hosts: List,
+    /** A Server fleet's workloads: `service:<unit>`, `process:<group>`, `container:<name>`. */
+    workloads: List,
+    /** `hide`: leave out the OS's own and WatchLog's own workloads' events (Server fleets). */
+    system: Type.Optional(Type.Union([Type.Literal('hide'), Type.Literal('show')])),
     name: Type.Optional(Name),
     q: Type.Optional(Type.String({ maxLength: 200 })),
     from: Type.Optional(Type.Number({ description: 'Unix seconds' })),
@@ -769,11 +781,24 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       reasons: list(q.reasons, q.reason),
       ns: list(q.ns),
       hosts: list(q.hosts),
+      workloads: list(q.workloads),
       name: q.name,
       q: q.q?.trim() || undefined,
       from: q.from,
       to: q.to,
     };
+  }
+
+  /** "Hide system" on a Server fleet: its system workloads' stored keys left out. */
+  async function withSystem(
+    cluster: { id: string; kind: string; scope: ClusterScope },
+    q: { system?: 'hide' | 'show'; from?: number; hosts?: string },
+    f: EventFilter,
+  ): Promise<EventFilter> {
+    if (q.system !== 'hide' || cluster.kind !== 'server') return f;
+    const from = q.from ?? Math.floor(Date.now() / 1000) - 86400 * 31;
+    const excludeKeys = await systemEventKeys(db, victoria, cluster, from, list(q.hosts));
+    return excludeKeys.length ? { ...f, excludeKeys } : f;
   }
 
   app.get(
@@ -807,10 +832,12 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       const after = cursor ? decodeCursor(cursor) : undefined;
       if (after === null) return sendProblem(reply, 400, 'Invalid cursor');
 
-      let q = db
-        .selectFrom('k8s_events')
-        .selectAll()
-        .where(eventWhere(eventFilter(cluster.id, request.query)));
+      const filter = await withSystem(
+        cluster,
+        request.query,
+        eventFilter(cluster.id, request.query),
+      );
+      let q = db.selectFrom('k8s_events').selectAll().where(eventWhere(filter));
       if (after) {
         q = q.where(
           sql<boolean>`(last_ts, involved_key, reason) < (${new Date(after[0])}, ${after[1]}, ${after[2]})`,
@@ -854,6 +881,8 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
                 Type.Object({ value: Type.String(), type: Type.String(), count: Type.Integer() }),
               ),
               hosts: Type.Array(Type.Object({ value: Type.String(), count: Type.Integer() })),
+              /** A Server fleet's workloads (`service:nginx.service`), the busiest 50. */
+              workloads: Type.Array(Type.Object({ value: Type.String(), count: Type.Integer() })),
             }),
             markers: Type.Array(
               Type.Object({
@@ -877,7 +906,12 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
       const from = Math.floor(request.query.from ?? to - 86400);
       if (from >= to || (to - from) * 1000 > MAX_RANGE_MS)
         return sendProblem(reply, 400, 'from must be before to, at most 31 days apart');
-      return eventSummary(db, { ...eventFilter(cluster.id, request.query), from, to });
+      const filter = await withSystem(
+        cluster,
+        { ...request.query, from },
+        eventFilter(cluster.id, request.query),
+      );
+      return eventSummary(db, { ...filter, from, to });
     },
   );
 

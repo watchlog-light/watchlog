@@ -11,6 +11,7 @@ import { requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { CLUSTER_STALE_MS, clusterForOrg } from '../clusters/service.js';
 import { firingAlerts } from '../overview/problems.js';
+import { workloadId } from '../kubernetes/events.js';
 import { buildQuery, escapeLabelValue } from '../query/catalog.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import { serverCause } from './cause.js';
@@ -559,12 +560,23 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
             events: Type.Array(
               Type.Object({
                 workloadId: S,
+                /** alert, failed, oom_killed, exited, killed, release, or event (stored, 0.9.2). */
                 kind: Type.String(),
                 text: Type.String(),
                 count: Type.Number(),
                 alertId: S,
+                /** A stored event's reason, type (Warning, Normal), message and last time. */
+                reason: Type.Optional(S),
+                type: Type.Optional(S),
+                message: Type.Optional(S),
+                at: Type.Optional(N),
               }),
             ),
+            /**
+             * Whether the events are the server's own (its 0.9.2 agent sends them); false: derived
+             * from counters, as before, because its agent is older.
+             */
+            eventsStored: Type.Boolean(),
             talksTo: Type.Array(EdgeS),
           }),
           401: ProblemSchema,
@@ -604,6 +616,10 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
         text: string;
         count: number;
         alertId: string | null;
+        reason?: string;
+        type?: string;
+        message?: string;
+        at?: number;
       }[] = [];
       for (const a of alerts) {
         if (a.silenced || (a.labels.node ?? a.labels.host) !== name) continue;
@@ -625,8 +641,33 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
             alertId: null,
           });
       }
+      // The server's own events (0.9.2), the last 24 hours; derived from counters when it has
+      // none (an agent before 0.9.2).
+      const since = new Date(Date.now() - 86400_000);
+      const stored = await db
+        .selectFrom('k8s_events')
+        .select(['involved_kind', 'involved_name', 'reason', 'type', 'message', 'count', 'last_ts'])
+        .where('cluster_id', '=', cluster.id)
+        .where('host', '=', name)
+        .where('last_ts', '>=', since)
+        .where('day', '>=', new Date(Math.floor(since.getTime() / 86400_000) * 86400_000))
+        .orderBy('last_ts', 'desc')
+        .limit(30)
+        .execute();
+      for (const e of stored)
+        events.push({
+          workloadId: workloadId(e.involved_kind, e.involved_name),
+          kind: 'event',
+          text: e.involved_name,
+          count: e.count,
+          alertId: null,
+          reason: e.reason,
+          type: e.type,
+          message: e.message,
+          at: Math.floor(e.last_ts.getTime() / 1000),
+        });
       const count = (s: QuerySeries) => Math.round(s.points[0]?.[1] ?? 0);
-      for (const s of svcEv!)
+      for (const s of stored.length ? [] : svcEv!)
         events.push({
           workloadId: `service:${s.labels.unit}`,
           kind: s.labels.exit === 'signal' ? 'killed' : 'exited',
@@ -634,7 +675,7 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
           count: count(s),
           alertId: null,
         });
-      for (const s of grpEv!)
+      for (const s of stored.length ? [] : grpEv!)
         events.push({
           workloadId: `process:${s.labels.group}`,
           kind: s.labels.exit === 'signal' ? 'killed' : 'exited',
@@ -642,7 +683,7 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
           count: count(s),
           alertId: null,
         });
-      for (const s of rel!)
+      for (const s of stored.length ? [] : rel!)
         events.push({
           workloadId: `process:${s.labels.group}`,
           kind: 'release',
@@ -660,11 +701,42 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
           networkInBytes: dir('rx'),
           networkOutBytes: dir('tx'),
         },
-        events: events.slice(0, 20),
+        events: events.slice(0, 30),
+        eventsStored: stored.length > 0,
         talksTo: edges,
       };
     },
   );
+
+  /** A workload's own stored events (0.9.2), the last 24 hours, newest first, at most 20. */
+  async function workloadEvents(
+    clusterId: string,
+    host: string,
+    ref: { source: 'service' | 'process' | 'container'; name: string },
+  ) {
+    const since = new Date(Date.now() - 86400_000);
+    const kind = { service: 'Service', process: 'Process', container: 'Container' }[ref.source];
+    const rows = await db
+      .selectFrom('k8s_events')
+      .select(['reason', 'type', 'message', 'count', 'first_ts', 'last_ts'])
+      .where('cluster_id', '=', clusterId)
+      .where('host', '=', host)
+      .where('involved_kind', '=', kind)
+      .where('involved_name', '=', ref.name)
+      .where('last_ts', '>=', since)
+      .where('day', '>=', new Date(Math.floor(since.getTime() / 86400_000) * 86400_000))
+      .orderBy('last_ts', 'desc')
+      .limit(20)
+      .execute();
+    return rows.map((e) => ({
+      reason: e.reason,
+      type: e.type,
+      message: e.message,
+      count: e.count,
+      firstSeen: Math.floor(e.first_ts.getTime() / 1000),
+      lastSeen: Math.floor(e.last_ts.getTime() / 1000),
+    }));
+  }
 
   /** The server's connections from eBPF (ADR-208), busiest first, at most 15. */
   async function talksTo(scope: ClusterScope, matcher: string) {
@@ -765,6 +837,17 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
             connections: Type.Array(EdgeS),
             /** Probable cause (ADR-213): codes and facts; the web words them. */
             cause: CauseS,
+            /** Its own stored events of the last 24 hours, newest first (0.9.2 agents). */
+            events: Type.Array(
+              Type.Object({
+                reason: Type.String(),
+                type: Type.String(),
+                message: Type.String(),
+                count: Type.Integer(),
+                firstSeen: Type.Number(),
+                lastSeen: Type.Number(),
+              }),
+            ),
           }),
           400: ProblemSchema,
           401: ProblemSchema,
@@ -916,6 +999,7 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
         timeline: { start, end, step, points, releases },
         crashLoopSince: loopSince,
         connections,
+        events: await workloadEvents(cluster.id, name, ref),
         cause: serverCause({
           workload,
           points,

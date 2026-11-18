@@ -79,6 +79,8 @@ export interface ApiEvent {
   involvedKind?: string | null;
   involvedName?: string | null;
   host?: string | null;
+  /** A Server fleet's workload id (`service:nginx.service`). */
+  workload?: string | null;
 }
 
 export const eventField = (e: ApiEvent) => ({

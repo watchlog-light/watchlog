@@ -90,6 +90,11 @@ const USER_MANAGER = /^user@\d+\.service$/;
 /** WatchLog's own images (docker run): told by the image, never the container's name. */
 const OWN_IMAGE = /(^|\/)watchlog-light\/(agent|integrations|cluster-agent)(:|@|$)/;
 
+/** The OS's own process groups, by the executable they're named after. */
+export const isSystemGroup = (group: string): boolean => SYSTEM_GROUPS.test(group);
+/** WatchLog's own containers, by their image. */
+export const isOwnImage = (image: string): boolean => OWN_IMAGE.test(image);
+
 /** Memory at or above this share of MemoryMax is "near its memory limit". */
 export const MEMORY_NEAR = 0.9;
 

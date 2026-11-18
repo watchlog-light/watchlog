@@ -80,8 +80,10 @@ export const EventSchema = Type.Object({
   involvedKind: Type.String(),
   involvedName: Type.String(),
   reportingController: NullableString,
-  /** Docker: the host the event happened on. */
+  /** Docker: the host the event happened on; a Server fleet's server. */
   host: NullableString,
+  /** A Server fleet's workload the event is about (`service:nginx.service`), for its link. */
+  workload: Type.Optional(NullableString),
 });
 
 export const NodeSchema = Type.Object({

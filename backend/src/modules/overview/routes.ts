@@ -690,6 +690,7 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
             'message',
             'count',
             'last_ts',
+            'host',
           ])
           .where('cluster_id', '=', clusterId)
           .where('type', '=', 'Warning')
@@ -813,7 +814,11 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
     const events = groupEvents(
       eventRows.map((e) => ({
         involvedKind: e.involved_kind,
-        namespace: e.namespace,
+        // A server's service or process group (0.9.2): its server, so the row links to it.
+        namespace:
+          e.host && (e.involved_kind === 'Service' || e.involved_kind === 'Process')
+            ? e.host
+            : e.namespace,
         name: e.involved_name,
         reason: e.reason,
         message: e.message,

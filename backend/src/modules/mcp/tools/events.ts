@@ -32,8 +32,8 @@ export const getEventsTool = defineTool({
   name: 'get_events',
   title: 'Get events',
   description: describe(
-    'Kubernetes events (BackOff, FailedScheduling, Unhealthy, Killing, OOMKilling…) or Docker events (container died, OOM, health status, restarts), grouped by reason and object so repeats count once.',
-    `Filter by \`namespace\` (Kubernetes), \`host\` (Docker), \`object\` (a pod, workload, node or container name) and \`type\` (Warning by default, or all). Covers the last \`since\` minutes (60 by default, at most 24 hours). Returns up to ${MAX_GROUPS} groups, newest first: reason, object, how many times, first and last seen, and the latest message.`,
+    "Kubernetes events (BackOff, FailedScheduling, Unhealthy, Killing, OOMKilling…), or a Server fleet's: its services (Failed, Started, Stopped, Restarted, UnitChanged), process groups (FailedExit, CrashLoop, CrashLoopEnded, Appeared, Gone), OOM kills, releases and containers' Docker events; grouped by reason and object so repeats count once.",
+    `Filter by \`namespace\` (Kubernetes), \`host\` (a server), \`workload\` (a server's \`service:<unit>\`, \`process:<group>\` or \`container:<name>\`), \`kind\` (Service, Process, Container), \`object\` (a pod, workload, node or container name) and \`type\` (Warning by default, or all). Covers the last \`since\` minutes (60 by default, at most 24 hours). Returns up to ${MAX_GROUPS} groups, newest first: reason, object, how many times, first and last seen, and the latest message.`,
     'Example question: "What warnings did the payments namespace have in the last hour?"',
   ),
   input: Type.Object(
@@ -41,7 +41,21 @@ export const getEventsTool = defineTool({
       cluster: ClusterArg,
       namespace: NamespaceArg('Kubernetes: only this namespace.'),
       host: Type.Optional(
-        Type.String({ minLength: 1, maxLength: 253, description: 'Docker: only this host.' }),
+        Type.String({ minLength: 1, maxLength: 253, description: 'Servers: only this server.' }),
+      ),
+      workload: Type.Optional(
+        Type.String({
+          minLength: 3,
+          maxLength: 300,
+          pattern: '^(service|process|container):.+',
+          description:
+            'Servers: only this workload (service:nginx.service, process:api, container:redis).',
+        }),
+      ),
+      kind: Type.Optional(
+        Type.Union([Type.Literal('Service'), Type.Literal('Process'), Type.Literal('Container')], {
+          description: 'Servers: only this kind of workload.',
+        }),
       ),
       object: Type.Optional(
         Type.String({
@@ -65,14 +79,14 @@ export const getEventsTool = defineTool({
     const cluster = await resolveCluster(api, args.cluster);
     if (cluster.kind === 'server' && args.namespace) {
       throw new ToolError(
-        'Namespaces are a Kubernetes notion; this cluster is a Docker fleet.',
+        'Namespaces are a Kubernetes notion; this cluster is a Server fleet.',
         'Pass `host` instead, or leave both out.',
         { cluster: clusterField(cluster) },
       );
     }
-    if (cluster.kind === 'kubernetes' && args.host) {
+    if (cluster.kind === 'kubernetes' && (args.host || args.workload || args.kind)) {
       throw new ToolError(
-        'Hosts are a Docker notion; this cluster is Kubernetes.',
+        'Servers and their workloads are a Server fleet notion; this cluster is Kubernetes.',
         'Pass `namespace` instead, or leave both out.',
         { cluster: clusterField(cluster) },
       );
@@ -81,6 +95,8 @@ export const getEventsTool = defineTool({
     const { events } = await api.get<{ events: ApiEvent[] }>(`/clusters/${cluster.id}/events`, {
       namespaces: args.namespace,
       hosts: args.host,
+      workloads: args.workload,
+      kinds: args.kind,
       name: args.object,
       type: args.type === 'all' ? undefined : 'Warning',
       from: minutesAgo(minutes),
@@ -132,6 +148,7 @@ export const getEventsTool = defineTool({
               ? { host: name(g.latest.host) }
               : { namespace: name(g.latest.namespace) }),
             name: name(g.latest.involvedName),
+            ...(g.latest.workload ? { workload: name(g.latest.workload) } : {}),
           },
           count: g.count,
           firstSeen: g.firstSeen,
@@ -210,7 +227,7 @@ export const getRecentChangesTool = defineTool({
     const cluster = await resolveCluster(api, args.cluster);
     if (cluster.kind === 'server' && args.namespace) {
       throw new ToolError(
-        'Namespaces are a Kubernetes notion; this cluster is a Docker fleet.',
+        'Namespaces are a Kubernetes notion; this cluster is a Server fleet.',
         'Leave `namespace` out.',
         { cluster: clusterField(cluster) },
       );

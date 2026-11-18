@@ -40,6 +40,9 @@ export const CLUSTER_WIDE = '-';
 /** Reasons worth a marker on the histogram. */
 export const NOTABLE_REASONS = [
   'Rebooted',
+  // Servers (0.9.2)
+  'CrashLoop',
+  'Release',
   // Docker
   'OOMKilled',
   'Died',
@@ -61,8 +64,12 @@ export interface EventFilter {
   reasons?: string[];
   /** The page's namespace (Docker: Compose project) facet; CLUSTER_WIDE selects the rest. */
   ns?: string[];
-  /** Docker hosts. */
+  /** Docker hosts; a Server fleet's servers. */
   hosts?: string[];
+  /** A Server fleet's workloads: `service:<unit>`, `process:<group>`, `container:<name>`. */
+  workloads?: string[];
+  /** Events of these stored keys left out ("Hide system": the OS's own and WatchLog's own). */
+  excludeKeys?: string[];
   name?: string;
   /** Words to find in the object's name, the reason or the message. */
   q?: string;
@@ -71,7 +78,28 @@ export interface EventFilter {
 }
 
 type Eb = ExpressionBuilder<DB, 'k8s_events'>;
-type Dimension = 'types' | 'kinds' | 'reasons' | 'ns' | 'hosts';
+type Dimension = 'types' | 'kinds' | 'reasons' | 'ns' | 'hosts' | 'workloads';
+
+/** A server workload's id and the kind its events are stored with (0.9.2). */
+export const WORKLOAD_KINDS = {
+  service: 'Service',
+  process: 'Process',
+  container: 'Container',
+} as const;
+export type WorkloadSource = keyof typeof WORKLOAD_KINDS;
+/** `service:nginx.service` → ['Service', 'nginx.service']; null when not a workload id. */
+export function workloadKindName(id: string): [string, string] | null {
+  const i = id.indexOf(':');
+  const kind = WORKLOAD_KINDS[id.slice(0, i) as WorkloadSource];
+  return i > 0 && kind && id.length > i + 1 ? [kind, id.slice(i + 1)] : null;
+}
+/** The workload id of a stored host event (`Service` + `nginx.service`), or null. */
+export function workloadId(kind: string, name: string): string | null {
+  const source = (Object.keys(WORKLOAD_KINDS) as WorkloadSource[]).find(
+    (k) => WORKLOAD_KINDS[k] === kind,
+  );
+  return source ? `${source}:${name}` : null;
+}
 
 const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
@@ -90,6 +118,19 @@ export function eventWhere(f: EventFilter, skip?: Dimension) {
     if (f.kinds?.length && skip !== 'kinds') and.push(eb('involved_kind', 'in', f.kinds));
     if (f.reasons?.length && skip !== 'reasons') and.push(eb('reason', 'in', f.reasons));
     if (f.hosts?.length && skip !== 'hosts') and.push(eb('host', 'in', f.hosts));
+    if (f.workloads?.length && skip !== 'workloads') {
+      const pairs = f.workloads.map(workloadKindName).filter((p): p is [string, string] => !!p);
+      and.push(
+        pairs.length
+          ? eb.or(
+              pairs.map(([k, n]) =>
+                eb.and([eb('involved_kind', '=', k), eb('involved_name', '=', n)]),
+              ),
+            )
+          : sql<SqlBool>`false`,
+      );
+    }
+    if (f.excludeKeys?.length) and.push(eb('involved_key', 'not in', f.excludeKeys));
     if (f.ns?.length && skip !== 'ns') {
       const named = f.ns.filter((n) => n !== CLUSTER_WIDE);
       const or: Expression<SqlBool>[] = [];
@@ -145,6 +186,8 @@ export interface EventSummary {
     namespaces: { value: string; count: number }[];
     reasons: { value: string; type: string; count: number }[];
     hosts: { value: string; count: number }[];
+    /** A Server fleet's workloads (`service:nginx.service`), the busiest 50. */
+    workloads: { value: string; count: number }[];
   };
   markers: { ts: number; reason: string; kind: string; objects: number }[];
   total: number;
@@ -163,7 +206,7 @@ export async function eventSummary(
   const buckets = Math.ceil((f.to - start) / bucket);
   const nsExpr = sql<string>`case when involved_kind in (${sql.join(CLUSTER_SCOPED_KINDS)}) or namespace = '' then ${CLUSTER_WIDE} else namespace end`;
   const sum = sql<string>`sum(count)`;
-  const [hist, kinds, namespaces, reasons, markers, hosts] = await Promise.all([
+  const [hist, kinds, namespaces, reasons, markers, hosts, workloads] = await Promise.all([
     db
       .with('e', (qb) =>
         qb
@@ -237,6 +280,16 @@ export async function eventSummary(
       .where('host', '<>', '')
       .groupBy('host')
       .execute(),
+    db
+      .selectFrom('k8s_events')
+      .select(['involved_kind as kind', 'involved_name as name', sum.as('n')])
+      .where(eventWhere(f, 'workloads'))
+      .where('host', '<>', '')
+      .where('involved_kind', 'in', Object.values(WORKLOAD_KINDS))
+      .groupBy(['involved_kind', 'involved_name'])
+      .orderBy(sql`3 desc`)
+      .limit(50)
+      .execute(),
   ]);
   const byBucket = new Map(hist.map((h) => [Number(h.b), h]));
   const histogram = Array.from({ length: buckets }, (_, i) => {
@@ -259,6 +312,12 @@ export async function eventSummary(
       namespaces: desc(namespaces.map((n) => ({ value: n.value, count: Number(n.n) }))),
       reasons: desc(reasons.map((r) => ({ value: r.value, type: r.type, count: Number(r.n) }))),
       hosts: desc(hosts.map((h) => ({ value: h.value, count: Number(h.n) }))),
+      workloads: desc(
+        workloads.flatMap((w) => {
+          const id = workloadId(w.kind, w.name);
+          return id ? [{ value: id, count: Number(w.n) }] : [];
+        }),
+      ),
     },
     markers: markers.map((m) => ({
       ts: Math.round(Number(m.ts)),

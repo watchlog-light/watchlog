@@ -2107,7 +2107,12 @@ export interface paths {
                 text: string;
                 count: number;
                 alertId: string | null;
+                reason?: string | null;
+                type?: string | null;
+                message?: string | null;
+                at?: number | null;
               }[];
+              eventsStored: boolean;
               talksTo: {
                 from: string;
                 fromKind: string | null;
@@ -2418,6 +2423,14 @@ export interface paths {
                   };
                 }[];
               };
+              events: {
+                reason: string;
+                type: string;
+                message: string;
+                count: number;
+                firstSeen: number;
+                lastSeen: number;
+              }[];
             };
           };
         };
@@ -2955,6 +2968,7 @@ export interface paths {
                 involvedName: string;
                 reportingController: string | null;
                 host: string | null;
+                workload?: string | null;
               }[];
             };
           };
@@ -3331,6 +3345,7 @@ export interface paths {
                 involvedName: string;
                 reportingController: string | null;
                 host: string | null;
+                workload?: string | null;
               }[];
             };
           };
@@ -3398,6 +3413,8 @@ export interface paths {
           reasons?: string;
           ns?: string;
           hosts?: string;
+          workloads?: string;
+          system?: 'hide' | 'show';
           name?: string;
           q?: string;
           /** @description Unix seconds */
@@ -3437,6 +3454,7 @@ export interface paths {
                 involvedName: string;
                 reportingController: string | null;
                 host: string | null;
+                workload?: string | null;
               }[];
               nextCursor: string | null;
             };
@@ -3523,6 +3541,8 @@ export interface paths {
           reasons?: string;
           ns?: string;
           hosts?: string;
+          workloads?: string;
+          system?: 'hide' | 'show';
           name?: string;
           q?: string;
           /** @description Unix seconds */
@@ -3571,6 +3591,10 @@ export interface paths {
                   count: number;
                 }[];
                 hosts: {
+                  value: string;
+                  count: number;
+                }[];
+                workloads: {
                   value: string;
                   count: number;
                 }[];

@@ -5417,7 +5417,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["server", "usage", "events", "talksTo"],
+                  "required": ["server", "usage", "events", "eventsStored", "talksTo"],
                   "properties": {
                     "server": {
                       "type": "object",
@@ -5731,9 +5731,52 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "type": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "message": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "at": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         }
                       }
+                    },
+                    "eventsStored": {
+                      "type": "boolean"
                     },
                     "talksTo": {
                       "type": "array",
@@ -6293,7 +6336,8 @@
                     "timeline",
                     "crashLoopSince",
                     "connections",
-                    "cause"
+                    "cause",
+                    "events"
                   ],
                   "properties": {
                     "workload": {
@@ -7120,6 +7164,33 @@
                                 }
                               }
                             }
+                          }
+                        }
+                      }
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["reason", "type", "message", "count", "firstSeen", "lastSeen"],
+                        "properties": {
+                          "reason": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "integer"
+                          },
+                          "firstSeen": {
+                            "type": "number"
+                          },
+                          "lastSeen": {
+                            "type": "number"
                           }
                         }
                       }
@@ -8913,6 +8984,16 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "workload": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         }
                       }
@@ -10378,6 +10459,16 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "workload": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         }
                       }
@@ -10522,6 +10613,32 @@
             },
             "in": "query",
             "name": "hosts",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "in": "query",
+            "name": "workloads",
+            "required": false
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["hide"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["show"]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "system",
             "required": false
           },
           {
@@ -10699,6 +10816,16 @@
                             ]
                           },
                           "host": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "workload": {
                             "anyOf": [
                               {
                                 "type": "string"
@@ -10903,6 +11030,32 @@
           {
             "schema": {
               "type": "string",
+              "maxLength": 2048
+            },
+            "in": "query",
+            "name": "workloads",
+            "required": false
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["hide"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["show"]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "system",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
               "minLength": 1,
               "maxLength": 253
             },
@@ -11022,7 +11175,7 @@
                     },
                     "facets": {
                       "type": "object",
-                      "required": ["kinds", "namespaces", "reasons", "hosts"],
+                      "required": ["kinds", "namespaces", "reasons", "hosts", "workloads"],
                       "properties": {
                         "kinds": {
                           "type": "array",
@@ -11073,6 +11226,21 @@
                           }
                         },
                         "hosts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["value", "count"],
+                            "properties": {
+                              "value": {
+                                "type": "string"
+                              },
+                              "count": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        "workloads": {
                           "type": "array",
                           "items": {
                             "type": "object",
