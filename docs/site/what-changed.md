@@ -67,8 +67,8 @@ Compose re-create keeps, and shown with its Compose project and service.
 
 ## The learning period
 
-A series is used once it has **7 days** of its own data. Until then, What changed is
-"learning":
+A series is used once it has **7 days** of its own data: every hour of the week learned
+once. Until then, What changed is "learning":
 
 - **Learning starts when your organization gets Pro:** at the 0.8.0 update for organizations
   already on Pro, or the minute you upgrade. The baselines read only the data from then on,
@@ -76,9 +76,16 @@ A series is used once it has **7 days** of its own data. Until then, What change
 - **Nothing is listed for the first 7 days,** and no anomaly alert fires. After that, each
   series with 7 days of data is used; a cluster, workload, server or container added later
   starts learning when it first reports.
+- **7 days of data, not 7 days on the calendar.** An hour in which your organization was not
+  on Pro, or your agents sent nothing, is not learned. The list turns on when that hour of the
+  week has come round and been learned, so a week with a two-day gap takes nine days. Without
+  a gap it is exactly 7 days. (An hour that never has data, such as a fleet switched off every
+  night, is settled after the second week.)
 - **After 14 days** each hour of the week has two weeks behind it.
 - **A downgrade** stops the scoring at once. The baselines are kept for 30 days, so upgrading
-  again within that time picks up where it stopped.
+  again within that time picks up where it stopped: what was learned before still counts, only
+  the hours in between are still to learn, and the page says "Learning resumed on <date>". A
+  cluster that had finished learning lists again at once. After 30 days learning starts over.
 
 ### What the first week looks like
 
@@ -87,7 +94,9 @@ For those 7 days the page shows the learning week instead of the list:
 ![The learning page on day 3: a ring of seven days around a brain, the ready date, the series watched, and the hours of the week learned so far](../images/what-changed-learning.png)
 
 - **Which day it is and when it is ready:** "Learning · day 3 of 7" and "Ready on Wed 25 Nov,
-  about 14:10", in your own time zone, with the time to go.
+  about 14:10", in your own time zone, with the time to go. The day counts the hours really
+  learned (one day for every 24), and the date is when WatchLog will start listing by the
+  same rule it scores with, so the ring, the bar and the grid below always agree.
 - **What it is reading:** the number of series, and what they are in your platform's words
   (nodes, workloads and applications; or servers, services, process groups, containers and
   applications).
