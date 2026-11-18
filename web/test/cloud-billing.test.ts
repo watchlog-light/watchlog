@@ -40,6 +40,14 @@ const FREE: PlanInfo = {
   period: { from: '2026-11-01T00:00:00.000Z', to: '2026-12-01T00:00:00.000Z', p95: 3, peak: 4 },
   refusedNodes: 0,
   downgrade: null,
+  // Pro's price as GET /plan gives it (the plans config, ADR-215): the page quotes it.
+  price: {
+    currency: 'USD',
+    perNodeMonth: 3,
+    minimumMonth: 15,
+    annualPerNode: 30,
+    annualMinimumNodes: 5,
+  },
 };
 const PRO_BETA: PlanInfo = {
   ...FREE,
@@ -95,19 +103,26 @@ describe('Plan & billing while billing is off (the beta)', () => {
       'Pro is free until billing starts',
     );
     const estimate = () => wrapper.get('[data-testid="estimate"]').text();
-    expect(estimate()).toContain('$12 / month');
-    expect(estimate()).toContain('$1 per node');
+    // 12 nodes at $3: $36 a month.
+    expect(estimate()).toContain('$36 / month');
+    expect(estimate()).toContain('$3 per node');
     expect(wrapper.get('[data-testid="interval-monthly"]').attributes('aria-pressed')).toBe('true');
     await wrapper.get('[data-testid="interval-annual"]').trigger('click');
     expect(wrapper.get('[data-testid="interval-annual"]').attributes('aria-pressed')).toBe('true');
-    expect(estimate()).toContain('$120 / year');
-    expect(estimate()).toContain('saves $24 a year');
+    // Annual: $30 a node a year, ten months' price, so two months (12 × $6) are saved.
+    expect(estimate()).toContain('$360 / year');
+    expect(estimate()).toContain('$30 per node a year');
+    expect(estimate()).toContain('saves $72 a year');
+    // Below the minimum: annual commits to at least 5 nodes; monthly is the $15 minimum,
+    // which covers the first 5.
     await wrapper.get('#estimate-nodes').setValue('4');
-    expect(estimate()).toContain('$100 / year');
-    expect(estimate()).toContain('10 nodes minimum');
+    expect(estimate()).toContain('$150 / year');
+    expect(estimate()).toContain('5 nodes minimum');
     await wrapper.get('[data-testid="interval-monthly"]').trigger('click');
-    expect(estimate()).toContain('$10 / month');
-    expect(estimate()).toContain('$10 minimum');
+    expect(estimate()).toContain('$15 / month');
+    expect(estimate()).toContain('$15 minimum · $3 per node');
+    await wrapper.get('#estimate-nodes').setValue('6');
+    expect(estimate()).toContain('$18 / month');
 
     const start = wrapper.get('[data-testid="start-beta"]');
     expect(start.text()).toBe('Start Pro, free during beta');

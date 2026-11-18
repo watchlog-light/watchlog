@@ -92,7 +92,7 @@ describe('the plan strip', () => {
     expect(wrapper.get('[data-testid="plan-try-pro"]').text()).toBe('Plan & billing →');
   });
 
-  it('Free with billing live: "Upgrade to Pro · $1 per node", the price from GET /plan (ADR-205)', async () => {
+  it('Free with billing live: "Upgrade to Pro · $3 per node", the price from GET /plan (ADR-205)', async () => {
     const billing = (live: boolean) => ({
       available: true,
       live,
@@ -103,10 +103,10 @@ describe('the plan strip', () => {
     });
     const price = {
       currency: 'USD',
-      perNodeMonth: 1,
-      minimumMonth: 10,
-      annualPerNode: 10,
-      annualMinimumNodes: 10,
+      perNodeMonth: 3,
+      minimumMonth: 15,
+      annualPerNode: 30,
+      annualMinimumNodes: 5,
     };
     for (const live of [false, true]) {
       mockFetch({
@@ -118,7 +118,7 @@ describe('the plan strip', () => {
       await flushPromises();
       const link = wrapper.get('[data-testid="plan-try-pro"]');
       expect(link.text()).toBe(
-        live ? 'Upgrade to Pro · $1 per node →' : 'Try Pro, free during beta →',
+        live ? 'Upgrade to Pro · $3 per node →' : 'Try Pro, free during beta →',
       );
       expect(link.attributes('href')).toBe('/settings?tab=billing');
       wrapper.unmount();

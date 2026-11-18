@@ -43,10 +43,10 @@ const CONFIG: CloudConfig = {
 };
 const PRICE = {
   currency: 'USD',
-  perNodeMonth: 1,
-  minimumMonth: 10,
-  annualPerNode: 10,
-  annualMinimumNodes: 10,
+  perNodeMonth: 3,
+  minimumMonth: 15,
+  annualPerNode: 30,
+  annualMinimumNodes: 5,
 };
 const FREE: PlanInfo = {
   plan: 'free',
@@ -195,11 +195,11 @@ describe('Cloud Free, an Owner', () => {
       expect(reasons).toContain('30 days to learn from');
       expect(reasons).toContain(p === 'docker' ? 'Compose change' : 'after a rollout');
       // The price, and no beta or Stripe wording while billing is off.
-      expect(w.get('[data-testid="wc-up-badge"]').text()).toBe('Pro · $1 per node a month');
+      expect(w.get('[data-testid="wc-up-badge"]').text()).toBe('Pro · $3 per node a month');
       expect(w.get('[data-testid="wc-up-fine"]').text()).toBe(
         p === 'docker'
-          ? '$1 per server a month, $10 minimum, billed on the 95th percentile of your hosts.'
-          : '$1 per node a month, $10 minimum, billed on the 95th percentile of your nodes.',
+          ? '$3 per server a month, $15 minimum, billed on the 95th percentile of your hosts.'
+          : '$3 per node a month, $15 minimum, billed on the 95th percentile of your nodes.',
       );
       expect(up.text()).not.toMatch(/beta|Stripe/i);
       expect(up.text()).toContain("WatchLog's catalog");
@@ -343,7 +343,7 @@ describe('Cloud Free, an Admin or a Viewer', () => {
           false,
         );
         expect(w.findAll('[data-testid="wc-up-alert"]')).toHaveLength(ALERTS[platformOf(c)].length);
-        expect(w.get('[data-testid="wc-up-badge"]').text()).toBe('Pro · $1 per node a month');
+        expect(w.get('[data-testid="wc-up-badge"]').text()).toBe('Pro · $3 per node a month');
         done();
       }
     }
