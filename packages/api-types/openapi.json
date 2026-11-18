@@ -36327,7 +36327,7 @@
       "get": {
         "summary": "What changed",
         "tags": ["what-changed", "public"],
-        "description": "What left its usual range in a cluster or a fleet (ADR-199): around an alert (60 minutes before it started to 15 minutes after, or now), or in a range of at most 24 hours (the last hour by default). At most 50 rows by start (`first`) or by how far out they went (`furthest`), with `total` and `truncated`; the unusual-activity chart; the learning state (nothing is listed for 7 days from the upgrade); and the probable cause's short form. Pro: 403 `pro-feature` for Cloud orgs without it; a self-hosted Community install answers 404.",
+        "description": "What left its usual range in a cluster or a fleet (ADR-199): around an alert (60 minutes before it started to 15 minutes after, or now), or in a range of at most 24 hours (the last hour by default). At most 50 rows by start (`first`) or by how far out they went (`furthest`), with `total` and `truncated`; the unusual-activity chart; the learning state (nothing is listed for 7 days from the upgrade; `learning` says which day it is, when it is ready and which hours of the week have a baseline); and the probable cause's short form. Pro: 403 `pro-feature` for Cloud orgs without it; a self-hosted Community install answers 404.",
         "parameters": [
           {
             "schema": {
@@ -36652,11 +36652,21 @@
                     },
                     "learning": {
                       "type": "object",
-                      "required": ["learning", "since", "until"],
+                      "required": [
+                        "learning",
+                        "since",
+                        "until",
+                        "day",
+                        "hoursLearned",
+                        "hoursTotal",
+                        "week",
+                        "series",
+                        "emailWhenReady"
+                      ],
                       "properties": {
                         "learning": {
                           "type": "boolean",
-                          "description": "True for 7 days from the upgrade: nothing is listed"
+                          "description": "True for 7 days from `since`: nothing is listed"
                         },
                         "since": {
                           "anyOf": [
@@ -36667,7 +36677,8 @@
                             {
                               "type": "null"
                             }
-                          ]
+                          ],
+                          "description": "When learning began: the later of the org's upgrade and the cluster's first series"
                         },
                         "until": {
                           "anyOf": [
@@ -36678,7 +36689,109 @@
                             {
                               "type": "null"
                             }
-                          ]
+                          ],
+                          "description": "7 days after `since`: when the list turns on"
+                        },
+                        "day": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 7
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "The day of learning, 1 to 7; null before it started"
+                        },
+                        "hoursLearned": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 168,
+                          "description": "Hours of the week that have a baseline"
+                        },
+                        "hoursTotal": {
+                          "type": "integer",
+                          "description": "168: every weekday and hour, once"
+                        },
+                        "week": {
+                          "type": "string",
+                          "pattern": "^[01]{168}$",
+                          "description": "One character per hour of the week, UTC, Sunday 00:00 first: 1 has a baseline, 0 not seen yet"
+                        },
+                        "series": {
+                          "type": "object",
+                          "required": ["total", "learning", "readyAt", "breakdown"],
+                          "properties": {
+                            "total": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "Series read in the last hourly run; null before the worker's first one"
+                            },
+                            "learning": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "description": "How many are still inside their own 7 days (all of them while `learning` is true; afterwards those that joined later)"
+                            },
+                            "readyAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "When the last of those is ready; null when none is learning"
+                            },
+                            "breakdown": {
+                              "type": "object",
+                              "properties": {
+                                "nodes": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "workloads": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "servers": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "services": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "processGroups": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "containers": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "applications": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                }
+                              },
+                              "description": "The series' objects in the kind's words: nodes and workloads; servers, services, process groups and containers; applications (monitored services)"
+                            }
+                          }
+                        },
+                        "emailWhenReady": {
+                          "type": "boolean",
+                          "description": "The signed-in user asked for an email when this cluster is ready; false for an API token"
                         }
                       }
                     },
@@ -36896,6 +37009,489 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/what-changed/learning": {
+      "get": {
+        "summary": "What changed's learning week",
+        "tags": ["what-changed"],
+        "description": "The learning state of a cluster or a fleet alone (ADR-216), as GET /what-changed's `learning`: three single-row reads, for the sidebar's \"day 3/7\". Pro: 403 `pro-feature` for Cloud orgs without it; Community answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "query",
+            "name": "cluster",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["learning"],
+                  "properties": {
+                    "learning": {
+                      "type": "object",
+                      "required": [
+                        "learning",
+                        "since",
+                        "until",
+                        "day",
+                        "hoursLearned",
+                        "hoursTotal",
+                        "week",
+                        "series",
+                        "emailWhenReady"
+                      ],
+                      "properties": {
+                        "learning": {
+                          "type": "boolean",
+                          "description": "True for 7 days from `since`: nothing is listed"
+                        },
+                        "since": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "When learning began: the later of the org's upgrade and the cluster's first series"
+                        },
+                        "until": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "7 days after `since`: when the list turns on"
+                        },
+                        "day": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 7
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "The day of learning, 1 to 7; null before it started"
+                        },
+                        "hoursLearned": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 168,
+                          "description": "Hours of the week that have a baseline"
+                        },
+                        "hoursTotal": {
+                          "type": "integer",
+                          "description": "168: every weekday and hour, once"
+                        },
+                        "week": {
+                          "type": "string",
+                          "pattern": "^[01]{168}$",
+                          "description": "One character per hour of the week, UTC, Sunday 00:00 first: 1 has a baseline, 0 not seen yet"
+                        },
+                        "series": {
+                          "type": "object",
+                          "required": ["total", "learning", "readyAt", "breakdown"],
+                          "properties": {
+                            "total": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "Series read in the last hourly run; null before the worker's first one"
+                            },
+                            "learning": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "description": "How many are still inside their own 7 days (all of them while `learning` is true; afterwards those that joined later)"
+                            },
+                            "readyAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "When the last of those is ready; null when none is learning"
+                            },
+                            "breakdown": {
+                              "type": "object",
+                              "properties": {
+                                "nodes": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "workloads": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "servers": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "services": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "processGroups": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "containers": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "applications": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                }
+                              },
+                              "description": "The series' objects in the kind's words: nodes and workloads; servers, services, process groups and containers; applications (monitored services)"
+                            }
+                          }
+                        },
+                        "emailWhenReady": {
+                          "type": "boolean",
+                          "description": "The signed-in user asked for an email when this cluster is ready; false for an API token"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/what-changed/ready-email": {
+      "put": {
+        "summary": "Email me when What changed is ready",
+        "tags": ["what-changed"],
+        "description": "The signed-in user's own choice for one cluster or fleet (ADR-216): one email when its first baseline is 7 days old, nothing if the org has left Pro by then. `enabled: false` undoes it. By session only; 409 once the cluster has finished learning, or (Cloud) while the user's address isn't verified.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["cluster", "enabled"],
+                "properties": {
+                  "cluster": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["emailWhenReady"],
+                  "properties": {
+                    "emailWhenReady": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {

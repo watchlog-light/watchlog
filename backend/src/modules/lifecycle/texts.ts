@@ -172,3 +172,38 @@ export function lifecycleEmail(
       };
   }
 }
+
+/**
+ * "What changed is ready" (ADR-216): the one email a member asked for on the learning page,
+ * for one cluster or fleet. Not a getting-started email: neither the daily limit nor the
+ * unsubscribe applies, and it says why it came. The cluster's name is the user's own data.
+ */
+export function whatChangedReadyEmail(c: {
+  site: string;
+  name: string;
+  signature: string;
+  cluster: { id: string; name: string; kind: string };
+}): { subject: string; text: string } {
+  const cluster = c.cluster.name.replace(/[\r\n]+/g, ' ').slice(0, 100);
+  const later =
+    c.cluster.kind === 'server'
+      ? 'A server, service or container that joins later takes 7 days of its own.'
+      : 'A workload or node that joins later takes 7 days of its own.';
+  return {
+    subject: `What changed is ready for ${cluster}`,
+    text: [
+      `Hi ${c.name},`,
+      '',
+      `WatchLog has finished learning ${cluster}'s usual week. From now on, What changed lists`,
+      'whatever leaves its usual range for the hour, in the order it happened, with the probable',
+      'cause underneath, and "Unusual for this hour" alerts can fire.',
+      `${c.site}/what-changed?cluster=${c.cluster.id}`,
+      '',
+      `It keeps learning every week. ${later}`,
+      '',
+      'You asked for this email on the What changed page. It is sent once.',
+      '',
+      c.signature,
+    ].join('\n'),
+  };
+}

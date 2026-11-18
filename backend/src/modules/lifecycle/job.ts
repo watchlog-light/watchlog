@@ -12,14 +12,17 @@
 //     before sending so two workers can't both send it; a failed send releases the claim;
 //   - the beta-to-billing notice only when billing asked for it (beta_notices), to every
 //     Owner of an org still on the beta; a service notice, so neither the daily limit nor
-//     the unsubscribe applies to it.
+//     the unsubscribe applies to it;
+//   - "What changed is ready" (ADR-216) only to a member who asked for it on the learning
+//     page, once per cluster, when its first baseline is 7 days old; nothing while the org is
+//     without Pro. Asked for, so neither the daily limit nor the unsubscribe applies.
 import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
 import { withOrg } from '../../db/org-context.js';
 import { transport } from '../alerts/channels.js';
 import { PLAN_DEFAULTS } from '../entitlements/plans.js';
 import type { AlertingSettings } from '../settings/service.js';
-import { lifecycleEmail, type LifecycleKind } from './texts.js';
+import { lifecycleEmail, whatChangedReadyEmail, type LifecycleKind } from './texts.js';
 import { unsubscribeUrl } from './unsubscribe.js';
 
 export const LIFECYCLE_EVERY_MS = 10 * 60_000;
@@ -277,6 +280,87 @@ export async function sendLifecycleEmails(deps: LifecycleDeps, nowMs: number): P
       signature,
       billingStartsAt: n.billing_starts_at,
     });
+  }
+
+  // ---- "What changed is ready": to the members who asked, for clusters that just finished.
+  const WEEK = sql`interval '7 days'`;
+  const ready = await systemDb
+    .selectFrom('anomaly_ready_emails as r')
+    .innerJoin('users as u', 'u.id', 'r.user_id')
+    .innerJoin('clusters as c', 'c.id', 'r.cluster_id')
+    .innerJoin('orgs as o', 'o.id', 'r.org_id')
+    .innerJoin('entitlements as e', 'e.org_id', 'r.org_id')
+    .innerJoin('memberships as m', (j) =>
+      j.onRef('m.org_id', '=', 'r.org_id').onRef('m.user_id', '=', 'r.user_id'),
+    )
+    .innerJoin('anomaly_orgs as a', 'a.org_id', 'r.org_id')
+    .innerJoin('anomaly_learning as l', 'l.cluster_id', 'r.cluster_id')
+    .select([
+      'r.org_id',
+      'r.cluster_id',
+      'c.name as cluster_name',
+      'c.kind as cluster_kind',
+      'u.id as user_id',
+      'u.email',
+      'u.name',
+    ])
+    .where('r.sent_at', 'is', null)
+    // Nothing if the org left Pro meanwhile; a return to Pro within 30 days resumes (ADR-204).
+    .where('e.pro_features', '=', true)
+    .where('u.disabled_at', 'is', null)
+    .where('u.email_verified_at', 'is not', null)
+    .where('o.suspended_at', 'is', null)
+    .where('o.deletion_requested_at', 'is', null)
+    // The cluster's first baseline is 7 days old: the moment the page lists (learningOf).
+    .where('l.first_seen', 'is not', null)
+    .where(sql<boolean>`greatest(a.learning_since, l.first_seen) + ${WEEK} <= ${now}`)
+    .orderBy('r.created_at')
+    .execute();
+  for (const r of ready) {
+    const claimed = await withOrg(r.org_id, () =>
+      db
+        .updateTable('anomaly_ready_emails')
+        .set({ sent_at: now })
+        .where('cluster_id', '=', r.cluster_id)
+        .where('user_id', '=', r.user_id)
+        .where('sent_at', 'is', null)
+        .returning('user_id')
+        .executeTakeFirst(),
+    );
+    if (!claimed) continue;
+    const mail = whatChangedReadyEmail({
+      site,
+      name: firstName(r.name, r.email),
+      signature,
+      cluster: { id: r.cluster_id, name: r.cluster_name, kind: r.cluster_kind },
+    });
+    try {
+      await transport(smtp.transport).sendMail({
+        from: deps.from,
+        replyTo: deps.from,
+        to: r.email,
+        subject: mail.subject,
+        text: mail.text,
+      });
+      sent++;
+    } catch (err) {
+      log.warn(
+        {
+          kind: 'what_changed_ready',
+          userId: r.user_id,
+          err: (err as Error).message.slice(0, 200),
+        },
+        'lifecycle email not sent; retrying later',
+      );
+      await withOrg(r.org_id, () =>
+        db
+          .updateTable('anomaly_ready_emails')
+          .set({ sent_at: null })
+          .where('cluster_id', '=', r.cluster_id)
+          .where('user_id', '=', r.user_id)
+          .execute(),
+      );
+    }
   }
 
   if (sent) log.info({ sent }, 'lifecycle emails sent');

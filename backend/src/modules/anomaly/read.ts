@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // What changed's read (ADR-199, ADR-202): the unusual periods the anomaly-worker stored for a
 // cluster or a fleet, in a window, as ranked rows in the platform's own words (ADR-124), the
-// unusual-activity chart (how many series were unusual each step) and the learning state
-// (ADR-204). One query of `anomaly_periods`, never scoring on request. The windows: around an
-// alert (60 minutes before it started to 15 minutes after, or now), or a range of at most
-// 24 hours. The page, the alert card, and in slice 6 the API and MCP tool read it.
+// unusual-activity chart (how many series were unusual each step). The learning state is
+// learning.ts's (ADR-204, ADR-216). One query of `anomaly_periods`, never scoring on request.
+// The windows: around an alert (60 minutes before it started to 15 minutes after, or now), or
+// a range of at most 24 hours. The page, the alert card, the API and the MCP tool read it.
 import type { Database } from '../../db/index.js';
 import { composeMap } from './exclusion.js';
 import { unitOf } from './keys.js';
@@ -17,13 +17,10 @@ export const WHAT_CHANGED_MAX_RANGE_S = 86_400;
 export const ALERT_BEFORE_S = 60 * 60;
 /** ...to this long after (or now, if sooner). */
 export const ALERT_AFTER_S = 15 * 60;
-/** Learning lasts this long from the org's start, or the cluster's first series (ADR-204). */
-export const LEARNING_DAYS = 7;
 /** The chart has at most this many points; its step is a whole number of minutes. */
 export const CHART_POINTS = 360;
 /** Periods read for the chart at most (one cluster, 25 hours). */
 const CHART_ROWS = 5_000;
-const DAY_MS = 86_400_000;
 
 export type WhatChangedSort = 'first' | 'furthest';
 export type ClusterKind = 'kubernetes' | 'server';
@@ -323,47 +320,6 @@ export function sortRows<T extends Pick<RowView, 'since' | 'peakScore' | 'id'>>(
     const r = sort === 'first' ? byStart(a, b) || byPeak(a, b) : byPeak(a, b) || byStart(a, b);
     return r || a.id.localeCompare(b.id);
   });
-}
-
-export interface Learning {
-  learning: boolean;
-  /** When learning began: the later of the org's start and the cluster's first series. */
-  since: string | null;
-  /** 7 days after `since`; null when the worker hasn't seen the org yet. */
-  until: string | null;
-}
-
-/** The learning state of an org's cluster (ADR-204). */
-export async function learningOf(
-  db: Database,
-  orgId: string,
-  clusterId: string,
-  nowMs: number,
-): Promise<Learning> {
-  const [org, first] = await Promise.all([
-    db
-      .selectFrom('anomaly_orgs')
-      .select('learning_since')
-      .where('org_id', '=', orgId)
-      .executeTakeFirst(),
-    db
-      .selectFrom('anomaly_baselines')
-      .select((eb) => eb.fn.min('first_seen').as('first'))
-      .where('org_id', '=', orgId)
-      .where('cluster_id', '=', clusterId)
-      .executeTakeFirst(),
-  ]);
-  if (!org) return { learning: true, since: null, until: null };
-  const orgSince = org.learning_since.getTime();
-  const firstRaw = first?.first as Date | string | null | undefined;
-  const clusterSince = firstRaw ? new Date(firstRaw).getTime() : orgSince;
-  const since = Math.max(orgSince, clusterSince);
-  const until = since + LEARNING_DAYS * DAY_MS;
-  return {
-    learning: nowMs < until,
-    since: new Date(since).toISOString(),
-    until: new Date(until).toISOString(),
-  };
 }
 
 export interface WhatChangedRead {

@@ -10941,7 +10941,7 @@
       "get": {
         "summary": "What changed",
         "tags": ["what-changed"],
-        "description": "What left its usual range in a cluster or a fleet (ADR-199): around an alert (60 minutes before it started to 15 minutes after, or now), or in a range of at most 24 hours (the last hour by default). At most 50 rows by start (`first`) or by how far out they went (`furthest`), with `total` and `truncated`; the unusual-activity chart; the learning state (nothing is listed for 7 days from the upgrade); and the probable cause's short form. Pro: 403 `pro-feature` for Cloud orgs without it; a self-hosted Community install answers 404.",
+        "description": "What left its usual range in a cluster or a fleet (ADR-199): around an alert (60 minutes before it started to 15 minutes after, or now), or in a range of at most 24 hours (the last hour by default). At most 50 rows by start (`first`) or by how far out they went (`furthest`), with `total` and `truncated`; the unusual-activity chart; the learning state (nothing is listed for 7 days from the upgrade; `learning` says which day it is, when it is ready and which hours of the week have a baseline); and the probable cause's short form. Pro: 403 `pro-feature` for Cloud orgs without it; a self-hosted Community install answers 404.",
         "parameters": [
           {
             "schema": { "type": "string", "format": "uuid" },
@@ -11151,17 +11151,96 @@
                     "truncated": { "type": "boolean" },
                     "learning": {
                       "type": "object",
-                      "required": ["learning", "since", "until"],
+                      "required": [
+                        "learning",
+                        "since",
+                        "until",
+                        "day",
+                        "hoursLearned",
+                        "hoursTotal",
+                        "week",
+                        "series",
+                        "emailWhenReady"
+                      ],
                       "properties": {
                         "learning": {
                           "type": "boolean",
-                          "description": "True for 7 days from the upgrade: nothing is listed"
+                          "description": "True for 7 days from `since`: nothing is listed"
                         },
                         "since": {
-                          "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+                          "anyOf": [
+                            { "type": "string", "format": "date-time" },
+                            { "type": "null" }
+                          ],
+                          "description": "When learning began: the later of the org's upgrade and the cluster's first series"
                         },
                         "until": {
-                          "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+                          "anyOf": [
+                            { "type": "string", "format": "date-time" },
+                            { "type": "null" }
+                          ],
+                          "description": "7 days after `since`: when the list turns on"
+                        },
+                        "day": {
+                          "anyOf": [
+                            { "type": "integer", "minimum": 1, "maximum": 7 },
+                            { "type": "null" }
+                          ],
+                          "description": "The day of learning, 1 to 7; null before it started"
+                        },
+                        "hoursLearned": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 168,
+                          "description": "Hours of the week that have a baseline"
+                        },
+                        "hoursTotal": {
+                          "type": "integer",
+                          "description": "168: every weekday and hour, once"
+                        },
+                        "week": {
+                          "type": "string",
+                          "pattern": "^[01]{168}$",
+                          "description": "One character per hour of the week, UTC, Sunday 00:00 first: 1 has a baseline, 0 not seen yet"
+                        },
+                        "series": {
+                          "type": "object",
+                          "required": ["total", "learning", "readyAt", "breakdown"],
+                          "properties": {
+                            "total": {
+                              "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }],
+                              "description": "Series read in the last hourly run; null before the worker's first one"
+                            },
+                            "learning": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "description": "How many are still inside their own 7 days (all of them while `learning` is true; afterwards those that joined later)"
+                            },
+                            "readyAt": {
+                              "anyOf": [
+                                { "type": "string", "format": "date-time" },
+                                { "type": "null" }
+                              ],
+                              "description": "When the last of those is ready; null when none is learning"
+                            },
+                            "breakdown": {
+                              "type": "object",
+                              "properties": {
+                                "nodes": { "type": "integer", "minimum": 1 },
+                                "workloads": { "type": "integer", "minimum": 1 },
+                                "servers": { "type": "integer", "minimum": 1 },
+                                "services": { "type": "integer", "minimum": 1 },
+                                "processGroups": { "type": "integer", "minimum": 1 },
+                                "containers": { "type": "integer", "minimum": 1 },
+                                "applications": { "type": "integer", "minimum": 1 }
+                              },
+                              "description": "The series' objects in the kind's words: nodes and workloads; servers, services, process groups and containers; applications (monitored services)"
+                            }
+                          }
+                        },
+                        "emailWhenReady": {
+                          "type": "boolean",
+                          "description": "The signed-in user asked for an email when this cluster is ready; false for an API token"
                         }
                       }
                     },

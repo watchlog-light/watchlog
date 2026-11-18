@@ -4,7 +4,8 @@
 //     series against its hour-of-week baseline; unusual periods open, extend or end;
 //   - every hour: the bucket of the hour that just ended, from that hour and the same hour
 //     7 days before (two occurrences in 14 days), minus the minutes under a firing alert on
-//     the series' subject; never data older than the org's `learning_since`;
+//     the series' subject; never data older than the org's `learning_since`; and the
+//     cluster's learning row, which the learning page reads (ADR-216);
 //   - the live demo only (ADR-203): the look-back, the 168 buckets before the worker's start
 //     recomputed from the retained history, a day of them a run;
 //   - with the hourly run: the housekeeping. Orgs that lost What changed stop at once (their
@@ -18,6 +19,7 @@ import { withOrg } from '../../db/org-context.js';
 import type { ClusterScope, QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
 import { clusterForOrg, listClusters } from '../clusters/service.js';
 import { composeMap, excluded, firingAlerts, seriesTokens, type ComposeOf } from './exclusion.js';
+import { recordLearning } from './learning.js';
 import {
   queriesFor,
   seriesHash,
@@ -409,7 +411,7 @@ export async function runAnomalyHour(deps: AnomalyDeps, nowMs: number): Promise<
   const hourEnd = Math.floor(nowMs / HOUR_MS) * HOUR_MS;
   const list = await targets(deps, await syncOrgs(deps, nowMs));
   await eachTarget(deps, 'hour', list, report, async (t) => {
-    report.series += await recomputeBucket(deps, t, hourEnd - HOUR_MS);
+    report.series += await recomputeBucket(deps, t, hourEnd - HOUR_MS, nowMs);
   });
   await housekeeping(deps, nowMs, report);
   return report;
@@ -418,9 +420,11 @@ export async function runAnomalyHour(deps: AnomalyDeps, nowMs: number): Promise<
 /**
  * One bucket of one cluster: the minutes of the hour starting at `hour` and of the same
  * hour 7 days before, clipped at the org's learning start, without the minutes under a
- * firing alert on the series' subject (ADR-196). Returns the series written.
+ * firing alert on the series' subject (ADR-196). Returns the series written. It also records
+ * the hour in the cluster's learning row (ADR-216); with `nowMs` (the hourly run, not the
+ * demo's look-back) the series it read and how many are still learning too.
  */
-export async function recomputeBucket(deps: AnomalyDeps, t: Target, hour: number) {
+export async function recomputeBucket(deps: AnomalyDeps, t: Target, hour: number, nowMs?: number) {
   const bucket = bucketOf(hour);
   const ranges: { start: number; end: number }[] = [];
   for (let back = 0; back * WEEK_MS < WINDOW_DAYS * DAY_MS; back++) {
@@ -482,13 +486,14 @@ export async function recomputeBucket(deps: AnomalyDeps, t: Target, hour: number
     }
   }
   const rows = [...series.values()];
+  const firstSeen: number[] = [];
   for (let i = 0; i < rows.length; i += CHUNK) {
     const part = rows.slice(i, i + CHUNK);
     const stats = part.map((r) =>
       r.values.length ? medianAndMad(r.values) : { median: 0, mad: 0 },
     );
     // The series' row, then the bucket's element of each array (ADR-198: one element an hour).
-    await sql`
+    const written = await sql<{ first_seen: Date }>`
       INSERT INTO anomaly_baselines
         (org_id, cluster_id, series_hash, metric, subject, medians, mads, minutes, first_seen, last_seen)
       SELECT ${t.orgId}::uuid, ${t.clusterId}::uuid, u.h, u.m, u.s::jsonb,
@@ -503,7 +508,9 @@ export async function recomputeBucket(deps: AnomalyDeps, t: Target, hour: number
              AS u(h, m, s, f, l)
       ON CONFLICT (cluster_id, series_hash) DO UPDATE
         SET first_seen = LEAST(anomaly_baselines.first_seen, excluded.first_seen),
-            last_seen = GREATEST(anomaly_baselines.last_seen, excluded.last_seen)`.execute(deps.db);
+            last_seen = GREATEST(anomaly_baselines.last_seen, excluded.last_seen)
+      RETURNING first_seen`.execute(deps.db);
+    for (const r of written.rows) firstSeen.push(r.first_seen.getTime());
     const el = sql.lit(bucket + 1);
     await sql`
       UPDATE anomaly_baselines b
@@ -513,6 +520,20 @@ export async function recomputeBucket(deps: AnomalyDeps, t: Target, hour: number
                     ${part.map((r) => Math.min(r.values.length, 32767))}::smallint[])
              AS u(h, med, mad, n)
        WHERE b.cluster_id = ${t.clusterId}::uuid AND b.series_hash = u.h`.execute(deps.db);
+  }
+  // Nothing read: the baselines are as they were, and so is the learning row.
+  if (rows.length) {
+    await recordLearning(
+      deps.db,
+      t,
+      bucket,
+      {
+        withData: rows.filter((r) => r.values.length > 0).length,
+        firstSeen,
+        series: rows.map((r) => ({ key: r.key, subject: r.subject })),
+      },
+      nowMs,
+    );
   }
   return rows.length;
 }
@@ -585,6 +606,7 @@ async function housekeeping(deps: AnomalyDeps, nowMs: number, report: AnomalyRep
             .execute();
           if (row.entitled_at.getTime() < nowMs - DOWNGRADE_KEEP_DAYS * DAY_MS) {
             await deps.db.deleteFrom('anomaly_baselines').where('org_id', '=', orgId).execute();
+            await deps.db.deleteFrom('anomaly_learning').where('org_id', '=', orgId).execute();
             await deps.db.deleteFrom('anomaly_orgs').where('org_id', '=', orgId).execute();
           }
         }

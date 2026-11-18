@@ -159,6 +159,18 @@ export interface AnomalyFeedback {
   value: number | null;
 }
 
+export interface AnomalyLearning {
+  breakdown: Generated<Json>;
+  cluster_id: string;
+  first_seen: Timestamp | null;
+  hours: number[];
+  learning_until: Timestamp | null;
+  org_id: Generated<string>;
+  series: Generated<number>;
+  series_learning: Generated<number>;
+  updated_at: Timestamp;
+}
+
 export interface AnomalyOrgs {
   entitled_at: Timestamp;
   learning_since: Timestamp;
@@ -183,6 +195,14 @@ export interface AnomalyPeriods {
   subject: Json;
   usual_high: number;
   usual_low: number;
+}
+
+export interface AnomalyReadyEmails {
+  cluster_id: string;
+  created_at: Generated<Timestamp>;
+  org_id: Generated<string>;
+  sent_at: Timestamp | null;
+  user_id: string;
 }
 
 export interface ApiTokenEvents {
@@ -821,8 +841,10 @@ export interface DB {
   alerting_periods: AlertingPeriods;
   anomaly_baselines: AnomalyBaselines;
   anomaly_feedback: AnomalyFeedback;
+  anomaly_learning: AnomalyLearning;
   anomaly_orgs: AnomalyOrgs;
   anomaly_periods: AnomalyPeriods;
+  anomaly_ready_emails: AnomalyReadyEmails;
   api_token_events: ApiTokenEvents;
   api_tokens: ApiTokens;
   audit_events: AuditEvents;

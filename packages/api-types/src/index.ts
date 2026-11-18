@@ -233,6 +233,8 @@ export type EgressPolicyFlavour = EgressPolicy['policies'][number];
 export type WhatChanged = JsonBody<Responses<'/api/v1/what-changed', 'get'>[200]>;
 export type WhatChangedRow = WhatChanged['rows'][number];
 export type WhatChangedObject = WhatChangedRow['object'];
+/** The learning week as data (ADR-216): the day, the hours of the week learned, the series. */
+export type WhatChangedLearning = WhatChanged['learning'];
 /** An anomaly alert's page (ADR-200): now, the usual range, the usual band, the answer given. */
 export type AnomalyAlert = JsonBody<Responses<'/api/v1/alerts/{id}/anomaly', 'get'>[200]>;
 export type AnomalyFeedback = NonNullable<AnomalyAlert['feedback']>;

@@ -13031,7 +13031,7 @@ export interface paths {
     };
     /**
      * What changed
-     * @description What left its usual range in a cluster or a fleet (ADR-199): around an alert (60 minutes before it started to 15 minutes after, or now), or in a range of at most 24 hours (the last hour by default). At most 50 rows by start (`first`) or by how far out they went (`furthest`), with `total` and `truncated`; the unusual-activity chart; the learning state (nothing is listed for 7 days from the upgrade); and the probable cause's short form. Pro: 403 `pro-feature` for Cloud orgs without it; a self-hosted Community install answers 404.
+     * @description What left its usual range in a cluster or a fleet (ADR-199): around an alert (60 minutes before it started to 15 minutes after, or now), or in a range of at most 24 hours (the last hour by default). At most 50 rows by start (`first`) or by how far out they went (`furthest`), with `total` and `truncated`; the unusual-activity chart; the learning state (nothing is listed for 7 days from the upgrade; `learning` says which day it is, when it is ready and which hours of the week have a baseline); and the probable cause's short form. Pro: 403 `pro-feature` for Cloud orgs without it; a self-hosted Community install answers 404.
      */
     get: {
       parameters: {
@@ -13131,10 +13131,40 @@ export interface paths {
               total: number;
               truncated: boolean;
               learning: {
-                /** @description True for 7 days from the upgrade: nothing is listed */
+                /** @description True for 7 days from `since`: nothing is listed */
                 learning: boolean;
+                /** @description When learning began: the later of the org's upgrade and the cluster's first series */
                 since: string | null;
+                /** @description 7 days after `since`: when the list turns on */
                 until: string | null;
+                /** @description The day of learning, 1 to 7; null before it started */
+                day: number | null;
+                /** @description Hours of the week that have a baseline */
+                hoursLearned: number;
+                /** @description 168: every weekday and hour, once */
+                hoursTotal: number;
+                /** @description One character per hour of the week, UTC, Sunday 00:00 first: 1 has a baseline, 0 not seen yet */
+                week: string;
+                series: {
+                  /** @description Series read in the last hourly run; null before the worker's first one */
+                  total: number | null;
+                  /** @description How many are still inside their own 7 days (all of them while `learning` is true; afterwards those that joined later) */
+                  learning: number;
+                  /** @description When the last of those is ready; null when none is learning */
+                  readyAt: string | null;
+                  /** @description The series' objects in the kind's words: nodes and workloads; servers, services, process groups and containers; applications (monitored services) */
+                  breakdown: {
+                    nodes?: number;
+                    workloads?: number;
+                    servers?: number;
+                    services?: number;
+                    processGroups?: number;
+                    containers?: number;
+                    applications?: number;
+                  };
+                };
+                /** @description The signed-in user asked for an email when this cluster is ready; false for an API token */
+                emailWhenReady: boolean;
               };
               cause: {
                 /** @description GET /causes's subject: the alert, or the first row probable cause can explain; null when none */
@@ -13238,6 +13268,259 @@ export interface paths {
       };
     };
     put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/what-changed/learning': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * What changed's learning week
+     * @description The learning state of a cluster or a fleet alone (ADR-216), as GET /what-changed's `learning`: three single-row reads, for the sidebar's "day 3/7". Pro: 403 `pro-feature` for Cloud orgs without it; Community answers 404.
+     */
+    get: {
+      parameters: {
+        query: {
+          cluster: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              learning: {
+                /** @description True for 7 days from `since`: nothing is listed */
+                learning: boolean;
+                /** @description When learning began: the later of the org's upgrade and the cluster's first series */
+                since: string | null;
+                /** @description 7 days after `since`: when the list turns on */
+                until: string | null;
+                /** @description The day of learning, 1 to 7; null before it started */
+                day: number | null;
+                /** @description Hours of the week that have a baseline */
+                hoursLearned: number;
+                /** @description 168: every weekday and hour, once */
+                hoursTotal: number;
+                /** @description One character per hour of the week, UTC, Sunday 00:00 first: 1 has a baseline, 0 not seen yet */
+                week: string;
+                series: {
+                  /** @description Series read in the last hourly run; null before the worker's first one */
+                  total: number | null;
+                  /** @description How many are still inside their own 7 days (all of them while `learning` is true; afterwards those that joined later) */
+                  learning: number;
+                  /** @description When the last of those is ready; null when none is learning */
+                  readyAt: string | null;
+                  /** @description The series' objects in the kind's words: nodes and workloads; servers, services, process groups and containers; applications (monitored services) */
+                  breakdown: {
+                    nodes?: number;
+                    workloads?: number;
+                    servers?: number;
+                    services?: number;
+                    processGroups?: number;
+                    containers?: number;
+                    applications?: number;
+                  };
+                };
+                /** @description The signed-in user asked for an email when this cluster is ready; false for an API token */
+                emailWhenReady: boolean;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/what-changed/ready-email': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Email me when What changed is ready
+     * @description The signed-in user's own choice for one cluster or fleet (ADR-216): one email when its first baseline is 7 days old, nothing if the org has left Pro by then. `enabled: false` undoes it. By session only; 409 once the cluster has finished learning, or (Cloud) while the user's address isn't verified.
+     */
+    put: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** Format: uuid */
+            cluster: string;
+            enabled: boolean;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              emailWhenReady: boolean;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
     post?: never;
     delete?: never;
     options?: never;
