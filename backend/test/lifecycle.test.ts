@@ -11,7 +11,11 @@ import {
   senderName,
   type Candidate,
 } from '../src/modules/lifecycle/job.js';
-import { lifecycleEmail, type LifecycleKind } from '../src/modules/lifecycle/texts.js';
+import {
+  lifecycleEmail,
+  proPriceLine,
+  type LifecycleKind,
+} from '../src/modules/lifecycle/texts.js';
 import { unsubscribeToken, verifyUnsubscribeToken } from '../src/modules/lifecycle/unsubscribe.js';
 import { cloudWorld, type CloudWorld } from './isolation/cloud.js';
 import { TEST_SECRET_KEY } from './helpers.js';
@@ -284,5 +288,9 @@ describe('the job (test SMTP)', () => {
     await job();
     const mails = await mailpitMessages(email('beta'));
     expect(mails.map((m) => m.Subject)).toEqual(['WatchLog Pro: billing starts in 14 days']);
+    // The notice says what Pro costs, from the plans config (ADR-215).
+    expect(proPriceLine()).toBe(
+      '$3 per node (or server) a month, $15 minimum (the first 5 nodes); or $30 per node a year.',
+    );
   });
 });

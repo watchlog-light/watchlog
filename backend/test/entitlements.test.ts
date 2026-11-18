@@ -415,10 +415,10 @@ describe('limits (scenarios 9 and 10)', () => {
       // Pro's price from the plans config, which the upgrade page quotes (ADR-201).
       price: {
         currency: 'USD',
-        perNodeMonth: 1,
-        minimumMonth: 10,
-        annualPerNode: 10,
-        annualMinimumNodes: 10,
+        perNodeMonth: 3,
+        minimumMonth: 15,
+        annualPerNode: 30,
+        annualMinimumNodes: 5,
       },
     });
     // One email to the Owners per limit and day.
