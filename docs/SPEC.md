@@ -629,7 +629,7 @@ See every place a cluster or Docker fleet talks to on the internet, and know whe
 - **Out of scope:** country and ASN, blocking or enforcing anything, TLS SNI or HTTP hosts, threat-intelligence feeds.
 - **Demo and tests (ADR-193):** the e2e and the demo kit each get a new-destination and a raw-IP scenario, on Kubernetes and Docker.
 
-## 4.15 Servers — shipped in 0.9.0, All (ADR-207 to ADR-213)
+## 4.15 Servers — shipped in 0.9.0, All (ADR-207 to ADR-214)
 
 Every process on a Linux server, in any language, however it was started: systemd services, process groups and containers, with every feature WatchLog has. Community, in every edition and plan; a server is a node for plans and the bill.
 
@@ -639,6 +639,7 @@ Every process on a Linux server, in any language, however it was started: system
   - **Process groups:** processes grouped by rules: the user's own, then pm2 apps, supervisord programs, PHP-FPM pools, gunicorn and uwsgi masters, Java jars and main classes, an interpreter and its script, else the executable's name; a group inside a unit is its child (ADR-208). CPU, memory, instances, threads, open files, starts, exits with codes, OOM kills; crashes and crash loops for anything, with or without systemd.
   - **Containers:** Docker as in §4.4.
 - **Pages:** the fleet (servers with CPU, memory and disk, failed services, crash loops, busiest workloads); the server (OS, kernel, systemd, Docker; resources; one workloads table with Service, Process and Container chips grouped by unit; listening ports; events); the workload (resources against limits, instances, restarts and exits, connections and HTTP, logs, alerts, probable cause, What changed); Overview, Workloads, Events, Service map, Egress, What changed and Alerts for Server fleets; the fleet's process-group rules with a preview.
+- **Events (0.9.2, ADR-214):** the agent sends its services' (failed with systemd's result and exit code, started, stopped, restarted, unit file changed, OOM-killed, released) and process groups' (failed exit with its code or signal, crash loop and its end, appeared, gone, OOM-killed with the limit, released) events, stored and grouped like Kubernetes events. The fleet's Events page filters by server, workload, kind and reason, the Compose project within containers, with Hide system on by default; the server, workload and Overview pages read them.
 - **Limits:** at most 50 process groups and 100 services a server, the rest counted; no PID, command line, argument, environment value or user name as a label or field; a group's name is derived and redacted on the server.
 - **Install (ADR-209):** one command (signed release binaries, systemd units, user `watchlog`, the fewest capabilities, systemd hardening), deb and rpm, or `docker run --pid host`; upgrade and uninstall in the script. amd64 and arm64; systemd 239+ for services; without systemd, process groups only; cgroup v1 best effort; eBPF needs kernel 5.8+ with BTF, and without it everything but the map, Egress, HTTP and exit codes works.
 - **Applications on servers:** discovery of host-native PostgreSQL, MySQL/MariaDB, Redis, MongoDB, RabbitMQ, Kafka, nginx, Traefik and PHP-FPM from listening sockets and the executable; the integrations collector runs natively; a PHP-FPM integration (§4.12's eight points).

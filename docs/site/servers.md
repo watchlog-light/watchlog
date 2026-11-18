@@ -134,6 +134,32 @@ or without systemd. A **crash loop** is three failed exits or restarts in ten mi
 **release** is the executable replaced on disk: it is marked on the workload's timeline and
 checked as a cause.
 
+## Events
+
+From agent 0.9.2, a server sends its own events, and the fleet's **Events** page lists them
+next to its containers' events:
+
+| Workload      | Events                                                                                                                                              |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Service       | Failed (systemd's result and exit code), Started, Stopped, Restarted, UnitChanged (its unit file changed), OOMKilled (with its MemoryMax), Release  |
+| Process group | FailedExit (its exit code or signal), CrashLoop and CrashLoopEnded, Appeared, Gone, OOMKilled (with the limit it hit, or the kernel's own), Release |
+| Container     | As before: started, died, OOM-killed, health changes                                                                                                |
+
+Repeated events are grouped like Kubernetes events: one row per workload and reason per day,
+with how many times it happened and when it first and last did. An event names its unit or
+its process group, never a pid or a command line.
+
+The top bar filters by server and by workload. The facets are Kind (Service, Process,
+Container), Server, Workload and Reason; once you tick Container, the Compose project is a
+facet too. **Hide system** is on by default and works like the Workloads page's: the OS's own
+workloads and WatchLog's own agent and collector are hidden, and their events are still kept.
+Each row opens its workload's page. A server's page lists its last 24 hours of events and
+links to the rest, and a workload's page lists its own.
+
+An agent older than 0.9.2 sends only its containers' events. Its server page still shows
+failed exits, kills and releases worked out from the counters, and says that the agent needs
+upgrading.
+
 ## Alerts and probable cause
 
 Every Server fleet has these default rules, which you can tune or turn off in **Alerts**:
