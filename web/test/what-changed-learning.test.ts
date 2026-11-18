@@ -5,6 +5,8 @@
 // "email me when it's ready"; the alert card's line; the sidebar's hint; the upgrade page's
 // hero in its waiting state (ADR-201) with its date, its roles and its day-1 preview; and
 // the way back from Checkout, where the hero turns into the learning page without a reload.
+// Everything the page says comes from the worker's answer (ADR-217): a week with a gap shows
+// the hours really learned, the day they make and the later ready date, top and bottom alike.
 // The clock is the test's: no day is waited for.
 import type { AlertDetail, WhatChanged, WhatChangedLearning } from '@watchlog/api-types';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
@@ -26,7 +28,9 @@ import {
   readyParts,
   remaining,
   remainingText,
+  readyIfStartedAt,
   ringSegments,
+  waitingSegments,
   weekCells,
   weekSummary,
   zoneLabel,
@@ -52,6 +56,8 @@ const DAY = 86_400_000;
 /** The upgrade to Pro: a Wednesday at 14:10 UTC. */
 const START = Date.UTC(2026, 10, 18, 14, 10, 0);
 const UNTIL = START + 7 * DAY;
+/** The hour a time is in (gaps are whole hours: the worker learns an hour or doesn't). */
+const H = (ms: number) => Math.floor(ms / HOUR) * HOUR;
 const K8S = {
   ...BASE_FLEET,
   id: '01a1de8d-e52d-7188-9878-62ee5fd5309d',
@@ -236,8 +242,9 @@ const text = (w: VueWrapper, id: string) => w.get(`[data-testid="${id}"]`).text(
 // ------------------------------------------------------------------------------ the lib
 
 describe('the lib', () => {
-  it('the ring: past days done, today, the rest to come, with the weekdays from the start', () => {
-    const day3 = ringSegments(3, START, 'en', 'UTC');
+  it('the ring is the week as it was learned: days done, today, days to come, with the weekdays from the start', () => {
+    const at = START + 2 * DAY + 13 * HOUR;
+    const day3 = ringSegments(learningAt('server', START, at).week, START, at, 'en', 'UTC');
     expect(day3.map((s) => s.state)).toEqual([
       'done',
       'done',
@@ -247,26 +254,65 @@ describe('the lib', () => {
       'todo',
       'todo',
     ]);
+    expect(day3.map((s) => s.share)).toEqual([1, 1, 13 / 24, 0, 0, 0, 0]);
     expect(day3.map((s) => s.label)).toEqual(['Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue']);
-    expect(ringSegments(1, START, 'en', 'UTC').map((s) => s.state)[0]).toBe('today');
-    expect(ringSegments(7, START, 'en', 'UTC').filter((s) => s.state === 'done')).toHaveLength(6);
-    // Nothing learning (the upgrade page): every segment empty.
-    expect(ringSegments(0, START, 'en', 'UTC').every((s) => s.state === 'todo')).toBe(true);
+    const day1 = ringSegments(learningAt('server', START, START + HOUR).week, START, START + HOUR);
+    expect(day1.map((s) => s.state)[0]).toBe('today');
+    const last = ringSegments(learningAt('server', START, UNTIL - MIN).week, START, UNTIL - MIN);
+    expect(last.filter((s) => s.state === 'done')).toHaveLength(6);
     // The weekday is the viewer's: 14:10 UTC on Wednesday is already Thursday in Auckland.
-    expect(ringSegments(1, START, 'en', 'Pacific/Auckland')[0]!.label).toBe('Thu');
+    expect(ringSegments('', START, START, 'en', 'Pacific/Auckland')[0]!.label).toBe('Thu');
     // Seven arcs of one circle, the first starting at the top.
     expect(new Set(day3.map((s) => s.d)).size).toBe(7);
     expect(day3[0]!.d).toMatch(/^M1[67]\d\.\d 2\d\.\d A150 150 0 0 1 /);
   });
 
-  it('the day, the time to go and the ready time in the viewer’s zone', () => {
-    const l = { since: new Date(START).toISOString(), day: 1 };
-    expect(dayOf(l, START)).toBe(1);
-    expect(dayOf(l, START + DAY - 1)).toBe(1);
-    expect(dayOf(l, START + 2 * DAY + 13 * HOUR)).toBe(3);
-    expect(dayOf(l, UNTIL - MIN)).toBe(7);
-    expect(dayOf(l, UNTIL + DAY)).toBe(7);
-    expect(dayOf({ since: null, day: null }, START)).toBe(1);
+  it('a gap is not learned on the ring: a day off Pro stays empty however long ago it was', () => {
+    // Pro for a day, off for two, Pro again: asked 7 days after the start.
+    const gaps: [number, number][] = [[H(START + DAY), H(START + 3 * DAY)]];
+    const l = learningAt('server', START, UNTIL, {}, gaps);
+    expect(l).toMatchObject({ learning: true, hoursLearned: 120, day: 6 });
+    const ring = ringSegments(l.week, START, UNTIL, 'en', 'UTC');
+    // Wednesday's block (14:00 to 14:00) holds the current hour; the two days of the gap
+    // (Thursday and Friday afternoon to afternoon) have next to nothing.
+    expect(ring.map((s) => s.label)).toEqual(['Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue']);
+    expect(ring.map((s) => s.state)).toEqual([
+      'today',
+      'todo',
+      'todo',
+      'done',
+      'done',
+      'done',
+      'done',
+    ]);
+    expect(ring[1]!.share).toBe(0);
+    expect(ring[2]!.share).toBe(0);
+    // An hour looked at twice with no data is done with, like a learned one.
+    const quiet = `2${'1'.repeat(167)}`;
+    expect(ringSegments(quiet, START, START + 12 * HOUR).filter((s) => s.share < 1)).toEqual([]);
+    // The upgrade page: nothing learning, every segment empty; the preview shows day 1.
+    expect(waitingSegments(START).every((s) => s.state === 'todo' && s.share === 0)).toBe(true);
+    expect(waitingSegments(START, true).map((s) => s.state)).toEqual([
+      'today',
+      'todo',
+      'todo',
+      'todo',
+      'todo',
+      'todo',
+      'todo',
+    ]);
+  });
+
+  it('the day is the worker’s; the time to go and the ready time are in the viewer’s zone', () => {
+    // One day for every 24 hours learned, as the API counts it: never the calendar's.
+    expect(dayOf({ day: 3 })).toBe(3);
+    expect(dayOf({ day: null })).toBe(1);
+    expect(dayOf(learningAt('server', START, START + 2 * DAY + 13 * HOUR))).toBe(3);
+    expect(
+      dayOf(learningAt('server', START, UNTIL, {}, [[H(START + DAY), H(START + 3 * DAY)]])),
+    ).toBe(6);
+    // The upgrade page's promise: 7 days of data, ready within the hour after.
+    expect(readyIfStartedAt(START)).toBe(START + 7 * DAY + HOUR);
 
     const tr = (key: string, v?: Record<string, unknown>, n?: number) =>
       key.endsWith('soon')
@@ -330,6 +376,7 @@ describe('the lib', () => {
       row: 6,
       col: 0,
       state: 'learned',
+      learned: true,
     });
     // Nothing learning: no cell is "this hour", whatever the clock.
     expect(weekCells('', null, 0).every((c) => c.state === 'todo')).toBe(true);
@@ -449,7 +496,7 @@ describe.each([K8S, FLEET])('the learning page, $kind', (c) => {
     expect(asText.findAll('li')).toHaveLength(7);
     expect(asText.text()).toContain('This hour is');
     // What happens next, and what already works, with real links.
-    expect(text(w, 'wc-learn-next')).toContain('Day 7: the list turns on');
+    expect(text(w, 'wc-learn-next')).toContain('When the week is learned: the list turns on');
     expect(text(w, 'wc-learn-next')).toContain('“Unusual for this hour” alerts');
     const href = (id: string) => w.get(`[data-testid="wc-working-${id}"]`).attributes('href');
     expect(href('alerts')).toBe(`/alerts?cluster=${c.id}`);
@@ -486,6 +533,66 @@ describe.each([K8S, FLEET])('the learning page, $kind', (c) => {
     expect(w.get('[data-testid="wc-working-cause"]').attributes('href')).toBe(
       `/alerts?cluster=${c.id}`,
     );
+  });
+
+  it('a week with a gap (Pro, off for 2 days, Pro again): the top and the bottom say the same, and it is the later date', async () => {
+    reducedMotion(false);
+    const gaps: [number, number][] = [[H(START + DAY), H(START + 3 * DAY)]];
+    // Asked 7 days after the first sighting: where the page used to say "ready".
+    const now = UNTIL;
+    const learning = learningAt(kindOf(c), START, now, {}, gaps);
+    expect(learning).toMatchObject({ learning: true, hoursLearned: 120, day: 6 });
+    mockFetch(routes(c, now, learning));
+    const { w } = await open(WhatChangedPage, `/what-changed?cluster=${c.id}`, now);
+    // The top: the day the learned hours make, and the worker's ready date.
+    expect(text(w, 'wc-learn-day')).toBe('Learning · day 6 of 7');
+    const ready = readyParts(Date.parse(learning.until!));
+    expect(Date.parse(learning.until!)).toBeGreaterThan(START + 9 * DAY);
+    expect(text(w, 'wc-learn-ready')).toContain(`Ready on ${ready.date}, about ${ready.time}`);
+    expect(text(w, 'wc-learn-togo')).toMatch(/^2 days 2\d hours to go$/);
+    // The bottom: the same 120 hours in the bar, the tile and the grid.
+    expect(w.get('[data-testid="wc-learn-bar"]').attributes('aria-valuenow')).toBe('120');
+    expect(text(w, 'wc-tile-hours')).toContain('120 of 168');
+    // (This hour is one of the 120: it was learned a week ago, and is drawn as "this hour".)
+    expect(count(w, '[data-testid="wc-week-grid"] [data-state="learned"]')).toBe(119);
+    expect(count(w, '[data-testid="wc-week-grid"] [data-state="now"]')).toBe(1);
+    expect(text(w, 'wc-week-text')).toContain('120 of the 168 hours of the week learned so far.');
+    // The ring: four full days, today, and the two days of the gap empty.
+    expect(count(w, '[data-testid="ring-done"]')).toBe(4);
+    expect(count(w, '[data-testid="ring-today"]')).toBe(1);
+    const empty = w.findAll('[data-testid="ring-todo"]');
+    expect(empty.map((s) => s.attributes('data-share'))).toEqual(['0.00', '0.00']);
+    // And it says when it resumed, and that what it had still counts.
+    const resumed = readyParts(Date.parse(learning.resumedAt!));
+    expect(text(w, 'wc-learn-resumed')).toBe(
+      `Learning resumed on ${resumed.date} at ${resumed.time}. What it learned before still counts; the hours in between are learned as they come round.`,
+    );
+    mounted!.unmount();
+
+    // Two hours learned before the gap, then two days off: day 1, not day 3.
+    const few = learningAt(kindOf(c), START, START + 2 * DAY + 70 * MIN, {}, [
+      [H(START + 2 * HOUR), H(START + 2 * DAY)],
+    ]);
+    expect(few).toMatchObject({ learning: true, hoursLearned: 3, day: 1 });
+    mockFetch(routes(c, START + 2 * DAY + 70 * MIN, few));
+    const again = await open(
+      WhatChangedPage,
+      `/what-changed?cluster=${c.id}`,
+      START + 2 * DAY + 70 * MIN,
+    );
+    expect(text(again.w, 'wc-learn-day')).toBe('Learning · day 1 of 7');
+    expect(text(again.w, 'wc-tile-hours')).toContain('3 of 168');
+    expect(again.w.get('[data-testid="wc-learn-bar"]').attributes('aria-valuenow')).toBe('3');
+    // The first day has 2 of its 24 hours: a short arc over an empty track, not a full day.
+    expect(count(again.w, '[data-testid="ring-done"]')).toBe(0);
+    expect(again.w.get('[data-testid="ring-part"]').attributes('stroke-dasharray')).toBe('0.083 1');
+    expect(Date.parse(few.until!)).toBeGreaterThan(START + 8 * DAY);
+    // A week without a gap never says "resumed".
+    mounted!.unmount();
+    mockFetch(routes(c, START + DAY, learningAt(kindOf(c), START, START + DAY)));
+    const plain = await open(WhatChangedPage, `/what-changed?cluster=${c.id}`, START + DAY);
+    expect(plain.w.find('[data-testid="wc-learn-resumed"]').exists()).toBe(false);
+    expect(plain.w.find('[data-testid="ring-part"]').exists()).toBe(false);
   });
 
   it('partly learned: the list as always, and a strip saying how many still learn and until when', async () => {
@@ -620,7 +727,13 @@ describe('the centrepiece and the grid on their own', () => {
   it('learning: five dots on three orbits, the ten folds in three turns', async () => {
     reducedMotion(false);
     const w = mount(LearningBrain, {
-      props: { state: 'learning', day: 4, start: START },
+      props: {
+        state: 'learning',
+        day: 4,
+        start: START,
+        week: learningAt('server', START, START + 3 * DAY + HOUR).week,
+        now: START + 3 * DAY + HOUR,
+      },
       ...(await plugins()),
     });
     mounted = w;
@@ -645,6 +758,30 @@ describe('the centrepiece and the grid on their own', () => {
     expect(w.text()).toContain('Nothing is learned before the upgrade.');
     expect(w.text()).not.toContain('this hour');
     expect(text(w, 'wc-week-text')).toContain('None of the 168 hours of the week is learned');
+  });
+
+  it('an hour looked at twice with no data is neither learned nor "not seen yet", and the legend says so only then', async () => {
+    reducedMotion(false);
+    const now = START + DAY;
+    const week = learningAt('server', START, now).week;
+    const quiet = `22${week.slice(2)}`;
+    const w = mount(LearningWeekGrid, {
+      props: { week: quiet, now, offsetMin: 0 },
+      ...(await plugins()),
+    });
+    mounted = w;
+    expect(count(w, '[data-state="quiet"]')).toBe(2);
+    expect(text(w, 'wc-week-quiet')).toBe('no data');
+    expect(text(w, 'wc-week-text')).toContain(
+      '2 hours had no data both times they were looked at.',
+    );
+    w.unmount();
+    const none = mount(LearningWeekGrid, {
+      props: { week, now, offsetMin: 0 },
+      ...(await plugins()),
+    });
+    mounted = none;
+    expect(none.find('[data-testid="wc-week-quiet"]').exists()).toBe(false);
   });
 
   it('the grid in a half-hour zone says it rounds; in a whole-hour zone it names the zone', async () => {
@@ -862,7 +999,7 @@ describe('the upgrade page’s hero: the same brain, waiting (ADR-201)', () => {
       expect(hero.text()).toContain('It starts the minute you upgrade.');
       // Today plus 7 days, in the viewer's time zone.
       expect(text(w, 'wc-up-ready')).toBe(
-        `Upgrade today and it's ready on ${readyParts(now + 7 * DAY).date}.`,
+        `Upgrade today and it's ready on ${readyParts(readyIfStartedAt(now)).date}.`,
       );
       expect(text(w, 'wc-up-badge')).toBe('Pro · $3 per node a month');
       expect(text(w, 'wc-up-fine')).toContain(
@@ -969,7 +1106,7 @@ describe('the upgrade page’s hero: the same brain, waiting (ADR-201)', () => {
       expect(ready).toContain('not in a self-hosted install');
       expect(ready).not.toMatch(/ready on|today|\b\d{1,2} (Nov|Dec)\b/);
       expect(w.get('[data-testid="wc-upgrade"]').text()).not.toContain(
-        readyParts(now + 7 * DAY).date,
+        readyParts(readyIfStartedAt(now)).date,
       );
       expect(w.get('[data-testid="wc-up-cloud"]').text()).toContain('Try WatchLog Cloud');
       expect(count(w, '[data-testid="wc-week-grid"] [data-state="todo"]')).toBe(168);

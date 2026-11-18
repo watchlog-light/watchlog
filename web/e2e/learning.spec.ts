@@ -38,25 +38,45 @@ const SERIES: Record<Kind, { total: number; breakdown: Record<string, number> }>
 };
 const ALERT_ID = '01a19300-0000-7000-8000-000000000042';
 
-/** The API's learning answer at `nowMs` for a cluster that started at START. */
-function learningAt(kind: Kind, nowMs: number, over: Record<string, unknown> = {}) {
+/**
+ * The API's learning answer at `nowMs` for a cluster that started at START (ADR-217): the
+ * worker reads each hour when it ends, except in `gap` (the org was off Pro), whose hours are
+ * learned when they come round a week later; the day is one for every 24 hours learned.
+ */
+function learningAt(
+  kind: Kind,
+  nowMs: number,
+  over: Record<string, unknown> = {},
+  gap?: [number, number],
+) {
   const week = Array<string>(168).fill('0');
-  // The worker reads each hour when it ends.
+  const slot = (h: number) => new Date(h).getUTCDay() * 24 + new Date(h).getUTCHours();
+  const off = (h: number) => !!gap && h >= gap[0] && h < gap[1];
+  let last: number | null = null;
+  let resumed: number | null = null;
   for (let h = Math.floor(START / HOUR) * HOUR; h + HOUR <= nowMs; h += HOUR) {
-    const d = new Date(h);
-    week[d.getUTCDay() * 24 + d.getUTCHours()] = '1';
+    if (off(h)) continue;
+    week[slot(h)] = '1';
+    if (last !== null && h - last > HOUR) resumed = h;
+    last = h;
   }
-  const until = START + 7 * DAY;
-  const learning = nowMs < until;
+  // Ready when the last hour of the week still missing has come round, never before 7 days.
+  let until = START + 7 * DAY;
+  for (let h = Math.floor(nowMs / HOUR) * HOUR, n = 0; n < 168; h += HOUR, n++) {
+    if (week[slot(h)] === '0') until = Math.max(until, h + HOUR + 6 * 60_000);
+  }
+  const learned = week.filter((c) => c === '1').length;
+  const learning = learned < 168 || nowMs < until;
   const read = nowMs >= Math.ceil(START / HOUR) * HOUR + 5 * 60_000;
   return {
     learning,
     since: new Date(START).toISOString(),
     until: new Date(until).toISOString(),
-    day: Math.min(7, Math.floor((nowMs - START) / DAY) + 1),
-    hoursLearned: week.filter((c) => c === '1').length,
+    day: Math.min(7, Math.floor(learned / 24) + 1),
+    hoursLearned: learned,
     hoursTotal: 168,
     week: week.join(''),
+    resumedAt: learning && resumed !== null ? new Date(resumed).toISOString() : null,
     series: {
       total: read ? SERIES[kind].total : null,
       learning: learning && read ? SERIES[kind].total : 0,
@@ -139,6 +159,8 @@ interface World {
   role?: 'owner' | 'admin' | 'viewer';
   nowMs: number;
   learning?: Record<string, unknown>;
+  /** Hours the org was off Pro: [from, to), each on the hour. */
+  gap?: [number, number];
   rows?: number;
   billingLive?: boolean;
 }
@@ -172,7 +194,7 @@ async function mock(context: BrowserContext, w: World, unknown: string[]) {
     const url = new URL(req.url());
     const path = url.pathname.replace('/api/v1', '');
     const cloud = w.edition === 'cloud';
-    const learning = { ...learningAt(w.kind, w.nowMs, w.learning), emailWhenReady: asked };
+    const learning = { ...learningAt(w.kind, w.nowMs, w.learning, w.gap), emailWhenReady: asked };
     if (path === '/setup') {
       return json(route, { required: false, demoMode: false, smtp: true });
     }
@@ -490,6 +512,43 @@ for (const kind of ['kubernetes', 'server'] as Kind[]) {
         await expect(brain).not.toHaveAttribute('data-preview', 'on');
       }
       expect(unknown, 'API paths the fixtures did not answer').toEqual([]);
+      await context.close();
+    }
+  });
+}
+
+for (const kind of ['kubernetes', 'server'] as Kind[]) {
+  test(`${kind}: a week with a gap: two hours of Pro, two days off, Pro again`, async ({
+    browser,
+  }) => {
+    // As WatchLog Cloud's own fleet on 18 November: 2 hours learned, 46 hours off, resumed.
+    const first = Math.floor(START / HOUR) * HOUR;
+    const gap: [number, number] = [first + 2 * HOUR, first + 2 * DAY];
+    const nowMs = START + 2 * DAY + 2 * HOUR;
+    for (const width of WIDTHS) {
+      const { context, page } = await open(
+        browser,
+        { kind, edition: 'cloud', plan: 'pro', nowMs, gap },
+        width,
+        '/what-changed',
+      );
+      // The top and the bottom agree: day 1, 4 hours, and ready a week after it resumed.
+      await expect(page.getByTestId('wc-learn-day')).toHaveText('Learning · day 1 of 7');
+      await expect(page.getByTestId('wc-learn-bar')).toHaveAttribute('aria-valuenow', '4');
+      await expect(page.getByTestId('wc-tile-hours')).toContainText('4 of 168');
+      await expect(page.getByTestId('wc-learn-ready')).toContainText('Ready on Fri 27 Nov');
+      await expect(page.getByTestId('wc-learn-ready')).not.toContainText('25 Nov');
+      await expect(page.getByTestId('wc-learn-resumed')).toContainText(
+        'Learning resumed on Fri 20 Nov',
+      );
+      await expect(page.locator('[data-testid="ring-done"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="ring-part"]')).toHaveCount(1);
+      await expect(page.locator('[data-testid="wc-week-grid"] [data-state="learned"]')).toHaveCount(
+        4,
+      );
+      if (width >= 1024) await expect(page.getByTestId('nav-learning')).toContainText('day 1/7');
+      await noPageScroll(page, `gap-${kind}`, width);
+      await shoot(page, `s096-learning-${kind}-gap`, width);
       await context.close();
     }
   });
