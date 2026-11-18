@@ -24,7 +24,7 @@
 ### Kubernetes
 
 ```bash
-helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version 0.9.4 \
+helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version 0.9.5 \
   --namespace watchlog --create-namespace
 kubectl -n watchlog port-forward svc/watchlog-web 8080
 ```
@@ -35,8 +35,8 @@ Open http://localhost:8080 and enter the setup code from `kubectl -n watchlog lo
 
 ```bash
 mkdir watchlog && cd watchlog
-curl -fsSLO https://raw.githubusercontent.com/watchlog-light/watchlog/v0.9.4/deploy/docker/compose.yaml
-curl -fsSL -o .env https://raw.githubusercontent.com/watchlog-light/watchlog/v0.9.4/deploy/docker/.env.example
+curl -fsSLO https://raw.githubusercontent.com/watchlog-light/watchlog/v0.9.5/deploy/docker/compose.yaml
+curl -fsSL -o .env https://raw.githubusercontent.com/watchlog-light/watchlog/v0.9.5/deploy/docker/.env.example
 # set WATCHLOG_DB_PASSWORD, WATCHLOG_SECRET_KEY (openssl rand -base64 32), WATCHLOG_PUBLIC_URL in .env
 docker compose up -d && docker compose logs backend | grep "setup code"
 ```

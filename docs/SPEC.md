@@ -68,7 +68,7 @@ _Not part of the public specification._
 
 # 3. Editions and pricing
 
-> WatchLog Cloud opens as a beta in release 0.6.0, before the launch (ADR-173). While billing is off (`BILLING_LIVE=false`), Pro is free during the beta, with 14 days' notice before billing starts.
+> WatchLog Cloud opens as a beta in release 0.6.0, before the launch (ADR-173). While billing is off (`BILLING_LIVE=false`), Pro is free during the beta, with 14 days' notice before billing starts. On WatchLog Cloud billing is live since 2026-11-18 at ADR-215's price, so Pro is paid there; since 0.9.5 no page or email offers the beta's free Pro unless the billing service says it is off (ADR-205, amended).
 
 ## 3.1 Principles
 
