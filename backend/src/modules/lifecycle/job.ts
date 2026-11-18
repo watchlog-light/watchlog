@@ -14,8 +14,8 @@
 //     Owner of an org still on the beta; a service notice, so neither the daily limit nor
 //     the unsubscribe applies to it;
 //   - "What changed is ready" (ADR-216) only to a member who asked for it on the learning
-//     page, once per cluster, when its first baseline is 7 days old; nothing while the org is
-//     without Pro. Asked for, so neither the daily limit nor the unsubscribe applies.
+//     page, once per cluster, when the anomaly-worker has found it ready (`ready_at`, the
+//     same decision that turns the list on, ADR-217); nothing while the org is without Pro. Asked for, so neither the daily limit nor the unsubscribe applies.
 import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
 import { withOrg } from '../../db/org-context.js';
@@ -283,7 +283,6 @@ export async function sendLifecycleEmails(deps: LifecycleDeps, nowMs: number): P
   }
 
   // ---- "What changed is ready": to the members who asked, for clusters that just finished.
-  const WEEK = sql`interval '7 days'`;
   const ready = await systemDb
     .selectFrom('anomaly_ready_emails as r')
     .innerJoin('users as u', 'u.id', 'r.user_id')
@@ -293,7 +292,6 @@ export async function sendLifecycleEmails(deps: LifecycleDeps, nowMs: number): P
     .innerJoin('memberships as m', (j) =>
       j.onRef('m.org_id', '=', 'r.org_id').onRef('m.user_id', '=', 'r.user_id'),
     )
-    .innerJoin('anomaly_orgs as a', 'a.org_id', 'r.org_id')
     .innerJoin('anomaly_learning as l', 'l.cluster_id', 'r.cluster_id')
     .select([
       'r.org_id',
@@ -311,9 +309,11 @@ export async function sendLifecycleEmails(deps: LifecycleDeps, nowMs: number): P
     .where('u.email_verified_at', 'is not', null)
     .where('o.suspended_at', 'is', null)
     .where('o.deletion_requested_at', 'is', null)
-    // The cluster's first baseline is 7 days old: the moment the page lists (learningOf).
+    // The worker found the cluster ready (every hour of the week learned): the same decision
+    // that turns its list on. A cluster that never sent data has nothing to announce.
     .where('l.first_seen', 'is not', null)
-    .where(sql<boolean>`greatest(a.learning_since, l.first_seen) + ${WEEK} <= ${now}`)
+    .where('l.ready_at', 'is not', null)
+    .where('l.ready_at', '<=', now)
     .orderBy('r.created_at')
     .execute();
   for (const r of ready) {

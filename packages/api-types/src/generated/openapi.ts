@@ -13131,24 +13131,26 @@ export interface paths {
               total: number;
               truncated: boolean;
               learning: {
-                /** @description True for 7 days from `since`: nothing is listed */
+                /** @description True until the worker has learned every hour of the week (7 days of data): nothing is listed */
                 learning: boolean;
                 /** @description When learning began: the later of the org's upgrade and the cluster's first series */
                 since: string | null;
-                /** @description 7 days after `since`: when the list turns on */
+                /** @description When the list turns on: the moment it did, or, while learning, when it will if learning goes on without another gap (hours when the org was not on Pro or no data arrived are learned when that hour of the week comes round) */
                 until: string | null;
-                /** @description The day of learning, 1 to 7; null before it started */
+                /** @description The day of learning, 1 to 7: one for every 24 hours of the week learned; null before it started */
                 day: number | null;
                 /** @description Hours of the week that have a baseline */
                 hoursLearned: number;
                 /** @description 168: every weekday and hour, once */
                 hoursTotal: number;
-                /** @description One character per hour of the week, UTC, Sunday 00:00 first: 1 has a baseline, 0 not seen yet */
+                /** @description One character per hour of the week, UTC, Sunday 00:00 first: 1 has a baseline, 0 not seen yet, 2 looked at twice with no data */
                 week: string;
+                /** @description While learning: when it went on after a gap (what was learned before still counts); null if it never stopped */
+                resumedAt: string | null;
                 series: {
                   /** @description Series read in the last hourly run; null before the worker's first one */
                   total: number | null;
-                  /** @description How many are still inside their own 7 days (all of them while `learning` is true; afterwards those that joined later) */
+                  /** @description How many the worker isn't scoring yet (all of them while `learning` is true; afterwards those that joined later) */
                   learning: number;
                   /** @description When the last of those is ready; null when none is learning */
                   readyAt: string | null;
@@ -13305,24 +13307,26 @@ export interface paths {
           content: {
             'application/json': {
               learning: {
-                /** @description True for 7 days from `since`: nothing is listed */
+                /** @description True until the worker has learned every hour of the week (7 days of data): nothing is listed */
                 learning: boolean;
                 /** @description When learning began: the later of the org's upgrade and the cluster's first series */
                 since: string | null;
-                /** @description 7 days after `since`: when the list turns on */
+                /** @description When the list turns on: the moment it did, or, while learning, when it will if learning goes on without another gap (hours when the org was not on Pro or no data arrived are learned when that hour of the week comes round) */
                 until: string | null;
-                /** @description The day of learning, 1 to 7; null before it started */
+                /** @description The day of learning, 1 to 7: one for every 24 hours of the week learned; null before it started */
                 day: number | null;
                 /** @description Hours of the week that have a baseline */
                 hoursLearned: number;
                 /** @description 168: every weekday and hour, once */
                 hoursTotal: number;
-                /** @description One character per hour of the week, UTC, Sunday 00:00 first: 1 has a baseline, 0 not seen yet */
+                /** @description One character per hour of the week, UTC, Sunday 00:00 first: 1 has a baseline, 0 not seen yet, 2 looked at twice with no data */
                 week: string;
+                /** @description While learning: when it went on after a gap (what was learned before still counts); null if it never stopped */
+                resumedAt: string | null;
                 series: {
                   /** @description Series read in the last hourly run; null before the worker's first one */
                   total: number | null;
-                  /** @description How many are still inside their own 7 days (all of them while `learning` is true; afterwards those that joined later) */
+                  /** @description How many the worker isn't scoring yet (all of them while `learning` is true; afterwards those that joined later) */
                   learning: number;
                   /** @description When the last of those is ready; null when none is learning */
                   readyAt: string | null;

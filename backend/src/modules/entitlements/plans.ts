@@ -53,6 +53,44 @@ export const PLAN_DEFAULTS: Record<CloudPlan, PlanLimits> = {
   enterprise: { clusters: null, nodes: null, users: null, retentionDays: 30, proFeatures: true },
 };
 
+export const LIMIT_FIELDS = ['clusters', 'nodes', 'users', 'retentionDays'] as const;
+export type LimitField = (typeof LIMIT_FIELDS)[number];
+
+/** Which of an entitlement's limits differ from its plan's defaults (a contract's own numbers). */
+export function customLimits(
+  e: Pick<Entitlement, 'plan' | LimitField>,
+): Record<LimitField, boolean> {
+  const d = PLAN_DEFAULTS[e.plan];
+  return {
+    clusters: e.clusters !== d.clusters,
+    nodes: e.nodes !== d.nodes,
+    users: e.users !== d.users,
+    retentionDays: e.retentionDays !== d.retentionDays,
+  };
+}
+
+/**
+ * The limits a plan change carries (ADR-177, amended in 0.9.6). A limit sent with the change
+ * that is exactly the *old* plan's default was never a number of the org's own: it is the old
+ * plan showing through (an admin form that fills in what the org has now), and keeping it
+ * would leave Pro with Free's 3 days and 1 user, or Free with Pro's 30 days. Those are
+ * dropped, so the new plan's default applies. Any other number is the org's own and stays.
+ * Without a plan change, every limit sent is taken as it is.
+ */
+export function limitsForPlanChange<T extends Partial<Record<LimitField, number | null>>>(
+  before: Pick<Entitlement, 'plan'>,
+  plan: CloudPlan,
+  sent: T,
+): T {
+  if (before.plan === plan) return sent;
+  const old = PLAN_DEFAULTS[before.plan];
+  const out = { ...sent };
+  for (const k of LIMIT_FIELDS) {
+    if (out[k] !== undefined && out[k] === old[k]) delete out[k];
+  }
+  return out;
+}
+
 /**
  * Pro's price (SPEC §3.3, ADR-215, which amends ADR-177 and ADR-178), in whole US dollars:
  * $3 per node (or server) a month with a $15 minimum, which covers the first 5 nodes,

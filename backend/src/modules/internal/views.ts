@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The internal API's shared answers (ADR-177, ADR-179): an org's entitlements and usage.
 import { Type } from 'typebox';
-import type { Entitlement } from '../entitlements/plans.js';
+import { customLimits, type Entitlement } from '../entitlements/plans.js';
 
 export const Limit = Type.Union([Type.Integer({ minimum: 0, maximum: 1_000_000 }), Type.Null()]);
 export const PlanLiteral = Type.Union([
@@ -24,6 +24,13 @@ export const EntitlementView = Type.Object({
   previousRetentionDays: Type.Union([Type.Integer(), Type.Null()]),
   retentionChangedAt: Type.Union([Type.String(), Type.Null()]),
   stored: Type.Boolean(),
+  /** Which limits are the org's own (not its plan's default): an admin form fills in only these. */
+  custom: Type.Object({
+    clusters: Type.Boolean(),
+    nodes: Type.Boolean(),
+    users: Type.Boolean(),
+    retentionDays: Type.Boolean(),
+  }),
 });
 
 export const UsageView = Type.Object({
@@ -58,5 +65,6 @@ export function entitlementView(e: Entitlement) {
     previousRetentionDays: e.previousRetentionDays,
     retentionChangedAt: e.retentionChangedAt?.toISOString() ?? null,
     stored: e.stored,
+    custom: customLimits(e),
   };
 }

@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The anomaly-worker's jobs (ADR-196, ADR-197, ADR-198, ADR-204), on an injectable clock:
 //   - every minute, per cluster of each entitled org: the last 11 minutes of each scored
-//     series against its hour-of-week baseline; unusual periods open, extend or end;
+//     series against its hour-of-week baseline; unusual periods open, extend or end. A series
+//     is scored once the worker has learned every hour of the week since it was first seen
+//     (coverage.ts, ADR-217): 7 days without a gap, longer when the org was off Pro, the
+//     worker was down or the agents sent nothing for a while;
 //   - every hour: the bucket of the hour that just ended, from that hour and the same hour
 //     7 days before (two occurrences in 14 days), minus the minutes under a firing alert on
-//     the series' subject; never data older than the org's `learning_since`; and the
-//     cluster's learning row, which the learning page reads (ADR-216);
+//     the series' subject; never data older than the org's `learning_since`; and the look at
+//     that hour in the cluster's learning row, which the scoring above and the learning page
+//     both read (ADR-216, ADR-217);
 //   - the live demo only (ADR-203): the look-back, the 168 buckets before the worker's start
 //     recomputed from the retained history, a day of them a run;
 //   - with the hourly run: the housekeeping. Orgs that lost What changed stop at once (their
@@ -19,7 +23,8 @@ import { withOrg } from '../../db/org-context.js';
 import type { ClusterScope, QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
 import { clusterForOrg, listClusters } from '../clusters/service.js';
 import { composeMap, excluded, firingAlerts, seriesTokens, type ComposeOf } from './exclusion.js';
-import { recordLearning } from './learning.js';
+import { seriesReady } from './coverage.js';
+import { coverageOf, recordLearning } from './learning.js';
 import {
   queriesFor,
   seriesHash,
@@ -33,7 +38,6 @@ import {
   DAY_MS,
   DEFAULT_RULE,
   HOUR_MS,
-  LEARNING_DAYS,
   MIN_BUCKET_MINUTES,
   WEEK_MS,
   WINDOW_DAYS,
@@ -266,8 +270,9 @@ interface OpenPeriod {
 
 /**
  * Every minute: each cluster's scored series over the last `rule.minutes + 1` minutes. A
- * series is scored once it has 7 days of data (from its first sighting, never before the
- * org's learning start) and its bucket has at least 30 minutes behind it.
+ * series is scored once it has 7 days of data (every hour of the week recomputed since its
+ * first sighting, coverage.ts; never data from before the org's learning start) and its
+ * bucket has at least 30 minutes behind it.
  */
 export async function runAnomalyMinute(deps: AnomalyDeps, nowMs: number): Promise<AnomalyReport> {
   const report = emptyReport();
@@ -298,7 +303,9 @@ async function scoreCluster(deps: AnomalyDeps, t: Target, nowMs: number, report:
     });
   }
   if (!baselines.size && !open.size) return;
-  const ready = (b: Baseline) => nowMs - b.firstSeen >= LEARNING_DAYS * DAY_MS;
+  // The one decision the learning page reports too (learning.ts reads the same coverage).
+  const coverage = await coverageOf(deps.db, t.clusterId, nowMs);
+  const ready = (b: Baseline) => seriesReady(coverage, b.firstSeen, nowMs);
   const seen = new Set<string>();
   const queries = await clusterQueries(deps.db, t);
   for (const { q, series } of await readAll(deps.victoria, t.scope, queries, [{ start, end }])) {
@@ -411,7 +418,7 @@ export async function runAnomalyHour(deps: AnomalyDeps, nowMs: number): Promise<
   const hourEnd = Math.floor(nowMs / HOUR_MS) * HOUR_MS;
   const list = await targets(deps, await syncOrgs(deps, nowMs));
   await eachTarget(deps, 'hour', list, report, async (t) => {
-    report.series += await recomputeBucket(deps, t, hourEnd - HOUR_MS, nowMs);
+    report.series += await recomputeBucket(deps, t, hourEnd - HOUR_MS, { nowMs, full: true });
   });
   await housekeeping(deps, nowMs, report);
   return report;
@@ -420,11 +427,17 @@ export async function runAnomalyHour(deps: AnomalyDeps, nowMs: number): Promise<
 /**
  * One bucket of one cluster: the minutes of the hour starting at `hour` and of the same
  * hour 7 days before, clipped at the org's learning start, without the minutes under a
- * firing alert on the series' subject (ADR-196). Returns the series written. It also records
- * the hour in the cluster's learning row (ADR-216); with `nowMs` (the hourly run, not the
- * demo's look-back) the series it read and how many are still learning too.
+ * firing alert on the series' subject (ADR-196). Returns the series written. With `clock` it
+ * also records the look at that hour in the cluster's learning row (ADR-216, ADR-217), also
+ * when nothing was read; `full` (the hourly run, not the demo's look-back) adds the series
+ * it read and how many are still learning.
  */
-export async function recomputeBucket(deps: AnomalyDeps, t: Target, hour: number, nowMs?: number) {
+export async function recomputeBucket(
+  deps: AnomalyDeps,
+  t: Target,
+  hour: number,
+  clock?: { nowMs: number; full: boolean },
+) {
   const bucket = bucketOf(hour);
   const ranges: { start: number; end: number }[] = [];
   for (let back = 0; back * WEEK_MS < WINDOW_DAYS * DAY_MS; back++) {
@@ -434,7 +447,7 @@ export async function recomputeBucket(deps: AnomalyDeps, t: Target, hour: number
     const start = Math.ceil(from / MIN_MS) * MIN_MS;
     if (start < to) ranges.push({ start, end: to - MIN_MS });
   }
-  if (!ranges.length) return 0;
+  if (!ranges.length) return 0; // the hour is before the org's learning start
   const composeOf: ComposeOf =
     t.kind === 'server' ? await composeMap(deps.db, t.clusterId) : new Map();
   const firing = await firingAlerts(
@@ -521,18 +534,19 @@ export async function recomputeBucket(deps: AnomalyDeps, t: Target, hour: number
              AS u(h, med, mad, n)
        WHERE b.cluster_id = ${t.clusterId}::uuid AND b.series_hash = u.h`.execute(deps.db);
   }
-  // Nothing read: the baselines are as they were, and so is the learning row.
-  if (rows.length) {
+  // The worker looked at this hour, whatever it found: an hour with no data is a gap the
+  // learning row must know about.
+  if (clock) {
     await recordLearning(
       deps.db,
       t,
-      bucket,
+      hour,
       {
         withData: rows.filter((r) => r.values.length > 0).length,
         firstSeen,
         series: rows.map((r) => ({ key: r.key, subject: r.subject })),
       },
-      nowMs,
+      clock,
     );
   }
   return rows.length;
@@ -572,7 +586,10 @@ export async function runAnomalyLookBack(
     state.set(t.clusterId, s);
     const stop = Math.min(BUCKETS, s.done + LOOK_BACK_HOURS_PER_RUN);
     for (; s.done < stop; s.done++) {
-      report.series += await recomputeBucket(deps, t, s.anchor - s.done * HOUR_MS);
+      report.series += await recomputeBucket(deps, t, s.anchor - s.done * HOUR_MS, {
+        nowMs,
+        full: false,
+      });
     }
   });
   return report;

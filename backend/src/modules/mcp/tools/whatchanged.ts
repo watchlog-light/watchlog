@@ -36,6 +36,7 @@ interface ApiWhatChanged {
     day: number | null;
     hoursLearned: number;
     hoursTotal: number;
+    resumedAt: string | null;
     series: { total: number | null; learning: number; readyAt: string | null };
   };
   cause: { subject: string | null; likely: ApiLikelyCause | null };
@@ -89,7 +90,7 @@ export const getWhatChangedTool = defineTool({
   description: describe(
     'What left its usual range in a Kubernetes cluster or a Docker fleet: each series compared with its own usual range for that hour of the week (median and spread over the last weeks; statistics, no model). Use it for "what changed around this alert?", "what is unusual in prod right now?" or "what moved first before checkout got slow?". Pass `alert` (an alert id from list_alerts or get_problems) for the window around it: 60 minutes before it started to 15 minutes after, or now. Otherwise `from` and `to` (Unix seconds) give a window of at most 24 hours; the default is the last hour.',
     `Rows are in the platform's words. Kubernetes: object.kind workload (namespace, workloadKind, name) or node. Docker: container (host, name, composeProject, composeService) or host. A monitored service (PostgreSQL, Redis…) is kind service. Each row has key (the catalog key, or edge.* for a service map connection with \`peer\` as its destination), unit, since and until (null and \`ongoing\` while it lasts), usual (low and high at that hour), value (the latest while it lasts, the furthest once it ended) and peakScore (how far out it went, in spreads). \`sort\`: first (by when each left its usual range, the default) or furthest (by peakScore). At most ${MCP_WHAT_CHANGED_ROWS} rows; \`truncated\` with a hint when cut. \`cause\` is probable cause's likely cause for the alert or the first row it can explain (rule, headline, since; explain_problem with \`cause.subject\` gives the evidence), or null.`,
-    'For 7 days from the upgrade to Pro, WatchLog learns each series and lists nothing: `learning.learning` is true, with `since` (when learning started), `until` (when the list turns on), `day` (1 to 7) and `hoursLearned` of `hoursTotal` (168 hours of the week, each seen once). Afterwards `seriesLearning` counts the series that joined later and are still inside their own 7 days, ready by `seriesReadyAt`. What changed is part of WatchLog Pro: on Free the tool says so.',
+    'Until it has 7 days of data, WatchLog learns each series and lists nothing: `learning.learning` is true, with `since` (when learning started), `until` (when the list turns on if nothing interrupts it), `day` (1 to 7, one for every 24 hours learned) and `hoursLearned` of `hoursTotal` (168 hours of the week, each learned once; hours when the org was not on Pro or no data arrived are not learned, and `resumedAt` says when it went on). Afterwards `seriesLearning` counts the series that joined later and are still inside their own 7 days, ready by `seriesReadyAt`. What changed is part of WatchLog Pro: on Free the tool says so.',
     'Example question: "What changed in prod-eu around the alert on checkout?"',
   ),
   input: Type.Object(
@@ -196,6 +197,7 @@ export const getWhatChangedTool = defineTool({
           day: a.learning.day,
           hoursLearned: a.learning.hoursLearned,
           hoursTotal: a.learning.hoursTotal,
+          ...(a.learning.resumedAt ? { resumedAt: a.learning.resumedAt } : {}),
           ...(a.learning.series.learning > 0
             ? {
                 seriesLearning: a.learning.series.learning,

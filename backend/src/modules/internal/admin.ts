@@ -28,6 +28,8 @@ import {
 } from '../support/service.js';
 import { SupportSessionSchema } from '../support/routes.js';
 import { signupAdminRoutes } from '../signup-invites/admin-routes.js';
+import { limitsForPlanChange } from '../entitlements/plans.js';
+import { rememberNulls, withNulls } from './nulls.js';
 import { audit } from '../users/service.js';
 import { EntitlementView, entitlementView, UsageView } from './views.js';
 
@@ -450,8 +452,12 @@ export const adminRoutes: FastifyPluginAsyncTypebox<AdminDeps> = async (app, dep
   app.put(
     '/internal/admin/orgs/:id/entitlements',
     {
+      // "unlimited" is null, and stays null through validation (nulls.ts).
+      preValidation: rememberNulls(['clusters', 'nodes', 'users']),
       schema: {
         summary: "Staff set an org's entitlements (source: staff), recorded in its audit events",
+        description:
+          "A limit left out is the plan's default. When the plan changes, a limit sent that equals the old plan's default is not kept (it is the old plan showing through a form, not a number of the org's own), so Pro never keeps Free's 3 days and 1 user. Any other number is kept.",
         params: Params,
         body: Type.Object(
           {
@@ -482,12 +488,12 @@ export const adminRoutes: FastifyPluginAsyncTypebox<AdminDeps> = async (app, dep
     async (request, reply) => {
       const org = await findOrg(request.params.id);
       if (!org) return sendProblem(reply, 404, 'No such org');
-      const { note, betaUntil, ...b } = request.body;
+      const { note, betaUntil, ...b } = withNulls(request, request.body);
       const before = await entitlements.get(org.id);
       let saved;
       try {
         saved = await entitlements.put(org.id, {
-          ...b,
+          ...limitsForPlanChange(before, b.plan, b),
           source: 'staff',
           betaUntil: betaUntil ? new Date(betaUntil) : null,
         });

@@ -90,18 +90,23 @@ const RowSchema = Type.Object({
 
 const Count = Type.Optional(Type.Integer({ minimum: 1 }));
 
-/** The learning week as data (ADR-204, ADR-216). */
+/** The learning week as data (ADR-204, ADR-216), by the worker's own rule (ADR-217). */
 export const LearningSchema = Type.Object({
-  learning: Type.Boolean({ description: 'True for 7 days from `since`: nothing is listed' }),
+  learning: Type.Boolean({
+    description:
+      'True until the worker has learned every hour of the week (7 days of data): nothing is listed',
+  }),
   since: Type.Union([DateTime, Type.Null()], {
     description:
       "When learning began: the later of the org's upgrade and the cluster's first series",
   }),
   until: Type.Union([DateTime, Type.Null()], {
-    description: '7 days after `since`: when the list turns on',
+    description:
+      'When the list turns on: the moment it did, or, while learning, when it will if learning goes on without another gap (hours when the org was not on Pro or no data arrived are learned when that hour of the week comes round)',
   }),
   day: Type.Union([Type.Integer({ minimum: 1, maximum: 7 }), Type.Null()], {
-    description: 'The day of learning, 1 to 7; null before it started',
+    description:
+      'The day of learning, 1 to 7: one for every 24 hours of the week learned; null before it started',
   }),
   hoursLearned: Type.Integer({
     minimum: 0,
@@ -110,9 +115,13 @@ export const LearningSchema = Type.Object({
   }),
   hoursTotal: Type.Integer({ description: '168: every weekday and hour, once' }),
   week: Type.String({
-    pattern: '^[01]{168}$',
+    pattern: '^[012]{168}$',
     description:
-      'One character per hour of the week, UTC, Sunday 00:00 first: 1 has a baseline, 0 not seen yet',
+      'One character per hour of the week, UTC, Sunday 00:00 first: 1 has a baseline, 0 not seen yet, 2 looked at twice with no data',
+  }),
+  resumedAt: Type.Union([DateTime, Type.Null()], {
+    description:
+      'While learning: when it went on after a gap (what was learned before still counts); null if it never stopped',
   }),
   series: Type.Object({
     total: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()], {
@@ -121,7 +130,7 @@ export const LearningSchema = Type.Object({
     learning: Type.Integer({
       minimum: 0,
       description:
-        'How many are still inside their own 7 days (all of them while `learning` is true; afterwards those that joined later)',
+        "How many the worker isn't scoring yet (all of them while `learning` is true; afterwards those that joined later)",
     }),
     readyAt: Type.Union([DateTime, Type.Null()], {
       description: 'When the last of those is ready; null when none is learning',

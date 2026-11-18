@@ -11159,13 +11159,14 @@
                         "hoursLearned",
                         "hoursTotal",
                         "week",
+                        "resumedAt",
                         "series",
                         "emailWhenReady"
                       ],
                       "properties": {
                         "learning": {
                           "type": "boolean",
-                          "description": "True for 7 days from `since`: nothing is listed"
+                          "description": "True until the worker has learned every hour of the week (7 days of data): nothing is listed"
                         },
                         "since": {
                           "anyOf": [
@@ -11179,14 +11180,14 @@
                             { "type": "string", "format": "date-time" },
                             { "type": "null" }
                           ],
-                          "description": "7 days after `since`: when the list turns on"
+                          "description": "When the list turns on: the moment it did, or, while learning, when it will if learning goes on without another gap (hours when the org was not on Pro or no data arrived are learned when that hour of the week comes round)"
                         },
                         "day": {
                           "anyOf": [
                             { "type": "integer", "minimum": 1, "maximum": 7 },
                             { "type": "null" }
                           ],
-                          "description": "The day of learning, 1 to 7; null before it started"
+                          "description": "The day of learning, 1 to 7: one for every 24 hours of the week learned; null before it started"
                         },
                         "hoursLearned": {
                           "type": "integer",
@@ -11200,8 +11201,15 @@
                         },
                         "week": {
                           "type": "string",
-                          "pattern": "^[01]{168}$",
-                          "description": "One character per hour of the week, UTC, Sunday 00:00 first: 1 has a baseline, 0 not seen yet"
+                          "pattern": "^[012]{168}$",
+                          "description": "One character per hour of the week, UTC, Sunday 00:00 first: 1 has a baseline, 0 not seen yet, 2 looked at twice with no data"
+                        },
+                        "resumedAt": {
+                          "anyOf": [
+                            { "type": "string", "format": "date-time" },
+                            { "type": "null" }
+                          ],
+                          "description": "While learning: when it went on after a gap (what was learned before still counts); null if it never stopped"
                         },
                         "series": {
                           "type": "object",
@@ -11214,7 +11222,7 @@
                             "learning": {
                               "type": "integer",
                               "minimum": 0,
-                              "description": "How many are still inside their own 7 days (all of them while `learning` is true; afterwards those that joined later)"
+                              "description": "How many the worker isn't scoring yet (all of them while `learning` is true; afterwards those that joined later)"
                             },
                             "readyAt": {
                               "anyOf": [

@@ -22,6 +22,7 @@ import type { FunnelRecorder } from '../funnel/recorder.js';
 import type { AlertingSettings } from '../settings/service.js';
 import { adminRoutes } from './admin.js';
 import { EntitlementView, entitlementView, Limit, PlanLiteral, UsageView } from './views.js';
+import { rememberNulls, withNulls } from './nulls.js';
 
 export interface InternalAppDeps {
   systemDb: Database;
@@ -128,6 +129,8 @@ export async function buildInternalApp(
   app.put(
     '/internal/orgs/:id/entitlements',
     {
+      // "unlimited" is null, and stays null through validation (nulls.ts).
+      preValidation: rememberNulls(['clusters', 'nodes', 'users']),
       schema: {
         summary:
           "Sets an org's entitlements: the plan's defaults, with any limit given overriding them",
@@ -144,7 +147,7 @@ export async function buildInternalApp(
     async (request, reply) => {
       const { id } = request.params;
       if (!(await orgExists(id))) return sendProblem(reply, 404, 'No such org');
-      const b = request.body;
+      const b = withNulls(request, request.body);
       let saved;
       try {
         saved = await entitlements.put(id, {

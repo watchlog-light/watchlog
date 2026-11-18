@@ -165,7 +165,11 @@ export interface AnomalyLearning {
   first_seen: Timestamp | null;
   hours: number[];
   learning_until: Timestamp | null;
+  looked_at: Generated<(Timestamp | null)[]>;
+  looks: Generated<number[]>;
   org_id: Generated<string>;
+  ready_at: Timestamp | null;
+  resumed_at: Timestamp | null;
   series: Generated<number>;
   series_learning: Generated<number>;
   updated_at: Timestamp;
