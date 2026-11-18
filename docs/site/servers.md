@@ -153,7 +153,7 @@ The top bar filters by server and by workload. The facets are Kind (Service, Pro
 Container), Server, Workload and Reason; once you tick Container, the Compose project is a
 facet too. **Hide system** is on by default and works like the Workloads page's: the OS's own
 workloads and WatchLog's own agent and collector are hidden, and their events are still kept.
-Each row opens its workload's page. A server's page lists its last 24 hours of events and
+Each row opens its workload's page. A server's page lists its last 24 hours of events, without the system ones, and
 links to the rest, and a workload's page lists its own.
 
 An agent older than 0.9.2 sends only its containers' events. Its server page still shows
