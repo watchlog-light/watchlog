@@ -13,7 +13,7 @@ const props = defineProps<{
   showWarning: boolean;
 }>();
 const emit = defineEmits<{ zoom: [from: number, to: number] }>();
-const { t } = useI18n();
+const { t, te } = useI18n();
 const W = 900;
 const H = 90;
 const bars = computed(() => props.summary.histogram);
@@ -46,13 +46,30 @@ const ticks = computed(() =>
 );
 // A label past 60% of the width ends at its marker instead of starting there, so it
 // never runs off the chart.
+// Labels close together (within 15% of the width) go on the next line, at most three.
+const markerRow = computed(() => {
+  const rows = new Map<string, number>();
+  const last: number[] = [];
+  for (const m of [...props.summary.markers].sort((a, b) => a.ts - b.ts)) {
+    const pct = (x(m.ts) / W) * 100;
+    let row = last.findIndex((p) => pct - p >= 15);
+    if (row < 0) row = last.length < 3 ? last.length : 2;
+    last[row] = pct;
+    rows.set(`${m.reason}-${m.ts}`, row);
+  }
+  return rows;
+});
 const markerStyle = (m: KubeEventSummary['markers'][number]) => {
   const pct = (x(m.ts) / W) * 100;
-  return pct > 60 ? { right: `${100 - pct}%` } : { left: `${pct}%` };
+  const top = `${(markerRow.value.get(`${m.reason}-${m.ts}`) ?? 0) * 16}px`;
+  return pct > 60 ? { right: `${100 - pct}%`, top } : { left: `${pct}%`, top };
 };
 const markerEnd = (m: KubeEventSummary['markers'][number]) => (x(m.ts) / W) * 100 > 60;
+// A notable reason without its own wording is named as it is.
 const markerLabel = (m: KubeEventSummary['markers'][number]) =>
-  t(`kube.events.markers.${m.reason}`, { n: m.objects }, m.objects);
+  te(`kube.events.markers.${m.reason}`)
+    ? t(`kube.events.markers.${m.reason}`, { n: m.objects }, m.objects)
+    : m.reason;
 const barTitle = (b: KubeEventSummary['histogram'][number]) =>
   t('kube.events.bar', {
     from: clockTime(new Date(b.ts * 1000).toISOString()).slice(0, 5),

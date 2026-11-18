@@ -622,6 +622,11 @@
           "OOMKilledStandalone": "{n} standalone containers were killed for memory",
           "Unhealthy": "{n} containers in {ns} are failing health checks",
           "UnhealthyStandalone": "{n} standalone containers are failing health checks"
+        },
+        "server": "{reason}: {what}",
+        "serverKinds": {
+          "Service": "1 service | {n} services",
+          "Process": "1 process group | {n} process groups"
         }
       },
       "markers": {
@@ -634,7 +639,9 @@
         "NodeHasDiskPressure": "disk pressure | disk pressure on {n} nodes",
         "NodeHasInsufficientMemory": "memory pressure | memory pressure on {n} nodes",
         "Died": "container died | {n} containers died",
-        "OOMKilled": "OOM kill | {n} OOM kills"
+        "OOMKilled": "OOM kill | {n} OOM kills",
+        "CrashLoop": "crash loop | crash loops in {n} workloads",
+        "Release": "release | releases of {n} workloads"
       },
       "bar": "{from}–{to} · {w} warnings · {n} normal",
       "chartAria": "Events over time: {total} events, {markers} notable ones marked",

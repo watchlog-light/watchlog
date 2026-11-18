@@ -75,7 +75,7 @@ function setProject(value: string | null) {
       :icon="Server"
       variant="toolbar"
       clearable
-      class="w-56"
+      class="w-44 min-[1440px]:w-56"
       testid="scope-host"
       @update:model-value="setHost"
     />
@@ -88,7 +88,7 @@ function setProject(value: string | null) {
       :icon="Layers"
       variant="toolbar"
       clearable
-      class="w-56"
+      class="w-44 min-[1440px]:w-56"
       testid="scope-project"
       @update:model-value="setProject"
     />
@@ -101,7 +101,7 @@ function setProject(value: string | null) {
       :icon="Boxes"
       variant="toolbar"
       clearable
-      class="w-56"
+      class="w-44 min-[1440px]:w-56"
       testid="scope-workload"
       @update:model-value="setWorkload"
     />

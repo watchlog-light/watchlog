@@ -131,6 +131,10 @@ const page = useLoader(async () => {
   return { summary };
 });
 const summary = computed(() => page.data.value?.summary ?? null);
+// Services' or process groups' events in this range: some server's agent is 0.9.2 already.
+const hostEvents = computed(() =>
+  (summary.value?.facets.kinds ?? []).some((k) => k.value === 'Service' || k.value === 'Process'),
+);
 
 async function loadMore() {
   if (!kube.value.cluster || !cursor.value) return;
@@ -321,7 +325,7 @@ onMounted(page.load);
             />
           </details>
           <div class="flex min-w-0 flex-col gap-3">
-            <p v-if="oldAgent" class="note" data-testid="events-old-agent">
+            <p v-if="oldAgent && !hostEvents" class="note" data-testid="events-old-agent">
               {{ $t('kube.eventsPage.server.oldAgent', { v: kube.cluster.agentVersion }) }}
             </p>
             <EventFeed

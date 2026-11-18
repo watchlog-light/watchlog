@@ -172,6 +172,12 @@ export function groupTitle(
   if (item.routine) return t('kube.events.group.routine', { n }, n);
   if (item.objects.length === 1)
     return t('kube.events.group.repeated', { object: item.objects[0], n: item.events.length });
+  // A Server fleet's services and process groups (0.9.2): "Failed: 2 services".
+  if (item.kind === 'Service' || item.kind === 'Process')
+    return t('kube.events.group.server', {
+      reason: item.reason,
+      what: t(`kube.events.group.serverKinds.${item.kind}`, { n }, n),
+    });
   switch (`${item.kind}/${item.reason}`) {
     case 'Node/Rebooted':
       return nodes !== undefined && n === nodes
