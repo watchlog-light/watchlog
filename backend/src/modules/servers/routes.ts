@@ -15,6 +15,7 @@ import { workloadId } from '../kubernetes/events.js';
 import { buildQuery, escapeLabelValue } from '../query/catalog.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import { serverCause } from './cause.js';
+import { systemEventKeys } from './system-events.js';
 import {
   CRASH_LOOP,
   assembleWorkloads,
@@ -643,7 +644,16 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
       // The server's own events (0.9.2), the last 24 hours; derived from counters when it has
       // none (an agent before 0.9.2).
       const since = new Date(Date.now() - 86400_000);
-      const stored = await db
+      // The OS's own workloads and WatchLog's own are left out, as the Events page's "Hide
+      // system" does by default (ADR-214); their events stay on the Events page.
+      const hidden = await systemEventKeys(
+        db,
+        victoria,
+        cluster,
+        Math.floor(since.getTime() / 1000),
+        [name],
+      );
+      let storedQ = db
         .selectFrom('k8s_events')
         .select(['involved_kind', 'involved_name', 'reason', 'type', 'message', 'count', 'last_ts'])
         .where('cluster_id', '=', cluster.id)
@@ -651,8 +661,9 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
         .where('last_ts', '>=', since)
         .where('day', '>=', new Date(Math.floor(since.getTime() / 86400_000) * 86400_000))
         .orderBy('last_ts', 'desc')
-        .limit(30)
-        .execute();
+        .limit(30);
+      if (hidden.length) storedQ = storedQ.where('involved_key', 'not in', hidden);
+      const stored = await storedQ.execute();
       // A 0.9.2 agent sends its events: they are the one source (a failed or OOM-killed
       // workload is a stored event too). Before it, they are derived from the workloads'
       // problems and the exit and release counters.
