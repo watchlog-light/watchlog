@@ -1,6 +1,6 @@
 ---
 title: MongoDB
-description: Monitor MongoDB on Kubernetes and Docker with WatchLog: operations, replica set members and lag, slow operations with the client that sends them, the WiredTiger cache and the largest collections, with a clusterMonitor user and default alerts.
+description: Monitor MongoDB on Kubernetes, Docker and Linux servers with WatchLog: operations, replica set members and lag, slow operations with the client that sends them, the WiredTiger cache and the largest collections, with a clusterMonitor user and default alerts.
 ---
 
 # MongoDB

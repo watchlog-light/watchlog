@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: Helm values, Docker Compose settings and agent options for WatchLog.
+description: Helm values, Docker Compose settings and agent options for WatchLog, on Kubernetes clusters and Linux servers.
 ---
 
 # Configuration

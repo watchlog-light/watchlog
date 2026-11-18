@@ -51,11 +51,22 @@ Yes. Mirror the images (`ghcr.io/watchlog-light/*`, `postgres:16-alpine` and `vi
 
 The node agent stays within 64 MB of memory and 1 % of a CPU core; we measure this on every change. Measured on a kind cluster: about 0.2–0.3 % of a core and 17–26 MB with network flows on. Images are under 40 MB.
 
-## How is it different from Coroot or Netdata?
+## How is it different from Coroot, Netdata or Beszel?
 
 <!-- TODO before launch (SPEC §16 #6): one sentence each, after running both. -->
 
 WatchLog aims at teams that want answers without building dashboards. One install gives you ready-made views for clusters, workloads and servers, a service map from eBPF and alerts that work on day one, with a small, read-only agent.
+
+On plain Linux servers, from each project's own documentation (we have not measured them side by side, so there are no numbers here):
+
+| Tool     | Services and processes on a server                                                                                                                                                                                                                                 |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Netdata  | Charts process groups with its `apps.plugin`, and has separate collectors for systemd services and units ([Netdata Learn](https://learn.netdata.cloud/docs/miscellaneous/monitor-any-process-in-real-time-with-netdata)). Far more metrics than WatchLog collects. |
+| Coroot   | Its node agent follows systemd units as well as Docker containers and pods, and skips well-known system services by default ([coroot-node-agent](https://docs.coroot.com/configuration/coroot-node-agent)). It adds tracing, profiling and SLOs.                   |
+| Beszel   | A light overview of each server and its Docker or Podman containers, with a basic view of systemd services: status, CPU and memory ([Beszel, systemd services](https://beszel.dev/guide/systemd)).                                                                 |
+| WatchLog | A server's systemd services, process groups (pm2 apps, PHP-FPM pools, a script started by hand) and containers in one table, with exits, crash loops and OOM kills from the kernel, each server's events and the probable cause ([Linux servers](servers.md)).     |
+
+If you need tracing, profiling or per-second metrics, Coroot and Netdata are the better choice. Beszel describes itself as lightweight, for when an overview of each server is enough.
 
 ## Which alert channels are supported?
 

@@ -36,8 +36,8 @@ logo. The logo is in `packages/design-tokens/assets/` and the name in
 
 ## Other marks
 
-Kubernetes, Docker, Redis, PostgreSQL, MySQL, NGINX, RabbitMQ, MongoDB, Traefik, Apache Kafka, Elasticsearch and PHP are
-trademarks of their respective owners. WatchLog is not affiliated with them, and they don't
+Kubernetes, Docker, Linux, Redis, PostgreSQL, MySQL, NGINX, RabbitMQ, MongoDB, Traefik, Apache Kafka, Elasticsearch and PHP are
+trademarks of their respective owners (Linux is the registered trademark of Linus Torvalds). WatchLog is not affiliated with them, and they don't
 sponsor or endorse it. The dashboard shows their logos only to name what it monitors: the
 kind of cluster, and the services on the Applications page.
 
@@ -59,6 +59,14 @@ kind of cluster, and the services on the Applications page.
   [Traefik](https://traefik.io/legal/), [PHP](https://www.php.net/license/),
   [Apache Kafka](https://www.apache.org/foundation/marks/); Kafka's black mark is shown in white,
   its one-colour reversed form, so it reads on the dark dashboard).
+
+- **Linux mark** (Tux, on the website's platform icons next to Kubernetes and Docker; the
+  dashboard shows a plain server icon): the "Linux" icon from
+  [Simple Icons](https://simpleicons.org) 16.36.0 (CC0 1.0), in its colour there (`#FCC624`).
+  Tux was drawn by Larry Ewing with The GIMP, who allows its use and change with that credit.
+  The name is used under the Linux Foundation's
+  [rules for the Linux mark](https://www.linuxfoundation.org/legal/the-linux-mark), to say
+  what WatchLog runs on.
 
 The Kubernetes and Docker files are the owners' artwork as published, not changed or
 recoloured. Forks keep these notices with the files.

@@ -1,6 +1,6 @@
 ---
 title: Nginx
-description: Monitor Nginx and ingress-nginx on Kubernetes and Docker with WatchLog: requests, 5xx, latency and upstreams from eBPF with nothing to set up, ingress-nginx's own metrics, and connections from stub_status.
+description: Monitor Nginx and ingress-nginx on Kubernetes, Docker and Linux servers with WatchLog: requests, 5xx, latency and upstreams from eBPF with nothing to set up, ingress-nginx's own metrics, and connections from stub_status.
 ---
 
 # Nginx

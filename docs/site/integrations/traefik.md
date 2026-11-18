@@ -1,6 +1,6 @@
 ---
 title: Traefik
-description: Monitor Traefik on Kubernetes (k3s's default ingress) and Docker with WatchLog: requests, 5xx and latency per entrypoint and service, TLS included, the backends with no server up, certificates and reloads, from Traefik's own metrics.
+description: Monitor Traefik on Kubernetes (k3s's default ingress), Docker and Linux servers with WatchLog: requests, 5xx and latency per entrypoint and service, TLS included, the backends with no server up, certificates and reloads, from Traefik's own metrics.
 ---
 
 # Traefik

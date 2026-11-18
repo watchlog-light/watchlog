@@ -1,6 +1,6 @@
 ---
 title: What changed
-description: Anomaly detection for Kubernetes and Docker in WatchLog Pro. Each metric learns its usual week; when something breaks, one list shows what left its range first, with the probable cause.
+description: Anomaly detection for Kubernetes, Docker and Linux servers in WatchLog Pro. Each metric learns its usual week; when something breaks, one list shows what left its range first, with the probable cause.
 ---
 
 # What changed

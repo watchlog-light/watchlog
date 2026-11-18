@@ -1,6 +1,6 @@
 ---
 title: PostgreSQL
-description: Monitor PostgreSQL on Kubernetes and Docker with WatchLog: connections, queries, locks, replication, tables and vacuum, with a pg_monitor role and default alerts.
+description: Monitor PostgreSQL on Kubernetes, Docker and Linux servers with WatchLog: connections, queries, locks, replication, tables and vacuum, with a pg_monitor role and default alerts.
 ---
 
 # PostgreSQL

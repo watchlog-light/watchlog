@@ -1,6 +1,6 @@
 ---
 title: Probable cause
-description: How WatchLog names the likely cause of an alert or a problem on Kubernetes and Docker, the twelve rules it uses, and where the answer shows up.
+description: How WatchLog names the likely cause of an alert or a problem on Kubernetes, Docker and Linux servers, the twelve rules it uses, and where the answer shows up.
 ---
 
 # Probable cause

@@ -1,6 +1,6 @@
 ---
 title: Kafka
-description: Monitor Kafka on Kubernetes and Docker with WatchLog: brokers up, offline and under-replicated partitions, consumer-group lag per topic, and the consumer group that lost its members, read-only through the Kafka protocol, with no JMX agent and default alerts.
+description: Monitor Kafka on Kubernetes, Docker and Linux servers with WatchLog: brokers up, offline and under-replicated partitions, consumer-group lag per topic, and the consumer group that lost its members, read-only through the Kafka protocol, with no JMX agent and default alerts.
 ---
 
 # Kafka

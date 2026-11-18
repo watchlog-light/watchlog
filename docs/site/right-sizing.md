@@ -1,6 +1,6 @@
 ---
 title: Right-sizing hints
-description: How WatchLog compares CPU and memory requests and limits with seven days of real use, on Kubernetes and Docker, and what each hint means.
+description: How WatchLog compares CPU and memory requests and limits with seven days of real use, on Kubernetes, Docker and Linux servers, and what each hint means.
 ---
 
 # Right-sizing hints

@@ -1,6 +1,6 @@
 # WatchLog
 
-**Open-source monitoring for Kubernetes and Docker.** Install one agent and see every node, pod and container, and the network between your services, in about five minutes. No PromQL, no dashboards to build.
+**Open-source monitoring for Kubernetes, Docker and Linux servers.** Install one agent and see every node, pod, container, systemd service and process, and the network between them, in about five minutes. No PromQL, no dashboards to build.
 
 ![The service map: workloads and their live connections, grouped by namespace](docs/images/service-map.png)
 

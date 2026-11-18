@@ -1,6 +1,6 @@
 ---
 title: MySQL and MariaDB
-description: Monitor MySQL and MariaDB on Kubernetes and Docker with WatchLog: connections, statements, lock waits with the session holding the lock, InnoDB and replication, with a read-only user and default alerts.
+description: Monitor MySQL and MariaDB on Kubernetes, Docker and Linux servers with WatchLog: connections, statements, lock waits with the session holding the lock, InnoDB and replication, with a read-only user and default alerts.
 ---
 
 # MySQL and MariaDB

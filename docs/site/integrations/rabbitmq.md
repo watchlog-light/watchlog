@@ -1,6 +1,6 @@
 ---
 title: RabbitMQ
-description: Monitor RabbitMQ on Kubernetes and Docker with WatchLog: queues, consumers, message rates and node limits from the built-in prometheus plugin, and which consumer died when a queue stops draining.
+description: Monitor RabbitMQ on Kubernetes, Docker and Linux servers with WatchLog: queues, consumers, message rates and node limits from the built-in prometheus plugin, and which consumer died when a queue stops draining.
 ---
 
 # RabbitMQ

@@ -1,6 +1,6 @@
 ---
 title: Egress watch
-description: Every external destination your Kubernetes workloads and Docker containers talk to, since when, and alerts when something new starts talking. From connections only.
+description: Every external destination your Kubernetes workloads, Docker containers and server processes talk to, since when, and alerts when something new starts talking. From connections only.
 ---
 
 # Egress watch

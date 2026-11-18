@@ -1,6 +1,6 @@
 ---
 title: Redis
-description: Monitor Redis and Valkey on Kubernetes and Docker with WatchLog: memory, commands, clients, persistence and replication, with a read-only user and default alerts.
+description: Monitor Redis and Valkey on Kubernetes, Docker and Linux servers with WatchLog: memory, commands, clients, persistence and replication, with a read-only user and default alerts.
 ---
 
 # Redis
