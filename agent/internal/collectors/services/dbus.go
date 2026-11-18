@@ -128,14 +128,17 @@ func (b *DBus) Props(u UnitStatus) (Props, error) {
 		ActiveEnterUsec: u64(unit["ActiveEnterTimestamp"]),
 		MemoryMax:       bytesLimit(u64(svc["MemoryMax"])),
 		CPUQuotaCores:   usecToCores(u64(svc["CPUQuotaPerSecUSec"])),
+		Result:          str(svc["Result"]),
+		NeedReload:      boolean(unit["NeedDaemonReload"]),
 	}
 	return p, nil
 }
 
-func u32(v dbus.Variant) uint32 { x, _ := v.Value().(uint32); return x }
-func i32(v dbus.Variant) int32  { x, _ := v.Value().(int32); return x }
-func u64(v dbus.Variant) uint64 { x, _ := v.Value().(uint64); return x }
-func str(v dbus.Variant) string { x, _ := v.Value().(string); return x }
+func u32(v dbus.Variant) uint32   { x, _ := v.Value().(uint32); return x }
+func i32(v dbus.Variant) int32    { x, _ := v.Value().(int32); return x }
+func u64(v dbus.Variant) uint64   { x, _ := v.Value().(uint64); return x }
+func str(v dbus.Variant) string   { x, _ := v.Value().(string); return x }
+func boolean(v dbus.Variant) bool { x, _ := v.Value().(bool); return x }
 
 // Version is systemd's version ("255" from "255.4-1ubuntu8"), or "" when unknown.
 func (b *DBus) Version() string {

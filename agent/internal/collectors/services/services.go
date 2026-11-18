@@ -10,11 +10,13 @@ import (
 	"errors"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/containers"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/exits"
 	"github.com/watchlog-light/watchlog/agent/internal/metrics"
+	"github.com/watchlog-light/watchlog/agent/internal/serverevents"
 )
 
 // Limit is the most services one server reports (ADR-208); the rest are counted.
@@ -39,6 +41,10 @@ type Props struct {
 	ActiveEnterUsec uint64
 	MemoryMax       *float64
 	CPUQuotaCores   *float64
+	// Result is systemd's result for the last run (success, exit-code, signal, oom-kill…).
+	Result string
+	// NeedReload is true once the unit file changed on disk (systemd's NeedDaemonReload).
+	NeedReload bool
 }
 
 // Bus is what the collector needs from systemd (the D-Bus client, or a fake in tests).
@@ -63,9 +69,22 @@ type Collector struct {
 	// a unit's main process exits are counted, and its last non-zero exit kept, because
 	// systemd's own ExecMainStatus reads 0 again once it restarted the unit (measured).
 	Exits func() []exits.Exit
+	// Events, when set, receives the services' events (0.9.2): failed, started, stopped,
+	// restarted, the unit file changed, OOM-killed.
+	Events serverevents.Sink
 
 	mainPID map[string]uint32
 	ex      map[string]*unitExits
+	// prev is each wanted unit's state at the last scrape (nil before the first).
+	prev map[string]unitState
+}
+
+type unitState struct {
+	active, sub string
+	restarts    uint32
+	needReload  bool
+	oomKills    float64
+	oomEvents   float64
 }
 
 type unitExits struct {
@@ -124,6 +143,7 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 		rows = append(rows, r)
 	}
 	c.countExits(rows)
+	c.events(rows)
 	limit := c.Limit
 	if limit <= 0 {
 		limit = Limit
@@ -268,4 +288,79 @@ func bytesLimit(v uint64) *float64 {
 	}
 	b := float64(v)
 	return &b
+}
+
+// events compares this scrape's units with the last: a service that failed, started, stopped
+// (no longer wanted: inactive), was restarted by systemd, whose unit file changed, or that was
+// OOM-killed. The first scrape only remembers.
+func (c *Collector) events(rows []row) {
+	now := map[string]unitState{}
+	for _, r := range rows {
+		st := unitState{active: r.u.ActiveState, sub: r.u.SubState, restarts: r.p.NRestarts, needReload: r.p.NeedReload}
+		if ex := c.ex[r.u.Name]; ex != nil {
+			st.oomKills = ex.oomKills
+		}
+		if r.hasStats && r.s.OOMKills >= 0 {
+			st.oomEvents = r.s.OOMKills
+		}
+		now[r.u.Name] = st
+	}
+	defer func() { c.prev = now }()
+	if c.prev == nil || c.Events == nil {
+		return
+	}
+	add := func(unit, reason, typ, msg string) { c.Events.Add(serverevents.Service, unit, reason, typ, msg) }
+	for _, r := range rows {
+		unit, cur := r.u.Name, now[r.u.Name]
+		old, had := c.prev[unit]
+		switch {
+		case cur.active == "failed" && (!had || old.active != "failed"):
+			add(unit, serverevents.Failed, serverevents.Warning, failedText(r.p))
+		case cur.active == "active" && (!had || old.active != "active"):
+			add(unit, serverevents.Started, serverevents.Normal, "started")
+		}
+		if had && cur.restarts > old.restarts {
+			n := cur.restarts - old.restarts
+			msg := "systemd restarted it"
+			if n > 1 {
+				msg += " " + strconv.FormatUint(uint64(n), 10) + " times"
+			}
+			if r.p.ExecMainCode != 0 && exitCode(r.p) != 0 {
+				msg += " (last exit code " + strconv.Itoa(int(exitCode(r.p))) + ")"
+			}
+			add(unit, serverevents.Restarted, serverevents.Warning, msg)
+		}
+		if cur.needReload && (!had || !old.needReload) {
+			add(unit, serverevents.UnitChanged, serverevents.Normal, "its unit file changed on disk (not yet reloaded by systemd)")
+		}
+		if had && (cur.oomKills > old.oomKills || cur.oomEvents > old.oomEvents) {
+			add(unit, serverevents.OOMKilled, serverevents.Warning, oomText(r.p))
+		}
+	}
+	for unit, old := range c.prev {
+		if _, still := now[unit]; !still && old.active != "failed" {
+			add(unit, serverevents.Stopped, serverevents.Normal, "stopped")
+		}
+	}
+}
+
+// failedText says how a service failed: systemd's result and the exit code or signal.
+func failedText(p Props) string {
+	msg := "failed"
+	if p.Result != "" && p.Result != "success" {
+		msg += " (" + p.Result
+		if p.ExecMainCode != 0 {
+			msg += ", exit code " + strconv.Itoa(int(exitCode(p)))
+		}
+		msg += ")"
+	}
+	return msg
+}
+
+// oomText names the limit an OOM kill hit: its MemoryMax, or the kernel's own.
+func oomText(p Props) string {
+	if p.MemoryMax != nil {
+		return "OOM-killed at its MemoryMax of " + strconv.FormatFloat(*p.MemoryMax/(1<<20), 'f', 0, 64) + " MiB"
+	}
+	return "OOM-killed by the kernel: the server ran out of memory"
 }

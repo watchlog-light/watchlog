@@ -36,6 +36,7 @@ import (
 	"github.com/watchlog-light/watchlog/agent/internal/podmap"
 	"github.com/watchlog-light/watchlog/agent/internal/runner"
 	"github.com/watchlog-light/watchlog/agent/internal/sender"
+	"github.com/watchlog-light/watchlog/agent/internal/serverevents"
 	"github.com/watchlog-light/watchlog/agent/internal/version"
 )
 
@@ -195,6 +196,8 @@ func run(args []string, stdout io.Writer) int {
 	}
 	// A server's systemd services (ADR-208); without systemd on D-Bus, process groups only.
 	var groups *procs.Collector
+	// A server's own events (0.9.2): its services' and process groups', sent like Docker's.
+	var serverEvents *serverevents.Recorder
 	var remoteRules *procs.RemoteRules
 	if mode == config.ModeServer {
 		// Exit codes and OOM kills from the kernel (ADR-210); without eBPF they are unknown.
@@ -227,7 +230,8 @@ func run(args []string, stdout io.Writer) int {
 		// The server page's header: OS, kernel, systemd (ADR-207).
 		sources = append(sources, runner.Source{Name: "server-info", Collect: services.ServerInfo(paths.RootFS, paths.Proc, bus.Version)})
 		if bus.Available() {
-			svc := &services.Collector{Bus: bus, Cgroups: containers.NewReader(paths.Proc, paths.Sys)}
+			serverEvents = serverevents.New(*hostname)
+			svc := &services.Collector{Bus: bus, Cgroups: containers.NewReader(paths.Proc, paths.Sys), Events: serverEvents}
 			if feed != nil {
 				svc.Exits = feed.TakeAll
 			}
@@ -237,9 +241,14 @@ func run(args []string, stdout io.Writer) int {
 		}
 		// Process groups (ADR-208): every process outside a container, in any language.
 		root := procs.HostRoot(paths.RootFS)
+		if serverEvents == nil {
+			serverEvents = serverevents.New(*hostname)
+		}
 		groups = &procs.Collector{
 			Reader: procs.NewHostReader(paths.Proc),
 			Hints:  func() procs.Hints { return procs.ReadHints(os.DirFS("/"), root) },
+			Events: serverEvents,
+			SysFS:  paths.Sys,
 		}
 		if feed != nil {
 			groups.Exits = func() map[int]procs.Exit {
@@ -476,6 +485,9 @@ func run(args []string, stdout io.Writer) int {
 		}
 		go dockerCollector.WatchEvents(ctx)
 		go dockerCollector.ShipEvents(ctx, snd.SendEvents, log)
+	}
+	if serverEvents != nil {
+		go serverEvents.Ship(ctx, snd.SendEvents, log)
 	}
 	// Logs on demand (ADR-167, ADR-208): containers through Docker, and on a server its
 	// services' journal and pm2's and supervisord's log files.

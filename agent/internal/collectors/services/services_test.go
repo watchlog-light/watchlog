@@ -261,3 +261,63 @@ func TestExitsFromEBPF(t *testing.T) {
 		}
 	}
 }
+
+type evt struct{ kind, name, reason, typ, msg string }
+type sink struct{ got []evt }
+
+func (s *sink) Add(kind, name, reason, typ, msg string) {
+	s.got = append(s.got, evt{kind, name, reason, typ, msg})
+}
+
+// A service's events (0.9.2), from one scrape to the next: started, failed (systemd's result
+// and exit code), restarted (NRestarts), its unit file changed, OOM-killed at its MemoryMax,
+// and stopped (no longer running: inactive). The first scrape only remembers.
+func TestServiceEvents(t *testing.T) {
+	mem := 200.0 * (1 << 20)
+	bus := &fakeBus{
+		units: []UnitStatus{
+			{Name: "orders.service", LoadState: "loaded", ActiveState: "active", SubState: "running"},
+			{Name: "cron.service", LoadState: "loaded", ActiveState: "active", SubState: "running"},
+		},
+		props: map[string]Props{"orders.service": {NRestarts: 1, MemoryMax: &mem}, "cron.service": {}},
+	}
+	s := &sink{}
+	c := &Collector{Bus: bus, Events: s}
+	if _, err := c.Collect(); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.got) != 0 {
+		t.Fatalf("the first scrape told %+v", s.got)
+	}
+	// orders fails after a restart and a unit file change; cron stops; nginx starts.
+	bus.units = []UnitStatus{
+		{Name: "orders.service", LoadState: "loaded", ActiveState: "failed", SubState: "failed"},
+		{Name: "nginx.service", LoadState: "loaded", ActiveState: "active", SubState: "running"},
+	}
+	bus.props["orders.service"] = Props{NRestarts: 3, ExecMainCode: 1, ExecMainStatus: 3, Result: "exit-code", NeedReload: true, MemoryMax: &mem}
+	bus.props["nginx.service"] = Props{}
+	if _, err := c.Collect(); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]evt{}
+	for _, e := range s.got {
+		got[e.name+"/"+e.reason] = e
+	}
+	for k, want := range map[string]string{
+		"orders.service/Failed":      "failed (exit-code, exit code 3)",
+		"orders.service/Restarted":   "systemd restarted it 2 times (last exit code 3)",
+		"orders.service/UnitChanged": "its unit file changed on disk (not yet reloaded by systemd)",
+		"nginx.service/Started":      "started",
+		"cron.service/Stopped":       "stopped",
+	} {
+		if got[k].msg != want || got[k].kind != "Service" {
+			t.Errorf("%s: got %+v, want %q", k, got[k], want)
+		}
+	}
+	if got["orders.service/Failed"].typ != "Warning" || got["nginx.service/Started"].typ != "Normal" {
+		t.Errorf("types: %+v", s.got)
+	}
+	if oomText(Props{MemoryMax: &mem}) != "OOM-killed at its MemoryMax of 200 MiB" || oomText(Props{}) != "OOM-killed by the kernel: the server ran out of memory" {
+		t.Errorf("OOM texts")
+	}
+}

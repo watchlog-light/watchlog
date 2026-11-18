@@ -4,6 +4,8 @@ package procs
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -550,5 +552,72 @@ func TestOwnBinaryIsUnitAndPath(t *testing.T) {
 		if got[u] != w {
 			t.Errorf("%s: got %q, want %q", u, got[u], w)
 		}
+	}
+}
+
+type sinkEvent struct{ kind, name, reason, typ, msg string }
+type fakeSink struct{ got []sinkEvent }
+
+func (f *fakeSink) Add(kind, name, reason, typ, msg string) {
+	f.got = append(f.got, sinkEvent{kind, name, reason, typ, msg})
+}
+func (f *fakeSink) reasons() []string {
+	out := make([]string, 0, len(f.got))
+	for _, e := range f.got {
+		out = append(out, e.reason)
+	}
+	return out
+}
+
+// A process group's events (0.9.2): failed exits with their code or signal, a crash loop
+// beginning at the third in 10 minutes and ending after 10 quiet minutes, an OOM kill with
+// the limit it hit, and going (every instance exited) and coming back; by name, never a pid.
+func TestGroupEvents(t *testing.T) {
+	at := time.Unix(1_794_900_000, 0)
+	sink := &fakeSink{}
+	c := &Collector{Events: sink, Now: func() time.Time { return at }}
+	c.groups = map[string]*group{}
+	g := &group{name: "activity2", exits: map[string]float64{}, aliveSince: at, instances: 1, prevInstances: 1}
+	c.groups["\x00activity2"] = g
+	tr := tracked{key: "\x00activity2"}
+	c.ended(tr, Exit{Code: 1})
+	c.ended(tr, Exit{Signal: 9})
+	c.ended(tr, Exit{Code: 0})  // a clean exit: no event
+	c.ended(tr, Exit{Code: -1}) // unknown: no event
+	c.ended(tr, Exit{Code: 2})
+	want := []string{"FailedExit", "FailedExit", "FailedExit", "CrashLoop"}
+	if got := sink.reasons(); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("events %v, want %v", got, want)
+	}
+	if sink.got[0].msg != "exited with code 1" || sink.got[1].msg != "killed by SIGKILL (9)" ||
+		sink.got[3].msg != "3 failed exits in 10 minutes" || sink.got[0].kind != "Process" || sink.got[0].name != "activity2" {
+		t.Fatalf("messages %+v", sink.got)
+	}
+	// Ten quiet minutes end the loop; every instance gone is told (Warning after 10 minutes).
+	at = at.Add(11 * time.Minute)
+	g.instances = 0
+	c.lifecycle(g, at)
+	got := sink.reasons()
+	if got[len(got)-2] != "Gone" || got[len(got)-1] != "CrashLoopEnded" || sink.got[len(got)-2].typ != "Warning" {
+		t.Fatalf("after the quiet: %+v", sink.got[len(sink.got)-2:])
+	}
+	g.instances = 1
+	c.lifecycle(g, at.Add(time.Minute))
+	if last := sink.got[len(sink.got)-1]; last.reason != "Appeared" || last.msg != "started again" {
+		t.Fatalf("back: %+v", last)
+	}
+	// An OOM kill names its limit: the nearest memory.max on its cgroup's path, else the kernel.
+	sys := t.TempDir()
+	cg := "/system.slice/orders.service"
+	if err := os.MkdirAll(filepath.Join(sys, "fs", "cgroup", cg, "child"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(filepath.Join(sys, "fs", "cgroup", cg, "child", "memory.max"), []byte("max\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(sys, "fs", "cgroup", cg, "memory.max"), []byte("209715200\n"), 0o644)
+	if s := OOMText(sys, cg+"/child"); s != "OOM-killed at its limit of 200 MiB (orders.service)" {
+		t.Errorf("OOM text %q", s)
+	}
+	if s := OOMText(sys, "/user.slice/session-3.scope"); s != "OOM-killed by the kernel: the server ran out of memory" {
+		t.Errorf("kernel OOM text %q", s)
 	}
 }

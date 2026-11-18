@@ -7,10 +7,12 @@ import (
 	"path"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/watchlog-light/watchlog/agent/internal/metrics"
+	"github.com/watchlog-light/watchlog/agent/internal/serverevents"
 )
 
 // Limit is the most process groups a server reports (ADR-208); the rest are one "other
@@ -44,6 +46,11 @@ type Collector struct {
 	// Exits, when set, returns what is known about processes that ended since the last call
 	// (eBPF); a pid absent from it ended with an unknown status.
 	Exits func() map[int]Exit
+	// Events, when set, receives the groups' events (0.9.2): appearing and gone, failed exits,
+	// crash loops, OOM kills and releases, by the group's name, never a pid.
+	Events serverevents.Sink
+	// SysFS is /sys as the agent sees it, for an OOM kill's limit (its cgroup's memory.max).
+	SysFS string
 	// Self is the agent's own pid: it and its children are never grouped.
 	Self  int
 	Limit int
@@ -102,9 +109,18 @@ type tracked struct {
 	key        string
 	startTicks uint64
 	cpuTicks   uint64
+	cgroup     string
 }
 
 type group struct {
+	// For events: instances at the last scrape, since when it runs, its recent failed exits
+	// (10 minutes), whether it is crash-looping, and whether its going was told.
+	prevInstances int
+	aliveSince    time.Time
+	failedAt      []time.Time
+	inLoop        bool
+	goneTold      bool
+
 	name, unit string
 	by         string
 	deadTicks  uint64
@@ -232,8 +248,11 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 		key := n.unit + "\x00" + n.name
 		g := c.groups[key]
 		if g == nil {
-			g = &group{name: n.name, unit: n.unit, by: n.by, exits: map[string]float64{}}
+			g = &group{name: n.name, unit: n.unit, by: n.by, exits: map[string]float64{}, aliveSince: now}
 			c.groups[key] = g
+			if c.scanned {
+				c.event(g, serverevents.Appeared, serverevents.Normal, "started")
+			}
 		}
 		p := n.p
 		seen[p.PID] = true
@@ -245,7 +264,7 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 		if !known && c.scanned {
 			g.starts++
 		}
-		c.live[p.PID] = tracked{key: key, startTicks: p.StartTicks, cpuTicks: p.CPUTicks}
+		c.live[p.PID] = tracked{key: key, startTicks: p.StartTicks, cpuTicks: p.CPUTicks, cgroup: p.Cgroup}
 		g.instances++
 		g.threads += p.Threads
 		g.rss += p.RSSBytes
@@ -266,6 +285,7 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 		if p.ExeID != "" {
 			if g.exeID != "" && g.exeID != p.ExeID {
 				g.releases++
+				c.event(g, serverevents.Release, serverevents.Normal, "its executable changed on disk: a new release")
 			}
 			g.exeID = p.ExeID
 		}
@@ -287,6 +307,7 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 		delete(c.live, pid)
 	}
 	for key, g := range c.groups {
+		c.lifecycle(g, now)
 		if g.instances == 0 && now.Sub(g.lastSeen) > GoneKeep {
 			delete(c.groups, key)
 		}
@@ -297,6 +318,10 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 	for unit, n := range newest {
 		if prev, ok := c.unitExe[unit]; ok && prev != n.exe {
 			c.unitReleases[unit]++
+			if c.Events != nil {
+				c.Events.Add(serverevents.Service, unit, serverevents.Release, serverevents.Normal,
+					"its executable changed on disk: a new release")
+			}
 		}
 		c.unitExe[unit] = n.exe
 	}
@@ -381,15 +406,76 @@ func (c *Collector) ended(t tracked, e Exit) {
 	case e.OOM:
 		g.oomKills++
 		g.exits["signal"]++
+		c.event(g, serverevents.OOMKilled, serverevents.Warning, OOMText(c.SysFS, t.cgroup))
+		c.failed(g)
 	case e.Code < 0:
 		g.exits["unknown"]++
 	case e.Signal != 0:
 		g.exits["signal"]++
+		c.event(g, serverevents.FailedExit, serverevents.Warning, "killed by "+SignalName(e.Signal))
+		c.failed(g)
 	case e.Code == 0:
 		g.exits["ok"]++
 	default:
 		g.exits["error"]++
+		c.event(g, serverevents.FailedExit, serverevents.Warning, "exited with code "+strconv.Itoa(e.Code))
+		c.failed(g)
 	}
+}
+
+// event sends one of a group's events, when events are on.
+func (c *Collector) event(g *group, reason, typ, message string) {
+	if c.Events != nil {
+		c.Events.Add(serverevents.Process, g.name, reason, typ, message)
+	}
+}
+
+// crashLoopFails failed exits in crashLoopWindow are a crash loop (ADR-208).
+const (
+	crashLoopFails  = 3
+	crashLoopWindow = 10 * time.Minute
+)
+
+// failed counts a failed exit toward a crash loop.
+func (c *Collector) failed(g *group) {
+	now := c.now()
+	kept := g.failedAt[:0]
+	for _, t := range g.failedAt {
+		if now.Sub(t) < crashLoopWindow {
+			kept = append(kept, t)
+		}
+	}
+	g.failedAt = append(kept, now)
+	if len(g.failedAt) >= crashLoopFails && !g.inLoop {
+		g.inLoop = true
+		c.event(g, serverevents.CrashLoop, serverevents.Warning,
+			strconv.Itoa(len(g.failedAt))+" failed exits in 10 minutes")
+	}
+}
+
+// lifecycle tells a group's going (every instance exited) and coming back, and the end of a
+// crash loop (no failed exit for 10 minutes); once a scrape.
+func (c *Collector) lifecycle(g *group, now time.Time) {
+	switch {
+	case g.instances == 0 && g.prevInstances > 0:
+		// A group that ran at least 10 minutes is missed (the process.gone rule); a short one
+		// ending is told plainly.
+		typ := serverevents.Normal
+		if now.Sub(g.aliveSince) >= 10*time.Minute {
+			typ = serverevents.Warning
+		}
+		c.event(g, serverevents.Gone, typ, "every instance exited")
+		g.goneTold = true
+	case g.instances > 0 && g.prevInstances == 0 && g.goneTold:
+		c.event(g, serverevents.Appeared, serverevents.Normal, "started again")
+		g.goneTold = false
+		g.aliveSince = now
+	}
+	if g.inLoop && (len(g.failedAt) == 0 || now.Sub(g.failedAt[len(g.failedAt)-1]) >= crashLoopWindow) {
+		g.inLoop = false
+		c.event(g, serverevents.CrashLoopEnded, serverevents.Normal, "no failed exit for 10 minutes")
+	}
+	g.prevInstances = g.instances
 }
 
 func (c *Collector) samples() []metrics.Sample {
@@ -513,4 +599,36 @@ func unitExeSamples(bins map[string]map[string]int, own map[string]string) []met
 		out = append(out, metrics.New("watchlog_service_exe_info", 1, l...))
 	}
 	return out
+}
+
+// SignalName names a signal for an event ("SIGKILL (9)").
+func SignalName(sig int) string {
+	names := map[int]string{1: "SIGHUP", 2: "SIGINT", 3: "SIGQUIT", 4: "SIGILL", 6: "SIGABRT", 7: "SIGBUS",
+		8: "SIGFPE", 9: "SIGKILL", 11: "SIGSEGV", 13: "SIGPIPE", 14: "SIGALRM", 15: "SIGTERM"}
+	if n, ok := names[sig]; ok {
+		return n + " (" + strconv.Itoa(sig) + ")"
+	}
+	return "signal " + strconv.Itoa(sig)
+}
+
+// OOMText says which limit an OOM kill hit: the nearest memory.max on its cgroup's path (its
+// unit's MemoryMax, a slice's), else the kernel's own (the server ran out of memory).
+func OOMText(sysfs, cgroup string) string {
+	if sysfs != "" && cgroup != "" {
+		for cg := path.Clean(cgroup); cg != "/" && cg != "."; cg = path.Dir(cg) {
+			b, err := os.ReadFile(path.Join(sysfs, "fs", "cgroup", cg, "memory.max")) //nolint:gosec // a cgroup file under /sys
+			if err != nil {
+				continue
+			}
+			v := strings.TrimSpace(string(b))
+			if n, err := strconv.ParseUint(v, 10, 64); err == nil && v != "max" {
+				return "OOM-killed at its limit of " + mib(n) + " (" + path.Base(cg) + ")"
+			}
+		}
+	}
+	return "OOM-killed by the kernel: the server ran out of memory"
+}
+
+func mib(b uint64) string {
+	return strconv.FormatUint(b/(1<<20), 10) + " MiB"
 }
