@@ -18,6 +18,7 @@ import WhatChangedPage from '@/views/WhatChangedPage.vue';
 import { FLEET } from './docker-fixtures';
 import { mockFetch, USER, type Routes } from './fetch-mock';
 import { createPlugins } from './helpers';
+import { LEARNED } from './learning-fixtures';
 
 vi.mock('@/api/cloud', async (original) => ({
   ...(await original<typeof import('@/api/cloud')>()),
@@ -198,11 +199,11 @@ describe('Cloud Free, an Owner', () => {
       expect(w.get('[data-testid="wc-up-badge"]').text()).toBe('Pro · $3 per node a month');
       expect(w.get('[data-testid="wc-up-fine"]').text()).toBe(
         p === 'docker'
-          ? '$3 per server a month, $15 minimum, billed on the 95th percentile of your hosts.'
+          ? '$3 per server a month, $15 minimum, billed on the 95th percentile of your servers.'
           : '$3 per node a month, $15 minimum, billed on the 95th percentile of your nodes.',
       );
       expect(up.text()).not.toMatch(/beta|Stripe/i);
-      expect(up.text()).toContain("WatchLog's catalog");
+      expect(up.text()).toContain('What changed learns your normal week.');
       expect(up.text()).toContain('Egress watch stay free on every plan');
       // The button: Plan & billing, where the beta switch is.
       expect(w.get('[data-testid="wc-up-plan"]').attributes('href')).toBe('/settings?tab=billing');
@@ -399,7 +400,7 @@ describe('Pro', () => {
           rows: [],
           total: 0,
           truncated: false,
-          learning: { learning: false, since: null, until: null },
+          learning: LEARNED,
           cause: { subject: null, likely: null },
         },
       },

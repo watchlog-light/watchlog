@@ -21,6 +21,7 @@ import {
 import { useAuthStore } from '@/stores/auth';
 import WhatChangedPage from '@/views/WhatChangedPage.vue';
 import { FLEET } from './docker-fixtures';
+import { LEARNED, learningAt, STARTING } from './learning-fixtures';
 import { mockFetch, USER, type Routes } from './fetch-mock';
 import { createPlugins } from './helpers';
 
@@ -154,7 +155,7 @@ function answer(
     rows,
     total: rows.length,
     truncated: false,
-    learning: { learning: false, since: iso(10 * 86_400_000), until: iso(3 * 86_400_000) },
+    learning: LEARNED,
     cause: {
       subject: rows.length ? 'workload:shop/Deployment/reports-worker' : null,
       likely: null,
@@ -333,7 +334,7 @@ describe('the page on a Pro org', () => {
       [causes(FLEET.id, 'container:docker-01/shop-db-1')]: notFound,
     });
     const { w } = await open(WhatChangedPage, `/what-changed?cluster=${FLEET.id}`, 'pro');
-    expect(w.get('[data-testid="wc-cluster"]').text()).toContain('Docker');
+    expect(w.get('[data-testid="wc-cluster"]').text()).toContain('Servers');
     const rows = w.findAll('[data-testid="wc-row"]');
     expect(rows[0]!.get('[data-testid="wc-name"]').text()).toBe('db');
     expect(rows[0]!.get('[data-testid="wc-metric"]').text()).toBe('memory');
@@ -375,16 +376,16 @@ describe('the page on a Pro org', () => {
       [wc(K8S.id)]: [
         {
           status: 200,
-          body: answer(K8S, [], {
-            learning: { learning: true, since: iso(86_400_000), until: '2026-11-23T14:00:00Z' },
-          }),
+          body: answer(K8S, [], { learning: learningAt('kubernetes', NOW - 86_400_000, NOW) }),
         },
       ],
     });
     let { w } = await open(WhatChangedPage, `/what-changed?cluster=${K8S.id}`, 'pro');
+    // The learning page stands in the list's place (its own tests: what-changed-learning).
     expect(w.get('[data-testid="wc-learning"]').text()).toContain(
-      "Learning acme-prod's usual week until",
+      'Learning what normal looks like for acme-prod.',
     );
+    expect(w.find('[data-testid="wc-windows"]').exists()).toBe(false);
     expect(w.find('[data-testid="wc-row"]').exists()).toBe(false);
     expect(w.find('[data-testid="wc-cause"]').exists()).toBe(false);
     mounted!.unmount();
@@ -521,7 +522,7 @@ describe('"What changed around it" on an alert', () => {
     mockFetch({
       [path(K8S)]: {
         status: 200,
-        body: answer(K8S, [], { learning: { learning: true, since: null, until: null } }),
+        body: answer(K8S, [], { learning: STARTING }),
       },
     });
     ({ w } = await open(WhatChangedAlertCard, '/alerts', 'pro', { alert: alert(K8S) }));
