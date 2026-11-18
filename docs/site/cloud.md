@@ -1,21 +1,21 @@
 ---
 title: WatchLog Cloud
-description: WatchLog run for you, in beta: signing up, the setup wizard, plans and limits, Pro free during the beta, export and deletion, staff support sessions and security.
+description: WatchLog run for you: signing up, the setup wizard, plans and limits, what Pro costs and how it is billed, export and deletion, staff support sessions and security.
 ---
 
 # WatchLog Cloud
 
-WatchLog Cloud is the same WatchLog as the self-hosted Community edition, run for you at cloud.watchlog.io. You install the agents on your Kubernetes clusters or Linux servers; we run the backend, keep the data, upgrade it and back it up. Cloud is in **beta**: it is new, and it may change before billing starts.
+WatchLog Cloud is the same WatchLog as the self-hosted Community edition, run for you at cloud.watchlog.io. You install the agents on your Kubernetes clusters or Linux servers; we run the backend, keep the data, upgrade it and back it up. Cloud is in **beta**: it is new, and it may change.
 
 If you'd rather run everything yourself, the [Community edition](install.md) is free, open source and has no limits.
 
 ## Signing up
 
-Cloud opens in **waves**. While signup is by invite, we send invites from the waitlist in batches: each invite is one link, for one address, valid for 14 days. Opening the link fills in your address; you then sign up with a password, GitHub or Google. Without an invite, the sign-up page points you to the [waitlist](/pricing#cloud) and to the self-hosted install. Once Cloud opens to everyone, anyone can sign up.
+Anyone can sign up at [cloud.watchlog.io](https://cloud.watchlog.io/signup), with a password, GitHub or Google. There is no invite and no waiting list.
 
 Signing up needs no card and no company details. You get an organization named after your email address (rename it in Settings) with you as its Owner, on the Cloud Free plan. We send a link to verify your address; you can start before you click it, but after 7 days an unverified account can only verify.
 
-**Two-factor sign-in** (an authenticator app, TOTP, with 10 recovery codes) is optional for every account and can be turned on in Settings › Security. It becomes required for the Owners of an organization that pays for Pro, once billing starts.
+**Two-factor sign-in** (an authenticator app, TOTP, with 10 recovery codes) is optional for every account and can be turned on in Settings › Security. It is required for the Owners of an organization that pays for Pro.
 
 ## The setup wizard
 
@@ -29,15 +29,15 @@ Then add an alert channel (Slack, Telegram or email) and open the dashboard. Eve
 
 ## Plans and limits
 
-|                                      | Cloud Free | Cloud Pro                                                                                        |
-| ------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------ |
-| Clusters or Server fleets            | 1          | Unlimited                                                                                        |
-| Nodes (Kubernetes nodes and servers) | 5          | Unlimited                                                                                        |
-| History                              | 3 days     | 30 days                                                                                          |
-| Users                                | 1          | Up to 10                                                                                         |
-| What changed and anomaly alerts      |            | ✓                                                                                                |
-| Support                              |            | Email, within 2 business days                                                                    |
-| Price                                | Free       | $1 per node a month, $10 minimum; annual: $10 per node a year (2 months free), at least 10 nodes |
+|                                      | Cloud Free | Cloud Pro                                                                                                               |
+| ------------------------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Clusters or Server fleets            | 1          | Unlimited                                                                                                               |
+| Nodes (Kubernetes nodes and servers) | 5          | Unlimited                                                                                                               |
+| History                              | 3 days     | 30 days                                                                                                                 |
+| Users                                | 1          | Up to 10                                                                                                                |
+| What changed and anomaly alerts      |            | ✓                                                                                                                       |
+| Support                              |            | Email, within 2 business days                                                                                           |
+| Price                                | Free       | $3 per node or server a month, $15 minimum (the first 5); annual: $30 per node a year (2 months free), at least 5 nodes |
 
 Every monitoring feature is in both plans. Pro adds [What changed](what-changed.md): anomaly detection that learns each metric's usual week, lists what left its range first when something breaks, and raises anomaly alerts. The multi-cluster view and SLO reports are **coming to Pro**; they are not built yet.
 
@@ -57,11 +57,16 @@ Every hour WatchLog records how many nodes and servers sent data. A month's bill
 
 A node is counted by what WatchLog itself sees: the node or server named on the metrics it stores and, on Kubernetes, the nodes the Kubernetes API lists. What an agent says about itself (its name in a request header, or its heartbeat) can't lower the count or let a node past the plan's limit.
 
-## Pro is free during the beta
+## Paying for Pro
 
-While Cloud is in beta, an Owner can switch the organization to Pro in Settings › Plan & billing, without a card: unlimited clusters and nodes, 30 days of history and up to 10 users. Before billing starts, every Owner of a beta Pro organization gets **14 days' notice by email**. Nothing is ever charged without a card you add yourself, and the prices above don't change.
+An Owner upgrades in Settings › Plan & billing. **Upgrade** opens Stripe's own Checkout page, monthly or annual; **Manage billing** opens Stripe's customer portal for cards, invoices, a VAT number and cancelling. Card details never reach WatchLog's servers, and nothing is ever charged without a card you add yourself.
 
-When billing starts, payments go through Stripe's own checkout and customer portal pages: card details never reach WatchLog's servers.
+- **Monthly:** $3 per node or server, on the count described above. The minimum is $15, which covers the first 5.
+- **Annual:** $30 per node a year (two months free) for the number of nodes you commit to, at least 5. Nodes above that number are billed monthly at $3.
+- **A failed payment:** the Owners get an email, and Stripe retries. After 14 days unpaid the organization moves to Free; its data stays until its history runs out, and paying brings Pro back.
+- **Cancelling** is done in the portal. Settings › Plan & billing then shows the date Pro ends; after it the organization moves to Free.
+
+**If you started Pro during the beta,** when it was free: it stays free until the date in the notice the Owners got by email, 14 days ahead. To keep Pro after that date, upgrade before it; otherwise the organization moves to Free and its data stays until its history runs out.
 
 ## Export and deletion
 

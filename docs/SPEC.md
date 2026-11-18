@@ -83,7 +83,7 @@ _Not part of the public specification._
 |---|---|---|---|---|
 | Hosting | Self-hosted | WatchLog Cloud | WatchLog Cloud | Self-hosted or dedicated cloud |
 | License | AGPL-3.0 | — | — | Commercial (`ee/`) |
-| Price | Free | Free | **$1 / node / month** (min. $10 / month) | Custom quote |
+| Price | Free | Free | **$3 / node or server / month** (min. $15 / month, which covers the first 5; ADR-215) | Custom quote |
 | Clusters / Docker fleets | Unlimited (ADR-151) | 1 | Unlimited | Unlimited |
 | Nodes | Unlimited | Up to 5 | Unlimited | Unlimited |
 | Node, workload, pod, container metrics | ✓ | ✓ | ✓ | ✓ |
@@ -111,9 +111,9 @@ Rows marked (Phase 6) are not in 0.6.0: Cloud pages and the site say "coming to 
 
 ## 3.3 Pricing rationale and billing
 
-- **$1 per node per month** is deliberately far below typical per-host SaaS pricing. The goal is to make "just use Cloud" cheaper than the time spent maintaining a self-hosted stack, and to win on volume and word of mouth.
-- **Minimum $10 / month** (covers up to 10 nodes). Without a minimum, Stripe's fixed per-transaction fee would eat a large share of very small invoices (e.g. a 3-node, $3 invoice). **Decided (ADR-178):** a graduated metered price, the first 10 nodes a flat $10, then $1 per node.
-- **Annual plan:** 2 months free (pay for 10, get 12): a committed node count at $10 per node a year, minimum 10, with nodes above it billed monthly at the metered price (ADR-178).
+- **$3 per node (or server) per month** (ADR-215, the owner's decision of 2026-11-18, before billing went live; it replaces the $1 this section first set). It stays well below typical per-host SaaS pricing: the goal is still to make "just use Cloud" cheaper than the time spent maintaining a self-hosted stack. A Linux server counts as one node, whatever runs on it (§4.15).
+- **Minimum $15 / month**, which covers the first 5 nodes: the number Cloud Free allows, so Pro's smallest bill starts where Free ends. Without a minimum, Stripe's fixed per-transaction fee would eat a large share of very small invoices. **Decided (ADR-178, amounts by ADR-215):** a graduated metered price, the first 5 nodes a flat $15, then $3 per node.
+- **Annual plan:** 2 months free (pay for 10, get 12): a committed node count at $30 per node a year ($2.50 a month), minimum 5, with nodes above it billed monthly at $3 (ADR-178, ADR-215).
 - **Billable nodes** = the 95th percentile of hourly node counts in the billing period, so autoscaling spikes do not inflate the bill.
 - **Billing provider: Stripe** (Stripe Checkout + Billing + Customer Portal, usage-based price reported daily via Stripe usage records/meters). Invoices, tax and card management stay in Stripe; WatchLog stores only the Stripe customer and subscription IDs. Billing is a separate service in the private Cloud repository behind a provider interface; it writes the org's entitlements through an internal API, and the product never talks to Stripe (ADR-178). Built and tested on Stripe's test mode and stripe-mock; live once the payment entity exists (§16).
 - **Enterprise:** custom annual contracts, invoiced through Stripe.
@@ -1191,7 +1191,7 @@ Brought forward on 2026-11-13: the Cloud opens as a beta by invite from the wait
 
 - Multi-tenancy (§5.4), signup / login / GitHub OAuth, orgs, invites, onboarding wizard with live checklist (§10), funnel tracking and admin funnel page, lifecycle emails.
 - The marketing site on `watchlog.io` (landing, pricing, docs, blog), in its private repository (§9).
-- Plan limits (Free: 1 cluster, 5 nodes, 3 d). Stripe billing ($1/node, $10 minimum, p95 node count, Customer Portal) in the private Cloud repository.
+- Plan limits (Free: 1 cluster, 5 nodes, 3 d). Stripe billing (per node with a minimum, p95 node count, Customer Portal; the amounts are §3.3's) in the private Cloud repository.
 - Production deployment on the current server with Docker Compose behind the host's nginx (§5.5), backups, monitoring by WatchLog itself.
 - Security: RLS, the SSRF egress policy, 2FA, Turnstile, data export and deletion, an audited support mode, an independent review against OWASP ASVS L2 (ADR-181).
 - Trust pages on the site: terms, privacy, DPA, subprocessors, security, status (drafts for a lawyer's review).

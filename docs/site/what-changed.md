@@ -174,7 +174,7 @@ Every answer is audited and can be undone. Viewers see the answer, not the butto
 
 On Cloud Free and on a self-hosted Community install, **What changed** opens an upgrade page:
 an example from the live demo, labelled as such, your own last alerts each marked "What
-changed: Pro", the three reasons, and the price ($1 per node a month, $10 minimum, billed on
+changed: Pro", the three reasons, and the price ($3 per node a month, $15 minimum, billed on
 the 95th percentile of your hourly nodes). On Cloud Free an Owner upgrades from there; Admins
 and Viewers see who the Owners are. A Community install links to WatchLog Cloud's sign-up and
 sends nothing anywhere: your install keeps everything it has, with no limits.
