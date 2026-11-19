@@ -8979,7 +8979,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Send a test message now; returns the provider error if it fails */
+    /** Send a test message now; a failure says what failed and what to do */
     post: {
       parameters: {
         query?: never;

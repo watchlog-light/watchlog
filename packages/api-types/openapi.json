@@ -25894,7 +25894,7 @@
     },
     "/api/v1/alert-channels/{id}/test": {
       "post": {
-        "summary": "Send a test message now; returns the provider error if it fails",
+        "summary": "Send a test message now; a failure says what failed and what to do",
         "tags": ["alerts"],
         "parameters": [
           {
