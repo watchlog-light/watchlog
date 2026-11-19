@@ -215,6 +215,8 @@ export const cloudApi = {
     }),
   verifyEmail: (token: string) =>
     api<{ verified: true }>('/auth/verify-email', { method: 'POST', body: { token } }),
+  verifyCode: (code: string) =>
+    api<{ verified: true }>('/auth/verify-email/code', { method: 'POST', body: { code } }),
   resendVerification: (turnstileToken?: string) =>
     api<{ emailed: boolean }>('/auth/verify-email/resend', {
       method: 'POST',
@@ -300,6 +302,8 @@ export const CLOUD_ERROR_CODES = [
   'mfa-invalid',
   'invalid-token',
   'token-expired',
+  'code-invalid',
+  'code-expired',
   'already-verified',
   'mfa-already-enabled',
   'mfa-not-enabled',

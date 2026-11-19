@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 import ResendVerification from '@/components/cloud/ResendVerification.vue';
+import VerifyCode from '@/components/cloud/VerifyCode.vue';
 import AuthCard from '@/layouts/AuthCard.vue';
 import { useAuthStore } from '@/stores/auth';
 
@@ -26,6 +27,7 @@ async function signOut() {
     :intro="$t('cloud.gate.verifyIntro', { email: auth.account?.email ?? auth.user?.email ?? '' })"
   >
     <div class="flex flex-col gap-4" data-testid="verify-gate">
+      <VerifyCode @verified="recheck" />
       <ResendVerification />
       <button
         type="button"

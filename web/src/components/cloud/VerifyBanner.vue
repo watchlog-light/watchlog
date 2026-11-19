@@ -4,6 +4,7 @@ import { MailWarning, X } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import ResendVerification from './ResendVerification.vue';
+import VerifyCode from './VerifyCode.vue';
 
 // "Verify your email" (ADR-175): over every page while the address isn't verified. It
 // doesn't block for 7 days; the banner says until when. Dismissed for this page view only.
@@ -46,6 +47,7 @@ const by = computed(() =>
     >
       <X class="size-4" aria-hidden="true" />
     </button>
+    <VerifyCode compact class="max-sm:basis-full max-sm:pl-7" />
     <ResendVerification compact class="max-sm:basis-full max-sm:pl-7" />
   </div>
 </template>
