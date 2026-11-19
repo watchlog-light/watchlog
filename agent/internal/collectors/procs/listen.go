@@ -4,7 +4,10 @@ package procs
 
 import (
 	"bufio"
+	"encoding/binary"
+	"encoding/hex"
 	"io/fs"
+	"net"
 	"path"
 	"sort"
 	"strconv"
@@ -27,10 +30,36 @@ type Listener struct {
 	Port  uint16
 }
 
+// bound is a LISTEN socket with the address it is bound to ("0.0.0.0", "::", "127.0.0.1").
+type bound struct {
+	Listener
+	Addr string
+}
+
+// listenAddr decodes /proc/net/tcp's hex address: 4 bytes little-endian for IPv4, four
+// little-endian 32-bit words for IPv6.
+func listenAddr(h string) string {
+	b, err := hex.DecodeString(h)
+	if err != nil {
+		return ""
+	}
+	switch len(b) {
+	case 4:
+		return net.IPv4(b[3], b[2], b[1], b[0]).String()
+	case 16:
+		ip := make(net.IP, 16)
+		for i := 0; i < 4; i++ {
+			binary.BigEndian.PutUint32(ip[i*4:], binary.LittleEndian.Uint32(b[i*4:]))
+		}
+		return ip.String()
+	}
+	return ""
+}
+
 // listening reads the LISTEN sockets of the host's network namespace (the one of pid 1)
-// from /proc/1/net/tcp and tcp6: socket inode → (proto, port).
-func (r *Reader) listening() map[uint64]Listener {
-	out := map[uint64]Listener{}
+// from /proc/1/net/tcp and tcp6: socket inode → (proto, port, bound address).
+func (r *Reader) listening() map[uint64]bound {
+	out := map[uint64]bound{}
 	for _, proto := range []string{"tcp", "tcp6"} {
 		f, err := r.FS.Open(path.Join(r.Root, "1", "net", proto))
 		if err != nil {
@@ -44,7 +73,7 @@ func (r *Reader) listening() map[uint64]Listener {
 			if len(fields) < 10 || fields[3] != "0A" { // 0A: TCP_LISTEN
 				continue
 			}
-			_, portHex, ok := strings.Cut(fields[1], ":")
+			addrHex, portHex, ok := strings.Cut(fields[1], ":")
 			if !ok {
 				continue
 			}
@@ -53,7 +82,7 @@ func (r *Reader) listening() map[uint64]Listener {
 			if err1 != nil || err2 != nil || inode == 0 {
 				continue
 			}
-			out[inode] = Listener{Proto: proto, Port: uint16(port)}
+			out[inode] = bound{Listener: Listener{Proto: proto, Port: uint16(port)}, Addr: listenAddr(addrHex)}
 		}
 		_ = f.Close()
 	}

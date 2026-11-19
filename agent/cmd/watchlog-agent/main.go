@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/watchlog-light/watchlog/agent/internal/buffer"
+	"github.com/watchlog-light/watchlog/agent/internal/collectors/certs"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/containers"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/exits"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/host"
@@ -31,6 +32,7 @@ import (
 	"github.com/watchlog-light/watchlog/agent/internal/config"
 	"github.com/watchlog-light/watchlog/agent/internal/docker"
 	"github.com/watchlog-light/watchlog/agent/internal/ebpf"
+	"github.com/watchlog-light/watchlog/agent/internal/inventory"
 	"github.com/watchlog-light/watchlog/agent/internal/logs"
 	"github.com/watchlog-light/watchlog/agent/internal/metrics"
 	"github.com/watchlog-light/watchlog/agent/internal/podmap"
@@ -198,6 +200,7 @@ func run(args []string, stdout io.Writer) int {
 	var groups *procs.Collector
 	// A server's own events (0.9.2): its services' and process groups', sent like Docker's.
 	var serverEvents *serverevents.Recorder
+	var certCollector *certs.Collector
 	var remoteRules *procs.RemoteRules
 	if mode == config.ModeServer {
 		// Exit codes and OOM kills from the kernel (ADR-210); without eBPF they are unknown.
@@ -263,6 +266,24 @@ func run(args []string, stdout io.Writer) int {
 		remoteRules = &procs.RemoteRules{Log: slog.Default()}
 		groups.Rules = remoteRules.Rules
 		sources = append(sources, runner.Source{Name: "processes", Collect: groups.Collect})
+		// Certificates (ADR-222): what each listening TCP port presents, read on the server.
+		certCollector = &certs.Collector{
+			Targets: func() []certs.Target {
+				var out []certs.Target
+				for _, l := range groups.Listeners() {
+					out = append(out, certs.Target{Kind: l.Kind, Workload: l.Name, Proto: l.Proto, Port: l.Port, Addrs: groups.ListenAddrs(l)})
+				}
+				return out
+			},
+			StoreNames: func() []string { return certs.StoreNames(os.DirFS(filepath.Join("/", root))) },
+		}
+		// A docker run install has its own network namespace: the host is its gateway.
+		if self, err1 := os.Readlink("/proc/self/ns/net"); err1 == nil {
+			if host, err2 := os.Readlink(filepath.Join(paths.Proc, "1", "ns", "net")); err2 == nil && host != self {
+				certCollector.HostAddr = certs.HostRoute("/proc/self/net/route")
+			}
+		}
+		sources = append(sources, runner.Source{Name: "certificates", Collect: certCollector.Collect})
 	}
 	ebpfState := network.Disabled
 	var netCollector *network.Collector
@@ -488,6 +509,14 @@ func run(args []string, stdout io.Writer) int {
 	}
 	if serverEvents != nil {
 		go serverEvents.Ship(ctx, snd.SendEvents, log)
+	}
+	if certCollector != nil {
+		go certCollector.Run(ctx)
+		inv := &inventory.Shipper{Send: snd.SendObjects, Log: log, Build: func() inventory.Snapshot {
+			list, cov := certCollector.Certificates()
+			return inventory.Snapshot{Node: *hostname, Certificates: list, CertCoverage: cov}
+		}}
+		go inv.Run(ctx)
 	}
 	// Logs on demand (ADR-167, ADR-208): containers through Docker, and on a server its
 	// services' journal and pm2's and supervisord's log files.

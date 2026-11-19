@@ -5,6 +5,7 @@ package procs
 import (
 	"os"
 	"path"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -73,6 +74,15 @@ type Collector struct {
 	owners    map[string]Workload
 	// pidOwners: each process group's processes, for flows keyed by process (ADR-210).
 	pidOwners map[int]Workload
+	// addrs are the addresses each listener is bound to (certificates are read there).
+	addrs map[Listener][]string
+}
+
+// ListenAddrs are the addresses a listener of the last scrape is bound to.
+func (c *Collector) ListenAddrs(l Listener) []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]string(nil), c.addrs[l]...)
 }
 
 // Listeners are the TCP ports the server's workloads listened on at the last scrape.
@@ -340,6 +350,7 @@ func (c *Collector) Collect() ([]metrics.Sample, error) {
 func (c *Collector) network(all []processWithUnit, workloadOf map[int]Workload, cgroupGroups map[string]map[string]bool) []metrics.Sample {
 	inodes := c.Reader.listening()
 	byWorkload := map[Workload]map[Listener]bool{}
+	addrs := map[Listener][]string{}
 	owners := map[string]Workload{}
 	pidOwners := map[int]Workload{}
 	for _, n := range all {
@@ -351,12 +362,16 @@ func (c *Collector) network(all []processWithUnit, workloadOf map[int]Workload, 
 			pidOwners[n.p.PID] = w
 		}
 		for _, ino := range n.p.Sockets {
-			if l, ok := inodes[ino]; ok {
+			if b, ok := inodes[ino]; ok {
+				l := b.Listener
 				l.Workload = w
 				if byWorkload[w] == nil {
 					byWorkload[w] = map[Listener]bool{}
 				}
 				byWorkload[w][l] = true
+				if b.Addr != "" && !slices.Contains(addrs[l], b.Addr) {
+					addrs[l] = append(addrs[l], b.Addr)
+				}
 			}
 		}
 		if _, done := owners[n.p.Cgroup]; done {
@@ -373,7 +388,7 @@ func (c *Collector) network(all []processWithUnit, workloadOf map[int]Workload, 
 	}
 	listeners := sortedListeners(byWorkload)
 	c.mu.Lock()
-	c.listeners, c.owners, c.pidOwners = listeners, owners, pidOwners
+	c.listeners, c.owners, c.pidOwners, c.addrs = listeners, owners, pidOwners, addrs
 	c.mu.Unlock()
 	var out []metrics.Sample
 	for _, l := range listeners {
