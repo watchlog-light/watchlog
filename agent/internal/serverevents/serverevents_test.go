@@ -28,7 +28,11 @@ func TestRecorderGroupsAndShips(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("drained %+v", got)
 	}
+	// Both records have the same last time, so Drain may return them in either order.
 	fe := got[0]
+	if fe.Involved.Kind != Process {
+		fe = got[1]
+	}
 	if fe.Involved.Kind != Process || fe.Involved.Name != "activity2" || fe.Count != 2 || fe.Message != "killed by SIGKILL (9)" ||
 		fe.Type != Warning || !fe.FirstTS.Before(fe.LastTS) || fe.Host != "ubuntu-8gb-nbg1-1" {
 		t.Fatalf("failed exit record %+v", fe)

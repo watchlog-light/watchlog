@@ -39,17 +39,22 @@ const hashesOf = (series: TestSeries[]) => inspectWriteRequest(encode(series), L
 
 describe('the series sketch', () => {
   it('estimates distinct series within a few percent; repeats count once', async () => {
+    // The same labels in every run. With the run's own label (a timestamp) the hashes, and
+    // so the estimate's error, changed from run to run, and once in a while it passed the
+    // bound below (30.9 against 30 in CI).
+    const fixed = { run: 'series-sketch' };
     // A large contract (1,000 nodes): the cap is out of the way.
     const gate = new SeriesGate(entitlements(1_000), silent);
     for (let i = 0; i < 100_000; i += 10_000) {
-      expect((await gate.admit('o', 'c', 'n1', hashesOf(batch(i, i + 10_000)))).ok).toBe(true);
+      const hashes = hashesOf(batch(i, i + 10_000, fixed));
+      expect((await gate.admit('o', 'c', 'n1', hashes)).ok).toBe(true);
       // The same series again: no change.
-      await gate.admit('o', 'c', 'n1', hashesOf(batch(i, i + 10_000)));
+      await gate.admit('o', 'c', 'n1', hashesOf(batch(i, i + 10_000, fixed)));
     }
     const e = gate.estimate('o');
     expect(Math.abs(e - 100_000) / 100_000).toBeLessThan(0.05);
     const small = new SeriesGate(entitlements(null), silent);
-    await small.admit('o', 'c', 'n1', hashesOf(batch(0, 1_000)));
+    await small.admit('o', 'c', 'n1', hashesOf(batch(0, 1_000, fixed)));
     expect(Math.abs(small.estimate('o') - 1_000)).toBeLessThan(30);
   });
 

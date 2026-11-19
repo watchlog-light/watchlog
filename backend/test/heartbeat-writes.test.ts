@@ -218,7 +218,10 @@ describe('the readers, with a stored time as far behind as the throttle allows',
   it('Docker: status, nodes, the checklist, the overview, the plan and the usage', async () => {
     const { c, call, orgId, cluster } = await cloud();
     const { owner } = await cluster('fleet', 'server');
-    await lagging(c, owner, 'h1', 'docker');
+    // One "now" for the beats and for the usage job: read again after the requests below,
+    // the clock may have passed the top of an hour that the agent's last beat was before.
+    const now = Date.now();
+    await lagging(c, owner, 'h1', 'docker', now);
 
     const list = (await call('GET', '/clusters')).json().clusters as {
       id: string;
@@ -245,15 +248,16 @@ describe('the readers, with a stored time as far behind as the throttle allows',
     expect(plan.statusCode, plan.body).toBe(200);
     expect(plan.json().usage.nodes).toBe(1);
 
-    await recordUsage({ systemDb: c.db, db: c.db }, Date.now());
+    // The hour of the agent's last beat (`lagging` sends it 15 s before `now`). Its stored
+    // time is in that hour: the first beat of an hour is always written (the hour rule).
+    const lastBeat = now - 15_000;
+    await recordUsage({ systemDb: c.db, db: c.db }, lastBeat);
     const usage = await c.db
       .selectFrom('usage_hourly')
       .selectAll()
       .where('org_id', '=', orgId)
-      .where('hour', '=', hourOf(Date.now()))
+      .where('hour', '=', hourOf(lastBeat))
       .executeTakeFirst();
-    // The agent's stored time may still be in the previous hour only if no beat came in
-    // this one; the hour rule writes the first beat of an hour, so this hour counts it.
     expect(usage).toMatchObject({ docker_hosts: 1 });
   });
 
