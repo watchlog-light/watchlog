@@ -15,7 +15,7 @@ Anyone can sign up at [cloud.watchlog.io](https://cloud.watchlog.io/signup), wit
 
 **Your password** needs at least 10 characters and must not be in a list of leaked passwords. The sign-up page checks both as you type and says under the field what is wrong; there are no rules about symbols or capitals. The check never sends your password anywhere: the page sends the first 5 characters of its hash and compares the rest itself. Your browser or password manager can suggest a strong one and save it for you.
 
-Signing up needs no card and no company details. You get an organization named after your email address (rename it in Settings) with you as its Owner, on the Cloud Free plan. We send a link to verify your address; you can start before you click it, but after 7 days an unverified account can only verify.
+Signing up needs no card and no company details. You get an organization named after your email address (rename it in Settings) with you as its Owner, on the Cloud Free plan. We send an email with a 6-digit code and a link to confirm your address: type the code where WatchLog asks for it (it works for 15 minutes), or open the link (24 hours). You can start before you confirm, but after 7 days an unconfirmed account can only confirm.
 
 **Two-factor sign-in** (an authenticator app, TOTP, with 10 recovery codes) is optional for every account and can be turned on in Settings › Security. It is required for the Owners of an organization that pays for Pro.
 

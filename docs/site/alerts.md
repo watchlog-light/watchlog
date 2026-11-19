@@ -21,8 +21,15 @@ this hour", fires when a metric stays far outside its usual range for that hour 
 | -------- | ------------------------------------------------------ | ------------------------------------- |
 | Slack    | An incoming webhook URL                                | Block Kit, coloured by severity       |
 | Telegram | A bot token; you connect the chat with a one-time link | HTML                                  |
-| Email    | Recipients; the server's SMTP settings                 | Plain text                            |
+| Email    | Recipients; the server's SMTP settings                 | HTML and plain text, threaded         |
 | Webhook  | A URL, and a signing secret (made for you if empty)    | JSON, signed with HMAC-SHA256 (below) |
+
+**Alert emails** start their subject with `[Critical]`, `[Warning]` or `[Resolved]` and name the
+thing and the place: `[Critical] api is crash-looping in prod`. The resolve keeps the same words and
+lands in the same thread, under the firing email. Each email shows where, since when, the rule, the
+value against its limit, the likely cause when there is one and, on Cloud Pro, one line of what
+changed around it, with one button to the alert. Every email has a plain-text part, no images and
+no tracking.
 
 "Send test" on a channel sends one message at once. If it does not arrive, the channel says what
 failed and what to do, with the provider's status code: "Telegram refused the message: the bot was
