@@ -19,7 +19,9 @@ export interface MockProviders {
   /** Requests to one path prefix (`/slack`, `/webhook`, `/bot<token>/sendMessage`). */
   to(prefix: string): Recorded[];
   /** Status (and body) answered for a path prefix; default 200. */
-  fail(prefix: string, status: number, body?: string): void;
+  fail(prefix: string, status: number, body?: string, headers?: Record<string, string>): void;
+  /** Requests to a path prefix get no answer at all (a timeout for the caller). */
+  hang(prefix: string): void;
   /** Telegram updates returned by getUpdates (filtered by offset). */
   telegramUpdates: object[];
   close(): Promise<void>;
@@ -27,7 +29,11 @@ export interface MockProviders {
 
 export async function startMockProviders(): Promise<MockProviders> {
   const requests: Recorded[] = [];
-  const failures = new Map<string, { status: number; body: string }>();
+  const failures = new Map<
+    string,
+    { status: number; body: string; headers: Record<string, string> }
+  >();
+  const hanging = new Set<string>();
   const telegramUpdates: { update_id: number }[] = [];
   const server: Server = createServer((req, res) => {
     let body = '';
@@ -41,9 +47,11 @@ export async function startMockProviders(): Promise<MockProviders> {
         // not JSON
       }
       requests.push({ path, headers: req.headers, body, json });
+      // No answer: the caller's own timeout ends it.
+      for (const prefix of hanging) if (path.startsWith(prefix)) return;
       for (const [prefix, f] of failures) {
         if (path.startsWith(prefix)) {
-          res.writeHead(f.status, { 'content-type': 'application/json' }).end(f.body);
+          res.writeHead(f.status, { 'content-type': 'application/json', ...f.headers }).end(f.body);
           return;
         }
       }
@@ -56,7 +64,7 @@ export async function startMockProviders(): Promise<MockProviders> {
             ? { id: 1, is_bot: true, username: 'watchlog_test_bot' }
             : method === 'getUpdates'
               ? telegramUpdates.filter((u) => u.update_id >= offset)
-              : { message_id: requests.length };
+              : telegramMessage(requests.length, json as { chat_id?: number; text?: string });
         res
           .writeHead(200, { 'content-type': 'application/json' })
           .end(JSON.stringify({ ok: true, result }));
@@ -71,10 +79,59 @@ export async function startMockProviders(): Promise<MockProviders> {
     url: `http://127.0.0.1:${port}`,
     requests,
     to: (prefix) => requests.filter((r) => r.path.startsWith(prefix)),
-    fail: (prefix, status, body = '{"ok":false,"description":"mock failure"}') =>
-      failures.set(prefix, { status, body }),
+    fail: (prefix, status, body = '{"ok":false,"description":"mock failure"}', headers = {}) =>
+      failures.set(prefix, { status, body, headers }),
+    hang: (prefix) => hanging.add(prefix),
     telegramUpdates,
-    close: () => new Promise((resolve) => server.close(() => resolve())),
+    close: () =>
+      new Promise((resolve) => {
+        server.closeAllConnections();
+        server.close(() => resolve());
+      }),
+  };
+}
+
+/** The chat every mock message is "sent" to: none of this may reach an error or a log. */
+export const MOCK_CHAT = { id: 5550001234, username: 'mock_chat_owner', firstName: 'Mock' };
+
+/**
+ * What Telegram answers to sendMessage, in its real shape: the whole message back, with the
+ * bot, the chat and the text's entities. It is longer than 500 characters for any real
+ * message, which is what the sender has to read to find "ok": true.
+ */
+export function telegramMessage(id: number, sent: { chat_id?: number; text?: string }): object {
+  const html = sent.text ?? '';
+  const text = html.replace(/<[^>]+>/g, '');
+  const entities: object[] = [];
+  let offset = 0;
+  for (const m of html.matchAll(/<(b|i|code|a)\b[^>]*>([^<]*)<\/\1>/g)) {
+    const at = text.indexOf(m[2]!, offset);
+    offset = at + m[2]!.length;
+    entities.push({
+      offset: at,
+      length: m[2]!.length,
+      type: { b: 'bold', i: 'italic', code: 'code', a: 'text_link' }[m[1]!],
+      ...(m[1] === 'a' ? { url: /href="([^"]*)"/.exec(m[0])?.[1] } : {}),
+    });
+  }
+  return {
+    message_id: id,
+    from: {
+      id: 7000000001,
+      is_bot: true,
+      first_name: 'WatchLog test',
+      username: 'watchlog_test_bot',
+    },
+    chat: {
+      id: sent.chat_id ?? MOCK_CHAT.id,
+      first_name: MOCK_CHAT.firstName,
+      username: MOCK_CHAT.username,
+      type: 'private',
+    },
+    date: 1795000000,
+    text,
+    entities,
+    link_preview_options: { is_disabled: true },
   };
 }
 

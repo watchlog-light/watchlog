@@ -314,7 +314,7 @@ describe('delivery to all four channels', () => {
     mock.fail('/bot123:abc/', 401, '{"ok":false,"error_code":401,"description":"Unauthorized"}');
     expect(await sendTest(deps, ch.telegram)).toEqual({
       ok: false,
-      error: 'Telegram sendMessage answered 401: Unauthorized',
+      error: 'Telegram did not accept the bot token (401). Copy the token from BotFather again.',
     });
     const noSmtp = await sendTest(
       { ...deps, settings: async () => ({ ...(await deps.settings()), smtp: undefined }) },
@@ -362,11 +362,11 @@ describe('outbox sender (ADR-074)', () => {
     expect(n).toMatchObject({
       status: 'pending',
       attempts: 1,
-      error: 'Webhook answered 503: busy',
+      error: "The webhook's server answered with an error (503).",
     });
     expect(new Date(n!.next_attempt_at).getTime()).toBe(T0 + 30_000);
     const ch = await ctx.db.selectFrom('alert_channels').selectAll().executeTakeFirstOrThrow();
-    expect(ch.last_error).toBe('Webhook answered 503: busy');
+    expect(ch.last_error).toBe("The webhook's server answered with an error (503).");
     expect(await deliverDue(deps, T0 + 10_000)).toEqual({
       sent: 0,
       retried: 0,

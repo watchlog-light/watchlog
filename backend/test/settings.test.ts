@@ -254,7 +254,7 @@ describe('Telegram: reachability and proxy (ADR-093)', () => {
     cookie = await setupAdmin(ctx.app);
     const down = (await api('GET', '/settings/telegram/reachability')).json();
     expect(down.reachable).toBe(false);
-    expect(down.error).toMatch(/ECONNREFUSED/);
+    expect(down.error).toBe('the connection was refused');
     const create = await api('POST', '/alert-channels', {
       type: 'telegram',
       name: 'On-call',

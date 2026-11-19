@@ -204,7 +204,7 @@ describe('at send time', () => {
     const before = other.hits.length;
     await expect(
       http.post(`http://hop.test:${target.port}/redirect`, '{}', {}, undefined, { userUrl: true }),
-    ).rejects.toThrow(/unreachable/);
+    ).rejects.toThrow('Could not reach hop.test');
     expect(other.hits.length).toBe(before);
     await http.close();
   });

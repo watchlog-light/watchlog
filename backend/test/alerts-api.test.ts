@@ -311,7 +311,9 @@ describe('alert channels', () => {
       settings: { botToken: '999999:ABCdefGhIJKlmNoPQRstuVWXyz' },
     });
     expect(badBot.statusCode).toBe(400);
-    expect(badBot.json().detail).toMatch(/Unauthorized/);
+    expect(badBot.json().detail).toBe(
+      'Telegram did not accept the bot token (401). Copy the token from BotFather again.',
+    );
 
     const mail = await api('POST', '/alert-channels', {
       type: 'email',
@@ -346,9 +348,15 @@ describe('alert channels', () => {
     expect(mock.to('/webhook')[0]!.headers['x-watchlog-event']).toBe('test');
     mock.fail('/webhook', 404, 'gone');
     const failed = await api('POST', `/alert-channels/${hook.id}/test`);
-    expect(failed.json()).toEqual({ ok: false, error: 'Webhook answered 404: gone' });
+    // What failed and what to do, never the server's own answer (ADR-218).
+    expect(failed.json()).toEqual({
+      ok: false,
+      error: "The webhook's server has nothing at this address (404). Check the URL.",
+    });
     const after = (await api('GET', '/alert-channels')).json().channels[0];
-    expect(after).toMatchObject({ lastError: 'Webhook answered 404: gone' });
+    expect(after).toMatchObject({
+      lastError: "The webhook's server has nothing at this address (404). Check the URL.",
+    });
     expect(after.verifiedAt).not.toBeNull();
 
     const renamed = await api('PATCH', `/alert-channels/${hook.id}`, { name: 'Bridge' });
