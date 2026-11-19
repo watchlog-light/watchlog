@@ -29,6 +29,7 @@ import {
 import { SupportSessionSchema } from '../support/routes.js';
 import { signupAdminRoutes } from '../signup-invites/admin-routes.js';
 import { limitsForPlanChange } from '../entitlements/plans.js';
+import { adminUserRoutes } from './admin-users.js';
 import { rememberNulls, withNulls } from './nulls.js';
 import { audit } from '../users/service.js';
 import { EntitlementView, entitlementView, UsageView } from './views.js';
@@ -847,6 +848,10 @@ export const adminRoutes: FastifyPluginAsyncTypebox<AdminDeps> = async (app, dep
       };
     },
   );
+
+  // ---------------------------------------------------------------- users (ADR-179, 0.9.9)
+
+  adminUserRoutes(app, { systemDb, now });
 
   // ---------------------------------------------------------------- invite waves (ADR-173)
 

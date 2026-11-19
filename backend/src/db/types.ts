@@ -667,6 +667,7 @@ export interface Users {
   email: string;
   email_verified_at: Timestamp | null;
   id: string;
+  last_sign_in_at: Timestamp | null;
   lifecycle_unsubscribed_at: Timestamp | null;
   locale: Generated<string>;
   mfa_failures: Generated<number>;

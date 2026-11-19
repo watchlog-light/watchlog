@@ -87,6 +87,15 @@ export async function createSession(db: Database, userId: string, opts: SessionO
       ...(opts.userAgent ? { user_agent: opts.userAgent.slice(0, 256) } : {}),
     })
     .execute();
+  // A full session is a sign-in (after the 2FA code, too): kept on the user, because the
+  // session itself goes at sign-out (0.9.9; the Cloud admin's "last sign-in").
+  if (stage === 'full') {
+    await db
+      .updateTable('users')
+      .set({ last_sign_in_at: now })
+      .where('id', '=', userId)
+      .execute();
+  }
   return { token, expiresAt };
 }
 
