@@ -399,7 +399,12 @@ describe('the links', () => {
     await inputs[2]!.setValue('short');
     await w.get('form').trigger('submit');
     await flushPromises();
-    expect(w.get('[role="alert"]').text()).toBe('Use at least 12 characters.');
+    // The server's minimum is 10 (the page said 12 until 0.9.9), said under the field.
+    expect(w.get('[data-testid="password-error"]').text()).toContain(
+      'This is too short: use at least 10 characters.',
+    );
+    await inputs[2]!.setValue('ten chars!');
+    expect(w.get('[data-rule="length"]').attributes('data-state')).toBe('ok');
     await inputs[2]!.setValue('a long enough password');
     await w.get('form').trigger('submit');
     await flushPromises();

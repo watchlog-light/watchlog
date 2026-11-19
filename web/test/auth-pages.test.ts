@@ -71,7 +71,13 @@ describe('SetupPage', () => {
     await wrapper.find('form').trigger('submit');
     await flushPromises();
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(wrapper.text()).toContain('Use at least 10 characters.');
+    // Under the password field (0.9.9).
+    const error = wrapper.get('[data-testid="password-error"]');
+    expect(error.text()).toContain('This is too short: use at least 10 characters.');
+    // A self-hosted server asks no leaked-password list.
+    expect(wrapper.findAll('[data-rule]').map((r) => r.attributes('data-rule'))).toEqual([
+      'length',
+    ]);
   });
 
   it('explains an invalid setup code', async () => {

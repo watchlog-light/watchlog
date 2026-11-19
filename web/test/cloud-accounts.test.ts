@@ -4,6 +4,7 @@
 // Each page shows only when GET /auth/config answers (Cloud); Community stays as 0.5.0.
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import { ApiError } from '@/api/client';
@@ -19,7 +20,6 @@ import OrgSwitcher from '@/components/cloud/OrgSwitcher.vue';
 import VerifyBanner from '@/components/cloud/VerifyBanner.vue';
 import SecuritySettings from '@/components/settings/SecuritySettings.vue';
 import { en } from '@/i18n';
-import { passwordStrength } from '@/lib/password';
 import { describeAgent } from '@/lib/sessions';
 import { installAuthGuard, routes, type AuthState } from '@/router';
 import { useAuthStore } from '@/stores/auth';
@@ -67,7 +67,11 @@ const cloudProblem = (status: number, code: string) => ({
   body: { type: `urn:watchlog:problem:${code}`, title: 'Error', status, code },
 });
 
+/** Mounted pages are unmounted after each test: a field's pending check must not outlive it. */
+const mounted: { unmount: () => void }[] = [];
 afterEach(() => {
+  for (const w of mounted.splice(0)) w.unmount();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   document.body.innerHTML = '';
 });
@@ -89,6 +93,7 @@ async function mountCloud(
     attachTo: document.body,
     global: { plugins: [plugins.router, plugins.i18n, plugins.pinia] },
   });
+  mounted.push(wrapper);
   await flushPromises();
   return { wrapper, router: plugins.router, auth };
 }
@@ -119,14 +124,6 @@ describe('the Cloud API helpers', () => {
     expect(oauthStartUrl('google', 'signin', '//evil.example')).toBe(
       '/api/v1/auth/oauth/google/start?intent=signin',
     );
-  });
-
-  it('rates passwords: too short, weak, then stronger with length and mix', () => {
-    expect(passwordStrength('short', 10)).toBe(0);
-    expect(passwordStrength('aaaaaaaaaaaa', 10)).toBe(1);
-    expect(passwordStrength('abcdefghij', 10)).toBe(1);
-    expect(passwordStrength('correct-horse-battery', 10)).toBe(4);
-    expect(passwordStrength('Tr0ub4dour&3x', 10)).toBe(3);
   });
 
   it('names a session by browser and system', () => {
@@ -249,6 +246,142 @@ describe('the sign-in page', () => {
     expect(text).toContain('Settings › Security');
   });
 
+  describe('Turnstile on sign-in (ADR-175, amended in 0.9.9)', () => {
+    const KEYED = { ...CONFIG, turnstileSiteKey: '1x00000000000000000000AA' };
+    function stubTurnstile(behave: (opts: Record<string, (t?: string) => void>) => void) {
+      let given: Record<string, (t?: string) => void> | undefined;
+      const turnstile = {
+        render: vi.fn((_el: HTMLElement, opts: Record<string, (t?: string) => void>) => {
+          given = opts;
+          behave(opts);
+          return 'w1';
+        }),
+        // As Cloudflare's widget does: a reset runs the check again.
+        reset: vi.fn(() => {
+          if (given) behave(given);
+        }),
+        remove: vi.fn(),
+      };
+      vi.stubGlobal('turnstile', turnstile);
+      return turnstile;
+    }
+    async function signIn(wrapper: ReturnType<typeof mount>) {
+      const inputs = wrapper.findAll('input');
+      await inputs[0]!.setValue(USER.email);
+      await inputs[1]!.setValue('correct password');
+      await wrapper.find('form').trigger('submit');
+      await flushPromises();
+    }
+
+    it('pass: quiet, and the token goes with the password', async () => {
+      const turnstile = stubTurnstile((opts) => opts.callback!('signin-token'));
+      const { calls } = mockFetch({
+        'POST /api/v1/auth/login': { status: 200, body: { user: USER } },
+        'GET /api/v1/auth/account': { status: 200, body: ACCOUNT },
+      });
+      const { wrapper, router } = await mountCloud(LoginPage, '/login', { config: KEYED });
+      await vi.waitFor(() => expect(turnstile.render).toHaveBeenCalled());
+      // Shown only when Cloudflare wants something from the visitor.
+      expect(turnstile.render.mock.calls[0]![1]).toMatchObject({
+        sitekey: '1x00000000000000000000AA',
+        appearance: 'interaction-only',
+      });
+      expect(wrapper.find('[data-testid="signin-turnstile"] [role="alert"]').exists()).toBe(false);
+      await signIn(wrapper);
+      expect(calls.find((c) => c.path === '/api/v1/auth/login')!.body).toEqual({
+        email: USER.email,
+        password: 'correct password',
+        turnstileToken: 'signin-token',
+      });
+      await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/'));
+    });
+
+    it('fail: a refused check is said, and a new one starts by itself', async () => {
+      const turnstile = stubTurnstile((opts) => opts.callback!('signin-token'));
+      mockFetch({ 'POST /api/v1/auth/login': cloudProblem(400, 'turnstile-failed') });
+      const { wrapper } = await mountCloud(LoginPage, '/login', { config: KEYED });
+      await vi.waitFor(() => expect(turnstile.render).toHaveBeenCalled());
+      await signIn(wrapper);
+      expect(wrapper.get('form > [role="alert"]').text()).toContain('human check');
+      expect(turnstile.reset).toHaveBeenCalledTimes(1);
+      // A wrong password spends the token too: the next try gets a new one.
+      mockFetch({ 'POST /api/v1/auth/login': problem(401, 'Invalid email or password') });
+      await wrapper.find('form').trigger('submit');
+      await flushPromises();
+      expect(wrapper.get('form > [role="alert"]').text()).toBe('Invalid email or password.');
+      expect(turnstile.reset).toHaveBeenCalledTimes(2);
+    });
+
+    it('the fallback: Cloudflare blocked here, sign-in goes on without a token and says nothing', async () => {
+      // The script can't load: no window.turnstile, and the tag's error fires.
+      const append = vi.spyOn(document.head, 'appendChild').mockImplementation((node) => {
+        queueMicrotask(() => (node as HTMLScriptElement).onerror?.(new Event('error')));
+        return node;
+      });
+      const { calls } = mockFetch({
+        'POST /api/v1/auth/login': { status: 200, body: { user: USER } },
+        'GET /api/v1/auth/account': { status: 200, body: ACCOUNT },
+      });
+      const { wrapper, router } = await mountCloud(LoginPage, '/login', { config: KEYED });
+      await flushPromises();
+      expect(append).toHaveBeenCalled();
+      // Nothing alarming on the page.
+      expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+      await signIn(wrapper);
+      expect(calls.find((c) => c.path === '/api/v1/auth/login')!.body).toEqual({
+        email: USER.email,
+        password: 'correct password',
+      });
+      await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/'));
+      append.mockRestore();
+    });
+
+    it('missing token: a check that has not finished is waited for 3 seconds, then sign-in goes on', async () => {
+      vi.useFakeTimers();
+      // Rendered, but never answers.
+      const turnstile = stubTurnstile(() => {});
+      const { calls } = mockFetch({
+        'POST /api/v1/auth/login': cloudProblem(429, 'rate-limited'),
+      });
+      const { wrapper } = await mountCloud(LoginPage, '/login', { config: KEYED });
+      await vi.waitFor(() => expect(turnstile.render).toHaveBeenCalled());
+      const inputs = wrapper.findAll('input');
+      await inputs[0]!.setValue(USER.email);
+      await inputs[1]!.setValue('correct password');
+      await wrapper.find('form').trigger('submit');
+      await vi.advanceTimersByTimeAsync(2900);
+      expect(calls).toHaveLength(0);
+      await vi.advanceTimersByTimeAsync(200);
+      await vi.runAllTimersAsync();
+      expect(calls[0]!.body).toEqual({ email: USER.email, password: 'correct password' });
+      // The fallback's limit, in words that say what to do.
+      expect(wrapper.get('form > [role="alert"]').text()).toBe(
+        'Too many sign-in attempts without the human check. Wait 15 minutes, or let this page load challenges.cloudflare.com (a content blocker may be stopping it) and try again.',
+      );
+    });
+
+    it('Community, and Cloud without a site key: no widget, no script, the form as it was', async () => {
+      const append = vi.spyOn(document.head, 'appendChild');
+      for (const config of [null, CONFIG]) {
+        const { calls } = mockFetch({
+          'POST /api/v1/auth/login': { status: 200, body: { user: USER } },
+          'GET /api/v1/auth/account': { status: 200, body: ACCOUNT },
+        });
+        const { wrapper } = await mountCloud(LoginPage, '/login', { config });
+        expect(wrapper.find('[data-testid="signin-turnstile"]').exists()).toBe(false);
+        await signIn(wrapper);
+        expect(calls.find((c) => c.path === '/api/v1/auth/login')!.body).toEqual({
+          email: USER.email,
+          password: 'correct password',
+        });
+      }
+      expect(append.mock.calls.filter(([n]) => (n as HTMLElement).tagName === 'SCRIPT')).toEqual(
+        [],
+      );
+      append.mockRestore();
+    });
+  });
+
   it('goes to the 2FA step when the password step asks for a code', async () => {
     mockFetch({ 'POST /api/v1/auth/login': { status: 202, body: { mfaRequired: true } } });
     const { wrapper, router } = await mountCloud(LoginPage, '/login?redirect=/alerts');
@@ -313,7 +446,7 @@ describe('the sign-up page', () => {
     await flushPromises();
   }
 
-  it('shows the providers, the meter, the terms and the three steps, without the region', async () => {
+  it('shows the providers, the password rules, the terms and the three steps, without the region', async () => {
     const { wrapper } = await mountCloud(SignupPage, '/signup');
     expect(wrapper.find('[data-testid="provider-github"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="turnstile"]').exists()).toBe(false);
@@ -322,8 +455,22 @@ describe('the sign-up page', () => {
     expect(links).toContain('https://watchlog.io/privacy');
     expect(wrapper.findAll('aside ol li')).toHaveLength(3);
     expect(wrapper.text()).not.toMatch(/\bEU\b/);
+    // The checklist in place of the strength bar (0.9.9): two rules, no "Weak.".
+    expect(wrapper.findAll('[data-rule]').map((r) => r.attributes('data-rule'))).toEqual([
+      'length',
+      'leak',
+    ]);
+    expect(wrapper.find('[data-testid="password-strength"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Weak');
     await wrapper.findAll('form input')[1]!.setValue('correct-horse-battery');
-    expect(wrapper.get('[data-testid="password-strength"]').attributes('data-score')).toBe('4');
+    expect(wrapper.get('[data-rule="length"]').attributes('data-state')).toBe('ok');
+    // The right column is for clusters and servers alike.
+    const aside = wrapper.get('aside').text();
+    expect(aside).toContain('Two minutes from here to your cluster or servers on screen.');
+    expect(aside).toContain('Kubernetes or Linux servers');
+    expect(aside).toContain('Pick one, copy one command');
+    expect(aside).toContain('Docker containers are picked up too');
+    expect(aside).not.toContain('Kubernetes or Docker');
   });
 
   it('loads Cloudflare’s script only when a site key is set', async () => {
@@ -345,7 +492,8 @@ describe('the sign-up page', () => {
     const { fetchMock } = mockFetch({});
     await fillAndSubmit(wrapper);
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(wrapper.get('[role="alert"]').text()).toContain('human check');
+    // Said by the human check itself, not at the bottom of the form.
+    expect(wrapper.get('[data-testid="turnstile-error"]').text()).toContain('human check');
   });
 
   it('signs a new account in and goes on', async () => {
@@ -371,15 +519,147 @@ describe('the sign-up page', () => {
     expect(wrapper.get('[data-testid="signup-check-email"]').text()).toContain('sara@acme.dev');
   });
 
-  it.each([
-    ['password-breached', 'data breach'],
-    ['email-disposable', 'throwaway'],
-    ['turnstile-failed', 'human check'],
-  ])('explains %s in plain words', async (code, words) => {
-    mockFetch({ 'POST /api/v1/auth/signup': cloudProblem(400, code) });
+  it('a leaked password is said under the password field; the rest is kept and the human check is not redone', async () => {
+    const turnstile = {
+      render: vi.fn((_el: HTMLElement, opts: { callback: (t: string) => void }) => {
+        opts.callback('token-1');
+        return 'w1';
+      }),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    };
+    vi.stubGlobal('turnstile', turnstile);
+    const { calls } = mockFetch({
+      'POST /api/v1/auth/signup': [
+        cloudProblem(400, 'password-breached'),
+        { status: 201, body: { accepted: true, verificationSent: true } },
+      ],
+      'GET /api/v1/me': problem(401, 'Sign in'),
+    });
+    const { wrapper } = await mountCloud(SignupPage, '/signup', {
+      config: { ...CONFIG, turnstileSiteKey: '1x00000000000000000000AA' },
+    });
+    await vi.waitFor(() => expect(turnstile.render).toHaveBeenCalled());
+    await fillAndSubmit(wrapper, 'correct horse battery');
+    // Under the field it is about, in words that say what to do, with the focus there.
+    const error = wrapper.get('[data-testid="password-error"]');
+    expect(error.text()).toBe(
+      'This password is in a list of leaked passwords, so attackers try it first. Pick a different one: three or four random words work well.',
+    );
+    const password = wrapper.get('[data-testid="password-input"]');
+    expect(document.activeElement).toBe(password.element);
+    expect(wrapper.find('[data-testid="signup"] > [role="alert"]').exists()).toBe(false);
+    // The email is kept, and so is the human check: its token was not spent.
+    expect((wrapper.findAll('form input')[0]!.element as HTMLInputElement).value).toBe(
+      'sara@acme.dev',
+    );
+    expect(turnstile.reset).not.toHaveBeenCalled();
+    // The button is not dead: another password, and it goes with the same token.
+    const submit = wrapper.get('[data-testid="signup-submit"]');
+    expect(submit.attributes('disabled')).toBeUndefined();
+    await password.setValue('four random words here');
+    expect(wrapper.find('[data-testid="password-error"]').exists()).toBe(false);
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+    const sent = calls.filter((c) => c.path === '/api/v1/auth/signup').map((c) => c.body);
+    expect(sent).toEqual([
+      { email: 'sara@acme.dev', password: 'correct horse battery', turnstileToken: 'token-1' },
+      { email: 'sara@acme.dev', password: 'four random words here', turnstileToken: 'token-1' },
+    ]);
+  });
+
+  it('a throwaway address is said under the email field, with the focus there', async () => {
+    mockFetch({ 'POST /api/v1/auth/signup': cloudProblem(400, 'email-disposable') });
     const { wrapper } = await mountCloud(SignupPage, '/signup');
     await fillAndSubmit(wrapper);
-    expect(wrapper.get('[role="alert"]').text()).toContain(words);
+    const email = wrapper.findAll('form input')[0]!;
+    expect(email.attributes('aria-invalid')).toBe('true');
+    const help = wrapper.get(`#${CSS.escape(email.attributes('aria-describedby')!)}`);
+    expect(help.text()).toContain('throwaway');
+    expect(help.attributes('role')).toBe('alert');
+    expect(document.activeElement).toBe(email.element);
+    expect(wrapper.find('[data-testid="password-error"]').exists()).toBe(false);
+  });
+
+  it('a refused human check is said by the human check, which starts again by itself', async () => {
+    const turnstile = {
+      render: vi.fn((_el: HTMLElement, opts: { callback: (t: string) => void }) => {
+        opts.callback('token-1');
+        return 'w1';
+      }),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    };
+    vi.stubGlobal('turnstile', turnstile);
+    mockFetch({ 'POST /api/v1/auth/signup': cloudProblem(400, 'turnstile-failed') });
+    const { wrapper } = await mountCloud(SignupPage, '/signup', {
+      config: { ...CONFIG, turnstileSiteKey: '1x00000000000000000000AA' },
+    });
+    await vi.waitFor(() => expect(turnstile.render).toHaveBeenCalled());
+    await fillAndSubmit(wrapper);
+    expect(wrapper.get('[data-testid="turnstile-error"]').text()).toContain('human check');
+    expect(turnstile.reset).toHaveBeenCalledWith('w1');
+    // What was typed is kept.
+    expect((wrapper.get('[data-testid="password-input"]').element as HTMLInputElement).value).toBe(
+      'correct-horse-9',
+    );
+  });
+
+  it('without a human check on the page, its refusal is said under the form', async () => {
+    mockFetch({ 'POST /api/v1/auth/signup': cloudProblem(400, 'turnstile-failed') });
+    const { wrapper } = await mountCloud(SignupPage, '/signup');
+    await fillAndSubmit(wrapper);
+    expect(wrapper.get('[data-testid="signup"] > [role="alert"]').text()).toContain('human check');
+  });
+
+  it('the button is never dead: pressed with nothing typed, it goes to the first problem', async () => {
+    const { fetchMock } = mockFetch({});
+    const { wrapper } = await mountCloud(SignupPage, '/signup');
+    const submit = wrapper.get('[data-testid="signup-submit"]');
+    expect(submit.attributes('disabled')).toBeUndefined();
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+    const email = wrapper.findAll('form input')[0]!;
+    expect(document.activeElement).toBe(email.element);
+    expect(wrapper.get(`#${CSS.escape(email.attributes('aria-describedby')!)}`).text()).toBe(
+      'Enter your email address.',
+    );
+    // The email is there now: the next problem is the password.
+    await email.setValue('sara@acme.dev');
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+    expect(wrapper.get('[data-testid="password-error"]').text()).toContain(
+      'This is too short: use at least 10 characters.',
+    );
+    expect(document.activeElement).toBe(wrapper.get('[data-testid="password-input"]').element);
+    expect(submit.attributes('disabled')).toBeUndefined();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('a password the live check found leaked is not sent', async () => {
+    vi.useFakeTimers();
+    const hash = createHash('sha1').update('correct horse battery').digest('hex').toUpperCase();
+    const { calls } = mockFetch({
+      [`GET /api/v1/auth/password-range/${hash.slice(0, 5)}`]: {
+        status: 200,
+        body: { range: `${hash.slice(5)}:42\r\nAAAA:0` },
+      },
+    });
+    const { wrapper } = await mountCloud(SignupPage, '/signup');
+    const inputs = wrapper.findAll('form input');
+    await inputs[0]!.setValue('sara@acme.dev');
+    await inputs[1]!.setValue('correct horse battery');
+    await vi.advanceTimersByTimeAsync(400);
+    // The hashing is the browser's own work, not on this clock.
+    vi.useRealTimers();
+    await vi.waitFor(() =>
+      expect(wrapper.get('[data-rule="leak"]').attributes('data-state')).toBe('bad'),
+    );
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+    expect(calls.filter((c) => c.method === 'POST')).toEqual([]);
+    expect(wrapper.get('[data-testid="password-error"]').text()).toContain('leaked passwords');
+    expect(document.activeElement).toBe(wrapper.get('[data-testid="password-input"]').element);
   });
 
   it('checks the length before calling the API', async () => {
