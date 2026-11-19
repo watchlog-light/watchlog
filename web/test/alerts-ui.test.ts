@@ -6,7 +6,8 @@ import AlertingStatusBanner from '@/components/alerts/AlertingStatusBanner.vue';
 import { useAuthStore } from '@/stores/auth';
 import AlertDetailPage from '@/views/AlertDetailPage.vue';
 import AlertsPage from '@/views/AlertsPage.vue';
-import { cancel, confirmTwice, count, dialogOf, dialogText } from './confirm';
+import { useToastStore } from '@/stores/toast';
+import { cancel, confirmTwice, count, dialogOf, dialogText, toasts } from './confirm';
 import { mockFetch, problem, USER, type Routes } from './fetch-mock';
 import { chooseOption, createPlugins } from './helpers';
 
@@ -314,7 +315,8 @@ describe('Alerts page', () => {
       id: 's1',
       matchers: { workload: 'web' },
       startsAt: ALERT.startedAt,
-      endsAt: '2026-11-01T13:00:00.000Z',
+      // 90 minutes from now: Undo gives a new silence that length.
+      endsAt: new Date(Date.now() + 90 * 60_000).toISOString(),
       comment: 'deploying',
       createdBy: null,
       active: true,
@@ -326,8 +328,10 @@ describe('Alerts page', () => {
         { status: 200, body: { silences: [silence] } },
         { status: 200, body: { silences: [silence] } },
         { status: 200, body: { silences: [] } },
+        { status: 200, body: { silences: [{ ...silence, id: 's2' }] } },
       ],
       'DELETE /api/v1/silences/s1': { status: 204 },
+      'POST /api/v1/silences': { status: 201, body: { ...silence, id: 's2' } },
       'GET /api/v1/clusters': { status: 200, body: { clusters: [] } },
       'GET /api/v1/alerts': {
         status: 200,
@@ -339,8 +343,27 @@ describe('Alerts page', () => {
     expect(w.text()).toContain('silences 1 alert');
     await w.get('[data-testid="end-silence"]').trigger('click');
     await flushPromises();
-    expect(calls.some((c) => c.method === 'DELETE')).toBe(true);
+    // It ends at once, without a question (ADR-219), and the toast offers Undo.
+    expect(count(calls, 'DELETE', '/api/v1/silences/s1')).toBe(1);
     expect(w.text()).toContain('No active silences');
+    const store = useToastStore();
+    expect(store.toasts.map((t) => [t.message, t.action?.label])).toEqual([
+      ['Silence ended. Its alerts send messages again.', 'Undo'],
+    ]);
+    // Undo: the same alerts, the same comment, until the same time; once.
+    const id = store.toasts[0]!.id;
+    store.act(id);
+    store.act(id);
+    await flushPromises();
+    const made = calls.filter((c) => c.method === 'POST' && c.path === '/api/v1/silences');
+    expect(made).toHaveLength(1);
+    expect(made[0]!.body).toEqual({
+      matchers: { workload: 'web' },
+      durationMinutes: 90,
+      comment: 'deploying',
+    });
+    expect(toasts()).toEqual(['Silenced again, until the same time.']);
+    expect(w.findAll('[data-testid="silence-row"]')).toHaveLength(1);
     w.unmount();
   });
 

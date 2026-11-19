@@ -5,6 +5,7 @@
 //     dialog fits the screen (a bottom sheet on a phone), Cancel has the focus, Escape and
 //     Cancel send nothing, the danger button sends one request however often it is pressed,
 //     and the row then goes without a reload, with a toast;
+//   - ending a silence does not ask: it ends at once and the toast offers Undo;
 //   - a failing channel's error (ADR-218) wraps inside its card at every width, even one
 //     long unbroken word, and the card's header agrees with the row.
 //
@@ -44,6 +45,7 @@ interface World {
   invites: { id: string; email: string; role: string; status: 'pending' | 'expired' }[];
   channels: Record<string, unknown>[];
   sessions: Record<string, unknown>[];
+  silences: Record<string, unknown>[];
   /** Every request that was not a GET, as "METHOD /path". */
   writes: string[];
   /** Reads the page made that no fixture answers. */
@@ -118,6 +120,18 @@ function world(edition: World['edition']): World {
         mfa: false,
       },
     ],
+    silences: [
+      {
+        id: 'sil-1',
+        matchers: { workload: 'web' },
+        startsAt: iso(-3_600_000),
+        endsAt: iso(90 * 60_000),
+        comment: 'deploying the new checkout',
+        createdBy: 'Ada Owner',
+        active: true,
+        matching: 2,
+      },
+    ],
     writes: [],
     unknown: [],
   };
@@ -156,6 +170,30 @@ async function mock(page: Page, w: World) {
       if (method === 'DELETE' && (m = /^\/alert-channels\/([\w-]+)$/.exec(path))) {
         w.channels = w.channels.filter((c) => c.id !== m![1]);
         return none(route);
+      }
+      if (method === 'DELETE' && (m = /^\/silences\/([\w-]+)$/.exec(path))) {
+        w.silences = w.silences.filter((x) => x.id !== m![1]);
+        return none(route);
+      }
+      if (method === 'POST' && path === '/silences') {
+        const body = req.postDataJSON() as {
+          matchers: object;
+          durationMinutes: number;
+          comment: string;
+        };
+        const made = {
+          id: 'sil-2',
+          matchers: body.matchers,
+          startsAt: iso(0),
+          endsAt: iso(body.durationMinutes * 60_000),
+          comment: body.comment,
+          createdBy: 'Ada Owner',
+          active: true,
+          matching: 2,
+        };
+        w.silences = [...w.silences, made];
+        w.writes[w.writes.length - 1] += ` ${body.durationMinutes} min`;
+        return json(route, made, 201);
       }
       if (method === 'DELETE' && path === '/auth/sessions') {
         const before = w.sessions.length;
@@ -256,6 +294,14 @@ async function mock(page: Page, w: World) {
         });
       case '/applications':
         return json(route, { applications: [] });
+      case '/silences':
+        return json(route, { silences: w.silences });
+      case '/alerts':
+        return json(route, {
+          alerts: [],
+          nextCursor: null,
+          counts: { firing: 0, critical: 0, warning: 0, pending: 0, silenced: 2, held: 0 },
+        });
       case '/users':
         return json(route, {
           users: w.users.map((u) => ({ ...u, lastActiveAt: iso(u.you ? 0 : -2 * 3_600_000) })),
@@ -286,7 +332,7 @@ async function mock(page: Page, w: World) {
   });
 }
 
-async function open(browser: Browser, w: World, width: number, tab: string) {
+async function open(browser: Browser, w: World, width: number, tab: string, path?: string) {
   const context = await browser.newContext({
     ...viewportFor(width),
     deviceScaleFactor: Number(process.env.WATCHLOG_E2E_SCALE ?? 1),
@@ -297,7 +343,7 @@ async function open(browser: Browser, w: World, width: number, tab: string) {
   await mock(page, w);
   await page.clock.install({ time: new Date(NOW) });
   await page.clock.resume();
-  await page.goto(`/settings?tab=${tab}`);
+  await page.goto(path ?? `/settings?tab=${tab}`);
   await page.waitForLoadState('networkidle');
   return { context, page };
 }
@@ -485,6 +531,41 @@ for (const ask of ASKS) {
       });
     }
   }
+}
+
+for (const width of WIDTHS) {
+  test(`ending a silence does not ask; its toast offers Undo (${width} px)`, async ({
+    browser,
+  }) => {
+    const w = world('cloud');
+    const { context, page } = await open(browser, w, width, '', '/alerts?view=silences');
+    await expect(page.getByTestId('silence-row')).toHaveCount(1);
+    await page.getByTestId('end-silence').click();
+    // No question: it ended, and the list says so.
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByTestId('silence-row')).toHaveCount(0);
+    expect(w.writes).toEqual(['DELETE /silences/sil-1']);
+    const toast = page.getByTestId('toast');
+    await expect(toast).toContainText('Silence ended. Its alerts send messages again.');
+    const undo = page.getByTestId('toast-action');
+    await expect(undo).toHaveText('Undo');
+    // A finger can hit it, and the toast stays inside the screen.
+    const u = (await undo.boundingBox())!;
+    const box = (await toast.boundingBox())!;
+    if (width < 1024) expect(u.height).toBeGreaterThanOrEqual(44);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    await shot(page, 'silence-ended-undo', width);
+    // Undo: the same alerts are silenced again until the same time (90 minutes from now).
+    await undo.click();
+    await expect(page.getByTestId('silence-row')).toHaveCount(1);
+    await expect(page.getByTestId('silence-row')).toContainText('deploying the new checkout');
+    expect(w.writes).toEqual(['DELETE /silences/sil-1', 'POST /silences 90 min']);
+    await expect(toast).toContainText('Silenced again, until the same time.');
+    await expect(page.getByTestId('toast-action')).toHaveCount(0);
+    expect(w.unknown, 'reads no fixture answers').toEqual([]);
+    await context.close();
+  });
 }
 
 test('a refusal stays in the dialog and the row stays on the page', async ({ browser }) => {
