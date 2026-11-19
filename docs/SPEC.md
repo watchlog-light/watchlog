@@ -999,9 +999,9 @@ The onboarding flow is the most important part of the product. Every step has a 
 
 ## 10.1 Signup — target ≤ 60 s
 
-- Fields: email, password (min 10 chars, strength meter, checked against known leaked passwords with k-anonymity). Or **Continue with GitHub** / **Continue with Google** (both in 0.6.0).
+- Fields: email, password (min 10 chars; a checklist under the field ticks as you type: the length, and not in known leaked passwords, checked with k-anonymity). Or **Continue with GitHub** / **Continue with Google** (both in 0.6.0).
 - No company name, no phone, no credit card. Email verification link is sent but **does not block** onboarding (verify within 7 days to keep the account).
-- Cloudflare Turnstile on signup and reset; signups limited per IP and email domain; disposable domains refused.
+- Cloudflare Turnstile on signup, password sign-in and reset; signups limited per IP and email domain; disposable domains refused.
 - Optional TOTP 2FA with recovery codes, required for Owners of paid orgs (ADR-175).
 - After signup → straight to "Add your first cluster". The signup creates an org (renamable) on the Free plan; a user may belong to several orgs.
 

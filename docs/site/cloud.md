@@ -13,6 +13,8 @@ If you'd rather run everything yourself, the [Community edition](install.md) is 
 
 Anyone can sign up at [cloud.watchlog.io](https://cloud.watchlog.io/signup), with a password, GitHub or Google. There is no invite and no waiting list.
 
+**Your password** needs at least 10 characters and must not be in a list of leaked passwords. The sign-up page checks both as you type and says under the field what is wrong; there are no rules about symbols or capitals. The check never sends your password anywhere: the page sends the first 5 characters of its hash and compares the rest itself. "Suggest a strong password" fills in four random words; a password manager's own suggestion works too.
+
 Signing up needs no card and no company details. You get an organization named after your email address (rename it in Settings) with you as its Owner, on the Cloud Free plan. We send a link to verify your address; you can start before you click it, but after 7 days an unverified account can only verify.
 
 **Two-factor sign-in** (an authenticator app, TOTP, with 10 recovery codes) is optional for every account and can be turned on in Settings › Security. It is required for the Owners of an organization that pays for Pro.
@@ -92,7 +94,7 @@ Sometimes we need to see your organization to help with a problem. WatchLog staf
 ## Security
 
 - **Isolation between organizations:** every row belongs to one organization and the database enforces it with Row-Level Security, under a role that can't bypass it; every query, API call, MCP tool and stream also checks the organization. A test suite calls every route, MCP tool, query and stream as one organization with another's ids, and it runs on every change to the code.
-- **Accounts:** passwords hashed with argon2id, checked against known breaches without sending them, optional two-factor sign-in, sessions you can list and end in Settings › Security, and Cloudflare Turnstile against bots on signup and password reset.
+- **Accounts:** passwords hashed with argon2id, checked against known breaches without sending them, optional two-factor sign-in, sessions you can list and end in Settings › Security, and Cloudflare Turnstile against bots on sign-up, password sign-in and password reset. On sign-in most people see nothing; if your network blocks Cloudflare you can still sign in, with fewer tries allowed.
 - **In transit and at rest:** HTTPS everywhere, a strict Content-Security-Policy, tokens stored as hashes, and secrets (channel tokens, two-factor secrets) encrypted with AES-256-GCM. Backups are encrypted before they leave the server.
 - **The agents** are the same read-only agents as in the Community edition: see [what they can and cannot access](security.md).
 - **Outbound requests:** alert channels can only post to public addresses, never to internal or cloud metadata ones.
