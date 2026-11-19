@@ -94,7 +94,7 @@ Sometimes we need to see your organization to help with a problem. WatchLog staf
 ## Security
 
 - **Isolation between organizations:** every row belongs to one organization and the database enforces it with Row-Level Security, under a role that can't bypass it; every query, API call, MCP tool and stream also checks the organization. A test suite calls every route, MCP tool, query and stream as one organization with another's ids, and it runs on every change to the code.
-- **Accounts:** passwords hashed with argon2id, checked against known breaches without sending them, optional two-factor sign-in, sessions you can list and end in Settings › Security, and Cloudflare Turnstile against bots on sign-up, password sign-in and password reset. On sign-in most people see nothing; if your network blocks Cloudflare you can still sign in, with fewer tries allowed.
+- **Accounts:** passwords hashed with argon2id, checked against known breaches without sending them, optional two-factor sign-in, sessions you can list and end in Settings › Security, and Cloudflare Turnstile against bots on sign-up, password sign-in and password reset. On sign-in most people see nothing; if your network blocks Cloudflare you can still sign in or ask for a reset link, with fewer tries allowed.
 - **In transit and at rest:** HTTPS everywhere, a strict Content-Security-Policy, tokens stored as hashes, and secrets (channel tokens, two-factor secrets) encrypted with AES-256-GCM. Backups are encrypted before they leave the server.
 - **The agents** are the same read-only agents as in the Community edition: see [what they can and cannot access](security.md).
 - **Outbound requests:** alert channels can only post to public addresses, never to internal or cloud metadata ones.
