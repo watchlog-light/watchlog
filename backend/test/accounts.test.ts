@@ -4,16 +4,18 @@
 // Been Pwned and the OAuth providers are mocked through the app's `fetch`; nothing here
 // reaches a real service.
 import { createHash } from 'node:crypto';
+import { createServer, type Server, type Socket } from 'node:net';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sql } from 'kysely';
 import type { LightMyRequestResponse } from 'fastify';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Config } from '../src/config.js';
 import { loadConfig } from '../src/config.js';
 import { newId } from '../src/lib/ids.js';
 import { hashPassword } from '../src/lib/passwords.js';
+import { urlWithoutSecrets } from '../src/lib/redact.js';
 import { decryptSecret, encryptSecret } from '../src/lib/secrets.js';
 import { sha256 } from '../src/lib/tokens.js';
 import {
@@ -44,6 +46,7 @@ import {
   TEST_SECRET_KEY,
   type TestContext,
 } from './helpers.js';
+import { mailpitMessages, TEST_SMTP_URL } from './support/mock-providers.js';
 
 const BREACHED = 'correct horse battery';
 /**
@@ -471,12 +474,14 @@ describe('signup', () => {
     expect((await signup('t@example.com')).json().code).toBe('turnstile-failed');
     expect((await signup('t@example.com', { turnstileToken: 'bad' })).statusCode).toBe(400);
     expect((await signup('t@example.com', { turnstileToken: 'good' })).statusCode).toBe(201);
-    // Reset asks for it too.
-    const reset = await call('POST', '/api/v1/auth/forgot-password', undefined, {
-      email: 't@example.com',
-    });
-    expect(reset.statusCode).toBe(400);
-    expect(reset.json().code).toBe('turnstile-failed');
+    // Reset asks for it too: a refused token ends there; without one, the strict fallback
+    // (0.9.10) lets it through to the mail check (no SMTP in this test: 409).
+    const reset = (extra: object = {}) =>
+      call('POST', '/api/v1/auth/forgot-password', undefined, { email: 't@example.com', ...extra });
+    const refused = await reset({ turnstileToken: 'bad' });
+    expect(refused.statusCode).toBe(400);
+    expect(refused.json().code).toBe('turnstile-failed');
+    expect((await reset()).statusCode).toBe(409);
   });
 
   it('the config endpoint hides providers that are not set up', async () => {
@@ -1169,6 +1174,48 @@ describe('the leaked-password range for the sign-up page (0.9.9)', () => {
     expect((await call('GET', '/api/v1/auth/password-range/ABCDE')).statusCode).toBe(200);
   });
 
+  it('allows 60 lookups a minute per visitor address', async () => {
+    await cloudContext();
+    const range = (remoteAddress: string) =>
+      ctx.app.inject({ method: 'GET', url: '/api/v1/auth/password-range/ABCDE', remoteAddress });
+    for (let i = 0; i < 60; i++) expect((await range('10.9.0.1')).statusCode).toBe(200);
+    const over = await range('10.9.0.1');
+    expect(over.statusCode).toBe(429);
+    // Another address has its own 60.
+    expect((await range('10.9.0.2')).statusCode).toBe(200);
+  });
+
+  it('logs nothing about a lookup: no request line, no prefix, not when the list is down', async () => {
+    const lines: string[] = [];
+    mock = mockServices();
+    ctx = await createTestContext(
+      {
+        ...CLOUD,
+        logLevel: 'info',
+        accounts: {
+          turnstile: {},
+          supportEmail: 'support@watchlog.io',
+          sampleUrl: 'https://demo.watchlog.io',
+        },
+      },
+      { fetch: mock.fetch, logStream: { write: (line: string) => void lines.push(line) } },
+    );
+    const h = sha1(BREACHED);
+    expect((await call('GET', `/api/v1/auth/password-range/${h.slice(0, 5)}`)).statusCode).toBe(
+      200,
+    );
+    expect((await call('GET', '/api/v1/auth/password-range/zzzzz')).statusCode).toBe(400);
+    mock.hibpDown = true;
+    expect((await call('GET', '/api/v1/auth/password-range/ABCDE')).statusCode).toBe(503);
+    expect(lines.filter((l) => /password-range|breached-password/.test(l))).toEqual([]);
+    expect(lines.filter((l) => l.includes(h.slice(0, 5)) || l.includes('ABCDE'))).toEqual([]);
+    // Logging is on: another route's request is in the log.
+    await call('GET', '/api/v1/auth/config');
+    expect(lines.some((l) => l.includes('/api/v1/auth/config'))).toBe(true);
+    // And a URL quoted anywhere else has the prefix masked.
+    expect(urlWithoutSecrets('/api/v1/auth/password-range/5BAA6?x=1')).not.toContain('5BAA6');
+  });
+
   it('is not there in Community: no call leaves a self-hosted server', async () => {
     mock = mockServices();
     ctx = await createTestContext({}, { fetch: mock.fetch });
@@ -1331,26 +1378,6 @@ describe('Turnstile on sign-in (ADR-175, amended in 0.9.9)', () => {
     expect((await login('outage@example.com', { turnstileToken: 'bad' })).statusCode).toBe(400);
   });
 
-  it('a password-reset request is checked every time; no token, no email', async () => {
-    await cloudContext({ turnstile: { secretKey: 'sec', siteKey: 'site' } });
-    await account('reset@example.com');
-    const forgot = (extra: object = {}) =>
-      ctx.app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/forgot-password',
-        remoteAddress: nextIp(),
-        payload: { email: 'reset@example.com', ...extra },
-      });
-    for (const extra of [{}, { turnstileToken: 'bad' }, { turnstileToken: 'boom' }]) {
-      const res = await forgot(extra);
-      expect(res.statusCode, JSON.stringify(extra)).toBe(400);
-      expect(res.json().code).toBe('turnstile-failed');
-    }
-    expect(cloudflare()).toHaveLength(2);
-    const links = await ctx.db.selectFrom('password_resets').selectAll().execute();
-    expect(links).toEqual([]);
-  });
-
   it('without a Turnstile secret nothing is asked and nothing is limited more', async () => {
     await cloudContext();
     await account('plain@example.com');
@@ -1369,6 +1396,128 @@ describe('Turnstile on sign-in (ADR-175, amended in 0.9.9)', () => {
       expect(res.statusCode, res.body).toBe(200);
     }
     expect(mock.calls).toEqual([]);
+  });
+});
+
+describe('"Forgot your password?" with Turnstile (ADR-175, amended in 0.9.10)', () => {
+  const PASSWORD = 'a long enough password';
+  const run = Date.now();
+  const known = `reset-${run}@example.com`;
+  const unknown = `nobody-${run}@example.com`;
+  async function account(email: string) {
+    const id = newId();
+    const orgId = newId();
+    await ctx.db
+      .insertInto('orgs')
+      .values({ id: orgId, name: 'x', slug: `x-${id.slice(-10)}`, plan: 'free' })
+      .execute();
+    await ctx.db
+      .insertInto('users')
+      .values({ id, email, name: 'U', password_hash: await hashPassword(PASSWORD) })
+      .execute();
+    await ctx.db
+      .insertInto('memberships')
+      .values({ id: newId(), org_id: orgId, user_id: id, role: 'owner' })
+      .execute();
+  }
+  async function withMail(secretKey: string, smtpUrl = TEST_SMTP_URL) {
+    mock = mockServices();
+    ctx = await createTestContext(
+      {
+        ...CLOUD,
+        smtp: { url: smtpUrl, from: 'WatchLog <hello@watchlog.test>' },
+        accounts: {
+          turnstile: { secretKey, siteKey: TURNSTILE_TEST.siteKey },
+          supportEmail: 'support@watchlog.io',
+          sampleUrl: 'https://demo.watchlog.io',
+        },
+      },
+      { fetch: mock.fetch },
+    );
+    await account(known);
+  }
+  const forgot = (email: string, extra: object = {}, remoteAddress = nextIp()) =>
+    ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/forgot-password',
+      remoteAddress,
+      payload: { email, ...extra },
+    });
+  const answer = (r: LightMyRequestResponse) => `${r.statusCode} ${r.body}`;
+  const links = async () =>
+    (await ctx.db.selectFrom('password_resets').select('id').execute()).length;
+
+  it('no token: 5 requests per address typed in 15 minutes, the same answer with an account or without', async () => {
+    await withMail(TURNSTILE_TEST.pass);
+    for (let i = 0; i < 5; i++) {
+      const a = await forgot(known);
+      const b = await forgot(unknown);
+      expect(a.statusCode, a.body).toBe(202);
+      expect(answer(a)).toBe(answer(b));
+    }
+    const a = await forgot(known);
+    const b = await forgot(unknown);
+    expect(a.statusCode).toBe(429);
+    expect(a.json()).toMatchObject({
+      code: 'rate-limited',
+      detail: 'Too many requests without the human check. Try again in 15 minutes.',
+    });
+    expect(answer(a)).toBe(answer(b));
+    // The account got its links, 3 an hour as before; the unknown address got nothing.
+    await vi.waitFor(async () => expect(await links()).toBe(3));
+    await vi.waitFor(async () => expect(await mailpitMessages(known)).toHaveLength(3));
+    expect(await mailpitMessages(unknown)).toEqual([]);
+    // Cloudflare was never asked: there was no token to ask about.
+    expect(mock.calls.filter((c) => c.url.includes('challenges.cloudflare'))).toEqual([]);
+    // With the human check the strict window does not apply.
+    expect((await forgot(known, { turnstileToken: 't' })).statusCode).toBe(202);
+  });
+
+  it('no token: 10 requests per visitor address in 15 minutes, whatever the address typed', async () => {
+    await withMail(TURNSTILE_TEST.pass);
+    // The route also allows 5 a minute per visitor, so 10 in a burst can't be sent here:
+    // the window is filled as 10 requests over a few minutes would fill it.
+    for (let i = 0; i < 10; i++) ctx.app.accounts!.unverifiedResetsPerIp.hit('10.6.6.6');
+    const over = await forgot(known, {}, '10.6.6.6');
+    expect(over.statusCode).toBe(429);
+    expect(over.json().code).toBe('rate-limited');
+    expect(answer(over)).toBe(answer(await forgot(unknown, {}, '10.6.6.6')));
+    expect((await forgot(known, {}, '10.6.6.7')).statusCode).toBe(202);
+    // With the human check the address is not held back.
+    expect((await forgot(known, { turnstileToken: 't' }, '10.6.6.6')).statusCode).toBe(202);
+  });
+
+  it('Cloudflare unreachable: the same fallback; a refused token is refused, with no link', async () => {
+    await withMail('sec');
+    for (let i = 0; i < 5; i++) {
+      expect((await forgot(known, { turnstileToken: 'boom' })).statusCode).toBe(202);
+    }
+    expect((await forgot(known, { turnstileToken: 'boom' })).statusCode).toBe(429);
+    await vi.waitFor(async () => expect(await links()).toBe(3));
+    const refused = await forgot(unknown, { turnstileToken: 'bad' });
+    expect(refused.statusCode).toBe(400);
+    expect(refused.json().code).toBe('turnstile-failed');
+    expect((await forgot(known, { turnstileToken: 'bad' })).json().code).toBe('turnstile-failed');
+    expect(await links()).toBe(3);
+  });
+
+  it('answers before the email is sent, so its timing says nothing about the account', async () => {
+    // An email server that accepts the connection and never answers.
+    const sockets = new Set<Socket>();
+    const silent: Server = createServer((s) => void sockets.add(s));
+    await new Promise<void>((r) => silent.listen(0, '127.0.0.1', r));
+    const port = (silent.address() as { port: number }).port;
+    try {
+      await withMail(TURNSTILE_TEST.pass, `smtp://127.0.0.1:${port}`);
+      const started = Date.now();
+      const res = await forgot(known, { turnstileToken: 't' });
+      expect(res.statusCode).toBe(202);
+      expect(Date.now() - started).toBeLessThan(1500);
+      await vi.waitFor(async () => expect(await links()).toBe(1));
+    } finally {
+      for (const s of sockets) s.destroy();
+      await new Promise<void>((r) => silent.close(() => r()));
+    }
   });
 });
 

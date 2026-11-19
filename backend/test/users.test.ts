@@ -4,7 +4,7 @@
 // that sign a user out everywhere, removal, handing ownership over, the command-line
 // reset, "Forgot your password?", and the role every mutating route declares.
 import type { RouteOptions } from 'fastify';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resetPassword } from '../src/cli.js';
 import { declaredRoles } from '../src/plugins/auth.js';
 import { SettingsService } from '../src/modules/settings/service.js';
@@ -458,9 +458,9 @@ describe('a locked-out Owner', () => {
       expect(r.statusCode).toBe(202);
       expect(r.json()).toEqual({ emailed: true });
     }
-    // The invite, then the reset link.
+    // The invite, then the reset link (sent after the answer, 0.9.10).
+    await vi.waitFor(async () => expect(await mailpitMessages(email)).toHaveLength(2));
     const mails = await mailpitMessages(email);
-    expect(mails).toHaveLength(2);
     expect(await mailpitText(mails[1]!.ID)).toMatch(/\/reset\/[A-Za-z0-9_-]{43}/);
   });
 });
