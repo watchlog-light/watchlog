@@ -4,9 +4,21 @@
 // the in-memory limits. Built once per app, in Cloud only; Community has none.
 import type { FastifyRequest } from 'fastify';
 import type { AccountsConfig } from '../../config.js';
-import { loadDisposableDomains, verifyTurnstile, WindowLimiter, type Fetch } from './checks.js';
+import {
+  checkTurnstile,
+  loadDisposableDomains,
+  pwnedRange,
+  verifyTurnstile,
+  WindowLimiter,
+  type Fetch,
+  type TurnstileState,
+} from './checks.js';
 
 const HOUR = 3_600_000;
+const QUARTER = 15 * 60_000;
+/** Ranges of leaked-password hashes kept for the sign-up page's live check: an hour, 2,000. */
+const RANGE_TTL_MS = HOUR;
+const RANGE_MAX = 2_000;
 
 export class CloudAccounts {
   readonly disposable: Set<string>;
@@ -20,13 +32,50 @@ export class CloudAccounts {
   /** Reset emails per account address: 3 an hour (on top of 5 a minute per visitor). */
   readonly resetsPerEmail = new WindowLimiter(3, HOUR);
   /** Password attempts per account, from any address: 20 in 15 minutes. */
-  readonly loginsPerAccount = new WindowLimiter(20, 15 * 60_000);
+  readonly loginsPerAccount = new WindowLimiter(20, QUARTER);
+  /**
+   * Password attempts that Turnstile did not vouch for (no token: the widget was blocked or
+   * had not finished; or Cloudflare could not be asked): 5 per account and 10 per visitor
+   * address in 15 minutes (ADR-175, amended in 0.9.9). Sign-in stays possible, slowly.
+   */
+  readonly unverifiedLoginsPerAccount = new WindowLimiter(5, QUARTER);
+  readonly unverifiedLoginsPerIp = new WindowLimiter(10, QUARTER);
+  private readonly ranges = new Map<string, { at: number; body: string }>();
 
   constructor(
     readonly config: AccountsConfig,
     readonly fetch: Fetch,
   ) {
     this.disposable = loadDisposableDomains(config.disposableDomainsFile);
+  }
+
+  /** What Turnstile said about a token (sign-in tells "refused" from "could not be asked"). */
+  turnstileState(request: FastifyRequest, token: string | undefined): Promise<TurnstileState> {
+    return checkTurnstile(
+      this.fetch,
+      this.config.turnstile.secretKey,
+      token,
+      request.clientIp,
+      request.log,
+    );
+  }
+
+  /**
+   * The leaked-password range for a 5-character prefix (see `pwnedRange`), kept for an hour:
+   * the page asks again with every pause in typing. Null when HIBP can't answer.
+   */
+  async leakedRange(request: FastifyRequest, prefix: string, now = Date.now()) {
+    const key = prefix.toUpperCase();
+    const kept = this.ranges.get(key);
+    if (kept && now - kept.at < RANGE_TTL_MS) return kept.body;
+    const body = await pwnedRange(this.fetch, key, request.log);
+    if (body === null) return null;
+    if (this.ranges.size >= RANGE_MAX) {
+      for (const [k, v] of this.ranges) if (now - v.at >= RANGE_TTL_MS) this.ranges.delete(k);
+      if (this.ranges.size >= RANGE_MAX) this.ranges.clear();
+    }
+    this.ranges.set(key, { at: now, body });
+    return body;
   }
 
   /** Turnstile for a form (true when it is off). */

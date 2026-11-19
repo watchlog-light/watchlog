@@ -319,6 +319,46 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
     },
   );
 
+  // The sign-up page's live check (0.9.9): the browser hashes the password, sends the first 5
+  // of the hash's 40 characters, and looks for the rest in the answer itself. The password
+  // never leaves the browser, and this server learns no more than Have I Been Pwned does.
+  // The routes that set a password check again (the server is the authority).
+  app.get(
+    '/auth/password-range/:prefix',
+    {
+      config: limit(60),
+      schema: {
+        summary: 'Leaked-password hash endings for the first 5 characters of a SHA-1 (k-anonymity)',
+        tags: ['auth'],
+        params: Type.Object({ prefix: Type.String({ pattern: '^[0-9A-Fa-f]{5}$' }) }),
+        response: {
+          200: Type.Object({
+            range: Type.String({
+              description:
+                'Lines of "<the other 35 hex characters>:<times seen>"; lines with 0 are padding',
+            }),
+          }),
+          400: ProblemSchema,
+          429: ProblemSchema,
+          503: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const range = await accounts.leakedRange(request, request.params.prefix);
+      if (range === null) {
+        return sendCode(
+          reply,
+          503,
+          'breach-check-unavailable',
+          "The leaked-password list can't be reached right now.",
+        );
+      }
+      void reply.header('cache-control', 'no-store');
+      return { range };
+    },
+  );
+
   app.post(
     '/auth/signup',
     {
@@ -385,12 +425,15 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
           'Too many signups for this email domain today.',
         );
       }
-      if (!(await accounts.turnstile(request, request.body.turnstileToken))) {
+      // The password before Turnstile: a Turnstile token can be checked once, and a leaked
+      // password must not cost the visitor the human check they already passed (0.9.9).
+      const breached = await isBreachedPassword(accounts.fetch, request.body.password, request.log);
+      if (breached) {
         return sendCode(
           reply,
           400,
-          'turnstile-failed',
-          "We couldn't check you're human. Try again.",
+          'password-breached',
+          'This password is in a list of leaked passwords. Pick a different one.',
         );
       }
       if (isDisposable(accounts.disposable, email)) {
@@ -401,13 +444,12 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
           'Use a work or personal address: disposable email addresses are not accepted.',
         );
       }
-      const breached = await isBreachedPassword(accounts.fetch, request.body.password, request.log);
-      if (breached) {
+      if (!(await accounts.turnstile(request, request.body.turnstileToken))) {
         return sendCode(
           reply,
           400,
-          'password-breached',
-          'This password appears in known data breaches. Choose another one.',
+          'turnstile-failed',
+          "We couldn't check you're human. Try again.",
         );
       }
       accounts.signupsPerIp.hit(request.clientIp);

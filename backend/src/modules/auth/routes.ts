@@ -15,6 +15,7 @@ import {
   setSessionCookie,
 } from './sessions.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
+import { sendCode } from '../accounts/checks.js';
 import { startMfaSession } from '../accounts/routes.js';
 
 const INVALID_CREDENTIALS = 'Invalid email or password';
@@ -43,11 +44,16 @@ export const authRoutes: FastifyPluginAsyncTypebox<{
         body: Type.Object({
           email: Email,
           password: Type.String({ minLength: 1, maxLength: MAX_PASSWORD_LENGTH }),
+          // Cloud, when Turnstile is on (ADR-175, amended in 0.9.9); ignored otherwise.
+          turnstileToken: Type.Optional(
+            Type.String({ maxLength: 2048, description: 'The Turnstile widget token' }),
+          ),
         }),
         response: {
           200: UserEnvelope,
           // Cloud, with TOTP on (ADR-175): the code goes to POST /auth/2fa/verify next.
           202: Type.Object({ mfaRequired: Type.Literal(true) }),
+          400: ProblemSchema,
           401: ProblemSchema,
           429: ProblemSchema,
         },
@@ -59,6 +65,34 @@ export const authRoutes: FastifyPluginAsyncTypebox<{
       // Cloud: password attempts per account too, from any address (ADR-175).
       if (cloud && !cloud.loginsPerAccount.hit(email)) {
         return sendProblem(reply, 429, 'Too many attempts. Try again in 15 minutes.');
+      }
+      // Cloud: Turnstile on every password sign-in (ADR-175, amended in 0.9.9). A token that
+      // Cloudflare refuses ends here. Without Cloudflare's word (no token: the widget was
+      // blocked or had not finished; or Cloudflare could not be asked) sign-in still works,
+      // behind much stricter limits, so a blocked network is not locked out and a bot that
+      // skips the widget gets a handful of tries.
+      if (cloud) {
+        const human = await cloud.turnstileState(request, request.body.turnstileToken);
+        if (human === 'failed') {
+          return sendCode(
+            reply,
+            400,
+            'turnstile-failed',
+            "We couldn't check you're human. Try again.",
+          );
+        }
+        if (human === 'missing' || human === 'unavailable') {
+          const perAccount = cloud.unverifiedLoginsPerAccount.hit(email);
+          const perIp = cloud.unverifiedLoginsPerIp.hit(request.clientIp);
+          if (!perAccount || !perIp) {
+            return sendCode(
+              reply,
+              429,
+              'rate-limited',
+              'Too many sign-in attempts without the human check. Try again in 15 minutes.',
+            );
+          }
+        }
       }
       const user = await systemDb
         .selectFrom('users')

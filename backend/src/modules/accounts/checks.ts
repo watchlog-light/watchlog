@@ -22,6 +22,7 @@ export type AccountErrorCode =
   | 'password-breached'
   | 'email-disposable'
   | 'rate-limited'
+  | 'breach-check-unavailable'
   | 'invalid-credentials'
   | 'invalid-token'
   | 'token-expired'
@@ -65,19 +66,23 @@ export function sendCode(
 }
 
 /**
- * Cloudflare Turnstile, verified server-side. Off (always true) without a secret key. A
- * failed call to Cloudflare counts as a failed check: the forms it guards stay closed to
- * bots while Cloudflare can't answer, and the visitor can try again.
+ * What Cloudflare Turnstile said about a token:
+ *   - `off`: no secret key is set (tests, development): nothing is checked;
+ *   - `missing`: the form sent no token (the widget did not load, or had not finished);
+ *   - `ok` / `failed`: Cloudflare's answer;
+ *   - `unavailable`: Cloudflare could not be asked (no answer, or not a 2xx).
  */
-export async function verifyTurnstile(
+export type TurnstileState = 'off' | 'missing' | 'ok' | 'failed' | 'unavailable';
+
+export async function checkTurnstile(
   f: Fetch,
   secretKey: string | undefined,
   token: string | undefined,
   ip: string | undefined,
   log?: FastifyBaseLogger,
-): Promise<boolean> {
-  if (!secretKey) return true;
-  if (!token) return false;
+): Promise<TurnstileState> {
+  if (!secretKey) return 'off';
+  if (!token) return 'missing';
   try {
     const body = new URLSearchParams({ secret: secretKey, response: token });
     if (ip) body.set('remoteip', ip);
@@ -88,45 +93,84 @@ export async function verifyTurnstile(
     });
     if (!res.ok) {
       log?.warn({ status: res.status }, 'turnstile: verification call failed');
-      return false;
+      return 'unavailable';
     }
     const out = (await res.json()) as { success?: boolean };
-    return out.success === true;
+    return out.success === true ? 'ok' : 'failed';
   } catch (err) {
     log?.warn({ err: (err as Error).message }, 'turnstile: verification call failed');
-    return false;
+    return 'unavailable';
   }
 }
 
 /**
- * Whether a password is in Have I Been Pwned's breach corpus, with k-anonymity: only the
- * first 5 hex characters of its SHA-1 leave. `null` when the API didn't answer within 2 s;
- * the caller lets the signup go on and the skip is logged here.
+ * Turnstile for the forms it closes (sign-up, password reset, resend): true when it is off
+ * or Cloudflare said yes. A failed call to Cloudflare counts as a failed check: those forms
+ * stay closed to bots while Cloudflare can't answer, and the visitor can try again. Sign-in
+ * is different (ADR-175, amended in 0.9.9): see `checkTurnstile` and its strict fallback.
+ */
+export async function verifyTurnstile(
+  f: Fetch,
+  secretKey: string | undefined,
+  token: string | undefined,
+  ip: string | undefined,
+  log?: FastifyBaseLogger,
+): Promise<boolean> {
+  const state = await checkTurnstile(f, secretKey, token, ip, log);
+  return state === 'off' || state === 'ok';
+}
+
+/** The first 5 and the other 35 hex characters of a password's SHA-1, as HIBP has them. */
+export function pwnedParts(password: string): { prefix: string; suffix: string } {
+  const hash = createHash('sha1').update(password, 'utf8').digest('hex').toUpperCase();
+  return { prefix: hash.slice(0, 5), suffix: hash.slice(5) };
+}
+
+/**
+ * Have I Been Pwned's range for one 5-character prefix, with k-anonymity: every leaked
+ * password hash that begins with it, as lines of `<the other 35 characters>:<count>`, padded
+ * with made-up lines of count 0 so its size says nothing. Only the prefix leaves. `null` when
+ * the API didn't answer within 2 s (logged here); callers then don't refuse.
+ */
+export async function pwnedRange(
+  f: Fetch,
+  prefix: string,
+  log?: FastifyBaseLogger,
+): Promise<string | null> {
+  try {
+    const res = await f(`${HIBP_URL}${prefix.toUpperCase()}`, {
+      headers: { 'Add-Padding': 'true', 'User-Agent': 'WatchLog' },
+      signal: AbortSignal.timeout(HIBP_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
+  } catch (err) {
+    log?.warn({ err: (err as Error).message }, 'breached-password check skipped');
+    return null;
+  }
+}
+
+/** Whether a range (see `pwnedRange`) lists this hash ending with a count above zero. */
+export function inPwnedRange(range: string, suffix: string): boolean {
+  for (const line of range.split('\n')) {
+    const [s, count] = line.trim().split(':');
+    if (s === suffix && Number(count) > 0) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether a password is in Have I Been Pwned's breach corpus. `null` when the API didn't
+ * answer; the caller lets the signup go on and the skip is logged.
  */
 export async function isBreachedPassword(
   f: Fetch,
   password: string,
   log?: FastifyBaseLogger,
 ): Promise<boolean | null> {
-  const hash = createHash('sha1').update(password, 'utf8').digest('hex').toUpperCase();
-  const prefix = hash.slice(0, 5);
-  const suffix = hash.slice(5);
-  try {
-    const res = await f(`${HIBP_URL}${prefix}`, {
-      headers: { 'Add-Padding': 'true', 'User-Agent': 'WatchLog' },
-      signal: AbortSignal.timeout(HIBP_TIMEOUT_MS),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const text = await res.text();
-    for (const line of text.split('\n')) {
-      const [s, count] = line.trim().split(':');
-      if (s === suffix && Number(count) > 0) return true;
-    }
-    return false;
-  } catch (err) {
-    log?.warn({ err: (err as Error).message }, 'breached-password check skipped');
-    return null;
-  }
+  const { prefix, suffix } = pwnedParts(password);
+  const range = await pwnedRange(f, prefix, log);
+  return range === null ? null : inPwnedRange(range, suffix);
 }
 
 /** Common disposable-email domains; WATCHLOG_DISPOSABLE_DOMAINS_FILE adds more. */

@@ -334,6 +334,11 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 256
+                  },
+                  "turnstileToken": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "description": "The Turnstile widget token"
                   }
                 }
               }
@@ -436,6 +441,43 @@
                     "mfaRequired": {
                       "type": "boolean",
                       "enum": [true]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
                     }
                   }
                 }

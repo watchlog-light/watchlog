@@ -786,7 +786,7 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
           reply,
           400,
           'password-breached',
-          'This password appears in known data breaches. Choose another one.',
+          'This password is in a list of leaked passwords. Pick a different one.',
         );
       }
       const passwordHash = await hashPassword(request.body.password);
@@ -909,7 +909,7 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
           reply,
           400,
           'password-breached',
-          'This password appears in known data breaches. Choose another one.',
+          'This password is in a list of leaked passwords. Pick a different one.',
         );
       }
       const passwordHash = await hashPassword(request.body.password);

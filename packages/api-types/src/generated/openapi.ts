@@ -211,6 +211,8 @@ export interface paths {
             /** Format: email */
             email: string;
             password: string;
+            /** @description The Turnstile widget token */
+            turnstileToken?: string;
           };
         };
       };
@@ -249,6 +251,24 @@ export interface paths {
             'application/json': {
               /** @enum {boolean} */
               mfaRequired: true;
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
             };
           };
         };
