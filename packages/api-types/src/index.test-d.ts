@@ -34,7 +34,12 @@ describe('generated API types', () => {
   });
 
   it('request bodies match the backend schemas', () => {
-    expectTypeOf<LoginRequest>().toEqualTypeOf<{ email: string; password: string }>();
+    // turnstileToken: Cloud's human check on password sign-in (ADR-175, amended in 0.9.9).
+    expectTypeOf<LoginRequest>().toEqualTypeOf<{
+      email: string;
+      password: string;
+      turnstileToken?: string;
+    }>();
     expectTypeOf<SetupRequest>().toHaveProperty('code').toBeString();
     expectTypeOf<SetupStatus>().toEqualTypeOf<{
       required: boolean;
