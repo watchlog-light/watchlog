@@ -634,7 +634,7 @@ describe('the sign-up page', () => {
     // Under the field it is about, in words that say what to do, with the focus there.
     const error = wrapper.get('[data-testid="password-error"]');
     expect(error.text()).toBe(
-      'This password is in a list of leaked passwords, so attackers try it first. Pick a different one: three or four random words work well.',
+      'This password is in a list of leaked passwords, so attackers try it first. Pick a different one, or let your browser or password manager suggest one.',
     );
     const password = wrapper.get('[data-testid="password-input"]');
     expect(document.activeElement).toBe(password.element);

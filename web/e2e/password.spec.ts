@@ -3,7 +3,7 @@
 // in 0.9.9):
 //   - the sign-up page's password field: the checklist that ticks as the user types (too
 //     short, leaked, the list unreachable, fine), the error under the field, show/hide by
-//     keyboard, the suggestion, and a button that is never dead;
+//     keyboard, no suggestion of ours (the browser's), and a button that is never dead;
 //   - the sign-in page with Turnstile: quiet when Cloudflare answers (the token goes with the
 //     password), and still working, saying nothing, when Cloudflare is blocked.
 //
@@ -134,7 +134,7 @@ const rule = (page: Page, key: string) => page.locator(`[data-rule="${key}"]`);
 /** The field's own column: nothing of the field runs past it. */
 async function insideItsColumn(page: Page) {
   const field = (await page.getByTestId('password-field').boundingBox())!;
-  for (const id of ['password-error', 'password-rules', 'password-suggest']) {
+  for (const id of ['password-error', 'password-rules']) {
     const el = page.getByTestId(id);
     if (!(await el.count())) continue;
     const box = (await el.boundingBox())!;
@@ -168,7 +168,7 @@ for (const width of WIDTHS) {
     await expect(rule(page, 'leak')).toHaveAttribute('data-state', 'bad');
     const error = page.getByTestId('password-error');
     await expect(error).toHaveText(
-      'This password is in a list of leaked passwords, so attackers try it first. Pick a different one: three or four random words work well.',
+      'This password is in a list of leaked passwords, so attackers try it first. Pick a different one, or let your browser or password manager suggest one.',
     );
     // Directly under the field: between the input and the rules.
     const [i, e, r] = await Promise.all(
@@ -211,14 +211,10 @@ for (const width of WIDTHS) {
     await page.keyboard.press('Space');
     await expect(input).toHaveAttribute('type', 'password');
 
-    // The suggestion: four random words, shown, and they pass.
-    await page.getByTestId('password-suggest').click();
-    await expect(input).toHaveValue(/^[a-z]+(-[a-z]+){3}$/);
-    await expect(input).toHaveAttribute('type', 'text');
-    await expect(page.getByTestId('password-suggested')).toContainText('Four random words');
-    await expect(rule(page, 'leak')).toHaveAttribute('data-state', 'ok');
-    await insideItsColumn(page);
-    await shot(page, 'signup-suggested', width);
+    // No suggestion of ours (0.9.10): the browser's own is offered for a new password.
+    await expect(input).toHaveAttribute('autocomplete', 'new-password');
+    await expect(page.getByTestId('password-suggest')).toHaveCount(0);
+    await expect(page.getByText('Suggest a strong password')).toHaveCount(0);
 
     // The right column speaks of clusters and servers.
     const aside = page.locator('aside');

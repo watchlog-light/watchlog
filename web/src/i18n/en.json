@@ -201,12 +201,10 @@
       "bad": "Not met",
       "unknown": "Not checked yet"
     },
-    "leaked": "This password is in a list of leaked passwords, so attackers try it first. Pick a different one: three or four random words work well.",
+    "leaked": "This password is in a list of leaked passwords, so attackers try it first. Pick a different one, or let your browser or password manager suggest one.",
     "tooShort": "This is too short: use at least {min} characters. Three or four random words work well.",
     "show": "Show password",
-    "hide": "Hide password",
-    "suggest": "Suggest a strong password",
-    "suggested": "Four random words, shown so you can save them. Let your password manager keep it, or write it down somewhere safe."
+    "hide": "Hide password"
   },
   "confirm": {
     "failed": "That didn't work, so nothing was changed. Check your connection and try again."

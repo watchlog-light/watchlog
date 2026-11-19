@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Setting a password (ADR-175, amended in 0.9.9): the two rules the server has, checked as
-// the user types, and a suggestion. No composition rules ("one symbol, one capital"): length
+// the user types. No composition rules ("one symbol, one capital"): length
 // and not being a known leaked password are what count.
 //   - Long enough: the server's minimum (10).
 //   - Not leaked: the password is hashed here (SHA-1, as Have I Been Pwned keys its list),
 //     the first 5 of the hash's 40 characters go to the server, and the answer is searched
 //     for the other 35 here. The password never leaves the browser. The server checks again
 //     when the form is sent: it is the authority, this is the early word.
-import { PASSWORD_WORDS } from './password-words';
-
 /** What the live leaked-password check knows about what is typed. */
 export type LeakState = 'idle' | 'checking' | 'ok' | 'leaked' | 'unavailable';
 
@@ -63,16 +61,4 @@ export async function leakCheck(
 /** For tests: forget the ranges fetched so far. */
 export function forgetRanges(): void {
   ranges.clear();
-}
-
-/**
- * Four random words with dashes between ("maple-orbit-cactus-violin"): long, easy to read
- * back and to type, and one of about a million million. From the browser's own random
- * numbers, never Math.random.
- */
-export function suggestPassword(words: readonly string[] = PASSWORD_WORDS): string {
-  const picks = new Uint32Array(4);
-  globalThis.crypto.getRandomValues(picks);
-  // The list's length is a power of two, so the remainder is as random as the number.
-  return [...picks].map((n) => words[n % words.length]!).join('-');
 }

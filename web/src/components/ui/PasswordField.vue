@@ -4,15 +4,15 @@ import { Check, Circle, Eye, EyeOff, LoaderCircle, Minus, X } from '@lucide/vue'
 import { computed, onBeforeUnmount, ref, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { cloudApi } from '@/api/cloud';
-import { leakCheck as askLeakedList, suggestPassword, type LeakState } from '@/lib/password';
+import { leakCheck as askLeakedList, type LeakState } from '@/lib/password';
 
 // The field where a new password is set (sign-up, first-run setup, a reset, an invite), as
 // ADR-175 has it since 0.9.9:
 //   - a checklist under the field that ticks as the user types: long enough, and (Cloud) not
 //     in the leaked-password list. No composition rules;
 //   - what is wrong, directly under the field, in words that say what to do;
-//   - show/hide, autocomplete="new-password" for password managers, and "Suggest a strong
-//     password" (four random words, shown);
+//   - show/hide, and autocomplete="new-password", so the browser or password manager offers
+//     and saves a strong password of its own (0.9.10: no suggestion of ours);
 //   - when the leaked list can't be reached, nothing alarming: the server checks on send.
 const props = withDefaults(
   defineProps<{
@@ -34,7 +34,6 @@ const id = useId();
 const input = ref<HTMLInputElement | null>(null);
 
 const shown = ref(false);
-const suggested = ref(false);
 const longEnough = computed(() => model.value.length >= props.minLength);
 
 const leak = ref<LeakState>('idle');
@@ -122,18 +121,6 @@ const announce = computed(() =>
 function toggle() {
   shown.value = !shown.value;
 }
-function suggest() {
-  model.value = suggestPassword();
-  // Shown, so it can be read and saved; the password manager offers to keep it.
-  shown.value = true;
-  suggested.value = true;
-  input.value?.focus();
-}
-watch(model, (now, before) => {
-  // Typed over: it is the user's own again.
-  if (suggested.value && now !== before && !/^[a-z]+(-[a-z]+){3}$/.test(now))
-    suggested.value = false;
-});
 
 defineExpose({
   focus: () => {
@@ -213,23 +200,5 @@ defineExpose({
       </li>
     </ul>
     <p class="sr-only" aria-live="polite" data-testid="password-announce">{{ announce }}</p>
-    <div class="flex flex-col items-start gap-1">
-      <button
-        type="button"
-        class="inline-flex min-h-7 items-center text-13 font-medium text-text underline decoration-border-strong underline-offset-4 hover:decoration-text max-lg:min-h-11"
-        data-testid="password-suggest"
-        @click="suggest"
-      >
-        {{ $t('password.suggest') }}
-      </button>
-      <p
-        v-if="suggested"
-        class="text-12 leading-relaxed text-text-muted"
-        role="status"
-        data-testid="password-suggested"
-      >
-        {{ $t('password.suggested') }}
-      </p>
-    </div>
   </div>
 </template>

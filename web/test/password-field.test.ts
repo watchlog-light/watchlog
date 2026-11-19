@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The field where a new password is set (ADR-175, amended in 0.9.9): the checklist that
 // ticks as the user types (long enough; not in the leaked-password list), what it says when
-// the list can't be reached, where an error sits, show/hide, the suggestion, and what a
+// the list can't be reached, where an error sits, show/hide, no suggestion of ours, and what a
 // screen reader and a keyboard get. The leaked list is a mock: the page sends 5 characters of
 // the password's SHA-1 and finds the rest in the answer itself.
 import { createHash } from 'node:crypto';
@@ -9,8 +9,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h, ref } from 'vue';
 import PasswordField from '@/components/ui/PasswordField.vue';
-import { forgetRanges, inRange, leakCheck, sha1Hex, suggestPassword } from '@/lib/password';
-import { PASSWORD_WORDS } from '@/lib/password-words';
+import { forgetRanges, inRange, leakCheck, sha1Hex } from '@/lib/password';
 import { mockFetch, problem, type Routes } from './fetch-mock';
 import { createPlugins } from './helpers';
 
@@ -97,35 +96,6 @@ describe('the pieces', () => {
     };
     expect(await leakCheck('another one entirely 99', down)).toBe('unavailable');
   });
-
-  it('suggests four random words from 1,024 everyday ones, by the browser’s random numbers', () => {
-    expect(PASSWORD_WORDS).toHaveLength(1024);
-    expect(new Set(PASSWORD_WORDS).size).toBe(1024);
-    for (const w of PASSWORD_WORDS) expect(w).toMatch(/^[a-z]{3,9}$/);
-    const random = vi.spyOn(globalThis.crypto, 'getRandomValues');
-    const mathRandom = vi.spyOn(Math, 'random');
-    const seen = new Set<string>();
-    for (let i = 0; i < 50; i++) {
-      const s = suggestPassword();
-      const words = s.split('-');
-      expect(words).toHaveLength(4);
-      for (const w of words) expect(PASSWORD_WORDS).toContain(w);
-      expect(s.length).toBeGreaterThanOrEqual(15);
-      seen.add(s);
-    }
-    expect(seen.size).toBe(50);
-    expect(random).toHaveBeenCalledTimes(50);
-    expect(mathRandom).not.toHaveBeenCalled();
-    // The numbers decide the words: the same numbers, the same password.
-    random.mockImplementation((a) => {
-      (a as Uint32Array).set([0, 1, 1024, 2047]);
-      return a;
-    });
-    expect(suggestPassword()).toBe(
-      [PASSWORD_WORDS[0], PASSWORD_WORDS[1], PASSWORD_WORDS[0], PASSWORD_WORDS[1023]].join('-'),
-    );
-    vi.restoreAllMocks();
-  });
 });
 
 describe('the password field', () => {
@@ -182,7 +152,7 @@ describe('the password field', () => {
     expect(rule('leak').text()).toContain('Found in a list of leaked passwords');
     const error = w.get('[data-testid="password-error"]');
     expect(error.text()).toBe(
-      'This password is in a list of leaked passwords, so attackers try it first. Pick a different one: three or four random words work well.',
+      'This password is in a list of leaked passwords, so attackers try it first. Pick a different one, or let your browser or password manager suggest one.',
     );
     expect(error.attributes('role')).toBe('alert');
     // Directly under the field: the next element after the input's box, before the rules.
@@ -288,30 +258,14 @@ describe('the password field', () => {
     expect(toggle.attributes('tabindex')).toBeUndefined();
   });
 
-  it('"Suggest a strong password" fills four random words, shows them, and they pass', async () => {
-    const { fetchMock } = mockFetch({});
-    fetchMock.mockImplementation(async () =>
-      Response.json({ range: rangeWith() }, { headers: { 'content-type': 'application/json' } }),
-    );
-    const { w, value, rule, field } = await mountField({ leakCheck: true });
-    expect(w.find('[data-testid="password-suggested"]').exists()).toBe(false);
-    await w.get('[data-testid="password-suggest"]').trigger('click');
-    await vi.waitFor(() => expect(rule('leak').attributes('data-state')).toBe('ok'));
-    expect(value.value).toMatch(/^[a-z]+(-[a-z]+){3}$/);
+  it('has no suggestion of its own: the browser or password manager offers one (0.9.10)', async () => {
+    mockFetch({});
+    const { w } = await mountField({ leakCheck: true });
     const input = w.get('[data-testid="password-input"]');
-    expect((input.element as HTMLInputElement).value).toBe(value.value);
-    // Shown, so it can be read and saved.
-    expect(input.attributes('type')).toBe('text');
-    expect(w.get('[data-testid="password-suggested"]').text()).toContain('Four random words');
-    expect(rule('length').attributes('data-state')).toBe('ok');
-    expect(field.value!.problem()).toBeNull();
-    // Another press, another password.
-    const first = value.value;
-    await w.get('[data-testid="password-suggest"]').trigger('click');
-    expect(value.value).not.toBe(first);
-    // Typed over: the note goes.
-    await input.setValue('my own long password');
-    expect(w.find('[data-testid="password-suggested"]').exists()).toBe(false);
+    // The browser's own suggestion is offered for a new password.
+    expect(input.attributes('autocomplete')).toBe('new-password');
+    expect(w.find('[data-testid="password-suggest"]').exists()).toBe(false);
+    expect(w.text()).not.toMatch(/suggest/i);
   });
 
   it('for a screen reader: a label, the rules described, each rule’s state in words, changes announced', async () => {
