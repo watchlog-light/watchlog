@@ -217,6 +217,11 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 | New external destination (v0.7, shipped in 0.7.0; Kubernetes and Docker) | a source talks to a destination it never used and no expectation covers; quiet for a 7-day learning period (ADR-187, §4.14) | warning |
 | Raw IP egress (v0.7, shipped in 0.7.0) | ≥ 5 connections in 10 min to the same public network and port with no DNS name (ADR-187) | warning |
 | Large upload to a new destination (v0.7, shipped in 0.7.0) | > 100 MB sent in 1 h to a destination first seen in the last 24 h (ADR-187) | warning |
+| Certificate expiring (v0.10; Kubernetes and Servers) | 14 days left (warning), 3 days (critical), expired (critical); one alert per certificate endpoint, resolved by a new certificate (ADR-225, §4.16) | warning / critical |
+| Certificate name or chain wrong (v0.10) | the name asked for doesn't match, or the chain is incomplete (ADR-225) | warning |
+| Scheduled job failed (v0.10; timers, cron, CronJobs) | the last run failed (warning); 3 in a row (critical); a job every minute alerts on 3 in a row only (ADR-225) | warning / critical |
+| Scheduled job missed (v0.10) | a run expected and nothing started, the server and agent up (ADR-223, ADR-225) | warning |
+| Scheduled job slow (v0.10) | running or ran far longer than its usual duration, after 5 runs (ADR-225) | warning |
 | Unusual for this hour (shipped in 0.8.0; Pro and the live demo only; Kubernetes and Docker) | a catalog series' score against its hour-of-week baseline over 4 for 10 min; quiet 30 min after a rollout of the subject; one alert per subject and metric (ADR-200, §4.8) | warning |
 
 **Custom threshold rules:** pick metric → scope (cluster / namespace / workload / node / label selector) → condition → duration → severity → channels. No PromQL required. P1: advanced mode with raw MetricsQL.
@@ -339,6 +344,8 @@ Let people ask their own AI assistant about their cluster ("why is payments-api 
 - the protocol works with Claude Code, Claude Desktop through `mcp-remote`, Cursor where it can be scripted, and the SDK's own client.
 
 ## 4.12 Applications (service integrations) and multi-user — v0.3, All (wave 2 shipped in 0.5.0)
+
+(v0.10: Applications has three tabs, Services (this section), Certificates and Scheduled jobs (§4.16, ADR-221).)
 
 Monitor the services people run next to their workloads (databases, caches, queues, proxies) with the same quality as the rest of WatchLog. Services are discovered automatically and get opinionated pages, default alerts and plain-language reasons. These are service metrics, not APM: no code instrumentation, no tracing, never table data (SPEC §2.5). Community edition: monitoring is never paywalled (§3.1). Decisions: ADR-131 to ADR-145; wave 2 (v0.5): ADR-162 to ADR-166.
 
@@ -600,6 +607,8 @@ Access: nothing with security off; otherwise an API key with the `monitor` privi
 
 ## 4.13 Probable cause ("Why is this broken?") — v0.4, All (shipped in 0.4.0)
 
+(v0.10: an expired or mismatched certificate on the endpoint a failing edge or 5xx goes to, and a failed scheduled job in the workload an alert is about, are reasons: ADR-225.)
+
 For every alert and every problem, WatchLog names the probable cause and shows the evidence, on Kubernetes clusters and Docker hosts alike (ADR-146 to ADR-160; the user page is `docs/site/probable-cause.md`).
 
 - **Deterministic rules, no AI and no scores:** twelve rules in a fixed catalog (ADR-150), each with a Kubernetes and a Docker form (ADR-149), over the data already collected: the object's state and restarts, its events and change markers, the node or host under it, its CPU throttling, its edges on the service map and the findings of monitored applications. The walk follows failing, slow or slower-than-usual edges up to two hops (ADR-153, ADR-154).
@@ -649,6 +658,17 @@ Every process on a Linux server, in any language, however it was started: system
 - **Logs on demand:** a unit's journal, pm2's and supervisord's log files, Docker as before; redacted like container logs.
 - **Right-sizing:** units with `MemoryMax` or `CPUQuota`, as for container limits.
 - **Out of scope:** Windows and macOS, APM and tracing, JVM internals, an apt or yum repository.
+
+## 4.16 Certificates and scheduled jobs — v0.10, All (ADR-221 to ADR-225)
+
+Two things every server owner gets burned by, shown and alerted on with no setup, in Community and every Cloud plan, on Kubernetes and Servers: a TLS certificate that expires or stops renewing, and a scheduled job that fails, doesn't run, or runs far too long. Applications gets two tabs for them, next to Services.
+
+- **Certificates (ADR-222):** what each TLS port presents, read on the server itself through a handshake to the ports the agent already knows, with the names of well-known certificate stores (directory names only) asked as SNI; STARTTLS where measured small. On Kubernetes, what Ingress hosts and TLS Services present, without reading Secrets. Kept: names, issuer, validity, fingerprint, who serves it, whether the chain is complete and the name matches, and every certificate seen per endpoint (renewals). Never a private key, never decrypted traffic.
+- **Scheduled jobs (ADR-223):** systemd timers from systemd (schedule, last and next run, result, exit code, duration); cron from the crontabs on the server matched with the processes cron starts; Kubernetes CronJobs from their Jobs. States: Failed, Missed (told apart from the server or agent being down), Slow (after 5 runs), Working. Only a derived name leaves the server, never a command line, argument or environment value.
+- **Storage (ADR-224):** bounded series for the rules (`cert.*`, `job.*`) and objects for the pages; the backend keeps each endpoint's certificates and each job's last 100 runs (30 days). "Renews itself" only after a renewal was seen; a renewal job WatchLog also sees is linked to its certificate.
+- **Alerts and events (ADR-225):** see §4.7; events for renewed, expiring and expired certificates and for failed, missed and recovered jobs; probable-cause reasons.
+- **Pages:** tiles, a table with problems first, filters, each certificate's page with its history, each job's page with its runs and the unit's journal on demand; counts and problems on the Overview and the server page; search; read-only API routes and MCP tools.
+- **Limits:** 50 ports probed, 100 certificates and 100 jobs per server or cluster, 30 runs a job in the agent; anacron, `at`, client certificates and certificate files no port serves are not covered unless ADR-223 says otherwise.
 
 # 5. System architecture
 
@@ -801,6 +821,7 @@ Labels on container series: `cluster_id` (server-injected), `node`, `namespace`,
 - Server mode (ADR-209): installed natively it runs as the user `watchlog` with only the capabilities measured to be needed (listed in ADR-209 and `docs/security.md`) and systemd hardening; it reads `/proc` of every process but never an environment, and sends no PID, command line or argument. With Docker present it joins the `docker` group (root-equivalent; `--no-docker` opts out).
 - Docker (and server) mode mounts `/var/run/docker.sock` **read-only** and only calls list/inspect/stats/events endpoints, and the container logs endpoint while logs on demand are on (`WATCHLOG_LOGS`, ADR-167).
 - Transport: HTTPS with TLS 1.2+; cluster token in `Authorization: Bearer`. Tokens are per cluster, revocable, 256-bit random values stored as a SHA-256 hash in the backend (a slow hash adds cost without security for high-entropy tokens; argon2id is used for passwords; ADR-025).
+- Certificates (v0.10, ADR-222): the agent opens TLS handshakes to the server's own listening ports and reads the presented chain; it lists the directory names of certificate stores, never their files, and never reads a private key. The cluster-agent reads Ingresses' hosts, never their Secrets. Crontabs are parsed on the server; only a job's derived name leaves it (ADR-223).
 - The agent never executes remote commands and has no inbound port except `:8080/healthz` and `:8080/metrics` (self-metrics), bound to pod IP.
 
 ## 6.7 Configuration

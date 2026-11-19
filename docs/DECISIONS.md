@@ -3916,3 +3916,65 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Seeing them:** `pnpm --filter @watchlog/backend emails:preview` renders every email with sample data into `backend/tmp/emails` and sends them to a Mailpit on this machine only (any other SMTP host is refused; recipients are `preview+<name>@example.com`). `backend/test/emails.test.ts` snapshots every email's HTML and text and checks the rules above.
 - Alternatives: MJML or a templating library (rejected: a build step and a dependency for 600 lines of tables); remote images for the logo (rejected: self-hosted installs without internet, and they track opens); stripping the HTML for the text part (rejected: unreadable tables).
 - Consequences: the alert emails' subjects changed ("[CRITICAL] … (prod)" became "[Critical] … in prod"): mail filters on the old form need updating, said in the release notes. Kubernetes and Servers get the same emails (ADR-124); Community and Cloud the same template.
+
+## ADR-221: Certificates and scheduled jobs: Applications gets three tabs, in every edition, on Kubernetes and Servers
+
+- Date: 2026-11-19 · Status: accepted (0.10.0, slice 0; the owner's scope)
+- Context: two things every server owner gets burned by are a TLS certificate that expires or stops renewing, and a scheduled job that fails, doesn't run, or runs far too long. Both are shown and alerted on with no setup. Monitoring is never paywalled (SPEC §3.1).
+- Decision:
+  - **Applications gets three tabs:** Services (today's page, unchanged), Certificates, Scheduled jobs (`/applications`, `/applications/certificates`, `/applications/jobs`; a certificate's page and a job's page under them). Community and every Cloud plan.
+  - **Both kinds of fleet (ADR-124):** certificates and jobs on servers from the agent (ADR-222, ADR-223); on Kubernetes, the certificates that Ingress hosts and TLS Services present and the CronJobs, in the same model and tabs. Where Kubernetes can't have one part, the page says why (ADR-222).
+  - **One model for the backend (ADR-224):** the agents compute each certificate's and job's facts and state on the cluster or server and send them twice: as bounded series for the rules engine (ADR-028) and as objects for the pages and the history. The backend keeps a certificate's history (renewals) and a job's runs.
+  - **Alerts are part of the release (ADR-225),** on by default, through the existing rules engine, every channel and the email template (ADR-220).
+  - **Not in this release:** new service integrations (Apache, HAProxy, Memcached, Elasticsearch are an idea on the reference's Services board only); certificate files that no port serves; client certificates; anacron and `at` unless measured to be small (ADR-223).
+  - **Pages,** as in the reference (`design/v0.10-certificates-jobs/`): tiles, a table with problems first, filters, and each certificate's and job's own page. Overview and the server page show counts and problems for both; search finds them.
+- Consequences: a fleet whose agents are older than 0.10 shows both tabs with "needs agent 0.10" (ADR-107: nothing to do by hand).
+
+## ADR-222: Certificates are read from what each TLS port presents, on the server itself; never a key, never traffic
+
+- Date: 2026-11-19 · Status: accepted (0.10.0, slice 0; the measured parts are amended after slice 1)
+- Decision (planned; slice 1 measures each part on Ubuntu 24.04, Debian 12 and Rocky 9):
+  - **Servers: the ports the agent already knows.** The agent's listening sockets (ADR-208, `watchlog_listen_info`) get their bound address too. Every 10 minutes the agent opens a TLS handshake to each listening TCP port of the server's workloads (on the bound address, or 127.0.0.1 when bound to all), with a 2-second timeout, and reads the chain the port presents. It verifies nothing on the wire, decrypts nothing and sends nothing but the handshake. A port that doesn't speak TLS is remembered for an hour, so plain ports cost one failed handshake an hour.
+  - **Several certificates behind one port (SNI):** names come from the **directory names** of well-known certificate stores, never their files: `/etc/letsencrypt/live/<name>`, acme.sh's `<home>/.acme.sh/<name>` and Caddy's `certificates/<issuer>/<name>`. Each port that presented a certificate is asked again with each name as SNI; a different certificate for a name is kept as its own. A name found nowhere else (a vhost with a hand-made certificate whose name no store lists) is not covered; the page says so.
+  - **STARTTLS** (SMTP on 25 and 587, IMAP on 143, POP3 on 110, PostgreSQL's SSLRequest, MySQL's SSL request) is in when slice 1 finds it small; otherwise the page lists it as not covered.
+  - **Kept per certificate:** its names (subject CN and SANs, at most 20), issuer, serial, not-before and not-after, SHA-256 fingerprint, key type and size, whether the chain it presents verifies against the server's trust store and whether it is complete, whether the name asked for matches, and who serves it (workload, port). Never key material; the agent never opens a private key or a file in those stores.
+  - **Kubernetes:** the cluster-agent gets `get, list, watch` on Ingresses (networking.k8s.io): hosts and TLS hosts only, never the Secret they name (the agents never read Secrets, SPEC §6.6). It probes each TLS host with SNI through the Ingress controller's Service, and each Service with a port named `https` or numbered 443, and reads what they present. If slice 5 finds this can't be done within the cluster-agent's permissions and network, ADR-124's exception is written here and certificates are for Server fleets only, with the page saying why.
+  - **Caps:** at most 50 ports probed and 100 certificates per server or cluster; the rest counted.
+- Alternatives: parsing nginx, Apache and HAProxy configurations for every `server_name` (rejected as the default: one parser per product and version); reading the certificate files directly (rejected: the stores also hold private keys, and a port's certificate is what clients see); a probe from outside (rejected: SPEC §2.5's synthetic monitoring).
+
+## ADR-223: Scheduled jobs: systemd timers from systemd, cron from its crontabs and the processes it starts; only a derived name leaves the server
+
+- Date: 2026-11-19 · Status: accepted (0.10.0, slice 0; the measured parts are amended after slice 1)
+- Decision (planned; slice 1 measures each part):
+  - **systemd timers** over D-Bus (ADR-208's connection): each loaded `.timer` (enabled or not), its schedule (`TimersCalendar`, `TimersMonotonic`), `Persistent`, `RandomizedDelayUSec`, `NextElapseUSecRealtime`, `LastTriggerUSec`, and the unit it starts; each run of that unit from its transitions (start, end, `Result`, `ExecMainStatus`, duration).
+  - **cron:** the agent parses `/etc/crontab`, `/etc/cron.d/*` and the user crontabs (`/var/spool/cron/crontabs/*`, `/var/spool/cron/*`) on the server, and matches each run cron starts: the start of a process whose parent is the cron daemon's child, and its exit (exit code, duration) from the exit events eBPF already sends (ADR-210). The agent has no exec event today; slice 1 decides between a small exec tracepoint filtered in the kernel to cron's children and cron's own journal lines.
+  - **Privacy:** a job's command line, arguments and environment never leave the server. Its name is derived as a process group's is (ADR-208): a script's file name, an interpreter and its script (`artisan schedule:run`), else the executable's name; the same redaction; a crontab line with secrets in it is tested. A timer's name is its unit name.
+  - **States, each with a plain reason:** _Failed_ (the last run's exit code or result, how many in a row, the last good run), _Missed_ (a run expected and nothing started; "the server was off or the agent wasn't running" told apart from "the job didn't run" by the boot time and the agent's own start), _Slow_ (running, or ran, far longer than its usual duration, once it has 5 runs), _Working_. A random delay (`RandomizedDelaySec`), a catch-up after boot (`Persistent`) and cron's DST rules are not "late". Times are the server's own time zone.
+  - **Often:** a job every minute or more often is one job: runs are summarized (counts per hour, the last 14 kept), never one event per run.
+  - **Kubernetes CronJobs** come from the cluster-agent's CronJob and Job objects (already watched): the same states; the Job's failed pods give the exit code.
+  - **Containers, anacron, `at`:** jobs inside containers (a crontab in an image) are covered when the container's cron is a child of the host's process tree the agent sees, else listed as not covered; anacron and `at` are not covered unless slice 1 finds them small. The page says so.
+  - **Caps:** at most 100 jobs per server or cluster, the last 30 runs kept per job in the agent and 100 a job (30 days) in the backend.
+- Alternatives: asking the user to wrap each job (healthchecks-style pings; rejected: setup); reading cron's mail (rejected: unreliable, often off).
+
+## ADR-224: Certificates and jobs in the backend: series for rules, objects for pages, a certificate's history and a job's runs
+
+- Date: 2026-11-19 · Status: accepted (0.10.0, slice 0)
+- Decision:
+  - **Series (catalog keys, ADR-028):** `cert.*` (days left, problems: name mismatch, chain incomplete) per certificate endpoint (server or cluster, workload, port, name), and `job.*` (failed streak, missed runs, running for, usual duration, slow) per job. An endpoint keeps its series when its certificate is renewed, so an alert follows the endpoint and resolves when the new certificate is seen.
+  - **Objects:** the agents send `Certificate` and `ScheduledJob` objects through `/ingest/v1/objects` (the inventory channel servers and clusters already use), with the facts of ADR-222 and ADR-223 and a job's last runs.
+  - **History:** the backend keeps every certificate seen per endpoint (`certificates`: first and last seen; a new fingerprint for the same names is a renewal, with the days it was renewed before expiry) and every job's runs (`job_runs`, 100 a job, 30 days). "Renews itself, last time N days ago" only after a renewal was seen; otherwise "not seen renewing yet". A certificate whose renewal job WatchLog also sees (`certbot.timer`, `certbot-renew.timer`, acme.sh's cron line) is linked to it, and a failing renewal job is named on the certificate.
+  - **API and MCP:** read-only, bounded routes per cluster or fleet and per object, in the isolation suite, and MCP tools `list_certificates` and `list_scheduled_jobs`.
+  - **Budgets:** the series and objects per server are measured in slice 1 and reported against today's (ADR-208: 490–680 series, 7–10 MB a day on Cloud).
+  - **Upgrades (ADR-107):** migrations only add tables; agents older than 0.10 send neither, and the tabs say "needs agent 0.10".
+
+## ADR-225: Default alerts, events and probable-cause reasons for certificates and scheduled jobs
+
+- Date: 2026-11-19 · Status: accepted (0.10.0, slice 0; the defaults are tuned in slice 7)
+- Decision:
+  - **Default rules,** on in every edition, editable and mutable like the others, through the rules engine, every channel and the email template (ADR-220), grouped and held as today (ADR-094, ADR-095):
+    - a certificate expires within 14 days (warning), within 3 days (critical), has expired (critical); its name doesn't match or its chain is incomplete (warning). One alert per certificate endpoint; a new certificate resolves it; a certificate that renews on time never alerts.
+    - a job failed (warning; critical after 3 failures in a row); a job missed its run (warning); a job is running far longer than usual (warning). One alert per job, not per run; a job every minute alerts on a failing streak (3 in a row), not on one failure; the next good run resolves it.
+  - **Messages** say what, where, since when and what to do: "backup.timer failed 3 nights in a row on worker-1 (exit code 2). Last good run: 16 Nov. Open its log on the job's page."
+  - **Events:** certificate renewed, about to expire, expired; job failed, missed, recovered. On servers through the agent's server events (ADR-214: one record per object, reason and day, a job every minute included); on Kubernetes as the backend's own.
+  - **Probable cause:** an expired or mismatched certificate on the endpoint a failing edge or 5xx goes to is a reason (likely); a failed job is a reason for an alert on the workload it runs in, with tests.
+  - **Target:** under 1 alert a day per server from these on a healthy fleet, measured on the VMs and generated fleets before the release.
