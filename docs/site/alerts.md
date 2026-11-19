@@ -24,8 +24,16 @@ this hour", fires when a metric stays far outside its usual range for that hour 
 | Email    | Recipients; the server's SMTP settings                 | Plain text                            |
 | Webhook  | A URL, and a signing secret (made for you if empty)    | JSON, signed with HMAC-SHA256 (below) |
 
-"Send test" on a channel sends one message at once and shows the provider's answer. Slack,
-Telegram and webhooks go through `HTTPS_PROXY` when it is set.
+"Send test" on a channel sends one message at once. If it does not arrive, the channel says what
+failed and what to do, with the provider's status code: "Telegram refused the message: the bot was
+blocked in the chat (403). Unblock the bot in Telegram, or connect another chat." The same sentence
+is shown under a channel whose last alert could not be delivered; the channel then reads "Failing"
+until a message gets through. The provider's raw answer is never shown or logged. Slack, Telegram
+and webhooks go through `HTTPS_PROXY` when it is set.
+
+A message that could not be delivered is tried again with a growing pause (30 seconds up to an
+hour, 8 tries), and after a rate limit not sooner than the provider asks. A refusal that a retry
+cannot fix (a wrong token, a removed bot, an address that answers 404) fails at once.
 
 ## What a message says
 
