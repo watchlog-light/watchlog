@@ -228,6 +228,14 @@ describe('a service default rule', () => {
     await flushPromises();
     (document.body.querySelector('[data-testid="drawer-reset"]') as HTMLButtonElement).click();
     await flushPromises();
+    // It asks first (ADR-219).
+    expect(calls.map((c) => `${c.method} ${c.path}`)).not.toContain(
+      'POST /api/v1/alert-rules/r1/reset',
+    );
+    (
+      document.body.querySelector('[data-testid="reset-rule-confirm"]') as HTMLButtonElement
+    ).click();
+    await flushPromises();
     expect(calls.map((c) => `${c.method} ${c.path}`)).toContain(
       'POST /api/v1/alert-rules/r1/reset',
     );

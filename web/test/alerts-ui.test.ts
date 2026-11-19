@@ -6,6 +6,7 @@ import AlertingStatusBanner from '@/components/alerts/AlertingStatusBanner.vue';
 import { useAuthStore } from '@/stores/auth';
 import AlertDetailPage from '@/views/AlertDetailPage.vue';
 import AlertsPage from '@/views/AlertsPage.vue';
+import { cancel, confirmTwice, count, dialogOf, dialogText } from './confirm';
 import { mockFetch, problem, USER, type Routes } from './fetch-mock';
 import { chooseOption, createPlugins } from './helpers';
 
@@ -590,9 +591,21 @@ describe('rule editor drawer (alerts redesign item 9)', () => {
 
     await w.findAll('[data-testid="rule-sentence"]')[1]!.trigger('click');
     await flushPromises();
+    // Reset throws the rule's own values away: it asks first (ADR-219).
+    const reset = `/api/v1/alert-rules/${RULE.id}/reset`;
     await body().get('[data-testid="drawer-reset"]').trigger('click');
     await flushPromises();
-    expect(calls.some((c) => c.path === `/api/v1/alert-rules/${RULE.id}/reset`)).toBe(true);
+    expect(dialogText('reset-rule')).toContain('Reset this rule to its default?');
+    expect(dialogText('reset-rule')).toContain(RULE.name);
+    expect(dialogText('reset-rule')).toContain('Your own values are not kept.');
+    await cancel('reset-rule');
+    expect(count(calls, 'POST', reset)).toBe(0);
+    expect(body().find('[data-testid="drawer-reset"]').exists()).toBe(true);
+    await body().get('[data-testid="drawer-reset"]').trigger('click');
+    await flushPromises();
+    await confirmTwice('reset-rule');
+    expect(count(calls, 'POST', reset)).toBe(1);
+    expect(dialogOf('reset-rule')).toBeNull();
     w.unmount();
   });
 

@@ -30,6 +30,16 @@ import SettingsPage from '@/views/SettingsPage.vue';
 import SignupPage from '@/views/SignupPage.vue';
 import TwoFactorPage from '@/views/TwoFactorPage.vue';
 import VerifyEmailPage from '@/views/VerifyEmailPage.vue';
+import {
+  cancel,
+  confirm,
+  confirmTwice,
+  count,
+  dialogOf,
+  dialogText,
+  errorOf,
+  toasts,
+} from './confirm';
 import { mockFetch, problem, USER } from './fetch-mock';
 import { createPlugins } from './helpers';
 
@@ -539,12 +549,64 @@ describe('Settings › Security', () => {
     expect(wrapper.get('[data-testid="link-github"]').attributes('href')).toBe(
       '/api/v1/auth/oauth/github/start?intent=link&next=%2Fsettings%2Fsecurity',
     );
+    // Signing the others out asks first (ADR-219).
     await wrapper.get('[data-testid="revoke-others"]').trigger('click');
     await flushPromises();
-    expect(calls.some((c) => c.method === 'DELETE' && c.path === '/api/v1/auth/sessions')).toBe(
-      true,
+    expect(dialogText('revoke-others')).toContain('Sign out everywhere else?');
+    expect(dialogText('revoke-others')).toContain('1 other device is signed out at once');
+    expect(dialogText('revoke-others')).toContain('This device stays signed in.');
+    expect(document.activeElement).toBe(
+      document.querySelector('[data-testid="revoke-others-cancel"]'),
     );
+    await cancel('revoke-others');
+    expect(count(calls, 'DELETE', '/api/v1/auth/sessions')).toBe(0);
+    expect(wrapper.findAll('[data-testid="sessions"] li')).toHaveLength(2);
+    await wrapper.get('[data-testid="revoke-others"]').trigger('click');
+    await flushPromises();
+    await confirmTwice('revoke-others');
+    expect(count(calls, 'DELETE', '/api/v1/auth/sessions')).toBe(1);
+    expect(dialogOf('revoke-others')).toBeNull();
     expect(wrapper.findAll('[data-testid="sessions"] li')).toHaveLength(1);
+    expect(wrapper.get('[data-testid="security-notice"]').text()).toContain(
+      'Signed out of other sessions: 1.',
+    );
+  });
+
+  it('signing another device out asks first; signing out here does not', async () => {
+    const { calls } = mockFetch({
+      'GET /api/v1/auth/account': { status: 200, body: ACCOUNT },
+      'GET /api/v1/auth/sessions': [
+        { status: 200, body: SESSIONS },
+        { status: 200, body: { sessions: [SESSIONS.sessions[0]] } },
+      ],
+      'DELETE /api/v1/auth/sessions/s2': { status: 204 },
+      'DELETE /api/v1/auth/sessions/s1': { status: 204 },
+    });
+    const { wrapper } = await mountCloud(SecuritySettings, '/settings?tab=security', {
+      signedIn: true,
+    });
+    const rows = () => wrapper.findAll('[data-testid="sessions"] li');
+    await rows()[1]!.get('[data-testid="revoke-session"]').trigger('click');
+    await flushPromises();
+    const text = dialogText('revoke-session');
+    expect(text).toContain('Sign this device out?');
+    expect(text).toContain('Safari on iOS');
+    expect(text).toContain('198.51.100.4');
+    expect(text).toContain('It is signed out at once and has to sign in again.');
+    await cancel('revoke-session');
+    expect(count(calls, 'DELETE', '/api/v1/auth/sessions/s2')).toBe(0);
+    expect(rows()).toHaveLength(2);
+    await rows()[1]!.get('[data-testid="revoke-session"]').trigger('click');
+    await flushPromises();
+    await confirmTwice('revoke-session');
+    expect(count(calls, 'DELETE', '/api/v1/auth/sessions/s2')).toBe(1);
+    expect(rows()).toHaveLength(1);
+    expect(toasts()).toEqual(['Signed out: Safari on iOS.']);
+    // This device: its own "Sign out", at once.
+    await rows()[0]!.get('[data-testid="revoke-session"]').trigger('click');
+    await flushPromises();
+    expect(dialogOf('revoke-session')).toBeNull();
+    expect(count(calls, 'DELETE', '/api/v1/auth/sessions/s1')).toBe(1);
   });
 
   it('says a provider was linked, and why unlinking the last way in is refused', async () => {
@@ -553,7 +615,7 @@ describe('Settings › Security', () => {
       password: false,
       identities: [{ provider: 'github', email: 'ada@gh', linkedAt: '2026-11-13T09:00:00Z' }],
     };
-    mockFetch({
+    const { calls } = mockFetch({
       'GET /api/v1/auth/account': { status: 200, body: linked },
       'GET /api/v1/auth/sessions': { status: 200, body: SESSIONS },
       'DELETE /api/v1/auth/identities/github': cloudProblem(409, 'last-sign-in-method'),
@@ -563,9 +625,48 @@ describe('Settings › Security', () => {
       account: linked as Partial<Account>,
     });
     expect(wrapper.get('[data-testid="security-notice"]').text()).toContain('GitHub is linked');
+    // Unlinking asks first; the server's refusal shows in the dialog and GitHub stays linked.
     await wrapper.get('[data-testid="unlink-github"]').trigger('click');
     await flushPromises();
-    expect(wrapper.text()).toContain('only way to sign in');
+    expect(dialogText('unlink')).toContain('Unlink GitHub?');
+    expect(dialogText('unlink')).toContain('ada@gh');
+    expect(dialogText('unlink')).toContain('You will no longer be able to sign in with GitHub.');
+    expect(count(calls, 'DELETE', '/api/v1/auth/identities/github')).toBe(0);
+    await confirm('unlink');
+    expect(count(calls, 'DELETE', '/api/v1/auth/identities/github')).toBe(1);
+    expect(errorOf('unlink')).toContain('only way to sign in');
+    await cancel('unlink');
+    expect(wrapper.find('[data-testid="unlink-github"]').exists()).toBe(true);
+  });
+
+  it('unlinks a provider after asking, and says so', async () => {
+    const linked = {
+      ...ACCOUNT,
+      identities: [{ provider: 'github', email: 'ada@gh', linkedAt: '2026-11-13T09:00:00Z' }],
+    };
+    const { calls } = mockFetch({
+      'GET /api/v1/auth/account': [
+        { status: 200, body: linked },
+        { status: 200, body: ACCOUNT },
+      ],
+      'GET /api/v1/auth/sessions': { status: 200, body: SESSIONS },
+      'DELETE /api/v1/auth/identities/github': { status: 204 },
+    });
+    const { wrapper } = await mountCloud(SecuritySettings, '/settings?tab=security', {
+      signedIn: true,
+      account: linked as Partial<Account>,
+    });
+    await wrapper.get('[data-testid="unlink-github"]').trigger('click');
+    await flushPromises();
+    await cancel('unlink');
+    expect(count(calls, 'DELETE', '/api/v1/auth/identities/github')).toBe(0);
+    await wrapper.get('[data-testid="unlink-github"]').trigger('click');
+    await flushPromises();
+    await confirmTwice('unlink');
+    expect(count(calls, 'DELETE', '/api/v1/auth/identities/github')).toBe(1);
+    expect(dialogOf('unlink')).toBeNull();
+    expect(wrapper.find('[data-testid="unlink-github"]').exists()).toBe(false);
+    expect(toasts()).toEqual(['GitHub is no longer a way to sign in.']);
   });
 
   it('turns 2FA on and shows the recovery codes once', async () => {

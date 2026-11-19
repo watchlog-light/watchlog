@@ -11,6 +11,7 @@ import SettingsDrawer from '@/components/applications/SettingsDrawer.vue';
 import type { ConnectTarget } from '@/lib/applications';
 import { useAuthStore } from '@/stores/auth';
 import { useClustersStore } from '@/stores/clusters';
+import { cancel, confirmTwice, count, dialogOf, dialogText, toasts } from './confirm';
 import { mockFetch, USER } from './fetch-mock';
 import { createPlugins } from './helpers';
 
@@ -310,6 +311,38 @@ describe('settings drawer', () => {
     expect(calls.find((c) => c.path === '/api/v1/applications/probes')!.body).toMatchObject({
       integrationId: APP.id,
     });
+    w.unmount();
+  });
+
+  it('removing the stored access asks first, then says so and reloads (ADR-219)', async () => {
+    const path = `/api/v1/applications/${APP.id}/access`;
+    const { calls } = mockFetch({
+      [`GET ${path}`]: [
+        { status: 200, body: ACCESS },
+        { status: 200, body: { ...ACCESS, access: null } },
+      ],
+      [`DELETE ${path}`]: { status: 204 },
+    });
+    const w = await mountWith(SettingsDrawer, { app: APP, open: true });
+    const press = () =>
+      (document.body.querySelector('[data-testid="remove-access"]') as HTMLButtonElement).click();
+    press();
+    await flushPromises();
+    expect(dialogText('remove-access')).toContain('Remove the stored access?');
+    expect(dialogText('remove-access')).toContain(APP.name);
+    expect(dialogText('remove-access')).toContain('are deleted');
+    expect(document.activeElement).toBe(
+      document.querySelector('[data-testid="remove-access-cancel"]'),
+    );
+    await cancel('remove-access');
+    expect(count(calls, 'DELETE', path)).toBe(0);
+    press();
+    await flushPromises();
+    await confirmTwice('remove-access');
+    expect(count(calls, 'DELETE', path)).toBe(1);
+    expect(dialogOf('remove-access')).toBeNull();
+    expect(toasts()).toEqual(['Access removed.']);
+    expect(document.body.querySelector('[data-testid="remove-access"]')).toBeNull();
     w.unmount();
   });
 

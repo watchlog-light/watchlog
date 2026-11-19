@@ -7,7 +7,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CloudConfig } from '@/api/cloud';
 import ChannelSettings from '@/components/alerts/ChannelSettings.vue';
 import { useAuthStore } from '@/stores/auth';
-import { mockFetch, USER, type Routes } from './fetch-mock';
+import {
+  cancel,
+  confirm,
+  confirmTwice,
+  count,
+  dialogOf,
+  dialogText,
+  errorOf,
+  toasts,
+} from './confirm';
+import { mockFetch, problem, USER, type Routes } from './fetch-mock';
 import { createPlugins } from './helpers';
 
 afterEach(() => {
@@ -273,7 +283,10 @@ describe('Slack and webhook cards', () => {
       },
       [`POST /api/v1/alert-channels/${hook.id}/test`]: {
         status: 200,
-        body: { ok: false, error: 'Webhook answered 404: gone' },
+        body: {
+          ok: false,
+          error: "The webhook's server has nothing at this address (404). Check the URL.",
+        },
       },
     } as Routes);
     await w.get('[data-testid="add-webhook"]').trigger('click');
@@ -298,8 +311,180 @@ describe('Slack and webhook cards', () => {
     await w.get('[data-testid="webhook-card"] [data-testid="send-test"]').trigger('click');
     await flushPromises();
     expect(w.get('[data-testid="test-result"]').text()).toBe(
-      'Test failed: Webhook answered 404: gone',
+      "The test did not arrive. The webhook's server has nothing at this address (404). Check the URL.",
     );
+    w.unmount();
+  });
+});
+
+describe('a channel’s state: the row and its card’s header agree (ADR-218)', () => {
+  const telegram = (over: Partial<AlertChannel>) =>
+    channel({
+      id: '01a19300-0000-7000-8000-0000000000d1',
+      type: 'telegram',
+      name: 'On-call',
+      config: { connected: true, botName: 'acme_alerts_bot', chatName: 'Platform on-call' },
+      secrets: { botToken: '…Xy12' },
+      verifiedAt: '2026-11-19T06:30:00.000Z',
+      ...over,
+    });
+  const BLOCKED =
+    'Telegram refused the message: the bot was blocked in the chat (403). Unblock the bot in Telegram, or connect another chat.';
+
+  it('after a delivery or a test that worked: "Working" and "1 connected"', async () => {
+    const { w } = await mountChannels({
+      'GET /api/v1/alert-channels': {
+        status: 200,
+        body: { channels: [telegram({ lastSentAt: '2026-11-19T06:31:00.000Z' })] },
+      },
+    });
+    const card = w.get('[data-testid="telegram-card"]');
+    expect(card.get('[data-testid="channel-row"]').text()).toContain('Working');
+    expect(card.get('header').text()).toContain('1 connected');
+    expect(card.find('[data-testid="last-error"]').exists()).toBe(false);
+    w.unmount();
+  });
+
+  it('after a failure: the row says "Failing", the header "1 failing", and what to do is said', async () => {
+    const { w } = await mountChannels({
+      'GET /api/v1/alert-channels': {
+        status: 200,
+        body: {
+          channels: [telegram({ lastError: BLOCKED, lastErrorAt: '2026-11-19T06:31:00.000Z' })],
+        },
+      },
+    });
+    const card = w.get('[data-testid="telegram-card"]');
+    expect(card.get('[data-testid="channel-row"]').text()).toContain('Failing');
+    expect(card.get('header').text()).toContain('1 failing');
+    expect(card.get('header').text()).not.toContain('connected');
+    const said = card.get('[data-testid="last-error"]');
+    expect(said.text()).toContain('Last delivery failed');
+    expect(said.text()).toContain('Unblock the bot in Telegram, or connect another chat.');
+    // A long word can't run past the card.
+    expect(said.classes()).toContain('wrap-anywhere');
+    w.unmount();
+  });
+
+  it('one of two failing is "1 of 2 failing"; a test that works turns the row back to "Working"', async () => {
+    const good = telegram({ id: '01a19300-0000-7000-8000-0000000000d2', name: 'Team' });
+    const bad = telegram({ lastError: BLOCKED, lastErrorAt: '2026-11-19T06:31:00.000Z' });
+    const { w } = await mountChannels({
+      'GET /api/v1/alert-channels': [
+        { status: 200, body: { channels: [bad, good] } },
+        {
+          status: 200,
+          body: {
+            channels: [
+              telegram({
+                lastSentAt: '2026-11-19T06:40:00.000Z',
+                lastError: null,
+                lastErrorAt: null,
+              }),
+              good,
+            ],
+          },
+        },
+      ],
+      [`POST /api/v1/alert-channels/${bad.id}/test`]: {
+        status: 200,
+        body: { ok: true, error: null },
+      },
+    } as Routes);
+    const card = w.get('[data-testid="telegram-card"]');
+    expect(card.get('header').text()).toContain('1 of 2 failing');
+    await card.findAll('[data-testid="send-test"]')[0]!.trigger('click');
+    await flushPromises();
+    expect(card.findAll('[data-testid="channel-row"]')[0]!.text()).toContain('Working');
+    expect(card.get('[data-testid="test-result"]').text()).toBe('Test message sent.');
+    expect(card.get('header').text()).toContain('2 connected');
+    w.unmount();
+  });
+
+  it('a failed test says what failed, wrapped inside its row', async () => {
+    const ch = telegram({});
+    const { w } = await mountChannels({
+      'GET /api/v1/alert-channels': [
+        { status: 200, body: { channels: [ch] } },
+        {
+          status: 200,
+          body: {
+            channels: [telegram({ lastError: BLOCKED, lastErrorAt: '2026-11-19T06:31:00.000Z' })],
+          },
+        },
+      ],
+      [`POST /api/v1/alert-channels/${ch.id}/test`]: {
+        status: 200,
+        body: { ok: false, error: BLOCKED },
+      },
+    } as Routes);
+    await w.get('[data-testid="telegram-card"] [data-testid="send-test"]').trigger('click');
+    await flushPromises();
+    const result = w.get('[data-testid="test-result"]');
+    expect(result.text()).toBe(`The test did not arrive. ${BLOCKED}`);
+    expect(result.classes()).toContain('wrap-anywhere');
+    expect(result.text()).not.toMatch(/\{|chat_id|"ok"/);
+    expect(w.get('[data-testid="telegram-card"] header').text()).toContain('1 failing');
+    w.unmount();
+  });
+});
+
+describe('deleting a channel asks first (ADR-219)', () => {
+  const hook = channel({
+    name: 'Bridge',
+    config: { url: 'https://hooks.example.com/x' },
+    ruleCount: 3,
+  });
+
+  it('asks, Cancel changes nothing, Delete calls once, the row goes and a toast says so', async () => {
+    const { w, calls } = await mountChannels({
+      'GET /api/v1/alert-channels': [
+        { status: 200, body: { channels: [hook] } },
+        { status: 200, body: { channels: [] } },
+      ],
+      [`DELETE /api/v1/alert-channels/${hook.id}`]: { status: 204 },
+    } as Routes);
+    const path = `/api/v1/alert-channels/${hook.id}`;
+    const row = () => w.find('[data-testid="webhook-card"] [data-testid="channel-row"]');
+    await row().get('[data-testid="delete-channel"]').trigger('click');
+    await flushPromises();
+    const text = dialogText('delete-channel');
+    expect(text).toContain('Delete this channel?');
+    expect(text).toContain('Bridge');
+    expect(text).toContain('Alerts are no longer sent to it.');
+    expect(text).toContain('It is taken out of the 3 rules that use it.');
+    expect(document.activeElement).toBe(
+      document.querySelector('[data-testid="delete-channel-cancel"]'),
+    );
+    await cancel('delete-channel');
+    expect(count(calls, 'DELETE', path)).toBe(0);
+    expect(row().exists()).toBe(true);
+
+    await row().get('[data-testid="delete-channel"]').trigger('click');
+    await flushPromises();
+    await confirmTwice('delete-channel');
+    expect(count(calls, 'DELETE', path)).toBe(1);
+    expect(dialogOf('delete-channel')).toBeNull();
+    expect(row().exists()).toBe(false);
+    expect(toasts()).toEqual(['Channel Bridge deleted.']);
+    w.unmount();
+  });
+
+  it('a refusal is shown in the dialog and the channel stays', async () => {
+    const { w } = await mountChannels({
+      'GET /api/v1/alert-channels': { status: 200, body: { channels: [hook] } },
+      [`DELETE /api/v1/alert-channels/${hook.id}`]: problem(
+        403,
+        'Only Owners and Admins can delete a channel.',
+      ),
+    } as Routes);
+    await w.get('[data-testid="delete-channel"]').trigger('click');
+    await flushPromises();
+    await confirm('delete-channel');
+    expect(errorOf('delete-channel')).toBe('Only Owners and Admins can delete a channel.');
+    await cancel('delete-channel');
+    expect(w.find('[data-testid="webhook-card"] [data-testid="channel-row"]').exists()).toBe(true);
+    expect(toasts()).toEqual([]);
     w.unmount();
   });
 });

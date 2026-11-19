@@ -10,7 +10,17 @@ import { useAuthStore } from '@/stores/auth';
 import AcceptInvitePage from '@/views/AcceptInvitePage.vue';
 import LoginPage from '@/views/LoginPage.vue';
 import ResetPasswordPage from '@/views/ResetPasswordPage.vue';
-import { mockFetch, USER } from './fetch-mock';
+import {
+  cancel,
+  confirm,
+  confirmTwice,
+  count,
+  dialogOf,
+  dialogText,
+  errorOf,
+  toasts,
+} from './confirm';
+import { mockFetch, problem, USER } from './fetch-mock';
 import { createPlugins } from './helpers';
 
 afterEach(() => {
@@ -96,6 +106,158 @@ async function mountAt(component: unknown, path: string, role = 'owner', signedI
   return { w, router: plugins.router };
 }
 
+describe('Settings → Users: taking access away asks first (ADR-219)', () => {
+  const emails = (w: { findAll: (s: string) => { text: () => string }[] }) =>
+    w.findAll('[data-testid="user-row"]').map((r) => r.text());
+  const without = (id: string): UserList => ({
+    ...LIST,
+    users: LIST.users.filter((u) => u.id !== id),
+    invites: LIST.invites.filter((i) => i.id !== id),
+  });
+
+  it('removing a person: asks, Cancel changes nothing, Remove calls once, the row goes', async () => {
+    const { calls } = mockFetch({
+      'GET /api/v1/users': [
+        { status: 200, body: LIST },
+        { status: 200, body: without('omar') },
+      ],
+      'DELETE /api/v1/users/omar': { status: 204 },
+    });
+    const { w } = await mountAt(UsersSettings, '/settings?tab=users');
+    const omar = () => w.findAll('[data-testid="user-row"]').find((r) => r.text().includes('Omar'));
+    await omar()!.get('[data-testid="remove"]').trigger('click');
+    await flushPromises();
+    const text = dialogText('remove');
+    expect(text).toContain('Remove Omar Haddad?');
+    expect(text).toContain('omar@example.com');
+    expect(text).toContain('They lose access right away and are signed out.');
+    expect(text).toContain('Their API token is revoked');
+    expect(document.activeElement).toBe(document.querySelector('[data-testid="remove-cancel"]'));
+    expect(document.querySelector('[data-testid="remove-confirm"]')!.className).toContain(
+      'bg-critical',
+    );
+
+    await cancel('remove');
+    expect(dialogOf('remove')).toBeNull();
+    expect(count(calls, 'DELETE', '/api/v1/users/omar')).toBe(0);
+    expect(omar()).toBeDefined();
+
+    await omar()!.get('[data-testid="remove"]').trigger('click');
+    await flushPromises();
+    await confirmTwice('remove');
+    expect(count(calls, 'DELETE', '/api/v1/users/omar')).toBe(1);
+    expect(dialogOf('remove')).toBeNull();
+    expect(omar()).toBeUndefined();
+    expect(toasts()).toEqual(['Omar Haddad was removed.']);
+    w.unmount();
+  });
+
+  it('revoking a pending invite and removing an expired one: each asks, then the row goes', async () => {
+    const { calls } = mockFetch({
+      'GET /api/v1/users': [
+        { status: 200, body: LIST },
+        { status: 200, body: without('i1') },
+        { status: 200, body: { ...without('i1'), invites: [] } },
+      ],
+      'DELETE /api/v1/users/invites/i1': { status: 204 },
+      'DELETE /api/v1/users/invites/i2': { status: 204 },
+    });
+    const { w } = await mountAt(UsersSettings, '/settings?tab=users');
+    const row = (email: string) =>
+      w.findAll('[data-testid="user-row"]').find((r) => r.text().includes(email));
+
+    // Pending: the button says Revoke.
+    expect(row('oncall@example.com')!.get('[data-testid="revoke"]').text()).toBe('Revoke');
+    await row('oncall@example.com')!.get('[data-testid="revoke"]').trigger('click');
+    await flushPromises();
+    expect(count(calls, 'DELETE', '/api/v1/users/invites/i1')).toBe(0);
+    let text = dialogText('revoke');
+    expect(text).toContain('Revoke this invite?');
+    expect(text).toContain('oncall@example.com');
+    expect(text).toContain('The invite link stops working at once.');
+    expect(document.querySelector('[data-testid="revoke-confirm"]')!.textContent!.trim()).toBe(
+      'Revoke invite',
+    );
+    expect(document.activeElement).toBe(document.querySelector('[data-testid="revoke-cancel"]'));
+    await cancel('revoke');
+    expect(count(calls, 'DELETE', '/api/v1/users/invites/i1')).toBe(0);
+    expect(row('oncall@example.com')).toBeDefined();
+    await row('oncall@example.com')!.get('[data-testid="revoke"]').trigger('click');
+    await flushPromises();
+    await confirmTwice('revoke');
+    expect(count(calls, 'DELETE', '/api/v1/users/invites/i1')).toBe(1);
+    expect(row('oncall@example.com')).toBeUndefined();
+    expect(toasts()).toEqual(['Invite for oncall@example.com revoked.']);
+
+    // Expired: the same button says Remove, and asks too.
+    expect(row('sam@example.com')!.get('[data-testid="revoke"]').text()).toBe('Remove');
+    await row('sam@example.com')!.get('[data-testid="revoke"]').trigger('click');
+    await flushPromises();
+    text = dialogText('revoke');
+    expect(text).toContain('Remove this expired invite?');
+    expect(text).toContain('sam@example.com');
+    expect(document.querySelector('[data-testid="revoke-confirm"]')!.textContent!.trim()).toBe(
+      'Remove invite',
+    );
+    expect(count(calls, 'DELETE', '/api/v1/users/invites/i2')).toBe(0);
+    await confirm('revoke');
+    expect(count(calls, 'DELETE', '/api/v1/users/invites/i2')).toBe(1);
+    expect(row('sam@example.com')).toBeUndefined();
+    expect(toasts()).toContain('Invite for sam@example.com removed.');
+    expect(emails(w)).toHaveLength(3);
+    w.unmount();
+  });
+
+  it('a refusal is shown in the dialog and the row stays', async () => {
+    const { calls } = mockFetch({
+      'GET /api/v1/users': { status: 200, body: LIST },
+      'DELETE /api/v1/users/omar': problem(403, 'Only the Owner can remove an Admin.'),
+      'DELETE /api/v1/users/invites/i1': problem(404, 'This invite no longer exists.'),
+    });
+    const { w } = await mountAt(UsersSettings, '/settings?tab=users');
+    const row = (text: string) =>
+      w.findAll('[data-testid="user-row"]').find((r) => r.text().includes(text));
+    await row('Omar')!.get('[data-testid="remove"]').trigger('click');
+    await flushPromises();
+    await confirm('remove');
+    expect(errorOf('remove')).toBe('Only the Owner can remove an Admin.');
+    expect(dialogOf('remove')).not.toBeNull();
+    await cancel('remove');
+    expect(row('Omar')).toBeDefined();
+
+    await row('oncall@example.com')!.get('[data-testid="revoke"]').trigger('click');
+    await flushPromises();
+    await confirm('revoke');
+    expect(errorOf('revoke')).toBe('This invite no longer exists.');
+    await cancel('revoke');
+    expect(row('oncall@example.com')).toBeDefined();
+    expect(toasts()).toEqual([]);
+    // Nothing was reloaded: the list is as the server last sent it.
+    expect(count(calls, 'GET', '/api/v1/users')).toBe(1);
+    w.unmount();
+  });
+
+  it('a Viewer’s Remove and Revoke are disabled, as every control there is', async () => {
+    mockFetch({
+      'GET /api/v1/users': {
+        status: 200,
+        body: {
+          ...LIST,
+          users: LIST.users.map((u) => ({ ...u, you: u.id === 'omar' })),
+          audit: [],
+        },
+      },
+    });
+    const { w } = await mountAt(UsersSettings, '/settings?tab=users', 'viewer');
+    const buttons = w.findAll('[data-testid="remove"], [data-testid="revoke"]');
+    expect(buttons.length).toBeGreaterThan(0);
+    // A disabled fieldset: no mouse, keyboard or screen reader can press them. The server
+    // refuses a Viewer too (backend/test/users.test.ts walks every route by role).
+    for (const b of buttons) expect(b.element.closest('fieldset')?.disabled).toBe(true);
+    w.unmount();
+  });
+});
+
 describe('Settings → Users', () => {
   it('shows people and invites with their actions, and invites by link without SMTP', async () => {
     const { calls } = mockFetch({
@@ -139,6 +301,9 @@ describe('Settings → Users', () => {
     await rows[2]!.get('[data-testid="role"]').setValue('admin');
     await flushPromises();
     expect(calls.find((c) => c.method === 'PATCH')!.body).toEqual({ role: 'admin' });
+    // The server answers 204 with no body: that is a success, said and reloaded.
+    expect(toasts()).toEqual(['Omar Haddad is now Admin.']);
+    expect(count(calls, 'GET', '/api/v1/users')).toBe(2);
 
     await w.get('[data-testid="invite"]').trigger('click');
     await flushPromises();
