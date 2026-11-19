@@ -24,6 +24,7 @@ import (
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/containers"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/exits"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/host"
+	"github.com/watchlog-light/watchlog/agent/internal/collectors/jobs"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/kubepods"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/network"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/procs"
@@ -201,6 +202,7 @@ func run(args []string, stdout io.Writer) int {
 	// A server's own events (0.9.2): its services' and process groups', sent like Docker's.
 	var serverEvents *serverevents.Recorder
 	var certCollector *certs.Collector
+	var jobTracker *jobs.Tracker
 	var remoteRules *procs.RemoteRules
 	if mode == config.ModeServer {
 		// Exit codes and OOM kills from the kernel (ADR-210); without eBPF they are unknown.
@@ -239,6 +241,15 @@ func run(args []string, stdout io.Writer) int {
 				svc.Exits = feed.TakeAll
 			}
 			sources = append(sources, runner.Source{Name: "services", Collect: svc.Collect})
+			// Scheduled jobs (ADR-223): systemd timers, read with the services.
+			jobTracker = &jobs.Tracker{Path: jobs.StatePath(*bufferDir), Events: serverEvents, Boot: jobs.BootTime(paths.Proc), Since: time.Now()}
+			jobTracker.Load()
+			sources = append(sources, runner.Source{Name: "jobs", Collect: func() ([]metrics.Sample, error) {
+				if obs, err := jobs.Timers(bus); err == nil {
+					jobTracker.Update("timer", obs, time.Now())
+				}
+				return jobTracker.Collect()
+			}})
 		} else {
 			slog.Info("systemd isn't reachable on D-Bus: services are off", "socket", bus.Socket)
 		}
@@ -514,7 +525,11 @@ func run(args []string, stdout io.Writer) int {
 		go certCollector.Run(ctx)
 		inv := &inventory.Shipper{Send: snd.SendObjects, Log: log, Build: func() inventory.Snapshot {
 			list, cov := certCollector.Certificates()
-			return inventory.Snapshot{Node: *hostname, Certificates: list, CertCoverage: cov}
+			snap := inventory.Snapshot{Node: *hostname, Certificates: list, CertCoverage: cov}
+			if jobTracker != nil {
+				snap.Jobs = jobTracker.Jobs()
+			}
+			return snap
 		}}
 		go inv.Run(ctx)
 	}
