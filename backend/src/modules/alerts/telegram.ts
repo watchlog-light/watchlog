@@ -21,10 +21,9 @@ export async function telegramBotName(
   token: string,
   proxy?: string,
 ): Promise<string> {
-  const me = (await telegramCall(http, apiUrl, token, 'getMe', {}, proxy)) as {
-    username?: string;
-  };
-  if (!me.username) throw new Error('Telegram getMe returned no username');
+  const me = (await telegramCall(http, apiUrl, token, 'getMe', {}, proxy)) as
+    { username?: string } | undefined;
+  if (!me?.username) throw new Error('Telegram did not say what the bot is called');
   return me.username;
 }
 
@@ -95,7 +94,7 @@ export async function pollTelegramVerifications(
         : undefined;
       if (!token) return;
       const offset = Math.max(...rows.map((r) => Number(r.update_offset)));
-      let updates: Update[];
+      let updates: Update[] | undefined;
       try {
         updates = (await telegramCall(
           deps.http,
@@ -104,7 +103,9 @@ export async function pollTelegramVerifications(
           'getUpdates',
           { offset, timeout: timeoutS, allowed_updates: ['message'] },
           proxy,
-        )) as Update[];
+        )) as Update[] | undefined;
+        // An answer too long to read whole: nothing is bound this round.
+        if (!Array.isArray(updates)) throw new Error('Telegram sent more updates than are read');
       } catch (err) {
         deps.log.warn(
           { channel: channelId, err: (err as Error).message },

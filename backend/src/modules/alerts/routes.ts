@@ -20,7 +20,7 @@ import { redactUrl } from '../../lib/redact.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { alertDefaultByKey } from '../integrations/alert-defaults.js';
 import { ProblemSchema } from '../auth/schemas.js';
-import { UnreachableError, type HttpClient } from './channels.js';
+import { DeliveryError, UnreachableError, type HttpClient } from './channels.js';
 import { egressMessage } from '../../lib/egress.js';
 import { sendTest, type DeliveryDeps } from './delivery.js';
 import { defaultRuleOf, ensureDefaultRules, insertThresholdRule } from './rules.js';
@@ -226,7 +226,12 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
         ProblemType.telegramUnreachable,
       );
     }
-    return sendProblem(reply, 400, `The bot token did not work: ${(err as Error).message}`);
+    // A refusal says what to do itself ("Telegram did not accept the bot token (401). …").
+    return sendProblem(
+      reply,
+      400,
+      err instanceof DeliveryError ? err.message : 'Telegram did not say what the bot is called.',
+    );
   }
 
   /** Each alert's latest firing message per channel: ✓ or ✕ with the error. */
@@ -1358,7 +1363,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
       preHandler: canManage,
       config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
       schema: {
-        summary: 'Send a test message now; returns the provider error if it fails',
+        summary: 'Send a test message now; a failure says what failed and what to do',
         tags: ['alerts'],
         params: IdParams,
         response: { 200: TestResultSchema, ...Errors },

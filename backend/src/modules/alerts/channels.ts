@@ -5,6 +5,16 @@ import { createHmac } from 'node:crypto';
 import nodemailer, { type Transporter } from 'nodemailer';
 import { Agent, EnvHttpProxyAgent, ProxyAgent, fetch, type Dispatcher } from 'undici';
 import { EgressRefused, type EgressPolicy } from '../../lib/egress.js';
+import {
+  DeliveryError,
+  slackError,
+  smtpError,
+  telegramError,
+  unreachableError,
+  webhookError,
+  type Callee,
+  type TelegramAnswer,
+} from './delivery-errors.js';
 import type { NotifyCause } from './likely-cause.js';
 import type { MessagePayload } from './outbox.js';
 import { renderMessage, type RenderedMessage } from './render.js';
@@ -20,15 +30,7 @@ export interface ChannelTarget {
   secret: Record<string, string>;
 }
 
-export class DeliveryError extends Error {
-  constructor(
-    message: string,
-    /** Retrying cannot help (wrong URL, revoked token, rejected recipient). */
-    readonly permanent: boolean,
-  ) {
-    super(message);
-  }
-}
+export { DeliveryError, UnreachableError, isPermanentStatus } from './delivery-errors.js';
 
 export interface DeliveryContext {
   http: HttpClient;
@@ -43,21 +45,23 @@ export interface DeliveryContext {
 }
 
 export const TIMEOUT_MS = 10_000;
+/**
+ * How much of an answer is read. Telegram's answers are JSON that must be read whole to be
+ * understood (a sent message comes back with its chat and its text: more than 500 characters,
+ * which was the limit until 0.9.8 and made every delivered message look refused); a webhook's
+ * server may answer with anything, so the rest is not read.
+ */
+export const MAX_ANSWER_BYTES = 1024 * 1024;
 const USER_AGENT = 'WatchLog-Alerts/1';
 
 export interface HttpResponse {
   status: number;
+  /** The answer's text, up to MAX_ANSWER_BYTES. */
   body: string;
-}
-
-/** A network failure, not an answer: the host could not be reached. */
-export class UnreachableError extends DeliveryError {
-  constructor(
-    message: string,
-    readonly reason: string,
-  ) {
-    super(message, false);
-  }
+  /** The answer was longer than that. */
+  truncated: boolean;
+  /** The Retry-After header, in seconds, when the server sent one. */
+  retryAfter?: string;
 }
 
 /** How a request's address came to us. */
@@ -67,6 +71,29 @@ export interface PostOptions {
    * policy (ADR-181): checked, connected only to a checked address, never via the proxy.
    */
   userUrl?: boolean;
+  /** Who is called, as a failure names it ("Could not reach Telegram: timed out."). */
+  who?: Callee;
+}
+
+/** Reads an answer's body up to `max` bytes and lets go of the rest. */
+async function readAnswer(
+  body: AsyncIterable<Uint8Array> | null,
+  max: number,
+): Promise<{ text: string; truncated: boolean }> {
+  if (!body) return { text: '', truncated: false };
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  let truncated = false;
+  for await (const chunk of body) {
+    if (size + chunk.length > max) {
+      chunks.push(chunk.subarray(0, max - size));
+      truncated = true;
+      break; // leaving the loop cancels the stream
+    }
+    chunks.push(chunk);
+    size += chunk.length;
+  }
+  return { text: Buffer.concat(chunks).toString('utf8'), truncated };
 }
 
 export class HttpClient {
@@ -78,6 +105,8 @@ export class HttpClient {
     proxy: { http?: string; https?: string; no?: string } = {},
     /** Cloud's egress policy for users' URLs (ADR-181); Community has none (ADR-091). */
     readonly egress: EgressPolicy | null = null,
+    /** How long a request may take, answer included. */
+    private readonly timeoutMs = TIMEOUT_MS,
   ) {
     this.dispatcher =
       proxy.http || proxy.https
@@ -121,15 +150,27 @@ export class HttpClient {
         body,
         headers: { 'content-type': 'application/json', 'user-agent': USER_AGENT, ...headers },
         dispatcher: guarded ? guarded.dispatcher : this.via(proxy),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: AbortSignal.timeout(this.timeoutMs),
         redirect: 'error',
       });
     } catch (err) {
       const cause = (err as { cause?: unknown }).cause;
       if (cause instanceof EgressRefused) throw refused(url, cause);
-      throw unreachable(url, err);
+      throw unreachableError(opts.who ?? hostOf(url), err);
     }
-    return { status: res.status, body: (await res.text()).slice(0, 500) };
+    let answer;
+    try {
+      answer = await readAnswer(res.body, MAX_ANSWER_BYTES);
+    } catch (err) {
+      // The status came, the body did not (the time ran out, or the connection dropped).
+      throw unreachableError(opts.who ?? hostOf(url), err);
+    }
+    return {
+      status: res.status,
+      body: answer.text,
+      truncated: answer.truncated,
+      retryAfter: res.headers.get('retry-after') ?? undefined,
+    };
   }
 
   /** Whether a host answers at all (any HTTP status), within 5 s. */
@@ -144,7 +185,7 @@ export class HttpClient {
       });
       await res.body?.cancel();
     } catch (err) {
-      throw unreachable(url, err);
+      throw unreachableError(hostOf(url), err);
     }
   }
 
@@ -163,31 +204,12 @@ function refused(url: string, err: EgressRefused): DeliveryError {
   );
 }
 
-function unreachable(url: string, err: unknown): UnreachableError {
-  const cause = (err as { cause?: { code?: string; message?: string } }).cause;
-  const reason =
-    (err as Error).name === 'TimeoutError'
-      ? 'timed out'
-      : (cause?.code ?? cause?.message ?? (err as Error).message);
-  return new UnreachableError(`${hostOf(url)} unreachable: ${reason}`, reason);
-}
-
 function hostOf(url: string): string {
-  return URL.canParse(url) ? new URL(url).host : 'endpoint';
+  return URL.canParse(url) ? new URL(url).host : 'the server';
 }
 
-/** 4xx other than timeouts and rate limits will fail again (ADR-074). */
-export function isPermanentStatus(status: number): boolean {
-  return [400, 401, 403, 404, 405, 410, 413, 422].includes(status);
-}
-
-function check(res: HttpResponse, what: string): void {
-  if (res.status >= 200 && res.status < 300) return;
-  throw new DeliveryError(
-    `${what} answered ${res.status}: ${res.body.slice(0, 200)}`,
-    isPermanentStatus(res.status),
-  );
-}
+/** Any 2xx is delivered: Slack answers 200 "ok", a webhook's server whatever it likes. */
+const delivered = (res: HttpResponse): boolean => res.status >= 200 && res.status < 300;
 
 // ---------------------------------------------------------------- Slack
 
@@ -250,10 +272,11 @@ async function sendSlack(
 ) {
   const url = ch.secret.webhookUrl;
   if (!url) throw new DeliveryError('Slack webhook URL is not set', true);
-  check(
-    await ctx.http.post(url, JSON.stringify(slackBody(m, p)), {}, undefined, { userUrl: true }),
-    'Slack',
-  );
+  const res = await ctx.http.post(url, JSON.stringify(slackBody(m, p)), {}, undefined, {
+    userUrl: true,
+    who: 'Slack',
+  });
+  if (!delivered(res)) throw slackError(res.status, res.body, res.retryAfter);
 }
 
 // ---------------------------------------------------------------- Telegram
@@ -292,18 +315,23 @@ export async function telegramCall(
     JSON.stringify(body),
     {},
     proxy,
+    { who: 'Telegram' },
   );
-  let parsed: { ok?: boolean; result?: unknown; description?: string } = {};
+  let answer: TelegramAnswer | null = null;
   try {
-    parsed = JSON.parse(res.body) as typeof parsed;
+    const parsed: unknown = JSON.parse(res.body);
+    if (parsed && typeof parsed === 'object') answer = parsed as TelegramAnswer;
   } catch {
-    // reported below
+    // Not JSON, or longer than what is read: decided below.
   }
-  if (res.status >= 200 && res.status < 300 && parsed.ok) return parsed.result;
-  throw new DeliveryError(
-    `Telegram ${method} answered ${res.status}: ${parsed.description ?? res.body.slice(0, 200)}`,
-    isPermanentStatus(res.status),
-  );
+  // Telegram's own rule: a call worked when it answers 2xx with "ok": true.
+  if (delivered(res)) {
+    if (answer?.ok === true) return answer.result;
+    // Longer than what is read (never a sent message; a full page of updates could be): it
+    // still begins with Telegram's "ok".
+    if (res.truncated && /^\s*\{\s*"ok"\s*:\s*true\b/.test(res.body)) return undefined;
+  }
+  throw telegramError(method, res.status, answer);
 }
 
 async function sendTelegram(ch: ChannelTarget, m: RenderedMessage, ctx: DeliveryContext) {
@@ -375,10 +403,7 @@ async function sendEmail(ch: ChannelTarget, m: RenderedMessage, ctx: DeliveryCon
       headers: { 'X-WatchLog-Delivery': ctx.deliveryId },
     });
   } catch (err) {
-    const e = err as { responseCode?: number; code?: string; message: string };
-    // SMTP 5xx replies are final (unknown recipient, rejected sender); 4xx and network errors are not.
-    const permanent = (e.responseCode ?? 0) >= 500 || e.code === 'EENVELOPE';
-    throw new DeliveryError(`SMTP: ${e.message.slice(0, 200)}`, permanent);
+    throw smtpError(err);
   }
 }
 
@@ -462,10 +487,14 @@ async function sendWebhook(
       Math.floor(now / 1000),
     );
   }
-  check(await ctx.http.post(url, body, headers, undefined, { userUrl: true }), 'Webhook');
+  const res = await ctx.http.post(url, body, headers, undefined, {
+    userUrl: true,
+    who: "the webhook's server",
+  });
+  if (!delivered(res)) throw webhookError(res.status, res.retryAfter);
 }
 
-/** Sends one message to one channel; throws DeliveryError with the provider's answer. */
+/** Sends one message to one channel; throws a DeliveryError that says what failed (ADR-218). */
 export async function deliver(
   ch: ChannelTarget,
   p: MessagePayload,

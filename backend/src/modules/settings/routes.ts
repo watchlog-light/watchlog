@@ -11,7 +11,7 @@ import { ProblemSchema } from '../auth/schemas.js';
 import nodemailer from 'nodemailer';
 import { encryptJson } from '../../lib/secrets.js';
 import { redactUrl, restoreUrlPassword } from '../../lib/redact.js';
-import type { HttpClient } from '../alerts/channels.js';
+import { UnreachableError, type HttpClient } from '../alerts/channels.js';
 import {
   smtpTransport,
   type LogsAccess,
@@ -441,7 +441,11 @@ export const settingsRoutes: FastifyPluginAsyncTypebox<{
         await http.probe(s.telegramApiUrl, s.telegramProxy);
         return { reachable: true, error: null };
       } catch (err) {
-        return { reachable: false, error: (err as Error).message };
+        // In plain words ("timed out"): the page puts it in its own sentence.
+        return {
+          reachable: false,
+          error: err instanceof UnreachableError ? err.reason : 'network error',
+        };
       }
     },
   );

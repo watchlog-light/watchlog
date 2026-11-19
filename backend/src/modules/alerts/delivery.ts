@@ -14,6 +14,7 @@ import {
   type ChannelType,
   type HttpClient,
 } from './channels.js';
+import { redact } from './delivery-errors.js';
 import { attachCauses, type WorkOut } from './likely-cause.js';
 import type { MessagePayload } from './outbox.js';
 import { testPayload } from './render.js';
@@ -190,8 +191,14 @@ export async function deliverDue(deps: DeliveryDeps, now = Date.now()): Promise<
             now: () => now,
           });
         } catch (err) {
+          // Anything else is ours (a secret that can't be read, a bug): said without its details.
           error =
-            err instanceof DeliveryError ? err : new DeliveryError((err as Error).message, false);
+            err instanceof DeliveryError
+              ? err
+              : new DeliveryError(
+                  `WatchLog could not send it: ${redact((err as Error).message)}`,
+                  false,
+                );
         }
         const outcome = await finish(db, n, error, now);
         report[outcome]++;
@@ -260,7 +267,11 @@ async function finish(
       error: error?.message.slice(0, 1000) ?? null,
       sent_at: outcome === 'sent' ? at : null,
       lease_until: null,
-      next_attempt_at: outcome === 'retried' ? new Date(now + backoffMs(n.attempts)) : at,
+      // Not sooner than the provider asked (429 with Retry-After).
+      next_attempt_at:
+        outcome === 'retried'
+          ? new Date(now + Math.max(backoffMs(n.attempts), error?.retryAfterMs ?? 0))
+          : at,
     })
     .where('id', '=', n.id)
     .where('status', '=', 'sending')
@@ -278,7 +289,7 @@ async function finish(
   return outcome;
 }
 
-/** "Send test" (ADR-080): one message now, the provider's error returned as is. */
+/** "Send test" (ADR-080): one message now; a failure says what failed and what to do (ADR-218). */
 export async function sendTest(
   deps: DeliveryDeps,
   channelId: string,
@@ -296,6 +307,12 @@ export async function sendTest(
     });
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: (err as Error).message };
+    return {
+      ok: false,
+      error:
+        err instanceof DeliveryError
+          ? err.message
+          : `WatchLog could not send it: ${redact((err as Error).message)}`,
+    };
   }
 }
