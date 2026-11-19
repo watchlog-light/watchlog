@@ -499,10 +499,79 @@ describe('signup', () => {
 // ------------------------------------------------------------------- email verification
 
 describe('email verification', () => {
+  it('with the code from the email (ADR-220): 15 minutes, 5 wrong tries, only the newest email’s', async () => {
+    await cloudContext();
+    const { cookie, user } = await signedUp('code@example.com');
+    const code = (c: string, k = cookie) =>
+      call('POST', '/api/v1/auth/verify-email/code', k, { code: c });
+    // Signed in only.
+    const anon = await code('123456', '');
+    expect(anon.statusCode, anon.body).toBe(401);
+    // An older email's code stops working when a new email goes out.
+    const first = await createVerifyToken(ctx.db, user.id, user.email);
+    const second = await createVerifyToken(ctx.db, user.id, user.email);
+    const wrong = first.code === second.code ? '000000' : first.code;
+    const refused = await code(wrong);
+    expect(refused.statusCode).toBe(400);
+    expect(refused.json().code).toBe('code-invalid');
+    // Spaced as the email shows it.
+    const ok = await code(`${second.code.slice(0, 3)} ${second.code.slice(3)}`);
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json()).toEqual({ verified: true });
+    const row = await ctx.db
+      .selectFrom('users')
+      .select('email_verified_at')
+      .where('id', '=', user.id)
+      .executeTakeFirstOrThrow();
+    expect(row.email_verified_at).not.toBeNull();
+    expect((await code(second.code)).json().code).toBe('already-verified');
+  });
+
+  it('a code dies after 15 minutes or 5 wrong tries; the link in the same email still works', async () => {
+    await cloudContext();
+    const { cookie, user } = await signedUp('tries@example.com');
+    const code = (c: string) => call('POST', '/api/v1/auth/verify-email/code', cookie, { code: c });
+    const old = await createVerifyToken(
+      ctx.db,
+      user.id,
+      user.email,
+      new Date(Date.now() - 16 * 60_000),
+    );
+    const late = await code(old.code);
+    expect(late.statusCode).toBe(410);
+    expect(late.json().code).toBe('code-expired');
+    const fresh = await createVerifyToken(ctx.db, user.id, user.email);
+    const bad = fresh.code === '999999' ? '999998' : '999999';
+    for (let i = 0; i < 4; i++) expect((await code(bad)).json().code).toBe('code-invalid');
+    expect((await code(bad)).json().code).toBe('code-expired');
+    // The fifth wrong try ended it: even the right code is refused now.
+    expect((await code(fresh.code)).json().code).toBe('code-expired');
+    expect(
+      (await call('POST', '/api/v1/auth/verify-email', undefined, { token: fresh.token }))
+        .statusCode,
+    ).toBe(200);
+  });
+
+  it('the verification email carries the code in its subject and a link', async () => {
+    await cloudContext();
+    const { user } = await signedUp('subject@example.com');
+    const { code, token } = await createVerifyToken(ctx.db, user.id, user.email);
+    expect(code).toMatch(/^[0-9]{6}$/);
+    expect(token.length).toBeGreaterThanOrEqual(20);
+    const stored = await ctx.db
+      .selectFrom('email_tokens')
+      .select(['code_hash', 'code_expires_at'])
+      .where('token_hash', '=', sha256(token))
+      .executeTakeFirstOrThrow();
+    // A hash, never the code.
+    expect(stored.code_hash!.toString('utf8')).not.toContain(code);
+    expect(stored.code_expires_at!.getTime() - Date.now()).toBeLessThanOrEqual(15 * 60_000);
+  });
+
   it('verifies once with the link, and the link is single-use and expires', async () => {
     await cloudContext();
     const { user } = await signedUp('v@example.com');
-    const token = await createVerifyToken(ctx.db, user.id, user.email);
+    const { token } = await createVerifyToken(ctx.db, user.id, user.email);
     const ok = await call('POST', '/api/v1/auth/verify-email', undefined, { token });
     expect(ok.statusCode, ok.body).toBe(200);
     const row = await ctx.db
@@ -513,7 +582,7 @@ describe('email verification', () => {
     expect(row.email_verified_at).not.toBeNull();
     const again = await call('POST', '/api/v1/auth/verify-email', undefined, { token });
     expect(again.json().code).toBe('invalid-token');
-    const old = await createVerifyToken(ctx.db, user.id, user.email);
+    const { token: old } = await createVerifyToken(ctx.db, user.id, user.email);
     await ctx.db
       .updateTable('email_tokens')
       .set({ expires_at: new Date(Date.now() - 1000) })
@@ -551,7 +620,7 @@ describe('email verification', () => {
     }
     const fourth = await call('POST', '/api/v1/auth/verify-email/resend', cookie, {});
     expect(fourth.statusCode).toBe(429);
-    const token = await createVerifyToken(ctx.db, user.id, user.email);
+    const { token } = await createVerifyToken(ctx.db, user.id, user.email);
     await call('POST', '/api/v1/auth/verify-email', undefined, { token });
     expect((await call('GET', '/api/v1/clusters', cookie)).statusCode).toBe(200);
     expect((await call('POST', '/api/v1/auth/verify-email/resend', cookie, {})).json().code).toBe(

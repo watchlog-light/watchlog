@@ -1,0 +1,12 @@
+Subject: [Test] WatchLog alert channel for test
+
+TEST
+This alert channel works
+
+This is a test from WatchLog. Alerts will arrive like this. No action
+needed.
+
+-- 
+You got this because this address is an alert channel for test.
+Change it in Settings › Alert channels.
+WatchLog · https://watchlog.io

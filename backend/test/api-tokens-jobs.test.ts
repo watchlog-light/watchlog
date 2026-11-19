@@ -3,12 +3,10 @@
 // days, and the expiry reminder through the email server (Mailpit in tests).
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
-import {
-  reminderEmail,
-  runApiTokenJobs,
-  type TokenJobDeps,
-} from '../src/modules/api-tokens/jobs.js';
+import { runApiTokenJobs, type TokenJobDeps } from '../src/modules/api-tokens/jobs.js';
 import { createApiToken } from '../src/modules/api-tokens/service.js';
+import { render } from '../src/lib/mail.js';
+import { tokenExpiryEmail } from '../src/modules/emails/notices.js';
 import {
   closeTestContext,
   createTestContext,
@@ -150,10 +148,10 @@ describe('API token upkeep', () => {
 
     const mails = await mailpitMessages(u.email);
     expect(mails).toHaveLength(1);
-    expect(mails[0]!.Subject).toBe('Your WatchLog API token "Cursor" expires on Dec 8, 2026');
+    expect(mails[0]!.Subject).toBe('Your WatchLog API token “Cursor” expires on 8 Dec 2026');
     const text = await mailpitText(mails[0]!.ID);
-    expect(text).toContain('Settings → API tokens');
-    expect(text).toContain('Create a new token');
+    expect(text).toContain('Settings › API tokens');
+    expect(text).toContain('Make a new token in Settings › API tokens.');
     expect(text).not.toMatch(/wl_pat_[A-Za-z0-9_-]{43}/);
     expect(await kinds(id)).toEqual(['created', 'reminder_sent']);
     expect((await row(id))!.reminded_at).not.toBeNull();
@@ -184,17 +182,20 @@ describe('API token upkeep', () => {
   });
 
   it('writes a short plain-text reminder with a link when the public address is known', () => {
-    const mail = reminderEmail({
-      tokenName: 'Claude Code · laptop',
-      prefix: 'wl_pat_7Kq2',
-      expiresAt: new Date('2027-01-31T09:30:00Z'),
-      userName: 'Ada',
-      publicUrl: 'https://watchlog.example.com/',
-    });
-    expect(mail.subject).toBe(
-      'Your WatchLog API token "Claude Code · laptop" expires on Jan 31, 2027',
+    const mail = render(
+      tokenExpiryEmail({
+        tokenName: 'Claude Code · laptop',
+        prefix: 'wl_pat_7Kq2',
+        expiresAt: new Date('2027-01-31T09:30:00Z'),
+        site: 'https://watchlog.example.com/',
+      }),
+      'community',
     );
-    expect(mail.text).toContain('(wl_pat_7Kq2…) expires on Jan 31, 2027 at 09:30 UTC');
-    expect(mail.text).toContain('https://watchlog.example.com/settings');
+    expect(mail.subject).toBe(
+      'Your WatchLog API token “Claude Code · laptop” expires on 31 Jan 2027',
+    );
+    expect(mail.text).toContain('Starts with: wl_pat_7Kq2…');
+    expect(mail.text).toContain('Expires:     Sun 31 Jan, 09:30 UTC');
+    expect(mail.text).toContain('https://watchlog.example.com/settings?tab=tokens');
   });
 });

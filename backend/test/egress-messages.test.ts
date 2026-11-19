@@ -80,7 +80,7 @@ describe('New external destination, Kubernetes', () => {
 
   it('email (plain text): what, where, since when, the likely cause and the Egress link', () => {
     expect(m.subject).toBe(
-      '[WARNING] orders started talking to cdn-update-check.xyz:443 (acme-prod)',
+      '[Warning] orders started talking to cdn-update-check.xyz:443 in acme-prod',
     );
     expect(m.text).toBe(
       [

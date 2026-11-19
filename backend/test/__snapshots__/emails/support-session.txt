@@ -1,0 +1,21 @@
+Subject: WatchLog staff opened a support session in acme
+
+SUPPORT SESSION
+WatchLog staff opened a support session
+
+support@watchlog.example at WatchLog opened a read-only support session
+in acme. Nothing can be changed in it, and it lasts at most an hour.
+
+Who:   support@watchlog.example
+Why:   Customer asked why the service map is empty
+Until: Thu 19 Nov, 15:17 UTC at the latest
+
+See every session:
+https://cloud.watchlog.example/settings?tab=security
+
+Didn’t expect this? Reply to this email.
+
+-- 
+You got this because you are an Owner of acme.
+Settings › Security lists every support session and what it opened.
+WatchLog Cloud · https://watchlog.io

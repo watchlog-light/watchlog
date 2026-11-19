@@ -40,6 +40,7 @@ import {
   testWorker,
 } from './support/alerts.js';
 import {
+  TEST_MAILPIT_URL,
   TEST_SMTP_URL,
   mailpitMessages,
   mailpitText,
@@ -140,7 +141,7 @@ describe('message format (ADR-081, ADR-095)', () => {
       'wl-test/web (Deployment) · cluster prod · since 12:04 UTC (5 min)',
     );
     expect(m.items[0]!.link).toBe(`${PUBLIC_URL}/pods/wl-test/web-1?cluster=c1`);
-    expect(m.subject).toBe('[CRITICAL] web is crash-looping (prod)');
+    expect(m.subject).toBe('[Critical] web is crash-looping in prod');
     expect(m.text).toBe(
       [
         '🔴 CRITICAL · web is crash-looping',
@@ -164,7 +165,7 @@ describe('message format (ADR-081, ADR-095)', () => {
     expect(many.more).toBe('and 3 more');
     expect(many.text).toContain(`and 3 more: ${PUBLIC_URL}/alerts?rule=r1&cluster=c1`);
     expect(many.title).toBe('🔴 CRITICAL · Pod CrashLoopBackOff (8)');
-    expect(many.subject).toBe('[CRITICAL] Pod CrashLoopBackOff: 8 alerts (prod)');
+    expect(many.subject).toBe('[Critical] Pod CrashLoopBackOff: 8 alerts in prod');
     expect(many.text).toContain('web is crash-looping\nlast exit: Error (code 1) · 6 restarts');
   });
 });
@@ -283,10 +284,20 @@ describe('delivery to all four channels', () => {
     // Email: subject and text.
     const mails = await mailpitMessages(recipient);
     expect(mails.map((m) => m.Subject)).toEqual([
-      '[CRITICAL] Pod CrashLoopBackOff (prod)',
-      '[RESOLVED] Pod CrashLoopBackOff (prod)',
+      '[Critical] Pod CrashLoopBackOff in prod',
+      '[Resolved] Pod CrashLoopBackOff in prod',
     ]);
     expect(await mailpitText(mails[0]!.ID)).toContain('main: Error (exit 1), 6 restarts');
+    // The resolve threads under the firing email (ADR-220), and both are multipart.
+    const head = async (id: string) =>
+      (await (await fetch(`${TEST_MAILPIT_URL}/api/v1/message/${id}/headers`)).json()) as Record<
+        string,
+        string[]
+      >;
+    const [fired, resolved] = [await head(mails[0]!.ID), await head(mails[1]!.ID)];
+    expect(resolved['In-Reply-To']).toEqual(fired['Message-Id'] ?? fired['Message-ID']);
+    expect(resolved.References).toEqual(fired['Message-Id'] ?? fired['Message-ID']);
+    expect(fired['Content-Type']![0]).toMatch(/multipart\/alternative/);
     // Every row is sent, every channel records it.
     expect(rows.every((r) => r.status === 'sent')).toBe(true);
     const channels = await ctx.db
@@ -307,8 +318,8 @@ describe('delivery to all four channels', () => {
     expect(mock.to('/slack')).toHaveLength(1);
     expect(mock.to('/bot123:abc/sendMessage')).toHaveLength(1);
     expect(mock.to('/webhook')[0]!.headers['x-watchlog-event']).toBe('test');
-    expect((await mailpitMessages(recipient))[0]!.Subject).toMatch(
-      /^\[TEST\] WatchLog test message/,
+    expect((await mailpitMessages(recipient))[0]!.Subject).toBe(
+      '[Test] WatchLog alert channel for test',
     );
 
     mock.fail('/bot123:abc/', 401, '{"ok":false,"error_code":401,"description":"Unauthorized"}');

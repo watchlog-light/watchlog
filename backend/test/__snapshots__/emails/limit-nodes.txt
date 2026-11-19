@@ -1,0 +1,23 @@
+Subject: acme is over its node limit
+
+PLAN LIMIT
+acme is over its node limit
+
+A new node tried to send data to acme today, but Cloud Free allows 5
+nodes. Their data is not stored; the nodes that were already sending
+keep sending.
+
+Plan:  Cloud Free
+Limit: 5 nodes
+
+Pro lifts the limit. It is $3 per node (or server) a month, $15 minimum
+(the first 5 nodes); or $30 per node a year.
+
+See Pro:
+https://cloud.watchlog.example/settings?tab=billing
+
+You get at most one email like this per limit and day.
+
+-- 
+You got this because you are an Owner of acme.
+WatchLog Cloud · https://watchlog.io

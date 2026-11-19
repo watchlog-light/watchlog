@@ -1,0 +1,17 @@
+Subject: acme is suspended after 37 days without data
+
+SUSPENDED
+acme is suspended
+
+The WatchLog organization acme received no data for 37 days, so it is
+suspended: agents’ data isn’t stored.
+
+You can still sign in. An Owner can reactivate it, export its data or
+delete it.
+
+Open Settings › Data:
+https://cloud.watchlog.example/settings?tab=data
+
+-- 
+You got this because you are an Owner of acme.
+WatchLog Cloud · https://watchlog.io

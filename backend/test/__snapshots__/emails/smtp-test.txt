@@ -1,0 +1,11 @@
+Subject: WatchLog test email
+
+Email works
+
+This is a test from WatchLog. Alert emails, invites and password resets
+will be sent this way.
+
+-- 
+You got this because someone pressed “Send test email” in Settings ›
+Alert channels.
+WatchLog · https://watchlog.io

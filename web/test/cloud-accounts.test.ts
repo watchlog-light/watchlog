@@ -857,6 +857,55 @@ describe('verifying the email', () => {
     expect(wrapper.find('[data-testid="resend-sent"]').exists()).toBe(true);
   });
 
+  it('confirms with the code from the email, in the banner (ADR-220)', async () => {
+    const { calls } = mockFetch({
+      'POST /api/v1/auth/verify-email/code': { status: 200, body: { verified: true } },
+      'GET /api/v1/auth/account': { status: 200, body: ACCOUNT },
+    });
+    const { wrapper } = await mountCloud(VerifyBanner, '/', {
+      signedIn: true,
+      account: { emailVerified: false, verifyBy: '2026-11-20T10:00:00Z' },
+    });
+    const input = wrapper.get('[data-testid="verify-code"] input');
+    // A phone offers the code from the mail; digits only.
+    expect(input.attributes('autocomplete')).toBe('one-time-code');
+    expect(input.attributes('inputmode')).toBe('numeric');
+    expect(wrapper.get('[data-testid="verify-code"] label').text()).toBe('Code from the email');
+    await input.setValue('482 913');
+    await wrapper.get('[data-testid="verify-code"]').trigger('submit');
+    await flushPromises();
+    expect(calls.find((c) => c.path === '/api/v1/auth/verify-email/code')!.body).toEqual({
+      code: '482913',
+    });
+    // The account is read again: verified, the banner goes.
+    expect(calls.some((c) => c.path === '/api/v1/auth/account')).toBe(true);
+    expect(wrapper.find('[data-testid="verify-banner"]').exists()).toBe(false);
+  });
+
+  it('says what is wrong with a code, under the field', async () => {
+    const { calls } = mockFetch({
+      'POST /api/v1/auth/verify-email/code': cloudProblem(400, 'code-invalid'),
+    });
+    const { wrapper } = await mountCloud(VerifyBanner, '/', {
+      signedIn: true,
+      account: { emailVerified: false, verifyBy: null },
+    });
+    const form = wrapper.get('[data-testid="verify-code"]');
+    await form.get('input').setValue('12');
+    await form.trigger('submit');
+    await flushPromises();
+    expect(calls).toHaveLength(0);
+    expect(form.get('[role="alert"]').text()).toBe('Enter the six digits from the email.');
+    await form.get('input').setValue('123456');
+    await form.trigger('submit');
+    await flushPromises();
+    expect(form.get('[role="alert"]').text()).toContain('That code isn’t right.');
+    mockFetch({ 'POST /api/v1/auth/verify-email/code': cloudProblem(410, 'code-expired') });
+    await form.trigger('submit');
+    await flushPromises();
+    expect(form.get('[role="alert"]').text()).toContain('Send a new email');
+  });
+
   it('shows no banner once verified', async () => {
     const { wrapper } = await mountCloud(VerifyBanner, '/', { signedIn: true });
     expect(wrapper.find('[data-testid="verify-banner"]').exists()).toBe(false);

@@ -17,6 +17,7 @@ import {
   type LifecycleKind,
 } from '../src/modules/lifecycle/texts.js';
 import { unsubscribeToken, verifyUnsubscribeToken } from '../src/modules/lifecycle/unsubscribe.js';
+import { render } from '../src/lib/mail.js';
 import { cloudWorld, type CloudWorld } from './isolation/cloud.js';
 import { TEST_SECRET_KEY } from './helpers.js';
 import { mailpitMessages, TEST_MAILPIT_URL, TEST_SMTP_URL } from './support/mock-providers.js';
@@ -96,20 +97,21 @@ describe('the texts', () => {
     'beta_notice',
   ];
   it('are short, plain, signed, and end with the unsubscribe (not the service notice)', () => {
+    const mail = (k: LifecycleKind) => render(lifecycleEmail(k, ctx), 'cloud');
     for (const k of kinds) {
-      const m = lifecycleEmail(k, ctx);
+      const m = mail(k);
       expect(m.subject.length, k).toBeLessThan(60);
-      expect(m.text.split('\n').length, k).toBeLessThan(25);
+      expect(m.text.split('\n').length, k).toBeLessThan(40);
       expect(m.text, k).toContain('Ada Founder, WatchLog');
       expect(m.text, k).not.toMatch(/<[a-z]+[ >]/i);
-      if (k === 'beta_notice') expect(m.text).not.toContain('unsubscribe');
-      else expect(m.text, k).toContain(ctx.unsubscribeUrl);
+      if (k === 'beta_notice') expect(m.text).not.toContain('Unsubscribe');
+      else expect(m.text, k).toContain(`Unsubscribe: ${ctx.unsubscribeUrl}`);
     }
-    expect(lifecycleEmail('no_data', ctx).text).toContain(`${SITE}/onboarding?id=c1`);
-    expect(lifecycleEmail('near_limit', ctx).text).toContain(
+    expect(mail('no_data').text).toContain(`${SITE}/onboarding?id=c1`);
+    expect(mail('near_limit').text.replace(/\s+/g, ' ')).toContain(
       'has 4 nodes sending data. Cloud Free includes 5.',
     );
-    expect(lifecycleEmail('beta_notice', ctx).text).toContain('1 February 2027');
+    expect(mail('beta_notice').text.replace(/\s+/g, ' ')).toContain('1 Feb 2027');
     expect(senderName(FROM)).toBe('Ada Founder');
     expect(senderName('founder@watchlog.test')).toBe('WatchLog');
   });

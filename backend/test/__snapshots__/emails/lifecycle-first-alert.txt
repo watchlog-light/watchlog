@@ -1,0 +1,28 @@
+Subject: Your first WatchLog alert, explained
+
+Your first alert, explained
+
+WatchLog just sent the first alert for acme. How to read it:
+
+- Its facts say where, since when, which rule, and the value against its
+  limit.
+- “Likely cause” appears when WatchLog found one cause clearly more
+  likely than the others. The alert’s page shows the evidence and the
+  other possible causes.
+- You get another email when it resolves, and reminders while it keeps
+  firing.
+
+Too noisy? Each rule’s threshold, duration and channels can be changed
+on the Alerts page, and a silence mutes an alert for a while.
+
+Open Alerts:
+https://cloud.watchlog.example/alerts
+
+Mohammad, WatchLog
+
+-- 
+You got this because you signed up for WatchLog Cloud and own acme.
+You get at most one of these emails a day, only while you are getting
+started.
+Unsubscribe: https://cloud.watchlog.example/api/v1/lifecycle/unsubscribe?token=sample
+WatchLog Cloud · https://watchlog.io

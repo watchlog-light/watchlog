@@ -1,0 +1,24 @@
+Subject: [Resolved] api is crash-looping in acme-prod
+
+RESOLVED
+Resolved: api is crash-looping
+
+It is back to normal. The alert was open for 28 minutes.
+
+Where: acme-prod › shop/api (Deployment)
+From:  Thu 19 Nov, 14:03 UTC
+To:    Thu 19 Nov, 14:31 UTC (28 minutes)
+Rule:  Pod CrashLoopBackOff
+
+Was likely: api exits about 20 s after every start. It began one minute
+after its image changed to 2026-11-19-1401.
+
+See what happened:
+https://cloud.watchlog.example/pods/shop/api-7d9f-x2k4?cluster=c1
+
+The alert’s page keeps its chart and its probable cause.
+
+-- 
+You got this because this address is an alert channel for acme-prod.
+Change it in Settings › Alert channels.
+WatchLog Cloud · https://watchlog.io

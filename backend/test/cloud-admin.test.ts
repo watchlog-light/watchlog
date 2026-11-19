@@ -353,6 +353,23 @@ describe('the internal admin API', () => {
       .executeTakeFirst();
     expect(row?.billing_starts_at.toISOString()).toBe('2027-02-01T00:00:00.000Z');
   });
+
+  it('gives billing an org’s Owners and its name, for the emails’ header (ADR-220)', async () => {
+    const r = await internal.inject({
+      method: 'GET',
+      url: `/internal/orgs/${A.orgId}/owners`,
+      headers: { authorization: `Bearer ${BILLING_TOKEN}` },
+    });
+    expect(r.statusCode).toBe(200);
+    const org = await w.owner
+      .selectFrom('orgs')
+      .select('name')
+      .where('id', '=', A.orgId)
+      .executeTakeFirstOrThrow();
+    expect(r.json().orgName).toBe(org.name);
+    expect(r.json().owners.length).toBeGreaterThanOrEqual(1);
+    expect(Object.keys(r.json().owners[0]).sort()).toEqual(['email', 'name']);
+  });
 });
 
 describe('the Cloud admin, slice 6c: invite waves, support sessions and deletions across orgs', () => {

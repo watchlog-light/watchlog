@@ -781,7 +781,7 @@ describe('messages in every channel (ADR-200, ADR-095)', () => {
     const p = payload('kubernetes', KUBE_LABELS, KUBE_DETAILS);
     const m = renderMessage(p, BASE);
     expect(m.subject).toBe(
-      '[WARNING] checkout (shop): p95 response time unusual for a Tuesday at 14:00 UTC (acme-prod)',
+      '[Warning] checkout (shop): p95 response time unusual for a Tuesday at 14:00 UTC in acme-prod',
     );
     expect(m.text).toBe(
       [
@@ -831,7 +831,7 @@ describe('messages in every channel (ADR-200, ADR-095)', () => {
       link: `${BASE}/alerts/a-1`,
     });
     expect(m.subject).toBe(
-      '[WARNING] web (shop): memory unusual for a Tuesday at 14:00 UTC (edge-fleet)',
+      '[Warning] web (shop): memory unusual for a Tuesday at 14:00 UTC on docker-01',
     );
     expect(JSON.stringify(slackBody(m, p))).toContain('200–260 MiB; now 900 MiB');
     expect(telegramText(m)).toContain('docker-01/shop-web-1');

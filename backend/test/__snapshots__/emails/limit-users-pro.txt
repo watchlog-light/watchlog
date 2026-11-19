@@ -1,0 +1,19 @@
+Subject: acme reached its user limit
+
+PLAN LIMIT
+acme reached its user limit
+
+Someone in acme tried to invite a teammate today, but Cloud Pro allows
+10 users.
+
+Plan:  Cloud Pro
+Limit: 10 users
+
+See your plan:
+https://cloud.watchlog.example/settings?tab=billing
+
+You get at most one email like this per limit and day.
+
+-- 
+You got this because you are an Owner of acme.
+WatchLog Cloud · https://watchlog.io

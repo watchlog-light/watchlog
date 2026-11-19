@@ -1,0 +1,22 @@
+Subject: Too many wrong two-factor codes on your WatchLog account
+
+SECURITY
+Two-factor sign-in is paused
+
+Someone entered your password and then too many wrong two-factor codes.
+Two-factor sign-in for your account is paused until Thu 19 Nov, 14:32
+UTC.
+
+If it was you, wait and try again. If it wasn’t, someone knows your
+password: change it and sign out your other sessions.
+
+Review your security:
+https://cloud.watchlog.example/settings?tab=security
+
+Settings › Security lists every signed-in session and lets you change
+your password.
+
+-- 
+You got this because of failed sign-ins to your WatchLog account.
+Security emails can’t be turned off.
+WatchLog Cloud · https://watchlog.io

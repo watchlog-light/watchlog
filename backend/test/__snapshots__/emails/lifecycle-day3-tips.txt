@@ -1,0 +1,27 @@
+Subject: Three things to try in WatchLog
+
+Three things to try
+
+acme has been sending data for a few days. Three things worth a look:
+
+1. The service map: who talks to whom and which connections fail, from
+   eBPF, with no code changes.
+2. Applications: monitor PostgreSQL, Redis, MySQL, MongoDB, RabbitMQ,
+   Kafka, NGINX or Traefik that WatchLog found running in your cluster
+   or on your servers.
+3. MCP: ask Claude or Cursor about your infrastructure with a read-only
+   API token.
+
+Open WatchLog:
+https://cloud.watchlog.example/
+
+What is missing for you? A one-line reply helps more than you think.
+
+Mohammad, WatchLog
+
+-- 
+You got this because you signed up for WatchLog Cloud and own acme.
+You get at most one of these emails a day, only while you are getting
+started.
+Unsubscribe: https://cloud.watchlog.example/api/v1/lifecycle/unsubscribe?token=sample
+WatchLog Cloud · https://watchlog.io

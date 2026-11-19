@@ -1,0 +1,22 @@
+Subject: [Warning] api is crash-looping in acme-prod
+
+WARNING · FIRING
+api is crash-looping
+
+It started at 14:02 UTC and is still firing.
+
+Where: acme-prod › shop/api (Deployment)
+Since: Thu 19 Nov, 14:02 UTC (15 minutes)
+Rule:  Pod CrashLoopBackOff
+Now:   last exit: Error (code 1) · 6 restarts
+
+Open the alert:
+https://cloud.watchlog.example/pods/shop/api-7d9f-x2k4?cluster=c1
+
+You’ll get one more email when it resolves. Silence it from the alert’s
+page.
+
+-- 
+You got this because this address is an alert channel for acme-prod.
+Change it in Settings › Alert channels.
+WatchLog Cloud · https://watchlog.io

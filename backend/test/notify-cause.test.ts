@@ -401,7 +401,10 @@ describe('delivery with the likely cause (ADR-157)', () => {
       expect(hooks.map((h) => h.alerts[0]!.likelyCause)).toEqual([kept.likely, kept.likely]);
       const mails = await mailpitMessages(recipient);
       expect(mails).toHaveLength(2);
-      const bodies = await Promise.all(mails.map((m) => mailpitText(m.ID)));
+      // The plain-text part wraps at 72 columns: compared with the spaces collapsed.
+      const bodies = (await Promise.all(mails.map((m) => mailpitText(m.ID)))).map((b) =>
+        b.replace(/\s+/g, ' '),
+      );
       expect(bodies.find((b) => b.includes('CRITICAL'))).toContain(fire);
       expect(bodies.find((b) => b.includes('RESOLVED'))).toContain(was);
       // The stored message is what was sent, so a retry says the same.

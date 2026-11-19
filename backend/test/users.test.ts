@@ -169,8 +169,7 @@ describe('invites', () => {
     const mails = await mailpitMessages(to);
     expect(mails).toHaveLength(1);
     const text = await mailpitText(mails[0]!.ID);
-    expect(text).toContain('Ada Admin invited you to WatchLog');
-    expect(text).toContain('as an Admin');
+    expect(text.replace(/\s+/g, ' ')).toMatch(/invited you to WatchLog at \S+ as an Admin/);
     expect(text).toContain(res.json().link);
     expect((await call('GET', '/users', owner)).json().smtp).toBe(true);
 

@@ -1,0 +1,24 @@
+Subject: Welcome to WatchLog
+
+Welcome, Sara
+
+Thanks for signing up. acme is ready.
+
+Next, install the agent with the one command on the install page: Helm
+or kubectl for Kubernetes, or one command for a Linux server. Most show
+their first metrics within a minute of the agent starting.
+
+Open the install page:
+https://cloud.watchlog.example/onboarding
+
+If anything is unclear or broken, reply to this email. I read every
+reply.
+
+Mohammad, WatchLog
+
+-- 
+You got this because you signed up for WatchLog Cloud and own acme.
+You get at most one of these emails a day, only while you are getting
+started.
+Unsubscribe: https://cloud.watchlog.example/api/v1/lifecycle/unsubscribe?token=sample
+WatchLog Cloud · https://watchlog.io

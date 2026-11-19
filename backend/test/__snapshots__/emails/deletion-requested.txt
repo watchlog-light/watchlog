@@ -1,0 +1,19 @@
+Subject: acme will be deleted on 26 Nov 2026
+
+DELETION SCHEDULED
+acme will be deleted on 26 Nov 2026
+
+Sara Karimi asked to delete the WatchLog organization acme. Its agents’
+data is no longer stored.
+
+On 26 Nov 2026 its clusters, alert rules, channels, members and metrics
+are deleted for good. An Owner can undo it until then.
+
+Undo, or download your data:
+https://cloud.watchlog.example/settings?tab=data
+
+Download what you want to keep before that day.
+
+-- 
+You got this because you are an Owner of acme.
+WatchLog Cloud · https://watchlog.io

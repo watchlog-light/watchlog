@@ -1,0 +1,21 @@
+Subject: What changed is ready for acme-prod
+
+What changed is ready for acme-prod
+
+WatchLog has finished learning the usual week of acme-prod. What changed
+now lists whatever leaves its usual range for the hour, in the order it
+happened, with the probable cause underneath, and “Unusual for this
+hour” alerts can fire.
+
+It keeps learning every week. A workload or node that joins later takes
+7 days of its own.
+
+Open What changed:
+https://cloud.watchlog.example/what-changed?cluster=c1
+
+Mohammad, WatchLog
+
+-- 
+You got this because you asked for it on the What changed page. It is
+sent once.
+WatchLog Cloud · https://watchlog.io

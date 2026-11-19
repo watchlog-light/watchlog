@@ -1,0 +1,29 @@
+Subject: [Flapping] api is crash-looping in acme-prod
+
+WARNING · FLAPPING
+api is crash-looping
+
+It fired 3 times within 30 minutes. WatchLog sends no reminders while it
+flaps, and resolves it after 15 quiet minutes.
+
+Where: acme-prod › shop/api (Deployment)
+Since: Thu 19 Nov, 14:02 UTC (15 minutes)
+Rule:  Pod CrashLoopBackOff
+Now:   last exit: Error (code 1) · 6 restarts
+
+Likely cause: api exits about 20 s after every start. It began one
+minute after its image changed to 2026-11-19-1401.
+
+What changed around it: shop/api: memory 1.2 GiB, usually 300–400 MiB,
+since 14:01 UTC
+
+Open the alert:
+https://cloud.watchlog.example/pods/shop/api-7d9f-x2k4?cluster=c1
+
+You’ll get one more email when it resolves. Silence it from the alert’s
+page.
+
+-- 
+You got this because this address is an alert channel for acme-prod.
+Change it in Settings › Alert channels.
+WatchLog Cloud · https://watchlog.io

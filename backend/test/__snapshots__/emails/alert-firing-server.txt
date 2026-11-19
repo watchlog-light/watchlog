@@ -1,0 +1,22 @@
+Subject: [Critical] api is crash-looping on app-1 in acme-servers
+
+CRITICAL · FIRING
+api is crash-looping on app-1
+
+It started at 14:02 UTC and is still firing.
+
+Where: acme-servers › app-1 › api (process group)
+Since: Thu 19 Nov, 14:02 UTC (15 minutes)
+Rule:  Process group crash-looping
+Now:   6 failed exits in 10 min · in pm2-deploy.service
+
+Open the alert:
+https://watchlog.acme.example/docker/hosts/app-1?cluster=c2
+
+You’ll get one more email when it resolves. Silence it from the alert’s
+page.
+
+-- 
+You got this because this address is an alert channel for acme-servers.
+Change it in Settings › Alert channels.
+WatchLog · https://watchlog.io

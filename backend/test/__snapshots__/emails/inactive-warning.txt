@@ -1,0 +1,19 @@
+Subject: acme has sent no data for 30 days
+
+acme has sent no data for 30 days
+
+No agent has sent data to the WatchLog organization acme for 30 days.
+
+On 26 Nov 2026 it will be suspended: agents’ data won’t be stored. Your
+data and settings stay, and you can still sign in, export them or delete
+the organization.
+
+Open WatchLog:
+https://cloud.watchlog.example/
+
+To keep it active, start an agent before then. If you don’t need it any
+more, you can delete it in Settings › Data.
+
+-- 
+You got this because you are an Owner of acme.
+WatchLog Cloud · https://watchlog.io

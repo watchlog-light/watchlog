@@ -64,6 +64,7 @@ export const ROUTES: Record<string, RouteClass> = {
   'POST /api/v1/auth/signup-invite': cloud,
   'POST /api/v1/auth/verify-email': cloud,
   'POST /api/v1/auth/verify-email/resend': cloud,
+  'POST /api/v1/auth/verify-email/code': cloud,
   'GET /api/v1/auth/account': cloud,
   'POST /api/v1/auth/2fa/setup': cloud,
   'POST /api/v1/auth/2fa/enable': cloud,

@@ -1,0 +1,21 @@
+Subject: [Resolved] api is crash-looping on app-1 in acme-servers
+
+RESOLVED
+Resolved: api is crash-looping on app-1
+
+It is back to normal. The alert was open for 29 minutes.
+
+Where: acme-servers › app-1 › api (process group)
+From:  Thu 19 Nov, 14:02 UTC
+To:    Thu 19 Nov, 14:31 UTC (29 minutes)
+Rule:  Process group crash-looping
+
+See what happened:
+https://watchlog.acme.example/docker/hosts/app-1?cluster=c2
+
+The alert’s page keeps its chart and its probable cause.
+
+-- 
+You got this because this address is an alert channel for acme-servers.
+Change it in Settings › Alert channels.
+WatchLog · https://watchlog.io

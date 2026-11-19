@@ -110,7 +110,7 @@ describe('scenario 16: staff opens a support session', () => {
     expect(mails[0]!.Subject).toBe('WatchLog staff opened a support session in zzalpha Org');
     const text = await mailpitText(mails[0]!.ID);
     expect(text).toContain(STAFF);
-    expect(text).toContain('Why: Customer asked why the map is empty');
+    expect(text.replace(/[ \t]+/g, ' ')).toContain('Why: Customer asked why the map is empty');
     expect(text).toContain(`${SITE}/settings?tab=security`);
     const audit = await w.owner
       .selectFrom('audit_events')

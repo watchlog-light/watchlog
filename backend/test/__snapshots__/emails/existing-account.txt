@@ -1,0 +1,19 @@
+Subject: Someone tried to sign up with your WatchLog address
+
+This address already has an account
+
+Someone, maybe you, tried to create a WatchLog account with this
+address. It already has one, so nothing was created and nothing changed.
+
+Sign in:
+https://cloud.watchlog.example/signin
+
+Forgot your password? Choose “Forgot your password?” on the sign-in
+page.
+
+If it wasn’t you, ignore this email.
+
+-- 
+You got this because someone tried to sign up for WatchLog Cloud with
+this address.
+WatchLog Cloud · https://watchlog.io

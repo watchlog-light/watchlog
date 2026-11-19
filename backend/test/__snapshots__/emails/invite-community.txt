@@ -1,0 +1,22 @@
+Subject: Sara Karimi invited you to WatchLog at watchlog.acme.example
+
+Sara Karimi invited you to WatchLog at watchlog.acme.example
+
+Sara Karimi (sara@acme.example) invited you to WatchLog at
+watchlog.acme.example as an Admin: you can manage clusters, servers,
+alert rules, channels and silences.
+
+Address:     watchlog.acme.example
+Your role:   Admin
+Valid until: 26 Nov 2026
+
+Accept the invitation:
+https://watchlog.acme.example/invite/sample-token
+
+The link works once. Don’t know Sara Karimi? Ignore this email and
+nothing happens.
+
+-- 
+You got this because an Owner or Admin of WatchLog at
+watchlog.acme.example invited this address.
+WatchLog · https://watchlog.io

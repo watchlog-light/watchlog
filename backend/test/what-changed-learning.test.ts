@@ -23,7 +23,8 @@ import { breakdownOf } from '../src/modules/anomaly/learning.js';
 import { createSession } from '../src/modules/auth/sessions.js';
 import { insertCluster } from '../src/modules/clusters/service.js';
 import { sendLifecycleEmails } from '../src/modules/lifecycle/job.js';
-import { whatChangedReadyEmail } from '../src/modules/lifecycle/texts.js';
+import { whatChangedReadyEmail } from '../src/modules/emails/notices.js';
+import { render } from '../src/lib/mail.js';
 import {
   closeTestContext,
   createTestContext,
@@ -727,7 +728,9 @@ describe.each(platforms)('$kind: the learning week, hour by hour', (p) => {
     expect(msg!.Subject).toBe(`What changed is ready for ${w.cluster.name}`);
     const text = await mailpitText(msg!.ID);
     expect(text).toContain(`${SITE}/what-changed?cluster=${w.cluster.id}`);
-    expect(text).toContain('You asked for this email');
+    expect(text.replace(/\s+/g, ' ')).toContain(
+      'because you asked for it on the What changed page',
+    );
     expect(text).toContain('Ada Founder, WatchLog');
     expect(text).toContain(
       p.kind === 'server' ? 'A server, service or container' : 'A workload or node',
@@ -781,16 +784,20 @@ describe.each(platforms)('$kind: the learning week, hour by hour', (p) => {
 
 describe('the email’s text', () => {
   it('is short, plain, names the cluster once per line it needs, and can’t be bent by its name', () => {
-    const m = whatChangedReadyEmail({
-      site: SITE,
-      name: 'Sam',
-      signature: 'Ada Founder, WatchLog',
-      cluster: { id: 'c1', name: 'prod\r\nBcc: someone@else.test', kind: 'kubernetes' },
-    });
+    const m = render(
+      whatChangedReadyEmail({
+        site: SITE,
+        cluster: { id: 'c1', name: 'prod\r\nBcc: someone@else.test', kind: 'kubernetes' },
+      }),
+      'cloud',
+    );
     expect(m.subject).toBe('What changed is ready for prod Bcc: someone@else.test');
     expect(m.subject).not.toMatch(/[\r\n]/);
-    expect(m.text.split('\n').length).toBeLessThan(16);
+    expect(m.text.split('\n').length).toBeLessThan(25);
     expect(m.text).not.toMatch(/<[a-z]+[ >]/i);
-    expect(m.text).not.toContain('unsubscribe');
+    expect(m.text).not.toContain('Unsubscribe');
+    // The name is text in the body (escaped), never a header line.
+    expect(m.html).not.toMatch(/\r/);
+    expect(m.text).not.toMatch(/\r/);
   });
 });

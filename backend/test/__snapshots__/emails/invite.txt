@@ -1,0 +1,21 @@
+Subject: Sara Karimi invited you to acme on WatchLog
+
+Sara Karimi invited you to acme
+
+Sara Karimi (sara@acme.example) invited you to the organization acme on
+WatchLog as a Viewer: you can see every cluster, server and alert, and
+change nothing.
+
+Organization: acme
+Your role:    Viewer
+Valid until:  26 Nov 2026
+
+Accept the invitation:
+https://cloud.watchlog.example/invite/sample-token
+
+The link works once. Don’t know Sara Karimi or acme? Ignore this email
+and nothing happens.
+
+-- 
+You got this because an Owner or Admin of acme invited this address.
+WatchLog Cloud · https://watchlog.io

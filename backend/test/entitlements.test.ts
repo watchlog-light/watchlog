@@ -6,7 +6,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Config } from '../src/config.js';
 import { loadConfig } from '../src/config.js';
-import { limitEmail, sendLimitEmails } from '../src/modules/entitlements/limit-mail.js';
+import { sendLimitEmails } from '../src/modules/entitlements/limit-mail.js';
+import { render } from '../src/lib/mail.js';
+import { limitEmail as limitSpec } from '../src/modules/emails/notices.js';
+const limitEmail = (m: Parameters<typeof limitSpec>[0]) => render(limitSpec(m), 'cloud');
 import { proPriceLine } from '../src/modules/lifecycle/texts.js';
 import { NodeGate, isNodeAgent } from '../src/modules/entitlements/node-gate.js';
 import {
@@ -443,8 +446,8 @@ describe('limits (scenarios 9 and 10)', () => {
     expect(text).toContain('A new node tried to send data');
     expect(text).toContain('https://cloud.watchlog.example/settings?tab=billing');
     // The way out is the paid upgrade at the plans config's price (ADR-215), never a free beta.
-    expect(text).toContain(
-      'To lift the limit, upgrade to Pro. It is $3 per node (or server) a month, $15 minimum (the first 5 nodes); or $30 per node a year.',
+    expect(text.replace(/\s+/g, ' ')).toContain(
+      'Pro lifts the limit. It is $3 per node (or server) a month, $15 minimum (the first 5 nodes); or $30 per node a year.',
     );
     expect(text).not.toMatch(/beta|free during|try Pro/i);
     expect(
@@ -820,23 +823,23 @@ describe('SR-8: a changed or missing X-WatchLog-Agent header (ADR-194)', () => {
 });
 
 describe('the plan-limit email (0.9.5): what it offers', () => {
-  const base = { count: 1, orgName: 'Acme', publicUrl: 'https://cloud.watchlog.example/' };
+  const base = { count: 1, orgName: 'Acme', site: 'https://cloud.watchlog.example/' };
   it('a Free org, each limit: the upgrade to Pro with its price and the plan page; nothing about a beta', () => {
     for (const kind of ['nodes', 'clusters', 'users'] as const) {
       const m = limitEmail({ ...base, kind, limit: kind === 'nodes' ? 5 : 1, plan: 'free' });
-      expect(m.text, kind).toContain('Cloud Free allows');
-      expect(m.text, kind).toContain(`To lift the limit, upgrade to Pro. It is ${proPriceLine()}`);
+      expect(m.text.replace(/\s+/g, ' '), kind).toContain('Cloud Free allows');
+      expect(m.text.replace(/\s+/g, ' '), kind).toContain(
+        `Pro lifts the limit. It is ${proPriceLine()}`,
+      );
       expect(m.text, kind).toContain('https://cloud.watchlog.example/settings?tab=billing');
       expect(m.text, kind).not.toMatch(/beta|free during|try Pro/i);
-      expect(m.subject, kind).toMatch(/^WatchLog: Acme /);
+      expect(m.subject, kind).toMatch(/^Acme /);
     }
   });
   it('an org that already pays is pointed to its plan, not sold Pro', () => {
     const m = limitEmail({ ...base, kind: 'users', limit: 10, plan: 'pro' });
-    expect(m.text).toContain('Cloud Pro allows 10 users.');
-    expect(m.text).toContain(
-      'Your plan and its limits are here: https://cloud.watchlog.example/settings?tab=billing',
-    );
+    expect(m.text.replace(/\s+/g, ' ')).toContain('Cloud Pro allows 10 users.');
+    expect(m.text).toContain('See your plan:\nhttps://cloud.watchlog.example/settings?tab=billing');
     expect(m.text).not.toMatch(/upgrade to Pro|beta/i);
   });
 });

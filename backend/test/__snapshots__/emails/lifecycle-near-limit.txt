@@ -1,0 +1,25 @@
+Subject: acme is close to the Free node limit
+
+acme is close to the Free node limit
+
+acme has 4 nodes sending data. Cloud Free includes 5.
+
+A node beyond the limit is refused and its data is not stored; the nodes
+already sending keep sending. Pro has no node limit.
+
+Sending now:   4 nodes
+Free includes: 5 nodes
+Pro:           $3 per node (or server) a month, $15 minimum (the first 5
+               nodes); or $30 per node a year.
+
+See the plans:
+https://cloud.watchlog.example/settings?tab=billing
+
+Mohammad, WatchLog
+
+-- 
+You got this because you signed up for WatchLog Cloud and own acme.
+You get at most one of these emails a day, only while you are getting
+started.
+Unsubscribe: https://cloud.watchlog.example/api/v1/lifecycle/unsubscribe?token=sample
+WatchLog Cloud · https://watchlog.io

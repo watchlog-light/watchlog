@@ -1,0 +1,27 @@
+Subject: [Critical] Pod CrashLoopBackOff: 7 alerts in acme-prod
+
+CRITICAL · FIRING
+Pod CrashLoopBackOff: 7 alerts
+
+7 alerts of the same rule are open in acme-prod, the first since Thu 19
+Nov, 14:02 UTC.
+
+- worker-0 is crash-looping · shop/worker-0 (Deployment) · last exit:
+  Error (code 1) · 6 restarts
+- worker-1 is crash-looping · shop/worker-1 (Deployment) · last exit:
+  Error (code 1) · 6 restarts
+- worker-2 is crash-looping · shop/worker-2 (Deployment) · last exit:
+  Error (code 1) · 6 restarts
+- worker-3 is crash-looping · shop/worker-3 (Deployment) · last exit:
+  Error (code 1) · 6 restarts
+- worker-4 is crash-looping · shop/worker-4 (Deployment) · last exit:
+  Error (code 1) · 6 restarts
+- And 2 more
+
+Open the alerts:
+https://cloud.watchlog.example/alerts?rule=r1&cluster=c1
+
+-- 
+You got this because this address is an alert channel for acme-prod.
+Change it in Settings › Alert channels.
+WatchLog Cloud · https://watchlog.io

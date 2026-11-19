@@ -149,7 +149,7 @@ describe('email server (SMTP) from the UI', () => {
       ok: true,
       error: null,
     });
-    expect((await mailpitMessages(to))[0]!.Subject).toMatch(/^\[TEST\]/);
+    expect((await mailpitMessages(to))[0]!.Subject).toMatch(/^\[Test\]/);
   });
 
   it('keeps the password write-only and encrypted', async () => {

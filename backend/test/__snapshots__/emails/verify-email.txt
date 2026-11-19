@@ -1,0 +1,22 @@
+Subject: 482 913 is your WatchLog code
+
+Confirm your email address
+
+Enter this code in WatchLog, or press the button to confirm in one step.
+
+    482 913
+    Valid for 15 minutes
+
+Confirm my email:
+https://cloud.watchlog.example/verify-email/sample-token
+
+The button works for 24 hours. You can use WatchLog meanwhile; after 7
+days an unconfirmed account can only sign in to confirm.
+
+If you didn’t create a WatchLog account, ignore this email and nothing
+happens.
+
+-- 
+You got this because this address was used to sign up for WatchLog
+Cloud.
+WatchLog Cloud · https://watchlog.io

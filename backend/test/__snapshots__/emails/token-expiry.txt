@@ -1,0 +1,24 @@
+Subject: Your WatchLog API token “Claude Code · laptop” expires on 26 Nov 2026
+
+Your API token “Claude Code · laptop” expires on 26 Nov 2026
+
+After that, the scripts and AI assistants that use it can no longer read
+from WatchLog.
+
+Token:       Claude Code · laptop
+Starts with: wl_pat_7Kq2…
+Expires:     Thu 26 Nov, 09:30 UTC
+
+1. Make a new token in Settings › API tokens.
+2. Put it where this one is used.
+3. Revoke this one.
+
+Open API tokens:
+https://watchlog.acme.example/settings?tab=tokens
+
+This is the only reminder for this token.
+
+-- 
+You got this because this API token is yours.
+Your tokens are in Settings › API tokens.
+WatchLog · https://watchlog.io
