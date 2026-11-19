@@ -9,7 +9,9 @@
 import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
 import { authorisedScope, type VictoriaClient } from '../../lib/victoria.js';
+import { deliver, render, type EmailSpec } from '../../lib/mail.js';
 import { transport } from '../alerts/channels.js';
+import { dataNotices } from '../emails/notices.js';
 import type { AlertingSettings } from '../settings/service.js';
 import { audit } from '../users/service.js';
 
@@ -357,7 +359,7 @@ export interface MailDeps {
 export async function mailOwners(
   deps: MailDeps,
   orgId: string,
-  mail: (site: string) => { subject: string; text: string },
+  mail: (site: string) => EmailSpec,
 ): Promise<number> {
   try {
     const s = await deps.settings();
@@ -372,16 +374,15 @@ export async function mailOwners(
       .where('u.disabled_at', 'is', null)
       .execute();
     if (owners.length === 0) return 0;
-    const m = mail(s.publicUrl.replace(/\/+$/, ''));
+    const email = render(mail(s.publicUrl.replace(/\/+$/, '')), 'cloud');
     const from = deps.from ?? s.smtp.from;
     let sent = 0;
     for (const o of owners) {
-      await transport(s.smtp.transport).sendMail({
+      await deliver(transport(s.smtp.transport), s.smtp, {
         from,
         replyTo: from,
         to: o.email,
-        subject: m.subject,
-        text: m.text,
+        email,
       });
       sent++;
     }
@@ -392,27 +393,13 @@ export async function mailOwners(
   }
 }
 
-const day = (d: Date) =>
-  d.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
-
+/** The owners' notices (ADR-181), in the shared template (ADR-220). */
 export const notices = {
-  deletionRequested: (org: string, due: Date, by: string) => (site: string) => ({
-    subject: `${org} will be deleted on ${day(due)}`,
-    text: `${by} asked to delete the WatchLog organization ${org}.\n\nIts agents' data is no longer stored. On ${day(due)} (UTC) its clusters, alert rules, channels, members and metrics are deleted for good.\n\nChanged your mind? An Owner can undo it until then: ${site}/settings?tab=data\n\nDownload what you want to keep first: ${site}/settings?tab=data\n`,
-  }),
-  inactiveWarning: (org: string, suspendsAt: Date) => (site: string) => ({
-    subject: `${org} has sent no data for 30 days`,
-    text: `The WatchLog organization ${org} has received no data from any agent for 30 days.\n\nOn ${day(suspendsAt)} (UTC) it will be suspended: agents' data won't be stored. Your data and settings stay; you can still sign in, export it or delete the organization.\n\nTo keep it active, start an agent again before then: ${site}/\nIf you don't need it any more, you can delete it: ${site}/settings?tab=data\n`,
-  }),
-  inactiveSuspended: (org: string) => (site: string) => ({
-    subject: `${org} is suspended after 37 days without data`,
-    text: `The WatchLog organization ${org} received no data for 37 days, so it is now suspended: agents' data isn't stored.\n\nYou can still sign in. An Owner can reactivate it, export its data or delete it: ${site}/settings?tab=data\n`,
-  }),
+  deletionRequested: (org: string, due: Date, by: string) => (site: string) =>
+    dataNotices.deletionRequested(org, due, by, site),
+  inactiveWarning: (org: string, suspendsAt: Date) => (site: string) =>
+    dataNotices.inactiveWarning(org, suspendsAt, site),
+  inactiveSuspended: (org: string) => (site: string) => dataNotices.inactiveSuspended(org, site),
 };
 
 // ---------------------------------------------------------------- deletions (the worker)

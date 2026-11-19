@@ -2,6 +2,9 @@
 // Channel senders (ADR-080): Slack incoming webhook, Telegram bot, email over SMTP and
 // a signed JSON webhook. HTTP goes through one client that honours the outbound proxy.
 import { createHmac } from 'node:crypto';
+import { deliver as deliverMail, mailDomain, render } from '../../lib/mail.js';
+import { alertEmail, alertThread } from '../emails/alerts.js';
+import type { Edition } from '../../config.js';
 import nodemailer, { type Transporter } from 'nodemailer';
 import { Agent, EnvHttpProxyAgent, ProxyAgent, fetch, type Dispatcher } from 'undici';
 import { EgressRefused, type EgressPolicy } from '../../lib/egress.js';
@@ -39,8 +42,10 @@ export interface DeliveryContext {
   telegramProxy?: string;
   /** A URL or nodemailer transport options, and the sender (ADR-080, ADR-093). */
   smtp?: { transport: string | Record<string, unknown>; from: string };
-  /** The notification id: idempotency key for webhooks (ADR-074). */
+  /** The notification id: idempotency key for webhooks (ADR-074), and the email's Message-ID. */
   deliveryId: string;
+  /** The emails' footer names Cloud only in Cloud. */
+  edition?: Edition;
   now?: () => number;
 }
 
@@ -388,18 +393,26 @@ export function transport(server: string | Record<string, unknown>): Transporter
   return t;
 }
 
-async function sendEmail(ch: ChannelTarget, m: RenderedMessage, ctx: DeliveryContext) {
+async function sendEmail(
+  ch: ChannelTarget,
+  p: MessagePayload,
+  m: RenderedMessage,
+  ctx: DeliveryContext,
+) {
   if (!ctx.smtp) {
     throw new DeliveryError('Email is not configured on this server: set WATCHLOG_SMTP_URL', true);
   }
   const to = (ch.config.recipients as string[] | undefined) ?? [];
   if (to.length === 0) throw new DeliveryError('The email channel has no recipients', true);
+  // The shared template (ADR-220), threaded under the alert's firing email.
+  const whatChanged = m.single ? (p.items[0]?.whatChanged ?? null) : null;
+  const email = render(alertEmail(p, m, { whatChanged }), ctx.edition ?? 'community');
+  const thread = alertThread(p, m, ctx.deliveryId, mailDomain(ctx.smtp.from, ctx.publicUrl));
   try {
-    await transport(ctx.smtp.transport).sendMail({
-      from: ctx.smtp.from,
+    await deliverMail(transport(ctx.smtp.transport), ctx.smtp, {
       to,
-      subject: m.subject,
-      text: m.text,
+      email,
+      ...thread,
       headers: { 'X-WatchLog-Delivery': ctx.deliveryId },
     });
   } catch (err) {
@@ -507,7 +520,7 @@ export async function deliver(
     case 'telegram':
       return sendTelegram(ch, m, ctx);
     case 'email':
-      return sendEmail(ch, m, ctx);
+      return sendEmail(ch, p, m, ctx);
     case 'webhook':
       return sendWebhook(ch, m, p, ctx);
   }

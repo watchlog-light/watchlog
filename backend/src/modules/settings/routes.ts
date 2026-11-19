@@ -8,6 +8,8 @@ import type { Database } from '../../db/index.js';
 import { sendProblem } from '../../lib/problem.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
+import { message, render } from '../../lib/mail.js';
+import { settingsTestEmail } from '../emails/notices.js';
 import nodemailer from 'nodemailer';
 import { encryptJson } from '../../lib/secrets.js';
 import { redactUrl, restoreUrlPassword } from '../../lib/redact.js';
@@ -339,12 +341,9 @@ export const settingsRoutes: FastifyPluginAsyncTypebox<{
               ...transport,
             });
       try {
-        await transporter.sendMail({
-          from,
-          to,
-          subject: 'WatchLog test email',
-          text: 'This is a test from WatchLog. Email alerts will be sent this way.',
-        });
+        await transporter.sendMail(
+          message({ to, email: render(settingsTestEmail(), request.server.edition) }, from),
+        );
         return { ok: true, to, ms: Date.now() - started, error: null };
       } catch (err) {
         // The provider's own answer, e.g. "Invalid login: 535 5.7.8 Username and Password not accepted".

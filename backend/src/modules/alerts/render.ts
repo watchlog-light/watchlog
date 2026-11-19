@@ -29,7 +29,10 @@ export interface RenderedItem {
 export interface RenderedMessage {
   /** "🔴 CRITICAL · payments-api is crash-looping"; a batch names the rule and the count. */
   title: string;
-  /** "[CRITICAL] payments-api is crash-looping (prod)" */
+  /**
+   * "[Critical] payments-api is crash-looping in prod" (ADR-220): the tag, then the thing and
+   * the place; a resolve keeps the stem ("[Resolved] …"), so its email threads under it.
+   */
   subject: string;
   /** True when the message is about one alert, whose title is then the headline. */
   single: boolean;
@@ -93,6 +96,9 @@ function where(l: Record<string, string>): string {
   // A Docker edge's alert names its container but not the host.
   if (l.container) return l.node ? `${l.node}/${l.container}` : l.container;
   if (l.mount) return `${l.node} ${l.mount}`;
+  // A server's systemd service or process group (ADR-208).
+  if (l.group && l.node) return `${l.node} › ${l.group} (process group)`;
+  if (l.unit && l.node) return `${l.node} › ${l.unit}`;
   if (l.node) return l.condition ? `node ${l.node} (${l.condition})` : `node ${l.node}`;
   return Object.values(l).join(' ');
 }
@@ -180,11 +186,7 @@ export function renderMessage(p: MessagePayload, publicUrl?: string): RenderedMe
   const alertsLink = publicUrl
     ? `${publicUrl.replace(/\/+$/, '')}/alerts?rule=${encodeURIComponent(p.rule.id)}&cluster=${encodeURIComponent(p.cluster.id)}`
     : null;
-  const tag =
-    p.kind === 'resolved' ? 'RESOLVED' : p.kind === 'test' ? 'TEST' : p.severity.toUpperCase();
-  const subject = single
-    ? `[${tag}] ${items[0]!.title} (${p.cluster.name})`
-    : `[${tag}] ${p.rule.name}: ${p.total} alerts (${p.cluster.name})`;
+  const subject = `[${subjectTag(p)}] ${subjectStem(p, single ? items[0]!.title : null)}`;
   const lines = [title];
   for (const it of items) {
     lines.push('');
@@ -196,6 +198,28 @@ export function renderMessage(p: MessagePayload, publicUrl?: string): RenderedMe
   }
   if (more) lines.push('', alertsLink ? `${more}: ${alertsLink}` : more);
   return { title, subject, single, items, more, alertsLink, text: lines.join('\n') };
+}
+
+/** "in prod" for a cluster, "on app-1" for a server's alert, "in acme-servers" otherwise. */
+export function placeOf(item: MessageItem, cluster: MessagePayload['cluster'], title: string) {
+  const node = item.labels.node;
+  if (cluster.kind === 'server' && node && !title.includes(node)) return `on ${node}`;
+  return `in ${cluster.name}`;
+}
+
+/** The subject's stem, the same for every message about one alert (so they thread). */
+export function subjectStem(p: MessagePayload, singleTitle: string | null): string {
+  if (p.kind === 'test') return `WatchLog alert channel for ${p.cluster.name}`;
+  if (singleTitle === null) return `${p.rule.name}: ${p.total} alerts in ${p.cluster.name}`;
+  return `${singleTitle} ${placeOf(p.items[0]!, p.cluster, singleTitle)}`;
+}
+
+/** [Critical], [Warning], [Resolved], [Flapping], [Test]. */
+export function subjectTag(p: MessagePayload): string {
+  if (p.kind === 'resolved') return 'Resolved';
+  if (p.kind === 'test') return 'Test';
+  if (p.kind === 'flapping') return 'Flapping';
+  return p.severity === 'critical' ? 'Critical' : 'Warning';
 }
 
 /** The payload of a "send test" message (ADR-080). */

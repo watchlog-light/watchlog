@@ -5,10 +5,18 @@
 import type { Database } from '../../db/index.js';
 import { PLAN_DEFAULTS } from '../entitlements/plans.js';
 import { newId } from '../../lib/ids.js';
+import { randomInt } from 'node:crypto';
 import { randomToken, sha256 } from '../../lib/tokens.js';
 import { spendInvite } from '../signup-invites/service.js';
 
 export const VERIFY_TTL_MS = 24 * 3_600_000;
+/** The code in a verification email (ADR-220): 15 minutes, 5 wrong tries. */
+export const VERIFY_CODE_TTL_MS = 15 * 60_000;
+export const VERIFY_CODE_TRIES = 5;
+
+/** Six digits, as the email shows them: "482 913". */
+export const formatCode = (code: string) => `${code.slice(0, 3)} ${code.slice(3)}`;
+const codeHash = (userId: string, code: string) => sha256(`verify-code:${userId}:${code}`);
 
 /** The org's name: the address's local part, as typed (renamable later). */
 export function orgNameFor(email: string): string {
@@ -114,20 +122,105 @@ export async function createAccount(
 }
 
 /** A new verification link's token for the user's current address. */
-export async function createVerifyToken(db: Database, userId: string, email: string) {
+/**
+ * A verification link and its code (ADR-220). Each new email voids the codes sent before it
+ * for this user, so only the newest code works.
+ */
+export async function createVerifyToken(
+  db: Database,
+  userId: string,
+  email: string,
+  now = new Date(),
+): Promise<{ token: string; code: string }> {
   const token = randomToken();
-  await db
-    .insertInto('email_tokens')
-    .values({
-      id: newId(),
-      user_id: userId,
-      purpose: 'verify',
-      email,
-      token_hash: sha256(token),
-      expires_at: new Date(Date.now() + VERIFY_TTL_MS),
-    })
-    .execute();
-  return token;
+  const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+  await db.transaction().execute(async (trx) => {
+    await trx
+      .updateTable('email_tokens')
+      .set({ code_hash: null, code_expires_at: null })
+      .where('user_id', '=', userId)
+      .where('purpose', '=', 'verify')
+      .where('code_hash', 'is not', null)
+      .execute();
+    await trx
+      .insertInto('email_tokens')
+      .values({
+        id: newId(),
+        user_id: userId,
+        purpose: 'verify',
+        email,
+        token_hash: sha256(token),
+        expires_at: new Date(now.getTime() + VERIFY_TTL_MS),
+        code_hash: codeHash(userId, code),
+        code_expires_at: new Date(now.getTime() + VERIFY_CODE_TTL_MS),
+      })
+      .execute();
+  });
+  return { token, code };
+}
+
+/**
+ * Uses the code from the newest verification email of a signed-in user: 'ok' (the address is
+ * verified), 'wrong', 'expired' (15 minutes passed, or 5 wrong tries), or 'none' (no code).
+ */
+export async function useVerifyCode(
+  db: Database,
+  userId: string,
+  typed: string,
+  now = new Date(),
+): Promise<{ result: 'ok'; orgId: string | null } | { result: 'wrong' | 'expired' | 'none' }> {
+  const code = typed.replace(/\D/g, '');
+  return db.transaction().execute(async (trx) => {
+    const t = await trx
+      .selectFrom('email_tokens as t')
+      .innerJoin('users as u', 'u.id', 't.user_id')
+      .select([
+        't.id',
+        't.email',
+        't.code_hash',
+        't.code_expires_at',
+        't.code_attempts',
+        't.used_at',
+        'u.email as current',
+      ])
+      .where('t.user_id', '=', userId)
+      .where('t.purpose', '=', 'verify')
+      .where('t.code_hash', 'is not', null)
+      .orderBy('t.created_at', 'desc')
+      .limit(1)
+      .forUpdate()
+      .executeTakeFirst();
+    if (!t || t.used_at || t.email !== t.current || !t.code_hash) return { result: 'none' };
+    if (
+      !t.code_expires_at ||
+      t.code_expires_at.getTime() <= now.getTime() ||
+      t.code_attempts >= VERIFY_CODE_TRIES
+    ) {
+      return { result: 'expired' };
+    }
+    if (code.length !== 6 || !codeHash(userId, code).equals(t.code_hash)) {
+      await trx
+        .updateTable('email_tokens')
+        .set({ code_attempts: t.code_attempts + 1 })
+        .where('id', '=', t.id)
+        .execute();
+      return { result: t.code_attempts + 1 >= VERIFY_CODE_TRIES ? 'expired' : 'wrong' };
+    }
+    await trx.updateTable('email_tokens').set({ used_at: now }).where('id', '=', t.id).execute();
+    await trx
+      .updateTable('users')
+      .set({ email_verified_at: now })
+      .where('id', '=', userId)
+      .where('email_verified_at', 'is', null)
+      .execute();
+    const m = await trx
+      .selectFrom('memberships')
+      .select('org_id')
+      .where('user_id', '=', userId)
+      .orderBy('created_at')
+      .executeTakeFirst();
+    return { result: 'ok', orgId: m?.org_id ?? null };
+  });
 }
 
 /**
@@ -168,42 +261,6 @@ export async function useVerifyToken(
     return { userId: t.user_id, orgId: m?.org_id ?? null };
   });
 }
-
-export const verifyMail = (p: { link: string; site: string }) => ({
-  subject: 'Verify your WatchLog email address',
-  text: [
-    `Welcome to WatchLog. Please confirm this address for your account at ${p.site}:`,
-    '',
-    p.link,
-    '',
-    'The link works once and for 24 hours. You can use WatchLog meanwhile; after 7 days an unverified account can only sign in to verify.',
-    '',
-    "If you didn't sign up, you can ignore this email.",
-  ].join('\n'),
-});
-
-/** Sent instead of a second account when someone signs up with an address that has one. */
-export const existingAccountMail = (p: { site: string }) => ({
-  subject: 'Someone tried to sign up with your WatchLog address',
-  text: [
-    `Someone, maybe you, tried to create a WatchLog account at ${p.site} with this address, which already has one.`,
-    '',
-    `Sign in at ${p.site}/signin, or set a new password from "Forgot your password?" there.`,
-    '',
-    "If it wasn't you, you can ignore this email: nothing changed.",
-  ].join('\n'),
-});
-
-export const mfaLockedMail = (p: { site: string; until: Date }) => ({
-  subject: 'Wrong two-factor codes on your WatchLog account',
-  text: [
-    `Someone entered your password at ${p.site} and then too many wrong two-factor codes.`,
-    `Two-factor sign-in for your account is paused until ${p.until.toISOString().slice(0, 16).replace('T', ' ')} UTC.`,
-    '',
-    "If it was you, wait and try again. If it wasn't, your password is known to someone else:",
-    `set a new one from "Forgot your password?" at ${p.site}/signin, and end your other sessions in Settings › Security.`,
-  ].join('\n'),
-});
 
 /** Cloud Free's limits as entitlement columns (ADR-177). */
 function freeColumns() {

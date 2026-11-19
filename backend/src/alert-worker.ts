@@ -8,7 +8,7 @@ import { createDb, describeDbError, waitForDatabase } from './db/index.js';
 import { checkSecretKey, usePreviousSecretKey } from './lib/secrets.js';
 import { HttpClient } from './modules/alerts/channels.js';
 import { EgressPolicy } from './lib/egress.js';
-import { workerCauses } from './modules/alerts/likely-cause.js';
+import { workerCauses, workerChanges } from './modules/alerts/likely-cause.js';
 import { CausesService } from './modules/causes/likely.js';
 import { SetupState } from './modules/setup/service.js';
 import { deliverDue } from './modules/alerts/delivery.js';
@@ -208,6 +208,9 @@ const channelDeps = {
   settings: () => settings.alerting(),
   log,
   causes: workerCauses(reads, new CausesService()),
+  // What changed around a firing alert (Pro): one line in its email (ADR-220).
+  changes: workerChanges(reads),
+  edition: config.edition,
   funnel,
 };
 
@@ -234,7 +237,10 @@ const worker = new AlertWorker({
       name: 'api-tokens',
       everyMs: TOKEN_JOBS_EVERY_MS,
       run: (now) =>
-        runApiTokenJobs({ db: systemDb, settings: () => settings.alerting(), log }, now),
+        runApiTokenJobs(
+          { db: systemDb, settings: () => settings.alerting(), log, edition: config.edition },
+          now,
+        ),
     },
     ...egressTasks,
     ...cloudTasks,

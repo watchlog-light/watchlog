@@ -12,3 +12,5 @@ web/playwright-report
 backend/test/fixtures/causes/map
 backend/test/fixtures/causes/attention
 backend/assets/install-manifest.yaml
+# Email snapshots are the exact bytes sent (ADR-220).
+backend/test/__snapshots__/

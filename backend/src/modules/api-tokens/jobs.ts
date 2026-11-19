@@ -10,6 +10,9 @@
 // Every step is idempotent and safe with several workers.
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
+import { deliver, render } from '../../lib/mail.js';
+import { tokenExpiryEmail } from '../emails/notices.js';
+import type { Edition } from '../../config.js';
 import { transport } from '../alerts/channels.js';
 import { deleteOldMcpCalls } from '../mcp/calls.js';
 import type { AlertingSettings } from '../settings/service.js';
@@ -28,6 +31,8 @@ export interface TokenJobDeps {
   /** The email server and the public address, as alert messages use them. */
   settings: () => Promise<Pick<AlertingSettings, 'smtp' | 'publicUrl'>>;
   log: TokenJobLogger;
+  /** The email's footer names Cloud only in Cloud. */
+  edition?: Edition;
 }
 
 export interface TokenJobReport {
@@ -131,49 +136,6 @@ export async function deleteOldTokens(db: Database, now: Date): Promise<number> 
   return Number(res.numDeletedRows);
 }
 
-const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
-const TIME_FORMAT = new Intl.DateTimeFormat('en-GB', {
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'UTC',
-});
-
-export function reminderEmail(t: {
-  tokenName: string;
-  prefix: string;
-  expiresAt: Date;
-  userName: string;
-  publicUrl?: string;
-}): { subject: string; text: string } {
-  const date = DATE_FORMAT.format(t.expiresAt);
-  const where = t.publicUrl
-    ? `Settings → API tokens (${t.publicUrl.replace(/\/+$/, '')}/settings)`
-    : 'Settings → API tokens';
-  return {
-    subject: `Your WatchLog API token "${t.tokenName}" expires on ${date}`,
-    text: [
-      `Hello ${t.userName},`,
-      '',
-      `Your WatchLog API token "${t.tokenName}" (${t.prefix}…) expires on ${date} at ${TIME_FORMAT.format(t.expiresAt)} UTC.`,
-      'After that, the scripts and AI assistants that use it can no longer read from WatchLog.',
-      '',
-      'To keep them working:',
-      `1. Sign in to WatchLog and open ${where}.`,
-      '2. Create a new token and put it where this one is used.',
-      '3. Revoke this token.',
-      '',
-      'This is the only reminder for this token.',
-      '',
-      '— WatchLog',
-    ].join('\n'),
-  };
-}
-
 /**
  * One email per token that expires within 7 days, to its owner. A token is claimed by
  * setting reminded_at first, so two workers never send the same reminder; a failed send
@@ -210,20 +172,17 @@ export async function sendExpiryReminders(
       .where('revoked_at', 'is', null)
       .executeTakeFirst();
     if (Number(claimed.numUpdatedRows) === 0) continue;
-    const mail = reminderEmail({
-      tokenName: t.name,
-      prefix: t.prefix,
-      expiresAt: t.expires_at!,
-      userName: t.user_name,
-      publicUrl: settings.publicUrl,
-    });
+    const email = render(
+      tokenExpiryEmail({
+        tokenName: t.name,
+        prefix: t.prefix,
+        expiresAt: t.expires_at!,
+        site: settings.publicUrl,
+      }),
+      deps.edition ?? 'community',
+    );
     try {
-      await transport(settings.smtp.transport).sendMail({
-        from: settings.smtp.from,
-        to: t.email,
-        subject: mail.subject,
-        text: mail.text,
-      });
+      await deliver(transport(settings.smtp.transport), settings.smtp, { to: t.email, email });
     } catch (err) {
       failed++;
       log.warn(

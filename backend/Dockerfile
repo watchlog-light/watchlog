@@ -11,9 +11,12 @@ WORKDIR /repo
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY backend/package.json backend/
 COPY packages/cause-words/package.json packages/cause-words/
+COPY packages/email/package.json packages/email/
 RUN pnpm install --frozen-lockfile --filter @watchlog/backend...
 # The words the notifications share with the dashboard (ADR-157): plain JavaScript.
 COPY packages/cause-words packages/cause-words
+# The one email template (ADR-220): plain JavaScript.
+COPY packages/email packages/email
 COPY backend backend
 # The server install script (ADR-209), served at /install.sh.
 COPY deploy/linux/install.sh backend/assets/install.sh

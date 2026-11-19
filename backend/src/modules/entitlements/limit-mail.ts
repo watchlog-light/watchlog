@@ -10,7 +10,8 @@ import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
 import { transport } from '../alerts/channels.js';
 import type { AlertingSettings } from '../settings/service.js';
-import { proPriceLine } from '../lifecycle/texts.js';
+import { deliver, render } from '../../lib/mail.js';
+import { limitEmail } from '../emails/notices.js';
 import { PLAN_DEFAULTS, type CloudPlan, type LimitKind } from './plans.js';
 
 export const LIMIT_MAIL_EVERY_MS = 5 * 60_000;
@@ -19,54 +20,6 @@ export interface LimitMailDeps {
   systemDb: Database;
   settings: () => Promise<Pick<AlertingSettings, 'smtp' | 'publicUrl'>>;
   log: { info(obj: object, msg: string): void; warn(obj: object, msg: string): void };
-}
-
-export function limitEmail(m: {
-  kind: LimitKind;
-  count: number;
-  limit: number | null;
-  plan: CloudPlan;
-  orgName: string;
-  publicUrl?: string;
-}): { subject: string; text: string } {
-  const plan = m.plan === 'free' ? 'Cloud Free' : m.plan === 'pro' ? 'Cloud Pro' : 'your plan';
-  const link = m.publicUrl
-    ? `${m.publicUrl.replace(/\/+$/, '')}/settings?tab=billing`
-    : 'Settings → Plan & billing';
-  const what =
-    m.kind === 'nodes'
-      ? [
-          `${m.count === 1 ? 'A new node' : `${m.count} new nodes`} tried to send data to ${m.orgName} today, but ${plan} allows ${m.limit ?? PLAN_DEFAULTS.free.nodes} nodes.`,
-          'Their data is not stored. The nodes that were already sending keep sending.',
-        ]
-      : m.kind === 'clusters'
-        ? [
-            `Someone in ${m.orgName} tried to add a cluster or Docker fleet today, but ${plan} allows ${m.limit ?? PLAN_DEFAULTS.free.clusters}.`,
-          ]
-        : [
-            `Someone in ${m.orgName} tried to invite a teammate today, but ${plan} allows ${m.limit ?? PLAN_DEFAULTS.free.users} ${m.limit === 1 ? 'user' : 'users'}.`,
-          ];
-  return {
-    subject:
-      m.kind === 'nodes'
-        ? `WatchLog: ${m.orgName} is over its node limit`
-        : m.kind === 'clusters'
-          ? `WatchLog: ${m.orgName} reached its cluster limit`
-          : `WatchLog: ${m.orgName} reached its user limit`,
-    text: [
-      'Hello,',
-      '',
-      ...what,
-      '',
-      ...(m.plan === 'free'
-        ? [`To lift the limit, upgrade to Pro. It is ${proPriceLine()}`, link]
-        : [`Your plan and its limits are here: ${link}`]),
-      '',
-      'You get at most one email like this per limit and day.',
-      '',
-      '— WatchLog',
-    ].join('\n'),
-  };
 }
 
 /** Sends the day's emails not sent yet. Returns how many went out. */
@@ -124,22 +77,20 @@ export async function sendLimitEmails(deps: LimitMailDeps, nowMs: number): Promi
     const kind = d.kind as LimitKind;
     const plan = (d.plan ?? 'free') as CloudPlan;
     const limit = d.plan ? d[kind] : PLAN_DEFAULTS.free[kind];
-    const mail = limitEmail({
-      kind,
-      count: d.count,
-      limit,
-      plan,
-      orgName: d.org_name,
-      publicUrl: settings.publicUrl,
-    });
+    const email = render(
+      limitEmail({
+        kind,
+        count: d.count,
+        limit,
+        plan,
+        orgName: d.org_name,
+        site: settings.publicUrl,
+      }),
+      'cloud',
+    );
     try {
       for (const o of owners) {
-        await transport(settings.smtp.transport).sendMail({
-          from: settings.smtp.from,
-          to: o.email,
-          subject: mail.subject,
-          text: mail.text,
-        });
+        await deliver(transport(settings.smtp.transport), settings.smtp, { to: o.email, email });
       }
       sent++;
     } catch (err) {

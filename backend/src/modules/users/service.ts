@@ -9,6 +9,8 @@ import { newId } from '../../lib/ids.js';
 import { decryptSecret, encryptSecret } from '../../lib/secrets.js';
 import { randomToken, sha256 } from '../../lib/tokens.js';
 import type { Role } from '../auth/sessions.js';
+import type { Edition } from '../../config.js';
+import { deliver, render, type EmailSpec } from '../../lib/mail.js';
 import { transport } from '../alerts/channels.js';
 import type { SettingsService } from '../settings/service.js';
 
@@ -102,19 +104,17 @@ export async function smtpConfigured(settings: SettingsService): Promise<boolean
   return !!(await settings.alerting()).smtp;
 }
 
-/** Sends one plain-text email through the configured server; false when there is none. */
+/**
+ * Sends one email in the shared template (ADR-220) through the configured server; false when
+ * there is none.
+ */
 export async function sendMail(
   settings: SettingsService,
-  m: { to: string; subject: string; text: string },
+  m: { to: string; spec: EmailSpec; edition: Edition },
 ): Promise<boolean> {
   const smtp = (await settings.alerting()).smtp;
   if (!smtp) return false;
-  await transport(smtp.transport).sendMail({
-    from: smtp.from,
-    to: m.to,
-    subject: m.subject,
-    text: m.text,
-  });
+  await deliver(transport(smtp.transport), smtp, { to: m.to, email: render(m.spec, m.edition) });
   return true;
 }
 
@@ -171,39 +171,3 @@ export async function createResetLink(
     .execute();
   return { token, expiresAt };
 }
-
-const fmtDate = (d: Date) =>
-  d.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
-
-export const inviteMail = (p: {
-  inviter: string;
-  role: string;
-  link: string;
-  expires: Date;
-  site: string;
-}) => ({
-  subject: `${p.inviter} invited you to WatchLog`,
-  text: [
-    `${p.inviter} invited you to WatchLog at ${p.site} as ${p.role === 'admin' ? 'an Admin' : 'a Viewer'}.`,
-    '',
-    `Join here: ${p.link}`,
-    '',
-    `The link works once and expires on ${fmtDate(p.expires)}. If you didn't expect it, you can ignore this email.`,
-  ].join('\n'),
-});
-
-export const resetMail = (p: { link: string; site: string }) => ({
-  subject: 'Set a new WatchLog password',
-  text: [
-    `A password reset was asked for your account at ${p.site}.`,
-    '',
-    `Set a new password here: ${p.link}`,
-    '',
-    "The link works once and for one hour. Your current password keeps working until you set a new one. If you didn't ask for this, you can ignore this email.",
-  ].join('\n'),
-});

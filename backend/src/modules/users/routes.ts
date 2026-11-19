@@ -6,6 +6,8 @@ import { recordFunnelEvent } from '../funnel/recorder.js';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyRequest } from 'fastify';
 import { sql } from 'kysely';
+import { describeDevice } from '../../lib/device.js';
+import { inviteEmail, resetEmail } from '../emails/account.js';
 import { Type } from 'typebox';
 import { refuseInvite } from '../entitlements/limits.js';
 import type { Database } from '../../db/index.js';
@@ -25,12 +27,10 @@ import {
   baseUrl,
   createResetLink,
   INVITE_TTL_MS,
-  inviteMail,
   inviteStatus,
   inviteToken,
   mayManage,
   openInviteToken,
-  resetMail,
   sendMail,
   smtpConfigured,
 } from './service.js';
@@ -220,13 +220,16 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
     try {
       emailed = await sendMail(settings, {
         to: invite.email,
-        ...inviteMail({
+        spec: inviteEmail({
           inviter: request.user!.name || request.user!.email,
+          inviterEmail: request.user!.email,
+          org: request.server.edition === 'cloud' ? request.user!.org.name : null,
+          site: base,
           role: invite.role,
           link,
           expires: expiresAt,
-          site: base,
         }),
+        edition: request.server.edition,
       });
     } catch (err) {
       request.log.warn({ err: (err as Error).message }, 'invite email not sent');
@@ -539,7 +542,8 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
       try {
         emailed = await sendMail(settings, {
           to: target.email,
-          ...resetMail({ link, site: base }),
+          spec: resetEmail({ link, by: me.name || me.email }),
+          edition: request.server.edition,
         });
       } catch (err) {
         request.log.warn({ err: (err as Error).message }, 'reset email not sent');
@@ -1045,7 +1049,12 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
           const base = await site(request);
           await sendMail(settings, {
             to: user.email,
-            ...resetMail({ link: `${base}/reset/${token}`, site: base }),
+            spec: resetEmail({
+              link: `${base}/reset/${token}`,
+              device: describeDevice(request.headers['user-agent']),
+              asked: new Date(),
+            }),
+            edition: request.server.edition,
           });
         })().catch((err: unknown) => {
           request.log.warn({ err: (err as Error).message }, 'reset email not sent');

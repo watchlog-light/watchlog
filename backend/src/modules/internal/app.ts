@@ -187,6 +187,8 @@ export async function buildInternalApp(
             owners: Type.Array(
               Type.Object({ email: Type.String(), name: Type.Union([Type.String(), Type.Null()]) }),
             ),
+            /** The org's name, for the emails' header (ADR-220); additive. */
+            orgName: Type.String(),
           }),
           401: ProblemSchema,
           404: ProblemSchema,
@@ -204,7 +206,15 @@ export async function buildInternalApp(
         .where('m.role', '=', 'owner')
         .orderBy('m.created_at')
         .execute();
-      return { owners: rows.map((r) => ({ email: r.email, name: r.name || null })) };
+      const org = await systemDb
+        .selectFrom('orgs')
+        .select('name')
+        .where('id', '=', id)
+        .executeTakeFirstOrThrow();
+      return {
+        owners: rows.map((r) => ({ email: r.email, name: r.name || null })),
+        orgName: org.name,
+      };
     },
   );
 

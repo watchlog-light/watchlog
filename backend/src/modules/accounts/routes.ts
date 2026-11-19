@@ -52,14 +52,8 @@ import {
   getSignupMode,
   InviteUnavailableError,
 } from '../signup-invites/service.js';
-import {
-  createAccount,
-  createVerifyToken,
-  existingAccountMail,
-  mfaLockedMail,
-  useVerifyToken,
-  verifyMail,
-} from './service.js';
+import { existingAccountEmail, mfaLockedEmail, verifyEmail } from '../emails/account.js';
+import { createAccount, createVerifyToken, useVerifyCode, useVerifyToken } from './service.js';
 import {
   acceptSecondFactor,
   encryptTotpSecret,
@@ -156,12 +150,13 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
   }
 
   async function sendVerification(request: FastifyRequest, userId: string, email: string) {
-    const token = await createVerifyToken(systemDb, userId, email);
+    const { token, code } = await createVerifyToken(systemDb, userId, email);
     const base = await site(request);
     try {
       return await sendMail(settings, {
         to: email,
-        ...verifyMail({ link: `${base}/verify-email/${token}`, site: base }),
+        spec: verifyEmail({ code, link: `${base}/verify-email/${token}` }),
+        edition: 'cloud',
       });
     } catch (err) {
       request.log.warn({ err: (err as Error).message }, 'verification email not sent');
@@ -222,7 +217,8 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
       try {
         await sendMail(settings, {
           to: row.email,
-          ...mfaLockedMail({ site: base, until: after.mfa_locked_until }),
+          spec: mfaLockedEmail({ site: base, until: after.mfa_locked_until }),
+          edition: 'cloud',
         });
       } catch (err) {
         request.log.warn({ err: (err as Error).message }, '2FA lock email not sent');
@@ -481,7 +477,11 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
         const base = await site(request);
         let sent = false;
         try {
-          sent = await sendMail(settings, { to: email, ...existingAccountMail({ site: base }) });
+          sent = await sendMail(settings, {
+            to: email,
+            spec: existingAccountEmail({ site: base }),
+            edition: 'cloud',
+          });
         } catch (err) {
           request.log.warn({ err: (err as Error).message }, 'signup notice not sent');
         }
@@ -528,6 +528,61 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
       await recordFunnelEvent(request.server, {
         name: 'email_verified',
         userId: used.userId,
+        orgId: used.orgId,
+      });
+      return { verified: true as const };
+    },
+  );
+
+  // The code from the same email (ADR-220), typed where the user is signed in: 15 minutes,
+  // 5 wrong tries, and only the newest email's code works.
+  app.post(
+    '/auth/verify-email/code',
+    {
+      preHandler: requireUser({ allowRestricted: true }),
+      config: limit(10),
+      schema: {
+        summary: 'Confirm the signed-in account’s email address with the code from the email',
+        tags: ['auth'],
+        body: Type.Object(
+          { code: Type.String({ minLength: 6, maxLength: 7, pattern: '^[0-9]{3} ?[0-9]{3}$' }) },
+          { additionalProperties: false },
+        ),
+        response: {
+          200: Type.Object({ verified: Type.Literal(true) }),
+          400: ProblemSchema,
+          401: ProblemSchema,
+          409: ProblemSchema,
+          410: ProblemSchema,
+          429: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = request.user!;
+      if (user.account?.emailVerifiedAt) {
+        return sendCode(reply, 409, 'already-verified', 'Your address is already verified.');
+      }
+      const used = await useVerifyCode(systemDb, user.id, request.body.code);
+      if (used.result === 'wrong') {
+        return sendCode(
+          reply,
+          400,
+          'code-invalid',
+          "That code isn't right. Check the email and try again.",
+        );
+      }
+      if (used.result !== 'ok') {
+        return sendCode(
+          reply,
+          410,
+          'code-expired',
+          'This code no longer works. Send a new email, or use the link in the one you have.',
+        );
+      }
+      await recordFunnelEvent(request.server, {
+        name: 'email_verified',
+        userId: user.id,
         orgId: used.orgId,
       });
       return { verified: true as const };

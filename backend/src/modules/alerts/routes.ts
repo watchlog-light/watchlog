@@ -195,6 +195,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
     http,
     settings: () => settings.alerting(),
     log: app.log,
+    edition: config.edition,
   };
 
   async function botName(token: string) {

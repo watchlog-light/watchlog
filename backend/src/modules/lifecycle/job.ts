@@ -22,7 +22,9 @@ import { withOrg } from '../../db/org-context.js';
 import { transport } from '../alerts/channels.js';
 import { PLAN_DEFAULTS } from '../entitlements/plans.js';
 import type { AlertingSettings } from '../settings/service.js';
-import { lifecycleEmail, whatChangedReadyEmail, type LifecycleKind } from './texts.js';
+import { deliver, render } from '../../lib/mail.js';
+import { whatChangedReadyEmail } from '../emails/notices.js';
+import { lifecycleEmail, type LifecycleKind } from './texts.js';
 import { unsubscribeUrl } from './unsubscribe.js';
 
 export const LIFECYCLE_EVERY_MS = 10 * 60_000;
@@ -130,22 +132,14 @@ export async function sendLifecycleEmails(deps: LifecycleDeps, nowMs: number): P
     ctx: Parameters<typeof lifecycleEmail>[1],
   ) => {
     if (!(await claim(db, orgId, to.userId, kind))) return;
-    const mail = lifecycleEmail(kind, ctx);
+    const email = render(lifecycleEmail(kind, ctx), 'cloud');
     try {
-      await transport(smtp.transport).sendMail({
+      await deliver(transport(smtp.transport), smtp, {
         from: deps.from,
         replyTo: deps.from,
         to: to.email,
-        subject: mail.subject,
-        text: mail.text,
-        ...(ctx.unsubscribeUrl
-          ? {
-              headers: {
-                'List-Unsubscribe': `<${ctx.unsubscribeUrl}>`,
-                'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-              },
-            }
-          : {}),
+        email,
+        ...(ctx.unsubscribeUrl ? { unsubscribeUrl: ctx.unsubscribeUrl } : {}),
       });
       sent++;
     } catch (err) {
@@ -328,19 +322,20 @@ export async function sendLifecycleEmails(deps: LifecycleDeps, nowMs: number): P
         .executeTakeFirst(),
     );
     if (!claimed) continue;
-    const mail = whatChangedReadyEmail({
-      site,
-      name: firstName(r.name, r.email),
-      signature,
-      cluster: { id: r.cluster_id, name: r.cluster_name, kind: r.cluster_kind },
-    });
+    const email = render(
+      whatChangedReadyEmail({
+        site,
+        cluster: { id: r.cluster_id, name: r.cluster_name, kind: r.cluster_kind },
+        signature,
+      }),
+      'cloud',
+    );
     try {
-      await transport(smtp.transport).sendMail({
+      await deliver(transport(smtp.transport), smtp, {
         from: deps.from,
         replyTo: deps.from,
         to: r.email,
-        subject: mail.subject,
-        text: mail.text,
+        email,
       });
       sent++;
     } catch (err) {

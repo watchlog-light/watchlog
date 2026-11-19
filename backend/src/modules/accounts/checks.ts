@@ -26,6 +26,8 @@ export type AccountErrorCode =
   | 'invalid-credentials'
   | 'invalid-token'
   | 'token-expired'
+  | 'code-invalid'
+  | 'code-expired'
   | 'already-verified'
   | 'mfa-invalid'
   | 'mfa-locked'

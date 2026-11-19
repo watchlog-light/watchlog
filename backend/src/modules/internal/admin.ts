@@ -10,6 +10,8 @@ import { sql } from 'kysely';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { sendProblem } from '../../lib/problem.js';
+import { deliver, render } from '../../lib/mail.js';
+import { supportStartedEmail } from '../emails/notices.js';
 import { transport } from '../alerts/channels.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { ProFeaturesConflict, type EntitlementsService } from '../entitlements/service.js';
@@ -90,33 +92,6 @@ const Member = Type.Object({
 });
 
 const Params = Type.Object({ id: Type.String({ maxLength: 64 }) });
-
-export function supportStartedMail(p: {
-  orgName: string;
-  staffEmail: string;
-  reason: string;
-  expiresAt: Date;
-  site?: string;
-}) {
-  const until = p.expiresAt.toISOString().slice(11, 16);
-  return {
-    subject: `WatchLog staff opened a support session in ${p.orgName}`,
-    text: [
-      'Hello,',
-      '',
-      `${p.staffEmail} at WatchLog opened a read-only support session in ${p.orgName}.`,
-      '',
-      `Why: ${p.reason}`,
-      `Until: ${until} UTC at the latest (a session lasts at most an hour and can't change anything).`,
-      '',
-      `Settings › Security lists every session, with what it opened${p.site ? `: ${p.site}/settings?tab=security` : '.'}`,
-      '',
-      "If you didn't expect this, reply to this email.",
-      '',
-      '— WatchLog',
-    ].join('\n'),
-  };
-}
 
 export const adminRoutes: FastifyPluginAsyncTypebox<AdminDeps> = async (app, deps) => {
   const { systemDb, entitlements } = deps;
@@ -687,19 +662,21 @@ export const adminRoutes: FastifyPluginAsyncTypebox<AdminDeps> = async (app, dep
           .where('m.org_id', '=', org.id)
           .where('m.role', '=', 'owner')
           .execute();
-        const mail = supportStartedMail({
-          orgName: org.name,
-          staffEmail,
-          reason: session.reason,
-          expiresAt: session.expires_at,
-          site,
-        });
+        const email = render(
+          supportStartedEmail({
+            orgName: org.name,
+            staffEmail,
+            reason: session.reason,
+            expiresAt: session.expires_at,
+            site,
+          }),
+          'cloud',
+        );
         for (const o of owners) {
           try {
-            await transport(settings.smtp.transport).sendMail({
-              from: settings.smtp.from,
+            await deliver(transport(settings.smtp.transport), settings.smtp, {
               to: o.email,
-              ...mail,
+              email,
             });
             emailed++;
           } catch (err) {

@@ -741,6 +741,9 @@ export interface EgressSources {
 }
 
 export interface EmailTokens {
+  code_attempts: Generated<number>;
+  code_expires_at: Timestamp | null;
+  code_hash: Buffer | null;
   created_at: Generated<Timestamp>;
   email: string;
   expires_at: Timestamp;

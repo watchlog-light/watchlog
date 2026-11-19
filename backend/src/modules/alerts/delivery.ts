@@ -15,7 +15,8 @@ import {
   type HttpClient,
 } from './channels.js';
 import { redact } from './delivery-errors.js';
-import { attachCauses, type WorkOut } from './likely-cause.js';
+import type { Edition } from '../../config.js';
+import { attachCauses, type ChangesOut, type WorkOut } from './likely-cause.js';
 import type { MessagePayload } from './outbox.js';
 import { testPayload } from './render.js';
 import type { AlertingSettings } from '../settings/service.js';
@@ -36,6 +37,10 @@ export interface DeliveryDeps {
    * messages go without the likely cause.
    */
   causes?: WorkOut;
+  /** What changed around a firing alert (Pro, ADR-220): one line in its email. */
+  changes?: ChangesOut;
+  /** The edition: the emails' footer names Cloud only in Cloud. */
+  edition?: Edition;
   /** Cloud's funnel (ADR-179): the first notification sent. */
   funnel?: FunnelRecorder | null;
 }
@@ -145,10 +150,17 @@ export async function deliverDue(deps: DeliveryDeps, now = Date.now()): Promise<
   if (claimed.rows.length === 0) return report;
   // The likely cause, worked out when an alert fires (2 s at most, ADR-148), before sending.
   if (deps.causes) {
-    await attachCauses(db, deps.causes, claimed.rows, {
-      info: (o, m) => deps.log.info?.(o, m),
-      warn: (o, m) => deps.log.warn(o, m),
-    });
+    await attachCauses(
+      db,
+      deps.causes,
+      claimed.rows,
+      {
+        info: (o, m) => deps.log.info?.(o, m),
+        warn: (o, m) => deps.log.warn(o, m),
+      },
+      now,
+      deps.changes,
+    );
   }
   const settings = await deps.settings();
 
@@ -187,6 +199,7 @@ export async function deliverDue(deps: DeliveryDeps, now = Date.now()): Promise<
           await deliver(channelTarget(row, deps.secretKey), p.payload, {
             http: deps.http,
             ...settings,
+            edition: deps.edition,
             deliveryId: n.id,
             now: () => now,
           });
@@ -303,6 +316,7 @@ export async function sendTest(
     await deliver(channelTarget(row, deps.secretKey), testPayload(), {
       http: deps.http,
       ...(await deps.settings()),
+      edition: deps.edition,
       deliveryId: `test-${Date.now()}`,
     });
     return { ok: true };

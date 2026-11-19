@@ -23,6 +23,7 @@ import {
 import type { Facts, Sentence } from '../causes/types.js';
 import { ApiReader } from '../mcp/reader.js';
 import type { MessagePayload } from './outbox.js';
+import { changeLine } from './text.js';
 
 /** ADR-148: the cause is worked out within 2 s, else the message goes without it. */
 export const NOTIFY_BUDGET_MS = 2_000;
@@ -62,6 +63,8 @@ export interface StoredCause {
   /** How long working it out took, ms. */
   ms: number;
   likely?: NotifyCause;
+  /** What changed around it (Pro): its first row, as one line; absent on Free or without one. */
+  changed?: string;
 }
 
 /** An answer's likely cause as a message carries it; undefined unless likely (and worded). */
@@ -114,6 +117,40 @@ export function workerCauses(
   };
 }
 
+/** What changed around one alert, as one line, or null (Free, none, too late). */
+export type ChangesOut = (
+  orgId: string,
+  clusterId: string,
+  alertId: string,
+) => Promise<string | null>;
+
+/**
+ * The worker's way to read What changed around an alert (ADR-199): the same in-process app,
+ * as a viewer of the org. Free orgs get 403 (What changed is Pro), which means no line; so
+ * does anything not answered within the budget.
+ */
+export function workerChanges(app: FastifyInstance, budgetMs = NOTIFY_BUDGET_MS): ChangesOut {
+  return async (orgId, clusterId, alertId) => {
+    const reader = new ApiReader(app, { [SERVICE_ORG_HEADER]: orgId, ...internalCallMark() });
+    const read = reader
+      .get<{ rows: Parameters<typeof changeLine>[0][] }>('/what-changed', {
+        cluster: clusterId,
+        alert: alertId,
+      })
+      .then((a) => (a.rows[0] ? changeLine(a.rows[0]) : null))
+      .catch(() => null);
+    let timer: NodeJS.Timeout | undefined;
+    const late = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), budgetMs);
+    });
+    try {
+      return await Promise.race([read, late]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+}
+
 /** Kinds whose message gets the line: the firing ones, and the resolve ("Was likely"). */
 const CARRIES = new Set(['firing', 'escalated', 'renotify', 'resolved']);
 /** Kinds that work the cause out when the alert has none yet: the alert fires (or escalates). */
@@ -136,6 +173,7 @@ export async function attachCauses(
   rows: Selectable<Notifications>[],
   log: CauseLog,
   now = Date.now(),
+  changesOut?: ChangesOut,
 ): Promise<void> {
   const carrying = rows.filter((r) => CARRIES.has(r.kind));
   if (!carrying.length) return;
@@ -169,19 +207,32 @@ export async function attachCauses(
     await Promise.all(
       [...wanted.values()].map(async ({ orgId, jobs }) => {
         const began = Date.now();
-        const answers = await workOut(orgId, jobs).catch((err: Error) => {
-          log.warn({ err: err.message }, 'likely causes could not be worked out');
-          return jobs.map(() => undefined);
-        });
+        // What changed around each alert (Pro), side by side with the cause, same budget.
+        const changesP = changesOut
+          ? Promise.all(
+              jobs.map((j) =>
+                changesOut(orgId, j.cluster.id, (j.subject as { id: string }).id).catch(() => null),
+              ),
+            )
+          : Promise.resolve(jobs.map(() => null));
+        const [answers, changes] = await Promise.all([
+          workOut(orgId, jobs).catch((err: Error) => {
+            log.warn({ err: err.message }, 'likely causes could not be worked out');
+            return jobs.map(() => undefined);
+          }),
+          changesP,
+        ]);
         const ms = Date.now() - began;
         await Promise.all(
           jobs.map(async (j, i) => {
             const a = answers[i];
             const likely = a && notifyCause(a);
+            const changed = changes[i];
             const stored: StoredCause = {
               state: a ? a.state : 'late',
               ms,
               ...(likely ? { likely } : {}),
+              ...(changed ? { changed } : {}),
             };
             const id = (j.subject as { id: string }).id;
             // The first answer kept stays: two workers sending to two channels agree.
@@ -213,20 +264,18 @@ export async function attachCauses(
       .where('id', 'in', ids)
       .where('cause_at', 'is not', null)
       .execute();
-    const likelyOf = new Map(
-      kept.flatMap((k) => {
-        const c = k.cause as StoredCause | null;
-        return c?.likely ? [[k.id, c.likely] as const] : [];
-      }),
-    );
+    const keptOf = new Map(kept.map((k) => [k.id, k.cause as StoredCause | null] as const));
     for (const r of carrying) {
       const p = payloadOf(r);
       let changed = false;
       const items = p.items.map((it) => {
-        const lc = likelyOf.get(it.alertId);
-        if (!lc || it.likelyCause) return it;
+        const c = keptOf.get(it.alertId);
+        const lc = c?.likely && !it.likelyCause ? c.likely : undefined;
+        // What changed around it goes on the firing messages only (the resolve repeats none).
+        const wc = c?.changed && !it.whatChanged && r.kind !== 'resolved' ? c.changed : undefined;
+        if (!lc && !wc) return it;
         changed = true;
-        return { ...it, likelyCause: lc };
+        return { ...it, ...(lc ? { likelyCause: lc } : {}), ...(wc ? { whatChanged: wc } : {}) };
       });
       if (!changed) continue;
       const next: MessagePayload = { ...p, items };

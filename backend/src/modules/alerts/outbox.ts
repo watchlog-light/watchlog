@@ -22,6 +22,8 @@ export interface MessageItem {
    * "Likely cause: …" on a firing message, "Was likely: …" on the resolve.
    */
   likelyCause?: NotifyCause;
+  /** One line of What changed around it when it fired (Pro, ADR-220): the email shows it. */
+  whatChanged?: string;
 }
 
 /** What a sender needs to render a message; stored in notifications.payload. */

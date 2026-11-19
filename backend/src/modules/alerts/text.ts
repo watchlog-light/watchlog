@@ -418,3 +418,21 @@ function anomalyText(a: AlertTextInput): AlertText | null {
     why: `usual for ${day} ${hour} UTC: ${rangeWords(low, high, unit)}; now ${valueWords(value, unit)}`,
   };
 }
+
+/**
+ * One row of What changed around an alert, as the alert email's line (ADR-220): "api:
+ * memory 1.2 GiB, usually 300–400 MiB, since 14:01 UTC". Names are the cluster's data.
+ */
+export function changeLine(row: {
+  subject: Record<string, string>;
+  key: string;
+  unit?: string | null;
+  peer?: string | null;
+  usualLow: number;
+  usualHigh: number;
+  value: number;
+  since: string;
+}): string {
+  const unit = row.unit || metricUnit(row.key) || 'count';
+  return `${subjectWords(row.subject)}: ${metricWords(row.key, row.peer)} ${valueWords(row.value, unit)}, usually ${rangeWords(row.usualLow, row.usualHigh, unit)}, since ${row.since.slice(11, 16)} UTC`;
+}

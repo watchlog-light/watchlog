@@ -27,3 +27,5 @@ graphify-out/
 deploy/helm/*/charts/
 __pycache__/
 
+# The emails preview (pnpm --filter @watchlog/backend emails:preview).
+backend/tmp/
