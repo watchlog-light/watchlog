@@ -42,6 +42,8 @@ const SYSTEM_DB: Record<string, string> = {
     "the worker's day7_active job lists clusters across orgs; each event is written withOrg",
   'modules/internal/admin.ts':
     "the Cloud admin's API (staff): any org's row, members, usage, funnel and support sessions",
+  'modules/internal/admin-users.ts':
+    "the Cloud admin's API (staff): every user with their orgs, plans and agents, read-only, no secrets",
   'modules/signup-invites/service.ts':
     'invite waves (ADR-173): the signup mode and invites, read by signup before any org exists',
   'modules/signup-invites/admin-routes.ts':

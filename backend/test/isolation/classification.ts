@@ -365,6 +365,9 @@ export const INTERNAL_ROUTES = [
   'POST /internal/orgs/:id/beta-notice',
   // The Cloud admin's API (ADR-179): also needs X-WatchLog-Staff (internal.test.ts).
   'GET /internal/admin/orgs',
+  // The Cloud admin's Users page (0.9.9): read-only, never a secret.
+  'GET /internal/admin/users',
+  'GET /internal/admin/users/:id',
   'GET /internal/admin/orgs/:id',
   'GET /internal/admin/orgs/:id/members',
   'GET /internal/admin/orgs/:id/usage',
