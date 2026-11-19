@@ -21,11 +21,13 @@ import RecoveryCodes from '@/components/cloud/RecoveryCodes.vue';
 import StaffAccess from '@/components/cloud/StaffAccess.vue';
 import TwoFactorSetup from '@/components/cloud/TwoFactorSetup.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue';
 import ModalDialog from '@/components/ui/ModalDialog.vue';
 
 import TextField from '@/components/ui/TextField.vue';
 import { describeAgent } from '@/lib/sessions';
 import { useAuthStore } from '@/stores/auth';
+import { useToastStore } from '@/stores/toast';
 
 // Settings › Security (Cloud, ADR-175): 2FA on or off with its recovery codes, the signed-in
 // sessions with revoke, GitHub and Google as ways to sign in, and for Owners WatchLog
@@ -106,27 +108,44 @@ async function loadSessions() {
   }
 }
 const others = computed(() => (sessions.value ?? []).filter((s) => !s.current).length);
-async function revoke(s: AccountSession) {
+
+// Taking access away asks first (ADR-219): another device's session, every other session, a
+// way to sign in. Signing out here does not: it is this device's own "Sign out".
+type Ask =
+  | { kind: 'session'; session: AccountSession }
+  | { kind: 'others' }
+  | { kind: 'unlink'; provider: Provider };
+const ask = ref<Ask | null>(null);
+const askOpen = computed({
+  get: () => ask.value !== null,
+  set: (v: boolean) => {
+    if (!v) ask.value = null;
+  },
+});
+const toast = useToastStore();
+const said = (err: unknown) => t(cloudErrorKey(err));
+
+async function signOutHere(s: AccountSession) {
   try {
     await cloudApi.revokeSession(s.id);
-    if (s.current) {
-      auth.clear();
-      await router.replace({ name: 'login' });
-      return;
-    }
-    await loadSessions();
+    auth.clear();
+    await router.replace({ name: 'login' });
   } catch (err) {
     sessionsError.value = cloudErrorKey(err);
   }
 }
+/** After the dialog's yes; throws when the server refused, and the row then stays. */
+async function revoke(s: AccountSession) {
+  await cloudApi.revokeSession(s.id);
+  sessions.value = (sessions.value ?? []).filter((x) => x.id !== s.id);
+  toast.show(t('cloud.security.revokedOne', { device: device(s) }));
+  void loadSessions();
+}
 async function revokeOthers() {
-  try {
-    const { revoked } = await cloudApi.revokeOtherSessions();
-    notice.value = { tone: 'ok', text: t('cloud.security.revokedOthers', { n: revoked }) };
-    await loadSessions();
-  } catch (err) {
-    sessionsError.value = cloudErrorKey(err);
-  }
+  const { revoked } = await cloudApi.revokeOtherSessions();
+  sessions.value = (sessions.value ?? []).filter((x) => x.current);
+  notice.value = { tone: 'ok', text: t('cloud.security.revokedOthers', { n: revoked }) };
+  void loadSessions();
 }
 function device(s: AccountSession) {
   const d = describeAgent(s.userAgent);
@@ -148,15 +167,12 @@ const when = (iso: string | null) =>
 const identity = (p: Provider) => account.value?.identities.find((i) => i.provider === p);
 const providers = computed(() => PROVIDERS.filter((p) => auth.cloud?.providers[p] || identity(p)));
 const linkUrl = (p: Provider) => oauthStartUrl(p, 'link', '/settings/security');
-const unlinkError = ref<string>();
+const providerName = (p: Provider) => t(`cloud.providers.name.${p}`);
+/** After the dialog's yes; throws when the server refused (the last way to sign in). */
 async function unlink(p: Provider) {
-  unlinkError.value = undefined;
-  try {
-    await cloudApi.unlink(p);
-    await auth.loadAccount();
-  } catch (err) {
-    unlinkError.value = cloudErrorKey(err);
-  }
+  await cloudApi.unlink(p);
+  toast.show(t('cloud.security.unlinked', { provider: providerName(p) }));
+  await auth.loadAccount();
 }
 
 onMounted(() => {
@@ -250,7 +266,7 @@ onMounted(() => {
           variant="secondary"
           class="max-sm:w-full"
           data-testid="revoke-others"
-          @click="revokeOthers"
+          @click="ask = { kind: 'others' }"
         >
           {{ $t('cloud.security.revokeOthers') }}
         </BaseButton>
@@ -286,7 +302,7 @@ onMounted(() => {
                 : $t('cloud.security.revokeLabel', { device: device(s) })
             "
             data-testid="revoke-session"
-            @click="revoke(s)"
+            @click="s.current ? signOutHere(s) : (ask = { kind: 'session', session: s })"
           >
             <LogOut class="size-4" aria-hidden="true" />
             {{ s.current ? $t('account.signOut') : $t('cloud.security.revoke') }}
@@ -309,7 +325,6 @@ onMounted(() => {
           {{ $t('cloud.security.methodsTitle') }}
         </h2>
       </div>
-      <FormAlert v-if="unlinkError" class="mt-3">{{ $t(unlinkError) }}</FormAlert>
       <ul class="mt-3 flex flex-col divide-y divide-border" data-testid="identities">
         <li class="flex flex-wrap items-center gap-3 py-3">
           <span class="min-w-0 flex-1 text-14 text-text">{{ $t('auth.fields.password') }}</span>
@@ -342,7 +357,7 @@ onMounted(() => {
             v-if="identity(p)"
             variant="secondary"
             :data-testid="`unlink-${p}`"
-            @click="unlink(p)"
+            @click="ask = { kind: 'unlink', provider: p }"
           >
             {{ $t('cloud.security.unlink') }}
           </BaseButton>
@@ -424,5 +439,54 @@ onMounted(() => {
         </div>
       </form>
     </ModalDialog>
+
+    <!-- Another device -->
+    <ConfirmDialog
+      v-if="ask?.kind === 'session'"
+      v-model:open="askOpen"
+      :title="$t('cloud.security.revokeOneTitle')"
+      :subject="device(ask.session)"
+      :lines="[
+        $t('cloud.security.sessionMeta', {
+          ip: ask.session.ip ?? '—',
+          seen: when(ask.session.lastSeenAt ?? ask.session.createdAt),
+          since: when(ask.session.createdAt),
+        }),
+        $t('cloud.security.revokeOneBody'),
+      ]"
+      :confirm-label="$t('cloud.security.revokeOneConfirm')"
+      :action="() => revoke((ask as { session: AccountSession }).session)"
+      :error-text="said"
+      testid="revoke-session"
+    />
+    <!-- Every other device -->
+    <ConfirmDialog
+      v-if="ask?.kind === 'others'"
+      v-model:open="askOpen"
+      :title="$t('cloud.security.revokeOthersTitle')"
+      :lines="[
+        $t('cloud.security.revokeOthersBody', { n: others }, others),
+        $t('cloud.security.revokeOthersStay'),
+      ]"
+      :confirm-label="$t('cloud.security.revokeOthersConfirm')"
+      :action="revokeOthers"
+      :error-text="said"
+      testid="revoke-others"
+    />
+    <!-- A way to sign in -->
+    <ConfirmDialog
+      v-if="ask?.kind === 'unlink'"
+      v-model:open="askOpen"
+      :title="$t('cloud.security.unlinkTitle', { provider: providerName(ask.provider) })"
+      :subject="identity(ask.provider)?.email ?? undefined"
+      :lines="[
+        $t('cloud.security.unlinkBody', { provider: providerName(ask.provider) }),
+        $t('cloud.security.unlinkAgain'),
+      ]"
+      :confirm-label="$t('cloud.security.unlinkConfirm', { provider: providerName(ask.provider) })"
+      :action="() => unlink((ask as { provider: Provider }).provider)"
+      :error-text="said"
+      testid="unlink"
+    />
   </div>
 </template>

@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router';
 import { ApiError, api } from '@/api/client';
 import AccessStep from '@/components/applications/AccessStep.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue';
 import ModalDialog from '@/components/ui/ModalDialog.vue';
 import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
 import { useLoader } from '@/composables/useLoader';
@@ -70,11 +71,15 @@ const saveAccess = () =>
     changing.value = false;
     probe.value = null;
   }, t('applications.settings.accessSaved'));
-const removeAccess = () =>
-  run(
-    () => api(`/applications/${props.app.id}/access`, { method: 'DELETE' }),
-    t('applications.settings.accessRemoved'),
-  );
+// The stored user and password are deleted, so it asks first (ADR-219).
+const askRemoveAccess = ref(false);
+/** After the dialog's yes; throws when the server refused, and the access then stays. */
+async function removeAccess() {
+  await api(`/applications/${props.app.id}/access`, { method: 'DELETE' });
+  toast.show(t('applications.settings.accessRemoved'));
+  await data.load();
+  emit('changed');
+}
 const patch = (body: { paused?: boolean; queryText?: boolean }) =>
   run(
     () => api(`/applications/${props.app.id}`, { method: 'PATCH', body }),
@@ -142,7 +147,7 @@ const settings = computed(() => data.data.value?.settings);
               variant="secondary"
               :loading="saving"
               data-testid="remove-access"
-              @click="removeAccess"
+              @click="askRemoveAccess = true"
               >{{ $t('applications.settings.removeAccess') }}</BaseButton
             >
           </div>
@@ -252,6 +257,19 @@ const settings = computed(() => data.data.value?.settings);
         </span>
         <BaseButton variant="secondary" @click="open = false">{{ $t('common.close') }}</BaseButton>
       </div>
+      <ConfirmDialog
+        v-if="askRemoveAccess"
+        v-model:open="askRemoveAccess"
+        :title="$t('applications.settings.removeAccessTitle')"
+        :subject="app.name"
+        :lines="[
+          $t('applications.settings.removeAccessBody'),
+          $t('applications.settings.removeAccessAgain'),
+        ]"
+        :confirm-label="$t('applications.settings.removeAccessConfirm')"
+        :action="removeAccess"
+        testid="remove-access"
+      />
     </div>
   </ModalDialog>
 </template>

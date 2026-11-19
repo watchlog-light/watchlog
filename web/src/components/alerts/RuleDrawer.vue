@@ -27,6 +27,7 @@ import { conditionThresholds } from '@/lib/alert-chart';
 import TonePill from '@/components/kube/TonePill.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import ComboBox from '@/components/ui/ComboBox.vue';
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue';
 import TextField from '@/components/ui/TextField.vue';
 import { CUSTOM_METRICS, fromInput, SERVICE_METRICS, serviceMetrics, toInput } from '@/lib/alerts';
 import { serviceName } from '@/lib/applications';
@@ -371,14 +372,15 @@ async function save() {
   }
 }
 
+// Reset throws the rule's own values away, so it asks first (ADR-219).
+const askReset = ref(false);
+/** After the dialog's yes; throws when the server refused, and the drawer then stays as it was. */
 async function resetToDefault() {
   saving.value = true;
   try {
     await api(`/alert-rules/${props.rule!.id}/reset`, { method: 'POST' });
     open.value = false;
     emit('saved');
-  } catch {
-    error.value = t('alerts.rules.saveFailed');
   } finally {
     saving.value = false;
   }
@@ -777,7 +779,7 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
               variant="ghost"
               :disabled="saving"
               data-testid="drawer-reset"
-              @click="resetToDefault"
+              @click="askReset = true"
             >
               {{ $t('alerts.drawer.reset') }}
             </BaseButton>
@@ -790,6 +792,17 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
             }}</BaseButton>
           </footer>
         </form>
+        <ConfirmDialog
+          v-if="askReset && rule"
+          v-model:open="askReset"
+          :title="$t('alerts.drawer.resetTitle')"
+          :subject="rule.name"
+          :lines="[$t('alerts.drawer.resetBody'), $t('alerts.drawer.resetStays')]"
+          :confirm-label="$t('alerts.drawer.resetConfirm')"
+          :action="resetToDefault"
+          :error-text="() => $t('alerts.rules.saveFailed')"
+          testid="reset-rule"
+        />
       </DialogContent>
     </DialogPortal>
   </DialogRoot>

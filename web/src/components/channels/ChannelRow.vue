@@ -1,33 +1,41 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import type { AlertChannel, ChannelTestResult } from '@watchlog/api-types';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { api, ApiError } from '@/api/client';
 import TonePill from '@/components/kube/TonePill.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue';
+import { channelState, STATE_TONE } from '@/lib/channels';
 import { formatDateTime } from '@/lib/format';
 import type { Tone } from '@/lib/kube';
+import { useToastStore } from '@/stores/toast';
 
 // One alert channel inside its type's card (ADR-080): what it sends to, whether its
-// last delivery worked, "Send test" with the provider's answer, delete with a confirm.
+// last delivery worked, "Send test" and what it said, and Delete, which asks first (ADR-219).
 const props = defineProps<{ channel: AlertChannel; detail: string; canManage: boolean }>();
 const emit = defineEmits<{ changed: [] }>();
 const { t } = useI18n();
 
 const testing = ref(false);
 const result = ref<ChannelTestResult | null>(null);
-const confirming = ref(false);
+const asking = ref(false);
+/** Deleted: the row goes at once, before the list is loaded again. */
+const gone = ref(false);
+const toast = useToastStore();
 
 const status = computed<{ tone: Tone; label: string }>(() => {
-  const ch = props.channel;
-  if (ch.type === 'telegram' && !ch.config.connected) {
-    return { tone: 'warning', label: t('channels.status.notConnected') };
-  }
-  if (ch.lastError) return { tone: 'critical', label: t('channels.status.failing') };
-  if (ch.verifiedAt || ch.lastSentAt) return { tone: 'ok', label: t('channels.status.working') };
-  return { tone: 'neutral', label: t('channels.status.untested') };
+  const state = channelState(props.channel);
+  return { tone: STATE_TONE[state], label: t(`channels.status.${state}`) };
 });
+// A failed test's text goes once a later message got through: the row says "Working" then.
+watch(
+  () => props.channel.lastSentAt,
+  () => {
+    if (result.value && !result.value.ok && !props.channel.lastError) result.value = null;
+  },
+);
 
 async function test() {
   testing.value = true;
@@ -49,20 +57,19 @@ async function test() {
   }
 }
 
+/** After the dialog's yes; throws when the server refused, and the row then stays. */
 async function remove() {
-  if (!confirming.value) {
-    confirming.value = true;
-    return;
-  }
-  confirming.value = false;
   await api(`/alert-channels/${props.channel.id}`, { method: 'DELETE' });
+  gone.value = true;
+  toast.show(t('channels.deleted', { name: props.channel.name }));
   emit('changed');
 }
 </script>
 
 <template>
   <li
-    class="flex flex-col gap-1.5 border-t border-border py-2.5 first:border-t-0"
+    v-if="!gone"
+    class="flex min-w-0 flex-col gap-1.5 border-t border-border py-2.5 first:border-t-0"
     data-testid="channel-row"
   >
     <div class="flex flex-wrap items-center gap-2">
@@ -80,24 +87,24 @@ async function remove() {
         <BaseButton variant="ghost" :loading="testing" data-testid="send-test" @click="test">
           {{ $t('channels.test') }}
         </BaseButton>
-        <BaseButton
-          :variant="confirming ? 'danger' : 'ghost'"
-          data-testid="delete-channel"
-          @click="remove"
-        >
-          {{ confirming ? $t('channels.confirmDelete') : $t('common.delete') }}
+        <BaseButton variant="ghost" data-testid="delete-channel" @click="asking = true">
+          {{ $t('common.delete') }}
         </BaseButton>
       </template>
     </div>
     <p
       v-if="result"
-      :class="['text-13', result.ok ? 'text-text' : 'text-critical']"
+      :class="['min-w-0 text-13 wrap-anywhere', result.ok ? 'text-text' : 'text-critical']"
       role="status"
       data-testid="test-result"
     >
       {{ result.ok ? $t('channels.testOk') : $t('channels.testFailed', { error: result.error }) }}
     </p>
-    <p v-else-if="channel.lastError" class="text-12 text-critical" data-testid="last-error">
+    <p
+      v-else-if="channel.lastError"
+      class="min-w-0 text-12 wrap-anywhere text-critical"
+      data-testid="last-error"
+    >
       {{
         $t('channels.lastError', {
           error: channel.lastError,
@@ -105,5 +112,18 @@ async function remove() {
         })
       }}
     </p>
+    <ConfirmDialog
+      v-if="asking"
+      v-model:open="asking"
+      :title="$t('channels.deleteTitle')"
+      :subject="channel.name"
+      :lines="[
+        $t('channels.deleteBody'),
+        $t('channels.deleteRules', { n: channel.ruleCount }, channel.ruleCount),
+      ]"
+      :confirm-label="$t('channels.deleteConfirm')"
+      :action="remove"
+      testid="delete-channel"
+    />
   </li>
 </template>

@@ -7,6 +7,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import TonePill from '@/components/kube/TonePill.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import { failingPill } from '@/lib/channels';
 import AddChannelForm from './AddChannelForm.vue';
 import ChannelRow from './ChannelRow.vue';
 
@@ -25,19 +26,21 @@ const detail = (c: AlertChannel) =>
   props.type === 'slack'
     ? t('channels.webhookSet', { last: c.secrets.webhookUrl ?? '' })
     : (c.config.url ?? '');
-const pill = computed(() =>
-  props.channels.length
-    ? {
-        tone: 'ok' as const,
-        label: t('channels.count', { n: props.channels.length }, props.channels.length),
-      }
-    : { tone: 'neutral' as const, label: t('channels.notSet') },
+const pill = computed(
+  () =>
+    failingPill(props.channels, t) ??
+    (props.channels.length
+      ? {
+          tone: 'ok' as const,
+          label: t('channels.count', { n: props.channels.length }, props.channels.length),
+        }
+      : { tone: 'neutral' as const, label: t('channels.notSet') }),
 );
 </script>
 
 <template>
   <section
-    class="flex flex-col gap-3 rounded-card border border-border bg-surface-1 p-4"
+    class="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface-1 p-4"
     :data-testid="`${type}-card`"
   >
     <header class="flex flex-wrap items-center gap-2.5">

@@ -18,6 +18,7 @@ import Skeleton from '@/components/ui/Skeleton.vue';
 import TextField from '@/components/ui/TextField.vue';
 import { useLoader } from '@/composables/useLoader';
 import { useAuthStore } from '@/stores/auth';
+import { failingPill } from '@/lib/channels';
 import AddChannelForm from './AddChannelForm.vue';
 import ChannelRow from './ChannelRow.vue';
 
@@ -122,14 +123,16 @@ async function save() {
   }
 }
 
-const pill = computed(() =>
-  cloud.value
-    ? { tone: 'ok' as const, label: t('channels.smtp.cloudReady') }
-    : !smtp.value
-      ? { tone: 'neutral' as const, label: t('channels.smtp.notSet') }
-      : smtp.value.source === 'env'
-        ? { tone: 'ok' as const, label: t('channels.smtp.fromEnv') }
-        : { tone: 'ok' as const, label: t('channels.smtp.set') },
+const pill = computed(
+  () =>
+    failingPill(props.channels, t) ??
+    (cloud.value
+      ? { tone: 'ok' as const, label: t('channels.smtp.cloudReady') }
+      : !smtp.value
+        ? { tone: 'neutral' as const, label: t('channels.smtp.notSet') }
+        : smtp.value.source === 'env'
+          ? { tone: 'ok' as const, label: t('channels.smtp.fromEnv') }
+          : { tone: 'ok' as const, label: t('channels.smtp.set') }),
 );
 const adding = ref(false);
 
@@ -247,7 +250,7 @@ onMounted(() => {
       <p
         v-if="result"
         :class="[
-          'rounded-control px-2.5 py-2 text-12',
+          'min-w-0 rounded-control px-2.5 py-2 text-12 wrap-anywhere',
           result.ok ? 'bg-surface-2 text-text' : 'bg-surface-2 text-critical',
         ]"
         role="status"

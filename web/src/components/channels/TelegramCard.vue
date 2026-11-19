@@ -14,6 +14,7 @@ import { api, ApiError, hasProblemType, ProblemType } from '@/api/client';
 import TonePill from '@/components/kube/TonePill.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import TextField from '@/components/ui/TextField.vue';
+import { failingPill } from '@/lib/channels';
 import ChannelRow from './ChannelRow.vue';
 
 // Telegram (ADR-080, ADR-093): a guided setup — paste the token from @BotFather, start
@@ -175,15 +176,17 @@ onBeforeUnmount(() => {
   clearInterval(tick);
 });
 
-const pill = computed(() =>
-  connected.value.length
-    ? {
-        tone: 'ok' as const,
-        label: t('channels.telegram.connectedCount', { n: connected.value.length }),
-      }
-    : pending.value || setup.value
-      ? { tone: 'neutral' as const, label: t('channels.telegram.settingUp') }
-      : { tone: 'neutral' as const, label: t('channels.telegram.notSet') },
+const pill = computed(
+  () =>
+    failingPill(props.channels, t) ??
+    (connected.value.length
+      ? {
+          tone: 'ok' as const,
+          label: t('channels.telegram.connectedCount', { n: connected.value.length }),
+        }
+      : pending.value || setup.value
+        ? { tone: 'neutral' as const, label: t('channels.telegram.settingUp') }
+        : { tone: 'neutral' as const, label: t('channels.telegram.notSet') }),
 );
 const showSteps = computed(() => setup.value || (props.channels.length === 0 && props.canManage));
 const stepClass = (n: number) => [
@@ -194,7 +197,7 @@ const stepClass = (n: number) => [
 
 <template>
   <section
-    class="flex flex-col gap-3 rounded-card border border-border bg-surface-1 p-4"
+    class="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface-1 p-4"
     data-testid="telegram-card"
   >
     <header class="flex flex-wrap items-center gap-2.5">

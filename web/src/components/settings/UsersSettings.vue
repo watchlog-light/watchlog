@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n';
 import { useProOffer } from '@/composables/useProOffer';
 import { ApiError, api } from '@/api/client';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import LockedControl from '@/components/ui/LockedControl.vue';
 import ModalDialog from '@/components/ui/ModalDialog.vue';
@@ -23,6 +24,8 @@ import { useToastStore } from '@/stores/toast';
 // and their role, open invites, the three roles, and for Owners and Admins: invite (a
 // link to copy, also emailed when SMTP is set up), change roles, reset links, remove,
 // hand ownership over, and the log. Viewers see the same page with the controls locked.
+// Removing a person, and revoking or removing an invite, ask first (ADR-219); the row then
+// goes without a reload and a toast says what was done.
 const { t, tm, rt } = useI18n();
 // Cloud: how a plan-limit refusal offers Pro (the price from GET /plan).
 const offer = useProOffer();
@@ -54,6 +57,7 @@ type Dialog =
       foot: string;
     }
   | { kind: 'remove'; user: UserRow }
+  | { kind: 'revoke'; invite: InviteRow }
   | { kind: 'owner'; user: UserRow };
 const dialog = ref<Dialog | null>(null);
 const dialogOpen = computed({
@@ -97,6 +101,7 @@ function showInviteLink(
   };
 }
 
+/** A call that answers with something: undefined when it failed (a toast says why). */
 async function run<T>(fn: () => Promise<T>): Promise<T | undefined> {
   busy.value = true;
   try {
@@ -107,6 +112,14 @@ async function run<T>(fn: () => Promise<T>): Promise<T | undefined> {
   } finally {
     busy.value = false;
   }
+}
+/**
+ * A call that answers with nothing (204): whether it worked. Until 0.9.8 these went through
+ * `run` and its empty answer was read as a failure, so nothing on the page changed until a
+ * reload.
+ */
+async function did(fn: () => Promise<unknown>): Promise<boolean> {
+  return (await run(async () => (await fn(), true))) === true;
 }
 
 async function createInvite() {
@@ -147,17 +160,24 @@ async function renew(i: InviteRow) {
     void page.load();
   }
 }
+/** After the dialog's yes; throws when the server refused, and the row then stays. */
 async function revoke(i: InviteRow) {
-  if ((await run(() => api(`/users/invites/${i.id}`, { method: 'DELETE' }))) !== undefined) {
-    toast.show(
-      t(i.status === 'expired' ? 'users.removedInvite' : 'users.revoked', { email: i.email }),
-    );
-    void page.load();
+  await api(`/users/invites/${i.id}`, { method: 'DELETE' });
+  // Gone at once; the reload brings the log's new line.
+  if (page.data.value) {
+    page.data.value = {
+      ...page.data.value,
+      invites: page.data.value.invites.filter((x) => x.id !== i.id),
+    };
   }
+  toast.show(
+    t(i.status === 'expired' ? 'users.removedInvite' : 'users.revoked', { email: i.email }),
+  );
+  void page.load();
 }
 async function setRole(u: UserRow, role: 'admin' | 'viewer') {
   if (role === u.role) return;
-  if ((await run(() => api(`/users/${u.id}`, { method: 'PATCH', body: { role } }))) !== undefined) {
+  if (await did(() => api(`/users/${u.id}`, { method: 'PATCH', body: { role } }))) {
     toast.show(t('users.roleChanged', { name: u.name || u.email, role: roleName(role) }));
     void page.load();
   }
@@ -179,15 +199,20 @@ async function resetLink(u: UserRow) {
   };
   void page.load();
 }
+/** After the dialog's yes; throws when the server refused, and the row then stays. */
 async function remove(u: UserRow) {
-  if ((await run(() => api(`/users/${u.id}`, { method: 'DELETE' }))) !== undefined) {
-    dialog.value = null;
-    toast.show(t('users.removed', { name: u.name || u.email }));
-    void page.load();
+  await api(`/users/${u.id}`, { method: 'DELETE' });
+  if (page.data.value) {
+    page.data.value = {
+      ...page.data.value,
+      users: page.data.value.users.filter((x) => x.id !== u.id),
+    };
   }
+  toast.show(t('users.removed', { name: u.name || u.email }));
+  void page.load();
 }
 async function makeOwner(u: UserRow) {
-  if ((await run(() => api(`/users/${u.id}/owner`, { method: 'POST' }))) !== undefined) {
+  if (await did(() => api(`/users/${u.id}/owner`, { method: 'POST' }))) {
     dialog.value = null;
     toast.show(t('users.ownerNow', { name: u.name || u.email }));
     await auth.reload();
@@ -469,7 +494,7 @@ const auditText = (a: UserList['audit'][number]) =>
                       variant="ghost"
                       class="text-critical!"
                       data-testid="revoke"
-                      @click="revoke(r.invite!)"
+                      @click="dialog = { kind: 'revoke', invite: r.invite! }"
                       >{{
                         r.status === 'pending' ? $t('users.revoke') : $t('users.remove')
                       }}</BaseButton
@@ -624,32 +649,44 @@ const auditText = (a: UserList['audit'][number]) =>
       </div>
     </ModalDialog>
 
-    <!-- Remove -->
-    <ModalDialog
+    <!-- Remove a person -->
+    <ConfirmDialog
       v-if="dialog?.kind === 'remove'"
       v-model:open="dialogOpen"
       :title="$t('users.removeTitle', { name: dialog.user.name || dialog.user.email })"
+      :subject="dialog.user.name ? dialog.user.email : undefined"
+      :confirm-label="$t('users.removeUser')"
+      :action="() => remove((dialog as { user: UserRow }).user)"
+      testid="remove"
     >
-      <div class="flex flex-col gap-4" data-testid="remove-dialog">
+      <template #body>
         <ul class="flex list-disc flex-col gap-1.5 pl-5 text-13 text-text">
           <li>{{ $t('users.removeSignedOut') }}</li>
           <li>{{ $t('users.removeTokens', { n: dialog.user.tokens }, dialog.user.tokens) }}</li>
           <li>{{ $t('users.removeStays') }}</li>
         </ul>
-        <div class="flex justify-end gap-2 border-t border-border pt-4">
-          <BaseButton variant="secondary" @click="dialog = null">{{
-            $t('common.cancel')
-          }}</BaseButton>
-          <BaseButton
-            variant="danger"
-            :loading="busy"
-            data-testid="remove-confirm"
-            @click="remove(dialog.user)"
-            >{{ $t('users.removeUser') }}</BaseButton
-          >
-        </div>
-      </div>
-    </ModalDialog>
+      </template>
+    </ConfirmDialog>
+
+    <!-- Revoke a pending invite, or remove an expired one -->
+    <ConfirmDialog
+      v-if="dialog?.kind === 'revoke'"
+      v-model:open="dialogOpen"
+      :title="
+        $t(dialog.invite.status === 'expired' ? 'users.removeInviteTitle' : 'users.revokeTitle')
+      "
+      :subject="dialog.invite.email"
+      :lines="
+        dialog.invite.status === 'expired'
+          ? [$t('users.removeInviteBody')]
+          : [$t('users.revokeBody'), $t('users.revokeAgain')]
+      "
+      :confirm-label="
+        $t(dialog.invite.status === 'expired' ? 'users.removeInvite' : 'users.revokeInvite')
+      "
+      :action="() => revoke((dialog as { invite: InviteRow }).invite)"
+      testid="revoke"
+    />
 
     <!-- Hand ownership over -->
     <ModalDialog

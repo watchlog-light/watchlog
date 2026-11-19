@@ -21,13 +21,24 @@ const props = withDefaults(
     warn?: boolean;
     size?: 'md' | 'lg';
     locked?: boolean;
+    /**
+     * What gets the focus when it opens, instead of the first control: Cancel in a dialog
+     * that asks before deleting (ADR-219), so Enter by habit changes nothing.
+     */
+    initialFocus?: () => HTMLElement | null;
   }>(),
-  { description: undefined, warn: false, size: 'md', locked: false },
+  { description: undefined, warn: false, size: 'md', locked: false, initialFocus: undefined },
 );
 const open = defineModel<boolean>('open', { required: true });
 const narrow = useNarrow();
 const hold = (e: Event) => {
   if (props.locked) e.preventDefault();
+};
+const focusFirst = (e: Event) => {
+  const el = props.initialFocus?.();
+  if (!el) return;
+  e.preventDefault();
+  el.focus();
 };
 </script>
 
@@ -45,6 +56,7 @@ const hold = (e: Event) => {
                 size === 'lg' ? 'max-w-170' : 'max-w-135',
               ],
         ]"
+        @open-auto-focus="focusFirst"
         @escape-key-down="hold"
         @pointer-down-outside="hold"
         @interact-outside="hold"
