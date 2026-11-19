@@ -31,6 +31,15 @@ const { toasts } = storeToRefs(store);
       <Info v-else class="mt-0.5 size-4 shrink-0 text-info" aria-hidden="true" />
       <p class="min-w-0 flex-1 py-px text-13 leading-relaxed text-text">{{ toast.message }}</p>
       <button
+        v-if="toast.action"
+        type="button"
+        class="-my-1 inline-flex h-7 shrink-0 items-center rounded-control px-2 text-13 font-semibold text-text underline decoration-border-strong underline-offset-4 hover:bg-surface-3 max-lg:-my-2.5 max-lg:h-11"
+        data-testid="toast-action"
+        @click="store.act(toast.id)"
+      >
+        {{ toast.action.label }}
+      </button>
+      <button
         type="button"
         class="-my-1 inline-flex size-7 shrink-0 items-center justify-center rounded-control text-text-muted hover:bg-surface-3 hover:text-text max-lg:-my-2.5 max-lg:size-11"
         :aria-label="$t('common.close')"

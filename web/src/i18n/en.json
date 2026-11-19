@@ -1001,7 +1001,12 @@
     "silences": {
       "until": "until {at}",
       "matching": "silences no alert now | silences {n} alert | silences {n} alerts",
-      "end": "End now"
+      "end": "End now",
+      "ended": "Silence ended. Its alerts send messages again.",
+      "undo": "Undo",
+      "undone": "Silenced again, until the same time.",
+      "endFailed": "The silence could not be ended. Try again.",
+      "undoFailed": "The silence could not be put back. Silence the alert again from the Firing list."
     },
     "rules": {
       "intro": "Default rules are on for every cluster. Change thresholds, durations, severity and channels, or turn a rule off.",

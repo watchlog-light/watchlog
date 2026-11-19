@@ -9,9 +9,11 @@ import type {
   AlertRule,
   AlertRuleList,
   ClusterList,
+  Silence,
   SilenceList,
 } from '@watchlog/api-types';
 import { computed, onMounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { usePolling } from '@/composables/usePolling';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
@@ -29,6 +31,7 @@ import SkeletonTable from '@/components/ui/SkeletonTable.vue';
 import { useLoader } from '@/composables/useLoader';
 import { formatDateTime } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
+import { useToastStore } from '@/stores/toast';
 
 // Alerts (SPEC §4.7, alerts redesign): what fires now, the history, silences and the
 // rules, one page with four views (?view=) so links can point at each.
@@ -107,13 +110,44 @@ const current = computed(() => loaders[view.value]);
 
 const newSilence = computed(() => route.query.new === 'silence');
 const ending = ref<string | null>(null);
-async function endSilence(id: string) {
-  ending.value = id;
+const toast = useToastStore();
+const { t } = useI18n();
+/** Whole minutes from now until `iso`, as a new silence is given its length. */
+const minutesUntil = (iso: string) => Math.ceil((Date.parse(iso) - Date.now()) / 60_000);
+// Ending a silence does not ask first (ADR-219): it can be made again. The toast says it
+// ended and offers Undo, which silences the same alerts again until the same time.
+async function endSilence(s: Silence) {
+  ending.value = s.id;
   try {
-    await api(`/silences/${id}`, { method: 'DELETE' });
+    await api(`/silences/${s.id}`, { method: 'DELETE' });
+    toast.show(
+      t('alerts.silences.ended'),
+      'info',
+      minutesUntil(s.endsAt) >= 1
+        ? { label: t('alerts.silences.undo'), run: () => silenceAgain(s) }
+        : undefined,
+    );
     await silences.load();
+  } catch {
+    toast.show(t('alerts.silences.endFailed'), 'warning');
   } finally {
     ending.value = null;
+  }
+}
+async function silenceAgain(s: Silence) {
+  try {
+    await api('/silences', {
+      method: 'POST',
+      body: {
+        matchers: s.matchers,
+        durationMinutes: Math.max(1, minutesUntil(s.endsAt)),
+        comment: s.comment,
+      },
+    });
+    toast.show(t('alerts.silences.undone'));
+    await silences.load();
+  } catch {
+    toast.show(t('alerts.silences.undoFailed'), 'warning');
   }
 }
 function silenceCreated() {
@@ -286,7 +320,7 @@ const tabCount = (v: View) =>
             variant="ghost"
             :loading="ending === s.id"
             data-testid="end-silence"
-            @click="endSilence(s.id)"
+            @click="endSilence(s)"
           >
             {{ $t('alerts.silences.end') }}
           </BaseButton>
