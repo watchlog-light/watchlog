@@ -989,13 +989,33 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
     },
     async (request, reply) => {
       const cloud = request.server.accounts;
-      if (cloud && !(await cloud.turnstile(request, request.body.turnstileToken))) {
-        return sendCode(
-          reply,
-          400,
-          'turnstile-failed',
-          "We couldn't check you're human. Try again.",
-        );
+      const email = request.body.email.trim().toLowerCase();
+      // Cloud: Turnstile, as on sign-in (ADR-175, amended in 0.9.10). A token Cloudflare
+      // refuses ends here. Without Cloudflare's word (no token: the widget was blocked or had
+      // not finished; or Cloudflare could not be asked) the request goes on behind the strict
+      // windows, counted for the address typed whether it has an account or not.
+      if (cloud) {
+        const human = await cloud.turnstileState(request, request.body.turnstileToken);
+        if (human === 'failed') {
+          return sendCode(
+            reply,
+            400,
+            'turnstile-failed',
+            "We couldn't check you're human. Try again.",
+          );
+        }
+        if (human === 'missing' || human === 'unavailable') {
+          const perEmail = cloud.unverifiedResetsPerEmail.hit(email);
+          const perIp = cloud.unverifiedResetsPerIp.hit(request.clientIp);
+          if (!perEmail || !perIp) {
+            return sendCode(
+              reply,
+              429,
+              'rate-limited',
+              'Too many requests without the human check. Try again in 15 minutes.',
+            );
+          }
+        }
       }
       if (!(await smtpConfigured(settings))) {
         return sendProblem(
@@ -1004,7 +1024,6 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
           "Email isn't set up: the Owner resets a password with `watchlog admin reset-password` in the backend container.",
         );
       }
-      const email = request.body.email.trim().toLowerCase();
       const user = await systemDb
         .selectFrom('users as u')
         .innerJoin('memberships as m', 'm.user_id', 'u.id')
@@ -1013,22 +1032,24 @@ export const userRoutes: FastifyPluginAsyncTypebox<{
         // Accounts made with GitHub or Google sign in there (Cloud).
         .where('u.password_hash', 'is not', null)
         .executeTakeFirst();
-      // Cloud: 3 emails an hour per account; the answer stays the same (ADR-175).
+      // Cloud: 3 emails an hour per account; the answer stays the same (ADR-175). The link is
+      // made and sent after the answer, so how long the answer takes doesn't tell whether the
+      // address has an account (an email server takes a while to accept a message).
       if (user && (!cloud || cloud.resetsPerEmail.hit(email))) {
-        const { token } = await createResetLink(systemDb, {
-          userId: user.id,
-          via: 'email',
-          createdBy: null,
-        });
-        const base = await site(request);
-        try {
+        void (async () => {
+          const { token } = await createResetLink(systemDb, {
+            userId: user.id,
+            via: 'email',
+            createdBy: null,
+          });
+          const base = await site(request);
           await sendMail(settings, {
             to: user.email,
             ...resetMail({ link: `${base}/reset/${token}`, site: base }),
           });
-        } catch (err) {
+        })().catch((err: unknown) => {
           request.log.warn({ err: (err as Error).message }, 'reset email not sent');
-        }
+        });
       }
       return reply.code(202).send({ emailed: true });
     },

@@ -40,6 +40,13 @@ export class CloudAccounts {
    */
   readonly unverifiedLoginsPerAccount = new WindowLimiter(5, QUARTER);
   readonly unverifiedLoginsPerIp = new WindowLimiter(10, QUARTER);
+  /**
+   * "Forgot your password?" without Turnstile's word, the same numbers (0.9.10): 5 per address
+   * typed and 10 per visitor address in 15 minutes. Counted for the address typed whether it
+   * has an account or not, so the answer says nothing about accounts.
+   */
+  readonly unverifiedResetsPerEmail = new WindowLimiter(5, QUARTER);
+  readonly unverifiedResetsPerIp = new WindowLimiter(10, QUARTER);
   private readonly ranges = new Map<string, { at: number; body: string }>();
 
   constructor(

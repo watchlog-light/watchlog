@@ -56,13 +56,14 @@ interface LoggedRequest {
 /**
  * A URL as the request log may keep it: the values of `code=` and `token=` masked (an
  * install code, ADR-176, is a credential for 24 hours, OAuth's code for a few minutes, an
- * unsubscribe token for good), and the link tokens in the path of a password reset or an
- * invite (security review SR-11).
+ * unsubscribe token for good), the link tokens in the path of a password reset or an
+ * invite (security review SR-11), and a leaked-password lookup's hash prefix (its route logs
+ * nothing; this covers any other log line that quotes the URL).
  */
 export function urlWithoutSecrets(url: string): string {
   return url
     .replace(/([?&](?:code|token)=)[^&#]*/g, `$1${URL_SECRET_MASK}`)
-    .replace(/(\/(?:password-resets|invites)\/)[^/?#]+/g, `$1${URL_SECRET_MASK}`);
+    .replace(/(\/(?:password-resets|invites|password-range)\/)[^/?#]+/g, `$1${URL_SECRET_MASK}`);
 }
 
 /** Fastify's request log line, with urlWithoutSecrets' URL. */

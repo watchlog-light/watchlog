@@ -326,6 +326,9 @@ export const accountRoutes: FastifyPluginAsyncTypebox<AccountRouteOptions> = asy
   app.get(
     '/auth/password-range/:prefix',
     {
+      // Nothing about a lookup is logged: no request line (it would hold the prefix), no
+      // warning when the list can't be reached (ADR-175, amended in 0.9.10).
+      logLevel: 'silent',
       config: limit(60),
       schema: {
         summary: 'Leaked-password hash endings for the first 5 characters of a SHA-1 (k-anonymity)',
