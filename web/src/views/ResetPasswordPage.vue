@@ -1,12 +1,13 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import type { ResetInfo, UserEnvelope } from '@watchlog/api-types';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError, api } from '@/api/client';
+import { problemCode } from '@/api/cloud';
 import BaseButton from '@/components/ui/BaseButton.vue';
-import TextField from '@/components/ui/TextField.vue';
+import PasswordField from '@/components/ui/PasswordField.vue';
 import AuthCard from '@/layouts/AuthCard.vue';
 import { useLoader } from '@/composables/useLoader';
 import { useAuthStore } from '@/stores/auth';
@@ -24,13 +25,19 @@ onMounted(info.load);
 
 const password = ref('');
 const error = ref<string>();
+const passwordError = ref<string>();
 const busy = ref(false);
+// The server's own minimum (it was 12 here and 10 there until 0.9.9).
+const min = computed(() => auth.cloud?.passwordMinLength ?? 10);
+const field = ref<InstanceType<typeof PasswordField> | null>(null);
+watch(password, () => (passwordError.value = undefined));
 
 async function save() {
-  error.value = undefined;
-  if (password.value.length < 12) {
-    error.value = t('invite.tooShort');
-    return;
+  error.value = passwordError.value = undefined;
+  const problem = field.value?.problem() ?? null;
+  if (problem) {
+    if (problem === 'tooShort') passwordError.value = t('password.tooShort', { min: min.value });
+    return field.value?.focus();
   }
   busy.value = true;
   try {
@@ -46,7 +53,12 @@ async function save() {
     auth.user = res.user;
     await router.replace('/');
   } catch (err) {
-    error.value = err instanceof ApiError ? err.message : t('auth.errors.generic');
+    if (problemCode(err) === 'password-breached') {
+      passwordError.value = t('password.leaked');
+      field.value?.focus();
+    } else {
+      error.value = err instanceof ApiError ? err.message : t('auth.errors.generic');
+    }
     if (err instanceof ApiError && err.status === 410) void info.load();
   } finally {
     busy.value = false;
@@ -61,13 +73,13 @@ async function save() {
     :intro="$t('reset.intro', { email: info.data.value.email })"
   >
     <form class="flex flex-col gap-4" novalidate data-testid="reset" @submit.prevent="save">
-      <TextField
+      <PasswordField
+        ref="field"
         v-model="password"
         :label="$t('reset.password')"
-        :hint="$t('invite.passwordHint')"
-        type="password"
-        autocomplete="new-password"
-        required
+        :min-length="min"
+        :leak-check="auth.isCloud"
+        :error="passwordError"
       />
       <p
         v-if="error"

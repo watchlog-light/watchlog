@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { ApiError } from '@/api/client';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import PasswordField from '@/components/ui/PasswordField.vue';
 import TextField from '@/components/ui/TextField.vue';
 import AuthCard from '@/layouts/AuthCard.vue';
 import { useAuthStore } from '@/stores/auth';
@@ -26,9 +27,10 @@ const submitting = ref(false);
 
 const passwordError = computed(() =>
   submitted.value && password.value.length < MIN_PASSWORD_LENGTH
-    ? t('auth.setup.passwordTooShort', { min: MIN_PASSWORD_LENGTH })
+    ? t('password.tooShort', { min: MIN_PASSWORD_LENGTH })
     : undefined,
 );
+const field = ref<InstanceType<typeof PasswordField> | null>(null);
 
 function errorMessage(err: unknown): string {
   if (!(err instanceof ApiError)) return t('auth.errors.generic');
@@ -43,7 +45,7 @@ function errorMessage(err: unknown): string {
 async function submit() {
   submitted.value = true;
   error.value = undefined;
-  if (passwordError.value) return;
+  if (passwordError.value) return field.value?.focus();
   submitting.value = true;
   try {
     await auth.completeSetup({
@@ -91,15 +93,13 @@ async function submit() {
         autocomplete="username"
         required
       />
-      <TextField
+      <!-- A self-hosted server asks no outside list: the length is the rule here. -->
+      <PasswordField
+        ref="field"
         v-model="password"
         :label="$t('auth.fields.password')"
-        type="password"
-        autocomplete="new-password"
-        :hint="$t('auth.setup.passwordHint', { min: MIN_PASSWORD_LENGTH })"
+        :min-length="MIN_PASSWORD_LENGTH"
         :error="passwordError"
-        required
-        :minlength="MIN_PASSWORD_LENGTH"
       />
       <p
         v-if="error"

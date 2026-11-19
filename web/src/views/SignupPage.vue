@@ -3,21 +3,25 @@
 import logoUrl from '@watchlog/design-tokens/assets/logo.svg';
 import type { UserEnvelope } from '@watchlog/api-types';
 import { MailCheck, Users } from '@lucide/vue';
-import { computed, onMounted, ref, useId } from 'vue';
+import { computed, onMounted, ref, useId, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api, ApiError } from '@/api/client';
-import { cloudApi, cloudErrorKey } from '@/api/cloud';
+import { cloudApi, cloudErrorKey, problemCode } from '@/api/cloud';
 import FormAlert from '@/components/cloud/FormAlert.vue';
-import PasswordStrength from '@/components/cloud/PasswordStrength.vue';
 import ProviderButtons from '@/components/cloud/ProviderButtons.vue';
 import TurnstileWidget from '@/components/cloud/TurnstileWidget.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import PasswordField from '@/components/ui/PasswordField.vue';
 import TextField from '@/components/ui/TextField.vue';
 import { LINKS } from '@/lib/links';
 import { useAuthStore } from '@/stores/auth';
 
 // Sign up for WatchLog Cloud (ADR-175, Signup.dc.html): GitHub or Google in one click, or
-// email and password with a strength meter and Cloudflare's human check; no card. The
+// email and password with Cloudflare's human check; no card. The password field ticks its
+// two rules as the user types (long enough, not a known leaked password; 0.9.9), and what
+// is wrong is said under the field it is about, with the focus put there. The button is
+// never dead: pressed with something missing, it goes to the first problem. The
 // answer is the same for a new and a taken address: a new account comes back signed in
 // (GET /me answers) and goes on; a taken one gets an email, and the page says to check it.
 //
@@ -49,10 +53,24 @@ const email = ref('');
 const password = ref('');
 const turnstileToken = ref<string | null>(null);
 const turnstile = ref<InstanceType<typeof TurnstileWidget> | null>(null);
+const { t } = useI18n();
+/** What is wrong, by the field it is about; `error` is for what belongs to no field. */
+const emailError = ref<string>();
+const passwordError = ref<string>();
+const turnstileError = ref<string>();
 const error = ref<string>();
 const busy = ref(false);
 const checkEmail = ref(false);
 const strengthId = useId();
+const emailField = ref<InstanceType<typeof TextField> | null>(null);
+const passwordField = ref<InstanceType<typeof PasswordField> | null>(null);
+const turnstileBox = ref<HTMLElement | null>(null);
+// A field's complaint goes when the field is changed.
+watch(email, () => (emailError.value = undefined));
+watch(password, () => (passwordError.value = undefined));
+watch(turnstileToken, (now) => {
+  if (now) turnstileError.value = undefined;
+});
 
 onMounted(async () => {
   if (!inviteCode.value) return;
@@ -69,12 +87,38 @@ onMounted(async () => {
 const STEPS = ['account', 'install', 'checklist'] as const;
 const CHIPS = ['readOnly', 'noSecrets', 'openSource'] as const;
 
+/** The server's refusals that are about one field; the rest go under the form. */
+const EMAIL_CODES = ['email-disposable', 'invite-email-mismatch'];
+/**
+ * Refusals the server gives before it asks Cloudflare about the token: the token is still
+ * good, so the human check is not started again (a token can be checked once).
+ */
+const TOKEN_KEPT = [
+  'password-breached',
+  'email-disposable',
+  'invite-required',
+  'invite-email-mismatch',
+  'rate-limited',
+];
+
 async function submit() {
-  error.value = undefined;
+  error.value = emailError.value = passwordError.value = turnstileError.value = undefined;
   const address = email.value.trim();
-  if (!address.includes('@')) return void (error.value = 'cloud.signup.emailNeeded');
-  if (password.value.length < min.value) return void (error.value = 'cloud.signup.tooShort');
-  if (siteKey.value && !turnstileToken.value) return void (error.value = 'cloud.turnstile.needed');
+  // The first problem gets the focus, and its words sit under its field.
+  if (!address.includes('@')) {
+    emailError.value = t('cloud.signup.emailNeeded');
+    return emailField.value?.focus();
+  }
+  const problem = passwordField.value?.problem() ?? null;
+  if (problem) {
+    // "Leaked" is already said by the field itself.
+    if (problem === 'tooShort') passwordError.value = t('password.tooShort', { min: min.value });
+    return passwordField.value?.focus();
+  }
+  if (siteKey.value && !turnstileToken.value) {
+    turnstileError.value = t('cloud.turnstile.needed');
+    return turnstileBox.value?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  }
   busy.value = true;
   try {
     await cloudApi.signup({
@@ -93,8 +137,21 @@ async function submit() {
       checkEmail.value = true;
     }
   } catch (err) {
-    error.value = cloudErrorKey(err);
-    turnstile.value?.reset();
+    const code = problemCode(err) ?? '';
+    // Email and what was typed stay; only the human check may need a new token.
+    if (!TOKEN_KEPT.includes(code)) turnstile.value?.reset();
+    if (code === 'password-breached') {
+      passwordError.value = t('password.leaked');
+      passwordField.value?.focus();
+    } else if (EMAIL_CODES.includes(code)) {
+      emailError.value = t(cloudErrorKey(err));
+      emailField.value?.focus();
+    } else if (code === 'turnstile-failed' && siteKey.value) {
+      turnstileError.value = t(cloudErrorKey(err));
+      turnstileBox.value?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    } else {
+      error.value = cloudErrorKey(err);
+    }
   } finally {
     busy.value = false;
   }
@@ -106,7 +163,7 @@ async function submit() {
     <header class="flex flex-wrap items-center justify-between gap-4 px-4 py-4 md:px-8 md:py-5">
       <RouterLink
         :to="{ name: 'login' }"
-        class="flex items-center gap-2.5 text-16 font-semibold tracking-tight text-text"
+        class="flex items-center gap-2.5 max-lg:min-h-11 text-16 font-semibold tracking-tight text-text"
       >
         <img :src="logoUrl" alt="" class="size-8" />{{ $t('app.name') }}
       </RouterLink>
@@ -207,31 +264,35 @@ async function submit() {
             @submit.prevent="submit"
           >
             <TextField
+              ref="emailField"
               v-model="email"
               :label="$t('cloud.signup.email')"
               type="email"
               autocomplete="email"
               inputmode="email"
               :readonly="inviteOk"
+              :error="emailError"
               required
             />
-            <div class="flex flex-col gap-2">
-              <TextField
-                v-model="password"
-                :label="$t('auth.fields.password')"
-                type="password"
-                autocomplete="new-password"
-                :minlength="min"
-                required
-              />
-              <PasswordStrength :id="strengthId" :password="password" :min-length="min" />
-            </div>
-            <TurnstileWidget
-              v-if="siteKey"
-              ref="turnstile"
-              v-model="turnstileToken"
-              :site-key="siteKey"
+            <PasswordField
+              ref="passwordField"
+              v-model="password"
+              :label="$t('auth.fields.password')"
+              :min-length="min"
+              leak-check
+              :error="passwordError"
             />
+            <div v-if="siteKey" ref="turnstileBox" class="flex flex-col gap-1.5">
+              <TurnstileWidget ref="turnstile" v-model="turnstileToken" :site-key="siteKey" />
+              <p
+                v-if="turnstileError"
+                role="alert"
+                class="text-13 text-critical"
+                data-testid="turnstile-error"
+              >
+                {{ turnstileError }}
+              </p>
+            </div>
             <FormAlert v-if="error">{{ $t(error) }}</FormAlert>
             <BaseButton
               type="submit"

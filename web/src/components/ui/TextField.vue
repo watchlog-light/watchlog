@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { useId } from 'vue';
+import { ref, useId } from 'vue';
 
 defineProps<{
   label: string;
@@ -19,6 +19,14 @@ defineProps<{
 
 const model = defineModel<string>({ required: true });
 const id = useId();
+const input = ref<HTMLInputElement | null>(null);
+/** For a form that sends the user back to the field with the problem. */
+defineExpose({
+  focus: () => {
+    input.value?.focus();
+    input.value?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  },
+});
 </script>
 
 <template>
@@ -26,6 +34,7 @@ const id = useId();
     <label :for="id" class="text-13 font-medium text-text">{{ label }}</label>
     <input
       :id="id"
+      ref="input"
       v-model="model"
       :type="type ?? 'text'"
       :autocomplete="autocomplete"
@@ -49,6 +58,7 @@ const id = useId();
     <p
       v-if="error || hint"
       :id="`${id}-help`"
+      :role="error ? 'alert' : undefined"
       :class="['text-12', error ? 'text-critical' : 'text-text-muted']"
     >
       {{ error ?? hint }}

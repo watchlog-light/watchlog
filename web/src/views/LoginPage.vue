@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import { ArrowRight } from '@lucide/vue';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError, api } from '@/api/client';
@@ -80,9 +80,39 @@ const redirectTo = computed(() =>
   typeof route.query.redirect === 'string' ? route.query.redirect : undefined,
 );
 
+// Cloud (ADR-175, amended in 0.9.9): Turnstile on sign-in, quiet. Most visitors see nothing
+// and the token is there before they have typed; a visit Cloudflare doubts gets its
+// checkbox. When Cloudflare is blocked here, sign-in goes on without a token and the server
+// allows a few tries per account and address in 15 minutes.
+const signinToken = ref<string | null>(null);
+const signinTurnstile = ref<InstanceType<typeof TurnstileWidget> | null>(null);
+/** How long a sign-in waits for a human check that is still on its way. */
+const TOKEN_WAIT_MS = 3000;
+async function humanToken(): Promise<string | undefined> {
+  if (!auth.isCloud || !siteKey.value) return undefined;
+  if (signinToken.value) return signinToken.value;
+  if (signinTurnstile.value?.failed) return undefined;
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(done, TOKEN_WAIT_MS);
+    const stop = watch([signinToken, () => signinTurnstile.value?.failed], ([tok, failed]) => {
+      if (tok || failed) done();
+    });
+    function done() {
+      clearTimeout(timer);
+      stop();
+      resolve();
+    }
+  });
+  return signinToken.value ?? undefined;
+}
+
 function errorMessage(err: unknown): string {
   if (!(err instanceof ApiError)) return t('auth.errors.generic');
   if (auth.isCloud && err.status === 403 && problemCode(err)) return t(cloudErrorKey(err));
+  if (auth.isCloud && problemCode(err) === 'turnstile-failed') return t(cloudErrorKey(err));
+  // Sign-ins without the human check are few per 15 minutes (the fallback's limit).
+  if (auth.isCloud && err.status === 429 && problemCode(err) === 'rate-limited')
+    return t('cloud.signin.slowDown');
   if (err.status === 401) return t('auth.errors.invalidCredentials');
   if (err.status === 429) return t('auth.errors.tooManyAttempts');
   if (err.status === 0 || err.status >= 500) return t('auth.errors.unavailable');
@@ -99,7 +129,12 @@ async function submit() {
   error.value = undefined;
   submitting.value = true;
   try {
-    const result = await auth.login({ email: email.value.trim(), password: password.value });
+    const turnstileToken = await humanToken();
+    const result = await auth.login({
+      email: email.value.trim(),
+      password: password.value,
+      ...(turnstileToken ? { turnstileToken } : {}),
+    });
     if (result === 'mfa') {
       const query = redirectTo.value ? { redirect: redirectTo.value } : {};
       await router.push({ name: 'signin-2fa', query });
@@ -108,6 +143,8 @@ async function submit() {
     await afterSignIn();
   } catch (err) {
     error.value = errorMessage(err);
+    // A token is checked once: the next try needs a new one (it comes by itself).
+    signinTurnstile.value?.reset();
   } finally {
     submitting.value = false;
   }
@@ -184,6 +221,14 @@ onMounted(() => {
         type="password"
         autocomplete="current-password"
         required
+      />
+      <TurnstileWidget
+        v-if="auth.isCloud && siteKey"
+        ref="signinTurnstile"
+        v-model="signinToken"
+        :site-key="siteKey"
+        quiet
+        data-testid="signin-turnstile"
       />
       <p
         v-if="error"

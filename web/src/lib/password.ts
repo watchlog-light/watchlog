@@ -1,22 +1,78 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// The sign-up page's strength meter (ADR-175). A hint only: the backend decides (at least
-// 10 characters, not in a known breach). No dictionary library: length counts most, then
-// the mix of character kinds, and a password of few distinct characters stays weak.
+// Setting a password (ADR-175, amended in 0.9.9): the two rules the server has, checked as
+// the user types, and a suggestion. No composition rules ("one symbol, one capital"): length
+// and not being a known leaked password are what count.
+//   - Long enough: the server's minimum (10).
+//   - Not leaked: the password is hashed here (SHA-1, as Have I Been Pwned keys its list),
+//     the first 5 of the hash's 40 characters go to the server, and the answer is searched
+//     for the other 35 here. The password never leaves the browser. The server checks again
+//     when the form is sent: it is the authority, this is the early word.
+import { PASSWORD_WORDS } from './password-words';
 
-/** 0 = too short, 1 = weak, 2 = fair, 3 = good, 4 = strong. */
-export type Strength = 0 | 1 | 2 | 3 | 4;
-export const STRENGTH_LABELS = ['tooShort', 'weak', 'fair', 'good', 'strong'] as const;
+/** What the live leaked-password check knows about what is typed. */
+export type LeakState = 'idle' | 'checking' | 'ok' | 'leaked' | 'unavailable';
 
-export function passwordStrength(password: string, minLength = 10): Strength {
-  if (password.length < minLength) return 0;
-  const distinct = new Set(password).size;
-  if (distinct < 5) return 1;
-  const kinds = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((re) =>
-    re.test(password),
-  ).length;
-  let score = 1;
-  if (password.length >= 12) score++;
-  if (password.length >= 16) score++;
-  if (kinds >= 3 || (kinds >= 2 && password.length >= 14)) score++;
-  return Math.min(score, 4) as Strength;
+/** The password's SHA-1 as 40 upper-case hex characters; null where the browser can't hash. */
+export async function sha1Hex(text: string): Promise<string | null> {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) return null;
+  const digest = await subtle.digest('SHA-1', new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase();
+}
+
+/** Whether a range ("<35 hex>:<count>" lines; count 0 is padding) lists this hash ending. */
+export function inRange(range: string, suffix: string): boolean {
+  for (const line of range.split('\n')) {
+    const [s, count] = line.trim().split(':');
+    if (s === suffix && Number(count) > 0) return true;
+  }
+  return false;
+}
+
+/** Ranges already fetched in this page, by prefix: typing on rarely needs a second call. */
+const ranges = new Map<string, string>();
+
+/**
+ * Whether the password is in the leaked list: 'leaked', 'ok', or 'unavailable' when the
+ * browser can't hash or the list can't be reached (the server then decides). `fetchRange`
+ * gets the range for a 5-character prefix and throws when it can't.
+ */
+export async function leakCheck(
+  password: string,
+  fetchRange: (prefix: string) => Promise<string>,
+): Promise<'ok' | 'leaked' | 'unavailable'> {
+  try {
+    const hash = await sha1Hex(password);
+    if (!hash) return 'unavailable';
+    const prefix = hash.slice(0, 5);
+    let range = ranges.get(prefix);
+    if (range === undefined) {
+      range = await fetchRange(prefix);
+      if (ranges.size > 200) ranges.clear();
+      ranges.set(prefix, range);
+    }
+    return inRange(range, hash.slice(5)) ? 'leaked' : 'ok';
+  } catch {
+    return 'unavailable';
+  }
+}
+
+/** For tests: forget the ranges fetched so far. */
+export function forgetRanges(): void {
+  ranges.clear();
+}
+
+/**
+ * Four random words with dashes between ("maple-orbit-cactus-violin"): long, easy to read
+ * back and to type, and one of about a million million. From the browser's own random
+ * numbers, never Math.random.
+ */
+export function suggestPassword(words: readonly string[] = PASSWORD_WORDS): string {
+  const picks = new Uint32Array(4);
+  globalThis.crypto.getRandomValues(picks);
+  // The list's length is a power of two, so the remainder is as random as the number.
+  return [...picks].map((n) => words[n % words.length]!).join('-');
 }

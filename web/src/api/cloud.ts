@@ -196,6 +196,9 @@ export const cloudApi = {
   supportCurrent: () => api<SupportCurrent>('/support/current'),
   leaveSupport: () => api<void>('/support/session', { method: 'DELETE' }),
   supportSessions: () => api<{ sessions: SupportSession[] }>('/support-sessions'),
+  /** Leaked-password hash endings for 5 hash characters (lib/password.ts); throws when down. */
+  passwordRange: async (prefix: string) =>
+    (await api<{ range: string }>(`/auth/password-range/${prefix}`)).range,
   signup: (body: {
     email: string;
     password: string;

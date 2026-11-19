@@ -142,8 +142,6 @@
       "intro": "Create the admin account for this WatchLog installation.",
       "code": "Setup code",
       "codeHint": "Printed in the backend log when WatchLog starts, e.g. docker compose logs backend.",
-      "passwordHint": "At least {min} characters.",
-      "passwordTooShort": "Use at least {min} characters.",
       "submit": "Create admin account"
     },
     "login": {
@@ -187,6 +185,28 @@
   "account": {
     "signOut": "Sign out",
     "menuLabel": "Account"
+  },
+  "password": {
+    "rules": {
+      "length": "At least {min} characters",
+      "leak": "Not found in known leaked passwords",
+      "leakChecking": "Checking the list of leaked passwords…",
+      "leakFound": "Found in a list of leaked passwords",
+      "leakUnavailable": "Couldn't check right now; we'll check when you continue"
+    },
+    "state": {
+      "todo": "Still to do",
+      "checking": "Checking",
+      "ok": "Done",
+      "bad": "Not met",
+      "unknown": "Not checked yet"
+    },
+    "leaked": "This password is in a list of leaked passwords, so attackers try it first. Pick a different one: three or four random words work well.",
+    "tooShort": "This is too short: use at least {min} characters. Three or four random words work well.",
+    "show": "Show password",
+    "hide": "Hide password",
+    "suggest": "Suggest a strong password",
+    "suggested": "Four random words, shown so you can save them. Let your password manager keep it, or write it down somewhere safe."
   },
   "confirm": {
     "failed": "That didn't work, so nothing was changed. Check your connection and try again."
@@ -3578,8 +3598,6 @@
     "someone": "Someone",
     "theInviter": "whoever invited you",
     "name": "Your name",
-    "passwordHint": "At least 12 characters.",
-    "tooShort": "Use at least 12 characters.",
     "submit": "Create account and sign in",
     "foot": "This link works once and expires on {date}. If you didn't expect it, you can ignore it.",
     "expiredTitle": "This invite has expired",
@@ -4088,14 +4106,6 @@
       },
       "or": "or with email"
     },
-    "strength": {
-      "tooShort": "Too short.",
-      "weak": "Weak.",
-      "fair": "Fair.",
-      "good": "Good.",
-      "strong": "Strong.",
-      "rule": "At least {min} characters; checked against known leaked passwords."
-    },
     "signup": {
       "title": "Create your account",
       "intro": "Free plan. No card.",
@@ -4103,7 +4113,6 @@
       "signIn": "Sign in",
       "email": "Work email",
       "emailNeeded": "Enter your email address.",
-      "tooShort": "Use a longer password.",
       "submit": "Create account",
       "agree": "By creating an account you agree to the {terms} and the {privacy}. We send a verification link; you can keep going without opening it.",
       "terms": "Terms",
@@ -4111,7 +4120,7 @@
       "checkTitle": "Check your email",
       "checkIntro": "We sent a message to {email}. If you already have an account, sign in instead.",
       "stepsLabel": "What happens next",
-      "panelTitle": "Two minutes from here to your cluster on screen.",
+      "panelTitle": "Two minutes from here to your cluster or servers on screen.",
       "stepN": "Step {n}:",
       "steps": {
         "account": {
@@ -4119,8 +4128,8 @@
           "text": "You are here. GitHub or Google is one click."
         },
         "install": {
-          "title": "Kubernetes or Docker",
-          "text": "Pick one, copy one command. Your token is already in it."
+          "title": "Kubernetes or Linux servers",
+          "text": "Pick one, copy one command; your token is already in it. On a server, Docker containers are picked up too."
         },
         "checklist": {
           "title": "Live checklist",
@@ -4145,6 +4154,7 @@
       }
     },
     "signin": {
+      "slowDown": "Too many sign-in attempts without the human check. Wait 15 minutes, or let this page load challenges.cloudflare.com (a content blocker may be stopping it) and try again.",
       "intro": "Sign in to WatchLog Cloud.",
       "noAccount": "New to WatchLog?",
       "signUp": "Create an account"

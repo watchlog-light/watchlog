@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Cloudflare Turnstile (ADR-175) on sign-up, "Forgot your password?" and resending the
-// verification link. Cloudflare's script is loaded only by the pages that show the widget,
-// and only when the backend gives a site key (GET /auth/config). The backend checks the
-// token; without one it answers 400 turnstile-failed.
+// Cloudflare Turnstile (ADR-175) on sign-up, "Forgot your password?", resending the
+// verification link and, since 0.9.9, sign-in. Cloudflare's script is loaded only by the
+// pages that show the widget, and only when the backend gives a site key (GET /auth/config).
+// The backend checks the token. The forms that create or mail something need one (400
+// turnstile-failed without); sign-in works without one too, behind stricter limits, so a
+// network that blocks Cloudflare is not locked out.
 import { onBeforeUnmount, ref, watch, type Ref } from 'vue';
 
 interface TurnstileApi {
@@ -37,7 +39,15 @@ function loadScript(): Promise<void> {
   return loading;
 }
 
-export function useTurnstile(siteKey: Ref<string | null | undefined>, el: Ref<HTMLElement | null>) {
+export function useTurnstile(
+  siteKey: Ref<string | null | undefined>,
+  el: Ref<HTMLElement | null>,
+  /**
+   * `quiet`: the widget shows only when Cloudflare wants the visitor to do something
+   * ("interaction-only"); most visits it stays invisible and the token just arrives.
+   */
+  opts: { quiet?: boolean } = {},
+) {
   const token = ref<string | null>(null);
   const failed = ref(false);
   let id: string | undefined;
@@ -65,6 +75,7 @@ export function useTurnstile(siteKey: Ref<string | null | undefined>, el: Ref<HT
         sitekey: key,
         theme: 'dark',
         size: 'flexible',
+        ...(opts.quiet ? { appearance: 'interaction-only' } : {}),
         callback: (t: string) => {
           token.value = t;
           failed.value = false;
