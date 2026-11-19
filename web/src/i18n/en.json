@@ -4159,6 +4159,9 @@
       "noAccount": "New to WatchLog?",
       "signUp": "Create an account"
     },
+    "forgot": {
+      "slowDown": "Too many requests without the human check. Wait 15 minutes, or let this page load challenges.cloudflare.com (a content blocker may be stopping it) and try again."
+    },
     "mfa": {
       "title": "Two-factor authentication",
       "intro": "Enter the 6-digit code from your authenticator app.",

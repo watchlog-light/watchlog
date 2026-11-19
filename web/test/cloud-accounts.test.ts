@@ -360,6 +360,96 @@ describe('the sign-in page', () => {
       );
     });
 
+    // "Forgot your password?" (ADR-175, amended in 0.9.10): the same fallback as sign-in.
+    async function askForLink(wrapper: ReturnType<typeof mount>) {
+      await wrapper.get('[data-testid="forgot"]').trigger('click');
+      await flushPromises();
+      const form = document.body.querySelector('[data-testid="forgot-email"]') as HTMLFormElement;
+      const input = form.querySelector('input[type="email"]') as HTMLInputElement;
+      input.value = USER.email;
+      input.dispatchEvent(new Event('input'));
+      form.dispatchEvent(new Event('submit'));
+      return form;
+    }
+
+    it('forgot password: with a token it goes with the address', async () => {
+      const turnstile = stubTurnstile((opts) => opts.callback!('reset-token'));
+      const { calls } = mockFetch({
+        'POST /api/v1/auth/forgot-password': { status: 202, body: { emailed: true } },
+      });
+      const { wrapper } = await mountCloud(LoginPage, '/login', { config: KEYED });
+      await askForLink(wrapper);
+      await vi.waitFor(() => expect(turnstile.render).toHaveBeenCalledTimes(2));
+      // Quiet, as on sign-in: a check that can't load says nothing, the request goes anyway.
+      expect(turnstile.render.mock.calls[1]![1]).toMatchObject({ appearance: 'interaction-only' });
+      await vi.waitFor(() =>
+        expect(calls.find((c) => c.path === '/api/v1/auth/forgot-password')?.body).toEqual({
+          email: USER.email,
+          turnstileToken: 'reset-token',
+        }),
+      );
+      await vi.waitFor(() =>
+        expect(document.body.querySelector('[data-testid="forgot-sent"]')).not.toBeNull(),
+      );
+      wrapper.unmount();
+    });
+
+    it('forgot password: a check that never finishes is waited for 3 seconds, then the request goes without it', async () => {
+      vi.useFakeTimers();
+      stubTurnstile(() => {});
+      const { calls } = mockFetch({
+        'POST /api/v1/auth/forgot-password': { status: 202, body: { emailed: true } },
+      });
+      const { wrapper } = await mountCloud(LoginPage, '/login', { config: KEYED });
+      await vi.advanceTimersByTimeAsync(10);
+      await askForLink(wrapper);
+      await vi.advanceTimersByTimeAsync(2900);
+      expect(calls.filter((c) => c.path === '/api/v1/auth/forgot-password')).toHaveLength(0);
+      await vi.advanceTimersByTimeAsync(200);
+      await vi.runAllTimersAsync();
+      expect(calls.find((c) => c.path === '/api/v1/auth/forgot-password')!.body).toEqual({
+        email: USER.email,
+      });
+      // No "wait for the human check" dead end: the link is on its way.
+      expect(document.body.querySelector('[data-testid="forgot-sent"]')).not.toBeNull();
+      wrapper.unmount();
+    });
+
+    it("forgot password: the fallback's limit and a refused check are said in the dialog", async () => {
+      const append = vi.spyOn(document.head, 'appendChild').mockImplementation((node) => {
+        queueMicrotask(() => (node as HTMLScriptElement).onerror?.(new Event('error')));
+        return node;
+      });
+      mockFetch({ 'POST /api/v1/auth/forgot-password': cloudProblem(429, 'rate-limited') });
+      const { wrapper } = await mountCloud(LoginPage, '/login', { config: KEYED });
+      await flushPromises();
+      const form = await askForLink(wrapper);
+      // The script didn't load, and the dialog doesn't say so: it isn't the visitor's problem.
+      await vi.waitFor(() => expect(form.querySelector('[role="alert"]')).not.toBeNull());
+      expect(form.textContent).not.toContain('could not load');
+      await vi.waitFor(() =>
+        expect(form.querySelector('[role="alert"]')?.textContent).toContain(
+          'Too many requests without the human check. Wait 15 minutes',
+        ),
+      );
+      expect(document.body.querySelector('[data-testid="forgot-sent"]')).toBeNull();
+      // A refused token: the human check's message.
+      mockFetch({ 'POST /api/v1/auth/forgot-password': cloudProblem(400, 'turnstile-failed') });
+      form.dispatchEvent(new Event('submit'));
+      await vi.waitFor(() =>
+        expect(form.querySelector('[role="alert"]')?.textContent).toContain('human check'),
+      );
+      // Anything else (an email server down, the per-minute limit) says the link is on its way:
+      // nothing to tell about the account.
+      mockFetch({ 'POST /api/v1/auth/forgot-password': problem(429, 'Rate limit exceeded') });
+      form.dispatchEvent(new Event('submit'));
+      await vi.waitFor(() =>
+        expect(document.body.querySelector('[data-testid="forgot-sent"]')).not.toBeNull(),
+      );
+      wrapper.unmount();
+      append.mockRestore();
+    });
+
     it('Community, and Cloud without a site key: no widget, no script, the form as it was', async () => {
       const append = vi.spyOn(document.head, 'appendChild');
       for (const config of [null, CONFIG]) {

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import { ArrowRight } from '@lucide/vue';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError, api } from '@/api/client';
@@ -36,26 +36,24 @@ const forgotTurnstile = ref<InstanceType<typeof TurnstileWidget> | null>(null);
 const forgotError = ref<string>();
 async function sendReset() {
   forgotError.value = undefined;
-  if (siteKey.value && !forgotToken.value) {
-    forgotError.value = 'cloud.turnstile.needed';
-    return;
-  }
   forgotBusy.value = true;
   try {
+    // As on sign-in (ADR-175, amended in 0.9.10): a check still on its way is waited for;
+    // when Cloudflare is blocked here the request goes without a token, and the server allows
+    // a few per address in 15 minutes.
+    const turnstileToken = await humanToken(forgotToken, forgotTurnstile);
     await api('/auth/forgot-password', {
       method: 'POST',
-      body: {
-        email: forgotEmail.value.trim(),
-        ...(forgotToken.value ? { turnstileToken: forgotToken.value } : {}),
-      },
+      body: { email: forgotEmail.value.trim(), ...(turnstileToken ? { turnstileToken } : {}) },
     });
     forgotSent.value = true;
   } catch (err) {
     // The same message either way: nothing to tell about the account. Cloud says when the
-    // human check or the rate limit refused it, which reveals nothing either.
+    // human check or the fallback's limit refused it, which reveals nothing either (the
+    // limit counts the address typed whether it has an account or not).
     const code = problemCode(err);
     if (auth.isCloud && (code === 'turnstile-failed' || code === 'rate-limited')) {
-      forgotError.value = cloudErrorKey(err);
+      forgotError.value = code === 'rate-limited' ? 'cloud.forgot.slowDown' : cloudErrorKey(err);
       forgotTurnstile.value?.reset();
     } else forgotSent.value = true;
   } finally {
@@ -86,15 +84,18 @@ const redirectTo = computed(() =>
 // allows a few tries per account and address in 15 minutes.
 const signinToken = ref<string | null>(null);
 const signinTurnstile = ref<InstanceType<typeof TurnstileWidget> | null>(null);
-/** How long a sign-in waits for a human check that is still on its way. */
+/** How long a sign-in or a reset request waits for a human check that is still on its way. */
 const TOKEN_WAIT_MS = 3000;
-async function humanToken(): Promise<string | undefined> {
+async function humanToken(
+  token: Ref<string | null>,
+  widget: Ref<InstanceType<typeof TurnstileWidget> | null>,
+): Promise<string | undefined> {
   if (!auth.isCloud || !siteKey.value) return undefined;
-  if (signinToken.value) return signinToken.value;
-  if (signinTurnstile.value?.failed) return undefined;
+  if (token.value) return token.value;
+  if (widget.value?.failed) return undefined;
   await new Promise<void>((resolve) => {
     const timer = setTimeout(done, TOKEN_WAIT_MS);
-    const stop = watch([signinToken, () => signinTurnstile.value?.failed], ([tok, failed]) => {
+    const stop = watch([token, () => widget.value?.failed], ([tok, failed]) => {
       if (tok || failed) done();
     });
     function done() {
@@ -103,7 +104,7 @@ async function humanToken(): Promise<string | undefined> {
       resolve();
     }
   });
-  return signinToken.value ?? undefined;
+  return token.value ?? undefined;
 }
 
 function errorMessage(err: unknown): string {
@@ -129,7 +130,7 @@ async function submit() {
   error.value = undefined;
   submitting.value = true;
   try {
-    const turnstileToken = await humanToken();
+    const turnstileToken = await humanToken(signinToken, signinTurnstile);
     const result = await auth.login({
       email: email.value.trim(),
       password: password.value,
@@ -283,6 +284,7 @@ onMounted(() => {
             ref="forgotTurnstile"
             v-model="forgotToken"
             :site-key="siteKey"
+            quiet
           />
           <FormAlert v-if="forgotError">{{ $t(forgotError) }}</FormAlert>
           <BaseButton type="submit" :loading="forgotBusy">{{ $t('auth.forgot.send') }}</BaseButton>
