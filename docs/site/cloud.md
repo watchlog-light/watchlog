@@ -13,7 +13,7 @@ If you'd rather run everything yourself, the [Community edition](install.md) is 
 
 Anyone can sign up at [cloud.watchlog.io](https://cloud.watchlog.io/signup), with a password, GitHub or Google. There is no invite and no waiting list.
 
-**Your password** needs at least 10 characters and must not be in a list of leaked passwords. The sign-up page checks both as you type and says under the field what is wrong; there are no rules about symbols or capitals. The check never sends your password anywhere: the page sends the first 5 characters of its hash and compares the rest itself. "Suggest a strong password" fills in four random words; a password manager's own suggestion works too.
+**Your password** needs at least 10 characters and must not be in a list of leaked passwords. The sign-up page checks both as you type and says under the field what is wrong; there are no rules about symbols or capitals. The check never sends your password anywhere: the page sends the first 5 characters of its hash and compares the rest itself. Your browser or password manager can suggest a strong one and save it for you.
 
 Signing up needs no card and no company details. You get an organization named after your email address (rename it in Settings) with you as its Owner, on the Cloud Free plan. We send a link to verify your address; you can start before you click it, but after 7 days an unverified account can only verify.
 
