@@ -57,6 +57,8 @@ export const ROUTES: Record<string, RouteClass> = {
   // Cloud accounts (ADR-175). Called as B with A's ids in the sweep; the cross-org cases
   // (switching to A's org, revoking A's session) are asserted in cross-org.test.ts.
   'GET /api/v1/auth/config': cloud,
+  // Leaked-password hash endings for 5 hash characters (0.9.9): public data, no org in it.
+  'GET /api/v1/auth/password-range/:prefix': cloud,
   'POST /api/v1/auth/signup': cloud,
   // Invite waves (ADR-173): checks a signup invite's code, signed out; no org's data.
   'POST /api/v1/auth/signup-invite': cloud,

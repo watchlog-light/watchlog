@@ -46,6 +46,17 @@ import {
 } from './helpers.js';
 
 const BREACHED = 'correct horse battery';
+/**
+ * Cloudflare's published Turnstile test keys: a site key whose widget always passes, and
+ * secrets that always pass, always fail, and say "token already spent". The mock below
+ * answers for them as Cloudflare does; no test calls Cloudflare.
+ */
+const TURNSTILE_TEST = {
+  siteKey: '1x00000000000000000000AA',
+  pass: '1x0000000000000000000000000000000AA',
+  fail: '2x0000000000000000000000000000000AA',
+  spent: '3x0000000000000000000000000000000AA',
+};
 const sha1 = (s: string) => createHash('sha1').update(s).digest('hex').toUpperCase();
 
 interface Mock {
@@ -92,8 +103,17 @@ function mockServices(): Mock {
         );
       }
       if (url.startsWith('https://challenges.cloudflare.com/')) {
-        const response = new URLSearchParams(body).get('response');
+        const sent = new URLSearchParams(body);
+        const response = sent.get('response');
         if (response === 'boom') throw new Error('unreachable');
+        // Cloudflare's own test secrets answer the same for any token.
+        if (sent.get('secret') === TURNSTILE_TEST.pass) return json({ success: true });
+        if (sent.get('secret') === TURNSTILE_TEST.fail) {
+          return json({ success: false, 'error-codes': ['invalid-input-response'] });
+        }
+        if (sent.get('secret') === TURNSTILE_TEST.spent) {
+          return json({ success: false, 'error-codes': ['timeout-or-duplicate'] });
+        }
         return json({ success: response === 'good' });
       }
       const auth = new Headers(init?.headers).get('authorization') ?? '';
@@ -1110,6 +1130,245 @@ describe('GitHub and Google sign-in', () => {
       ctx.db,
     );
     expect(resets.rows[0]!.n).toBe('0');
+  });
+});
+
+describe('the leaked-password range for the sign-up page (0.9.9)', () => {
+  it('answers the range for 5 hash characters: the page finds the rest itself', async () => {
+    await cloudContext();
+    const h = sha1(BREACHED);
+    const res = await call('GET', `/api/v1/auth/password-range/${h.slice(0, 5).toLowerCase()}`);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.headers['cache-control']).toBe('no-store');
+    const lines = (res.json().range as string).split(/\r?\n/);
+    expect(lines).toContain(`${h.slice(5)}:42`);
+    // Only the prefix left this server, once: the second ask is answered from memory.
+    const asked = () => mock.calls.filter((c) => c.url.includes('pwnedpasswords'));
+    expect(asked().map((c) => c.url)).toEqual([
+      `https://api.pwnedpasswords.com/range/${h.slice(0, 5)}`,
+    ]);
+    await call('GET', `/api/v1/auth/password-range/${h.slice(0, 5)}`);
+    expect(asked()).toHaveLength(1);
+    // A password nobody leaked: its range does not have its ending.
+    const other = sha1('something nobody uses 7781');
+    const clean = await call('GET', `/api/v1/auth/password-range/${other.slice(0, 5)}`);
+    expect(clean.json().range).not.toContain(other.slice(5));
+  });
+
+  it('takes 5 hex characters and nothing else; says so when the list cannot be reached', async () => {
+    await cloudContext();
+    for (const bad of ['abcd', 'abcdef', 'zzzzz', sha1(BREACHED)]) {
+      expect((await call('GET', `/api/v1/auth/password-range/${bad}`)).statusCode, bad).toBe(400);
+    }
+    mock.hibpDown = true;
+    const down = await call('GET', '/api/v1/auth/password-range/ABCDE');
+    expect(down.statusCode).toBe(503);
+    expect(down.json().code).toBe('breach-check-unavailable');
+    // And nothing is remembered from a failure.
+    mock.hibpDown = false;
+    expect((await call('GET', '/api/v1/auth/password-range/ABCDE')).statusCode).toBe(200);
+  });
+
+  it('is not there in Community: no call leaves a self-hosted server', async () => {
+    mock = mockServices();
+    ctx = await createTestContext({}, { fetch: mock.fetch });
+    expect((await call('GET', '/api/v1/auth/password-range/ABCDE')).statusCode).toBe(404);
+    expect(mock.calls).toEqual([]);
+  });
+
+  it('sign-up checks the password before Turnstile, so a leaked one does not spend the token', async () => {
+    await cloudContext({ turnstile: { secretKey: 'sec', siteKey: 'site' } });
+    const cloudflare = () => mock.calls.filter((c) => c.url.includes('challenges.cloudflare'));
+    const bad = await signup('order@example.com', { password: BREACHED, turnstileToken: 'good' });
+    expect(bad.json().code).toBe('password-breached');
+    expect(bad.json().detail).toBe(
+      'This password is in a list of leaked passwords. Pick a different one.',
+    );
+    expect(cloudflare()).toHaveLength(0);
+    // The same token, another password: it goes through.
+    const ok = await signup('order@example.com', { turnstileToken: 'good' });
+    expect(ok.statusCode, ok.body).toBe(201);
+    expect(cloudflare()).toHaveLength(1);
+  });
+});
+
+describe('Turnstile on sign-in (ADR-175, amended in 0.9.9)', () => {
+  const PASSWORD = 'a long enough password';
+  async function account(email: string) {
+    const id = newId();
+    const orgId = newId();
+    await ctx.db
+      .insertInto('orgs')
+      .values({ id: orgId, name: 'x', slug: `x-${id.slice(-10)}`, plan: 'free' })
+      .execute();
+    await ctx.db
+      .insertInto('users')
+      .values({ id, email, name: 'U', password_hash: await hashPassword(PASSWORD) })
+      .execute();
+    await ctx.db
+      .insertInto('memberships')
+      .values({ id: newId(), org_id: orgId, user_id: id, role: 'owner' })
+      .execute();
+  }
+  const login = (
+    email: string,
+    extra: object = {},
+    remoteAddress = nextIp(),
+    password = PASSWORD,
+  ) =>
+    ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      remoteAddress,
+      payload: { email, password, ...extra },
+    });
+  const cloudflare = () => mock.calls.filter((c) => c.url.includes('challenges.cloudflare'));
+
+  it('pass: a token Cloudflare accepts signs in, and every password sign-in is checked', async () => {
+    await cloudContext({
+      turnstile: { secretKey: TURNSTILE_TEST.pass, siteKey: TURNSTILE_TEST.siteKey },
+    });
+    await account('pass@example.com');
+    const res = await login(
+      'pass@example.com',
+      { turnstileToken: 'XXXX.DUMMY.TOKEN.XXXX' },
+      '10.7.0.1',
+    );
+    expect(res.statusCode, res.body).toBe(200);
+    expect(cookieOf(res)).toBeDefined();
+    const sent = new URLSearchParams(cloudflare()[0]!.body);
+    expect(sent.get('response')).toBe('XXXX.DUMMY.TOKEN.XXXX');
+    expect(sent.get('remoteip')).toBe('10.7.0.1');
+    // A wrong password is checked by Turnstile too, and answers as ever.
+    const wrong = await login(
+      'pass@example.com',
+      { turnstileToken: 't' },
+      nextIp(),
+      'not the password',
+    );
+    expect(wrong.statusCode).toBe(401);
+    expect(cloudflare()).toHaveLength(2);
+    // With a token, the strict windows are not counted: 12 more sign-ins from 12 addresses.
+    for (let i = 0; i < 12; i++) {
+      expect((await login('pass@example.com', { turnstileToken: 't' })).statusCode).toBe(200);
+    }
+  });
+
+  it('fail: a token Cloudflare refuses does not sign in, right password or not', async () => {
+    await cloudContext({
+      turnstile: { secretKey: TURNSTILE_TEST.fail, siteKey: TURNSTILE_TEST.siteKey },
+    });
+    await account('fail@example.com');
+    const res = await login('fail@example.com', { turnstileToken: 'XXXX.DUMMY.TOKEN.XXXX' });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('turnstile-failed');
+    expect(cookieOf(res)).toBeUndefined();
+    // A token that was already used (a form submitted twice) is refused the same way.
+    await closeTestContext(ctx);
+    await cloudContext({
+      turnstile: { secretKey: TURNSTILE_TEST.spent, siteKey: TURNSTILE_TEST.siteKey },
+    });
+    await account('fail@example.com');
+    expect((await login('fail@example.com', { turnstileToken: 'spent' })).json().code).toBe(
+      'turnstile-failed',
+    );
+  });
+
+  it('missing token: sign-in still works, 5 times per account in 15 minutes', async () => {
+    await cloudContext({
+      turnstile: { secretKey: TURNSTILE_TEST.pass, siteKey: TURNSTILE_TEST.siteKey },
+    });
+    await account('blocked@example.com');
+    await account('other@example.com');
+    // Each from another address: the limit is the account's.
+    for (let i = 0; i < 5; i++) {
+      const res = await login('blocked@example.com');
+      expect(res.statusCode, `attempt ${i + 1}: ${res.body}`).toBe(200);
+    }
+    expect(cloudflare()).toHaveLength(0);
+    const sixth = await login('blocked@example.com');
+    expect(sixth.statusCode).toBe(429);
+    expect(sixth.json()).toMatchObject({
+      code: 'rate-limited',
+      detail: 'Too many sign-in attempts without the human check. Try again in 15 minutes.',
+    });
+    expect(cookieOf(sixth)).toBeUndefined();
+    // Wrong passwords count the same: a bot that skips the widget gets five guesses.
+    for (let i = 0; i < 5; i++) {
+      expect((await login('other@example.com', {}, nextIp(), 'a wrong guess')).statusCode).toBe(
+        401,
+      );
+    }
+    expect((await login('other@example.com')).statusCode).toBe(429);
+    // The human check opens the door again: the strict window is only for sign-ins without it.
+    expect((await login('blocked@example.com', { turnstileToken: 't' })).statusCode).toBe(200);
+  });
+
+  it('missing token: 10 sign-ins per visitor address in 15 minutes, whatever the account', async () => {
+    await cloudContext({
+      turnstile: { secretKey: TURNSTILE_TEST.pass, siteKey: TURNSTILE_TEST.siteKey },
+    });
+    for (let i = 0; i < 10; i++) {
+      // Unknown accounts: the answer is the usual 401.
+      expect((await login(`nobody${i}@example.com`, {}, '10.8.8.8')).statusCode).toBe(401);
+    }
+    const next = await login('nobody10@example.com', {}, '10.8.8.8');
+    expect(next.statusCode).toBe(429);
+    expect(next.json().code).toBe('rate-limited');
+    expect((await login('nobody11@example.com', {}, '10.8.8.9')).statusCode).toBe(401);
+  });
+
+  it('the fallback: when Cloudflare cannot be asked, sign-in works behind the same strict limits', async () => {
+    await cloudContext({ turnstile: { secretKey: 'sec', siteKey: 'site' } });
+    await account('outage@example.com');
+    for (let i = 0; i < 5; i++) {
+      // 'boom': the mock's Cloudflare does not answer.
+      expect((await login('outage@example.com', { turnstileToken: 'boom' })).statusCode).toBe(200);
+    }
+    expect((await login('outage@example.com', { turnstileToken: 'boom' })).statusCode).toBe(429);
+    // Cloudflare is back: a good token signs in, a refused one does not.
+    expect((await login('outage@example.com', { turnstileToken: 'good' })).statusCode).toBe(200);
+    expect((await login('outage@example.com', { turnstileToken: 'bad' })).statusCode).toBe(400);
+  });
+
+  it('a password-reset request is checked every time; no token, no email', async () => {
+    await cloudContext({ turnstile: { secretKey: 'sec', siteKey: 'site' } });
+    await account('reset@example.com');
+    const forgot = (extra: object = {}) =>
+      ctx.app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/forgot-password',
+        remoteAddress: nextIp(),
+        payload: { email: 'reset@example.com', ...extra },
+      });
+    for (const extra of [{}, { turnstileToken: 'bad' }, { turnstileToken: 'boom' }]) {
+      const res = await forgot(extra);
+      expect(res.statusCode, JSON.stringify(extra)).toBe(400);
+      expect(res.json().code).toBe('turnstile-failed');
+    }
+    expect(cloudflare()).toHaveLength(2);
+    const links = await ctx.db.selectFrom('password_resets').selectAll().execute();
+    expect(links).toEqual([]);
+  });
+
+  it('without a Turnstile secret nothing is asked and nothing is limited more', async () => {
+    await cloudContext();
+    await account('plain@example.com');
+    for (let i = 0; i < 8; i++) {
+      expect((await login('plain@example.com')).statusCode).toBe(200);
+    }
+    expect(cloudflare()).toHaveLength(0);
+  });
+
+  it('Community has no Turnstile: a token in the body is ignored', async () => {
+    mock = mockServices();
+    ctx = await createTestContext({}, { fetch: mock.fetch });
+    await account('self@example.com');
+    for (let i = 0; i < 8; i++) {
+      const res = await login('self@example.com', i % 2 ? { turnstileToken: 'anything' } : {});
+      expect(res.statusCode, res.body).toBe(200);
+    }
+    expect(mock.calls).toEqual([]);
   });
 });
 
