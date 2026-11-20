@@ -57,10 +57,14 @@ enforcing).
   `--no-docker` leaves it out, and containers don't show). With Podman, which has no `docker`
   group, the script and the packages give Podman's API socket to the group `watchlog` (a
   drop-in, `podman.socket.d/watchlog.conf`, removed on uninstall), with the same warning and
-  the same `--no-docker`.
+  the same `--no-docker`. Since 0.10, also the crontabs (`/etc/crontab`, `/etc/cron.d`, the
+  users' crontabs), the names of the certificate stores' directories (Let's Encrypt, acme.sh,
+  Caddy; no file in them), and what each listening TCP port presents in a TLS handshake
+  ([Certificates and scheduled jobs](certificates-and-jobs.md)).
 - **What never leaves the server:** command lines, arguments, environment values, user names
   and process ids. A process group is sent as its derived name only, with secrets redacted,
-  and the base name of the executable it runs (`node`, never a path).
+  and the base name of the executable it runs (`node`, never a path); a cron job the same way
+  (`pg_dump`, `artisan schedule:run`), never its crontab line.
 - The token is kept in `/etc/watchlog/agent.env`, mode 0640, owned by root and the `watchlog`
   group.
 
@@ -198,6 +202,11 @@ Services installed with apt or dnf (PostgreSQL, MariaDB, MySQL, Redis, MongoDB, 
 Kafka, nginx, Traefik and [PHP-FPM](integrations/php-fpm.md)) are offered under
 **Applications → Found N services** by their unit's name. The server's own collector reads them
 on `127.0.0.1`. Nothing is contacted until you press **Monitor**.
+
+The **Certificates** and **Scheduled jobs** tabs list every server's TLS certificates and its
+systemd timers and cron jobs, problems first, with default alerts for a certificate close to
+expiry and a job that fails, misses a run or runs far longer than usual
+([Certificates and scheduled jobs](certificates-and-jobs.md)).
 
 ## Network map, Egress and What changed
 
