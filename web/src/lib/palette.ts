@@ -15,7 +15,9 @@ export type PaletteKind =
   | 'host'
   | 'container'
   | 'compose_project'
-  | 'application';
+  | 'application'
+  | 'certificate'
+  | 'scheduled_job';
 
 /** The groups in their default order (the best match's group goes first). */
 export const KIND_ORDER: PaletteKind[] = [
@@ -28,6 +30,8 @@ export const KIND_ORDER: PaletteKind[] = [
   'container',
   'compose_project',
   'application',
+  'certificate',
+  'scheduled_job',
 ];
 
 /** Which platform's vocabulary and logo a group carries. */
@@ -194,6 +198,18 @@ export function resultLink(r: SearchResult, clusterId: string): RouteLocationRaw
       return { name: 'containers', query: { ...cluster, project: r.name } };
     case 'application':
       return { name: 'application', params: { id: r.id ?? '' }, query: cluster };
+    case 'certificate':
+      return {
+        name: 'certificate',
+        params: { certId: r.id ?? '' },
+        query: { ...cluster, ...(r.host ? { node: r.host } : {}) },
+      };
+    case 'scheduled_job':
+      return {
+        name: 'scheduled-job',
+        params: { jobId: r.id ?? '' },
+        query: { ...cluster, ...(r.host ? { node: r.host } : {}) },
+      };
   }
 }
 

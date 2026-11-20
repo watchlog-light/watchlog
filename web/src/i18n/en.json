@@ -41,7 +41,7 @@
   },
   "palette": {
     "title": "Search",
-    "description": "Type to find a page, a cluster, or the selected cluster's workloads, pods, nodes, hosts, containers and applications. Up and down arrows move, Enter opens, Escape closes.",
+    "description": "Type to find a page, a cluster, or the selected cluster's workloads, pods, nodes, hosts, containers, applications, certificates and scheduled jobs. Up and down arrows move, Enter opens, Escape closes.",
     "label": "Search pages, clusters and objects",
     "open": "Search",
     "button": "Search…",
@@ -62,7 +62,9 @@
       "host": "Hosts",
       "container": "Containers",
       "compose_project": "Compose projects",
-      "application": "Applications"
+      "application": "Applications",
+      "certificate": "Certificates",
+      "scheduled_job": "Scheduled jobs"
     },
     "detail": {
       "page": "Page",
@@ -73,7 +75,14 @@
       "host": "Server",
       "container": "Container · {host}",
       "containerInProject": "Container · {project} on {host}",
-      "composeProject": "Compose project · {host}"
+      "composeProject": "Compose project · {host}",
+      "certificate": "Certificate",
+      "certificateOn": "Certificate · {host}",
+      "job": {
+        "timer": "systemd timer",
+        "cron": "cron job",
+        "cronjob": "CronJob"
+      }
     },
     "keys": {
       "move": "move",

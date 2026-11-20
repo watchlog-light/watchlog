@@ -3,6 +3,7 @@
 import {
   Box,
   Boxes,
+  CalendarClock,
   Clock,
   Container,
   CornerDownLeft,
@@ -10,6 +11,7 @@ import {
   Layers,
   Search,
   Server,
+  ShieldCheck,
   X,
 } from '@lucide/vue';
 import type { SearchResponse, SearchResult } from '@watchlog/api-types';
@@ -125,6 +127,12 @@ function detailOf(r: SearchResult): string {
       return t('palette.detail.composeProject', { host: r.host ?? '' });
     case 'application':
       return [serviceName(r.type ?? ''), r.namespace ?? r.host].filter(Boolean).join(' · ');
+    case 'certificate':
+      return r.host
+        ? t('palette.detail.certificateOn', { host: r.host })
+        : t('palette.detail.certificate');
+    case 'scheduled_job':
+      return [t(`palette.detail.job.${r.type ?? 'timer'}`), r.host].filter(Boolean).join(' · ');
   }
 }
 
@@ -296,6 +304,8 @@ const KIND_ICON: Record<string, Component> = {
   host: Server,
   container: Container,
   compose_project: Layers,
+  certificate: ShieldCheck,
+  scheduled_job: CalendarClock,
 };
 const pageIcon = (name?: string) => NAV_ITEMS.find((p) => p.name === name)?.icon ?? FileText;
 function iconOf(i: PaletteItem): Component {
