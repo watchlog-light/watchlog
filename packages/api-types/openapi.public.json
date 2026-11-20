@@ -7650,7 +7650,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["jobs", "coverage", "agentsWithout"],
+                  "required": ["jobs", "lastDay", "coverage", "agentsWithout"],
                   "properties": {
                     "jobs": {
                       "type": "array",
@@ -7678,7 +7678,8 @@
                           "usualSeconds",
                           "frequent",
                           "lastRun",
-                          "updatedAt"
+                          "updatedAt",
+                          "recent"
                         ],
                         "properties": {
                           "id": { "type": "string" },
@@ -7721,8 +7722,30 @@
                               { "type": "null" }
                             ]
                           },
-                          "updatedAt": { "type": "number" }
+                          "updatedAt": { "type": "number" },
+                          "recent": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["startedAt", "endedAt", "seconds", "code", "result"],
+                              "properties": {
+                                "startedAt": { "type": "number" },
+                                "endedAt": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                                "seconds": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                                "code": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                                "result": { "type": "string" }
+                              }
+                            }
+                          }
                         }
+                      }
+                    },
+                    "lastDay": {
+                      "type": "object",
+                      "required": ["runs", "failures"],
+                      "properties": {
+                        "runs": { "type": "number" },
+                        "failures": { "type": "number" }
                       }
                     },
                     "coverage": {

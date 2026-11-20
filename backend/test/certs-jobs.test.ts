@@ -248,6 +248,12 @@ describe('scheduled jobs (ADR-223, ADR-224)', () => {
     expect(r.status).toBe(200);
     const b = r.body.jobs.find((j: { id: string }) => j.id === backup);
     expect(b.lastRun).toMatchObject({ startedAt: t + 3600, result: 'success', seconds: 10 });
+    expect(b.recent.map((x: { result: string }) => x.result)).toEqual([
+      'success',
+      'failed',
+      'success',
+    ]);
+    expect(r.body.lastDay).toEqual({ runs: 3, failures: 1 });
     const d = await get(`/scheduled-jobs/${backup}?node=web-1`);
     expect(d.status).toBe(200);
     expect(d.body.runs.map((x: { result: string }) => x.result)).toEqual([

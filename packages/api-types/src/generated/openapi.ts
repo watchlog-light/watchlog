@@ -2825,7 +2825,18 @@ export interface paths {
                   result: string;
                 } | null;
                 updatedAt: number;
+                recent: {
+                  startedAt: number;
+                  endedAt: number | null;
+                  seconds: number | null;
+                  code: number | null;
+                  result: string;
+                }[];
               }[];
+              lastDay: {
+                runs: number;
+                failures: number;
+              };
               coverage: {
                 node: string;
                 receivedAt: number;

@@ -16,6 +16,7 @@ import {
   jobDetail,
   listCertificates,
   listJobs,
+  runsLastDay,
 } from './service.js';
 
 const N = Type.Union([Type.Number(), Type.Null()]);
@@ -109,6 +110,9 @@ const JobS = Type.Object({
   updatedAt: Type.Number(),
 });
 
+/** A job in the list: with its last 14 runs, newest first (the table's small bars). */
+const JobRowS = Type.Object({ ...JobS.properties, recent: Type.Array(RunS) });
+
 export const certsJobsRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (app, { db }) => {
   const signedIn = requireUser();
   const errors = { 401: ProblemSchema, 404: ProblemSchema };
@@ -200,7 +204,9 @@ export const certsJobsRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = asyn
         querystring: NodeQuery,
         response: {
           200: Type.Object({
-            jobs: Type.Array(JobS),
+            jobs: Type.Array(JobRowS),
+            /** Runs that ended in the last 24 hours, and how many failed. */
+            lastDay: Type.Object({ runs: Type.Number(), failures: Type.Number() }),
             coverage: Type.Array(CoverageS),
             agentsWithout: AgentsS,
           }),
@@ -214,6 +220,7 @@ export const certsJobsRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = asyn
       const node = request.query.node;
       return {
         jobs: await listJobs(db, cluster.id, node),
+        lastDay: await runsLastDay(db, cluster.id, node),
         coverage: await coverage(db, cluster.id, node),
         agentsWithout: await agentsNeedingUpgrade(db, cluster.id, cluster.kind),
       };

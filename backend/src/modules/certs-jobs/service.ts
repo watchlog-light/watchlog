@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Certificates and scheduled jobs as the pages, the API and MCP read them (0.10.0, ADR-224):
 // bounded reads, scoped to the cluster (and the server, where one is named).
-import type { Selectable } from 'kysely';
+import { sql, type Selectable } from 'kysely';
 import type { Database } from '../../db/index.js';
 import type { ScheduledJobs } from '../../db/types.js';
 
@@ -246,7 +246,14 @@ export async function certificateHistory(
   }));
 }
 
-export async function listJobs(db: Database, clusterId: string, node?: string): Promise<JobView[]> {
+/** The runs a job's row shows as small bars. */
+export const RECENT_RUNS = 14;
+
+export async function listJobs(
+  db: Database,
+  clusterId: string,
+  node?: string,
+): Promise<(JobView & { recent: RunView[] })[]> {
   let q = db
     .selectFrom('scheduled_jobs')
     .selectAll()
@@ -254,22 +261,34 @@ export async function listJobs(db: Database, clusterId: string, node?: string): 
     .where('gone_at', 'is', null);
   if (node !== undefined) q = q.where('node', '=', node);
   const rows = await q.limit(5000).execute();
-  // Each job's last run.
-  let lq = db
-    .selectFrom('job_runs')
-    .distinctOn(['node', 'job_id'])
-    .select(['node', 'job_id', 'started_at', 'ended_at', 'code', 'result'])
-    .where('cluster_id', '=', clusterId);
-  if (node !== undefined) lq = lq.where('node', '=', node);
-  const last = new Map<string, RunView>();
-  for (const r of await lq
-    .orderBy('node')
-    .orderBy('job_id')
-    .orderBy('started_at', 'desc')
-    .execute()) {
-    last.set(`${r.node}/${r.job_id}`, runView(r));
+  // Each job's last 14 runs, newest first (the table's small bars).
+  const recent = new Map<string, RunView[]>();
+  const runs = await sql<{
+    node: string;
+    job_id: string;
+    started_at: Date;
+    ended_at: Date | null;
+    code: number | null;
+    result: string;
+  }>`
+    SELECT node, job_id, started_at, ended_at, code, result FROM (
+      SELECT node, job_id, started_at, ended_at, code, result,
+             row_number() OVER (PARTITION BY node, job_id ORDER BY started_at DESC) AS n
+        FROM job_runs
+       WHERE cluster_id = ${clusterId} ${node !== undefined ? sql`AND node = ${node}` : sql``}
+    ) r WHERE n <= ${RECENT_RUNS}::int
+    ORDER BY node, job_id, started_at DESC`.execute(db);
+  for (const r of runs.rows) {
+    const k = `${r.node}/${r.job_id}`;
+    const list = recent.get(k) ?? [];
+    list.push(runView(r));
+    recent.set(k, list);
   }
-  const out = rows.map((r) => jobView(r, last.get(`${r.node}/${r.job_id}`) ?? null));
+  const last = new Map([...recent].map(([k, v]) => [k, v[0]!]));
+  const out = rows.map((r) => ({
+    ...jobView(r, last.get(`${r.node}/${r.job_id}`) ?? null),
+    recent: recent.get(`${r.node}/${r.job_id}`) ?? [],
+  }));
   out.sort(
     (a, b) =>
       JOB_ORDER.indexOf(a.state) - JOB_ORDER.indexOf(b.state) ||
@@ -398,4 +417,24 @@ export async function agentsNeedingUpgrade(
     .filter((r) => !agentHasInventory(r.agent_version))
     .map((r) => ({ node: r.node, version: r.agent_version }))
     .sort((a, b) => a.node.localeCompare(b.node));
+}
+
+/** Runs that ended in the last 24 hours, and how many of them failed (the fourth tile). */
+export async function runsLastDay(
+  db: Database,
+  clusterId: string,
+  node?: string,
+  now = new Date(),
+) {
+  let q = db
+    .selectFrom('job_run_hours')
+    .select((eb) => [
+      eb.fn.sum<number>('runs').as('runs'),
+      eb.fn.sum<number>('failures').as('failures'),
+    ])
+    .where('cluster_id', '=', clusterId)
+    .where('hour', '>=', new Date(now.getTime() - 24 * 3_600_000));
+  if (node !== undefined) q = q.where('node', '=', node);
+  const r = await q.executeTakeFirst();
+  return { runs: Number(r?.runs ?? 0), failures: Number(r?.failures ?? 0) };
 }
