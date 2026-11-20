@@ -53,6 +53,7 @@ import { parseTrustedProxies, registerClientIp } from './plugins/client-ip.js';
 import { demoRoutes } from './modules/demo/routes.js';
 import { dockerRoutes } from './modules/docker/routes.js';
 import { serverRoutes } from './modules/servers/routes.js';
+import { certsJobsRoutes } from './modules/certs-jobs/routes.js';
 import { processRuleRoutes } from './modules/servers/rules.js';
 import { queryRoutes } from './modules/query/routes.js';
 import { alertRoutes } from './modules/alerts/routes.js';
@@ -313,6 +314,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(queryRoutes, { db: deps.db, victoria });
       await api.register(dockerRoutes, { db: deps.db, victoria });
       await api.register(serverRoutes, { db: deps.db, victoria });
+      await api.register(certsJobsRoutes, { db: deps.db });
       await api.register(processRuleRoutes, { db: deps.db, victoria });
       await api.register(kubernetesRoutes, { db: deps.db, victoria, settings });
       await api.register(logsRoutes, { db: deps.db, settings, broker: logBroker });

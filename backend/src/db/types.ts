@@ -252,6 +252,31 @@ export interface AuditEvents {
   subject_email: string | null;
 }
 
+export interface Certificates {
+  cert_id: string;
+  chain: string;
+  cluster_id: string;
+  current: Generated<boolean>;
+  endpoints: Generated<Json>;
+  fingerprint: string;
+  first_seen: Generated<Timestamp>;
+  issuer: Generated<string>;
+  issuer_org: Generated<string>;
+  key_bits: Generated<number>;
+  key_type: Generated<string>;
+  last_seen: Generated<Timestamp>;
+  name_mismatch: Generated<string[]>;
+  names: string[];
+  node: Generated<string>;
+  not_after: Timestamp;
+  not_before: Timestamp;
+  org_id: Generated<string>;
+  renewed_days_before: number | null;
+  renewed_from: string | null;
+  serial: Generated<string>;
+  subject: Generated<string>;
+}
+
 export interface ChangeMarkers {
   cluster_id: string;
   created_at: Generated<Timestamp>;
@@ -412,6 +437,15 @@ export interface Integrations {
   version: string | null;
 }
 
+export interface InventoryCoverage {
+  certificates: Json | null;
+  cluster_id: string;
+  jobs: Json | null;
+  node: Generated<string>;
+  org_id: Generated<string>;
+  received_at: Generated<Timestamp>;
+}
+
 export interface Invites {
   accepted_at: Timestamp | null;
   created_at: Generated<Timestamp>;
@@ -426,6 +460,28 @@ export interface Invites {
   role: string;
   token_ciphertext: string | null;
   token_hash: Buffer;
+}
+
+export interface JobRunHours {
+  cluster_id: string;
+  failures: Generated<number>;
+  hour: Timestamp;
+  job_id: string;
+  longest_seconds: Generated<number>;
+  node: Generated<string>;
+  org_id: Generated<string>;
+  runs: Generated<number>;
+}
+
+export interface JobRuns {
+  cluster_id: string;
+  code: number | null;
+  ended_at: Timestamp | null;
+  job_id: string;
+  node: Generated<string>;
+  org_id: Generated<string>;
+  result: string;
+  started_at: Timestamp;
 }
 
 export interface K8sEvents {
@@ -588,6 +644,34 @@ export interface ProcessRules {
 export interface RetiredClusterTokens {
   retired_at: Generated<Timestamp>;
   token_hash: Buffer;
+}
+
+export interface ScheduledJobs {
+  cluster_id: string;
+  enabled: boolean;
+  every_sec: Generated<Int8>;
+  failed_streak: Generated<number>;
+  first_seen: Generated<Timestamp>;
+  frequent: Generated<boolean>;
+  gone_at: Timestamp | null;
+  job_id: string;
+  kind: string;
+  last_good_at: Timestamp | null;
+  missed_at: Timestamp | null;
+  missed_runs: Generated<number>;
+  missed_why: string | null;
+  name: string;
+  next_at: Timestamp | null;
+  node: Generated<string>;
+  org_id: Generated<string>;
+  persistent: Generated<boolean>;
+  random_delay_sec: Generated<number>;
+  schedule: Generated<string>;
+  source: Generated<string>;
+  state: string;
+  unit: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  usual_seconds: number | null;
 }
 
 export interface SecretKeyCheck {
@@ -857,6 +941,7 @@ export interface DB {
   api_tokens: ApiTokens;
   audit_events: AuditEvents;
   beta_notices: BetaNotices;
+  certificates: Certificates;
   change_markers: ChangeMarkers;
   cluster_tokens: ClusterTokens;
   cloud_settings: CloudSettings;
@@ -875,7 +960,10 @@ export interface DB {
   integration_events: IntegrationEvents;
   integration_probes: IntegrationProbes;
   integrations: Integrations;
+  inventory_coverage: InventoryCoverage;
   invites: Invites;
+  job_run_hours: JobRunHours;
+  job_runs: JobRuns;
   lifecycle_emails: LifecycleEmails;
   k8s_events: K8sEvents;
   mcp_calls: McpCalls;
@@ -892,6 +980,7 @@ export interface DB {
   plan_limit_emails: PlanLimitEmails;
   plan_limit_hits: PlanLimitHits;
   retired_cluster_tokens: RetiredClusterTokens;
+  scheduled_jobs: ScheduledJobs;
   secret_key_check: SecretKeyCheck;
   seed_services: SeedServices;
   server_settings: ServerSettings;

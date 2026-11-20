@@ -2882,6 +2882,26 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["cert.expires_in"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["cert.problem"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["job.failed_streak"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["job.missed_runs"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["job.slow"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["unit.restarts"]
                       },
                       {
@@ -7273,6 +7293,1417 @@
                     },
                     "max": {
                       "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{id}/certificates": {
+      "get": {
+        "summary": "A cluster's or fleet's certificates, worst first, with what wasn't covered",
+        "tags": ["applications", "public"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 253
+            },
+            "in": "query",
+            "name": "node",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["certificates", "coverage", "agentsWithout"],
+                  "properties": {
+                    "certificates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "node",
+                          "names",
+                          "subject",
+                          "issuer",
+                          "issuerOrg",
+                          "notBefore",
+                          "notAfter",
+                          "daysLeft",
+                          "status",
+                          "chain",
+                          "nameMismatch",
+                          "keyType",
+                          "keyBits",
+                          "fingerprint",
+                          "endpoints",
+                          "firstSeen",
+                          "renewedDaysBefore",
+                          "renewedAt",
+                          "renewalJob"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "node": {
+                            "type": "string"
+                          },
+                          "names": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "subject": {
+                            "type": "string"
+                          },
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "issuerOrg": {
+                            "type": "string"
+                          },
+                          "notBefore": {
+                            "type": "number"
+                          },
+                          "notAfter": {
+                            "type": "number"
+                          },
+                          "daysLeft": {
+                            "type": "number"
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["expired"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["expires_soon"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["expiring"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["problem"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["ok"]
+                              }
+                            ]
+                          },
+                          "chain": {
+                            "type": "string"
+                          },
+                          "nameMismatch": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "keyType": {
+                            "type": "string"
+                          },
+                          "keyBits": {
+                            "type": "number"
+                          },
+                          "fingerprint": {
+                            "type": "string"
+                          },
+                          "endpoints": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["kind", "workload", "port", "proto", "sni"],
+                              "properties": {
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "workload": {
+                                  "type": "string"
+                                },
+                                "port": {
+                                  "type": "number"
+                                },
+                                "proto": {
+                                  "type": "string"
+                                },
+                                "sni": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          "firstSeen": {
+                            "type": "number"
+                          },
+                          "renewedDaysBefore": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "renewedAt": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "renewalJob": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["id", "name", "state"],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "coverage": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["node", "receivedAt", "certificates", "jobs"],
+                        "properties": {
+                          "node": {
+                            "type": "string"
+                          },
+                          "receivedAt": {
+                            "type": "number"
+                          },
+                          "certificates": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": {}
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "jobs": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": {}
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "agentsWithout": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["node", "version"],
+                        "properties": {
+                          "node": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "description": "Agents older than 0.10 seen in the last hour: they send no certificates or jobs"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{id}/certificates/{certId}": {
+      "get": {
+        "summary": "One certificate: where it is served, and every one seen under its names",
+        "tags": ["applications", "public"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 253
+            },
+            "in": "query",
+            "name": "node",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{16}$"
+            },
+            "in": "path",
+            "name": "certId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["certificate", "history"],
+                  "properties": {
+                    "certificate": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "node",
+                        "names",
+                        "subject",
+                        "issuer",
+                        "issuerOrg",
+                        "notBefore",
+                        "notAfter",
+                        "daysLeft",
+                        "status",
+                        "chain",
+                        "nameMismatch",
+                        "keyType",
+                        "keyBits",
+                        "fingerprint",
+                        "endpoints",
+                        "firstSeen",
+                        "renewedDaysBefore",
+                        "renewedAt",
+                        "renewalJob"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "node": {
+                          "type": "string"
+                        },
+                        "names": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "subject": {
+                          "type": "string"
+                        },
+                        "issuer": {
+                          "type": "string"
+                        },
+                        "issuerOrg": {
+                          "type": "string"
+                        },
+                        "notBefore": {
+                          "type": "number"
+                        },
+                        "notAfter": {
+                          "type": "number"
+                        },
+                        "daysLeft": {
+                          "type": "number"
+                        },
+                        "status": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["expired"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["expires_soon"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["expiring"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["problem"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["ok"]
+                            }
+                          ]
+                        },
+                        "chain": {
+                          "type": "string"
+                        },
+                        "nameMismatch": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "keyType": {
+                          "type": "string"
+                        },
+                        "keyBits": {
+                          "type": "number"
+                        },
+                        "fingerprint": {
+                          "type": "string"
+                        },
+                        "endpoints": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["kind", "workload", "port", "proto", "sni"],
+                            "properties": {
+                              "kind": {
+                                "type": "string"
+                              },
+                              "workload": {
+                                "type": "string"
+                              },
+                              "port": {
+                                "type": "number"
+                              },
+                              "proto": {
+                                "type": "string"
+                              },
+                              "sni": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "firstSeen": {
+                          "type": "number"
+                        },
+                        "renewedDaysBefore": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "renewedAt": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "renewalJob": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["id", "name", "state"],
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "history": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "fingerprint",
+                          "notBefore",
+                          "notAfter",
+                          "issuer",
+                          "serial",
+                          "firstSeen",
+                          "lastSeen",
+                          "current",
+                          "renewedDaysBefore"
+                        ],
+                        "properties": {
+                          "fingerprint": {
+                            "type": "string"
+                          },
+                          "notBefore": {
+                            "type": "number"
+                          },
+                          "notAfter": {
+                            "type": "number"
+                          },
+                          "issuer": {
+                            "type": "string"
+                          },
+                          "serial": {
+                            "type": "string"
+                          },
+                          "firstSeen": {
+                            "type": "number"
+                          },
+                          "lastSeen": {
+                            "type": "number"
+                          },
+                          "current": {
+                            "type": "boolean"
+                          },
+                          "renewedDaysBefore": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{id}/scheduled-jobs": {
+      "get": {
+        "summary": "A cluster's or fleet's scheduled jobs (timers, cron, CronJobs), worst first",
+        "tags": ["applications", "public"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 253
+            },
+            "in": "query",
+            "name": "node",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["jobs", "coverage", "agentsWithout"],
+                  "properties": {
+                    "jobs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "node",
+                          "kind",
+                          "name",
+                          "unit",
+                          "schedule",
+                          "source",
+                          "enabled",
+                          "persistent",
+                          "randomDelaySec",
+                          "nextAt",
+                          "everySec",
+                          "state",
+                          "failedStreak",
+                          "lastGoodAt",
+                          "missedRuns",
+                          "missedWhy",
+                          "missedAt",
+                          "usualSeconds",
+                          "frequent",
+                          "lastRun",
+                          "updatedAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "node": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "unit": {
+                            "type": "string"
+                          },
+                          "schedule": {
+                            "type": "string"
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "persistent": {
+                            "type": "boolean"
+                          },
+                          "randomDelaySec": {
+                            "type": "number"
+                          },
+                          "nextAt": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "everySec": {
+                            "type": "number"
+                          },
+                          "state": {
+                            "type": "string"
+                          },
+                          "failedStreak": {
+                            "type": "number"
+                          },
+                          "lastGoodAt": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "missedRuns": {
+                            "type": "number"
+                          },
+                          "missedWhy": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "missedAt": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "usualSeconds": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "frequent": {
+                            "type": "boolean"
+                          },
+                          "lastRun": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["startedAt", "endedAt", "seconds", "code", "result"],
+                                "properties": {
+                                  "startedAt": {
+                                    "type": "number"
+                                  },
+                                  "endedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "seconds": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "result": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "updatedAt": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    },
+                    "coverage": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["node", "receivedAt", "certificates", "jobs"],
+                        "properties": {
+                          "node": {
+                            "type": "string"
+                          },
+                          "receivedAt": {
+                            "type": "number"
+                          },
+                          "certificates": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": {}
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "jobs": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": {}
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "agentsWithout": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["node", "version"],
+                        "properties": {
+                          "node": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "description": "Agents older than 0.10 seen in the last hour: they send no certificates or jobs"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{id}/scheduled-jobs/{jobId}": {
+      "get": {
+        "summary": "One scheduled job: its state, its last 100 runs and its runs per hour",
+        "tags": ["applications", "public"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 253
+            },
+            "in": "query",
+            "name": "node",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{16}$"
+            },
+            "in": "path",
+            "name": "jobId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["job", "runs", "hours"],
+                  "properties": {
+                    "job": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "node",
+                        "kind",
+                        "name",
+                        "unit",
+                        "schedule",
+                        "source",
+                        "enabled",
+                        "persistent",
+                        "randomDelaySec",
+                        "nextAt",
+                        "everySec",
+                        "state",
+                        "failedStreak",
+                        "lastGoodAt",
+                        "missedRuns",
+                        "missedWhy",
+                        "missedAt",
+                        "usualSeconds",
+                        "frequent",
+                        "lastRun",
+                        "updatedAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "node": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "unit": {
+                          "type": "string"
+                        },
+                        "schedule": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "persistent": {
+                          "type": "boolean"
+                        },
+                        "randomDelaySec": {
+                          "type": "number"
+                        },
+                        "nextAt": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "everySec": {
+                          "type": "number"
+                        },
+                        "state": {
+                          "type": "string"
+                        },
+                        "failedStreak": {
+                          "type": "number"
+                        },
+                        "lastGoodAt": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "missedRuns": {
+                          "type": "number"
+                        },
+                        "missedWhy": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "missedAt": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "usualSeconds": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "frequent": {
+                          "type": "boolean"
+                        },
+                        "lastRun": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["startedAt", "endedAt", "seconds", "code", "result"],
+                              "properties": {
+                                "startedAt": {
+                                  "type": "number"
+                                },
+                                "endedAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "seconds": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "code": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "result": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "updatedAt": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "runs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["startedAt", "endedAt", "seconds", "code", "result"],
+                        "properties": {
+                          "startedAt": {
+                            "type": "number"
+                          },
+                          "endedAt": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "seconds": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "code": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "result": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "hours": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["hour", "runs", "failures", "longestSeconds"],
+                        "properties": {
+                          "hour": {
+                            "type": "number"
+                          },
+                          "runs": {
+                            "type": "number"
+                          },
+                          "failures": {
+                            "type": "number"
+                          },
+                          "longestSeconds": {
+                            "type": "number"
+                          }
+                        }
+                      }
                     }
                   }
                 }

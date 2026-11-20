@@ -197,6 +197,9 @@ export interface SeededOrg {
   inviteId: string;
   /** Strings and ids that only this org's data contains. */
   markers: string[];
+  /** The org's certificate and scheduled job on its Kubernetes cluster (0.10). */
+  certId: string;
+  jobId: string;
 }
 
 async function ingest(
@@ -343,6 +346,55 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     kinds: [...new Set(objects.map((o) => o.kind))],
   });
   await ingest(app, k8s.token, 'events', { events });
+  // Certificates and scheduled jobs (0.10): one of each, named after the org.
+  const certId = label === 'zzalpha' ? 'a1a1a1a1a1a1a1a1' : 'b2b2b2b2b2b2b2b2';
+  const jobId = label === 'zzalpha' ? 'a3a3a3a3a3a3a3a3' : 'b4b4b4b4b4b4b4b4';
+  const nowS = Math.floor(Date.now() / 1000);
+  await ingest(app, k8s.token, 'objects', {
+    source: 'inventory',
+    node: '',
+    certificates: [
+      {
+        id: certId,
+        names: [`${label}.example.test`],
+        subject: `${label}.example.test`,
+        issuer: 'WL Test CA',
+        serial: '10',
+        notBefore: nowS - 86_400,
+        notAfter: nowS + 20 * 86_400,
+        fingerprint: (label === 'zzalpha' ? 'a' : 'b').repeat(64),
+        keyType: 'ECDSA',
+        keyBits: 256,
+        chain: 'private',
+        endpoints: [
+          {
+            kind: 'Ingress',
+            workload: `${label}/web`,
+            port: 443,
+            proto: 'tls',
+            sni: `${label}.example.test`,
+            fingerprint: (label === 'zzalpha' ? 'a' : 'b').repeat(64),
+            notAfter: nowS + 20 * 86_400,
+          },
+        ],
+      },
+    ],
+    certificateCoverage: { ports: 1, tlsPorts: 1, at: nowS },
+    jobs: [
+      {
+        id: jobId,
+        kind: 'cronjob',
+        name: `${label}/nightly`,
+        schedule: '0 3 * * *',
+        source: 'CronJob',
+        enabled: true,
+        runs: [{ start: nowS - 3600, end: nowS - 3540, code: 1, result: 'failed' }],
+        state: 'failed',
+        failedStreak: 1,
+        missedRuns: 0,
+      },
+    ],
+  });
   const pod = objects.find((o) => o.kind === 'Pod' && o.namespace === 'wl-test')!;
   const node = objects.find((o) => o.kind === 'Node')!.name;
   const now = Date.now();
@@ -750,7 +802,18 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
   });
   const inviteId = (invite.invite?.id ?? invite.id) as string;
 
-  const markers = [label, orgId, k8s.id, docker.id, ruleId(rule.id), alertId, channelId, serviceId];
+  const markers = [
+    label,
+    orgId,
+    k8s.id,
+    docker.id,
+    ruleId(rule.id),
+    alertId,
+    channelId,
+    serviceId,
+    certId,
+    jobId,
+  ];
   if (label === 'zzalpha')
     markers.push(...objects.filter((o) => o.kind === 'Pod').map((o) => o.uid));
   return {
@@ -780,6 +843,8 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     apiToken: { id: token.token.id as string, value: token.value as string },
     inviteId,
     markers,
+    certId,
+    jobId,
   };
 }
 

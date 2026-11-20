@@ -227,6 +227,41 @@ const ENTRIES = {
     agg: 'sum',
     expr: (s, _r, a) => `${a} by (host, unit) (watchlog_service_tasks${s()})`,
   },
+  // Certificates and scheduled jobs (0.10, ADR-224), for Servers and Kubernetes alike: an
+  // endpoint keeps its series across a renewal (cert_id is the identity, not the fingerprint).
+  /** Seconds until the certificate expires (negative once it has). */
+  'cert.expires_in': {
+    unit: 'seconds',
+    agg: 'min',
+    expr: (s, _r, a) =>
+      `${a} by (host, cert, cert_id) (watchlog_cert_expires_at_seconds${s()} - time())`,
+  },
+  /** 1 while the certificate has a problem: problem="name" (mismatch) or "chain" (incomplete). */
+  'cert.problem': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) => `${a} by (host, cert, cert_id, problem) (watchlog_cert_problem${s()})`,
+  },
+  /** A scheduled job's failed runs in a row (0 after a good run). */
+  'job.failed_streak': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (host, namespace, job, job_id, kind) (watchlog_job_failed_streak${s()})`,
+  },
+  /** Runs a scheduled job missed since its last good one (the server up, the job not run). */
+  'job.missed_runs': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) =>
+      `${a} by (host, namespace, job, job_id, kind) (watchlog_job_missed_runs${s()})`,
+  },
+  /** 1 while a job runs, or last ran, 3 times its usual duration and 5 minutes more. */
+  'job.slow': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s, _r, a) => `${a} by (host, namespace, job, job_id, kind) (watchlog_job_slow${s()})`,
+  },
   /** systemd's restarts of the unit (NRestarts), since it was loaded. */
   'unit.restarts': {
     unit: 'count',

@@ -70,6 +70,8 @@ function pathFor(route: string, o: SeededOrg): string {
       `/servers/${o.host}/workloads/container:${o.container}`,
     )
     .replace('/servers/:server', `/servers/${o.host}`)
+    .replace('/certificates/:certId', `/certificates/${o.certId}`)
+    .replace('/scheduled-jobs/:jobId', `/scheduled-jobs/${o.jobId}`)
     .replace('/alerts/:id', `/alerts/${o.alertId}`)
     .replace('/silences/:id', `/silences/${o.silenceId}`)
     .replace('/alert-rules/:id', `/alert-rules/${o.ruleId}`)

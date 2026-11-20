@@ -26,6 +26,7 @@ import {
 import { dockerMarkers } from './docker-markers.js';
 import { recordHeartbeat } from './heartbeat.js';
 import { EventsBody, storeKubernetesEvents } from './kubernetes-events.js';
+import { InventoryBody, storeInventory } from './inventory.js';
 import { KubernetesObjectsBody, storeKubernetesObjects } from './kubernetes-objects.js';
 import {
   AGENT_BUCKET,
@@ -164,8 +165,9 @@ const DockerObjectsBody = Type.Object({
   }),
 });
 
-// Docker inventory (Phase 1) or Kubernetes objects (ADR-055), told apart by `source`.
-const ObjectsBody = Type.Union([DockerObjectsBody, KubernetesObjectsBody]);
+// Docker inventory (Phase 1), Kubernetes objects (ADR-055) or a server's or cluster's
+// certificates and scheduled jobs (0.10, ADR-224), told apart by `source`.
+const ObjectsBody = Type.Union([DockerObjectsBody, KubernetesObjectsBody, InventoryBody]);
 
 const HeartbeatBody = Type.Object({
   agent_version: Type.String({ minLength: 1, maxLength: 64 }),
@@ -439,7 +441,8 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
         return payload.pipe(createGunzip());
       },
       schema: {
-        summary: 'Docker inventory or Kubernetes objects, snapshot or delta (gzipped JSON)',
+        summary:
+          'Docker inventory, Kubernetes objects, or certificates and scheduled jobs (gzipped JSON)',
         tags: ['ingest'],
         hide: true,
         body: ObjectsBody,
@@ -456,6 +459,10 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
       const owner = request.ingestOwner!;
       if (request.body.source === 'kubernetes') {
         await storeKubernetesObjects(db, owner.clusterId, owner.orgId, request.body);
+        return reply.code(204).send(null);
+      }
+      if (request.body.source === 'inventory') {
+        await storeInventory(db, owner.clusterId, owner.orgId, request.body);
         return reply.code(204).send(null);
       }
       const { kind, node, inventory } = request.body;

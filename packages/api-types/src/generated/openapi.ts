@@ -1372,6 +1372,11 @@ export interface paths {
               | 'unit.memory.utilization'
               | 'unit.io'
               | 'unit.tasks'
+              | 'cert.expires_in'
+              | 'cert.problem'
+              | 'job.failed_streak'
+              | 'job.missed_runs'
+              | 'job.slow'
               | 'unit.restarts'
               | 'unit.restarts.increase'
               | 'unit.failed'
@@ -2469,6 +2474,494 @@ export interface paths {
               code?: string;
               limit?: string;
               max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/clusters/{id}/certificates': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** A cluster's or fleet's certificates, worst first, with what wasn't covered */
+    get: {
+      parameters: {
+        query?: {
+          node?: string;
+        };
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              certificates: {
+                id: string;
+                node: string;
+                names: string[];
+                subject: string;
+                issuer: string;
+                issuerOrg: string;
+                notBefore: number;
+                notAfter: number;
+                daysLeft: number;
+                status: 'expired' | 'expires_soon' | 'expiring' | 'problem' | 'ok';
+                chain: string;
+                nameMismatch: string[];
+                keyType: string;
+                keyBits: number;
+                fingerprint: string;
+                endpoints: {
+                  kind: string;
+                  workload: string;
+                  port: number;
+                  proto: string;
+                  sni: string | null;
+                }[];
+                firstSeen: number;
+                renewedDaysBefore: number | null;
+                renewedAt: number | null;
+                renewalJob: {
+                  id: string;
+                  name: string;
+                  state: string;
+                } | null;
+              }[];
+              coverage: {
+                node: string;
+                receivedAt: number;
+                certificates: {
+                  [key: string]: unknown;
+                } | null;
+                jobs: {
+                  [key: string]: unknown;
+                } | null;
+              }[];
+              /** @description Agents older than 0.10 seen in the last hour: they send no certificates or jobs */
+              agentsWithout: {
+                node: string;
+                version: string;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/clusters/{id}/certificates/{certId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** One certificate: where it is served, and every one seen under its names */
+    get: {
+      parameters: {
+        query?: {
+          node?: string;
+        };
+        header?: never;
+        path: {
+          id: string;
+          certId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              certificate: {
+                id: string;
+                node: string;
+                names: string[];
+                subject: string;
+                issuer: string;
+                issuerOrg: string;
+                notBefore: number;
+                notAfter: number;
+                daysLeft: number;
+                status: 'expired' | 'expires_soon' | 'expiring' | 'problem' | 'ok';
+                chain: string;
+                nameMismatch: string[];
+                keyType: string;
+                keyBits: number;
+                fingerprint: string;
+                endpoints: {
+                  kind: string;
+                  workload: string;
+                  port: number;
+                  proto: string;
+                  sni: string | null;
+                }[];
+                firstSeen: number;
+                renewedDaysBefore: number | null;
+                renewedAt: number | null;
+                renewalJob: {
+                  id: string;
+                  name: string;
+                  state: string;
+                } | null;
+              };
+              history: {
+                fingerprint: string;
+                notBefore: number;
+                notAfter: number;
+                issuer: string;
+                serial: string;
+                firstSeen: number;
+                lastSeen: number;
+                current: boolean;
+                renewedDaysBefore: number | null;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/clusters/{id}/scheduled-jobs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** A cluster's or fleet's scheduled jobs (timers, cron, CronJobs), worst first */
+    get: {
+      parameters: {
+        query?: {
+          node?: string;
+        };
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              jobs: {
+                id: string;
+                node: string;
+                kind: string;
+                name: string;
+                unit: string;
+                schedule: string;
+                source: string;
+                enabled: boolean;
+                persistent: boolean;
+                randomDelaySec: number;
+                nextAt: number | null;
+                everySec: number;
+                state: string;
+                failedStreak: number;
+                lastGoodAt: number | null;
+                missedRuns: number;
+                missedWhy: string | null;
+                missedAt: number | null;
+                usualSeconds: number | null;
+                frequent: boolean;
+                lastRun: {
+                  startedAt: number;
+                  endedAt: number | null;
+                  seconds: number | null;
+                  code: number | null;
+                  result: string;
+                } | null;
+                updatedAt: number;
+              }[];
+              coverage: {
+                node: string;
+                receivedAt: number;
+                certificates: {
+                  [key: string]: unknown;
+                } | null;
+                jobs: {
+                  [key: string]: unknown;
+                } | null;
+              }[];
+              /** @description Agents older than 0.10 seen in the last hour: they send no certificates or jobs */
+              agentsWithout: {
+                node: string;
+                version: string;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/clusters/{id}/scheduled-jobs/{jobId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** One scheduled job: its state, its last 100 runs and its runs per hour */
+    get: {
+      parameters: {
+        query?: {
+          node?: string;
+        };
+        header?: never;
+        path: {
+          id: string;
+          jobId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              job: {
+                id: string;
+                node: string;
+                kind: string;
+                name: string;
+                unit: string;
+                schedule: string;
+                source: string;
+                enabled: boolean;
+                persistent: boolean;
+                randomDelaySec: number;
+                nextAt: number | null;
+                everySec: number;
+                state: string;
+                failedStreak: number;
+                lastGoodAt: number | null;
+                missedRuns: number;
+                missedWhy: string | null;
+                missedAt: number | null;
+                usualSeconds: number | null;
+                frequent: boolean;
+                lastRun: {
+                  startedAt: number;
+                  endedAt: number | null;
+                  seconds: number | null;
+                  code: number | null;
+                  result: string;
+                } | null;
+                updatedAt: number;
+              };
+              runs: {
+                startedAt: number;
+                endedAt: number | null;
+                seconds: number | null;
+                code: number | null;
+                result: string;
+              }[];
+              hours: {
+                hour: number;
+                runs: number;
+                failures: number;
+                longestSeconds: number;
+              }[];
             };
           };
         };

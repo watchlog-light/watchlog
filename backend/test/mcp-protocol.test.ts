@@ -36,7 +36,9 @@ const TOOLS = [
   'get_workload',
   'list_alerts',
   'list_applications',
+  'list_certificates',
   'list_clusters',
+  'list_scheduled_jobs',
   'list_workloads',
   'query_metric',
 ];
