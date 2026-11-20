@@ -5867,5 +5867,12 @@
       "notFound": "This job isn't on this server or cluster any more.",
       "exitCodeIs": "exit code {code}"
     }
+  },
+  "certsJobsCard": {
+    "title": "Certificates and scheduled jobs",
+    "certs": "No certificates | 1 certificate | {n} certificates",
+    "jobs": "No scheduled jobs | 1 scheduled job | {n} scheduled jobs",
+    "attention": "1 needs attention | {n} need attention",
+    "allFine": "nothing to look at"
   }
 }

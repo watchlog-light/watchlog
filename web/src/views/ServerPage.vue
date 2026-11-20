@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
+import CertsJobsCard from '@/components/applications/CertsJobsCard.vue';
 import { ArrowLeft, CornerDownRight } from '@lucide/vue';
 import type { MetricKey, ServerDetail, ServerWorkloadList } from '@watchlog/api-types';
 import { computed, onMounted, ref } from 'vue';
@@ -408,6 +409,9 @@ onMounted(() => {
         </button>
       </div>
     </section>
+
+    <!-- This server's certificates and scheduled jobs (0.10). -->
+    <CertsJobsCard v-if="detail && clusterId" :cluster-id="clusterId" :node="name" />
 
     <div v-if="detail" class="grid gap-4 lg:grid-cols-2">
       <section

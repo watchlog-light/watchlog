@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
+import CertsJobsCard from '@/components/applications/CertsJobsCard.vue';
 import { Hourglass, LayoutDashboard } from '@lucide/vue';
 import type { Cluster, KubeOverview } from '@watchlog/api-types';
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -238,6 +239,12 @@ onBeforeUnmount(() => clearInterval(clock));
         </div>
         <div class="col col-side" data-testid="overview-side">
           <AttentionCard class="o-attention" :overview="o" />
+          <!-- Certificates and scheduled jobs (0.10): counts and problems, both kinds. -->
+          <CertsJobsCard
+            v-if="page.data.value"
+            class="o-certs-jobs"
+            :cluster-id="page.data.value.cluster.id"
+          />
           <RecentChanges class="o-changes" :overview="o" />
           <!-- Right-sizing (ADR-168): what could give back, what is at risk at its limit. -->
           <RightSizingCard
