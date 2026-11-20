@@ -6,13 +6,19 @@ import { newId } from '../../lib/ids.js';
 import { STATE_RULES, type DefaultRule } from './defaults.js';
 import type { EvaluatorLookup } from './engine.js';
 import { METRIC_RULES } from './metric-rules.js';
+import { CERT_JOB_RULES } from './certs-jobs-rules.js';
 import { EGRESS_RULES } from '../egress/rules.js';
 import { ANOMALY_RULE } from '../anomaly/alerts.js';
 import { thresholdEvaluator, type ThresholdScope } from './threshold.js';
 import type { Condition } from './defaults.js';
 
 /** The default rules every org gets. */
-export const DEFAULT_RULES: DefaultRule[] = [...STATE_RULES, ...METRIC_RULES, ...EGRESS_RULES];
+export const DEFAULT_RULES: DefaultRule[] = [
+  ...STATE_RULES,
+  ...METRIC_RULES,
+  ...CERT_JOB_RULES,
+  ...EGRESS_RULES,
+];
 /**
  * Every default rule by key, with the ones only some orgs get: the anomaly rule, added only
  * to orgs with What changed by its own upkeep (ADR-200).

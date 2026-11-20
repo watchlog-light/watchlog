@@ -31,7 +31,7 @@ export interface DefaultRule {
   /** Catalog key of a metric rule. */
   metric?: string;
   /** Unit of the condition's thresholds (metric rules). */
-  unit?: 'ratio' | 'count' | 'bytes';
+  unit?: 'ratio' | 'count' | 'bytes' | 'seconds';
   /** The catalog metric per cluster kind (metric rules; the preview queries it). */
   metrics?: Partial<Record<'kubernetes' | 'server', string>>;
   evaluator: RuleEvaluator;

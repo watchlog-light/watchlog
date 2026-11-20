@@ -290,6 +290,47 @@ describe('alert titles and "why" lines', () => {
         'backup sent 120 MiB to files.example.org:443',
         'in the last hour · threshold 100 MiB · first seen at 10:00 UTC',
       ],
+      // Certificates and scheduled jobs (0.10, ADR-225).
+      [
+        'cert.expiring',
+        { node: 'web-1', certificate: 'shop.wl.test' },
+        {
+          value: -2 * 86_400,
+          notAfter: '2026-11-17T10:00:00.000Z',
+          servedAt: ['nginx.service :443'],
+          issuer: "Let's Encrypt",
+        },
+        'The certificate for shop.wl.test expired 2 days ago',
+        "expired 17 Nov 2026 · served at nginx.service :443 · issued by Let's Encrypt · renew it, or check the job that renews it",
+      ],
+      [
+        'cert.problem',
+        { certificate: 'shop.wl.test', problem: 'chain' },
+        { value: 1 },
+        'The certificate chain for shop.wl.test is incomplete',
+        "the intermediate certificate isn't sent · some clients and browsers refuse it: serve the full chain",
+      ],
+      [
+        'job.failed',
+        { node: 'worker-1', job: 'backup.timer' },
+        { value: 3, streak: 3, exitCode: 2, lastGood: min(3 * 24 * 60) },
+        'backup.timer failed 3 times in a row on worker-1',
+        "exit code 2 · last good run 3 d ago · its runs are on the job's page",
+      ],
+      [
+        'job.missed',
+        { namespace: 'shop', workload: 'nightly', workload_kind: 'CronJob' },
+        { value: 1, expectedAt: min(30), schedule: '0 3 * * *' },
+        'nightly missed its run in shop',
+        'expected 30 min ago · schedule 0 3 * * *',
+      ],
+      [
+        'job.slow',
+        { node: 'worker-1', job: 'export.php' },
+        { value: 1, running: true, seconds: 1800, usualSeconds: 60 },
+        'export.php is running far longer than usual on worker-1',
+        'running for 30 min · usually 60 s',
+      ],
     ];
   it.each(cases)('%s: %s', (key, labels, details, title, why) => {
     const t = text(key, labels, details);

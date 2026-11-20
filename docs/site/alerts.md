@@ -10,8 +10,10 @@ escalates, keeps firing past the reminder interval, flaps, and when it resolves.
 cover crash loops, OOM kills, pods stuck pending, image pull errors, unavailable deployments,
 node pressure and NotReady nodes, unhealthy or restarting Docker containers, containers
 throttled at their CPU limit more than 25% of the time for 15 minutes (pods and Docker
-containers), failing connections between services, agents that stop reporting, and new or unusual
-external destinations ([Egress watch](egress.md)). In WatchLog Cloud Pro, one more rule, "Unusual for
+containers), failing connections between services, agents that stop reporting, new or unusual
+external destinations ([Egress watch](egress.md)), and, on Kubernetes and Server fleets alike,
+certificates that expire within 14 days or are served wrong and scheduled jobs that fail, miss
+a run or run far longer than usual ([Certificates and scheduled jobs](certificates-and-jobs.md)). In WatchLog Cloud Pro, one more rule, "Unusual for
 this hour", fires when a metric stays far outside its usual range for that hour of the week
 ([What changed](what-changed.md#anomaly-alerts)). Each rule sends to the channels you pick for it.
 

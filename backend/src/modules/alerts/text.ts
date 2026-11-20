@@ -189,6 +189,83 @@ export function alertText(a: AlertTextInput): AlertText {
         ),
       };
     }
+    // Certificates and scheduled jobs (0.10, ADR-225): what, where, since when, what to do.
+    case 'cert.expiring': {
+      const left = num(d.value) ?? 0;
+      const days = Math.round(Math.abs(left) / 86_400);
+      const when = str(d.notAfter) ? new Date(str(d.notAfter)!).toUTCString().slice(5, 16) : null;
+      return {
+        title:
+          left < 0
+            ? `The certificate for ${l.certificate} expired${days >= 1 ? ` ${plural(days, '1 day', '{n} days')} ago` : ''}`
+            : `The certificate for ${l.certificate} expires in ${plural(days, '1 day', '{n} days')}`,
+        why: join(
+          when && `${left < 0 ? 'expired' : 'expires'} ${when}`,
+          Array.isArray(d.servedAt) && d.servedAt.length > 0
+            ? `served at ${(d.servedAt as string[]).join(', ')}`
+            : null,
+          str(d.issuer) && `issued by ${str(d.issuer)}`,
+          'renew it, or check the job that renews it',
+        ),
+      };
+    }
+    case 'cert.problem':
+      return l.problem === 'name'
+        ? {
+            title: `The certificate for ${l.certificate} doesn't cover a name it is served for`,
+            why: join(
+              Array.isArray(d.mismatch) && d.mismatch.length > 0
+                ? `asked for ${(d.mismatch as string[]).join(', ')}`
+                : null,
+              'browsers refuse it for that name',
+            ),
+          }
+        : {
+            title: `The certificate chain for ${l.certificate} is incomplete`,
+            why: join(
+              "the intermediate certificate isn't sent",
+              'some clients and browsers refuse it: serve the full chain',
+            ),
+          };
+    case 'job.failed': {
+      const job = l.job ?? l.workload ?? '';
+      const n = num(d.streak) ?? Math.round(num(d.value) ?? 1);
+      const where = l.node ? ` on ${l.node}` : l.namespace ? ` in ${l.namespace}` : '';
+      return {
+        title: n > 1 ? `${job} failed ${n} times in a row${where}` : `${job} failed${where}`,
+        why: join(
+          num(d.exitCode) !== null && `exit code ${num(d.exitCode)}`,
+          str(d.lastGood) ? `last good run ${ago(d.lastGood, a.now)}` : 'no good run seen yet',
+          "its runs are on the job's page",
+        ),
+      };
+    }
+    case 'job.missed': {
+      const job = l.job ?? l.workload ?? '';
+      const where = l.node ? ` on ${l.node}` : l.namespace ? ` in ${l.namespace}` : '';
+      return {
+        title: `${job} missed its run${where}`,
+        why: join(
+          str(d.expectedAt) && `expected ${ago(d.expectedAt, a.now)}`,
+          str(d.schedule) && `schedule ${str(d.schedule)}`,
+          l.node ? 'the server and the agent were up' : null,
+        ),
+      };
+    }
+    case 'job.slow': {
+      const job = l.job ?? l.workload ?? '';
+      const where = l.node ? ` on ${l.node}` : l.namespace ? ` in ${l.namespace}` : '';
+      return {
+        title: d.running
+          ? `${job} is running far longer than usual${where}`
+          : `${job} ran far longer than usual${where}`,
+        why: join(
+          num(d.seconds) !== null &&
+            `${d.running ? 'running for' : 'took'} ${humanDuration(num(d.seconds)!)}`,
+          num(d.usualSeconds) !== null && `usually ${humanDuration(num(d.usualSeconds)!)}`,
+        ),
+      };
+    }
     // Servers (ADR-208): a systemd service (unit) or a process group (group), on l.node.
     case 'server.unit.failed':
       return {

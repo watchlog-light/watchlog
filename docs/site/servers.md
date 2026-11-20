@@ -164,17 +164,22 @@ upgrading.
 
 Every Server fleet has these default rules, which you can tune or turn off in **Alerts**:
 
-| Rule                          | When                                                                     |
-| ----------------------------- | ------------------------------------------------------------------------ |
-| Service failed                | systemd marks a service failed, for 1 minute                             |
-| Service crash-looping         | more than 2 crashes or restarts in 10 minutes                            |
-| Process group crash-looping   | more than 2 failed exits in 10 minutes                                   |
-| Service / process OOM-killed  | an OOM kill                                                              |
-| Process group gone            | no process left of a group that ran at least 10 minutes in the last hour |
-| Service near its memory limit | above 90 % of `MemoryMax` for 5 minutes                                  |
-| Service CPU-throttled         | throttled more than 25 % of the time at `CPUQuota` for 15 minutes        |
-| Server memory high            | above 90 % for 10 minutes                                                |
-| Node CPU high, disk usage     | as on Kubernetes nodes                                                   |
+| Rule                            | When                                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------------ |
+| Service failed                  | systemd marks a service failed, for 1 minute                                               |
+| Service crash-looping           | more than 2 crashes or restarts in 10 minutes                                              |
+| Process group crash-looping     | more than 2 failed exits in 10 minutes                                                     |
+| Service / process OOM-killed    | an OOM kill                                                                                |
+| Process group gone              | no process left of a group that ran at least 10 minutes in the last hour                   |
+| Service near its memory limit   | above 90 % of `MemoryMax` for 5 minutes                                                    |
+| Service CPU-throttled           | throttled more than 25 % of the time at `CPUQuota` for 15 minutes                          |
+| Server memory high              | above 90 % for 10 minutes                                                                  |
+| Node CPU high, disk usage       | as on Kubernetes nodes                                                                     |
+| Certificate expiring            | 14 days left (warning); 3 days left or expired (critical)                                  |
+| Certificate name or chain wrong | a name it is served for isn't covered, or the chain is incomplete, for 10 minutes          |
+| Scheduled job failed            | its last run failed; critical at 3 in a row; a job every 5 minutes or more often only at 3 |
+| Scheduled job missed            | a run was due and none started, with the server and the agent up                           |
+| Scheduled job slow              | running, or ran, 3 times its usual duration and 5 minutes more                             |
 
 A workload's page answers **why**: likely the release (its executable changed just before
 the first crash), memory (OOM-killed at its limit, or the server ran low), a dependency whose
