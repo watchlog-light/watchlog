@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import logoUrl from '@watchlog/design-tokens/assets/logo.svg';
-import { LogOut, PanelLeftClose, PanelLeftOpen, X } from '@lucide/vue';
+import { PanelLeftClose, PanelLeftOpen, X } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -15,8 +15,9 @@ import { useEgressStore } from '@/stores/egress';
 import { usePlanStore } from '@/stores/plan';
 import { useUiStore } from '@/stores/ui';
 import { useWhatChangedLearningStore } from '@/stores/whatChangedLearning';
+import AccountMenu from './AccountMenu.vue';
 import ClusterSwitcher from './ClusterSwitcher.vue';
-import PlanStrip from '@/components/plan/PlanStrip.vue';
+import PlanLine from '@/components/plan/PlanLine.vue';
 
 // `drawer`: below 1024 px the shell shows the sidebar as an off-canvas drawer, full width
 // with 44 px rows; the cluster switcher is in the top bar there.
@@ -103,7 +104,15 @@ async function signOut() {
       drawer ? 'w-full' : collapsed ? 'w-16' : 'w-60',
     ]"
   >
-    <div class="flex h-14 items-center gap-2.5 px-4">
+    <!-- The header: the logo and, from 1024 px, the collapse button next to it (0.10.1). The
+         collapsed rail stacks them: the logo, then the expand button. -->
+    <div
+      :class="
+        collapsed
+          ? 'flex flex-col items-center gap-2 pt-3 pb-2'
+          : 'flex h-14 items-center gap-2.5 pr-2 pl-4'
+      "
+    >
       <img :src="logoUrl" alt="" class="size-8 shrink-0" />
       <span v-if="!collapsed" class="text-16 font-semibold tracking-tight text-text">
         {{ $t('app.name') }}
@@ -113,10 +122,26 @@ async function signOut() {
         type="button"
         data-testid="nav-close"
         :aria-label="$t('nav.close')"
-        class="-mr-2 ml-auto flex size-11 items-center justify-center rounded-control text-text-muted hover:bg-surface-2 hover:text-text"
+        class="ml-auto flex size-11 items-center justify-center rounded-control text-text-muted hover:bg-surface-2 hover:text-text"
         @click="ui.navOpen = false"
       >
         <X class="size-5" aria-hidden="true" />
+      </button>
+      <button
+        v-else
+        type="button"
+        data-testid="sidebar-toggle"
+        :aria-expanded="!collapsed"
+        :aria-label="collapsed ? $t('nav.expand') : $t('nav.collapse')"
+        :title="collapsed ? $t('nav.expand') : $t('nav.collapse')"
+        :class="[
+          'flex items-center justify-center rounded-control text-text-muted transition-colors hover:bg-surface-2 hover:text-text',
+          collapsed ? 'size-10' : 'ml-auto size-9',
+        ]"
+        @click="ui.toggleSidebar()"
+      >
+        <PanelLeftOpen v-if="collapsed" class="size-4.5" aria-hidden="true" />
+        <PanelLeftClose v-else class="size-4.5" aria-hidden="true" />
       </button>
     </div>
 
@@ -195,54 +220,15 @@ async function signOut() {
       </ul>
     </nav>
 
-    <!-- Cloud: the plan strip (ADR-177, Dashboard.dc.html). -->
-    <div v-if="auth.isCloud && !collapsed" class="px-3 pb-3">
-      <PlanStrip />
-    </div>
-
-    <div v-if="auth.user" class="border-t border-border p-3" :aria-label="$t('account.menuLabel')">
-      <div class="flex items-center gap-2.5 px-1">
-        <span
-          class="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-3 text-13 font-semibold text-text"
-          aria-hidden="true"
-        >
-          {{ auth.user.name.charAt(0).toUpperCase() }}
-        </span>
-        <div v-if="!collapsed" class="min-w-0 flex-1">
-          <p class="truncate text-13 font-medium text-text">{{ auth.user.name }}</p>
-          <p class="truncate text-12 text-text-muted">{{ auth.user.email }}</p>
-        </div>
-      </div>
-      <button
-        type="button"
-        data-testid="sign-out"
-        :aria-label="$t('account.signOut')"
-        :title="collapsed ? $t('account.signOut') : undefined"
-        :class="[
-          'mt-2 flex w-full items-center gap-3 rounded-control px-2.5 text-text-muted transition-colors hover:bg-surface-2 hover:text-text',
-          drawer ? 'h-11' : 'h-9',
-        ]"
-        @click="signOut"
-      >
-        <LogOut class="size-4.5 shrink-0" aria-hidden="true" />
-        <span v-if="!collapsed" class="text-13">{{ $t('account.signOut') }}</span>
-      </button>
-    </div>
-
-    <div v-if="!drawer" class="border-t border-border p-3">
-      <button
-        type="button"
-        data-testid="sidebar-toggle"
-        :aria-expanded="!collapsed"
-        :aria-label="collapsed ? $t('nav.expand') : $t('nav.collapse')"
-        :title="collapsed ? $t('nav.expand') : $t('nav.collapse')"
-        class="flex h-9 w-full items-center gap-3 rounded-control px-2.5 text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
-        @click="ui.toggleSidebar()"
-      >
-        <PanelLeftOpen v-if="collapsed" class="size-4.5 shrink-0" aria-hidden="true" />
-        <PanelLeftClose v-else class="size-4.5 shrink-0" aria-hidden="true" />
-        <span v-if="!collapsed" class="text-13">{{ $t('nav.collapse') }}</span>
-      </button>
+    <!-- The footer (0.10.1, design/cloud Sidebar): Cloud's plan line, then the account button
+         with its menu (account, tokens, billing, docs, sign out). Community has no plan row. -->
+    <div
+      v-if="auth.user"
+      :class="['flex flex-col gap-2 p-3', collapsed ? 'items-center' : '']"
+      data-testid="sidebar-footer"
+    >
+      <PlanLine v-if="auth.isCloud" :collapsed="collapsed" />
+      <AccountMenu :collapsed="collapsed" :drawer="drawer" @sign-out="signOut" />
     </div>
   </aside>
 </template>

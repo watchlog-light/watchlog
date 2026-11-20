@@ -6,8 +6,8 @@ import { useProOffer } from '@/composables/useProOffer';
 import { usePlanStore } from '@/stores/plan';
 
 // The plan strip (ADR-177, Dashboard.dc.html), Cloud only: "Free plan · 3 of 5 nodes ·
-// 3 days of data · 1 user · Upgrade to Pro · $3 per node →" with the real counts. In the
-// sidebar from 1024 px; on the overview below it (the sidebar is a drawer there). The
+// 3 days of data · 1 user · Upgrade to Pro · $3 per node →" with the real counts. On the
+// overview below 1024 px; the sidebar has its compact plan line instead (PlanLine, 0.10.1). The
 // beta's Pro says "free during beta" next to the plan's name (ADR-178). The plan's name is
 // the org's entitlement, which also decides the Pro features (ADR-205), so the strip and What
 // changed always agree. Free's link is the one offer every page makes (useProOffer):

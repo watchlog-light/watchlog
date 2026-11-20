@@ -228,7 +228,8 @@
     "refreshing": "Updating…",
     "save": "Save",
     "delete": "Delete",
-    "close": "Close"
+    "close": "Close",
+    "newTab": "(opens in a new tab)"
   },
   "clusters": {
     "title": "Clusters and Server fleets",
@@ -5874,5 +5875,22 @@
     "jobs": "No scheduled jobs | 1 scheduled job | {n} scheduled jobs",
     "attention": "1 needs attention | {n} need attention",
     "allFine": "nothing to look at"
+  },
+  "sidebar": {
+    "account": {
+      "button": "Account menu for {name}",
+      "hint": "Account, tokens, sign out",
+      "signedInAs": "Signed in as",
+      "security": "Account and security",
+      "tokens": "API tokens",
+      "billing": "Plan and billing",
+      "docs": "Documentation"
+    },
+    "plan": {
+      "upgrade": "Upgrade →",
+      "paid": "{count} · {days}",
+      "servers": "0 servers | {n} server | {n} servers",
+      "nodes": "0 nodes | {n} node | {n} nodes"
+    }
   }
 }

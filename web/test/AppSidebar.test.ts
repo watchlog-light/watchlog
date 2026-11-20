@@ -8,7 +8,11 @@ import { mockFetch, USER } from './fetch-mock';
 import { createPlugins } from './helpers';
 
 describe('AppSidebar', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    // The cluster switcher reads the clusters; nothing else is asked.
+    mockFetch({ 'GET /api/v1/clusters': { status: 200, body: { clusters: [] } } });
+  });
   afterEach(() => vi.unstubAllGlobals());
 
   it('shows every section and collapses from 240px to 64px', async () => {
@@ -34,26 +38,14 @@ describe('AppSidebar', () => {
     expect(localStorage.getItem('watchlog.sidebarCollapsed')).toBe('true');
   });
 
-  it('shows the signed-in user and signs out', async () => {
-    const { calls } = mockFetch({ 'POST /api/v1/auth/logout': { status: 204 } });
+  it('shows the signed-in user in the account button; nobody signed in, no button', async () => {
     const { router, i18n, pinia } = await createPlugins('/');
     useAuthStore().user = USER;
     const wrapper = mount(AppSidebar, { global: { plugins: [router, i18n, pinia] } });
-    expect(wrapper.text()).toContain(USER.name);
-    expect(wrapper.text()).toContain(USER.email);
-
-    await wrapper.get('[data-testid="sign-out"]').trigger('click');
+    expect(wrapper.get('[data-testid="account-menu-button"]').text()).toContain(USER.name);
+    useAuthStore().user = null;
     await flushPromises();
-    // The cluster switcher also loads the fleet name (GET /clusters).
-    expect(calls.map((c) => `${c.method} ${c.path}`)).toContain('POST /api/v1/auth/logout');
-    expect(useAuthStore().user).toBeNull();
-    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('login'));
-  });
-
-  it('hides the account section when nobody is signed in', async () => {
-    const { router, i18n, pinia } = await createPlugins('/');
-    const wrapper = mount(AppSidebar, { global: { plugins: [router, i18n, pinia] } });
-    expect(wrapper.find('[data-testid="sign-out"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="account-menu-button"]').exists()).toBe(false);
   });
 
   it('keeps Settings highlighted on nested settings pages', async () => {
