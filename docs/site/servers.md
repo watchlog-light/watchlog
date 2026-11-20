@@ -203,6 +203,13 @@ Kafka, nginx, Traefik and [PHP-FPM](integrations/php-fpm.md)) are offered under
 **Applications → Found N services** by their unit's name. The server's own collector reads them
 on `127.0.0.1`. Nothing is contacted until you press **Monitor**.
 
+A service shows **Healthy** only when at least one of its key numbers has data, on servers and
+Kubernetes alike. One the collector reaches but that sends no numbers shows **No metrics**,
+with the one step that fixes it: the integration's own (stub_status for an HTTPS-only nginx,
+for example), else the collector's log on that server
+(`journalctl -u watchlog-integrations -n 50`). The first five minutes after **Monitor** read as
+waiting.
+
 The **Certificates** and **Scheduled jobs** tabs list every server's TLS certificates and its
 systemd timers and cron jobs, problems first, with default alerts for a certificate close to
 expiry and a job that fails, misses a run or runs far longer than usual

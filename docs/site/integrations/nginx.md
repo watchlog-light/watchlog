@@ -14,8 +14,10 @@ already see, on Kubernetes clusters and Linux servers. Open **Applications** and
 - **Requests, 5xx and latency: nothing.** The node agents see each plain-HTTP request and
   response on the wire with eBPF (the first 16 bytes of each message: the method and the
   status line, never a path, header or body). That works for any Nginx, any version, with
-  no configuration. HTTPS is never decrypted, so a server that only speaks TLS shows its
-  connections, not its requests.
+  no configuration. On a Linux server they are read by the nginx unit (or process group) and
+  its port. HTTPS is never decrypted, so a server that only speaks TLS shows its
+  connections, not its requests: add stub_status (below), or it shows **No metrics** in
+  Applications instead of Healthy.
 - **ingress-nginx: its metrics.** The controller serves them on port 10254 only with
   `--enable-metrics`, which its Helm chart turns on with `controller.metrics.enabled`. When
   they're off, WatchLog says so on the page and gives the command for your install:
