@@ -73,8 +73,9 @@ const items = computed<Item[]>(() => {
   return list;
 });
 
+// The colour stays out of the shared classes, so Sign out's danger colour isn't overridden.
 const item =
-  'flex w-full cursor-pointer items-center gap-2 rounded-control px-2.5 text-14 text-text outline-none data-[highlighted]:bg-surface-3';
+  'flex w-full cursor-pointer items-center gap-2 rounded-control px-2.5 text-14 outline-none data-[highlighted]:bg-surface-3';
 const itemHeight = computed(() => (props.drawer ? 'min-h-11' : 'min-h-9'));
 </script>
 
@@ -93,12 +94,12 @@ const itemHeight = computed(() => (props.drawer ? 'min-h-11' : 'min-h-9'));
       v-else
       data-testid="account-menu-button"
       :class="[
-        'flex w-full items-center gap-2.5 rounded-card border border-border px-2.5 text-left transition-colors hover:bg-surface-2 data-[state=open]:bg-surface-2',
+        'flex w-full items-center gap-2 rounded-card border border-border px-2 text-left transition-colors hover:bg-surface-2 data-[state=open]:bg-surface-2',
         drawer ? 'min-h-14 py-2' : 'py-2',
       ]"
     >
       <span
-        class="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-3 text-13 font-semibold text-text"
+        class="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-3 text-13 font-semibold text-text"
         aria-hidden="true"
         >{{ initial }}</span
       >
@@ -106,7 +107,7 @@ const itemHeight = computed(() => (props.drawer ? 'min-h-11' : 'min-h-9'));
         <span class="truncate text-14 font-semibold text-text">{{ user.name }}</span>
         <span class="truncate text-12 text-text-muted">{{ $t('sidebar.account.hint') }}</span>
       </span>
-      <ChevronsUpDown class="size-4 shrink-0 text-text-muted" aria-hidden="true" />
+      <ChevronsUpDown class="size-3.5 shrink-0 text-text-muted" aria-hidden="true" />
     </DropdownMenuTrigger>
     <!-- In the phone drawer (a dialog) the menu stays inside it, so its focus trap allows it. -->
     <DropdownMenuPortal :disabled="drawer">
@@ -115,7 +116,7 @@ const itemHeight = computed(() => (props.drawer ? 'min-h-11' : 'min-h-9'));
         :aria-label="$t('account.menuLabel')"
         :side="collapsed ? 'right' : 'top'"
         :align="collapsed ? 'end' : 'start'"
-        :side-offset="collapsed ? 10 : 6"
+        :side-offset="collapsed ? 16 : 6"
         :collision-padding="8"
         :class="[
           'z-[60] flex flex-col gap-px rounded-card border border-border-strong bg-surface-2 p-1.5 shadow-xl',
@@ -135,16 +136,19 @@ const itemHeight = computed(() => (props.drawer ? 'min-h-11' : 'min-h-9'));
           }}</span>
         </div>
         <DropdownMenuItem v-for="i in items" :key="i.key" as-child>
-          <RouterLink :to="i.to" :class="[item, itemHeight]" :data-testid="`account-${i.key}`">{{
-            i.label
-          }}</RouterLink>
+          <RouterLink
+            :to="i.to"
+            :class="[item, itemHeight, 'text-text']"
+            :data-testid="`account-${i.key}`"
+            >{{ i.label }}</RouterLink
+          >
         </DropdownMenuItem>
         <DropdownMenuItem as-child>
           <a
             :href="LINKS.docs"
             target="_blank"
             rel="noopener"
-            :class="[item, itemHeight]"
+            :class="[item, itemHeight, 'text-text']"
             data-testid="account-docs"
           >
             <span class="flex-1">{{ $t('sidebar.account.docs') }}</span>

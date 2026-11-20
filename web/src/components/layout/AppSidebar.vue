@@ -224,7 +224,7 @@ async function signOut() {
          with its menu (account, tokens, billing, docs, sign out). Community has no plan row. -->
     <div
       v-if="auth.user"
-      :class="['flex flex-col gap-2 p-3', collapsed ? 'items-center' : '']"
+      :class="['flex flex-col gap-2 py-3', collapsed ? 'items-center px-3' : 'px-2']"
       data-testid="sidebar-footer"
     >
       <PlanLine v-if="auth.isCloud" :collapsed="collapsed" />
