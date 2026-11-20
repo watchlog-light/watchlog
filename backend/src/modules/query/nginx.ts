@@ -28,6 +28,7 @@ type Target =
   | { kind: 'workload'; namespace: string; workload_kind: string; workload: string; port: number }
   | { kind: 'compose'; compose_project: string; compose_service: string; port: number }
   | { kind: 'container'; container: string; port: number }
+  | { kind: 'native'; host: string; source: 'service' | 'process'; workload: string; port: number }
   | { kind: 'address'; address: string };
 
 const m = (label: string, v: string) => `${label}="${escapeLabelValue(v)}"`;
@@ -48,6 +49,15 @@ export function sourceMatchers(t: Target): string | null {
       ].join(',');
     case 'container':
       return m('container', t.container);
+    case 'native':
+      // A service installed on a server (ADR-212): the server agent's eBPF series carry the
+      // host and the unit or process group as the workload (0.10.1: missing until then, so a
+      // server's Nginx showed no requests, errors or latency).
+      return [
+        m('host', t.host),
+        m('workload_kind', t.source === 'service' ? 'Service' : 'ProcessGroup'),
+        m('workload', t.workload),
+      ].join(',');
     default:
       return null;
   }

@@ -51,9 +51,11 @@ import {
 import {
   collectorOf,
   COLLECTOR_STALE_MS,
+  hasKeyData,
   healthOf,
   listApplicationRows,
   listCollectors,
+  needsData,
   whereOf,
   type ApplicationRow,
   type CollectorRow,
@@ -288,6 +290,101 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
     return own;
   }
 
+  // The list rows' key numbers and sparklines, for GET /applications/metrics and for the
+  // "healthy needs data" rule of the list and the page (0.10.1): one batch per cluster and
+  // page, a few queries for the whole list, shared for 15 s.
+  const metricsCache = new Map<string, { at: number; m: RowMetrics | undefined }>();
+  async function rowMetricsOf(
+    rows: ApplicationRow[],
+    now: number,
+  ): Promise<Map<string, RowMetrics | undefined>> {
+    const out = new Map<string, RowMetrics | undefined>();
+    if (!victoria) return out;
+    const groups = new Map<
+      string,
+      { page: ReturnType<typeof pageOf>; clusterId: string; ids: string[]; rows: ApplicationRow[] }
+    >();
+    for (const r of rows) {
+      const hit = metricsCache.get(r.id);
+      if (hit && now - hit.at <= PAGE_CACHE_MS) {
+        out.set(r.id, hit.m);
+        continue;
+      }
+      const page = pageOf(r.type);
+      const key = `${r.cluster_id}\u0000${page.id}\u0000${r.type}`;
+      const g = groups.get(key) ?? { page, clusterId: r.cluster_id, ids: [], rows: [] };
+      g.ids.push(r.id);
+      g.rows.push(r);
+      groups.set(key, g);
+    }
+    const maps = await Promise.all(
+      [...groups.values()].map((g) =>
+        g.page.listMetrics({
+          vm: victoria,
+          scope: authorisedScope(g.clusterId),
+          ids: g.ids,
+          rows: g.rows,
+          now,
+        }),
+      ),
+    );
+    for (const [i, g] of [...groups.values()].entries()) {
+      for (const id of g.ids) {
+        const m = maps[i]!.get(id);
+        out.set(id, m);
+        metricsCache.set(id, { at: now, m });
+      }
+    }
+    if (metricsCache.size > 2000) {
+      for (const [k, v] of metricsCache) if (now - v.at > PAGE_CACHE_MS) metricsCache.delete(k);
+    }
+    return out;
+  }
+
+  /** Whether each connected row has a key number with data; empty when the store can't say. */
+  async function keyDataOf(
+    rows: ApplicationRow[],
+    views: ApplicationView[],
+    now: number,
+    log?: { warn: (o: object, msg: string) => void },
+  ): Promise<Map<string, boolean>> {
+    const asked = rows.filter(
+      (_, i) => views[i]!.health === 'ok' && views[i]!.reason.code === 'connected',
+    );
+    const out = new Map<string, boolean>();
+    if (!asked.length) return out;
+    try {
+      const metrics = await rowMetricsOf(asked, now);
+      for (const r of asked) if (metrics.has(r.id)) out.set(r.id, hasKeyData(metrics.get(r.id)));
+    } catch (err) {
+      log?.warn({ err: (err as Error).message }, 'service key numbers failed');
+    }
+    return out;
+  }
+
+  /** The rule on one view: its own info reason (a hint with its command) names the fix. */
+  function applyKeyData(
+    row: ApplicationRow,
+    view: ApplicationView,
+    own: Reason[],
+    has: boolean | undefined,
+    now: number,
+  ): ApplicationView {
+    const hint = own.find((r) => r.severity === 'info');
+    const next = needsData(
+      view,
+      has,
+      {
+        monitoredSince: row.monitored_since,
+        kind: row.cluster_kind,
+        host: view.where.host ?? (row.collector_host || null),
+        hint: hint ? { code: hint.code, facts: hint.facts } : undefined,
+      },
+      now,
+    );
+    return next === view ? view : { ...view, health: next.health, reason: next.reason };
+  }
+
   /** One service the caller's organization monitors, with what its page needs. */
   async function contextOf(orgId: string, id: string, range: number) {
     const [row] = await listApplicationRows(db, orgId, { id });
@@ -325,6 +422,9 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
       });
       const collectors = await listCollectors(db, [...new Set(rows.map((r) => r.cluster_id))]);
       const now = Date.now();
+      const views = rows.map((r) => toView(r, collectors, now));
+      // Healthy needs data (0.10.1): the connected rows' key numbers, in one batch.
+      const keyData = await keyDataOf(rows, views, now, request.log);
       // Each connected service's findings, four at a time (cached 15 s).
       const applications: ApplicationView[] = new Array(rows.length);
       let next = 0;
@@ -332,10 +432,12 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         Array.from({ length: Math.min(4, rows.length) }, async () => {
           while (next < rows.length) {
             const i = next++;
-            const view = toView(rows[i]!, collectors, now);
+            const row = rows[i]!;
+            const view = views[i]!;
+            const own = await findingsOf(row, view, collectors, now, request.log);
             applications[i] = withFindings(
-              view,
-              await findingsOf(rows[i]!, view, collectors, now, request.log),
+              applyKeyData(row, view, own, keyData.get(row.id), now),
+              own,
             );
           }
         }),
@@ -581,34 +683,10 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         clusterId: request.query.cluster,
       });
       if (!victoria || rows.length === 0) return { metrics: {} };
-      // One batch per cluster and page: a few queries for the whole list.
-      const groups = new Map<
-        string,
-        { page: ReturnType<typeof pageOf>; clusterId: string; ids: string[]; rows: typeof rows }
-      >();
-      for (const r of rows) {
-        const page = pageOf(r.type);
-        const key = `${r.cluster_id}\u0000${page.id}\u0000${r.type}`;
-        const g = groups.get(key) ?? { page, clusterId: r.cluster_id, ids: [], rows: [] };
-        g.ids.push(r.id);
-        g.rows.push(r);
-        groups.set(key, g);
-      }
-      const now = Date.now();
       try {
-        const maps = await Promise.all(
-          [...groups.values()].map((g) =>
-            g.page.listMetrics({
-              vm: victoria,
-              scope: authorisedScope(g.clusterId),
-              ids: g.ids,
-              rows: g.rows,
-              now,
-            }),
-          ),
-        );
+        const found = await rowMetricsOf(rows, Date.now());
         const metrics: Record<string, RowMetrics> = {};
-        for (const m of maps) for (const [id, v] of m) metrics[id] = v;
+        for (const [id, v] of found) if (v) metrics[id] = v;
         return { metrics };
       } catch (err) {
         if (err instanceof VictoriaError) return sendProblem(reply, 502, 'Metrics are unavailable');
@@ -679,13 +757,19 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         ctx.now,
         request.log,
       );
+      // Healthy needs data (0.10.1), as in the list.
+      const keyData = await keyDataOf([ctx.row], [found.view], ctx.now, request.log);
+      const shown = applyKeyData(ctx.row, found.view, own, keyData.get(ctx.row.id), ctx.now);
       const reasons = sortReasons(
         foldPermissions([
-          ...statusReasons(view.health, view.reason, ctx.row.status_details, ctx.row.target),
-          ...own,
+          ...statusReasons(shown.health, shown.reason, ctx.row.status_details, ctx.row.target),
+          // No metrics names its hint's step itself: the hint isn't said twice.
+          ...(shown.reason.code === 'no_metrics' && shown.reason.facts.hint
+            ? own.filter((r) => r.code !== shown.reason.facts.hint)
+            : own),
         ]),
       );
-      const [application] = await withCauses(request, [withFindings(view, own)]);
+      const [application] = await withCauses(request, [withFindings(shown, own)]);
       return {
         application: application!,
         reasons,

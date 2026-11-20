@@ -28,7 +28,8 @@ export function statusReasons(
 ): Reason[] {
   const out: Reason[] = [{ severity: SEVERITY[health], code: reason.code, facts: reason.facts }];
   // Member details only mean something while the collector reports.
-  if (reason.code !== 'connected' && reason.code !== 'unreachable') return out;
+  if (reason.code !== 'connected' && reason.code !== 'unreachable' && reason.code !== 'no_metrics')
+    return out;
   const d = (details ?? {}) as Details;
   const members = d.members ?? [];
   const down = members.filter((m) => !m.up);

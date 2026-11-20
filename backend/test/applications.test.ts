@@ -3,8 +3,11 @@
 // (ADR-132), Monitor and remove, health from the collectors' reports, roles.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
+import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import { imagePath, imageVersion, kindOfImage } from '../src/modules/integrations/discovery.js';
+import { encode } from './support/remote-write.js';
 import {
+  TEST_VM_URL,
   closeTestContext,
   createTestContext,
   createUserSession,
@@ -46,6 +49,8 @@ describe('image matching', () => {
     expect(kindOfImage(ref)).toBeUndefined();
   });
 });
+
+const RUN = `applications-${Date.now()}`;
 
 describe('Applications API', () => {
   let ctx: TestContext;
@@ -314,6 +319,25 @@ describe('Applications API', () => {
       health: 'critical',
       reason: { code: 'unreachable', facts: { error: 'connection refused', up: 0, members: 1 } },
     });
+    // Its key numbers have data: Healthy needs at least one (0.10.1; without, see
+    // healthy-needs-data.test.ts).
+    await new VictoriaQueryClient(TEST_VM_URL).write(
+      authorisedScope(docker.id),
+      encode([
+        {
+          labels: {
+            __name__: 'watchlog_redis_memory_used_bytes',
+            run: RUN,
+            service: app.id,
+            service_type: 'redis',
+          },
+          value: 1_000_000,
+          // Older than VictoriaMetrics' 30 s latency offset, so an instant query sees it.
+          timestampMs: Date.now() - 60_000,
+        },
+      ]),
+    );
+    await fetch(`${TEST_VM_URL}/internal/force_flush`);
     await report('ok', { service_version: '7.2.4', members: [{ name: 'shop-redis-1', up: true }] });
     list = (await api('GET', '/applications')).json().applications;
     expect(list[0]).toMatchObject({

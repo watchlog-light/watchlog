@@ -168,6 +168,12 @@ export function reasonSentence(r: { code: string; facts: Record<string, unknown>
       return Number(f.up) < Number(f.members)
         ? 'The collector reaches some of its members, not all.'
         : 'The collector connects to it.';
+    case 'no_metrics':
+      return f.hint
+        ? `Connected, but none of its key numbers has data; not healthy until one does. The fix is the integration's hint (${String(f.hint)}): facts.command.`
+        : f.kind === 'kubernetes'
+          ? "Connected, but none of its key numbers has data; not healthy until one does. Check the integrations collector's log: kubectl -n watchlog logs -l app.kubernetes.io/component=integrations --tail 50."
+          : "Connected, but none of its key numbers has data; not healthy until one does. Check the integrations collector's log on facts.host: journalctl -u watchlog-integrations -n 50 (docker logs --tail 50 watchlog-integrations when it runs in Docker).";
     case 'paused':
       return 'Monitoring is paused (facts.by, facts.at): nothing is read until someone resumes it in the service settings.';
     case 'member_down':

@@ -18,6 +18,7 @@ export interface HealthReason {
     | 'unreachable' // the collector can't connect
     | 'login_failed' // it connects, but the user or password is refused
     | 'connected' // the collector connects; the integration's pages come with it
+    | 'no_metrics' // it connects, but none of its key numbers has data (0.10.1)
     | 'paused';
   facts: Record<string, string | number | null>;
 }
@@ -178,6 +179,55 @@ export function healthOf(
     health: up < members.length ? 'warning' : 'ok',
     reason: { code: 'connected', facts: { up, members: members.length } },
   };
+}
+
+/** A service connected this recently without numbers is still starting, not "no metrics". */
+export const NO_DATA_GRACE_MS = 5 * 60_000;
+
+/**
+ * Healthy needs data (0.10.1): a connected service whose key numbers (the list row's) all
+ * have no value isn't healthy, it has no metrics. Its reason carries the one step that fixes
+ * it: the integration's own hint when it has one (stub_status, ingress-nginx's metrics), else
+ * the collector's log on the service's host or in the cluster. `has` undefined: not known
+ * (the metrics store didn't answer), so nothing changes.
+ */
+type HealthLike = {
+  health: Health;
+  reason: { code: string; facts: Record<string, string | number | null> };
+};
+export function needsData(
+  h: HealthLike,
+  has: boolean | undefined,
+  ctx: {
+    monitoredSince: Date;
+    kind: string;
+    host: string | null;
+    hint?: { code: string; facts: Record<string, string | number | null> };
+  },
+  now = Date.now(),
+): HealthLike {
+  if (h.health !== 'ok' || h.reason.code !== 'connected' || has !== false) return h;
+  if (now - ctx.monitoredSince.getTime() < NO_DATA_GRACE_MS) {
+    return { health: 'unknown', reason: { code: 'waiting', facts: {} } };
+  }
+  const command = ctx.hint?.facts.command;
+  return {
+    health: 'unknown',
+    reason: {
+      code: 'no_metrics',
+      facts: {
+        hint: ctx.hint?.code ?? null,
+        command: typeof command === 'string' ? command : null,
+        kind: ctx.kind === 'kubernetes' ? 'kubernetes' : 'server',
+        host: ctx.host,
+      },
+    },
+  };
+}
+
+/** Whether a row's key numbers have any value. */
+export function hasKeyData(m: { keyMetrics: { value: number | null }[] } | undefined): boolean {
+  return !!m && m.keyMetrics.some((k) => k.value !== null && Number.isFinite(k.value));
 }
 
 /** Where the service runs, in its cluster's words. */

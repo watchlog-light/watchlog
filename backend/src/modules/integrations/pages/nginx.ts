@@ -776,17 +776,30 @@ export const nginxPage: IntegrationPage = {
     const sel = (...extra: string[]) =>
       `{${[...extra, `service=~"${ids.map((i) => i.replace(/[.*+?^${}()|[\]\\"]/g, '\\$&')).join('|')}"`].join(',')}}`;
     const end = Math.floor(now / 1000 / 300) * 300;
-    const [rps, r5, p95, spark] = await Promise.all([
+    const [rps, r5, p95, spark, active] = await Promise.all([
       vm.query(scope, nginxExpr('requests', sources, sel, '5m')),
       vm.query(scope, nginxExpr('5xx_ratio', sources, sel, '15m')),
       vm.query(scope, nginxExpr('p95', sources, sel, '5m')),
       vm.queryRange(scope, nginxExpr('requests', sources, sel, '5m'), end - 21_600, end, 300),
+      // Plain Nginx's stub_status: its active connections stand in when no plain HTTP was
+      // seen (an HTTPS-only server, or no traffic), so a reachable Nginx has a number.
+      vm.query(scope, `sum by (service) (watchlog_nginx_connections_active${sel()})`),
     ]);
     const at = (rows: QuerySeries[], id: string) =>
       rows.find((r) => r.labels.service === id)?.points[0]?.[1] ?? null;
     const out = new Map<string, RowMetrics>();
     for (const id of ids) {
       const ratio = at(r5, id);
+      const conns = at(active, id);
+      if (at(rps, id) === null && ratio === null && at(p95, id) === null && conns !== null) {
+        out.set(id, {
+          keyMetrics: [
+            { id: 'connections', labelKey: `${P}.connections`, value: conns, unit: 'count' },
+          ],
+          spark: [],
+        });
+        continue;
+      }
       out.set(id, {
         keyMetrics: [
           { id: 'rps', labelKey: `${P}.requests`, value: at(rps, id), unit: 'per_second' },
