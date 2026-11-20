@@ -20,6 +20,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	_ "time/tzdata" // CronJobs' time zones; the image has no zone database
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -28,8 +29,12 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	"github.com/watchlog-light/watchlog/agent/internal/buffer"
+	"github.com/watchlog-light/watchlog/agent/internal/collectors/certs"
+	"github.com/watchlog-light/watchlog/agent/internal/collectors/jobs"
+	"github.com/watchlog-light/watchlog/agent/internal/inventory"
 	"github.com/watchlog-light/watchlog/agent/internal/k8s"
 	"github.com/watchlog-light/watchlog/agent/internal/logs"
+	"github.com/watchlog-light/watchlog/agent/internal/metrics"
 	"github.com/watchlog-light/watchlog/agent/internal/podmap"
 	"github.com/watchlog-light/watchlog/agent/internal/runner"
 	"github.com/watchlog-light/watchlog/agent/internal/sender"
@@ -126,6 +131,14 @@ func run(args []string, stdout io.Writer) int {
 		log.Error("cannot create informers", "err", err)
 		return 1
 	}
+	// Ingress hosts for certificates (ADR-222): only with the chart's 0.10 RBAC.
+	if k8s.CanWatchIngresses(ctx, cs) {
+		if err := cluster.WatchIngresses(); err != nil {
+			log.Warn("cannot watch Ingresses; certificates come from TLS Services only", "err", err)
+		}
+	} else {
+		log.Info("Ingresses can't be listed (the chart's RBAC is older than 0.10): certificates come from TLS Services only")
+	}
 	started := time.Now()
 	if !cluster.Start(ctx) {
 		return 0 // stopped before the caches filled
@@ -154,8 +167,26 @@ func run(args []string, stdout io.Writer) int {
 		// Cilium from API discovery, at start and every 10 minutes (ADR-191): no RBAC, no object read.
 		cilium := &k8s.CiliumDetector{Discovery: cs.Discovery(), Log: log}
 		caps := sender.Capabilities{EBPF: "disabled", Cgroup: "none", Logs: onOff(*logsOn)}
+		// Certificates the cluster's TLS Services and Ingresses present, and its CronJobs as
+		// scheduled jobs (ADR-222, ADR-223): series for the rules, a snapshot for the pages.
+		certCollector := &certs.Collector{Targets: cluster.CertTargets}
+		jobTracker := &jobs.Tracker{Path: jobs.StatePath(*bufferDir), Since: time.Now()}
+		jobTracker.Load()
+		sources := cluster.StateSources()
+		sources = append(sources[:2:2], append([]runner.Source{
+			{Name: "jobs", Collect: func() ([]metrics.Sample, error) {
+				now := time.Now()
+				jobTracker.Update("cronjob", cluster.CronJobs(now), now)
+				return jobTracker.Collect()
+			}},
+			{Name: "certificates", Collect: certCollector.Collect},
+		}, sources[2:]...)...)
+		inv := &inventory.Shipper{Send: snd.SendObjects, Log: log, Build: func() inventory.Snapshot {
+			list, cov := certCollector.Certificates()
+			return inventory.Snapshot{Certificates: list, CertCoverage: cov, Jobs: jobTracker.Jobs()}
+		}}
 		r := &runner.Runner{Mode: "cluster", Version: version.Version, Host: agentID, Interval: *interval,
-			SeriesCap: k8s.StateSeriesCap, Sources: cluster.StateSources(), Buffer: buf, Sender: snd, Log: log,
+			SeriesCap: k8s.StateSeriesCap, Sources: sources, Buffer: buf, Sender: snd, Log: log,
 			Capabilities: caps, CapabilitiesFunc: func() sender.Capabilities {
 				c := caps
 				c.Cilium = cilium.Installed()
@@ -164,6 +195,8 @@ func run(args []string, stdout io.Writer) int {
 		go cilium.Run(ctx, k8s.CiliumRecheck)
 		go shipper.Run(ctx)
 		go events.Run(ctx)
+		go certCollector.Run(ctx)
+		go inv.Run(ctx)
 		if *logsOn {
 			// Only the leader answers log requests, like everything it ships.
 			lr := &logs.Runner{Base: base.String(), Token: token, AgentID: agentID,

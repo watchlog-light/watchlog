@@ -59,6 +59,17 @@ func NewCluster(cs kubernetes.Interface, resync time.Duration, withEvents bool) 
 	return c, nil
 }
 
+// WatchIngresses adds the Ingress informer (hosts only, ADR-222); call it before Start, and
+// only when CanWatchIngresses says the RBAC allows it.
+func (c *Cluster) WatchIngresses() error {
+	inf := c.factory.Networking().V1().Ingresses().Informer()
+	if err := inf.SetTransform(Transform); err != nil {
+		return err
+	}
+	c.informers["Ingress"] = inf
+	return nil
+}
+
 // Start runs the informers until ctx ends and waits for their caches to fill.
 func (c *Cluster) Start(ctx context.Context) bool {
 	c.factory.Start(ctx.Done())

@@ -42,11 +42,27 @@ const (
 
 // Target is one listening TCP port of a workload.
 type Target struct {
-	Kind     string // Service or ProcessGroup
+	Kind     string // Service or ProcessGroup; in a cluster Service or Ingress
 	Workload string
 	Proto    string // tcp or tcp6
 	Port     uint16
 	Addrs    []string // the addresses it is bound to
+	// Addr, when set, is where the port is read (a cluster's Service address); such targets
+	// are kept apart even on the same port.
+	Addr string
+	// Names are asked for on this target only, and are declared for it (an Ingress's TLS
+	// hosts): answered with a certificate that doesn't cover one, even the default one, is a
+	// name mismatch. With SNIOnly the port's default certificate isn't read for this target.
+	Names   []string
+	SNIOnly bool
+}
+
+// key is what makes two targets the same port.
+func (t Target) key() string {
+	if t.Addr == "" {
+		return strconv.Itoa(int(t.Port))
+	}
+	return t.Kind + "/" + t.Workload + "@" + net.JoinHostPort(t.Addr, strconv.Itoa(int(t.Port)))
 }
 
 // Endpoint is where a certificate was seen.
@@ -146,16 +162,17 @@ func (c *Collector) Round(ctx context.Context) {
 	})
 	cov := Coverage{At: now.Unix()}
 	// One port bound for both IPv4 and IPv6 is one port.
-	byPort := map[uint16]Target{}
-	var order []uint16
+	byKey := map[string]Target{}
+	var order []string
 	for _, t := range targets {
-		if prev, ok := byPort[t.Port]; ok {
+		k := t.key()
+		if prev, ok := byKey[k]; ok {
 			prev.Addrs = append(prev.Addrs, t.Addrs...)
-			byPort[t.Port] = prev
+			byKey[k] = prev
 			continue
 		}
-		byPort[t.Port] = t
-		order = append(order, t.Port)
+		byKey[k] = t
+		order = append(order, k)
 	}
 	if len(order) > MaxPorts {
 		cov.OverCap = len(order) - MaxPorts
@@ -166,7 +183,13 @@ func (c *Collector) Round(ctx context.Context) {
 	if c.StoreNames != nil {
 		names = c.StoreNames()
 	}
-	cov.StoreNames = len(names)
+	declared := map[string]bool{}
+	for _, k := range order {
+		for _, n := range byKey[k].Names {
+			declared[n] = true
+		}
+	}
+	cov.StoreNames = len(names) + len(declared)
 
 	c.mu.Lock()
 	if c.notTLS == nil {
@@ -180,8 +203,8 @@ func (c *Collector) Round(ctx context.Context) {
 		wg    sync.WaitGroup
 		slots = make(chan struct{}, Concurrency)
 	)
-	for _, port := range order {
-		t := byPort[port]
+	for _, k := range order {
+		t := byKey[k]
 		addr, ok := c.dialAddr(t)
 		if !ok {
 			mu.Lock()
@@ -200,44 +223,26 @@ func (c *Collector) Round(ctx context.Context) {
 			defer wg.Done()
 			slots <- struct{}{}
 			defer func() { <-slots }()
-			first, err := c.Probe.Handshake(ctx, addr, t.Port, "")
-			if err != nil {
-				var nerr net.Error
-				if errors.Is(err, ErrNotTLS) || (errors.As(err, &nerr) && nerr.Timeout()) || errors.Is(err, context.DeadlineExceeded) {
-					c.mu.Lock()
-					c.notTLS[addr] = now.Add(NotTLSFor)
-					c.mu.Unlock()
-				}
-				return
-			}
-			local := []seen{{t: t, pres: first}}
-			if first.Proto == "tls" {
-				def := first.Chain[0]
-				for _, n := range names {
-					p, err := c.Probe.Handshake(ctx, addr, t.Port, n)
-					if err != nil || len(p.Chain) == 0 {
-						continue
-					}
-					// A port that answers every name with its default certificate doesn't serve
-					// that name; a different certificate means a vhost for it.
-					if fingerprint(p.Chain[0]) == fingerprint(def) && !covers(def, n) {
-						continue
-					}
-					local = append(local, seen{t: t, sni: n, pres: p})
-				}
-			}
+			local, tls := c.probeTarget(ctx, t, addr, names, now)
 			mu.Lock()
 			found = append(found, local...)
-			cov.TLSPorts++
+			if tls {
+				cov.TLSPorts++
+			}
 			mu.Unlock()
 		}()
 	}
 	wg.Wait()
 
 	certs, served := c.assemble(found, now)
+	for n := range declared {
+		if !contains(names, n) {
+			names = append(names, n)
+		}
+	}
 	for _, n := range names {
 		if !served[n] {
-			cov.Unserved = append(cov.Unserved, strings.Replace(n, wildcardProbe, "*", 1))
+			cov.Unserved = append(cov.Unserved, strings.Replace(n, WildcardProbe, "*", 1))
 		}
 	}
 	sort.Strings(cov.Unserved)
@@ -250,10 +255,71 @@ func (c *Collector) Round(ctx context.Context) {
 	c.mu.Unlock()
 }
 
+// probeTarget reads one target: its default certificate, then each name on it. False when it
+// isn't TLS (or can't be read).
+func (c *Collector) probeTarget(ctx context.Context, t Target, addr string, names []string, now time.Time) ([]seen, bool) {
+	notTLS := func(err error) {
+		var nerr net.Error
+		if errors.Is(err, ErrNotTLS) || (errors.As(err, &nerr) && nerr.Timeout()) || errors.Is(err, context.DeadlineExceeded) {
+			c.mu.Lock()
+			c.notTLS[addr] = now.Add(NotTLSFor)
+			c.mu.Unlock()
+		}
+	}
+	var local []seen
+	var def *x509.Certificate
+	if t.SNIOnly {
+		names = nil
+	} else {
+		first, err := c.Probe.Handshake(ctx, addr, t.Port, "")
+		if err != nil {
+			notTLS(err)
+			return nil, false
+		}
+		local = append(local, seen{t: t, pres: first})
+		if first.Proto != "tls" {
+			return local, true
+		}
+		def = first.Chain[0]
+	}
+	tls := def != nil
+	ask := append([]string(nil), names...)
+	for _, n := range t.Names {
+		if !contains(ask, n) {
+			ask = append(ask, n)
+		}
+	}
+	if len(ask) > MaxStoreNames {
+		ask = ask[:MaxStoreNames]
+	}
+	for _, n := range ask {
+		p, err := c.Probe.Handshake(ctx, addr, t.Port, n)
+		if err != nil || len(p.Chain) == 0 {
+			if t.SNIOnly && !tls && err != nil {
+				notTLS(err)
+				return local, false
+			}
+			continue
+		}
+		tls = true
+		// A port that answers every name with its default certificate doesn't serve that
+		// name; a different certificate means a vhost for it. A declared name is served there
+		// whatever answers it.
+		if def != nil && !contains(t.Names, n) && fingerprint(p.Chain[0]) == fingerprint(def) && !covers(def, n) {
+			continue
+		}
+		local = append(local, seen{t: t, sni: n, pres: p})
+	}
+	return local, tls
+}
+
 // dialAddr is where a target is read: its bound address, loopback for every address, or the
 // host's address from another network namespace. False when it can't be reached from here.
 func (c *Collector) dialAddr(t Target) (string, bool) {
 	port := strconv.Itoa(int(t.Port))
+	if t.Addr != "" {
+		return net.JoinHostPort(t.Addr, port), true
+	}
 	addrs := t.Addrs
 	if len(addrs) == 0 {
 		addrs = []string{""}
@@ -330,7 +396,7 @@ func (c *Collector) assemble(found []seen, now time.Time) ([]Cert, map[string]bo
 			Fingerprint: fingerprint(leaf), NotAfter: leaf.NotAfter.Unix()}
 		dup := false
 		for _, e := range cert.Endpoints {
-			if e.Port == ep.Port && e.Fingerprint == ep.Fingerprint {
+			if e.Port == ep.Port && e.Fingerprint == ep.Fingerprint && e.Kind == ep.Kind && e.Workload == ep.Workload {
 				dup = true
 				break
 			}
@@ -403,8 +469,8 @@ var storeGlobs = []string{
 	"home/*/.local/share/caddy/certificates/*/*",
 }
 
-// wildcardProbe is the label a wildcard store name is asked for under.
-const wildcardProbe = "watchlog-check"
+// WildcardProbe is the label a wildcard store name is asked for under.
+const WildcardProbe = "watchlog-check"
 
 var dnsName = regexp.MustCompile(`^(\*\.)?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$`)
 
@@ -431,7 +497,7 @@ func StoreNames(root fs.FS) []string {
 			seen[n] = true
 			// A wildcard can't be asked for as SNI; a name under it can.
 			if strings.HasPrefix(n, "*.") {
-				n = wildcardProbe + n[1:]
+				n = WildcardProbe + n[1:]
 			}
 			out = append(out, n)
 		}

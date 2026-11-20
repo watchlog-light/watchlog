@@ -426,6 +426,10 @@ func (t *Tracker) Collect() ([]metrics.Sample, error) {
 	var out []metrics.Sample
 	for _, j := range t.Jobs() {
 		l := []string{"job", j.Name, "job_id", j.ID, "kind", j.Kind}
+		if ns, name, ok := strings.Cut(j.Name, "/"); ok && j.Kind == "cronjob" {
+			// A Kubernetes CronJob: its namespace, as every kube series has (ADR-223).
+			l = []string{"job", name, "job_id", j.ID, "kind", j.Kind, "namespace", ns}
+		}
 		out = append(out,
 			metrics.New("watchlog_job_failed_streak", float64(j.FailedStreak), l...),
 			metrics.New("watchlog_job_missed_runs", float64(j.MissedRuns), l...))

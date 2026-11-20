@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	eventsv1 "k8s.io/api/events/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -164,7 +165,12 @@ func Transform(obj any) (any, error) {
 		return n, nil
 	case *corev1.Service:
 		svc := &corev1.Service{ObjectMeta: trimMeta(o.ObjectMeta), Spec: corev1.ServiceSpec{Type: o.Spec.Type,
-			ClusterIP: o.Spec.ClusterIP, ClusterIPs: o.Spec.ClusterIPs, Selector: o.Spec.Selector, ExternalName: o.Spec.ExternalName}}
+			ClusterIP: o.Spec.ClusterIP, ClusterIPs: o.Spec.ClusterIPs, Selector: o.Spec.Selector, ExternalName: o.Spec.ExternalName,
+			ExternalIPs: o.Spec.ExternalIPs}}
+		// The addresses an Ingress's status may point to (ADR-222).
+		for _, l := range o.Status.LoadBalancer.Ingress {
+			svc.Status.LoadBalancer.Ingress = append(svc.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{IP: l.IP, Hostname: l.Hostname})
+		}
 		for _, p := range o.Spec.Ports {
 			svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{Name: p.Name, Port: p.Port, Protocol: p.Protocol})
 		}
@@ -219,7 +225,7 @@ func Transform(obj any) (any, error) {
 		return j, nil
 	case *batchv1.CronJob:
 		c := &batchv1.CronJob{ObjectMeta: trimMeta(o.ObjectMeta),
-			Spec:   batchv1.CronJobSpec{Schedule: o.Spec.Schedule, Suspend: o.Spec.Suspend},
+			Spec:   batchv1.CronJobSpec{Schedule: o.Spec.Schedule, Suspend: o.Spec.Suspend, TimeZone: o.Spec.TimeZone},
 			Status: batchv1.CronJobStatus{LastScheduleTime: o.Status.LastScheduleTime, LastSuccessfulTime: o.Status.LastSuccessfulTime}}
 		for _, a := range o.Status.Active {
 			c.Status.Active = append(c.Status.Active, corev1.ObjectReference{Name: a.Name})
@@ -232,6 +238,8 @@ func Transform(obj any) (any, error) {
 				LastScaleTime: o.Status.LastScaleTime}}, nil
 	case *eventsv1.Event:
 		return trimEvent(o), nil
+	case *networkingv1.Ingress:
+		return trimIngress(o), nil
 	}
 	return obj, nil
 }
