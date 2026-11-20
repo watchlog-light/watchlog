@@ -22,6 +22,7 @@ import { ServiceLogo } from '@/components/ui/serviceLogos';
 import { useLoader } from '@/composables/useLoader';
 import {
   connectedLink,
+  healthKey,
   productText,
   reasonLine,
   serviceMapLink,
@@ -179,7 +180,7 @@ async function resume() {
                   HEALTH_STYLE[app.health],
                 ]"
                 data-testid="health"
-                >{{ $t(`applications.health.${app.health}`) }}</span
+                >{{ $t(healthKey(app)) }}</span
               >
             </div>
             <span class="flex flex-wrap items-center gap-1.5 text-13 text-text-muted">

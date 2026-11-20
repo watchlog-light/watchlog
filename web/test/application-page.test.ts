@@ -594,6 +594,41 @@ describe('Application page', () => {
     wrapper.unmount();
   });
 
+  it('No metrics (0.10.1): its chip, the reason and the step with its snippet, on a server', async () => {
+    const facts = {
+      hint: 'stub_status_missing',
+      command: 'location = /nginx_status { stub_status; }',
+      kind: 'server',
+      host: 'web-1',
+    };
+    const page = detail(
+      {
+        type: 'nginx',
+        name: 'web-1/nginx.service',
+        cluster: DOCKER,
+        where: { group: null, host: 'web-1', address: '127.0.0.1:80' },
+        health: 'unknown',
+        reason: { code: 'no_metrics', facts },
+        members: { up: 1, total: 1 },
+      },
+      { reasons: [{ severity: 'info', code: 'no_metrics', facts }] },
+    );
+    mockFetch({
+      [`GET /api/v1/applications/${ID}?range=3600`]: { status: 200, body: page },
+      [`GET /api/v1/applications/${ID}/panels?tab=overview&range=3600`]: {
+        status: 200,
+        body: { tab: 'overview', range: 3600, panels: [PANELS[9]] },
+      },
+    });
+    const { wrapper } = await mountPage(`/applications/${ID}?cluster=${DOCKER.id}`);
+    expect(wrapper.get('[data-testid="health"]').text()).toBe('No metrics');
+    expect(wrapper.text()).toContain('no plain-HTTP request was seen');
+    expect(wrapper.get('[data-testid="reason-command"]').text()).toContain(
+      'location = /nginx_status { stub_status; }',
+    );
+    wrapper.unmount();
+  });
+
   it('says when the service is gone', async () => {
     mockFetch({
       [`GET /api/v1/applications/${ID}?range=3600`]: {

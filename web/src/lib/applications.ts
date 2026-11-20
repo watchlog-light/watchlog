@@ -113,6 +113,8 @@ export function reasonText(
       return Number(f.up) < Number(f.members)
         ? { key: 'applications.reason.someDown', values: { up: f.up, members: f.members } }
         : { key: 'applications.reason.connected', values: {} };
+    case 'no_metrics':
+      return noMetricsText(f, 'applications.reason.noMetrics');
     case 'paused':
       return f.by && f.at
         ? {
@@ -123,6 +125,37 @@ export function reasonText(
     default:
       return { key: 'applications.reason.waiting', values: {} };
   }
+}
+
+const NO_METRICS_HINTS = new Set([
+  'stub_status_missing',
+  'ingress_metrics_off',
+  'metrics_off',
+  'prometheus_plugin_off',
+  'phpfpm_status_off',
+]);
+
+/**
+ * No metrics (0.10.1): connected, but no key number has data. The words name the one step:
+ * the integration's hint, else the collector's log, on the server or in the cluster.
+ */
+function noMetricsText(
+  f: Record<string, unknown>,
+  base: string,
+): { key: string; values: Record<string, unknown> } {
+  const hint = typeof f.hint === 'string' && NO_METRICS_HINTS.has(f.hint) ? f.hint : null;
+  if (hint) return { key: `${base}.${hint}`, values: {} };
+  return {
+    key: `${base}.${f.kind === 'kubernetes' ? 'kubernetes' : 'server'}`,
+    values: { host: f.host ?? '', command: f.command ?? '' },
+  };
+}
+
+/** The health chip's words: "No metrics" is its own state, not "Waiting" (0.10.1). */
+export function healthKey(a: Pick<Application, 'health' | 'reason'>): string {
+  return a.reason.code === 'no_metrics'
+    ? 'applications.health.noMetrics'
+    : `applications.health.${a.health}`;
 }
 
 /** "staging/postgres" with the cluster's words for where it runs. */
@@ -171,6 +204,9 @@ export function reasonLine(
         key: 'applications.reason.needsPermission',
         values: { tab: f.tab, missing: f.missing },
       };
+    case 'no_metrics':
+      // The page shows the command under the line, so the words don't repeat it.
+      return noMetricsText(f, 'applications.reason.noMetricsPage');
     case 'waiting':
     case 'collector_missing':
     case 'collector_silent':

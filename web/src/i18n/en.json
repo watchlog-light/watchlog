@@ -2304,7 +2304,8 @@
       "ok": "Healthy",
       "warning": "Warning",
       "critical": "Critical",
-      "unknown": "Waiting"
+      "unknown": "Waiting",
+      "noMetrics": "No metrics"
     },
     "reason": {
       "waiting": "Waiting for the first report from the collector.",
@@ -2320,7 +2321,25 @@
       "pausedBy": "Paused by {by} on {at}: WatchLog isn't reading it. Open it to resume.",
       "memberDown": "{member} doesn't answer.",
       "memberDownError": "{member} doesn't answer: {error}",
-      "needsPermission": "The {tab} tab needs {missing}."
+      "needsPermission": "The {tab} tab needs {missing}.",
+      "noMetrics": {
+        "stub_status_missing": "No plain-HTTP requests seen and no stub_status. Add stub_status to its configuration; the snippet is on its page.",
+        "ingress_metrics_off": "No plain-HTTP requests seen, and ingress-nginx serves no metrics. Turn them on; the command is on its page.",
+        "metrics_off": "No plain-HTTP requests seen, and Traefik serves no metrics. Turn on its Prometheus metrics; the setting is on its page.",
+        "prometheus_plugin_off": "RabbitMQ's Prometheus plugin is off. Enable it (no restart); the command is on its page.",
+        "phpfpm_status_off": "The pool's status page is off. Set pm.status_path in its pool configuration and reload PHP-FPM.",
+        "server": "Connected, but none of its numbers has data. Check the collector's log on {host}: {command}",
+        "kubernetes": "Connected, but none of its numbers has data. Check the collector's log: {command}"
+      },
+      "noMetricsPage": {
+        "stub_status_missing": "Connected, but no number has data: no plain-HTTP request was seen (an HTTPS-only server, or no traffic) and Nginx has no stub_status. Add this to its configuration and reload; its active connections then count:",
+        "ingress_metrics_off": "Connected, but no number has data: no plain-HTTP request was seen and ingress-nginx serves no metrics. Turn them on (the controller pods restart):",
+        "metrics_off": "Connected, but no number has data: no plain-HTTP request was seen and Traefik serves no metrics. Turn on its Prometheus metrics:",
+        "prometheus_plugin_off": "Connected, but no number has data: RabbitMQ's Prometheus plugin is off. Enable it (no restart):",
+        "phpfpm_status_off": "Connected, but no number has data: the pool's status page is off. Set pm.status_path in its pool configuration and reload PHP-FPM.",
+        "server": "Connected, but none of its numbers has data, so it isn't shown as healthy. The collector's log on {host} says why (with docker run: docker logs --tail 50 watchlog-integrations):",
+        "kubernetes": "Connected, but none of its numbers has data, so it isn't shown as healthy. The collector's log says why:"
+      }
     },
     "firing": "{n} firing",
     "members": "{up} of {total} members",

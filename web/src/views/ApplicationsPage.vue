@@ -25,6 +25,7 @@ import {
   familyCounts,
   familyOf,
   type ConnectTarget,
+  healthKey,
   productText,
   reasonLine,
   reasonText,
@@ -260,7 +261,7 @@ async function started() {
                       HEALTH_STYLE[a.health],
                     ]"
                     data-testid="health"
-                    >{{ $t(`applications.health.${a.health}`) }}</span
+                    >{{ $t(healthKey(a)) }}</span
                   >
                   <span
                     :class="['text-13 leading-snug', REASON_STYLE[a.health]]"

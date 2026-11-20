@@ -464,6 +464,97 @@ describe('applications lib', () => {
     });
   });
 
+  it('No metrics (0.10.1): its own chip, never Healthy, with the step on the row, for servers and Kubernetes', async () => {
+    const nginx = app({
+      id: 'n1',
+      type: 'nginx',
+      name: 'web-1/nginx.service',
+      cluster: DOCKER,
+      where: { group: null, host: 'web-1', address: '127.0.0.1:80' },
+      health: 'unknown',
+      reason: {
+        code: 'no_metrics',
+        facts: {
+          hint: 'stub_status_missing',
+          command: 'location = /nginx_status { stub_status; }',
+          kind: 'server',
+          host: 'web-1',
+        },
+      },
+    });
+    const redis = app({
+      id: 'r1',
+      type: 'redis',
+      name: 'shop/redis',
+      health: 'unknown',
+      reason: {
+        code: 'no_metrics',
+        facts: {
+          hint: null,
+          command: 'kubectl -n watchlog logs -l app.kubernetes.io/component=integrations --tail 50',
+          kind: 'kubernetes',
+          host: null,
+        },
+      },
+    });
+    const php = app({
+      id: 'p1',
+      type: 'php-fpm',
+      name: 'web-1/pool www',
+      cluster: DOCKER,
+      health: 'unknown',
+      reason: {
+        code: 'no_metrics',
+        facts: {
+          hint: null,
+          command: 'journalctl -u watchlog-integrations -n 50',
+          kind: 'server',
+          host: 'web-1',
+        },
+      },
+    });
+    mockFetch({
+      'GET /api/v1/applications': { status: 200, body: { applications: [nginx, php, redis] } },
+      'GET /api/v1/applications/discovered': { status: 200, body: { discovered: [] } },
+      'GET /api/v1/applications/metrics': {
+        status: 200,
+        body: {
+          metrics: {
+            n1: {
+              keyMetrics: [
+                {
+                  id: 'rps',
+                  labelKey: 'integrations.nginx.panels.requests',
+                  value: null,
+                  unit: 'per_second',
+                },
+              ],
+              spark: [],
+            },
+          },
+        },
+      },
+    });
+    const { wrapper } = await mountPage();
+    const row = (name: string) =>
+      wrapper
+        .findAll('[data-testid="application-row"]')
+        .find((r) => r.find('.font-mono').text() === name)!;
+    for (const name of ['web-1/nginx.service', 'web-1/pool www', 'shop/redis']) {
+      expect(row(name).get('[data-testid="health"]').text()).toBe('No metrics');
+    }
+    expect(wrapper.text()).not.toContain('Healthy');
+    expect(row('web-1/nginx.service').get('[data-testid="reason"]').text()).toBe(
+      'No plain-HTTP requests seen and no stub_status. Add stub_status to its configuration; the snippet is on its page.',
+    );
+    expect(row('web-1/pool www').get('[data-testid="reason"]').text()).toBe(
+      "Connected, but none of its numbers has data. Check the collector's log on web-1: journalctl -u watchlog-integrations -n 50",
+    );
+    expect(row('shop/redis').get('[data-testid="reason"]').text()).toContain(
+      'kubectl -n watchlog logs -l app.kubernetes.io/component=integrations --tail 50',
+    );
+  });
+
   it('has the words for every PostgreSQL reason and tab', () => {
     const reasons = (en as { integrations: { reasons: Record<string, string> } }).integrations
       .reasons;
