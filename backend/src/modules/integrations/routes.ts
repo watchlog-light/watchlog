@@ -51,6 +51,7 @@ import {
 import {
   collectorOf,
   COLLECTOR_STALE_MS,
+  DATA_HINTS,
   hasKeyData,
   healthOf,
   listApplicationRows,
@@ -370,7 +371,7 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
     has: boolean | undefined,
     now: number,
   ): ApplicationView {
-    const hint = own.find((r) => r.severity === 'info');
+    const hint = own.find((r) => DATA_HINTS.has(r.code));
     const next = needsData(
       view,
       has,

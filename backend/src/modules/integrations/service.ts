@@ -185,6 +185,24 @@ export function healthOf(
 export const NO_DATA_GRACE_MS = 5 * 60_000;
 
 /**
+ * The integrations' hints that turn on a source of its numbers: the one step of No metrics
+ * when one is active. Other hints (query statistics, a privilege) don't bring numbers back.
+ */
+export const DATA_HINTS: ReadonlySet<string> = new Set([
+  'stub_status_missing',
+  'ingress_metrics_off',
+  'metrics_off',
+  'prometheus_plugin_off',
+  'phpfpm_status_off',
+]);
+
+/** Where the collector's log is, the step when no hint applies. */
+export const COLLECTOR_LOG = {
+  kubernetes: 'kubectl -n watchlog logs -l app.kubernetes.io/component=integrations --tail 50',
+  server: 'journalctl -u watchlog-integrations -n 50',
+} as const;
+
+/**
  * Healthy needs data (0.10.1): a connected service whose key numbers (the list row's) all
  * have no value isn't healthy, it has no metrics. Its reason carries the one step that fixes
  * it: the integration's own hint when it has one (stub_status, ingress-nginx's metrics), else
@@ -210,15 +228,17 @@ export function needsData(
   if (now - ctx.monitoredSince.getTime() < NO_DATA_GRACE_MS) {
     return { health: 'unknown', reason: { code: 'waiting', facts: {} } };
   }
-  const command = ctx.hint?.facts.command;
+  const kind = ctx.kind === 'kubernetes' ? 'kubernetes' : 'server';
+  const hint = ctx.hint && DATA_HINTS.has(ctx.hint.code) ? ctx.hint : undefined;
+  const command = hint ? hint.facts.command : COLLECTOR_LOG[kind];
   return {
     health: 'unknown',
     reason: {
       code: 'no_metrics',
       facts: {
-        hint: ctx.hint?.code ?? null,
-        command: typeof command === 'string' ? command : null,
-        kind: ctx.kind === 'kubernetes' ? 'kubernetes' : 'server',
+        hint: hint?.code ?? null,
+        command: typeof command === 'string' && command ? command : null,
+        kind,
         host: ctx.host,
       },
     },

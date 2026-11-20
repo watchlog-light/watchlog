@@ -31,13 +31,30 @@ describe('needsData', () => {
       health: 'unknown',
       reason: {
         code: 'no_metrics',
-        facts: { hint: null, command: null, kind: 'server', host: 'web-1' },
+        facts: {
+          hint: null,
+          command: 'journalctl -u watchlog-integrations -n 50',
+          kind: 'server',
+          host: 'web-1',
+        },
       },
     });
     expect(
       needsData(connected, false, { monitoredSince: old, kind: 'kubernetes', host: null }, NOW)
         .reason.facts,
-    ).toMatchObject({ kind: 'kubernetes', host: null });
+    ).toMatchObject({
+      kind: 'kubernetes',
+      host: null,
+      command: 'kubectl -n watchlog logs -l app.kubernetes.io/component=integrations --tail 50',
+    });
+  });
+
+  it('a hint that brings no numbers back (query statistics) is not the step', () => {
+    const hint = { code: 'statements_unavailable', facts: {} };
+    expect(
+      needsData(connected, false, { monitoredSince: old, kind: 'server', host: 'h', hint }, NOW)
+        .reason.facts,
+    ).toMatchObject({ hint: null, command: 'journalctl -u watchlog-integrations -n 50' });
   });
 
   it("names the integration's own hint and its command when it has one", () => {
