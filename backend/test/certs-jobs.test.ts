@@ -225,7 +225,7 @@ describe('certificates (ADR-222, ADR-224)', () => {
 });
 
 describe('scheduled jobs (ADR-223, ADR-224)', () => {
-  it('keep new runs once, count them per hour when they end, and drop gone jobs', async () => {
+  it('keep new runs once and drop gone jobs', async () => {
     const { post, get } = await setup('server');
     const t = Math.floor(Date.now() / 1000 / 3600) * 3600 - 2 * 3600; // two hours ago, on the hour
     const backup = '0123456789abcdef';
@@ -272,10 +272,8 @@ describe('scheduled jobs (ADR-223, ADR-224)', () => {
       'failed',
       'success',
     ]);
-    expect(d.body.hours).toEqual([
-      { hour: t + 3600, runs: 1, failures: 0, longestSeconds: 10 },
-      { hour: t, runs: 2, failures: 1, longestSeconds: 300 },
-    ]);
+    // A job that runs hourly or less often keeps its runs; only a frequent one gets hourly counts.
+    expect(d.body.hours).toEqual([]);
 
     // Search (0.10): a job by name, with its server and id for its page.
     const found = await get('/search?q=backup');

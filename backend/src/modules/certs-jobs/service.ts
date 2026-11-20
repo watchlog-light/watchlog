@@ -426,15 +426,38 @@ export async function runsLastDay(
   node?: string,
   now = new Date(),
 ) {
-  let q = db
+  const since = new Date(now.getTime() - 24 * 3_600_000);
+  // Frequent jobs from their hourly counts, the others from their runs (ADR-224).
+  let h = db
     .selectFrom('job_run_hours')
     .select((eb) => [
       eb.fn.sum<number>('runs').as('runs'),
       eb.fn.sum<number>('failures').as('failures'),
     ])
     .where('cluster_id', '=', clusterId)
-    .where('hour', '>=', new Date(now.getTime() - 24 * 3_600_000));
-  if (node !== undefined) q = q.where('node', '=', node);
-  const r = await q.executeTakeFirst();
-  return { runs: Number(r?.runs ?? 0), failures: Number(r?.failures ?? 0) };
+    .where('hour', '>=', since);
+  if (node !== undefined) h = h.where('node', '=', node);
+  let r = db
+    .selectFrom('job_runs as r')
+    .innerJoin('scheduled_jobs as j', (join) =>
+      join
+        .onRef('j.cluster_id', '=', 'r.cluster_id')
+        .onRef('j.node', '=', 'r.node')
+        .onRef('j.job_id', '=', 'r.job_id'),
+    )
+    .select((eb) => [
+      eb.fn.countAll<number>().as('runs'),
+      eb.fn
+        .sum<number>(sql<number>`CASE WHEN r.result = 'failed' THEN 1 ELSE 0 END`)
+        .as('failures'),
+    ])
+    .where('r.cluster_id', '=', clusterId)
+    .where('j.frequent', '=', false)
+    .where('r.ended_at', '>=', since);
+  if (node !== undefined) r = r.where('r.node', '=', node);
+  const [a, b] = await Promise.all([h.executeTakeFirst(), r.executeTakeFirst()]);
+  return {
+    runs: Number(a?.runs ?? 0) + Number(b?.runs ?? 0),
+    failures: Number(a?.failures ?? 0) + Number(b?.failures ?? 0),
+  };
 }

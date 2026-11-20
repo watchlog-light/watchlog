@@ -571,13 +571,14 @@ async function storeRuns(
     )
     .execute();
 
-  // Hourly counts of the runs that ended (by the hour they started).
+  // Hourly counts of a frequent job's runs that ended (by the hour they started): it keeps only
+  // its last 14 runs (ADR-224); a job that runs less often keeps its runs one by one.
   const hours = new Map<
     string,
     { job: string; hour: Date; runs: number; failures: number; longest: number }
   >();
   for (const { job, run, ended } of write) {
-    if (!ended) continue;
+    if (!ended || !job.frequent) continue;
     const hour = new Date(Math.floor(run.start / 3600) * 3600 * 1000);
     const k = `${job.id}/${hour.getTime()}`;
     const h = hours.get(k) ?? { job: job.id, hour, runs: 0, failures: 0, longest: 0 };
