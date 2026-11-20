@@ -274,12 +274,21 @@ func serveSTARTTLS(t *testing.T, cert tls.Certificate, pre func(c net.Conn, r *b
 				if !pre(c, r) {
 					return
 				}
-				_ = tls.Server(c, &tls.Config{Certificates: []tls.Certificate{cert}}).Handshake()
+				// The client may send its hello right after the upgrade request (MySQL doesn't
+				// wait for an answer): bytes already buffered are the TLS server's.
+				_ = tls.Server(bufConn{c, r}, &tls.Config{Certificates: []tls.Certificate{cert}}).Handshake()
 			}()
 		}
 	}()
 	return uint16(ln.Addr().(*net.TCPAddr).Port)
 }
+
+type bufConn struct {
+	net.Conn
+	r *bufio.Reader
+}
+
+func (b bufConn) Read(p []byte) (int, error) { return b.r.Read(p) }
 
 func TestSTARTTLS(t *testing.T) {
 	root := newRoot(t)
@@ -434,5 +443,40 @@ func TestCaps(t *testing.T) {
 	_, cov := col.Certificates()
 	if cov.Ports != MaxPorts || cov.OverCap != 7 {
 		t.Fatalf("caps: %+v", cov)
+	}
+}
+
+// A cluster's targets: a Service read at its address, and an Ingress's declared hosts asked
+// for by name on the same address, where the controller's default certificate answering a
+// host is a name mismatch (its TLS Secret is missing or wrong).
+func TestDeclaredNamesOnAnAddress(t *testing.T) {
+	root := newRoot(t)
+	inter := newInter(t, root)
+	def := withChain(leaf(t, inter, 90, true, "ingress.default.wl.test"), inter.cert)
+	shop := withChain(leaf(t, inter, 60, true, "shop.wl.test"), inter.cert)
+	port := serveTLS(t, def, map[string]tls.Certificate{"shop.wl.test": shop})
+	col := &Collector{Targets: func() []Target {
+		return []Target{
+			{Kind: "Service", Workload: "ingress-nginx/controller", Proto: "tcp", Port: port, Addr: "127.0.0.1"},
+			{Kind: "Ingress", Workload: "shop/web", Proto: "tcp", Port: port, Addr: "127.0.0.1",
+				Names: []string{"api.wl.test", "shop.wl.test"}, SNIOnly: true},
+		}
+	}}
+	col.Round(context.Background())
+	certs, cov := col.Certificates()
+	byName := map[string]Cert{}
+	for _, c := range certs {
+		byName[c.Names[0]] = c
+	}
+	s, ok := byName["shop.wl.test"]
+	if !ok || len(s.Endpoints) != 1 || s.Endpoints[0].Kind != "Ingress" || s.Endpoints[0].SNI != "shop.wl.test" || len(s.NameMismatch) != 0 {
+		t.Fatalf("shop's certificate on the Ingress: %+v", certs)
+	}
+	d := byName["ingress.default.wl.test"]
+	if len(d.NameMismatch) != 1 || d.NameMismatch[0] != "api.wl.test" || len(d.Endpoints) != 2 {
+		t.Fatalf("api.wl.test answered with the default certificate: %+v", d)
+	}
+	if cov.Ports != 2 || cov.TLSPorts != 2 || len(cov.Unserved) != 1 || cov.Unserved[0] != "api.wl.test" {
+		t.Fatalf("coverage: %+v", cov)
 	}
 }
