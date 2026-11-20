@@ -71,7 +71,9 @@ type Collector struct {
 	// listeners and owners are the last scrape's listening ports and cgroup owners, for
 	// the network collector (Listeners, Owners).
 	listeners []Listener
-	owners    map[string]Workload
+	// scraped is true once a scrape has found the listening ports (none is an answer too).
+	scraped bool
+	owners  map[string]Workload
 	// pidOwners: each process group's processes, for flows keyed by process (ADR-210).
 	pidOwners map[int]Workload
 	// addrs are the addresses each listener is bound to (certificates are read there).
@@ -86,6 +88,13 @@ func (c *Collector) ListenAddrs(l Listener) []string {
 }
 
 // Listeners are the TCP ports the server's workloads listened on at the last scrape.
+// Scraped says whether a scrape has run, so Listeners is an answer, not "not looked yet".
+func (c *Collector) Scraped() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.scraped
+}
+
 func (c *Collector) Listeners() []Listener {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -389,6 +398,7 @@ func (c *Collector) network(all []processWithUnit, workloadOf map[int]Workload, 
 	listeners := sortedListeners(byWorkload)
 	c.mu.Lock()
 	c.listeners, c.owners, c.pidOwners, c.addrs = listeners, owners, pidOwners, addrs
+	c.scraped = true
 	c.mu.Unlock()
 	var out []metrics.Sample
 	for _, l := range listeners {

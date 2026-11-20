@@ -331,6 +331,8 @@ func run(args []string, stdout io.Writer) int {
 				return out
 			},
 			StoreNames: func() []string { return certs.StoreNames(os.DirFS(filepath.Join("/", root))) },
+			// The ports come from the process groups' scrape: the first round waits for it.
+			Ready: groups.Scraped,
 		}
 		// A docker run install has its own network namespace: the host is its gateway.
 		if self, err1 := os.Readlink("/proc/self/ns/net"); err1 == nil {

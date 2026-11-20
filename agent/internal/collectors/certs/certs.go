@@ -118,6 +118,11 @@ type Collector struct {
 	// ports bound to loopback only can't be.
 	HostAddr string
 	Now      func() time.Time
+	// Ready, when set, says whether Targets can answer yet (the process collector has scraped
+	// once): the first round waits for it, at most ReadyWait, so a round right after a start
+	// doesn't find no ports and report every certificate gone.
+	Ready     func() bool
+	ReadyWait time.Duration
 
 	mu       sync.Mutex
 	certs    []Cert
@@ -132,8 +137,22 @@ func (c *Collector) now() time.Time {
 	return time.Now()
 }
 
-// Run rounds every Every until ctx ends.
+// Run rounds every Every until ctx ends, the first once Ready says the targets are known.
 func (c *Collector) Run(ctx context.Context) {
+	if c.Ready != nil {
+		wait := c.ReadyWait
+		if wait <= 0 {
+			wait = 2 * time.Minute
+		}
+		deadline := time.Now().Add(wait)
+		for !c.Ready() && time.Now().Before(deadline) {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(wait / 60):
+			}
+		}
+	}
 	for {
 		c.Round(ctx)
 		select {

@@ -480,3 +480,29 @@ func TestDeclaredNamesOnAnAddress(t *testing.T) {
 		t.Fatalf("coverage: %+v", cov)
 	}
 }
+
+// The first round waits until the targets are known (the process collector scraped once), so
+// a start never reports no ports and every certificate gone.
+func TestTheFirstRoundWaitsForTheTargets(t *testing.T) {
+	var ready atomic.Bool
+	var rounds atomic.Int32
+	col := &Collector{
+		Targets: func() []Target { rounds.Add(1); return nil },
+		Ready:   ready.Load, ReadyWait: 600 * time.Millisecond,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go col.Run(ctx)
+	time.Sleep(100 * time.Millisecond)
+	if rounds.Load() != 0 {
+		t.Fatal("a round before the targets were known")
+	}
+	ready.Store(true)
+	deadline := time.Now().Add(2 * time.Second)
+	for rounds.Load() == 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if rounds.Load() != 1 {
+		t.Fatalf("one round once ready: %d", rounds.Load())
+	}
+}
