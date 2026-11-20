@@ -37,12 +37,10 @@ func TestExitsAndCronExecs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := os.ReadFile(sh) //nolint:gosec // the test's own shell
-	if err != nil {
-		t.Fatal(err)
-	}
+	// A link named cron: the kernel names the process after the path it ran (the test's temp
+	// directory may be mounted noexec; the shell itself isn't).
 	cron := filepath.Join(t.TempDir(), "cron")
-	if err := os.WriteFile(cron, b, 0o700); err != nil { //nolint:gosec // an executable copy
+	if err := os.Symlink(sh, cron); err != nil {
 		t.Fatal(err)
 	}
 	cmd := exec.Command(cron, "-c", sh+` -c 'sleep 0.2; exit 3'; true`) //nolint:gosec // test input

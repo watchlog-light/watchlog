@@ -128,6 +128,11 @@ rules:
   - apiGroups: [batch]
     resources: [jobs, cronjobs]
     verbs: [get, list, watch]
+  # Certificates (0.10, ADR-222): an Ingress's TLS hosts, read with SNI from its controller's
+  # Service. Hosts only; the Secret a TLS section names is never read.
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses]
+    verbs: [get, list, watch]
   - apiGroups: [autoscaling]
     resources: [horizontalpodautoscalers]
     verbs: [get, list, watch]
