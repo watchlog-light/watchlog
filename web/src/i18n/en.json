@@ -5852,11 +5852,11 @@
       "hours": "Runs per hour, last 30 days",
       "hoursSummary": "{runs} runs, {failures} failed, the longest {d}",
       "noRuns": "No run seen yet.",
-      "logs": "Its unit's log",
       "logsCron": "cron sends a job's output by mail and keeps no log WatchLog can read.",
       "logsKube": "Its runs' pods and their logs are on the CronJob's page.",
       "openWorkload": "Open the CronJob",
-      "notFound": "This job isn't on this server or cluster any more."
+      "notFound": "This job isn't on this server or cluster any more.",
+      "exitCodeIs": "exit code {code}"
     }
   }
 }

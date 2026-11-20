@@ -15,6 +15,7 @@ const clusters = useClustersStore();
 
 const clusterId = computed(() => clusters.selected?.id ?? null);
 function load() {
+  if (!apps.loaded) void apps.load().catch(() => undefined);
   const id = clusterId.value;
   if (!id) return;
   void store.loadCerts(id).catch(() => undefined);

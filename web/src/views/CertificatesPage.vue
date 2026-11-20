@@ -114,7 +114,7 @@ const waiting = computed(
   () => page.loaded.value && coverage.value.length === 0 && agents.value.length === 0,
 );
 const columns =
-  'grid-cols-[minmax(0,1.8fr)_minmax(0,1.6fr)_minmax(0,1.1fr)_minmax(0,1.6fr)_minmax(0,1.6fr)_6.5rem_1rem]';
+  'grid-cols-[minmax(0,1.6fr)_minmax(0,1.9fr)_minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,1.6fr)_6.5rem_1rem]';
 </script>
 
 <template>
@@ -284,9 +284,11 @@ const columns =
                     :label="$t(`certs.status.${c.status}`)"
                   />
                 </span>
-                <span class="truncate font-mono text-13 text-text-muted" data-testid="served-by">{{
-                  say(servedBy(c))
-                }}</span>
+                <span
+                  class="line-clamp-2 font-mono text-13 [overflow-wrap:anywhere] text-text-muted"
+                  data-testid="served-by"
+                  >{{ say(servedBy(c)) }}</span
+                >
                 <span v-if="!narrow" class="truncate text-13 text-text-muted">{{ issuer(c) }}</span>
                 <span class="flex min-w-0 flex-col gap-1.5">
                   <span
@@ -300,7 +302,9 @@ const columns =
                     ]"
                     data-testid="days"
                     >{{ say(certDays(c)) }}
-                    <span class="font-normal text-text-muted">· {{ day(c.notAfter) }}</span></span
+                    <span class="font-normal whitespace-nowrap text-text-muted"
+                      >· {{ day(c.notAfter) }}</span
+                    ></span
                   >
                   <span class="h-1.5 overflow-hidden rounded-full bg-surface-3" aria-hidden="true">
                     <span

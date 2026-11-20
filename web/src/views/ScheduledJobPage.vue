@@ -136,7 +136,7 @@ const cronJobWorkload = computed(() => {
       >
         {{ say(jobProblem(j).words)
         }}<template v-if="j.lastRun?.code !== null && j.lastRun?.result === 'failed'">
-          · {{ $t('jobs.last.failedCode', { code: j.lastRun!.code }) }}</template
+          · {{ $t('jobs.detail.exitCodeIs', { code: j.lastRun!.code }) }}</template
         >
       </p>
 
@@ -195,7 +195,7 @@ const cronJobWorkload = computed(() => {
           <template v-else>
             <svg
               class="w-full"
-              :viewBox="`0 0 ${Math.max(140, chart.length * 10)} 60`"
+              :viewBox="`0 0 ${Math.max(600, chart.length * 10)} 60`"
               preserveAspectRatio="none"
               height="60"
               role="img"
@@ -229,7 +229,7 @@ const cronJobWorkload = computed(() => {
                 <tbody>
                   <tr v-for="r in runs" :key="r.startedAt" class="border-t border-border">
                     <td class="py-1.5 pr-3 text-text tabular-nums">{{ when(r.startedAt) }}</td>
-                    <td class="py-1.5 pr-3 font-mono text-text-muted">
+                    <td class="py-1.5 pr-3 font-mono whitespace-nowrap text-text-muted">
                       {{ r.seconds !== null ? duration(r.seconds) : '–' }}
                     </td>
                     <td
@@ -264,7 +264,6 @@ const cronJobWorkload = computed(() => {
       </div>
 
       <section v-if="j.kind === 'timer' && j.unit && j.node" class="flex flex-col gap-2">
-        <h2 class="text-15 font-semibold text-text">{{ $t('jobs.detail.logs') }}</h2>
         <LogsPanel
           :key="`${j.node}/${j.unit}`"
           kind="workload"

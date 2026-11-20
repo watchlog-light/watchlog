@@ -88,8 +88,10 @@ export function renewal(c: TlsCertificate, now = Date.now()): { words: Words; to
   if (c.renewalJob && c.renewalJob.state === 'failed')
     return {
       words: { key: 'certs.renewal.jobFailing', values: { job: c.renewalJob.name } },
-      tone: 'crit',
+      // Red while it matters now (it expires within 14 days), amber before.
+      tone: c.status === 'ok' || c.status === 'problem' ? 'warn' : 'crit',
     };
+
   if (c.renewedAt !== null && c.renewedDaysBefore !== null)
     return {
       words: {
