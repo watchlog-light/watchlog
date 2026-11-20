@@ -390,6 +390,24 @@ export interface Evidence {
   metrics: EvMetrics | null;
   /** The edge the walk followed to reach this focus; null (or absent) on the subject. */
   via?: Via | null;
+  /**
+   * At the far end of an edge (0.10): the certificates served on the edge's port there (its
+   * Service's on Kubernetes, the target's server's on Servers). Absent when not read.
+   */
+  certificates?: EvCertificate[];
+}
+
+/** A certificate as GET /clusters/:id/certificates lists it, as far as causes read it. */
+export interface EvCertificate {
+  id: string;
+  node: string;
+  names: string[];
+  notAfter: number;
+  daysLeft: number;
+  status: string;
+  nameMismatch: string[];
+  firstSeen: number;
+  endpoints: { kind: string; workload: string; port: number; sni: string | null }[];
 }
 
 export const emptyMap = (mode: EvMap['mode'] = 'unavailable'): EvMap => ({

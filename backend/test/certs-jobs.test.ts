@@ -169,6 +169,21 @@ describe('certificates (ADR-222, ADR-224)', () => {
       ['b', false],
     ]);
     expect((await get('/certificates/3333333333333333?node=web-1')).status).toBe(404);
+    // Events (ADR-225): renewed, and about to expire (once a day however often it's sent).
+    const events = await ctx.db
+      .selectFrom('k8s_events')
+      .select(['host', 'involved_kind', 'involved_name', 'reason', 'count', 'message'])
+      .where('cluster_id', '=', id)
+      .orderBy('reason')
+      .orderBy('involved_name')
+      .execute();
+    expect(
+      events.map((e) => `${e.host} ${e.involved_kind} ${e.involved_name} ${e.reason} ${e.count}`),
+    ).toEqual([
+      'web-1 Certificate api.wl.test CertificateExpiring 1',
+      'web-1 Certificate api.wl.test CertificateRenewed 1',
+    ]);
+    expect(events[1]!.message).toMatch(/^renewed 2 days before it expired; valid until /);
     expect((await get('/certificates/2222222222222222?node=web-2')).status).toBe(404);
 
     // An agent older than 0.10 on another server: the tab says so.
@@ -327,6 +342,32 @@ describe('scheduled jobs (ADR-223, ADR-224)', () => {
     const j = await get('/scheduled-jobs/5555555555555555');
     expect(j.body.job).toMatchObject({ kind: 'cronjob', name: 'shop/nightly', state: 'failed' });
     expect(j.body.runs[0]).toMatchObject({ code: 137, result: 'failed' });
+    // The backend's own events for a CronJob: failed, then recovered.
+    expect(
+      (
+        await post({
+          node: '',
+          jobs: [
+            job(
+              '5555555555555555',
+              'shop/nightly',
+              [{ start: now - 60, end: now - 50, code: 0, result: 'success' }],
+              { kind: 'cronjob', source: 'CronJob', state: 'working' },
+            ),
+          ],
+        })
+      ).statusCode,
+    ).toBe(204);
+    const evs = await ctx.db
+      .selectFrom('k8s_events')
+      .select(['namespace', 'involved_kind', 'involved_name', 'reason', 'message'])
+      .where('involved_kind', '=', 'CronJob')
+      .orderBy('reason')
+      .execute();
+    expect(evs.map((e) => `${e.namespace}/${e.involved_name} ${e.reason} ${e.message}`)).toEqual([
+      'shop/nightly JobFailed failed with exit code 137',
+      'shop/nightly JobRecovered ran successfully again',
+    ]);
   });
 
   it('are listed by MCP, with no command line in them', async () => {

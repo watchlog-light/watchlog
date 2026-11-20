@@ -30,6 +30,7 @@ import {
   type Focus,
   type Reader,
   type Via,
+  type EvCertificate,
 } from './evidence.js';
 import type { Platform } from './types.js';
 
@@ -277,6 +278,7 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
           workloadKind: w.kind,
         }),
         input.via ? farApplication(reader, ev) : null,
+        input.via ? farCertificates(reader, ev) : null,
       ]);
       return ev;
     }
@@ -352,6 +354,7 @@ export async function gather(reader: Reader, input: GatherInput): Promise<Eviden
           ? nxdomainSeries(reader, ev, { host: looking.host, container: looking.name })
           : null,
         input.via ? farApplication(reader, ev) : null,
+        input.via ? farCertificates(reader, ev) : null,
       ]);
       return ev;
     }
@@ -445,6 +448,33 @@ interface ListedApplication {
  * active findings of any application the subject talks to): its detail, for
  * application_finding's caller form.
  */
+/**
+ * 0.10 (certificate_bad): the certificates served where the edge the walk followed arrives:
+ * on Kubernetes its Service's (and port), on Servers its port on the target's server.
+ */
+async function farCertificates(reader: Reader, ev: Evidence): Promise<void> {
+  const edge = ev.via?.edge;
+  if (!edge) return;
+  const list = await soft(
+    reader
+      .get<{ certificates: EvCertificate[] }>(`/clusters/${ev.clusterId}/certificates`)
+      .then((r) => r.certificates),
+    [] as EvCertificate[],
+  );
+  const f = ev.focus;
+  const hosts = new Set(ev.containers.map((c) => c.host));
+  ev.certificates = list.filter((c) =>
+    c.endpoints.some((e) =>
+      f.kind === 'workload'
+        ? e.kind === 'Service' &&
+          !!edge.service &&
+          e.workload === `${f.namespace}/${edge.service}` &&
+          (edge.port === null || e.port === edge.port)
+        : edge.port !== null && e.port === edge.port && hosts.has(c.node),
+    ),
+  );
+}
+
 async function farApplication(reader: Reader, ev: Evidence): Promise<void> {
   const list = await soft(
     reader

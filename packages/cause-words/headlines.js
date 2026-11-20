@@ -99,6 +99,13 @@ export const HEADLINES = {
     '{name} fails because {target} is down: node {node} under it keeps it from running.',
   dependency_down_host:
     '{name} fails because {target} is down: host {node} under it keeps it from running.',
+  certificate_expired:
+    "{name} can't connect securely to {target}: its certificate for {cert} expired a day ago. | {name} can't connect securely to {target}: its certificate for {cert} expired {n} days ago.",
+  certificate_mismatch:
+    "{name} can't connect securely to {target}: its certificate for {cert} doesn't cover {asked}.",
+  scheduled_job_failed: '{name} is run by the scheduled job {job}, whose last run failed.',
+  scheduled_job_failed_exit:
+    '{name} is run by the scheduled job {job}, whose last run failed with exit code {exitCode}.',
   connection_refused:
     "{name}'s connections to {target} on port {port} fail: {target} runs, but nothing accepts connections on that port.",
   connection_refused_noport:

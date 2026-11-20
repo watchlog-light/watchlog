@@ -462,7 +462,14 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
         return reply.code(204).send(null);
       }
       if (request.body.source === 'inventory') {
-        await storeInventory(db, owner.clusterId, owner.orgId, request.body);
+        await storeInventory(
+          db,
+          owner.clusterId,
+          owner.orgId,
+          request.body,
+          new Date(),
+          opts.eventsRetentionDays ?? 15,
+        );
         return reply.code(204).send(null);
       }
       const { kind, node, inventory } = request.body;

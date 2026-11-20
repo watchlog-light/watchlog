@@ -11,6 +11,8 @@ export const CATALOG = [
   'unschedulable',
   'node_or_host',
   'application_finding',
+  // 0.10 (ADR-225): an expired or wrong certificate where a failing edge arrives.
+  'certificate_bad',
   'connection_refused',
   'dns_nxdomain',
   'cpu_throttled',

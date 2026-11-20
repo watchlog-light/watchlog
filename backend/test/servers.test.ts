@@ -602,6 +602,80 @@ describe('Server fleet routes', () => {
     expect((await api(`/clusters/${kube}/servers`)).json().servers).toEqual([]);
     expect((await api(`/clusters/${kube}/servers/${HOST}`)).statusCode).toBe(404);
   });
+
+  it("names a systemd timer whose last run failed as the cause of its service's alert (0.10)", async () => {
+    await seed();
+    const orgId = (await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow()).id;
+    // nginx.service is (in this test) what backup.timer starts; its last run exited 2.
+    await ctx.db
+      .insertInto('scheduled_jobs')
+      .values({
+        org_id: orgId,
+        cluster_id: cluster.id,
+        node: HOST,
+        job_id: 'abcdefabcdefabcd',
+        kind: 'timer',
+        name: 'backup.timer',
+        unit: 'nginx.service',
+        enabled: true,
+        state: 'failed',
+        failed_streak: 1,
+      })
+      .execute();
+    const ranAt = new Date(Date.now() - 5 * 60_000);
+    await ctx.db
+      .insertInto('job_runs')
+      .values({
+        org_id: orgId,
+        cluster_id: cluster.id,
+        node: HOST,
+        job_id: 'abcdefabcdefabcd',
+        started_at: ranAt,
+        ended_at: new Date(ranAt.getTime() + 3000),
+        code: 2,
+        result: 'failed',
+      })
+      .execute();
+    const ruleId = await insertRule(ctx.db, orgId, {
+      rule_key: 'server.unit.failed',
+      name: 'Service failed',
+    });
+    const alertId = newId();
+    const firedAt = new Date(Date.now() - 4 * 60_000);
+    await ctx.db
+      .insertInto('alert_states')
+      .values({
+        id: alertId,
+        org_id: orgId,
+        rule_id: ruleId,
+        cluster_id: cluster.id,
+        fingerprint: 'unit:app-1/nginx.service',
+        state: 'firing',
+        severity: 'critical',
+        labels: JSON.stringify({ node: HOST, unit: 'nginx.service' }),
+        started_at: firedAt,
+        fired_at: firedAt,
+      })
+      .execute();
+    const causes = await api(`/causes?cluster=${cluster.id}&subject=alert:${alertId}`);
+    expect(causes.statusCode, causes.body).toBe(200);
+    expect(causes.json()).toMatchObject({
+      state: 'likely',
+      headline: {
+        code: 'scheduled_job_failed_exit',
+        facts: { name: 'nginx.service', job: 'backup.timer', exitCode: 2 },
+      },
+      causes: [
+        {
+          rule: 'job_failed',
+          strength: 'likely',
+          chain: [
+            { code: 'scheduled_run_failed_exit', facts: { job: 'backup.timer', exitCode: 2 } },
+          ],
+        },
+      ],
+    });
+  });
 });
 
 describe('process-group rules (ADR-207)', () => {

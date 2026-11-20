@@ -250,9 +250,9 @@ describe('the symptom of an egress alert is its first connection', () => {
 });
 
 describe('the catalog and its words', () => {
-  it('is the thirteenth rule, with a headline for each change kind', () => {
-    expect(CATALOG).toHaveLength(13);
-    expect(CATALOG[12]).toBe('change_before_egress');
+  it('is the last rule, with a headline for each change kind', () => {
+    expect(CATALOG).toHaveLength(14);
+    expect(CATALOG[13]).toBe('change_before_egress');
     for (const k of ['image', 'rollout', 'recreate', 'compose'])
       expect(HEADLINES[`change_before_egress_${k}`]).toBeTruthy();
   });

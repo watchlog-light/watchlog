@@ -6,6 +6,7 @@
 import { Type, type Static } from 'typebox';
 import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
+import { storeKubernetesEvents } from './kubernetes-events.js';
 
 const Str = (max: number) => Type.String({ maxLength: max });
 const Hex = (n: number) => Type.String({ pattern: `^[0-9a-f]{${n}}$` });
@@ -128,9 +129,24 @@ export async function storeInventory(
   orgId: string,
   body: Inventory,
   now = new Date(),
+  /** With it, the snapshot's events are stored (certificates; a cluster's CronJobs). */
+  eventsRetentionDays?: number,
 ): Promise<void> {
   const node = body.node;
   const certRound = Number((body.certificateCoverage as { at?: number } | null)?.at ?? 0) > 0;
+  // A cluster's CronJobs get the backend's own events; a server's agent sends its jobs' own.
+  const previous =
+    body.jobs && eventsRetentionDays !== undefined
+      ? await db
+          .selectFrom('scheduled_jobs')
+          .select(['job_id', 'state', 'failed_streak'])
+          .where('cluster_id', '=', clusterId)
+          .where('node', '=', node)
+          .where('kind', '=', 'cronjob')
+          .where('gone_at', 'is', null)
+          .execute()
+      : [];
+  let renewals: Renewal[] = [];
   await db.transaction().execute(async (trx) => {
     await trx
       .insertInto('inventory_coverage')
@@ -154,9 +170,126 @@ export async function storeInventory(
       .execute();
 
     if (certRound)
-      await storeCertificates(trx, clusterId, orgId, node, body.certificates ?? [], now);
+      renewals = await storeCertificates(trx, clusterId, orgId, node, body.certificates ?? [], now);
     if (body.jobs) await storeJobs(trx, clusterId, orgId, node, body.jobs, now);
   });
+  if (eventsRetentionDays === undefined) return;
+  const events = inventoryEvents(body, certRound, renewals, previous, now);
+  if (events.length > 0) {
+    await storeKubernetesEvents(db, clusterId, orgId, { events }, eventsRetentionDays, now);
+  }
+}
+
+export interface Renewal {
+  certId: string;
+  name: string;
+  daysBefore: number;
+  notAfter: number;
+}
+
+type EventIn = Parameters<typeof storeKubernetesEvents>[3]['events'][number];
+
+/**
+ * The events of one snapshot (ADR-225): a certificate renewed, about to expire (14 days) or
+ * expired, for both kinds; a cluster's CronJob failed, missed or recovered. One per object,
+ * reason and day: the uid carries the day, so a resent snapshot counts once.
+ */
+export function inventoryEvents(
+  body: Inventory,
+  certRound: boolean,
+  renewals: Renewal[],
+  previous: { job_id: string; state: string; failed_streak: number }[],
+  now: Date,
+): EventIn[] {
+  const day = now.toISOString().slice(0, 10);
+  const ts = now.toISOString();
+  const node = body.node;
+  const out: EventIn[] = [];
+  const ev = (
+    kind: string,
+    name: string,
+    namespace: string,
+    reason: string,
+    type: 'Normal' | 'Warning',
+    message: string,
+  ) =>
+    out.push({
+      uid: `inventory:${node}/${kind}/${namespace}/${name}/${reason}/${day}`,
+      ...(node ? { host: node } : {}),
+      namespace,
+      involved: { kind, namespace, name },
+      type,
+      reason,
+      message,
+      count: 1,
+      first_ts: ts,
+      last_ts: ts,
+      reporting_controller: 'watchlog',
+    });
+  const date = (s: number) => new Date(s * 1000).toUTCString().slice(5, 16);
+  for (const r of renewals) {
+    ev(
+      'Certificate',
+      r.name,
+      '',
+      'CertificateRenewed',
+      'Normal',
+      `renewed ${Math.max(0, Math.round(r.daysBefore))} days before it expired; valid until ${date(r.notAfter)}`,
+    );
+  }
+  if (certRound) {
+    for (const c of body.certificates ?? []) {
+      const left = c.notAfter - now.getTime() / 1000;
+      if (left < 0) {
+        ev(
+          'Certificate',
+          c.names[0]!,
+          '',
+          'CertificateExpired',
+          'Warning',
+          `expired ${date(c.notAfter)}`,
+        );
+      } else if (left < 14 * 86_400) {
+        ev(
+          'Certificate',
+          c.names[0]!,
+          '',
+          'CertificateExpiring',
+          'Warning',
+          `expires in ${Math.floor(left / 86_400)} days (${date(c.notAfter)})`,
+        );
+      }
+    }
+  }
+  const before = new Map(previous.map((p) => [p.job_id, p]));
+  for (const j of body.jobs ?? []) {
+    if (j.kind !== 'cronjob') continue;
+    const prev = before.get(j.id);
+    const [ns, name] = j.name.includes('/') ? j.name.split('/', 2) : ['', j.name];
+    if (
+      j.state === 'failed' &&
+      (!prev || prev.failed_streak === 0 || (prev.failed_streak < 3 && j.failedStreak >= 3))
+    ) {
+      const last = [...(j.runs ?? [])].reverse().find((r) => r.result === 'failed');
+      ev(
+        'CronJob',
+        name!,
+        ns!,
+        'JobFailed',
+        'Warning',
+        `failed${last?.code !== undefined ? ` with exit code ${last.code}` : ''}${j.failedStreak > 1 ? `, ${j.failedStreak} times in a row` : ''}`,
+      );
+    } else if (j.state === 'missed' && prev?.state !== 'missed') {
+      ev('CronJob', name!, ns!, 'JobMissed', 'Warning', "a run was expected and didn't start");
+    } else if (
+      prev &&
+      (prev.state === 'failed' || prev.state === 'missed') &&
+      (j.state === 'working' || j.state === 'running')
+    ) {
+      ev('CronJob', name!, ns!, 'JobRecovered', 'Normal', 'ran successfully again');
+    }
+  }
+  return out;
 }
 
 async function storeCertificates(
@@ -166,7 +299,8 @@ async function storeCertificates(
   node: string,
   certs: Static<typeof Certificate>[],
   now: Date,
-): Promise<void> {
+): Promise<Renewal[]> {
+  const renewed: Renewal[] = [];
   const current = await trx
     .selectFrom('certificates')
     .select(['cert_id', 'fingerprint', 'not_after'])
@@ -209,6 +343,12 @@ async function storeCertificates(
           new Date(p.not_after).getTime() < c.notAfter * 1000,
       );
       if (prev) {
+        renewed.push({
+          certId: c.id,
+          name: c.names[0]!,
+          daysBefore: (new Date(prev.not_after).getTime() - now.getTime()) / 86_400_000,
+          notAfter: c.notAfter,
+        });
         renewal = {
           renewed_from: prev.fingerprint,
           renewed_days_before:
@@ -251,6 +391,7 @@ async function storeCertificates(
     .where('current', '=', false)
     .where('last_seen', '<', new Date(now.getTime() - OLD_CERT_DAYS * 86_400_000))
     .execute();
+  return renewed;
 }
 
 async function storeJobs(

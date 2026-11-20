@@ -25,13 +25,16 @@ export const RULE_MEANS: Record<string, string> = {
     'The node or Docker host under it: not Ready, cordoned, under pressure, out of memory, or no longer reporting.',
   application_finding:
     'A monitored service it uses (or the service asked about) has an active finding (facts.finding), followed to the object the finding names when there is one.',
+  certificate_bad:
+    'What it calls serves an expired certificate, or one that does not cover a name it is served for, on the port its connections fail or answer errors on (facts.cert).',
   connection_refused:
     'Its connections to what it calls fail while that runs: nothing accepts them on that port.',
   dns_nxdomain:
     'A name it looks up does not exist (NXDOMAIN). WatchLog does not record which name.',
   cpu_throttled:
     'Its CPU limit throttles it (facts.pct % of the time) while it, or what calls it, is slow.',
-  job_failed: 'A Job or CronJob run failed: its exit codes and its back-off.',
+  job_failed:
+    "A Job or CronJob run failed (its exit codes and its back-off), or the systemd timer that starts a server's service failed its last run.",
   change_before_egress:
     'Egress alerts only: the source was rolled out, changed to a new image, re-created or brought up by Compose in the 60 minutes before its first connection to the destination (facts.minutes).',
 };

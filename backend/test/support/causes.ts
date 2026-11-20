@@ -169,6 +169,15 @@ export const BEFORE_SLICE_4 = (key: string): unknown =>
     ? { metric: 'throttled', unit: 'cores', step: 15, series: [] }
     : undefined;
 
+/**
+ * The read 0.10 added at the far end of an edge (certificate_bad): recordings made before it
+ * have no certificates, so they answer none.
+ */
+export const BEFORE_0_10 = (key: string): unknown =>
+  /^GET \/clusters\/[^ /]+\/certificates \[\]$/.test(key)
+    ? { certificates: [], coverage: [], agentsWithout: [] }
+    : undefined;
+
 /** Whether a recording was made before slice 4 (it has no throttling read). */
 export const beforeSlice4 = (rec: Recording) =>
   !Object.keys(rec.reads).some((k) => k.includes('cpu.throttled'));
@@ -188,7 +197,8 @@ export function replay(
   const answer = <T>(key: string): T => {
     const r =
       reads[key] ??
-      (fallback?.(key) !== undefined ? { status: 200, body: fallback(key) } : undefined);
+      (fallback?.(key) !== undefined ? { status: 200, body: fallback(key) } : undefined) ??
+      (BEFORE_0_10(key) !== undefined ? { status: 200, body: BEFORE_0_10(key) } : undefined);
     if (!r) {
       missed.push(key);
       throw new ApiReadError(404, `not recorded: ${key}`);

@@ -11,6 +11,7 @@
 import type { RuleCode } from './catalog.js';
 import type { Evidence, Focus } from './evidence.js';
 import { applicationFinding } from './rules/application-finding.js';
+import { certificateBad } from './rules/certificate-bad.js';
 import { changeBeforeEgress } from './rules/change-before-egress.js';
 import { connectionRefused } from './rules/connection-refused.js';
 import { dependencyDown } from './rules/dependency-down.js';
@@ -56,6 +57,7 @@ export interface Rule {
 export const RULES: Rule[] = [
   ...OWN_RULES,
   dependencyDown,
+  certificateBad,
   connectionRefused,
   dnsNxdomain,
   applicationFinding,

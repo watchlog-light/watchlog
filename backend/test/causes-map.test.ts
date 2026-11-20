@@ -6,12 +6,20 @@
 import { describe, expect, it } from 'vitest';
 import { checksOf } from '../src/modules/causes/checks.js';
 import { explain } from '../src/modules/causes/engine.js';
-import type { EdgeHistory, EvEdge, Evidence, Reader, Via } from '../src/modules/causes/evidence.js';
+import type {
+  EdgeHistory,
+  EvCertificate,
+  EvEdge,
+  Evidence,
+  Reader,
+  Via,
+} from '../src/modules/causes/evidence.js';
 import { ApiReadError } from '../src/modules/mcp/reader.js';
 import { alertFocus } from '../src/modules/causes/resolve.js';
 import { runRules } from '../src/modules/causes/rules.js';
 import { linksOf, topFinding } from '../src/modules/causes/rules/application-finding.js';
 import { slowAfterChange } from '../src/modules/causes/rules/bad-change.js';
+import { certificateBad } from '../src/modules/causes/rules/certificate-bad.js';
 import { connectionRefused } from '../src/modules/causes/rules/connection-refused.js';
 import { dependencyDown } from '../src/modules/causes/rules/dependency-down.js';
 import { dnsNxdomain, nxdomainSince } from '../src/modules/causes/rules/dns-nxdomain.js';
@@ -493,6 +501,85 @@ describe('connection_refused', () => {
       }),
     ).toBeNull();
     expect(connectionRefused.match(ev)).toBeNull();
+  });
+});
+
+describe('certificate_bad (0.10, ADR-225)', () => {
+  const cert = (over: Partial<EvCertificate> = {}): EvCertificate => ({
+    id: 'aaaaaaaaaaaaaaaa',
+    node: '',
+    names: ['api.shop.test'],
+    notAfter: Date.parse('2026-11-08T17:00:00Z') / 1000,
+    daysLeft: -2,
+    status: 'expired',
+    nameMismatch: [],
+    firstSeen: Date.parse('2026-08-10T00:00:00Z') / 1000,
+    endpoints: [{ kind: 'Service', workload: 'causes-e2e/api', port: 9898, sni: null }],
+    ...over,
+  });
+  const ev = evidence('kube-workload-healthy');
+
+  it('an expired certificate where a failing edge arrives: since it expired, the edge before it', () => {
+    const m = certificateBad.match({ ...ev, via: via(), certificates: [cert()] });
+    expect(m).toMatchObject({
+      code: 'certificate_bad',
+      since: '2026-11-08T17:00:00.000Z',
+      complete: true,
+      headline: {
+        code: 'certificate_expired',
+        facts: { name: 'web', cert: 'api.shop.test', n: 2 },
+      },
+      chain: [{ code: 'cert_expired', facts: { cert: 'api.shop.test', n: 2, port: 9898 } }],
+    });
+  });
+
+  it('a name it is served for and does not cover; answering 5xx counts as failing too', () => {
+    const m = certificateBad.match({
+      ...ev,
+      via: via({
+        edge: edge({
+          failedRatio: 0,
+          failedPerSecond: 0,
+          health: 'degraded',
+          http: {
+            requestsPerSecond: 10,
+            serverErrorsPerSecond: 3,
+            serverErrorRatio: 0.3,
+            p50Seconds: null,
+            p95Seconds: null,
+            p99Seconds: null,
+          },
+        }),
+      }),
+      certificates: [cert({ status: 'ok', daysLeft: 50, nameMismatch: ['www.shop.test'] })],
+    });
+    expect(m?.headline).toEqual({
+      code: 'certificate_mismatch',
+      facts: {
+        name: 'web',
+        target: expect.any(String),
+        cert: 'api.shop.test',
+        asked: 'www.shop.test',
+      },
+    });
+  });
+
+  it('nothing for a good certificate, a healthy edge, or on the subject itself', () => {
+    expect(
+      certificateBad.match({
+        ...ev,
+        via: via(),
+        certificates: [cert({ status: 'expiring', daysLeft: 9 })],
+      }),
+    ).toBeNull();
+    expect(
+      certificateBad.match({
+        ...ev,
+        via: via({ edge: edge({ failedRatio: 0, failedPerSecond: 0, health: 'healthy' }) }),
+        certificates: [cert()],
+      }),
+    ).toBeNull();
+    expect(certificateBad.match({ ...ev, certificates: [cert()] })).toBeNull();
   });
 });
 

@@ -82,6 +82,9 @@ export async function serverAnswer(
   const causes: Cause[] = [];
   let headline: Sentence;
   const checked = c.checks.length + 1;
+  // 0.10 (ADR-225): a service a systemd timer starts, whose last run failed: the job is why.
+  const job =
+    w.source === 'service' ? await failedTimerOf(reader, cluster.id, at.node, name) : null;
   switch (c.code) {
     case 'release':
       headline =
@@ -188,10 +191,41 @@ export async function serverAnswer(
       });
       break;
     default:
-      headline = {
-        code: 'none_found',
-        facts: { name, n: checked, found: c.checks.filter((x) => x.result === 'possible').length },
-      };
+      headline = job
+        ? job.exitCode !== null
+          ? {
+              code: 'scheduled_job_failed_exit',
+              facts: { name, job: job.name, exitCode: job.exitCode },
+            }
+          : { code: 'scheduled_job_failed', facts: { name, job: job.name } }
+        : {
+            code: 'none_found',
+            facts: {
+              name,
+              n: checked,
+              found: c.checks.filter((x) => x.result === 'possible').length,
+            },
+          };
+  }
+  if (job) {
+    causes.push({
+      rule: 'job_failed',
+      code: 'scheduled_job_failed',
+      facts: { job: job.name, n: job.streak },
+      strength: c.code ? 'possible' : 'likely',
+      since: job.at,
+      chain: [
+        {
+          object,
+          source: 'metrics',
+          code: job.exitCode !== null ? 'scheduled_run_failed_exit' : 'scheduled_run_failed',
+          facts: { job: job.name, exitCode: job.exitCode, n: job.streak },
+          at: job.at,
+          since: null,
+          next: null,
+        },
+      ],
+    });
   }
 
   const checks: Check[] = [];
@@ -252,7 +286,7 @@ export async function serverAnswer(
     subject: target.self,
     object,
     cluster,
-    state: c.code ? (c.state === 'none' ? 'possible' : c.state) : 'none',
+    state: c.code ? (c.state === 'none' ? 'possible' : c.state) : job ? 'likely' : 'none',
     checkedAt: new Date(now).toISOString(),
     symptomSince: symptomAt,
     resolvedAt: target.resolvedAt,
@@ -264,5 +298,39 @@ export async function serverAnswer(
     causes,
     checks,
     flowsOff: null,
+  };
+}
+
+interface JobsAnswer {
+  jobs: {
+    kind: string;
+    name: string;
+    unit: string;
+    state: string;
+    failedStreak: number;
+    lastRun: { startedAt: number; code: number | null; result: string } | null;
+  }[];
+}
+
+/** The systemd timer that starts this service, when its last run failed (soft: none). */
+async function failedTimerOf(
+  reader: Reader,
+  clusterId: string,
+  node: string,
+  unit: string,
+): Promise<{ name: string; exitCode: number | null; streak: number; at: string | null } | null> {
+  let d: JobsAnswer;
+  try {
+    d = await reader.get<JobsAnswer>(`/clusters/${clusterId}/scheduled-jobs`, { node });
+  } catch {
+    return null;
+  }
+  const j = d.jobs.find((x) => x.kind === 'timer' && x.unit === unit && x.state === 'failed');
+  if (!j) return null;
+  return {
+    name: j.name,
+    exitCode: j.lastRun?.result === 'failed' ? j.lastRun.code : null,
+    streak: Math.max(1, j.failedStreak),
+    at: iso(j.lastRun?.startedAt ?? null),
   };
 }

@@ -589,6 +589,7 @@ describe('the catalog', () => {
       ['node_or_host', 'kubernetes+server'],
       ['cpu_throttled', 'kubernetes+server'],
       ['dependency_down', 'kubernetes+server'],
+      ['certificate_bad', 'kubernetes+server'],
       ['connection_refused', 'kubernetes+server'],
       ['dns_nxdomain', 'kubernetes+server'],
       ['application_finding', 'kubernetes+server'],
