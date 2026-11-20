@@ -250,6 +250,23 @@ describe('Cluster overview', () => {
     mockFetch(routes(empty));
     ({ wrapper: w } = await mountPage(OverviewPage, '/'));
     expect(w.text()).toContain('Waiting for the agents');
+    expect(w.get('[data-testid="overview-waiting"]').text()).toContain('helm command');
+    expect(w.find(`a[href="/settings/clusters/${FIX.cluster.id}"]`).exists()).toBe(true);
+    w.unmount();
+
+    // A Server fleet waits for servers, with the server install command, never helm (0.10.1).
+    mockFetch({
+      ...routes(empty),
+      'GET /api/v1/clusters': {
+        status: 200,
+        body: { clusters: [{ ...FIX.cluster, kind: 'server' }] },
+      },
+    });
+    ({ wrapper: w } = await mountPage(OverviewPage, '/'));
+    const waiting = w.get('[data-testid="overview-waiting"]');
+    expect(waiting.text()).toContain('Waiting for the first server');
+    expect(waiting.text()).toContain('Run the install command on each Linux server');
+    expect(waiting.text()).not.toMatch(/helm|cluster exists/i);
     expect(w.find(`a[href="/settings/clusters/${FIX.cluster.id}"]`).exists()).toBe(true);
     w.unmount();
   });

@@ -75,6 +75,13 @@ const page = useLoader(async () => {
   return { cluster, map, at: Date.now() };
 });
 const map = computed(() => page.data.value?.map);
+// The empty map's words: a Server fleet without eBPF has no Services to draw from, so it
+// says what the map needs on servers instead (0.10.1).
+const emptyKey = computed(() =>
+  map.value?.mode === 'topology' && page.data.value?.cluster.kind === 'server'
+    ? 'serviceMap.empty.topology.server'
+    : `serviceMap.empty.${map.value?.mode ?? 'flows'}`,
+);
 const nodes = computed(() => new Map((map.value?.nodes ?? []).map((n) => [n.id, n])));
 const name = (id: string) => nodes.value.get(id)?.name ?? id;
 const nsOf = (id: string) => nodes.value.get(id)?.namespace ?? null;
@@ -488,8 +495,9 @@ onBeforeUnmount(() => clearInterval(clock));
             <EmptyState
               v-else
               :icon="Network"
-              :title="$t(`serviceMap.empty.${map.mode}.title`)"
-              :description="$t(`serviceMap.empty.${map.mode}.description`)"
+              :title="$t(`${emptyKey}.title`)"
+              :description="$t(`${emptyKey}.description`)"
+              data-testid="map-empty"
             />
           </div>
         </section>

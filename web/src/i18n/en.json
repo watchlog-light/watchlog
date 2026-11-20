@@ -128,7 +128,7 @@
     },
     "serviceMap": {
       "title": "No traffic recorded yet",
-      "description": "The service map is built from network traffic captured by the agent. After a cluster is connected, it shows which workloads talk to each other within about two minutes."
+      "description": "The service map is built from network traffic captured by the agent. After a cluster or Server fleet is connected, it shows which workloads talk to each other within about two minutes."
     },
     "alerts": {
       "title": "No alerts yet",
@@ -530,7 +530,11 @@
     "waiting": {
       "title": "Waiting for the agents",
       "description": "The cluster exists, but no agent has reported yet. Install the agents with the helm command from the cluster's settings; data appears within a minute.",
-      "action": "Show the install command"
+      "action": "Show the install command",
+      "server": {
+        "title": "Waiting for the first server",
+        "description": "The Server fleet exists, but no server has reported yet. Run the install command on each Linux server (the script, a deb or rpm package, or docker run); data appears within a minute."
+      }
     },
     "health": {
       "healthy": "Healthy",
@@ -914,7 +918,7 @@
       "moreError": "Could not load older events.",
       "noCluster": {
         "title": "No cluster connected yet",
-        "description": "Kubernetes events (Normal and Warning) are stored for the retention period once a cluster is connected."
+        "description": "Events are stored for the retention period once a Kubernetes cluster or a Server fleet is connected: Kubernetes events, and servers' services, processes and containers."
       },
       "empty": {
         "title": "No events yet",
@@ -1757,7 +1761,11 @@
       },
       "topology": {
         "title": "No Services yet",
-        "description": "Without eBPF the map is built from Services and the pods behind them; this cluster has none with ready endpoints."
+        "description": "Without eBPF the map is built from Services and the pods behind them; this cluster has none with ready endpoints.",
+        "server": {
+          "title": "No traffic without eBPF",
+          "description": "No server in this fleet reports eBPF, so the map can only show Compose networks and their containers, and this fleet has none. Who talks to whom needs Linux 5.8 or later with BTF; everything else works without it."
+        }
       },
       "filtered": {
         "title": "Nothing matches the filters",
@@ -2120,7 +2128,7 @@
     "chips": {
       "readOnly": "Read only",
       "restAndMcp": "REST API + MCP",
-      "bothKinds": "Kubernetes and Docker"
+      "bothKinds": "Kubernetes and servers"
     },
     "guide": "MCP setup guide →",
     "loadFailed": "Could not load your API tokens.",
@@ -2268,7 +2276,7 @@
   },
   "applications": {
     "title": "Applications",
-    "subtitle": "Databases, caches, queues and proxies running next to your workloads, on Kubernetes and Docker.",
+    "subtitle": "Databases, caches, queues and proxies running next to your workloads, on Kubernetes and servers.",
     "addManually": "Add manually",
     "filters": {
       "all": "All",
@@ -2349,7 +2357,7 @@
     },
     "empty": {
       "title": "No services found yet",
-      "description": "WatchLog looks for Redis, PostgreSQL, Nginx and RabbitMQ in the images and ports your agents report. When one appears it is offered here; you can also add one by hand."
+      "description": "WatchLog looks for databases, caches, queues and proxies in what your agents report: images and ports on Kubernetes, processes and listening ports on servers. When one appears it is offered here; you can also add one by hand."
     },
     "error": "Applications couldn't be loaded.",
     "monitor": {
@@ -4779,7 +4787,7 @@
       "none": {
         "title": "Nothing has talked to the internet yet",
         "kubernetes": "No workload connected to an external destination in this range. Destinations appear here within a minute of their first connection.",
-        "docker": "No container connected to an external destination in this range. Destinations appear here within a minute of their first connection."
+        "docker": "No service, process or container connected to an external destination in this range. Destinations appear here within a minute of their first connection."
       }
     },
     "talks": {

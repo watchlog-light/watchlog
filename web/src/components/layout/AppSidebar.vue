@@ -28,7 +28,7 @@ const collapsed = computed(() => !props.drawer && sidebarCollapsed.value);
 const auth = useAuthStore();
 const { t } = useI18n();
 const clusters = useClustersStore();
-// The pages of the selected cluster's kind (Hosts and Containers for a Docker fleet).
+// The pages of the selected cluster's kind (Servers for a Server fleet, Nodes for Kubernetes).
 const items = computed(() =>
   navFor(clusters.selected?.kind as 'kubernetes' | 'server' | undefined),
 );

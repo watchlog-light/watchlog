@@ -76,6 +76,13 @@ const waiting = computed(
     o.value.facts.agents.reporting === 0,
 );
 
+// Its words follow the kind (0.10.1): a Server fleet waits for servers and the install
+// command (script, packages or docker run), a Kubernetes cluster for the helm command. The
+// action opens the same command as the Add flow: Cloud's wizard or the fleet's settings.
+const waitingKey = computed(() =>
+  page.data.value?.cluster.kind === 'server' ? 'kube.waiting.server' : 'kube.waiting',
+);
+
 // Cloud's funnel (SPEC §10.4): the overview opened with data. Once per user in the database;
 // once per page view here. Never from support mode (staff aren't the customer).
 let viewed = false;
@@ -154,9 +161,10 @@ onBeforeUnmount(() => clearInterval(clock));
     <EmptyState
       v-else-if="waiting"
       :icon="Hourglass"
-      :title="$t('kube.waiting.title')"
-      :description="$t('kube.waiting.description')"
+      :title="$t(`${waitingKey}.title`)"
+      :description="$t(`${waitingKey}.description`)"
       :action-label="$t('kube.waiting.action')"
+      data-testid="overview-waiting"
       :action-to="
         auth.isCloud
           ? `/onboarding?id=${page.data.value?.cluster.id}`

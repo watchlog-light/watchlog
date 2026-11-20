@@ -388,7 +388,9 @@ describe('the Egress page', () => {
       },
     });
     const { w } = await mountWith(EgressPage, '/egress');
-    expect(w.get('[data-testid="egress-empty"]').text()).toContain('No container connected');
+    expect(w.get('[data-testid="egress-empty"]').text()).toContain(
+      'No service, process or container connected',
+    );
     expect(w.get('[data-testid="egress-learning"]').text()).toContain('Learning until Nov 21');
     w.unmount();
   });

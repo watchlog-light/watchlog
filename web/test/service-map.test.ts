@@ -534,6 +534,35 @@ describe('service map page', () => {
     w.unmount();
   });
 
+  it('an empty topology map: Services on Kubernetes, eBPF on a Server fleet (0.10.1)', async () => {
+    const emptyTopology = {
+      mode: 'topology' as const,
+      dns: [],
+      proxies: [],
+      agents: [],
+      nodes: [],
+      edges: [],
+    };
+    mockFetch(routes(emptyTopology));
+    let { wrapper: w } = await mountPage();
+    expect(w.get('[data-testid="map-empty"]').text()).toContain('No Services yet');
+    w.unmount();
+
+    mockFetch({
+      ...routes(emptyTopology),
+      'GET /api/v1/clusters': {
+        status: 200,
+        body: { clusters: [{ ...CLUSTER, kind: 'server' }] },
+      },
+    });
+    ({ wrapper: w } = await mountPage());
+    const empty = w.get('[data-testid="map-empty"]');
+    expect(empty.text()).toContain('No traffic without eBPF');
+    expect(empty.text()).toContain('Linux 5.8 or later with BTF');
+    expect(empty.text()).not.toMatch(/Services|pods/);
+    w.unmount();
+  });
+
   it('says why eBPF is off with one fix per release (ADR-107)', async () => {
     const fix = 'helm upgrade kind-demo deploy/helm/watchlog-agent';
     const off = { ebpf: 'disabled', reason: null, cause: 'outdated' as const, fix };
