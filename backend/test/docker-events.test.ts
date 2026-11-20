@@ -19,7 +19,10 @@ describe('Docker events', () => {
     });
     const id = created.json().cluster.id as string;
     const token = created.json().token.value as string;
-    const at = (minAgo: number) => new Date(Date.now() - minAgo * 60_000).toISOString();
+    // Rows group per day: keep the events within one UTC day, even just after midnight.
+    const t = Date.now();
+    const base = t % 86_400_000 < 10 * 60_000 ? t - 11 * 60_000 : t;
+    const at = (minAgo: number) => new Date(base - minAgo * 60_000).toISOString();
     const ev = (
       host: string,
       name: string,
