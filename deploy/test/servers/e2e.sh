@@ -107,7 +107,7 @@ in_vm "install -m 0644 $home/wl-dist/api.js /opt/wl-apps/api.js && su - app -c '
 # The test stacks' jar is started by hand and doesn't survive a reboot of the VM.
 in_vm 'pgrep -x java >/dev/null || su - app -c "nohup java -jar /opt/wl-apps/billing.jar >/tmp/billing.log 2>&1 &"' >/dev/null
 # 0.10, before the agent starts (its first certificate round follows its first scrape): a TLS
-# vhost on :8443 from a throwaway CA (never a real one), 10 days left, its name in a Let's
+# vhost on :18443 from a throwaway CA (never a real one), 10 days left, its name in a Let's
 # Encrypt-style store; a timer whose service exits 2; a cron line with a fake secret in it.
 cat >"$work/certsjobs.sh" <<'SETUP'
 set -e
@@ -117,8 +117,11 @@ openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -subj "/CN=e2e.wl
 printf 'subjectAltName=DNS:e2e.wl.test\n' >tls.ext
 openssl x509 -req -in tls.csr -CA ca.crt -CAkey ca.key -CAcreateserial -days 10 -extfile tls.ext -out tls.crt 2>/dev/null
 chmod 0644 tls.crt tls.key
-printf 'server {\n listen 8443 ssl;\n server_name e2e.wl.test;\n ssl_certificate /etc/wl-e2e-tls/tls.crt;\n ssl_certificate_key /etc/wl-e2e-tls/tls.key;\n return 200 "e2e\\n";\n}\n' >/etc/nginx/conf.d/wl-e2e-tls.conf
+printf 'server {\n listen 18443 ssl;\n server_name e2e.wl.test;\n ssl_certificate /etc/wl-e2e-tls/tls.crt;\n ssl_certificate_key /etc/wl-e2e-tls/tls.key;\n return 200 "e2e\\n";\n}\n' >/etc/nginx/conf.d/wl-e2e-tls.conf
 nginx -t 2>/dev/null && systemctl reload nginx
+# A reload reports success even when a port is taken: check it listens.
+for _ in 1 2 3 4 5; do ss -Hltn | grep -q ':18443 ' && break; sleep 1; done
+ss -Hltn | grep -q ':18443 ' || { echo 'nginx is not listening on :18443'; exit 1; }
 printf '[Service]\nType=oneshot\nExecStart=/bin/sh -c "exit 2"\n' >/etc/systemd/system/wl-e2e-job.service
 printf '[Timer]\nOnCalendar=*-*-* 04:00:00\n[Install]\nWantedBy=timers.target\n' >/etc/systemd/system/wl-e2e-job.timer
 systemctl daemon-reload && systemctl enable --now wl-e2e-job.timer
@@ -200,7 +203,7 @@ def cert():
 ct = wait(cert, 240)
 check("the TLS vhost's certificate, asked for by its store name", ct is not None, call("GET", f"/clusters/{cid}/certificates{nq}"))
 if ct:
-    check("served by nginx.service on :8443", any(e.get("workload") == "nginx.service" and e.get("port") == 8443 for e in ct.get("endpoints", [])), ct.get("endpoints"))
+    check("served by nginx.service on :18443", any(e.get("workload") == "nginx.service" and e.get("port") == 18443 for e in ct.get("endpoints", [])), ct.get("endpoints"))
     check("10 days left: Expiring, from a private CA", ct.get("status") == "expiring" and ct.get("chain") == "private" and 8 <= ct.get("daysLeft", 0) <= 10, {k: ct.get(k) for k in ("status", "chain", "daysLeft")})
 found = call("GET", f"/clusters/{cid}/search?q=wl-e2e-job").get("results", [])
 check("search finds the job", any(r.get("kind") == "scheduled_job" for r in found), found)
