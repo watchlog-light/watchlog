@@ -48,6 +48,21 @@ export type DockerContainerList = JsonBody<
 export type DockerContainer = DockerContainerList['containers'][number];
 // Server fleets (ADR-207).
 export type ServerList = JsonBody<Responses<'/api/v1/clusters/{id}/servers', 'get'>[200]>;
+// Certificates and scheduled jobs (0.10, ADR-224).
+export type CertificateList = JsonBody<Responses<'/api/v1/clusters/{id}/certificates', 'get'>[200]>;
+export type TlsCertificate = CertificateList['certificates'][number];
+export type InventoryCoverage = CertificateList['coverage'][number];
+export type CertificateDetail = JsonBody<
+  Responses<'/api/v1/clusters/{id}/certificates/{certId}', 'get'>[200]
+>;
+export type ScheduledJobList = JsonBody<
+  Responses<'/api/v1/clusters/{id}/scheduled-jobs', 'get'>[200]
+>;
+export type ScheduledJob = ScheduledJobList['jobs'][number];
+export type JobRun = ScheduledJob['recent'][number];
+export type ScheduledJobDetail = JsonBody<
+  Responses<'/api/v1/clusters/{id}/scheduled-jobs/{jobId}', 'get'>[200]
+>;
 export type ServerRow = ServerList['servers'][number];
 export type FleetWorkload = NonNullable<ServerList['workloads']>[number];
 export type ServerDetail = JsonBody<

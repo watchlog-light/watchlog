@@ -5580,5 +5580,283 @@
       "compose": "Compose project",
       "processBy": "Process · {by}"
     }
+  },
+  "appTabs": {
+    "label": "Applications sections",
+    "services": "Services",
+    "certificates": "Certificates",
+    "jobs": "Scheduled jobs"
+  },
+  "certs": {
+    "tiles": {
+      "total": "Certificates",
+      "onServers": "on 1 server | on {n} servers",
+      "inCluster": "in this cluster",
+      "expired": "Expired",
+      "expiring": "Expiring within 14 days",
+      "renewing": "Renew themselves",
+      "renewingValue": "{n} of {total}",
+      "renewingSub": "seen renewing on time",
+      "none": "none"
+    },
+    "filters": {
+      "label": "Show certificates",
+      "all": "All",
+      "attention": "Need attention",
+      "ok": "Working",
+      "search": "Filter by name, server or workload"
+    },
+    "columns": {
+      "certificate": "Certificate",
+      "servedBy": "Served by",
+      "issuer": "Issuer",
+      "expires": "Expires",
+      "renewal": "Renewal",
+      "status": "Status"
+    },
+    "status": {
+      "expired": "Expired",
+      "expires_soon": "Expires soon",
+      "expiring": "Expiring",
+      "problem": "Problem",
+      "ok": "Working"
+    },
+    "days": {
+      "expired": "Expired a day ago | Expired {n} days ago",
+      "expiredToday": "Expired today",
+      "today": "Expires today",
+      "left": "1 day left | {n} days left"
+    },
+    "names": {
+      "one": "1 name",
+      "also": "{name}",
+      "more": "{name} and 1 more | {name} and {n} more"
+    },
+    "served": {
+      "nowhere": "Not served now",
+      "server": "{name} on {server} :{port}",
+      "serverMore": "{name} on {server} :{port}, +{n} more",
+      "service": "Service {name} :{port}",
+      "serviceMore": "Service {name} :{port}, +{n} more",
+      "ingress": "Ingress {name} ({host})",
+      "ingressMore": "Ingress {name} ({host}), +{n} more"
+    },
+    "renewal": {
+      "jobFailing": "Its renewal job {job} is failing",
+      "renews": "Renews itself; last time {n} days ago, {before} days before expiry",
+      "private": "Private CA: renewed by whoever runs it",
+      "selfSigned": "Self-signed: renewed by hand",
+      "byJob": "Renewed by {job}; not seen renewing yet",
+      "notYet": "Not renewed yet",
+      "notSeen": "Not seen renewing yet"
+    },
+    "problem": {
+      "name": "Served for {names}, which it doesn't cover",
+      "chain": "Its chain is incomplete: the intermediate certificate isn't sent"
+    },
+    "chain": {
+      "complete": "Complete, to a public root",
+      "incomplete": "Incomplete: the intermediate is missing",
+      "private": "Issued by a private CA",
+      "self-signed": "Self-signed"
+    },
+    "alertsNote": {
+      "title": "Default alerts, on from the first day",
+      "text": "A warning 14 days before a certificate expires, critical at 3 days, and when one has expired. A warning when it doesn't cover a name it is served for or its chain is incomplete. A certificate that renews itself on time never alerts.",
+      "how": "How it is found: the agent reads the certificate each TLS port on the server presents, from the server itself. No traffic is decrypted and no private key is read.",
+      "howKube": "How it is found: the cluster-agent reads the certificate each TLS Service and each Ingress host presents, from inside the cluster. No Secret, traffic or private key is read."
+    },
+    "coverage": {
+      "unserved": "In a certificate store but served by no port: {names}",
+      "unreachable": "1 port couldn't be read | {n} ports couldn't be read",
+      "overCap": "{n} more ports weren't read (50 a server)",
+      "notYet": "Waiting for the first read: the agent reads every 10 minutes."
+    },
+    "needsAgent": {
+      "servers": "1 server runs an agent older than 0.10 and sends no certificates: {names}. Upgrade it to see them. | {n} servers run an agent older than 0.10 and send no certificates: {names}. Upgrade them to see them.",
+      "cluster": "The cluster-agent runs {version}, older than 0.10: upgrade the chart to see this cluster's certificates and CronJobs."
+    },
+    "empty": {
+      "title": "No certificates found yet",
+      "description": "WatchLog lists every certificate a TLS port presents here. None was found, or the first read hasn't come yet.",
+      "filtered": "No certificate matches these filters."
+    },
+    "error": "The certificates couldn't be loaded.",
+    "open": "Open certificate {name}",
+    "detail": {
+      "back": "Certificates",
+      "facts": "Certificate",
+      "names": "Names",
+      "issuer": "Issuer",
+      "validFrom": "Valid from",
+      "validUntil": "Valid until",
+      "key": "Key",
+      "chain": "Chain",
+      "fingerprint": "SHA-256 fingerprint",
+      "served": "Where it is served",
+      "port": "Port {port}",
+      "sni": "asked for {name}",
+      "renewal": "Renewal",
+      "renewalJob": "Renewal job",
+      "history": "Every certificate seen under these names",
+      "seen": "Seen {from} to {to}",
+      "current": "Served now",
+      "renewedBefore": "Renewed {n} days before the one before it expired",
+      "notFound": "This certificate isn't served any more, or never was here."
+    }
+  },
+  "jobs": {
+    "tiles": {
+      "total": "Scheduled jobs",
+      "kinds": "{timers} timers, {cron} cron jobs",
+      "cronjobs": "1 CronJob | {n} CronJobs",
+      "failing": "Failing",
+      "missedOrSlow": "Missed or slow",
+      "ranOnTime": "Ran fine, last 24 h",
+      "ranOnTimeValue": "{ok} of {total}",
+      "ranOnTimeSub": "runs that ended",
+      "none": "none"
+    },
+    "filters": {
+      "label": "Show jobs",
+      "all": "All",
+      "attention": "Need attention",
+      "timer": "Timers",
+      "cron": "Cron",
+      "cronjob": "CronJobs",
+      "search": "Filter by name or server"
+    },
+    "columns": {
+      "job": "Job",
+      "schedule": "Schedule",
+      "lastRun": "Last run",
+      "recent": "Last 14 runs",
+      "attention": "Needs attention",
+      "status": "Status"
+    },
+    "status": {
+      "failed": "Failing",
+      "missed": "Missed",
+      "slow": "Slow",
+      "running": "Running",
+      "working": "Working",
+      "new": "New",
+      "disabled": "Disabled"
+    },
+    "kind": {
+      "timer": "systemd timer",
+      "cron": "cron · {file}",
+      "cronUser": "cron · a user's crontab",
+      "cronjob": "CronJob in {namespace}"
+    },
+    "schedule": {
+      "everyMinute": "Every minute",
+      "everyMinutes": "Every minute | Every {n} minutes",
+      "hourly": "Every hour",
+      "hourlyAt": "Every hour at :{min}",
+      "everyHours": "Every hour at :{min} | Every {n} hours at :{min}",
+      "daily": "Every day at midnight",
+      "dailyAt": "Every day at {at}",
+      "weekdaysAt": "Weekdays at {at}",
+      "weekly": {
+        "mon": "Every Monday at {at}",
+        "tue": "Every Tuesday at {at}",
+        "wed": "Every Wednesday at {at}",
+        "thu": "Every Thursday at {at}",
+        "fri": "Every Friday at {at}",
+        "sat": "Every Saturday at {at}",
+        "sun": "Every Sunday at {at}"
+      },
+      "monthly": "Every month",
+      "monthlyAt": "Every month on day {day} at {at}",
+      "yearly": "Every year",
+      "timesADay": "Once a day ({at}) | {n} times a day ({at})",
+      "raw": "{spec}",
+      "next": "next: {when}",
+      "noNext": "no next run",
+      "every": "about every {d}"
+    },
+    "last": {
+      "never": "Hasn't run yet",
+      "disabled": "Not running: disabled",
+      "running": "Running for {d}",
+      "failedCode": "Failed, exit code {code}",
+      "failed": "Failed",
+      "ran": "Ran (its result isn't known)",
+      "ok": "Succeeded",
+      "took": "took {d}",
+      "usually": "usually {d}"
+    },
+    "problem": {
+      "none": "Nothing",
+      "failedOnce": "Its last run failed",
+      "failedStreak": "Failed {n} times in a row",
+      "failedStreakGood": "Failed {n} times in a row. Last good run: {date}",
+      "missed": {
+        "not-run": "Missed a run: it didn't start | Missed {n} runs: they didn't start",
+        "timer-off": "Missed a run: the timer is disabled | Missed {n} runs: the timer is disabled",
+        "server-off": "A run was due while the server was off",
+        "agent-stopped": "A run was due while the agent was stopped"
+      },
+      "slow": "Running far longer than usual",
+      "slowTimes": "Running {n} times longer than usual",
+      "disabled": "Disabled: it doesn't run",
+      "new": "Not run yet"
+    },
+    "runsAria": "No run yet | 1 run: {summary} | Last {n} runs: {summary}",
+    "runsSummary": "{ok} good, {failed} failed",
+    "alertsNote": {
+      "title": "Default alerts, on from the first day",
+      "text": "A job that fails (critical at 3 in a row; a job every few minutes only at 3 in a row), a job that didn't run when it should have, and a job that runs far longer than it usually does. One alert per job, with its exit code.",
+      "how": "How it is found: systemd timers from systemd itself; cron jobs from the crontabs on the server, matched with the processes cron really starts. Only the job's name is sent, never its command line.",
+      "howKube": "How it is found: the cluster-agent reads each CronJob and the Jobs it creates; a failed Job's pod gives the exit code."
+    },
+    "noRuns": "Cron runs can't be seen on this server (no eBPF and no text log of cron's): its cron jobs are listed without runs and never alert.",
+    "needsAgent": {
+      "servers": "1 server runs an agent older than 0.10 and sends no scheduled jobs: {names}. Upgrade it to see them. | {n} servers run an agent older than 0.10 and send no scheduled jobs: {names}. Upgrade them to see them.",
+      "cluster": "The cluster-agent runs {version}, older than 0.10: upgrade the chart to see this cluster's CronJobs."
+    },
+    "empty": {
+      "title": "No scheduled jobs found yet",
+      "description": "WatchLog lists systemd timers and cron jobs on servers, and CronJobs in Kubernetes. None was found, or the first read hasn't come yet.",
+      "filtered": "No job matches these filters."
+    },
+    "error": "The scheduled jobs couldn't be loaded.",
+    "open": "Open job {name}",
+    "detail": {
+      "back": "Scheduled jobs",
+      "facts": "Job",
+      "schedule": "Schedule",
+      "written": "As written",
+      "next": "Next run",
+      "lastGood": "Last good run",
+      "usual": "Usual duration",
+      "unit": "Starts",
+      "source": "Found in",
+      "server": "Server",
+      "namespace": "Namespace",
+      "persistent": "Catches up after a reboot",
+      "randomDelay": "Random delay up to {d}",
+      "runs": "Runs",
+      "runsChart": "Duration of its last runs; failed ones in red",
+      "started": "Started",
+      "duration": "Duration",
+      "result": "Result",
+      "exitCode": "Exit code",
+      "results": {
+        "success": "Succeeded",
+        "failed": "Failed",
+        "running": "Running",
+        "unknown": "Ran"
+      },
+      "hours": "Runs per hour, last 30 days",
+      "hoursSummary": "{runs} runs, {failures} failed, the longest {d}",
+      "noRuns": "No run seen yet.",
+      "logs": "Its unit's log",
+      "logsCron": "cron sends a job's output by mail and keeps no log WatchLog can read.",
+      "logsKube": "Its runs' pods and their logs are on the CronJob's page.",
+      "openWorkload": "Open the CronJob",
+      "notFound": "This job isn't on this server or cluster any more."
+    }
   }
 }

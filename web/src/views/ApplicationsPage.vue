@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import AddServiceDialog from '@/components/applications/AddServiceDialog.vue';
+import ApplicationsTabs from '@/components/applications/ApplicationsTabs.vue';
 import DiscoveredServices from '@/components/applications/DiscoveredServices.vue';
 import MonitorDrawer from '@/components/applications/MonitorDrawer.vue';
 import SparkLine from '@/components/overview/SparkLine.vue';
@@ -130,6 +131,7 @@ async function started() {
 
 <template>
   <div class="flex flex-col gap-5" data-testid="applications">
+    <ApplicationsTabs />
     <div class="flex flex-wrap items-start justify-between gap-3">
       <p class="text-14 text-text-muted">{{ $t('applications.subtitle') }}</p>
       <LockedControl>

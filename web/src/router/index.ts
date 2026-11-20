@@ -247,6 +247,32 @@ export const routes: RouteRecordRaw[] = [
         path: 'docker/hosts/:host/containers/:name',
         redirect: (to) => ({ name: 'docker-container', params: to.params, query: to.query }),
       },
+      // Applications' Certificates and Scheduled jobs tabs (0.10, ADR-221): the selected
+      // cluster's; static paths, so they win over applications/:id.
+      {
+        name: 'certificates',
+        path: 'applications/certificates',
+        component: () => import('@/views/CertificatesPage.vue'),
+        meta: { titleKey: 'nav.applications' },
+      },
+      {
+        name: 'certificate',
+        path: 'applications/certificates/:certId',
+        component: () => import('@/views/CertificatePage.vue'),
+        meta: { titleKey: 'nav.applications' },
+      },
+      {
+        name: 'scheduled-jobs',
+        path: 'applications/scheduled-jobs',
+        component: () => import('@/views/ScheduledJobsPage.vue'),
+        meta: { titleKey: 'nav.applications' },
+      },
+      {
+        name: 'scheduled-job',
+        path: 'applications/scheduled-jobs/:jobId',
+        component: () => import('@/views/ScheduledJobPage.vue'),
+        meta: { titleKey: 'nav.applications' },
+      },
       // A monitored service (SPEC §4.12); it has its own time range (ADR-135).
       {
         name: 'application',
