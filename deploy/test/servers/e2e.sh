@@ -48,7 +48,7 @@ cleanup() {
   [ -f "$work/worker.pid" ] && killtree "$(cat "$work/worker.pid")"
   if [ -n "${home:-}" ]; then
     in_vm "systemctl stop wl-e2e-egress 2>/dev/null; bash $home/wl-dist/install.sh --uninstall >/dev/null 2>&1" >/dev/null 2>&1
-    in_vm "systemctl disable --now wl-e2e-job.timer 2>/dev/null; rm -f /etc/systemd/system/wl-e2e-job.* /etc/cron.d/wl-e2e /etc/nginx/conf.d/wl-e2e-tls.conf; rm -rf /etc/wl-e2e-tls /etc/letsencrypt/live/e2e.wl.test; systemctl daemon-reload; systemctl reload nginx 2>/dev/null" >/dev/null 2>&1
+    in_vm "systemctl disable --now wl-e2e-job.timer 2>/dev/null; rm -f /etc/systemd/system/wl-e2e-job.* /etc/cron.d/wl-e2e /etc/nginx/conf.d/wl-e2e-tls.conf; rm -rf /etc/wl-e2e-tls /etc/letsencrypt/live/e2e.wl.test; systemctl daemon-reload; systemctl reload nginx 2>/dev/null; command -v semanage >/dev/null && semanage port -d -t http_port_t -p tcp 18443 2>/dev/null" >/dev/null 2>&1
     limactl shell "$vm" bash -c 'rm -rf ~/wl-dist' >/dev/null 2>&1
   fi
   sleep 1
@@ -106,6 +106,8 @@ limactl copy "$here/apps/api.js" "$vm:wl-dist/api.js"
 in_vm "install -m 0644 $home/wl-dist/api.js /opt/wl-apps/api.js && su - app -c 'pm2 delete mailer >/dev/null 2>&1; pm2 start /opt/wl-apps/api.js --name mailer -- 0 http://127.0.0.1:8092/ >/dev/null && pm2 save >/dev/null'" >/dev/null 2>&1
 # The test stacks' jar is started by hand and doesn't survive a reboot of the VM.
 in_vm 'pgrep -x java >/dev/null || su - app -c "nohup java -jar /opt/wl-apps/billing.jar >/tmp/billing.log 2>&1 &"' >/dev/null
+# Nor does the Redis container under Podman (Rocky), which has no restart service.
+in_vm 'docker start redis >/dev/null 2>&1 || true' >/dev/null
 # 0.10, before the agent starts (its first certificate round follows its first scrape): a TLS
 # vhost on :18443 from a throwaway CA (never a real one), 10 days left, its name in a Let's
 # Encrypt-style store; a timer whose service exits 2; a cron line with a fake secret in it.
@@ -118,6 +120,10 @@ printf 'subjectAltName=DNS:e2e.wl.test\n' >tls.ext
 openssl x509 -req -in tls.csr -CA ca.crt -CAkey ca.key -CAcreateserial -days 10 -extfile tls.ext -out tls.crt 2>/dev/null
 chmod 0644 tls.crt tls.key
 printf 'server {\n listen 18443 ssl;\n server_name e2e.wl.test;\n ssl_certificate /etc/wl-e2e-tls/tls.crt;\n ssl_certificate_key /etc/wl-e2e-tls/tls.key;\n return 200 "e2e\\n";\n}\n' >/etc/nginx/conf.d/wl-e2e-tls.conf
+# SELinux (Rocky): nginx may bind only http_port_t ports.
+if command -v semanage >/dev/null && [ "$(getenforce 2>/dev/null)" = Enforcing ]; then
+  semanage port -a -t http_port_t -p tcp 18443 2>/dev/null || semanage port -m -t http_port_t -p tcp 18443
+fi
 nginx -t 2>/dev/null && systemctl reload nginx
 # A reload reports success even when a port is taken: check it listens.
 for _ in 1 2 3 4 5; do ss -Hltn | grep -q ':18443 ' && break; sleep 1; done
