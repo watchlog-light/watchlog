@@ -80,6 +80,31 @@ Open `WATCHLOG_PUBLIC_URL`, enter the code and create your admin account. Only p
 
 **2. The agents.** In the UI, go to **Settings → Clusters → Add cluster → Servers**, then run the command it shows on every server, including this one if it runs workloads. Each server's services, processes and containers appear within a minute. See [Linux servers](servers.md).
 
+### HTTPS in front, on any port
+
+Keep `compose.yaml` as released and put your changes in a `compose.override.yaml` next to it; Compose reads both.
+
+- **Publish the dashboard on loopback only:** `WATCHLOG_PORT=127.0.0.1:8080` in `.env`. Add your TLS proxy (nginx, Caddy, Traefik) as a service in the override, publishing only its own ports and sending everything to `web:8080`. The web container passes `/api`, `/ingest`, `/mcp` and `/install.sh` to the backend.
+- **The public URL includes the port** when it isn't 443, for example `WATCHLOG_PUBLIC_URL=https://watchlog.example.com:8443`. Install commands and email links use it as written.
+- **What the proxy sends:** `X-Forwarded-Proto: https` and the visitor's address in `X-Real-IP` (then set `WATCHLOG_CLIENT_IP_HEADER=X-Real-IP`). Turn response buffering off and allow reads of at least 5 minutes: log follow and MCP answers are streamed. Allow request bodies of 8 MB for agents. See [Behind a reverse proxy](configuration.md#behind-a-reverse-proxy).
+- **HSTS:** the backend sends it on API answers. If the proxy adds its own, hide the backend's copy, so browsers get one header.
+- **A plain-HTTP port that only redirects:** a browser that has seen HSTS for the host upgrades `http://host:PORT` to `https://host:PORT` on that same port. Serve TLS on the redirect port too, and answer plain HTTP there with the redirect (nginx: `listen PORT ssl;`, `error_page 497 =301 https://…$request_uri;`), so both kinds of request get it.
+- **Certificates without ports 80 and 443:** Let's Encrypt's HTTP-01 and TLS-ALPN-01 challenges need those ports. Use the DNS-01 challenge (acme.sh, lego and Caddy support most DNS providers), on this host or on another machine that copies the certificate here and reloads the proxy. Check propagation on the zone's authoritative servers: a public resolver that looked the name up before the TXT record existed keeps the empty answer for the zone's negative TTL, often 30 minutes.
+
+### When Docker Hub can't be reached
+
+`compose.yaml` takes PostgreSQL and VictoriaMetrics from Docker Hub; WatchLog's own images come from ghcr.io. Where Docker Hub refuses pulls (HTTP 403, or rate limits), take the same images and tags from another registry in `compose.override.yaml`:
+
+```yaml
+services:
+  postgres:
+    image: public.ecr.aws/docker/library/postgres:16-alpine
+  victoriametrics:
+    image: quay.io/victoriametrics/victoria-metrics:v1.155.0
+```
+
+Use the tags in your `compose.yaml`, and check them again when you upgrade: a release may move to a newer tag. `docker compose config --images` lists every image the stack will pull.
+
 ## Applications (databases, caches, queues, web servers)
 
 WatchLog finds Redis, PostgreSQL, Nginx and RabbitMQ in what the agents already see. Open
