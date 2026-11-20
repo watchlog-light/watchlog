@@ -59,7 +59,7 @@ import (
 )
 
 const (
-	agentVersion     = "0.6.0"
+	agentVersion     = "0.10.0"
 	writeInterval    = 15 * time.Second
 	snapshotInterval = 10 * time.Minute
 	userAgent        = "watchlog-agent/" + agentVersion + " (loadgen)"
@@ -716,6 +716,7 @@ func runCmd(args []string) error {
 		a       *agent
 		cl      *clusterPlan
 		objects func() [][]byte // snapshot bodies, nil for none
+		every   func() []byte   // a body sent every minute (a 0.10 server's inventory), or nil
 	}
 	var jobs []job
 	for _, o := range orgs {
@@ -732,10 +733,16 @@ func runCmd(args []string) error {
 				if cl.Kind == "docker" {
 					set := tpl.DockerHost[(o.Index+i)%len(tpl.DockerHost)]
 					if *servers && len(tpl.Server) > 0 {
-						set = tpl.Server[(o.Index+i)%len(tpl.Server)]
+						set = withInventory(tpl.Server[(o.Index+i)%len(tpl.Server)])
 					}
 					a := newAgent("docker_host", n, "host", set)
-					jobs = append(jobs, job{a: a, cl: cl, objects: func() [][]byte { return [][]byte{dockerSnapshot(a)} }})
+					var every func() []byte
+					if *servers {
+						// 0.10: the inventory snapshot, sent when it changes; a job every minute
+						// changes it every minute.
+						every = func() []byte { return serverInventory(a) }
+					}
+					jobs = append(jobs, job{a: a, cl: cl, every: every, objects: func() [][]byte { return [][]byte{dockerSnapshot(a)} }})
 				} else {
 					set := tpl.K8sNode[(o.Index+i)%len(tpl.K8sNode)]
 					jobs = append(jobs, job{a: newAgent("k8s_node", n, "node", set), cl: cl})
@@ -763,7 +770,7 @@ func runCmd(args []string) error {
 				return
 			}
 			running.Add(1)
-			runAgent(ctx, c, *ingest, j.cl.Token, j.a, j.objects, st)
+			runAgent(ctx, c, *ingest, j.cl.Token, j.a, j.objects, j.every, st)
 		})
 	}
 	if *readEvery > 0 {
@@ -819,7 +826,7 @@ func sleepCtx(ctx context.Context, d time.Duration) bool {
 	}
 }
 
-func runAgent(ctx context.Context, c *client, ingest, token string, a *agent, objects func() [][]byte, st *stats) {
+func runAgent(ctx context.Context, c *client, ingest, token string, a *agent, objects func() [][]byte, every func() []byte, st *stats) {
 	mode := map[string]string{"k8s_node": "node", "docker_host": "docker", "cluster_agent": "cluster"}[a.kind]
 	headers := func(extra map[string]string) map[string]string {
 		h := map[string]string{"Authorization": "Bearer " + token, "User-Agent": userAgent, "X-WatchLog-Agent": a.id}
@@ -847,7 +854,7 @@ func runAgent(ctx context.Context, c *client, ingest, token string, a *agent, ob
 		}
 		st.record(name, status, time.Since(t0), len(body))
 	}
-	var lastSnapshot time.Time
+	var lastSnapshot, lastEvery time.Time
 	t := time.NewTicker(writeInterval)
 	defer t.Stop()
 	for {
@@ -860,6 +867,10 @@ func runAgent(ctx context.Context, c *client, ingest, token string, a *agent, ob
 			for _, body := range objects() {
 				post("objects", ingest+"/ingest/v1/objects", gz(body), gzH)
 			}
+		}
+		if every != nil && time.Since(lastEvery) >= time.Minute {
+			lastEvery = time.Now()
+			post("inventory", ingest+"/ingest/v1/objects", gz(every()), gzH)
 		}
 		select {
 		case <-ctx.Done():

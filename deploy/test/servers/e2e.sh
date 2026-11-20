@@ -22,6 +22,8 @@
 #   E2E_KEEP=1         leave the backend, its database and the agent running afterwards (debugging)
 #   E2E_ONLY=events    stop after the server's own events (0.9.2): a pm2 app killed, a unit
 #                      failing, an OOM kill under MemoryMax, an executable replaced
+#   E2E_ONLY=certsjobs stop after certificates and scheduled jobs (0.10): a TLS vhost from a
+#                      throwaway CA, a timer whose run fails, a cron line with a fake secret
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../../.." && pwd)"
@@ -46,6 +48,7 @@ cleanup() {
   [ -f "$work/worker.pid" ] && killtree "$(cat "$work/worker.pid")"
   if [ -n "${home:-}" ]; then
     in_vm "systemctl stop wl-e2e-egress 2>/dev/null; bash $home/wl-dist/install.sh --uninstall >/dev/null 2>&1" >/dev/null 2>&1
+    in_vm "systemctl disable --now wl-e2e-job.timer 2>/dev/null; rm -f /etc/systemd/system/wl-e2e-job.* /etc/cron.d/wl-e2e /etc/nginx/conf.d/wl-e2e-tls.conf; rm -rf /etc/wl-e2e-tls /etc/letsencrypt/live/e2e.wl.test; systemctl daemon-reload; systemctl reload nginx 2>/dev/null" >/dev/null 2>&1
     limactl shell "$vm" bash -c 'rm -rf ~/wl-dist' >/dev/null 2>&1
   fi
   sleep 1
@@ -58,7 +61,7 @@ arch=$(limactl list --format '{{.Arch}}' "$vm")
 case "$arch" in aarch64) arch=arm64 ;; x86_64) arch=amd64 ;; esac
 echo "== the agent's assets ($arch)"
 GOPROXY=${GOPROXY:-'https://proxy.golang.org|https://goproxy.io,direct'} \
-  bounded 290 "$root/deploy/linux/build.sh" 0.9.2-e2e "$work/dist" "$arch" >/dev/null || { echo "build failed"; exit 1; }
+  bounded 290 "$root/deploy/linux/build.sh" 0.10.0-e2e "$work/dist" "$arch" >/dev/null || { echo "build failed"; exit 1; }
 limactl shell "$vm" bash -c 'rm -rf ~/wl-dist && mkdir -p ~/wl-dist'
 for f in "$work/dist"/*; do limactl copy "$f" "$vm:wl-dist/"; done
 home=$(limactl shell "$vm" bash -c 'echo $HOME')
@@ -103,6 +106,26 @@ limactl copy "$here/apps/api.js" "$vm:wl-dist/api.js"
 in_vm "install -m 0644 $home/wl-dist/api.js /opt/wl-apps/api.js && su - app -c 'pm2 delete mailer >/dev/null 2>&1; pm2 start /opt/wl-apps/api.js --name mailer -- 0 http://127.0.0.1:8092/ >/dev/null && pm2 save >/dev/null'" >/dev/null 2>&1
 # The test stacks' jar is started by hand and doesn't survive a reboot of the VM.
 in_vm 'pgrep -x java >/dev/null || su - app -c "nohup java -jar /opt/wl-apps/billing.jar >/tmp/billing.log 2>&1 &"' >/dev/null
+# 0.10, before the agent starts (its first certificate round follows its first scrape): a TLS
+# vhost on :8443 from a throwaway CA (never a real one), 10 days left, its name in a Let's
+# Encrypt-style store; a timer whose service exits 2; a cron line with a fake secret in it.
+cat >"$work/certsjobs.sh" <<'SETUP'
+set -e
+mkdir -p /etc/wl-e2e-tls /etc/letsencrypt/live/e2e.wl.test && cd /etc/wl-e2e-tls
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 30 -subj "/CN=WL e2e test CA" -keyout ca.key -out ca.crt 2>/dev/null
+openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -subj "/CN=e2e.wl.test" -keyout tls.key -out tls.csr 2>/dev/null
+printf 'subjectAltName=DNS:e2e.wl.test\n' >tls.ext
+openssl x509 -req -in tls.csr -CA ca.crt -CAkey ca.key -CAcreateserial -days 10 -extfile tls.ext -out tls.crt 2>/dev/null
+chmod 0644 tls.crt tls.key
+printf 'server {\n listen 8443 ssl;\n server_name e2e.wl.test;\n ssl_certificate /etc/wl-e2e-tls/tls.crt;\n ssl_certificate_key /etc/wl-e2e-tls/tls.key;\n return 200 "e2e\\n";\n}\n' >/etc/nginx/conf.d/wl-e2e-tls.conf
+nginx -t 2>/dev/null && systemctl reload nginx
+printf '[Service]\nType=oneshot\nExecStart=/bin/sh -c "exit 2"\n' >/etc/systemd/system/wl-e2e-job.service
+printf '[Timer]\nOnCalendar=*-*-* 04:00:00\n[Install]\nWantedBy=timers.target\n' >/etc/systemd/system/wl-e2e-job.timer
+systemctl daemon-reload && systemctl enable --now wl-e2e-job.timer
+printf '17 3 * * * root /usr/local/bin/wl-e2e-report.sh --token=wl-test-secret-e2e >/dev/null 2>&1\n' >/etc/cron.d/wl-e2e
+SETUP
+limactl copy "$work/certsjobs.sh" "$vm:wl-dist/certsjobs.sh"
+in_vm "bash $home/wl-dist/certsjobs.sh" >"$work/certsjobs.out" 2>&1 || { echo "0.10 fixtures failed"; cat "$work/certsjobs.out"; exit 1; }
 in_vm "bash $home/wl-dist/install.sh --uninstall >/dev/null 2>&1; WATCHLOG_INSTALL_FROM=$home/wl-dist sh $home/wl-dist/install.sh --token $token --url http://host.lima.internal:$port --hostname e2e-$distro" >"$work/install.out" 2>&1
 grep -q 'Checksum verified.' "$work/install.out" || { echo "install failed"; tail -5 "$work/install.out"; exit 1; }
 # A service that talks to the internet, for Egress (a file, so no quoting crosses the VM's
@@ -111,7 +134,7 @@ printf '%s\n' 'for i in $(seq 1 40); do curl -s -o /dev/null -m 5 https://github
 limactl copy "$work/egress.sh" "$vm:wl-dist/egress.sh"
 in_vm "systemd-run --unit=wl-e2e-egress --collect /bin/sh $home/wl-dist/egress.sh" >/dev/null 2>&1
 
-bounded "$([ "${E2E_ONLY:-}" = events ] && echo 280 || echo 540)" python3 - <<'EOF'
+bounded "$(case "${E2E_ONLY:-}" in events) echo 280 ;; certsjobs) echo 600 ;; *) echo 1000 ;; esac)" python3 - <<'EOF'
 import http.cookiejar, json, os, subprocess, sys, time, urllib.parse, urllib.request
 jar = http.cookiejar.MozillaCookieJar(os.environ["E2E_WORK"] + "/cookies")
 jar.load(ignore_discard=True)
@@ -160,6 +183,33 @@ def workloads():
 ids = wait(workloads, 120)
 seen = sorted(x.get("id") for x in call("GET", base + "/workloads").get("workloads", []))
 check("workloads: a service, a pm2 app, a PHP-FPM pool and a container", ids is not None, seen)
+
+print("== certificates and scheduled jobs (0.10)", flush=True)
+nq = "?node=" + q(host)
+vm_root("systemctl start wl-e2e-job.service")  # a run of the timer's unit, exit 2
+def job(name):
+    return next((j for j in call("GET", f"/clusters/{cid}/scheduled-jobs{nq}").get("jobs", []) if j.get("name") == name), None)
+j = wait(lambda: (lambda x: x if x and x.get("state") == "failed" else None)(job("wl-e2e-job.timer")), 180)
+check("the timer's failed run: Failing, exit code 2", j is not None and (j.get("lastRun") or {}).get("code") == 2, job("wl-e2e-job.timer"))
+c = wait(lambda: job("wl-e2e-report.sh"), 120)
+check("the cron line, named from its command, from /etc/cron.d/wl-e2e", c is not None and c.get("kind") == "cron" and c.get("source") == "/etc/cron.d/wl-e2e", c)
+everything = json.dumps(call("GET", f"/clusters/{cid}/scheduled-jobs{nq}"))
+check("no crontab argument or user leaves the server", "wl-test-secret" not in everything and "--token" not in everything, everything[:300])
+def cert():
+    return next((x for x in call("GET", f"/clusters/{cid}/certificates{nq}").get("certificates", []) if "e2e.wl.test" in x.get("names", [])), None)
+ct = wait(cert, 240)
+check("the TLS vhost's certificate, asked for by its store name", ct is not None, call("GET", f"/clusters/{cid}/certificates{nq}"))
+if ct:
+    check("served by nginx.service on :8443", any(e.get("workload") == "nginx.service" and e.get("port") == 8443 for e in ct.get("endpoints", [])), ct.get("endpoints"))
+    check("10 days left: Expiring, from a private CA", ct.get("status") == "expiring" and ct.get("chain") == "private" and 8 <= ct.get("daysLeft", 0) <= 10, {k: ct.get(k) for k in ("status", "chain", "daysLeft")})
+found = call("GET", f"/clusters/{cid}/search?q=wl-e2e-job").get("results", [])
+check("search finds the job", any(r.get("kind") == "scheduled_job" for r in found), found)
+for key in ("job.failed", "cert.expiring"):
+    fired = wait(lambda: [a for a in call("GET", f"/alerts?view=firing&clusterId={cid}").get("alerts", []) if a.get("rule", {}).get("key") == key], 180)
+    check(f"the default rule {key} fires", bool(fired), [a.get("rule") for a in call("GET", f"/alerts?view=firing&clusterId={cid}").get("alerts", [])])
+if os.environ.get("E2E_ONLY") == "certsjobs":
+    print(f"{fails} check(s) failed", flush=True)
+    sys.exit(1 if fails else 0)
 
 print("== the server's own events (0.9.2): each on Events within a minute", flush=True)
 def events_of(q=""):
