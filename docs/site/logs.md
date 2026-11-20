@@ -67,14 +67,14 @@ changed. Control characters and colour codes are removed.
 | `get_container_logs` (MCP)   | At most 200 lines and 16 KB, newest last                  |
 | No agent picks it up in 10 s | The answer says so: the agent is older than 0.5.0, or off |
 
-## Kubernetes and Docker
+## Kubernetes, containers and servers
 
-|                   | Kubernetes                                   | Docker                                                                       |
-| ----------------- | -------------------------------------------- | ---------------------------------------------------------------------------- |
-| Read by           | The cluster-agent, through the API server    | The host's agent, through the Docker socket                                  |
-| stdout and stderr | Merged by Kubernetes, not marked             | Each line marked                                                             |
-| Previous run      | Yes, the container's last run                | No; a stopped container's log stays while it exists                          |
-| Which logs        | Whatever the kubelet keeps for the container | Containers with the `json-file`, `local` or `journald` driver; others say so |
+|                   | Kubernetes                                   | Containers (Docker)                                                          | Services and process groups (servers)                                                    |
+| ----------------- | -------------------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Read by           | The cluster-agent, through the API server    | The host's agent, through the Docker socket                                  | The server's agent: the unit's journal, or pm2's and supervisord's log files             |
+| stdout and stderr | Merged by Kubernetes, not marked             | Each line marked                                                             | pm2 and supervisord: each line marked; the journal: error priorities read as stderr      |
+| Previous run      | Yes, the container's last run                | No; a stopped container's log stays while it exists                          | No; the journal and the log files are one history                                        |
+| Which logs        | Whatever the kubelet keeps for the container | Containers with the `json-file`, `local` or `journald` driver; others say so | systemd services, pm2 apps and supervisord programs; a process started otherwise says so |
 
 ## Who can read logs
 
