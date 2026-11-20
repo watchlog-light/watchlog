@@ -19,6 +19,9 @@ type Exits struct {
 	objs procsObjects
 	link link.Link
 	rd   *ringbuf.Reader
+	// The cron exec program (ADR-223); nil when it couldn't attach (exits still work).
+	execLink link.Link
+	execRd   *ringbuf.Reader
 }
 
 // StartExits loads and attaches the exit program; an error means exit codes and OOM kills
@@ -40,7 +43,45 @@ func StartExits() (*Exits, error) {
 		return nil, err
 	}
 	e.rd = rd
+	// The runs cron starts: optional, its failure leaves exits as they were.
+	if el, err := link.AttachTracing(link.TracingOptions{Program: e.objs.OnProcessExec}); err == nil {
+		if erd, err := ringbuf.NewReader(e.objs.Execs); err == nil {
+			e.execLink, e.execRd = el, erd
+		} else {
+			_ = el.Close()
+		}
+	}
 	return e, nil
+}
+
+// Execs says whether the cron exec program is attached.
+func (e *Exits) Execs() bool { return e.execRd != nil }
+
+// ReadExecs calls handle for every exec cron's child makes, until Close; false at once when
+// the exec program isn't attached.
+func (e *Exits) ReadExecs(handle func(ExecEvent)) bool {
+	if e.execRd == nil {
+		return false
+	}
+	var rec ringbuf.Record
+	for {
+		if err := e.execRd.ReadInto(&rec); err != nil {
+			return true
+		}
+		var raw procsExecEvent
+		if err := binary.Read(bytes.NewReader(rec.RawSample), binary.LittleEndian, &raw); err != nil {
+			continue
+		}
+		n := int(raw.ArgsLen)
+		if n > len(raw.Args) {
+			n = len(raw.Args)
+		}
+		args := make([]byte, n)
+		for i := 0; i < n; i++ {
+			args[i] = byte(raw.Args[i]) //nolint:gosec // a C char's bits
+		}
+		handle(ExecEvent{Tgid: raw.Tgid, PPID: raw.Ppid, StartNs: raw.StartNs, Comm: cString(raw.Comm[:]), Args: splitArgs(args)})
+	}
 }
 
 // Read calls handle for every exit until Close.
@@ -78,6 +119,12 @@ func (e *Exits) Dropped() uint64 {
 func (e *Exits) Close() {
 	if e.rd != nil {
 		_ = e.rd.Close()
+	}
+	if e.execRd != nil {
+		_ = e.execRd.Close()
+	}
+	if e.execLink != nil {
+		_ = e.execLink.Close()
 	}
 	if e.link != nil {
 		_ = e.link.Close()

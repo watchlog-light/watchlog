@@ -118,8 +118,14 @@ struct css_set {
 	struct cgroup *dfl_cgrp;
 } __attribute__((preserve_access_index));
 
+/* arg_start..arg_end: a process's command line in its own memory (the cron exec program). */
 struct mm_struct {
+	unsigned long arg_start;
+	unsigned long arg_end;
 } __attribute__((preserve_access_index));
+
+/* sched_process_exec's third argument: not read, only named. */
+struct linux_binprm;
 
 /* signal->oom_mm is set by mark_oom_victim() (kernel 4.11+): a task the OOM killer chose. */
 struct signal_struct {
@@ -145,6 +151,9 @@ struct task_struct {
 	struct signal_struct *signal;
 	struct task_struct *real_parent;
 	struct pid *thread_pid;
+	struct mm_struct *mm;
+	__u64 start_time; /* nanoseconds since boot (monotonic) */
+	char comm[16];
 } __attribute__((preserve_access_index));
 
 #define AF_INET 2

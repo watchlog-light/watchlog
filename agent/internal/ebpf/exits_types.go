@@ -33,3 +33,30 @@ func withStatus(e ExitEvent, code int32) ExitEvent {
 	}
 	return e
 }
+
+// ExecEvent is a process cron's child started (ADR-223): its command line stays in the agent,
+// matched to a crontab line and dropped.
+type ExecEvent struct {
+	Tgid, PPID uint32
+	// StartNs is when it started, nanoseconds since boot.
+	StartNs uint64
+	Comm    string
+	// Args is the command line, cut at 256 bytes.
+	Args []string
+}
+
+// splitArgs splits a NUL-separated command line.
+func splitArgs(b []byte) []string {
+	var out []string
+	start := 0
+	for i, c := range b {
+		if c == 0 {
+			out = append(out, string(b[start:i]))
+			start = i + 1
+		}
+	}
+	if start < len(b) {
+		out = append(out, string(b[start:]))
+	}
+	return out
+}

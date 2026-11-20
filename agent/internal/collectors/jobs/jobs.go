@@ -61,7 +61,7 @@ type Run struct {
 	Start  int64  `json:"start"`
 	End    int64  `json:"end,omitempty"`
 	Code   *int   `json:"code,omitempty"`
-	Result string `json:"result"` // success, failed, running
+	Result string `json:"result"` // success, failed, running, unknown (cron's log: no exit code)
 }
 
 // Seconds is how long it ran (or has been running, at now).
@@ -288,6 +288,9 @@ func (t *Tracker) work(j *Job, now time.Time) {
 		switch r.Result {
 		case "running":
 			continue
+		case "unknown":
+			// A run seen in cron's log, without its exit code: neither good nor failed.
+			streakDone = true
 		case "success":
 			if j.LastGood == 0 {
 				j.LastGood = r.Start
@@ -349,7 +352,7 @@ func (t *Tracker) work(j *Job, now time.Time) {
 		j.State = Missed
 	case last >= 0 && j.Runs[last].Result == "running":
 		j.State = Running
-	case last >= 0 && slowFor(j.Runs[last].Seconds(now)):
+	case last >= 0 && j.Runs[last].End > 0 && slowFor(j.Runs[last].Seconds(now)):
 		j.State = Slow
 	case !j.Enabled && j.Next == 0:
 		j.State = Disabled

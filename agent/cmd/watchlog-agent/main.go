@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -205,6 +206,13 @@ func run(args []string, stdout io.Writer) int {
 	var jobTracker *jobs.Tracker
 	var remoteRules *procs.RemoteRules
 	if mode == config.ModeServer {
+		// Cron jobs (ADR-223): the host's crontabs, read on the server, in its time zone.
+		hostRoot := procs.HostRoot(paths.RootFS)
+		hostFS := os.DirFS(filepath.Join("/", hostRoot))
+		var cronSeen atomic.Bool
+		cronJobs := &jobs.Cron{Entries: func() []jobs.CronEntry { return jobs.ParseCrontabs(hostFS) },
+			Loc: jobs.HostLocation(hostFS), Seen: cronSeen.Load}
+		var cronLog *jobs.LogTail
 		// Exit codes and OOM kills from the kernel (ADR-210); without eBPF they are unknown.
 		var feed *exits.Feed
 		if *ebpfFlag {
@@ -222,6 +230,7 @@ func run(args []string, stdout io.Writer) int {
 				feed = exits.NewFeed()
 				go func() {
 					err := ex.Read(func(e ebpf.ExitEvent) {
+						cronJobs.Exit(e.Tgid, e.Status, e.Signal, time.Now())
 						feed.Add(exits.Exit{PID: int(e.Tgid), Cgroup: e.Cgroup, Status: e.Status, Signal: e.Signal,
 							OOM: e.OOM, PPID: int(e.PPID), Unit: e.CgroupName})
 					})
@@ -229,8 +238,31 @@ func run(args []string, stdout io.Writer) int {
 						slog.Warn("process exits stopped", "err", err)
 					}
 				}()
+				// The runs cron starts: an exec by cron's child, its command matched and dropped.
+				if ex.Execs() {
+					cronSeen.Store(true)
+					boot := jobs.BootTime(paths.Proc)
+					go ex.ReadExecs(func(e ebpf.ExecEvent) {
+						cronJobs.Exec(e.Tgid, e.Args, boot.Add(time.Duration(e.StartNs))) //nolint:gosec // ns since boot
+					})
+				}
 			}
 		}
+		if !cronSeen.Load() {
+			// Without the exec program: cron's own lines in a text log, without exit codes.
+			for _, l := range jobs.CronLogs {
+				if st, err := os.Stat(filepath.Join("/", hostRoot, l)); err == nil && st.Mode().IsRegular() {
+					cronLog = &jobs.LogTail{Path: filepath.Join("/", hostRoot, l)}
+					_, _ = cronLog.Lines()
+					cronSeen.Store(true)
+					break
+				}
+			}
+			if cronLog == nil {
+				slog.Info("cron runs can't be seen (no eBPF exec program, no text log of cron's): cron jobs are listed without runs")
+			}
+		}
+		var timers func() ([]jobs.Observation, error)
 		bus := services.NewDBus(*dbusSocket)
 		// The server page's header: OS, kernel, systemd (ADR-207).
 		sources = append(sources, runner.Source{Name: "server-info", Collect: services.ServerInfo(paths.RootFS, paths.Proc, bus.Version)})
@@ -242,22 +274,34 @@ func run(args []string, stdout io.Writer) int {
 			}
 			sources = append(sources, runner.Source{Name: "services", Collect: svc.Collect})
 			// Scheduled jobs (ADR-223): systemd timers, read with the services.
-			jobTracker = &jobs.Tracker{Path: jobs.StatePath(*bufferDir), Events: serverEvents, Boot: jobs.BootTime(paths.Proc), Since: time.Now()}
-			jobTracker.Load()
-			sources = append(sources, runner.Source{Name: "jobs", Collect: func() ([]metrics.Sample, error) {
-				if obs, err := jobs.Timers(bus); err == nil {
-					jobTracker.Update("timer", obs, time.Now())
-				}
-				return jobTracker.Collect()
-			}})
+			timers = func() ([]jobs.Observation, error) { return jobs.Timers(bus) }
 		} else {
 			slog.Info("systemd isn't reachable on D-Bus: services are off", "socket", bus.Socket)
 		}
 		// Process groups (ADR-208): every process outside a container, in any language.
-		root := procs.HostRoot(paths.RootFS)
+		root := hostRoot
 		if serverEvents == nil {
 			serverEvents = serverevents.New(*hostname)
 		}
+		// Scheduled jobs (ADR-223): systemd's timers and cron's lines, one state each.
+		jobTracker = &jobs.Tracker{Path: jobs.StatePath(*bufferDir), Events: serverEvents, Boot: jobs.BootTime(paths.Proc), Since: time.Now()}
+		jobTracker.Load()
+		sources = append(sources, runner.Source{Name: "jobs", Collect: func() ([]metrics.Sample, error) {
+			now := time.Now()
+			if timers != nil {
+				if obs, err := timers(); err == nil {
+					jobTracker.Update("timer", obs, now)
+				}
+			}
+			if cronLog != nil {
+				lines, _ := cronLog.Lines()
+				for _, l := range lines {
+					cronJobs.LogLine(l, now)
+				}
+			}
+			jobTracker.Update("cron", cronJobs.Observations(now), now)
+			return jobTracker.Collect()
+		}})
 		groups = &procs.Collector{
 			Reader: procs.NewHostReader(paths.Proc),
 			Hints:  func() procs.Hints { return procs.ReadHints(os.DirFS("/"), root) },

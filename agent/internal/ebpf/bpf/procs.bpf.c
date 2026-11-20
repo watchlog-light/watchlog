@@ -35,6 +35,31 @@ struct exit_event {
 /* Keeps exit_event in the object's BTF for bpf2go's Go type (ring buffers carry no type). */
 const struct exit_event *unused_exit_event __attribute__((unused));
 
+/*
+ * A run cron starts (ADR-223, 0.10): cron's child (named "cron", or "crond" with cronie) execs
+ * the job's shell. Only those execs are sent: the pid, when it started and its command line,
+ * at most 256 bytes and never past the command line's end, so no environment value is read.
+ * User space matches the line to the crontab it parsed and keeps the line's derived name only.
+ */
+#define EXEC_ARGS_MAX 256
+
+struct exec_event {
+	__u32 tgid;
+	__u32 ppid;
+	__u64 start_ns; /* the task's start, nanoseconds since boot */
+	char comm[16];
+	__u16 args_len;
+	__u8 _pad[6];
+	char args[EXEC_ARGS_MAX]; /* NUL-separated, args_len bytes */
+};
+
+const struct exec_event *unused_exec_event __attribute__((unused));
+
+struct {
+	__uint(type, BPF_MAP_TYPE_RINGBUF);
+	__uint(max_entries, 64 * 1024);
+} execs SEC(".maps");
+
 struct {
 	__uint(type, BPF_MAP_TYPE_RINGBUF);
 	__uint(max_entries, 256 * 1024);
@@ -135,3 +160,48 @@ int BPF_PROG(on_process_exit, struct task_struct *p)
 	bpf_ringbuf_submit(e, 0);
 	return 0;
 }
+
+static __always_inline int is_cron(const char *c)
+{
+	return c[0] == 'c' && c[1] == 'r' && c[2] == 'o' && c[3] == 'n' &&
+	       (c[4] == 0 || (c[4] == 'd' && c[5] == 0));
+}
+
+SEC("tp_btf/sched_process_exec")
+int BPF_PROG(on_process_exec, struct task_struct *p, int old_pid, struct linux_binprm *bprm)
+{
+	struct task_struct *parent = BPF_CORE_READ(p, real_parent);
+	if (!parent)
+		return 0;
+	char pcomm[16] = {};
+	if (BPF_CORE_READ_STR_INTO(&pcomm, parent, comm) < 0 || !is_cron(pcomm))
+		return 0;
+	if (!exit_in_scope(p))
+		return 0;
+	struct exec_event *e = bpf_ringbuf_reserve(&execs, sizeof(*e), 0);
+	if (!e)
+		return 0;
+	e->tgid = ns_pid(p);
+	e->ppid = ns_pid(parent);
+	e->start_ns = BPF_CORE_READ(p, start_time);
+	bpf_get_current_comm(e->comm, sizeof(e->comm));
+	__builtin_memset(e->_pad, 0, sizeof(e->_pad));
+	unsigned long start = BPF_CORE_READ(p, mm, arg_start);
+	unsigned long end = BPF_CORE_READ(p, mm, arg_end);
+	/* Only the command line, never past arg_end: the environment follows it. */
+	__u64 n = 0;
+	if (end > start)
+		n = end - start;
+	if (n > EXEC_ARGS_MAX)
+		n = EXEC_ARGS_MAX;
+	/* Bounded again where the verifier sees it (0..511, then 0..EXEC_ARGS_MAX). */
+	asm volatile("%[n] &= 0x1ff" : [n] "+r"(n));
+	if (n > EXEC_ARGS_MAX)
+		n = EXEC_ARGS_MAX;
+	if (n == 0 || bpf_probe_read_user(e->args, n, (void *)start) < 0)
+		n = 0;
+	e->args_len = n;
+	bpf_ringbuf_submit(e, 0);
+	return 0;
+}
+

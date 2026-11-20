@@ -12,6 +12,12 @@ type Exits struct{}
 // StartExits needs Linux.
 func StartExits() (*Exits, error) { return nil, errors.New("eBPF needs Linux") }
 
+// ReadExecs returns false at once off Linux.
+func (e *Exits) ReadExecs(func(ExecEvent)) bool { return false }
+
+// Execs is false outside Linux.
+func (e *Exits) Execs() bool { return false }
+
 // Read returns at once off Linux.
 func (e *Exits) Read(func(ExitEvent)) error { return nil }
 

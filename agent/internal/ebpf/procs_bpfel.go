@@ -13,6 +13,17 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type procsExecEvent struct {
+	_       structs.HostLayout
+	Tgid    uint32
+	Ppid    uint32
+	StartNs uint64
+	Comm    [16]int8
+	ArgsLen uint16
+	Pad     [6]uint8
+	Args    [256]int8
+}
+
 type procsExitEvent struct {
 	_          structs.HostLayout
 	Tgid       uint32
@@ -29,11 +40,14 @@ type procsExitEvent struct {
 //
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
+	procsMapExecs           = "execs"
 	procsMapExitFilter      = "exit_filter"
 	procsMapExitRoots       = "exit_roots"
 	procsMapExits           = "exits"
 	procsMapExitsDropped    = "exits_dropped"
+	procsProgOnProcessExec  = "on_process_exec"
 	procsProgOnProcessExit  = "on_process_exit"
+	procsVarUnusedExecEvent = "unused_exec_event"
 	procsVarUnusedExitEvent = "unused_exit_event"
 )
 
@@ -79,6 +93,7 @@ type procsSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type procsProgramSpecs struct {
+	OnProcessExec *ebpf.ProgramSpec `ebpf:"on_process_exec"`
 	OnProcessExit *ebpf.ProgramSpec `ebpf:"on_process_exit"`
 }
 
@@ -86,6 +101,7 @@ type procsProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type procsMapSpecs struct {
+	Execs        *ebpf.MapSpec `ebpf:"execs"`
 	ExitFilter   *ebpf.MapSpec `ebpf:"exit_filter"`
 	ExitRoots    *ebpf.MapSpec `ebpf:"exit_roots"`
 	Exits        *ebpf.MapSpec `ebpf:"exits"`
@@ -96,6 +112,7 @@ type procsMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type procsVariableSpecs struct {
+	UnusedExecEvent *ebpf.VariableSpec `ebpf:"unused_exec_event"`
 	UnusedExitEvent *ebpf.VariableSpec `ebpf:"unused_exit_event"`
 }
 
@@ -119,6 +136,7 @@ func (o *procsObjects) Close() error {
 //
 // It can be passed to loadProcsObjects or ebpf.CollectionSpec.LoadAndAssign.
 type procsMaps struct {
+	Execs        *ebpf.Map `ebpf:"execs"`
 	ExitFilter   *ebpf.Map `ebpf:"exit_filter"`
 	ExitRoots    *ebpf.Map `ebpf:"exit_roots"`
 	Exits        *ebpf.Map `ebpf:"exits"`
@@ -127,6 +145,7 @@ type procsMaps struct {
 
 func (m *procsMaps) Close() error {
 	return _ProcsClose(
+		m.Execs,
 		m.ExitFilter,
 		m.ExitRoots,
 		m.Exits,
@@ -138,6 +157,7 @@ func (m *procsMaps) Close() error {
 //
 // It can be passed to loadProcsObjects or ebpf.CollectionSpec.LoadAndAssign.
 type procsVariables struct {
+	UnusedExecEvent *ebpf.Variable `ebpf:"unused_exec_event"`
 	UnusedExitEvent *ebpf.Variable `ebpf:"unused_exit_event"`
 }
 
@@ -145,11 +165,13 @@ type procsVariables struct {
 //
 // It can be passed to loadProcsObjects or ebpf.CollectionSpec.LoadAndAssign.
 type procsPrograms struct {
+	OnProcessExec *ebpf.Program `ebpf:"on_process_exec"`
 	OnProcessExit *ebpf.Program `ebpf:"on_process_exit"`
 }
 
 func (p *procsPrograms) Close() error {
 	return _ProcsClose(
+		p.OnProcessExec,
 		p.OnProcessExit,
 	)
 }
