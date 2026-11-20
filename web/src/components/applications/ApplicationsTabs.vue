@@ -15,7 +15,8 @@ const clusters = useClustersStore();
 
 const clusterId = computed(() => clusters.selected?.id ?? null);
 function load() {
-  if (!apps.loaded) void apps.load().catch(() => undefined);
+  // The Services tab's page loads the list itself; the other two tabs ask for its count.
+  if (!apps.loaded && route.name !== 'applications') void apps.load().catch(() => undefined);
   const id = clusterId.value;
   if (!id) return;
   void store.loadCerts(id).catch(() => undefined);
