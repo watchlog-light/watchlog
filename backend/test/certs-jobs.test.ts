@@ -129,6 +129,17 @@ describe('certificates (ADR-222, ADR-224)', () => {
       }),
     ]);
 
+    // Search (0.10): a certificate by any of its names.
+    const found = await get('/search?q=mail');
+    expect(found.body.results).toContainEqual(
+      expect.objectContaining({
+        kind: 'certificate',
+        name: 'mail.wl.test',
+        host: 'web-1',
+        id: '3333333333333333',
+      }),
+    );
+
     // The agent restarted: its first snapshot comes before its first round (at 0).
     expect(
       (await post({ node: 'web-1', certificates: null, certificateCoverage: { at: 0 }, jobs: [] }))
@@ -265,6 +276,18 @@ describe('scheduled jobs (ADR-223, ADR-224)', () => {
       { hour: t + 3600, runs: 1, failures: 0, longestSeconds: 10 },
       { hour: t, runs: 2, failures: 1, longestSeconds: 300 },
     ]);
+
+    // Search (0.10): a job by name, with its server and id for its page.
+    const found = await get('/search?q=backup');
+    expect(found.body.results).toContainEqual(
+      expect.objectContaining({
+        kind: 'scheduled_job',
+        name: 'backup.timer',
+        host: 'web-1',
+        id: backup,
+        type: 'timer',
+      }),
+    );
 
     // logrotate.timer is no longer sent: gone from the list.
     expect(

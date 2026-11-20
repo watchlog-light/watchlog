@@ -5891,7 +5891,7 @@ export interface paths {
     };
     /**
      * Search a cluster by name
-     * @description The ⌘K palette's search (ADR-169): workloads, pods and nodes of a Kubernetes cluster; hosts, containers and Compose projects of a Docker fleet; applications on both. Case-insensitive; a word matches when its letters appear in order in the name (with its namespace, Compose project or type), or with one letter off for words of 4 to 32 letters. The exact name first, then names starting with the query, then names containing it, then the rest. At most 8 per kind.
+     * @description The ⌘K palette's search (ADR-169): workloads, pods and nodes of a Kubernetes cluster; hosts, containers and Compose projects of a Docker fleet; applications, certificates and scheduled jobs on both. Case-insensitive; a word matches when its letters appear in order in the name (with its namespace, Compose project or type), or with one letter off for words of 4 to 32 letters. The exact name first, then names starting with the query, then names containing it, then the rest. At most 8 per kind.
      */
     get: {
       parameters: {
@@ -5925,15 +5925,17 @@ export interface paths {
                   | 'host'
                   | 'container'
                   | 'compose_project'
-                  | 'application';
+                  | 'application'
+                  | 'certificate'
+                  | 'scheduled_job';
                 name: string;
                 /** @description Kubernetes namespace; the Compose project of a Docker container */
                 namespace: string | null;
-                /** @description Docker host of a container or a Compose project (its first host) */
+                /** @description Docker host of a container or a Compose project (its first host); the server of a certificate or scheduled job */
                 host: string | null;
-                /** @description The workload's kind (Deployment, …) or the application's type (redis, …) */
+                /** @description The workload's kind (Deployment, …), the application's type (redis, …) or the scheduled job's (timer, cron, cronjob) */
                 type: string | null;
-                /** @description The application's id */
+                /** @description The application's, certificate's or scheduled job's id */
                 id: string | null;
                 /** @description exact, prefix (the name starts with the query), substring, path (namespace or host and name), letters (in order), typo (one letter off) */
                 match: 'exact' | 'prefix' | 'substring' | 'path' | 'letters' | 'typo';

@@ -8015,7 +8015,7 @@
       "get": {
         "summary": "Search a cluster by name",
         "tags": ["search"],
-        "description": "The ⌘K palette's search (ADR-169): workloads, pods and nodes of a Kubernetes cluster; hosts, containers and Compose projects of a Docker fleet; applications on both. Case-insensitive; a word matches when its letters appear in order in the name (with its namespace, Compose project or type), or with one letter off for words of 4 to 32 letters. The exact name first, then names starting with the query, then names containing it, then the rest. At most 8 per kind.",
+        "description": "The ⌘K palette's search (ADR-169): workloads, pods and nodes of a Kubernetes cluster; hosts, containers and Compose projects of a Docker fleet; applications, certificates and scheduled jobs on both. Case-insensitive; a word matches when its letters appear in order in the name (with its namespace, Compose project or type), or with one letter off for words of 4 to 32 letters. The exact name first, then names starting with the query, then names containing it, then the rest. At most 8 per kind.",
         "parameters": [
           {
             "schema": { "type": "string", "minLength": 1, "maxLength": 200 },
@@ -8062,7 +8062,9 @@
                               { "type": "string", "enum": ["host"] },
                               { "type": "string", "enum": ["container"] },
                               { "type": "string", "enum": ["compose_project"] },
-                              { "type": "string", "enum": ["application"] }
+                              { "type": "string", "enum": ["application"] },
+                              { "type": "string", "enum": ["certificate"] },
+                              { "type": "string", "enum": ["scheduled_job"] }
                             ]
                           },
                           "name": { "type": "string" },
@@ -8072,15 +8074,15 @@
                           },
                           "host": {
                             "anyOf": [{ "type": "string" }, { "type": "null" }],
-                            "description": "Docker host of a container or a Compose project (its first host)"
+                            "description": "Docker host of a container or a Compose project (its first host); the server of a certificate or scheduled job"
                           },
                           "type": {
                             "anyOf": [{ "type": "string" }, { "type": "null" }],
-                            "description": "The workload's kind (Deployment, …) or the application's type (redis, …)"
+                            "description": "The workload's kind (Deployment, …), the application's type (redis, …) or the scheduled job's (timer, cron, cronjob)"
                           },
                           "id": {
                             "anyOf": [{ "type": "string" }, { "type": "null" }],
-                            "description": "The application's id"
+                            "description": "The application's, certificate's or scheduled job's id"
                           },
                           "match": {
                             "anyOf": [

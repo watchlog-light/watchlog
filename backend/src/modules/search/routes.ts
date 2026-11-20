@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // GET /clusters/:id/search (ADR-169, SPEC §8.1): the ⌘K palette's search of one cluster's
 // objects by name, in PostgreSQL. Kubernetes: workloads, pods, nodes; Docker: hosts,
-// containers, Compose projects; both: applications. At most 8 per kind and 40 in all, the
+// containers, Compose projects; both: applications, certificates, scheduled jobs (0.10). At most 8 per kind and 40 in all, the
 // best matches first (match.ts). A 15,000-pod cluster is never sent to the browser.
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { sql, type RawBuilder } from 'kysely';
@@ -26,6 +26,8 @@ export const RESULT_KINDS = [
   'container',
   'compose_project',
   'application',
+  'certificate',
+  'scheduled_job',
 ] as const;
 type ResultKind = (typeof RESULT_KINDS)[number];
 
@@ -38,18 +40,24 @@ export const SearchResultSchema = Type.Object({
     Type.Literal('container'),
     Type.Literal('compose_project'),
     Type.Literal('application'),
+    Type.Literal('certificate'),
+    Type.Literal('scheduled_job'),
   ]),
   name: Type.String(),
   namespace: Type.Union([Type.String(), Type.Null()], {
     description: 'Kubernetes namespace; the Compose project of a Docker container',
   }),
   host: Type.Union([Type.String(), Type.Null()], {
-    description: 'Docker host of a container or a Compose project (its first host)',
+    description:
+      'Docker host of a container or a Compose project (its first host); the server of a certificate or scheduled job',
   }),
   type: Type.Union([Type.String(), Type.Null()], {
-    description: "The workload's kind (Deployment, …) or the application's type (redis, …)",
+    description:
+      "The workload's kind (Deployment, …), the application's type (redis, …) or the scheduled job's (timer, cron, cronjob)",
   }),
-  id: Type.Union([Type.String(), Type.Null()], { description: "The application's id" }),
+  id: Type.Union([Type.String(), Type.Null()], {
+    description: "The application's, certificate's or scheduled job's id",
+  }),
   match: Type.Union(
     [
       Type.Literal('exact'),
@@ -184,6 +192,34 @@ async function searchApplications(db: Database, clusterId: string, p: SearchPatt
   return rows;
 }
 
+/** Certificates (0.10): by any of their names, or the server they are on. */
+async function searchCertificates(db: Database, clusterId: string, p: SearchPatterns) {
+  const n = raw('lower(names[1])');
+  const hay = raw("lower(node || '/' || array_to_string(names, ' '))");
+  const { rows } = await sql<Row>`
+    SELECT 'certificate' AS grp, 'Certificate' AS kind, '' AS namespace, names[1] AS name, node,
+      cert_id AS id, ${rankSql(p, n, hay)} AS rank
+    FROM certificates
+    WHERE cluster_id = ${clusterId} AND current AND ${matchSql(p, hay)}
+    ORDER BY rank, length(names[1]), names[1]
+    LIMIT ${PER_KIND + 1}`.execute(db);
+  return rows;
+}
+
+/** Scheduled jobs (0.10): timers, cron jobs and CronJobs, by name or server. */
+async function searchJobs(db: Database, clusterId: string, p: SearchPatterns) {
+  const n = raw('lower(name)');
+  const hay = raw("lower(CASE WHEN node <> '' THEN node || '/' ELSE '' END || name)");
+  const { rows } = await sql<Row>`
+    SELECT 'scheduled_job' AS grp, kind, '' AS namespace, name, node, job_id AS id,
+      ${rankSql(p, n, hay)} AS rank
+    FROM scheduled_jobs
+    WHERE cluster_id = ${clusterId} AND gone_at IS NULL AND ${matchSql(p, hay)}
+    ORDER BY rank, length(name), name
+    LIMIT ${PER_KIND + 1}`.execute(db);
+  return rows;
+}
+
 /**
  * Up to PER_KIND per kind and `limit` in all, the best ranks kept; listed kind by kind,
  * the kind with the best match first.
@@ -225,6 +261,7 @@ export function pick(found: Row[], limit: number) {
 
 const toResult = (r: Row) => {
   const docker = r.grp === 'container' || r.grp === 'compose_project';
+  const inventory = r.grp === 'certificate' || r.grp === 'scheduled_job';
   return {
     kind: r.grp,
     name: r.name,
@@ -232,9 +269,10 @@ const toResult = (r: Row) => {
       r.grp === 'workload' || r.grp === 'pod' || r.grp === 'container' || r.grp === 'application'
         ? r.namespace || null
         : null,
-    host: docker || r.grp === 'application' ? r.node || null : null,
-    type: r.grp === 'workload' || r.grp === 'application' ? r.kind : null,
-    id: r.grp === 'application' ? (r.id ?? null) : null,
+    host: docker || inventory || r.grp === 'application' ? r.node || null : null,
+    type:
+      r.grp === 'workload' || r.grp === 'application' || r.grp === 'scheduled_job' ? r.kind : null,
+    id: r.grp === 'application' || inventory ? (r.id ?? null) : null,
     match: TIER_OF_RANK[Number(r.rank)] ?? 'typo',
   };
 };
@@ -249,7 +287,7 @@ export const searchRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (
       schema: {
         summary: 'Search a cluster by name',
         description:
-          "The ⌘K palette's search (ADR-169): workloads, pods and nodes of a Kubernetes cluster; hosts, containers and Compose projects of a Docker fleet; applications on both. Case-insensitive; a word matches when its letters appear in order in the name (with its namespace, Compose project or type), or with one letter off for words of 4 to 32 letters. The exact name first, then names starting with the query, then names containing it, then the rest. At most 8 per kind.",
+          "The ⌘K palette's search (ADR-169): workloads, pods and nodes of a Kubernetes cluster; hosts, containers and Compose projects of a Docker fleet; applications, certificates and scheduled jobs on both. Case-insensitive; a word matches when its letters appear in order in the name (with its namespace, Compose project or type), or with one letter off for words of 4 to 32 letters. The exact name first, then names starting with the query, then names containing it, then the rest. At most 8 per kind.",
         tags: ['search', PUBLIC_TAG],
         params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
         querystring: Type.Object({
@@ -280,6 +318,8 @@ export const searchRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (
         searchObjects(db, cluster.id, docker ? DOCKER_KINDS : KUBE_KINDS, p),
         docker ? searchProjects(db, cluster.id, p) : Promise.resolve([]),
         searchApplications(db, cluster.id, p),
+        searchCertificates(db, cluster.id, p),
+        searchJobs(db, cluster.id, p),
       ]);
       const { kept, truncated } = pick(found.flat(), request.query.limit ?? MAX_RESULTS);
       return { query: q, results: kept.map(toResult), truncated };
