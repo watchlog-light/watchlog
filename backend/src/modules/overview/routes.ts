@@ -15,7 +15,6 @@ import { CLUSTER_STALE_MS, clusterForOrg } from '../clusters/service.js';
 import { ingestFailures } from '../ingest/errors.js';
 import {
   containerResources,
-  needsAttention,
   nodeCapacity,
   nodeStatus,
   podFailing,
@@ -29,9 +28,10 @@ import { watchlogComponents } from '../servicemap/graph.js';
 import { systemNamespaces, type SettingsService } from '../settings/service.js';
 import { sparkStep } from './step.js';
 import { groupEvents } from './events.js';
-import { FAILING, dockerProblem, dockerProblems } from './docker-problems.js';
+import { FAILING, dockerProblem } from './docker-problems.js';
 import { hostBoots, stoppedWithHost } from '../docker/host-restart.js';
-import { buildProblems, firingAlerts, type Problems } from './problems.js';
+import { firingAlerts, type Problems } from './problems.js';
+import { kubernetesProblems, serverProblems } from './cluster-problems.js';
 import { OverviewSchema } from './schemas.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import { causeReader, problemSubject, wantsCause, type CausesService } from '../causes/likely.js';
@@ -466,11 +466,12 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
       [...ownWorkloads].map((k) => k.split('/')[0]!),
     );
 
-    // Problems: one source for the strip and the list.
-    const attention = needsAttention(
+    // Problems: one source for the strip and the list, built as All clusters builds them.
+    const problems = kubernetesProblems({
+      alerts,
       nodes,
       pods,
-      pvc!.flatMap((s) =>
+      pvc: pvc!.flatMap((s) =>
         s.points[0]?.[1] == null
           ? []
           : [
@@ -481,10 +482,10 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
               },
             ],
       ),
-      nowMs,
-      Number.POSITIVE_INFINITY,
-    ).items;
-    const problems = buildProblems({ alerts, attention, podWorkload, clusterName, now: nowMs });
+      clusterName,
+      now: nowMs,
+      podWorkload,
+    });
 
     // Events: grouped; covered and WatchLog's own flagged for the page to hide.
     const coverage = {
@@ -786,21 +787,13 @@ export const overviewRoutes: FastifyPluginAsyncTypebox<{
       } else counts.pending++;
       if (st.health === 'unhealthy') counts.failed++;
     }
-    const problems = buildProblems({
+    const problems = serverProblems({
       alerts,
-      attention: [],
-      podWorkload: new Map(),
+      containers,
+      liveHosts,
+      boots,
       clusterName,
       now: nowMs,
-      objects: dockerProblems(
-        containers,
-        alerts,
-        clusterName,
-        nowMs,
-        undefined,
-        liveHosts,
-        withHost,
-      ),
     });
     // Warning events, grouped; covered (a problem names the container) and WatchLog's own
     // containers flagged, as for Kubernetes.

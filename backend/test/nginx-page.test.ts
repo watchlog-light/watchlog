@@ -269,7 +269,10 @@ describe('the Nginx page', () => {
         k8s.id,
         'nginx_ingress_controller_nginx_process_connections_total',
         svc({ state: 'handled' }),
-        (i) => i * 100 - Math.min(i, 60),
+        // One accepted connection a step isn't handled in the last 15 minutes, the window the
+        // reasons read (increase over 15m). Dropping in the first 15 minutes instead left
+        // that window flat, so the reason depended on a few seconds of timing (0.11.1).
+        (i) => i * 100 - Math.max(0, i - 60),
       ),
       write(
         k8s.id,

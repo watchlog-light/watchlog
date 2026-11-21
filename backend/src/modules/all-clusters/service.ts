@@ -3,11 +3,15 @@
 // one page, from data WatchLog already stores. Database reads are one query per table for the
 // whole org, and metrics one VictoriaMetrics query per metric grouped by `cluster_id`
 // (clustersForOrg's scope), so the answer costs the same for 2 clusters or 50.
+import { updateAvailable } from '../clusters/agent-update.js';
 import type { Database } from '../../db/index.js';
 import { OrgQueriesBusy } from '../../lib/org-queries.js';
 import type { QuerySeries, VictoriaQueryClient } from '../../lib/victoria.js';
 import { CLUSTER_STALE_MS, clustersForOrg } from '../clusters/service.js';
 import { buildProblems, type FiringAlert, type Problem } from '../overview/problems.js';
+import { kubernetesProblems, serverProblems, type PvcUsage } from '../overview/cluster-problems.js';
+import { BOOT_RECENT_S, hostBoots, type HostBoot } from '../docker/host-restart.js';
+import type { ObjectRow } from '../kubernetes/views.js';
 import { sparkStep } from '../overview/step.js';
 import { learningOf } from '../anomaly/learning.js';
 import { composeMap } from '../anomaly/exclusion.js';
@@ -160,7 +164,7 @@ export async function buildSummary(input: SummaryInput): Promise<Summary> {
   const step = sparkStep(range);
   const end = Math.floor(nowMs / 1000 / step) * step;
   const start = end - range;
-  const { rows: all, scope } = await clustersForOrg(db, orgId);
+  const { rows: all, scope, scopeOf } = await clustersForOrg(db, orgId);
   const ref = (c: { id: string; name: string; kind: string }): ClusterRef => ({
     id: c.id,
     name: c.name,
@@ -191,6 +195,56 @@ export async function buildSummary(input: SummaryInput): Promise<Summary> {
   const memTotalExpr = 'sum by (cluster_id) (watchlog_node_memory_bytes{state="total"})';
 
   const whatChangedFrom = new Date(nowMs - WHAT_CHANGED_WINDOW_MS);
+  // Each cluster's own Needs attention, as its Overview builds it (ADR-227): the nodes, pods
+  // and volumes of every Kubernetes cluster, the containers of every fleet, and recent host
+  // reboots, one query each for the whole org.
+  const kubeIds = all.filter((c) => c.kind !== 'server').map((c) => c.id);
+  const serverIds = all.filter((c) => c.kind === 'server').map((c) => c.id);
+  const extras = Promise.all([
+    kubeIds.length
+      ? (db
+          .selectFrom('objects')
+          .select([
+            'cluster_id',
+            'kind',
+            'namespace',
+            'name',
+            'node',
+            'spec_summary',
+            'status_summary',
+          ])
+          .where('cluster_id', 'in', kubeIds)
+          .where('source', '=', 'kubernetes')
+          .where('kind', 'in', ['Node', 'Pod'])
+          .where('deleted_at', 'is', null)
+          .execute() as Promise<(ObjectRow & { cluster_id: string })[]>)
+      : [],
+    serverIds.length
+      ? db
+          .selectFrom('objects')
+          .select(['cluster_id', 'node', 'name', 'namespace', 'spec_summary', 'status_summary'])
+          .where('cluster_id', 'in', serverIds)
+          .where('kind', '=', 'DockerContainer')
+          .where('deleted_at', 'is', null)
+          .execute()
+      : [],
+    scope && input.victoria && kubeIds.length
+      ? metric(
+          input.victoria.query(
+            scope,
+            'max by (cluster_id, namespace, persistentvolumeclaim) (watchlog_pod_volume_bytes{state="used"}) / max by (cluster_id, namespace, persistentvolumeclaim) (watchlog_pod_volume_bytes{state="capacity"})',
+          ),
+        )
+      : [],
+    scope && input.victoria && serverIds.length
+      ? metric(
+          input.victoria.query(
+            scope,
+            'max by (cluster_id, host) (watchlog_node_boot_time_seconds)',
+          ),
+        )
+      : [],
+  ] as const);
   const [
     agents,
     alertRows,
@@ -335,17 +389,70 @@ export async function buildSummary(input: SummaryInput): Promise<Summary> {
 
   // Problems: each cluster's firing alerts as its own Overview lists them, then merged.
   const alertsOf = byCluster(alertRows.map((a) => ({ ...a, cluster_id: a.clusterId })));
+  const [kubeObjects, containerRows, pvcSeries, bootSeries] = await extras;
+  const objectsOf = byCluster(kubeObjects);
+  const containersOf = byCluster(containerRows);
+  const pvcOf = new Map<string, PvcUsage[]>();
+  for (const s of pvcSeries) {
+    const v = s.points[0]?.[1];
+    const id = s.labels.cluster_id ?? '';
+    if (v == null || !id) continue;
+    pvcOf.set(id, [
+      ...(pvcOf.get(id) ?? []),
+      {
+        namespace: s.labels.namespace ?? '',
+        name: s.labels.persistentvolumeclaim ?? '',
+        ratio: v,
+      },
+    ]);
+  }
+  // Recent reboots: only the fleets with one ask again, each on its own (ADR-159's window).
+  const rebooted = new Set(
+    bootSeries
+      .filter((b) => {
+        const at = b.points[0]?.[1];
+        return at != null && nowMs / 1000 - at <= BOOT_RECENT_S;
+      })
+      .map((b) => b.labels.cluster_id ?? ''),
+  );
+  const bootsOf = new Map<string, Map<string, HostBoot>>();
+  await Promise.all(
+    serverIds
+      .filter((id) => rebooted.has(id))
+      .map(async (id) => {
+        const one = scopeOf(id);
+        if (!one || !input.victoria) return;
+        const victoria = input.victoria;
+        bootsOf.set(id, await hostBoots((e) => metric(victoria.query(one, e)), nowMs / 1000));
+      }),
+  );
   const placed: (PlacedProblem & { problem: Problem; cluster: ClusterRef })[] = [];
   const perCluster = new Map<string, { critical: number; warning: number }>();
   for (const c of all) {
     const alerts = alertsOf.get(c.id) ?? [];
-    const built = buildProblems({
-      alerts,
-      attention: [],
-      podWorkload: new Map(),
-      clusterName: c.name,
-      now: nowMs,
-    });
+    const objs = objectsOf.get(c.id) ?? [];
+    const built =
+      c.kind === 'server'
+        ? serverProblems({
+            alerts,
+            containers: containersOf.get(c.id) ?? [],
+            liveHosts: new Set(
+              (agentsOf.get(c.id) ?? [])
+                .filter((a) => a.mode === 'docker' && live(a))
+                .map((a) => a.node),
+            ),
+            boots: bootsOf.get(c.id) ?? new Map(),
+            clusterName: c.name,
+            now: nowMs,
+          })
+        : kubernetesProblems({
+            alerts,
+            nodes: objs.filter((o) => o.kind === 'Node'),
+            pods: objs.filter((o) => o.kind === 'Pod'),
+            pvc: pvcOf.get(c.id) ?? [],
+            clusterName: c.name,
+            now: nowMs,
+          });
     perCluster.set(c.id, { critical: built.critical, warning: built.warning });
     for (const problem of built.items) {
       const a = alerts.find((x) => x.id === problem.alertId);
@@ -468,8 +575,8 @@ export async function buildSummary(input: SummaryInput): Promise<Summary> {
   // Housekeeping.
   const oldAgents = isRelease(input.version)
     ? all.flatMap((c) => {
-        const old = (agentsOf.get(c.id) ?? []).filter(
-          (a) => isRelease(a.agent_version) && olderVersion(a.agent_version, input.version),
+        const old = (agentsOf.get(c.id) ?? []).filter((a) =>
+          updateAvailable(a.agent_version, input.version),
         );
         return old.length
           ? [

@@ -755,8 +755,9 @@ describe('50 clusters and fleets', () => {
         `all-clusters, 50 clusters and fleets: median ${median.toFixed(0)} ms (${times.map((t) => t.toFixed(0)).join(', ')} ms); ${vmCalls / 5} VictoriaMetrics queries per answer`,
       );
       expect(median).toBeLessThan(300);
-      // CPU (range), memory used and total, systemd services and process groups: 5.
-      expect(vmCalls / 5).toBe(5);
+      // CPU (range), memory used and total, systemd services and process groups, volumes'
+      // use and host boots (each cluster's own Needs attention, ADR-227): 7.
+      expect(vmCalls / 5).toBe(7);
       const a = (await get(c, cookie)).json();
       expect(
         a.clusters.filter((r: { cpu: { now: number | null } }) => r.cpu.now !== null),
@@ -771,4 +772,122 @@ describe('50 clusters and fleets', () => {
       globalThis.fetch = realFetch;
     }
   }, 300_000);
+});
+
+describe('Needs attention on /all is every cluster’s own Needs attention (ADR-227)', () => {
+  it('lists exactly what each Overview lists, for both kinds, object problems included', async () => {
+    const { c, cookie, orgId } = await cloudOrg();
+    const k8s = await insertCluster(c.db, orgId, 'parity-k8s', 'kubernetes');
+    const fleet = await insertCluster(c.db, orgId, 'parity-servers', 'server');
+    await agent(c, k8s.id, 'n1');
+    await agent(c, fleet.id, 'h1', { mode: 'docker' });
+    const obj = (
+      clusterId: string,
+      source: string,
+      kind: string,
+      name: string,
+      node: string,
+      spec: object,
+      status: object,
+      namespace = '',
+    ) =>
+      c.db
+        .insertInto('objects')
+        .values({
+          id: newId(),
+          cluster_id: clusterId,
+          source,
+          kind,
+          uid: `${kind}-${name}`,
+          namespace,
+          name,
+          node,
+          spec_summary: JSON.stringify(spec),
+          status_summary: JSON.stringify(status),
+        })
+        .execute();
+    // Kubernetes: a NotReady node no alert covers, and an alert on a workload.
+    await obj(
+      k8s.id,
+      'kubernetes',
+      'Node',
+      'n2',
+      'n2',
+      {},
+      {
+        conditions: [{ type: 'Ready', status: 'False', reason: 'KubeletNotReady' }],
+      },
+    );
+    await obj(
+      k8s.id,
+      'kubernetes',
+      'Node',
+      'n1',
+      'n1',
+      {},
+      {
+        conditions: [{ type: 'Ready', status: 'True' }],
+      },
+    );
+    await firing(
+      c,
+      orgId,
+      k8s.id,
+      await rule(c, orgId, 'k8s.pod.crashloop'),
+      {
+        namespace: 'shop',
+        workload: 'api',
+        pod: 'api-1',
+      },
+      7,
+      'critical',
+    );
+    // Servers: an unhealthy container no alert covers, and a unit alert.
+    await obj(
+      fleet.id,
+      'docker',
+      'DockerContainer',
+      'shop-web-1',
+      'h1',
+      { image: 'nginx:1.27' },
+      {
+        state: 'running',
+        health: 'unhealthy',
+      },
+      'h1',
+    );
+    await firing(
+      c,
+      orgId,
+      fleet.id,
+      await rule(c, orgId, 'server.unit.failed'),
+      {
+        node: 'h1',
+        unit: 'backup.service',
+      },
+      30,
+    );
+
+    const all = (await get(c, cookie, { range: '3600' })).json();
+    for (const cl of [k8s, fleet]) {
+      const own = (
+        await c.app.inject({
+          method: 'GET',
+          url: `/api/v1/clusters/${cl.id}/overview`,
+          cookies: { wl_session: cookie },
+        })
+      ).json();
+      const fromOverview = own.problems.items
+        .map((p: { title: string; severity: string }) => `${p.severity} ${p.title}`)
+        .sort();
+      const fromAll = all.problems
+        .filter((p: { places: { cluster: { id: string } }[] }) =>
+          p.places.some((pl) => pl.cluster.id === cl.id),
+        )
+        .map((p: { title: string; severity: string }) => `${p.severity} ${p.title}`)
+        .sort();
+      expect(fromOverview.length).toBe(2);
+      expect(fromAll).toEqual(fromOverview);
+    }
+  });
 });
