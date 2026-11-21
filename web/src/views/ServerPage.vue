@@ -29,6 +29,7 @@ import {
 } from '@/lib/servers';
 import { formatBytes, type Unit } from '@/lib/units';
 import { useFleetStore } from '@/stores/fleet';
+import AgentUpdateDialog from '@/components/agents/AgentUpdateDialog.vue';
 
 // One server (ADR-207; the canvas "Server"): its facts, resources, every workload of the
 // three sources grouped by unit, what happened and who it talks to.
@@ -38,6 +39,8 @@ const route = useRoute();
 const name = computed(() => String(route.params.server));
 const fleetStore = useFleetStore();
 const clusterId = computed(() => fleetStore.fleet?.id);
+/** The agent's update dialog (ADR-227), from its chip. */
+const updateOpen = ref(false);
 
 const page = useLoader(async () => {
   const f = fleetStore.fleet ?? (await fleetStore.load());
@@ -215,9 +218,26 @@ onMounted(() => {
         >
           {{ c }}
         </li>
+        <!-- Out of date (ADR-227): a warning chip that opens the update command. -->
+        <li v-if="server.updateAvailable && server.latestAgentVersion">
+          <button
+            type="button"
+            class="rounded-control border border-warning/50 bg-warning/15 px-2 py-1 text-warning hover:bg-warning/25 max-lg:min-h-11"
+            data-testid="agent-chip-update"
+            @click="updateOpen = true"
+          >
+            {{
+              $t('agents.chipUpdate', {
+                version: server.agentVersion ?? $t('agents.unknownVersion'),
+                latest: server.latestAgentVersion,
+              })
+            }}
+          </button>
+        </li>
         <li
-          v-if="server.agentVersion"
+          v-else-if="server.agentVersion"
           class="rounded-control border border-primary/40 bg-primary-soft px-2 py-1 text-primary"
+          data-testid="agent-chip"
         >
           {{ $t('servers.chip.agent', { v: server.agentVersion }) }}
         </li>
@@ -514,5 +534,11 @@ onMounted(() => {
         @retry="c.q.refresh"
       />
     </div>
+    <AgentUpdateDialog
+      v-if="clusterId"
+      v-model:open="updateOpen"
+      :cluster-id="clusterId"
+      :host="name"
+    />
   </div>
 </template>

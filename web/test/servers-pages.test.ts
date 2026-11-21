@@ -152,7 +152,7 @@ describe('Servers pages', () => {
     expect(tiles).toContain('Processgroups1·1crash-looping');
     const row = w.get('[data-testid="server-row"]');
     expect(row.text().replace(/\s+/g, '')).toMatch(
-      /app-1Debian1262%71%48%3svc1proc1ctr.*apicrash-looping/,
+      /app-1Debian12·agent0\.9\.062%71%48%3svc1proc1ctr.*apicrash-looping/,
     );
     expect(row.get('a').attributes('href')).toBe('/servers/app-1');
     expect(row.findAll('a').at(-1)!.attributes('href')).toBe(

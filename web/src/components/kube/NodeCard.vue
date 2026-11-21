@@ -118,6 +118,10 @@ const podLink = (p: HeatPod) =>
       <span v-if="n.agent.status !== 'active'" class="cond bad">{{
         $t(`kube.nodes.agent.${n.agent.status}`)
       }}</span>
+      <!-- An agent older than this WatchLog (ADR-227); the page's banner opens the command. -->
+      <span v-if="n.agent.updateAvailable" class="cond warn" data-testid="node-agent-old">{{
+        $t('servers.chip.agent', { v: n.agent.version ?? $t('agents.unknownVersion') })
+      }}</span>
     </div>
 
     <div class="grid grid-cols-2 gap-2.5">
@@ -213,6 +217,10 @@ const podLink = (p: HeatPod) =>
 }
 .cond.shield {
   color: var(--text-subtle);
+}
+.cond.warn {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 .met {
   padding: 8px 10px;

@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import { ArrowLeft, KeyRound } from '@lucide/vue';
+import AgentsSection from '@/components/agents/AgentsSection.vue';
 import type { ClusterDetail, IssueTokenResponse } from '@watchlog/api-types';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -143,6 +144,9 @@ onMounted(page.load);
       />
 
       <p v-if="error" role="alert" class="text-13 text-critical">{{ error }}</p>
+
+      <!-- The agents and their update command (ADR-227). -->
+      <AgentsSection :cluster-id="id" />
 
       <!-- The read-only demo shows no tokens, not even their prefixes (ADR-122). -->
       <section v-if="!auth.demoMode" class="rounded-card border border-border bg-surface-1">

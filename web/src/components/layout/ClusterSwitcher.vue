@@ -4,7 +4,8 @@ import { Layers, LayoutGrid } from '@lucide/vue';
 import { computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import { attention, countLine, toneOf } from '@/lib/all-clusters';
+import { countLine, needsAttention, showsProLabel, toneOf } from '@/lib/all-clusters';
+import { usePlanStore } from '@/stores/plan';
 import { useAllClustersStore } from '@/stores/allClusters';
 import ComboBox from '@/components/ui/ComboBox.vue';
 import { KIND_LOGO } from '@/components/ui/kindLogos';
@@ -37,7 +38,7 @@ const current = computed(() => (onAll.value ? null : clusters.selected));
 const allNote = computed(() => {
   const s = all.summary;
   if (s) {
-    const bad = attention(s.clusters).length;
+    const bad = s.clusters.filter(needsAttention).length;
     return t('allClusters.switcher.summary', {
       attention: bad
         ? t('allClusters.switcher.attention', { n: bad })
@@ -57,7 +58,14 @@ const options = computed(() => {
       label: t('nav.allClusters'),
       description: allNote.value,
       icon: LayoutGrid,
-      badge: t('nav.pro'),
+      ...(showsProLabel({
+        isCloud: auth.isCloud,
+        demo: auth.demoMode,
+        proFeatures: usePlanStore().info?.proFeatures,
+        access: all.access,
+      })
+        ? { badge: t('nav.pro') }
+        : {}),
     },
     ...clusters.list.map((c) => {
       const r = rows.get(c.id);

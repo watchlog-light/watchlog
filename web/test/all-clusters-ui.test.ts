@@ -10,6 +10,7 @@ import type { CloudConfig } from '@/api/cloud';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import { createAppI18n } from '@/i18n';
 import {
+  showsProLabel,
   allClustersPath,
   chores,
   countLine,
@@ -67,10 +68,9 @@ describe('the words', () => {
   it('the status sentence names a shared problem and a silent server', () => {
     const h = hero(ATTENTION, 'all', tr);
     expect(h.healthy).toBe(false);
-    expect(h.title).toBe('3 clusters and fleets need attention');
-    expect(h.sub).toBe(
-      'acme-staging and acme-prod share one problem · office-tools has a silent server',
-    );
+    // Every cluster that isn't healthy (ADR-227): 3 critical and 2 warning.
+    expect(h.title).toBe('5 clusters and fleets need attention');
+    expect(h.sub).toBe('3 critical · 2 warning · acme-staging and acme-prod share one problem');
   });
 
   it('everything healthy: all N, the hosts reporting, nothing unusual', () => {
@@ -94,7 +94,9 @@ describe('the words', () => {
         reporting: { live: c.reporting.total, total: c.reporting.total },
       })),
     };
-    expect(hero(s, 'all', tr).sub).toBe('office-tools: mail-01 stopped reporting');
+    expect(hero(s, 'all', tr).sub).toBe(
+      '3 critical · 2 warning · office-tools: mail-01 stopped reporting',
+    );
   });
 
   it('the tiles', () => {
@@ -124,6 +126,15 @@ describe('the words', () => {
     expect(countLine(prod!, tr)).toBe('12 nodes');
   });
 
+  it('the "Pro" label shows only where the page is an upgrade card', () => {
+    const o = { isCloud: true, demo: false, proFeatures: false, access: null };
+    expect(showsProLabel(o)).toBe(true);
+    expect(showsProLabel({ ...o, proFeatures: true })).toBe(false);
+    expect(showsProLabel({ ...o, access: 'pro' as const })).toBe(false);
+    expect(showsProLabel({ ...o, isCloud: false, proFeatures: null })).toBe(true);
+    expect(showsProLabel({ ...o, isCloud: false, demo: true })).toBe(false);
+  });
+
   it('the sparkline skips gaps and stays in its box', () => {
     expect(
       sparkPath([
@@ -144,7 +155,7 @@ describe('the words', () => {
   it('housekeeping, in the order of the design', () => {
     const c = chores(ATTENTION.housekeeping, tr);
     expect(c.map((x) => x.title)).toEqual([
-      '4 agents run an older version',
+      '4 agents in shop-servers run an older version',
       'Slack is failing',
       'acme-staging sends alerts nowhere',
       'eBPF is off on 2 nodes in eu-edge',
@@ -187,7 +198,7 @@ async function open(
 describe('the page', () => {
   it('problems: the sentence, tiles, merged rows with a chip per place, the table, What changed, housekeeping', async () => {
     const { w } = await open('/all', 'pro', { [get()]: { status: 200, body: ATTENTION } });
-    expect(w.get('[data-testid="ac-hero"]').text()).toBe('3 clusters and fleets need attention');
+    expect(w.get('[data-testid="ac-hero"]').text()).toBe('5 clusters and fleets need attention');
     expect(w.findAll('[data-testid^="ac-tile-"]')).toHaveLength(4);
     const rows = w.findAll('[data-testid="ac-problem"]');
     expect(rows).toHaveLength(5);
@@ -347,7 +358,8 @@ describe('getting there', () => {
     mounted = w;
     await flushPromises();
     const first = w.get('[data-testid="nav-all"]');
-    expect(first.text()).toBe('All clusters and fleetsPro');
+    // A Pro org sees the plain name (ADR-227).
+    expect(first.text()).toBe('All clusters and fleets');
     expect(first.attributes('aria-current')).toBe('page');
     const envs = w.findAll('[data-testid="nav-env"]');
     expect(envs.map((e) => e.text())).toEqual([
@@ -396,8 +408,8 @@ describe('getting there', () => {
     await flushPromises();
     const options = listedOptions();
     expect(options[0]).toContain('All clusters and fleets');
-    expect(options[0]).toContain('Pro');
-    expect(options[0]).toContain('3 need attention · 30 nodes and servers');
+    expect(options[0]).not.toContain('Pro');
+    expect(options[0]).toContain('5 need attention · 30 nodes and servers');
     expect(options[1]).toContain('acme-prod');
     expect(options.some((o) => o.includes('office-tools') && o.includes('1 of 2 reporting'))).toBe(
       true,

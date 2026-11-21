@@ -2,10 +2,11 @@
 <script setup lang="ts">
 import { Boxes, CircleAlert, CircleCheck, Server } from '@lucide/vue';
 import type { AllClusters, OverviewProblem } from '@watchlog/api-types';
-import { computed, onMounted, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import AllClustersUpgrade from '@/components/all-clusters/AllClustersUpgrade.vue';
+import AgentUpdateDialog from '@/components/agents/AgentUpdateDialog.vue';
 import CauseChip from '@/components/causes/CauseChip.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import Skeleton from '@/components/ui/Skeleton.vue';
@@ -48,6 +49,8 @@ const router = useRouter();
 const { t } = useI18n();
 const tr = (key: string, values?: Record<string, unknown>) => t(key, values ?? {});
 const store = useAllClustersStore();
+/** The cluster whose agents' update dialog is open (Housekeeping, ADR-227). */
+const agentsOf = ref<string | null>(null);
 
 const kind = computed<Kind>(() =>
   route.query.kind === 'kubernetes' || route.query.kind === 'server' ? route.query.kind : 'all',
@@ -574,23 +577,42 @@ const learningNames = computed(() =>
             </h2>
           </div>
           <template v-if="choreList.length">
-            <RouterLink
-              v-for="h in choreList"
-              :key="h.key"
-              :to="h.to"
-              class="flex items-start gap-3 border-t border-border px-5 py-3 text-text hover:bg-surface-2"
-              data-testid="ac-chore"
-            >
-              <span
-                :class="['mt-1.5 size-2 shrink-0 rounded-full', TONE_DOT[h.tone]]"
-                aria-hidden="true"
-              />
-              <span class="flex flex-1 flex-col gap-1">
-                <span class="text-14 font-semibold">{{ h.title }}</span>
-                <span class="text-13 text-text-muted">{{ h.body }}</span>
-              </span>
-              <span class="shrink-0 text-13 font-semibold text-primary">{{ h.action }}</span>
-            </RouterLink>
+            <template v-for="h in choreList" :key="h.key">
+              <!-- Older agents open their update command in place (ADR-227). -->
+              <button
+                v-if="h.agentsOf"
+                type="button"
+                class="flex w-full items-start gap-3 border-t border-border px-5 py-3 text-left text-text hover:bg-surface-2"
+                data-testid="ac-chore"
+                @click="agentsOf = h.agentsOf"
+              >
+                <span
+                  :class="['mt-1.5 size-2 shrink-0 rounded-full', TONE_DOT[h.tone]]"
+                  aria-hidden="true"
+                />
+                <span class="flex flex-1 flex-col gap-1">
+                  <span class="text-14 font-semibold">{{ h.title }}</span>
+                  <span class="text-13 text-text-muted">{{ h.body }}</span>
+                </span>
+                <span class="shrink-0 text-13 font-semibold text-primary">{{ h.action }}</span>
+              </button>
+              <RouterLink
+                v-else
+                :to="h.to"
+                class="flex items-start gap-3 border-t border-border px-5 py-3 text-text hover:bg-surface-2"
+                data-testid="ac-chore"
+              >
+                <span
+                  :class="['mt-1.5 size-2 shrink-0 rounded-full', TONE_DOT[h.tone]]"
+                  aria-hidden="true"
+                />
+                <span class="flex flex-1 flex-col gap-1">
+                  <span class="text-14 font-semibold">{{ h.title }}</span>
+                  <span class="text-13 text-text-muted">{{ h.body }}</span>
+                </span>
+                <span class="shrink-0 text-13 font-semibold text-primary">{{ h.action }}</span>
+              </RouterLink>
+            </template>
           </template>
           <p v-else class="border-t border-border p-5 text-14 text-text-muted">
             {{ $t('allClusters.chores.none') }}
@@ -598,6 +620,13 @@ const learningNames = computed(() =>
         </section>
       </div>
     </div>
+
+    <AgentUpdateDialog
+      v-if="agentsOf"
+      :open="!!agentsOf"
+      :cluster-id="agentsOf"
+      @update:open="(v: boolean) => !v && (agentsOf = null)"
+    />
 
     <!-- Cloud Free and Community: the card over the example. -->
     <div

@@ -69,6 +69,8 @@ export const hostModel = (h: DockerHost): NodeModel => ({
     version: h.agentVersion,
     kubeletTls: null,
     lastSeenAt: h.lastSeenAt,
+    // A legacy Docker host's card: its fleet's banner says what needs updating.
+    updateAvailable: false,
   },
   readySince: null,
   bootTime: h.bootTime,

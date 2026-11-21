@@ -14,6 +14,7 @@ import { useLoader } from '@/composables/useLoader';
 import { usePolling } from '@/composables/usePolling';
 import { shortOs } from '@/lib/servers';
 import { useFleetStore } from '@/stores/fleet';
+import AgentUpdateBanner from '@/components/agents/AgentUpdateBanner.vue';
 
 // A Server fleet's servers (ADR-207; the canvas "Main"): what needs attention first.
 const REFRESH_MS = 30_000;
@@ -129,139 +130,163 @@ onMounted(() => {
       :action-label="addTo ? $t('servers.addServers') : undefined"
       :action-to="addTo"
     />
-    <section
-      v-else-if="servers.length"
-      class="overflow-hidden rounded-card border border-border bg-surface-1"
-    >
-      <div class="flex items-center justify-end border-b border-border px-4 py-3">
-        <span class="text-12 text-text-muted">{{ $t('servers.problemsFirst') }}</span>
-      </div>
-      <!-- Wide screens: the table. -->
-      <table class="w-full text-left text-13 max-lg:hidden" data-testid="server-table">
-        <thead class="text-11 tracking-[0.08em] text-text-muted uppercase">
-          <tr>
-            <th class="px-4 py-2.5 font-normal">{{ $t('servers.columns.server') }}</th>
-            <th class="px-4 py-2.5 font-normal">{{ $t('servers.columns.cpu') }}</th>
-            <th class="px-4 py-2.5 font-normal">{{ $t('servers.columns.memory') }}</th>
-            <th class="px-4 py-2.5 font-normal">{{ $t('servers.columns.disk') }}</th>
-            <th class="px-4 py-2.5 font-normal">{{ $t('servers.columns.workloads') }}</th>
-            <th class="px-4 py-2.5 font-normal">{{ $t('servers.columns.attention') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="s in servers"
-            :key="s.name"
-            class="border-t border-border align-middle"
-            data-testid="server-row"
-          >
-            <td class="px-4 py-3">
-              <RouterLink :to="link(s)" class="font-semibold text-text hover:underline">
+    <template v-else-if="servers.length">
+      <!-- Agents older than this WatchLog (ADR-227). -->
+      <AgentUpdateBanner
+        v-if="fleetStore.fleet"
+        :cluster-id="fleetStore.fleet.id"
+        kind="server"
+        :old="servers.filter((s) => s.updateAvailable).length"
+        :total="servers.length"
+      />
+      <section class="overflow-hidden rounded-card border border-border bg-surface-1">
+        <div class="flex items-center justify-end border-b border-border px-4 py-3">
+          <span class="text-12 text-text-muted">{{ $t('servers.problemsFirst') }}</span>
+        </div>
+        <!-- Wide screens: the table. -->
+        <table class="w-full text-left text-13 max-lg:hidden" data-testid="server-table">
+          <thead class="text-11 tracking-[0.08em] text-text-muted uppercase">
+            <tr>
+              <th class="px-4 py-2.5 font-normal">{{ $t('servers.columns.server') }}</th>
+              <th class="px-4 py-2.5 font-normal">{{ $t('servers.columns.cpu') }}</th>
+              <th class="px-4 py-2.5 font-normal">{{ $t('servers.columns.memory') }}</th>
+              <th class="px-4 py-2.5 font-normal">{{ $t('servers.columns.disk') }}</th>
+              <th class="px-4 py-2.5 font-normal">{{ $t('servers.columns.workloads') }}</th>
+              <th class="px-4 py-2.5 font-normal">{{ $t('servers.columns.attention') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="s in servers"
+              :key="s.name"
+              class="border-t border-border align-middle"
+              data-testid="server-row"
+            >
+              <td class="px-4 py-3">
+                <RouterLink :to="link(s)" class="font-semibold text-text hover:underline">
+                  {{ s.name }}
+                </RouterLink>
+                <p class="text-12 text-text-subtle">
+                  {{ shortOs(s.os) ?? '–' }}
+                  <span v-if="s.status === 'inactive'" class="text-warning">
+                    · {{ $t('clusters.status.inactive') }}</span
+                  >
+                  <span
+                    v-if="s.agentVersion"
+                    :class="s.updateAvailable ? 'text-warning' : ''"
+                    data-testid="server-agent-version"
+                  >
+                    · {{ $t('servers.chip.agent', { v: s.agentVersion }) }}</span
+                  >
+                </p>
+              </td>
+              <td
+                v-for="(v, i) in [s.cpuUtilization, s.memoryUtilization, s.diskUtilization]"
+                :key="i"
+                class="w-[14%] px-4 py-3"
+              >
+                <span class="font-mono text-12 text-text tabular">{{ pct(v) }}</span>
+                <div class="mt-1 h-1 rounded-full bg-surface-3">
+                  <div class="h-1 rounded-full" :class="barTone(v)" :style="{ width: width(v) }" />
+                </div>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex flex-wrap gap-1.5">
+                  <SourceChip
+                    source="service"
+                    :label="$t('servers.chips.service', { n: s.workloads.services })"
+                  />
+                  <SourceChip
+                    source="process"
+                    :label="$t('servers.chips.process', { n: s.workloads.processes })"
+                  />
+                  <SourceChip
+                    v-if="s.workloads.containers"
+                    source="container"
+                    :label="$t('servers.chips.container', { n: s.workloads.containers })"
+                  />
+                </div>
+              </td>
+              <td class="px-4 py-3">
+                <div v-if="s.problems.length" class="flex flex-col items-start gap-1">
+                  <RouterLink
+                    v-for="p in s.problems"
+                    :key="p.id"
+                    :to="problemLink(s, p)"
+                    class="hover:underline"
+                  >
+                    <TonePill
+                      :tone="p.severity === 'critical' ? 'critical' : 'warning'"
+                      :label="`${p.name} ${$t(`servers.problem.${p.kind}`)}`"
+                    />
+                  </RouterLink>
+                  <span v-if="s.problemCount > s.problems.length" class="text-12 text-text-muted">
+                    {{ $t('servers.more', { n: s.problemCount - s.problems.length }) }}
+                  </span>
+                </div>
+                <span v-else class="text-12 text-text-subtle">{{ $t('servers.fine') }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <!-- Phones: one card a server. -->
+        <ul class="divide-y divide-border lg:hidden" data-testid="server-cards">
+          <li v-for="s in servers" :key="s.name" class="flex flex-col gap-2 px-4 py-3">
+            <div class="flex items-baseline justify-between gap-2">
+              <RouterLink :to="link(s)" class="min-h-11 font-semibold text-text hover:underline">
                 {{ s.name }}
               </RouterLink>
-              <p class="text-12 text-text-subtle">
-                {{ shortOs(s.os) ?? '–' }}
-                <span v-if="s.status === 'inactive'" class="text-warning">
-                  · {{ $t('clusters.status.inactive') }}</span
-                >
-              </p>
-            </td>
-            <td
-              v-for="(v, i) in [s.cpuUtilization, s.memoryUtilization, s.diskUtilization]"
-              :key="i"
-              class="w-[14%] px-4 py-3"
-            >
-              <span class="font-mono text-12 text-text tabular">{{ pct(v) }}</span>
-              <div class="mt-1 h-1 rounded-full bg-surface-3">
-                <div class="h-1 rounded-full" :class="barTone(v)" :style="{ width: width(v) }" />
-              </div>
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex flex-wrap gap-1.5">
-                <SourceChip
-                  source="service"
-                  :label="$t('servers.chips.service', { n: s.workloads.services })"
-                />
-                <SourceChip
-                  source="process"
-                  :label="$t('servers.chips.process', { n: s.workloads.processes })"
-                />
-                <SourceChip
-                  v-if="s.workloads.containers"
-                  source="container"
-                  :label="$t('servers.chips.container', { n: s.workloads.containers })"
-                />
-              </div>
-            </td>
-            <td class="px-4 py-3">
-              <div v-if="s.problems.length" class="flex flex-col items-start gap-1">
-                <RouterLink
-                  v-for="p in s.problems"
-                  :key="p.id"
-                  :to="problemLink(s, p)"
-                  class="hover:underline"
-                >
-                  <TonePill
-                    :tone="p.severity === 'critical' ? 'critical' : 'warning'"
-                    :label="`${p.name} ${$t(`servers.problem.${p.kind}`)}`"
-                  />
-                </RouterLink>
-                <span v-if="s.problemCount > s.problems.length" class="text-12 text-text-muted">
-                  {{ $t('servers.more', { n: s.problemCount - s.problems.length }) }}
-                </span>
-              </div>
-              <span v-else class="text-12 text-text-subtle">{{ $t('servers.fine') }}</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <!-- Phones: one card a server. -->
-      <ul class="divide-y divide-border lg:hidden" data-testid="server-cards">
-        <li v-for="s in servers" :key="s.name" class="flex flex-col gap-2 px-4 py-3">
-          <div class="flex items-baseline justify-between gap-2">
-            <RouterLink :to="link(s)" class="min-h-11 font-semibold text-text hover:underline">
-              {{ s.name }}
-            </RouterLink>
-            <span class="text-12 text-text-subtle">{{ shortOs(s.os) ?? '' }}</span>
-          </div>
-          <div class="grid grid-cols-3 gap-3">
-            <div
-              v-for="(v, i) in [s.cpuUtilization, s.memoryUtilization, s.diskUtilization]"
-              :key="i"
-            >
-              <span class="text-11 tracking-[0.08em] text-text-muted uppercase">{{
-                $t(['servers.columns.cpu', 'servers.columns.memory', 'servers.columns.disk'][i]!)
-              }}</span>
-              <span class="block font-mono text-12 text-text tabular">{{ pct(v) }}</span>
-              <div class="mt-1 h-1 rounded-full bg-surface-3">
-                <div class="h-1 rounded-full" :class="barTone(v)" :style="{ width: width(v) }" />
+              <span class="text-12 text-text-subtle"
+                >{{ shortOs(s.os) ?? '' }}
+                <span v-if="s.agentVersion" :class="s.updateAvailable ? 'text-warning' : ''">
+                  · {{ $t('servers.chip.agent', { v: s.agentVersion }) }}</span
+                ></span
+              >
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div
+                v-for="(v, i) in [s.cpuUtilization, s.memoryUtilization, s.diskUtilization]"
+                :key="i"
+              >
+                <span class="text-11 tracking-[0.08em] text-text-muted uppercase">{{
+                  $t(['servers.columns.cpu', 'servers.columns.memory', 'servers.columns.disk'][i]!)
+                }}</span>
+                <span class="block font-mono text-12 text-text tabular">{{ pct(v) }}</span>
+                <div class="mt-1 h-1 rounded-full bg-surface-3">
+                  <div class="h-1 rounded-full" :class="barTone(v)" :style="{ width: width(v) }" />
+                </div>
               </div>
             </div>
-          </div>
-          <div class="flex flex-wrap gap-1.5">
-            <SourceChip
-              source="service"
-              :label="$t('servers.chips.service', { n: s.workloads.services })"
-            />
-            <SourceChip
-              source="process"
-              :label="$t('servers.chips.process', { n: s.workloads.processes })"
-            />
-            <SourceChip
-              v-if="s.workloads.containers"
-              source="container"
-              :label="$t('servers.chips.container', { n: s.workloads.containers })"
-            />
-          </div>
-          <RouterLink v-for="p in s.problems" :key="p.id" :to="problemLink(s, p)" class="min-h-11">
-            <TonePill
-              :tone="p.severity === 'critical' ? 'critical' : 'warning'"
-              :label="`${p.name} ${$t(`servers.problem.${p.kind}`)}`"
-            />
-          </RouterLink>
-        </li>
-      </ul>
-    </section>
+            <div class="flex flex-wrap gap-1.5">
+              <SourceChip
+                source="service"
+                :label="$t('servers.chips.service', { n: s.workloads.services })"
+              />
+              <SourceChip
+                source="process"
+                :label="$t('servers.chips.process', { n: s.workloads.processes })"
+              />
+              <SourceChip
+                v-if="s.workloads.containers"
+                source="container"
+                :label="$t('servers.chips.container', { n: s.workloads.containers })"
+              />
+            </div>
+            <RouterLink
+              v-for="p in s.problems"
+              :key="p.id"
+              :to="problemLink(s, p)"
+              class="min-h-11"
+            >
+              <TonePill
+                :tone="p.severity === 'critical' ? 'critical' : 'warning'"
+                :label="`${p.name} ${$t(`servers.problem.${p.kind}`)}`"
+              />
+            </RouterLink>
+          </li>
+        </ul>
+      </section>
+    </template>
     <p class="px-1 text-12 text-text-muted">{{ $t('servers.footnote') }}</p>
   </div>
 </template>

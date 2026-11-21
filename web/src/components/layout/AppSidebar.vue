@@ -7,7 +7,7 @@ import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { navFor, type NavItem } from '@/router';
-import { countLine, toneOf, type Tone } from '@/lib/all-clusters';
+import { countLine, showsProLabel, toneOf, type Tone } from '@/lib/all-clusters';
 import { useAllClustersStore } from '@/stores/allClusters';
 import { useApplicationsStore } from '@/stores/applications';
 import { useAuthStore } from '@/stores/auth';
@@ -79,6 +79,15 @@ watch(
 // instead of one cluster's sections.
 const all = useAllClustersStore();
 const onAll = computed(() => route.name === 'all-clusters');
+// Its "Pro" label only where the page is an upgrade card (ADR-227).
+const allPro = computed(() =>
+  showsProLabel({
+    isCloud: auth.isCloud,
+    demo: auth.demoMode,
+    proFeatures: plan.info?.proFeatures,
+    access: all.access,
+  }),
+);
 watch(
   () => [onAll.value, auth.user?.id] as const,
   ([here, user]) => {
@@ -200,7 +209,9 @@ async function signOut() {
           <RouterLink v-slot="{ href, navigate }" :to="{ name: 'all-clusters' }" custom>
             <a
               :href="href"
-              :title="`${$t('nav.allClusters')} · ${$t('nav.pro')}`"
+              :title="
+                allPro ? `${$t('nav.allClusters')} · ${$t('nav.pro')}` : $t('nav.allClusters')
+              "
               :aria-current="onAll ? 'page' : undefined"
               data-testid="nav-all"
               :class="[
@@ -215,7 +226,7 @@ async function signOut() {
               <LayoutGrid class="size-4.5 shrink-0" aria-hidden="true" />
               <span :class="collapsed ? 'sr-only' : 'truncate'">{{ $t('nav.allClusters') }}</span>
               <span
-                v-if="!collapsed"
+                v-if="!collapsed && allPro"
                 data-testid="nav-all-pro"
                 class="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-info/50 px-2 text-12 font-semibold text-info"
                 >{{ $t('nav.pro') }}</span

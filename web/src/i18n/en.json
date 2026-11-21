@@ -5955,7 +5955,8 @@
       "shareMany": "{a} and {n} more share one problem",
       "silentServer": "{name} has a silent server | {name} has {n} silent servers",
       "silentNode": "{name} has a silent node | {name} has {n} silent nodes",
-      "worst": "{name}: {title}"
+      "worst": "{name}: {title}",
+      "split": "{critical} critical · {warning} warning"
     },
     "tiles": {
       "clusters": "Clusters and fleets",
@@ -6024,8 +6025,8 @@
     "chores": {
       "title": "Housekeeping",
       "none": "Nothing to tidy up.",
-      "agents": "{n} agent runs an older version | {n} agents run an older version",
-      "agentsIn": "{name} ({n}, {versions})",
+      "agents": "{n} agent in {name} runs an older version | {n} agents in {name} run an older version",
+      "agentsIn": "Running {versions}; this WatchLog is {latest}.",
       "update": "Update",
       "channel": "{name} is failing",
       "channelError": "{error}.",
@@ -6067,6 +6068,49 @@
       "keeps": "Your self-hosted install keeps everything it has today, with no limits.",
       "example": "Behind this card: example data, not yours.",
       "checkoutError": "Checkout could not start. Try again, or open Settings › Plan & billing."
+    }
+  },
+  "agents": {
+    "chip": "Agent {version}",
+    "chipUpdate": "Agent {version} · update to {latest}",
+    "unknownVersion": "unknown version",
+    "version": "Agent",
+    "updateAgents": "Update agents",
+    "banner": {
+      "servers": "{n} of {total} servers runs an older agent | {n} of {total} servers run an older agent",
+      "nodes": "{n} of {total} nodes runs an older agent | {n} of {total} nodes run an older agent"
+    },
+    "update": {
+      "title": "Update the agents",
+      "leadServers": "Running {versions}; this WatchLog is {latest}. | Running {versions}; this WatchLog is {latest}. One server to update. | Running {versions}; this WatchLog is {latest}. {n} servers to update.",
+      "leadNodes": "Running {versions}; this WatchLog is {latest}.",
+      "method": {
+        "script": "One command",
+        "deb": "deb",
+        "rpm": "rpm",
+        "docker": "Docker"
+      },
+      "label": {
+        "script": "Run on the server",
+        "deb": "Run on the server (Debian, Ubuntu)",
+        "rpm": "Run on the server (RHEL, Rocky, Alma, Fedora, Amazon Linux)",
+        "docker": "Run on the Docker host"
+      },
+      "helmLabel": "Run where kubectl reaches the cluster",
+      "helmNames": "The release is {release} in the namespace watchlog: change them if yours differ (helm list -A | grep watchlog).",
+      "dockerNote": "It re-creates the agent with the token the running container already has: no new token, and the state volume is kept.",
+      "loopLabel": "Or on every out-of-date server over SSH ({n})",
+      "keeps": "Updates keep the configuration and never need manual steps.",
+      "after": "After the update the version here changes within a minute.",
+      "loadError": "Couldn't load the agents. Try again in a moment."
+    },
+    "settings": {
+      "title": "Agents",
+      "current": "Every agent runs {latest}. Re-run the command to repair an install.",
+      "found": "Versions found: {versions}",
+      "none": "No agent has reported in the last 7 days.",
+      "open": "Show the update command",
+      "repair": "Show the command"
     }
   }
 }

@@ -47,15 +47,6 @@ export const allClustersPath = (range: number, kind: Kind) =>
 export const needsAttention = (r: Pick<AllClustersRow, 'status'>) =>
   r.status === 'critical' || r.status === 'warning';
 
-/**
- * The ones that "need attention" in the status sentence (the design's): the critical ones,
- * or the warning ones when none is critical.
- */
-export function attention<T extends Pick<AllClustersRow, 'status'>>(rows: T[]): T[] {
-  const critical = rows.filter((r) => r.status === 'critical');
-  return critical.length ? critical : rows.filter((r) => r.status === 'warning');
-}
-
 export const toneOf = (status: AllClustersRow['status']): Tone =>
   status === 'waiting' ? 'muted' : status;
 
@@ -86,7 +77,7 @@ export function hero(
   kind: Kind,
   tr: Tr,
 ): { healthy: boolean; title: string; sub: string } {
-  const bad = attention(s.clusters);
+  const bad = s.clusters.filter(needsAttention);
   const n = s.clusters.length;
   if (bad.length === 0) {
     const reporting = s.clusters.reduce((x, c) => x + c.reporting.live, 0);
@@ -108,8 +99,13 @@ export function hero(
       ].join(' · '),
     };
   }
-  const notes: string[] = [];
+  // The second line (ADR-226 as amended by ADR-227): how they split, then the worst thing.
+  const crit = bad.filter((c) => c.status === 'critical').length;
+  const notes: string[] = [
+    tr('allClusters.hero.split', { critical: crit, warning: bad.length - crit }),
+  ];
   const shared = s.problems.find((p) => p.places.length > 1);
+  const silent = s.clusters.find((c) => c.reporting.live < c.reporting.total);
   if (shared) {
     const names = shared.places.map((p) => p.cluster.name);
     notes.push(
@@ -117,26 +113,21 @@ export function hero(
         ? tr('allClusters.hero.shareTwo', { a: names[0], b: names[1] })
         : tr('allClusters.hero.shareMany', { a: names[0], n: names.length - 1 }),
     );
-  }
-  const silent = s.clusters.find((c) => c.reporting.live < c.reporting.total);
-  if (silent) {
-    const missing = silent.reporting.total - silent.reporting.live;
+  } else if (silent) {
     notes.push(
       tr(
         silent.kind === 'server' ? 'allClusters.hero.silentServer' : 'allClusters.hero.silentNode',
         {
           name: silent.name,
-          n: missing,
+          n: silent.reporting.total - silent.reporting.live,
         },
       ),
     );
-  }
-  if (!notes.length) {
+  } else if (s.problems[0]) {
     const worst = s.problems[0];
-    if (worst)
-      notes.push(
-        tr('allClusters.hero.worst', { name: worst.places[0]!.cluster.name, title: worst.title }),
-      );
+    notes.push(
+      tr('allClusters.hero.worst', { name: worst.places[0]!.cluster.name, title: worst.title }),
+    );
   }
   return {
     healthy: false,
@@ -320,26 +311,23 @@ export function chores(
   body: string;
   action: string;
   to: RouteLocationRaw;
+  /** The cluster whose agents' update dialog this item opens (ADR-227). */
+  agentsOf?: string;
 }[] {
   const out: ReturnType<typeof chores> = [];
-  const old = h.oldAgents.reduce((n, o) => n + o.count, 0);
-  if (old) {
-    const first = h.oldAgents[0]!;
+  // One item per cluster or fleet with older agents: it opens their update command (ADR-227).
+  for (const o of h.oldAgents) {
     out.push({
-      key: 'agents',
+      key: `agents-${o.cluster.id}`,
       tone: 'warning',
-      title: tr('allClusters.chores.agents', { n: old, latest: h.latestVersion }),
-      body: h.oldAgents
-        .map((o) =>
-          tr('allClusters.chores.agentsIn', {
-            name: o.cluster.name,
-            n: o.count,
-            versions: o.versions.join(', '),
-          }),
-        )
-        .join(' · '),
+      title: tr('allClusters.chores.agents', { n: o.count, name: o.cluster.name }),
+      body: tr('allClusters.chores.agentsIn', {
+        versions: o.versions.join(', '),
+        latest: h.latestVersion,
+      }),
       action: tr('allClusters.chores.update'),
-      to: { name: 'cluster-settings', params: { id: first.cluster.id } },
+      to: { name: 'cluster-settings', params: { id: o.cluster.id } },
+      agentsOf: o.cluster.id,
     });
   }
   for (const ch of h.failingChannels) {
@@ -396,4 +384,20 @@ export function chores(
     });
   }
   return out;
+}
+
+/**
+ * Whether the sidebar's and the switcher's "Pro" label shows (ADR-227): only to orgs without
+ * the page (Cloud Free, Community), where it explains the upgrade card. A Pro org (and the
+ * demo) sees the plain name.
+ */
+export function showsProLabel(o: {
+  isCloud: boolean;
+  demo: boolean;
+  proFeatures: boolean | null | undefined;
+  access: Access | null;
+}): boolean {
+  if (o.access === 'pro' || o.demo) return false;
+  if (o.isCloud) return o.proFeatures !== true;
+  return true;
 }

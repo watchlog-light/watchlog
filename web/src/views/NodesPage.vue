@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import { Hourglass, Info, SearchX, Server, X } from '@lucide/vue';
+import AgentUpdateBanner from '@/components/agents/AgentUpdateBanner.vue';
 import type { DockerHostList, KubeNodeList } from '@watchlog/api-types';
 import { computed, onMounted, ref, watch } from 'vue';
 import { usePolling } from '@/composables/usePolling';
@@ -229,6 +230,14 @@ onMounted(() => {
           </button>
         </div>
 
+        <!-- Agents older than this WatchLog (ADR-227), Kubernetes nodes only. -->
+        <AgentUpdateBanner
+          v-if="!hosts && kube.cluster && nodes.length"
+          :cluster-id="kube.cluster.id"
+          kind="kubernetes"
+          :old="nodes.filter((n) => n.agent.updateAvailable).length"
+          :total="nodes.length"
+        />
         <template v-if="shown.length > 0">
           <div v-if="layout === 'cards'" class="ngrid">
             <NodeCard v-for="n in shown" :key="n.name" :node="n" :terms="filter.terms.value" />
