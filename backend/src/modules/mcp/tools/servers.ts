@@ -31,6 +31,8 @@ interface ApiServer {
   name: string;
   status: string;
   agentVersion: string | null;
+  installMethod?: string | null;
+  updateAvailable?: boolean;
   servicesAvailable: boolean;
   os: string | null;
   kernel: string | null;
@@ -71,7 +73,7 @@ export const getServerTool = defineTool({
   name: 'get_server',
   title: 'Get a server and its workloads',
   description: describe(
-    'One server of a Server fleet: its OS, kernel, systemd and Docker versions, CPU, memory and disk use, and every workload on it: systemd services, process groups (pm2 apps, PHP-FPM pools, scripts and binaries in any language) and containers.',
+    'One server of a Server fleet: its OS, kernel, systemd and Docker versions, its agent (version, how it was installed, and agentUpdateAvailable when it is older than this WatchLog), CPU, memory and disk use, and every workload on it: systemd services, process groups (pm2 apps, PHP-FPM pools, scripts and binaries in any language) and containers.',
     `Returns problems first (failed, crash-looping, OOM-killed), then the busiest, at most ${MAX_WORKLOADS}; the OS's own services are left out unless includeSystem is true. For one workload's exits and probable cause, explain_problem or the workload page.`,
     'Example question: "What runs on app-1 and is anything crash-looping?"',
   ),
@@ -117,6 +119,8 @@ export const getServerTool = defineTool({
           name: name(s.name),
           status: s.status,
           agentVersion: text(s.agentVersion, 64),
+          agentInstallMethod: s.installMethod ?? null,
+          agentUpdateAvailable: s.updateAvailable === true,
           servicesAndProcesses: s.servicesAvailable,
           os: text(s.os, 128),
           kernel: text(s.kernel, 128),

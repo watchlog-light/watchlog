@@ -123,6 +123,8 @@ export const ROUTES: Record<string, RouteClass> = {
   'GET /api/v1/clusters': org,
   'POST /api/v1/clusters': org,
   'GET /api/v1/clusters/:id': org,
+  // The agents and their update command (ADR-227): B with A's cluster gets 404.
+  'GET /api/v1/clusters/:id/agents': org,
   'PATCH /api/v1/clusters/:id': org,
   'DELETE /api/v1/clusters/:id': org,
   'POST /api/v1/clusters/:id/tokens': org,

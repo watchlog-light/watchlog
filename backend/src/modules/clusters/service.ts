@@ -27,6 +27,8 @@ export interface ClusterView {
   lastSeenAt: string | null;
   createdAt: string;
   ingestFailure: IngestFailure | null;
+  /** A node or server agent here is older than this WatchLog (ADR-227). */
+  updateAvailable: boolean;
 }
 
 export interface TokenView {
@@ -47,6 +49,7 @@ export function clusterStatus(lastSeenAt: Date | null, now = Date.now()): Cluste
 export function toClusterView(
   row: Selectable<Clusters>,
   ingestFailure: IngestFailure | null = null,
+  updateAvailable = false,
 ): ClusterView {
   return {
     id: row.id,
@@ -59,6 +62,7 @@ export function toClusterView(
     lastSeenAt: iso(row.last_seen_at),
     createdAt: row.created_at.toISOString(),
     ingestFailure,
+    updateAvailable,
   };
 }
 
@@ -106,7 +110,13 @@ export async function clustersForOrg(db: Database, orgId: string) {
     .where('org_id', '=', orgId)
     .orderBy('name')
     .execute();
-  return { rows, scope: rows.length ? authorisedClustersScope(rows.map((r) => r.id)) : null };
+  const ids = new Set(rows.map((r) => r.id));
+  return {
+    rows,
+    scope: rows.length ? authorisedClustersScope(rows.map((r) => r.id)) : null,
+    /** One of these clusters on its own, for a follow-up query about it. */
+    scopeOf: (id: string) => (ids.has(id) ? authorisedScope(id) : null),
+  };
 }
 
 export function listTokens(db: Database, clusterId: string) {

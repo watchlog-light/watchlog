@@ -195,6 +195,15 @@ const HeartbeatBody = Type.Object({
       helm_chart: Type.Optional(Type.String({ maxLength: 64 })),
       /** Docker agents: their own container, named in the upgrade command. */
       container_id: Type.Optional(Type.String({ maxLength: 64 })),
+      /** A server's agent: how it was installed, for the panel's update command (ADR-227). */
+      install_method: Type.Optional(
+        Type.Union([
+          Type.Literal('script'),
+          Type.Literal('deb'),
+          Type.Literal('rpm'),
+          Type.Literal('docker'),
+        ]),
+      ),
       cgroup: Type.Optional(Type.String({ maxLength: 16 })),
       /** Node agents: how the kubelet connection is secured (ADR-051). */
       kubelet_tls: Type.Optional(

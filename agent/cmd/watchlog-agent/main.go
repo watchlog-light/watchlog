@@ -69,6 +69,30 @@ func helmRelease(v string) string {
 	return v
 }
 
+// installMethodFile is written by the install script, the deb and the rpm (ADR-227).
+const installMethodFile = "/etc/watchlog/install-method"
+
+// installMethod is how a server's agent was installed (ADR-227): docker when it runs in its
+// own container, else the one word the script or package wrote; "" when unknown, and always
+// "" for Kubernetes, whose update command comes from the Helm release.
+func installMethod(mode config.Mode, containerID string, read func() ([]byte, error)) string {
+	if mode != config.ModeServer {
+		return ""
+	}
+	if containerID != "" {
+		return "docker"
+	}
+	b, err := read()
+	if err != nil {
+		return ""
+	}
+	switch m := strings.TrimSpace(string(b)); m {
+	case "script", "deb", "rpm":
+		return m
+	}
+	return ""
+}
+
 // selfContainerID is the agent's own container in docker mode, read from its own
 // mountinfo (not the host's).
 func selfContainerID(mode config.Mode) string {
@@ -523,8 +547,11 @@ func run(args []string, stdout io.Writer) int {
 			HelmRelease: helmRelease(os.Getenv("WATCHLOG_HELM_RELEASE")),
 			HelmChart:   helmRelease(os.Getenv("WATCHLOG_HELM_CHART")),
 			ContainerID: selfContainerID(mode),
-			NodeScope:   hostCfg.Scope,
-			Logs:        logsCapability(mode, *logsOn),
+			InstallMethod: installMethod(mode, selfContainerID(mode), func() ([]byte, error) {
+				return os.ReadFile(installMethodFile)
+			}),
+			NodeScope: hostCfg.Scope,
+			Logs:      logsCapability(mode, *logsOn),
 		},
 	}
 

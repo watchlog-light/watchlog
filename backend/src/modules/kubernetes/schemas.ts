@@ -127,6 +127,8 @@ export const NodeSchema = Type.Object({
     /** ADR-051: verified | unverified; null before the first heartbeat. */
     kubeletTls: NullableString,
     lastSeenAt: NullableString,
+    /** Older than this WatchLog, or of unknown version (ADR-227). */
+    updateAvailable: Type.Boolean(),
   }),
 });
 

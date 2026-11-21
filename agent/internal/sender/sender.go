@@ -261,6 +261,9 @@ type Capabilities struct {
 	HelmChart   string `json:"helm_chart,omitempty"`
 	// ContainerID is the Docker agent's own container, named in its upgrade command.
 	ContainerID string `json:"container_id,omitempty"`
+	// InstallMethod is how a server's agent was installed: script | deb | rpm | docker
+	// (ADR-227), so the panel shows the one update command that fits. Left out when unknown.
+	InstallMethod string `json:"install_method,omitempty"`
 	// NodeScope is where node metrics come from: host or cgroup (ADR-121).
 	NodeScope string `json:"node_scope,omitempty"`
 	// NodeCPUCores and NodeMemoryBytes are the node's capacity measured from its cgroup

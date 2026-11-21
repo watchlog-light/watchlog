@@ -10,6 +10,7 @@ export interface ApiCluster {
   kind: 'kubernetes' | 'server';
   status: 'pending' | 'active' | 'inactive';
   nodeCount: number;
+  updateAvailable?: boolean;
   lastSeenAt: string | null;
   ingestFailure: unknown;
 }

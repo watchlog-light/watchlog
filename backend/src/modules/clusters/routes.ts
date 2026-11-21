@@ -19,6 +19,7 @@ import {
 import { issueInstallCode, revokeInstallCodes } from '../onboarding/install-codes.js';
 import { recordFunnelEvent } from '../funnel/recorder.js';
 import {
+  ClusterAgentsSchema,
   ClusterDetailSchema,
   ClusterIdParams,
   ClusterListSchema,
@@ -30,6 +31,7 @@ import {
   normalizeKind,
 } from './schemas.js';
 import {
+  CLUSTER_STALE_MS,
   countActiveTokens,
   clusterForOrg,
   insertCluster,
@@ -40,6 +42,15 @@ import {
   toTokenView,
 } from './service.js';
 import { issueClusterToken, type IssuedToken } from './tokens.js';
+import {
+  AGENT_WINDOW_MS,
+  clustersWithOldAgents,
+  helmUpdateCommand,
+  installMethodOf,
+  serverUpdateCommands,
+  sshLoop,
+  updateAvailable,
+} from './agent-update.js';
 import type { SettingsService } from '../settings/service.js';
 import type { VictoriaClient } from '../../lib/victoria.js';
 import type { TokenCache } from '../ingest/token-cache.js';
@@ -116,11 +127,14 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
     },
     async (request) => {
       const rows = await listClusters(db, request.user!.org.id);
-      const failing = await ingestFailures(
-        db,
-        rows.map((r) => r.id),
-      );
-      return { clusters: rows.map((r) => toClusterView(r, failing.get(r.id) ?? null)) };
+      const ids = rows.map((r) => r.id);
+      const [failing, old] = await Promise.all([
+        ingestFailures(db, ids),
+        clustersWithOldAgents(db, ids, version),
+      ]);
+      return {
+        clusters: rows.map((r) => toClusterView(r, failing.get(r.id) ?? null, old.has(r.id))),
+      };
     },
   );
 
@@ -217,10 +231,94 @@ export const clusterRoutes: FastifyPluginAsyncTypebox<{
       if (!cluster) return sendProblem(reply, 404, NOT_FOUND);
       // Read-only demo (ADR-122) and API tokens (ADR-125): not even token prefixes.
       const tokens = config.demoMode || request.apiToken ? [] : await listTokens(db, cluster.id);
-      const failing = await ingestFailures(db, [cluster.id]);
+      const [failing, old] = await Promise.all([
+        ingestFailures(db, [cluster.id]),
+        clustersWithOldAgents(db, [cluster.id], version),
+      ]);
       return {
-        cluster: toClusterView(cluster, failing.get(cluster.id) ?? null),
+        cluster: toClusterView(cluster, failing.get(cluster.id) ?? null, old.has(cluster.id)),
         tokens: tokens.map(toTokenView),
+      };
+    },
+  );
+
+  // The agents of a cluster or fleet and the command that updates them (ADR-227): the update
+  // dialog, the banners and the settings' Agents section. No token: the script and the
+  // packages keep the server's configuration, and the Docker command reads the token from
+  // the running container.
+  app.get(
+    '/clusters/:id/agents',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary: "A cluster's or fleet's agents, their versions and the update command (ADR-227)",
+        description:
+          "Each node or server agent seen in the last 7 days: its version, how it was installed (servers, from 0.11.1) and whether it is older than this WatchLog (`updateAvailable`; an unknown version counts as older). The update command filled in with this WatchLog's address and version: for a fleet one per install method (`script`, `deb`, `rpm`, `docker`), `method` when every out-of-date server reported the same one, and `loop`, an SSH loop over the out-of-date servers; for Kubernetes, `helm upgrade` of the chart the cluster runs, `known` false when the release and namespace are the defaults, not the cluster's own.",
+        tags: ['clusters', PUBLIC_TAG],
+        params: ClusterIdParams,
+        response: { 200: ClusterAgentsSchema, 401: ProblemSchema, 404: ProblemSchema },
+      },
+    },
+    async (request, reply) => {
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
+      if (!cluster) return sendProblem(reply, 404, NOT_FOUND);
+      const now = Date.now();
+      const rows = await db
+        .selectFrom('agent_instances')
+        .select(['node', 'mode', 'agent_version', 'capabilities', 'last_seen_at'])
+        .where('cluster_id', '=', cluster.id)
+        .where('last_seen_at', '>=', new Date(now - AGENT_WINDOW_MS))
+        .orderBy('node')
+        .execute();
+      const hosts = rows.filter((r) => r.mode === 'node' || r.mode === 'docker');
+      const agents = hosts.map((r) => ({
+        host: r.node,
+        version: r.agent_version,
+        method: cluster.kind === 'server' ? installMethodOf(r.capabilities) : null,
+        updateAvailable: updateAvailable(r.agent_version, version),
+        active: now - r.last_seen_at.getTime() <= CLUSTER_STALE_MS,
+        lastSeenAt: r.last_seen_at.toISOString(),
+      }));
+      const old = agents.filter((a) => a.updateAvailable);
+      const base = {
+        latest: version.replace(/^v/, ''),
+        kind: cluster.kind as 'kubernetes' | 'server',
+        agents,
+        outOfDate: old.length,
+      };
+      if (cluster.kind === 'kubernetes') {
+        // The chart's release, from any of its agents (the cluster-agent reports it too).
+        const caps = rows
+          .map((r) => r.capabilities as { helm_release?: string; helm_chart?: string } | null)
+          .find((c) => c?.helm_release || c?.helm_chart);
+        const chart: 'watchlog' | 'watchlog-agent' | null =
+          caps?.helm_chart === 'watchlog' || caps?.helm_chart === 'watchlog-agent'
+            ? caps.helm_chart
+            : config.edition === 'cloud'
+              ? 'watchlog-agent'
+              : null;
+        const helm = helmUpdateCommand({ version, release: caps?.helm_release, chart });
+        return { ...base, helm: { ...helm, chart: chart ?? 'watchlog-agent' }, server: null };
+      }
+      const endpoint = await endpointFor(request);
+      const methods = serverUpdateCommands({ endpoint, version, image });
+      const reported = [...new Set(old.map((a) => a.method))];
+      const method = reported.length === 1 && reported[0] ? reported[0] : null;
+      const loopWith = methods[method ?? 'script']!;
+      return {
+        ...base,
+        helm: null,
+        server: {
+          commands: methods,
+          method,
+          loop:
+            old.length > 1
+              ? sshLoop(
+                  old.map((a) => a.host),
+                  loopWith,
+                )
+              : null,
+        },
       };
     },
   );

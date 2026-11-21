@@ -314,10 +314,15 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(clusterRoutes, { db: deps.db, config, tokens, settings, victoria });
       await api.register(queryRoutes, { db: deps.db, victoria });
       await api.register(dockerRoutes, { db: deps.db, victoria });
-      await api.register(serverRoutes, { db: deps.db, victoria });
+      await api.register(serverRoutes, { db: deps.db, victoria, version: config.version });
       await api.register(certsJobsRoutes, { db: deps.db });
       await api.register(processRuleRoutes, { db: deps.db, victoria });
-      await api.register(kubernetesRoutes, { db: deps.db, victoria, settings });
+      await api.register(kubernetesRoutes, {
+        db: deps.db,
+        victoria,
+        settings,
+        version: config.version,
+      });
       await api.register(logsRoutes, { db: deps.db, settings, broker: logBroker });
       await api.register(rightSizingRoutes, { db: deps.db, rightSizing });
       await api.register(egressRoutes, {

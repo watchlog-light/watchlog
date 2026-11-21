@@ -59,6 +59,8 @@ export const ClusterSchema = Type.Object({
   lastSeenAt: Nullable(DateTime),
   createdAt: DateTime,
   ingestFailure: Type.Union([IngestFailureSchema, Type.Null()]),
+  /** A node or server agent here is older than this WatchLog, or of unknown version (ADR-227). */
+  updateAvailable: Type.Boolean(),
 });
 
 export const TokenSchema = Type.Object({
@@ -112,4 +114,51 @@ export const CreateClusterResponseSchema = Type.Object({
 export const IssueTokenResponseSchema = Type.Object({
   token: IssuedTokenSchema,
   install: InstallSchema,
+});
+
+const Method = Type.Union([
+  Type.Literal('script'),
+  Type.Literal('deb'),
+  Type.Literal('rpm'),
+  Type.Literal('docker'),
+]);
+
+/** GET /clusters/:id/agents (ADR-227). */
+export const ClusterAgentsSchema = Type.Object({
+  latest: Type.String({ description: "This WatchLog's version: what the agents update to" }),
+  kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('server')]),
+  agents: Type.Array(
+    Type.Object({
+      host: Type.String(),
+      version: Type.String(),
+      method: Type.Union([Method, Type.Null()], {
+        description: 'Servers from 0.11.1: how the agent was installed; null when unknown',
+      }),
+      updateAvailable: Type.Boolean(),
+      active: Type.Boolean(),
+      lastSeenAt: DateTime,
+    }),
+  ),
+  outOfDate: Type.Integer({ minimum: 0 }),
+  helm: Type.Union([
+    Type.Object({
+      command: Type.String(),
+      known: Type.Boolean({ description: 'The release and namespace are the cluster’s own' }),
+      chart: Type.Union([Type.Literal('watchlog'), Type.Literal('watchlog-agent')]),
+    }),
+    Type.Null(),
+  ]),
+  server: Type.Union([
+    Type.Object({
+      commands: Type.Object({
+        script: Type.Optional(Type.String()),
+        deb: Type.Optional(Type.String()),
+        rpm: Type.Optional(Type.String()),
+        docker: Type.Optional(Type.String()),
+      }),
+      method: Type.Union([Method, Type.Null()]),
+      loop: Type.Union([Type.String(), Type.Null()]),
+    }),
+    Type.Null(),
+  ]),
 });

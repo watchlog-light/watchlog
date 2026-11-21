@@ -2,6 +2,7 @@
 // Views of the cluster-agent's object summaries (agent/internal/k8s/records.go,
 // ADR-055) for the Kubernetes read API (SPEC §4.1–§4.3). Pure functions: the routes
 // load rows and metrics, these shape them.
+import { updateAvailable } from '../clusters/agent-update.js';
 
 type Summary = Record<string, unknown>;
 
@@ -347,6 +348,7 @@ export interface NodeView {
     version: string | null;
     kubeletTls: string | null;
     lastSeenAt: string | null;
+    updateAvailable: boolean;
   };
 }
 
@@ -388,6 +390,8 @@ export function nodeView(
   pods: ObjectRow[],
   metrics: NodeMetrics | undefined,
   agent: AgentInfo | undefined,
+  /** This WatchLog's version: an older agent shows its update (ADR-227). */
+  latest = '',
 ): NodeView {
   const spec = row.spec_summary as Summary;
   const st = row.status_summary as Summary;
@@ -443,6 +447,7 @@ export function nodeView(
       version: agent?.version ?? null,
       kubeletTls: str(caps.kubelet_tls),
       lastSeenAt: agent?.lastSeenAt.toISOString() ?? null,
+      updateAvailable: !!agent && updateAvailable(agent.version, latest),
     },
   };
 }

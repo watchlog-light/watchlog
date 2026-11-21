@@ -145,6 +145,9 @@ install -m 0755 "$TMP/watchlog-agent" /usr/bin/watchlog-agent
 install -m 0755 "$TMP/watchlog-integrations" /usr/bin/watchlog-integrations
 for u in $UNITS; do install -m 0644 "$TMP/$u.service" "/etc/systemd/system/$u.service"; done
 install -d -m 0750 -o root -g watchlog /etc/watchlog
+# How this agent was installed, for the panel's update command (ADR-227).
+printf 'script\n' >/etc/watchlog/install-method
+chmod 0644 /etc/watchlog/install-method
 if [ "$ACTION" = install ]; then
   umask 027
   {

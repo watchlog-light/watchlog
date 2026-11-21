@@ -17,6 +17,13 @@ elif [ "${WATCHLOG_DOCKER:-yes}" = yes ] && systemctl cat podman.socket >/dev/nu
   if systemctl is-active --quiet podman.socket; then systemctl restart podman.socket >/dev/null 2>&1 || true; fi
 fi
 install -d -m 0750 -o root -g watchlog /etc/watchlog
+# How this agent was installed, for the panel's update command (ADR-227): an rpm's scriptlet
+# gets a count ("1", "2"), a deb's postinst "configure".
+case "${1:-}" in
+  [0-9]*) printf 'rpm\n' >/etc/watchlog/install-method ;;
+  *) printf 'deb\n' >/etc/watchlog/install-method ;;
+esac
+chmod 0644 /etc/watchlog/install-method
 systemctl daemon-reload >/dev/null 2>&1 || true
 if [ ! -f /etc/watchlog/agent.env ] && [ -n "${WATCHLOG_TOKEN:-}" ]; then
   umask 027

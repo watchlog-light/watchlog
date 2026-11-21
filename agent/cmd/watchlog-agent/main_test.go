@@ -3,8 +3,11 @@
 package main
 
 import (
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/watchlog-light/watchlog/agent/internal/config"
 )
 
 func TestRunVersion(t *testing.T) {
@@ -64,6 +67,32 @@ func TestHelmRelease(t *testing.T) {
 	} {
 		if got := helmRelease(in); got != want {
 			t.Errorf("helmRelease(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestInstallMethod(t *testing.T) {
+	file := func(s string, err error) func() ([]byte, error) {
+		return func() ([]byte, error) { return []byte(s), err }
+	}
+	cases := []struct {
+		mode      config.Mode
+		container string
+		read      func() ([]byte, error)
+		want      string
+	}{
+		{config.ModeServer, "abc123", file("deb\n", nil), "docker"},
+		{config.ModeServer, "", file("script\n", nil), "script"},
+		{config.ModeServer, "", file("deb", nil), "deb"},
+		{config.ModeServer, "", file(" rpm \n", nil), "rpm"},
+		{config.ModeServer, "", file("something else", nil), ""},
+		{config.ModeServer, "", file("", os.ErrNotExist), ""},
+		{config.ModeNode, "abc123", file("script", nil), ""},
+		{config.ModeCluster, "", file("script", nil), ""},
+	}
+	for _, c := range cases {
+		if got := installMethod(c.mode, c.container, c.read); got != c.want {
+			t.Errorf("installMethod(%s, %q) = %q, want %q", c.mode, c.container, got, c.want)
 		}
 	}
 }

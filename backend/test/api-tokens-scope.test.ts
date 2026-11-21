@@ -30,6 +30,7 @@ const ALLOWED = [
   'GET /api/v1/causes',
   'GET /api/v1/clusters',
   'GET /api/v1/clusters/:id',
+  'GET /api/v1/clusters/:id/agents',
   'GET /api/v1/clusters/:id/certificates',
   'GET /api/v1/clusters/:id/certificates/:certId',
   'GET /api/v1/clusters/:id/change-markers',

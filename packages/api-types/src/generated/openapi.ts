@@ -581,6 +581,7 @@ export interface paths {
                     failures: number;
                   }[];
                 } | null;
+                updateAvailable: boolean;
               }[];
             };
           };
@@ -655,6 +656,7 @@ export interface paths {
                     failures: number;
                   }[];
                 } | null;
+                updateAvailable: boolean;
               };
               token: {
                 /** Format: uuid */
@@ -816,6 +818,7 @@ export interface paths {
                     failures: number;
                   }[];
                 } | null;
+                updateAvailable: boolean;
               };
               tokens: {
                 /** Format: uuid */
@@ -994,6 +997,7 @@ export interface paths {
                     failures: number;
                   }[];
                 } | null;
+                updateAvailable: boolean;
               };
             };
           };
@@ -1090,6 +1094,114 @@ export interface paths {
         };
       };
     };
+    trace?: never;
+  };
+  '/api/v1/clusters/{id}/agents': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * A cluster's or fleet's agents, their versions and the update command (ADR-227)
+     * @description Each node or server agent seen in the last 7 days: its version, how it was installed (servers, from 0.11.1) and whether it is older than this WatchLog (`updateAvailable`; an unknown version counts as older). The update command filled in with this WatchLog's address and version: for a fleet one per install method (`script`, `deb`, `rpm`, `docker`), `method` when every out-of-date server reported the same one, and `loop`, an SSH loop over the out-of-date servers; for Kubernetes, `helm upgrade` of the chart the cluster runs, `known` false when the release and namespace are the defaults, not the cluster's own.
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              /** @description This WatchLog's version: what the agents update to */
+              latest: string;
+              kind: 'kubernetes' | 'server';
+              agents: {
+                host: string;
+                version: string;
+                /** @description Servers from 0.11.1: how the agent was installed; null when unknown */
+                method: ('script' | 'deb' | 'rpm' | 'docker') | null;
+                updateAvailable: boolean;
+                active: boolean;
+                /** Format: date-time */
+                lastSeenAt: string;
+              }[];
+              outOfDate: number;
+              helm: {
+                command: string;
+                /** @description The release and namespace are the cluster’s own */
+                known: boolean;
+                chart: 'watchlog' | 'watchlog-agent';
+              } | null;
+              server: {
+                commands: {
+                  script?: string;
+                  deb?: string;
+                  rpm?: string;
+                  docker?: string;
+                };
+                method: ('script' | 'deb' | 'rpm' | 'docker') | null;
+                loop: string | null;
+              } | null;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   '/api/v1/clusters/{id}/tokens': {
@@ -1940,6 +2052,8 @@ export interface paths {
                 status: 'active' | 'inactive';
                 lastSeenAt: string | null;
                 agentVersion: string | null;
+                installMethod: 'script' | 'deb' | 'rpm' | 'docker' | null;
+                updateAvailable: boolean;
                 servicesAvailable: boolean;
                 os: string | null;
                 kernel: string | null;
@@ -2093,6 +2207,8 @@ export interface paths {
                 status: 'active' | 'inactive';
                 lastSeenAt: string | null;
                 agentVersion: string | null;
+                installMethod: 'script' | 'deb' | 'rpm' | 'docker' | null;
+                updateAvailable: boolean;
                 servicesAvailable: boolean;
                 os: string | null;
                 kernel: string | null;
@@ -3302,6 +3418,7 @@ export interface paths {
                   version: string | null;
                   kubeletTls: string | null;
                   lastSeenAt: string | null;
+                  updateAvailable: boolean;
                 };
                 readySince: string | null;
                 bootTime: number | null;
@@ -3445,6 +3562,7 @@ export interface paths {
                   version: string | null;
                   kubeletTls: string | null;
                   lastSeenAt: string | null;
+                  updateAvailable: boolean;
                 };
               };
               labels: {

@@ -13,7 +13,7 @@ export const listClustersTool = defineTool({
   description: describe(
     'List the clusters this API token can see. WatchLog watches two kinds: Kubernetes clusters (nodes, namespaces, workloads, pods) and Docker fleets (Docker hosts running containers, often grouped in Compose projects).',
     'Call it first when you do not know a cluster: the other tools take its name or id in `cluster`, and can leave it out when there is only one.',
-    `Returns for each cluster: id, name, kind (kubernetes or docker), status (active: reporting; inactive: its agents stopped reporting; pending: never reported), nodes (Kubernetes nodes or Docker hosts), lastSeenAt and ingestFailing. At most ${MAX_CLUSTERS}.`,
+    `Returns for each cluster: id, name, kind (kubernetes or docker), status (active: reporting; inactive: its agents stopped reporting; pending: never reported), nodes (Kubernetes nodes or Docker hosts), lastSeenAt, ingestFailing and agentsUpdateAvailable (an agent there is older than this WatchLog; the panel shows the update command). At most ${MAX_CLUSTERS}.`,
     'Example question: "Which of my clusters stopped reporting?"',
   ),
   input: Type.Object({}, { additionalProperties: false }),
@@ -32,6 +32,7 @@ export const listClustersTool = defineTool({
           nodes: c.nodeCount,
           lastSeenAt: c.lastSeenAt,
           ingestFailing: c.ingestFailure !== null,
+          agentsUpdateAvailable: c.updateAvailable === true,
         })),
         total: clusters.length,
         noun: 'clusters',

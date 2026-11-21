@@ -157,7 +157,9 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
   db: Database;
   victoria?: VictoriaQueryClient;
   settings: SettingsService;
-}> = async (app, { db, victoria, settings }) => {
+  /** This WatchLog's version, for the agents' update (ADR-227). */
+  version?: string;
+}> = async (app, { db, victoria, settings, version = '' }) => {
   const signedIn = requireUser();
 
   /** Range queries, as optional as instant ones. */
@@ -404,6 +406,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
               diskUtilization: diskBy.get(n.name) ?? null,
             },
             agents.get(n.name),
+            version,
           );
           return {
             ...view,
@@ -461,7 +464,7 @@ export const kubernetesRoutes: FastifyPluginAsyncTypebox<{
         recentEvents(cluster.id, { kind: 'Node', name }, 50),
       ]);
       return {
-        node: nodeView(node, podRows, metrics(name), agents.get(name)),
+        node: nodeView(node, podRows, metrics(name), agents.get(name), version),
         labels:
           ((node.spec_summary as Record<string, unknown>).labels as Record<string, string>) ?? {},
         pods: podRows.map((p) => podView(p, usage.get(key(p.namespace, p.name)))),

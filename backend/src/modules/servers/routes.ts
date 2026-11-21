@@ -2,6 +2,7 @@
 // Server fleets (ADR-207): the servers, one server with its workloads, and one workload
 // (a systemd service, a process group or a container). Read-only and bounded: every query
 // is scoped to the cluster, and to the server where one is named.
+import { installMethodOf, updateAvailable } from '../clusters/agent-update.js';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type, type Static } from 'typebox';
 import type { Database } from '../../db/index.js';
@@ -120,6 +121,16 @@ const ServerS = Type.Object({
   status: Type.Union([Type.Literal('active'), Type.Literal('inactive')]),
   lastSeenAt: S,
   agentVersion: S,
+  /** How its agent was installed (script, deb, rpm, docker); null before 0.11.1 (ADR-227). */
+  installMethod: Type.Union([
+    Type.Literal('script'),
+    Type.Literal('deb'),
+    Type.Literal('rpm'),
+    Type.Literal('docker'),
+    Type.Null(),
+  ]),
+  /** Its agent is older than this WatchLog, or of unknown version (ADR-227). */
+  updateAvailable: Type.Boolean(),
   /** Services and process groups need the 0.9 agent; an older one sends containers only. */
   servicesAvailable: Type.Boolean(),
   os: S,
@@ -181,7 +192,9 @@ export function versionAtLeast(version: string | null | undefined, min: string):
 export const serverRoutes: FastifyPluginAsyncTypebox<{
   db: Database;
   victoria?: VictoriaQueryClient;
-}> = async (app, { db, victoria }) => {
+  /** This WatchLog's version, for the agents' update (ADR-227). */
+  version?: string;
+}> = async (app, { db, victoria, version = '' }) => {
   const signedIn = requireUser();
 
   /** Instant queries; a null expression (not for this source) and storage errors give []. */
@@ -405,6 +418,8 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
             : ('inactive' as const),
         lastSeenAt: lastSeen?.toISOString() ?? null,
         agentVersion: agent?.agent_version ?? null,
+        installMethod: agent ? installMethodOf(agent.capabilities) : null,
+        updateAvailable: !!agent && updateAvailable(agent.agent_version, version),
         servicesAvailable: !!inf,
         os: inf?.os || host?.os || null,
         kernel: inf?.kernel || host?.kernel_version || null,

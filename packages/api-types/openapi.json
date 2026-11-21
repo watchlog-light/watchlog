@@ -965,7 +965,8 @@
                           "firstSeenAt",
                           "lastSeenAt",
                           "createdAt",
-                          "ingestFailure"
+                          "ingestFailure",
+                          "updateAvailable"
                         ],
                         "properties": {
                           "id": {
@@ -1102,6 +1103,9 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "updateAvailable": {
+                            "type": "boolean"
                           }
                         }
                       }
@@ -1210,7 +1214,8 @@
                         "firstSeenAt",
                         "lastSeenAt",
                         "createdAt",
-                        "ingestFailure"
+                        "ingestFailure",
+                        "updateAvailable"
                       ],
                       "properties": {
                         "id": {
@@ -1347,6 +1352,9 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "updateAvailable": {
+                          "type": "boolean"
                         }
                       }
                     },
@@ -1600,7 +1608,8 @@
                         "firstSeenAt",
                         "lastSeenAt",
                         "createdAt",
-                        "ingestFailure"
+                        "ingestFailure",
+                        "updateAvailable"
                       ],
                       "properties": {
                         "id": {
@@ -1737,6 +1746,9 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "updateAvailable": {
+                          "type": "boolean"
                         }
                       }
                     },
@@ -1906,7 +1918,8 @@
                         "firstSeenAt",
                         "lastSeenAt",
                         "createdAt",
-                        "ingestFailure"
+                        "ingestFailure",
+                        "updateAvailable"
                       ],
                       "properties": {
                         "id": {
@@ -2043,6 +2056,9 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "updateAvailable": {
+                          "type": "boolean"
                         }
                       }
                     }
@@ -2294,6 +2310,292 @@
             }
           },
           "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{id}/agents": {
+      "get": {
+        "summary": "A cluster's or fleet's agents, their versions and the update command (ADR-227)",
+        "tags": ["clusters", "public"],
+        "description": "Each node or server agent seen in the last 7 days: its version, how it was installed (servers, from 0.11.1) and whether it is older than this WatchLog (`updateAvailable`; an unknown version counts as older). The update command filled in with this WatchLog's address and version: for a fleet one per install method (`script`, `deb`, `rpm`, `docker`), `method` when every out-of-date server reported the same one, and `loop`, an SSH loop over the out-of-date servers; for Kubernetes, `helm upgrade` of the chart the cluster runs, `known` false when the release and namespace are the defaults, not the cluster's own.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["latest", "kind", "agents", "outOfDate", "helm", "server"],
+                  "properties": {
+                    "latest": {
+                      "type": "string",
+                      "description": "This WatchLog's version: what the agents update to"
+                    },
+                    "kind": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["kubernetes"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["server"]
+                        }
+                      ]
+                    },
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "host",
+                          "version",
+                          "method",
+                          "updateAvailable",
+                          "active",
+                          "lastSeenAt"
+                        ],
+                        "properties": {
+                          "host": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "string"
+                          },
+                          "method": {
+                            "anyOf": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["script"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["deb"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["rpm"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["docker"]
+                                  }
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Servers from 0.11.1: how the agent was installed; null when unknown"
+                          },
+                          "updateAvailable": {
+                            "type": "boolean"
+                          },
+                          "active": {
+                            "type": "boolean"
+                          },
+                          "lastSeenAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "outOfDate": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "helm": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": ["command", "known", "chart"],
+                          "properties": {
+                            "command": {
+                              "type": "string"
+                            },
+                            "known": {
+                              "type": "boolean",
+                              "description": "The release and namespace are the cluster’s own"
+                            },
+                            "chart": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": ["watchlog"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["watchlog-agent"]
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "server": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": ["commands", "method", "loop"],
+                          "properties": {
+                            "commands": {
+                              "type": "object",
+                              "properties": {
+                                "script": {
+                                  "type": "string"
+                                },
+                                "deb": {
+                                  "type": "string"
+                                },
+                                "rpm": {
+                                  "type": "string"
+                                },
+                                "docker": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "method": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["script"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["deb"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["rpm"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["docker"]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "loop": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -4836,6 +5138,8 @@
                           "status",
                           "lastSeenAt",
                           "agentVersion",
+                          "installMethod",
+                          "updateAvailable",
                           "servicesAvailable",
                           "os",
                           "kernel",
@@ -4886,6 +5190,32 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "installMethod": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["script"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["deb"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["rpm"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["docker"]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "updateAvailable": {
+                            "type": "boolean"
                           },
                           "servicesAvailable": {
                             "type": "boolean"
@@ -5488,6 +5818,8 @@
                         "status",
                         "lastSeenAt",
                         "agentVersion",
+                        "installMethod",
+                        "updateAvailable",
                         "servicesAvailable",
                         "os",
                         "kernel",
@@ -5538,6 +5870,32 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "installMethod": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["script"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["deb"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["rpm"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["docker"]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "updateAvailable": {
+                          "type": "boolean"
                         },
                         "servicesAvailable": {
                           "type": "boolean"
@@ -9568,7 +9926,13 @@
                           },
                           "agent": {
                             "type": "object",
-                            "required": ["status", "version", "kubeletTls", "lastSeenAt"],
+                            "required": [
+                              "status",
+                              "version",
+                              "kubeletTls",
+                              "lastSeenAt",
+                              "updateAvailable"
+                            ],
                             "properties": {
                               "status": {
                                 "anyOf": [
@@ -9615,6 +9979,9 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "updateAvailable": {
+                                "type": "boolean"
                               }
                             }
                           },
@@ -10171,7 +10538,13 @@
                         },
                         "agent": {
                           "type": "object",
-                          "required": ["status", "version", "kubeletTls", "lastSeenAt"],
+                          "required": [
+                            "status",
+                            "version",
+                            "kubeletTls",
+                            "lastSeenAt",
+                            "updateAvailable"
+                          ],
                           "properties": {
                             "status": {
                               "anyOf": [
@@ -10218,6 +10591,9 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "updateAvailable": {
+                              "type": "boolean"
                             }
                           }
                         }
