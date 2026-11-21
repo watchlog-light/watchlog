@@ -250,6 +250,8 @@ export type WhatChangedRow = WhatChanged['rows'][number];
 export type WhatChangedObject = WhatChangedRow['object'];
 /** The learning week as data (ADR-216): the day, the hours of the week learned, the series. */
 export type WhatChangedLearning = WhatChanged['learning'];
+// The agents and their update command (ADR-227).
+export type ClusterAgents = JsonBody<Responses<'/api/v1/clusters/{id}/agents', 'get'>[200]>;
 // All clusters and fleets (ADR-226).
 export type AllClusters = JsonBody<Responses<'/api/v1/overview/all', 'get'>[200]>;
 export type AllClustersRow = AllClusters['clusters'][number];

@@ -2054,6 +2054,7 @@ export interface paths {
                 agentVersion: string | null;
                 installMethod: 'script' | 'deb' | 'rpm' | 'docker' | null;
                 updateAvailable: boolean;
+                latestAgentVersion: string | null;
                 servicesAvailable: boolean;
                 os: string | null;
                 kernel: string | null;
@@ -2209,6 +2210,7 @@ export interface paths {
                 agentVersion: string | null;
                 installMethod: 'script' | 'deb' | 'rpm' | 'docker' | null;
                 updateAvailable: boolean;
+                latestAgentVersion: string | null;
                 servicesAvailable: boolean;
                 os: string | null;
                 kernel: string | null;

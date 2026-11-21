@@ -5140,6 +5140,7 @@
                           "agentVersion",
                           "installMethod",
                           "updateAvailable",
+                          "latestAgentVersion",
                           "servicesAvailable",
                           "os",
                           "kernel",
@@ -5216,6 +5217,16 @@
                           },
                           "updateAvailable": {
                             "type": "boolean"
+                          },
+                          "latestAgentVersion": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
                           "servicesAvailable": {
                             "type": "boolean"
@@ -5820,6 +5831,7 @@
                         "agentVersion",
                         "installMethod",
                         "updateAvailable",
+                        "latestAgentVersion",
                         "servicesAvailable",
                         "os",
                         "kernel",
@@ -5896,6 +5908,16 @@
                         },
                         "updateAvailable": {
                           "type": "boolean"
+                        },
+                        "latestAgentVersion": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "servicesAvailable": {
                           "type": "boolean"

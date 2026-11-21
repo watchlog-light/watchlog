@@ -131,6 +131,8 @@ const ServerS = Type.Object({
   ]),
   /** Its agent is older than this WatchLog, or of unknown version (ADR-227). */
   updateAvailable: Type.Boolean(),
+  /** The version an update brings: this WatchLog's; null on a development build. */
+  latestAgentVersion: S,
   /** Services and process groups need the 0.9 agent; an older one sends containers only. */
   servicesAvailable: Type.Boolean(),
   os: S,
@@ -420,6 +422,7 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
         agentVersion: agent?.agent_version ?? null,
         installMethod: agent ? installMethodOf(agent.capabilities) : null,
         updateAvailable: !!agent && updateAvailable(agent.agent_version, version),
+        latestAgentVersion: /^v?\d+\.\d+\.\d+$/.test(version) ? version.replace(/^v/, '') : null,
         servicesAvailable: !!inf,
         os: inf?.os || host?.os || null,
         kernel: inf?.kernel || host?.kernel_version || null,
