@@ -26,6 +26,7 @@ import { connectRoutes } from './modules/integrations/connect.js';
 import { applicationRoutes } from './modules/integrations/routes.js';
 import { causesRoutes } from './modules/causes/routes.js';
 import { whatChangedRoutes } from './modules/anomaly/routes.js';
+import { allClustersRoutes } from './modules/all-clusters/routes.js';
 import { whatChangedExists } from './modules/anomaly/gate.js';
 import { anomalyFeedbackRoutes } from './modules/anomaly/feedback.js';
 import { CausesService } from './modules/causes/likely.js';
@@ -359,6 +360,14 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       // What changed (ADR-199, ADR-202): Pro only; Community answers 404.
       await api.register(whatChangedRoutes, {
         db: deps.db,
+        config,
+        causes,
+        ...(deps.now ? { now: deps.now } : {}),
+      });
+      // All clusters and fleets (ADR-226): Pro only, as What changed.
+      await api.register(allClustersRoutes, {
+        db: deps.db,
+        victoria,
         config,
         causes,
         ...(deps.now ? { now: deps.now } : {}),

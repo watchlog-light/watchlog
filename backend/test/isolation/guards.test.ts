@@ -123,4 +123,10 @@ describe('tenancy escape hatches (ADR-174)', () => {
   it('authorisedScope is used only by the allow-listed files', () => {
     expect(users('authorisedScope')).toEqual(Object.keys(AUTHORISED_SCOPE).sort());
   });
+
+  it('authorisedClustersScope is made only by clustersForOrg (ADR-226)', () => {
+    expect(users('authorisedClustersScope')).toEqual(
+      ['lib/victoria.ts', 'modules/clusters/service.ts'].sort(),
+    );
+  });
 });

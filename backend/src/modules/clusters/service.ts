@@ -4,7 +4,7 @@ import type { Selectable } from 'kysely';
 import type { Database } from '../../db/index.js';
 import type { Clusters, ClusterTokens } from '../../db/types.js';
 import { newId } from '../../lib/ids.js';
-import { authorisedScope } from '../../lib/victoria.js';
+import { authorisedClustersScope, authorisedScope } from '../../lib/victoria.js';
 import type { IngestFailure } from '../ingest/errors.js';
 
 /** A cluster is "active" while an agent reported within this window (SPEC §4.7). */
@@ -92,6 +92,21 @@ export async function clusterForOrg(db: Database, orgId: string, clusterId: stri
     .where('id', '=', clusterId)
     .executeTakeFirst();
   return row ? { ...row, scope: authorisedScope(row.id) } : undefined;
+}
+
+/**
+ * Every cluster and fleet of the org, with one scope over all of them for queries that
+ * group by `cluster_id` (ADR-226): one query per metric for the whole org. `scope` is null
+ * when the org has none.
+ */
+export async function clustersForOrg(db: Database, orgId: string) {
+  const rows = await db
+    .selectFrom('clusters')
+    .selectAll()
+    .where('org_id', '=', orgId)
+    .orderBy('name')
+    .execute();
+  return { rows, scope: rows.length ? authorisedClustersScope(rows.map((r) => r.id)) : null };
 }
 
 export function listTokens(db: Database, clusterId: string) {

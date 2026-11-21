@@ -18,12 +18,14 @@ import { getProblemsTool } from './problems.js';
 import { getRightSizingTool } from './rightsizing.js';
 import { getServiceMapTool } from './servicemap.js';
 import { getWhatChangedTool } from './whatchanged.js';
+import { getAllClustersTool } from './allclusters.js';
 import { getWorkloadTool } from './workloads.js';
 
 export type { ToolContext, ToolDef } from './common.js';
 
 export const TOOLS: ToolDef[] = [
   listClustersTool,
+  getAllClustersTool,
   getProblemsTool,
   listAlertsTool,
   explainAlertTool,
@@ -49,8 +51,14 @@ export const TOOLS: ToolDef[] = [
   queryMetricTool,
 ];
 
-/** Tools only Cloud and the live demo register (ADR-202): Community's list is unchanged. */
-export const WHAT_CHANGED_TOOLS: ReadonlySet<string> = new Set([getWhatChangedTool.name]);
+/**
+ * Tools only Cloud and the live demo register (ADR-202, ADR-226): Community's list is
+ * unchanged. What changed and All clusters and fleets.
+ */
+export const WHAT_CHANGED_TOOLS: ReadonlySet<string> = new Set([
+  getWhatChangedTool.name,
+  getAllClustersTool.name,
+]);
 
 /** The tools this installation registers: without What changed's in Community. */
 export const toolsFor = (whatChanged: boolean): ToolDef[] =>

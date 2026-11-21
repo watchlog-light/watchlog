@@ -68,7 +68,7 @@ export const ObjectSchema = Type.Object({
   id: Opt(Type.String({ description: "A monitored service's id, for its page" })),
 });
 
-const RowSchema = Type.Object({
+export const RowSchema = Type.Object({
   id: Type.String({ format: 'uuid' }),
   since: Type.String({ format: 'date-time', description: 'When it left its usual range' }),
   until: Type.Union([DateTime, Type.Null()], { description: 'Null while it lasts' }),

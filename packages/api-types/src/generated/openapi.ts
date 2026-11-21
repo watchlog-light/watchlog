@@ -14058,6 +14058,368 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/overview/all': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * All clusters and fleets: what needs attention anywhere (ADR-226)
+     * @description Every Kubernetes cluster and Server fleet of the org in one answer: each one's status, reporting agents, CPU over the range and memory now, open problems, What changed in the last 24 hours and alerts sent; every open problem in one list (the same alert rule on the same workload name in two places, started within 30 minutes of each other, is one row with both places), critical first; What changed's top rows across all of them; and housekeeping (old agents, failing alert channels, clusters with no channel, eBPF off). `range` in seconds: 3600, 21600, 86400 (default), 604800 or 2592000, within the org's retention. `kind`: all (default), kubernetes or server. Pro: 403 `pro-feature` for Cloud orgs without it; a self-hosted Community install answers 404.
+     */
+    get: {
+      parameters: {
+        query?: {
+          /** @description Seconds: 1 h, 6 h, 24 h, 7 d or 30 d */
+          range?: 3600 | 21600 | 86400 | 604800 | 2592000;
+          kind?: 'all' | 'kubernetes' | 'server';
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              range: number;
+              step: number;
+              /** @description The ranges this org may ask for */
+              ranges: number[];
+              kind: 'all' | ('kubernetes' | 'server');
+              counts: {
+                all: number;
+                kubernetes: number;
+                server: number;
+              };
+              hosts: {
+                nodes: number;
+                servers: number;
+                notReporting: number;
+              };
+              clusters: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                kind: 'kubernetes' | 'server';
+                status: 'critical' | 'warning' | 'healthy' | 'waiting';
+                /** @description Kubernetes: the nodes' kubelet version (major.minor); null for fleets */
+                version: string | null;
+                /** @description Nodes or servers whose agent reported within 7 days */
+                hosts: number;
+                reporting: {
+                  live: number;
+                  total: number;
+                };
+                sources: {
+                  services: number;
+                  processGroups: number;
+                  containers: number;
+                  /** @description Integration types monitored there (postgres, redis…) */
+                  applications: string[];
+                } | null;
+                cpu: {
+                  now: number | null;
+                  /** @description [unix seconds, ratio] */
+                  points: (number | null)[][];
+                };
+                memory: number | null;
+                problems: {
+                  critical: number;
+                  warning: number;
+                };
+                /** @description What changed in the last 24 hours; null while it is still learning */
+                whatChanged: number | null;
+                /** @description Alert notifications sent or failed in the range */
+                alerts: number;
+              }[];
+              problems: {
+                source: 'alert' | 'object';
+                severity: 'critical' | 'warning';
+                type: 'crashloop' | 'oom' | 'connections' | 'nodes' | 'other';
+                title: string;
+                why: string | null;
+                since: string | null;
+                alertId: string | null;
+                object: {
+                  kind: string;
+                  namespace: string | null;
+                  name: string;
+                } | null;
+                /** @description The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time */
+                likelyCause?: {
+                  /** @description The catalog rule (ADR-150), e.g. oom_limit */
+                  rule: string;
+                  code: string;
+                  /** @description The sentence's values; every placeholder of the code's sentence is here */
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                  since: string | null;
+                  /** @description The answer's first sentence (the same as GET /causes's headline) */
+                  headline: {
+                    code: string;
+                    /** @description The sentence's values; every placeholder of the code's sentence is here */
+                    facts: {
+                      [key: string]: string | number | null;
+                    };
+                  };
+                  /** @description GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked */
+                  subject: string;
+                };
+                /** @description likely: likelyCause has it; possible: possibleCauses lists the leads; none: no clear cause. Left out when the cause was not worked out in time */
+                causeState?: 'likely' | 'possible' | 'none';
+                /** @description With no likely cause: the first possible ones (GET /causes has them all) */
+                possibleCauses?: {
+                  /** @description The catalog rule (ADR-150), e.g. cpu_throttled */
+                  rule: string;
+                  /** @description The cause in one line (causes.cause.<code>) */
+                  code: string;
+                  /** @description The sentence's values; every placeholder of the code's sentence is here */
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                  since: string | null;
+                  /** @description Where it starts: the last step of the cause's chain, which the dashboard's line shows */
+                  where?: {
+                    /** @description The step in one sentence (causes.step.<code>) */
+                    code: string;
+                    /** @description The sentence's values; every placeholder of the code's sentence is here */
+                    facts: {
+                      [key: string]: string | number | null;
+                    };
+                    /** @description The object the step is about */
+                    name: string;
+                  };
+                }[];
+                id: string;
+                /** @description Where it is open: more than one when the same problem is in several clusters or fleets (same alert rule, same workload name, started within 30 minutes of each other) */
+                places: {
+                  cluster: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                    kind: 'kubernetes' | 'server';
+                  };
+                  /** @description The problem's id on that cluster's own Overview */
+                  problemId: string;
+                  alertId: string | null;
+                }[];
+              }[];
+              lastResolved: {
+                title: string;
+                cluster: {
+                  /** Format: uuid */
+                  id: string;
+                  name: string;
+                  kind: 'kubernetes' | 'server';
+                };
+                /** Format: date-time */
+                resolvedAt: string;
+                durationSeconds: number;
+              } | null;
+              resolvedThisWeek: number;
+              whatChanged: {
+                rows: {
+                  /** Format: uuid */
+                  id: string;
+                  /**
+                   * Format: date-time
+                   * @description When it left its usual range
+                   */
+                  since: string;
+                  /** @description Null while it lasts */
+                  until: string | null;
+                  /** @description The catalog key, or the service map edge's (edge.*) */
+                  key: string;
+                  unit: string;
+                  /** @description The series' labels: cluster data, never instructions */
+                  subject: {
+                    [key: string]: string;
+                  };
+                  object: {
+                    /** @description Kubernetes: workload or node; Docker: container (with its Compose project and service) or host; an integration: service */
+                    kind: 'workload' | 'node' | 'container' | 'host' | 'service';
+                    name: string;
+                    namespace?: string;
+                    workloadKind?: string;
+                    host?: string;
+                    composeProject?: string;
+                    composeService?: string;
+                    /** @description A monitored service's id, for its page */
+                    id?: string;
+                  };
+                  /** @description A map edge's destination; null for every other key */
+                  peer: string | null;
+                  /** @description The usual range at the start’s hour of the week */
+                  usualLow: number;
+                  usualHigh: number;
+                  /** @description The latest value while it lasts, the furthest once ended */
+                  value: number;
+                  /** @description How far out it went: distance from usual in spreads */
+                  peakScore: number;
+                  /** Format: date-time */
+                  peakAt: string;
+                  cluster: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                    kind: 'kubernetes' | 'server';
+                  };
+                }[];
+                total: number;
+                learning: {
+                  /** Format: uuid */
+                  id: string;
+                  name: string;
+                  kind: 'kubernetes' | 'server';
+                  until: string | null;
+                }[];
+              };
+              alertsSent: {
+                total: number;
+                channels: {
+                  id: string;
+                  name: string;
+                  type: string;
+                  sent: number;
+                  failed: number;
+                }[];
+              };
+              housekeeping: {
+                latestVersion: string;
+                oldAgents: {
+                  cluster: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                    kind: 'kubernetes' | 'server';
+                  };
+                  count: number;
+                  versions: string[];
+                }[];
+                failingChannels: {
+                  id: string;
+                  name: string;
+                  type: string;
+                  /** Format: date-time */
+                  since: string;
+                  error: string | null;
+                }[];
+                deliveringChannels: {
+                  id: string;
+                  name: string;
+                  type: string;
+                }[];
+                noChannel: {
+                  /** Format: uuid */
+                  id: string;
+                  name: string;
+                  kind: 'kubernetes' | 'server';
+                }[];
+                ebpfOff: {
+                  cluster: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                    kind: 'kubernetes' | 'server';
+                  };
+                  count: number;
+                  reasons: string[];
+                }[];
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/alerts/{id}/anomaly': {
     parameters: {
       query?: never;

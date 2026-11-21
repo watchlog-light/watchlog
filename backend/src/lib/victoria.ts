@@ -24,12 +24,36 @@ declare const authorised: unique symbol;
  */
 export interface ClusterScope {
   readonly clusterId: string;
+  /**
+   * Several clusters of one org at once (ADR-226): queries only, enforced with
+   * `extra_filters[]` (one regex over the ids; VictoriaMetrics ANDs it with every selector,
+   * measured: a selector naming another cluster answers nothing). `clusterId` is the first,
+   * so the retention tier (the org's) is found as for one cluster.
+   */
+  readonly clusterIds?: readonly string[];
   readonly [authorised]: true;
 }
 
 /** For the allow-listed callers only: the cluster is already known to be the org's. */
 export function authorisedScope(clusterId: string): ClusterScope {
   return { clusterId } as ClusterScope;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * For clustersForOrg (modules/clusters/service.ts) only: every cluster in `clusterIds` is
+ * already known to be the same org's. Queries only; writes, exports and deletions refuse it.
+ */
+export function authorisedClustersScope(clusterIds: readonly string[]): ClusterScope {
+  if (clusterIds.length === 0) throw new Error('a clusters scope needs at least one cluster');
+  for (const id of clusterIds) if (!UUID.test(id)) throw new Error(`not a cluster id: ${id}`);
+  return { clusterId: clusterIds[0]!, clusterIds: [...clusterIds] } as unknown as ClusterScope;
+}
+
+/** Writes, exports and deletions take one cluster, never a clusters scope. */
+function single(scope: ClusterScope): void {
+  if (scope.clusterIds) throw new Error('a clusters scope can only query');
 }
 
 export class VictoriaClient {
@@ -46,12 +70,17 @@ export class VictoriaClient {
   private url(path: string, scope: ClusterScope, params: Record<string, string> = {}): string {
     const u = new URL(path, this.baseUrl);
     for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
-    u.searchParams.set('extra_label', `cluster_id=${scope.clusterId}`);
+    if (scope.clusterIds) {
+      u.searchParams.set('extra_filters[]', `{cluster_id=~"${scope.clusterIds.join('|')}"}`);
+    } else {
+      u.searchParams.set('extra_label', `cluster_id=${scope.clusterId}`);
+    }
     return u.toString();
   }
 
   /** Forwards a remote_write body unchanged; cluster_id is injected by VictoriaMetrics. */
   async write(scope: ClusterScope, body: Uint8Array): Promise<void> {
+    single(scope);
     let res: Response;
     try {
       res = await fetch(this.url('/api/v1/write', scope), {
@@ -79,6 +108,7 @@ export class VictoriaClient {
    * /api/v1/export, for the org's data export (ADR-181). One stream per VictoriaMetrics.
    */
   async exportSeries(scope: ClusterScope, start: number, end: number): Promise<Response[]> {
+    single(scope);
     const url = this.url('/api/v1/export', scope, {
       'match[]': `{cluster_id="${scope.clusterId}"}`,
       start: String(start),
@@ -106,6 +136,7 @@ export class VictoriaClient {
   }
 
   protected async deleteIn(base: string, scope: ClusterScope, now: number): Promise<number> {
+    single(scope);
     const match = `{cluster_id="${scope.clusterId}"}`;
     const ask = async (path: string, params: Record<string, string>, method = 'GET') => {
       const u = new URL(path, base);

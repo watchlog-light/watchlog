@@ -133,7 +133,7 @@ export function labelsOf(subject: unknown): Record<string, string> {
   return out;
 }
 
-type ComposeOf = Map<string, { project: string; service: string }>;
+export type ComposeOf = Map<string, { project: string; service: string }>;
 
 function containerView(name: string, host: string | undefined, compose: ComposeOf): ObjectView {
   const c = compose.get(name);
@@ -245,7 +245,7 @@ export function objectOf(
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Monitored services read by their names, not their ids (one query, only when listed). */
-async function nameServices(
+export async function nameServices(
   db: Database,
   orgId: string,
   clusterId: string,

@@ -19,7 +19,7 @@ const PType = Type.Union([
   Type.Literal('other'),
 ]);
 
-const Problem = Type.Object({
+export const ProblemItemSchema = Type.Object({
   id: Type.String(),
   source: Type.Union([Type.Literal('alert'), Type.Literal('object')]),
   severity: Sev,
@@ -104,7 +104,7 @@ export const OverviewSchema = Type.Object({
   ]),
   /** The one list the status strip counts and Needs attention shows. */
   problems: Type.Object({
-    items: Type.Array(Problem),
+    items: Type.Array(ProblemItemSchema),
     critical: Type.Integer(),
     warning: Type.Integer(),
     types: Type.Array(

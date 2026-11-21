@@ -163,6 +163,8 @@ export const DEMO_QUERY_ROUTES: readonly string[] = [
   'GET /api/v1/causes',
   // What changed's answer carries the probable cause (ADR-199).
   'GET /api/v1/what-changed',
+  // All clusters and fleets (ADR-226): metrics of every cluster, and causes.
+  'GET /api/v1/overview/all',
 ];
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);

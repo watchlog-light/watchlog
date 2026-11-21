@@ -180,6 +180,10 @@ export const ROUTES: Record<string, RouteClass> = {
   // and A's control, by session (cross-org.test.ts, "what changed") and by API token and MCP
   // ("what changed tool"); Community's 404 and absent tool are in community.test.ts.
   'GET /api/v1/what-changed': org,
+  // All clusters and fleets (ADR-226): Pro only; no ids, so B's answer is its own org's alone:
+  // all-clusters.test.ts asserts another org's clusters and problems never show, Free's 403
+  // and Community's 404.
+  'GET /api/v1/overview/all': org,
   // The learning week (ADR-216): the learning state alone, and a member's own "email me when
   // it's ready". B with A's clusters gets 404 for both (Free: 403), nothing of A's is added
   // or removed, and each org reads and changes only its own (cross-org.test.ts, "the learning
@@ -314,6 +318,9 @@ export const ROUTES: Record<string, RouteClass> = {
  */
 export const MCP_TOOLS: Record<string, 'cluster' | 'id' | 'org'> = {
   list_clusters: 'org',
+  // All clusters and fleets (ADR-226): the token's own org only; Cloud and the demo only
+  // (mcp-all-clusters.test.ts: Free's refusal, absent in Community).
+  get_all_clusters: 'org',
   get_problems: 'cluster',
   list_alerts: 'cluster',
   explain_alert: 'id',

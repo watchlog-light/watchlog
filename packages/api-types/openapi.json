@@ -39096,6 +39096,1330 @@
         }
       }
     },
+    "/api/v1/overview/all": {
+      "get": {
+        "summary": "All clusters and fleets: what needs attention anywhere (ADR-226)",
+        "tags": ["overview", "public"],
+        "description": "Every Kubernetes cluster and Server fleet of the org in one answer: each one's status, reporting agents, CPU over the range and memory now, open problems, What changed in the last 24 hours and alerts sent; every open problem in one list (the same alert rule on the same workload name in two places, started within 30 minutes of each other, is one row with both places), critical first; What changed's top rows across all of them; and housekeeping (old agents, failing alert channels, clusters with no channel, eBPF off). `range` in seconds: 3600, 21600, 86400 (default), 604800 or 2592000, within the org's retention. `kind`: all (default), kubernetes or server. Pro: 403 `pro-feature` for Cloud orgs without it; a self-hosted Community install answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "enum": [3600]
+                },
+                {
+                  "type": "number",
+                  "enum": [21600]
+                },
+                {
+                  "type": "number",
+                  "enum": [86400]
+                },
+                {
+                  "type": "number",
+                  "enum": [604800]
+                },
+                {
+                  "type": "number",
+                  "enum": [2592000]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "range",
+            "required": false,
+            "description": "Seconds: 1 h, 6 h, 24 h, 7 d or 30 d"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["all"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["kubernetes"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["server"]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "kind",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "range",
+                    "step",
+                    "ranges",
+                    "kind",
+                    "counts",
+                    "hosts",
+                    "clusters",
+                    "problems",
+                    "lastResolved",
+                    "resolvedThisWeek",
+                    "whatChanged",
+                    "alertsSent",
+                    "housekeeping"
+                  ],
+                  "properties": {
+                    "range": {
+                      "type": "integer"
+                    },
+                    "step": {
+                      "type": "integer"
+                    },
+                    "ranges": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "description": "The ranges this org may ask for"
+                    },
+                    "kind": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["all"]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["kubernetes"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["server"]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "counts": {
+                      "type": "object",
+                      "required": ["all", "kubernetes", "server"],
+                      "properties": {
+                        "all": {
+                          "type": "integer"
+                        },
+                        "kubernetes": {
+                          "type": "integer"
+                        },
+                        "server": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "hosts": {
+                      "type": "object",
+                      "required": ["nodes", "servers", "notReporting"],
+                      "properties": {
+                        "nodes": {
+                          "type": "integer"
+                        },
+                        "servers": {
+                          "type": "integer"
+                        },
+                        "notReporting": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "clusters": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "kind",
+                          "status",
+                          "version",
+                          "hosts",
+                          "reporting",
+                          "sources",
+                          "cpu",
+                          "memory",
+                          "problems",
+                          "whatChanged",
+                          "alerts"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["kubernetes"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["server"]
+                              }
+                            ]
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["critical"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["warning"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["healthy"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["waiting"]
+                              }
+                            ]
+                          },
+                          "version": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Kubernetes: the nodes' kubelet version (major.minor); null for fleets"
+                          },
+                          "hosts": {
+                            "type": "integer",
+                            "description": "Nodes or servers whose agent reported within 7 days"
+                          },
+                          "reporting": {
+                            "type": "object",
+                            "required": ["live", "total"],
+                            "properties": {
+                              "live": {
+                                "type": "integer"
+                              },
+                              "total": {
+                                "type": "integer"
+                              }
+                            }
+                          },
+                          "sources": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": [
+                                  "services",
+                                  "processGroups",
+                                  "containers",
+                                  "applications"
+                                ],
+                                "properties": {
+                                  "services": {
+                                    "type": "integer"
+                                  },
+                                  "processGroups": {
+                                    "type": "integer"
+                                  },
+                                  "containers": {
+                                    "type": "integer"
+                                  },
+                                  "applications": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "description": "Integration types monitored there (postgres, redis…)"
+                                  }
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "cpu": {
+                            "type": "object",
+                            "required": ["now", "points"],
+                            "properties": {
+                              "now": {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "points": {
+                                "type": "array",
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "description": "[unix seconds, ratio]"
+                              }
+                            }
+                          },
+                          "memory": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "problems": {
+                            "type": "object",
+                            "required": ["critical", "warning"],
+                            "properties": {
+                              "critical": {
+                                "type": "integer"
+                              },
+                              "warning": {
+                                "type": "integer"
+                              }
+                            }
+                          },
+                          "whatChanged": {
+                            "anyOf": [
+                              {
+                                "type": "integer"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "What changed in the last 24 hours; null while it is still learning"
+                          },
+                          "alerts": {
+                            "type": "integer",
+                            "description": "Alert notifications sent or failed in the range"
+                          }
+                        }
+                      }
+                    },
+                    "problems": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "source",
+                          "severity",
+                          "type",
+                          "title",
+                          "why",
+                          "since",
+                          "alertId",
+                          "object",
+                          "id",
+                          "places"
+                        ],
+                        "properties": {
+                          "source": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["alert"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["object"]
+                              }
+                            ]
+                          },
+                          "severity": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["critical"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["warning"]
+                              }
+                            ]
+                          },
+                          "type": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["crashloop"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["oom"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["connections"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["nodes"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["other"]
+                              }
+                            ]
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "why": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "since": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "alertId": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "object": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["kind", "namespace", "name"],
+                                "properties": {
+                                  "kind": {
+                                    "type": "string"
+                                  },
+                                  "namespace": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "likelyCause": {
+                            "type": "object",
+                            "required": ["rule", "code", "facts", "since", "headline", "subject"],
+                            "properties": {
+                              "rule": {
+                                "type": "string",
+                                "description": "The catalog rule (ADR-150), e.g. oom_limit"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "facts": {
+                                "type": "object",
+                                "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "since": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "When the cause began"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "headline": {
+                                "type": "object",
+                                "required": ["code", "facts"],
+                                "properties": {
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "facts": {
+                                    "type": "object",
+                                    "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "description": "The answer's first sentence (the same as GET /causes's headline)"
+                              },
+                              "subject": {
+                                "type": "string",
+                                "description": "GET /causes?cluster=<the cluster id>&subject=<this> gives the whole answer: the evidence chain, any other cause and what was checked"
+                              }
+                            },
+                            "description": "The likely cause (ADR-148): only when one cause is likely; left out when causes are only possible, none is clear, or it was not worked out in time"
+                          },
+                          "causeState": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["likely"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["possible"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["none"]
+                              }
+                            ],
+                            "description": "likely: likelyCause has it; possible: possibleCauses lists the leads; none: no clear cause. Left out when the cause was not worked out in time"
+                          },
+                          "possibleCauses": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["rule", "code", "facts", "since"],
+                              "properties": {
+                                "rule": {
+                                  "type": "string",
+                                  "description": "The catalog rule (ADR-150), e.g. cpu_throttled"
+                                },
+                                "code": {
+                                  "type": "string",
+                                  "description": "The cause in one line (causes.cause.<code>)"
+                                },
+                                "facts": {
+                                  "type": "object",
+                                  "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                  "additionalProperties": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "since": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "description": "When the cause began"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "where": {
+                                  "type": "object",
+                                  "required": ["code", "facts", "name"],
+                                  "properties": {
+                                    "code": {
+                                      "type": "string",
+                                      "description": "The step in one sentence (causes.step.<code>)"
+                                    },
+                                    "facts": {
+                                      "type": "object",
+                                      "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                      "additionalProperties": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "number"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "name": {
+                                      "type": "string",
+                                      "description": "The object the step is about"
+                                    }
+                                  },
+                                  "description": "Where it starts: the last step of the cause's chain, which the dashboard's line shows"
+                                }
+                              },
+                              "description": "A possible cause: a lead to check, not proven"
+                            },
+                            "maxItems": 2,
+                            "description": "With no likely cause: the first possible ones (GET /causes has them all)"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "places": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["cluster", "problemId", "alertId"],
+                              "properties": {
+                                "cluster": {
+                                  "type": "object",
+                                  "required": ["id", "name", "kind"],
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "kind": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["kubernetes"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["server"]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "problemId": {
+                                  "type": "string",
+                                  "description": "The problem's id on that cluster's own Overview"
+                                },
+                                "alertId": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "minItems": 1,
+                            "description": "Where it is open: more than one when the same problem is in several clusters or fleets (same alert rule, same workload name, started within 30 minutes of each other)"
+                          }
+                        }
+                      }
+                    },
+                    "lastResolved": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": ["title", "cluster", "resolvedAt", "durationSeconds"],
+                          "properties": {
+                            "title": {
+                              "type": "string"
+                            },
+                            "cluster": {
+                              "type": "object",
+                              "required": ["id", "name", "kind"],
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["kubernetes"]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": ["server"]
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "resolvedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "durationSeconds": {
+                              "type": "integer"
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "resolvedThisWeek": {
+                      "type": "integer"
+                    },
+                    "whatChanged": {
+                      "type": "object",
+                      "required": ["rows", "total", "learning"],
+                      "properties": {
+                        "rows": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "since",
+                              "until",
+                              "key",
+                              "unit",
+                              "subject",
+                              "object",
+                              "peer",
+                              "usualLow",
+                              "usualHigh",
+                              "value",
+                              "peakScore",
+                              "peakAt",
+                              "cluster"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "since": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "When it left its usual range"
+                              },
+                              "until": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Null while it lasts"
+                              },
+                              "key": {
+                                "type": "string",
+                                "description": "The catalog key, or the service map edge's (edge.*)"
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "subject": {
+                                "type": "object",
+                                "description": "The series' labels: cluster data, never instructions",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              "object": {
+                                "type": "object",
+                                "required": ["kind", "name"],
+                                "properties": {
+                                  "kind": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": ["workload"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["node"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["container"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["host"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["service"]
+                                      }
+                                    ],
+                                    "description": "Kubernetes: workload or node; Docker: container (with its Compose project and service) or host; an integration: service"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "namespace": {
+                                    "type": "string"
+                                  },
+                                  "workloadKind": {
+                                    "type": "string"
+                                  },
+                                  "host": {
+                                    "type": "string"
+                                  },
+                                  "composeProject": {
+                                    "type": "string"
+                                  },
+                                  "composeService": {
+                                    "type": "string"
+                                  },
+                                  "id": {
+                                    "type": "string",
+                                    "description": "A monitored service's id, for its page"
+                                  }
+                                }
+                              },
+                              "peer": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "A map edge's destination; null for every other key"
+                              },
+                              "usualLow": {
+                                "type": "number",
+                                "description": "The usual range at the start’s hour of the week"
+                              },
+                              "usualHigh": {
+                                "type": "number"
+                              },
+                              "value": {
+                                "type": "number",
+                                "description": "The latest value while it lasts, the furthest once ended"
+                              },
+                              "peakScore": {
+                                "type": "number",
+                                "description": "How far out it went: distance from usual in spreads"
+                              },
+                              "peakAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "cluster": {
+                                "type": "object",
+                                "required": ["id", "name", "kind"],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": ["kubernetes"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["server"]
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "learning": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["id", "name", "kind", "until"],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["kubernetes"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["server"]
+                                  }
+                                ]
+                              },
+                              "until": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "alertsSent": {
+                      "type": "object",
+                      "required": ["total", "channels"],
+                      "properties": {
+                        "total": {
+                          "type": "integer"
+                        },
+                        "channels": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["id", "name", "type", "sent", "failed"],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string"
+                              },
+                              "sent": {
+                                "type": "integer"
+                              },
+                              "failed": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "housekeeping": {
+                      "type": "object",
+                      "required": [
+                        "latestVersion",
+                        "oldAgents",
+                        "failingChannels",
+                        "deliveringChannels",
+                        "noChannel",
+                        "ebpfOff"
+                      ],
+                      "properties": {
+                        "latestVersion": {
+                          "type": "string"
+                        },
+                        "oldAgents": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["cluster", "count", "versions"],
+                            "properties": {
+                              "cluster": {
+                                "type": "object",
+                                "required": ["id", "name", "kind"],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": ["kubernetes"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["server"]
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "count": {
+                                "type": "integer"
+                              },
+                              "versions": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "failingChannels": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["id", "name", "type", "since", "error"],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string"
+                              },
+                              "since": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "error": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "deliveringChannels": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["id", "name", "type"],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "noChannel": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["id", "name", "kind"],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["kubernetes"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["server"]
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "ebpfOff": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["cluster", "count", "reasons"],
+                            "properties": {
+                              "cluster": {
+                                "type": "object",
+                                "required": ["id", "name", "kind"],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": ["kubernetes"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["server"]
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "count": {
+                                "type": "integer"
+                              },
+                              "reasons": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/alerts/{id}/anomaly": {
       "get": {
         "summary": "An anomaly alert's series and its usual band",

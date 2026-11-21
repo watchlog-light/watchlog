@@ -64,6 +64,7 @@ const ALLOWED = [
   'GET /api/v1/health',
   'GET /api/v1/me',
   'GET /api/v1/openapi.json',
+  'GET /api/v1/overview/all',
   'GET /api/v1/silences',
   'GET /api/v1/what-changed',
   'POST /api/v1/query/range',
