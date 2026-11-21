@@ -57,7 +57,7 @@ const nodeQuery = (node: string) => (node ? { node } : {});
       <div class="flex flex-col gap-2 px-3.5 py-3">
         <RouterLink
           :to="{ name: 'certificates' }"
-          class="flex items-center gap-2 text-14 text-text hover:underline"
+          class="flex items-center gap-2 text-14 text-text hover:underline max-lg:min-h-11"
           data-testid="certs-summary"
         >
           <ShieldCheck class="size-4 text-text-muted" aria-hidden="true" />
@@ -91,7 +91,7 @@ const nodeQuery = (node: string) => (node ? { node } : {});
       <div class="flex flex-col gap-2 px-3.5 py-3">
         <RouterLink
           :to="{ name: 'scheduled-jobs' }"
-          class="flex items-center gap-2 text-14 text-text hover:underline"
+          class="flex items-center gap-2 text-14 text-text hover:underline max-lg:min-h-11"
           data-testid="jobs-summary"
         >
           <CalendarClock class="size-4 text-text-muted" aria-hidden="true" />

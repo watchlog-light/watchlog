@@ -284,7 +284,7 @@ onMounted(() => {
             v-for="f in FILTERS"
             :key="f"
             type="button"
-            class="rounded-control px-2.5 py-1 text-12 max-lg:min-h-11"
+            class="rounded-control px-2.5 py-1 text-12 max-lg:min-h-11 max-lg:min-w-11"
             :class="filter === f ? 'bg-surface-3 text-text' : 'text-text-muted hover:text-text'"
             :aria-pressed="filter === f"
             @click="filter = f"
