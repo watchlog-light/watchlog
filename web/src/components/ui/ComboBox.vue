@@ -32,6 +32,10 @@ export interface ComboboxOption {
   icon?: Component;
   group?: string;
   disabled?: boolean;
+  /** A status dot before the label: a background class from the tokens (`bg-critical`). */
+  dot?: string;
+  /** A short label after it, such as "Pro". */
+  badge?: string;
 }
 
 const props = withDefaults(
@@ -323,8 +327,20 @@ const anchor = computed(() => [
                   class="mt-0.5 size-3.5 shrink-0 text-text-muted"
                   aria-hidden="true"
                 />
+                <span
+                  v-if="o.dot"
+                  :class="['mt-1.5 size-2 shrink-0 rounded-full', o.dot]"
+                  aria-hidden="true"
+                />
                 <span class="min-w-0 flex-1">
-                  <span class="block truncate">{{ o.label }}</span>
+                  <span class="flex items-center gap-2">
+                    <span class="truncate">{{ o.label }}</span>
+                    <span
+                      v-if="o.badge"
+                      class="inline-flex h-4.5 shrink-0 items-center rounded-full border border-info/50 px-1.5 text-12 font-semibold text-info"
+                      >{{ o.badge }}</span
+                    >
+                  </span>
                   <span v-if="o.description" class="block text-12 text-text-muted">{{
                     o.description
                   }}</span>

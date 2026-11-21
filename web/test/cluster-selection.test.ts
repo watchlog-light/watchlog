@@ -117,6 +117,7 @@ describe('the selected cluster', () => {
     await flushPromises();
     const labels = () => w.findAll('nav a').map((a) => a.text());
     expect(labels()).toEqual([
+      'All clusters and fleetsPro',
       'Overview',
       'Servers',
       'Workloads',
@@ -131,6 +132,7 @@ describe('the selected cluster', () => {
     store.select(KIND.id);
     await flushPromises();
     expect(labels()).toEqual([
+      'All clusters and fleetsPro',
       'Overview',
       'Nodes',
       'Workloads',

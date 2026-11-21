@@ -19,9 +19,11 @@ describe('AppSidebar', () => {
     const { router, i18n, pinia } = await createPlugins('/nodes');
     const wrapper = mount(AppSidebar, { global: { plugins: [router, i18n, pinia] } });
 
-    expect(wrapper.findAll('nav a').map((a) => a.text())).toEqual(
-      navFor('kubernetes').map((i) => i18n.global.t(i.titleKey)),
-    );
+    // All clusters and fleets first (ADR-226), with its "Pro" label; then the cluster's pages.
+    expect(wrapper.findAll('nav a').map((a) => a.text())).toEqual([
+      'All clusters and fleetsPro',
+      ...navFor('kubernetes').map((i) => i18n.global.t(i.titleKey)),
+    ]);
     const active = wrapper.get('nav a[aria-current="page"]');
     expect(active.text()).toBe('Nodes');
     // ADR-038: neutral active item with a primary bar, no green background or text.

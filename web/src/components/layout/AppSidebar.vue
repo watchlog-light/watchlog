@@ -1,12 +1,14 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import logoUrl from '@watchlog/design-tokens/assets/logo.svg';
-import { PanelLeftClose, PanelLeftOpen, X } from '@lucide/vue';
+import { LayoutGrid, PanelLeftClose, PanelLeftOpen, Plus, X } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { navFor, type NavItem } from '@/router';
+import { countLine, toneOf, type Tone } from '@/lib/all-clusters';
+import { useAllClustersStore } from '@/stores/allClusters';
 import { useApplicationsStore } from '@/stores/applications';
 import { useAuthStore } from '@/stores/auth';
 import { useClustersStore } from '@/stores/clusters';
@@ -72,6 +74,44 @@ watch(
   { immediate: true },
 );
 
+// All clusters and fleets (ADR-226): the first item, with its "Pro" label in every edition.
+// On that page the sidebar lists the clusters and fleets (status dot, nodes or servers)
+// instead of one cluster's sections.
+const all = useAllClustersStore();
+const onAll = computed(() => route.name === 'all-clusters');
+watch(
+  () => [onAll.value, auth.user?.id] as const,
+  ([here, user]) => {
+    if (here && user && (auth.isCloud || auth.demoMode)) void all.ensure();
+  },
+  { immediate: true },
+);
+const DOT: Record<Tone, string> = {
+  critical: 'bg-critical',
+  warning: 'bg-warning',
+  healthy: 'bg-ok',
+  muted: 'bg-text-subtle',
+};
+const envs = computed(() => {
+  const rows = all.summary?.clusters;
+  if (rows)
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      dot: DOT[toneOf(r.status)],
+      count: countLine(r, (k, v) => t(k, v ?? {})),
+    }));
+  return clusters.list.map((c) => ({
+    id: c.id,
+    name: c.name,
+    dot: DOT.muted,
+    count: t(c.kind === 'server' ? 'allClusters.hosts.servers' : 'allClusters.hosts.nodes', {
+      n: c.nodeCount ?? 0,
+    }),
+  }));
+});
+const addTarget = computed(() => (auth.isCloud ? '/onboarding' : '/settings'));
+
 /** Exact match for Overview; path prefix for sections with nested pages (e.g. Settings). */
 function isCurrent(item: NavItem): boolean {
   if (item.path === '/') return route.path === '/';
@@ -92,6 +132,7 @@ async function signOut() {
   applications.reset();
   egress.reset();
   learning.reset();
+  all.reset();
   await router.replace({ name: 'login' });
 }
 </script>
@@ -151,7 +192,74 @@ async function signOut() {
 
     <nav :aria-label="$t('nav.label')" class="flex-1 overflow-y-auto px-3">
       <ul class="flex flex-col gap-0.5">
-        <li v-for="item in items" :key="item.name">
+        <li>
+          <RouterLink v-slot="{ href, navigate }" :to="{ name: 'all-clusters' }" custom>
+            <a
+              :href="href"
+              :title="collapsed ? `${$t('nav.allClusters')} · ${$t('nav.pro')}` : undefined"
+              :aria-current="onAll ? 'page' : undefined"
+              data-testid="nav-all"
+              :class="[
+                'relative flex items-center gap-3 rounded-control px-2.5 text-14 transition-colors',
+                drawer ? 'h-11' : 'h-9',
+                onAll
+                  ? 'bg-surface-2 font-medium text-text before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary'
+                  : 'text-text-muted hover:bg-surface-2 hover:text-text',
+              ]"
+              @click="navigate"
+            >
+              <LayoutGrid class="size-4.5 shrink-0" aria-hidden="true" />
+              <span :class="collapsed ? 'sr-only' : 'truncate'">{{ $t('nav.allClusters') }}</span>
+              <span
+                v-if="!collapsed"
+                data-testid="nav-all-pro"
+                class="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-info/50 px-2 text-12 font-semibold text-info"
+                >{{ $t('nav.pro') }}</span
+              >
+            </a>
+          </RouterLink>
+        </li>
+        <template v-if="onAll">
+          <li
+            v-if="!collapsed"
+            class="px-2.5 pt-3 pb-1 font-mono text-11 tracking-wider text-text-subtle uppercase"
+            aria-hidden="true"
+          >
+            {{ $t('nav.clustersHeading') }}
+          </li>
+          <li v-for="e in envs" :key="e.id">
+            <RouterLink
+              :to="{ name: 'overview', query: { cluster: e.id } }"
+              :title="collapsed ? e.name : undefined"
+              data-testid="nav-env"
+              :class="[
+                'flex items-center gap-2.5 rounded-control px-2.5 text-14 text-text-muted transition-colors hover:bg-surface-2 hover:text-text',
+                drawer ? 'h-11' : 'h-9',
+              ]"
+            >
+              <span :class="['size-2 shrink-0 rounded-full', e.dot]" aria-hidden="true" />
+              <span :class="collapsed ? 'sr-only' : 'min-w-0 flex-1 truncate'">{{ e.name }}</span>
+              <span v-if="!collapsed" class="shrink-0 font-mono text-12 text-text-subtle">{{
+                e.count
+              }}</span>
+            </RouterLink>
+          </li>
+          <li>
+            <RouterLink
+              :to="addTarget"
+              :title="collapsed ? $t('nav.addCluster') : undefined"
+              data-testid="nav-add"
+              :class="[
+                'flex items-center gap-3 rounded-control px-2.5 text-14 text-text-muted transition-colors hover:bg-surface-2 hover:text-text',
+                drawer ? 'h-11' : 'h-9',
+              ]"
+            >
+              <Plus class="size-4.5 shrink-0" aria-hidden="true" />
+              <span :class="collapsed ? 'sr-only' : 'truncate'">{{ $t('nav.addCluster') }}</span>
+            </RouterLink>
+          </li>
+        </template>
+        <li v-for="item in onAll ? [] : items" :key="item.name">
           <RouterLink v-slot="{ href, navigate }" :to="target(item.path)" custom>
             <a
               :href="href"

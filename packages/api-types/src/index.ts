@@ -250,6 +250,11 @@ export type WhatChangedRow = WhatChanged['rows'][number];
 export type WhatChangedObject = WhatChangedRow['object'];
 /** The learning week as data (ADR-216): the day, the hours of the week learned, the series. */
 export type WhatChangedLearning = WhatChanged['learning'];
+// All clusters and fleets (ADR-226).
+export type AllClusters = JsonBody<Responses<'/api/v1/overview/all', 'get'>[200]>;
+export type AllClustersRow = AllClusters['clusters'][number];
+export type AllClustersProblem = AllClusters['problems'][number];
+export type AllClustersChange = AllClusters['whatChanged']['rows'][number];
 /** An anomaly alert's page (ADR-200): now, the usual range, the usual band, the answer given. */
 export type AnomalyAlert = JsonBody<Responses<'/api/v1/alerts/{id}/anomaly', 'get'>[200]>;
 export type AnomalyFeedback = NonNullable<AnomalyAlert['feedback']>;

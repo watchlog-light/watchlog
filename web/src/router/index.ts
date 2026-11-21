@@ -34,6 +34,8 @@ declare module 'vue-router' {
     gate?: Restriction;
     /** A full page outside the app shell that picks no cluster (the onboarding wizard). */
     bare?: boolean;
+    /** The org's page, about every cluster and fleet: no `?cluster=` (ADR-226). */
+    org?: boolean;
   }
 }
 
@@ -188,6 +190,13 @@ export const routes: RouteRecordRaw[] = [
           ...(item.kind ? { kind: item.kind } : {}),
         },
       })),
+      // All clusters and fleets (ADR-226): Pro; Cloud Free and Community see the upgrade card.
+      {
+        name: 'all-clusters',
+        path: 'all',
+        component: () => import('@/views/AllClustersPage.vue'),
+        meta: { titleKey: 'nav.allClusters', org: true },
+      },
       {
         name: 'node',
         path: 'nodes/:name',
@@ -388,7 +397,7 @@ export function installClusterGuard(router: Router, clusters: () => ClusterState
     const asked = typeof to.query.cluster === 'string' ? to.query.cluster : null;
     if (asked && asked !== c.selectedId) c.select(asked);
     const id = c.selectedId;
-    if (!id) return true;
+    if (!id || to.meta.org) return true;
     if (to.meta.kind && c.selected && to.meta.kind !== c.selected.kind)
       return { name: 'overview', query: { cluster: id }, replace: true };
     if (to.query.cluster !== id)
@@ -416,10 +425,43 @@ export function installCheckoutReturn(router: Router): void {
   });
 }
 
-export function createAppRouter(auth: () => AuthState, clusters: () => ClusterState): Router {
+/** What the landing rule needs to know (ADR-226); implemented with the clusters' store. */
+export interface LandingState {
+  /** Whether "All clusters and fleets" exists here at all: Cloud or the demo. */
+  readonly offered: boolean;
+  /** The org's summary, or null without the page (Free) or on an error. */
+  summary(): Promise<{ counts: { all: number } } | null>;
+}
+
+/** Public pages a sign-in comes from: arriving from one of them is landing. */
+const SIGN_IN_PAGES = new Set(['login', 'signup', 'demo', 'signin-2fa', 'setup', 'verify-email']);
+
+/**
+ * Pro orgs with two or more clusters and fleets land on All clusters and fleets (ADR-226):
+ * after signing in, or opening the app at its root, never when a link or the sidebar opens
+ * Overview inside the app.
+ */
+export function installLandingRule(router: Router, landing: () => LandingState): void {
+  router.beforeEach(async (to, from) => {
+    if (to.name !== 'overview' || to.query.cluster) return true;
+    const arriving = !from.name || SIGN_IN_PAGES.has(String(from.name));
+    if (!arriving) return true;
+    const l = landing();
+    if (!l.offered) return true;
+    const s = await l.summary().catch(() => null);
+    return s && s.counts.all >= 2 ? { name: 'all-clusters', replace: true } : true;
+  });
+}
+
+export function createAppRouter(
+  auth: () => AuthState,
+  clusters: () => ClusterState,
+  landing?: () => LandingState,
+): Router {
   const router = createRouter({ history: createWebHistory(), routes });
   installAuthGuard(router, auth);
   installCheckoutReturn(router);
+  if (landing) installLandingRule(router, landing);
   installClusterGuard(router, clusters);
   return router;
 }

@@ -9,13 +9,22 @@ import { setReadOnlyHandler, setRestrictedHandler, setUnauthorizedHandler } from
 import App from './App.vue';
 import { createAppI18n } from './i18n';
 import { createAppRouter, GATE_ROUTE } from './router';
+import { useAllClustersStore } from './stores/allClusters';
 import { useAuthStore } from './stores/auth';
 import { useClustersStore } from './stores/clusters';
 import { useToastStore } from './stores/toast';
 
 const pinia = createPinia();
 const auth = () => useAuthStore(pinia);
-const router = createAppRouter(auth, () => useClustersStore(pinia));
+const router = createAppRouter(
+  auth,
+  () => useClustersStore(pinia),
+  // Pro orgs with two or more clusters and fleets land on All clusters and fleets (ADR-226).
+  () => ({
+    offered: auth().isCloud || auth().demoMode,
+    summary: () => useAllClustersStore(pinia).ensure(),
+  }),
+);
 
 // An expired or revoked session sends the user back to sign-in.
 setUnauthorizedHandler(() => {

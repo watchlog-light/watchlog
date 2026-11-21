@@ -32,7 +32,10 @@
     "pro": "Pro",
     "servers": "Servers",
     "learning": "Learning: day {day} of {days}",
-    "learningShort": "day {day}/{days}"
+    "learningShort": "day {day}/{days}",
+    "allClusters": "All clusters and fleets",
+    "clustersHeading": "Clusters and fleets",
+    "addCluster": "Add a cluster or servers"
   },
   "clusterSwitcher": {
     "label": "Cluster",
@@ -5918,6 +5921,152 @@
       "paid": "{count} · {days}",
       "servers": "0 servers | {n} server | {n} servers",
       "nodes": "0 nodes | {n} node | {n} nodes"
+    }
+  },
+  "allClusters": {
+    "title": "All clusters and fleets",
+    "timeRange": "Time range",
+    "show": "Show",
+    "filter": {
+      "all": "All",
+      "kubernetes": "Kubernetes",
+      "server": "Server fleets"
+    },
+    "header": {
+      "kubernetes": "{n} Kubernetes cluster | {n} Kubernetes clusters",
+      "fleets": "{n} server fleet | {n} server fleets"
+    },
+    "hosts": {
+      "nodes": "{n} node | {n} nodes",
+      "servers": "{n} server | {n} servers",
+      "both": "{n} node or server | {n} nodes and servers"
+    },
+    "reportingOf": "{live} of {total} reporting",
+    "hero": {
+      "attention": "{n} cluster or fleet needs attention | {n} clusters and fleets need attention",
+      "allHealthy": "All {n} clusters and fleets are healthy",
+      "oneHealthy": "The cluster or fleet is healthy",
+      "reporting": "{n} node or server reporting | {n} nodes and servers reporting",
+      "reportingNodes": "{n} node reporting | {n} nodes reporting",
+      "reportingServers": "{n} server reporting | {n} servers reporting",
+      "usual": "nothing out of its usual range",
+      "changes": "{n} change in What changed | {n} changes in What changed",
+      "shareTwo": "{a} and {b} share one problem",
+      "shareMany": "{a} and {n} more share one problem",
+      "silentServer": "{name} has a silent server | {name} has {n} silent servers",
+      "silentNode": "{name} has a silent node | {name} has {n} silent nodes",
+      "worst": "{name}: {title}"
+    },
+    "tiles": {
+      "clusters": "Clusters and fleets",
+      "hosts": "Nodes and servers",
+      "nodes": "Nodes",
+      "servers": "Servers",
+      "problems": "Open problems",
+      "alerts": "Alerts sent, {range}",
+      "critical": "{n} critical",
+      "warning": "{n} warning",
+      "healthy": "{n} healthy",
+      "waiting": "{n} waiting",
+      "notReporting": "{n} not reporting",
+      "allReporting": "all reporting",
+      "resolvedWeek": "none resolved this week | {n} resolved this week | {n} resolved this week",
+      "channel": "{name} {n}",
+      "channelFailed": "{name} {n} failed",
+      "noAlerts": "none sent"
+    },
+    "attention": {
+      "title": "Needs attention, everywhere",
+      "note": "Most urgent first · the same problem in two places is shown once",
+      "none": "Nothing needs attention",
+      "lastResolved": "Last problem: {title} in {name}, resolved {when} after {duration}.",
+      "noneEver": "No problem in the last 7 days.",
+      "open": "Open in {name}"
+    },
+    "table": {
+      "title": "Clusters and fleets",
+      "note": "CPU and memory over the last {range} · open one for its own Overview",
+      "name": "Name",
+      "status": "Status",
+      "reporting": "Reporting",
+      "cpu": "CPU",
+      "memory": "Memory",
+      "problems": "Problems",
+      "whatChanged": "What changed",
+      "alerts": "Alerts {range}",
+      "cpuAria": "CPU over {range}, now {value}",
+      "learning": "learning",
+      "none": "none",
+      "changes": "{n} change | {n} changes"
+    },
+    "status": {
+      "critical": "Critical",
+      "warning": "Warning",
+      "healthy": "Healthy",
+      "waiting": "Waiting"
+    },
+    "kind": {
+      "kubernetes": "Kubernetes",
+      "kubernetesVersion": "Kubernetes {v}",
+      "server": "Server fleet",
+      "services": "{n} service | {n} services",
+      "processGroups": "{n} process group | {n} process groups",
+      "containers": "{n} container | {n} containers"
+    },
+    "changes": {
+      "title": "What changed, across all of them",
+      "open": "Open What changed",
+      "why": "Usually {usual}; now {value}.",
+      "empty": "Nothing has left its usual range in the last 24 hours, in any cluster or fleet.",
+      "learning": "Still learning: {names}.",
+      "allLearning": "Every cluster and fleet is still learning its usual range."
+    },
+    "chores": {
+      "title": "Housekeeping",
+      "none": "Nothing to tidy up.",
+      "agents": "{n} agent runs an older version | {n} agents run an older version",
+      "agentsIn": "{name} ({n}, {versions})",
+      "update": "Update",
+      "channel": "{name} is failing",
+      "channelError": "{error}.",
+      "stillDeliver": "Still delivering: {names}.",
+      "nothingDelivers": "No other channel is delivering.",
+      "fix": "Fix",
+      "noChannel": "{name} sends alerts nowhere",
+      "noChannelCluster": "No alert channel is set for this cluster.",
+      "noChannelFleet": "No alert channel is set for this fleet.",
+      "add": "Add",
+      "ebpfNodes": "eBPF is off on {n} node in {name} | eBPF is off on {n} nodes in {name}",
+      "ebpfServers": "eBPF is off on {n} server in {name} | eBPF is off on {n} servers in {name}",
+      "ebpfWhy": "{reasons}; everything but the service map works there.",
+      "ebpfNoReason": "Everything but the service map works there.",
+      "why": "Why"
+    },
+    "switcher": {
+      "summary": "{attention} · {hosts}",
+      "attention": "{n} needs attention | {n} need attention",
+      "healthy": "all healthy",
+      "free": "Free has one cluster or fleet; Pro has no limit",
+      "community": "Every cluster and fleet on one page, in Pro"
+    },
+    "upgrade": {
+      "label": "Pro",
+      "title": "Every cluster and server fleet on one page",
+      "lead": "Pro has no limit on clusters and fleets. Instead of opening each one to see if it's fine, this page answers that at a glance.",
+      "leadCommunity": "Your self-hosted install holds every cluster and fleet you run. WatchLog Cloud Pro adds this page: instead of opening each one to see if it's fine, it answers that at a glance.",
+      "point1": "One list of what needs attention, wherever it is, most urgent first",
+      "point2": "The same problem in staging and production shown once, so you see it's one deploy",
+      "point3": "What changed across all of them, ranked",
+      "point4": "Silent servers, old agents and broken alert channels in one place",
+      "upgrade": "Upgrade to Pro",
+      "price": "{perNode} per node or server a month · {minimum} minimum covers the first 5",
+      "askOwner": "Ask an Owner to upgrade",
+      "owners": "Owners: {names}",
+      "tryCloud": "Try WatchLog Cloud",
+      "demo": "See it on the live demo",
+      "keeps": "Your self-hosted install keeps everything it has today, with no limits.",
+      "example": "Behind this card: example data, not yours.",
+      "checkoutError": "Checkout could not start. Try again, or open Settings › Plan & billing."
     }
   }
 }
