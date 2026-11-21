@@ -130,6 +130,17 @@ Upgrades never need manual steps.
 - **Docker server:** set `WATCHLOG_VERSION` in `.env`, then `docker compose pull && docker compose up -d`. Database migrations run on start.
 - **Docker agents:** run the install command from **Settings → Clusters** again. It replaces the container, and the service map shows the exact command for any agent that needs it.
 
+### Update the agents
+
+WatchLog tells you when an agent is older than itself, and shows the command that updates it:
+a banner on the **Nodes** page of a Kubernetes cluster ("3 of 12 nodes run an older agent") or
+the **Servers** page of a fleet, a chip on each server's page, an **Agents** section in each
+cluster's and fleet's **Settings**, and an item in Pro's
+[All clusters and fleets](all-clusters.md). For Kubernetes the command is `helm upgrade` of
+the chart the cluster runs (`watchlog` or `watchlog-agent`), with its release and namespace
+when the chart reports them, keeping your values. For servers, see
+[Linux servers](servers.md#update-the-agents).
+
 ## Uninstall
 
 - **Kubernetes:** `helm uninstall watchlog -n watchlog`. The secret key Secret is kept on purpose; delete it with `kubectl -n watchlog delete secret watchlog-secret-key` if you're sure.

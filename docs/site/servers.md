@@ -44,6 +44,24 @@ Supported: Ubuntu 20.04 and later, Debian 11 and later, RHEL, Rocky and Alma 8 a
 Amazon Linux 2023, amd64 and arm64. Tested on Ubuntu 24.04, Debian 12 and Rocky 9 (SELinux
 enforcing).
 
+## Update the agents
+
+When a server's agent is older than your WatchLog, its page shows **Agent 0.10.1 · update to
+0.11.1**, and the fleet's Servers page says how many servers run an older agent. Either opens
+the update command, filled in with your WatchLog's address and version:
+
+- **Installed with the script:** `curl -fsSL https://<your WatchLog>/install.sh | sudo sh -s -- --upgrade`.
+- **Installed from the deb or rpm:** the package of your WatchLog's version, installed over the old one.
+- **Docker:** the container re-created with the token it already has (read with `docker inspect`
+  on the server), so no new token is needed and the state volume is kept.
+
+Agents from 0.11.1 report how they were installed, so the panel shows the one command that
+fits; for older agents it shows every method, the script's first. A fleet with several
+out-of-date servers also gets an SSH loop over them. Updates keep the configuration and never
+need manual steps; after one, the version on the page changes within a minute. Each fleet's
+**Settings** has an **Agents** section with the versions found and the same command, also when
+everything is current: running it again repairs an install.
+
 ## What it runs as, and what it reads
 
 - **Its own user, not root.** The agent runs as the user `watchlog` with exactly five
