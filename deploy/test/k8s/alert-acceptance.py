@@ -101,7 +101,8 @@ class Messages:
         q = urllib.parse.quote(f'to:"{RECIPIENT}" subject:"{WORKLOAD}"')
         mails = http_json(f"{self.mailpit_url}/api/v1/search?query={q}")["messages"]
         for m in reversed(mails):
-            out["email"].append("resolved" if m["Subject"].startswith("[RESOLVED]") else "firing")
+            # "[Resolved] …" since 0.10.0 (ADR-220; "[RESOLVED] …" before).
+            out["email"].append("resolved" if m["Subject"].lower().startswith("[resolved]") else "firing")
         return out
 
 
