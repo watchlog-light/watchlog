@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { ChevronDown, Layers, Menu, Search, X } from '@lucide/vue';
+import { ChevronDown, Layers, LayoutGrid, Menu, Search, X } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import {
   DialogClose,
@@ -72,12 +72,14 @@ watch(
   () => route.path,
   () => (sheetOpen.value = false),
 );
+// On All clusters and fleets (ADR-226) the button names the page, not the last cluster.
+const onAll = computed(() => route.name === 'all-clusters');
 const clusterIcon = computed(() =>
-  clusters.selected ? KIND_LOGO[clusters.selected.kind] : Layers,
+  onAll.value ? LayoutGrid : clusters.selected ? KIND_LOGO[clusters.selected.kind] : Layers,
 );
 const summary = computed(() =>
   [
-    clusters.selected?.name ?? t('clusterSwitcher.none'),
+    onAll.value ? t('nav.allClusters') : (clusters.selected?.name ?? t('clusterSwitcher.none')),
     route.meta.charts ? t(`topBar.ranges.${timeRange.value}`) : null,
   ]
     .filter(Boolean)

@@ -129,12 +129,10 @@ const learningNames = computed(() =>
       class="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4"
       data-testid="ac-header"
     >
-      <div class="flex flex-col gap-0.5">
-        <h1 class="text-20 font-semibold text-text">{{ $t('allClusters.title') }}</h1>
-        <span v-if="s" class="text-13 text-text-muted" data-testid="ac-header-line">{{
-          headerLine(s, tr)
-        }}</span>
-      </div>
+      <!-- The title is the top bar's (the shell's h1); here the org's counts. -->
+      <span v-if="s" class="text-14 text-text-muted" data-testid="ac-header-line">{{
+        headerLine(s, tr)
+      }}</span>
       <div
         role="group"
         :aria-label="$t('allClusters.timeRange')"
@@ -283,7 +281,7 @@ const learningNames = computed(() =>
             <span class="flex min-w-0 flex-[1_1_380px] flex-col gap-1">
               <RouterLink
                 :to="placeLink(p.places[0]!)"
-                class="text-16 font-semibold break-words text-text hover:underline"
+                class="text-16 font-semibold break-words text-text hover:underline max-lg:flex max-lg:min-h-11 max-lg:items-center"
                 data-testid="ac-problem-title"
                 >{{ p.title }}</RouterLink
               >
@@ -514,7 +512,7 @@ const learningNames = computed(() =>
             </h2>
             <RouterLink
               :to="{ name: 'what-changed' }"
-              class="text-13 font-semibold text-primary hover:underline"
+              class="text-13 font-semibold text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
               >{{ $t('allClusters.changes.open') }} →</RouterLink
             >
           </div>
@@ -531,7 +529,7 @@ const learningNames = computed(() =>
               <span class="flex min-w-0 flex-1 flex-col gap-1">
                 <RouterLink
                   :to="{ name: 'what-changed', query: { cluster: r.cluster.id } }"
-                  class="text-14 font-semibold break-words text-text hover:underline"
+                  class="text-14 font-semibold break-words text-text hover:underline max-lg:flex max-lg:min-h-11 max-lg:items-center"
                   >{{ changeView(r, tr).title }}</RouterLink
                 >
                 <span class="text-13 text-text-muted">{{ changeView(r, tr).why }}</span>

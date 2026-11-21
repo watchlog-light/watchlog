@@ -351,14 +351,15 @@ describe('getting there', () => {
     expect(first.attributes('aria-current')).toBe('page');
     const envs = w.findAll('[data-testid="nav-env"]');
     expect(envs.map((e) => e.text())).toEqual([
-      'acme-prod12 nodes',
-      'acme-staging4 nodes',
-      'office-tools1 of 2 reporting',
-      'db-servers3 servers',
-      'shop-servers6 servers',
-      'eu-edge3 nodes',
+      'acme-prod12',
+      'acme-staging4',
+      'office-tools1/2',
+      'db-servers3',
+      'shop-servers6',
+      'eu-edge3',
     ]);
     expect(envs[0]!.get('span').classes()).toContain('bg-critical');
+    expect(envs[2]!.attributes('title')).toBe('office-tools · 1 of 2 reporting');
     expect(w.find('[data-testid="nav-add"]').exists()).toBe(true);
   });
 

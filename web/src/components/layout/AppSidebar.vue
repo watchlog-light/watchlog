@@ -99,15 +99,19 @@ const envs = computed(() => {
       id: r.id,
       name: r.name,
       dot: DOT[toneOf(r.status)],
-      count: countLine(r, (k, v) => t(k, v ?? {})),
+      // The design's short count: the nodes or servers, "1/2" when some are silent.
+      count:
+        r.reporting.live < r.reporting.total
+          ? `${r.reporting.live}/${r.reporting.total}`
+          : String(r.hosts),
+      title: `${r.name} · ${countLine(r, (k, v) => t(k, v ?? {}))}`,
     }));
   return clusters.list.map((c) => ({
     id: c.id,
     name: c.name,
     dot: DOT.muted,
-    count: t(c.kind === 'server' ? 'allClusters.hosts.servers' : 'allClusters.hosts.nodes', {
-      n: c.nodeCount ?? 0,
-    }),
+    count: String(c.nodeCount ?? 0),
+    title: `${c.name} · ${t(c.kind === 'server' ? 'allClusters.hosts.servers' : 'allClusters.hosts.nodes', { n: c.nodeCount ?? 0 })}`,
   }));
 });
 const addTarget = computed(() => (auth.isCloud ? '/onboarding' : '/settings'));
@@ -196,7 +200,7 @@ async function signOut() {
           <RouterLink v-slot="{ href, navigate }" :to="{ name: 'all-clusters' }" custom>
             <a
               :href="href"
-              :title="collapsed ? `${$t('nav.allClusters')} · ${$t('nav.pro')}` : undefined"
+              :title="`${$t('nav.allClusters')} · ${$t('nav.pro')}`"
               :aria-current="onAll ? 'page' : undefined"
               data-testid="nav-all"
               :class="[
@@ -230,7 +234,7 @@ async function signOut() {
           <li v-for="e in envs" :key="e.id">
             <RouterLink
               :to="{ name: 'overview', query: { cluster: e.id } }"
-              :title="collapsed ? e.name : undefined"
+              :title="e.title"
               data-testid="nav-env"
               :class="[
                 'flex items-center gap-2.5 rounded-control px-2.5 text-14 text-text-muted transition-colors hover:bg-surface-2 hover:text-text',
