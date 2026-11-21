@@ -41,7 +41,7 @@ Then add an alert channel (Slack, Telegram or email) and open the dashboard. Eve
 | Support                              |            | Email, within 2 business days                                                                                           |
 | Price                                | Free       | $3 per node or server a month, $15 minimum (the first 5); annual: $30 per node a year (2 months free), at least 5 nodes |
 
-Every monitoring feature is in both plans. Pro adds [What changed](what-changed.md): anomaly detection that learns each metric's usual week, lists what left its range first when something breaks, and raises anomaly alerts. The multi-cluster view and SLO reports are **coming to Pro**; they are not built yet.
+Every monitoring feature is in both plans. Pro adds [What changed](what-changed.md): anomaly detection that learns each metric's usual week, lists what left its range first when something breaks, and raises anomaly alerts; and [All clusters and fleets](all-clusters.md): every cluster and Server fleet on one page, with what needs attention anywhere. SLO reports are **coming to Pro**; they are not built yet.
 
 **When you reach a limit,** nothing that already works stops:
 

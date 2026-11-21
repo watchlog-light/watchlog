@@ -4387,7 +4387,7 @@
         "proRetention": "Pro: 30 days",
         "retentionPro": "The longest Cloud keeps",
         "proLimits": "Unlimited clusters and nodes · 30 days of data · up to 10 users",
-        "proComing": "Multi-cluster view, SLO reports, anomaly detection: coming to Pro",
+        "proComing": "SLO reports: coming to Pro",
         "proSupport": "Email support within 2 business days",
         "estimateFor": "Estimate for",
         "perMonth": "{amount} / month",

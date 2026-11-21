@@ -50,7 +50,7 @@ One WatchLog holds as many Kubernetes clusters and Server fleets as you run, sid
 - **Kubernetes:** run the `helm install` command it shows in the new cluster. It installs only the agents (chart `watchlog-agent`), with a token for that cluster.
 - **Servers:** run the command it shows on each server of the new fleet: one command, a deb or rpm, or `docker run`. A fleet holds any number of servers. See [Linux servers](servers.md).
 
-The cluster switcher at the top of the sidebar moves between them.
+The cluster switcher at the top of the sidebar moves between them. In Pro, [All clusters and fleets](all-clusters.md) shows every one of them on one page.
 
 ## With Docker Compose
 

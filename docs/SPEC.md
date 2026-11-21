@@ -95,7 +95,7 @@ _Not part of the public specification._
 | Probable cause: fixed rules with their evidence, in the UI, API, MCP and messages (v0.4, ADR-146) | ✓ | ✓ | ✓ | ✓ |
 | Data retention | Limited by your disk (default 15 d) | 3 days | 30 days | Configurable (1 year+) |
 | Users | Unlimited: Owner, Admin, Viewer (ADR-140) | 1 | Up to 10 | Unlimited |
-| Unified multi-cluster view | — | — | ✓ (Phase 6) | ✓ |
+| Unified multi-cluster view: All clusters and fleets (0.11.0, ADR-226) | — (upgrade page) | — (upgrade page) | ✓ | ✓ |
 | SLO / availability reports | — | — | ✓ (Phase 6) | ✓ |
 | Anomaly detection — basic: What changed and anomaly alerts (0.8.0, ADR-195) | — (upgrade page) | — (upgrade page) | ✓ | ✓ |
 | Anomaly detection — advanced (correlation & root-cause hints) | — | — | — | ✓ |
@@ -105,7 +105,7 @@ _Not part of the public specification._
 | Air-gapped install, offline license | — | — | — | ✓ |
 | Support | GitHub issues, community chat | Community | Email (2 business days) | SLA + dedicated channel |
 
-Rows marked (Phase 6) are not in 0.6.0: Cloud pages and the site say "coming to Pro" for them (ADR-173). Basic anomaly detection shipped in 0.8.0 as What changed (§4.8, ADR-195): Pro and Enterprise in Cloud, and the live demo (ADR-203); Cloud Free and Community see an upgrade page in its place (ADR-201). Self-hosted Enterprise gets it with the licence key (Phase 7). Cloud limits and how they answer (409 `plan-limit`, 402 on ingest for new nodes only): ADR-177.
+Rows marked (Phase 6) are not in 0.6.0: Cloud pages and the site say "coming to Pro" for them (ADR-173). The unified multi-cluster view shipped in 0.11.0 as All clusters and fleets (ADR-226), with the same editions as What changed. Basic anomaly detection shipped in 0.8.0 as What changed (§4.8, ADR-195): Pro and Enterprise in Cloud, and the live demo (ADR-203); Cloud Free and Community see an upgrade page in its place (ADR-201). Self-hosted Enterprise gets it with the licence key (Phase 7). Cloud limits and how they answer (409 `plan-limit`, 402 on ingest for new nodes only): ADR-177.
 
 **Why anomaly detection is paid:** it needs at least 7-14 days of history to learn weekly seasonality, which only the paid retention tiers provide, and it costs real compute per series.
 
@@ -269,7 +269,7 @@ Built from eBPF data captured by the agent (§6.4). No application changes.
 | Organisations, invite users by email | P0 | Cloud |
 | Invite users by email into the installation | v0.3 | All (ADR-140) |
 | Several clusters and Docker fleets in one installation, cluster switcher | v0.4 | All (ADR-151) |
-| Unified "all clusters" overview | P1 | Pro, E |
+| Unified "all clusters" overview: All clusters and fleets (ADR-226) | v0.11 | Pro, E |
 | Roles: Owner, Admin, Viewer | v0.3 | All (ADR-140) |
 | Fine-grained RBAC (per cluster / namespace) | P2 | E |
 | SSO (OIDC, SAML), LDAP | P2 | E |
@@ -1227,7 +1227,7 @@ Brought forward on 2026-11-13: the Cloud opens as a beta by invite from the wait
 
 ## Phase 6 — Pro features (≈ 4 weeks)
 
-- Multi-cluster overview, 30-day retention tier, SLO reports, basic anomaly detection (§4.8). Basic anomaly detection comes first, alone, as What changed in 0.8.0 (the owner's choice on 2026-11-15, ADR-195). Roles came in v0.3 (Community, ADR-140); right-sizing hints and logs on demand in v0.5 (Community, ADR-167, ADR-168).
+- Multi-cluster overview, 30-day retention tier, SLO reports, basic anomaly detection (§4.8). The multi-cluster overview shipped in 0.11.0 as All clusters and fleets (ADR-226). Basic anomaly detection comes first, alone, as What changed in 0.8.0 (the owner's choice on 2026-11-15, ADR-195). Roles came in v0.3 (Community, ADR-140); right-sizing hints and logs on demand in v0.5 (Community, ADR-167, ADR-168).
 
 ## Phase 7 — Enterprise (as demand appears)
 
