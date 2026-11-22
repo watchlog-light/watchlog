@@ -2,6 +2,7 @@
 // Certificates and scheduled jobs as the pages, the API and MCP read them (0.10.0, ADR-224):
 // bounded reads, scoped to the cluster (and the server, where one is named).
 import { sql, type Selectable } from 'kysely';
+import { nextRun, nextRuns, RELATIVE_SCHEDULE, type NextInput, type NextRun } from './next-run.js';
 import type { Database } from '../../db/index.js';
 import type { ScheduledJobs } from '../../db/types.js';
 
@@ -53,7 +54,12 @@ export interface JobView {
   enabled: boolean;
   persistent: boolean;
   randomDelaySec: number;
+  /** The next run as `nextRun` says (0.13.1): the earliest time, epoch seconds. */
   nextAt: number | null;
+  /** Computed from the period rather than reported by the agent: "about". */
+  nextAbout: boolean;
+  /** A random delay: the run comes in [nextAt, nextAt + nextWindowSec]. */
+  nextWindowSec: number;
   everySec: number;
   state: string;
   failedStreak: number;
@@ -64,6 +70,8 @@ export interface JobView {
   usualSeconds: number | null;
   frequent: boolean;
   lastRun: RunView | null;
+  /** When WatchLog first saw the job: blank before it isn't "didn't run" (0.13.1). */
+  firstSeen: number;
   updatedAt: number;
 }
 
@@ -300,7 +308,28 @@ export async function listJobs(
 
 type JobRow = Selectable<ScheduledJobs>;
 
-function jobView(r: JobRow, lastRun: RunView | null): JobView {
+/** What `nextRun` needs from a stored job and its last run. */
+export function nextInput(
+  r: Pick<JobRow, 'enabled' | 'state' | 'next_at' | 'every_sec' | 'random_delay_sec' | 'schedule'>,
+  lastStart: number | null,
+): NextInput {
+  return {
+    enabled: r.enabled,
+    state: r.state,
+    nextAt: unix(r.next_at),
+    everySec: Number(r.every_sec),
+    lastStart,
+    randomDelaySec: r.random_delay_sec,
+    relative: r.schedule === RELATIVE_SCHEDULE,
+  };
+}
+
+function jobView(
+  r: JobRow,
+  lastRun: RunView | null,
+  nowSec = Math.floor(Date.now() / 1000),
+): JobView {
+  const next = nextRun(nextInput(r, lastRun?.startedAt ?? null), nowSec);
   return {
     id: r.job_id,
     node: r.node,
@@ -312,7 +341,9 @@ function jobView(r: JobRow, lastRun: RunView | null): JobView {
     enabled: r.enabled,
     persistent: r.persistent,
     randomDelaySec: r.random_delay_sec,
-    nextAt: unix(r.next_at),
+    nextAt: next?.at ?? null,
+    nextAbout: next?.about ?? false,
+    nextWindowSec: next?.windowSec ?? 0,
     everySec: Number(r.every_sec),
     state: r.state,
     failedStreak: r.failed_streak,
@@ -323,6 +354,7 @@ function jobView(r: JobRow, lastRun: RunView | null): JobView {
     usualSeconds: r.usual_seconds,
     frequent: r.frequent,
     lastRun,
+    firstSeen: unix(r.first_seen)!,
     updatedAt: unix(r.updated_at)!,
   };
 }
@@ -506,6 +538,14 @@ export interface TimelineJobInput {
   everySec: number;
   missedAt: number | null;
   enabled: boolean;
+  /** For `nextRun` (0.13.1): the stored state, systemd's random delay, a relative timer. */
+  state?: string;
+  randomDelaySec?: number;
+  relative?: boolean;
+  /** When WatchLog first saw the job, epoch seconds: the strip is hatched before it. */
+  firstSeen?: number;
+  /** The last run's start however old (the runs above are the range's only). */
+  lastStart?: number | null;
   runs: { start: number; end: number | null; code: number | null; result: string }[];
   hours: { hour: number; runs: number; failures: number; longestSeconds: number }[];
 }
@@ -523,7 +563,14 @@ export function jobStrip(
   j: TimelineJobInput,
   range: TimelineRange,
   nowSec: number,
-): { slots: TimelineSlot[]; next: number[]; runs: number; failures: number } {
+): {
+  slots: TimelineSlot[];
+  next: number[];
+  nextRun: NextRun | null;
+  firstSeen: number | null;
+  runs: number;
+  failures: number;
+} {
   const { past, future } = TIMELINE_RANGES[range];
   const from = nowSec - past;
   const to = nowSec + future;
@@ -585,19 +632,37 @@ export function jobStrip(
       runs: 0,
     });
   }
-  // The next runs, one per slot at most.
+  // The next runs from the one next-run function (0.13.1), one per slot at most.
+  const input: NextInput = {
+    enabled: j.enabled,
+    state: j.state ?? 'working',
+    nextAt: j.nextAt,
+    everySec: j.everySec,
+    lastStart:
+      j.lastStart !== undefined
+        ? j.lastStart
+        : j.runs.length
+          ? Math.max(...j.runs.map((r) => r.start))
+          : null,
+    randomDelaySec: j.randomDelaySec ?? 0,
+    relative: j.relative ?? false,
+  };
   const next: number[] = [];
   const seen = new Set<number>();
-  if (j.enabled && j.nextAt !== null) {
-    for (let t = j.nextAt; t <= to && next.length < TIMELINE_SLOTS; t += j.everySec) {
-      if (t > nowSec && !seen.has(at(t))) {
-        seen.add(at(t));
-        next.push(t);
-      }
-      if (j.everySec <= 0) break;
+  for (const t of nextRuns(input, nowSec, to, TIMELINE_SLOTS * 4)) {
+    if (!seen.has(at(t))) {
+      seen.add(at(t));
+      next.push(t);
     }
   }
-  return { slots: [...slots.values()].sort((a, b) => a.i - b.i), next, runs, failures };
+  return {
+    slots: [...slots.values()].sort((a, b) => a.i - b.i),
+    next,
+    nextRun: nextRun(input, nowSec),
+    firstSeen: j.firstSeen ?? null,
+    runs,
+    failures,
+  };
 }
 
 /** Every job's strip in one answer (0.13.0): the Scheduled jobs page's run timeline. */
@@ -622,6 +687,10 @@ export async function jobTimeline(
       'every_sec',
       'missed_at',
       'enabled',
+      'state',
+      'random_delay_sec',
+      'schedule',
+      'first_seen',
     ])
     .where('cluster_id', '=', clusterId)
     .where('gone_at', 'is', null);
@@ -639,11 +708,24 @@ export async function jobTimeline(
     .where('cluster_id', '=', clusterId)
     .where('hour', '>=', new Date(from.getTime() - 3600_000));
   if (node !== undefined) hq = hq.where('node', '=', node);
-  const [jobs, runRows, hourRows] = await Promise.all([
+  // Each job's last start, however old: a relative timer's next run counts from it, as in the
+  // list (one next-run answer, 0.13.1).
+  const lq = sql<{ node: string; job_id: string; started_at: Date }>`
+    SELECT node, job_id, max(started_at) AS started_at FROM job_runs
+     WHERE cluster_id = ${clusterId} ${node !== undefined ? sql`AND node = ${node}` : sql``}
+     GROUP BY node, job_id`;
+  const [jobs, runRows, hourRows, lastRows] = await Promise.all([
     jq.limit(5000).execute(),
     rq.limit(200_000).execute(),
     hq.limit(200_000).execute(),
+    lq.execute(db),
   ]);
+  const lastBy = new Map(
+    lastRows.rows.map((r) => [
+      `${r.node}/${r.job_id}`,
+      Math.floor(new Date(r.started_at).getTime() / 1000),
+    ]),
+  );
   const key = (n: string, id: string) => `${n}/${id}`;
   const runsBy = new Map<string, TimelineJobInput['runs']>();
   for (const r of runRows) {
@@ -670,8 +752,11 @@ export async function jobTimeline(
     hoursBy.set(k, list);
   }
   const sec = (d: Date | string | null) => (d ? Math.floor(new Date(d).getTime() / 1000) : null);
+  // Since when WatchLog has watched this cluster or fleet's jobs: its first job's first sight.
+  const seen = jobs.map((j) => sec(j.first_seen)).filter((t): t is number => t !== null);
   return {
     range,
+    watchedSince: seen.length ? Math.min(...seen) : null,
     now: nowSec,
     from: nowSec - past,
     to: nowSec + future,
@@ -689,6 +774,11 @@ export async function jobTimeline(
           everySec: Number(j.every_sec),
           missedAt: sec(j.missed_at),
           enabled: j.enabled,
+          state: j.state,
+          randomDelaySec: j.random_delay_sec,
+          relative: j.schedule === RELATIVE_SCHEDULE,
+          firstSeen: sec(j.first_seen) ?? undefined,
+          lastStart: lastBy.get(key(j.node, j.job_id)) ?? null,
           runs: runsBy.get(key(j.node, j.job_id)) ?? [],
           hours: hoursBy.get(key(j.node, j.job_id)) ?? [],
         },

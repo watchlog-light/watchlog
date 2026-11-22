@@ -242,6 +242,35 @@ describe('certificates (ADR-222, ADR-224)', () => {
 });
 
 describe('scheduled jobs (ADR-223, ADR-224)', () => {
+  it('the list and the timeline give one next run, also while a timer runs (0.13.1)', async () => {
+    const { post, get } = await setup('server');
+    const now = Math.floor(Date.now() / 1000);
+    const start = now - 8 * 60;
+    // chaos-release.timer on the demo: hourly, running for 8 minutes, so systemd gives no next.
+    expect(
+      (
+        await post({
+          node: 'web-1',
+          jobs: [
+            job('7777777777777777', 'chaos-release.timer', [{ start, result: 'running' }], {
+              next: undefined,
+              every: 3598,
+              state: 'running',
+            }),
+          ],
+        })
+      ).statusCode,
+    ).toBe(204);
+    const list = (await get('/scheduled-jobs')).body.jobs[0];
+    expect(list).toMatchObject({ nextAt: start + 3600, nextAbout: true, nextWindowSec: 0 });
+    expect(list.firstSeen).toBeGreaterThan(now - 60);
+    const tl = (await get('/scheduled-jobs/timeline?range=24h')).body;
+    expect(tl.jobs[0].nextRun).toEqual({ at: list.nextAt, about: true, windowSec: 0 });
+    expect(tl.jobs[0].next[0]).toBe(list.nextAt);
+    expect(tl.jobs[0].firstSeen).toBe(list.firstSeen);
+    expect(tl.watchedSince).toBe(list.firstSeen);
+  });
+
   it('keep new runs once and drop gone jobs', async () => {
     const { post, get } = await setup('server');
     const t = Math.floor(Date.now() / 1000 / 3600) * 3600 - 2 * 3600; // two hours ago, on the hour

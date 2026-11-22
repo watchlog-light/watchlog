@@ -3043,7 +3043,12 @@ export interface paths {
                 enabled: boolean;
                 persistent: boolean;
                 randomDelaySec: number;
+                /** @description The next run, epoch seconds: the agent's time while it is ahead, else from the period (0.13.1); null when it does not run */
                 nextAt: number | null;
+                /** @description nextAt is computed from the period: "about" */
+                nextAbout: boolean;
+                /** @description A random delay: it runs between nextAt and nextAt plus this */
+                nextWindowSec: number;
                 everySec: number;
                 state: string;
                 failedStreak: number;
@@ -3060,6 +3065,8 @@ export interface paths {
                   code: number | null;
                   result: string;
                 } | null;
+                /** @description When WatchLog first saw the job, epoch seconds */
+                firstSeen: number;
                 updatedAt: number;
                 recent: {
                   startedAt: number;
@@ -3168,6 +3175,8 @@ export interface paths {
           content: {
             'application/json': {
               range: string;
+              /** @description The first job's first sight in this cluster or fleet, epoch seconds */
+              watchedSince: number | null;
               /** @description Epoch seconds */
               now: number;
               from: number;
@@ -3188,6 +3197,13 @@ export interface paths {
                 }[];
                 /** @description The next runs ahead, epoch seconds */
                 next: number[];
+                nextRun: {
+                  at: number;
+                  about: boolean;
+                  windowSec: number;
+                } | null;
+                /** @description When WatchLog first saw the job: the strip is blank before it */
+                firstSeen: number | null;
                 runs: number;
                 failures: number;
               }[];
@@ -3280,7 +3296,12 @@ export interface paths {
                 enabled: boolean;
                 persistent: boolean;
                 randomDelaySec: number;
+                /** @description The next run, epoch seconds: the agent's time while it is ahead, else from the period (0.13.1); null when it does not run */
                 nextAt: number | null;
+                /** @description nextAt is computed from the period: "about" */
+                nextAbout: boolean;
+                /** @description A random delay: it runs between nextAt and nextAt plus this */
+                nextWindowSec: number;
                 everySec: number;
                 state: string;
                 failedStreak: number;
@@ -3297,6 +3318,8 @@ export interface paths {
                   code: number | null;
                   result: string;
                 } | null;
+                /** @description When WatchLog first saw the job, epoch seconds */
+                firstSeen: number;
                 updatedAt: number;
               };
               runs: {

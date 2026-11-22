@@ -8006,6 +8006,8 @@
                           "persistent",
                           "randomDelaySec",
                           "nextAt",
+                          "nextAbout",
+                          "nextWindowSec",
                           "everySec",
                           "state",
                           "failedStreak",
@@ -8016,6 +8018,7 @@
                           "usualSeconds",
                           "frequent",
                           "lastRun",
+                          "firstSeen",
                           "updatedAt",
                           "recent"
                         ],
@@ -8030,7 +8033,18 @@
                           "enabled": { "type": "boolean" },
                           "persistent": { "type": "boolean" },
                           "randomDelaySec": { "type": "number" },
-                          "nextAt": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "nextAt": {
+                            "anyOf": [{ "type": "number" }, { "type": "null" }],
+                            "description": "The next run, epoch seconds: the agent's time while it is ahead, else from the period (0.13.1); null when it does not run"
+                          },
+                          "nextAbout": {
+                            "type": "boolean",
+                            "description": "nextAt is computed from the period: \"about\""
+                          },
+                          "nextWindowSec": {
+                            "type": "number",
+                            "description": "A random delay: it runs between nextAt and nextAt plus this"
+                          },
                           "everySec": { "type": "number" },
                           "state": { "type": "string" },
                           "failedStreak": { "type": "number" },
@@ -8059,6 +8073,10 @@
                               },
                               { "type": "null" }
                             ]
+                          },
+                          "firstSeen": {
+                            "type": "number",
+                            "description": "When WatchLog first saw the job, epoch seconds"
                           },
                           "updatedAt": { "type": "number" },
                           "recent": {
@@ -8219,6 +8237,8 @@
                         "persistent",
                         "randomDelaySec",
                         "nextAt",
+                        "nextAbout",
+                        "nextWindowSec",
                         "everySec",
                         "state",
                         "failedStreak",
@@ -8229,6 +8249,7 @@
                         "usualSeconds",
                         "frequent",
                         "lastRun",
+                        "firstSeen",
                         "updatedAt"
                       ],
                       "properties": {
@@ -8242,7 +8263,18 @@
                         "enabled": { "type": "boolean" },
                         "persistent": { "type": "boolean" },
                         "randomDelaySec": { "type": "number" },
-                        "nextAt": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                        "nextAt": {
+                          "anyOf": [{ "type": "number" }, { "type": "null" }],
+                          "description": "The next run, epoch seconds: the agent's time while it is ahead, else from the period (0.13.1); null when it does not run"
+                        },
+                        "nextAbout": {
+                          "type": "boolean",
+                          "description": "nextAt is computed from the period: \"about\""
+                        },
+                        "nextWindowSec": {
+                          "type": "number",
+                          "description": "A random delay: it runs between nextAt and nextAt plus this"
+                        },
                         "everySec": { "type": "number" },
                         "state": { "type": "string" },
                         "failedStreak": { "type": "number" },
@@ -8267,6 +8299,10 @@
                             },
                             { "type": "null" }
                           ]
+                        },
+                        "firstSeen": {
+                          "type": "number",
+                          "description": "When WatchLog first saw the job, epoch seconds"
                         },
                         "updatedAt": { "type": "number" }
                       }
@@ -8387,9 +8423,13 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["range", "now", "from", "to", "slots", "jobs"],
+                  "required": ["range", "watchedSince", "now", "from", "to", "slots", "jobs"],
                   "properties": {
                     "range": { "type": "string" },
+                    "watchedSince": {
+                      "anyOf": [{ "type": "number" }, { "type": "null" }],
+                      "description": "The first job's first sight in this cluster or fleet, epoch seconds"
+                    },
                     "now": { "type": "number", "description": "Epoch seconds" },
                     "from": { "type": "number" },
                     "to": { "type": "number" },
@@ -8398,7 +8438,16 @@
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "required": ["id", "node", "slots", "next", "runs", "failures"],
+                        "required": [
+                          "id",
+                          "node",
+                          "slots",
+                          "next",
+                          "nextRun",
+                          "firstSeen",
+                          "runs",
+                          "failures"
+                        ],
                         "properties": {
                           "id": { "type": "string" },
                           "node": { "type": "string" },
@@ -8431,6 +8480,24 @@
                             "type": "array",
                             "items": { "type": "number" },
                             "description": "The next runs ahead, epoch seconds"
+                          },
+                          "nextRun": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["at", "about", "windowSec"],
+                                "properties": {
+                                  "at": { "type": "number" },
+                                  "about": { "type": "boolean" },
+                                  "windowSec": { "type": "number" }
+                                }
+                              },
+                              { "type": "null" }
+                            ]
+                          },
+                          "firstSeen": {
+                            "anyOf": [{ "type": "number" }, { "type": "null" }],
+                            "description": "When WatchLog first saw the job: the strip is blank before it"
                           },
                           "runs": { "type": "number" },
                           "failures": { "type": "number" }

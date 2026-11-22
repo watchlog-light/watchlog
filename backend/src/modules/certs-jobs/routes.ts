@@ -98,7 +98,14 @@ const JobS = Type.Object({
   enabled: Type.Boolean(),
   persistent: Type.Boolean(),
   randomDelaySec: Type.Number(),
-  nextAt: N,
+  nextAt: Type.Union([Type.Number(), Type.Null()], {
+    description:
+      "The next run, epoch seconds: the agent's time while it is ahead, else from the period (0.13.1); null when it does not run",
+  }),
+  nextAbout: Type.Boolean({ description: 'nextAt is computed from the period: "about"' }),
+  nextWindowSec: Type.Number({
+    description: 'A random delay: it runs between nextAt and nextAt plus this',
+  }),
   everySec: Type.Number(),
   state: Type.String(),
   failedStreak: Type.Number(),
@@ -109,6 +116,7 @@ const JobS = Type.Object({
   usualSeconds: N,
   frequent: Type.Boolean(),
   lastRun: Type.Union([RunS, Type.Null()]),
+  firstSeen: Type.Number({ description: 'When WatchLog first saw the job, epoch seconds' }),
   updatedAt: Type.Number(),
 });
 
@@ -255,6 +263,9 @@ export const certsJobsRoutes: FastifyPluginAsyncTypebox<{
         response: {
           200: Type.Object({
             range: Type.String(),
+            watchedSince: Type.Union([Type.Number(), Type.Null()], {
+              description: "The first job's first sight in this cluster or fleet, epoch seconds",
+            }),
             now: Type.Number({ description: 'Epoch seconds' }),
             from: Type.Number(),
             to: Type.Number(),
@@ -285,6 +296,17 @@ export const certsJobsRoutes: FastifyPluginAsyncTypebox<{
                 ),
                 next: Type.Array(Type.Number(), {
                   description: 'The next runs ahead, epoch seconds',
+                }),
+                nextRun: Type.Union([
+                  Type.Object({
+                    at: Type.Number(),
+                    about: Type.Boolean(),
+                    windowSec: Type.Number(),
+                  }),
+                  Type.Null(),
+                ]),
+                firstSeen: Type.Union([Type.Number(), Type.Null()], {
+                  description: 'When WatchLog first saw the job: the strip is blank before it',
                 }),
                 runs: Type.Number(),
                 failures: Type.Number(),
