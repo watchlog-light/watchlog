@@ -353,7 +353,8 @@ describe.each(platforms)('$kind: baselines, scoring and periods', (p) => {
       .where('cluster_id', '=', clusterId)
       .executeTakeFirstOrThrow();
     expect(live.org_id).toBe(orgId);
-    expect(live.scored_at.getTime()).toBe(at + 11 * MIN);
+    // When the worker checked (its last minute), not the settled minute it scored.
+    expect(live.scored_at.getTime()).toBe(at + 12 * MIN);
     // The step's series: scored, outside, with its band; the other one inside.
     const series = (live.series as unknown[]).map((e) => fromStored(e)!);
     const main = series.find(

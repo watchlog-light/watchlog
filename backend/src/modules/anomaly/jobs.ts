@@ -417,7 +417,8 @@ async function scoreCluster(deps: AnomalyDeps, t: Target, nowMs: number, report:
     }
   }
   try {
-    await writeLive(deps.db, t, end, live, learningCount);
+    // When it checked (the header's "checked 12 s ago"), not the settled minute it scored.
+    await writeLive(deps.db, t, nowMs, live, learningCount);
   } catch (err) {
     // The map is a view; scoring went through either way.
     deps.log.warn(
