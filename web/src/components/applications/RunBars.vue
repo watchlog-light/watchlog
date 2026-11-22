@@ -7,8 +7,12 @@ import { runBars, type RunBar } from '@/lib/certs-jobs';
 // A job's last 14 runs as small bars, oldest on the left (the reference's "Last 14 runs"):
 // colour and height both tell a failed, slow or running run from a good one; the label says
 // it in words for screen readers.
-const props = defineProps<{ runs: JobRun[]; usual: number | null; label: string }>();
-const bars = computed(() => runBars(props.runs, props.usual));
+const props = withDefaults(
+  defineProps<{ runs: JobRun[]; usual: number | null; label: string; slots?: number }>(),
+  { slots: 14 },
+);
+const bars = computed(() => runBars(props.runs, props.usual, props.slots));
+const width = computed(() => Math.round(props.slots * 10.6));
 const FILL: Record<RunBar['tone'], string> = {
   ok: 'fill-ok',
   crit: 'fill-critical',
@@ -20,9 +24,9 @@ const FILL: Record<RunBar['tone'], string> = {
 
 <template>
   <svg
-    width="150"
+    :width="width"
     height="18"
-    viewBox="0 0 150 18"
+    :viewBox="`0 0 ${width} 18`"
     role="img"
     :aria-label="label"
     data-testid="run-bars"
@@ -38,7 +42,7 @@ const FILL: Record<RunBar['tone'], string> = {
       :class="FILL[b.tone]"
     />
     <rect
-      v-for="i in Math.max(0, 14 - bars.length)"
+      v-for="i in Math.max(0, slots - bars.length)"
       :key="`e${i}`"
       :x="(bars.length + i - 1) * 10.6"
       y="12"

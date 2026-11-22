@@ -1,6 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import CertsJobsCard from '@/components/applications/CertsJobsCard.vue';
 import { Hourglass, LayoutDashboard } from '@lucide/vue';
 import type { Cluster, KubeOverview } from '@watchlog/api-types';
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -10,10 +9,12 @@ import { funnel } from '@/api/cloud';
 import { useClustersStore } from '@/stores/clusters';
 import IngestFailureBanner from '@/components/clusters/IngestFailureBanner.vue';
 import AttentionCard from '@/components/overview/AttentionCard.vue';
+import FirstFindCard from '@/components/overview/FirstFindCard.vue';
 import KpiRow from '@/components/overview/KpiRow.vue';
 import OverviewCard from '@/components/overview/OverviewCard.vue';
 import PodsByNode from '@/components/overview/PodsByNode.vue';
 import RecentChanges from '@/components/overview/RecentChanges.vue';
+import RunningHereRow from '@/components/overview/RunningHereRow.vue';
 import RightSizingCard from '@/components/rightsizing/RightSizingCard.vue';
 import StatusStrip from '@/components/overview/StatusStrip.vue';
 import TopWorkloads from '@/components/overview/TopWorkloads.vue';
@@ -234,8 +235,18 @@ onBeforeUnmount(() => clearInterval(clock));
       <!-- Cloud: the first week's checklist (ADR-176), hidden once done or dismissed. -->
       <PlanStrip v-if="auth.isCloud && compact" inline />
       <FirstWeekCard v-if="auth.isCloud && !auth.demoMode && !auth.support" />
+      <!-- What WatchLog found on its own, once per user and cluster or fleet (ADR-230). -->
+      <FirstFindCard
+        :cluster-id="page.data.value.cluster.id"
+        :kind="page.data.value.cluster.kind"
+      />
       <StatusStrip :overview="o" />
       <KpiRow :overview="o" />
+      <!-- Running here (0.13.0): services, certificates and scheduled jobs. -->
+      <RunningHereRow
+        :cluster-id="page.data.value.cluster.id"
+        :kind="page.data.value.cluster.kind"
+      />
 
       <!-- Two columns that stack on their own (ADR-159): no card waits for the other
            column's. One column on a narrow page, Needs attention first. -->
@@ -247,12 +258,6 @@ onBeforeUnmount(() => clearInterval(clock));
         </div>
         <div class="col col-side" data-testid="overview-side">
           <AttentionCard class="o-attention" :overview="o" />
-          <!-- Certificates and scheduled jobs (0.10): counts and problems, both kinds. -->
-          <CertsJobsCard
-            v-if="page.data.value"
-            class="o-certs-jobs"
-            :cluster-id="page.data.value.cluster.id"
-          />
           <RecentChanges class="o-changes" :overview="o" />
           <!-- Right-sizing (ADR-168): what could give back, what is at risk at its limit. -->
           <RightSizingCard

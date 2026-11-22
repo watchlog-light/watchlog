@@ -6214,5 +6214,78 @@
       "missed": "missed its run at {when}",
       "next": "next run {when}"
     }
+  },
+  "runningHere": {
+    "title": "Running here",
+    "sub": "found by the agents, nothing to set up",
+    "attention": "1 needs attention | {n} need attention",
+    "loading": "Loading",
+    "olderAgents": "{names} run an agent older than 0.10 and can't look yet. | {names} run an agent older than 0.10 and can't look yet.",
+    "olderAgent": "The agent is older than 0.10 and can't look yet.",
+    "updateAgents": "Update the agents",
+    "services": {
+      "title": "Services",
+      "count": "{n}",
+      "problems": "1 with problems | {n} with problems",
+      "all": "All {n} services",
+      "none": "No services monitored yet",
+      "noneHint": "Monitor one from Applications: WatchLog finds databases, queues and web servers on its own.",
+      "find": "Find services to monitor",
+      "ok": "Healthy"
+    },
+    "certs": {
+      "title": "Certificates",
+      "expiring": "1 expiring | {n} expiring",
+      "all": "All {n} certificates · {renewing} renew themselves",
+      "allOne": "1 certificate · {renewing} renews itself",
+      "none": "No certificates found yet",
+      "noneServer": "The agents check every listening TLS port every 10 minutes.",
+      "noneKube": "The agent checks every Service and Ingress with TLS every 10 minutes.",
+      "server": "{name} :{port} on {server}",
+      "ingress": "Ingress {name}",
+      "service": "Service {name} :{port}",
+      "jobFailing": "{job} is failing",
+      "chain": "incomplete chain",
+      "name": "name doesn't match",
+      "renews": "renews itself",
+      "private": "private CA",
+      "selfSigned": "self-signed",
+      "notSeen": "not seen renewing yet",
+      "strip": "Expiry in the next 90 days"
+    },
+    "jobs": {
+      "title": "Scheduled jobs",
+      "failing": "1 failing | {n} failing",
+      "all": "All {n} jobs · {ok} of {total} runs fine in 24 h",
+      "allNoRuns": "All {n} jobs",
+      "none": "No scheduled jobs found yet",
+      "noneServer": "The agents read systemd timers and crontabs on each server.",
+      "noneKube": "The agent reads every CronJob in the cluster.",
+      "timerOn": "systemd timer on {server}",
+      "cronOn": "cron on {server}",
+      "cron": "cron",
+      "spec": "{spec}",
+      "runsLabel": "Last {n} runs: {summary} | Last {n} runs: {summary}",
+      "noRuns": "No runs yet"
+    }
+  },
+  "firstFind": {
+    "title": "WatchLog found {certs} and {jobs} on its own",
+    "certs": "no certificates | 1 certificate | {n} certificates",
+    "jobs": "no scheduled jobs | 1 scheduled job | {n} scheduled jobs",
+    "howKube": "From every Service and Ingress with TLS, and every CronJob, with nothing to set up. It alerts before a certificate expires and when a job fails or doesn't run.",
+    "howServer": "From every listening TLS port, every systemd timer and every crontab on your servers, with nothing to set up. It alerts before a certificate expires and when a job fails or doesn't run.",
+    "urgent": {
+      "expires": "{name} expires today. | {name} expires in 1 day. | {name} expires in {n} days.",
+      "expired": "{name} expired 1 day ago. | {name} expired {n} days ago.",
+      "job": {
+        "failed": "{name} is failing.",
+        "missed": "{name} missed its run.",
+        "slow": "{name} is running far longer than usual."
+      }
+    },
+    "seeCerts": "See certificates",
+    "seeJobs": "See scheduled jobs",
+    "dismiss": "Dismiss"
   }
 }

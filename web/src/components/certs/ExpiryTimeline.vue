@@ -15,7 +15,7 @@ import {
 
 // "When they expire" (0.13.0, ADR-230): one component for the Certificates page (`full`:
 // labels on three lanes, the renewal window, ticks, "+N later", clusters past 15) and the
-// Overview's strip (`strip`: the dots, the window and today to 90 days, no labels).
+// Overview's strip (`strip`: the dots, the 14-day warning band, today to 90 days, no labels).
 const props = withDefaults(
   defineProps<{ certs: TlsCertificate[]; range?: ExpiryRange; variant?: 'full' | 'strip' }>(),
   { range: 90, variant: 'full' },
@@ -96,8 +96,8 @@ const toggle = (m: TimelineMark) => (open.value = open.value === m.id ? null : m
     <div class="relative h-6.5" role="img" :aria-label="a11y">
       <span class="absolute inset-x-0 top-3 h-0.5 rounded-full bg-surface-3" aria-hidden="true" />
       <span
-        class="absolute top-2.75 left-0 h-1 rounded-full bg-info/30"
-        :style="{ width: `${placed.windowEnd}%` }"
+        class="absolute top-2.75 left-0 h-1 rounded-full bg-warning/45"
+        :style="{ width: `${(14 / 90) * 100}%` }"
         aria-hidden="true"
       />
       <span
