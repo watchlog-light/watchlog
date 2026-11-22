@@ -27,15 +27,34 @@ export const SERVICE_LOGO_URL: Record<string, string> = {
   'php-fpm': phpUrl,
 };
 
+/**
+ * Logos in one colour (Kafka's is white): drawn in the theme's text colour through a mask, so
+ * they show on a light page too (ADR-229). The coloured ones keep their brand colours.
+ */
+export const MONO_LOGOS = new Set(['kafka']);
+
 /** <ServiceLogo type="redis" class="size-8" /> */
-export const ServiceLogo: FunctionalComponent<{ type: string }> = (props, { attrs }) =>
-  h('img', {
-    src: SERVICE_LOGO_URL[props.type] ?? '',
+export const ServiceLogo: FunctionalComponent<{ type: string }> = (props, { attrs }) => {
+  const url = SERVICE_LOGO_URL[props.type] ?? '';
+  if (MONO_LOGOS.has(props.type)) {
+    const mask = `url("${url}") center / contain no-repeat`;
+    return h('span', {
+      'aria-hidden': 'true',
+      'data-logo': props.type,
+      'data-mono': '',
+      ...attrs,
+      class: ['inline-block shrink-0 bg-current text-text', attrs.class],
+      style: { mask, WebkitMask: mask },
+    });
+  }
+  return h('img', {
+    src: url,
     alt: '',
     'data-logo': props.type,
     draggable: false,
     ...attrs,
     class: ['object-contain', attrs.class],
   });
+};
 ServiceLogo.props = ['type'];
 ServiceLogo.inheritAttrs = false;
