@@ -18,7 +18,7 @@ import {
   type Related,
   type StoryRow,
 } from '../src/modules/causes/story.js';
-import { isOwnPod, isOwnSeries, stateOf } from '../src/modules/anomaly/live.js';
+import { isOwnChange, isOwnPod, isOwnSeries, stateOf } from '../src/modules/anomaly/live.js';
 import { markerTarget, relatedBy } from '../src/modules/anomaly/story-read.js';
 
 const T0 = Date.UTC(2026, 10, 22, 14, 31);
@@ -382,5 +382,24 @@ describe('series identity', () => {
         seriesHash('workload.cpu.usage', subjectOf(live)),
       ),
     ).toBe(true);
+  });
+});
+
+describe('WatchLog’s own changes', () => {
+  const own = {
+    workloads: new Set(['watchlog/watchlog-backend']),
+    containers: new Set(['watchlog-web-1']),
+  };
+  it('its chart’s rollouts, its containers, the agent’s units; never a scheduled run', () => {
+    expect(
+      isOwnChange({ kind: 'rollout', name: 'watchlog-backend', namespace: 'watchlog' }, own),
+    ).toBe(true);
+    expect(isOwnChange({ kind: 'rollout', name: 'backend', namespace: 'shop' }, own)).toBe(false);
+    expect(isOwnChange({ kind: 'recreate', name: 'watchlog-web-1' }, own)).toBe(true);
+    expect(isOwnChange({ kind: 'service_restart', name: 'watchlog-agent.service' }, own)).toBe(
+      true,
+    );
+    expect(isOwnChange({ kind: 'service_restart', name: 'postgresql.service' }, own)).toBe(false);
+    expect(isOwnChange({ kind: 'job_run', name: 'watchlog-agent' }, own)).toBe(false);
   });
 });

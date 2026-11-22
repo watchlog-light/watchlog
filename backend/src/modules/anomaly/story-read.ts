@@ -9,6 +9,7 @@
 // Package updates aren't here: the agent sends no package events (pending review).
 import type { Database } from '../../db/index.js';
 import type { Change, ChangeKind, Related } from '../causes/story.js';
+import { isOwnChange, type OwnParts } from './live.js';
 import type { ClusterKind, ObjectView } from './read.js';
 
 const MARKER_KINDS: Record<string, ChangeKind> = {
@@ -48,6 +49,8 @@ export async function readChanges(
   clusterId: string,
   fromMs: number,
   toMs: number,
+  /** WatchLog's own parts when they are hidden: their changes are left out too. */
+  own: OwnParts | null = null,
 ): Promise<Change[]> {
   const from = new Date(fromMs);
   const to = new Date(toMs);
@@ -139,7 +142,7 @@ export async function readChanges(
       },
     });
   }
-  return out.sort((a, b) => a.at - b.at);
+  return (own ? out.filter((c) => !isOwnChange(c, own)) : out).sort((a, b) => a.at - b.at);
 }
 
 /** The service map's nodes and edges, as GET /clusters/:id/service-map gives them. */

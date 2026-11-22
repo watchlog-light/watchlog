@@ -152,6 +152,19 @@ export function isOwnSeries(subject: Record<string, string>, own: OwnParts): boo
   return false;
 }
 
+/**
+ * Whether a change is to WatchLog itself: a rollout or image change of its chart's workloads, a
+ * re-create of its containers, a start or restart of the agent's units. Hidden with its series.
+ */
+export function isOwnChange(
+  c: { name: string; namespace?: string; kind: string },
+  own: OwnParts,
+): boolean {
+  if (c.namespace && own.workloads.has(`${c.namespace}/${c.name}`)) return true;
+  if (own.containers.has(c.name)) return true;
+  return c.kind !== 'job_run' && OWN_UNIT.test(c.name);
+}
+
 // --------------------------------------------------------------------------- the answer
 
 export interface LiveSeriesView {

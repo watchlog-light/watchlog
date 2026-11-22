@@ -253,7 +253,7 @@ export async function nameServices(
   db: Database,
   orgId: string,
   clusterId: string,
-  rows: RowView[],
+  rows: { object: ObjectView }[],
 ): Promise<void> {
   const ids = [
     ...new Set(

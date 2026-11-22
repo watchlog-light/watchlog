@@ -29,6 +29,7 @@ import {
 import { parseSubject } from '../causes/subject.js';
 import { INTEGRATION_KEYS, queriesFor, seriesHash, subjectOf } from './keys.js';
 import { causeSubjectOf, oncePerSeries, sortRows, type ClusterKind, type RowView } from './read.js';
+import type { OwnParts } from './live.js';
 import { readChanges, relatedBy, workloadNodes, type MapRead } from './story-read.js';
 
 /** Sparklines at most per story (the chain's series and the next ones). */
@@ -108,6 +109,8 @@ export interface StoryCluster {
   name: string;
   kind: ClusterKind;
   scope: ClusterScope;
+  /** WatchLog's own parts when hidden: their changes are left out with their series. */
+  own?: OwnParts | null;
 }
 
 /** Related for this cluster: its service map over the window, its pods' nodes. */
@@ -202,7 +205,13 @@ export async function buildStory(
   const srows = rows.map(storyRow);
   const end = ep.to ?? nowMs;
   const [changes, related] = await Promise.all([
-    readChanges(deps.db, cluster.id, ep.from - AROUND_BEFORE_MS, end + AROUND_AFTER_MS),
+    readChanges(
+      deps.db,
+      cluster.id,
+      ep.from - AROUND_BEFORE_MS,
+      end + AROUND_AFTER_MS,
+      cluster.own ?? null,
+    ),
     relatedFor(deps, cluster, Math.ceil((end - ep.from) / 1000) + 3600),
   ]);
   const first = srows[0]!;
@@ -278,7 +287,13 @@ export async function recentEpisodes(
   const episodes = episodesOf(all.map(storyRow), nowMs).slice(-max).reverse();
   if (!episodes.length) return [];
   const span = { from: Math.min(...episodes.map((e) => e.from)), to: nowMs };
-  const changes = await readChanges(deps.db, cluster.id, span.from - AROUND_BEFORE_MS, span.to);
+  const changes = await readChanges(
+    deps.db,
+    cluster.id,
+    span.from - AROUND_BEFORE_MS,
+    span.to,
+    cluster.own ?? null,
+  );
   // In brief, related is a shared node or server only: no map read per episode.
   const nodes =
     cluster.kind === 'kubernetes' ? await workloadNodes(deps.db, cluster.id) : new Map();

@@ -41,6 +41,7 @@ import {
   alertWindow,
   chartRange,
   labelsOf,
+  nameServices,
   rowView,
   readPeriods,
   WHAT_CHANGED_MAX_RANGE_S,
@@ -452,7 +453,13 @@ export const whatChangedRoutes: FastifyPluginAsyncTypebox<{
             reader: causeReader(app, request),
             log: request.log,
           },
-          { id: row.id, name: row.name, kind, scope: row.scope },
+          {
+            id: row.id,
+            name: row.name,
+            kind,
+            scope: row.scope,
+            own: own === 'hide' ? parts : null,
+          },
           orgId,
           read.all,
           w,
@@ -462,7 +469,9 @@ export const whatChangedRoutes: FastifyPluginAsyncTypebox<{
       }
       const changes =
         !alert && !learning.learning
-          ? (await readChanges(db, row.id, chart.fromMs, chart.toMs)).map(changeView)
+          ? (
+              await readChanges(db, row.id, chart.fromMs, chart.toMs, own === 'hide' ? parts : null)
+            ).map(changeView)
           : [];
       const subject = alert ? `alert:${alert.id}` : (built?.subject ?? read.firstSubject);
       let likely: LikelyCause | null = built?.likely ?? null;
@@ -552,7 +561,9 @@ export const whatChangedRoutes: FastifyPluginAsyncTypebox<{
         ownParts(db, g.row.id),
         g.kind === 'server' && row ? composeMap(db, g.row.id) : Promise.resolve(new Map()),
       ]);
-      return liveView(row, own, compose);
+      const view = liveView(row, own, compose);
+      await nameServices(db, g.orgId, g.row.id, view.series);
+      return view;
     },
   );
 
@@ -622,9 +633,10 @@ export const whatChangedRoutes: FastifyPluginAsyncTypebox<{
       const rows = periods
         .filter((p) => !parts || !isOwnSeries(labelsOf(p.subject), parts))
         .map((p) => rowView(p, compose));
+      await nameServices(db, g.orgId, g.row.id, rows);
       const episodes = await recentEpisodes(
         { db },
-        { id: g.row.id, name: g.row.name, kind: g.kind, scope: g.row.scope },
+        { id: g.row.id, name: g.row.name, kind: g.kind, scope: g.row.scope, own: parts },
         rows,
         nowMs,
         RECENT_MAX,

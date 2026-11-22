@@ -319,8 +319,22 @@ describe('the story (Kubernetes)', () => {
       usual: [0.1, 0.3],
       last: 2,
     });
+    // WatchLog's own update is one of its changes: hidden with its series.
+    await c.db
+      .insertInto('change_markers')
+      .values({
+        id: newId(),
+        cluster_id: clusterId,
+        kind: 'rollout',
+        target: 'Deployment/watchlog/watchlog-backend',
+        namespace: 'watchlog',
+        ts: new Date(NOW - 35 * MIN),
+        details: JSON.stringify({ from: '3', to: '4' }),
+      })
+      .execute();
     const hidden = (await get('', { from: String(nowS - 3600), to: String(nowS) })).json();
     expect(hidden.own).toBe('hide');
+    expect(hidden.changes).toEqual([]);
     expect(hidden.rows).toEqual([]);
     expect(hidden.episodes).toEqual([]);
     expect(hidden.story).toBeNull();
@@ -330,6 +344,8 @@ describe('the story (Kubernetes)', () => {
     expect(shown.rows).toHaveLength(1);
     expect(shown.rows[0].own).toBe(true);
     expect(shown.episodes).toHaveLength(1);
+    expect(shown.changes.map((x: { name: string }) => x.name)).toEqual(['watchlog-backend']);
+    expect(shown.story.changes.map((x: { name: string }) => x.name)).toEqual(['watchlog-backend']);
   });
 });
 
@@ -440,6 +456,55 @@ describe('the live map', () => {
       ['api', 'inside', 0, false],
       ['watchlog-agent', 'inside', 1, true],
     ]);
+  });
+
+  it('a monitored application by its name, not its id (here and on the quiet page)', async () => {
+    const { c, orgId, clusterId, get } = await proOrg('kubernetes');
+    const id = newId();
+    await c.db
+      .insertInto('integrations')
+      .values({
+        id,
+        org_id: orgId,
+        cluster_id: clusterId,
+        type: 'postgres',
+        name: 'orders-db',
+        target: JSON.stringify({ kind: 'address', port: 5432 }),
+      })
+      .execute();
+    const subject = { service: id, service_type: 'postgres' };
+    await c.db
+      .insertInto('anomaly_live')
+      .values({
+        org_id: orgId,
+        cluster_id: clusterId,
+        scored_at: new Date(NOW - 12_000),
+        learning: 0,
+        series: JSON.stringify([
+          toStored({
+            key: 'postgres.connections',
+            subject,
+            value: 9,
+            low: 1,
+            high: 4,
+            score: 1,
+            open: false,
+          }),
+        ]),
+      })
+      .execute();
+    const live = (await get('/live', {})).json();
+    expect(live.series[0].object).toMatchObject({ kind: 'service', name: 'orders-db', id });
+    await period(c, orgId, clusterId, {
+      metric: 'postgres.connections',
+      subject,
+      startedAgo: DAY,
+      endedAgo: DAY - 20 * MIN,
+      usual: [1, 4],
+      last: 9,
+    });
+    const recent = (await get('/recent', {})).json();
+    expect(recent.episodes[0].clauses[0].facts.who).toBe('orders-db');
   });
 
   it('before the worker’s first minute: nothing scored yet', async () => {
