@@ -6,6 +6,8 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import SummaryTile from '@/components/applications/SummaryTile.vue';
+import ExpiryTimeline from '@/components/certs/ExpiryTimeline.vue';
+import SegmentedControl from '@/components/overview/SegmentedControl.vue';
 import ToneChip from '@/components/applications/ToneChip.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
@@ -13,6 +15,7 @@ import SearchField from '@/components/ui/SearchField.vue';
 import SkeletonTable from '@/components/ui/SkeletonTable.vue';
 import { useLoader } from '@/composables/useLoader';
 import { useNarrow } from '@/composables/useNarrow';
+import { useStoredChoice } from '@/composables/useStoredChoice';
 import {
   CERT_TONE,
   certDays,
@@ -27,12 +30,14 @@ import {
   type Tone,
   type Words,
 } from '@/lib/certs-jobs';
+import type { ExpiryRange } from '@/lib/expiry-timeline';
 import { useCertsJobsStore } from '@/stores/certsJobs';
 import { useClustersStore } from '@/stores/clusters';
 
-// Applications › Certificates (0.10, ADR-222): the selected cluster's or fleet's certificates,
+// Certificates (0.10, ADR-222; its own page since 0.13.0, ADR-230): the selected cluster's or fleet's certificates,
 // problems first, as in the reference: four tiles, the table (certificate, served by, issuer,
 // expires with its days and a bar, renewal, status), what wasn't covered, the default alerts.
+// Under the tiles, "When they expire": the timeline, its range remembered in this browser.
 // Phones get one card per certificate.
 const { t } = useI18n();
 const route = useRoute();
@@ -112,13 +117,18 @@ const overCap = computed(() =>
 const waiting = computed(
   () => page.loaded.value && coverage.value.length === 0 && agents.value.length === 0,
 );
+const RANGES = ['30', '90', '365'] as const;
+const rangeKey = useStoredChoice('watchlog.certTimeline.range', RANGES, '90');
+const range = computed(() => Number(rangeKey.value) as ExpiryRange);
+const rangeOptions = computed(() =>
+  RANGES.map((r) => ({ value: r, label: t(`certTimeline.ranges.${r}`) })),
+);
 const columns =
   'grid-cols-[minmax(0,1.6fr)_minmax(0,1.9fr)_minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,1.6fr)_6.5rem_1rem]';
 </script>
 
 <template>
   <div class="flex flex-col gap-5" data-testid="certificates">
-
     <p
       v-if="agents.length > 0"
       class="rounded-card border border-info/40 bg-info/10 px-4 py-3 text-14 text-text"
@@ -197,6 +207,25 @@ const columns =
       />
 
       <template v-else>
+        <section
+          class="flex flex-col gap-3 overflow-x-clip rounded-card border border-border bg-surface-1 px-5 py-4"
+          aria-labelledby="cert-timeline-title"
+          data-testid="cert-timeline-card"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="cert-timeline-title" class="text-16 font-semibold text-text">
+              {{ $t('certTimeline.title') }}
+            </h2>
+            <SegmentedControl
+              v-model="rangeKey"
+              :options="rangeOptions"
+              :label="$t('certTimeline.range')"
+              data-testid="cert-timeline-range"
+            />
+          </div>
+          <ExpiryTimeline :certs="list" :range="range" />
+        </section>
+
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div role="group" :aria-label="$t('certs.filters.label')" class="flex flex-wrap gap-1.5">
             <button

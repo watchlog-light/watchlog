@@ -6147,5 +6147,29 @@
       "open": "Show the update command",
       "repair": "Show the command"
     }
+  },
+  "certTimeline": {
+    "title": "When they expire",
+    "range": "Range",
+    "ranges": {
+      "30": "30 days",
+      "90": "90 days",
+      "365": "1 year"
+    },
+    "today": "today",
+    "ticks": "{n} d",
+    "daysLeft": "{n} d | {n} d",
+    "expiredAgo": "expired {n} d ago | expired {n} d ago",
+    "window": "usual renewal window",
+    "later": "+{n} later than {days} days",
+    "laterYear": "+{n} later than a year",
+    "cluster": "1 certificate this day | {n} certificates this day",
+    "legend": "Each dot is a certificate on the day it expires. Amber: under 14 days; red: under 3 or expired, at the left edge. Most ACME clients renew in the shaded window; one still in it near its end hasn't renewed.",
+    "a11y": {
+      "head": "Expiry timeline for the next {n} days",
+      "left": "{name} in 1 day | {name} in {n} days",
+      "expired": "{name} expired 1 day ago | {name} expired {n} days ago",
+      "later": "1 more later | {n} more later"
+    }
   }
 }
