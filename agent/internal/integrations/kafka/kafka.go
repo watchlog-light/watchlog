@@ -62,6 +62,10 @@ const (
 	MaxBody = 8 << 20
 	// InternalsRecheck is how long a missing Prometheus endpoint is remembered.
 	InternalsRecheck = 10 * time.Minute
+	// InternalsRecheckMax is the longest wait between fruitless probes (0.13.0): each probe
+	// that finds no endpoint doubles the wait, from InternalsRecheck up to a day, since every
+	// try is a refused connection the service map counts against the broker.
+	InternalsRecheckMax = 24 * time.Hour
 )
 
 // InternalsPorts are where a broker's Prometheus endpoint is looked for: Strimzi's JMX
@@ -101,6 +105,8 @@ type heavyState struct {
 type internalsState struct {
 	url     string
 	triedAt time.Time
+	// wait until the next probe while nothing answered; doubles each time (0.13.0).
+	wait time.Duration
 }
 
 // New returns the integration.
@@ -970,8 +976,12 @@ func (k *Kafka) readInternals(ctx context.Context, t integrations.Target, extra 
 		k.mu.Lock()
 		st, known := k.internals[key]
 		k.mu.Unlock()
-		if !known || st.url == "" && k.Now().Sub(st.triedAt) > InternalsRecheck {
-			st = internalsState{triedAt: k.Now()}
+		if !known || st.url == "" && k.Now().Sub(st.triedAt) > st.wait {
+			wait := min(max(2*st.wait, InternalsRecheck), InternalsRecheckMax)
+			if !known {
+				wait = InternalsRecheck
+			}
+			st = internalsState{triedAt: k.Now(), wait: wait}
 			for _, p := range k.Ports {
 				u := "http://" + net.JoinHostPort(host, p) + "/metrics"
 				if smp, err := k.fetch(ctx, u, m.Name); err == nil && len(smp) > 0 {

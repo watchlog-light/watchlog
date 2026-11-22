@@ -4,6 +4,9 @@ package kafka
 
 import (
 	"context"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -367,5 +370,45 @@ func TestInternals(t *testing.T) {
 	}
 	if len(out) != 5 {
 		t.Errorf("%d samples: %v", len(out), out)
+	}
+}
+
+// A broker with no Prometheus endpoint is probed less and less often (0.13.0): every probe
+// is three refused connections, which the service map counted as the collector failing to
+// reach Kafka (about 9% of its connections on the demo).
+func TestInternalsProbesBackOff(t *testing.T) {
+	var probes int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probes++
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+	host, port, _ := net.SplitHostPort(srv.Listener.Addr().String())
+	now := time.Date(2026, 11, 22, 0, 0, 0, 0, time.UTC)
+	k := New()
+	k.Ports = []string{port}
+	k.Now = func() time.Time { return now }
+	tgt := integrations.Target{ID: "svc", Members: []integrations.Member{{Name: "kafka-0", Address: net.JoinHostPort(host, "9092")}}}
+	var at []time.Duration
+	start := now
+	for m := 0; m <= 48*60; m++ { // two days, a scrape a minute
+		now = start.Add(time.Duration(m) * time.Minute)
+		before := probes
+		k.readInternals(context.Background(), tgt, map[string]any{}, false)
+		if probes > before {
+			at = append(at, now.Sub(start))
+		}
+	}
+	// 0, then waits of 10, 20, 40, 80 … minutes, capped at a day.
+	if len(at) < 6 || at[0] != 0 || at[1] != 11*time.Minute || at[2] != 32*time.Minute {
+		t.Fatalf("probes at %v", at)
+	}
+	if len(at) > 12 {
+		t.Fatalf("%d probes in two days: %v", len(at), at)
+	}
+	for i := 2; i < len(at); i++ {
+		if gap := at[i] - at[i-1]; gap > InternalsRecheckMax+time.Minute {
+			t.Fatalf("gap %v over the cap: %v", gap, at)
+		}
 	}
 }
