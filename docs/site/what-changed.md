@@ -154,7 +154,7 @@ place has none of WatchLog's parts, the toggle isn't shown.
 
 Every series WatchLog scores is one square, grouped by **workload** on Kubernetes and by
 **server and its services** on a Server fleet (`db-1`, then `postgres · db-1`). Groups with
-something outside come first. After 14 groups the rest fold into "N more". A square's colour is
+something outside come first. After 14 groups (6 on a phone) the rest fold into "N more". A square's colour is
 the score from the latest minute:
 
 | Square              | Means                                                                              |
