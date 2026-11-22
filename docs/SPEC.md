@@ -1071,36 +1071,47 @@ An internal admin page (`/admin/funnel` in the Cloud admin, which grows from the
 
 **Lifecycle emails (Cloud):** plain text from the founder, one-click unsubscribe, at most one a day: welcome; 1 h after signup without heartbeat → "Need help installing?" with the troubleshooting link; the first alert explained; day 3 with data → tips; near a Free limit; the beta-to-billing notice 14 days ahead (ADR-179).
 
-# 11. Design system — dark only (v2.0)
+# 11. Design system: dark and light
 
-The whole product (site + app) is **dark only** in v2.0. Light theme MAY be added later; all colours MUST come from CSS custom properties (tokens) so that a light theme is a token swap, not a rewrite.
+The marketing site is dark only (§9). The dashboard has a dark and a light theme (0.12.0, ADR-228): each user picks **System** (the default: it follows the computer's setting, live), **Light** or **Dark** in the account menu, never in the sidebar. The choice is saved on the user and kept in the browser, so the first paint is already in the right theme. Dark looks exactly as before 0.12.0. All colours come from CSS custom properties (tokens), so the light theme is a second block of values in `tokens.css` (`:root[data-theme='light']`), not a second set of components.
 
 ## 11.1 Colour tokens
 
-| Token | Value | Use |
-|---|---|---|
-| `--bg` | `#0E0F11` | Page background |
-| `--surface-1` | `#15171A` | Cards, panels |
-| `--surface-2` | `#1B1E22` | Hover, nested panels, table header |
-| `--surface-3` | `#22252A` | Inputs, active rows |
-| `--border` | `#2A2E34` | Borders, dividers |
-| `--border-strong` | `#3A3F46` | Focused inputs, separators |
-| `--text` | `#E8EAED` | Primary text |
-| `--text-muted` | `#9BA1A9` | Secondary text, labels |
-| `--text-subtle` | `#6B7179` | Placeholders, disabled |
-| `--primary` | `#22C55E` | Brand green: primary buttons, links, active nav, focus ring |
-| `--primary-hover` | `#16A34A` | Primary hover / pressed |
-| `--primary-soft` | `rgba(34,197,94,0.12)` | Selected backgrounds, badges |
-| `--primary-glow` | `rgba(34,197,94,0.35)` | Hero glow (site only) |
-| `--on-primary` | `#04140A` | Text on green buttons |
-| `--ok` | `#22C55E` | Healthy status |
-| `--warning` | `#F5A524` | Warning |
-| `--critical` | `#F04438` | Critical / error |
-| `--info` | `#3B9EFF` | Informational |
+| Token | Dark | Light | Use |
+|---|---|---|---|
+| `--bg` | `#0E0F11` | `#F6F7F9` | Page background |
+| `--surface-1` | `#15171A` | `#FFFFFF` | Cards, panels |
+| `--surface-2` | `#1B1E22` | `#F1F3F5` | Hover, nested panels, table header |
+| `--surface-3` | `#22252A` | `#E6E9ED` | Inputs, active rows |
+| `--border` | `#2A2E34` | `#E2E5E9` | Borders, dividers |
+| `--border-strong` | `#3A3F46` | `#C4CAD1` | Focused inputs, separators |
+| `--text` | `#E8EAED` | `#111418` | Primary text |
+| `--text-muted` | `#9BA1A9` | `#5B6470` | Secondary text, labels |
+| `--text-subtle` | `#6B7179` | `#6B7480` | Placeholders, disabled |
+| `--primary` | `#22C55E` | `#15803D` | Brand green: primary buttons, active nav, focus ring |
+| `--primary-hover` | `#16A34A` | `#166534` | Primary hover / pressed |
+| `--primary-soft` | `rgba(34,197,94,0.12)` | `rgba(21,128,61,0.10)` | Selected backgrounds, badges |
+| `--primary-glow` | `rgba(34,197,94,0.35)` | `rgba(21,128,61,0.28)` | Hero glow (site only), focus halo |
+| `--primary-border` | `rgba(34,197,94,0.40)` | `rgba(21,128,61,0.35)` | Borders in the brand colour |
+| `--on-primary` | `#04140A` | `#FFFFFF` | Text on green buttons |
+| `--on-critical` | `#E8EAED` | `#FFFFFF` | Text on the red (danger) button |
+| `--ok` | `#22C55E` | `#16A34A` | Healthy status: dots, bars, borders, chart fills |
+| `--warning` | `#F5A524` | `#D97706` | Warning (fills) |
+| `--critical` | `#F04438` | `#DC2626` | Critical / error (fills) |
+| `--info` | `#3B9EFF` | `#2563EB` | Informational (fills) |
+| `--ok-text` | `#22C55E` | `#15803D` | Healthy status as text |
+| `--warning-text` | `#F5A524` | `#92400E` | Warning as text |
+| `--critical-text` | `#F04438` | `#B91C1C` | Critical / error as text |
+| `--info-text` | `#3B9EFF` | `#1D4ED8` | Informational as text |
+| `--link` | `#22C55E` | `#15803D` | Links and other text in the brand colour |
+| `--shadow` | faint | faint | The selected segment of a segmented control |
+| `--shadow-lg` | soft | soft | Menus and popovers |
+
+**Text vs fill (ADR-228):** the status colours are bright enough for text on a dark surface but not on white, so text uses the `*-text` tokens and `--link` (WCAG AA, 4.5:1 on `--bg` and `--surface-1` in both themes; `packages/design-tokens/test/tokens.test.ts` checks every pair), and dots, bars, borders and chart series keep the base tokens. In dark both are the same value.
 
 **Status vs brand:** because the brand colour is green and "healthy" is green, status MUST never rely on colour alone — always pair with an icon and label (✓ Healthy, ▲ Warning, ✕ Critical).
 
-**Chart palette** (series order, tested on `--surface-1`): `#22C55E`, `#3B9EFF`, `#F5A524`, `#A78BFA`, `#2DD4BF`, `#F472B6`, `#FB923C`, `#94A3B8`. Grid lines `--border`, axis labels `--text-muted`.
+**Chart palette** (series order, tested on `--surface-1`): dark `#22C55E`, `#3B9EFF`, `#F5A524`, `#A78BFA`, `#2DD4BF`, `#F472B6`, `#FB923C`, `#94A3B8`; light `#16A34A`, `#2563EB`, `#D97706`, `#7C3AED`, `#0D9488`, `#DB2777`, `#EA580C`, `#64748B`. Grid lines `--border`, axis labels `--text-muted`. Charts and the service map read the tokens when they draw and draw again when the theme changes.
 
 ## 11.2 Typography
 
@@ -1121,7 +1132,7 @@ The whole product (site + app) is **dark only** in v2.0. Light theme MAY be adde
 
 ## 11.4 Tailwind configuration
 
-Tailwind theme maps directly to the tokens (`colors.bg = 'var(--bg)'`, etc.). Shared token file `packages/design-tokens/tokens.css` is imported by `web/` and copied into the marketing site at build time (§9).
+Tailwind theme maps directly to the tokens (`colors.bg = 'var(--bg)'`, etc.). Shared token file `packages/design-tokens/tokens.css` is imported by `web/` and copied into the marketing site at build time (§9); the site sets no `data-theme`, so it stays dark.
 
 # 12. Repository structure
 

@@ -43,6 +43,15 @@ applications. The letters only need to appear in order (`pay7d9` finds
 your last five picks show before you type. The same search is in the API:
 `GET /api/v1/clusters/{id}/search?q=` (see [api.md](api.md)).
 
+## Is there a light theme?
+
+Yes, since 0.12.0. Open the account menu (your name at the bottom of the sidebar) and pick
+a button on the **Theme** row: **System** follows your computer's light or dark setting and
+changes with it, **Light** and **Dark** stay as they are. System is the default. The choice
+is saved on your user, so it follows you to another browser, and the page opens in it
+without a flash of the other theme. Kubernetes clusters and Server fleets look the same in
+both themes; every status is still shown with an icon and a word, not only a colour.
+
 ## Can I use it in an air-gapped network?
 
 Yes. Mirror the images (`ghcr.io/watchlog-light/*`, `postgres:16-alpine` and `victoriametrics/victoria-metrics`) and the charts into your registry, then set `image.registry` (and `postgresql.image`, `victoriametrics.image`). Agents connect only to your WatchLog server. For alerts, email works through your SMTP server, and Slack, Telegram and webhooks can go through `HTTPS_PROXY`.
