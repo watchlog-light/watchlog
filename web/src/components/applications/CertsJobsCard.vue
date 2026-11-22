@@ -75,7 +75,7 @@ const nodeQuery = (node: string) => (node ? { node } : {});
           <li v-for="c in certProblems.slice(0, 3)" :key="`${c.node}/${c.id}`" class="text-13">
             <RouterLink
               :to="{ name: 'certificate', params: { certId: c.id }, query: nodeQuery(c.node) }"
-              class="flex flex-wrap gap-x-1.5 hover:underline"
+              class="flex flex-wrap items-center gap-x-1.5 hover:underline max-lg:min-h-11"
             >
               <span class="font-mono text-text">{{ c.names[0] }}</span>
               <span :class="TEXT[CERT_TONE[c.status]]">{{
@@ -109,7 +109,7 @@ const nodeQuery = (node: string) => (node ? { node } : {});
           <li v-for="j in jobProblems.slice(0, 3)" :key="`${j.node}/${j.id}`" class="text-13">
             <RouterLink
               :to="{ name: 'scheduled-job', params: { jobId: j.id }, query: nodeQuery(j.node) }"
-              class="flex flex-wrap gap-x-1.5 hover:underline"
+              class="flex flex-wrap items-center gap-x-1.5 hover:underline max-lg:min-h-11"
             >
               <span class="font-mono text-text">{{ jobName(j).name }}</span>
               <span :class="TEXT[JOB_TONE[j.state] ?? 'muted']">{{
