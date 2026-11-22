@@ -24,9 +24,11 @@ and the time range (1 hour to 30 days, within your plan's history):
 - **The status:** one sentence, such as "3 clusters and fleets need attention", and what stands
   out: a problem two clusters share, a server that went silent, or the worst problem. When
   everything is fine it says so, with how many nodes and servers are reporting.
-- **Four numbers:** clusters and fleets by status, nodes and servers (and how many aren't
-  reporting), open problems by severity, and alerts sent in the range by channel, with the
-  failed ones named.
+- **Six numbers:** clusters and fleets by status, nodes and servers (and how many aren't
+  reporting), open problems by severity, alerts sent in the range by channel, with the failed
+  ones named, and (since 0.13) **certificates expiring within 14 days** (expired ones included),
+  with how many in each cluster or fleet, and **scheduled jobs failing**, named. See
+  [Certificates and scheduled jobs](certificates-and-jobs.md).
 - **Needs attention, everywhere:** every open problem from every cluster and fleet in one list,
   critical first, then the most recent. Each row has the same probable-cause line the cluster's
   own Overview shows, a chip for each cluster or fleet it is in, and how long it has been open.
@@ -35,7 +37,8 @@ and the time range (1 hour to 30 days, within your plan's history):
   nodes; Server fleet rows show the servers and what runs there (the applications WatchLog
   monitors, or how many systemd services, process groups and containers). Then the status, the
   agents reporting ("12 / 12", red when one is silent), CPU over the range, memory now, open
-  problems, What changed in the last 24 hours and alerts sent. A row opens that cluster's or
+  problems, certificates ("12 · 1 expiring") and scheduled jobs ("9 · 1 failing"), each opening
+  that page, What changed in the last 24 hours and alerts sent. A row opens that cluster's or
   fleet's Overview.
 - **What changed, across all of them:** the furthest-out entries of [What changed](what-changed.md)
   from every cluster and fleet in the last 24 hours, ranked together, each with where it is.
@@ -71,6 +74,9 @@ curl -H "Authorization: Bearer $WATCHLOG_TOKEN" \
 `range` is 3600, 21600, 86400 (the default), 604800 or 2592000 seconds; `kind` is `all`,
 `kubernetes` or `server`. On Cloud Free it answers 403 `pro-feature`; a self-hosted Community
 install answers 404. See the [API](api.md).
+
+The answer carries the same certificate and job counts: `certificatesExpiring` and
+`jobsFailing` in the summary, `certificates` and `jobs` on each cluster.
 
 AI assistants get the same summary through the MCP tool `get_all_clusters`: ask "Is anything
 wrong in any of our clusters?". See [MCP](mcp.md).

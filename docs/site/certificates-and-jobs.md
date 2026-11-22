@@ -10,13 +10,36 @@ job that stopped running or keeps failing. Since 0.10, WatchLog finds both by it
 [Linux servers](servers.md) and on Kubernetes, and alerts before they become an outage.
 Nothing to configure: no list of hosts to check, no job to wrap in a ping.
 
-Both are under **Applications**, next to the monitored services: the **Certificates** and
-**Scheduled jobs** tabs show the cluster or fleet selected in the top bar. The Overview and
-each server's page show their counts and problems, and the search (⌘K) finds them by name.
+## Where they are
 
-They need agent 0.10 or later (and, on Kubernetes, the agent chart's 0.10 permissions). A tab
-names the servers whose agent is older; upgrade them and their certificates and jobs appear
-within ten minutes.
+Since 0.13, each has its own page in the sidebar, under **Running here** next to
+Applications: **Certificates** and **Scheduled jobs**, for the cluster or fleet selected in the
+top bar. Their entries carry a badge with the number of items that need a look: amber while a
+certificate expires within 14 days, red for an expired one, one under 3 days, a certificate
+problem, or a job that is failing, missed or slow. A collapsed sidebar shows a dot instead.
+
+- **The Overview**, under its tiles, has a **Running here** row: Services, Certificates (the
+  next 90 days as a strip of dots, then the three soonest) and Scheduled jobs (the three that
+  need a look first, each with its last 12 runs). On a Server fleet they say where in the
+  server's words ("nginx :443 on app-1", "systemd timer on worker-1", "cron on db-1 · 0 4 * *
+  *"), and a certificate whose renewal job is failing says so ("certbot.timer is failing").
+- **The first time** WatchLog has found certificates or jobs in a cluster or fleet, the
+  Overview says so once ("WatchLog found 12 certificates and 9 scheduled jobs on its own") with
+  the most urgent one; it is gone for good after either button or ×, for you and that cluster
+  or fleet.
+- **Search** (⌘K) finds both by name, each with a status line: "expires in 9 days · Ingress
+  shop/api", "Failing · every hour at :40".
+- **Each server's page** shows its own certificates' and jobs' counts and problems.
+- **All clusters and fleets** (Pro) adds two tiles, certificates expiring within 14 days and
+  scheduled jobs failing, and a Certificates and a Jobs column ([All clusters](all-clusters.md)).
+
+The pages used to be tabs of Applications (`/applications/certificates`,
+`/applications/scheduled-jobs`); those links still work and open the new pages
+(`/certificates`, `/scheduled-jobs`), filters included.
+
+They need agent 0.10 or later (and, on Kubernetes, the agent chart's 0.10 permissions). The
+pages name the servers whose agent is older, with a link to update them; once updated, their
+certificates and jobs appear within ten minutes.
 
 ## Certificates
 
@@ -42,7 +65,7 @@ server itself, every 10 minutes:
 No traffic is decrypted, no private key is read and no Secret is opened: WatchLog sees only
 what a client sees.
 
-### What the tab shows
+### What the page shows
 
 Each certificate once, problems first, with its names, where it is served (a service and port
 on a server; a Service or an Ingress host in a cluster), its issuer, the days it has left with
@@ -57,11 +80,22 @@ a bar of its lifetime, how it renews, and its status:
 | Working      | none of these                                                                                      |
 
 **Renewal.** WatchLog keeps every certificate it has seen under the same names. A new one
-while the old one was still valid is a renewal, and the tab says when it last happened and how
+while the old one was still valid is a renewal, and the page says when it last happened and how
 many days before expiry ("renews itself; last time 32 days ago"). Until it has seen one, it
 says "not seen renewing yet". When it sees the job that renews it on the same server (certbot's
 timer or cron line, acme.sh's), it names it, and says so when that job is failing. A
 certificate from a private CA or self-signed is marked as such.
+
+**When they expire.** Under the tiles, a timeline shows each certificate as a dot on the day it
+expires, over the next 30 days, 90 days (the default) or a year; the page remembers your choice
+in this browser. Dots are blue, amber under 14 days and red under 3 days; an expired one sits
+at the left edge ("expired 2 d ago"). Each dot's label (on a Server fleet with its server and
+port: "api.acme.com · app-1 :443") opens the certificate; near the right end labels sit to the
+left of their dot, and a label that has no room is left out (its dot still opens it). The
+first 30 days are shaded: most ACME clients renew there, so a certificate still in it near its
+end hasn't renewed. Certificates later than the range are counted at its end ("+3 later than 90
+days"). With more than about 15 in range, certificates on the same day share one dot with a
+count that opens their list. The drawing has a text equivalent for screen readers.
 
 A certificate's page lists every place it is served, its facts (issuer, validity, key, chain,
 fingerprint) and every certificate seen under its names.
@@ -103,6 +137,17 @@ reboot, or the hour around a daylight saving change is never counted as missed. 
 due while the server was off, or while the agent was stopped, is told apart and not counted
 either. Times are the server's own time zone.
 
+**Runs.** Above the table, a timeline gives each job a lane: its name (on a Server fleet with
+its server: "backup.service · worker-1") and schedule in words, its runs over the last 6 hours,
+24 hours (the default) or 7 days, and a summary ("23 runs · 1 failed", its next run). A line
+marks now; the time after it is shaded, with the next runs as dashed outlines. Each mark is a
+run: green when fine, red when it failed, amber when far slower than usual, a red outline for a
+missed run, grey for a cron run whose exit code isn't known. When several runs share a mark,
+the worst wins. A mark's tooltip says when, the result, the exit code and the duration; a click
+opens the job at that run. Lanes go problems first, then by next run; 12 show, and "Show all"
+shows the rest. The table's filters and search apply to the lanes too. The page remembers the
+range in this browser.
+
 The table shows each job's schedule in words and its next run, its last run and how long it
 took, and its last 14 runs as small bars. A job's page shows why it is in its state, its
 schedule as written, its runs and their durations, and for a systemd timer its unit's log on
@@ -139,7 +184,7 @@ connection arrives, and the failing timer behind a service that failed.
 - **Ports bound to loopback only, with a `docker run` install**: the agent reads the host's
   ports through its network gateway, so `127.0.0.1`-only ports aren't reached. A systemd or
   package install reads them.
-- **Beyond the caps**: 50 ports and 100 certificates per server or cluster; the tab says how many
+- **Beyond the caps**: 50 ports and 100 certificates per server or cluster; the page says how many
   more there were.
 - **Kubernetes**: Ingresses without a TLS section, the Gateway API, and Services a
   NetworkPolicy keeps the cluster-agent from reaching (counted as unreachable). Without the
