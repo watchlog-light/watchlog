@@ -25,6 +25,7 @@ import { clusterForOrg, listClusters } from '../clusters/service.js';
 import { composeMap, excluded, firingAlerts, seriesTokens, type ComposeOf } from './exclusion.js';
 import { seriesReady } from './coverage.js';
 import { coverageOf, recordLearning } from './learning.js';
+import { writeLive, type LiveEntry } from './live.js';
 import {
   queriesFor,
   seriesHash,
@@ -307,6 +308,9 @@ async function scoreCluster(deps: AnomalyDeps, t: Target, nowMs: number, report:
   const coverage = await coverageOf(deps.db, t.clusterId, nowMs);
   const ready = (b: Baseline) => seriesReady(coverage, b.firstSeen, nowMs);
   const seen = new Set<string>();
+  // The live map (0.14.0, ADR-231): every scored series as it stands at this minute.
+  const live: LiveEntry[] = [];
+  let learningCount = 0;
   const queries = await clusterQueries(deps.db, t);
   for (const { q, series } of await readAll(deps.victoria, t.scope, queries, [{ start, end }])) {
     for (const s of series) {
@@ -314,7 +318,11 @@ async function scoreCluster(deps: AnomalyDeps, t: Target, nowMs: number, report:
       const hash = seriesHash(q.key, subject);
       const key = hex(hash);
       const base = baselines.get(key);
-      if (!base || !ready(base)) continue;
+      if (!base) continue;
+      if (!ready(base)) {
+        learningCount++;
+        continue;
+      }
       seen.add(key);
       report.series++;
       const values = new Map<number, number>();
@@ -336,6 +344,24 @@ async function scoreCluster(deps: AnomalyDeps, t: Target, nowMs: number, report:
       const v = verdict(window, !!was, rule);
       const scored = window.filter((m) => m.score !== null);
       const newest = scored.at(-1);
+      {
+        const nb = base.buckets.get(bucketOf(end));
+        const band =
+          nb && nb.minutes >= MIN_BUCKET_MINUTES
+            ? usualRange(nb.median, nb.mad, q.unit, rule, nb.minSpread)
+            : null;
+        if (band) {
+          live.push({
+            key: q.key,
+            subject,
+            value: newest?.value ?? null,
+            low: band.low,
+            high: band.high,
+            score: newest?.score ?? null,
+            open: v.kind === 'open' || (!!was && v.kind !== 'end'),
+          });
+        }
+      }
       if (v.kind === 'open') {
         const run = window.filter((m) => m.t >= v.startedAt);
         const peak = run.reduce((a, m) => (m.score! > a.score! ? m : a));
@@ -389,6 +415,15 @@ async function scoreCluster(deps: AnomalyDeps, t: Target, nowMs: number, report:
         report.ended++;
       }
     }
+  }
+  try {
+    await writeLive(deps.db, t, end, live, learningCount);
+  } catch (err) {
+    // The map is a view; scoring went through either way.
+    deps.log.warn(
+      { err: (err as Error).message, cluster: t.clusterId },
+      'anomaly live write failed',
+    );
   }
   // A series that stopped reporting: its period ends 10 minutes after its last minute.
   for (const [key, p] of open) {

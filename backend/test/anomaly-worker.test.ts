@@ -12,6 +12,7 @@ import { newId } from '../src/lib/ids.js';
 import type { ClusterScope, QuerySeries } from '../src/lib/victoria.js';
 import { ANOMALY_RULE_KEY } from '../src/modules/anomaly/exclusion.js';
 import { entitledOrgs, hasWhatChanged, workerRefusal } from '../src/modules/anomaly/gate.js';
+import { fromStored, stateOf } from '../src/modules/anomaly/live.js';
 import {
   DOWNGRADE_KEEP_DAYS,
   runAnomalyHour,
@@ -331,6 +332,41 @@ describe.each(platforms)('$kind: baselines, scoring and periods', (p) => {
     expect(period!.usual_low).toBeLessThanOrEqual(period!.median);
     expect(period!.usual_high).toBeGreaterThan(period!.median);
     expect(period!.org_id).toBe(orgId);
+  });
+
+  it('the live map (0.14.0): each minute writes every scored series with its band, score and open period', async () => {
+    const { orgId, clusterId } = await orgWith(p.kind);
+    const vm = new FakeVictoria();
+    const at = START + 14 * DAY + 14 * HOUR + 2 * MIN;
+    vm.series.set(clusterId, [
+      { ...p.main, steps: [{ from: at, to: at + 30 * MIN, add: p.stepAdd }] },
+      fresh(p.other),
+    ]);
+    const d = deps(vm, async () => [orgId]);
+    await runAnomalyMinute(d, START);
+    await learn(d, START, START + 14 * DAY + 14 * HOUR);
+    // 12 minutes into the step: the period is open.
+    await score(d, at, at + 12 * MIN);
+    const live = await db
+      .selectFrom('anomaly_live')
+      .selectAll()
+      .where('cluster_id', '=', clusterId)
+      .executeTakeFirstOrThrow();
+    expect(live.org_id).toBe(orgId);
+    expect(live.scored_at.getTime()).toBe(at + 11 * MIN);
+    // The step's series: scored, outside, with its band; the other one inside.
+    const series = (live.series as unknown[]).map((e) => fromStored(e)!);
+    const main = series.find(
+      (e) =>
+        e.key === p.main.key &&
+        e.subject.workload === p.main.labels.workload &&
+        e.subject.container === p.main.labels.container,
+    )!;
+    expect(main).toMatchObject({ subject: subjectOf(p.main.labels), open: true });
+    expect(main.score!).toBeGreaterThan(4);
+    expect(main.low).toBeLessThan(main.high);
+    expect(stateOf(main).state).toBe('outside');
+    expect(series.filter((e) => e !== main).every((e) => !e.open)).toBe(true);
   });
 
   it('a series with under 7 days of data stays learning, even when its bucket has data', async () => {

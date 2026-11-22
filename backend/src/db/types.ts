@@ -181,6 +181,14 @@ export interface AnomalyOrgs {
   org_id: Generated<string>;
 }
 
+export interface AnomalyLive {
+  cluster_id: string;
+  learning: Generated<number>;
+  org_id: Generated<string>;
+  scored_at: Timestamp;
+  series: Json;
+}
+
 export interface AnomalyPeriods {
   bucket: number;
   cluster_id: string;
@@ -937,6 +945,7 @@ export interface DB {
   anomaly_feedback: AnomalyFeedback;
   anomaly_learning: AnomalyLearning;
   anomaly_orgs: AnomalyOrgs;
+  anomaly_live: AnomalyLive;
   anomaly_periods: AnomalyPeriods;
   anomaly_ready_emails: AnomalyReadyEmails;
   api_token_events: ApiTokenEvents;
