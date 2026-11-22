@@ -25,6 +25,7 @@ const SYSTEM_DB: Record<string, string> = {
   'modules/anomaly/jobs.ts':
     'housekeeping lists the learning rows across orgs; every write is made withOrg',
   'modules/auth/routes.ts': 'sign-in, before the org is known',
+  'modules/certs-jobs/routes.ts': "the user's own dismissed notices (users has no org)",
   'modules/accounts/routes.ts':
     "Cloud accounts: signup, OAuth, 2FA, the user's sessions and orgs, joining from an invite",
   'modules/accounts/service.ts': 'Cloud signup creates the user and their org',

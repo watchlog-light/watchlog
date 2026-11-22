@@ -315,7 +315,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       await api.register(queryRoutes, { db: deps.db, victoria });
       await api.register(dockerRoutes, { db: deps.db, victoria });
       await api.register(serverRoutes, { db: deps.db, victoria, version: config.version });
-      await api.register(certsJobsRoutes, { db: deps.db });
+      await api.register(certsJobsRoutes, { db: deps.db, systemDb, demoMode: config.demoMode });
       await api.register(processRuleRoutes, { db: deps.db, victoria });
       await api.register(kubernetesRoutes, {
         db: deps.db,

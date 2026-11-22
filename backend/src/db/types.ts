@@ -755,6 +755,7 @@ export interface Users {
   lifecycle_unsubscribed_at: Timestamp | null;
   locale: Generated<string>;
   theme: Generated<string>;
+  notices: Generated<Json>;
   mfa_failures: Generated<number>;
   mfa_locked_until: Timestamp | null;
   name: string;

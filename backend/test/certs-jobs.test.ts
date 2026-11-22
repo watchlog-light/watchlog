@@ -5,6 +5,8 @@
 import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
+import { insertCluster } from '../src/modules/clusters/service.js';
+import { ensureDemoUser } from '../src/modules/demo/service.js';
 import { createTestContext, setupAdmin, type TestContext } from './helpers.js';
 import { mcpClient } from './support/mcp.js';
 
@@ -456,5 +458,81 @@ describe('scheduled jobs (ADR-223, ADR-224)', () => {
     } finally {
       await mcp.close();
     }
+  });
+});
+
+describe('the first-find card (0.13.0, ADR-230)', () => {
+  it('shows once per user and cluster, until dismissed; never to another cluster', async () => {
+    const { id, post, get, cookie } = await setup('server');
+    // Nothing found yet: no card.
+    expect((await get('/first-find')).body).toMatchObject({
+      show: false,
+      certificates: 0,
+      jobs: 0,
+    });
+    const t = Math.floor(Date.now() / 1000);
+    expect(
+      (
+        await post({
+          node: 'web-1',
+          jobs: [
+            job(
+              '0123456789abcdef',
+              'backup.timer',
+              [{ start: t - 600, end: t - 590, code: 2, result: 'failed' }],
+              { state: 'failed', failedStreak: 1 },
+            ),
+          ],
+        })
+      ).statusCode,
+    ).toBe(204);
+    const first = (await get('/first-find')).body;
+    expect(first).toMatchObject({
+      show: true,
+      jobs: 1,
+      urgent: { kind: 'job', name: 'backup.timer', node: 'web-1', state: 'failed' },
+    });
+    const dismiss = await ctx.app.inject({
+      method: 'POST',
+      url: `/api/v1/clusters/${id}/first-find/dismiss`,
+      cookies: { wl_session: cookie },
+    });
+    expect(dismiss.statusCode).toBe(204);
+    expect((await get('/first-find')).body.show).toBe(false);
+    // Dismissing again is fine, and keeps it gone.
+    await ctx.app.inject({
+      method: 'POST',
+      url: `/api/v1/clusters/${id}/first-find/dismiss`,
+      cookies: { wl_session: cookie },
+    });
+    expect((await get('/first-find')).body.show).toBe(false);
+  });
+
+  it('is never shown in demo mode', async () => {
+    ctx = await createTestContext({ demoMode: true });
+    await ensureDemoUser(ctx.db);
+    const org = await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow();
+    const cluster = await insertCluster(ctx.db, org.id, 'sample-cluster', 'kubernetes');
+    await ctx.db
+      .insertInto('scheduled_jobs')
+      .values({
+        org_id: org.id,
+        cluster_id: cluster.id,
+        node: '',
+        job_id: 'aaaaaaaaaaaaaaaa',
+        kind: 'cronjob',
+        name: 'shop/report-builder',
+        state: 'failed',
+        enabled: true,
+      })
+      .execute();
+    const enter = await ctx.app.inject({ method: 'POST', url: '/api/v1/demo/session' });
+    const visitor = enter.cookies.find((c) => c.name === 'wl_session')!.value;
+    const res = await ctx.app.inject({
+      method: 'GET',
+      url: `/api/v1/clusters/${cluster.id}/first-find`,
+      cookies: { wl_session: visitor },
+    });
+    expect(res.json()).toMatchObject({ show: false, jobs: 1 });
   });
 });

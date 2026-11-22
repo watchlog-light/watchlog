@@ -2,10 +2,11 @@
 // Applications' Certificates and Scheduled jobs tabs (0.10.0, ADR-221, ADR-224): read-only,
 // bounded routes per cluster or fleet (a server's, with ?node=) and per object.
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
+import { sql } from 'kysely';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { sendProblem } from '../../lib/problem.js';
-import { requireUser } from '../../plugins/auth.js';
+import { requireRole, requireUser } from '../../plugins/auth.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { clusterForOrg } from '../clusters/service.js';
@@ -114,7 +115,12 @@ const JobS = Type.Object({
 /** A job in the list: with its last 14 runs, newest first (the table's small bars). */
 const JobRowS = Type.Object({ ...JobS.properties, recent: Type.Array(RunS) });
 
-export const certsJobsRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = async (app, { db }) => {
+export const certsJobsRoutes: FastifyPluginAsyncTypebox<{
+  db: Database;
+  /** Writes the user's own dismissed notices (Cloud: past Row-Level Security). */
+  systemDb?: Database;
+  demoMode?: boolean;
+}> = async (app, { db, systemDb, demoMode = false }) => {
   const signedIn = requireUser();
   const errors = { 401: ProblemSchema, 404: ProblemSchema };
 
@@ -339,6 +345,123 @@ export const certsJobsRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = asyn
       );
       if (!detail) return sendProblem(reply, 404, 'Scheduled job not found');
       return detail;
+    },
+  );
+
+  // ------------------------------------------------------------------ first find (ADR-230)
+
+  /** The clusters whose first-find card this user has dismissed. */
+  async function dismissedFirstFind(userId: string): Promise<string[]> {
+    const row = await (systemDb ?? db)
+      .selectFrom('users')
+      .select('notices')
+      .where('id', '=', userId)
+      .executeTakeFirst();
+    const list = (row?.notices as { firstFind?: unknown } | undefined)?.firstFind;
+    return Array.isArray(list) ? list.filter((x): x is string => typeof x === 'string') : [];
+  }
+
+  app.get(
+    '/clusters/:id/first-find',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary:
+          'Whether to show the Overview\'s "WatchLog found … on its own" card, once per user and cluster',
+        tags: ['applications'],
+        params: Params,
+        response: {
+          200: Type.Object({
+            show: Type.Boolean(),
+            certificates: Type.Number(),
+            jobs: Type.Number(),
+            /** The most urgent item, if any: a certificate expiring or a job failing. */
+            urgent: Type.Union([
+              Type.Object({
+                kind: Type.Union([Type.Literal('certificate'), Type.Literal('job')]),
+                id: Type.String(),
+                name: Type.String(),
+                node: Type.String(),
+                daysLeft: N,
+                state: Type.String(),
+              }),
+              Type.Null(),
+            ]),
+          }),
+          ...errors,
+        },
+      },
+    },
+    async (request, reply) => {
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
+      if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
+      const [certs, jobs, dismissed] = await Promise.all([
+        listCertificates(db, cluster.id),
+        listJobs(db, cluster.id),
+        demoMode || request.apiToken
+          ? Promise.resolve([cluster.id])
+          : dismissedFirstFind(request.user!.id),
+      ]);
+      // Worst first in both lists: a certificate that needs a look before a failing job.
+      const cert = certs.find((c) => c.status !== 'ok');
+      const job = jobs.find(
+        (j) => j.state === 'failed' || j.state === 'missed' || j.state === 'slow',
+      );
+      const urgent = cert
+        ? {
+            kind: 'certificate' as const,
+            id: cert.id,
+            name: cert.names[0] ?? cert.subject,
+            node: cert.node,
+            daysLeft: cert.daysLeft,
+            state: cert.status,
+          }
+        : job
+          ? {
+              kind: 'job' as const,
+              id: job.id,
+              name: job.name,
+              node: job.node,
+              daysLeft: null,
+              state: job.state,
+            }
+          : null;
+      return {
+        // Never in demo mode, nor through an API token; once per user and cluster.
+        show: !dismissed.includes(cluster.id) && certs.length + jobs.length > 0,
+        certificates: certs.length,
+        jobs: jobs.length,
+        urgent,
+      };
+    },
+  );
+
+  app.post(
+    '/clusters/:id/first-find/dismiss',
+    {
+      preHandler: [signedIn, requireRole('owner', 'admin', 'viewer')],
+      schema: {
+        summary: 'Dismisses the first-find card for this user and cluster, for good',
+        tags: ['applications'],
+        params: Params,
+        response: { 204: Type.Null(), 403: ProblemSchema, ...errors },
+      },
+    },
+    async (request, reply) => {
+      if (request.apiToken) return sendProblem(reply, 403, 'A signed-in session dismisses notices');
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
+      if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
+      const list = await dismissedFirstFind(request.user!.id);
+      if (!list.includes(cluster.id)) {
+        await (systemDb ?? db)
+          .updateTable('users')
+          .set((eb) => ({
+            notices: sql<string>`jsonb_set(${eb.ref('notices')}, '{firstFind}', ${JSON.stringify([...list, cluster.id].slice(-500))}::jsonb)`,
+          }))
+          .where('id', '=', request.user!.id)
+          .execute();
+      }
+      return reply.code(204).send(null);
     },
   );
 };

@@ -495,6 +495,7 @@ describe('every mutating route declares its roles (ADR-140)', () => {
       'POST /api/v1/api-tokens': ALL,
       // Every member sets their own theme (ADR-228).
       'PATCH /api/v1/me/preferences': ALL,
+      'POST /api/v1/clusters/:id/first-find/dismiss': ALL,
       'DELETE /api/v1/api-tokens/:id': ALL,
       'POST /api/v1/query/range': ALL,
       // A member's own "email me when What changed is ready" (ADR-216): Viewers too.

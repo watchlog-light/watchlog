@@ -146,6 +146,8 @@ export const ROUTES: Record<string, RouteClass> = {
   'GET /api/v1/clusters/:id/scheduled-jobs': org,
   'GET /api/v1/clusters/:id/scheduled-jobs/:jobId': org,
   'GET /api/v1/clusters/:id/scheduled-jobs/timeline': org,
+  'GET /api/v1/clusters/:id/first-find': org,
+  'POST /api/v1/clusters/:id/first-find/dismiss': org,
   'PUT /api/v1/clusters/:id/process-rules': org,
   'GET /api/v1/clusters/:id/nodes': org,
   'GET /api/v1/clusters/:id/nodes/:name': org,
