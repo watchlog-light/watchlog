@@ -137,19 +137,41 @@ reboot, or the hour around a daylight saving change is never counted as missed. 
 due while the server was off, or while the agent was stopped, is told apart and not counted
 either. Times are the server's own time zone.
 
-**Runs.** Above the table, a timeline gives each job a lane: its name (on a Server fleet with
-its server: "backup.service · worker-1") and schedule in words, its runs over the last 6 hours,
-24 hours (the default) or 7 days, and a summary ("23 runs · 1 failed", its next run). A line
-marks now; the time after it is shaded, with the next runs as dashed outlines. Each mark is a
-run: green when fine, red when it failed, amber when far slower than usual, a red outline for a
-missed run, grey for a cron run whose exit code isn't known. When several runs share a mark,
-the worst wins. A mark's tooltip says when, the result, the exit code and the duration; a click
-opens the job at that run. Lanes go problems first, then by next run; 12 show, and "Show all"
-shows the rest. The table's filters and search apply to the lanes too. The page remembers the
-range in this browser.
+**Jobs and their runs.** Since 0.13.1 the page is one list, one row per job, each row a link
+to the job's page:
 
-The table shows each job's schedule in words and its next run, its last run and how long it
-took, and its last 14 runs as small bars. A job's page shows why it is in its state, its
+- **Job:** its name, and where it runs: "systemd timer · demo-server", "cron · /etc/cron.d/php ·
+  demo-server", "CronJob in shop".
+- **Schedule:** in words, the same for systemd timers and cron: `*-*-* *:09,39:00` and
+  `09,39 * * * *` both read "Every hour at :09 and :39"; `*-*-* 01/2:50:00` reads "Every 2 hours
+  at :50, from 01:50"; `Mon..Fri *-*-* 18:00:00` reads "Weekdays at 18:00". A schedule it can't
+  put in words shows as written, in monospace; the expression as written is always in the
+  tooltip. Under it, the next run: "next 17:55"; "next about 15:25" when it comes from the
+  timer's period (a timer whose run is still going, for which systemd gives no next time); "next
+  around 00:00 (up to 4 h later)" for a timer with a random delay. A timer that counts from its
+  last run ("after boot, then after each run") gets its last run plus its interval (agent 0.13.1
+  or later).
+- **Runs:** a strip over the last 6 hours, 24 hours (the default) or 7 days. A line marks now;
+  the time after it is shaded, with the next runs as dashed outlines and a random delay as a faint
+  bar. Each mark is a run: green when fine, red when it failed, amber when far slower than usual,
+  a red outline for a missed run, grey for a cron run whose exit code isn't known; when several
+  runs share a mark, the worst wins, and its tooltip says when, the result, the exit code and the
+  duration. The part of the range before WatchLog first saw the job is hatched, so blank never
+  means "didn't run" when it means "not watched yet". When the whole fleet or cluster has been
+  watched for less than a day, the page says for how long.
+- **Last run:** "Succeeded · took 4 min", "Failed, exit 137 · 7 in a row", "Running for 37 min".
+- **Status**, as in the table above.
+
+The rows go in one order: those that need attention, then running, then working, then the ones
+that haven't run yet; inside each, by next run. Jobs that don't run (a disabled timer, a cron
+line on a server where no cron daemon runs, a suspended CronJob) are kept out of the rows and out
+of "Need attention", in one collapsed row at the bottom: "3 not running: 2 disabled, 1
+suspended", which opens to each with its reason ("Disabled: no cron daemon on demo-server"). The
+filters and the search in the list's header apply to it. The page remembers the range in this
+browser. On a phone each row stacks: the name and status, the schedule and last run, then the
+strip at full width.
+
+A job's page shows why it is in its state, its
 schedule as written, its runs and their durations, and for a systemd timer its unit's log on
 demand ([Logs](logs.md)). A job that runs every 5 minutes or more often keeps its last 14 runs
 and an hourly count of its runs and failures, never one row or event per run.
