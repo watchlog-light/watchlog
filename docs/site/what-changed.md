@@ -147,7 +147,8 @@ series of WatchLog itself, so your own services aren't crowded out by the tool w
 - **Server fleets:** the `watchlog-agent` and `watchlog-integrations` services and process
   groups, containers of WatchLog's images, and the Compose project that runs WatchLog.
 
-Turn it off to see them too; it applies to the map, the story, the rows and the chart. When a
+Turn it off to see them too; it applies to the map, the story, the rows, the chart and the
+changes (WatchLog's own updates and restarts are hidden with its parts). When a
 place has none of WatchLog's parts, the toggle isn't shown.
 
 ### The live map
@@ -221,7 +222,9 @@ against its usual band (the grey band; the dashed line is when it left), the val
 
 Last on the page: how many series were outside their usual range each minute, on a labelled
 count axis. Episodes are shaded, the selected one in amber; changes are blue markers with
-short labels; a legend says which is which. Clicking a shaded stretch selects its episode.
+short labels where they fit (deployments and server changes before scheduled runs; in a busy
+place the rest are unlabelled lines, and each is listed under "Changed around then"); a legend
+says which is which. Clicking a shaded stretch selects its episode.
 
 ### When everything is inside
 
