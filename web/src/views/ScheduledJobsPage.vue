@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { CalendarClock, ChevronRight } from '@lucide/vue';
+import { ChevronRight } from '@lucide/vue';
 import type { ScheduledJob } from '@watchlog/api-types';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -10,7 +10,7 @@ import SummaryTile from '@/components/applications/SummaryTile.vue';
 import ToneChip from '@/components/applications/ToneChip.vue';
 import RunTimeline from '@/components/jobs/RunTimeline.vue';
 import SegmentedControl from '@/components/overview/SegmentedControl.vue';
-import EmptyState from '@/components/ui/EmptyState.vue';
+import CertsJobsEmpty from '@/components/certs/CertsJobsEmpty.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import SearchField from '@/components/ui/SearchField.vue';
 import SkeletonTable from '@/components/ui/SkeletonTable.vue';
@@ -111,6 +111,13 @@ const subOf = (j: ScheduledJob) => {
   return j.node ? `${k} · ${j.node}` : k;
 };
 const agents = computed(() => page.data.value?.data.agentsWithout ?? []);
+// No agent has reported what it covers yet: the first read is still to come.
+const waiting = computed(
+  () =>
+    page.loaded.value &&
+    (page.data.value?.data.coverage ?? []).length === 0 &&
+    agents.value.length === 0,
+);
 const runRange = useStoredChoice('watchlog.runTimeline.range', RUN_RANGES, '24h');
 const runRangeOptions = computed(() =>
   RUN_RANGES.map((r) => ({ value: r, label: t(`runTimeline.ranges.${r}`) })),
@@ -122,7 +129,7 @@ const columns =
 <template>
   <div class="flex flex-col gap-5" data-testid="scheduled-jobs">
     <p
-      v-if="agents.length > 0"
+      v-if="agents.length > 0 && list.length > 0"
       class="rounded-card border border-info/40 bg-info/10 px-4 py-3 text-14 text-text"
       data-testid="needs-agent"
     >
@@ -192,11 +199,14 @@ const columns =
         />
       </div>
 
-      <EmptyState
+      <CertsJobsEmpty
         v-if="list.length === 0"
-        :icon="CalendarClock"
-        :title="$t('jobs.empty.title')"
-        :description="$t('jobs.empty.description')"
+        what="jobs"
+        :cluster-id="page.data.value!.cluster.id"
+        :cluster-name="page.data.value!.cluster.name"
+        :kind="kube ? 'kubernetes' : 'server'"
+        :agents="agents"
+        :waiting="waiting"
       />
 
       <template v-else>

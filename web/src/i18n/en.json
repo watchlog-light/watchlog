@@ -6292,5 +6292,23 @@
     "seeCerts": "See certificates",
     "seeJobs": "See scheduled jobs",
     "dismiss": "Dismiss"
+  },
+  "emptyFound": {
+    "certs": {
+      "title": "No certificates found on {name} yet",
+      "server": "Every 10 minutes the agent asks each listening port for its certificate, the way a client would: HTTPS, and STARTTLS on mail, PostgreSQL and MySQL ports, plus every name in Let’s Encrypt, acme.sh and Caddy. No key or file is read.",
+      "kube": "Every 10 minutes the agent asks each Service and Ingress with TLS for its certificate, the way a client would. No Secret is read."
+    },
+    "jobs": {
+      "title": "No scheduled jobs found on {name} yet",
+      "server": "The agent reads the systemd timers and the crontabs (/etc/crontab, /etc/cron.d and users' crontabs) on each server, and how each run ended from the journal.",
+      "kube": "The agent reads every CronJob in the cluster and its Jobs' pods: when each ran and how it ended."
+    },
+    "waiting": "Waiting for the first read: it comes within 10 minutes of an agent starting.",
+    "olderServers": "1 server runs an agent older than 0.10 | {n} servers run an agent older than 0.10",
+    "olderCluster": "The cluster-agent runs {version}, older than 0.10",
+    "cantLook": "{names} can't look yet | {names} can't look yet",
+    "update": "Update the agents",
+    "docs": "How certificates and jobs are found"
   }
 }

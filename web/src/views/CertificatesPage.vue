@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { ChevronRight, ShieldCheck } from '@lucide/vue';
+import { ChevronRight } from '@lucide/vue';
 import type { TlsCertificate } from '@watchlog/api-types';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -9,7 +9,7 @@ import SummaryTile from '@/components/applications/SummaryTile.vue';
 import ExpiryTimeline from '@/components/certs/ExpiryTimeline.vue';
 import SegmentedControl from '@/components/overview/SegmentedControl.vue';
 import ToneChip from '@/components/applications/ToneChip.vue';
-import EmptyState from '@/components/ui/EmptyState.vue';
+import CertsJobsEmpty from '@/components/certs/CertsJobsEmpty.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import SearchField from '@/components/ui/SearchField.vue';
 import SkeletonTable from '@/components/ui/SkeletonTable.vue';
@@ -130,7 +130,7 @@ const columns =
 <template>
   <div class="flex flex-col gap-5" data-testid="certificates">
     <p
-      v-if="agents.length > 0"
+      v-if="agents.length > 0 && list.length > 0"
       class="rounded-card border border-info/40 bg-info/10 px-4 py-3 text-14 text-text"
       data-testid="needs-agent"
     >
@@ -199,11 +199,14 @@ const columns =
         />
       </div>
 
-      <EmptyState
+      <CertsJobsEmpty
         v-if="list.length === 0"
-        :icon="ShieldCheck"
-        :title="$t('certs.empty.title')"
-        :description="waiting ? $t('certs.coverage.notYet') : $t('certs.empty.description')"
+        what="certs"
+        :cluster-id="page.data.value!.cluster.id"
+        :cluster-name="page.data.value!.cluster.name"
+        :kind="kube ? 'kubernetes' : 'server'"
+        :agents="agents"
+        :waiting="waiting"
       />
 
       <template v-else>

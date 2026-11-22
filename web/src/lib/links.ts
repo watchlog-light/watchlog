@@ -20,5 +20,8 @@ export const LINKS = {
   waitlist: 'https://watchlog.io/pricing/#cloud',
   /** WatchLog Cloud's sign-up: Community's "Try WatchLog Cloud" on the upgrade page (ADR-201). */
   cloudSignup: 'https://cloud.watchlog.io/signup',
+  /** How certificates and scheduled jobs are found (docs/site/certificates-and-jobs.md, 0.13.0). */
+  certsHow: 'https://watchlog.io/docs/certificates-and-jobs/#certificates',
+  jobsHow: 'https://watchlog.io/docs/certificates-and-jobs/#scheduled-jobs',
   kubeletTls: `${DOCS}/faq.md#nodes-say-the-kubelet-certificate-is-not-verified-how-do-i-fix-it`,
 } as const;
