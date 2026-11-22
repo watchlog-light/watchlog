@@ -63,6 +63,13 @@ export type JobRun = ScheduledJob['recent'][number];
 export type ScheduledJobDetail = JsonBody<
   Responses<'/api/v1/clusters/{id}/scheduled-jobs/{jobId}', 'get'>[200]
 >;
+// The run timeline and the first-find card (0.13.0, ADR-230).
+export type JobTimeline = JsonBody<
+  Responses<'/api/v1/clusters/{id}/scheduled-jobs/timeline', 'get'>[200]
+>;
+export type JobTimelineLane = JobTimeline['jobs'][number];
+export type JobTimelineSlot = JobTimelineLane['slots'][number];
+export type FirstFind = JsonBody<Responses<'/api/v1/clusters/{id}/first-find', 'get'>[200]>;
 export type ServerRow = ServerList['servers'][number];
 export type FleetWorkload = NonNullable<ServerList['workloads']>[number];
 export type ServerDetail = JsonBody<

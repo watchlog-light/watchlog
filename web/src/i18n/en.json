@@ -6171,5 +6171,48 @@
       "expired": "{name} expired 1 day ago | {name} expired {n} days ago",
       "later": "1 more later | {n} more later"
     }
+  },
+  "runTimeline": {
+    "title": "Runs",
+    "range": "Range",
+    "ranges": {
+      "6h": "6 h",
+      "24h": "24 h",
+      "7d": "7 days"
+    },
+    "now": "now",
+    "error": "Couldn't load the runs timeline.",
+    "result": {
+      "success": "ran fine",
+      "failed": "failed",
+      "slow": "far slower than usual",
+      "missed": "missed its run",
+      "unknown": "ran, exit code unknown (cron)",
+      "running": "running",
+      "next": "next run"
+    },
+    "exitCode": "exit code {code}",
+    "runs": "1 run | {n} runs",
+    "summary": "1 run | {n} runs",
+    "summaryFailed": "1 run · {failed} failed | {n} runs · {failed} failed",
+    "next": "next {when}",
+    "noNext": "no next run",
+    "showAll": "Show all {n}",
+    "showFewer": "Show fewer",
+    "legend": {
+      "success": "fine",
+      "failed": "failed",
+      "slow": "slow",
+      "missed": "missed",
+      "unknown": "exit code unknown",
+      "next": "next runs"
+    },
+    "a11y": {
+      "lane": "{name}: 1 run in the last {range} | {name}: {n} runs in the last {range}",
+      "failed": "1 failed, at {when} | {n} failed, at {when}",
+      "noFailures": "none failed",
+      "missed": "missed its run at {when}",
+      "next": "next run {when}"
+    }
   }
 }

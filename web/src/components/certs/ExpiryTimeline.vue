@@ -109,7 +109,7 @@ const toggle = (m: TimelineMark) => (open.value = open.value === m.id ? null : m
         data-testid="expiry-dot"
       />
     </div>
-    <div class="flex justify-between font-mono text-11 text-text-subtle" aria-hidden="true">
+    <div class="flex justify-between font-mono text-12 text-text-subtle" aria-hidden="true">
       <span v-for="tk in placed.ticks" :key="tk.days">{{ tickLabel(tk.days) }}</span>
     </div>
   </div>
@@ -124,7 +124,7 @@ const toggle = (m: TimelineMark) => (open.value = open.value === m.id ? null : m
         aria-hidden="true"
       />
       <span
-        class="absolute top-23.5 -translate-x-full pr-1.5 text-11 whitespace-nowrap text-text-subtle max-sm:hidden"
+        class="absolute top-23.5 -translate-x-full pr-1.5 text-12 whitespace-nowrap text-text-subtle max-sm:hidden"
         :style="{ left: `${placed.windowEnd}%` }"
         aria-hidden="true"
         >{{ $t('certTimeline.window') }}</span
@@ -170,7 +170,7 @@ const toggle = (m: TimelineMark) => (open.value = open.value === m.id ? null : m
           v-if="m.items.length > 1"
           type="button"
           :class="[
-            'absolute top-26 -left-2.75 flex size-5.5 items-center justify-center rounded-full border-2 border-surface-1 font-mono text-11 font-semibold text-on-primary',
+            'absolute top-26 -left-2.75 flex size-5.5 items-center justify-center rounded-full border-2 border-surface-1 font-mono text-12 font-semibold text-on-primary',
             DOT[m.tone],
           ]"
           :aria-label="$t('certTimeline.cluster', { n: m.items.length }, m.items.length)"
@@ -232,7 +232,7 @@ const toggle = (m: TimelineMark) => (open.value = open.value === m.id ? null : m
         <span
           v-for="(tk, i) in placed.ticks"
           :key="tk.days"
-          class="absolute bottom-0 font-mono text-11 whitespace-nowrap text-text-subtle"
+          class="absolute bottom-0 font-mono text-12 whitespace-nowrap text-text-subtle"
           :style="{
             left: `${tk.pct}%`,
             transform: `translateX(${i === 0 ? '0' : i === placed.ticks.length - 1 ? '-100%' : '-50%'})`,

@@ -8,12 +8,15 @@ import { useRoute, useRouter } from 'vue-router';
 import RunBars from '@/components/applications/RunBars.vue';
 import SummaryTile from '@/components/applications/SummaryTile.vue';
 import ToneChip from '@/components/applications/ToneChip.vue';
+import RunTimeline from '@/components/jobs/RunTimeline.vue';
+import SegmentedControl from '@/components/overview/SegmentedControl.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import SearchField from '@/components/ui/SearchField.vue';
 import SkeletonTable from '@/components/ui/SkeletonTable.vue';
 import { useLoader } from '@/composables/useLoader';
 import { useNarrow } from '@/composables/useNarrow';
+import { useStoredChoice } from '@/composables/useStoredChoice';
 import {
   JOB_TONE,
   duration,
@@ -29,13 +32,15 @@ import {
   type Words,
 } from '@/lib/certs-jobs';
 import { formatWhen } from '@/lib/format';
+import { RUN_RANGES } from '@/lib/run-timeline';
 import { useCertsJobsStore } from '@/stores/certsJobs';
 import { useClustersStore } from '@/stores/clusters';
 
-// Applications › Scheduled jobs (0.10, ADR-223): systemd timers and cron jobs on a fleet's
+// Scheduled jobs (0.10, ADR-223; its own page since 0.13.0, ADR-230): systemd timers and cron jobs on a fleet's
 // servers, a cluster's CronJobs; problems first, as in the reference: four tiles, the table
 // (job, schedule and next run, last run and its duration, the last 14 runs as small bars,
-// what needs attention, status), the default alerts. Phones get one card per job.
+// what needs attention, status), the default alerts. Phones get one card per job. Above the
+// table, "Runs": the run timeline, its range remembered in this browser; the filter applies.
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
@@ -106,13 +111,16 @@ const subOf = (j: ScheduledJob) => {
   return j.node ? `${k} · ${j.node}` : k;
 };
 const agents = computed(() => page.data.value?.data.agentsWithout ?? []);
+const runRange = useStoredChoice('watchlog.runTimeline.range', RUN_RANGES, '24h');
+const runRangeOptions = computed(() =>
+  RUN_RANGES.map((r) => ({ value: r, label: t(`runTimeline.ranges.${r}`) })),
+);
 const columns =
   'grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_9.5rem_minmax(0,1.8fr)_6.5rem_1rem]';
 </script>
 
 <template>
   <div class="flex flex-col gap-5" data-testid="scheduled-jobs">
-
     <p
       v-if="agents.length > 0"
       class="rounded-card border border-info/40 bg-info/10 px-4 py-3 text-14 text-text"
@@ -220,6 +228,25 @@ const columns =
             @clear="q = ''"
           />
         </div>
+
+        <section
+          class="flex flex-col gap-3 rounded-card border border-border bg-surface-1 px-5 py-4"
+          aria-labelledby="run-timeline-title"
+          data-testid="run-timeline-card"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="run-timeline-title" class="text-16 font-semibold text-text">
+              {{ $t('runTimeline.title') }}
+            </h2>
+            <SegmentedControl
+              v-model="runRange"
+              :options="runRangeOptions"
+              :label="$t('runTimeline.range')"
+              data-testid="run-timeline-range"
+            />
+          </div>
+          <RunTimeline :cluster-id="page.data.value!.cluster.id" :jobs="rows" :range="runRange" />
+        </section>
 
         <section class="overflow-hidden rounded-card border border-border bg-surface-1">
           <div

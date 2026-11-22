@@ -62,6 +62,16 @@ const TEXT_TONE: Record<Tone, string> = {
   info: 'text-info-text',
   muted: 'text-text-muted',
 };
+// Opened from a mark on the run timeline (0.13.0): that run is highlighted and scrolled to.
+const runAt = computed(() => (typeof route.query.run === 'string' ? Number(route.query.run) : NaN));
+const picked = (start: number) =>
+  Number.isFinite(runAt.value) && Math.abs(start - runAt.value) < 60;
+let scrolled = false;
+function scrollOnce(el: unknown) {
+  if (scrolled || !(el instanceof HTMLElement)) return;
+  scrolled = true;
+  el.scrollIntoView?.({ block: 'nearest' });
+}
 const when = (unix: number) => formatDateTime(new Date(unix * 1000).toISOString());
 
 // The last runs' durations, oldest on the left: failed red, running blue, others green.
@@ -227,7 +237,14 @@ const cronJobWorkload = computed(() => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="r in runs" :key="r.startedAt" class="border-t border-border">
+                  <tr
+                    v-for="r in runs"
+                    :key="r.startedAt"
+                    :ref="(el) => picked(r.startedAt) && scrollOnce(el)"
+                    :class="['border-t border-border', picked(r.startedAt) ? 'bg-info/10' : '']"
+                    :aria-current="picked(r.startedAt) ? 'true' : undefined"
+                    data-testid="run-row"
+                  >
                     <td class="py-1.5 pr-3 text-text tabular-nums">{{ when(r.startedAt) }}</td>
                     <td class="py-1.5 pr-3 font-mono whitespace-nowrap text-text-muted">
                       {{ r.seconds !== null ? duration(r.seconds) : '–' }}
