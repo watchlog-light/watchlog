@@ -235,7 +235,8 @@ func run(args []string, stdout io.Writer) int {
 		hostFS := os.DirFS(filepath.Join("/", hostRoot))
 		var cronSeen atomic.Bool
 		cronJobs := &jobs.Cron{Entries: func() []jobs.CronEntry { return jobs.ParseCrontabs(hostFS) },
-			Loc: jobs.HostLocation(hostFS), Seen: cronSeen.Load}
+			Loc: jobs.HostLocation(hostFS), Seen: cronSeen.Load,
+			Running: jobs.DaemonRunning(paths.Proc)}
 		var cronLog *jobs.LogTail
 		// Exit codes and OOM kills from the kernel (ADR-210); without eBPF they are unknown.
 		var feed *exits.Feed

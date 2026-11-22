@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -390,6 +391,10 @@ type Cron struct {
 	// Seen says whether runs can be seen at all (the exec program or cron's log): without it
 	// no run is owed, so nothing is called missed.
 	Seen func() bool
+	// Running says whether a cron daemon runs on the server (0.13.0). Without one, a crontab's
+	// lines are reported disabled and owe no run: a server with systemd timers and no cron
+	// (Debian's php package still ships /etc/cron.d/php) had every line "missed".
+	Running func() bool
 
 	mu      sync.Mutex
 	entries []CronEntry
@@ -554,11 +559,12 @@ func (c *Cron) Observations(now time.Time) []Observation {
 	defer c.mu.Unlock()
 	c.refresh(now)
 	seen := c.Seen == nil || c.Seen()
+	running := c.Running == nil || c.Running()
 	out := make([]Observation, 0, len(c.entries))
 	for _, e := range c.entries {
-		o := Observation{Kind: "cron", Name: e.Name, Schedule: e.Schedule.Spec, Source: e.Source, Enabled: true,
+		o := Observation{Kind: "cron", Name: e.Name, Schedule: e.Schedule.Spec, Source: e.Source, Enabled: running,
 			Every: int64(e.Schedule.Every(now, c.loc()).Seconds()), Runs: append([]Run(nil), c.runs[e.Name]...)}
-		if seen {
+		if seen && running {
 			if n := e.Schedule.Next(now, c.loc()); !n.IsZero() {
 				o.Next = n.Unix()
 			}
@@ -675,4 +681,47 @@ func (t *LogTail) Lines() ([]string, error) {
 	}
 	t.offset += int64(end + 1)
 	return strings.Split(string(b[:end]), "\n"), nil
+}
+
+// cronDaemons are the process names a cron daemon runs under (cron, cronie, busybox crond,
+// fcron, dcron).
+var cronDaemons = map[string]bool{"cron": true, "crond": true, "cronie": true, "fcron": true, "dcron": true}
+
+// DaemonRunning reports whether a cron daemon runs, from /proc's process names, read at most
+// once a minute (0.13.0).
+func DaemonRunning(proc string) func() bool {
+	var (
+		mu   sync.Mutex
+		last time.Time
+		ok   bool
+	)
+	return func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		if !last.IsZero() && time.Since(last) < time.Minute {
+			return ok
+		}
+		last, ok = time.Now(), cronInProc(proc)
+		return ok
+	}
+}
+
+func cronInProc(proc string) bool {
+	dirs, err := os.ReadDir(proc)
+	if err != nil {
+		return true // unknown: keep owing runs, as before
+	}
+	for _, d := range dirs {
+		if !d.IsDir() || d.Name()[0] < '0' || d.Name()[0] > '9' {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(proc, d.Name(), "comm"))
+		if err != nil {
+			continue
+		}
+		if cronDaemons[strings.TrimSpace(string(b))] {
+			return true
+		}
+	}
+	return false
 }

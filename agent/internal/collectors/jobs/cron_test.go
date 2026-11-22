@@ -263,6 +263,42 @@ func TestCronMissedAndTheAgentsOwnAbsence(t *testing.T) {
 	if j := one(t, bt); j.State != New || j.MissedRuns != 0 {
 		t.Fatalf("blind: %+v", j)
 	}
+
+	// A crontab line on a server with no cron daemon (Debian's php package ships
+	// /etc/cron.d/php beside its systemd timer): disabled, never missed (0.13.0).
+	idle := &Cron{Entries: entries("09,39 * * * * root [ -x /usr/lib/php/sessionclean ] && /usr/lib/php/sessionclean"),
+		Loc: time.UTC, Seen: func() bool { return true }, Running: func() bool { return false }}
+	it := &Tracker{}
+	it.Update("cron", idle.Observations(at(12, 0)), at(12, 0))
+	it.Update("cron", idle.Observations(at(12, 15)), at(12, 15))
+	it.Update("cron", idle.Observations(at(13, 0)), at(13, 0))
+	if j := one(t, it); j.State == Missed || j.MissedRuns != 0 || j.Enabled {
+		t.Fatalf("no cron daemon: %+v", j)
+	}
+}
+
+func TestCronDaemonFromProc(t *testing.T) {
+	dir := t.TempDir()
+	write := func(pid, comm string) {
+		if err := os.MkdirAll(filepath.Join(dir, pid), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, pid, "comm"), []byte(comm+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("1", "systemd")
+	write("212", "nginx")
+	if cronInProc(dir) {
+		t.Fatal("no cron daemon, yet found one")
+	}
+	write("340", "cron")
+	if !cronInProc(dir) {
+		t.Fatal("cron runs, not found")
+	}
+	if !cronInProc(filepath.Join(dir, "missing")) {
+		t.Fatal("an unreadable /proc must keep owing runs (unknown)")
+	}
 }
 
 func TestCronFromItsLog(t *testing.T) {
