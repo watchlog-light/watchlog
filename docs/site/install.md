@@ -127,8 +127,54 @@ Each integration has its own page: [Redis](integrations/redis.md),
 Upgrades never need manual steps.
 
 - **Kubernetes:** `helm upgrade watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version <new> -n watchlog --reuse-values`. The agents-only chart works the same way.
-- **Docker server:** set `WATCHLOG_VERSION` in `.env`, then `docker compose pull && docker compose up -d`. Database migrations run on start.
+- **Docker server:** set `WATCHLOG_VERSION` in `.env`, then `docker compose pull && docker compose up -d`. Database migrations run on start. The steps below make it reversible.
 - **Docker agents:** run the install command from **Settings → Clusters** again. It replaces the container, and the service map shows the exact command for any agent that needs it.
+
+### A Docker server, step by step
+
+**Before:** back up, in the folder with `compose.yaml`:
+
+```bash
+ts=$(date -u +%Y%m%dT%H%M%SZ)
+mkdir -p backups
+docker compose exec -T postgres pg_dump -U watchlog -d watchlog -Fc > backups/watchlog-$ts.dump
+docker compose exec -T postgres pg_restore --list < backups/watchlog-$ts.dump | grep -c 'TABLE DATA'
+for f in .env compose.yaml compose.override.yaml; do [ -f "$f" ] && cp -p "$f" "backups/$f.$ts"; done
+for c in $(docker compose ps -aq); do
+  docker inspect -f '{{index .Config.Labels "com.docker.compose.service"}} {{.Image}}' "$c"
+done > "backups/images-$ts.txt"
+```
+
+The dump must be larger than zero and list its tables. Keep `WATCHLOG_SECRET_KEY` with it: without
+the key, alert channel secrets can't be read after a restore.
+
+**Check the new release:** read its release notes' "Upgrading" section, and compare its
+`compose.yaml` and `.env.example` with yours (`https://raw.githubusercontent.com/watchlog-light/watchlog/v<new>/deploy/docker/`).
+With a `compose.override.yaml` that takes images from another registry, run
+`WATCHLOG_VERSION=<new> docker compose config --images` and check every image still comes from a
+registry you can reach, with the tags your override pins. You can pull before switching
+(`WATCHLOG_VERSION=<new> docker compose pull`), so the switch itself takes seconds.
+
+**Switch:** set `WATCHLOG_VERSION` in `.env`, run `docker compose up -d`, and wait for
+`/api/v1/health` to report the new version. `docker compose logs migrate` lists the migrations
+applied.
+
+**Going back:** put the copied `.env`, `compose.yaml` and `compose.override.yaml` back. If a
+migration ran, restore the dump into a fresh database and swap it in only once it's complete,
+so the live database is never overwritten:
+
+```bash
+docker compose stop backend alert-worker web
+docker compose exec -T postgres createdb -U watchlog watchlog_restore
+docker compose exec -T postgres pg_restore -U watchlog -d watchlog_restore --no-owner < backups/watchlog-<ts>.dump
+docker compose exec -T postgres psql -U watchlog -d postgres \
+  -c 'ALTER DATABASE watchlog RENAME TO watchlog_before_restore' \
+  -c 'ALTER DATABASE watchlog_restore RENAME TO watchlog'
+docker compose up -d
+```
+
+The old images stay on the host after an upgrade unless you remove them, so the previous version
+starts without a download.
 
 ### Update the agents
 
