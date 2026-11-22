@@ -715,7 +715,7 @@ func cronInProc(proc string) bool {
 		if !d.IsDir() || d.Name()[0] < '0' || d.Name()[0] > '9' {
 			continue
 		}
-		b, err := os.ReadFile(filepath.Join(proc, d.Name(), "comm"))
+		b, err := os.ReadFile(filepath.Join(proc, d.Name(), "comm")) //nolint:gosec // the host's procfs
 		if err != nil {
 			continue
 		}
