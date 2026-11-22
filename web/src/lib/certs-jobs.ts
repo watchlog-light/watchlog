@@ -184,7 +184,6 @@ export function jobName(j: Pick<ScheduledJob, 'kind' | 'name'>): {
   return { name: j.name, namespace: null };
 }
 
-
 /** A schedule in words: systemd's OnCalendar and cron alike (0.13.1, lib/schedule-words.ts). */
 import { scheduleWords } from './schedule-words';
 export { scheduleWords };
