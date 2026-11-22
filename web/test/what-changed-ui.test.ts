@@ -659,6 +659,8 @@ describe('the page on a Pro org', () => {
       'All 1 series are inside their usual range for this hour.',
     );
     expect(w.findAll('[data-testid="wc-quiet-card"]')).toHaveLength(1);
+    // Nothing of WatchLog's own here: no toggle to hide it.
+    expect(w.find('[data-testid="wc-own"]').exists()).toBe(false);
     mounted!.unmount();
 
     mockFetch({

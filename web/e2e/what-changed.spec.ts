@@ -25,8 +25,14 @@ const KUBE = process.env.WATCHLOG_E2E_KUBE ?? '';
 const FLEET = process.env.WATCHLOG_E2E_FLEET ?? '';
 const QUIET = process.env.WATCHLOG_E2E_QUIET ?? '';
 
+// One sign-in per worker: the session cookies are reused, so a run stays under the login limit.
+let session: Awaited<ReturnType<ReturnType<Page['context']>['cookies']>> | null = null;
 async function signIn(page: Page) {
   if (!email || !password) throw new Error('set WATCHLOG_E2E_EMAIL and WATCHLOG_E2E_PASSWORD');
+  if (session) {
+    await page.context().addCookies(session);
+    return;
+  }
   for (let i = 0; ; i++) {
     const res = await page.request.post('/api/v1/auth/login', {
       // Cloud's test Turnstile key accepts this token.
@@ -37,6 +43,7 @@ async function signIn(page: Page) {
       continue;
     }
     expect(res.ok(), await res.text()).toBe(true);
+    session = await page.context().cookies();
     return;
   }
 }

@@ -356,6 +356,7 @@ onBeforeUnmount(() => clearInterval(tickTimer));
           </div>
           <div v-if="!learning" class="flex flex-wrap items-center gap-2">
             <button
+              v-if="map.own > 0"
               type="button"
               :class="[
                 'inline-flex items-center gap-2 rounded-card border px-3 py-2 text-13 max-lg:min-h-11',
