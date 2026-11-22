@@ -184,7 +184,9 @@ async function pages(api: APIRequestContext): Promise<{ name: string; path: stri
     const { workloads } = await get<{
       workloads: { kind: string; namespace: string; name: string }[];
     }>(`/clusters/${kube.id}/workloads?range=3600`);
-    const apps = workloads.filter((x) => !/^(kube-|ingress-|local-path|watchlog)/.test(x.namespace));
+    const apps = workloads.filter(
+      (x) => !/^(kube-|ingress-|local-path|watchlog)/.test(x.namespace),
+    );
     const w = apps.find((x) => x.kind === 'Deployment') ?? apps[0] ?? workloads[0];
     if (w) {
       const q = new URLSearchParams({
