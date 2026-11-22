@@ -1643,7 +1643,8 @@
     "process_exits_failed_increase": "Process group failed exits in 10 min",
     "process_oom_kills_increase": "Process group OOM kills in 10 min",
     "process_releases_increase": "Process group releases in 10 min",
-    "process_gone": "Process group gone"
+    "process_gone": "Process group gone",
+    "pod_restarts_increase": "Pod restarts (last 15 min)"
   },
   "combobox": {
     "noMatches": "No matches",

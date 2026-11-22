@@ -300,7 +300,8 @@ export const CUSTOM_METRICS: Record<'kubernetes' | 'docker', { key: string; unit
     { key: 'node.load1', unit: 'load' },
     { key: 'pod.cpu.usage', unit: 'cores' },
     { key: 'pod.memory.working_set', unit: 'bytes' },
-    { key: 'pod.restarts', unit: 'count' },
+    // Restarts in the last 15 min (ADR-229); rules on the total were moved to it.
+    { key: 'pod.restarts.increase', unit: 'count' },
     { key: 'workload.cpu.usage', unit: 'cores' },
     { key: 'workload.memory.working_set', unit: 'bytes' },
     { key: 'workload.container.cpu.throttled_share', unit: 'ratio' },
