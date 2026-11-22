@@ -5290,6 +5290,157 @@
       "strip": "{n} of {total} series is still learning (it joined later). It is ready on {date}, about {time}. | {n} of {total} series are still learning (they joined later). The last is ready on {date}, about {time}.",
       "footnote": "Statistics only (a median and its spread per hour of the week), worked out inside WatchLog. Nothing is sent to an AI, and the same data always gives the same answer.",
       "resumed": "Learning resumed on {date} at {time}. What it learned before still counts; the hours in between are learned as they come round."
+    },
+    "live": {
+      "watching": "Watching {n} series · checked {s} s ago | Watching {n} series · checked {s} s ago",
+      "waiting": "Waiting for the first check",
+      "label": "Live"
+    },
+    "own": {
+      "hide": "Hide WatchLog's own parts ({n})",
+      "hint": "WatchLog's own workloads, containers and agent units: hidden so the page is about your systems"
+    },
+    "map": {
+      "title": "{n} series, checked every minute | {n} series, checked every minute",
+      "hint": "each square is one series against its usual range for this hour",
+      "inside": "{n} inside",
+      "near": "{n} near the edge",
+      "outside": "{n} outside",
+      "foot": "Checked every minute inside WatchLog.",
+      "learning": "1 more series is still learning and isn't shown. | {n} more series are still learning and aren't shown.",
+      "moreWorkloads": "1 more workload | {n} more workloads",
+      "moreServers": "1 more server or service | {n} more servers and services",
+      "square": "{name}: {metric}, {value} · usual {range}",
+      "state": {
+        "inside": "inside its usual range",
+        "near": "near the edge of its usual range",
+        "outside": "outside its usual range"
+      },
+      "groupAria": "{name}: {n} series, {outside} outside, {near} near the edge",
+      "focus": "Showing {name}",
+      "showAll": "Show all",
+      "none": "No series is scored yet: the first check comes within a minute."
+    },
+    "factor": {
+      "up": "{x}× usual",
+      "down": "÷{x} usual"
+    },
+    "minutes": "1 minute | {n} minutes",
+    "change": {
+      "rollout": "the rollout of {target}",
+      "image": "{target}'s new image",
+      "scale": "{target} scaling from {from} to {to}",
+      "compose": "the Compose change of {target}",
+      "recreate": "{target} being recreated",
+      "node": "node {target} changing",
+      "service_start": "{target} starting on {host}",
+      "service_restart": "{target} restarting on {host}",
+      "service_failed": "{target} failing on {host}",
+      "unit_changed": "{target}'s unit file changing on {host}",
+      "release": "a new {target} executable on {host}",
+      "job_run": "{target} running on {host}"
+    },
+    "marker": {
+      "rollout": "rollout {target}",
+      "image": "image {target}",
+      "scale": "scaled {target} {from} → {to}",
+      "compose": "compose {target}",
+      "recreate": "recreated {target}",
+      "node": "node {target}",
+      "service_start": "{target} started",
+      "service_restart": "{target} restarted",
+      "service_failed": "{target} failed",
+      "unit_changed": "{target} unit changed",
+      "release": "new {target}",
+      "job_run": "{target} ran"
+    },
+    "story": {
+      "after_change": "{who}'s {what} went to {factor} {gap} after {change}",
+      "first": "{who}'s {what} moved first, to {factor}",
+      "then": "{and}{who}'s {what} then went to {factor}",
+      "same_time": "{and}at the same time {who}'s {what} went to {factor}",
+      "and": "and ",
+      "more": "and 1 more thing moved | and {n} more things moved"
+    },
+    "causeBox": {
+      "likely": "Likely cause",
+      "none": "No clear cause",
+      "change": "{change} at {at}. The first move came {gap} later, on {who}.",
+      "found": "What the checks found:",
+      "nothingFound": "None of the checks found anything to look at."
+    },
+    "day": {
+      "today": "Today",
+      "yesterday": "Yesterday"
+    },
+    "episode": {
+      "range": "{day} {from} – {to} · 1 thing moved | {day} {from} – {to} · {n} things moved",
+      "since": "{day} since {from} · 1 thing moved | {day} since {from} · {n} things moved",
+      "switcher": "Episodes in this range",
+      "prev": "Earlier episode",
+      "next": "Later episode",
+      "of": "{i} of {n}"
+    },
+    "spread": {
+      "title": "How it spread",
+      "hint": "in the order things moved, along the calls on the service map",
+      "hintFleet": "in the order things moved, along the calls on the service map and on the same servers",
+      "first": "first",
+      "then": "then",
+      "sameTime": "moved at the same time; no calls between them",
+      "more": "and 1 more | and {n} more",
+      "less": "Show fewer",
+      "kind": {
+        "rollout": "Rollout",
+        "image": "New image",
+        "scale": "Scaled",
+        "compose": "Compose",
+        "recreate": "Recreated",
+        "node": "Node",
+        "service_start": "Service start",
+        "service_restart": "Restart",
+        "service_failed": "Failure",
+        "unit_changed": "Unit file",
+        "release": "New release",
+        "job_run": "Scheduled run"
+      },
+      "fromTo": "{from} → {to}",
+      "on": "on {host}"
+    },
+    "moved": {
+      "title": "What moved, in order",
+      "rel": "+{n} min",
+      "foot": "Grey band: its usual range at this hour of the week. Dashed line: when it left it.",
+      "sparkAria": "{who} {what}: usual {range}, now {value}"
+    },
+    "why": {
+      "title": "Why we think so",
+      "rules": "fixed rules · no AI",
+      "around": "Changed around then",
+      "aroundNone": "Nothing changed in the 30 minutes before it.",
+      "evidence": "Open the evidence",
+      "hideEvidence": "Hide the evidence",
+      "copy": "Copy as text",
+      "copied": "Copied",
+      "ask": "Ask your AI",
+      "askHint": "Your AI gets the same answer through WatchLog's MCP server:"
+    },
+    "chart2": {
+      "title": "Things outside their usual range",
+      "withChanges": "with what changed in the cluster",
+      "withChangesFleet": "with what changed on the servers",
+      "axis": "things outside",
+      "legendSeries": "series outside their usual range",
+      "legendChanges": "rollouts, scaling, image changes",
+      "legendChangesFleet": "service starts, restarts, scheduled runs, image changes",
+      "clickHint": "Click a shaded stretch to see it above.",
+      "aria": "Things outside their usual range over the range: at most {max} at once, {n} episodes"
+    },
+    "quiet": {
+      "all": "All {n} series are inside their usual range for this hour.",
+      "recent": "The last 7 days",
+      "none": "Nothing left its usual range in the last 7 days.",
+      "see": "See it"
     }
   },
   "anomaly": {

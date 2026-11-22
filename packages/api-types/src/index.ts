@@ -255,6 +255,13 @@ export type EgressPolicyFlavour = EgressPolicy['policies'][number];
 export type WhatChanged = JsonBody<Responses<'/api/v1/what-changed', 'get'>[200]>;
 export type WhatChangedRow = WhatChanged['rows'][number];
 export type WhatChangedObject = WhatChangedRow['object'];
+/** What changed after the learning week (0.14.0, ADR-231): the story, the live map, the last days. */
+export type WhatChangedStory = NonNullable<WhatChanged['story']>;
+export type WhatChangedEpisode = WhatChanged['episodes'][number];
+export type WhatChangedChange = WhatChangedStory['changes'][number];
+export type WhatChangedClause = WhatChangedStory['clauses'][number];
+export type WhatChangedLive = JsonBody<Responses<'/api/v1/what-changed/live', 'get'>[200]>;
+export type WhatChangedRecent = JsonBody<Responses<'/api/v1/what-changed/recent', 'get'>[200]>;
 /** The learning week as data (ADR-216): the day, the hours of the week learned, the series. */
 export type WhatChangedLearning = WhatChanged['learning'];
 // The agents and their update command (ADR-227).
