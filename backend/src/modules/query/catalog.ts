@@ -499,6 +499,17 @@ const ENTRIES = {
     expr: (s, _r, a) =>
       `${a} by (namespace, pod) (watchlog_kube_pod_container_restarts_total${s()})`,
   },
+  /**
+   * Restarts within the last 15 minutes (ADR-229): what a custom restarts rule means, so a pod
+   * that stopped restarting resolves. `pod.restarts` (the count since the pod started) stays
+   * for charts; it only grows, so a threshold on it never resolved.
+   */
+  'pod.restarts.increase': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, _r, a) =>
+      `${a} by (namespace, pod) (increase(watchlog_kube_pod_container_restarts_total${s()}[15m]))`,
+  },
   'pod.container.cpu.usage': {
     unit: 'cores',
     agg: 'sum',
