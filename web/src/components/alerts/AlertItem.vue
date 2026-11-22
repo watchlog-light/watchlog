@@ -45,7 +45,11 @@ const TONE = {
         {{ alert.title }}
       </RouterLink>
       <p class="truncate text-13 text-text-muted" data-testid="alert-where">
-        {{ $t(`alerts.scopeKind.${scope.kind}`, scope.kind) }}
+        {{
+          scope.type
+            ? $t('alerts.scopeKind.serviceOf', { type: scope.type })
+            : $t(`alerts.scopeKind.${scope.kind}`, scope.kind)
+        }}
         <code class="font-mono text-12 text-text">{{ scope.name }}</code>
         <template v-if="scope.extra"> · {{ scope.extra }}</template>
         <template v-if="alert.podCount > 1">

@@ -1244,7 +1244,13 @@
       "node": "Node",
       "cluster-agent": "Cluster-agent of",
       "kubernetes": "Kubernetes cluster",
-      "docker": "Server fleet"
+      "docker": "Server fleet",
+      "service": "Service",
+      "serviceOf": "{type} service",
+      "unit": "systemd service",
+      "group": "Process group",
+      "namespace": "Namespace",
+      "server": "Server fleet"
     },
     "pods": "no pods | {n} pod | {n} pods",
     "heldMark": "Held back",

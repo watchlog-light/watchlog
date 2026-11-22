@@ -2,16 +2,20 @@
 // What an alert is about, where to look, and how long it lasted (ADR-075, ADR-081).
 import type { Alert, EgressSource } from '@watchlog/api-types';
 import type { RouteLocationRaw } from 'vue-router';
+import { serviceName } from './applications';
 import type { Tone } from './kube';
 
 /** "wl-test/web (Deployment)", "node worker-1", "host-1/redis" — like the messages. */
 export function alertWhere(a: Pick<Alert, 'labels'>): string {
   const l = a.labels;
+  // A monitored service's rule (ADR-229): "Redis shop/redis", as the messages say.
+  if (l.service_name) return `${serviceName(l.service_type ?? '') || 'service'} ${l.service_name}`;
   if (l.pvc) return `${l.namespace}/${l.pvc} (PVC)`;
   if (l.workload) {
     const base = `${l.namespace}/${l.workload} (${l.workload_kind})`;
     return l.container && !l.pod ? `${base} · ${l.container}` : base;
   }
+  if (l.pod) return `${l.namespace}/${l.pod} (Pod)`;
   // Agent alerts: the agent itself, never "cluster-agent on cluster-agent".
   if (l.agent === 'all') return 'all agents';
   if (l.agent === 'cluster') return 'cluster-agent';
@@ -20,7 +24,11 @@ export function alertWhere(a: Pick<Alert, 'labels'>): string {
   if (l.compose_service) return `${l.compose_project}/${l.compose_service} (Compose service)`;
   if (l.container) return `${l.node}/${l.container}`;
   if (l.mount) return `${l.node} ${l.mount}`;
+  // A server's systemd service or process group (ADR-208).
+  if (l.group && l.node) return `${l.node} › ${l.group} (process group)`;
+  if (l.unit && l.node) return `${l.node} › ${l.unit}`;
   if (l.node) return l.condition ? `node ${l.node} (${l.condition})` : `node ${l.node}`;
+  if (l.namespace) return `namespace ${l.namespace}`;
   return Object.values(l).join(' ');
 }
 
@@ -31,6 +39,8 @@ export function alertTarget(a: Pick<Alert, 'labels' | 'cluster'>): RouteLocation
   if (l.agent === 'all' || l.agent === 'cluster') {
     return { name: 'cluster-settings', params: { id: a.cluster.id } };
   }
+  // A monitored service, on either kind: its Applications page.
+  if (l.service) return { name: 'application', params: { id: l.service } };
   if (a.cluster.kind === 'server') {
     if (l.compose_service && l.compose_project) {
       return {
@@ -40,6 +50,10 @@ export function alertTarget(a: Pick<Alert, 'labels' | 'cluster'>): RouteLocation
     }
     if (l.container && l.node) {
       return { name: 'docker-container', params: { host: l.node, name: l.container } };
+    }
+    if (l.node && (l.unit || l.group)) {
+      const workload = l.unit ? `service:${l.unit}` : `process:${l.group}`;
+      return { name: 'server-workload', params: { server: l.node, workload } };
     }
     return l.node ? { name: 'docker-host', params: { host: l.node } } : null;
   }
@@ -59,8 +73,11 @@ export function alertTarget(a: Pick<Alert, 'labels' | 'cluster'>): RouteLocation
 export function alertTargetName(a: Pick<Alert, 'labels' | 'cluster'>): string {
   const l = a.labels;
   if (l.agent === 'all' || l.agent === 'cluster') return a.cluster.name;
+  if (l.service_name) return l.service_name;
   if (l.compose_service) return `${l.compose_project}/${l.compose_service}`;
-  return l.pod ?? l.workload ?? l.container ?? l.pvc ?? l.node ?? a.cluster.name;
+  return (
+    l.pod ?? l.workload ?? l.unit ?? l.group ?? l.container ?? l.pvc ?? l.node ?? a.cluster.name
+  );
 }
 
 export function severityTone(severity: string): Tone {
@@ -138,14 +155,23 @@ export function formatSeconds(s: number): string {
   return `${s}s`;
 }
 
-/** What an alert is about, as "Deployment" + "payments/payments-api" (the design's where line). */
+/**
+ * What an alert is about, as "Deployment" + "payments/payments-api" (the design's where line).
+ * `kind` is a key of `alerts.scopeKind`; a service's also has its product in `type`
+ * ("Traefik" for "Traefik service traefik/traefik", ADR-229).
+ */
 export function alertScope(a: Pick<Alert, 'labels' | 'cluster' | 'podCount'>): {
   kind: string;
+  type?: string;
   name: string;
   extra: string | null;
 } {
   const l = a.labels;
   if (l.agent === 'all') return { kind: a.cluster.kind, name: a.cluster.name, extra: null };
+  if (l.service_name) {
+    const type = l.service_type ? serviceName(l.service_type) : undefined;
+    return { kind: 'service', type, name: l.service_name, extra: null };
+  }
   if (l.pvc) return { kind: 'PVC', name: `${l.namespace}/${l.pvc}`, extra: null };
   if (l.workload) {
     return {
@@ -154,15 +180,23 @@ export function alertScope(a: Pick<Alert, 'labels' | 'cluster' | 'podCount'>): {
       extra: l.container && !l.pod ? l.container : null,
     };
   }
+  if (l.pod) return { kind: 'Pod', name: `${l.namespace}/${l.pod}`, extra: l.container ?? null };
   if (a.cluster.kind === 'server') {
     // An egress alert's Compose service (ADR-187).
     if (l.compose_service) {
       return { kind: 'compose', name: `${l.compose_project}/${l.compose_service}`, extra: null };
     }
-    return { kind: 'host', name: l.node ?? '', extra: l.container ?? null };
+    // A systemd service or a process group on a server (ADR-208).
+    if (l.unit) return { kind: 'unit', name: `${l.node ?? ''} › ${l.unit}`, extra: null };
+    if (l.group) return { kind: 'group', name: `${l.node ?? ''} › ${l.group}`, extra: null };
+    if (l.node) return { kind: 'host', name: l.node, extra: l.container ?? null };
+    return { kind: a.cluster.kind, name: a.cluster.name, extra: null };
   }
   if (l.agent === 'cluster') return { kind: 'cluster-agent', name: a.cluster.name, extra: null };
-  return { kind: 'node', name: l.node ?? '', extra: l.mount ?? l.condition ?? null };
+  if (l.node) return { kind: 'node', name: l.node, extra: l.mount ?? l.condition ?? null };
+  if (l.namespace) return { kind: 'namespace', name: l.namespace, extra: null };
+  // A rule over the whole cluster: no narrower subject.
+  return { kind: a.cluster.kind, name: a.cluster.name, extra: null };
 }
 
 export type DeliveryTone = 'ok' | 'critical' | 'neutral';
