@@ -33,8 +33,19 @@ export function alertWhere(a: Pick<Alert, 'labels'>): string {
 }
 
 /** The page of the object an alert is about, if there is one. */
-export function alertTarget(a: Pick<Alert, 'labels' | 'cluster'>): RouteLocationRaw | null {
+export function alertTarget(
+  a: Pick<Alert, 'labels' | 'cluster'> & { rule?: Pick<Alert['rule'], 'key'> },
+): RouteLocationRaw | null {
   const l = a.labels;
+  // Certificates and scheduled jobs have their own pages (0.13.0), searched by name.
+  const key = a.rule?.key ?? '';
+  if (key.startsWith('cert.') || key.startsWith('job.')) {
+    const q = l.certificate ?? l.workload ?? l.job;
+    return {
+      name: key.startsWith('cert.') ? 'certificates' : 'scheduled-jobs',
+      query: { cluster: a.cluster.id, ...(q ? { q } : {}) },
+    };
+  }
   // A silent cluster or its cluster-agent: the cluster's page lists its agents.
   if (l.agent === 'all' || l.agent === 'cluster') {
     return { name: 'cluster-settings', params: { id: a.cluster.id } };

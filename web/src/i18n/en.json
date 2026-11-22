@@ -35,7 +35,13 @@
     "learningShort": "day {day}/{days}",
     "allClusters": "All clusters and fleets",
     "clustersHeading": "Clusters and fleets",
-    "addCluster": "Add a cluster or servers"
+    "addCluster": "Add a cluster or servers",
+    "certificates": "Certificates",
+    "scheduledJobs": "Scheduled jobs",
+    "groups": {
+      "running": "Running here",
+      "investigate": "Investigate"
+    }
   },
   "clusterSwitcher": {
     "label": "Cluster",

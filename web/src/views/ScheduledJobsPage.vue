@@ -5,7 +5,6 @@ import type { ScheduledJob } from '@watchlog/api-types';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import ApplicationsTabs from '@/components/applications/ApplicationsTabs.vue';
 import RunBars from '@/components/applications/RunBars.vue';
 import SummaryTile from '@/components/applications/SummaryTile.vue';
 import ToneChip from '@/components/applications/ToneChip.vue';
@@ -113,7 +112,6 @@ const columns =
 
 <template>
   <div class="flex flex-col gap-5" data-testid="scheduled-jobs">
-    <ApplicationsTabs />
 
     <p
       v-if="agents.length > 0"

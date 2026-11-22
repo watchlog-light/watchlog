@@ -5,7 +5,6 @@ import type { TlsCertificate } from '@watchlog/api-types';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import ApplicationsTabs from '@/components/applications/ApplicationsTabs.vue';
 import SummaryTile from '@/components/applications/SummaryTile.vue';
 import ToneChip from '@/components/applications/ToneChip.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
@@ -119,7 +118,6 @@ const columns =
 
 <template>
   <div class="flex flex-col gap-5" data-testid="certificates">
-    <ApplicationsTabs />
 
     <p
       v-if="agents.length > 0"

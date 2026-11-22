@@ -28,6 +28,9 @@ const row = (
   extra: Partial<AllClusters['clusters'][number]> = {},
 ) => ({
   ...r,
+  // Certificates and jobs (0.13.0): a few made-up counts, an expiring one on the critical rows.
+  certificates: { total: hosts * 2, expiring: status === 'critical' ? 1 : 0 },
+  jobs: { total: hosts + 3, failing: status === 'critical' ? 1 : 0 },
   status,
   version: r.kind === 'kubernetes' ? '1.34' : null,
   hosts,
@@ -117,6 +120,22 @@ export const EXAMPLE: AllClusters = {
   ],
   lastResolved: null,
   resolvedThisWeek: 3,
+  certificatesExpiring: {
+    count: 3,
+    places: [
+      { ...PROD, count: 1 },
+      { ...STAGING, count: 1 },
+      { ...OFFICE, count: 1 },
+    ],
+  },
+  jobsFailing: {
+    count: 3,
+    jobs: [
+      { name: 'shop/report-builder', node: '', cluster: PROD },
+      { name: 'shop/report-builder', node: '', cluster: STAGING },
+      { name: 'backup.service', node: 'mail-01', cluster: OFFICE },
+    ],
+  },
   whatChanged: {
     rows: [
       {

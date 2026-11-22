@@ -6,6 +6,7 @@ import { createRouter, createWebHistory, type Router, type RouteRecordRaw } from
 import {
   Bell,
   Boxes,
+  CalendarClock,
   Database,
   Globe,
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
   ScrollText,
   Server,
   Settings,
+  ShieldCheck,
 } from '@lucide/vue';
 
 declare module 'vue-router' {
@@ -50,22 +52,67 @@ export interface NavItem {
   kind?: ClusterKind;
   /** A Pro feature: Cloud's sidebar marks it with a "Pro" chip. */
   pro?: boolean;
+  /**
+   * The sidebar's group (0.13.0, ADR-230): the top (no label), "Running here",
+   * "Investigate", and the end after a divider.
+   */
+  group: NavGroup;
 }
 
+export type NavGroup = 'top' | 'running' | 'investigate' | 'end';
+export const NAV_GROUPS: NavGroup[] = ['top', 'running', 'investigate', 'end'];
+
 export const NAV_ITEMS: NavItem[] = [
-  { name: 'overview', path: '/', titleKey: 'nav.overview', icon: LayoutDashboard },
-  { name: 'nodes', path: '/nodes', titleKey: 'nav.nodes', icon: Server, kind: 'kubernetes' },
+  { name: 'overview', path: '/', titleKey: 'nav.overview', icon: LayoutDashboard, group: 'top' },
+  {
+    name: 'nodes',
+    path: '/nodes',
+    titleKey: 'nav.nodes',
+    icon: Server,
+    kind: 'kubernetes',
+    group: 'top',
+  },
   // Server fleets (ADR-207): Servers and Workloads replace 0.8's Hosts and Containers.
-  { name: 'servers', path: '/servers', titleKey: 'nav.servers', icon: Server, kind: 'server' },
-  { name: 'workloads', path: '/workloads', titleKey: 'nav.workloads', icon: Boxes },
-  // Services next to the workloads (SPEC §4.12), for both kinds of cluster.
+  {
+    name: 'servers',
+    path: '/servers',
+    titleKey: 'nav.servers',
+    icon: Server,
+    kind: 'server',
+    group: 'top',
+  },
+  { name: 'workloads', path: '/workloads', titleKey: 'nav.workloads', icon: Boxes, group: 'top' },
+  // Running here (0.13.0): services next to the workloads (SPEC §4.12), and the certificates
+  // and scheduled jobs found with nothing to set up (ADR-224), each on its own page.
   {
     name: 'applications',
     path: '/applications',
     titleKey: 'nav.applications',
     icon: Database,
+    group: 'running',
   },
-  { name: 'events', path: '/events', titleKey: 'nav.events', icon: ScrollText },
+  {
+    name: 'certificates',
+    path: '/certificates',
+    titleKey: 'nav.certificates',
+    icon: ShieldCheck,
+    group: 'running',
+  },
+  {
+    name: 'scheduled-jobs',
+    path: '/scheduled-jobs',
+    titleKey: 'nav.scheduledJobs',
+    icon: CalendarClock,
+    group: 'running',
+  },
+  // Investigate.
+  {
+    name: 'events',
+    path: '/events',
+    titleKey: 'nav.events',
+    icon: ScrollText,
+    group: 'investigate',
+  },
   // What changed (ADR-199): Pro; Cloud Free and Community see a placeholder (ADR-195).
   {
     name: 'what-changed',
@@ -73,17 +120,32 @@ export const NAV_ITEMS: NavItem[] = [
     titleKey: 'nav.whatChanged',
     icon: Radar,
     pro: true,
+    group: 'investigate',
   },
-  { name: 'service-map', path: '/service-map', titleKey: 'nav.serviceMap', icon: Network },
+  {
+    name: 'service-map',
+    path: '/service-map',
+    titleKey: 'nav.serviceMap',
+    icon: Network,
+    group: 'investigate',
+  },
   // Egress watch (ADR-188): external destinations, for both kinds of cluster.
-  { name: 'egress', path: '/egress', titleKey: 'nav.egress', icon: Globe },
-  { name: 'alerts', path: '/alerts', titleKey: 'nav.alerts', icon: Bell },
-  { name: 'settings', path: '/settings', titleKey: 'nav.settings', icon: Settings },
+  { name: 'egress', path: '/egress', titleKey: 'nav.egress', icon: Globe, group: 'investigate' },
+  { name: 'alerts', path: '/alerts', titleKey: 'nav.alerts', icon: Bell, group: 'end' },
+  { name: 'settings', path: '/settings', titleKey: 'nav.settings', icon: Settings, group: 'end' },
 ];
 
 /** The navigation for the selected cluster's kind. */
 export const navFor = (kind: ClusterKind | null | undefined) =>
   NAV_ITEMS.filter((i) => !i.kind || i.kind === (kind ?? 'kubernetes'));
+
+/** Applications' old tabs (0.10–0.12) and where they are now (0.13.0). */
+export const OLD_APPLICATION_PATHS: [string, string][] = [
+  ['applications/certificates', 'certificates'],
+  ['applications/certificates/:certId', 'certificate'],
+  ['applications/scheduled-jobs', 'scheduled-jobs'],
+  ['applications/scheduled-jobs/:jobId', 'scheduled-job'],
+];
 
 const RANGED = new Set(['overview', 'nodes', 'workloads', 'events', 'service-map']);
 
@@ -94,6 +156,8 @@ const views: Record<string, () => Promise<Component>> = {
   events: () => import('@/views/EventsPage.vue'),
   servers: () => import('@/views/ServersPage.vue'),
   applications: () => import('@/views/ApplicationsPage.vue'),
+  certificates: () => import('@/views/CertificatesPage.vue'),
+  'scheduled-jobs': () => import('@/views/ScheduledJobsPage.vue'),
   'service-map': () => import('@/views/ServiceMapPage.vue'),
   egress: () => import('@/views/EgressPage.vue'),
   'what-changed': () => import('@/views/WhatChangedPage.vue'),
@@ -256,32 +320,30 @@ export const routes: RouteRecordRaw[] = [
         path: 'docker/hosts/:host/containers/:name',
         redirect: (to) => ({ name: 'docker-container', params: to.params, query: to.query }),
       },
-      // Applications' Certificates and Scheduled jobs tabs (0.10, ADR-221): the selected
-      // cluster's; static paths, so they win over applications/:id.
-      {
-        name: 'certificates',
-        path: 'applications/certificates',
-        component: () => import('@/views/CertificatesPage.vue'),
-        meta: { titleKey: 'nav.applications' },
-      },
+      // A certificate's and a job's page (0.13.0, their own pages since; ADR-230).
       {
         name: 'certificate',
-        path: 'applications/certificates/:certId',
+        path: 'certificates/:certId',
         component: () => import('@/views/CertificatePage.vue'),
-        meta: { titleKey: 'nav.applications' },
-      },
-      {
-        name: 'scheduled-jobs',
-        path: 'applications/scheduled-jobs',
-        component: () => import('@/views/ScheduledJobsPage.vue'),
-        meta: { titleKey: 'nav.applications' },
+        meta: { titleKey: 'nav.certificates' },
       },
       {
         name: 'scheduled-job',
-        path: 'applications/scheduled-jobs/:jobId',
+        path: 'scheduled-jobs/:jobId',
         component: () => import('@/views/ScheduledJobPage.vue'),
-        meta: { titleKey: 'nav.applications' },
+        meta: { titleKey: 'nav.scheduledJobs' },
       },
+      // The 0.10–0.12 addresses under Applications: links in emails, alerts and bookmarks keep
+      // working, with their query (the cluster, the filter). Static paths, so they win over
+      // applications/:id.
+      ...OLD_APPLICATION_PATHS.map(([from, name]) => ({
+        path: from,
+        redirect: (to: {
+          params: Record<string, unknown>;
+          query: Record<string, unknown>;
+          hash: string;
+        }) => ({ name, params: to.params, query: to.query, hash: to.hash }) as never,
+      })),
       // A monitored service (SPEC §4.12); it has its own time range (ADR-135).
       {
         name: 'application',
