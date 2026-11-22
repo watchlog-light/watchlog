@@ -150,4 +150,9 @@ function dockerMap() {
   return { mode: 'flows', agents: ['docker-01', 'docker-02'].map(agent), nodes, edges, dns: [] };
 }
 
-export const SERVICE_MAPS = { kubernetes: kubernetesMap(), docker: dockerMap() } as const;
+// A Server fleet's kind is `server` since 0.9 (ADR-207); `docker` stays for older callers.
+export const SERVICE_MAPS = {
+  kubernetes: kubernetesMap(),
+  server: dockerMap(),
+  docker: dockerMap(),
+} as const;
