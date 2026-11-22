@@ -27,6 +27,7 @@ type S = WhatChangedLive['series'][number];
 const s = (id: string, object: S['object'], state: S['state'] = 'inside', own = false): S => ({
   id,
   key: 'workload.cpu.usage',
+  unit: 'cores',
   object,
   peer: null,
   value: 1,

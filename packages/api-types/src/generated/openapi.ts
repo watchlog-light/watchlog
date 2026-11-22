@@ -14535,6 +14535,30 @@ export interface paths {
                   values: (number | null)[];
                 }[];
               } | null;
+              /** @description What changed in the chart's range: its markers (rollouts, scaling, image changes, service starts and restarts, scheduled runs) */
+              changes: {
+                /** Format: date-time */
+                at: string;
+                kind:
+                  | 'rollout'
+                  | 'image'
+                  | 'scale'
+                  | 'compose'
+                  | 'recreate'
+                  | 'node'
+                  | 'service_start'
+                  | 'service_restart'
+                  | 'service_failed'
+                  | 'unit_changed'
+                  | 'release'
+                  | 'job_run';
+                name: string;
+                namespace?: string;
+                host?: string;
+                facts: {
+                  [key: string]: string | number | null;
+                };
+              }[];
             };
           };
         };
@@ -14656,6 +14680,7 @@ export interface paths {
               series: {
                 id: string;
                 key: string;
+                unit: string;
                 object: {
                   /** @description Kubernetes: workload or node; Docker: container (with its Compose project and service) or host; an integration: service */
                   kind: 'workload' | 'node' | 'container' | 'host' | 'service';

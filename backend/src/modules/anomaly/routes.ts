@@ -33,7 +33,8 @@ import { PUBLIC_TAG } from '../../openapi/public.js';
 import type { VictoriaQueryClient } from '../../lib/victoria.js';
 import { hasWhatChanged, whatChangedExists } from './gate.js';
 import { isOwnSeries, liveView, ownParts } from './live.js';
-import { buildStory, recentEpisodes, type BuiltStory } from './story-build.js';
+import { buildStory, changeView, recentEpisodes, type BuiltStory } from './story-build.js';
+import { readChanges } from './story-read.js';
 import { composeMap } from './exclusion.js';
 import { BREAKDOWN_KEYS, learningOf } from './learning.js';
 import {
@@ -306,6 +307,11 @@ export const WhatChangedSchema = Type.Object({
     description: 'The selected episode (the newest unless `episode` asked); -1 for none',
   }),
   story: Type.Union([StorySchema, Type.Null()]),
+  changes: Type.Array(ChangeSchema, {
+    maxItems: 200,
+    description:
+      "What changed in the chart's range: its markers (rollouts, scaling, image changes, service starts and restarts, scheduled runs)",
+  }),
 });
 
 export const whatChangedRoutes: FastifyPluginAsyncTypebox<{
@@ -454,6 +460,10 @@ export const whatChangedRoutes: FastifyPluginAsyncTypebox<{
           q.episode !== undefined ? q.episode * 1000 : undefined,
         );
       }
+      const changes =
+        !alert && !learning.learning
+          ? (await readChanges(db, row.id, chart.fromMs, chart.toMs)).map(changeView)
+          : [];
       const subject = alert ? `alert:${alert.id}` : (built?.subject ?? read.firstSubject);
       let likely: LikelyCause | null = built?.likely ?? null;
       if (!built?.story && subject && causes && wantsCause(request)) {
@@ -485,6 +495,7 @@ export const whatChangedRoutes: FastifyPluginAsyncTypebox<{
         episodes: built?.episodes ?? [],
         episode: built?.episode ?? -1,
         story: built?.story ?? null,
+        changes,
       };
     },
   );
@@ -501,6 +512,7 @@ export const whatChangedRoutes: FastifyPluginAsyncTypebox<{
       Type.Object({
         id: Type.String(),
         key: Type.String(),
+        unit: Type.String(),
         object: ObjectSchema,
         peer: Type.Union([Type.String(), Type.Null()]),
         value: Type.Union([Type.Number(), Type.Null()]),

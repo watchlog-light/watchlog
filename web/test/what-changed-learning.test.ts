@@ -613,7 +613,9 @@ describe.each([K8S, FLEET])('the learning page, $kind', (c) => {
     expect(text(w, 'wc-partly')).toBe(
       `12 of 1,296 series are still learning (they joined later). The last is ready on ${at.date}, about ${at.time}.`,
     );
-    expect(w.findAll('[data-testid="wc-row"]')).toHaveLength(2);
+    // After learning: the map, then the story or the quiet page (0.14.0).
+    expect(w.find('[data-testid="wc-after"]').exists()).toBe(true);
+    expect(w.find('[data-testid="wc-map"]').exists()).toBe(true);
     expect(w.find('[data-testid="wc-windows"]').exists()).toBe(true);
     expect(w.find('[data-testid="wc-learning"]').exists()).toBe(false);
     expect(w.find('[data-testid="learning-brain"]').exists()).toBe(false);
@@ -625,7 +627,7 @@ describe.each([K8S, FLEET])('the learning page, $kind', (c) => {
     expect(text(r.w, 'wc-partly')).toContain(
       '1 of 1,296 series is still learning (it joined later)',
     );
-    expect(r.w.find('[data-testid="wc-empty"]').exists()).toBe(true);
+    expect(r.w.find('[data-testid="wc-quiet"]').exists()).toBe(true);
     mounted!.unmount();
     mockFetch(routes(c, now, learningAt(kindOf(c), START, now), 0));
     r = await open(WhatChangedPage, `/what-changed?cluster=${c.id}`, now);

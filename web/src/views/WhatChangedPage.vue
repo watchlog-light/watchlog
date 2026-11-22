@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import { Hourglass, Radar } from '@lucide/vue';
-import type { Cluster, WhatChanged } from '@watchlog/api-types';
+import type { Cluster, WhatChanged, WhatChangedLive, WhatChangedStory } from '@watchlog/api-types';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { usePolling } from '@/composables/usePolling';
 import { useI18n } from 'vue-i18n';
@@ -11,12 +11,15 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
 import Skeleton from '@/components/ui/Skeleton.vue';
-import WhatChangedCauseCard from '@/components/what-changed/WhatChangedCauseCard.vue';
-import WhatChangedChart from '@/components/what-changed/WhatChangedChart.vue';
+import WcChart from '@/components/what-changed/WcChart.vue';
+import WcEpisode from '@/components/what-changed/WcEpisode.vue';
+import WcLiveMap from '@/components/what-changed/WcLiveMap.vue';
+import WcQuiet from '@/components/what-changed/WcQuiet.vue';
 import WhatChangedLearning from '@/components/what-changed/WhatChangedLearning.vue';
-import WhatChangedRows from '@/components/what-changed/WhatChangedRows.vue';
 import WhatChangedUpgrade from '@/components/what-changed/WhatChangedUpgrade.vue';
 import { useLoader } from '@/composables/useLoader';
+import { useStoredChoice } from '@/composables/useStoredChoice';
+import { checkedAgo, liveMap } from '@/lib/what-changed-live';
 import {
   clampCustom,
   customBounds,
@@ -26,7 +29,6 @@ import {
   MAX_WINDOW_S,
   whatChangedPath,
   whatChangedWindows,
-  WHAT_CHANGED_SORTS,
   type WhatChangedAccess,
   type WhatChangedSort,
   type WhatChangedWindow,
@@ -89,19 +91,29 @@ const custom = computed(() => {
   );
 });
 
+// After the learning week (0.14.0, ADR-231): WatchLog's own parts hidden unless turned off
+// (remembered in this browser), the episode told (`?episode=`, its start), a focus (`?focus=`).
+const hideOwnKey = useStoredChoice('watchlog.whatChanged.hideOwn', ['1', '0'] as const, '1');
+const hideOwn = computed(() => hideOwnKey.value === '1');
+const episodeParam = computed(() => num(route.query.episode));
+const focus = computed(() =>
+  typeof route.query.focus === 'string' && route.query.focus ? route.query.focus : null,
+);
+
 const access = ref<WhatChangedAccess | null>(initialAccess(auth.isCloud, auth.demoMode));
 const page = useLoader(async () => {
   const cluster: Cluster | null = await clusters.ensure();
   if (!cluster) return { cluster: null, answer: null };
   if (access.value === 'community') return { cluster, answer: null };
   try {
+    const extra = `${hideOwn.value ? '' : '&own=show'}${episodeParam.value !== undefined ? `&episode=${episodeParam.value}` : ''}`;
     const answer = await api<WhatChanged>(
       whatChangedPath(cluster.id, {
         window: win.value,
         ...(alertId.value ? { alert: alertId.value } : {}),
         ...(win.value === 'custom' ? custom.value : {}),
         sort: sort.value,
-      }),
+      }) + extra,
     );
     access.value = 'pro';
     // The sidebar's "day 3/7" follows the page.
@@ -116,6 +128,47 @@ const page = useLoader(async () => {
   }
 });
 const cluster = computed(() => page.data.value?.cluster ?? null);
+
+// The live map (ADR-231): its own read, every 60 s while the tab is visible.
+const live = ref<WhatChangedLive | null>(null);
+async function loadLive() {
+  const c = cluster.value;
+  if (!c || access.value !== 'pro' || !answer.value || answer.value.learning.learning) return;
+  try {
+    live.value = await api<WhatChangedLive>(
+      `/what-changed/live?cluster=${encodeURIComponent(c.id)}`,
+    );
+  } catch {
+    // The rest of the page stands without the map.
+  }
+}
+const kind = computed<'kubernetes' | 'server'>(() =>
+  cluster.value?.kind === 'server' ? 'server' : 'kubernetes',
+);
+const map = computed(() => liveMap(live.value?.series ?? [], kind.value, hideOwn.value));
+const tick = ref(Date.now());
+let tickTimer: ReturnType<typeof setInterval> | undefined;
+const ago = computed(() => checkedAgo(live.value?.scoredAt ?? null, tick.value));
+const withStory = computed(() =>
+  answer.value?.story ? (answer.value as WhatChanged & { story: WhatChangedStory }) : null,
+);
+function pickEpisode(fromIso: string) {
+  setQuery({ episode: String(Math.floor(Date.parse(fromIso) / 1000)) });
+}
+/** A past episode from the quiet page: a custom window around it, and it selected. */
+function openEpisode(e: { from: string; to: string | null }) {
+  const from = Math.floor(Date.parse(e.from) / 1000);
+  const nowS = Math.floor(Date.now() / 1000);
+  const end = e.to ? Math.floor(Date.parse(e.to) / 1000) : nowS;
+  const c = clampCustom(from - 1800, Math.min(nowS, end + 1800), auth.demoMode) ?? {
+    from,
+    to: Math.min(nowS, from + 3600),
+  };
+  setQuery({ window: 'custom', from: String(c.from), to: String(c.to), episode: String(from) });
+}
+function toggleOwn() {
+  hideOwnKey.value = hideOwn.value ? '0' : '1';
+}
 const answer = computed(() => page.data.value?.answer ?? null);
 const docker = computed(() => cluster.value?.kind === 'server');
 const platform = computed(() => (docker.value ? 'docker' : 'kubernetes'));
@@ -160,17 +213,6 @@ function onCustom(which: 'from' | 'to', e: Event) {
   if (c) setQuery({ window: 'custom', from: String(c.from), to: String(c.to) });
 }
 
-const countLine = computed(() => {
-  const a = answer.value;
-  if (!a || !a.rows.length) return '';
-  const starts = a.rows.map((r) => r.since).sort();
-  const first = hhmm(starts[0]!);
-  const last = hhmm(starts[starts.length - 1]!);
-  if (a.total === 1) return t('whatChanged.count.one', { at: first });
-  return first === last
-    ? t('whatChanged.count.at', { n: a.total, at: first })
-    : t('whatChanged.count.between', { n: a.total, from: first, to: last });
-});
 const learning = computed(() => !!answer.value?.learning.learning);
 /** The list is on, and some series that joined later still learn: the strip's line. */
 const partly = computed(() => {
@@ -221,14 +263,23 @@ watch(access, (a, was) => {
 });
 onBeforeUnmount(() => clearTimeout(fast));
 
-watch([win, sort, custom, alertId], () => void page.load());
+watch([win, sort, custom, alertId, hideOwn, episodeParam], () => void page.load());
+watch(
+  () => [cluster.value?.id, answer.value?.learning.learning, access.value],
+  () => void loadLive(),
+);
 // Paused while the tab is hidden, spread by ±20 % (ADR-206).
-const poll = usePolling(() => page.load(), REFRESH_MS);
+const poll = usePolling(async () => {
+  await page.load();
+  await loadLive();
+}, REFRESH_MS);
 onMounted(async () => {
   poll.start();
+  tickTimer = setInterval(() => (tick.value = Date.now()), 1000);
   await page.load();
   planFast();
 });
+onBeforeUnmount(() => clearInterval(tickTimer));
 </script>
 
 <template>
@@ -280,30 +331,76 @@ onMounted(async () => {
               class="inline-flex h-5.5 items-center rounded-full border border-info/50 px-2.5 text-12 font-semibold text-info-text"
               >{{ $t('whatChanged.pro') }}</span
             >
+            <span
+              v-if="!learning"
+              class="inline-flex items-center gap-1.5 text-13 text-text-muted"
+              role="status"
+              data-testid="wc-live"
+            >
+              <span class="relative flex size-2" aria-hidden="true">
+                <span
+                  class="absolute inline-flex size-full animate-ping rounded-full bg-ok/60 motion-reduce:hidden"
+                />
+                <span class="relative inline-flex size-2 rounded-full bg-ok" />
+              </span>
+              {{
+                ago === null
+                  ? $t('whatChanged.live.waiting')
+                  : $t(
+                      'whatChanged.live.watching',
+                      { n: map.total.toLocaleString('en'), s: ago },
+                      ago,
+                    )
+              }}
+            </span>
           </div>
-          <div
-            v-if="!learning"
-            class="flex flex-wrap gap-1 rounded-card border border-border bg-surface-1/60 p-1"
-            role="group"
-            :aria-label="$t('whatChanged.windows.label')"
-            data-testid="wc-windows"
-          >
+          <div v-if="!learning" class="flex flex-wrap items-center gap-2">
             <button
-              v-for="w in windows"
-              :key="w"
               type="button"
               :class="[
-                'rounded-control px-3.5 py-2 text-13 max-lg:min-h-11',
-                win === w
-                  ? 'bg-surface-3 font-semibold text-text'
-                  : 'text-text-muted hover:text-text',
+                'inline-flex items-center gap-2 rounded-card border px-3 py-2 text-13 max-lg:min-h-11',
+                hideOwn
+                  ? 'border-border-strong bg-surface-3 text-text'
+                  : 'border-border text-text-muted hover:text-text',
               ]"
-              :aria-pressed="win === w"
-              :data-testid="`wc-window-${w}`"
-              @click="pickWindow(w)"
+              :aria-pressed="hideOwn"
+              :title="$t('whatChanged.own.hint')"
+              data-testid="wc-own"
+              @click="toggleOwn"
             >
-              {{ windowLabel(w) }}
+              <span
+                :class="[
+                  'flex size-4 items-center justify-center rounded-[4px] border text-12',
+                  hideOwn ? 'border-ok bg-ok text-on-primary' : 'border-border-strong',
+                ]"
+                aria-hidden="true"
+                >{{ hideOwn ? '✓' : '' }}</span
+              >
+              {{ $t('whatChanged.own.hide', { n: map.own }) }}
             </button>
+            <div
+              class="flex flex-wrap gap-1 rounded-card border border-border bg-surface-1/60 p-1"
+              role="group"
+              :aria-label="$t('whatChanged.windows.label')"
+              data-testid="wc-windows"
+            >
+              <button
+                v-for="w in windows"
+                :key="w"
+                type="button"
+                :class="[
+                  'rounded-control px-3.5 py-2 text-13 max-lg:min-h-11',
+                  win === w
+                    ? 'bg-surface-3 font-semibold text-text'
+                    : 'text-text-muted hover:text-text',
+                ]"
+                :aria-pressed="win === w"
+                :data-testid="`wc-window-${w}`"
+                @click="pickWindow(w)"
+              >
+                {{ windowLabel(w) }}
+              </button>
+            </div>
           </div>
         </header>
 
@@ -349,21 +446,7 @@ onMounted(async () => {
           @changed="page.load"
         />
 
-        <section
-          v-else
-          class="flex flex-col gap-5.5 rounded-2xl border border-border bg-surface-1/45 p-7 max-md:gap-4.5 max-md:p-4"
-          aria-labelledby="wc-hero"
-          data-testid="wc-hero"
-        >
-          <div
-            class="flex flex-wrap justify-between gap-x-4 gap-y-1 font-mono text-12 tracking-widest uppercase md:text-13"
-          >
-            <span id="wc-hero" class="text-text">{{ $t('whatChanged.hero.title') }}</span>
-            <span class="text-text-subtle">{{ $t('whatChanged.hero.scope') }}</span>
-          </div>
-
-          <WhatChangedChart :answer="answer" />
-
+        <div v-else class="flex flex-col gap-4" data-testid="wc-after">
           <!-- The list is on; some series that joined later still learn (ADR-216). -->
           <p
             v-if="partly"
@@ -373,64 +456,39 @@ onMounted(async () => {
             <Hourglass class="mt-0.5 size-4 shrink-0 text-info-text" aria-hidden="true" />
             <span>{{ partly }}</span>
           </p>
-
-          <template v-if="answer.rows.length">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <span class="text-14 text-text-muted" data-testid="wc-count">{{ countLine }}</span>
-              <div
-                class="flex gap-1"
-                role="group"
-                :aria-label="$t('whatChanged.sort.label')"
-                data-testid="wc-sort"
-              >
-                <button
-                  v-for="s in WHAT_CHANGED_SORTS"
-                  :key="s"
-                  type="button"
-                  :class="[
-                    'rounded-card border px-3.5 py-2 text-13 max-lg:min-h-11',
-                    sort === s
-                      ? 'border-border-strong bg-surface-3 font-semibold text-text'
-                      : 'border-border text-text-muted hover:border-border-strong hover:text-text',
-                  ]"
-                  :aria-pressed="sort === s"
-                  :data-testid="`wc-sort-${s}`"
-                  @click="setQuery({ sort: s === 'first' ? undefined : s })"
-                >
-                  {{ $t(`whatChanged.sort.${s}`) }}
-                </button>
-              </div>
-            </div>
-            <WhatChangedRows :rows="answer.rows" :cluster-id="cluster.id" />
-            <p v-if="answer.truncated" class="text-13 text-text-muted" data-testid="wc-more">
-              {{ $t('whatChanged.more', { n: answer.total - answer.rows.length }) }}
-            </p>
-          </template>
-
-          <div
-            v-else
-            class="flex flex-col items-start gap-1 rounded-card border border-dashed border-border px-5 py-4.5 max-md:px-4"
-            data-testid="wc-empty"
+          <p
+            v-if="focus"
+            class="flex flex-wrap items-center gap-2 text-13 text-text-muted"
+            data-testid="wc-focus"
           >
-            <p class="text-16 font-medium text-text">{{ $t('whatChanged.empty.none.title') }}</p>
-            <p class="text-14 text-text-muted">
-              {{ $t(`whatChanged.empty.none.${platform}`) }}
-            </p>
-          </div>
-        </section>
-
-        <template v-if="!answer.learning.learning && answer.rows.length">
-          <div class="flex justify-center" aria-hidden="true">
-            <span class="h-14 w-px bg-warning/70 max-md:h-8" />
-          </div>
-          <WhatChangedCauseCard
-            :key="answer.cause.subject ?? 'none'"
+            {{ $t('whatChanged.map.focus', { name: focus }) }}
+            <button
+              type="button"
+              class="rounded-control px-2 py-1 font-medium text-link hover:bg-surface-2 max-lg:min-h-11"
+              @click="setQuery({ focus: undefined })"
+            >
+              {{ $t('whatChanged.map.showAll') }}
+            </button>
+          </p>
+          <WcLiveMap :live="live" :kind="kind" :hide-own="hideOwn" :focus="focus" />
+          <WcEpisode
+            v-if="withStory"
+            :answer="withStory"
+            :kind="kind"
             :cluster-id="cluster.id"
             :cluster-name="cluster.name"
-            :subject="answer.cause.subject"
-            :platform="platform"
+            :focus="focus"
+            @select="pickEpisode"
           />
-        </template>
+          <WcQuiet
+            v-else
+            :cluster-id="cluster.id"
+            :total="map.total"
+            :hide-own="hideOwn"
+            @select="openEpisode"
+          />
+          <WcChart :answer="answer" :kind="kind" @select="pickEpisode" />
+        </div>
 
         <p
           class="mt-5 flex flex-wrap items-center gap-x-1.5 px-1 text-13 leading-relaxed text-text-subtle"

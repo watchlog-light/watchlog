@@ -406,7 +406,7 @@ describe('Pro', () => {
       },
     });
     const { w } = await open(K8S, 'pro', 'viewer');
-    expect(w.find('[data-testid="wc-hero"]').exists()).toBe(true);
+    expect(w.find('[data-testid="wc-after"]').exists()).toBe(true);
     expect(w.find('[data-testid="wc-upgrade"]').exists()).toBe(false);
   });
 });

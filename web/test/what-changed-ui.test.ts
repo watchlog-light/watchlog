@@ -168,6 +168,8 @@ let mounted: VueWrapper | null = null;
 afterEach(() => {
   mounted?.unmount();
   mounted = null;
+  // The own-parts toggle is remembered in this browser.
+  localStorage.clear();
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -192,9 +194,6 @@ async function open(component: object, path: string, edition: Edition, props: ob
 
 const wc = (cluster: string, q: Parameters<typeof whatChangedPath>[1] = { window: '1h' }) =>
   `GET /api/v1${whatChangedPath(cluster, q, NOW)}`;
-const causes = (cluster: string, subject: string) =>
-  `GET /api/v1/causes?cluster=${cluster}&subject=${encodeURIComponent(subject)}`;
-const notFound = { status: 404, body: { type: 'about:blank', title: 'Not Found', status: 404 } };
 const noAlerts = (id: string): Routes => {
   const empty = {
     status: 200,
@@ -276,74 +275,317 @@ describe('the lib', () => {
   });
 });
 
+/** The live map's answer: the given series, scored 12 s ago. */
+const live = (series: object[], learning = 0) => ({
+  status: 200,
+  body: { scoredAt: iso(12_000), learning, series },
+});
+const sq = (id: string, object: object, state: 'inside' | 'near' | 'outside', own = false) => ({
+  id,
+  key: 'workload.cpu.usage',
+  unit: 'cores',
+  object,
+  peer: null,
+  value: 0.9,
+  usualLow: 0.3,
+  usualHigh: 0.5,
+  score: state === 'outside' ? 9 : state === 'near' ? 2.5 : 1,
+  state,
+  shade: state === 'inside' ? 1 : 2,
+  own,
+});
+const liveUrl = (id: string) => `GET /api/v1/what-changed/live?cluster=${id}`;
+const recentUrl = (id: string, own = false) =>
+  `GET /api/v1/what-changed/recent?cluster=${id}${own ? '&own=show' : ''}`;
+const wl = (namespace: string, name: string) => ({
+  kind: 'workload',
+  name,
+  namespace,
+  workloadKind: 'Deployment',
+});
+
+/** An answer with a story: a rollout, then reports-worker, then checkout along the calls. */
+function told(cluster: typeof K8S, over: Partial<WhatChanged> = {}): WhatChanged {
+  const rows = K8S_ROWS.slice(0, 2);
+  return answer(cluster, K8S_ROWS, {
+    episodes: [
+      { from: iso(50 * MIN), to: iso(40 * MIN), count: 1 },
+      { from: iso(12 * MIN), to: null, count: 2 },
+    ],
+    episode: 1,
+    changes: [
+      {
+        at: iso(14 * MIN),
+        kind: 'rollout',
+        name: 'reports-worker',
+        namespace: 'shop',
+        facts: { from: '7', to: '8' },
+      },
+    ],
+    story: {
+      clauses: [
+        {
+          code: 'after_change',
+          facts: {
+            who: 'shop/reports-worker',
+            key: 'edge.connections.rate',
+            peer: 'postgres',
+            x: 43,
+            dir: 'up',
+            gap: 2,
+            change: 'rollout',
+            target: 'reports-worker',
+            host: null,
+            namespace: 'shop',
+          },
+        },
+        {
+          code: 'then',
+          facts: {
+            who: 'shop/checkout',
+            key: 'workload.http.latency.p95',
+            peer: null,
+            x: 13,
+            dir: 'up',
+            and: 0,
+          },
+        },
+      ],
+      chain: {
+        nodes: [
+          {
+            kind: 'change',
+            rowId: null,
+            who: 'reports-worker',
+            at: iso(14 * MIN),
+            gapMin: null,
+            linked: false,
+          },
+          {
+            kind: 'first',
+            rowId: 'a1',
+            who: 'shop/reports-worker',
+            at: iso(12 * MIN),
+            gapMin: 2,
+            linked: true,
+          },
+          {
+            kind: 'then',
+            rowId: 'a2',
+            who: 'shop/checkout',
+            at: iso(10 * MIN),
+            gapMin: 2,
+            linked: true,
+          },
+        ],
+        more: 0,
+        linked: true,
+      },
+      change: {
+        at: iso(14 * MIN),
+        kind: 'rollout',
+        name: 'reports-worker',
+        namespace: 'shop',
+        facts: { from: '7', to: '8' },
+      },
+      cause: {
+        state: 'change',
+        change: {
+          code: 'change',
+          facts: {
+            change: 'rollout',
+            target: 'reports-worker',
+            host: null,
+            namespace: 'shop',
+            at: iso(14 * MIN),
+            gap: 2,
+            who: 'shop/reports-worker',
+          },
+        },
+      },
+      checks: [
+        { topic: 'node', code: 'node_ok', facts: {}, result: 'ok' },
+        { topic: 'changes', code: 'changes_none', facts: {}, result: 'possible' },
+      ],
+      changes: [
+        {
+          at: iso(14 * MIN),
+          kind: 'rollout',
+          name: 'reports-worker',
+          namespace: 'shop',
+          facts: { from: '7', to: '8' },
+        },
+      ],
+      rows,
+      spark: [
+        {
+          rowId: 'a1',
+          from: iso(22 * MIN),
+          step: 60,
+          values: Array.from({ length: 22 }, (_, i) => (i < 10 ? 1 : 85)),
+        },
+      ],
+    },
+    ...over,
+  } as Partial<WhatChanged>);
+}
+
 describe('the page on a Pro org', () => {
-  it('Kubernetes: the chart, the rows first to move, then furthest out, the cause underneath', async () => {
-    const subject = 'workload:shop/Deployment/reports-worker';
+  it('Kubernetes: the live line, the map, the story, how it spread, what moved, why, the chart', async () => {
     const { calls } = mockFetch({
       ...clusters(K8S),
-      [wc(K8S.id)]: { status: 200, body: answer(K8S, K8S_ROWS) },
-      [wc(K8S.id, { window: '1h', sort: 'furthest' })]: {
+      [wc(K8S.id)]: { status: 200, body: told(K8S) },
+      [`${wc(K8S.id)}&own=show`]: { status: 200, body: told(K8S) },
+      [`${wc(K8S.id)}&episode=${Math.floor((NOW - 50 * MIN) / 1000)}`]: {
         status: 200,
-        body: answer(K8S, [K8S_ROWS[1]!, K8S_ROWS[0]!, K8S_ROWS[2]!, K8S_ROWS[3]!], {
-          sort: 'furthest',
-        }),
+        body: told(K8S, { episode: 0 }),
       },
-      [causes(K8S.id, subject)]: notFound,
+      [liveUrl(K8S.id)]: live(
+        [
+          sq('1', wl('shop', 'reports-worker'), 'outside'),
+          sq('2', wl('shop', 'checkout'), 'near'),
+          sq('3', wl('shop', 'api'), 'inside'),
+          sq('4', wl('watchlog', 'watchlog-backend'), 'inside', true),
+        ],
+        26,
+      ),
     });
     const { w, plugins } = await open(WhatChangedPage, `/what-changed?cluster=${K8S.id}`, 'pro');
     expect(w.get('[data-testid="wc-cluster"]').text()).toContain('acme-prod');
-    expect(w.get('[data-testid="wc-cluster"]').text()).toContain('Kubernetes');
     expect(w.findAll('[data-testid="wc-windows"] button').map((b) => b.text())).toEqual([
       'Last hour',
       'Last 6 hours',
       'Custom',
     ]);
-    expect(w.find('[data-testid="wc-chart"] svg').attributes('aria-label')).toContain('At most 3');
-    const rows = w.findAll('[data-testid="wc-row"]');
-    expect(rows).toHaveLength(4);
-    expect(rows[0]!.text()).toContain('reports-worker');
-    expect(rows[0]!.get('[data-testid="wc-metric"]').text()).toBe('connections to postgres');
-    expect(rows[0]!.get('[data-testid="wc-context"]').text()).toBe('shop · Deployment');
-    expect(rows[0]!.get('[data-testid="wc-usual"]').text()).toContain('0–2/s');
-    expect(rows[0]!.get('[data-testid="wc-now"]').text()).toContain('85/s');
-    expect(rows[1]!.get('[data-testid="wc-metric"]').text()).toBe('p95 response time');
-    expect(rows[1]!.get('[data-testid="wc-now"]').text()).toContain('2.4 s');
-    expect(rows[3]!.get('[data-testid="wc-context"]').text()).toBe('node');
-    expect(w.get('[data-testid="wc-count"]').text()).toMatch(
-      /^4 things left their usual range between/,
+    expect(w.get('[data-testid="wc-live"]').text()).toBe('Watching 3 series · checked 12 s ago');
+    const own = w.get('[data-testid="wc-own"]');
+    expect(own.text()).toContain("Hide WatchLog's own parts (1)");
+    expect(own.attributes('aria-pressed')).toBe('true');
+    // The map: workloads, outside first; the counts; the learning line.
+    expect(w.findAll('[data-testid="wc-map-group"]').map((g) => g.find('a').text())).toEqual([
+      'shop/reports-worker',
+      'shop/checkout',
+      'shop/api',
+    ]);
+    expect(w.get('[data-testid="wc-map-counts"]').text()).toBe('1 inside1 near the edge1 outside');
+    expect(w.get('[data-testid="wc-map-foot"]').text()).toContain(
+      "26 more series are still learning and aren't shown.",
     );
-    expect(w.find('[data-testid="wc-cause"]').exists()).toBe(true);
-    expect(w.get('[data-testid="wc-footnote"]').text()).toContain('nothing is sent to an AI');
-
-    await w.get('[data-testid="wc-sort-furthest"]').trigger('click');
+    // The story, its cause, the switcher.
+    expect(w.get('[data-testid="wc-story-label"]').text()).toMatch(
+      /^Today since \d\d:\d\d · 2 things moved$/,
+    );
+    expect(w.get('[data-testid="wc-story-sentence"]').text()).toMatch(
+      /^Shop\/reports-worker's connections to postgres went to 43× usual 2 minutes after the rollout of reports-worker; shop\/checkout's p95 response time then went to 13× usual\.$/,
+    );
+    expect(w.get('[data-testid="wc-cause-box"]').attributes('data-state')).toBe('likely');
+    expect(w.get('[data-testid="wc-cause-box"]').text()).toMatch(
+      /The rollout of reports-worker at \d\d:\d\d\. The first move came 2 minutes later, on shop\/reports-worker\./,
+    );
+    expect(w.get('[data-testid="wc-episode-of"]').text()).toBe('2 of 2');
+    // How it spread: the rollout, then each series, with the minutes between.
+    expect(
+      w.findAll('[data-testid="wc-chain-node"]').map((n) => n.attributes('data-kind')),
+    ).toEqual(['change', 'first', 'then']);
+    expect(w.get('[data-testid="wc-chain"]').text()).toContain('+2 min');
+    expect(w.find('[data-testid="wc-spread-same-time"]').exists()).toBe(false);
+    // What moved: a band sparkline and the chip; furthest out reorders on the page.
+    const moved = w.findAll('[data-testid="wc-moved-row"]');
+    expect(moved.map((r) => r.text().includes('reports-worker'))).toEqual([true, false]);
+    expect(moved[0]!.find('[data-testid="wc-spark"]').exists()).toBe(true);
+    expect(moved[0]!.get('[data-testid="wc-factor"]').text()).toBe('43× usual');
+    await w.get('[data-testid="wc-moved-sort"] button:last-child').trigger('click');
+    expect(w.findAll('[data-testid="wc-moved-row"]')[0]!.text()).toContain('checkout');
+    // Why: the check that found something first; what changed around then.
+    expect(
+      w.findAll('[data-testid="wc-checks"] li').map((l) => l.attributes('data-result')),
+    ).toEqual(['possible', 'ok']);
+    expect(w.get('[data-testid="wc-around"]').text()).toContain('The rollout of reports-worker');
+    // The chart: two episodes shaded, the selected one marked, the rollout as a marker.
+    expect(
+      w.findAll('[data-testid="wc-chart-band"]').map((b) => b.attributes('aria-pressed')),
+    ).toEqual(['false', 'true']);
+    expect(w.findAll('[data-testid="wc-chart-marker"]')).toHaveLength(1);
+    // The switcher asks for the older episode by its start.
+    await w.get('[data-testid="wc-episode-prev"]').trigger('click');
     await flushPromises();
-    expect(plugins.router.currentRoute.value.query.sort).toBe('furthest');
-    expect(calls.some((c) => c.path.includes('sort=furthest'))).toBe(true);
-    expect(w.findAll('[data-testid="wc-name"]')[0]!.text()).toBe('checkout');
+    expect(plugins.router.currentRoute.value.query.episode).toBe(
+      String(Math.floor((NOW - 50 * MIN) / 1000)),
+    );
+    // The toggle: shown, remembered, asked with own=show.
+    await w.get('[data-testid="wc-own"]').trigger('click');
+    await flushPromises();
+    expect(calls.some((c) => c.path.includes('own=show'))).toBe(true);
   });
 
-  it('Docker: Compose services, their containers and hosts in the fleet’s words', async () => {
+  it('a Server fleet in its words; no clear cause names the checks that found something', async () => {
     mockFetch({
       ...clusters(FLEET),
       [wc(FLEET.id)]: {
         status: 200,
-        body: answer(FLEET, DOCKER_ROWS, {
-          cause: { subject: 'container:docker-01/shop-db-1', likely: null },
+        body: told(FLEET, {
+          story: {
+            ...told(FLEET).story!,
+            clauses: [
+              {
+                code: 'first',
+                facts: { who: 'db-1', key: 'host.cpu.utilization', peer: null, x: 9, dir: 'up' },
+              },
+            ],
+            change: null,
+            cause: { state: 'none', change: null },
+            chain: {
+              nodes: [
+                {
+                  kind: 'first',
+                  rowId: 'a1',
+                  who: 'db-1',
+                  at: iso(12 * MIN),
+                  gapMin: null,
+                  linked: false,
+                },
+                {
+                  kind: 'then',
+                  rowId: 'a2',
+                  who: 'api · app-1',
+                  at: iso(10 * MIN),
+                  gapMin: 2,
+                  linked: false,
+                },
+              ],
+              more: 0,
+              linked: false,
+            },
+          },
         }),
       },
-      [causes(FLEET.id, 'container:docker-01/shop-db-1')]: notFound,
+      [liveUrl(FLEET.id)]: live([
+        sq('1', { kind: 'host', name: 'app-1' }, 'inside'),
+        sq(
+          '2',
+          { kind: 'workload', name: 'postgres', workloadKind: 'Service', host: 'db-1' },
+          'outside',
+        ),
+        sq('3', { kind: 'host', name: 'db-1' }, 'inside'),
+      ]),
     });
     const { w } = await open(WhatChangedPage, `/what-changed?cluster=${FLEET.id}`, 'pro');
-    expect(w.get('[data-testid="wc-cluster"]').text()).toContain('Servers');
-    const rows = w.findAll('[data-testid="wc-row"]');
-    expect(rows[0]!.get('[data-testid="wc-name"]').text()).toBe('db');
-    expect(rows[0]!.get('[data-testid="wc-metric"]').text()).toBe('memory');
-    expect(rows[0]!.get('[data-testid="wc-context"]').text()).toBe('Compose shop · shop-db-1');
-    expect(rows[0]!.get('[data-testid="wc-usual"]').text()).toContain('200–260 MiB');
-    expect(rows[1]!.get('[data-testid="wc-context"]').text()).toBe('host');
+    expect(w.findAll('[data-testid="wc-map-group"]').map((g) => g.find('a').text())).toEqual([
+      'db-1',
+      'postgres · db-1',
+      'app-1',
+    ]);
+    const box = w.get('[data-testid="wc-cause-box"]');
+    expect(box.attributes('data-state')).toBe('none');
+    expect(box.text()).toContain('No clear cause');
+    // Never "2 of them found something" without saying what.
+    expect(w.findAll('[data-testid="wc-cause-found"] li')).toHaveLength(1);
+    expect(w.get('[data-testid="wc-spread-same-time"]').text()).toBe(
+      'moved at the same time; no calls between them',
+    );
   });
 
-  it('around an alert: the window named by its start, asked by the alert', async () => {
+  it('around an alert: the window named by its start, asked by the alert, no story', async () => {
     mockFetch({
       ...clusters(K8S),
       [wc(K8S.id, { window: 'alert', alert: ALERT_ID })]: {
@@ -357,7 +599,8 @@ describe('the page on a Pro org', () => {
           cause: { subject: `alert:${ALERT_ID}`, likely: null },
         }),
       },
-      [causes(K8S.id, `alert:${ALERT_ID}`)]: notFound,
+      [liveUrl(K8S.id)]: live([]),
+      [recentUrl(K8S.id)]: { status: 200, body: { episodes: [] } },
     });
     const { w } = await open(
       WhatChangedPage,
@@ -367,10 +610,9 @@ describe('the page on a Pro org', () => {
     const buttons = w.findAll('[data-testid="wc-windows"] button');
     expect(buttons[0]!.text()).toMatch(/^Around the \d\d:\d\d alert$/);
     expect(buttons[0]!.attributes('aria-pressed')).toBe('true');
-    expect(w.find('[data-testid="wc-window"]').exists()).toBe(true);
   });
 
-  it('states: learning with its date, nothing in the window, an error with retry, "and N more"', async () => {
+  it('states: learning, everything inside with the last 7 days, an error with retry', async () => {
     mockFetch({
       ...clusters(K8S),
       [wc(K8S.id)]: [
@@ -381,19 +623,53 @@ describe('the page on a Pro org', () => {
       ],
     });
     let { w } = await open(WhatChangedPage, `/what-changed?cluster=${K8S.id}`, 'pro');
-    // The learning page stands in the list's place (its own tests: what-changed-learning).
     expect(w.get('[data-testid="wc-learning"]').text()).toContain(
       'Learning what normal looks like for acme-prod.',
     );
     expect(w.find('[data-testid="wc-windows"]').exists()).toBe(false);
-    expect(w.find('[data-testid="wc-row"]').exists()).toBe(false);
-    expect(w.find('[data-testid="wc-cause"]').exists()).toBe(false);
+    expect(w.find('[data-testid="wc-map"]').exists()).toBe(false);
     mounted!.unmount();
 
-    mockFetch({ ...clusters(FLEET), [wc(FLEET.id)]: { status: 200, body: answer(FLEET, []) } });
+    mockFetch({
+      ...clusters(FLEET),
+      [wc(FLEET.id)]: { status: 200, body: answer(FLEET, []) },
+      [liveUrl(FLEET.id)]: live([sq('1', { kind: 'host', name: 'docker-01' }, 'inside')]),
+      [recentUrl(FLEET.id)]: {
+        status: 200,
+        body: {
+          episodes: [
+            {
+              from: iso(26 * 3_600_000),
+              to: iso(26 * 3_600_000 - 20 * MIN),
+              count: 2,
+              clauses: [
+                {
+                  code: 'first',
+                  facts: { who: 'db-1', key: 'host.cpu.utilization', peer: null, x: 9, dir: 'up' },
+                },
+              ],
+              cause: null,
+            },
+          ],
+        },
+      },
+    });
     ({ w } = await open(WhatChangedPage, `/what-changed?cluster=${FLEET.id}`, 'pro'));
-    expect(w.get('[data-testid="wc-empty"]').text()).toContain(
-      'No container, Compose service, host',
+    expect(w.get('[data-testid="wc-quiet"]').text()).toContain(
+      'All 1 series are inside their usual range for this hour.',
+    );
+    expect(w.findAll('[data-testid="wc-quiet-card"]')).toHaveLength(1);
+    mounted!.unmount();
+
+    mockFetch({
+      ...clusters(FLEET),
+      [wc(FLEET.id)]: { status: 200, body: answer(FLEET, []) },
+      [liveUrl(FLEET.id)]: live([]),
+      [recentUrl(FLEET.id)]: { status: 200, body: { episodes: [] } },
+    });
+    ({ w } = await open(WhatChangedPage, `/what-changed?cluster=${FLEET.id}`, 'pro'));
+    expect(w.get('[data-testid="wc-quiet-none"]').text()).toBe(
+      'Nothing left its usual range in the last 7 days.',
     );
     mounted!.unmount();
 
@@ -401,15 +677,15 @@ describe('the page on a Pro org', () => {
       ...clusters(K8S),
       [wc(K8S.id)]: [
         { status: 500, body: { type: 'about:blank', title: 'Error', status: 500 } },
-        { status: 200, body: answer(K8S, K8S_ROWS.slice(0, 1), { total: 51, truncated: true }) },
+        { status: 200, body: told(K8S) },
       ],
-      [causes(K8S.id, 'workload:shop/Deployment/reports-worker')]: notFound,
+      [liveUrl(K8S.id)]: live([]),
     });
     ({ w } = await open(WhatChangedPage, `/what-changed?cluster=${K8S.id}`, 'pro'));
     expect(w.text()).toContain("Couldn't load What changed.");
     await w.get('[data-testid="retry"]').trigger('click');
     await flushPromises();
-    expect(w.get('[data-testid="wc-more"]').text()).toBe('and 50 more');
+    expect(w.find('[data-testid="wc-story"]').exists()).toBe(true);
   });
 });
 

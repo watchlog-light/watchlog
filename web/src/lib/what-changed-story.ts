@@ -287,3 +287,36 @@ export function storyAsText(
     .filter(Boolean)
     .join('\n');
 }
+
+/** What a series is about, as the story names it: "shop/backend", "postgres · db-1". */
+export function whoOf(o: {
+  kind: string;
+  name: string;
+  namespace?: string;
+  host?: string;
+  composeService?: string;
+}): string {
+  if (o.kind === 'workload') {
+    if (o.namespace) return `${o.namespace}/${o.name}`;
+    return o.host ? `${o.name} · ${o.host}` : o.name;
+  }
+  if (o.kind === 'container') {
+    const name = o.composeService ?? o.name;
+    return o.host ? `${name} · ${o.host}` : name;
+  }
+  return o.name;
+}
+
+/** How far out a value is, against its band's edge, as the story's chip says it. */
+export function rowFactor(
+  value: number,
+  low: number,
+  high: number,
+): { x: number; dir: 'up' | 'down' } {
+  const round = (x: number) => (x >= 10 ? Math.round(x) : Math.round(x * 10) / 10);
+  if (value >= high) {
+    const edge = high > 0 ? high : Math.max(high - low, 1e-9);
+    return { x: Math.min(999, round(value / edge)), dir: 'up' };
+  }
+  return { x: Math.min(999, value > 0 ? round(low / value) : 999), dir: 'down' };
+}

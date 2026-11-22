@@ -39618,7 +39618,8 @@
                     "own",
                     "episodes",
                     "episode",
-                    "story"
+                    "story",
+                    "changes"
                   ],
                   "properties": {
                     "cluster": {
@@ -40915,6 +40916,98 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "changes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["at", "kind", "name", "facts"],
+                        "properties": {
+                          "at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "kind": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["rollout"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["image"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["scale"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["compose"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["recreate"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["node"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["service_start"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["service_restart"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["service_failed"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["unit_changed"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["release"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["job_run"]
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "namespace": {
+                            "type": "string"
+                          },
+                          "host": {
+                            "type": "string"
+                          },
+                          "facts": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "maxItems": 200,
+                      "description": "What changed in the chart's range: its markers (rollouts, scaling, image changes, service starts and restarts, scheduled runs)"
                     }
                   }
                 }
@@ -41120,6 +41213,7 @@
                         "required": [
                           "id",
                           "key",
+                          "unit",
                           "object",
                           "peer",
                           "value",
@@ -41135,6 +41229,9 @@
                             "type": "string"
                           },
                           "key": {
+                            "type": "string"
+                          },
+                          "unit": {
                             "type": "string"
                           },
                           "object": {

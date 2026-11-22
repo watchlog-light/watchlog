@@ -13,7 +13,7 @@
 //   - outside: an open unusual period (past 4 for 10 minutes, until 10 minutes back).
 import type { Database } from '../../db/index.js';
 import { isWatchlogImage, isWatchlogPod } from '../integrations/discovery.js';
-import { seriesHash } from './keys.js';
+import { seriesHash, unitOf } from './keys.js';
 import { labelsOf, objectOf, type ComposeOf, type ObjectView } from './read.js';
 
 /** Inside the usual range: a score of 2 or less (the band is median ± 2 spreads). */
@@ -158,6 +158,7 @@ export interface LiveSeriesView {
   /** The series' hash, short: stable across minutes. */
   id: string;
   key: string;
+  unit: string;
   object: ObjectView;
   peer: string | null;
   value: number | null;
@@ -190,6 +191,7 @@ export function liveView(
     series.push({
       id: seriesHash(e.key, e.subject).toString('hex').slice(0, 16),
       key: e.key,
+      unit: unitOf(e.key),
       object,
       peer,
       value: e.value,
