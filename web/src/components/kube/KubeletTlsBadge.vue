@@ -14,7 +14,7 @@ defineProps<{ compact?: boolean; align?: 'start' | 'end' }>();
       class="inline-flex items-center gap-1 rounded-full border border-warning bg-surface-2 px-2 py-0.5 text-12 font-medium whitespace-nowrap text-text"
       data-testid="kubelet-tls-badge"
     >
-      <ShieldAlert class="size-3.5 text-warning" aria-hidden="true" />
+      <ShieldAlert class="size-3.5 text-warning-text" aria-hidden="true" />
       <span :class="{ 'sr-only': compact }">{{ $t('kube.kubeletTls.label') }}</span>
     </span>
   </TooltipHint>

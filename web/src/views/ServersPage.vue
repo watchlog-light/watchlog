@@ -80,7 +80,7 @@ onMounted(() => {
         </dt>
         <dd
           class="text-24 font-semibold tabular"
-          :class="totals.needAttention ? 'text-warning' : 'text-text'"
+          :class="totals.needAttention ? 'text-warning-text' : 'text-text'"
         >
           {{ totals.needAttention }}
         </dd>
@@ -93,7 +93,7 @@ onMounted(() => {
           {{ totals.services }}
           <span
             v-if="totals.servicesFailed"
-            class="text-14 font-medium text-critical max-lg:block max-lg:text-13"
+            class="text-14 font-medium text-critical-text max-lg:block max-lg:text-13"
           >
             {{ $t('servers.tiles.servicesFailed', { n: totals.servicesFailed }) }}
           </span>
@@ -107,7 +107,7 @@ onMounted(() => {
           {{ totals.processes }}
           <span
             v-if="totals.crashLooping"
-            class="text-14 font-medium text-warning max-lg:block max-lg:text-13"
+            class="text-14 font-medium text-warning-text max-lg:block max-lg:text-13"
           >
             {{ $t('servers.tiles.crashLooping', { n: totals.crashLooping }) }}
           </span>
@@ -168,12 +168,12 @@ onMounted(() => {
                 </RouterLink>
                 <p class="text-12 text-text-subtle">
                   {{ shortOs(s.os) ?? '–' }}
-                  <span v-if="s.status === 'inactive'" class="text-warning">
+                  <span v-if="s.status === 'inactive'" class="text-warning-text">
                     · {{ $t('clusters.status.inactive') }}</span
                   >
                   <span
                     v-if="s.agentVersion"
-                    :class="s.updateAvailable ? 'text-warning' : ''"
+                    :class="s.updateAvailable ? 'text-warning-text' : ''"
                     data-testid="server-agent-version"
                   >
                     · {{ $t('servers.chip.agent', { v: s.agentVersion }) }}</span
@@ -238,7 +238,7 @@ onMounted(() => {
               </RouterLink>
               <span class="text-12 text-text-subtle"
                 >{{ shortOs(s.os) ?? '' }}
-                <span v-if="s.agentVersion" :class="s.updateAvailable ? 'text-warning' : ''">
+                <span v-if="s.agentVersion" :class="s.updateAvailable ? 'text-warning-text' : ''">
                   · {{ $t('servers.chip.agent', { v: s.agentVersion }) }}</span
                 ></span
               >

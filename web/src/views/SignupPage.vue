@@ -171,7 +171,7 @@ async function submit() {
         {{ $t('cloud.signup.haveAccount') }}
         <RouterLink
           :to="{ name: 'login' }"
-          class="inline-flex items-center text-primary hover:text-primary-hover max-lg:min-h-11"
+          class="inline-flex items-center text-link hover:text-primary-hover max-lg:min-h-11"
           data-testid="to-signin"
           >{{ $t('cloud.signup.signIn') }}</RouterLink
         >
@@ -186,7 +186,7 @@ async function submit() {
         :aria-labelledby="`${strengthId}-title`"
       >
         <template v-if="checkEmail">
-          <MailCheck class="size-8 text-primary" aria-hidden="true" />
+          <MailCheck class="size-8 text-link" aria-hidden="true" />
           <h1 :id="`${strengthId}-title`" class="text-24 font-semibold">
             {{ $t('cloud.signup.checkTitle') }}
           </h1>
@@ -208,7 +208,7 @@ async function submit() {
           {{ $t('cloud.signup.checkingInvite') }}
         </p>
         <template v-else-if="closed">
-          <Users class="size-8 text-primary" aria-hidden="true" />
+          <Users class="size-8 text-link" aria-hidden="true" />
           <h1 :id="`${strengthId}-title`" class="text-24 font-semibold">
             {{ $t('cloud.signup.waves.title') }}
           </h1>
@@ -232,7 +232,7 @@ async function submit() {
               :href="LINKS.install"
               target="_blank"
               rel="noopener"
-              class="inline-flex w-fit items-center text-13 text-primary hover:text-primary-hover max-lg:min-h-11"
+              class="inline-flex w-fit items-center text-13 text-link hover:text-primary-hover max-lg:min-h-11"
               >{{ $t('cloud.signup.waves.selfHostLink') }}</a
             >
           </div>
@@ -287,7 +287,7 @@ async function submit() {
               <p
                 v-if="turnstileError"
                 role="alert"
-                class="text-13 text-critical"
+                class="text-13 text-critical-text"
                 data-testid="turnstile-error"
               >
                 {{ turnstileError }}
@@ -314,7 +314,7 @@ async function submit() {
                   :href="LINKS.terms"
                   target="_blank"
                   rel="noopener"
-                  class="text-primary hover:text-primary-hover"
+                  class="text-link hover:text-primary-hover"
                   >{{ $t('cloud.signup.terms') }}</a
                 >
               </template>
@@ -323,7 +323,7 @@ async function submit() {
                   :href="LINKS.privacy"
                   target="_blank"
                   rel="noopener"
-                  class="text-primary hover:text-primary-hover"
+                  class="text-link hover:text-primary-hover"
                   >{{ $t('cloud.signup.privacy') }}</a
                 >
               </template>

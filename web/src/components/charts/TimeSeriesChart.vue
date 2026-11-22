@@ -12,7 +12,8 @@ import {
 } from 'echarts/components';
 import { init, use, type EChartsType } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import { useTheme } from '@/composables/useTheme';
 import { useRouter, type RouteLocationRaw } from 'vue-router';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
@@ -301,6 +302,10 @@ watch(
   render,
   { deep: true },
 );
+// The colours come from the tokens: draw again when the theme changes (ADR-228), once
+// `data-theme` is on <html>.
+const { resolved } = useTheme();
+watch(resolved, () => void nextTick(render));
 </script>
 
 <template>
@@ -322,7 +327,7 @@ watch(
         <button
           v-if="error && hasData"
           type="button"
-          class="text-12 text-critical hover:underline"
+          class="text-12 text-critical-text hover:underline"
           :title="errorText"
           data-testid="chart-retry"
           @click="$emit('retry')"

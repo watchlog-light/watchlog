@@ -71,7 +71,7 @@ onBeforeUnmount(() => document.documentElement.classList.remove('app-shell'));
       <DialogPortal>
         <DialogOverlay class="fixed inset-0 z-40 bg-bg/60" />
         <DialogContent
-          class="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] shadow-xl"
+          class="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] shadow-menu"
           data-testid="nav-drawer"
         >
           <DialogTitle class="sr-only">{{ $t('nav.label') }}</DialogTitle>

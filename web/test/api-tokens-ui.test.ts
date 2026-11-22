@@ -177,7 +177,7 @@ describe('Settings → API tokens', () => {
     expect(first).toContain('312 calls');
     expect(first).toContain('Active');
     expect(rows[1]!.text()).toContain('Expires soon');
-    expect(rows[1]!.find('.text-warning').text()).toBe('in 6 days');
+    expect(rows[1]!.find('.text-warning-text').text()).toBe('in 6 days');
     expect(rows[2]!.text()).toContain('No expiry');
     expect(rows[2]!.text()).toContain('REST only');
     expect(rows[2]!.text()).toContain('Never');

@@ -55,7 +55,7 @@ function onKey(e: KeyboardEvent) {
       id="map-search-results"
       role="listbox"
       :aria-label="$t('serviceMap.search.label')"
-      class="absolute inset-x-0 top-[calc(100%+4px)] z-20 flex flex-col rounded-control border border-border-strong bg-surface-2 p-1 shadow-lg"
+      class="absolute inset-x-0 top-[calc(100%+4px)] z-20 flex flex-col rounded-control border border-border-strong bg-surface-2 p-1 shadow-menu"
       data-testid="map-search-results"
     >
       <li

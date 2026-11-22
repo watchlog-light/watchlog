@@ -73,10 +73,10 @@ const counts = computed(() => ({
 
 const say = (w: Words) => t(w.key, w.values ?? {}, Number(w.values?.n ?? 1));
 const TEXT_TONE: Record<Tone, string> = {
-  crit: 'text-critical',
-  warn: 'text-warning',
+  crit: 'text-critical-text',
+  warn: 'text-warning-text',
   ok: 'text-text-muted',
-  info: 'text-info',
+  info: 'text-info-text',
   muted: 'text-text-muted',
 };
 const BAR_TONE: Record<Tone, string> = {
@@ -295,9 +295,9 @@ const columns =
                     :class="[
                       'text-14 font-semibold',
                       CERT_TONE[c.status] === 'crit'
-                        ? 'text-critical'
+                        ? 'text-critical-text'
                         : CERT_TONE[c.status] === 'warn' && c.status !== 'problem'
-                          ? 'text-warning'
+                          ? 'text-warning-text'
                           : 'text-text',
                     ]"
                     data-testid="days"

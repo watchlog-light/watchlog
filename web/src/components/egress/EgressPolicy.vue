@@ -91,7 +91,7 @@ function onKey(e: KeyboardEvent, i: number) {
     data-testid="egress-policy-docker"
   >
     <h2 id="policy-docker-title" class="flex items-center gap-2 text-14 font-semibold text-text">
-      <Info class="size-4 shrink-0 text-info" aria-hidden="true" />
+      <Info class="size-4 shrink-0 text-info-text" aria-hidden="true" />
       {{ $t('egress.policy.docker.title') }}
     </h2>
     <p class="mt-1.5 text-13 leading-relaxed text-text-muted">
@@ -107,7 +107,7 @@ function onKey(e: KeyboardEvent, i: number) {
   >
     <div class="flex flex-col gap-1.5">
       <h2 id="policy-title" class="flex items-center gap-2 text-14 font-semibold text-text">
-        <ShieldCheck class="size-4.5 shrink-0 text-info" aria-hidden="true" />
+        <ShieldCheck class="size-4.5 shrink-0 text-info-text" aria-hidden="true" />
         {{ $t('egress.policy.title') }}
       </h2>
       <p class="text-13 leading-relaxed text-text-muted" data-testid="policy-never">
@@ -141,7 +141,7 @@ function onKey(e: KeyboardEvent, i: number) {
     >
       <CircleAlert class="size-4 shrink-0 text-text-subtle" aria-hidden="true" />
       <span class="min-w-0 flex-1">{{ $t('egress.policy.error') }}</span>
-      <button type="button" class="text-primary hover:underline max-lg:min-h-11" @click="page.load">
+      <button type="button" class="text-link hover:underline max-lg:min-h-11" @click="page.load">
         {{ $t('common.retry') }}
       </button>
     </div>
@@ -198,7 +198,7 @@ function onKey(e: KeyboardEvent, i: number) {
             data-testid="policy-copy"
             @click="copy(current.yaml)"
           >
-            <Check v-if="copyState === 'copied'" class="size-3.5 text-ok" aria-hidden="true" />
+            <Check v-if="copyState === 'copied'" class="size-3.5 text-ok-text" aria-hidden="true" />
             <Copy v-else class="size-3.5" aria-hidden="true" />
             <span aria-live="polite">{{
               copyState === 'copied'

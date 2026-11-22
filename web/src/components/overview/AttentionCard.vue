@@ -40,7 +40,7 @@ function causeOf(p: Overview['problems']['items'][number]) {
     <template #actions>
       <RouterLink
         :to="{ name: 'alerts' }"
-        class="text-13 text-primary max-lg:inline-flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center max-lg:justify-center"
+        class="text-13 text-link max-lg:inline-flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center max-lg:justify-center"
         >{{ $t('overview.attention.all') }}</RouterLink
       >
     </template>
@@ -86,7 +86,7 @@ function causeOf(p: Overview['problems']['items'][number]) {
       </li>
     </ul>
     <div v-else class="flex items-center gap-2 px-3.5 py-6 text-13 text-text-muted">
-      <CircleCheck class="size-4 text-ok" aria-hidden="true" />
+      <CircleCheck class="size-4 text-ok-text" aria-hidden="true" />
       {{
         overview.health === 'unknown'
           ? $t('overview.attention.unknown')
@@ -141,14 +141,14 @@ li:last-child .ai {
 .sv-crit,
 .pill-crit {
   background: color-mix(in srgb, var(--critical) 15%, transparent);
-  color: var(--critical);
+  color: var(--critical-text);
 }
 .sv-warn,
 .pill-warn {
   background: color-mix(in srgb, var(--warning) 15%, transparent);
-  color: var(--warning);
+  color: var(--warning-text);
 }
-.text-ok {
-  color: var(--ok);
+.text-ok-text {
+  color: var(--ok-text);
 }
 </style>

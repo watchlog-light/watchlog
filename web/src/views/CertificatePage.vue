@@ -77,9 +77,9 @@ const where = (e: NonNullable<typeof c.value>['endpoints'][number]) =>
             :class="[
               'text-15 font-semibold',
               CERT_TONE[c.status] === 'crit'
-                ? 'text-critical'
+                ? 'text-critical-text'
                 : c.status === 'expiring'
-                  ? 'text-warning'
+                  ? 'text-warning-text'
                   : 'text-text-muted',
             ]"
           >
@@ -114,7 +114,7 @@ const where = (e: NonNullable<typeof c.value>['endpoints'][number]) =>
             <dt class="text-text-muted">{{ $t('certs.detail.key') }}</dt>
             <dd class="text-text">{{ c.keyType }} {{ c.keyBits }}</dd>
             <dt class="text-text-muted">{{ $t('certs.detail.chain') }}</dt>
-            <dd :class="c.chain === 'incomplete' ? 'text-warning' : 'text-text'">
+            <dd :class="c.chain === 'incomplete' ? 'text-warning-text' : 'text-text'">
               {{ $t(`certs.chain.${c.chain}`) }}
             </dd>
             <dt class="text-text-muted">{{ $t('certs.detail.fingerprint') }}</dt>
@@ -148,9 +148,9 @@ const where = (e: NonNullable<typeof c.value>['endpoints'][number]) =>
               :class="[
                 'text-14',
                 renewal(c).tone === 'crit'
-                  ? 'text-critical'
+                  ? 'text-critical-text'
                   : renewal(c).tone === 'warn'
-                    ? 'text-warning'
+                    ? 'text-warning-text'
                     : 'text-text-muted',
               ]"
             >
@@ -164,7 +164,7 @@ const where = (e: NonNullable<typeof c.value>['endpoints'][number]) =>
                   params: { jobId: c.renewalJob.id },
                   query: c.node ? { node: c.node } : {},
                 }"
-                class="ml-1 font-mono text-primary hover:underline"
+                class="ml-1 font-mono text-link hover:underline"
                 >{{ c.renewalJob.name }}</RouterLink
               >
               <span class="text-text-muted"> · {{ $t(`jobs.status.${c.renewalJob.state}`) }}</span>
@@ -184,7 +184,7 @@ const where = (e: NonNullable<typeof c.value>['endpoints'][number]) =>
           >
             <span class="text-text">
               {{ day(h.notBefore) }} – {{ day(h.notAfter) }} · {{ h.issuer }}
-              <span v-if="h.current" class="ml-1 text-12 font-semibold text-ok">{{
+              <span v-if="h.current" class="ml-1 text-12 font-semibold text-ok-text">{{
                 $t('certs.detail.current')
               }}</span>
             </span>

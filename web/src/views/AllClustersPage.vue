@@ -95,9 +95,9 @@ const filters = computed(() =>
 );
 
 const TONE_CHIP: Record<Tone, string> = {
-  critical: 'bg-critical/15 text-critical',
-  warning: 'bg-warning/15 text-warning',
-  healthy: 'bg-ok/15 text-ok',
+  critical: 'bg-critical/15 text-critical-text',
+  warning: 'bg-warning/15 text-warning-text',
+  healthy: 'bg-ok/15 text-ok-text',
   muted: 'bg-surface-2 text-text-muted',
 };
 const TONE_DOT: Record<Tone, string> = {
@@ -107,9 +107,9 @@ const TONE_DOT: Record<Tone, string> = {
   muted: 'bg-text-subtle',
 };
 const TONE_TEXT: Record<Tone, string> = {
-  critical: 'text-critical',
+  critical: 'text-critical-text',
   warning: 'text-text-muted',
-  healthy: 'text-ok',
+  healthy: 'text-ok-text',
   muted: 'text-text-muted',
 };
 
@@ -202,7 +202,7 @@ const learningNames = computed(() =>
           <span
             :class="[
               'flex size-12 shrink-0 items-center justify-center rounded-full',
-              top.healthy ? 'bg-ok/15 text-ok' : 'bg-critical/15 text-critical',
+              top.healthy ? 'bg-ok/15 text-ok-text' : 'bg-critical/15 text-critical-text',
             ]"
             aria-hidden="true"
           >
@@ -325,7 +325,7 @@ const learningNames = computed(() =>
           data-testid="ac-attention-none"
         >
           <span
-            class="flex size-10 shrink-0 items-center justify-center rounded-full bg-ok/15 text-ok"
+            class="flex size-10 shrink-0 items-center justify-center rounded-full bg-ok/15 text-ok-text"
             aria-hidden="true"
             ><CircleCheck class="size-5"
           /></span>
@@ -427,7 +427,9 @@ const learningNames = computed(() =>
                 </td>
                 <td class="border-t border-border px-3 py-3 font-mono text-13">
                   <span
-                    :class="c.reporting.live < c.reporting.total ? 'text-critical' : 'text-text'"
+                    :class="
+                      c.reporting.live < c.reporting.total ? 'text-critical-text' : 'text-text'
+                    "
                     data-testid="ac-row-reporting"
                     >{{ c.reporting.live }} / {{ c.reporting.total }}</span
                   >
@@ -450,7 +452,7 @@ const learningNames = computed(() =>
                         :d="sparkPath(c.cpu.points)"
                         fill="none"
                         stroke="currentColor"
-                        class="text-info"
+                        class="text-info-text"
                         stroke-width="1.6"
                         stroke-linejoin="round"
                       />
@@ -489,7 +491,7 @@ const learningNames = computed(() =>
                   <span v-else-if="c.whatChanged === 0" class="text-text-muted">{{
                     $t('allClusters.table.none')
                   }}</span>
-                  <span v-else class="text-info">{{
+                  <span v-else class="text-info-text">{{
                     $t('allClusters.table.changes', { n: c.whatChanged })
                   }}</span>
                 </td>
@@ -515,7 +517,7 @@ const learningNames = computed(() =>
             </h2>
             <RouterLink
               :to="{ name: 'what-changed' }"
-              class="text-13 font-semibold text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+              class="text-13 font-semibold text-link hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
               >{{ $t('allClusters.changes.open') }} →</RouterLink
             >
           </div>
@@ -526,7 +528,7 @@ const learningNames = computed(() =>
               class="flex items-start gap-3.5 border-t border-border px-5 py-3"
               data-testid="ac-change"
             >
-              <span class="w-14 shrink-0 font-mono text-16 font-medium text-info">{{
+              <span class="w-14 shrink-0 font-mono text-16 font-medium text-info-text">{{
                 changeView(r, tr).factor
               }}</span>
               <span class="flex min-w-0 flex-1 flex-col gap-1">
@@ -594,7 +596,7 @@ const learningNames = computed(() =>
                   <span class="text-14 font-semibold">{{ h.title }}</span>
                   <span class="text-13 text-text-muted">{{ h.body }}</span>
                 </span>
-                <span class="shrink-0 text-13 font-semibold text-primary">{{ h.action }}</span>
+                <span class="shrink-0 text-13 font-semibold text-link">{{ h.action }}</span>
               </button>
               <RouterLink
                 v-else
@@ -610,7 +612,7 @@ const learningNames = computed(() =>
                   <span class="text-14 font-semibold">{{ h.title }}</span>
                   <span class="text-13 text-text-muted">{{ h.body }}</span>
                 </span>
-                <span class="shrink-0 text-13 font-semibold text-primary">{{ h.action }}</span>
+                <span class="shrink-0 text-13 font-semibold text-link">{{ h.action }}</span>
               </RouterLink>
             </template>
           </template>

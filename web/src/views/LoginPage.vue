@@ -192,7 +192,7 @@ onMounted(() => {
         :href="LINKS.install"
         target="_blank"
         rel="noopener noreferrer"
-        class="inline-flex items-center justify-center gap-1.5 self-center text-13 text-primary hover:text-primary-hover max-lg:min-h-11"
+        class="inline-flex items-center justify-center gap-1.5 self-center text-13 text-link hover:text-primary-hover max-lg:min-h-11"
       >
         {{ $t('auth.demo.install') }}
         <ArrowRight class="size-4" aria-hidden="true" />
@@ -257,7 +257,7 @@ onMounted(() => {
         {{ $t('cloud.signin.noAccount') }}
         <RouterLink
           :to="{ name: 'signup' }"
-          class="inline-flex items-center text-primary hover:text-primary-hover max-lg:min-h-11"
+          class="inline-flex items-center text-link hover:text-primary-hover max-lg:min-h-11"
           data-testid="to-signup"
           >{{ $t('cloud.signin.signUp') }}</RouterLink
         >

@@ -316,7 +316,7 @@ onMounted(() => {
         <p
           v-if="cause.code"
           class="text-11 tracking-[0.08em] uppercase"
-          :class="cause.state === 'likely' ? 'text-primary' : 'text-warning'"
+          :class="cause.state === 'likely' ? 'text-link' : 'text-warning-text'"
         >
           {{
             $t(`servers.cause.${cause.state === 'likely' ? 'likely' : 'possible'}`, {
@@ -335,7 +335,7 @@ onMounted(() => {
           class="rounded-control bg-surface-2 px-3 py-2 text-13"
           :class="c.explains ? 'text-text' : 'text-text-muted'"
         >
-          <span :class="c.explains ? 'text-primary' : c.ok ? 'text-ok' : 'text-warning'">{{
+          <span :class="c.explains ? 'text-link' : c.ok ? 'text-ok-text' : 'text-warning-text'">{{
             c.explains ? '●' : c.ok ? '✓' : '!'
           }}</span>
           {{ $t(c.key, c.vals) }}
@@ -384,7 +384,7 @@ onMounted(() => {
     <RouterLink
       v-else-if="w?.source === 'container'"
       :to="{ name: 'docker-container', params: { host: server, name: w.name } }"
-      class="self-start text-13 text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+      class="self-start text-13 text-link hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
       data-testid="container-page-link"
       >{{ $t('servers.workload.charts.containerPage') }}</RouterLink
     >
@@ -432,7 +432,7 @@ onMounted(() => {
           <span
             v-for="r in d.timeline.releases.slice(-1)"
             :key="r"
-            class="text-info max-md:order-last max-md:w-full"
+            class="text-info-text max-md:order-last max-md:w-full"
           >
             {{ clock(r) }} {{ $t('servers.workload.timeline.release') }}
           </span>
@@ -450,7 +450,7 @@ onMounted(() => {
           </h3>
           <RouterLink
             :to="{ name: 'events', query: { host: server, workload: id, type: 'all' } }"
-            class="text-12 text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+            class="text-12 text-link hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
             data-testid="workload-events-link"
             >{{ $t('servers.workload.events.all') }}</RouterLink
           >
@@ -465,7 +465,7 @@ onMounted(() => {
             <span class="font-mono text-12 text-text-subtle">{{ eventTime(e.lastSeen) }}</span>
             <span
               class="font-medium"
-              :class="e.type === 'Warning' ? 'text-warning' : 'text-text'"
+              :class="e.type === 'Warning' ? 'text-warning-text' : 'text-text'"
               >{{ e.reason }}</span
             >
             <span class="min-w-0 text-text-muted">{{ e.message }}</span>
@@ -531,7 +531,7 @@ onMounted(() => {
               <span class="text-text-muted">{{
                 $t('servers.talksTo.rate', { v: rate(e.rate) })
               }}</span>
-              <span :class="e.failed > 0 ? 'text-critical' : 'text-ok'">{{
+              <span :class="e.failed > 0 ? 'text-critical-text' : 'text-ok-text'">{{
                 e.failed > 0
                   ? $t('servers.talksTo.failed', { v: rate(e.failed) })
                   : $t('servers.talksTo.ok')

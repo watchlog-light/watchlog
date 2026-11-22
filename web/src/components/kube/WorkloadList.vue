@@ -194,7 +194,11 @@ const runLabel = (w: KubeWorkload) => {
               <p
                 v-if="item.w.problem"
                 class="line-clamp-2 text-12"
-                :class="item.w.problem.severity === 'critical' ? 'text-critical' : 'text-warning'"
+                :class="
+                  item.w.problem.severity === 'critical'
+                    ? 'text-critical-text'
+                    : 'text-warning-text'
+                "
                 data-testid="problem-reason"
               >
                 {{ item.w.problem.reason }}
@@ -253,7 +257,7 @@ const runLabel = (w: KubeWorkload) => {
             </td>
             <td
               class="num c-restarts"
-              :class="restartsHigh(item.w.restartsInRange, range) && 'text-critical'"
+              :class="restartsHigh(item.w.restartsInRange, range) && 'text-critical-text'"
               :data-label="$t('kube.workloads.columns.restarts')"
             >
               <template v-if="item.w.restartsInRange === null">–</template>
@@ -312,7 +316,7 @@ const runLabel = (w: KubeWorkload) => {
               <p v-if="pods.get(id(item.w))?.loading" class="text-12 text-text-subtle">
                 {{ $t('common.loading') }}
               </p>
-              <p v-else-if="pods.get(id(item.w))?.error" class="text-12 text-critical">
+              <p v-else-if="pods.get(id(item.w))?.error" class="text-12 text-critical-text">
                 {{ $t('kube.workloads.podsError') }}
               </p>
               <div v-else class="flex flex-col gap-1.5">
@@ -357,7 +361,7 @@ const runLabel = (w: KubeWorkload) => {
               </div>
               <RouterLink
                 :to="workloadLink(item.w)"
-                class="mt-2 inline-block text-12 text-primary hover:underline max-lg:leading-11"
+                class="mt-2 inline-block text-12 text-link hover:underline max-lg:leading-11"
                 data-testid="open-workload"
                 >{{
                   $t('kube.workloads.open', {
@@ -466,15 +470,15 @@ tr.exp td {
   white-space: nowrap;
 }
 .pill.crit {
-  color: var(--critical);
+  color: var(--critical-text);
   background: color-mix(in srgb, var(--critical) 12%, transparent);
 }
 .pill.warn {
-  color: var(--warning);
+  color: var(--warning-text);
   background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 .pill.ok {
-  color: var(--primary);
+  color: var(--link);
   background: var(--primary-soft);
 }
 .pill.neutral {
@@ -493,11 +497,11 @@ tr.exp td {
 .bg-info {
   background: var(--info);
 }
-.text-critical {
-  color: var(--critical);
+.text-critical-text {
+  color: var(--critical-text);
 }
-.text-warning {
-  color: var(--warning);
+.text-warning-text {
+  color: var(--warning-text);
 }
 /* Phones: each workload is a card (name, health at the top right, then labelled
    fields); the namespace rows stay as group headings. */

@@ -38,8 +38,8 @@ export const SEVERITY_TOKEN: Record<Severity, string> = {
 export const SEVERITY_TEXT: Record<Severity, string> = {
   ok: 'text-text',
   info: 'text-text',
-  warning: 'text-warning',
-  critical: 'text-critical',
+  warning: 'text-warning-text',
+  critical: 'text-critical-text',
 };
 
 /** Categorical identity, in the fixed token order (never cycled past 8). */

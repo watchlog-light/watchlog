@@ -59,7 +59,11 @@ const pct = (v: number | null) => (v === null ? '–' : `${Math.round(v * 100)}%
       </div>
       <div
         class="d"
-        :class="k.nodes.ready === k.nodes.total && k.nodes.total > 0 ? 'text-ok' : 'text-critical'"
+        :class="
+          k.nodes.ready === k.nodes.total && k.nodes.total > 0
+            ? 'text-ok-text'
+            : 'text-critical-text'
+        "
       >
         <template v-if="k.nodes.total === 0">{{ $t('overview.kpi.noNodes') }}</template>
         <template v-else-if="k.nodes.ready === k.nodes.total"
@@ -82,7 +86,7 @@ const pct = (v: number | null) => (v === null ? '–' : `${Math.round(v * 100)}%
       <div class="v">
         {{ k.pods.running }}<small v-if="docker"> / {{ k.pods.total }}</small>
       </div>
-      <div class="d" :class="k.pods.failed || k.pods.pending ? 'text-warning' : ''">
+      <div class="d" :class="k.pods.failed || k.pods.pending ? 'text-warning-text' : ''">
         {{
           docker
             ? $t('overview.kpi.stoppedUnhealthy', {
@@ -99,16 +103,16 @@ const pct = (v: number | null) => (v === null ? '–' : `${Math.round(v * 100)}%
       <div class="k">
         {{ $t('overview.kpi.restarts') }} <span class="font-mono">{{ period }}</span>
       </div>
-      <div class="v" :class="(k.restarts.total ?? 0) > 0 ? 'text-critical' : ''">
+      <div class="v" :class="(k.restarts.total ?? 0) > 0 ? 'text-critical-text' : ''">
         {{ k.restarts.total === null ? '–' : Math.round(k.restarts.total) }}
       </div>
       <div
         class="d"
         :class="
           restarts.direction === 'up'
-            ? 'text-critical'
+            ? 'text-critical-text'
             : restarts.direction === 'down'
-              ? 'text-ok'
+              ? 'text-ok-text'
               : ''
         "
       >
@@ -133,9 +137,9 @@ const pct = (v: number | null) => (v === null ? '–' : `${Math.round(v * 100)}%
           data-testid="kpi-traffic-sub"
           :class="
             (traffic.failedRatio ?? 0) >= 0.05
-              ? 'text-critical'
+              ? 'text-critical-text'
               : (traffic.failedRatio ?? 0) >= 0.01
-                ? 'text-warning'
+                ? 'text-warning-text'
                 : ''
           "
         >
@@ -241,14 +245,14 @@ const pct = (v: number | null) => (v === null ? '–' : `${Math.round(v * 100)}%
   font-size: 12px;
   color: var(--text-subtle);
 }
-.text-critical {
-  color: var(--critical);
+.text-critical-text {
+  color: var(--critical-text);
 }
-.text-warning {
-  color: var(--warning);
+.text-warning-text {
+  color: var(--warning-text);
 }
-.text-ok {
-  color: var(--ok);
+.text-ok-text {
+  color: var(--ok-text);
 }
 .tri {
   position: relative;

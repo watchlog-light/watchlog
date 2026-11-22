@@ -111,7 +111,7 @@ onMounted(page.load);
         <button
           v-if="canRevoke(token)"
           type="button"
-          class="h-10 rounded-control border border-critical/40 px-3.5 text-14 font-medium text-critical hover:bg-surface-2 max-lg:h-11"
+          class="h-10 rounded-control border border-critical/40 px-3.5 text-14 font-medium text-critical-text hover:bg-surface-2 max-lg:h-11"
           data-testid="api-token-revoke"
           @click="revokeOpen = true"
         >
@@ -137,7 +137,7 @@ onMounted(page.load);
                 <span
                   :class="[
                     'text-13 wrap-anywhere',
-                    e.kind === 'new_ip' ? 'text-warning' : 'text-text',
+                    e.kind === 'new_ip' ? 'text-warning-text' : 'text-text',
                   ]"
                   >{{ eventLabel(e) }}</span
                 >

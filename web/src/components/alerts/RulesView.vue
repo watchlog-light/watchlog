@@ -177,7 +177,7 @@ async function toggle(rule: AlertRule) {
             <RuleSentence :rule="r" />
             <span
               v-if="r.evalError"
-              class="mt-0.5 block text-12 text-critical"
+              class="mt-0.5 block text-12 text-critical-text"
               data-testid="rule-error"
             >
               {{ $t('alerts.rules.evalError', { error: r.evalError }) }}
@@ -188,8 +188,8 @@ async function toggle(rule: AlertRule) {
               'hidden text-12 whitespace-nowrap sm:inline',
               r.firing
                 ? r.severity === 'critical'
-                  ? 'text-critical'
-                  : 'text-warning'
+                  ? 'text-critical-text'
+                  : 'text-warning-text'
                 : 'text-text-subtle',
             ]"
           >

@@ -110,7 +110,7 @@ onMounted(page.load);
         />
         {{ $t('settings.namespaces.watchlog') }}
       </label>
-      <p v-if="error" class="text-13 text-critical" role="alert">{{ error }}</p>
+      <p v-if="error" class="text-13 text-critical-text" role="alert">{{ error }}</p>
       <div v-if="canManage" class="flex flex-wrap items-center gap-2">
         <BaseButton type="submit" :loading="saving" data-testid="save-namespaces">
           {{ $t('common.save') }}

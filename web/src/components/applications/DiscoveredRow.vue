@@ -48,7 +48,7 @@ const emit = defineEmits<{ ignore: []; monitor: [] }>();
       <span
         :class="[
           'text-12 whitespace-nowrap',
-          NEEDS_USER.has(service.type) ? 'text-warning' : 'text-ok',
+          NEEDS_USER.has(service.type) ? 'text-warning-text' : 'text-ok-text',
         ]"
         data-testid="needs-user"
       >

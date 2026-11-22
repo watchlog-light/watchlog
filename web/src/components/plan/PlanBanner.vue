@@ -70,12 +70,12 @@ const text = computed(() => {
     :aria-label="$t('cloud.plan.banner.label')"
     :data-testid="downgrade ? 'downgrade-banner' : 'over-limit-banner'"
   >
-    <CalendarClock v-if="downgrade" class="size-4 shrink-0 text-warning" aria-hidden="true" />
-    <CircleAlert v-else class="size-4 shrink-0 text-warning" aria-hidden="true" />
+    <CalendarClock v-if="downgrade" class="size-4 shrink-0 text-warning-text" aria-hidden="true" />
+    <CircleAlert v-else class="size-4 shrink-0 text-warning-text" aria-hidden="true" />
     <p class="min-w-0 flex-1">{{ text }}</p>
     <RouterLink
       :to="BILLING"
-      class="font-semibold whitespace-nowrap text-primary hover:text-primary-hover max-sm:basis-full max-sm:pl-7"
+      class="font-semibold whitespace-nowrap text-link hover:text-primary-hover max-sm:basis-full max-sm:pl-7"
       data-testid="banner-link"
     >
       {{ linkText }}

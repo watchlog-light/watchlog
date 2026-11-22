@@ -617,7 +617,7 @@ describe('the navigation', () => {
       await flushPromises();
       const egress = w.findAll('nav a').find((a) => a.text().startsWith('Egress'))!;
       expect(egress.get('[data-testid="nav-new"]').text()).toContain('2 new');
-      expect(egress.get('[data-testid="nav-new"]').classes()).toContain('text-warning');
+      expect(egress.get('[data-testid="nav-new"]').classes()).toContain('text-warning-text');
       w.unmount();
       vi.unstubAllGlobals();
     }

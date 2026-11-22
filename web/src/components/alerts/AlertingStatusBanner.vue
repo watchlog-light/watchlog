@@ -20,7 +20,7 @@ onBeforeUnmount(() => stop?.());
     class="flex items-start gap-3 border-b border-critical bg-surface-1 px-6 py-3"
     data-testid="alerting-down"
   >
-    <CircleX class="mt-0.5 size-5 shrink-0 text-critical" aria-hidden="true" />
+    <CircleX class="mt-0.5 size-5 shrink-0 text-critical-text" aria-hidden="true" />
     <div class="min-w-0">
       <p class="text-14 font-semibold text-text">{{ $t('alerts.down.title') }}</p>
       <p class="text-13 text-text-muted">

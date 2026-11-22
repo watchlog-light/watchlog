@@ -64,7 +64,7 @@ if (props.list.counts.held > 0) {
         <dt class="text-12 tracking-wide text-text-muted uppercase">
           {{ $t('alerts.severity.critical') }}
         </dt>
-        <dd class="font-mono text-20 text-critical tabular" data-testid="tile-critical">
+        <dd class="font-mono text-20 text-critical-text tabular" data-testid="tile-critical">
           {{ list.counts.critical }}
         </dd>
       </div>
@@ -72,7 +72,7 @@ if (props.list.counts.held > 0) {
         <dt class="text-12 tracking-wide text-text-muted uppercase">
           {{ $t('alerts.severity.warning') }}
         </dt>
-        <dd class="font-mono text-20 text-warning tabular" data-testid="tile-warning">
+        <dd class="font-mono text-20 text-warning-text tabular" data-testid="tile-warning">
           {{ list.counts.warning }}
         </dd>
       </div>
@@ -85,7 +85,7 @@ if (props.list.counts.held > 0) {
         <dd v-else-if="list.counts.held > 0">
           <button
             type="button"
-            class="text-12 text-primary hover:underline"
+            class="text-12 text-link hover:underline"
             data-testid="tile-show-held"
             @click="toggleHeld"
           >

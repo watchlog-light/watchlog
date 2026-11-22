@@ -82,7 +82,7 @@ const failing = (r: EgressRow) => r.badges.includes('failing');
                 <RouterLink
                   v-if="r.alertId"
                   :to="{ name: 'alert', params: { id: r.alertId } }"
-                  class="text-12 text-warning hover:underline"
+                  class="text-12 text-warning-text hover:underline"
                   data-testid="egress-view-alert"
                   >{{ $t('egress.alert.view') }}</RouterLink
                 >
@@ -93,19 +93,21 @@ const failing = (r: EgressRow) => r.badges.includes('failing');
                 <li v-for="s in r.sources" :key="sourceName(s)">
                   <RouterLink
                     :to="sourceLink(s, clusterId)"
-                    class="text-text hover:text-primary hover:underline"
+                    class="text-text hover:text-link hover:underline"
                     >{{ sourceName(s) }}</RouterLink
                   >
-                  <span v-if="s.new && r.sources.length > 1" class="ml-1.5 text-12 text-warning">{{
-                    $t('egress.newSource')
-                  }}</span>
+                  <span
+                    v-if="s.new && r.sources.length > 1"
+                    class="ml-1.5 text-12 text-warning-text"
+                    >{{ $t('egress.newSource') }}</span
+                  >
                 </li>
               </ul>
             </td>
             <td
               :class="[
                 'border-b border-border px-4 py-3 whitespace-nowrap',
-                isNew(r) ? 'font-semibold text-warning' : 'text-text-muted',
+                isNew(r) ? 'font-semibold text-warning-text' : 'text-text-muted',
               ]"
             >
               {{ firstSeenText(r, t, at()) }}
@@ -122,7 +124,7 @@ const failing = (r: EgressRow) => r.badges.includes('failing');
             <td
               :class="[
                 'border-b border-border px-4 py-3 text-right font-mono text-13',
-                failing(r) ? 'font-semibold text-critical' : 'text-text',
+                failing(r) ? 'font-semibold text-critical-text' : 'text-text',
               ]"
             >
               {{ percent(r.failedRatio) }}
@@ -155,7 +157,7 @@ const failing = (r: EgressRow) => r.badges.includes('failing');
         <RouterLink
           v-if="r.alertId"
           :to="{ name: 'alert', params: { id: r.alertId } }"
-          class="text-13 text-warning hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+          class="text-13 text-warning-text hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
           data-testid="egress-view-alert"
           >{{ $t('egress.alert.view') }}</RouterLink
         >
@@ -164,14 +166,14 @@ const failing = (r: EgressRow) => r.badges.includes('failing');
             ><span v-if="i">, </span
             ><RouterLink
               :to="sourceLink(s, clusterId)"
-              class="hover:text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+              class="hover:text-link hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
               >{{ sourceName(s) }}</RouterLink
             ></template
           >
         </p>
         <dl class="grid grid-cols-2 gap-x-3 gap-y-1 text-12">
           <dt class="text-text-subtle">{{ $t('egress.col.firstSeen') }}</dt>
-          <dd :class="isNew(r) ? 'font-semibold text-warning' : 'text-text-muted'">
+          <dd :class="isNew(r) ? 'font-semibold text-warning-text' : 'text-text-muted'">
             {{ firstSeenText(r, t, at()) }}
           </dd>
           <dt class="text-text-subtle">{{ $t('egress.col.lastSeen') }}</dt>
@@ -181,7 +183,7 @@ const failing = (r: EgressRow) => r.badges.includes('failing');
           <dt class="text-text-subtle">{{ $t('egress.col.connections') }}</dt>
           <dd class="font-mono text-text">
             {{ conns(r) }} ·
-            <span :class="failing(r) ? 'font-semibold text-critical' : ''">{{
+            <span :class="failing(r) ? 'font-semibold text-critical-text' : ''">{{
               $t('egress.failedShort', { p: percent(r.failedRatio) })
             }}</span>
           </dd>

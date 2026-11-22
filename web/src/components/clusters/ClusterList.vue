@@ -226,7 +226,7 @@ onMounted(list.load);
             </p>
             <p
               v-if="cluster.ingestFailure"
-              class="text-12 text-critical"
+              class="text-12 text-critical-text"
               data-testid="cluster-ingest-failing"
             >
               {{

@@ -74,7 +74,7 @@ const bytes = (r: EgressRow) =>
     data-testid="egress-alert"
   >
     <header class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-      <Globe class="size-4.5 shrink-0 text-info" aria-hidden="true" />
+      <Globe class="size-4.5 shrink-0 text-info-text" aria-hidden="true" />
       <h3 id="egress-alert-title" class="text-14 font-semibold text-text">
         {{ $t('egress.alert.title') }}
       </h3>

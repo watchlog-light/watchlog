@@ -5,10 +5,10 @@ import type { Tone } from '@/lib/certs-jobs';
 // One of a tab's four tiles: a label, a big value on its tone, a line under it.
 defineProps<{ label: string; value: string; sub?: string; tone?: Tone }>();
 const TEXT: Record<Tone, string> = {
-  crit: 'text-critical',
-  warn: 'text-warning',
+  crit: 'text-critical-text',
+  warn: 'text-warning-text',
   ok: 'text-text',
-  info: 'text-info',
+  info: 'text-info-text',
   muted: 'text-text',
 };
 </script>

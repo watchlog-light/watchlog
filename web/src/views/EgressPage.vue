@@ -232,7 +232,7 @@ onMounted(() => {
             <dd
               :class="[
                 'font-mono text-20 tabular',
-                answer.summary.new ? 'text-warning' : 'text-text',
+                answer.summary.new ? 'text-warning-text' : 'text-text',
               ]"
             >
               {{ answer.summary.new }}
@@ -251,7 +251,7 @@ onMounted(() => {
             <dd
               :class="[
                 'font-mono text-20 tabular',
-                answer.summary.failing ? 'text-critical' : 'text-text',
+                answer.summary.failing ? 'text-critical-text' : 'text-text',
               ]"
             >
               {{ answer.summary.failing }}
@@ -424,7 +424,7 @@ onMounted(() => {
 .chip[aria-pressed='true'] {
   border-color: var(--primary);
   background: var(--primary-soft);
-  color: var(--primary);
+  color: var(--link);
   font-weight: 600;
 }
 .chip:focus-visible,

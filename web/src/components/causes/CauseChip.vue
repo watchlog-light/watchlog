@@ -7,7 +7,7 @@ import type { PanelState } from '@/lib/causes';
 defineProps<{ state: PanelState }>();
 
 const STYLE: Record<PanelState, string> = {
-  likely: 'bg-info/15 text-info',
+  likely: 'bg-info/15 text-info-text',
   possible: 'border border-dashed border-border-strong text-text',
   none: 'bg-surface-3 text-text-muted',
   was: 'border border-border bg-surface-2 text-text-muted',

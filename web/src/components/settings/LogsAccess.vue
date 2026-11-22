@@ -96,7 +96,7 @@ onMounted(page.load);
       <p v-else class="text-13 text-text" data-testid="logs-access-readonly">
         {{ $t('settings.logs.current', { value: $t(`settings.logs.options.${access}`) }) }}
       </p>
-      <p v-if="error" class="text-13 text-critical" role="alert">{{ error }}</p>
+      <p v-if="error" class="text-13 text-critical-text" role="alert">{{ error }}</p>
       <div v-if="canManage" class="flex flex-wrap items-center gap-2">
         <BaseButton type="submit" :loading="saving" data-testid="save-logs-access">
           {{ $t('common.save') }}

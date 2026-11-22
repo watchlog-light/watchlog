@@ -29,7 +29,7 @@ onMounted(() => void store.loadGeneral().catch(() => {}));
     class="flex flex-wrap items-start gap-2 rounded-card border border-border bg-surface-2 px-3 py-2.5 text-13 text-text-muted"
     data-testid="public-address-notice"
   >
-    <TriangleAlert class="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+    <TriangleAlert class="mt-0.5 size-4 shrink-0 text-warning-text" aria-hidden="true" />
     <p class="min-w-0 flex-1">
       {{ $t('settings.publicAddressNotice.text') }}
       <template v-if="canManage">

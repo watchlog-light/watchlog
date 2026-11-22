@@ -31,7 +31,7 @@ const by = computed(() =>
     :aria-label="$t('cloud.verify.bannerLabel')"
     data-testid="verify-banner"
   >
-    <MailWarning class="size-4 shrink-0 text-warning" aria-hidden="true" />
+    <MailWarning class="size-4 shrink-0 text-warning-text" aria-hidden="true" />
     <p class="min-w-0 flex-1">
       {{
         by

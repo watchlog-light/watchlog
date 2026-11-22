@@ -52,7 +52,7 @@ const count = (n: number) => new Intl.NumberFormat('en').format(n);
       </label>
       <RouterLink
         :to="{ name: 'events' }"
-        class="text-13 text-primary max-lg:inline-flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center max-lg:justify-center"
+        class="text-13 text-link max-lg:inline-flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center max-lg:justify-center"
         >{{ $t('overview.events.all') }}</RouterLink
       >
     </template>
@@ -153,7 +153,7 @@ const count = (n: number) => new Intl.NumberFormat('en').format(n);
   padding: 1px 7px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--warning);
+  color: var(--warning-text);
   background: color-mix(in srgb, var(--warning) 10%, transparent);
 }
 .rs-muted {

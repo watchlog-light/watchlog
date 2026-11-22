@@ -107,7 +107,7 @@ async function toggle(rule: AlertRule, enabled: boolean) {
         </button>
         <span
           v-if="r.firing > 0"
-          class="shrink-0 rounded-full bg-critical/15 px-2 py-0.5 text-12 font-semibold text-critical"
+          class="shrink-0 rounded-full bg-critical/15 px-2 py-0.5 text-12 font-semibold text-critical-text"
           >{{ $t('applications.firing', { n: r.firing }) }}</span
         >
         <span v-else-if="!r.enabled" class="shrink-0 text-12 text-text-subtle">{{

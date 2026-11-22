@@ -30,7 +30,7 @@ async function copy() {
         class="inline-flex items-center justify-center gap-1.5 rounded-control px-2 py-1 text-12 text-text-muted transition-colors hover:bg-surface-2 hover:text-text max-lg:min-h-11 max-lg:min-w-11"
         @click="copy"
       >
-        <Check v-if="state === 'copied'" class="size-3.5 text-ok" aria-hidden="true" />
+        <Check v-if="state === 'copied'" class="size-3.5 text-ok-text" aria-hidden="true" />
         <Copy v-else class="size-3.5" aria-hidden="true" />
         <span aria-live="polite">
           {{

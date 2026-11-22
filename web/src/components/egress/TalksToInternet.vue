@@ -72,7 +72,7 @@ const link = computed(() => ({
     <header
       class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-border px-4 py-3"
     >
-      <Globe class="size-4.5 shrink-0 text-info" aria-hidden="true" />
+      <Globe class="size-4.5 shrink-0 text-info-text" aria-hidden="true" />
       <h2 id="talks-title" class="text-14 font-semibold text-text">
         {{ $t('egress.talks.title') }}
       </h2>
@@ -97,7 +97,7 @@ const link = computed(() => ({
     >
       <CircleAlert class="size-4 shrink-0 text-text-subtle" aria-hidden="true" />
       <span class="min-w-0 flex-1">{{ $t('egress.talks.error') }}</span>
-      <button type="button" class="text-primary hover:underline max-lg:min-h-11" @click="page.load">
+      <button type="button" class="text-link hover:underline max-lg:min-h-11" @click="page.load">
         {{ $t('common.retry') }}
       </button>
     </div>
@@ -141,7 +141,7 @@ const link = computed(() => ({
       <div class="border-t border-border px-4 py-2.5 text-13">
         <RouterLink
           :to="link"
-          class="font-semibold text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+          class="font-semibold text-link hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
           data-testid="talks-link"
           >{{ $t(`egress.talks.link.${kind}`) }}</RouterLink
         >

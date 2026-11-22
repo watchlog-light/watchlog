@@ -326,7 +326,7 @@ const groupTitle = (g: PaletteGroup & { id: string }) =>
       <DialogContent
         data-testid="palette"
         :class="[
-          'fixed z-50 flex flex-col overflow-hidden bg-surface-1 shadow-xl',
+          'fixed z-50 flex flex-col overflow-hidden bg-surface-1 shadow-menu',
           narrow
             ? 'inset-0 h-dvh'
             : 'top-[12vh] left-1/2 max-h-[min(36rem,76dvh)] w-[calc(100%-2rem)] max-w-160 -translate-x-1/2 rounded-card border border-border',

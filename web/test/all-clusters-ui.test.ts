@@ -210,7 +210,9 @@ describe('the page', () => {
     // The table, by status; a silent server in red; the kind line in each side's words.
     const table = w.findAll('[data-testid="ac-row"]');
     expect(table).toHaveLength(6);
-    expect(table[2]!.get('[data-testid="ac-row-reporting"]').classes()).toContain('text-critical');
+    expect(table[2]!.get('[data-testid="ac-row-reporting"]').classes()).toContain(
+      'text-critical-text',
+    );
     expect(table[3]!.get('[data-testid="ac-row-kind"]').text()).toBe(
       'Server fleet · 3 servers · PostgreSQL',
     );

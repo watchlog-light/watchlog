@@ -234,7 +234,7 @@ describe('the account menu', () => {
     expect(q('account-tokens')!.getAttribute('href')).toBe('/settings?tab=tokens');
     expect(q('account-billing')!.getAttribute('href')).toBe('/settings?tab=billing');
     expect(q('account-docs')!.getAttribute('href')).toBe('https://watchlog.io/docs/');
-    expect(q('sign-out')!.className).toContain('text-critical');
+    expect(q('sign-out')!.className).toContain('text-critical-text');
   });
 
   it('Community: no account page and no billing, so only tokens, docs and sign out', async () => {

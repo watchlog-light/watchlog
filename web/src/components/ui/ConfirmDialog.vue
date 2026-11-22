@@ -79,7 +79,7 @@ async function confirm() {
       </slot>
       <p
         v-if="error"
-        class="rounded-control border border-border bg-surface-2 px-3 py-2 text-13 wrap-anywhere text-critical"
+        class="rounded-control border border-border bg-surface-2 px-3 py-2 text-13 wrap-anywhere text-critical-text"
         role="alert"
         :data-testid="`${testid}-error`"
       >

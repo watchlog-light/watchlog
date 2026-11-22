@@ -137,7 +137,7 @@ onMounted(() => void page.load());
             <span class="font-mono text-13 tracking-wider text-text-subtle uppercase">{{
               $t(open ? 'anomaly.hero.now' : 'anomaly.hero.peak')
             }}</span>
-            <span class="an-now text-warning" data-testid="anomaly-now">{{
+            <span class="an-now text-warning-text" data-testid="anomaly-now">{{
               valueText(a.value, a.unit)
             }}</span>
           </div>
@@ -307,7 +307,7 @@ onMounted(() => void page.load());
               {{ $t(canManage ? 'anomaly.feedback.hint' : 'anomaly.feedback.viewer') }}
             </p>
           </template>
-          <p v-if="failed" class="text-13 text-critical" role="alert">
+          <p v-if="failed" class="text-13 text-critical-text" role="alert">
             {{ $t('anomaly.feedback.failed') }}
           </p>
         </section>
@@ -365,7 +365,7 @@ onMounted(() => void page.load());
 }
 .an-pill-warn {
   background: color-mix(in srgb, var(--warning) 14%, transparent);
-  color: var(--warning);
+  color: var(--warning-text);
 }
 .an-pill-plain {
   background: var(--surface-2);
@@ -373,7 +373,7 @@ onMounted(() => void page.load());
 }
 .an-pill-pro {
   border: 1px solid color-mix(in srgb, var(--info) 50%, transparent);
-  color: var(--info);
+  color: var(--info-text);
 }
 .an-band {
   fill: color-mix(in srgb, var(--text-muted) 13%, transparent);

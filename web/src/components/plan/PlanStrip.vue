@@ -43,7 +43,7 @@ const linkText = computed(() => {
         <b class="font-semibold text-text">{{ $t(`cloud.plan.name.${p.plan}`) }}</b>
         <span
           v-if="p.plan === 'pro' && p.source === 'beta'"
-          class="text-12 text-primary"
+          class="text-12 text-link"
           data-testid="plan-beta"
           >{{ $t('cloud.plan.betaTag') }}</span
         >
@@ -82,7 +82,7 @@ const linkText = computed(() => {
     </p>
     <RouterLink
       :to="BILLING"
-      class="text-13 font-semibold text-primary hover:text-primary-hover"
+      class="text-13 font-semibold text-link hover:text-primary-hover"
       data-testid="plan-try-pro"
     >
       {{ linkText }}

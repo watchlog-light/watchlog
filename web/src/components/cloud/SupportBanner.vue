@@ -49,7 +49,7 @@ async function leave() {
     :aria-label="$t('cloud.support.bannerLabel')"
     data-testid="support-banner"
   >
-    <LifeBuoy class="size-4 shrink-0 text-warning" aria-hidden="true" />
+    <LifeBuoy class="size-4 shrink-0 text-warning-text" aria-hidden="true" />
     <p class="min-w-0 flex-1">
       <strong class="font-semibold">{{ $t('cloud.support.bannerTitle') }}</strong>
       {{

@@ -222,7 +222,7 @@ onMounted(() => {
         <li v-if="server.updateAvailable && server.latestAgentVersion">
           <button
             type="button"
-            class="rounded-control border border-warning/50 bg-warning/15 px-2 py-1 text-warning hover:bg-warning/25 max-lg:min-h-11"
+            class="rounded-control border border-warning/50 bg-warning/15 px-2 py-1 text-warning-text hover:bg-warning/25 max-lg:min-h-11"
             data-testid="agent-chip-update"
             @click="updateOpen = true"
           >
@@ -236,7 +236,7 @@ onMounted(() => {
         </li>
         <li
           v-else-if="server.agentVersion"
-          class="rounded-control border border-primary/40 bg-primary-soft px-2 py-1 text-primary"
+          class="rounded-control border border-primary-border bg-primary-soft px-2 py-1 text-link"
           data-testid="agent-chip"
         >
           {{ $t('servers.chip.agent', { v: server.agentVersion }) }}
@@ -368,7 +368,7 @@ onMounted(() => {
               </td>
               <td
                 class="px-4 py-2.5 text-right font-mono text-12 tabular"
-                :class="(r.w.restarts24h ?? 0) >= 3 ? 'text-warning' : 'text-text-muted'"
+                :class="(r.w.restarts24h ?? 0) >= 3 ? 'text-warning-text' : 'text-text-muted'"
               >
                 {{ r.w.restarts24h == null ? '–' : Math.round(r.w.restarts24h) }}
               </td>
@@ -453,7 +453,7 @@ onMounted(() => {
               v-if="eventLink(e)"
               :to="eventLink(e)!"
               class="hover:underline"
-              :class="e.type === 'Warning' ? 'text-warning' : 'text-text'"
+              :class="e.type === 'Warning' ? 'text-warning-text' : 'text-text'"
             >
               {{ eventText(e) }}
             </RouterLink>
@@ -479,7 +479,7 @@ onMounted(() => {
         <RouterLink
           v-else
           :to="{ name: 'events', query: { host: name, type: 'all' } }"
-          class="mt-3 inline-block text-12 text-primary hover:underline max-lg:min-h-11"
+          class="mt-3 inline-block text-12 text-link hover:underline max-lg:min-h-11"
           data-testid="server-events-link"
           >{{ $t('servers.events.all') }}</RouterLink
         >
@@ -503,7 +503,7 @@ onMounted(() => {
               <span class="text-text-muted">{{
                 $t('servers.talksTo.rate', { v: rate(e.rate) })
               }}</span>
-              <span :class="e.failed > 0 ? 'text-critical' : 'text-ok'">{{
+              <span :class="e.failed > 0 ? 'text-critical-text' : 'text-ok-text'">{{
                 e.failed > 0
                   ? $t('servers.talksTo.failed', { v: rate(e.failed) })
                   : $t('servers.talksTo.ok')

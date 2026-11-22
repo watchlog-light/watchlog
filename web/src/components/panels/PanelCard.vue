@@ -41,7 +41,7 @@ defineEmits<{ retry: [] }>();
       class="flex items-start gap-2.5 rounded-control border border-border bg-surface-2 px-3 py-2.5 text-13 text-text-muted"
       data-testid="needs-permission"
     >
-      <KeyRound class="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+      <KeyRound class="mt-0.5 size-4 shrink-0 text-warning-text" aria-hidden="true" />
       <span>
         {{ $t('integrations.panel.needsPermission') }}
         <template v-if="panel.missing">{{

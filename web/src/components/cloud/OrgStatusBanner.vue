@@ -102,15 +102,15 @@ async function act() {
   >
     <Trash2
       v-if="view.kind === 'deletion'"
-      class="size-4 shrink-0 text-critical"
+      class="size-4 shrink-0 text-critical-text"
       aria-hidden="true"
     />
     <CirclePause
       v-else-if="view.kind === 'inactive' || view.kind === 'staff'"
-      class="size-4 shrink-0 text-warning"
+      class="size-4 shrink-0 text-warning-text"
       aria-hidden="true"
     />
-    <CircleAlert v-else class="size-4 shrink-0 text-warning" aria-hidden="true" />
+    <CircleAlert v-else class="size-4 shrink-0 text-warning-text" aria-hidden="true" />
     <p class="min-w-0 flex-1">
       {{ view.text }}
       <span
@@ -124,7 +124,7 @@ async function act() {
       <RouterLink
         v-if="view.kind !== 'staff'"
         :to="DATA"
-        class="font-semibold whitespace-nowrap text-primary hover:text-primary-hover"
+        class="font-semibold whitespace-nowrap text-link hover:text-primary-hover"
       >
         {{ $t('cloud.dataRights.banner.manage') }}
       </RouterLink>

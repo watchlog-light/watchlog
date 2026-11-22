@@ -92,7 +92,7 @@ async function create() {
       <input v-model="useForAll" type="checkbox" class="accent-primary" />
       {{ $t('channels.form.useForAll') }}
     </label>
-    <p v-if="error" class="text-13 text-critical" role="alert">{{ error }}</p>
+    <p v-if="error" class="text-13 text-critical-text" role="alert">{{ error }}</p>
     <div class="flex gap-2">
       <BaseButton type="submit" :loading="saving" :data-testid="`add-${type}-submit`">
         {{ $t('channels.form.submit') }}

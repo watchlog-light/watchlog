@@ -236,7 +236,7 @@ const groupMessage = (events: KubeEvent[]) => {
   white-space: nowrap;
 }
 .rs.w {
-  color: var(--warning);
+  color: var(--warning-text);
   background: color-mix(in srgb, var(--warning) 10%, transparent);
 }
 .rs.n {

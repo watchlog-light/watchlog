@@ -20,15 +20,15 @@ const { toasts } = storeToRefs(store);
     <div
       v-for="toast in toasts"
       :key="toast.id"
-      class="pointer-events-auto flex items-start gap-3 rounded-card border border-border-strong bg-surface-2 py-3 pr-2 pl-4 shadow-xl"
+      class="pointer-events-auto flex items-start gap-3 rounded-card border border-border-strong bg-surface-2 py-3 pr-2 pl-4 shadow-menu"
       data-testid="toast"
     >
       <TriangleAlert
         v-if="toast.tone === 'warning'"
-        class="mt-0.5 size-4 shrink-0 text-warning"
+        class="mt-0.5 size-4 shrink-0 text-warning-text"
         aria-hidden="true"
       />
-      <Info v-else class="mt-0.5 size-4 shrink-0 text-info" aria-hidden="true" />
+      <Info v-else class="mt-0.5 size-4 shrink-0 text-info-text" aria-hidden="true" />
       <p class="min-w-0 flex-1 py-px text-13 leading-relaxed text-text">{{ toast.message }}</p>
       <button
         v-if="toast.action"

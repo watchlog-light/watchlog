@@ -31,6 +31,7 @@ const ME = {
   email: 'ada@acme.example',
   name: 'Ada Owner',
   locale: 'en',
+  theme: 'system' as const,
   role: 'owner',
   org: { id: '01a18f0e-a6c2-71ef-a7b4-42d765746d41', name: 'Acme', slug: 'acme', plan: 'pro' },
 };

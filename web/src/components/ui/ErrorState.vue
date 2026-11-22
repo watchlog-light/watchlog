@@ -20,7 +20,7 @@ defineEmits<{ retry: [] }>();
     "
   >
     <CircleAlert
-      :class="inline ? 'size-4 shrink-0 text-critical' : 'mb-3 size-6 text-critical'"
+      :class="inline ? 'size-4 shrink-0 text-critical-text' : 'mb-3 size-6 text-critical-text'"
       aria-hidden="true"
     />
     <p :class="inline ? 'flex-1 text-13 text-text' : 'text-14 text-text'">{{ message }}</p>

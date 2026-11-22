@@ -92,10 +92,10 @@ export const EVENT_DOT: Record<ApiTokenEvent['kind'], string> = {
 export type McpCall = ApiTokenDetail['activity'][number];
 
 export const CALL_TONE: Record<McpCall['status'], string> = {
-  ok: 'text-ok',
-  truncated: 'text-warning',
-  rate_limited: 'text-critical',
-  error: 'text-critical',
+  ok: 'text-ok-text',
+  truncated: 'text-warning-text',
+  rate_limited: 'text-critical-text',
+  error: 'text-critical-text',
 };
 
 /** The detail's activity rows, newest first. */

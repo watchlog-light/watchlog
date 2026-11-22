@@ -7,9 +7,9 @@ import { computed } from 'vue';
 const props = defineProps<{ status: 'pending' | 'active' | 'inactive' }>();
 
 const STYLES = {
-  active: { icon: CircleCheck, tone: 'text-ok', key: 'clusters.status.active' },
-  pending: { icon: Hourglass, tone: 'text-info', key: 'clusters.status.pending' },
-  inactive: { icon: TriangleAlert, tone: 'text-warning', key: 'clusters.status.inactive' },
+  active: { icon: CircleCheck, tone: 'text-ok-text', key: 'clusters.status.active' },
+  pending: { icon: Hourglass, tone: 'text-info-text', key: 'clusters.status.pending' },
+  inactive: { icon: TriangleAlert, tone: 'text-warning-text', key: 'clusters.status.inactive' },
 } as const;
 
 const style = computed(() => STYLES[props.status]);

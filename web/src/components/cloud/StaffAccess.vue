@@ -83,7 +83,7 @@ const end = (s: SupportSession) =>
         <button
           v-if="s.opened.length"
           type="button"
-          class="mt-1 min-h-8 text-13 text-primary hover:underline max-lg:min-h-11"
+          class="mt-1 min-h-8 text-13 text-link hover:underline max-lg:min-h-11"
           :aria-expanded="open === s.id"
           @click="open = open === s.id ? null : s.id"
         >

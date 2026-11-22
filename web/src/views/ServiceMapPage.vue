@@ -383,7 +383,7 @@ onBeforeUnmount(() => clearInterval(clock));
           @click="go({ view: v })"
         >
           {{ $t(`serviceMap.views.${v}`) }}
-          <span v-if="v !== 'map' && counts[v]" class="ml-1 text-12 text-critical">
+          <span v-if="v !== 'map' && counts[v]" class="ml-1 text-12 text-critical-text">
             {{ counts[v] }}<span class="sr-only"> {{ $t('serviceMap.views.problems') }}</span>
           </span>
         </button>

@@ -76,10 +76,10 @@ const lastDay = computed(() => page.data.value?.data.lastDay ?? { runs: 0, failu
 
 const say = (w: Words) => t(w.key, w.values ?? {}, Number(w.values?.n ?? 1));
 const TEXT_TONE: Record<Tone, string> = {
-  crit: 'text-critical',
-  warn: 'text-warning',
+  crit: 'text-critical-text',
+  warn: 'text-warning-text',
   ok: 'text-text-muted',
-  info: 'text-info',
+  info: 'text-info-text',
   muted: 'text-text-muted',
 };
 const nextRun = (j: ScheduledJob) =>
@@ -290,9 +290,9 @@ const columns =
                     :class="[
                       'truncate text-13',
                       j.lastRun?.result === 'failed'
-                        ? 'text-critical'
+                        ? 'text-critical-text'
                         : j.lastRun?.result === 'running'
-                          ? 'text-info'
+                          ? 'text-info-text'
                           : 'text-text',
                     ]"
                     data-testid="last-run"

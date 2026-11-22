@@ -251,7 +251,7 @@ onMounted(() => {
         v-if="result"
         :class="[
           'min-w-0 rounded-control px-2.5 py-2 text-12 wrap-anywhere',
-          result.ok ? 'bg-surface-2 text-text' : 'bg-surface-2 text-critical',
+          result.ok ? 'bg-surface-2 text-text' : 'bg-surface-2 text-critical-text',
         ]"
         role="status"
         data-testid="smtp-result"
@@ -262,7 +262,7 @@ onMounted(() => {
             : $t('channels.smtp.testFailed', { error: result.error })
         }}
       </p>
-      <p v-if="error" class="text-13 text-critical" role="alert">{{ error }}</p>
+      <p v-if="error" class="text-13 text-critical-text" role="alert">{{ error }}</p>
       <div v-if="canManage" class="flex flex-wrap items-center gap-2">
         <BaseButton variant="secondary" :loading="testing" data-testid="smtp-test" @click="test">
           {{ $t('channels.smtp.test') }}

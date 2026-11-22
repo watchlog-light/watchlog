@@ -35,7 +35,7 @@ const versions = computed(() => {
         <p v-if="data && data.agents.length" class="mt-1 text-13 text-text-muted">
           <span data-testid="agents-versions">{{ $t('agents.settings.found', { versions }) }}</span>
           ·
-          <span v-if="data.outOfDate" class="text-warning">{{
+          <span v-if="data.outOfDate" class="text-warning-text">{{
             data.kind === 'server'
               ? $t('agents.banner.servers', { n: data.outOfDate, total: data.agents.length })
               : $t('agents.banner.nodes', { n: data.outOfDate, total: data.agents.length })

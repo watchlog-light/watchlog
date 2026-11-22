@@ -101,7 +101,7 @@ const forText = (e: EgressExpectation) =>
     <header
       class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-border px-4 py-3"
     >
-      <BadgeCheck class="size-4.5 shrink-0 text-primary" aria-hidden="true" />
+      <BadgeCheck class="size-4.5 shrink-0 text-link" aria-hidden="true" />
       <h2 id="expectations-title" class="text-14 font-semibold text-text">
         {{ $t('egress.expectations.title') }}
       </h2>
@@ -120,7 +120,7 @@ const forText = (e: EgressExpectation) =>
     >
       <CircleAlert class="size-4 shrink-0 text-text-subtle" aria-hidden="true" />
       <span class="min-w-0 flex-1">{{ $t('egress.expectations.error') }}</span>
-      <button type="button" class="text-primary hover:underline max-lg:min-h-11" @click="list.load">
+      <button type="button" class="text-link hover:underline max-lg:min-h-11" @click="list.load">
         {{ $t('common.retry') }}
       </button>
     </div>
@@ -195,7 +195,7 @@ const forText = (e: EgressExpectation) =>
         }}</BaseButton>
         <p
           v-if="error"
-          class="w-full text-13 text-critical"
+          class="w-full text-13 text-critical-text"
           role="alert"
           data-testid="expectations-error"
         >

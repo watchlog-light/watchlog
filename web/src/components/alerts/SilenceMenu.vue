@@ -55,7 +55,7 @@ const item =
       <DropdownMenuContent
         align="end"
         :side-offset="4"
-        class="z-50 min-w-40 rounded-card border border-border bg-surface-2 p-1 shadow-lg"
+        class="z-50 min-w-40 rounded-card border border-border bg-surface-2 p-1 shadow-menu"
       >
         <DropdownMenuItem
           v-for="d in DURATIONS"

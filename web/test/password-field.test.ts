@@ -183,7 +183,7 @@ describe('the password field', () => {
     expect(rule('leak').text()).toContain(
       "Couldn't check right now; we'll check when you continue",
     );
-    expect(rule('leak').classes()).not.toContain('text-critical');
+    expect(rule('leak').classes()).not.toContain('text-critical-text');
     expect(w.find('[data-testid="password-error"]').exists()).toBe(false);
     expect(w.find('[role="alert"]').exists()).toBe(false);
     expect(field.value!.problem()).toBeNull();

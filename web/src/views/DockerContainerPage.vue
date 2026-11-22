@@ -142,7 +142,7 @@ onMounted(page.load);
           <dt class="text-12 text-text-subtle">{{ $t('docker.columns.restarts') }}</dt>
           <dd class="font-mono text-text tabular">
             {{ container.restartCount }}
-            <span v-if="container.oomKilled" class="ml-1 text-critical">{{
+            <span v-if="container.oomKilled" class="ml-1 text-critical-text">{{
               $t('docker.facts.oom')
             }}</span>
           </dd>

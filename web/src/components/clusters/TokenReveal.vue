@@ -31,7 +31,7 @@ defineEmits<{ done: [] }>();
     class="flex flex-col gap-4 rounded-card border border-border bg-surface-1 p-5"
   >
     <div class="flex items-start gap-3">
-      <KeyRound class="mt-0.5 size-5 shrink-0 text-warning" aria-hidden="true" />
+      <KeyRound class="mt-0.5 size-5 shrink-0 text-warning-text" aria-hidden="true" />
       <div>
         <h3 class="text-14 font-semibold text-text">{{ $t('clusters.reveal.title') }}</h3>
         <p class="mt-1 text-13 text-text-muted">{{ $t('clusters.reveal.once') }}</p>

@@ -96,7 +96,7 @@ onMounted(load);
         {{ $t('servers.rules.viewer') }}
       </p>
     </div>
-    <p v-if="loadError" role="alert" class="px-5 py-4 text-13 text-critical">
+    <p v-if="loadError" role="alert" class="px-5 py-4 text-13 text-critical-text">
       {{ $t('servers.rules.errorLoad') }}
     </p>
     <div v-else-if="loaded" class="flex flex-col gap-4 px-5 py-4 max-md:px-4">
@@ -142,7 +142,7 @@ onMounted(load);
             </button>
             <button
               type="button"
-              class="rounded-control p-2 text-text-muted hover:bg-surface-3 hover:text-critical"
+              class="rounded-control p-2 text-text-muted hover:bg-surface-3 hover:text-critical-text"
               :aria-label="$t('servers.rules.remove')"
               @click="remove(i)"
             >
@@ -159,7 +159,7 @@ onMounted(load);
           {{ $t('servers.rules.save') }}
         </BaseButton>
       </div>
-      <p v-if="error" role="alert" class="text-13 text-critical" data-testid="rules-error">
+      <p v-if="error" role="alert" class="text-13 text-critical-text" data-testid="rules-error">
         {{ error }}
       </p>
 

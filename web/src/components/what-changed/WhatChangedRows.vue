@@ -97,7 +97,7 @@ const view = computed(() =>
           <span
             :class="[
               'font-medium tabular md:min-w-16 md:text-right',
-              r.ended ? 'text-text-muted' : 'text-warning',
+              r.ended ? 'text-text-muted' : 'text-warning-text',
             ]"
             data-testid="wc-now"
           >

@@ -78,7 +78,7 @@ async function revoke() {
           </dd>
         </div>
       </dl>
-      <p v-if="error" class="text-13 text-critical" role="alert">{{ error }}</p>
+      <p v-if="error" class="text-13 text-critical-text" role="alert">{{ error }}</p>
       <div :class="narrow ? 'grid grid-cols-2 gap-2' : 'flex justify-end gap-2'">
         <BaseButton variant="secondary" @click="open = false">{{ $t('common.cancel') }}</BaseButton>
         <BaseButton

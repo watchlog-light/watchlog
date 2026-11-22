@@ -98,15 +98,15 @@ const reason = (a: Application) =>
     ? reasonLine(a.finding, a.cluster, (iso) => formatDateTime(iso))
     : reasonText(a, (iso) => formatDateTime(iso));
 const HEALTH_STYLE: Record<Application['health'], string> = {
-  ok: 'bg-ok/15 text-ok',
-  warning: 'bg-warning/15 text-warning',
-  critical: 'bg-critical/15 text-critical',
+  ok: 'bg-ok/15 text-ok-text',
+  warning: 'bg-warning/15 text-warning-text',
+  critical: 'bg-critical/15 text-critical-text',
   unknown: 'bg-surface-3 text-text-muted',
 };
 const REASON_STYLE: Record<Application['health'], string> = {
   ok: 'text-text-muted',
-  warning: 'text-warning',
-  critical: 'text-critical',
+  warning: 'text-warning-text',
+  critical: 'text-critical-text',
   unknown: 'text-text-muted',
 };
 
@@ -280,9 +280,9 @@ async function started() {
                       class="truncate"
                       :class="
                         m.severity === 'warning'
-                          ? 'text-warning'
+                          ? 'text-warning-text'
                           : m.severity === 'critical'
-                            ? 'text-critical'
+                            ? 'text-critical-text'
                             : ''
                       "
                     >

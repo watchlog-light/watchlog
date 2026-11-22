@@ -288,7 +288,7 @@ onBeforeUnmount(stopFollowing);
         <RouterLink
           v-if="auth.canManage"
           :to="{ name: 'settings' }"
-          class="mt-2 inline-flex items-center text-primary hover:underline max-lg:min-h-11"
+          class="mt-2 inline-flex items-center text-link hover:underline max-lg:min-h-11"
           >{{ $t('logs.openSettings') }}</RouterLink
         >
       </div>
@@ -403,7 +403,7 @@ onBeforeUnmount(stopFollowing);
                 (errorCode === 'logs_off' || errorCode === 'logs_admins_only') && auth.canManage
               "
               :to="{ name: 'settings' }"
-              class="mt-2 inline-flex items-center text-primary hover:underline max-lg:min-h-11"
+              class="mt-2 inline-flex items-center text-link hover:underline max-lg:min-h-11"
               >{{ $t('logs.openSettings') }}</RouterLink
             >
           </div>
@@ -424,7 +424,7 @@ onBeforeUnmount(stopFollowing);
               class="log-line"
               :class="
                 l.stream === 'stderr'
-                  ? 'border-l-2 border-warning pl-2 text-warning'
+                  ? 'border-l-2 border-warning pl-2 text-warning-text'
                   : 'pl-2.5 text-text'
               "
               :data-stream="l.stream"
@@ -443,7 +443,7 @@ onBeforeUnmount(stopFollowing);
           data-testid="logs-notes"
         >
           <span>{{ $t('logs.count', { n: shown.length }, shown.length) }}</span>
-          <span v-if="following" class="text-primary">{{ $t('logs.followingNow') }}</span>
+          <span v-if="following" class="text-link">{{ $t('logs.followingNow') }}</span>
           <span v-if="redacted > 0" data-testid="logs-redacted">{{
             $t('logs.redacted', { n: redacted }, redacted)
           }}</span>

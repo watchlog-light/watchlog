@@ -32,7 +32,7 @@ const groups = computed(() => {
     role="status"
     :data-testid="mode === 'topology' ? 'topology-only' : 'ebpf-partial'"
   >
-    <TriangleAlert class="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+    <TriangleAlert class="mt-0.5 size-4 shrink-0 text-warning-text" aria-hidden="true" />
     <div class="min-w-0 flex-1 text-13">
       <template v-if="mode === 'topology'">
         <p class="font-semibold text-text">{{ $t('serviceMap.topology.title') }}</p>

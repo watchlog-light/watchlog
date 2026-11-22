@@ -251,7 +251,7 @@ describe('service map page', () => {
     );
     const section = w.get('[data-testid="edge-http"]');
     expect(section.text()).toContain('40/s');
-    expect(section.get('[data-testid="edge-http-5xx"]').classes()).toContain('text-critical');
+    expect(section.get('[data-testid="edge-http-5xx"]').classes()).toContain('text-critical-text');
     expect(section.text()).toContain('12 ms · 180 ms · 900 ms');
     // HTTP is the first section, open; Connections and Latency are folded.
     expect(w.findAll('.chart-stub').map((c) => c.text())).toEqual([

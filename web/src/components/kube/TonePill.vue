@@ -8,9 +8,9 @@ import type { Tone } from '@/lib/kube';
 const props = defineProps<{ tone: Tone; label: string }>();
 
 const STYLES = {
-  ok: { icon: CircleCheck, class: 'text-ok' },
-  warning: { icon: TriangleAlert, class: 'text-warning' },
-  critical: { icon: CircleX, class: 'text-critical' },
+  ok: { icon: CircleCheck, class: 'text-ok-text' },
+  warning: { icon: TriangleAlert, class: 'text-warning-text' },
+  critical: { icon: CircleX, class: 'text-critical-text' },
   neutral: { icon: Circle, class: 'text-text-subtle' },
 } as const;
 const style = computed(() => STYLES[props.tone]);

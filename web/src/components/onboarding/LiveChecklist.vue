@@ -113,12 +113,12 @@ const ebpf = computed(() => steps.value.find((s) => s.id === 'ebpf' && s.state =
         /></span>
         <TriangleAlert
           v-else-if="s.state === 'off'"
-          class="size-5.5 shrink-0 text-warning"
+          class="size-5.5 shrink-0 text-warning-text"
           aria-hidden="true"
         />
         <LoaderCircle
           v-else-if="s.active"
-          class="size-5.5 shrink-0 animate-spin text-primary"
+          class="size-5.5 shrink-0 animate-spin text-link"
           aria-hidden="true"
         />
         <span

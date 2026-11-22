@@ -76,7 +76,7 @@ const what = computed(() => (props.kind === 'server' ? 'containers' : 'workloads
             )
           }}
         </p>
-        <p v-if="summary.risk" class="text-critical">
+        <p v-if="summary.risk" class="text-critical-text">
           {{ $t(`rightSizing.card.risk.${what}`, { n: summary.risk }, summary.risk) }}
         </p>
         <p v-if="!hints.length" class="text-text-muted">
@@ -89,7 +89,7 @@ const what = computed(() => (props.kind === 'server' ? 'containers' : 'workloads
       <button
         v-if="hints.length > 3"
         type="button"
-        class="flex min-h-11 items-center justify-center gap-1.5 border-t border-border px-3.5 text-13 text-primary hover:bg-surface-2"
+        class="flex min-h-11 items-center justify-center gap-1.5 border-t border-border px-3.5 text-13 text-link hover:bg-surface-2"
         :aria-expanded="open"
         aria-controls="rightsizing-card-list"
         data-testid="rightsizing-more"

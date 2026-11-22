@@ -180,7 +180,12 @@ async function undo() {
           {{ $t('egress.expected.anyPort', { port: row.port }) }}
         </label>
         <p class="text-12 text-text-subtle">{{ $t('egress.expected.stillAlerts') }}</p>
-        <p v-if="error" class="text-13 text-critical" role="alert" data-testid="expected-error">
+        <p
+          v-if="error"
+          class="text-13 text-critical-text"
+          role="alert"
+          data-testid="expected-error"
+        >
           {{ error }}
         </p>
         <div :class="narrow ? 'grid grid-cols-2 gap-2' : 'flex justify-end gap-2'">

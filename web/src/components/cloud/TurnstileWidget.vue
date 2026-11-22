@@ -23,7 +23,7 @@ defineExpose({ reset: turnstile.reset, failed: turnstile.failed });
       role="group"
       :aria-label="$t('cloud.turnstile.label')"
     />
-    <p v-if="turnstile.failed.value && !quiet" role="alert" class="text-12 text-critical">
+    <p v-if="turnstile.failed.value && !quiet" role="alert" class="text-12 text-critical-text">
       {{ $t('cloud.turnstile.failed') }}
     </p>
   </div>

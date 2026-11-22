@@ -69,7 +69,7 @@ const types = computed(() =>
         data-testid="strip-chip"
       >
         <span
-          :class="t.severity === 'critical' ? 'text-critical' : 'text-warning'"
+          :class="t.severity === 'critical' ? 'text-critical-text' : 'text-warning-text'"
           aria-hidden="true"
           >{{ SYMBOL[t.severity] }}</span
         >
@@ -87,7 +87,7 @@ const types = computed(() =>
     <span class="flex-1" />
     <RouterLink
       :to="{ name: 'alerts' }"
-      class="inline-flex items-center gap-1 text-13 text-primary max-lg:min-h-11"
+      class="inline-flex items-center gap-1 text-13 text-link max-lg:min-h-11"
     >
       {{ $t('overview.status.openAlerts') }} <ArrowRight class="size-3.5" aria-hidden="true" />
     </RouterLink>
@@ -119,15 +119,15 @@ const types = computed(() =>
 }
 .ico-critical {
   background: color-mix(in srgb, var(--critical) 15%, transparent);
-  color: var(--critical);
+  color: var(--critical-text);
 }
 .ico-degraded {
   background: color-mix(in srgb, var(--warning) 15%, transparent);
-  color: var(--warning);
+  color: var(--warning-text);
 }
 .ico-healthy {
   background: color-mix(in srgb, var(--ok) 15%, transparent);
-  color: var(--ok);
+  color: var(--ok-text);
 }
 .ico-unknown {
   background: var(--surface-3);

@@ -157,7 +157,7 @@ const summary = computed(() =>
       <DialogPortal>
         <DialogOverlay class="fixed inset-0 z-40 bg-bg/60" />
         <DialogContent
-          class="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-card border-t border-border-strong bg-surface-1 shadow-xl"
+          class="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-card border-t border-border-strong bg-surface-1 shadow-menu"
           data-testid="filter-sheet"
         >
           <header class="flex items-center gap-2 border-b border-border py-1 pr-1 pl-4">

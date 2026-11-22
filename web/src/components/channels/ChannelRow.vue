@@ -94,7 +94,7 @@ async function remove() {
     </div>
     <p
       v-if="result"
-      :class="['min-w-0 text-13 wrap-anywhere', result.ok ? 'text-text' : 'text-critical']"
+      :class="['min-w-0 text-13 wrap-anywhere', result.ok ? 'text-text' : 'text-critical-text']"
       role="status"
       data-testid="test-result"
     >
@@ -102,7 +102,7 @@ async function remove() {
     </p>
     <p
       v-else-if="channel.lastError"
-      class="min-w-0 text-12 wrap-anywhere text-critical"
+      class="min-w-0 text-12 wrap-anywhere text-critical-text"
       data-testid="last-error"
     >
       {{

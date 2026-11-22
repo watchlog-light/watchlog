@@ -121,7 +121,7 @@ onMounted(() => {
           :data-result="f.result"
           data-testid="wc-cause-fact"
         >
-          <Check class="mt-1 size-4 shrink-0 text-ok" aria-hidden="true" />
+          <Check class="mt-1 size-4 shrink-0 text-ok-text" aria-hidden="true" />
           <span>{{ factText(f.lines) }}</span>
         </li>
       </ul>
@@ -135,7 +135,7 @@ onMounted(() => {
           <span
             :class="[
               'font-mono text-12 tracking-widest uppercase md:text-13',
-              green ? 'text-ok' : 'text-text-muted',
+              green ? 'text-ok-text' : 'text-text-muted',
             ]"
             data-testid="wc-cause-label"
             >{{ $t(`whatChanged.cause.label.${state}`) }}</span
@@ -170,7 +170,7 @@ onMounted(() => {
           data-testid="wc-cause-copy"
           @click="copyText"
         >
-          <Check v-if="copyState === 'copied'" class="size-4 text-ok" aria-hidden="true" />
+          <Check v-if="copyState === 'copied'" class="size-4 text-ok-text" aria-hidden="true" />
           <Copy v-else class="size-4" aria-hidden="true" />
           {{
             copyState === 'copied'

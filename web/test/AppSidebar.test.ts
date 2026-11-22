@@ -79,7 +79,9 @@ describe('AppSidebar', () => {
     expect(chips).toHaveLength(navFor('kubernetes').filter((i) => i.pro).length);
     expect(chips.map((c) => c.element.closest('a')?.textContent)).toEqual(['What changedPro']);
     // Info tone, like the page's own chip; never the primary colour.
-    expect(chips[0]!.classes()).toEqual(expect.arrayContaining(['text-info', 'border-info/50']));
+    expect(chips[0]!.classes()).toEqual(
+      expect.arrayContaining(['text-info-text', 'border-info/50']),
+    );
 
     // Collapsed: no room for the chip, so the tooltip says it.
     await wrapper.get('[data-testid="sidebar-toggle"]').trigger('click');

@@ -42,10 +42,10 @@ const jobProblems = computed(() => (jobs.value ?? []).filter(jobNeedsAttention))
 const loading = computed(() => certs.value === null && jobs.value === null);
 const say = (w: Words) => t(w.key, w.values ?? {}, Number(w.values?.n ?? 1));
 const TEXT: Record<Tone, string> = {
-  crit: 'text-critical',
-  warn: 'text-warning',
+  crit: 'text-critical-text',
+  warn: 'text-warning-text',
   ok: 'text-text-muted',
-  info: 'text-info',
+  info: 'text-info-text',
   muted: 'text-text-muted',
 };
 const nodeQuery = (node: string) => (node ? { node } : {});
@@ -62,7 +62,7 @@ const nodeQuery = (node: string) => (node ? { node } : {});
         >
           <ShieldCheck class="size-4 text-text-muted" aria-hidden="true" />
           {{ $t('certsJobsCard.certs', { n: certs?.length ?? 0 }, certs?.length ?? 0) }}
-          <span :class="certProblems.length ? 'text-warning' : 'text-text-muted'">
+          <span :class="certProblems.length ? 'text-warning-text' : 'text-text-muted'">
             ·
             {{
               certProblems.length
@@ -96,7 +96,7 @@ const nodeQuery = (node: string) => (node ? { node } : {});
         >
           <CalendarClock class="size-4 text-text-muted" aria-hidden="true" />
           {{ $t('certsJobsCard.jobs', { n: jobs?.length ?? 0 }, jobs?.length ?? 0) }}
-          <span :class="jobProblems.length ? 'text-warning' : 'text-text-muted'">
+          <span :class="jobProblems.length ? 'text-warning-text' : 'text-text-muted'">
             ·
             {{
               jobProblems.length

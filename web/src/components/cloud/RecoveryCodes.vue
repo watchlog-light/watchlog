@@ -27,7 +27,7 @@ function download() {
 
 <template>
   <div class="flex flex-col gap-4" data-testid="recovery-codes">
-    <p class="text-13 text-warning">{{ $t('cloud.recovery.once') }}</p>
+    <p class="text-13 text-warning-text">{{ $t('cloud.recovery.once') }}</p>
     <ul
       class="grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-control border border-primary bg-bg px-4 py-3 font-mono text-14 text-text"
       :aria-label="$t('cloud.recovery.listLabel')"

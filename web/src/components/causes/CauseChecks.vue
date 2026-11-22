@@ -26,10 +26,10 @@ const summary = computed(() =>
 );
 
 const CHECK_ICON: Record<CauseCheck['result'], { icon: typeof Check; class: string }> = {
-  explains: { icon: CircleCheck, class: 'text-info' },
-  ok: { icon: Check, class: 'text-ok' },
-  possible: { icon: CircleAlert, class: 'text-warning' },
-  not_run: { icon: CircleAlert, class: 'text-warning' },
+  explains: { icon: CircleCheck, class: 'text-info-text' },
+  ok: { icon: Check, class: 'text-ok-text' },
+  possible: { icon: CircleAlert, class: 'text-warning-text' },
+  not_run: { icon: CircleAlert, class: 'text-warning-text' },
   not_applicable: { icon: Minus, class: 'text-text-subtle' },
 };
 </script>

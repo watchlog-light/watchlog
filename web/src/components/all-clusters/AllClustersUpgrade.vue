@@ -72,11 +72,11 @@ onMounted(() => {
 <template>
   <section
     aria-labelledby="ac-up-title"
-    class="flex w-full max-w-[560px] flex-col gap-4 rounded-[14px] border border-primary/40 bg-surface-1 p-7 shadow-2xl max-sm:p-5"
+    class="flex w-full max-w-[560px] flex-col gap-4 rounded-[14px] border border-primary-border bg-surface-1 p-7 shadow-2xl max-sm:p-5"
     data-testid="ac-upgrade"
   >
     <span
-      class="inline-flex h-5 w-fit items-center rounded-full border border-info/50 px-2 text-12 font-semibold text-info"
+      class="inline-flex h-5 w-fit items-center rounded-full border border-info/50 px-2 text-12 font-semibold text-info-text"
       >{{ $t('allClusters.upgrade.label') }}</span
     >
     <h2 id="ac-up-title" class="text-24 leading-tight font-semibold text-text max-sm:text-20">
@@ -87,7 +87,7 @@ onMounted(() => {
     </p>
     <ul class="flex flex-col gap-2.5 text-14 text-text">
       <li v-for="n in 4" :key="n" class="flex gap-2.5">
-        <span class="text-ok" aria-hidden="true">✓</span>
+        <span class="text-ok-text" aria-hidden="true">✓</span>
         <span>{{ $t(`allClusters.upgrade.point${n}`) }}</span>
       </li>
     </ul>
@@ -140,7 +140,7 @@ onMounted(() => {
       {{ $t('allClusters.upgrade.owners', { names: owners.join(', ') }) }}
     </p>
     <p v-if="!free" class="text-13 text-text-muted">{{ $t('allClusters.upgrade.keeps') }}</p>
-    <p v-if="error" class="text-13 text-critical" role="alert">{{ error }}</p>
+    <p v-if="error" class="text-13 text-critical-text" role="alert">{{ error }}</p>
     <span class="text-12 text-text-subtle">{{ $t('allClusters.upgrade.example') }}</span>
   </section>
 </template>

@@ -11,10 +11,10 @@ const props = defineProps<{
   row: Pick<EgressRow, 'badges' | 'class' | 'expected' | 'destination'>;
 }>();
 const TONE: Record<string, string> = {
-  new: 'bg-warning/15 text-warning',
-  raw_ip: 'bg-critical/15 text-critical',
-  failing: 'bg-critical/15 text-critical',
-  expected: 'bg-primary-soft text-primary',
+  new: 'bg-warning/15 text-warning-text',
+  raw_ip: 'bg-critical/15 text-critical-text',
+  failing: 'bg-critical/15 text-critical-text',
+  expected: 'bg-primary-soft text-link',
 };
 const label = computed(() => classLabel(props.row));
 // "Raw IP" already says "public network".

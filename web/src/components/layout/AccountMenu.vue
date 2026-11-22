@@ -119,7 +119,7 @@ const itemHeight = computed(() => (props.drawer ? 'min-h-11' : 'min-h-9'));
         :side-offset="collapsed ? 16 : 6"
         :collision-padding="8"
         :class="[
-          'z-[60] flex flex-col gap-px rounded-card border border-border-strong bg-surface-2 p-1.5 shadow-xl',
+          'z-[60] flex flex-col gap-px rounded-card border border-border-strong bg-surface-2 p-1.5 shadow-menu',
           collapsed ? 'w-64' : 'w-[var(--reka-dropdown-menu-trigger-width)] min-w-56',
         ]"
       >
@@ -158,7 +158,7 @@ const itemHeight = computed(() => (props.drawer ? 'min-h-11' : 'min-h-9'));
         </DropdownMenuItem>
         <DropdownMenuSeparator class="my-1 h-px bg-border" />
         <DropdownMenuItem
-          :class="[item, itemHeight, 'text-critical data-[highlighted]:text-critical']"
+          :class="[item, itemHeight, 'text-critical-text data-[highlighted]:text-critical-text']"
           data-testid="sign-out"
           @select="emit('signOut')"
         >

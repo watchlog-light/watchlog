@@ -22,7 +22,7 @@ import { LINKS } from '@/lib/links';
       :href="LINKS.install"
       target="_blank"
       rel="noopener noreferrer"
-      class="inline-flex items-center gap-1 font-semibold text-primary hover:text-primary-hover hover:underline max-lg:min-h-11"
+      class="inline-flex items-center gap-1 font-semibold text-link hover:text-primary-hover hover:underline max-lg:min-h-11"
       data-testid="demo-install"
     >
       {{ $t('demo.install') }}

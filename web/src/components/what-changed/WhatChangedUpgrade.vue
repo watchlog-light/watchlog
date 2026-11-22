@@ -162,7 +162,7 @@ onMounted(() => {
             >{{ $t('whatChanged.upgrade.hero.label') }}</span
           >
           <span
-            class="rounded-full border border-info/45 px-3 py-1 font-mono text-12 tracking-widest text-info uppercase"
+            class="rounded-full border border-info/45 px-3 py-1 font-mono text-12 tracking-widest text-info-text uppercase"
             data-testid="wc-up-badge"
             >{{
               free
@@ -260,7 +260,7 @@ onMounted(() => {
               : $t('whatChanged.upgrade.ownersUnknown')
           }}
         </p>
-        <p v-if="error" class="text-14 text-critical" role="alert" data-testid="wc-up-error">
+        <p v-if="error" class="text-14 text-critical-text" role="alert" data-testid="wc-up-error">
           {{ error }}
         </p>
         <p class="text-14 text-text-subtle" data-testid="wc-up-fine">
@@ -303,7 +303,7 @@ onMounted(() => {
       >
         <span class="w-[3px] shrink-0 rounded-sm bg-ok" aria-hidden="true" />
         <div class="flex min-w-0 flex-col gap-1.5">
-          <span class="font-mono text-12 tracking-widest text-ok uppercase">{{
+          <span class="font-mono text-12 tracking-widest text-ok-text uppercase">{{
             $t('whatChanged.cause.label.likely')
           }}</span>
           <span class="text-16 leading-snug font-medium text-text md:text-20">{{
@@ -354,7 +354,7 @@ onMounted(() => {
               class="min-w-0 flex-[1_1_18rem] text-14 break-words text-text group-hover:underline md:text-16"
               >{{ a.title }}</span
             >
-            <span class="inline-flex items-center gap-2 text-14 text-info">
+            <span class="inline-flex items-center gap-2 text-14 text-info-text">
               <Lock class="size-3.5" aria-hidden="true" />
               {{
                 free
@@ -378,7 +378,7 @@ onMounted(() => {
         :key="r"
         class="flex flex-col gap-2.5 rounded-2xl border border-border bg-surface-1/45 p-6 max-md:p-4.5"
       >
-        <span class="font-mono text-13 tracking-widest text-ok">0{{ i + 1 }}</span>
+        <span class="font-mono text-13 tracking-widest text-ok-text">0{{ i + 1 }}</span>
         <b class="text-16 font-semibold text-text md:text-20">{{
           $t(`whatChanged.upgrade.reasons.${r}.title`)
         }}</b>

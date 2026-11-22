@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { Maximize, Minus, Plus, RotateCcw } from '@lucide/vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { useTheme } from '@/composables/useTheme';
 import { useI18n } from 'vue-i18n';
 import type { Layout, Pos } from '@/lib/servicemap-layout';
 import {
@@ -401,6 +402,15 @@ onMounted(async () => {
   if (reduce) draw(0);
   else raf = requestAnimationFrame(loop);
 });
+// The particles' colours come from the tokens: read them again when the theme changes
+// (ADR-228); the SVG under them follows the variables by itself.
+const { resolved } = useTheme();
+watch(resolved, () =>
+  nextTick(() => {
+    readColors();
+    if (reduce) draw(0);
+  }),
+);
 // The first data that has nodes is fitted once; refreshes never move the view.
 watch(
   () => props.nodes.length,

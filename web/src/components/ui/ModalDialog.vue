@@ -48,7 +48,7 @@ const focusFirst = (e: Event) => {
       <DialogOverlay class="fixed inset-0 z-40 bg-bg/70" />
       <DialogContent
         :class="[
-          'fixed z-50 flex flex-col gap-5 overflow-y-auto bg-surface-1 shadow-xl',
+          'fixed z-50 flex flex-col gap-5 overflow-y-auto bg-surface-1 shadow-menu',
           narrow
             ? 'inset-x-0 bottom-0 max-h-[90dvh] rounded-t-card border-t border-border-strong px-4 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]'
             : [
@@ -69,7 +69,7 @@ const focusFirst = (e: Event) => {
             }}</DialogTitle>
             <DialogDescription
               v-if="description"
-              :class="['text-14 leading-relaxed', warn ? 'text-warning' : 'text-text-muted']"
+              :class="['text-14 leading-relaxed', warn ? 'text-warning-text' : 'text-text-muted']"
             >
               {{ description }}
             </DialogDescription>

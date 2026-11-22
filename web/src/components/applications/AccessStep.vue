@@ -233,7 +233,7 @@ const statusText = computed(() => {
             {{ $t(`applications.access.${o}.label`) }}
             <span
               v-if="o === 'generated'"
-              class="ml-1 inline-block rounded-full bg-ok/15 px-2 text-12 font-normal whitespace-nowrap text-ok"
+              class="ml-1 inline-block rounded-full bg-ok/15 px-2 text-12 font-normal whitespace-nowrap text-ok-text"
               >{{ $t('applications.access.recommended') }}</span
             >
           </span>
@@ -307,7 +307,7 @@ const statusText = computed(() => {
       </template>
     </div>
 
-    <p v-if="error" role="alert" class="text-13 text-critical">{{ error }}</p>
+    <p v-if="error" role="alert" class="text-13 text-critical-text">{{ error }}</p>
     <div
       v-if="probe"
       :class="[
@@ -324,15 +324,15 @@ const statusText = computed(() => {
     >
       <CheckCircle2
         v-if="probe.status === 'ok'"
-        class="size-4 shrink-0 text-ok"
+        class="size-4 shrink-0 text-ok-text"
         aria-hidden="true"
       />
       <CircleAlert
         v-else-if="probe.status === 'failed'"
-        class="size-4 shrink-0 text-critical"
+        class="size-4 shrink-0 text-critical-text"
         aria-hidden="true"
       />
-      <Loader2 v-else class="size-4 shrink-0 animate-spin text-warning" aria-hidden="true" />
+      <Loader2 v-else class="size-4 shrink-0 animate-spin text-warning-text" aria-hidden="true" />
       <span class="flex min-w-0 flex-1 flex-col gap-1">
         <span>{{ statusText }}</span>
         <span v-if="fix" class="text-12 text-text-muted" data-testid="probe-fix">{{ fix }}</span>
@@ -353,7 +353,7 @@ const statusText = computed(() => {
     </div>
     <p
       v-if="probe?.result?.excess?.length"
-      class="flex items-start gap-2 text-13 text-warning"
+      class="flex items-start gap-2 text-13 text-warning-text"
       data-testid="excess"
     >
       <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />

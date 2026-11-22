@@ -71,7 +71,7 @@ onMounted(start);
           </div>
           <a
             :href="setup.uri"
-            class="inline-flex items-center self-start text-13 text-primary hover:text-primary-hover max-lg:min-h-11"
+            class="inline-flex items-center self-start text-13 text-link hover:text-primary-hover max-lg:min-h-11"
             data-testid="mfa-uri"
             >{{ $t('cloud.mfa.setup.openApp') }}</a
           >

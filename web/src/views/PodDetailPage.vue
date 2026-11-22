@@ -216,7 +216,7 @@ onMounted(() => {
         class="flex items-start gap-3 rounded-card border border-border bg-surface-1 px-4 py-3"
         data-testid="termination"
       >
-        <CircleAlert class="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+        <CircleAlert class="mt-0.5 size-4 shrink-0 text-warning-text" aria-hidden="true" />
         <div class="text-13">
           <p v-if="pod.lastTermination" class="text-text">
             {{

@@ -157,7 +157,7 @@ const day = (iso: string) =>
       <RouterLink
         v-if="auth.isCloud"
         :to="signInToJoin"
-        class="self-center text-13 text-primary hover:text-primary-hover max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+        class="self-center text-13 text-link hover:text-primary-hover max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
         data-testid="sign-in-to-join"
         >{{ $t('cloud.join.signIn') }}</RouterLink
       >

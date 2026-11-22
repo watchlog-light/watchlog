@@ -44,7 +44,7 @@ const next = computed(() => (auth.user ? { path: '/' } : { name: 'login' }));
     :intro="$t('cloud.verify.doneIntro')"
   >
     <div class="flex flex-col gap-4" role="status" data-testid="verify-done">
-      <CircleCheck class="size-8 self-center text-ok" aria-hidden="true" />
+      <CircleCheck class="size-8 self-center text-ok-text" aria-hidden="true" />
       <RouterLink
         :to="next"
         class="flex h-11 items-center justify-center rounded-control bg-primary text-14 font-semibold text-on-primary hover:bg-primary-hover"

@@ -29,7 +29,7 @@ const label = computed(() =>
   <span class="flex items-center gap-2" :title="label" :aria-label="label" role="img">
     <span
       class="font-mono text-13 tabular-nums"
-      :class="ready < desired ? 'text-critical' : 'text-text'"
+      :class="ready < desired ? 'text-critical-text' : 'text-text'"
       >{{ ready }}/{{ desired }}</span
     >
     <span v-if="all.length" class="sq" aria-hidden="true">
@@ -65,7 +65,7 @@ const label = computed(() =>
 .s-missing {
   box-shadow: inset 0 0 0 1px var(--critical);
 }
-.text-critical {
-  color: var(--critical);
+.text-critical-text {
+  color: var(--critical-text);
 }
 </style>

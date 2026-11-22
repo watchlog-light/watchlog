@@ -200,7 +200,7 @@ async function undo() {
         class="flex flex-wrap items-center gap-3 rounded-control border border-critical/40 bg-critical/10 px-3 py-2.5"
         data-testid="deletion-scheduled"
       >
-        <Trash2 class="size-4 shrink-0 text-critical" aria-hidden="true" />
+        <Trash2 class="size-4 shrink-0 text-critical-text" aria-hidden="true" />
         <p class="min-w-0 flex-1 text-13 text-text">
           {{
             $t('cloud.dataRights.scheduled', {
@@ -245,7 +245,7 @@ async function undo() {
           {{ $t('cloud.dataRights.deleteButton') }}
         </BaseButton>
       </form>
-      <p v-if="error" class="text-13 text-critical" role="alert">{{ error }}</p>
+      <p v-if="error" class="text-13 text-critical-text" role="alert">{{ error }}</p>
     </section>
   </div>
 </template>

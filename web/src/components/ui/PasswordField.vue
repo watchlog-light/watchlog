@@ -101,8 +101,8 @@ const ICONS = { todo: Circle, checking: LoaderCircle, ok: Check, bad: X, unknown
 const TONES: Record<ItemState, string> = {
   todo: 'text-text-muted',
   checking: 'text-text-muted',
-  ok: 'text-ok',
-  bad: 'text-critical',
+  ok: 'text-ok-text',
+  bad: 'text-critical-text',
   unknown: 'text-text-muted',
 };
 
@@ -176,7 +176,7 @@ defineExpose({
       v-if="said"
       :id="`${id}-error`"
       role="alert"
-      class="text-13 leading-relaxed text-critical"
+      class="text-13 leading-relaxed text-critical-text"
       data-testid="password-error"
     >
       {{ said }}

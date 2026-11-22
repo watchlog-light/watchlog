@@ -5,10 +5,10 @@ import type { Tone } from '@/lib/certs-jobs';
 // A state as a word on its tone (never by colour alone, SPEC §11.1): Expired, Failing, Working…
 defineProps<{ tone: Tone; label: string }>();
 const STYLE: Record<Tone, string> = {
-  crit: 'bg-critical/15 text-critical',
-  warn: 'bg-warning/15 text-warning',
-  ok: 'bg-ok/15 text-ok',
-  info: 'bg-info/15 text-info',
+  crit: 'bg-critical/15 text-critical-text',
+  warn: 'bg-warning/15 text-warning-text',
+  ok: 'bg-ok/15 text-ok-text',
+  info: 'bg-info/15 text-info-text',
   muted: 'bg-surface-3 text-text-muted',
 };
 </script>

@@ -127,6 +127,7 @@ export const viewerMe = {
     email: 'omar@example.com',
     name: 'Omar Haddad',
     locale: 'en',
+    theme: 'system' as const,
     role: 'viewer',
     org: {
       id: '01a1d000-0000-7000-8000-0000000000aa',

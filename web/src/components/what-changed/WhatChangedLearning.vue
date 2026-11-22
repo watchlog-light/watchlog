@@ -176,7 +176,7 @@ const STEPS = ['learning', 'list', 'alerts'] as const;
       </div>
       <div class="flex min-w-0 flex-[1_1_26rem] flex-col gap-4.5 max-md:gap-3.5">
         <span
-          class="font-mono text-12 tracking-widest text-primary uppercase md:text-13"
+          class="font-mono text-12 tracking-widest text-link uppercase md:text-13"
           data-testid="wc-learn-day"
           >{{ $t('whatChanged.learn.day', { day, days: LEARNING_DAYS }) }}</span
         >
@@ -244,7 +244,12 @@ const STEPS = ['learning', 'list', 'alerts'] as const;
         <p v-if="asked && !emailError" class="text-13 text-text-muted" data-testid="wc-learn-undo">
           {{ $t('whatChanged.learn.email.note', { email: auth.user?.email ?? '' }) }}
         </p>
-        <p v-if="emailError" class="text-13 text-critical" role="alert" data-testid="wc-learn-err">
+        <p
+          v-if="emailError"
+          class="text-13 text-critical-text"
+          role="alert"
+          data-testid="wc-learn-err"
+        >
           {{ emailError }}
         </p>
       </div>
@@ -307,7 +312,7 @@ const STEPS = ['learning', 'list', 'alerts'] as const;
             <span
               :class="[
                 'flex size-7 shrink-0 items-center justify-center rounded-full text-13 font-bold',
-                i === 0 ? 'bg-primary/15 text-primary' : 'border border-border text-text-muted',
+                i === 0 ? 'bg-primary/15 text-link' : 'border border-border text-text-muted',
               ]"
               aria-hidden="true"
               >{{ i + 1 }}</span

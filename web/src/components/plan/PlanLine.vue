@@ -25,7 +25,7 @@ const BILLING = { name: 'settings', query: { tab: 'billing' } } as const;
       <span
         v-if="line.kind === 'unlimited'"
         data-testid="plan-line"
-        class="inline-flex h-5 items-center rounded-full border border-info/50 px-1.5 text-12 font-semibold text-info"
+        class="inline-flex h-5 items-center rounded-full border border-info/50 px-1.5 text-12 font-semibold text-info-text"
         :title="
           $t('sidebar.plan.paid', {
             count: $t(`sidebar.plan.${line.unit}`, { n: line.count }, line.count),
@@ -48,7 +48,7 @@ const BILLING = { name: 'settings', query: { tab: 'billing' } } as const;
             · {{ $t('cloud.plan.nodesOf', { n: line.used, max: line.max }) }}</span
           >
         </span>
-        <span class="shrink-0 font-semibold whitespace-nowrap text-primary">{{
+        <span class="shrink-0 font-semibold whitespace-nowrap text-link">{{
           $t('sidebar.plan.upgrade')
         }}</span>
       </span>
@@ -73,7 +73,7 @@ const BILLING = { name: 'settings', query: { tab: 'billing' } } as const;
       class="flex items-center gap-2 px-2.5 py-1 text-13 text-text-muted"
     >
       <span
-        class="inline-flex h-5 shrink-0 items-center rounded-full border border-info/50 px-2 text-12 font-semibold text-info"
+        class="inline-flex h-5 shrink-0 items-center rounded-full border border-info/50 px-2 text-12 font-semibold text-info-text"
         >{{ $t(`cloud.plan.short.${line.plan}`) }}</span
       >
       <span class="min-w-0 truncate">{{

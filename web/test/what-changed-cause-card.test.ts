@@ -85,7 +85,7 @@ describe('the cause card: a likely cause', () => {
     ]);
     expect(w.get('[data-testid="wc-cause-label"]').text()).toBe('Likely · where it starts');
     expect(w.get('[data-testid="wc-cause-sentence"]').text()).toMatch(/^web .*api/);
-    expect(w.get('[data-testid="wc-cause-label"]').classes()).toContain('text-ok');
+    expect(w.get('[data-testid="wc-cause-label"]').classes()).toContain('text-ok-text');
 
     // Open the evidence: the panel's "What we checked", open, every check.
     const toggle = w.get('[data-testid="wc-cause-evidence-toggle"]');
@@ -142,7 +142,7 @@ describe('the cause card: no clear cause', () => {
     expect(c.classes()).not.toContain('border-ok/40');
     expect(c.classes()).toContain('border-border');
     expect(w.get('[data-testid="wc-cause-label"]').text()).toBe('No clear cause');
-    expect(w.get('[data-testid="wc-cause-label"]').classes()).not.toContain('text-ok');
+    expect(w.get('[data-testid="wc-cause-label"]').classes()).not.toContain('text-ok-text');
     expect(w.get('[data-testid="wc-cause-sentence"]').text()).toContain('hot');
     expect(texts(w, 'wc-cause-fact')[0]).toBe('Started from the alert');
     expect(texts(w, 'wc-cause-fact')).toEqual([

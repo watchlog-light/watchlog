@@ -277,7 +277,7 @@ onMounted(async () => {
               ></span
             >
             <span
-              class="inline-flex h-5.5 items-center rounded-full border border-info/50 px-2.5 text-12 font-semibold text-info"
+              class="inline-flex h-5.5 items-center rounded-full border border-info/50 px-2.5 text-12 font-semibold text-info-text"
               >{{ $t('whatChanged.pro') }}</span
             >
           </div>
@@ -370,7 +370,7 @@ onMounted(async () => {
             class="flex items-start gap-3 rounded-card border border-border bg-surface-1 px-4.5 py-3 text-14 text-text-muted max-md:px-4"
             data-testid="wc-partly"
           >
-            <Hourglass class="mt-0.5 size-4 shrink-0 text-info" aria-hidden="true" />
+            <Hourglass class="mt-0.5 size-4 shrink-0 text-info-text" aria-hidden="true" />
             <span>{{ partly }}</span>
           </p>
 

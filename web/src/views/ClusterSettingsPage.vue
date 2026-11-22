@@ -143,7 +143,7 @@ onMounted(page.load);
         @done="issued = undefined"
       />
 
-      <p v-if="error" role="alert" class="text-13 text-critical">{{ error }}</p>
+      <p v-if="error" role="alert" class="text-13 text-critical-text">{{ error }}</p>
 
       <!-- The agents and their update command (ADR-227). -->
       <AgentsSection :cluster-id="id" />

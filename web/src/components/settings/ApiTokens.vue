@@ -76,7 +76,7 @@ onMounted(() => {
           :href="LINKS.mcp"
           target="_blank"
           rel="noopener"
-          class="inline-flex min-h-11 items-center px-1.5 text-13 text-primary hover:underline lg:min-h-9"
+          class="inline-flex min-h-11 items-center px-1.5 text-13 text-link hover:underline lg:min-h-9"
           >{{ $t('apiTokens.guide') }}</a
         >
         <BaseButton
@@ -153,7 +153,9 @@ onMounted(() => {
         >
         <span class="text-13 text-text-muted">
           {{ $t('apiTokens.card.expires', { date: text.expires(tk) }) }} ·
-          <span :class="text.note(tk).warn ? 'text-warning' : ''">{{ text.note(tk).text }}</span>
+          <span :class="text.note(tk).warn ? 'text-warning-text' : ''">{{
+            text.note(tk).text
+          }}</span>
         </span>
         <span class="text-13 text-text-muted">
           {{ $t('apiTokens.card.lastUsed', { when: text.lastUsed(tk) })
@@ -168,7 +170,7 @@ onMounted(() => {
           <button
             v-if="canRevoke(tk)"
             type="button"
-            class="h-11 flex-1 rounded-control border border-critical/40 text-14 font-medium text-critical"
+            class="h-11 flex-1 rounded-control border border-critical/40 text-14 font-medium text-critical-text"
             data-testid="api-token-revoke"
             @click="revoking = tk"
           >
@@ -221,9 +223,10 @@ onMounted(() => {
             </td>
             <td class="p-3 whitespace-nowrap">
               <span class="block text-text">{{ text.expires(tk) }}</span>
-              <span :class="['text-12', text.note(tk).warn ? 'text-warning' : 'text-text-muted']">{{
-                text.note(tk).text
-              }}</span>
+              <span
+                :class="['text-12', text.note(tk).warn ? 'text-warning-text' : 'text-text-muted']"
+                >{{ text.note(tk).text }}</span
+              >
             </td>
             <td class="p-3 whitespace-nowrap">
               <span class="block text-text">{{ text.lastUsed(tk) }}</span>
@@ -244,7 +247,7 @@ onMounted(() => {
               <button
                 v-if="canRevoke(tk)"
                 type="button"
-                class="ml-1.5 h-9 rounded-control px-2.5 text-13 text-critical hover:bg-surface-2 max-lg:h-11"
+                class="ml-1.5 h-9 rounded-control px-2.5 text-13 text-critical-text hover:bg-surface-2 max-lg:h-11"
                 data-testid="api-token-revoke"
                 @click="revoking = tk"
               >

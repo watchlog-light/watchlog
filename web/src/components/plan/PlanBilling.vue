@@ -426,7 +426,12 @@ async function run(kind: 'beta' | 'checkout' | 'portal') {
           >
             {{ $t('cloud.plan.billing.unavailableNow') }}
           </p>
-          <p v-if="error" class="text-13 text-critical" role="alert" data-testid="billing-error">
+          <p
+            v-if="error"
+            class="text-13 text-critical-text"
+            role="alert"
+            data-testid="billing-error"
+          >
             {{ error }}
           </p>
         </div>

@@ -14,7 +14,11 @@ const props = defineProps<{ alert: Alert; canSilence: boolean }>();
 const emit = defineEmits<{ silenced: []; custom: [alert: Alert] }>();
 const scope = computed(() => alertScope(props.alert));
 const ICON = { ok: Check, critical: X, neutral: Clock } as const;
-const TONE = { ok: 'text-ok', critical: 'text-critical', neutral: 'text-text-muted' } as const;
+const TONE = {
+  ok: 'text-ok-text',
+  critical: 'text-critical-text',
+  neutral: 'text-text-muted',
+} as const;
 </script>
 
 <template>

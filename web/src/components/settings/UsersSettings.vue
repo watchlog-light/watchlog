@@ -286,8 +286,8 @@ const rows = computed<Row[]>(() => {
   ];
 });
 const BADGE: Record<Row['status'], string> = {
-  active: 'bg-ok/15 text-ok',
-  pending: 'bg-warning/15 text-warning',
+  active: 'bg-ok/15 text-ok-text',
+  pending: 'bg-warning/15 text-warning-text',
   expired: 'bg-surface-3 text-text-muted',
 };
 const AVATAR: Record<Row['role'], string> = {
@@ -362,7 +362,7 @@ const auditText = (a: UserList['audit'][number]) =>
         class="flex flex-wrap items-start gap-2.5 rounded-card border border-warning/30 bg-warning/5 px-4 py-3 text-13 text-text"
         data-testid="smtp-banner"
       >
-        <MailX class="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+        <MailX class="mt-0.5 size-4 shrink-0 text-warning-text" aria-hidden="true" />
         <span class="min-w-0 flex-1">{{ $t('users.smtpBanner') }}</span>
         <RouterLink
           :to="{ name: 'settings', query: { tab: 'channels' } }"
@@ -465,7 +465,7 @@ const auditText = (a: UserList['audit'][number]) =>
                     >
                     <BaseButton
                       variant="ghost"
-                      class="text-critical!"
+                      class="text-critical-text!"
                       data-testid="remove"
                       @click="dialog = { kind: 'remove', user: r.user! }"
                       >{{ $t('users.remove') }}</BaseButton
@@ -492,7 +492,7 @@ const auditText = (a: UserList['audit'][number]) =>
                     >
                     <BaseButton
                       variant="ghost"
-                      class="text-critical!"
+                      class="text-critical-text!"
                       data-testid="revoke"
                       @click="dialog = { kind: 'revoke', invite: r.invite! }"
                       >{{
@@ -525,7 +525,11 @@ const auditText = (a: UserList['audit'][number]) =>
               :key="i"
               :class="['flex items-start gap-2', it.yes ? 'text-text' : 'text-text-muted']"
             >
-              <Check v-if="it.yes" class="mt-0.5 size-3.5 shrink-0 text-ok" aria-hidden="true" />
+              <Check
+                v-if="it.yes"
+                class="mt-0.5 size-3.5 shrink-0 text-ok-text"
+                aria-hidden="true"
+              />
               <X v-else class="mt-0.5 size-3.5 shrink-0 text-text-subtle" aria-hidden="true" />
               <span
                 ><span class="sr-only">{{ it.yes ? $t('users.can') : $t('users.cannot') }}</span
@@ -623,14 +627,14 @@ const auditText = (a: UserList['audit'][number]) =>
             dialog.link
           }}</code>
           <BaseButton variant="secondary" data-testid="copy" @click="copy(dialog.link)">
-            <Check v-if="copied" class="size-4 text-ok" aria-hidden="true" /><Copy
+            <Check v-if="copied" class="size-4 text-ok-text" aria-hidden="true" /><Copy
               v-else
               class="size-4"
               aria-hidden="true"
             />{{ copied ? $t('common.copied') : $t('common.copy') }}
           </BaseButton>
         </div>
-        <p v-if="dialog.emailed" class="text-13 text-ok" data-testid="emailed">
+        <p v-if="dialog.emailed" class="text-13 text-ok-text" data-testid="emailed">
           {{ $t('users.link.emailed', { email: dialog.to }) }}
         </p>
         <p v-else class="text-13 text-text-muted" data-testid="not-emailed">

@@ -87,7 +87,7 @@ async function create() {
   >
     <template v-if="created" #icon>
       <span
-        class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-ok"
+        class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-ok-text"
         aria-hidden="true"
       >
         <Check class="size-4.5" />
@@ -142,7 +142,7 @@ async function create() {
         <p class="text-12 text-text-muted" data-testid="api-token-expiry-line">{{ expiryLine }}</p>
         <p
           v-if="expiry === null"
-          class="flex gap-2.5 rounded-control border border-warning/40 bg-warning/10 px-3 py-2.5 text-13 leading-relaxed text-warning"
+          class="flex gap-2.5 rounded-control border border-warning/40 bg-warning/10 px-3 py-2.5 text-13 leading-relaxed text-warning-text"
         >
           <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           {{ $t('apiTokens.create.neverWarning') }}
@@ -159,7 +159,7 @@ async function create() {
           }}</span>
         </div>
       </div>
-      <p v-if="error" class="text-13 text-critical" role="alert">{{ error }}</p>
+      <p v-if="error" class="text-13 text-critical-text" role="alert">{{ error }}</p>
       <div :class="narrow ? 'grid grid-cols-2 gap-2' : 'flex justify-end gap-2'">
         <BaseButton variant="secondary" @click="open = false">{{ $t('common.cancel') }}</BaseButton>
         <BaseButton

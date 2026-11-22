@@ -228,7 +228,7 @@ async function signOut() {
               <span
                 v-if="!collapsed && allPro"
                 data-testid="nav-all-pro"
-                class="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-info/50 px-2 text-12 font-semibold text-info"
+                class="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-info/50 px-2 text-12 font-semibold text-info-text"
                 >{{ $t('nav.pro') }}</span
               >
             </a>
@@ -295,7 +295,7 @@ async function signOut() {
                 v-if="badge(item) > 0"
                 data-testid="nav-badge"
                 :class="[
-                  'flex h-5 min-w-5 items-center justify-center rounded-full bg-critical/15 px-1.5 text-12 font-semibold text-critical',
+                  'flex h-5 min-w-5 items-center justify-center rounded-full bg-critical/15 px-1.5 text-12 font-semibold text-critical-text',
                   collapsed ? 'absolute -top-0.5 right-0.5 h-4 min-w-4 px-1' : 'ml-auto',
                 ]"
               >
@@ -306,7 +306,7 @@ async function signOut() {
                 v-else-if="newCount(item) > 0"
                 data-testid="nav-new"
                 :class="[
-                  'flex h-5 items-center justify-center rounded-full bg-warning/15 px-1.5 text-12 font-semibold whitespace-nowrap text-warning',
+                  'flex h-5 items-center justify-center rounded-full bg-warning/15 px-1.5 text-12 font-semibold whitespace-nowrap text-warning-text',
                   collapsed ? 'absolute -top-0.5 right-0.5 h-4 min-w-4 px-1' : 'ml-auto',
                 ]"
               >
@@ -334,7 +334,7 @@ async function signOut() {
               <span
                 v-if="pro(item) && !collapsed"
                 data-testid="nav-pro"
-                class="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-info/50 px-2 text-12 font-semibold text-info"
+                class="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-info/50 px-2 text-12 font-semibold text-info-text"
                 >{{ $t('nav.pro') }}</span
               >
             </a>

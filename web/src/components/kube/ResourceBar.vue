@@ -57,7 +57,7 @@ const tip = computed(() =>
     :data-state="bar.near ? 'near' : 'ok'"
   >
     <span class="top">
-      <span :class="bar.near && 'text-critical'">{{ fmt(usage!) }}</span>
+      <span :class="bar.near && 'text-critical-text'">{{ fmt(usage!) }}</span>
       <span class="text-text-subtle">
         <template v-if="reference === 'limit'">{{
           limit !== null ? $t('resources.limitShort', { v: fmt(limit) }) : $t('resources.noLimit')
@@ -139,7 +139,7 @@ const tip = computed(() =>
 .bg-critical {
   background: var(--critical);
 }
-.text-critical {
-  color: var(--critical);
+.text-critical-text {
+  color: var(--critical-text);
 }
 </style>

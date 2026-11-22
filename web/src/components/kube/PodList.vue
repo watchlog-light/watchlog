@@ -92,7 +92,7 @@ const { body, shown, measure } = useVirtualRows(keyed, () => 50);
           </td>
           <td
             class="num c-restarts"
-            :class="p.restarts > 20 && 'text-critical'"
+            :class="p.restarts > 20 && 'text-critical-text'"
             :data-label="$t('kube.pods.columns.restarts')"
           >
             {{ p.restarts }}
@@ -194,23 +194,23 @@ tr.warn td:first-child {
   white-space: nowrap;
 }
 .pill.crit {
-  color: var(--critical);
+  color: var(--critical-text);
   background: color-mix(in srgb, var(--critical) 12%, transparent);
 }
 .pill.warn {
-  color: var(--warning);
+  color: var(--warning-text);
   background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 .pill.ok {
-  color: var(--primary);
+  color: var(--link);
   background: var(--primary-soft);
 }
 .pill.neutral {
   color: var(--text-muted);
   background: var(--surface-3);
 }
-.text-critical {
-  color: var(--critical);
+.text-critical-text {
+  color: var(--critical-text);
 }
 /* Phones: each pod is a card with labelled fields. */
 @media (max-width: 767px) {

@@ -28,7 +28,7 @@ const line = computed(() =>
     role="status"
     data-testid="agent-banner"
   >
-    <TriangleAlert class="size-4 shrink-0 text-warning" aria-hidden="true" />
+    <TriangleAlert class="size-4 shrink-0 text-warning-text" aria-hidden="true" />
     <span class="flex-1 text-13 text-text">{{ line }}</span>
     <button
       type="button"

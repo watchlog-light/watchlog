@@ -160,7 +160,11 @@ const meaning = (code: number) => {
               <p
                 v-if="reason(item.c)"
                 class="line-clamp-2 text-12"
-                :class="item.c.problem?.severity === 'critical' ? 'text-critical' : 'text-warning'"
+                :class="
+                  item.c.problem?.severity === 'critical'
+                    ? 'text-critical-text'
+                    : 'text-warning-text'
+                "
                 data-testid="container-reason"
               >
                 {{ reason(item.c) }}
@@ -187,7 +191,7 @@ const meaning = (code: number) => {
             </td>
             <td
               class="num c-restarts"
-              :class="restartsHigh(item.c.restartsInRange, range) && 'text-critical'"
+              :class="restartsHigh(item.c.restartsInRange, range) && 'text-critical-text'"
               :data-label="$t('docker.list.columns.restarts')"
             >
               <template v-if="item.c.restartsInRange === null">{{ item.c.restartCount }}</template>
@@ -268,7 +272,7 @@ const meaning = (code: number) => {
                     data-testid="probe"
                   >
                     <span class="font-mono text-text-subtle">{{ since(p.end) }}</span>
-                    <span :class="p.exitCode === 0 ? 'text-ok' : 'text-critical'"
+                    <span :class="p.exitCode === 0 ? 'text-ok-text' : 'text-critical-text'"
                       >{{ p.exitCode === 0 ? '✓' : '✕' }}
                       {{ $t('docker.list.exitCode', { code: p.exitCode }) }}</span
                     >
@@ -288,7 +292,7 @@ const meaning = (code: number) => {
               </div>
               <RouterLink
                 :to="link(item.c)"
-                class="mt-2 inline-block text-12 text-primary hover:underline max-lg:leading-11"
+                class="mt-2 inline-block text-12 text-link hover:underline max-lg:leading-11"
                 data-testid="open-container"
                 >{{ $t('docker.list.open', { id: `${item.c.host}/${item.c.name}` }) }} →</RouterLink
               >
@@ -378,15 +382,15 @@ tr.exp td {
   white-space: nowrap;
 }
 .pill.crit {
-  color: var(--critical);
+  color: var(--critical-text);
   background: color-mix(in srgb, var(--critical) 12%, transparent);
 }
 .pill.warn {
-  color: var(--warning);
+  color: var(--warning-text);
   background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 .pill.ok {
-  color: var(--primary);
+  color: var(--link);
   background: var(--primary-soft);
 }
 .dot {
@@ -401,14 +405,14 @@ tr.exp td {
 .bg-subtle {
   background: var(--text-subtle);
 }
-.text-ok {
-  color: var(--ok);
+.text-ok-text {
+  color: var(--ok-text);
 }
-.text-critical {
-  color: var(--critical);
+.text-critical-text {
+  color: var(--critical-text);
 }
-.text-warning {
-  color: var(--warning);
+.text-warning-text {
+  color: var(--warning-text);
 }
 /* Phones: each container is a card (name, status at the top right, then labelled
    fields); the Compose project rows stay as group headings. */

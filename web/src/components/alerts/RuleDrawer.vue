@@ -403,7 +403,7 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-40 bg-bg/60" />
       <DialogContent
-        class="fixed inset-y-0 right-0 z-50 flex w-full max-w-[540px] flex-col border-l border-border-strong bg-surface-1 shadow-xl max-md:border-l-0"
+        class="fixed inset-y-0 right-0 z-50 flex w-full max-w-[540px] flex-col border-l border-border-strong bg-surface-1 shadow-menu max-md:border-l-0"
         data-testid="rule-drawer"
       >
         <header class="flex items-center gap-2.5 border-b border-border px-4 py-3.5 max-lg:py-1.5">
@@ -653,7 +653,10 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
                     />
                     <component
                       :is="s === 'critical' ? CircleX : TriangleAlert"
-                      :class="['size-3.5', s === 'critical' ? 'text-critical' : 'text-warning']"
+                      :class="[
+                        'size-3.5',
+                        s === 'critical' ? 'text-critical-text' : 'text-warning-text',
+                      ]"
                       aria-hidden="true"
                     />
                     {{ $t(`alerts.severity.${s}`) }}
@@ -766,7 +769,12 @@ const ruleKeyId = computed(() => (props.rule?.ruleKey ?? '').replaceAll('.', '_'
                 <p>{{ $t('alerts.drawer.flappingInfo') }}</p>
               </div>
             </div>
-            <p v-if="error" class="text-13 text-critical" role="alert" data-testid="drawer-error">
+            <p
+              v-if="error"
+              class="text-13 text-critical-text"
+              role="alert"
+              data-testid="drawer-error"
+            >
               {{ error }}
             </p>
           </div>

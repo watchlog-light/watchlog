@@ -177,7 +177,7 @@ onMounted(() => {
   color: var(--text-subtle);
 }
 .chip.crit .n {
-  color: var(--critical);
+  color: var(--critical-text);
 }
 @media (max-width: 1023px) {
   .chip {

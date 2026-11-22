@@ -33,7 +33,7 @@ const copier = useCopy();
     >
       <div class="flex flex-wrap items-center gap-2.5">
         <span
-          class="inline-flex h-[22px] items-center rounded-full bg-primary-soft px-2 text-12 font-medium text-ok"
+          class="inline-flex h-[22px] items-center rounded-full bg-primary-soft px-2 text-12 font-medium text-ok-text"
           >{{ $t('apiTokens.demo.tryIt') }}</span
         >
         <h3 class="text-16 font-semibold text-text">{{ $t('apiTokens.demo.askTitle') }}</h3>
@@ -59,7 +59,7 @@ const copier = useCopy();
             :href="LINKS.mcp"
             target="_blank"
             rel="noopener"
-            class="inline-flex min-h-11 items-center px-2 text-13 text-primary hover:underline lg:min-h-9"
+            class="inline-flex min-h-11 items-center px-2 text-13 text-link hover:underline lg:min-h-9"
             >{{ $t('apiTokens.demo.otherApps') }}</a
           >
         </div>

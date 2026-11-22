@@ -5,9 +5,9 @@ import type { ApiTokenStatus } from '@watchlog/api-types';
 // A token's status as a labelled badge: the label carries the meaning, the colour helps.
 defineProps<{ status: ApiTokenStatus }>();
 const TONE: Record<ApiTokenStatus, string> = {
-  active: 'bg-primary-soft text-ok',
-  expires_soon: 'bg-warning/15 text-warning',
-  never: 'border border-warning/40 text-warning',
+  active: 'bg-primary-soft text-ok-text',
+  expires_soon: 'bg-warning/15 text-warning-text',
+  never: 'border border-warning/40 text-warning-text',
   expired: 'bg-surface-3 text-text-muted',
   revoked: 'bg-surface-3 text-text-muted',
 };

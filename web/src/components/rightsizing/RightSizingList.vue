@@ -53,9 +53,9 @@ function target(h: RightSizingHint) {
         :class="[
           'mt-0.5 size-4 shrink-0',
           {
-            'text-critical': l.tone === 'risk',
-            'text-warning': l.tone === 'held',
-            'text-info': l.tone === 'back',
+            'text-critical-text': l.tone === 'risk',
+            'text-warning-text': l.tone === 'held',
+            'text-info-text': l.tone === 'back',
             'text-text-subtle': l.tone === 'unset',
           },
         ]"
@@ -68,7 +68,7 @@ function target(h: RightSizingHint) {
             ·
             <RouterLink
               :to="target(l.hint)"
-              class="text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+              class="text-link hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
               >{{
                 l.hint.object.namespace
                   ? `${l.hint.object.namespace}/${l.hint.object.name}`
@@ -88,7 +88,7 @@ function target(h: RightSizingHint) {
           :href="LINKS.probableCause"
           target="_blank"
           rel="noopener"
-          class="self-start text-12 text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+          class="self-start text-12 text-link hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
           :data-testid="`rightsizing-cause-${l.cause}`"
           >{{ $t(`rightSizing.cause.${l.cause}`) }}</a
         >

@@ -74,7 +74,7 @@ const versions = computed(() => {
     "
   >
     <div class="flex flex-col gap-4" data-testid="agent-update">
-      <p v-if="failed" class="text-13 text-critical" role="alert">
+      <p v-if="failed" class="text-13 text-critical-text" role="alert">
         {{ $t('agents.update.loadError') }}
       </p>
       <Skeleton v-else-if="!data" class="h-24 w-full" />

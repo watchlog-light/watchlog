@@ -200,14 +200,16 @@ onMounted(() => {
             data-testid="failing-chip"
             @click="setQuery({ problems: failing ? undefined : '1' })"
           >
-            ✕ {{ $t('docker.list.failing') }} <b class="text-critical">{{ failingCount }}</b>
+            ✕ {{ $t('docker.list.failing') }} <b class="text-critical-text">{{ failingCount }}</b>
           </button>
         </div>
 
         <p class="text-13 text-text-muted" data-testid="summary">
           <template v-for="(part, i) in summaryParts" :key="i"
             >{{ i ? ' · ' : ''
-            }}<span :class="{ 'text-critical': part.critical }">{{ part.text }}</span></template
+            }}<span :class="{ 'text-critical-text': part.critical }">{{
+              part.text
+            }}</span></template
           >
         </p>
 
@@ -293,11 +295,11 @@ onMounted(() => {
   color: var(--text);
 }
 .chip[aria-pressed='true'] b {
-  color: var(--primary);
+  color: var(--link);
 }
-.chip b.text-critical,
-.text-critical {
-  color: var(--critical);
+.chip b.text-critical-text,
+.text-critical-text {
+  color: var(--critical-text);
 }
 .chip:focus-visible {
   outline: 2px solid var(--primary);

@@ -41,7 +41,7 @@ const seconds = (n: number) => t('docker.diagnosis.seconds', { n: Number(n.toFix
     <header class="flex items-center gap-2 border-b border-border px-5 py-3">
       <component
         :is="ICONS[kind]"
-        :class="['size-4', kind === 'exited' ? 'text-text-muted' : 'text-critical']"
+        :class="['size-4', kind === 'exited' ? 'text-text-muted' : 'text-critical-text']"
         aria-hidden="true"
       />
       <h3 :id="`diagnosis-${kind}`" class="text-14 font-semibold text-text">
@@ -56,7 +56,7 @@ const seconds = (n: number) => t('docker.diagnosis.seconds', { n: Number(n.toFix
         class="flex items-start gap-2 rounded-control border border-critical px-3 py-2 text-text"
         data-testid="oom"
       >
-        <TriangleAlert class="mt-0.5 size-4 shrink-0 text-critical" aria-hidden="true" />
+        <TriangleAlert class="mt-0.5 size-4 shrink-0 text-critical-text" aria-hidden="true" />
         {{ $t('docker.diagnosis.oomFlag') }}
       </p>
 
@@ -93,8 +93,12 @@ const seconds = (n: number) => t('docker.diagnosis.seconds', { n: Number(n.toFix
               class="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 font-mono text-12 text-text-muted tabular"
               :title="probeLabel(p)"
             >
-              <CircleCheck v-if="p.exitCode === 0" class="size-3.5 text-ok" aria-hidden="true" />
-              <CircleX v-else class="size-3.5 text-critical" aria-hidden="true" />
+              <CircleCheck
+                v-if="p.exitCode === 0"
+                class="size-3.5 text-ok-text"
+                aria-hidden="true"
+              />
+              <CircleX v-else class="size-3.5 text-critical-text" aria-hidden="true" />
               <span aria-hidden="true">{{ clockTime(p.end) }}</span>
               <span class="sr-only">{{ probeLabel(p) }}</span>
             </li>

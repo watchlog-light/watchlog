@@ -99,9 +99,9 @@ const where = computed(() => {
 });
 
 const HEALTH_STYLE = {
-  ok: 'bg-ok/15 text-ok',
-  warning: 'bg-warning/15 text-warning',
-  critical: 'bg-critical/15 text-critical',
+  ok: 'bg-ok/15 text-ok-text',
+  warning: 'bg-warning/15 text-warning-text',
+  critical: 'bg-critical/15 text-critical-text',
   unknown: 'bg-surface-3 text-text-muted',
 } as const;
 const reasons = computed(() =>
@@ -238,7 +238,7 @@ async function resume() {
         class="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-card border border-warning/40 bg-warning/5 px-4 py-3.5 sm:px-5"
         data-testid="paused"
       >
-        <PauseCircle class="size-5 shrink-0 text-warning" aria-hidden="true" />
+        <PauseCircle class="size-5 shrink-0 text-warning-text" aria-hidden="true" />
         <div class="flex min-w-0 flex-[1_1_18rem] flex-col gap-0.5">
           <span class="text-14 font-semibold text-text">{{
             $t('integrations.page.paused.title')
@@ -434,7 +434,10 @@ async function resume() {
                   c.namespace ? `${c.namespace}/${c.name}` : c.name
                 }}</span>
                 <span
-                  :class="['shrink-0 text-12', c.failed > 0 ? 'text-warning' : 'text-text-muted']"
+                  :class="[
+                    'shrink-0 text-12',
+                    c.failed > 0 ? 'text-warning-text' : 'text-text-muted',
+                  ]"
                 >
                   {{
                     $t(

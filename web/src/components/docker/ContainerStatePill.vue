@@ -17,12 +17,12 @@ import TooltipHint from '@/components/ui/TooltipHint.vue';
 const props = defineProps<{ state: string; health?: string | null; reason?: string | null }>();
 
 const STATES: Record<string, { icon: object; tone: string }> = {
-  running: { icon: CircleCheck, tone: 'text-ok' },
-  restarting: { icon: RotateCw, tone: 'text-warning' },
+  running: { icon: CircleCheck, tone: 'text-ok-text' },
+  restarting: { icon: RotateCw, tone: 'text-warning-text' },
   exited: { icon: Square, tone: 'text-text-subtle' },
-  paused: { icon: Pause, tone: 'text-info' },
+  paused: { icon: Pause, tone: 'text-info-text' },
   created: { icon: CircleDashed, tone: 'text-text-subtle' },
-  dead: { icon: CircleX, tone: 'text-critical' },
+  dead: { icon: CircleX, tone: 'text-critical-text' },
 };
 
 const state = computed(
@@ -54,7 +54,7 @@ const known = computed(() => props.state in STATES);
       <span
         class="inline-flex items-center gap-1 rounded-full border border-critical px-2 py-0.5 text-12 text-text"
       >
-        <TriangleAlert class="size-3.5 text-critical" aria-hidden="true" />
+        <TriangleAlert class="size-3.5 text-critical-text" aria-hidden="true" />
         {{ $t('docker.health.unhealthy') }}
       </span>
     </component>
@@ -62,14 +62,14 @@ const known = computed(() => props.state in STATES);
       v-else-if="health === 'healthy'"
       class="inline-flex items-center gap-1 text-12 text-text-muted"
     >
-      <CircleCheck class="size-3.5 text-ok" aria-hidden="true" />
+      <CircleCheck class="size-3.5 text-ok-text" aria-hidden="true" />
       {{ $t('docker.health.healthy') }}
     </span>
     <span
       v-else-if="health === 'starting'"
       class="inline-flex items-center gap-1 text-12 text-text-muted"
     >
-      <CircleDashed class="size-3.5 text-info" aria-hidden="true" />
+      <CircleDashed class="size-3.5 text-info-text" aria-hidden="true" />
       {{ $t('docker.health.starting') }}
     </span>
   </span>

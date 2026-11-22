@@ -284,7 +284,7 @@ onMounted(page.load);
             <button
               v-if="zoom"
               type="button"
-              class="text-12 text-primary hover:underline"
+              class="text-12 text-link hover:underline"
               data-testid="reset-zoom"
               @click="setQuery({ from: undefined, to: undefined })"
             >
@@ -394,7 +394,7 @@ onMounted(page.load);
               <p v-else class="text-13 text-text-muted" data-testid="events-end">
                 {{ $t('kube.eventsPage.end', { n: events.length }, events.length) }}
               </p>
-              <p v-if="moreError" class="text-13 text-critical" role="alert">
+              <p v-if="moreError" class="text-13 text-critical-text" role="alert">
                 {{ $t('kube.eventsPage.moreError') }}
               </p>
             </div>
@@ -481,7 +481,7 @@ onMounted(page.load);
   color: var(--text-muted);
   font-size: 13px;
 }
-.text-critical {
-  color: var(--critical);
+.text-critical-text {
+  color: var(--critical-text);
 }
 </style>

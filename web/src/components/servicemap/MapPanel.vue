@@ -204,7 +204,7 @@ watch(
           <dt class="text-12 text-text-muted">{{ $t('serviceMap.panel.failed') }}</dt>
           <dd
             class="font-mono text-16 tabular-nums"
-            :class="(summary.failedRatio ?? 0) >= 0.01 ? 'text-critical' : 'text-text'"
+            :class="(summary.failedRatio ?? 0) >= 0.01 ? 'text-critical-text' : 'text-text'"
           >
             {{ formatValue(summary.failedRatio, 'ratio') }}
           </dd>
@@ -303,7 +303,7 @@ watch(
         <h3 class="text-11 font-medium tracking-wide text-text-subtle uppercase">
           {{ $t('serviceMap.proxy.entrypoints') }}
         </h3>
-        <p v-if="proxy.answeredPerSecond > 0" class="text-13 text-critical">
+        <p v-if="proxy.answeredPerSecond > 0" class="text-13 text-critical-text">
           {{ $t('serviceMap.proxy.answered', { rate: perSecond(proxy.answeredPerSecond) }) }}
         </p>
         <p v-if="!proxy.entrypoints.length" class="px-1.5 text-13 text-text-muted">
@@ -326,7 +326,7 @@ watch(
               </td>
               <td
                 class="py-1 text-right font-mono tabular-nums"
-                :class="ep.serverErrorsPerSecond > 0 ? 'text-critical' : 'text-text'"
+                :class="ep.serverErrorsPerSecond > 0 ? 'text-critical-text' : 'text-text'"
               >
                 {{ perSecond(ep.serverErrorsPerSecond) }}
               </td>
@@ -452,7 +452,7 @@ watch(
           <dt class="text-12 text-text-muted">{{ $t('serviceMap.panel.failed') }}</dt>
           <dd
             class="font-mono text-16 tabular-nums"
-            :class="(edge.failedRatio ?? 0) >= 0.01 ? 'text-critical' : 'text-text'"
+            :class="(edge.failedRatio ?? 0) >= 0.01 ? 'text-critical-text' : 'text-text'"
           >
             {{ formatValue(edge.failedRatio, 'ratio') }}
           </dd>
@@ -495,7 +495,9 @@ watch(
             <dt class="text-12 text-text-muted">{{ $t('serviceMap.http.errors') }}</dt>
             <dd
               class="font-mono text-16 tabular-nums"
-              :class="(edge.http.serverErrorRatio ?? 0) >= 0.01 ? 'text-critical' : 'text-text'"
+              :class="
+                (edge.http.serverErrorRatio ?? 0) >= 0.01 ? 'text-critical-text' : 'text-text'
+              "
               data-testid="edge-http-5xx"
             >
               {{ formatValue(edge.http.serverErrorRatio, 'ratio') }}
@@ -665,7 +667,7 @@ watch(
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--primary);
+  color: var(--link);
   font-size: 13px;
 }
 .close {

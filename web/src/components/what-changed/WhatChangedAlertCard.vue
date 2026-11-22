@@ -77,9 +77,9 @@ onMounted(() => {
     class="flex min-h-11 items-center gap-3 rounded-card border border-border bg-surface-1 px-4.5 py-3 text-13 text-text-muted hover:border-border-strong hover:text-text max-md:px-4"
     data-testid="wc-card-locked"
   >
-    <Lock class="size-4 shrink-0 text-info" aria-hidden="true" />
+    <Lock class="size-4 shrink-0 text-info-text" aria-hidden="true" />
     <span class="min-w-0 flex-1">{{ $t('whatChanged.card.locked') }}</span>
-    <span class="font-semibold text-info">{{ $t('whatChanged.pro') }}</span>
+    <span class="font-semibold text-info-text">{{ $t('whatChanged.pro') }}</span>
   </RouterLink>
 
   <!-- The learning week: one line with the ready date. -->
@@ -89,7 +89,7 @@ onMounted(() => {
     class="flex min-h-11 items-center gap-3 rounded-card border border-border bg-surface-1 px-4.5 py-3 text-13 text-text-muted hover:border-border-strong hover:text-text max-md:px-4"
     data-testid="wc-card-learning"
   >
-    <Hourglass class="size-4 shrink-0 text-info" aria-hidden="true" />
+    <Hourglass class="size-4 shrink-0 text-info-text" aria-hidden="true" />
     <span class="min-w-0 flex-1">{{
       learning.ready
         ? $t('whatChanged.card.learning', {

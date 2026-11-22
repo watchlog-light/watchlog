@@ -19,9 +19,9 @@ const props = defineProps<{
 
 const ICON = { ok: Check, warning: TriangleAlert, critical: X, neutral: Circle } as const;
 const FILL = {
-  ok: 'bg-ok/25 text-ok',
-  warning: 'bg-warning/25 text-warning',
-  critical: 'bg-critical/25 text-critical',
+  ok: 'bg-ok/25 text-ok-text',
+  warning: 'bg-warning/25 text-warning-text',
+  critical: 'bg-critical/25 text-critical-text',
   neutral: 'bg-surface-3 text-text-subtle',
 } as const;
 

@@ -9,7 +9,7 @@ withDefaults(defineProps<{ label: string; tone?: 'ok' | 'neutral' }>(), { tone: 
     :class="[
       'inline-flex items-center rounded-full border px-2 py-0.5 text-12 font-medium',
       tone === 'ok'
-        ? 'border-ok/40 bg-ok/10 text-ok'
+        ? 'border-ok/40 bg-ok/10 text-ok-text'
         : 'border-border bg-surface-2 text-text-muted',
     ]"
     >{{ label }}</span

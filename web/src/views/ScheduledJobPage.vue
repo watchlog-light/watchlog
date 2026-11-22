@@ -56,10 +56,10 @@ const runs = computed(() => page.data.value?.runs ?? []);
 const hours = computed(() => page.data.value?.hours ?? []);
 const say = (w: Words) => t(w.key, w.values ?? {}, Number(w.values?.n ?? 1));
 const TEXT_TONE: Record<Tone, string> = {
-  crit: 'text-critical',
-  warn: 'text-warning',
+  crit: 'text-critical-text',
+  warn: 'text-warning-text',
   ok: 'text-text-muted',
-  info: 'text-info',
+  info: 'text-info-text',
   muted: 'text-text-muted',
 };
 const when = (unix: number) => formatDateTime(new Date(unix * 1000).toISOString());
@@ -236,9 +236,9 @@ const cronJobWorkload = computed(() => {
                       :class="[
                         'py-1.5 pr-3',
                         r.result === 'failed'
-                          ? 'text-critical'
+                          ? 'text-critical-text'
                           : r.result === 'running'
-                            ? 'text-info'
+                            ? 'text-info-text'
                             : 'text-text',
                       ]"
                     >
@@ -286,7 +286,7 @@ const cronJobWorkload = computed(() => {
               wns: cronJobWorkload.namespace,
             },
           }"
-          class="ml-1 text-primary hover:underline"
+          class="ml-1 text-link hover:underline"
           >{{ $t('jobs.detail.openWorkload') }}</RouterLink
         >
       </p>

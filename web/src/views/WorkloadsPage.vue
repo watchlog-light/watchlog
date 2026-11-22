@@ -239,7 +239,8 @@ onMounted(() => {
             data-testid="failing-chip"
             @click="setQuery({ problems: failing ? undefined : '1' })"
           >
-            ✕ {{ $t('kube.workloads.failing') }} <b class="text-critical">{{ failingCount }}</b>
+            ✕ {{ $t('kube.workloads.failing') }}
+            <b class="text-critical-text">{{ failingCount }}</b>
           </button>
         </div>
 
@@ -254,13 +255,13 @@ onMounted(() => {
               {{ $t('kube.workloads.systemHidden', { n: hiddenSystem }, hiddenSystem) }}
               (<RouterLink
                 :to="{ name: 'settings', query: { tab: 'general' } }"
-                class="text-primary hover:underline"
+                class="text-link hover:underline"
                 >{{ $t('kube.workloads.editList') }}</RouterLink
               >)
             </span>
           </template>
           ·
-          <span :class="{ 'text-critical': attention > 0 }">{{
+          <span :class="{ 'text-critical-text': attention > 0 }">{{
             $t('kube.workloads.needAttention', { n: attention }, attention)
           }}</span>
           <LoadingIndicator :active="page.refreshing.value" class="ml-1" />
@@ -375,11 +376,11 @@ onMounted(() => {
   color: var(--text);
 }
 .chip[aria-pressed='true'] b {
-  color: var(--primary);
+  color: var(--link);
 }
-.chip b.text-critical,
-.text-critical {
-  color: var(--critical);
+.chip b.text-critical-text,
+.text-critical-text {
+  color: var(--critical-text);
 }
 .chip:focus-visible {
   outline: 2px solid var(--primary);

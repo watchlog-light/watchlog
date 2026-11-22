@@ -142,7 +142,9 @@ const count = computed(() => props.servers.reduce((n, s) => n + s.rows.length, 0
               <p
                 v-if="r.w.problem"
                 class="line-clamp-2 text-12"
-                :class="r.w.problem.severity === 'critical' ? 'text-critical' : 'text-warning'"
+                :class="
+                  r.w.problem.severity === 'critical' ? 'text-critical-text' : 'text-warning-text'
+                "
                 :style="{ paddingLeft: `${r.depth * 18}px` }"
                 data-testid="problem-reason"
               >
@@ -177,7 +179,7 @@ const count = computed(() => props.servers.reduce((n, s) => n + s.rows.length, 0
             </td>
             <td
               class="num c-restarts"
-              :class="r.w.restarts24h != null && r.w.restarts24h >= 3 && 'text-critical'"
+              :class="r.w.restarts24h != null && r.w.restarts24h >= 3 && 'text-critical-text'"
               :data-label="$t('servers.fleetWorkloads.columns.restarts')"
               data-testid="restarts"
             >
@@ -303,15 +305,15 @@ tr.warn td:first-child {
   white-space: nowrap;
 }
 .pill.crit {
-  color: var(--critical);
+  color: var(--critical-text);
   background: color-mix(in srgb, var(--critical) 12%, transparent);
 }
 .pill.warn {
-  color: var(--warning);
+  color: var(--warning-text);
   background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 .pill.ok {
-  color: var(--primary);
+  color: var(--link);
   background: var(--primary-soft);
 }
 .dot {
@@ -323,11 +325,11 @@ tr.warn td:first-child {
 .bg-ok {
   background: var(--ok);
 }
-.text-critical {
-  color: var(--critical);
+.text-critical-text {
+  color: var(--critical-text);
 }
-.text-warning {
-  color: var(--warning);
+.text-warning-text {
+  color: var(--warning-text);
 }
 /* Phones: each workload is a card, as on the Kubernetes page; the servers stay headings. */
 @media (max-width: 767px) {

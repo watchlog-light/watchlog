@@ -190,15 +190,15 @@ const podLink = (p: HeatPod) =>
   white-space: nowrap;
 }
 .pill.ok {
-  color: var(--primary);
+  color: var(--link);
   background: var(--primary-soft);
 }
 .pill.warn {
-  color: var(--warning);
+  color: var(--warning-text);
   background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 .pill.crit {
-  color: var(--critical);
+  color: var(--critical-text);
   background: color-mix(in srgb, var(--critical) 12%, transparent);
 }
 .cond {
@@ -212,14 +212,14 @@ const podLink = (p: HeatPod) =>
   font-size: var(--text-12);
 }
 .cond.bad {
-  color: var(--critical);
+  color: var(--critical-text);
   background: color-mix(in srgb, var(--critical) 12%, transparent);
 }
 .cond.shield {
   color: var(--text-subtle);
 }
 .cond.warn {
-  color: var(--warning);
+  color: var(--warning-text);
   background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 .met {
@@ -250,9 +250,9 @@ const podLink = (p: HeatPod) =>
   background: var(--critical);
 }
 .t-warning {
-  color: var(--warning);
+  color: var(--warning-text);
 }
 .t-critical {
-  color: var(--critical);
+  color: var(--critical-text);
 }
 </style>

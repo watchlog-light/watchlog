@@ -208,14 +208,14 @@ onMounted(() => {
         <NodeTiles :nodes="nodes" :disk-alerts="page.data.value!.diskAlerts" />
 
         <div v-if="showNotice" class="notice" role="note" data-testid="kubelet-tls-note">
-          <Info class="size-4 shrink-0 text-warning" aria-hidden="true" />
+          <Info class="size-4 shrink-0 text-warning-text" aria-hidden="true" />
           <span>
             {{ $t('kube.nodes.tlsNotice', { n: unverified }, unverified) }}
             <a
               :href="LINKS.kubeletTls"
               target="_blank"
               rel="noopener noreferrer"
-              class="text-primary hover:underline"
+              class="text-link hover:underline"
               >{{ $t('kube.nodes.howToFix') }}</a
             >
           </span>
@@ -302,14 +302,14 @@ onMounted(() => {
   white-space: nowrap;
 }
 .pill.ok {
-  color: var(--primary);
+  color: var(--link);
   background: var(--primary-soft);
 }
 .pill.crit {
-  color: var(--critical);
+  color: var(--critical-text);
   background: color-mix(in srgb, var(--critical) 12%, transparent);
 }
-.text-warning {
-  color: var(--warning);
+.text-warning-text {
+  color: var(--warning-text);
 }
 </style>

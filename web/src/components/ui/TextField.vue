@@ -59,7 +59,7 @@ defineExpose({
       v-if="error || hint"
       :id="`${id}-help`"
       :role="error ? 'alert' : undefined"
-      :class="['text-12', error ? 'text-critical' : 'text-text-muted']"
+      :class="['text-12', error ? 'text-critical-text' : 'text-text-muted']"
     >
       {{ error ?? hint }}
     </p>

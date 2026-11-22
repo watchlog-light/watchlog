@@ -203,7 +203,7 @@ const aria = computed(() =>
   max-width: 40%;
   overflow: hidden;
   padding-left: 5px;
-  color: var(--warning);
+  color: var(--warning-text);
   font-size: var(--text-12);
   text-overflow: ellipsis;
   white-space: nowrap;

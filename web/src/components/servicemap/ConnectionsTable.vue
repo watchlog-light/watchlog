@@ -153,7 +153,7 @@ const failedText = (e: ServiceMapEdge) =>
               <div
                 role="cell"
                 class="num"
-                :class="(r.edge.failedRatio ?? 0) >= 0.01 ? 'text-critical' : ''"
+                :class="(r.edge.failedRatio ?? 0) >= 0.01 ? 'text-critical-text' : ''"
               >
                 <span class="lbl">{{ $t('serviceMap.columns.failed') }}</span>
                 {{ failedText(r.edge) }}

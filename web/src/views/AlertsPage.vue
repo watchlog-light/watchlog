@@ -232,7 +232,7 @@ const tabCount = (v: View) =>
     <template v-else-if="view === 'firing' && firing.loaded.value">
       <p v-if="ruleFilter" class="text-13 text-text-muted">
         {{ $t('alerts.filteredByRule') }}
-        <RouterLink :to="{ query: { ...route.query, rule: undefined } }" class="text-primary">
+        <RouterLink :to="{ query: { ...route.query, rule: undefined } }" class="text-link">
           {{ $t('alerts.showAll') }}
         </RouterLink>
       </p>

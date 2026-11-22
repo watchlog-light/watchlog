@@ -345,7 +345,7 @@ const steps = computed(() => [
                 s.state === 'current'
                   ? 'bg-primary text-on-primary'
                   : s.state === 'done'
-                    ? 'bg-primary-soft text-primary'
+                    ? 'bg-primary-soft text-link'
                     : 'border border-border-strong',
               ]"
               aria-hidden="true"
@@ -442,7 +442,7 @@ const steps = computed(() => [
             :href="sampleUrl"
             target="_blank"
             rel="noopener"
-            class="inline-flex min-h-11 items-center gap-1.5 text-16 font-medium text-primary hover:text-primary-hover"
+            class="inline-flex min-h-11 items-center gap-1.5 text-16 font-medium text-link hover:text-primary-hover"
             data-testid="sample-link"
             @click="sampleOpened"
           >
@@ -473,7 +473,7 @@ const steps = computed(() => [
           <button
             v-if="canGoBack"
             type="button"
-            class="-ml-1 inline-flex min-h-11 items-center gap-1.5 self-start px-1 text-14 font-medium text-primary hover:text-primary-hover lg:min-h-9"
+            class="-ml-1 inline-flex min-h-11 items-center gap-1.5 self-start px-1 text-14 font-medium text-link hover:text-primary-hover lg:min-h-9"
             data-testid="wizard-back"
             @click="back"
           >
@@ -534,7 +534,11 @@ const steps = computed(() => [
                 $t(`onboarding.install.note.${method}`)
               }}</span>
               <BaseButton variant="secondary" data-testid="copy-command" @click="copyCommand">
-                <Check v-if="copyState === 'copied'" class="size-4 text-ok" aria-hidden="true" />
+                <Check
+                  v-if="copyState === 'copied'"
+                  class="size-4 text-ok-text"
+                  aria-hidden="true"
+                />
                 <span aria-live="polite">{{
                   copyState === 'copied'
                     ? $t('onboarding.install.copied')
@@ -552,7 +556,7 @@ const steps = computed(() => [
           data-testid="install-lost"
         >
           <p class="text-14 text-text-muted">{{ $t('onboarding.install.lost') }}</p>
-          <p v-if="reissueError" class="text-13 text-critical" role="alert">
+          <p v-if="reissueError" class="text-13 text-critical-text" role="alert">
             {{ $t('clusters.errors.generic') }}
           </p>
           <BaseButton variant="secondary" :loading="reissuing" @click="reissue">
@@ -575,7 +579,7 @@ const steps = computed(() => [
           </div>
           <p
             v-if="channels.length"
-            class="flex items-center gap-2 text-14 text-ok"
+            class="flex items-center gap-2 text-14 text-ok-text"
             data-testid="alerts-set"
           >
             <Check class="size-4" aria-hidden="true" />
@@ -679,7 +683,7 @@ const steps = computed(() => [
             </ul>
             <a
               :href="helpHref"
-              class="inline-flex min-h-11 items-center gap-2 self-start font-semibold text-primary hover:text-primary-hover"
+              class="inline-flex min-h-11 items-center gap-2 self-start font-semibold text-link hover:text-primary-hover"
               data-testid="help-installing"
               @click="funnel('onboarding_help_opened', { kind: currentKind })"
             >
@@ -727,7 +731,7 @@ const steps = computed(() => [
           @click="sampleOpened"
         >
           <b class="text-16 text-text">{{ $t('onboarding.sample.waitTitle') }}</b>
-          <span class="flex items-center gap-1.5 text-14 text-primary">
+          <span class="flex items-center gap-1.5 text-14 text-link">
             {{ $t('onboarding.sample.wait') }}
             <ExternalLink class="size-3.5" aria-hidden="true" />
             <span class="sr-only">{{ $t('onboarding.sample.newTab') }}</span>

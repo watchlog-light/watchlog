@@ -126,7 +126,7 @@ onMounted(() => {
         compact ? 'px-3.5 py-3' : 'px-4.5 py-3.5 max-md:px-4',
       ]"
     >
-      <Route class="size-4.5 shrink-0 text-info" aria-hidden="true" />
+      <Route class="size-4.5 shrink-0 text-info-text" aria-hidden="true" />
       <h2 :id="`cause-title-${subject}`" class="text-14 font-semibold text-text">
         {{ $t(`causes.panel.title.${state ?? 'likely'}`) }}
       </h2>
@@ -143,7 +143,7 @@ onMounted(() => {
         data-testid="cause-copy"
         @click="copyText"
       >
-        <Check v-if="copyState === 'copied'" class="size-3.5 text-ok" aria-hidden="true" />
+        <Check v-if="copyState === 'copied'" class="size-3.5 text-ok-text" aria-hidden="true" />
         <Copy v-else class="size-3.5" aria-hidden="true" />
         {{
           copyState === 'copied'
@@ -205,12 +205,12 @@ onMounted(() => {
           role="note"
           data-testid="cause-flows-off"
         >
-          <TriangleAlert class="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+          <TriangleAlert class="mt-0.5 size-4 shrink-0 text-warning-text" aria-hidden="true" />
           <span>
             {{ $t('causes.panel.flowsOff', { nodes: flowsNodes, name: a.subject.name }) }}
             <RouterLink
               :to="{ name: 'service-map', query: { cluster: clusterId } }"
-              class="text-text underline hover:text-warning"
+              class="text-text underline hover:text-warning-text"
               >{{ $t('causes.panel.flowsOffLink') }}</RouterLink
             >
           </span>
@@ -286,7 +286,7 @@ onMounted(() => {
                   }}</span>
                   <span
                     v-if="i === steps.length - 1"
-                    class="font-semibold text-info"
+                    class="font-semibold text-info-text"
                     data-testid="cause-root"
                     >{{ $t('causes.panel.root') }}</span
                   >
@@ -360,7 +360,7 @@ onMounted(() => {
           class="flex items-center gap-2.5 rounded-card border border-ok/30 bg-ok/5 px-3 py-2.5 text-13 text-text"
           data-testid="cause-resolved"
         >
-          <Check class="size-4 shrink-0 text-ok" aria-hidden="true" />
+          <Check class="size-4 shrink-0 text-ok-text" aria-hidden="true" />
           {{ $t('causes.panel.resolved', { time: time(a.resolvedAt) }) }}
         </p>
 

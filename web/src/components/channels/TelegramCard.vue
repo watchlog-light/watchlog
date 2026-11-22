@@ -191,7 +191,7 @@ const pill = computed(
 const showSteps = computed(() => setup.value || (props.channels.length === 0 && props.canManage));
 const stepClass = (n: number) => [
   'flex size-5.5 shrink-0 items-center justify-center rounded-full font-mono text-12',
-  step.value > n ? 'bg-surface-3 text-ok' : 'bg-surface-3 text-text-muted',
+  step.value > n ? 'bg-surface-3 text-ok-text' : 'bg-surface-3 text-text-muted',
 ];
 </script>
 
@@ -252,7 +252,7 @@ const stepClass = (n: number) => [
             role="alert"
             data-testid="telegram-unreachable"
           >
-            <TriangleAlert class="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+            <TriangleAlert class="mt-0.5 size-4 shrink-0 text-warning-text" aria-hidden="true" />
             <span>{{ $t('channels.telegram.unreachable', { error: unreachable }) }}</span>
           </div>
           <form

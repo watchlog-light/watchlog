@@ -8,7 +8,8 @@ import type {
   UserEnvelope,
 } from '@watchlog/api-types';
 import { defineStore } from 'pinia';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useTheme, type ThemeChoice } from '@/composables/useTheme';
 import { api, ApiError } from '@/api/client';
 import {
   cloudApi,
@@ -134,8 +135,36 @@ export const useAuthStore = defineStore('auth', () => {
     account.value = null;
   }
 
+  // The theme follows the user (ADR-228): when the session loads, the saved value wins and is
+  // written to this browser. The read-only demo keeps its visitors' choice in the browser only.
+  const theme = useTheme();
+  watch(
+    () => user.value?.theme,
+    (t) => {
+      if (t && !demoMode.value) theme.setChoice(t as ThemeChoice);
+    },
+  );
+  /**
+   * The account menu's choice: applied at once, then saved on the user in the background. A
+   * failed save keeps the choice here, without a toast; the demo saves nothing.
+   */
+  async function setTheme(c: ThemeChoice): Promise<void> {
+    theme.setChoice(c);
+    if (!user.value || demoMode.value || user.value.theme === c) return;
+    try {
+      const saved = await api<UserEnvelope>('/me/preferences', {
+        method: 'PATCH',
+        body: { theme: c },
+      });
+      if (user.value) user.value = { ...user.value, theme: saved.user.theme };
+    } catch {
+      // Kept in this browser; the next change or sign-in tries again.
+    }
+  }
+
   return {
     user,
+    setTheme,
     setupRequired,
     demoMode,
     demoMcpToken,

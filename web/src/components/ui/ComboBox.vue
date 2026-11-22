@@ -231,8 +231,8 @@ const anchor = computed(() => [
         :side-offset="4"
         :class="
           narrow
-            ? 'fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-card border-t border-border-strong bg-surface-2 shadow-xl'
-            : 'z-50 max-h-80 w-[var(--reka-combobox-trigger-width)] min-w-48 overflow-hidden rounded-card border border-border bg-surface-2 shadow-lg'
+            ? 'fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-card border-t border-border-strong bg-surface-2 shadow-menu'
+            : 'z-50 max-h-80 w-[var(--reka-combobox-trigger-width)] min-w-48 overflow-hidden rounded-card border border-border bg-surface-2 shadow-menu'
         "
         data-testid="combobox-content"
       >
@@ -291,7 +291,7 @@ const anchor = computed(() => [
             >
               <span class="flex size-3.5 shrink-0 items-center justify-center">
                 <ComboboxItemIndicator
-                  ><Check class="size-3.5 text-primary" aria-hidden="true"
+                  ><Check class="size-3.5 text-link" aria-hidden="true"
                 /></ComboboxItemIndicator>
               </span>
               <span class="truncate">{{ option.label }}</span>
@@ -318,7 +318,7 @@ const anchor = computed(() => [
               >
                 <span class="mt-0.5 flex size-3.5 shrink-0 items-center justify-center">
                   <ComboboxItemIndicator
-                    ><Check class="size-3.5 text-primary" aria-hidden="true"
+                    ><Check class="size-3.5 text-link" aria-hidden="true"
                   /></ComboboxItemIndicator>
                 </span>
                 <component
@@ -337,7 +337,7 @@ const anchor = computed(() => [
                     <span class="truncate">{{ o.label }}</span>
                     <span
                       v-if="o.badge"
-                      class="inline-flex h-4.5 shrink-0 items-center rounded-full border border-info/50 px-1.5 text-12 font-semibold text-info"
+                      class="inline-flex h-4.5 shrink-0 items-center rounded-full border border-info/50 px-1.5 text-12 font-semibold text-info-text"
                       >{{ o.badge }}</span
                     >
                   </span>

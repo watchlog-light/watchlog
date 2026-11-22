@@ -218,9 +218,9 @@ const podShare = computed(() => pct(c.value.pods.count, c.value.pods.capacity));
   background: var(--critical);
 }
 .t-warning {
-  color: var(--warning);
+  color: var(--warning-text);
 }
 .t-critical {
-  color: var(--critical);
+  color: var(--critical-text);
 }
 </style>
