@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Applications' Certificates and Scheduled jobs tabs (0.10, ADR-221): what each row, tile and
+// The Certificates and Scheduled jobs pages (0.10, ADR-221; own pages, ADR-230): what each row, tile and
 // sentence says, as i18n keys with their values. Pure, so the words are tested once here.
 import type { JobRun, ScheduledJob, TlsCertificate } from '@watchlog/api-types';
 

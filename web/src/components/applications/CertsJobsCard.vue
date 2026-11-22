@@ -17,9 +17,9 @@ import {
 } from '@/lib/certs-jobs';
 import { useCertsJobsStore } from '@/stores/certsJobs';
 
-// Certificates and scheduled jobs at a glance (0.10): on the Overview for the cluster or fleet,
-// on a server's page for that server. Counts, the problems (three of each) and links to the
-// Applications tabs and each one's page.
+// Certificates and scheduled jobs at a glance (0.10): on a server's page for that server (the
+// Overview has the "Running here" row since 0.13.0). Counts, the problems (three of each) and
+// links to the two pages and each one's page.
 const props = defineProps<{ clusterId: string; node?: string }>();
 const { t } = useI18n();
 const store = useCertsJobsStore();

@@ -5,7 +5,7 @@ import { ref } from 'vue';
 import { api } from '@/api/client';
 
 // The selected cluster's certificates and scheduled jobs (0.10, ADR-221), shared by the
-// Applications tabs (their counts) and the two pages; each list is read again after 30 s.
+// navigation's badges, the Overview's row, search and the two pages; read again after 30 s.
 const FRESH_MS = 30_000;
 
 export const useCertsJobsStore = defineStore('certsJobs', () => {

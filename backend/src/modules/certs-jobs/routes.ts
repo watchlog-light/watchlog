@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Applications' Certificates and Scheduled jobs tabs (0.10.0, ADR-221, ADR-224): read-only,
+// The Certificates and Scheduled jobs pages (0.10.0, ADR-221, ADR-224; own pages, ADR-230): read-only,
 // bounded routes per cluster or fleet (a server's, with ?node=) and per object.
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { sql } from 'kysely';
