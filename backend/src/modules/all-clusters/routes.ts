@@ -83,6 +83,7 @@ export const allClustersRoutes: FastifyPluginAsyncTypebox<{
         version: config.version,
         maxRange,
         log: request.log,
+        demo: config.demoMode,
       });
       const answer = filterKind(summary, kind);
       if (causes && wantsCause(request)) {

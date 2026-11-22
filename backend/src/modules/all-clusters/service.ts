@@ -163,6 +163,11 @@ export interface SummaryInput {
   version: string;
   /** The longest range this org may read (its retention; the demo's 24 hours). */
   maxRange: number;
+  /**
+   * The read-only demo (ADR-122): "sends alerts nowhere" is left out, since a visitor can't
+   * add a channel (ADR-229). Real orgs still see it.
+   */
+  demo?: boolean;
   log: { warn(obj: object, msg: string): void };
 }
 
@@ -608,15 +613,18 @@ export async function buildSummary(input: SummaryInput): Promise<Summary> {
   const deliveringChannels = channels
     .filter((ch) => ch.last_error_at === null && ch.last_sent_at !== null)
     .map((ch) => ({ id: ch.id, name: ch.name, type: ch.type }));
-  const noChannel = all
-    .filter(
-      (c) =>
-        !rules.some(
-          (r) =>
-            (r.cluster_id === null || r.cluster_id === c.id) && (r.channel_ids?.length ?? 0) > 0,
-        ),
-    )
-    .map((c) => refs.get(c.id)!);
+  const noChannel = input.demo
+    ? []
+    : all
+        .filter(
+          (c) =>
+            !rules.some(
+              (r) =>
+                (r.cluster_id === null || r.cluster_id === c.id) &&
+                (r.channel_ids?.length ?? 0) > 0,
+            ),
+        )
+        .map((c) => refs.get(c.id)!);
   const ebpfOff = all.flatMap((c) => {
     const off = (agentsOf.get(c.id) ?? []).filter(
       (a) => live(a) && (a.capabilities as { ebpf?: string } | null)?.ebpf !== 'enabled',

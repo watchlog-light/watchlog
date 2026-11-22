@@ -286,11 +286,16 @@ describe('the gate', () => {
   it("the live demo's org has it, within 24 hours", async () => {
     ctx = await createTestContext({ version: VERSION, demoMode: true }, { now: () => NOW });
     await ensureDemoUser(ctx.db);
+    const demoOrg = (await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow()).id;
+    await insertCluster(ctx.db, demoOrg, 'sample-cluster', 'kubernetes');
     const login = await ctx.app.inject({ method: 'POST', url: '/api/v1/demo/session' });
     const cookie = login.cookies.find((x) => x.name === 'wl_session')!.value;
     const res = await get(ctx, cookie);
     expect(res.statusCode, res.body).toBe(200);
     expect(res.json().ranges).toEqual([3600, 21_600, 86_400]);
+    // A visitor can't add a channel: "sends alerts nowhere" is left out (ADR-229).
+    expect(res.json().clusters.map((x: { name: string }) => x.name)).toEqual(['sample-cluster']);
+    expect(res.json().housekeeping.noChannel).toEqual([]);
     const week = await get(ctx, cookie, { range: '604800' });
     expect(week.statusCode).toBe(400);
   });
