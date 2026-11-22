@@ -169,6 +169,12 @@ function link(
   let path: string;
   // An egress alert: the Egress page, filtered to its source and destination (ADR-187).
   if (l.destination) return egressLink(base, l, cluster.id);
+  // Certificates and scheduled jobs have their own pages since 0.13.0, searched by name.
+  if (ruleKey?.startsWith('cert.') || ruleKey?.startsWith('job.')) {
+    const page = ruleKey.startsWith('cert.') ? 'certificates' : 'scheduled-jobs';
+    const name = l.certificate ?? l.workload ?? l.job ?? '';
+    return `${base.replace(/\/+$/, '')}/${page}${q}${name ? `&q=${e(name)}` : ''}`;
+  }
   if (l.service) path = `/applications/${e(l.service)}`;
   else if (l.pod) path = `/pods/${e(l.namespace!)}/${e(l.pod)}`;
   else if (l.workload || l.pvc) path = `/workloads${q}&ns=${e(l.namespace!)}`;
