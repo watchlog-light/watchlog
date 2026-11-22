@@ -59,6 +59,8 @@ async function write(
 ): Promise<void> {
   const series: TestSeries[] = [];
   for (let t = A; t <= A + 35 * MIN; t += SCRAPE) {
+    // NaN: no sample (a unit the agent no longer reports).
+    if (Number.isNaN(value(t))) continue;
     series.push({
       labels: { __name__: name, run: RUN, ...labels },
       value: value(t),
@@ -573,6 +575,46 @@ describe('server rules (ADR-208): trigger and resolve', () => {
         fingerprint: 'group:app-1/sync.py',
         labels: { node: 'app-1', group: 'sync.py' },
       },
+    ]);
+  });
+  it("server.process.gone: never for a one-off job that finished, or a cron job; still for a running service's group", async () => {
+    await setup('server.process.gone', 'server');
+    // A timer's oneshot ran 15 minutes and finished: the agent stops reporting its unit.
+    await write(
+      'watchlog_process_group_instances',
+      { host: 'app-1', unit: 'backup.service', group: 'restic', by: 'exe' },
+      (t) => (t < A + 15 * MIN ? 1 : 0),
+    );
+    await write(
+      'watchlog_service_state',
+      { host: 'app-1', unit: 'backup.service', state: 'activating', sub: 'start' },
+      (t) => (t < A + 15 * MIN ? 1 : NaN),
+    );
+    // A cron job's script ran 12 minutes under cron.service, which keeps running.
+    await write(
+      'watchlog_process_group_instances',
+      { host: 'app-1', unit: 'cron.service', group: 'rotate-logs.sh', by: 'script' },
+      (t) => (t < A + 12 * MIN ? 1 : 0),
+    );
+    await write(
+      'watchlog_service_state',
+      { host: 'app-1', unit: 'cron.service', state: 'active', sub: 'running' },
+      () => 1,
+    );
+    // A long-running service's worker died while the unit still runs: that one is gone.
+    await write(
+      'watchlog_process_group_instances',
+      { host: 'app-1', unit: 'pm2-app.service', group: 'mailer', by: 'pm2' },
+      (t) => (t < A + 20 * MIN ? 1 : 0),
+    );
+    await write(
+      'watchlog_service_state',
+      { host: 'app-1', unit: 'pm2-app.service', state: 'active', sub: 'running' },
+      () => 1,
+    );
+    await evaluate(21, 23);
+    expect((await alerts()).map((a) => [a.state, a.fingerprint])).toEqual([
+      ['firing', 'group:app-1/mailer'],
     ]);
   });
 });

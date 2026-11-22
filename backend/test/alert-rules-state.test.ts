@@ -231,6 +231,36 @@ describe('state rules: trigger and resolve', () => {
     expect(await states('k8s.container.oomkilled')).toEqual(['resolved']);
   });
 
+  it('a one-off Job that finished normally raises nothing: no crash loop, OOM, pending or replicas alert (0.13.0)', async () => {
+    await setup();
+    await put('Pod', 'report-29922470-ok', {
+      spec: { workload: { kind: 'Job', name: 'report-29922470' }, created_at: iso(T0 - 600_000) },
+      status: {
+        phase: 'Succeeded',
+        containers: [
+          {
+            name: 'main',
+            ready: false,
+            state: 'terminated',
+            reason: 'Completed',
+            exit_code: 0,
+            restart_count: 0,
+          },
+        ],
+      },
+    });
+    await cycles(12); // 6 min, past every rule's wait
+    for (const key of [
+      'k8s.pod.crashloop',
+      'k8s.container.oomkilled',
+      'k8s.pod.pending',
+      'k8s.pod.imagepull',
+      'k8s.deployment.unavailable',
+    ]) {
+      expect(await alerts(key), key).toEqual([]);
+    }
+  });
+
   it("k8s.pod.pending: counts from the pod's creation and resolves when it runs", async () => {
     await setup();
     await put(

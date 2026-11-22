@@ -54,6 +54,9 @@ interface Entry {
   ) => string;
 }
 
+/** The units cron jobs run under: they stay active while their jobs come and go. */
+const CRON_UNITS = 'cron.service|crond.service|anacron.service|atd.service';
+
 const ENTRIES = {
   'host.cpu.utilization': {
     unit: 'ratio',
@@ -397,12 +400,22 @@ const ENTRIES = {
   /**
    * 1 for a group with no process left that ran for at least 10 minutes of the last hour
    * (the agent keeps a gone group an hour, ADR-208); a short-lived job is never "gone".
+   * Only while its systemd unit still runs, or for a group with no unit: a one-off job whose
+   * unit finished (a timer's oneshot, which the agent stops reporting once inactive) ended
+   * normally, a failed unit has its own alert, and cron's jobs run under cron.service, which
+   * never stops (0.13.0).
    */
   'process.gone': {
     unit: 'count',
     agg: 'max',
-    expr: (s) =>
-      `(max by (host, unit, group) (watchlog_process_group_instances${s('group!="other processes"')}) == 0) * 0 + 1 and on (host, unit, group) (sum by (host, unit, group) (sum_over_time((max by (host, unit, group) (watchlog_process_group_instances${s('group!="other processes"')}) > bool 0)[1h:1m])) >= 10)`,
+    expr: (s) => {
+      const groups = (extra: string) =>
+        `max by (host, unit, group) (watchlog_process_group_instances${s('group!="other processes"', extra)})`;
+      const gone = (extra: string) =>
+        `((${groups(extra)} == 0) * 0 + 1 and on (host, unit, group) (sum by (host, unit, group) (sum_over_time((${groups(extra)} > bool 0)[1h:1m])) >= 10))`;
+      const running = `max by (host, unit) (watchlog_service_state${s('state="active"')})`;
+      return `(${gone(`unit!="",unit!~"${CRON_UNITS}"`)} and on (host, unit) ${running}) or ${gone('unit=""')}`;
+    },
   },
   /** Its executable replaced on disk within the last 10 minutes: a new release. */
   'process.releases.increase': {
