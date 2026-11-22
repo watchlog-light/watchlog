@@ -87,7 +87,7 @@ const CauseSchema = Type.Object({
   }),
 });
 
-const CheckSchema = Type.Object({
+export const CheckSchema = Type.Object({
   topic: Type.Union(
     [
       Type.Literal('self'),

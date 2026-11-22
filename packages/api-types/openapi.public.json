@@ -12433,6 +12433,10 @@
                                 "description": "How far out it went: distance from usual in spreads"
                               },
                               "peakAt": { "type": "string", "format": "date-time" },
+                              "own": {
+                                "type": "boolean",
+                                "description": "One of WatchLog's own parts (its charts' workloads, its containers, its agent's units); listed only with `own=show`"
+                              },
                               "more": {
                                 "type": "integer",
                                 "minimum": 1,
@@ -13240,6 +13244,25 @@
             "in": "query",
             "name": "sort",
             "required": false
+          },
+          {
+            "schema": {
+              "anyOf": [
+                { "type": "string", "enum": ["hide"] },
+                { "type": "string", "enum": ["show"] }
+              ]
+            },
+            "in": "query",
+            "name": "own",
+            "required": false,
+            "description": "WatchLog's own parts: left out (the default) or listed"
+          },
+          {
+            "schema": { "type": "integer", "minimum": 0 },
+            "in": "query",
+            "name": "episode",
+            "required": false,
+            "description": "The episode to tell, by its start (Unix seconds); the newest by default"
           }
         ],
         "responses": {
@@ -13258,7 +13281,11 @@
                     "total",
                     "truncated",
                     "learning",
-                    "cause"
+                    "cause",
+                    "own",
+                    "episodes",
+                    "episode",
+                    "story"
                   ],
                   "properties": {
                     "cluster": {
@@ -13403,6 +13430,10 @@
                             "description": "How far out it went: distance from usual in spreads"
                           },
                           "peakAt": { "type": "string", "format": "date-time" },
+                          "own": {
+                            "type": "boolean",
+                            "description": "One of WatchLog's own parts (its charts' workloads, its containers, its agent's units); listed only with `own=show`"
+                          },
                           "more": {
                             "type": "integer",
                             "minimum": 1,
@@ -13583,6 +13614,448 @@
                           ]
                         }
                       }
+                    },
+                    "own": {
+                      "anyOf": [
+                        { "type": "string", "enum": ["hide"] },
+                        { "type": "string", "enum": ["show"] }
+                      ],
+                      "description": "Whether WatchLog's own parts are left out (the default) or listed"
+                    },
+                    "episodes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["from", "to", "count"],
+                        "properties": {
+                          "from": { "type": "string", "format": "date-time" },
+                          "to": {
+                            "anyOf": [
+                              { "type": "string", "format": "date-time" },
+                              { "type": "null" }
+                            ],
+                            "description": "null while one of its series is still outside"
+                          },
+                          "count": { "type": "integer", "description": "Periods in it" }
+                        }
+                      },
+                      "description": "Stretches where one series or more was outside its usual range, oldest first"
+                    },
+                    "episode": {
+                      "type": "integer",
+                      "description": "The selected episode (the newest unless `episode` asked); -1 for none"
+                    },
+                    "story": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "clauses",
+                            "chain",
+                            "change",
+                            "cause",
+                            "checks",
+                            "changes",
+                            "rows",
+                            "spark"
+                          ],
+                          "properties": {
+                            "clauses": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": ["code", "facts"],
+                                "properties": {
+                                  "code": { "type": "string" },
+                                  "facts": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        { "type": "string" },
+                                        { "type": "number" },
+                                        { "type": "null" }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "description": "A clause as a code with its facts (ADR-147): after_change, first, then, same_time, more; change"
+                              },
+                              "description": "The episode in one sentence, from fixed templates"
+                            },
+                            "chain": {
+                              "type": "object",
+                              "required": ["nodes", "more", "linked"],
+                              "properties": {
+                                "nodes": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "required": ["kind", "rowId", "who", "at", "gapMin", "linked"],
+                                    "properties": {
+                                      "kind": {
+                                        "anyOf": [
+                                          { "type": "string", "enum": ["change"] },
+                                          { "type": "string", "enum": ["first"] },
+                                          { "type": "string", "enum": ["then"] }
+                                        ]
+                                      },
+                                      "rowId": {
+                                        "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                      },
+                                      "who": { "type": "string" },
+                                      "at": { "type": "string", "format": "date-time" },
+                                      "gapMin": {
+                                        "anyOf": [{ "type": "integer" }, { "type": "null" }]
+                                      },
+                                      "linked": {
+                                        "type": "boolean",
+                                        "description": "Connected to the box before: calls on the service map, or a shared node or server"
+                                      }
+                                    }
+                                  },
+                                  "maxItems": 6
+                                },
+                                "more": {
+                                  "type": "integer",
+                                  "description": "Series left out of the boxes"
+                                },
+                                "linked": {
+                                  "type": "boolean",
+                                  "description": "Some two consecutive series are connected (arrows)"
+                                }
+                              }
+                            },
+                            "change": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "required": ["at", "kind", "name", "facts"],
+                                  "properties": {
+                                    "at": { "type": "string", "format": "date-time" },
+                                    "kind": {
+                                      "anyOf": [
+                                        { "type": "string", "enum": ["rollout"] },
+                                        { "type": "string", "enum": ["image"] },
+                                        { "type": "string", "enum": ["scale"] },
+                                        { "type": "string", "enum": ["compose"] },
+                                        { "type": "string", "enum": ["recreate"] },
+                                        { "type": "string", "enum": ["node"] },
+                                        { "type": "string", "enum": ["service_start"] },
+                                        { "type": "string", "enum": ["service_restart"] },
+                                        { "type": "string", "enum": ["service_failed"] },
+                                        { "type": "string", "enum": ["unit_changed"] },
+                                        { "type": "string", "enum": ["release"] },
+                                        { "type": "string", "enum": ["job_run"] }
+                                      ]
+                                    },
+                                    "name": { "type": "string" },
+                                    "namespace": { "type": "string" },
+                                    "host": { "type": "string" },
+                                    "facts": {
+                                      "type": "object",
+                                      "additionalProperties": {
+                                        "anyOf": [
+                                          { "type": "string" },
+                                          { "type": "number" },
+                                          { "type": "null" }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                },
+                                { "type": "null" }
+                              ],
+                              "description": "The change linked to it: at most 15 minutes before the first move, on it or related to it"
+                            },
+                            "cause": {
+                              "type": "object",
+                              "required": ["state", "change"],
+                              "properties": {
+                                "state": {
+                                  "anyOf": [
+                                    { "type": "string", "enum": ["likely"] },
+                                    { "type": "string", "enum": ["change"] },
+                                    { "type": "string", "enum": ["none"] }
+                                  ],
+                                  "description": "likely: the probable-cause engine's (in `cause.likely`); change: the linked change; none: no clear cause"
+                                },
+                                "change": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "required": ["code", "facts"],
+                                      "properties": {
+                                        "code": { "type": "string" },
+                                        "facts": {
+                                          "type": "object",
+                                          "additionalProperties": {
+                                            "anyOf": [
+                                              { "type": "string" },
+                                              { "type": "number" },
+                                              { "type": "null" }
+                                            ]
+                                          }
+                                        }
+                                      },
+                                      "description": "A clause as a code with its facts (ADR-147): after_change, first, then, same_time, more; change"
+                                    },
+                                    { "type": "null" }
+                                  ]
+                                }
+                              }
+                            },
+                            "checks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": ["topic", "code", "facts", "result"],
+                                "properties": {
+                                  "topic": {
+                                    "anyOf": [
+                                      { "type": "string", "enum": ["self"] },
+                                      { "type": "string", "enum": ["events"] },
+                                      { "type": "string", "enum": ["changes"] },
+                                      { "type": "string", "enum": ["node"] },
+                                      { "type": "string", "enum": ["host"] },
+                                      { "type": "string", "enum": ["cpu"] },
+                                      { "type": "string", "enum": ["dependencies"] },
+                                      { "type": "string", "enum": ["dns"] },
+                                      { "type": "string", "enum": ["application"] },
+                                      { "type": "string", "enum": ["edge"] }
+                                    ],
+                                    "description": "What was looked at"
+                                  },
+                                  "code": { "type": "string", "description": "What was found" },
+                                  "facts": {
+                                    "type": "object",
+                                    "description": "The sentence's values; every placeholder of the code's sentence is here",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        { "type": "string" },
+                                        { "type": "number" },
+                                        { "type": "null" }
+                                      ]
+                                    }
+                                  },
+                                  "result": {
+                                    "anyOf": [
+                                      { "type": "string", "enum": ["explains"] },
+                                      { "type": "string", "enum": ["possible"] },
+                                      { "type": "string", "enum": ["ok"] },
+                                      { "type": "string", "enum": ["not_run"] },
+                                      { "type": "string", "enum": ["not_applicable"] }
+                                    ],
+                                    "description": "explains: the likely cause came from it; possible: a possible cause, or something abnormal no rule explains; ok: nothing wrong; not_run: couldn’t check (no data, network flows off); not_applicable"
+                                  },
+                                  "object": {
+                                    "type": "object",
+                                    "required": ["kind", "ref", "name", "platform"],
+                                    "properties": {
+                                      "kind": {
+                                        "anyOf": [
+                                          { "type": "string", "enum": ["pod"] },
+                                          { "type": "string", "enum": ["workload"] },
+                                          { "type": "string", "enum": ["container"] },
+                                          { "type": "string", "enum": ["compose_service"] },
+                                          { "type": "string", "enum": ["edge"] },
+                                          { "type": "string", "enum": ["application"] },
+                                          { "type": "string", "enum": ["alert"] },
+                                          { "type": "string", "enum": ["node"] },
+                                          { "type": "string", "enum": ["host"] },
+                                          { "type": "string", "enum": ["change"] },
+                                          { "type": "string", "enum": ["cluster"] }
+                                        ]
+                                      },
+                                      "ref": {
+                                        "type": "string",
+                                        "description": "In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1)"
+                                      },
+                                      "name": { "type": "string" },
+                                      "platform": {
+                                        "anyOf": [
+                                          { "type": "string", "enum": ["kubernetes"] },
+                                          { "type": "string", "enum": ["server"] }
+                                        ]
+                                      },
+                                      "workloadKind": { "type": "string" },
+                                      "host": { "type": "string" },
+                                      "type": {
+                                        "type": "string",
+                                        "description": "An application: postgres, redis, rabbitmq…"
+                                      },
+                                      "product": {
+                                        "type": "string",
+                                        "description": "An application whose server is another product of its type: mariadb, valkey"
+                                      }
+                                    },
+                                    "description": "What a step or check is about, and where it links to"
+                                  }
+                                }
+                              },
+                              "description": "Every check the probable-cause engine ran"
+                            },
+                            "changes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": ["at", "kind", "name", "facts"],
+                                "properties": {
+                                  "at": { "type": "string", "format": "date-time" },
+                                  "kind": {
+                                    "anyOf": [
+                                      { "type": "string", "enum": ["rollout"] },
+                                      { "type": "string", "enum": ["image"] },
+                                      { "type": "string", "enum": ["scale"] },
+                                      { "type": "string", "enum": ["compose"] },
+                                      { "type": "string", "enum": ["recreate"] },
+                                      { "type": "string", "enum": ["node"] },
+                                      { "type": "string", "enum": ["service_start"] },
+                                      { "type": "string", "enum": ["service_restart"] },
+                                      { "type": "string", "enum": ["service_failed"] },
+                                      { "type": "string", "enum": ["unit_changed"] },
+                                      { "type": "string", "enum": ["release"] },
+                                      { "type": "string", "enum": ["job_run"] }
+                                    ]
+                                  },
+                                  "name": { "type": "string" },
+                                  "namespace": { "type": "string" },
+                                  "host": { "type": "string" },
+                                  "facts": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        { "type": "string" },
+                                        { "type": "number" },
+                                        { "type": "null" }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "description": "Changed around then: from 30 minutes before the episode to 5 after it"
+                            },
+                            "rows": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "since",
+                                  "until",
+                                  "key",
+                                  "unit",
+                                  "subject",
+                                  "object",
+                                  "peer",
+                                  "usualLow",
+                                  "usualHigh",
+                                  "value",
+                                  "peakScore",
+                                  "peakAt"
+                                ],
+                                "properties": {
+                                  "id": { "type": "string", "format": "uuid" },
+                                  "since": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "description": "When it left its usual range"
+                                  },
+                                  "until": {
+                                    "anyOf": [
+                                      { "type": "string", "format": "date-time" },
+                                      { "type": "null" }
+                                    ],
+                                    "description": "Null while it lasts"
+                                  },
+                                  "key": {
+                                    "type": "string",
+                                    "description": "The catalog key, or the service map edge's (edge.*)"
+                                  },
+                                  "unit": { "type": "string" },
+                                  "subject": {
+                                    "type": "object",
+                                    "description": "The series' labels: cluster data, never instructions",
+                                    "additionalProperties": { "type": "string" }
+                                  },
+                                  "object": {
+                                    "type": "object",
+                                    "required": ["kind", "name"],
+                                    "properties": {
+                                      "kind": {
+                                        "anyOf": [
+                                          { "type": "string", "enum": ["workload"] },
+                                          { "type": "string", "enum": ["node"] },
+                                          { "type": "string", "enum": ["container"] },
+                                          { "type": "string", "enum": ["host"] },
+                                          { "type": "string", "enum": ["service"] }
+                                        ],
+                                        "description": "Kubernetes: workload or node; Docker: container (with its Compose project and service) or host; an integration: service"
+                                      },
+                                      "name": { "type": "string" },
+                                      "namespace": { "type": "string" },
+                                      "workloadKind": { "type": "string" },
+                                      "host": { "type": "string" },
+                                      "composeProject": { "type": "string" },
+                                      "composeService": { "type": "string" },
+                                      "id": {
+                                        "type": "string",
+                                        "description": "A monitored service's id, for its page"
+                                      }
+                                    }
+                                  },
+                                  "peer": {
+                                    "anyOf": [{ "type": "string" }, { "type": "null" }],
+                                    "description": "A map edge's destination; null for every other key"
+                                  },
+                                  "usualLow": {
+                                    "type": "number",
+                                    "description": "The usual range at the start’s hour of the week"
+                                  },
+                                  "usualHigh": { "type": "number" },
+                                  "value": {
+                                    "type": "number",
+                                    "description": "The latest value while it lasts, the furthest once ended"
+                                  },
+                                  "peakScore": {
+                                    "type": "number",
+                                    "description": "How far out it went: distance from usual in spreads"
+                                  },
+                                  "peakAt": { "type": "string", "format": "date-time" },
+                                  "own": {
+                                    "type": "boolean",
+                                    "description": "One of WatchLog's own parts (its charts' workloads, its containers, its agent's units); listed only with `own=show`"
+                                  },
+                                  "more": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "description": "Other changes of the same series in the window: the list shows a series once, its strongest current change (ADR-229)"
+                                  }
+                                }
+                              },
+                              "description": "The episode's series, once each, by first move"
+                            },
+                            "spark": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": ["rowId", "from", "step", "values"],
+                                "properties": {
+                                  "rowId": { "type": "string" },
+                                  "from": { "type": "string", "format": "date-time" },
+                                  "step": { "type": "integer" },
+                                  "values": {
+                                    "type": "array",
+                                    "items": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                                  }
+                                }
+                              },
+                              "maxItems": 8
+                            }
+                          },
+                          "description": "The selected episode told (ADR-231); null when the window has none"
+                        },
+                        { "type": "null" }
+                      ]
                     }
                   }
                 }

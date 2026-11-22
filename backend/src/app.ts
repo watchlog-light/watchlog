@@ -367,6 +367,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         db: deps.db,
         config,
         causes,
+        victoria,
         ...(deps.now ? { now: deps.now } : {}),
       });
       // All clusters and fleets (ADR-226): Pro only, as What changed.

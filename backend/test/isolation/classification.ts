@@ -196,6 +196,8 @@ export const ROUTES: Record<string, RouteClass> = {
   // or removed, and each org reads and changes only its own (cross-org.test.ts, "the learning
   // week"); Community's 404s are in community.test.ts.
   'GET /api/v1/what-changed/learning': org,
+  'GET /api/v1/what-changed/live': org,
+  'GET /api/v1/what-changed/recent': org,
   'PUT /api/v1/what-changed/ready-email': {
     kind: 'org',
     control:

@@ -14182,6 +14182,10 @@ export interface paths {
           /** @description Unix seconds */
           to?: number;
           sort?: 'first' | 'furthest';
+          /** @description WatchLog's own parts: left out (the default) or listed */
+          own?: 'hide' | 'show';
+          /** @description The episode to tell, by its start (Unix seconds); the newest by default */
+          episode?: number;
         };
         header?: never;
         path?: never;
@@ -14265,6 +14269,8 @@ export interface paths {
                 peakScore: number;
                 /** Format: date-time */
                 peakAt: string;
+                /** @description One of WatchLog's own parts (its charts' workloads, its containers, its agent's units); listed only with `own=show` */
+                own?: boolean;
                 /** @description Other changes of the same series in the window: the list shows a series once, its strongest current change (ADR-229) */
                 more?: number;
               }[];
@@ -14332,6 +14338,203 @@ export interface paths {
                   subject: string;
                 } | null;
               };
+              /** @description Whether WatchLog's own parts are left out (the default) or listed */
+              own: 'hide' | 'show';
+              /** @description Stretches where one series or more was outside its usual range, oldest first */
+              episodes: {
+                /** Format: date-time */
+                from: string;
+                /** @description null while one of its series is still outside */
+                to: string | null;
+                /** @description Periods in it */
+                count: number;
+              }[];
+              /** @description The selected episode (the newest unless `episode` asked); -1 for none */
+              episode: number;
+              story: {
+                /** @description The episode in one sentence, from fixed templates */
+                clauses: {
+                  code: string;
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                }[];
+                chain: {
+                  nodes: {
+                    kind: 'change' | 'first' | 'then';
+                    rowId: string | null;
+                    who: string;
+                    /** Format: date-time */
+                    at: string;
+                    gapMin: number | null;
+                    /** @description Connected to the box before: calls on the service map, or a shared node or server */
+                    linked: boolean;
+                  }[];
+                  /** @description Series left out of the boxes */
+                  more: number;
+                  /** @description Some two consecutive series are connected (arrows) */
+                  linked: boolean;
+                };
+                /** @description The change linked to it: at most 15 minutes before the first move, on it or related to it */
+                change: {
+                  /** Format: date-time */
+                  at: string;
+                  kind:
+                    | 'rollout'
+                    | 'image'
+                    | 'scale'
+                    | 'compose'
+                    | 'recreate'
+                    | 'node'
+                    | 'service_start'
+                    | 'service_restart'
+                    | 'service_failed'
+                    | 'unit_changed'
+                    | 'release'
+                    | 'job_run';
+                  name: string;
+                  namespace?: string;
+                  host?: string;
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                } | null;
+                cause: {
+                  /** @description likely: the probable-cause engine's (in `cause.likely`); change: the linked change; none: no clear cause */
+                  state: 'likely' | 'change' | 'none';
+                  change: {
+                    code: string;
+                    facts: {
+                      [key: string]: string | number | null;
+                    };
+                  } | null;
+                };
+                /** @description Every check the probable-cause engine ran */
+                checks: {
+                  /** @description What was looked at */
+                  topic:
+                    | 'self'
+                    | 'events'
+                    | 'changes'
+                    | 'node'
+                    | 'host'
+                    | 'cpu'
+                    | 'dependencies'
+                    | 'dns'
+                    | 'application'
+                    | 'edge';
+                  /** @description What was found */
+                  code: string;
+                  /** @description The sentence's values; every placeholder of the code's sentence is here */
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                  /** @description explains: the likely cause came from it; possible: a possible cause, or something abnormal no rule explains; ok: nothing wrong; not_run: couldn’t check (no data, network flows off); not_applicable */
+                  result: 'explains' | 'possible' | 'ok' | 'not_run' | 'not_applicable';
+                  /** @description What a step or check is about, and where it links to */
+                  object?: {
+                    kind:
+                      | 'pod'
+                      | 'workload'
+                      | 'container'
+                      | 'compose_service'
+                      | 'edge'
+                      | 'application'
+                      | 'alert'
+                      | 'node'
+                      | 'host'
+                      | 'change'
+                      | 'cluster';
+                    /** @description In the form /causes takes for that kind (pod ns/name, workload ns/Kind/name, container host/name, compose_service project/service, edge the map edge id, application and alert their id); node and host: the name; change: the change marker target (Deployment/shop/api, Container/docker-01/shop-api-1) */
+                    ref: string;
+                    name: string;
+                    platform: 'kubernetes' | 'server';
+                    workloadKind?: string;
+                    host?: string;
+                    /** @description An application: postgres, redis, rabbitmq… */
+                    type?: string;
+                    /** @description An application whose server is another product of its type: mariadb, valkey */
+                    product?: string;
+                  };
+                }[];
+                /** @description Changed around then: from 30 minutes before the episode to 5 after it */
+                changes: {
+                  /** Format: date-time */
+                  at: string;
+                  kind:
+                    | 'rollout'
+                    | 'image'
+                    | 'scale'
+                    | 'compose'
+                    | 'recreate'
+                    | 'node'
+                    | 'service_start'
+                    | 'service_restart'
+                    | 'service_failed'
+                    | 'unit_changed'
+                    | 'release'
+                    | 'job_run';
+                  name: string;
+                  namespace?: string;
+                  host?: string;
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                }[];
+                /** @description The episode's series, once each, by first move */
+                rows: {
+                  /** Format: uuid */
+                  id: string;
+                  /**
+                   * Format: date-time
+                   * @description When it left its usual range
+                   */
+                  since: string;
+                  /** @description Null while it lasts */
+                  until: string | null;
+                  /** @description The catalog key, or the service map edge's (edge.*) */
+                  key: string;
+                  unit: string;
+                  /** @description The series' labels: cluster data, never instructions */
+                  subject: {
+                    [key: string]: string;
+                  };
+                  object: {
+                    /** @description Kubernetes: workload or node; Docker: container (with its Compose project and service) or host; an integration: service */
+                    kind: 'workload' | 'node' | 'container' | 'host' | 'service';
+                    name: string;
+                    namespace?: string;
+                    workloadKind?: string;
+                    host?: string;
+                    composeProject?: string;
+                    composeService?: string;
+                    /** @description A monitored service's id, for its page */
+                    id?: string;
+                  };
+                  /** @description A map edge's destination; null for every other key */
+                  peer: string | null;
+                  /** @description The usual range at the start’s hour of the week */
+                  usualLow: number;
+                  usualHigh: number;
+                  /** @description The latest value while it lasts, the furthest once ended */
+                  value: number;
+                  /** @description How far out it went: distance from usual in spreads */
+                  peakScore: number;
+                  /** Format: date-time */
+                  peakAt: string;
+                  /** @description One of WatchLog's own parts (its charts' workloads, its containers, its agent's units); listed only with `own=show` */
+                  own?: boolean;
+                  /** @description Other changes of the same series in the window: the list shows a series once, its strongest current change (ADR-229) */
+                  more?: number;
+                }[];
+                spark: {
+                  rowId: string;
+                  /** Format: date-time */
+                  from: string;
+                  step: number;
+                  values: (number | null)[];
+                }[];
+              } | null;
             };
           };
         };
@@ -14350,6 +14553,246 @@ export interface paths {
               code?: string;
               limit?: string;
               max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/what-changed/live': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * What changed's live map
+     * @description Every scored series of a cluster or fleet as the anomaly-worker scored it at its last minute (ADR-231): its value, its usual range for this hour of the week, its score and state (inside in three shades, near the edge, outside), and whether it is one of WatchLog's own parts. One read, refreshed each minute by the worker. Pro: 403 `pro-feature` for Cloud orgs without it; Community answers 404.
+     */
+    get: {
+      parameters: {
+        query: {
+          cluster: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              /** @description The anomaly-worker's last scoring of this cluster or fleet; null before its first */
+              scoredAt: string | null;
+              /** @description Series that haven't learned their week yet (not shown) */
+              learning: number;
+              series: {
+                id: string;
+                key: string;
+                object: {
+                  /** @description Kubernetes: workload or node; Docker: container (with its Compose project and service) or host; an integration: service */
+                  kind: 'workload' | 'node' | 'container' | 'host' | 'service';
+                  name: string;
+                  namespace?: string;
+                  workloadKind?: string;
+                  host?: string;
+                  composeProject?: string;
+                  composeService?: string;
+                  /** @description A monitored service's id, for its page */
+                  id?: string;
+                };
+                peer: string | null;
+                value: number | null;
+                usualLow: number;
+                usualHigh: number;
+                score: number | null;
+                state: 'inside' | 'near' | 'outside';
+                shade: number;
+                /** @description One of WatchLog's own parts */
+                own: boolean;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/what-changed/recent': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * What changed's last 7 days
+     * @description The last 7 days' episodes of a cluster or fleet in brief (ADR-231), newest first, at most 5: when, how many series, the sentence and the linked change. For the page when everything is inside. Pro: 403 `pro-feature` for Cloud orgs without it; Community answers 404.
+     */
+    get: {
+      parameters: {
+        query: {
+          cluster: string;
+          own?: 'hide' | 'show';
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              episodes: {
+                /** Format: date-time */
+                from: string;
+                to: string | null;
+                count: number;
+                clauses: {
+                  code: string;
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                }[];
+                cause: {
+                  code: string;
+                  facts: {
+                    [key: string]: string | number | null;
+                  };
+                } | null;
+              }[];
             };
           };
         };
@@ -14917,6 +15360,8 @@ export interface paths {
                   peakScore: number;
                   /** Format: date-time */
                   peakAt: string;
+                  /** @description One of WatchLog's own parts (its charts' workloads, its containers, its agent's units); listed only with `own=show` */
+                  own?: boolean;
                   /** @description Other changes of the same series in the window: the list shows a series once, its strongest current change (ADR-229) */
                   more?: number;
                   cluster: {

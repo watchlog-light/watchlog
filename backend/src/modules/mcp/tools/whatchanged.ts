@@ -15,6 +15,23 @@ import { ApiReadError } from '../reader.js';
 import { likelyField, type ApiLikelyCause } from './causes.js';
 import { ClusterArg, defineTool, describe, notFound, round, summary } from './common.js';
 
+interface ApiClause {
+  code: string;
+  facts: Record<string, string | number | null>;
+}
+
+/** Facts that are cluster data (names), cleaned and capped as names (ADR-129). */
+const NAME_FACTS = new Set(['who', 'target', 'peer', 'host', 'namespace', 'image', 'from', 'to']);
+const clauseOut = (c: ApiClause) => ({
+  code: c.code,
+  facts: Object.fromEntries(
+    Object.entries(c.facts).map(([k, v]) => [
+      k,
+      typeof v === 'string' && NAME_FACTS.has(k) ? name(v) : v,
+    ]),
+  ),
+});
+
 /** get_what_changed: at most this many rows (ADR-202; the API gives 50). */
 export const MCP_WHAT_CHANGED_ROWS = 30;
 
@@ -40,6 +57,23 @@ interface ApiWhatChanged {
     series: { total: number | null; learning: number; readyAt: string | null };
   };
   cause: { subject: string | null; likely: ApiLikelyCause | null };
+  story?: {
+    clauses: ApiClause[];
+    chain: {
+      nodes: { kind: string; who: string; at: string; gapMin: number | null; linked: boolean }[];
+      more: number;
+      linked: boolean;
+    };
+    cause: { state: string; change: ApiClause | null };
+    changes: {
+      at: string;
+      kind: string;
+      name: string;
+      namespace?: string;
+      host?: string;
+      facts: ApiClause['facts'];
+    }[];
+  } | null;
 }
 
 /** What a row is about, in its platform's words; every value a cleaned name (data). */
@@ -89,7 +123,7 @@ export const getWhatChangedTool = defineTool({
   title: 'What changed',
   description: describe(
     'What left its usual range in a Kubernetes cluster or a Docker fleet: each series compared with its own usual range for that hour of the week (median and spread over the last weeks; statistics, no model). Use it for "what changed around this alert?", "what is unusual in prod right now?" or "what moved first before checkout got slow?". Pass `alert` (an alert id from list_alerts or get_problems) for the window around it: 60 minutes before it started to 15 minutes after, or now. Otherwise `from` and `to` (Unix seconds) give a window of at most 24 hours; the default is the last hour.',
-    `Rows are in the platform's words. Kubernetes: object.kind workload (namespace, workloadKind, name) or node. Docker: container (host, name, composeProject, composeService) or host. A monitored service (PostgreSQL, Redis…) is kind service. Each row has key (the catalog key, or edge.* for a service map connection with \`peer\` as its destination), unit, since and until (null and \`ongoing\` while it lasts), usual (low and high at that hour), value (the latest while it lasts, the furthest once it ended) and peakScore (how far out it went, in spreads). \`sort\`: first (by when each left its usual range, the default) or furthest (by peakScore). At most ${MCP_WHAT_CHANGED_ROWS} rows; \`truncated\` with a hint when cut. \`cause\` is probable cause's likely cause for the alert or the first row it can explain (rule, headline, since; explain_problem with \`cause.subject\` gives the evidence), or null.`,
+    `Rows are in the platform's words. Kubernetes: object.kind workload (namespace, workloadKind, name) or node. Docker: container (host, name, composeProject, composeService) or host. A monitored service (PostgreSQL, Redis…) is kind service. Each row has key (the catalog key, or edge.* for a service map connection with \`peer\` as its destination), unit, since and until (null and \`ongoing\` while it lasts), usual (low and high at that hour), value (the latest while it lasts, the furthest once it ended) and peakScore (how far out it went, in spreads). \`sort\`: first (by when each left its usual range, the default) or furthest (by peakScore). At most ${MCP_WHAT_CHANGED_ROWS} rows; \`truncated\` with a hint when cut. \`cause\` is probable cause's likely cause for the alert or the first row it can explain (rule, headline, since; explain_problem with \`cause.subject\` gives the evidence), or null. Without \`alert\`, \`story\` tells the newest episode (a stretch where something was outside its usual range): \`clauses\` (codes with facts: after_change, first, then, same_time, more), \`chain\` (the linked change, then each series by first move, gapMin between them, linked when the service map has calls between them or they share a node or server), \`causeState\` (likely, change or none) and \`changedAroundThen\` (rollouts, scaling, image changes, service starts and restarts, scheduled runs from 30 minutes before to 5 after). WatchLog's own parts are left out.`,
     'Until it has 7 days of data, WatchLog learns each series and lists nothing: `learning.learning` is true, with `since` (when learning started), `until` (when the list turns on if nothing interrupts it), `day` (1 to 7, one for every 24 hours learned) and `hoursLearned` of `hoursTotal` (168 hours of the week, each learned once; hours when the org was not on Pro or no data arrived are not learned, and `resumedAt` says when it went on). Afterwards `seriesLearning` counts the series that joined later and are still inside their own 7 days, ready by `seriesReadyAt`. What changed is part of WatchLog Pro: on Free the tool says so.',
     'Example question: "What changed in prod-eu around the alert on checkout?"',
   ),
@@ -210,6 +244,30 @@ export const getWhatChangedTool = defineTool({
           subject: a.cause.subject ? text(a.cause.subject, 600) : null,
           likely: a.cause.likely ? likelyField(a.cause.likely) : null,
         },
+        ...(a.story
+          ? {
+              story: {
+                clauses: a.story.clauses.map(clauseOut),
+                chain: a.story.chain.nodes.map((n) => ({
+                  kind: n.kind,
+                  who: name(n.who),
+                  at: n.at,
+                  gapMin: n.gapMin,
+                  linked: n.linked,
+                })),
+                chainMore: a.story.chain.more,
+                causeState: a.story.cause.state,
+                ...(a.story.cause.change ? { causeChange: clauseOut(a.story.cause.change) } : {}),
+                changedAroundThen: a.story.changes.slice(0, 20).map((c) => ({
+                  at: c.at,
+                  kind: c.kind,
+                  name: name(c.name),
+                  ...(c.namespace ? { namespace: name(c.namespace) } : {}),
+                  ...(c.host ? { host: name(c.host) } : {}),
+                })),
+              },
+            }
+          : {}),
       },
       list: {
         key: 'changes',

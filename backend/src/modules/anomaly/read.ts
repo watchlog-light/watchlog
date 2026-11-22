@@ -60,6 +60,8 @@ export interface RowView {
   peakAt: string;
   /** Other changes of the same series in the window, left out of the list (ADR-229). */
   more?: number;
+  /** One of WatchLog's own parts (ADR-231): set only when they are listed (`own=show`). */
+  own?: boolean;
 }
 
 export interface Window {
@@ -365,6 +367,8 @@ export interface WhatChangedRead {
   chart: { from: string; to: string; step: number; counts: number[] };
   /** The first row (by start) that probable cause can explain, in GET /causes's form. */
   firstSubject: string | null;
+  /** Every period in the window, before the list's once-per-series (the story's episodes). */
+  all: RowView[];
 }
 
 /**
@@ -380,8 +384,10 @@ export async function readPeriods(
   sort: WhatChangedSort,
   nowMs: number,
   learning: boolean,
+  /** Series left out everywhere (WatchLog's own parts, ADR-231): the rows, the chart, the cause. */
+  exclude?: (subject: Record<string, string>) => boolean,
 ): Promise<WhatChangedRead> {
-  const periods: PeriodRow[] = learning
+  const read: PeriodRow[] = learning
     ? []
     : await db
         .selectFrom('anomaly_periods')
@@ -407,6 +413,7 @@ export async function readPeriods(
         .orderBy('started_at')
         .limit(CHART_ROWS)
         .execute();
+  const periods = exclude ? read.filter((p) => !exclude(labelsOf(p.subject))) : read;
   const inWindow = periods.filter(
     (p) =>
       p.started_at.getTime() < w.toMs && (p.ended_at ? p.ended_at.getTime() : nowMs) > w.fromMs,
@@ -432,5 +439,6 @@ export async function readPeriods(
       counts: chartCounts(periods, chart, nowMs),
     },
     firstSubject,
+    all,
   };
 }
