@@ -200,9 +200,11 @@ func TestRunsFromSystemd(t *testing.T) {
 		{Name: "b.timer", Unit: "b.service", Enabled: true,
 			Run: RunInfo{StartUsec: uint64(at(2, 0).UnixMicro()), Active: "activating"}},
 		{Name: "c.timer", Unit: "c.service", Enabled: true, Monotonic: true},
+		// systemd-tmpfiles-clean.timer: OnBootSec=15min, OnUnitActiveSec=1d (0.13.1).
+		{Name: "d.timer", Unit: "d.service", Enabled: true, Monotonic: true, IntervalUsec: 86_400_000_000},
 	}
 	obs, err := Timers(src)
-	if err != nil || len(obs) != 3 {
+	if err != nil || len(obs) != 4 {
 		t.Fatal(err, obs)
 	}
 	if r := obs[0].Runs[0]; r.Result != "failed" || r.Code == nil || *r.Code != 2 || r.End-r.Start != 60 || obs[0].Every != 3600 {
@@ -211,8 +213,11 @@ func TestRunsFromSystemd(t *testing.T) {
 	if r := obs[1].Runs[0]; r.Result != "running" {
 		t.Fatalf("running: %+v", r)
 	}
-	if obs[2].Schedule != "after boot or its last run" || len(obs[2].Runs) != 0 {
+	if obs[2].Schedule != "after boot or its last run" || len(obs[2].Runs) != 0 || obs[2].Every != 0 {
 		t.Fatalf("monotonic: %+v", obs[2])
+	}
+	if obs[3].Every != 86_400 {
+		t.Fatalf("a relative timer's interval is its period: %+v", obs[3])
 	}
 }
 

@@ -12,7 +12,9 @@ type TimerInfo struct {
 	Unit     string   // backup.service
 	Calendar []string // OnCalendar specs as systemd normalised them
 	// Monotonic is true for OnBootSec/OnUnitActiveSec timers (no calendar).
-	Monotonic       bool
+	Monotonic bool
+	// IntervalUsec is OnUnitActiveSec (or OnUnitInactiveSec): a relative timer's period.
+	IntervalUsec    uint64
 	Persistent      bool
 	RandomDelayUsec uint64
 	NextUsec        uint64 // NextElapseUSecRealtime: 0 when none (stopped or disabled)
@@ -53,6 +55,10 @@ func Timers(src TimerSource) ([]Observation, error) {
 		}
 		if o.Next > 0 && o.Triggered > 0 && o.Next > o.Triggered {
 			o.Every = o.Next - o.Triggered
+		}
+		// A relative timer has no realtime next elapse: its interval is its period.
+		if o.Every == 0 && t.Monotonic && len(t.Calendar) == 0 && t.IntervalUsec > 0 {
+			o.Every = usec(t.IntervalUsec)
 		}
 		if r, ok := runOf(t.Run); ok {
 			o.Runs = []Run{r}

@@ -198,6 +198,17 @@ func (b *DBus) Timers() ([]jobs.TimerInfo, error) {
 		}
 		if mono, ok := tp["TimersMonotonic"].Value().([][]any); ok && len(mono) > 0 {
 			t.Monotonic = true
+			// (base, value, next): the interval of a timer that counts from its unit's last
+			// activation, so the next run can be told (0.13.1).
+			for _, m := range mono {
+				if len(m) >= 2 {
+					base, _ := m[0].(string)
+					v, _ := m[1].(uint64)
+					if (base == "OnUnitActiveUSec" || base == "OnUnitInactiveUSec") && v > 0 {
+						t.IntervalUsec = v
+					}
+				}
+			}
 		}
 		if t.Unit != "" {
 			var upath dbus.ObjectPath
