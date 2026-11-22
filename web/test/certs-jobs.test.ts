@@ -75,6 +75,9 @@ const job = (over: Partial<ScheduledJob> = {}): ScheduledJob => ({
   persistent: true,
   randomDelaySec: 0,
   nextAt: S + 3600,
+  nextAbout: false,
+  nextWindowSec: 0,
+  firstSeen: S - 30 * DAY,
   everySec: DAY,
   state: 'working',
   failedStreak: 0,
@@ -183,27 +186,9 @@ describe('certificates', () => {
 });
 
 describe('scheduled jobs', () => {
-  it('schedules in words: cron, systemd, macros; as written when not covered', () => {
-    const cases: [string, string][] = [
-      ['*/5 * * * *', 'Every 5 minutes'],
-      ['* * * * *', 'Every minute'],
-      ['15 * * * *', 'Every hour at :15'],
-      ['0 */6 * * *', 'Every 6 hours at :00'],
-      ['30 2 * * *', 'Every day at 02:30'],
-      ['0 4 * * sun', 'Every Sunday at 04:00'],
-      ['0 9 * * 1-5', 'Weekdays at 09:00'],
-      ['0 5 1 * *', 'Every month on day 1 at 05:00'],
-      ['@daily', 'Every day at midnight'],
-      ['*-*-* 03:00:00', 'Every day at 03:00'],
-      ['*-*-* *:00:00', 'Every hour at :00'],
-      ['*-*-* *:0/15:00', 'Every 15 minutes'],
-      ['Mon *-*-* 00:00:00', 'Every Monday at 00:00'],
-      ['*-*-* 06,18:00:00', '2 times a day (06:00, 18:00)'],
-      ['CRON_TZ=Europe/Berlin 0 3 * * *', 'Every day at 03:00'],
-      ['after boot or its last run', 'after boot or its last run'],
-      ['0 0 29 2 *', '0 0 29 2 *'],
-    ];
-    for (const [spec, want] of cases) expect(say(scheduleWords(spec)), spec).toBe(want);
+  it('schedules in words (the full table is test/schedule-words.test.ts)', () => {
+    expect(say(scheduleWords('*-*-* 03:00:00'))).toBe('Daily at 03:00');
+    expect(say(scheduleWords('0 0 29 2 *'))).toBe('Every year on 29 February at 00:00');
   });
 
   it('kinds, names, last runs and what needs attention', () => {

@@ -5936,6 +5936,50 @@
       "openWorkload": "Open the CronJob",
       "notFound": "This job isn't on this server or cluster any more.",
       "exitCodeIs": "exit code {code}"
+    },
+    "when": {
+      "raw": "{spec}",
+      "relative": "After boot, then after each run",
+      "everyMinutes": "Every minute{on} | Every {n} minutes{on}",
+      "hourlyAt": "Every hour at {mins}{on}",
+      "everyHours": "Every {n} hours at :{min}{on}",
+      "everyHoursFrom": "Every {n} hours at :{min}, from {from}{on}",
+      "hourlyBetween": "Every hour at {mins}, {from}–{to}{on}",
+      "daily": "Daily at {at}",
+      "weekdays": "Weekdays at {at}",
+      "weekends": "Weekends at {at}",
+      "on": "{days} at {at}",
+      "monthly": "Monthly on day {days} at {at} | Monthly on days {days} at {at}",
+      "yearly": "Every year on {day} {month} at {at}",
+      "several": "{list}",
+      "suffix": {
+        "weekdays": " on weekdays",
+        "weekends": " on weekends",
+        "on": " on {days}"
+      },
+      "dayNames": {
+        "sun": "Sundays",
+        "mon": "Mondays",
+        "tue": "Tuesdays",
+        "wed": "Wednesdays",
+        "thu": "Thursdays",
+        "fri": "Fridays",
+        "sat": "Saturdays"
+      },
+      "months": [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December"
+      ]
     }
   },
   "certsJobsCard": {

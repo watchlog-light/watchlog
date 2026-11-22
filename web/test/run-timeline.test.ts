@@ -14,6 +14,7 @@ const tl = (jobs: JobTimeline['jobs']): JobTimeline => ({
   from: NOW - 21 * HOUR,
   to: NOW + 3 * HOUR,
   slots: 96,
+  watchedSince: null,
   jobs,
 });
 const job = (name: string, state: string, over: Partial<ScheduledJob> = {}): ScheduledJob =>
@@ -33,6 +34,8 @@ const lane = (name: string, over: Partial<JobTimeline['jobs'][number]> = {}) => 
   next: [],
   runs: 0,
   failures: 0,
+  nextRun: null,
+  firstSeen: null,
   ...over,
 });
 

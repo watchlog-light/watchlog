@@ -184,101 +184,10 @@ export function jobName(j: Pick<ScheduledJob, 'kind' | 'name'>): {
   return { name: j.name, namespace: null };
 }
 
-const pad = (n: number) => String(n).padStart(2, '0');
-const DAY_NAMES: Record<string, string> = {
-  '0': 'sun',
-  '7': 'sun',
-  '1': 'mon',
-  '2': 'tue',
-  '3': 'wed',
-  '4': 'thu',
-  '5': 'fri',
-  '6': 'sat',
-  sun: 'sun',
-  mon: 'mon',
-  tue: 'tue',
-  wed: 'wed',
-  thu: 'thu',
-  fri: 'fri',
-  sat: 'sat',
-};
 
-/**
- * A schedule in words, for cron's five fields and systemd's normalised OnCalendar; the
- * schedule as written when it says something these don't cover.
- */
-export function scheduleWords(spec: string): Words {
-  const s = spec.trim().replace(/^(CRON_TZ|TZ)=\S+\s+/, '');
-  const macro: Record<string, string> = {
-    '@hourly': 'hourly',
-    '@daily': 'daily',
-    '@midnight': 'daily',
-    '@weekly': 'weekly',
-    '@monthly': 'monthly',
-    '@yearly': 'yearly',
-    '@annually': 'yearly',
-    hourly: 'hourly',
-    daily: 'daily',
-    weekly: 'weekly',
-    monthly: 'monthly',
-  };
-  if (macro[s]) return { key: `jobs.schedule.${macro[s]}` };
-  const f = s.split(/\s+/);
-  if (f.length === 5) {
-    const [min, hour, dom, mon, dow] = f as [string, string, string, string, string];
-    const every = /^\*\/(\d+)$/;
-    if (min === '*' && hour === '*' && dom === '*' && mon === '*' && dow === '*')
-      return { key: 'jobs.schedule.everyMinute' };
-    if (every.test(min) && hour === '*' && dom === '*' && mon === '*' && dow === '*')
-      return { key: 'jobs.schedule.everyMinutes', values: { n: Number(every.exec(min)![1]) } };
-    if (/^\d+$/.test(min) && hour === '*' && dom === '*' && mon === '*' && dow === '*')
-      return { key: 'jobs.schedule.hourlyAt', values: { min: pad(Number(min)) } };
-    if (/^\d+$/.test(min) && every.test(hour) && dom === '*' && mon === '*' && dow === '*')
-      return {
-        key: 'jobs.schedule.everyHours',
-        values: { n: Number(every.exec(hour)![1]), min: pad(Number(min)) },
-      };
-    if (/^\d+$/.test(min) && /^\d+$/.test(hour)) {
-      const at = `${pad(Number(hour))}:${pad(Number(min))}`;
-      if (dom === '*' && mon === '*' && dow === '*')
-        return { key: 'jobs.schedule.dailyAt', values: { at } };
-      if (dom === '*' && mon === '*' && DAY_NAMES[dow.toLowerCase()])
-        return { key: `jobs.schedule.weekly.${DAY_NAMES[dow.toLowerCase()]}`, values: { at } };
-      if (dom === '*' && mon === '*' && /^(1-5|mon-fri)$/i.test(dow))
-        return { key: 'jobs.schedule.weekdaysAt', values: { at } };
-      if (/^\d+$/.test(dom) && mon === '*' && dow === '*')
-        return { key: 'jobs.schedule.monthlyAt', values: { day: Number(dom), at } };
-    }
-    return { key: 'jobs.schedule.raw', values: { spec: s } };
-  }
-  // systemd: "*-*-* 03:00:00", "*-*-* *:00:00", "*-*-* *:0/15:00", "Mon *-*-* 00:00:00"
-  const m = /^(?:(\w{3}) )?\*-\*-\* (\*|[\d,]+):(\d+|0\/\d+|\*):\d+$/.exec(s);
-  if (m) {
-    const [, wd, h, mi] = m as unknown as [string, string | undefined, string, string];
-    if (h === '*' && mi.startsWith('0/') && !wd)
-      return { key: 'jobs.schedule.everyMinutes', values: { n: Number(mi.slice(2)) } };
-    if (h === '*' && /^\d+$/.test(mi) && !wd)
-      return { key: 'jobs.schedule.hourlyAt', values: { min: pad(Number(mi)) } };
-    if (/^\d+$/.test(h) && /^\d+$/.test(mi)) {
-      const at = `${pad(Number(h))}:${pad(Number(mi))}`;
-      if (!wd) return { key: 'jobs.schedule.dailyAt', values: { at } };
-      if (DAY_NAMES[wd.toLowerCase()])
-        return { key: `jobs.schedule.weekly.${DAY_NAMES[wd.toLowerCase()]}`, values: { at } };
-    }
-    if (/^\d+(,\d+)+$/.test(h) && /^\d+$/.test(mi) && !wd)
-      return {
-        key: 'jobs.schedule.timesADay',
-        values: {
-          n: h.split(',').length,
-          at: h
-            .split(',')
-            .map((x) => `${pad(Number(x))}:${pad(Number(mi))}`)
-            .join(', '),
-        },
-      };
-  }
-  return { key: 'jobs.schedule.raw', values: { spec: s } };
-}
+/** A schedule in words: systemd's OnCalendar and cron alike (0.13.1, lib/schedule-words.ts). */
+import { scheduleWords } from './schedule-words';
+export { scheduleWords };
 
 /** Its kind as the row says it: "systemd timer", "cron · /etc/cron.d/backup", "CronJob". */
 export function jobKind(j: JobBase): Words {
