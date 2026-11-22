@@ -6,7 +6,9 @@ import { storeToRefs } from 'pinia';
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import { navFor, type NavItem } from '@/router';
+import { NAV_GROUPS, navFor, type NavGroup, type NavItem } from '@/router';
+import { certBadge, jobBadge, type NavBadge } from '@/lib/certs-jobs';
+import { useCertsJobsStore } from '@/stores/certsJobs';
 import { countLine, showsProLabel, toneOf, type Tone } from '@/lib/all-clusters';
 import { useAllClustersStore } from '@/stores/allClusters';
 import { useApplicationsStore } from '@/stores/applications';
@@ -39,6 +41,39 @@ const route = useRoute();
 // Applications shows how many monitored services have a problem (SPEC §4.12).
 const applications = useApplicationsStore();
 const badge = (item: NavItem) => (item.name === 'applications' ? applications.problems : 0);
+// Certificates and Scheduled jobs (0.13.0, ADR-230): a badge only when something needs a look,
+// amber or red, from the selected cluster's lists (read again after 30 s by the store).
+const certsJobs = useCertsJobsStore();
+const listBadge = (item: NavItem): NavBadge | null => {
+  const id = clusters.selected?.id;
+  if (!id) return null;
+  if (item.name === 'certificates')
+    return certsJobs.certsFor === id ? certBadge(certsJobs.certs?.certificates ?? []) : null;
+  if (item.name === 'scheduled-jobs')
+    return certsJobs.jobsFor === id ? jobBadge(certsJobs.jobs?.jobs ?? []) : null;
+  return null;
+};
+const sayBadge = (b: NavBadge) =>
+  t(b.words.key, b.words.values ?? {}, Number(b.words.values?.n ?? 1));
+watch(
+  () => [clusters.selected?.id, route.name] as const,
+  ([id]) => {
+    if (!id) return;
+    void certsJobs.loadCerts(id).catch(() => undefined);
+    void certsJobs.loadJobs(id).catch(() => undefined);
+  },
+  { immediate: true },
+);
+/** The navigation in its groups: the top, Running here, Investigate, the end (ADR-230). */
+const groups = computed(() =>
+  NAV_GROUPS.map((g) => ({ group: g, items: items.value.filter((i) => i.group === g) })).filter(
+    (g) => g.items.length > 0,
+  ),
+);
+const GROUP_LABEL: Partial<Record<NavGroup, string>> = {
+  running: 'nav.groups.running',
+  investigate: 'nav.groups.investigate',
+};
 // Egress shows how many destinations are new in 24 hours (ADR-188), in the warning tone.
 const egress = useEgressStore();
 const newCount = (item: NavItem) =>
@@ -274,72 +309,117 @@ async function signOut() {
             </RouterLink>
           </li>
         </template>
-        <li v-for="item in onAll ? [] : items" :key="item.name">
-          <RouterLink v-slot="{ href, navigate }" :to="target(item.path)" custom>
-            <a
-              :href="href"
-              :title="linkTitle(item)"
-              :aria-current="isCurrent(item) ? 'page' : undefined"
-              :class="[
-                'relative flex items-center gap-3 rounded-control px-2.5 text-14 transition-colors',
-                drawer ? 'h-11' : 'h-9',
-                isCurrent(item)
-                  ? 'bg-surface-2 font-medium text-text before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary'
-                  : 'text-text-muted hover:bg-surface-2 hover:text-text',
-              ]"
-              @click="navigate"
-            >
-              <component :is="item.icon" class="size-4.5 shrink-0" aria-hidden="true" />
-              <span :class="collapsed ? 'sr-only' : 'truncate'">{{ $t(item.titleKey) }}</span>
-              <span
-                v-if="badge(item) > 0"
-                data-testid="nav-badge"
+        <template v-for="g in onAll ? [] : groups" :key="g.group">
+          <li
+            v-if="GROUP_LABEL[g.group] && !collapsed"
+            aria-hidden="true"
+            :data-testid="`nav-group-${g.group}`"
+            class="px-2.5 pt-3.5 pb-1.5 font-mono text-11 tracking-[0.1em] text-text-subtle uppercase"
+          >
+            {{ $t(GROUP_LABEL[g.group]!) }}
+          </li>
+          <li
+            v-else-if="g.group !== 'top'"
+            aria-hidden="true"
+            :class="
+              g.group === 'end'
+                ? 'mx-1.5 my-2 h-px bg-border'
+                : collapsed
+                  ? 'mx-2 my-1.5 h-px bg-border'
+                  : 'h-0'
+            "
+          />
+          <li v-for="item in g.items" :key="item.name">
+            <RouterLink v-slot="{ href, navigate }" :to="target(item.path)" custom>
+              <a
+                :href="href"
+                :title="linkTitle(item)"
+                :aria-current="isCurrent(item) ? 'page' : undefined"
                 :class="[
-                  'flex h-5 min-w-5 items-center justify-center rounded-full bg-critical/15 px-1.5 text-12 font-semibold text-critical-text',
-                  collapsed ? 'absolute -top-0.5 right-0.5 h-4 min-w-4 px-1' : 'ml-auto',
+                  'relative flex items-center gap-3 rounded-control px-2.5 text-14 transition-colors',
+                  drawer ? 'h-11' : 'h-9',
+                  isCurrent(item)
+                    ? 'bg-surface-2 font-medium text-text before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary'
+                    : 'text-text-muted hover:bg-surface-2 hover:text-text',
                 ]"
+                @click="navigate"
               >
-                <span class="sr-only">{{ $t('nav.problems', { n: badge(item) }) }}</span>
-                <span aria-hidden="true">{{ badge(item) }}</span>
-              </span>
-              <span
-                v-else-if="newCount(item) > 0"
-                data-testid="nav-new"
-                :class="[
-                  'flex h-5 items-center justify-center rounded-full bg-warning/15 px-1.5 text-12 font-semibold whitespace-nowrap text-warning-text',
-                  collapsed ? 'absolute -top-0.5 right-0.5 h-4 min-w-4 px-1' : 'ml-auto',
-                ]"
-              >
-                <span class="sr-only">{{ $t('nav.newDestinations', { n: newCount(item) }) }}</span>
-                <span aria-hidden="true">{{
-                  collapsed ? newCount(item) : $t('nav.newShort', { n: newCount(item) })
-                }}</span>
-              </span>
-              <span
-                v-if="learningDay(item) > 0"
-                data-testid="nav-learning"
-                :class="[
-                  'flex items-center gap-1.5 text-12 font-medium whitespace-nowrap text-text-muted',
-                  collapsed ? 'absolute top-1 right-1' : 'ml-auto',
-                ]"
-              >
-                <span class="size-1.5 shrink-0 rounded-full bg-warning" aria-hidden="true" />
-                <span class="sr-only">{{
-                  $t('nav.learning', { day: learningDay(item), days: LEARNING_DAYS })
-                }}</span>
-                <span v-if="!collapsed" aria-hidden="true">{{
-                  $t('nav.learningShort', { day: learningDay(item), days: LEARNING_DAYS })
-                }}</span>
-              </span>
-              <span
-                v-if="pro(item) && !collapsed"
-                data-testid="nav-pro"
-                class="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-info/50 px-2 text-12 font-semibold text-info-text"
-                >{{ $t('nav.pro') }}</span
-              >
-            </a>
-          </RouterLink>
-        </li>
+                <component :is="item.icon" class="size-4.5 shrink-0" aria-hidden="true" />
+                <span :class="collapsed ? 'sr-only' : 'truncate'">{{ $t(item.titleKey) }}</span>
+                <span
+                  v-if="badge(item) > 0"
+                  data-testid="nav-badge"
+                  :class="[
+                    'flex h-5 min-w-5 items-center justify-center rounded-full bg-critical/15 px-1.5 text-12 font-semibold text-critical-text',
+                    collapsed ? 'absolute -top-0.5 right-0.5 h-4 min-w-4 px-1' : 'ml-auto',
+                  ]"
+                >
+                  <span class="sr-only">{{ $t('nav.problems', { n: badge(item) }) }}</span>
+                  <span aria-hidden="true">{{ badge(item) }}</span>
+                </span>
+                <span
+                  v-else-if="listBadge(item)"
+                  data-testid="nav-badge"
+                  :data-tone="listBadge(item)!.tone"
+                  :title="sayBadge(listBadge(item)!)"
+                  :class="[
+                    'flex items-center justify-center rounded-full font-semibold',
+                    listBadge(item)!.tone === 'crit'
+                      ? collapsed
+                        ? 'bg-critical'
+                        : 'bg-critical/15 text-critical-text'
+                      : collapsed
+                        ? 'bg-warning'
+                        : 'bg-warning/15 text-warning-text',
+                    collapsed
+                      ? 'absolute top-1 right-1 size-2'
+                      : 'ml-auto h-5 min-w-5 px-1.5 text-12',
+                  ]"
+                >
+                  <span class="sr-only">{{ sayBadge(listBadge(item)!) }}</span>
+                  <span v-if="!collapsed" aria-hidden="true">{{ listBadge(item)!.count }}</span>
+                </span>
+                <span
+                  v-else-if="newCount(item) > 0"
+                  data-testid="nav-new"
+                  :class="[
+                    'flex h-5 items-center justify-center rounded-full bg-warning/15 px-1.5 text-12 font-semibold whitespace-nowrap text-warning-text',
+                    collapsed ? 'absolute -top-0.5 right-0.5 h-4 min-w-4 px-1' : 'ml-auto',
+                  ]"
+                >
+                  <span class="sr-only">{{
+                    $t('nav.newDestinations', { n: newCount(item) })
+                  }}</span>
+                  <span aria-hidden="true">{{
+                    collapsed ? newCount(item) : $t('nav.newShort', { n: newCount(item) })
+                  }}</span>
+                </span>
+                <span
+                  v-if="learningDay(item) > 0"
+                  data-testid="nav-learning"
+                  :class="[
+                    'flex items-center gap-1.5 text-12 font-medium whitespace-nowrap text-text-muted',
+                    collapsed ? 'absolute top-1 right-1' : 'ml-auto',
+                  ]"
+                >
+                  <span class="size-1.5 shrink-0 rounded-full bg-warning" aria-hidden="true" />
+                  <span class="sr-only">{{
+                    $t('nav.learning', { day: learningDay(item), days: LEARNING_DAYS })
+                  }}</span>
+                  <span v-if="!collapsed" aria-hidden="true">{{
+                    $t('nav.learningShort', { day: learningDay(item), days: LEARNING_DAYS })
+                  }}</span>
+                </span>
+                <span
+                  v-if="pro(item) && !collapsed"
+                  data-testid="nav-pro"
+                  class="ml-auto inline-flex h-5 shrink-0 items-center rounded-full border border-info/50 px-2 text-12 font-semibold text-info-text"
+                  >{{ $t('nav.pro') }}</span
+                >
+              </a>
+            </RouterLink>
+          </li>
+        </template>
       </ul>
     </nav>
 

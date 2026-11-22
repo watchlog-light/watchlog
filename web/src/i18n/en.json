@@ -41,6 +41,12 @@
     "groups": {
       "running": "Running here",
       "investigate": "Investigate"
+    },
+    "badge": {
+      "certsExpiring": "1 certificate expiring | {n} certificates expiring",
+      "certsAttention": "1 certificate needs a look | {n} certificates need a look",
+      "jobsFailing": "1 job failing | {n} jobs failing",
+      "jobsAttention": "1 job needs a look | {n} jobs need a look"
     }
   },
   "clusterSwitcher": {

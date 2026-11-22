@@ -412,3 +412,54 @@ export function filterJobs(list: ScheduledJob[], f: JobFilter, term: string): Sc
       (!q || j.name.toLowerCase().includes(q) || j.node.toLowerCase().includes(q)),
   );
 }
+
+// ---------------------------------------------------------------- sidebar badges (ADR-230)
+
+export interface NavBadge {
+  /** How many items need a look. */
+  count: number;
+  tone: 'crit' | 'warn';
+  /** Its accessible name, as Words ("1 certificate expiring"). */
+  words: Words;
+}
+
+/**
+ * The Certificates entry's badge (0.13.0): red when one is expired, expires within 3 days or
+ * has a problem (a name mismatch, an incomplete chain); amber when one expires within 14 days;
+ * none otherwise. The count is every certificate that needs a look.
+ */
+export function certBadge(list: Pick<TlsCertificate, 'status'>[]): NavBadge | null {
+  const red = list.filter(
+    (c) => c.status === 'expired' || c.status === 'expires_soon' || c.status === 'problem',
+  ).length;
+  const amber = list.filter((c) => c.status === 'expiring').length;
+  if (red + amber === 0) return null;
+  return red > 0
+    ? {
+        count: red + amber,
+        tone: 'crit',
+        words: { key: 'nav.badge.certsAttention', values: { n: red + amber } },
+      }
+    : {
+        count: amber,
+        tone: 'warn',
+        words: { key: 'nav.badge.certsExpiring', values: { n: amber } },
+      };
+}
+
+/** The Scheduled jobs entry's badge (0.13.0): red for every job failing, missed or slow. */
+export function jobBadge(list: Pick<ScheduledJob, 'state'>[]): NavBadge | null {
+  const n = list.filter(
+    (j) => j.state === 'failed' || j.state === 'missed' || j.state === 'slow',
+  ).length;
+  if (n === 0) return null;
+  const failing = list.filter((j) => j.state === 'failed').length;
+  return {
+    count: n,
+    tone: 'crit',
+    words:
+      failing === n
+        ? { key: 'nav.badge.jobsFailing', values: { n } }
+        : { key: 'nav.badge.jobsAttention', values: { n } },
+  };
+}
