@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { createAppI18n } from '@/i18n';
 import {
   certDays,
+  certStatusLine,
+  jobStatusLine,
   certTiles,
   duration,
   filterCerts,
@@ -277,5 +279,21 @@ describe('scheduled jobs', () => {
     expect(filterJobs(list, 'cron', '').map((j) => j.id)).toEqual(['3']);
     expect(duration(372)).toBe('6 min 12 s');
     expect(duration(7500)).toBe('2 h 5 min');
+  });
+});
+
+describe('search status lines (0.13.0)', () => {
+  it('a certificate: when it expires and where, coloured when it needs attention', () => {
+    const s = certStatusLine(cert());
+    expect(s.words.map(say)).toEqual(['expires in 2 days', 'nginx.service on app-1 :443']);
+    expect(s.tone).toBe('crit');
+    expect(certStatusLine(cert({ daysLeft: 50, status: 'ok' })).tone).toBeUndefined();
+    s.words.forEach(say);
+  });
+
+  it('a scheduled job: its status and its schedule', () => {
+    const s = jobStatusLine(job({ state: 'failed' }));
+    expect(s.tone).toBe('crit');
+    s.words.forEach(say);
   });
 });

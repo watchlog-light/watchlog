@@ -103,6 +103,11 @@
       "move": "move",
       "open": "open",
       "close": "close"
+    },
+    "status": {
+      "expires": "expires in 1 day | expires in {n} days",
+      "expiresToday": "expires today",
+      "expired": "expired 1 day ago | expired {n} days ago"
     }
   },
   "topBar": {

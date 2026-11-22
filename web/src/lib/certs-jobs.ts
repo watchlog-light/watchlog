@@ -463,3 +463,29 @@ export function jobBadge(list: Pick<ScheduledJob, 'state'>[]): NavBadge | null {
         : { key: 'nav.badge.jobsAttention', values: { n } },
   };
 }
+
+/**
+ * A certificate's status line in search (0.13.0): "expires in 9 days · Ingress shop/api", "expired
+ * 2 days ago · nginx on app-1 :443"; its colour when it needs attention.
+ */
+export function certStatusLine(c: TlsCertificate): { words: Words[]; tone?: 'warn' | 'crit' } {
+  const d = c.daysLeft;
+  const expiry: Words =
+    d < 0
+      ? { key: 'palette.status.expired', values: { n: -d } }
+      : d === 0
+        ? { key: 'palette.status.expiresToday' }
+        : { key: 'palette.status.expires', values: { n: d } };
+  const tone = CERT_TONE[c.status];
+  return {
+    words: [expiry, servedBy(c)],
+    tone: tone === 'crit' ? 'crit' : tone === 'warn' ? 'warn' : undefined,
+  };
+}
+
+/** A scheduled job's status line in search: "Failing · daily at 03:00 · worker-1". */
+export function jobStatusLine(j: ScheduledJob): { words: Words[]; tone?: 'warn' | 'crit' } {
+  const tone = JOB_TONE[j.state];
+  const words: Words[] = [{ key: `jobs.status.${j.state}` }, scheduleWords(j.schedule)];
+  return { words, tone: tone === 'crit' ? 'crit' : tone === 'warn' ? 'warn' : undefined };
+}

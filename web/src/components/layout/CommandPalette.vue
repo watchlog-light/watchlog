@@ -40,6 +40,7 @@ import { KIND_LOGO } from '@/components/ui/kindLogos';
 import { ServiceLogo } from '@/components/ui/serviceLogos';
 import { useNarrow } from '@/composables/useNarrow';
 import { serviceName } from '@/lib/applications';
+import { certStatusLine, jobStatusLine, type Words } from '@/lib/certs-jobs';
 import {
   addRecent,
   groupItems,
@@ -56,6 +57,7 @@ import {
 } from '@/lib/palette';
 import { navFor, NAV_ITEMS, type ClusterKind } from '@/router';
 import { useAuthStore } from '@/stores/auth';
+import { useCertsJobsStore } from '@/stores/certsJobs';
 import { useClustersStore } from '@/stores/clusters';
 import { useUiStore } from '@/stores/ui';
 
@@ -109,6 +111,31 @@ const clusterItems = computed<Omit<PaletteItem, 'rank'>[]>(() =>
   })),
 );
 
+// Certificates and scheduled jobs carry a status line (0.13.0) from the lists the navigation's
+// badges already loaded for this cluster; one not in them keeps its kind and server.
+const certsJobs = useCertsJobsStore();
+const sayWords = (ws: Words[]) =>
+  ws.map((w) => t(w.key, w.values ?? {}, Number(w.values?.n ?? 1))).join(' · ');
+function statusOf(r: SearchResult): { detail: string; tone?: 'warn' | 'crit' } | null {
+  const id = cluster.value?.id;
+  if (!id || !r.id) return null;
+  if (r.kind === 'certificate' && certsJobs.certsFor === id) {
+    const c = certsJobs.certs?.certificates.find(
+      (x) => x.id === r.id && (!r.host || x.node === r.host),
+    );
+    if (!c) return null;
+    const s = certStatusLine(c);
+    return { detail: sayWords(s.words), tone: s.tone };
+  }
+  if (r.kind === 'scheduled_job' && certsJobs.jobsFor === id) {
+    const j = certsJobs.jobs?.jobs.find((x) => x.id === r.id && (!r.host || x.node === r.host));
+    if (!j) return null;
+    const s = jobStatusLine(j);
+    return { detail: [sayWords(s.words), r.host].filter(Boolean).join(' · '), tone: s.tone };
+  }
+  return null;
+}
+
 function detailOf(r: SearchResult): string {
   switch (r.kind) {
     case 'workload':
@@ -143,7 +170,8 @@ const remoteItems = computed<PaletteItem[]>(() => {
     key: `${r.kind}:${r.id ?? `${r.host ?? ''}/${r.namespace ?? ''}/${r.name}`}`,
     kind: r.kind,
     label: r.name,
-    detail: detailOf(r),
+    detail: statusOf(r)?.detail ?? detailOf(r),
+    tone: statusOf(r)?.tone,
     to: resultLink(r, id),
     rank: rankOfTier(r.match),
     logo: r.kind === 'application' ? (r.type ?? undefined) : undefined,
@@ -434,7 +462,18 @@ const groupTitle = (g: PaletteGroup & { id: string }) =>
                   </span>
                   <span class="min-w-0 flex-1">
                     <span class="block truncate text-14 text-text">{{ i.label }}</span>
-                    <span class="block truncate text-12 text-text-muted">{{ i.detail }}</span>
+                    <span
+                      :class="[
+                        'block truncate text-12',
+                        i.tone === 'crit'
+                          ? 'text-critical-text'
+                          : i.tone === 'warn'
+                            ? 'font-medium text-warning-text'
+                            : 'text-text-muted',
+                      ]"
+                      data-testid="palette-detail"
+                      >{{ i.detail }}</span
+                    >
                   </span>
                   <CornerDownLeft
                     v-if="!narrow"

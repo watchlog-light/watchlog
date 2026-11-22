@@ -60,6 +60,8 @@ export interface PaletteItem {
   clusterId?: string;
   /** The cluster's kind, or the application's service type, for the logo. */
   logo?: string;
+  /** A certificate or scheduled job that needs attention: its status line's colour (0.13.0). */
+  tone?: 'warn' | 'crit';
 }
 
 // ---------------------------------------------------------------------------------------
