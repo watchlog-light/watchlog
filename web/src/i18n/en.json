@@ -196,7 +196,13 @@
   },
   "account": {
     "signOut": "Sign out",
-    "menuLabel": "Account"
+    "menuLabel": "Account",
+    "theme": {
+      "label": "Theme",
+      "system": "System (follows your computer)",
+      "light": "Light",
+      "dark": "Dark"
+    }
   },
   "password": {
     "rules": {

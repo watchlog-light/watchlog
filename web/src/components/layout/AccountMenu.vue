@@ -1,10 +1,12 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
-import { ChevronsUpDown, ExternalLink } from '@lucide/vue';
+import { ChevronsUpDown, ExternalLink, Monitor, Moon, Sun } from '@lucide/vue';
 import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuPortal,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuRoot,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -12,6 +14,7 @@ import {
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
+import { useTheme, type ThemeChoice } from '@/composables/useTheme';
 import { LINKS } from '@/lib/links';
 import { useAuthStore } from '@/stores/auth';
 import { usePlanStore } from '@/stores/plan';
@@ -21,7 +24,8 @@ import { usePlanStore } from '@/stores/plan';
 // rail's avatar. Reka's menu gives aria-haspopup/aria-expanded, role="menu", Esc and a click
 // outside to close, arrow keys and focus back on the button; a navigation closes it too.
 // Each item links to a page that exists today; one an edition lacks is left out (Community has
-// no account page and no billing).
+// no account page and no billing). The Theme row (0.12.0, ADR-228) is a radio group of three
+// icon buttons in one row; picking one applies it at once and keeps the menu open.
 const props = defineProps<{ collapsed?: boolean; drawer?: boolean }>();
 const emit = defineEmits<{ signOut: [] }>();
 const auth = useAuthStore();
@@ -72,6 +76,28 @@ const items = computed<Item[]>(() => {
   }
   return list;
 });
+
+const { choice } = useTheme();
+const themes: { value: ThemeChoice; icon: typeof Monitor; label: string }[] = [
+  { value: 'system', icon: Monitor, label: 'account.theme.system' },
+  { value: 'light', icon: Sun, label: 'account.theme.light' },
+  { value: 'dark', icon: Moon, label: 'account.theme.dark' },
+];
+const pickTheme = (v: string) => void auth.setTheme(v as ThemeChoice);
+/** The row reads left to right: Left and Right move along it as Up and Down do. */
+function onThemeKey(e: KeyboardEvent) {
+  const key = e.key === 'ArrowLeft' ? 'ArrowUp' : e.key === 'ArrowRight' ? 'ArrowDown' : null;
+  if (!key) return;
+  const buttons = [
+    ...(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('[role="menuitemradio"]'),
+  ];
+  const at = buttons.indexOf(e.target as HTMLElement);
+  if (at < 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const next = buttons[at + (key === 'ArrowUp' ? -1 : 1)];
+  next?.focus();
+}
 
 // The colour stays out of the shared classes, so Sign out's danger colour isn't overridden.
 const item =
@@ -143,6 +169,40 @@ const itemHeight = computed(() => (props.drawer ? 'min-h-11' : 'min-h-9'));
             >{{ i.label }}</RouterLink
           >
         </DropdownMenuItem>
+        <DropdownMenuSeparator class="my-1 h-px bg-border" />
+        <div
+          class="flex items-center justify-between gap-3 px-2.5"
+          :class="itemHeight"
+          data-testid="account-theme"
+        >
+          <span id="account-theme-label" class="text-14 text-text">{{
+            $t('account.theme.label')
+          }}</span>
+          <DropdownMenuRadioGroup
+            :model-value="choice"
+            aria-labelledby="account-theme-label"
+            class="flex gap-0.5 rounded-control bg-surface-3 p-0.5"
+            @update:model-value="pickTheme"
+            @keydown="onThemeKey"
+          >
+            <DropdownMenuRadioItem
+              v-for="th in themes"
+              :key="th.value"
+              :value="th.value"
+              :aria-label="$t(th.label)"
+              :title="$t(th.label)"
+              :data-testid="`theme-${th.value}`"
+              :class="[
+                'flex cursor-pointer items-center justify-center rounded-control text-text-muted hover:text-text data-[highlighted]:text-text data-[state=checked]:bg-surface-1 data-[state=checked]:text-text data-[state=checked]:shadow-segment',
+                drawer ? 'size-11' : 'h-8 w-9 max-sm:size-11',
+              ]"
+              @select="(e: Event) => e.preventDefault()"
+            >
+              <component :is="th.icon" class="size-4" aria-hidden="true" />
+            </DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </div>
+        <DropdownMenuSeparator class="my-1 h-px bg-border" />
         <DropdownMenuItem as-child>
           <a
             :href="LINKS.docs"

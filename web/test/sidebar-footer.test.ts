@@ -70,6 +70,10 @@ async function mountSidebar(s: Setup = {}) {
   const { calls } = mockFetch({
     'GET /api/v1/clusters': { status: 200, body: { clusters } },
     'POST /api/v1/auth/logout': { status: 204 },
+    'PATCH /api/v1/me/preferences': {
+      status: 200,
+      body: { user: { ...(s.cloud === false ? USER : CLOUD_USER), theme: 'light' } },
+    },
   });
   const { router, i18n, pinia } = await createPlugins(s.path ?? '/');
   const auth = useAuthStore();
@@ -289,6 +293,71 @@ describe('the account menu', () => {
     await vi.waitFor(() =>
       expect(document.querySelector('[data-testid="account-menu"]')).toBeNull(),
     );
+  });
+
+  it('the Theme row sits between billing and the docs, three named buttons in one group', async () => {
+    for (const cloud of [true, false]) {
+      const { wrapper } = await mountSidebar({ plan: PRO, cloud });
+      const menu = await openMenu(wrapper);
+      const row = menu!.querySelector<HTMLElement>('[data-testid="account-theme"]')!;
+      expect(row.textContent).toContain('Theme');
+      // Dividers above and below, then Documentation.
+      expect(row.previousElementSibling!.getAttribute('role')).toBe('separator');
+      expect(row.nextElementSibling!.getAttribute('role')).toBe('separator');
+      expect(row.nextElementSibling!.nextElementSibling!.getAttribute('data-testid')).toBe(
+        'account-docs',
+      );
+      expect(row.previousElementSibling!.previousElementSibling!.getAttribute('data-testid')).toBe(
+        cloud ? 'account-billing' : 'account-tokens',
+      );
+      const group = row.querySelector<HTMLElement>('[role="group"]')!;
+      expect(document.getElementById(group.getAttribute('aria-labelledby')!)!.textContent).toBe(
+        'Theme',
+      );
+      const radios = [...group.querySelectorAll<HTMLElement>('[role="menuitemradio"]')];
+      expect(radios.map((r) => [r.getAttribute('aria-label'), r.getAttribute('title')])).toEqual([
+        ['System (follows your computer)', 'System (follows your computer)'],
+        ['Light', 'Light'],
+        ['Dark', 'Dark'],
+      ]);
+      expect(radios.map((r) => r.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false']);
+      // 36×32 on a desk, 44×44 on a phone.
+      expect(radios[0]!.className).toContain('h-8 w-9 max-sm:size-11');
+      wrapper.unmount();
+      document.body.innerHTML = '';
+    }
+  });
+
+  it('picking a theme applies it at once, saves it on the user and keeps the menu open', async () => {
+    const { wrapper, calls } = await mountSidebar({ plan: FREE });
+    const menu = await openMenu(wrapper);
+    menu!.querySelector<HTMLElement>('[data-testid="theme-light"]')!.click();
+    await flushPromises();
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(calls.at(-1)).toMatchObject({
+      method: 'PATCH',
+      path: '/api/v1/me/preferences',
+      body: { theme: 'light' },
+    });
+    expect(document.querySelector('[data-testid="account-menu"]')).not.toBeNull();
+    expect(menu!.querySelector('[data-testid="theme-light"]')!.getAttribute('aria-checked')).toBe(
+      'true',
+    );
+    // Left and Right move along the row.
+    const light = menu!.querySelector<HTMLElement>('[data-testid="theme-light"]')!;
+    light.focus();
+    light.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('theme-dark');
+    document.activeElement!.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }),
+    );
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('theme-light');
+  });
+
+  it('the phone drawer gives the theme buttons 44 px', async () => {
+    const { wrapper } = await mountSidebar({ plan: FREE, drawer: true });
+    const menu = await openMenu(wrapper);
+    expect(menu!.querySelector('[data-testid="theme-dark"]')!.className).toContain('size-11');
   });
 
   it('a menu item navigates and closes the menu', async () => {
