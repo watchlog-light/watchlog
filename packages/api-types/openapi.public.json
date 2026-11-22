@@ -395,6 +395,19 @@
                           "silenced": { "type": "boolean" },
                           "flapping": { "type": "boolean" },
                           "held": { "type": "boolean" },
+                          "destinations": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["destination", "port", "firstSeen"],
+                              "properties": {
+                                "destination": { "type": "string" },
+                                "port": { "type": "integer" },
+                                "firstSeen": { "type": "string" }
+                              }
+                            }
+                          },
+                          "destinationCount": { "type": "integer" },
                           "deliveries": {
                             "type": "array",
                             "items": {
@@ -609,6 +622,19 @@
                         "silenced": { "type": "boolean" },
                         "flapping": { "type": "boolean" },
                         "held": { "type": "boolean" },
+                        "destinations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["destination", "port", "firstSeen"],
+                            "properties": {
+                              "destination": { "type": "string" },
+                              "port": { "type": "integer" },
+                              "firstSeen": { "type": "string" }
+                            }
+                          }
+                        },
+                        "destinationCount": { "type": "integer" },
                         "deliveries": {
                           "type": "array",
                           "items": {
@@ -792,6 +818,19 @@
                           "silenced": { "type": "boolean" },
                           "flapping": { "type": "boolean" },
                           "held": { "type": "boolean" },
+                          "destinations": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["destination", "port", "firstSeen"],
+                              "properties": {
+                                "destination": { "type": "string" },
+                                "port": { "type": "integer" },
+                                "firstSeen": { "type": "string" }
+                              }
+                            }
+                          },
+                          "destinationCount": { "type": "integer" },
                           "deliveries": {
                             "type": "array",
                             "items": {

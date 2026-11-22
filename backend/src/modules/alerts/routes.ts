@@ -167,6 +167,26 @@ function toAlert(r: AlertRow, deliveries: Delivery[] = [], now = Date.now()) {
     flapping: r.flapping,
     held: r.held,
     deliveries,
+    ...egressDestinations(r.rule_key, details as Record<string, unknown>),
+  };
+}
+
+/**
+ * A source's one "New external destination" alert (ADR-229): its destinations, newest first,
+ * with when each was first seen, and how many in all (the list stops at 100).
+ */
+function egressDestinations(ruleKey: string | null, d: Record<string, unknown>) {
+  if (ruleKey !== 'egress.new_destination' || !Array.isArray(d.destinations)) return {};
+  const destinations = (d.destinations as Record<string, unknown>[])
+    .filter((x) => typeof x?.destination === 'string' && typeof x.firstSeen === 'string')
+    .map((x) => ({
+      destination: x.destination as string,
+      port: typeof x.port === 'number' ? x.port : 0,
+      firstSeen: x.firstSeen as string,
+    }));
+  return {
+    destinations,
+    destinationCount: typeof d.count === 'number' ? d.count : destinations.length,
   };
 }
 

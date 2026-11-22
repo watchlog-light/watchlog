@@ -42,6 +42,16 @@ export const AlertSchema = Type.Object({
   flapping: Type.Boolean(),
   /** Held back while its cluster is not reporting or its node is NotReady (ADR-094). */
   held: Type.Boolean(),
+  /**
+   * "New external destination" (ADR-229): the source's new destinations, newest first (at
+   * most 100), each with its first connection; `destinationCount` says how many in all.
+   */
+  destinations: Type.Optional(
+    Type.Array(
+      Type.Object({ destination: Type.String(), port: Type.Integer(), firstSeen: Type.String() }),
+    ),
+  ),
+  destinationCount: Type.Optional(Type.Integer()),
   /** The latest firing message per channel (alerts redesign item 7). */
   deliveries: Type.Array(
     Type.Object({

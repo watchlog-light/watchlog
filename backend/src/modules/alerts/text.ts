@@ -433,6 +433,25 @@ function egressText(a: AlertTextInput): AlertText | null {
   switch (a.ruleKey) {
     case 'egress.new_destination': {
       const others = num(d.others);
+      const count = num(d.count) ?? 1;
+      // One alert per source (ADR-229): "updater started talking to 24 new destinations".
+      if (count > 1) {
+        const added = (Array.isArray(d.added) ? d.added : []).filter(
+          (x): x is string => typeof x === 'string',
+        );
+        // A repeat message names what joined since the last one (at most 5, then a count).
+        const shown = added.slice(0, 5);
+        const rest = added.length - shown.length;
+        return {
+          title: `${who} started talking to ${count} new destinations`,
+          why: join(
+            utcClock(d.firstSeen) && `newest ${target} at ${utcClock(d.firstSeen)}`,
+            shown.length > 0 &&
+              `new since the last message: ${shown.join(', ')}${rest > 0 ? ` and ${rest} more` : ''}`,
+          ),
+          code: [...new Set([target, ...shown])],
+        };
+      }
       return {
         title: `${who} started talking to ${target}`,
         why: join(

@@ -14,6 +14,11 @@ export interface Observation {
   details: Record<string, unknown>;
   /** Since when the condition holds, when the data says (a condition's transition time). */
   since?: number;
+  /**
+   * When what the observation reports last changed (a destination joined a grouped alert,
+   * ADR-229). With it, a repeat message goes out only when it changed since the last one.
+   */
+  changedAt?: number;
 }
 
 export interface Episode {
@@ -132,7 +137,8 @@ export function step(prev: Episode | null, obs: Observation | null, ctx: StepCon
   } else if (
     ctx.renotifyMs > 0 &&
     ep.lastNotifiedAt !== null &&
-    now - ep.lastNotifiedAt >= ctx.renotifyMs
+    now - ep.lastNotifiedAt >= ctx.renotifyMs &&
+    (obs.changedAt === undefined || obs.changedAt > ep.lastNotifiedAt)
   ) {
     notify = 'renotify';
   }

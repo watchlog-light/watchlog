@@ -418,6 +418,7 @@ export async function readEgress(
     .innerJoin('alert_rules as r', 'r.id', 's.rule_id')
     .select([
       's.id',
+      's.details',
       sql<string>`s.labels->>'destination'`.as('destination'),
       sql<string>`s.labels->>'port'`.as('port'),
     ])
@@ -427,7 +428,17 @@ export async function readEgress(
     .where('r.rule_key', 'like', 'egress.%')
     .orderBy('s.fired_at', 'asc')
     .execute();
-  const alertOf = new Map(firingAlerts.map((a) => [groupKey(a.destination, Number(a.port)), a.id]));
+  const alertOf = new Map<string, string>();
+  for (const a of firingAlerts) {
+    alertOf.set(groupKey(a.destination, Number(a.port)), a.id);
+    // A source's one "New external destination" alert lists them all (ADR-229).
+    const listed = (a.details as { destinations?: { destination: string; port: number }[] })
+      ?.destinations;
+    for (const d of Array.isArray(listed) ? listed : []) {
+      if (typeof d?.destination === 'string')
+        alertOf.set(groupKey(d.destination, Number(d.port)), a.id);
+    }
+  }
 
   const lookedBack = !!cluster.egress_backfilled_at;
   const all: EgressRow[] = [];

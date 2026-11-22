@@ -7078,6 +7078,12 @@ export interface paths {
                 silenced: boolean;
                 flapping: boolean;
                 held: boolean;
+                destinations?: {
+                  destination: string;
+                  port: number;
+                  firstSeen: string;
+                }[];
+                destinationCount?: number;
                 deliveries: {
                   /** Format: uuid */
                   channelId: string;
@@ -7238,6 +7244,12 @@ export interface paths {
                 silenced: boolean;
                 flapping: boolean;
                 held: boolean;
+                destinations?: {
+                  destination: string;
+                  port: number;
+                  firstSeen: string;
+                }[];
+                destinationCount?: number;
                 deliveries: {
                   /** Format: uuid */
                   channelId: string;
@@ -7317,6 +7329,12 @@ export interface paths {
                 silenced: boolean;
                 flapping: boolean;
                 held: boolean;
+                destinations?: {
+                  destination: string;
+                  port: number;
+                  firstSeen: string;
+                }[];
+                destinationCount?: number;
                 deliveries: {
                   /** Format: uuid */
                   channelId: string;

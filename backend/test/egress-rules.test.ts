@@ -36,6 +36,8 @@ import {
 import { encode, type TestSeries } from './support/remote-write.js';
 import { appUrlOf, ensureAppRole } from './isolation/cloud.js';
 import { createOrgCluster, testWorker } from './support/alerts.js';
+import { readFileSync } from 'node:fs';
+import { step, type Episode } from '../src/modules/alerts/state-machine.js';
 
 const MIN = 60_000;
 const HOUR = 3_600_000;
@@ -244,7 +246,7 @@ describe('New external destination', () => {
     expect(rest).toEqual([]);
     expect(a).toMatchObject({
       state: 'firing',
-      fingerprint: 'egress:shop/Deployment/orders>cdn-update-check.xyz:443',
+      fingerprint: 'egress-new:shop/Deployment/orders',
       labels: {
         namespace: 'shop',
         workload_kind: 'Deployment',
@@ -287,7 +289,7 @@ describe('New external destination', () => {
     expect(await alerts(NEW)).toEqual([]);
     await seen(ORDERS, 'example.org', 443, T0 + 8 * DAY, { sourceFirstSeen: T0 - 30 * DAY });
     await cycle(T0 + 8 * DAY + MIN);
-    expect(await firing(NEW)).toEqual(['egress:shop/Deployment/orders>example.org:443']);
+    expect(await firing(NEW)).toEqual(['egress-new:shop/Deployment/orders']);
   });
 
   it('a new source learns for 7 days from its own first seen; another source using the name is counted', async () => {
@@ -303,7 +305,7 @@ describe('New external destination', () => {
     await cycle(T0 + 6 * DAY + MIN);
     const [a] = await alerts(NEW);
     expect(a).toMatchObject({
-      fingerprint: 'egress:shop/Deployment/billing>files.example.net:443',
+      fingerprint: 'egress-new:shop/Deployment/billing',
       details: { others: 1 },
     });
     expect(text(a!, NEW).why).toBe('first connection at 08:00 UTC · 1 other workload talks to it');
@@ -323,7 +325,7 @@ describe('New external destination', () => {
     // A public raw network is a new destination (it is also Raw IP's).
     await seen(ORDERS, '1.1.1.0/24', 443, T0);
     await cycle(t + MIN);
-    expect(await firing(NEW)).toEqual(['egress:shop/Deployment/orders>1.1.1.0/24:443']);
+    expect(await firing(NEW)).toEqual(['egress-new:shop/Deployment/orders']);
   });
 
   it('marking the destination expected resolves its open alert at the next evaluation', async () => {
@@ -382,11 +384,11 @@ describe('New external destination', () => {
     const list = await alerts(NEW);
     expect(list.map((a) => [a.fingerprint, a.labels])).toEqual([
       [
-        'egress:docker-01/redis>example.org:443',
+        'egress-new:docker-01/redis',
         { node: 'docker-01', container: 'redis', destination: 'example.org', port: '443' },
       ],
       [
-        'egress:shop/api>cdn-update-check.xyz:443',
+        'egress-new:shop/api',
         {
           compose_project: 'shop',
           compose_service: 'api',
@@ -422,6 +424,225 @@ describe('New external destination', () => {
     setEgressLearningDays(1);
     await cycle(T0 + 2 * MIN);
     expect(await firing(NEW)).toHaveLength(1);
+  });
+});
+
+// ----------------------------------------------------------- one alert per source (ADR-229)
+
+describe('New external destination: one alert per source (ADR-229)', () => {
+  it("Kubernetes: new names join the source's open alert, newest first; another source has its own", async () => {
+    await setup('kubernetes');
+    await seen(ORDERS, 'mirror-0812.example.net', 443, T0);
+    await cycle(T0 + MIN);
+    await seen(ORDERS, 'mirror-0912.example.net', 443, T0 + HOUR);
+    await seen(ORDERS, 'mirror-1012.example.net', 443, T0 + 2 * HOUR);
+    await seen(BILLING, 'files.example.net', 443, T0 + 2 * HOUR);
+    await cycle(T0 + 2 * HOUR + MIN);
+    const list = await alerts(NEW);
+    expect(list.map((a) => [a.state, a.fingerprint])).toEqual([
+      ['firing', 'egress-new:shop/Deployment/billing'],
+      ['firing', 'egress-new:shop/Deployment/orders'],
+    ]);
+    const orders = list[1]!;
+    const d = orders.details as {
+      count: number;
+      destinations: { destination: string; firstSeen: string }[];
+    };
+    expect(d.count).toBe(3);
+    expect(d.destinations.map((x) => [x.destination, x.firstSeen])).toEqual([
+      ['mirror-1012.example.net', new Date(T0 + 2 * HOUR).toISOString()],
+      ['mirror-0912.example.net', new Date(T0 + HOUR).toISOString()],
+      ['mirror-0812.example.net', new Date(T0).toISOString()],
+    ]);
+    // The labels carry the newest (the Egress page's link, the chart, probable cause).
+    expect(orders.labels).toMatchObject({
+      workload: 'orders',
+      destination: 'mirror-1012.example.net',
+    });
+    // It started at the first one.
+    expect(new Date(orders.started_at).getTime()).toBe(T0);
+    expect(text(orders, NEW)).toEqual({
+      title: 'orders started talking to 3 new destinations',
+      // Messaged when it opened with the first; two joined since.
+      why: 'newest mirror-1012.example.net:443 at 10:00 UTC · new since the last message: mirror-1012.example.net:443, mirror-0912.example.net:443',
+      code: ['mirror-1012.example.net:443', 'mirror-0912.example.net:443'],
+    });
+  });
+
+  it('stays open while any of its names is used, joins older ones while open, resolves after 24 h of quiet', async () => {
+    await setup('kubernetes');
+    await seen(ORDERS, 'a.example.net', 443, T0, { lastSeen: T0 });
+    await seen(ORDERS, 'b.example.net', 443, T0 + HOUR, { lastSeen: T0 + HOUR });
+    await cycle(T0 + HOUR + MIN);
+    expect(await firing(NEW)).toEqual(['egress-new:shop/Deployment/orders']);
+    // 30 h later: a.example.net (first seen 31 h ago, joined while open) is still used.
+    await touch('a.example.net', T0 + 30 * HOUR);
+    await cycles(T0 + 30 * HOUR + MIN);
+    const [a] = await alerts(NEW);
+    expect(a!.state).toBe('firing');
+    expect((a!.details as { count: number }).count).toBe(1);
+    // 24 h with no traffic to any of them: resolved.
+    await cycles(T0 + 54 * HOUR + 2 * MIN);
+    expect((await alerts(NEW)).map((x) => x.state)).toEqual(['resolved']);
+  });
+
+  it('Server fleets: a Compose service and a container each keep one alert', async () => {
+    await setup('server');
+    await seen(API, 'one.example.net', 443, T0);
+    await seen(API, 'two.example.net', 8443, T0 + 10 * MIN);
+    await seen(REDIS, 'example.org', 443, T0);
+    await cycle(T0 + 11 * MIN);
+    const list = await alerts(NEW);
+    expect(list.map((a) => [a.fingerprint, (a.details as { count: number }).count])).toEqual([
+      ['egress-new:docker-01/redis', 1],
+      ['egress-new:shop/api', 2],
+    ]);
+    expect(text(list[1]!, NEW)!.title).toBe('shop/api started talking to 2 new destinations');
+    // The Egress page links each of them to the one alert.
+    const cluster = (await ctx.db
+      .selectFrom('clusters')
+      .selectAll()
+      .where('id', '=', clusterId)
+      .executeTakeFirstOrThrow()) as unknown as EgressCluster;
+    const eg = await readEgress(
+      ctx.db,
+      null,
+      orgId,
+      cluster,
+      {},
+      { fromMs: T0 - DAY, toMs: T0 + 11 * MIN },
+      T0 + 11 * MIN,
+    );
+    const ids = new Set(
+      eg.rows.filter((r) => r.destination.endsWith('example.net')).map((r) => r.alertId),
+    );
+    expect(ids.size).toBe(1);
+    expect([...ids][0]).toBeTruthy();
+  });
+
+  it('a repeat message goes out only when names joined since the last one, and names them', () => {
+    const ep: Episode = {
+      state: 'firing',
+      severity: 'warning',
+      labels: {},
+      details: {},
+      startedAt: T0,
+      firedAt: T0,
+      resolvedAt: null,
+      falseSince: null,
+      falseCycles: 0,
+      lastNotifiedAt: T0,
+      notifiedFiring: true,
+      silenced: false,
+      flapping: false,
+      notifySeq: 1,
+    };
+    const ctx4h = {
+      now: T0 + 5 * HOUR,
+      forMs: 0,
+      renotifyMs: 4 * HOUR,
+      silenced: () => false,
+      recentFirings: 0,
+    };
+    const obs = (changedAt: number) => ({
+      fingerprint: 'egress-new:x',
+      severity: 'warning' as const,
+      labels: {},
+      details: {},
+      changedAt,
+    });
+    expect(step(ep, obs(T0 - MIN), ctx4h)).toMatchObject({ notify: null });
+    expect(step(ep, obs(T0 + 3 * HOUR), ctx4h)).toMatchObject({ notify: 'renotify' });
+    // Not before the interval, even with a new name.
+    expect(step(ep, obs(T0 + HOUR), { ...ctx4h, now: T0 + 2 * HOUR })).toMatchObject({
+      notify: null,
+    });
+    const words = alertText({
+      ruleKey: NEW,
+      ruleName: 'New external destination',
+      labels: { namespace: 'shop', workload_kind: 'Deployment', workload: 'updater' },
+      details: {
+        destination: 'f.example.net',
+        port: 443,
+        firstSeen: new Date(T0).toISOString(),
+        count: 24,
+        added: [
+          'f.example.net:443',
+          'e.example.net:443',
+          'd.example.net:443',
+          'c.example.net:443',
+          'b.example.net:443',
+          'a.example.net:443',
+        ],
+      },
+      cluster: { name: 'prod' },
+      now: T0,
+    });
+    expect(words.title).toBe('updater started talking to 24 new destinations');
+    expect(words.why).toBe(
+      'newest f.example.net:443 at 08:00 UTC · new since the last message: f.example.net:443, e.example.net:443, d.example.net:443, c.example.net:443, b.example.net:443 and 1 more',
+    );
+  });
+
+  it('the upgrade folds the open per-destination alerts into one per source', async () => {
+    await setup('kubernetes');
+    await cycle(T0); // the default rules
+    const rule = await ctx.db
+      .selectFrom('alert_rules')
+      .select('id')
+      .where('org_id', '=', orgId)
+      .where('rule_key', '=', NEW)
+      .executeTakeFirstOrThrow();
+    const open = (fp: string, started: number, state = 'firing') =>
+      ctx.db
+        .insertInto('alert_states')
+        .values({
+          id: newId(),
+          org_id: orgId,
+          rule_id: rule.id,
+          cluster_id: clusterId,
+          fingerprint: fp,
+          state,
+          severity: 'warning',
+          labels: JSON.stringify({}),
+          details: JSON.stringify({}),
+          started_at: new Date(started),
+          fired_at: new Date(started),
+          resolved_at: state === 'resolved' ? new Date(started + HOUR) : null,
+        })
+        .execute();
+    await open('egress:shop/Deployment/updater>m-1.example.net:443', T0 - 3 * HOUR);
+    await open('egress:shop/Deployment/updater>m-2.example.net:443', T0 - 2 * HOUR);
+    await open('egress:shop/Deployment/updater>m-3.example.net:443', T0 - HOUR);
+    await open('egress:shop/api>x.example.net:443', T0 - HOUR);
+    await open('egress:shop/Deployment/updater>old.example.net:443', T0 - 5 * DAY, 'resolved');
+    await sql
+      .raw(
+        readFileSync(
+          new URL(
+            '../migrations/1797200000000_egress-new-destination-per-source.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ).replace('-- Up Migration', ''),
+      )
+      .execute(ctx.db);
+    const rows = await ctx.db
+      .selectFrom('alert_states')
+      .select(['fingerprint', 'state', 'started_at'])
+      .where('rule_id', '=', rule.id)
+      .orderBy('state')
+      .orderBy('fingerprint')
+      .execute();
+    expect(rows.map((r) => [r.state, r.fingerprint])).toEqual([
+      ['firing', 'egress-new:shop/Deployment/updater'],
+      ['firing', 'egress-new:shop/api'],
+      ['resolved', 'egress:shop/Deployment/updater>m-2.example.net:443'],
+      ['resolved', 'egress:shop/Deployment/updater>m-3.example.net:443'],
+      ['resolved', 'egress:shop/Deployment/updater>old.example.net:443'],
+    ]);
+    // The oldest is the one kept.
+    expect(new Date(rows[0]!.started_at).getTime()).toBe(T0 - 3 * HOUR);
   });
 });
 
@@ -752,13 +973,13 @@ describe('Cloud: each org’s rules and alerts as watchlog_app, under Row-Level 
       {
         org_id: a.orgId,
         cluster_id: a.clusterId,
-        fingerprint: 'egress:shop/Deployment/orders>alpha.example.org:443',
+        fingerprint: 'egress-new:shop/Deployment/orders',
         rule_org: a.orgId,
       },
       {
         org_id: b.orgId,
         cluster_id: b.clusterId,
-        fingerprint: 'egress:shop/api>beta.example.org:443',
+        fingerprint: 'egress-new:shop/api',
         rule_org: b.orgId,
       },
     ]);

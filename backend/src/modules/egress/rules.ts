@@ -79,6 +79,33 @@ async function openFingerprints(ctx: EvalContext): Promise<Set<string>> {
   return new Set(rows.map((r) => r.fingerprint));
 }
 
+/** "New external destination" keeps one open alert per source (ADR-229): this fingerprint. */
+export const groupFingerprint = (s: SourceIdentity) => `egress-new:${sourceRef(s)}`;
+/** The most destinations an alert's details list (the newest); the count says how many. */
+export const GROUP_LIST_MAX = 100;
+
+/** The rule's open alerts by fingerprint: since when, and when a message last went out. */
+async function openGroups(
+  ctx: EvalContext,
+): Promise<Map<string, { startedAt: number; lastNotifiedAt: number | null }>> {
+  const rows = await ctx.db
+    .selectFrom('alert_states')
+    .select(['fingerprint', 'started_at', 'last_notified_at'])
+    .where('rule_id', '=', ctx.rule.id)
+    .where('cluster_id', '=', ctx.cluster.id)
+    .where('state', '<>', 'resolved')
+    .execute();
+  return new Map(
+    rows.map((r) => [
+      r.fingerprint,
+      {
+        startedAt: new Date(r.started_at).getTime(),
+        lastNotifiedAt: r.last_notified_at ? new Date(r.last_notified_at).getTime() : null,
+      },
+    ]),
+  );
+}
+
 /** How many sources of the cluster use each destination (any port). */
 async function sourcesUsing(
   ctx: EvalContext,
@@ -101,9 +128,13 @@ const iso = (d: Date) => d.toISOString();
  * New external destination. A row qualifies when it was first seen after the cluster's and
  * its source's learning ended, is a name or a public network (never a private network, a local
  * name or "Internet"), isn't marked expected (the inventory's copy, kept in sync, ADR-186) and
- * wasn't only "before" the oldest retained sample. It fires for a destination first seen in the
- * last 24 hours and stays while it is used, until 24 hours without traffic to it; a row that
- * becomes expected leaves at the next evaluation, which resolves its alert.
+ * wasn't only "before" the oldest retained sample.
+ *
+ * One alert per source (ADR-229): a destination first seen in the last 24 hours opens it, and
+ * while it is open every new destination of that source joins it (first seen since it
+ * started). It lists them, newest first, and resolves when none has had traffic for 24 hours.
+ * A repeat message goes out only when destinations joined since the last one (`changedAt`),
+ * and names those (`added`).
  */
 const newDestination: RuleEvaluator = {
   kinds: ['kubernetes', 'server'],
@@ -119,7 +150,7 @@ const newDestination: RuleEvaluator = {
     // The cluster is still learning: nothing new can qualify yet.
     if (ctx.now < learnedAt) return [];
     const [open, rows] = await Promise.all([
-      openFingerprints(ctx),
+      openGroups(ctx),
       ctx.db
         .selectFrom('egress_destinations as d')
         .leftJoin('egress_sources as s', (j) =>
@@ -146,33 +177,69 @@ const newDestination: RuleEvaluator = {
       const sourceFirst = r.source_first_seen ? new Date(r.source_first_seen).getTime() : first;
       // The source is learning (a new workload or container): its destinations are learned.
       if (first < sourceFirst + learnMs) return false;
-      const fp = fingerprintOf(identity(r.source), r.destination, r.port);
-      return first >= ctx.now - EGRESS_NEW_MS || open.has(fp);
+      if (first >= ctx.now - EGRESS_NEW_MS) return true;
+      // An older one stays while its source's alert, which it joined, is open.
+      const g = open.get(groupFingerprint(identity(r.source)));
+      return !!g && first >= g.startedAt;
     });
     const using = await sourcesUsing(
       ctx,
       kept.map((r) => r.destination),
     );
-    return kept.map((r): Observation => {
+    // Per source, newest first.
+    const bySource = new Map<string, { source: SourceIdentity; rows: typeof kept }>();
+    for (const r of kept) {
       const s = identity(r.source);
-      const first = new Date(r.first_seen);
-      return {
-        fingerprint: fingerprintOf(s, r.destination, r.port),
+      const fp = groupFingerprint(s);
+      const g = bySource.get(fp) ?? { source: s, rows: [] };
+      g.rows.push(r);
+      bySource.set(fp, g);
+    }
+    const out: Observation[] = [];
+    for (const [fp, g] of bySource) {
+      g.rows.sort(
+        (a, b) =>
+          new Date(b.first_seen).getTime() - new Date(a.first_seen).getTime() ||
+          a.destination.localeCompare(b.destination) ||
+          a.port - b.port,
+      );
+      const list = g.rows.map((r) => ({
+        destination: r.destination,
+        port: r.port,
+        class: r.destination_class,
+        firstSeen: iso(new Date(r.first_seen)),
+        // Other sources of the cluster or fleet that use it ("Nothing else … talks to it").
+        others: Math.max(0, (using.get(r.destination) ?? 1) - 1),
+      }));
+      const newest = list[0]!;
+      const oldest = new Date(g.rows[g.rows.length - 1]!.first_seen).getTime();
+      const lastNotified = open.get(fp)?.lastNotifiedAt ?? null;
+      const added =
+        lastNotified === null
+          ? []
+          : list.filter((d) => Date.parse(d.firstSeen) > lastNotified).map(destinationText);
+      out.push({
+        fingerprint: fp,
         severity: ctx.rule.severity as Severity,
-        labels: labelsOf(s, r.destination, r.port),
+        // The newest destination stays in the labels: the Egress page's link, the rule's
+        // chart and probable cause (change_before_egress) read it.
+        labels: labelsOf(g.source, newest.destination, newest.port),
         details: {
-          destination: r.destination,
-          port: r.port,
-          class: r.destination_class,
-          firstSeen: iso(first),
-          // Other sources of the cluster or fleet that use it ("Nothing else … talks to it").
-          others: Math.max(0, (using.get(r.destination) ?? 1) - 1),
+          ...newest,
+          count: list.length,
+          destinations: list.slice(0, GROUP_LIST_MAX),
+          added: added.slice(0, GROUP_LIST_MAX),
         },
-        since: first.getTime(),
-      };
-    });
+        since: oldest,
+        changedAt: Date.parse(newest.firstSeen),
+      });
+    }
+    return out;
   },
 };
+
+const destinationText = (d: { destination: string; port: number }) =>
+  d.port ? `${d.destination}:${d.port}` : d.destination;
 
 const crosses = (c: Condition, v: number) => (c.op === '>' ? v > c.value : v < c.value);
 
