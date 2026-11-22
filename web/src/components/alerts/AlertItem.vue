@@ -75,6 +75,7 @@ const TONE = {
         </span>
         <span v-if="alert.held" class="inline-flex items-center gap-1" data-testid="held">
           <PauseCircle class="size-3.5" aria-hidden="true" />{{ $t('alerts.heldMark') }}
+          <template v-if="alert.heldBy"> · {{ $t('alerts.heldUnder') }}</template>
         </span>
       </p>
     </div>

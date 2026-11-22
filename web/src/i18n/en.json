@@ -1158,7 +1158,11 @@
       "openObject": "Open {name}",
       "gap": "Alerting was not running {from}–{to}",
       "gapOpen": "Alerting has not been running since {from}",
-      "ago": "{d} ago"
+      "ago": "{d} ago",
+      "heldBy": "Held back: it tells the same story as another alert that is open, so it sends no message of its own. It speaks if it outlasts that one:",
+      "heldByLink": "open that alert",
+      "related": "Held back under this alert",
+      "relatedHint": "They tell the same story, so they send no message while this one is open."
     },
     "kinds": {
       "firing": "Firing",
@@ -1393,7 +1397,8 @@
       "empty": "No data from this object in this window",
       "error": "The chart couldn't be loaded",
       "none": "There is no chart for this rule"
-    }
+    },
+    "heldUnder": "same story as another alert"
   },
   "channels": {
     "title": "Alert channels",

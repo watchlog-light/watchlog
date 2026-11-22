@@ -225,6 +225,20 @@ onMounted(() => {
         @cancel="silencing = false"
       />
 
+      <!-- Held back under the alert that tells the same story (ADR-229). -->
+      <p
+        v-if="page.data.value.alert.heldBy && page.data.value.alert.state !== 'resolved'"
+        class="rounded-card border border-border bg-surface-1 px-4 py-3 text-13 text-text-muted"
+        data-testid="alert-held-by"
+      >
+        {{ $t('alerts.detail.heldBy') }}
+        <RouterLink
+          :to="{ name: 'alert', params: { id: page.data.value.alert.heldBy } }"
+          class="text-link hover:underline"
+          >{{ $t('alerts.detail.heldByLink') }}</RouterLink
+        >
+      </p>
+
       <!-- An anomaly alert (ADR-200): its series against the usual band, What changed around
            it, the probable cause and "Was this worth an alert?", in place of the rule's chart. -->
       <AnomalyAlertView
@@ -357,6 +371,16 @@ onMounted(() => {
           :label="$t('causes.panel.ask.label')"
           :code="`explain_alert(id: &quot;${page.data.value.alert.id}&quot;)`"
         />
+      </section>
+
+      <section
+        v-if="page.data.value.related?.length"
+        class="flex flex-col gap-3"
+        data-testid="alert-related"
+      >
+        <h3 class="text-14 font-semibold text-text">{{ $t('alerts.detail.related') }}</h3>
+        <p class="text-13 text-text-muted">{{ $t('alerts.detail.relatedHint') }}</p>
+        <AlertTable :alerts="page.data.value.related" history />
       </section>
 
       <section v-if="page.data.value.history.length" class="flex flex-col gap-3">

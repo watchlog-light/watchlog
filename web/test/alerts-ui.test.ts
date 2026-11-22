@@ -896,6 +896,45 @@ describe('Alert detail', () => {
     w.unmount();
   });
 
+  it('one story per workload (ADR-229): a held-back alert names the one it waits under, which lists it', async () => {
+    const crash: Alert = { ...ALERT, title: 'legacy-importer is crash-looping' };
+    const replicas: Alert = {
+      ...ALERT,
+      id: '01a18f0e-a6c2-71ef-a7b4-42d765746dff',
+      rule: {
+        ...ALERT.rule,
+        key: 'k8s.deployment.unavailable',
+        name: 'Deployment replicas unavailable',
+      },
+      title: 'legacy-importer has 0 of 1 replicas ready',
+      held: true,
+      heldBy: ALERT.id,
+    };
+    mockFetch({
+      [`GET /api/v1/alerts/${ALERT.id}`]: {
+        status: 200,
+        body: { alert: crash, notifications: [], history: [], related: [replicas], gaps: [] },
+      },
+      [`GET /api/v1/alerts/${ALERT.id}/chart?range=3600`]: { status: 200, body: CHART },
+    } as Routes);
+    const { wrapper: w } = await mountView(AlertDetailPage, `/alerts/${ALERT.id}`);
+    const related = w.get('[data-testid="alert-related"]');
+    expect(related.text()).toContain('Held back under this alert');
+    expect(related.text()).toContain('legacy-importer has 0 of 1 replicas ready');
+    w.unmount();
+
+    mockFetch({
+      [`GET /api/v1/alerts/${replicas.id}`]: {
+        status: 200,
+        body: { alert: replicas, notifications: [], history: [], related: [], gaps: [] },
+      },
+      [`GET /api/v1/alerts/${replicas.id}/chart?range=3600`]: { status: 200, body: CHART },
+    } as Routes);
+    const { wrapper: v } = await mountView(AlertDetailPage, `/alerts/${replicas.id}`);
+    expect(v.get('[data-testid="alert-held-by"] a').attributes('href')).toBe(`/alerts/${ALERT.id}`);
+    v.unmount();
+  });
+
   it('says when an alert does not exist', async () => {
     mockFetch({
       'GET /api/v1/alerts/nope': problem(404, 'Alert not found'),
