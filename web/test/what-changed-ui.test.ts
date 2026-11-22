@@ -476,7 +476,7 @@ describe('the page on a Pro org', () => {
       /^Today since \d\d:\d\d · 2 things moved$/,
     );
     expect(w.get('[data-testid="wc-story-sentence"]').text()).toMatch(
-      /^Shop\/reports-worker's connections to postgres went to 43× usual 2 minutes after the rollout of reports-worker; shop\/checkout's p95 response time then went to 13× usual\.$/,
+      /^shop\/reports-worker's connections to postgres went to 43× usual 2 minutes after the rollout of reports-worker; shop\/checkout's p95 response time then went to 13× usual\.$/,
     );
     expect(w.get('[data-testid="wc-cause-box"]').attributes('data-state')).toBe('likely');
     expect(w.get('[data-testid="wc-cause-box"]').text()).toMatch(

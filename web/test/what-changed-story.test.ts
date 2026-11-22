@@ -164,7 +164,7 @@ describe('the story in words', () => {
       tr,
     );
     expect(text).toMatch(
-      /^Shop\/backend's .+ went to 14× usual 2 minutes after the rollout of backend; shop\/postgres's .+ then went to 3\.4× usual, and at the same time shop\/api's .+ went to ÷1\.5 usual\.$/,
+      /^shop\/backend's .+ went to 14× usual 2 minutes after the rollout of backend; shop\/postgres's .+ then went to 3\.4× usual, and at the same time shop\/api's .+ went to ÷1\.5 usual\.$/,
     );
   });
 
@@ -197,10 +197,10 @@ describe('the story in words', () => {
         },
       };
       const box = changeCauseText(c, tr, () => '02:00');
-      expect(box, change).toMatch(
-        /^[A-Z].+ at 02:00\. The first move came 2 minutes later, on db-1\.$/,
-      );
+      expect(box, change).toMatch(/^.+ at 02:00\. The first move came 2 minutes later, on db-1\.$/);
       expect(box).not.toContain('{');
+      if (change === 'job_run') expect(box).toMatch(/^backup\.timer running on db-1/);
+      if (change === 'rollout') expect(box).toMatch(/^The rollout of backup\.timer/);
     }
   });
 
@@ -215,7 +215,7 @@ describe('the story in words', () => {
       ],
       tr,
     );
-    expect(text).toMatch(/^Db-1's .+ moved first, to 9× usual, and 4 more things moved\.$/);
+    expect(text).toMatch(/^db-1's .+ moved first, to 9× usual, and 4 more things moved\.$/);
   });
 
   it('the chip: × for a rise, ÷ for a drop, capped', () => {

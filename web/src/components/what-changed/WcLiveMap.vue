@@ -109,7 +109,7 @@ const moreLabel = computed(() =>
           <RouterLink
             :to="focusLink(g.key)"
             :class="[
-              'truncate font-mono text-12 hover:underline max-lg:py-1',
+              'block truncate font-mono text-12 hover:underline max-lg:py-3.5',
               g.outside ? 'text-warning-text' : 'text-text-muted',
             ]"
             :title="g.name"

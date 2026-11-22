@@ -35,6 +35,14 @@ export function changePhrase(f: Facts, tr: Tr): string {
   });
 }
 
+/**
+ * A sentence's first letter up, unless it starts with a name ("shop/backend's CPU …",
+ * "backup.timer running …"): names keep their case. Our own words are lowercase English.
+ */
+export function sentenceStart(s: string): string {
+  return /^(the|a|an|node|at|and)\b/.test(s) ? `${s.charAt(0).toUpperCase()}${s.slice(1)}` : s;
+}
+
 /** A change from the list as a phrase. */
 export const changeFactsOf = (c: WhatChangedChange): Facts => ({
   change: c.kind,
@@ -89,7 +97,7 @@ export function storyText(clauses: WhatChangedClause[], tr: Tr): string {
     const sep = c.code === 'more' || c.facts.and ? ', ' : '; ';
     return `${acc}${sep}${p}`;
   }, '');
-  return `${s.charAt(0).toUpperCase()}${s.slice(1)}.`;
+  return `${sentenceStart(s)}.`;
 }
 
 /** The cause box for a linked change: "The rollout of backend at 14:31. The first move …". */
@@ -100,7 +108,7 @@ export function changeCauseText(
 ): string {
   const phrase = changePhrase(c.facts, tr);
   return tr('whatChanged.causeBox.change', {
-    change: `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)}`,
+    change: sentenceStart(phrase),
     at: clock(str(c.facts.at)),
     gap: minutes(c.facts.gap, tr),
     who: str(c.facts.who),

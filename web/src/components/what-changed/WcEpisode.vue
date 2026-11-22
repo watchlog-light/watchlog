@@ -18,6 +18,7 @@ import {
   foundChecks,
   orderedChecks,
   rowFactor,
+  sentenceStart,
   sortedMoved,
   sparkOf,
   storyAsText,
@@ -482,7 +483,7 @@ const goto = (i: number) => {
           <li v-for="(c, i) in story.changes" :key="i" class="flex gap-2 text-13">
             <span class="shrink-0 font-mono text-text-muted">{{ clock(c.at) }}</span>
             <span class="min-w-0 text-text [overflow-wrap:anywhere]">{{
-              ((p) => p.charAt(0).toUpperCase() + p.slice(1))(changePhrase(changeFactsOf(c), tr))
+              sentenceStart(changePhrase(changeFactsOf(c), tr))
             }}</span>
           </li>
         </ul>
