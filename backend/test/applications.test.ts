@@ -84,6 +84,7 @@ describe('Applications API', () => {
     name: string,
     workload: [string, string],
     containers: { image: string; ports?: number[] }[],
+    labels?: Record<string, string>,
   ) {
     await ctx.db
       .insertInto('objects')
@@ -98,6 +99,7 @@ describe('Applications API', () => {
         node: 'kind-worker',
         spec_summary: JSON.stringify({
           workload: { kind: workload[0], name: workload[1] },
+          ...(labels ? { labels } : {}),
           containers: containers.map((c, i) => ({
             name: `c${i}`,
             image: c.image,
@@ -137,6 +139,58 @@ describe('Applications API', () => {
       })
       .execute();
   }
+
+  it("never offers WatchLog's own parts: its chart's pods and its Compose project (ADR-229)", async () => {
+    const k8s = await cluster('prod', 'kubernetes');
+    const docker = await cluster('docker-01', 'server');
+    // The chart's PostgreSQL (app.kubernetes.io/name: watchlog), and a user's own.
+    await pod(
+      k8s.id,
+      'watchlog',
+      'watchlog-postgresql-0',
+      ['StatefulSet', 'watchlog-postgresql'],
+      [{ image: 'postgres:16-alpine', ports: [5432] }],
+      {
+        'app.kubernetes.io/name': 'watchlog',
+        'app.kubernetes.io/instance': 'watchlog',
+        'app.kubernetes.io/component': 'postgresql',
+      },
+    );
+    await pod(
+      k8s.id,
+      'shop',
+      'redis-1',
+      ['Deployment', 'redis'],
+      [{ image: 'redis:7.4', ports: [6379] }],
+      { 'app.kubernetes.io/name': 'redis' },
+    );
+    // WatchLog's Compose stack on a server: its postgres runs a stock image, in the project
+    // that runs WatchLog's backend.
+    await container(
+      docker.id,
+      'docker-01',
+      'watchlog-backend-1',
+      'ghcr.io/watchlog-light/backend:0.12.1',
+      {
+        project: 'watchlog',
+        service: 'backend',
+      },
+    );
+    await container(docker.id, 'docker-01', 'watchlog-postgres-1', 'postgres:16', {
+      project: 'watchlog',
+      service: 'postgres',
+      exposed: [5432],
+    });
+    await container(docker.id, 'docker-01', 'shop-db-1', 'postgres:16', {
+      project: 'shop',
+      service: 'db',
+      exposed: [5432],
+    });
+    const found = (await api('GET', '/applications/discovered')).json().discovered as {
+      name: string;
+    }[];
+    expect(found.map((d) => d.name).sort()).toEqual(['shop/db', 'shop/redis']);
+  });
 
   it('discovers services on Kubernetes and Docker, by image first, then by port', async () => {
     const k8s = await cluster('prod', 'kubernetes');

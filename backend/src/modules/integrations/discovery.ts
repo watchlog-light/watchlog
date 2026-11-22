@@ -255,6 +255,22 @@ export function isRunning(kind: string, status: unknown): boolean {
 }
 
 /** Discovered services of the org's clusters that aren't monitored yet. */
+/**
+ * WatchLog's own parts are never offered (ADR-229): its chart's pods (its PostgreSQL among
+ * them) carry `app.kubernetes.io/name: watchlog` (or a `part-of`, or its chart's label), and
+ * its Compose project is the one that runs WatchLog's backend or web image.
+ */
+export function isWatchlogPod(labels: Record<string, string> | undefined): boolean {
+  if (!labels) return false;
+  return (
+    labels['app.kubernetes.io/name'] === 'watchlog' ||
+    labels['app.kubernetes.io/part-of'] === 'watchlog' ||
+    /^watchlog-\d/.test(labels['helm.sh/chart'] ?? '')
+  );
+}
+const WATCHLOG_IMAGE = /(^|\/)watchlog-light\/(backend|web)([:@]|$)/;
+export const isWatchlogImage = (image: string | undefined) => !!image && WATCHLOG_IMAGE.test(image);
+
 export async function discover(
   db: Database,
   orgId: string,
@@ -303,6 +319,16 @@ export async function discover(
       )
     : new Map();
   const found = new Map<string, Discovered>();
+  // Compose projects that are WatchLog itself (its backend or web image runs in them).
+  const ownProjects = new Set(
+    objects.flatMap((o) =>
+      o.kind === 'DockerContainer' &&
+      o.namespace &&
+      isWatchlogImage((o.spec_summary as { image?: string }).image)
+        ? [`${o.cluster_id}/${o.namespace}`]
+        : [],
+    ),
+  );
 
   for (const o of objects) {
     // Only what runs now: a stopped container or a finished pod isn't a service to offer.
@@ -324,6 +350,7 @@ export async function discover(
     if (o.kind === 'Pod') {
       const workload = spec.workload as { kind?: string; name?: string } | undefined;
       if (!workload?.kind || !workload.name) continue;
+      if (isWatchlogPod(spec.labels as Record<string, string> | undefined)) continue;
       const containers = (spec.containers as Container[] | undefined) ?? [];
       for (const c of containers) {
         const k = c.image ? kindOfImage(c.image) : undefined;
@@ -357,6 +384,7 @@ export async function discover(
       who = workloadKey(o.namespace, workload.kind, workload.name);
       listens = declared;
     } else {
+      if (o.namespace && ownProjects.has(`${o.cluster_id}/${o.namespace}`)) continue;
       image = spec.image as string | undefined;
       declared = (spec.exposed as number[] | undefined) ?? [];
       kind = image ? kindOfImage(image) : undefined;
