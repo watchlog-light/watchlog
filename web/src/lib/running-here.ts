@@ -74,7 +74,8 @@ export function certLine(c: TlsCertificate): RowLine {
   if (c.renewalJob?.state === 'failed')
     return {
       words: [where, { key: 'runningHere.certs.jobFailing', values: { job: c.renewalJob.name } }],
-      tone: 'crit',
+      // Red while it matters now (it expires within 14 days), amber before: as on its page.
+      tone: c.status === 'ok' || c.status === 'problem' ? 'warn' : 'crit',
     };
   if (c.nameMismatch.length > 0 || c.chain === 'incomplete')
     return {

@@ -7,6 +7,7 @@ import {
   CLUSTER_OVER,
   placeCerts,
   ticksFor,
+  ticksThatFit,
   timelineText,
   toneOf,
   type TimelineCert,
@@ -67,6 +68,15 @@ describe('placeCerts', () => {
     expect(lane('far.acme.com')).toBe(0);
   });
 
+  it('leaves a label out when no lane is free, instead of overlapping', () => {
+    const p = placeCerts(
+      ['a', 'b', 'c', 'd'].map((n, i) => cert(`${n}.acme.com`, 10 + i)),
+      90,
+      { widthPx: 900 },
+    );
+    expect(p.marks.map((m) => m.lane)).toEqual([0, 1, 2, null]);
+  });
+
   it('flips a label to the left of its dot near the right end', () => {
     const p = placeCerts([cert('near.acme.com', 20), cert('end.acme.com', 85)], 90);
     expect(p.marks.map((m) => m.flip)).toEqual([false, true]);
@@ -90,6 +100,12 @@ describe('placeCerts', () => {
     const labelled = p.marks.filter((m) => m.lane !== null).map((m) => m.items[0]!.name);
     expect(labelled).toContain('broken.acme.com');
     expect(labelled.length).toBeLessThanOrEqual(7);
+  });
+
+  it('leaves out ticks closer than 56 px on a phone, keeping the end', () => {
+    const ticks = ticksFor(90).map((days) => ({ days, pct: (days / 90) * 100 }));
+    expect(ticksThatFit(ticks, 900).map((t) => t.days)).toEqual([0, 14, 30, 60, 90]);
+    expect(ticksThatFit(ticks, 320).map((t) => t.days)).toEqual([0, 30, 60, 90]);
   });
 
   it('ticks per range', () => {

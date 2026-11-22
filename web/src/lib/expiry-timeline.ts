@@ -12,7 +12,7 @@ export const EXPIRY_RANGES: ExpiryRange[] = [30, 90, 365];
 export interface TimelineCert {
   id: string;
   name: string;
-  /** Where it is served, for the label: "Ingress shop/api", "app-1 :443". */
+  /** Where it is served, shown after the name on a Server fleet: "app-1 :443"; else ''. */
   where: string;
   /** Days left; negative once expired. */
   daysLeft: number;
@@ -69,7 +69,28 @@ export function ticksFor(range: ExpiryRange): number[] {
 export const maxLabelPx = (widthPx: number) => Math.max(120, widthPx * 0.6);
 /** A label's width in pixels: its text in a 12 px monospace face, its padding, capped. */
 const labelPx = (c: TimelineCert, widthPx: number) =>
-  Math.min(maxLabelPx(widthPx), (c.name.length + 6) * 7.3 + 16);
+  Math.min(
+    maxLabelPx(widthPx),
+    (c.name.length + (c.where ? c.where.length + 3 : 0) + 6) * 7.3 + 16,
+  );
+
+/** The ticks that fit: one closer than 56 px to the last one shown is left out (phones). */
+export function ticksThatFit(
+  ticks: { days: number; pct: number }[],
+  widthPx: number,
+): { days: number; pct: number }[] {
+  const out: { days: number; pct: number }[] = [];
+  for (const tk of ticks) {
+    const last = out[out.length - 1];
+    if (last && ((tk.pct - last.pct) / 100) * widthPx < 56) {
+      // The end of the range always shows; it replaces the one before it.
+      if (tk === ticks[ticks.length - 1]) out[out.length - 1] = tk;
+      continue;
+    }
+    out.push(tk);
+  }
+  return out;
+}
 
 /**
  * Where each certificate goes. `widthPx` is the axis's width, for the lanes; `labels` false
@@ -106,8 +127,7 @@ export function placeCerts(
     });
   }
 
-  // Lanes: each label takes the first lane free at its span; the busiest lane's end otherwise.
-  const ends = Array.from({ length: LANES }, () => -Infinity);
+  // Lanes: each label takes the first lane free at its span.
   const marks = groups.map((g): TimelineMark => {
     const first = g[0]!;
     const pct = pctOf(first.daysLeft);
@@ -115,16 +135,28 @@ export function placeCerts(
     const w = (labelPx(first, width) / width) * 100;
     // Flip near the right end, or wherever the label would run past it (narrow screens).
     const flip = pct > FLIP_AT || (pct + w > 100 && pct > 50);
-    let lane: number | null = null;
-    if (labelled.has(g)) {
-      const start = flip ? pct - w : pct;
-      const end = flip ? pct : pct + w;
-      const free = ends.findIndex((e) => e <= start);
-      lane = free >= 0 ? free : ends.indexOf(Math.min(...ends));
-      ends[lane] = end + 0.5;
-    }
-    return { id: first.id, pct, tone: toneOf(worst), items: g, lane, flip };
+    return { id: first.id, pct, tone: toneOf(worst), items: g, lane: null, flip };
   });
+
+  // Lanes: each label takes the first lane where it overlaps no other; with none free it is
+  // left out (its dot still opens the certificate), so labels never overlap. Problems and the
+  // ones under 14 days choose first, then the rest from the soonest.
+  const taken: [number, number][][] = Array.from({ length: LANES }, () => []);
+  const urgent = (m: TimelineMark) => m.items.some((c) => c.problem || c.daysLeft < 14);
+  const order = marks
+    .filter((m) => labelled.has(m.items))
+    .sort((a, b) => Number(urgent(b)) - Number(urgent(a)) || a.pct - b.pct);
+  for (const m of order) {
+    const w = (labelPx(m.items[0]!, width) / width) * 100;
+    const span: [number, number] = m.flip ? [m.pct - w, m.pct] : [m.pct, m.pct + w];
+    const free = taken.findIndex((lane) =>
+      lane.every(([a, b]) => span[1] + 0.5 <= a || span[0] >= b + 0.5),
+    );
+    if (free >= 0) {
+      m.lane = free;
+      taken[free]!.push(span);
+    }
+  }
 
   return {
     marks,

@@ -138,7 +138,9 @@ const columns = 'grid-cols-[minmax(0,13rem)_minmax(0,1fr)_minmax(0,9rem)]';
               :key="tk.at"
               :class="[
                 'absolute top-0 font-mono text-12 whitespace-nowrap text-text-subtle',
-                narrow && i % 2 === 1 ? 'hidden' : '',
+                (narrow && i % 2 === 1) || Math.abs(tk.pct - now) < (narrow ? 12 : 5)
+                  ? 'hidden'
+                  : '',
               ]"
               :style="{
                 left: `${tk.pct}%`,
@@ -166,18 +168,22 @@ const columns = 'grid-cols-[minmax(0,13rem)_minmax(0,1fr)_minmax(0,9rem)]';
             data-testid="run-lane"
             :data-state="l.job.state"
           >
-            <span class="flex min-w-0 flex-col">
-              <RouterLink
-                :to="link(l)"
-                class="truncate font-mono text-13 font-semibold text-text hover:underline"
-                data-testid="run-lane-name"
-                >{{ laneName(l.job) }}</RouterLink
+            <RouterLink
+              :to="link(l)"
+              class="group/name flex min-w-0 flex-col justify-center max-lg:min-h-11"
+              data-testid="run-lane-name"
+            >
+              <span
+                class="truncate font-mono text-13 font-semibold text-text group-hover/name:underline"
+                >{{ laneName(l.job) }}</span
               >
               <span class="truncate text-12 text-text-muted">{{
                 say(scheduleWords(l.job.schedule))
               }}</span>
-            </span>
-            <div class="relative h-5.5" data-testid="run-strip">
+            </RouterLink>
+            <!-- Marks are data, a slot wide: on a phone the lane's name is the touch target, and the
+                 table below has a full-size row per job. -->
+            <div class="relative h-5.5" data-testid="run-strip" data-layout-exempt="touch-target">
               <span class="sr-only">{{ laneText(l) }}</span>
               <span class="absolute inset-x-0 top-2.5 h-px bg-border" aria-hidden="true" />
               <span

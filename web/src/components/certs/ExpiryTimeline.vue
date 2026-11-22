@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n';
 import {
   maxLabelPx,
   placeCerts,
+  ticksThatFit,
   timelineText,
   type DotTone,
   type ExpiryRange,
@@ -23,28 +24,6 @@ const props = withDefaults(
 const { t } = useI18n();
 const say = (key: string, values: Record<string, unknown>, n?: number) => t(key, values, n ?? 1);
 
-/** A certificate as the timeline names it: its first name, and on a server its server and port. */
-const items = computed<TimelineCert[]>(() =>
-  props.certs.map((c) => {
-    const e = c.endpoints[0];
-    const where = c.node
-      ? `${c.node}${e ? ` :${e.port}` : ''}`
-      : e
-        ? e.kind === 'Ingress'
-          ? `Ingress ${e.workload}`
-          : `${e.workload}:${e.port}`
-        : '';
-    return {
-      id: c.id,
-      name: c.names[0] ?? c.subject,
-      where,
-      daysLeft: c.daysLeft,
-      problem: c.status === 'problem',
-    };
-  }),
-);
-const byId = computed(() => new Map(props.certs.map((c) => [c.id, c])));
-
 // The axis's width, for the lanes (labels are measured against it).
 const box = ref<HTMLElement | null>(null);
 const width = ref(900);
@@ -56,6 +35,24 @@ onMounted(() => {
 });
 onBeforeUnmount(() => observer?.disconnect());
 
+/** A certificate as the timeline names it: its first name, and on a server its server and port. */
+const items = computed<TimelineCert[]>(() =>
+  props.certs.map((c) => {
+    // On a Server fleet a label says where: "api.acme.com · app-1 :443" (not on a phone, where
+    // it would only be cut off; the table below says it).
+    const e = c.endpoints[0];
+    const where = c.node && width.value >= 480 ? `${c.node}${e ? ` :${e.port}` : ''}` : '';
+    return {
+      id: c.id,
+      name: c.names[0] ?? c.subject,
+      where,
+      daysLeft: c.daysLeft,
+      problem: c.status === 'problem',
+    };
+  }),
+);
+const byId = computed(() => new Map(props.certs.map((c) => [c.id, c])));
+
 const range = computed<ExpiryRange>(() => (props.variant === 'strip' ? 90 : props.range));
 const placed = computed(() =>
   placeCerts(items.value, range.value, {
@@ -63,6 +60,7 @@ const placed = computed(() =>
     labels: props.variant === 'full',
   }),
 );
+const ticks = computed(() => ticksThatFit(placed.value.ticks, width.value));
 const a11y = computed(() => timelineText(items.value, range.value, say));
 
 const DOT: Record<DotTone, string> = { crit: 'bg-critical', warn: 'bg-warning', info: 'bg-info' };
@@ -116,7 +114,9 @@ const toggle = (m: TimelineMark) => (open.value = open.value === m.id ? null : m
 
   <div v-else ref="box" class="flex flex-col gap-3" data-testid="expiry-timeline">
     <p class="sr-only" data-testid="expiry-timeline-text">{{ a11y }}</p>
-    <div class="relative h-37.5" aria-hidden="false">
+    <!-- Labels and dots are a drawing: on a phone the table below has a full-size row per
+         certificate. -->
+    <div class="relative h-37.5" data-layout-exempt="touch-target">
       <!-- The usual renewal window (ACME clients renew in the last 30 days). -->
       <span
         class="absolute top-0 bottom-6.5 left-0 border-r border-dashed border-info/40 bg-info/5"
@@ -150,7 +150,9 @@ const toggle = (m: TimelineMark) => (open.value = open.value === m.id ? null : m
             data-testid="expiry-label"
           >
             {{ m.items[0]!.name
-            }}<span v-if="m.items.length > 1" class="text-text-muted">
+            }}<span v-if="m.items[0]!.where" class="text-text-muted">
+              · {{ m.items[0]!.where }}</span
+            ><span v-if="m.items.length > 1" class="text-text-muted">
               +{{ m.items.length - 1 }}</span
             >
             <b :class="['ml-1 font-semibold', DAYS[m.tone]]">{{
@@ -218,29 +220,30 @@ const toggle = (m: TimelineMark) => (open.value = open.value === m.id ? null : m
           </li>
         </ul>
       </div>
-      <span
-        v-if="placed.later > 0"
-        class="absolute top-26.5 right-0 rounded-full border border-border bg-surface-2 px-2.5 py-0.75 text-12 text-text-muted"
-        data-testid="expiry-later"
-        >{{
-          range === 365
-            ? $t('certTimeline.laterYear', { n: placed.later })
-            : $t('certTimeline.later', { n: placed.later, days: range })
-        }}</span
-      >
+
       <div class="absolute inset-x-0 bottom-0 h-4.5" aria-hidden="true">
         <span
-          v-for="(tk, i) in placed.ticks"
+          v-for="(tk, i) in ticks"
           :key="tk.days"
           class="absolute bottom-0 font-mono text-12 whitespace-nowrap text-text-subtle"
           :style="{
             left: `${tk.pct}%`,
-            transform: `translateX(${i === 0 ? '0' : i === placed.ticks.length - 1 ? '-100%' : '-50%'})`,
+            transform: `translateX(${i === 0 ? '0' : i === ticks.length - 1 ? '-100%' : '-50%'})`,
           }"
           >{{ tickLabel(tk.days) }}</span
         >
       </div>
     </div>
+    <span
+      v-if="placed.later > 0"
+      class="self-end rounded-full border border-border bg-surface-2 px-2.5 py-0.75 text-12 text-text-muted"
+      data-testid="expiry-later"
+      >{{
+        range === 365
+          ? $t('certTimeline.laterYear', { n: placed.later })
+          : $t('certTimeline.later', { n: placed.later, days: range })
+      }}</span
+    >
     <p class="text-13 text-text-muted">{{ $t('certTimeline.legend') }}</p>
   </div>
 </template>

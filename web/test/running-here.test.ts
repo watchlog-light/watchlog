@@ -64,6 +64,11 @@ describe('certificates', () => {
     } as Partial<TlsCertificate>);
     const line = certLine(c);
     expect(line.tone).toBe('crit');
+    // Amber while the certificate has time left.
+    const later = cert('www.acme.com', 60, {
+      renewalJob: { id: 'x', name: 'certbot.timer', state: 'failed' },
+    } as Partial<TlsCertificate>);
+    expect(certLine(later).tone).toBe('warn');
     expect(line.words[1]).toEqual({
       key: 'runningHere.certs.jobFailing',
       values: { job: 'certbot.timer' },

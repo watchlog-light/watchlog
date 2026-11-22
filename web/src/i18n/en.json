@@ -6264,7 +6264,8 @@
       "private": "private CA",
       "selfSigned": "self-signed",
       "notSeen": "not seen renewing yet",
-      "strip": "Expiry in the next 90 days"
+      "strip": "Expiry in the next 90 days",
+      "allPlain": "All {n} certificates"
     },
     "jobs": {
       "title": "Scheduled jobs",

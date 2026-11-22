@@ -324,7 +324,9 @@ const jobTitle = (j: ScheduledJob) => (j.node ? jobName(j).name : j.name);
         >
           {{
             certs && certs.length
-              ? $t('runningHere.certs.all', { n: certs.length, renewing })
+              ? renewing
+                ? $t('runningHere.certs.all', { n: certs.length, renewing })
+                : $t('runningHere.certs.allPlain', { n: certs.length })
               : $t('runningHere.certs.title')
           }}
           →
