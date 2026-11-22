@@ -6,6 +6,13 @@ import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
 import { randomToken, sha256 } from '../../lib/tokens.js';
 
+/** The dashboard's theme (ADR-228): the computer's setting, or always light or dark. */
+export type Theme = 'system' | 'light' | 'dark';
+export const THEMES: readonly Theme[] = ['system', 'light', 'dark'];
+/** A stored theme, or System for anything else. */
+export const themeOf = (v: unknown): Theme =>
+  (THEMES as readonly unknown[]).includes(v) ? (v as Theme) : 'system';
+
 export const SESSION_COOKIE = 'wl_session';
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 /** Sliding expiry is refreshed at most this often to avoid a write per request. */
@@ -19,6 +26,8 @@ export interface CurrentUser {
   email: string;
   name: string;
   locale: string;
+  /** The dashboard's theme (ADR-228). */
+  theme: Theme;
   role: Role;
   org: { id: string; name: string; slug: string; plan: Plan };
   /**
@@ -132,6 +141,7 @@ export async function findSessionUser(
       'u.email',
       'u.name',
       'u.locale',
+      'u.theme',
       'm.role',
       'o.id as org_id',
       'o.name as org_name',
@@ -164,6 +174,7 @@ export async function findSessionUser(
     email: row.email,
     name: row.name,
     locale: row.locale,
+    theme: themeOf(row.theme),
     role: row.role as Role,
     org: { id: row.org_id, name: row.org_name, slug: row.org_slug, plan: row.org_plan as Plan },
     session: { id: row.session_id, mfaPassedAt: row.mfa_passed_at },

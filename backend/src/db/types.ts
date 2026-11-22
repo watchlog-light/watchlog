@@ -754,6 +754,7 @@ export interface Users {
   last_sign_in_at: Timestamp | null;
   lifecycle_unsubscribed_at: Timestamp | null;
   locale: Generated<string>;
+  theme: Generated<string>;
   mfa_failures: Generated<number>;
   mfa_locked_until: Timestamp | null;
   name: string;

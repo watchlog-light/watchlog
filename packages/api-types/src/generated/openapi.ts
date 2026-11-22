@@ -114,6 +114,7 @@ export interface paths {
                 email: string;
                 name: string;
                 locale: string;
+                theme: 'system' | 'light' | 'dark';
                 role: 'owner' | 'admin' | 'viewer';
                 org: {
                   /** Format: uuid */
@@ -230,6 +231,7 @@ export interface paths {
                 email: string;
                 name: string;
                 locale: string;
+                theme: 'system' | 'light' | 'dark';
                 role: 'owner' | 'admin' | 'viewer';
                 org: {
                   /** Format: uuid */
@@ -350,6 +352,119 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/me/preferences': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Set the signed-in user's own preferences: the dashboard's theme */
+    patch: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            theme?: 'system' | 'light' | 'dark';
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              user: {
+                /** Format: uuid */
+                id: string;
+                email: string;
+                name: string;
+                locale: string;
+                theme: 'system' | 'light' | 'dark';
+                role: 'owner' | 'admin' | 'viewer';
+                org: {
+                  /** Format: uuid */
+                  id: string;
+                  name: string;
+                  slug: string;
+                  plan: 'community' | 'free' | 'pro' | 'enterprise';
+                };
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    trace?: never;
+  };
   '/api/v1/me': {
     parameters: {
       query?: never;
@@ -380,6 +495,7 @@ export interface paths {
                 email: string;
                 name: string;
                 locale: string;
+                theme: 'system' | 'light' | 'dark';
                 role: 'owner' | 'admin' | 'viewer';
                 org: {
                   /** Format: uuid */
@@ -459,6 +575,7 @@ export interface paths {
                 email: string;
                 name: string;
                 locale: string;
+                theme: 'system' | 'light' | 'dark';
                 role: 'owner' | 'admin' | 'viewer';
                 org: {
                   /** Format: uuid */
@@ -16354,6 +16471,7 @@ export interface paths {
                 email: string;
                 name: string;
                 locale: string;
+                theme: 'system' | 'light' | 'dark';
                 role: 'owner' | 'admin' | 'viewer';
                 org: {
                   /** Format: uuid */
@@ -16548,6 +16666,7 @@ export interface paths {
                 email: string;
                 name: string;
                 locale: string;
+                theme: 'system' | 'light' | 'dark';
                 role: 'owner' | 'admin' | 'viewer';
                 org: {
                   /** Format: uuid */

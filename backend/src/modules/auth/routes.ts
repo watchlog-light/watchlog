@@ -4,8 +4,9 @@ import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { MAX_PASSWORD_LENGTH, verifyDummyPassword, verifyPassword } from '../../lib/passwords.js';
 import { sendProblem } from '../../lib/problem.js';
-import { requireUser } from '../../plugins/auth.js';
+import { requireRole, requireUser } from '../../plugins/auth.js';
 import { Email, MeResponse, ProblemSchema, UserEnvelope } from './schemas.js';
+import { actorOf, audit } from '../users/service.js';
 import {
   clearSessionCookie,
   createSession,
@@ -149,6 +150,43 @@ export const authRoutes: FastifyPluginAsyncTypebox<{
       if (token) await deleteSession(systemDb, token);
       clearSessionCookie(request, reply);
       return reply.code(204).send(null);
+    },
+  );
+
+  // The user's own preferences (ADR-228): the dashboard's theme, so it is the same in every
+  // browser. Any member may set their own; a change is audited. API tokens can't (read scope),
+  // and the read-only demo refuses it like every write, so the demo keeps the choice locally.
+  app.patch(
+    '/me/preferences',
+    {
+      preHandler: [requireUser(), requireRole('owner', 'admin', 'viewer')],
+      schema: {
+        summary: "Set the signed-in user's own preferences: the dashboard's theme",
+        tags: ['auth'],
+        body: Type.Object(
+          {
+            theme: Type.Optional(
+              Type.Union([Type.Literal('system'), Type.Literal('light'), Type.Literal('dark')]),
+            ),
+          },
+          { additionalProperties: false, minProperties: 1 },
+        ),
+        response: { 200: UserEnvelope, 400: ProblemSchema, 401: ProblemSchema, 403: ProblemSchema },
+      },
+    },
+    async (request) => {
+      const user = request.user!;
+      const theme = request.body.theme;
+      if (theme && theme !== user.theme) {
+        await systemDb.updateTable('users').set({ theme }).where('id', '=', user.id).execute();
+        await audit(systemDb, {
+          orgId: user.org.id,
+          action: 'preferences_changed',
+          actor: actorOf(request),
+          details: { theme },
+        });
+      }
+      return { user: { ...user, theme: theme ?? user.theme } };
     },
   );
 

@@ -30,6 +30,8 @@ export type AuditAction =
   | 'ownership_transferred'
   // Container logs on demand (ADR-167): who read which container, never the lines.
   | 'logs_read'
+  // The user's own preferences (ADR-228): the dashboard's theme.
+  | 'preferences_changed'
   // Cloud (ADR-179): staff's writes through the internal admin API, and support mode.
   | 'staff_entitlements_set'
   | 'staff_org_suspended'

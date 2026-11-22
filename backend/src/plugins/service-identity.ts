@@ -44,6 +44,7 @@ export function registerServiceIdentity(app: FastifyInstance, systemDb: Database
       email: '',
       name: 'WatchLog alert worker',
       locale: 'en',
+      theme: 'system',
       role: 'viewer',
       org: { id: org.id, name: org.name, slug: org.slug, plan: org.plan as Plan },
     };

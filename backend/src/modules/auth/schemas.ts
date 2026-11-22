@@ -13,6 +13,8 @@ export const CurrentUserSchema = Type.Object({
   email: Type.String(),
   name: Type.String(),
   locale: Type.String(),
+  /** The dashboard's theme (ADR-228): System follows the computer's setting. */
+  theme: Type.Union([Type.Literal('system'), Type.Literal('light'), Type.Literal('dark')]),
   role: Type.Union([Type.Literal('owner'), Type.Literal('admin'), Type.Literal('viewer')]),
   org: Type.Object({
     id: Type.String({ format: 'uuid' }),

@@ -117,6 +117,7 @@ export async function findSupportUser(
     email: row.staff_email,
     name: STAFF_LABEL,
     locale: 'en',
+    theme: 'system',
     role: 'viewer',
     org: { id: row.org_id, name: row.org_name, slug: row.org_slug, plan: row.org_plan as Plan },
     support: {

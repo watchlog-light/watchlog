@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The demo viewer account and its sessions (ADR-122). Demo sessions are stateless: a
 // cookie signed with a key derived from WATCHLOG_SECRET_KEY, with its expiry inside.
+import { themeOf } from '../auth/sessions.js';
 import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
 import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
@@ -81,6 +82,7 @@ export async function findDemoUser(db: Database): Promise<CurrentUser | null> {
       'u.email',
       'u.name',
       'u.locale',
+      'u.theme',
       'm.role',
       'o.id as org_id',
       'o.name as org_name',
@@ -97,6 +99,7 @@ export async function findDemoUser(db: Database): Promise<CurrentUser | null> {
     email: row.email,
     name: row.name,
     locale: row.locale,
+    theme: themeOf(row.theme),
     role: row.role as Role,
     org: { id: row.org_id, name: row.org_name, slug: row.org_slug, plan: row.org_plan as Plan },
   };

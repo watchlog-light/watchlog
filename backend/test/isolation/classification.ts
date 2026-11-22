@@ -46,6 +46,8 @@ export const ROUTES: Record<string, RouteClass> = {
   'POST /api/v1/auth/login': pub,
   'POST /api/v1/auth/logout': pub,
   'GET /api/v1/me': pub,
+  // The caller's own theme (ADR-228): about the caller only, no ids.
+  'PATCH /api/v1/me/preferences': { kind: 'public', body: { theme: 'light' } },
   'POST /api/v1/demo/session': pub,
   'GET /api/v1/openapi.json': pub,
   'POST /api/v1/auth/forgot-password': pub,

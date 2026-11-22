@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Personal API tokens in PostgreSQL (ADR-125): create, list, revoke, verify on every
 // request (no cache, so a revocation counts at the next request), and the last use.
+import { themeOf } from '../auth/sessions.js';
 import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
@@ -319,6 +320,7 @@ export async function verifyApiToken(
       'u.email',
       'u.name',
       'u.locale',
+      'u.theme',
       'm.role',
       'o.id as org_id',
       'o.name as org_name',
@@ -347,6 +349,7 @@ export async function verifyApiToken(
       email: row.email,
       name: row.name,
       locale: row.locale,
+      theme: themeOf(row.theme),
       role: row.role as Role,
       org: { id: row.org_id, name: row.org_name, slug: row.org_slug, plan: row.org_plan as Plan },
     },

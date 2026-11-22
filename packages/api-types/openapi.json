@@ -125,7 +125,7 @@
                   "properties": {
                     "user": {
                       "type": "object",
-                      "required": ["id", "email", "name", "locale", "role", "org"],
+                      "required": ["id", "email", "name", "locale", "theme", "role", "org"],
                       "properties": {
                         "id": {
                           "type": "string",
@@ -139,6 +139,22 @@
                         },
                         "locale": {
                           "type": "string"
+                        },
+                        "theme": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["system"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["light"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["dark"]
+                            }
+                          ]
                         },
                         "role": {
                           "anyOf": [
@@ -356,7 +372,7 @@
                   "properties": {
                     "user": {
                       "type": "object",
-                      "required": ["id", "email", "name", "locale", "role", "org"],
+                      "required": ["id", "email", "name", "locale", "theme", "role", "org"],
                       "properties": {
                         "id": {
                           "type": "string",
@@ -370,6 +386,22 @@
                         },
                         "locale": {
                           "type": "string"
+                        },
+                        "theme": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["system"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["light"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["dark"]
+                            }
+                          ]
                         },
                         "role": {
                           "anyOf": [
@@ -572,6 +604,255 @@
         }
       }
     },
+    "/api/v1/me/preferences": {
+      "patch": {
+        "summary": "Set the signed-in user's own preferences: the dashboard's theme",
+        "tags": ["auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "theme": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["system"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["light"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["dark"]
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "minProperties": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["user"],
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "required": ["id", "email", "name", "locale", "theme", "role", "org"],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "locale": {
+                          "type": "string"
+                        },
+                        "theme": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["system"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["light"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["dark"]
+                            }
+                          ]
+                        },
+                        "role": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["owner"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["admin"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["viewer"]
+                            }
+                          ]
+                        },
+                        "org": {
+                          "type": "object",
+                          "required": ["id", "name", "slug", "plan"],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "slug": {
+                              "type": "string"
+                            },
+                            "plan": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": ["community"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["free"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["pro"]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": ["enterprise"]
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/me": {
       "get": {
         "summary": "The signed-in user and their organisation, and the API token used",
@@ -587,7 +868,7 @@
                   "properties": {
                     "user": {
                       "type": "object",
-                      "required": ["id", "email", "name", "locale", "role", "org"],
+                      "required": ["id", "email", "name", "locale", "theme", "role", "org"],
                       "properties": {
                         "id": {
                           "type": "string",
@@ -601,6 +882,22 @@
                         },
                         "locale": {
                           "type": "string"
+                        },
+                        "theme": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["system"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["light"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["dark"]
+                            }
+                          ]
                         },
                         "role": {
                           "anyOf": [
@@ -750,7 +1047,7 @@
                   "properties": {
                     "user": {
                       "type": "object",
-                      "required": ["id", "email", "name", "locale", "role", "org"],
+                      "required": ["id", "email", "name", "locale", "theme", "role", "org"],
                       "properties": {
                         "id": {
                           "type": "string",
@@ -764,6 +1061,22 @@
                         },
                         "locale": {
                           "type": "string"
+                        },
+                        "theme": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["system"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["light"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["dark"]
+                            }
+                          ]
                         },
                         "role": {
                           "anyOf": [
@@ -44534,7 +44847,7 @@
                   "properties": {
                     "user": {
                       "type": "object",
-                      "required": ["id", "email", "name", "locale", "role", "org"],
+                      "required": ["id", "email", "name", "locale", "theme", "role", "org"],
                       "properties": {
                         "id": {
                           "type": "string",
@@ -44548,6 +44861,22 @@
                         },
                         "locale": {
                           "type": "string"
+                        },
+                        "theme": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["system"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["light"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["dark"]
+                            }
+                          ]
                         },
                         "role": {
                           "anyOf": [
@@ -44934,7 +45263,7 @@
                   "properties": {
                     "user": {
                       "type": "object",
-                      "required": ["id", "email", "name", "locale", "role", "org"],
+                      "required": ["id", "email", "name", "locale", "theme", "role", "org"],
                       "properties": {
                         "id": {
                           "type": "string",
@@ -44948,6 +45277,22 @@
                         },
                         "locale": {
                           "type": "string"
+                        },
+                        "theme": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": ["system"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["light"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["dark"]
+                            }
+                          ]
                         },
                         "role": {
                           "anyOf": [
