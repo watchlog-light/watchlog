@@ -3137,6 +3137,109 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/clusters/{id}/scheduled-jobs/timeline': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Every scheduled job's runs over a range, one value per slot (the Scheduled jobs page's run timeline) */
+    get: {
+      parameters: {
+        query?: {
+          node?: string;
+          /** @description 6 h (5 h past, 1 h ahead), 24 h (21 h + 3 h, the default) or 7 days (6 d + 1 d) */
+          range?: '6h' | '24h' | '7d';
+        };
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              range: string;
+              /** @description Epoch seconds */
+              now: number;
+              from: number;
+              to: number;
+              /** @description How many slots the strip has */
+              slots: number;
+              jobs: {
+                id: string;
+                node: string;
+                slots: {
+                  i: number;
+                  /** @description The worst run in the slot */
+                  result: 'missed' | 'failed' | 'slow' | 'unknown' | 'running' | 'success';
+                  at: number;
+                  seconds: number | null;
+                  code: number | null;
+                  runs: number;
+                }[];
+                /** @description The next runs ahead, epoch seconds */
+                next: number[];
+                runs: number;
+                failures: number;
+              }[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/clusters/{id}/scheduled-jobs/{jobId}': {
     parameters: {
       query?: never;

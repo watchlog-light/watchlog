@@ -50,6 +50,7 @@ const ALLOWED = [
   'GET /api/v1/clusters/:id/right-sizing',
   'GET /api/v1/clusters/:id/scheduled-jobs',
   'GET /api/v1/clusters/:id/scheduled-jobs/:jobId',
+  'GET /api/v1/clusters/:id/scheduled-jobs/timeline',
   'GET /api/v1/clusters/:id/search',
   'GET /api/v1/clusters/:id/service-map',
   'GET /api/v1/clusters/:id/servers',

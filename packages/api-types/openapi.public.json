@@ -8349,6 +8349,145 @@
         "security": [{ "bearerAuth": [] }]
       }
     },
+    "/api/v1/clusters/{id}/scheduled-jobs/timeline": {
+      "get": {
+        "summary": "Every scheduled job's runs over a range, one value per slot (the Scheduled jobs page's run timeline)",
+        "tags": ["applications"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "maxLength": 253 },
+            "in": "query",
+            "name": "node",
+            "required": false
+          },
+          {
+            "schema": {
+              "anyOf": [
+                { "type": "string", "enum": ["6h"] },
+                { "type": "string", "enum": ["24h"] },
+                { "type": "string", "enum": ["7d"] }
+              ]
+            },
+            "in": "query",
+            "name": "range",
+            "required": false,
+            "description": "6 h (5 h past, 1 h ahead), 24 h (21 h + 3 h, the default) or 7 days (6 d + 1 d)"
+          },
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["range", "now", "from", "to", "slots", "jobs"],
+                  "properties": {
+                    "range": { "type": "string" },
+                    "now": { "type": "number", "description": "Epoch seconds" },
+                    "from": { "type": "number" },
+                    "to": { "type": "number" },
+                    "slots": { "type": "number", "description": "How many slots the strip has" },
+                    "jobs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["id", "node", "slots", "next", "runs", "failures"],
+                        "properties": {
+                          "id": { "type": "string" },
+                          "node": { "type": "string" },
+                          "slots": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["i", "result", "at", "seconds", "code", "runs"],
+                              "properties": {
+                                "i": { "type": "number" },
+                                "result": {
+                                  "anyOf": [
+                                    { "type": "string", "enum": ["missed"] },
+                                    { "type": "string", "enum": ["failed"] },
+                                    { "type": "string", "enum": ["slow"] },
+                                    { "type": "string", "enum": ["unknown"] },
+                                    { "type": "string", "enum": ["running"] },
+                                    { "type": "string", "enum": ["success"] }
+                                  ],
+                                  "description": "The worst run in the slot"
+                                },
+                                "at": { "type": "number" },
+                                "seconds": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                                "code": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                                "runs": { "type": "number" }
+                              }
+                            }
+                          },
+                          "next": {
+                            "type": "array",
+                            "items": { "type": "number" },
+                            "description": "The next runs ahead, epoch seconds"
+                          },
+                          "runs": { "type": "number" },
+                          "failures": { "type": "number" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
     "/api/v1/clusters/{id}/search": {
       "get": {
         "summary": "Search a cluster by name",

@@ -16,6 +16,7 @@ import {
   jobDetail,
   listCertificates,
   listJobs,
+  jobTimeline,
   runsLastDay,
 } from './service.js';
 
@@ -224,6 +225,80 @@ export const certsJobsRoutes: FastifyPluginAsyncTypebox<{ db: Database }> = asyn
         coverage: await coverage(db, cluster.id, node),
         agentsWithout: await agentsNeedingUpgrade(db, cluster.id, cluster.kind),
       };
+    },
+  );
+
+  app.get(
+    '/clusters/:id/scheduled-jobs/timeline',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary:
+          "Every scheduled job's runs over a range, one value per slot (the Scheduled jobs page's run timeline)",
+        tags: ['applications', PUBLIC_TAG],
+        params: Params,
+        querystring: Type.Object({
+          ...NodeQuery.properties,
+          range: Type.Optional(
+            Type.Union([Type.Literal('6h'), Type.Literal('24h'), Type.Literal('7d')], {
+              description:
+                '6 h (5 h past, 1 h ahead), 24 h (21 h + 3 h, the default) or 7 days (6 d + 1 d)',
+            }),
+          ),
+        }),
+        response: {
+          200: Type.Object({
+            range: Type.String(),
+            now: Type.Number({ description: 'Epoch seconds' }),
+            from: Type.Number(),
+            to: Type.Number(),
+            slots: Type.Number({ description: 'How many slots the strip has' }),
+            jobs: Type.Array(
+              Type.Object({
+                id: Type.String(),
+                node: Type.String(),
+                slots: Type.Array(
+                  Type.Object({
+                    i: Type.Number(),
+                    result: Type.Union(
+                      [
+                        Type.Literal('missed'),
+                        Type.Literal('failed'),
+                        Type.Literal('slow'),
+                        Type.Literal('unknown'),
+                        Type.Literal('running'),
+                        Type.Literal('success'),
+                      ],
+                      { description: 'The worst run in the slot' },
+                    ),
+                    at: Type.Number(),
+                    seconds: N,
+                    code: N,
+                    runs: Type.Number(),
+                  }),
+                ),
+                next: Type.Array(Type.Number(), {
+                  description: 'The next runs ahead, epoch seconds',
+                }),
+                runs: Type.Number(),
+                failures: Type.Number(),
+              }),
+            ),
+          }),
+          ...errors,
+        },
+      },
+    },
+    async (request, reply) => {
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
+      if (!cluster) return sendProblem(reply, 404, 'Cluster not found');
+      return jobTimeline(
+        db,
+        cluster.id,
+        request.query.range ?? '24h',
+        Date.now(),
+        request.query.node,
+      );
     },
   );
 

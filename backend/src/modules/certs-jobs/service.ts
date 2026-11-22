@@ -461,3 +461,240 @@ export async function runsLastDay(
     failures: Number(a?.failures ?? 0) + Number(b?.failures ?? 0),
   };
 }
+
+// ------------------------------------------------------------------------- run timeline
+
+/** The run timeline's ranges (0.13.0): past and a little of the future, in seconds. */
+export const TIMELINE_RANGES = {
+  '6h': { past: 5 * 3600, future: 3600 },
+  '24h': { past: 21 * 3600, future: 3 * 3600 },
+  '7d': { past: 6 * 86400, future: 86400 },
+} as const;
+export type TimelineRange = keyof typeof TIMELINE_RANGES;
+/** Slots across the strip: a job that runs more often shows the worst run of each slot. */
+export const TIMELINE_SLOTS = 96;
+
+export type SlotResult = 'missed' | 'failed' | 'slow' | 'unknown' | 'running' | 'success';
+/** Worst first: the one a slot keeps. */
+const SLOT_RANK: Record<SlotResult, number> = {
+  missed: 6,
+  failed: 5,
+  slow: 4,
+  unknown: 3,
+  running: 2,
+  success: 1,
+};
+
+export interface TimelineSlot {
+  /** 0 … TIMELINE_SLOTS-1, from the strip's start. */
+  i: number;
+  result: SlotResult;
+  /** The kept run's start (or the missed time), epoch seconds. */
+  at: number;
+  seconds: number | null;
+  code: number | null;
+  /** How many runs fell in the slot (an hour's count for a frequent job). */
+  runs: number;
+}
+
+export interface TimelineJobInput {
+  id: string;
+  node: string;
+  frequent: boolean;
+  usualSeconds: number | null;
+  nextAt: number | null;
+  everySec: number;
+  missedAt: number | null;
+  enabled: boolean;
+  runs: { start: number; end: number | null; code: number | null; result: string }[];
+  hours: { hour: number; runs: number; failures: number; longestSeconds: number }[];
+}
+
+/** Far longer than usual: the agent's own rule (3× and 5 minutes more, ADR-224). */
+const slowRun = (sec: number, usual: number | null) =>
+  usual !== null && usual > 0 && sec > 3 * usual && sec > usual + 300;
+
+/**
+ * One job's strip (0.13.0): each past slot keeps its worst run (missed > failed > slow >
+ * exit code unknown > running > fine); a frequent job's slots come from its hourly counts;
+ * the next runs come from its next time and its period. Pure, on an injected clock.
+ */
+export function jobStrip(
+  j: TimelineJobInput,
+  range: TimelineRange,
+  nowSec: number,
+): { slots: TimelineSlot[]; next: number[]; runs: number; failures: number } {
+  const { past, future } = TIMELINE_RANGES[range];
+  const from = nowSec - past;
+  const to = nowSec + future;
+  const slot = (past + future) / TIMELINE_SLOTS;
+  const at = (t: number) => Math.min(TIMELINE_SLOTS - 1, Math.floor((t - from) / slot));
+  const slots = new Map<number, TimelineSlot>();
+  const keep = (s: TimelineSlot) => {
+    const had = slots.get(s.i);
+    if (!had) return void slots.set(s.i, s);
+    const runs = had.runs + s.runs;
+    if (SLOT_RANK[s.result] > SLOT_RANK[had.result]) slots.set(s.i, { ...s, runs });
+    else had.runs = runs;
+  };
+  let runs = 0;
+  let failures = 0;
+  for (const r of j.runs) {
+    if (r.start < from || r.start > nowSec) continue;
+    const seconds = r.end !== null ? Math.max(0, r.end - r.start) : null;
+    let result: SlotResult =
+      r.result === 'failed'
+        ? 'failed'
+        : r.result === 'running'
+          ? 'running'
+          : r.result === 'unknown'
+            ? 'unknown'
+            : 'success';
+    if (result === 'success' && seconds !== null && slowRun(seconds, j.usualSeconds))
+      result = 'slow';
+    if (r.result !== 'running') runs++;
+    if (result === 'failed') failures++;
+    keep({ i: at(r.start), result, at: r.start, seconds, code: r.code, runs: 1 });
+  }
+  // A frequent job's runs are counted per hour (ADR-224): its slots in that hour.
+  for (const h of j.hours) {
+    if (h.runs <= 0 || h.hour + 3600 <= from || h.hour > nowSec) continue;
+    runs += h.runs;
+    failures += h.failures;
+    const first = at(Math.max(h.hour, from));
+    const last = at(Math.min(h.hour + 3600 - 1, nowSec));
+    const per = Math.max(1, Math.round(h.runs / (last - first + 1)));
+    for (let i = first; i <= last; i++) {
+      keep({
+        i,
+        result: h.failures > 0 ? 'failed' : 'success',
+        at: Math.max(h.hour, from + i * slot),
+        seconds: h.longestSeconds || null,
+        code: null,
+        runs: per,
+      });
+    }
+  }
+  if (j.missedAt !== null && j.missedAt >= from && j.missedAt <= nowSec) {
+    keep({
+      i: at(j.missedAt),
+      result: 'missed',
+      at: j.missedAt,
+      seconds: null,
+      code: null,
+      runs: 0,
+    });
+  }
+  // The next runs, one per slot at most.
+  const next: number[] = [];
+  const seen = new Set<number>();
+  if (j.enabled && j.nextAt !== null) {
+    for (let t = j.nextAt; t <= to && next.length < TIMELINE_SLOTS; t += j.everySec) {
+      if (t > nowSec && !seen.has(at(t))) {
+        seen.add(at(t));
+        next.push(t);
+      }
+      if (j.everySec <= 0) break;
+    }
+  }
+  return { slots: [...slots.values()].sort((a, b) => a.i - b.i), next, runs, failures };
+}
+
+/** Every job's strip in one answer (0.13.0): the Scheduled jobs page's run timeline. */
+export async function jobTimeline(
+  db: Database,
+  clusterId: string,
+  range: TimelineRange,
+  nowMs: number,
+  node?: string,
+) {
+  const nowSec = Math.floor(nowMs / 1000);
+  const { past, future } = TIMELINE_RANGES[range];
+  const from = new Date((nowSec - past) * 1000);
+  let jq = db
+    .selectFrom('scheduled_jobs')
+    .select([
+      'job_id',
+      'node',
+      'frequent',
+      'usual_seconds',
+      'next_at',
+      'every_sec',
+      'missed_at',
+      'enabled',
+    ])
+    .where('cluster_id', '=', clusterId)
+    .where('gone_at', 'is', null);
+  if (node !== undefined) jq = jq.where('node', '=', node);
+  let rq = db
+    .selectFrom('job_runs')
+    .select(['node', 'job_id', 'started_at', 'ended_at', 'code', 'result'])
+    .where('cluster_id', '=', clusterId)
+    .where('started_at', '>=', from)
+    .orderBy('started_at');
+  if (node !== undefined) rq = rq.where('node', '=', node);
+  let hq = db
+    .selectFrom('job_run_hours')
+    .select(['node', 'job_id', 'hour', 'runs', 'failures', 'longest_seconds'])
+    .where('cluster_id', '=', clusterId)
+    .where('hour', '>=', new Date(from.getTime() - 3600_000));
+  if (node !== undefined) hq = hq.where('node', '=', node);
+  const [jobs, runRows, hourRows] = await Promise.all([
+    jq.limit(5000).execute(),
+    rq.limit(200_000).execute(),
+    hq.limit(200_000).execute(),
+  ]);
+  const key = (n: string, id: string) => `${n}/${id}`;
+  const runsBy = new Map<string, TimelineJobInput['runs']>();
+  for (const r of runRows) {
+    const k = key(r.node, r.job_id);
+    const list = runsBy.get(k) ?? [];
+    list.push({
+      start: Math.floor(new Date(r.started_at).getTime() / 1000),
+      end: r.ended_at ? Math.floor(new Date(r.ended_at).getTime() / 1000) : null,
+      code: r.code,
+      result: r.result,
+    });
+    runsBy.set(k, list);
+  }
+  const hoursBy = new Map<string, TimelineJobInput['hours']>();
+  for (const h of hourRows) {
+    const k = key(h.node, h.job_id);
+    const list = hoursBy.get(k) ?? [];
+    list.push({
+      hour: Math.floor(new Date(h.hour).getTime() / 1000),
+      runs: h.runs,
+      failures: h.failures,
+      longestSeconds: h.longest_seconds,
+    });
+    hoursBy.set(k, list);
+  }
+  const sec = (d: Date | string | null) => (d ? Math.floor(new Date(d).getTime() / 1000) : null);
+  return {
+    range,
+    now: nowSec,
+    from: nowSec - past,
+    to: nowSec + future,
+    slots: TIMELINE_SLOTS,
+    jobs: jobs.map((j) => ({
+      id: j.job_id,
+      node: j.node,
+      ...jobStrip(
+        {
+          id: j.job_id,
+          node: j.node,
+          frequent: j.frequent,
+          usualSeconds: j.usual_seconds,
+          nextAt: sec(j.next_at),
+          everySec: Number(j.every_sec),
+          missedAt: sec(j.missed_at),
+          enabled: j.enabled,
+          runs: runsBy.get(key(j.node, j.job_id)) ?? [],
+          hours: hoursBy.get(key(j.node, j.job_id)) ?? [],
+        },
+        range,
+        nowSec,
+      ),
+    })),
+  };
+}

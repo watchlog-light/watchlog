@@ -275,6 +275,19 @@ describe('scheduled jobs (ADR-223, ADR-224)', () => {
     // A job that runs hourly or less often keeps its runs; only a frequent one gets hourly counts.
     expect(d.body.hours).toEqual([]);
 
+    // The run timeline (0.13.0): every job in one answer, one value per slot.
+    const tl = await get('/scheduled-jobs/timeline?range=24h');
+    expect(tl.status).toBe(200);
+    expect(tl.body).toMatchObject({ range: '24h', slots: 96 });
+    expect(tl.body.to - tl.body.from).toBe(24 * 3600);
+    const lane = tl.body.jobs.find((j: { id: string }) => j.id === backup);
+    expect([lane.runs, lane.failures]).toEqual([3, 1]);
+    expect(lane.slots.map((x: { result: string }) => x.result)).toContain('failed');
+    expect(tl.body.jobs.map((j: { id: string }) => j.id).sort()).toEqual([
+      backup,
+      'fedcba9876543210',
+    ]);
+
     // Search (0.10): a job by name, with its server and id for its page.
     const found = await get('/search?q=backup');
     expect(found.body.results).toContainEqual(
