@@ -24,6 +24,13 @@
   --color-warning: var(--warning);
   --color-critical: var(--critical);
   --color-info: var(--info);
+  /* Status and primary colours for text (ADR-228); the base tokens are for fills. */
+  --color-ok-text: var(--ok-text);
+  --color-warning-text: var(--warning-text);
+  --color-critical-text: var(--critical-text);
+  --color-info-text: var(--info-text);
+  --color-link: var(--link);
+  --color-primary-border: var(--primary-border);
   --color-transparent: transparent;
   --color-current: currentColor;
 
@@ -47,6 +54,10 @@
   /* Radius (SPEC §11.3): 6px controls, 10px cards. */
   --radius-control: 6px;
   --radius-card: 10px;
+
+  /* Menus and popovers (shadow-menu), the selected segment (shadow-segment); ADR-228. */
+  --shadow-menu: var(--shadow-lg);
+  --shadow-segment: var(--shadow);
 
   /* 4px spacing base (SPEC §11.3). */
   --spacing: 4px;

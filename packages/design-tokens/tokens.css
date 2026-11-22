@@ -1,8 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 /*
- * WatchLog design tokens (SPEC §11.1; neutrals per ADR-038). Dark theme only in v2.0.
+ * WatchLog design tokens (SPEC §11.1; neutrals per ADR-038; light theme ADR-228).
  * This is the only place where colour values are written; components use the
  * variables (directly or through the Tailwind theme in theme.css).
+ *
+ * `:root` is dark and stays the default for any page that sets nothing (the marketing site
+ * is dark only). The dashboard sets `data-theme` on <html>: `light` overrides every colour,
+ * `dark` only names the default. The `*-text` tokens and `--link` are the status and primary
+ * colours for text on `bg` and `surface-1`: the fills (dots, bars, borders, chart series)
+ * keep the base token, which in light is too pale for text on white.
  */
 :root {
   color-scheme: dark;
@@ -26,6 +32,18 @@
   --critical: #f04438;
   --info: #3b9eff;
 
+  /* Text in the status and primary colours, and the primary border. */
+  --ok-text: #22c55e;
+  --warning-text: #f5a524;
+  --critical-text: #f04438;
+  --info-text: #3b9eff;
+  --link: #22c55e;
+  --primary-border: rgba(34, 197, 94, 0.4);
+
+  /* Menus, popovers, the selected segment. */
+  --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
   /* Chart palette, in series order (SPEC §11.1). */
   --chart-1: #22c55e;
   --chart-2: #3b9eff;
@@ -35,4 +53,51 @@
   --chart-6: #f472b6;
   --chart-7: #fb923c;
   --chart-8: #94a3b8;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+/* Light (ADR-228): every colour token, contrast checked against white (test/tokens.test.ts). */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f6f7f9;
+  --surface-1: #ffffff;
+  --surface-2: #f1f3f5;
+  --surface-3: #e6e9ed;
+  --border: #e2e5e9;
+  --border-strong: #c4cad1;
+  --text: #111418;
+  --text-muted: #5b6470;
+  --text-subtle: #6b7480;
+  --primary: #15803d;
+  --primary-hover: #166534;
+  --primary-soft: rgba(21, 128, 61, 0.1);
+  --primary-glow: rgba(21, 128, 61, 0.28);
+  --on-primary: #ffffff;
+  --ok: #16a34a;
+  --warning: #d97706;
+  --critical: #dc2626;
+  --info: #2563eb;
+
+  --ok-text: #15803d;
+  --warning-text: #92400e;
+  --critical-text: #b91c1c;
+  --info-text: #1d4ed8;
+  --link: #15803d;
+  --primary-border: rgba(21, 128, 61, 0.35);
+
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 8px 24px rgba(16, 24, 40, 0.12), 0 2px 6px rgba(16, 24, 40, 0.06);
+
+  --chart-1: #16a34a;
+  --chart-2: #2563eb;
+  --chart-3: #d97706;
+  --chart-4: #7c3aed;
+  --chart-5: #0d9488;
+  --chart-6: #db2777;
+  --chart-7: #ea580c;
+  --chart-8: #64748b;
 }
