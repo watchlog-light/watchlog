@@ -236,13 +236,23 @@ export function chartBands(
 }
 
 /** The changes as markers on the chart's time line, with their short labels. */
-/** Label lanes above the chart, and how far apart (in % of its width) two labels in one lane sit. */
+/** Label lanes above the chart. */
 export const MARKER_LANES = 3;
-export const MARKER_LABEL_GAP = 14;
+/** A label's width, estimated in % of the chart per character (12 px text on a ~700 px chart). */
+const LABEL_PCT_PER_CHAR = 1;
+/** Past this, a label hangs to the left of its line (WcChart's `right-1.5`). */
+export const MARKER_FLIP = 75;
+
+/** The stretch a marker's label covers, in % of the chart: right of its line, or left near the end. */
+export function labelSpan(left: number, label: string): [number, number] {
+  const w = (label.length + 3) * LABEL_PCT_PER_CHAR;
+  return left > MARKER_FLIP ? [left - w, left] : [left, left + w];
+}
 
 /**
  * The chart's change markers. Every change is a line; a label only where it fits (three lanes,
- * 14 % apart), deployments and server changes before scheduled runs, so a busy place (a job
+ * no two labels' stretches overlapping in one lane), deployments and server changes before
+ * scheduled runs, so a busy place (a job
  * every 10 minutes, scaling every 15) stays readable: the rest are lines without words, and
  * each one is listed under "Changed around then" for its episode.
  */
@@ -269,12 +279,13 @@ export function chartMarkers(
       lane: null as number | null,
       run: c.kind === 'job_run',
     }));
-  const lanes: number[][] = Array.from({ length: MARKER_LANES }, () => []);
+  const lanes: [number, number][][] = Array.from({ length: MARKER_LANES }, () => []);
   const order = out.slice().sort((x, y) => Number(x.run) - Number(y.run) || x.left - y.left);
   for (const m of order) {
-    const lane = lanes.findIndex((l) => l.every((p) => Math.abs(p - m.left) >= MARKER_LABEL_GAP));
+    const [a1, b1] = labelSpan(m.left, m.label);
+    const lane = lanes.findIndex((l) => l.every(([a2, b2]) => b1 + 1 <= a2 || b2 + 1 <= a1));
     if (lane >= 0) {
-      lanes[lane]!.push(m.left);
+      lanes[lane]!.push([a1, b1]);
       m.lane = lane;
     }
   }

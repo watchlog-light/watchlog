@@ -11,6 +11,7 @@ import {
   changeCauseText,
   chartBands,
   chartMarkers,
+  labelSpan,
   episodeLabel,
   factorText,
   foundChecks,
@@ -340,13 +341,15 @@ describe('the shapes', () => {
     const m2 = chartMarkers(busy, range, tr);
     expect(m2).toHaveLength(60);
     const labelled = m2.filter((m) => m.lane !== null);
-    expect(labelled.length).toBeLessThanOrEqual(3 * Math.ceil(100 / 14));
+    expect(labelled.length).toBeGreaterThan(3);
+    expect(labelled.length).toBeLessThan(20);
+    // No two labels in a lane overlap, on either side of the flip near the right end.
     for (let lane = 0; lane < 3; lane++) {
-      const xs = labelled
+      const spans = labelled
         .filter((m) => m.lane === lane)
-        .map((m) => m.left)
-        .sort((p, q) => p - q);
-      for (let i = 1; i < xs.length; i++) expect(xs[i]! - xs[i - 1]!).toBeGreaterThanOrEqual(14);
+        .map((m) => labelSpan(m.left, m.label))
+        .sort((p, q) => p[0] - q[0]);
+      for (let i = 1; i < spans.length; i++) expect(spans[i]![0]).toBeGreaterThan(spans[i - 1]![1]);
     }
     expect(labelled.filter((m) => m.label.startsWith('scaled')).length).toBeGreaterThan(
       labelled.filter((m) => m.label.startsWith('report-builder')).length,

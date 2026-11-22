@@ -4,7 +4,7 @@ import type { WhatChanged } from '@watchlog/api-types';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { hhmm } from '@/lib/what-changed';
-import { chartBands, chartMarkers } from '@/lib/what-changed-story';
+import { chartBands, chartMarkers, MARKER_FLIP } from '@/lib/what-changed-story';
 
 // The chart, last (0.14.0, ADR-231): how many series were outside their usual range each step,
 // on a labelled count axis; the episodes shaded (the selected one in amber); the changes as
@@ -158,7 +158,7 @@ const aria = computed(() =>
             v-if="m.lane !== null"
             :class="[
               'absolute top-0 text-12 whitespace-nowrap text-info-text max-md:hidden',
-              m.left > 75 ? 'right-1.5' : 'left-1.5',
+              m.left > MARKER_FLIP ? 'right-1.5' : 'left-1.5',
             ]"
             :style="{ top: `${m.lane * 14}px` }"
             >◆ {{ m.label }}</span
