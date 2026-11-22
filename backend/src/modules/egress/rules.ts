@@ -213,9 +213,12 @@ const newDestination: RuleEvaluator = {
       }));
       const newest = list[0]!;
       const oldest = new Date(g.rows[g.rows.length - 1]!.first_seen).getTime();
+      // "New since the last message" only when messages go somewhere: a rule with no channel
+      // (the read-only demo's) sends none, though the alert still records a notify time.
       const lastNotified = open.get(fp)?.lastNotifiedAt ?? null;
+      const messaged = (ctx.rule.channel_ids?.length ?? 0) > 0;
       const added =
-        lastNotified === null
+        lastNotified === null || !messaged
           ? []
           : list.filter((d) => Date.parse(d.firstSeen) > lastNotified).map(destinationText);
       out.push({

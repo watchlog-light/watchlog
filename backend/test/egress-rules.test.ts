@@ -35,7 +35,7 @@ import {
 } from './helpers.js';
 import { encode, type TestSeries } from './support/remote-write.js';
 import { appUrlOf, ensureAppRole } from './isolation/cloud.js';
-import { createOrgCluster, testWorker } from './support/alerts.js';
+import { createOrgCluster, insertChannel, testWorker } from './support/alerts.js';
 import { readFileSync } from 'node:fs';
 import { step, type Episode } from '../src/modules/alerts/state-machine.js';
 
@@ -463,10 +463,29 @@ describe('New external destination: one alert per source (ADR-229)', () => {
     expect(new Date(orders.started_at).getTime()).toBe(T0);
     expect(text(orders, NEW)).toEqual({
       title: 'orders started talking to 3 new destinations',
-      // Messaged when it opened with the first; two joined since.
-      why: 'newest mirror-1012.example.net:443 at 10:00 UTC · new since the last message: mirror-1012.example.net:443, mirror-0912.example.net:443',
-      code: ['mirror-1012.example.net:443', 'mirror-0912.example.net:443'],
+      // The default rule has no channel here: no "new since the last message".
+      why: 'newest mirror-1012.example.net:443 at 10:00 UTC',
+      code: ['mirror-1012.example.net:443'],
     });
+  });
+
+  it('with a channel, it names the destinations that joined since the last message', async () => {
+    await setup('kubernetes');
+    await seen(ORDERS, 'mirror-0812.example.net', 443, T0);
+    await cycle(T0 + MIN);
+    const ch = await insertChannel(ctx.db, orgId);
+    await ctx.db
+      .updateTable('alert_rules')
+      .set({ channel_ids: [ch] })
+      .where('org_id', '=', orgId)
+      .where('rule_key', '=', NEW)
+      .execute();
+    await seen(ORDERS, 'mirror-0912.example.net', 443, T0 + HOUR);
+    await cycle(T0 + HOUR + MIN);
+    const [a] = await alerts(NEW);
+    expect(text(a!, NEW)!.why).toBe(
+      'newest mirror-0912.example.net:443 at 09:00 UTC · new since the last message: mirror-0912.example.net:443',
+    );
   });
 
   it('stays open while any of its names is used, joins older ones while open, resolves after 24 h of quiet', async () => {
