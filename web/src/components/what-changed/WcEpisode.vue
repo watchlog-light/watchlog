@@ -448,7 +448,10 @@ const goto = (i: number) => {
           $t('whatChanged.why.rules')
         }}</span>
       </div>
-      <ul class="flex flex-col gap-2" data-testid="wc-checks">
+      <p v-if="!checks.length" class="text-13 text-text-muted" data-testid="wc-no-checks">
+        {{ $t('whatChanged.why.noChecks') }}
+      </p>
+      <ul v-else class="flex flex-col gap-2" data-testid="wc-checks">
         <li
           v-for="(c, i) in checks"
           :key="i"

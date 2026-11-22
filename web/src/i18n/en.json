@@ -5423,7 +5423,8 @@
       "copy": "Copy as text",
       "copied": "Copied",
       "ask": "Ask your AI",
-      "askHint": "Your AI gets the same answer through WatchLog's MCP server:"
+      "askHint": "Your AI gets the same answer through WatchLog's MCP server:",
+      "noChecks": "No check of the probable-cause engine applies to these series."
     },
     "chart2": {
       "title": "Things outside their usual range",

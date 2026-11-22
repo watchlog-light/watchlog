@@ -148,7 +148,8 @@ async function sparks(
     try {
       const series = await deps.victoria.queryRange(cluster.scope, q.expr, from, to, SPARK_STEP_S);
       for (const r of rows.filter((x) => x.key === key)) {
-        const hash = seriesHash(r.key, r.subject).toString('hex');
+        // jsonb reorders a stored subject's keys: compare in subjectOf's fixed order.
+        const hash = seriesHash(r.key, subjectOf(r.subject)).toString('hex');
         const s = series.find((x) => seriesHash(key, subjectOf(x.labels)).toString('hex') === hash);
         if (!s) continue;
         const values = new Map(s.points.map(([t, v]) => [t, v]));

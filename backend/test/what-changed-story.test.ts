@@ -360,3 +360,27 @@ describe('the reads’ pure parts', () => {
     ).toBe(false);
   });
 });
+
+describe('series identity', () => {
+  it('a stored subject (jsonb reorders its keys) hashes like the live labels once in subjectOf order', async () => {
+    const { seriesHash, subjectOf } = await import('../src/modules/anomaly/keys.js');
+    // jsonb gives keys by length, then alphabetically: workload, namespace, workload_kind.
+    const stored = { workload: 'backend', namespace: 'shop', workload_kind: 'Deployment' };
+    const live = {
+      namespace: 'shop',
+      workload: 'backend',
+      workload_kind: 'Deployment',
+      cluster_id: 'x',
+    };
+    expect(
+      seriesHash('workload.cpu.usage', stored).equals(
+        seriesHash('workload.cpu.usage', subjectOf(live)),
+      ),
+    ).toBe(false);
+    expect(
+      seriesHash('workload.cpu.usage', subjectOf(stored)).equals(
+        seriesHash('workload.cpu.usage', subjectOf(live)),
+      ),
+    ).toBe(true);
+  });
+});
