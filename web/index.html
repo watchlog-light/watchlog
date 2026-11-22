@@ -3,9 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
-    <!-- Manifest and browser chrome need literal colours; keep in sync with --bg. -->
-    <meta name="theme-color" content="#0a0f0d" />
+    <meta name="color-scheme" content="dark light" />
+    <!-- Manifest and browser chrome need literal colours; keep in sync with --bg (both themes).
+         useTheme sets them to the chosen theme's --bg once the app runs. -->
+    <meta name="theme-color" content="#0a0f0d" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)" />
+    <!-- The theme before the first paint (ADR-228), so a light page never flashes dark: the
+         choice kept in this browser, else the computer's setting. Its sha256 is in Cloud's
+         Content-Security-Policy (backend/src/lib/csp.ts, web/Caddyfile); change the script
+         and a test there gives the new hash. -->
+    <script>
+      (function () {
+        var c;
+        try {
+          c = localStorage.getItem('watchlog.theme');
+        } catch (e) {}
+        if (c !== 'light' && c !== 'dark')
+          c =
+            window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+        document.documentElement.dataset.theme = c;
+      })();
+    </script>
     <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="shortcut icon" href="/favicon.ico" />

@@ -56,7 +56,15 @@ watch(choice, (c) => listen(c === 'system'), { immediate: true });
 watch(
   resolved,
   (t) => {
-    if (typeof document !== 'undefined') document.documentElement.dataset.theme = t;
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    root.dataset.theme = t;
+    // The browser's chrome (index.html's theme-color, by the computer's setting) follows the
+    // chosen theme's background.
+    const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
+    if (bg)
+      for (const m of document.querySelectorAll('meta[name="theme-color"]'))
+        m.setAttribute('content', bg);
   },
   { immediate: true },
 );

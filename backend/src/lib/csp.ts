@@ -4,17 +4,20 @@
 // both send this one policy, and test/headers.test.ts keeps the Caddyfile's copy the same.
 // Measured by loading every page in Chrome with the policy on (slice 6b):
 //   - no inline or eval'd script: scripts only from the app's own files, and Cloudflare
-//     Turnstile's (the sign-up and reset pages), which also needs its frame;
+//     Turnstile's (the sign-up and reset pages), which also needs its frame; one inline
+//     script is allowed by its hash, index.html's theme before the first paint (ADR-228);
 //   - styles from the app's files; inline style *attributes* only, which the charts'
 //     tooltips (ECharts) and the unsubscribe page use; never a <style> element;
 //   - fonts and images from the app, and data: URIs (the build inlines a small font);
 //   - the page can't be framed by anyone.
 // HSTS is the TLS proxy's (nginx in Cloud), not set here.
 export const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
+/** web/index.html's inline theme script (ADR-228); test/headers.test.ts recomputes it. */
+export const THEME_SCRIPT_HASH = "'sha256-voG/B/HgVvIKJic8nnnhzkkN/8MdPv6CPOe/yKiDzF4='";
 
 export const CLOUD_CSP_DIRECTIVES: Record<string, string[]> = {
   'default-src': ["'self'"],
-  'script-src': ["'self'", TURNSTILE_ORIGIN],
+  'script-src': ["'self'", THEME_SCRIPT_HASH, TURNSTILE_ORIGIN],
   'frame-src': [TURNSTILE_ORIGIN],
   'style-src': ["'self'"],
   'style-src-attr': ["'unsafe-inline'"],

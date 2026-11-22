@@ -2,9 +2,10 @@
 // Cloud's response headers (ADR-181): the strict Content-Security-Policy and the others on
 // the API (helmet) and on the dashboard's files (web/Caddyfile with WATCHLOG_EDITION=cloud),
 // one policy in both; Secure cookies always in Cloud. Community keeps 0.5.0's headers.
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { CLOUD_CSP } from '../src/lib/csp.js';
+import { CLOUD_CSP, THEME_SCRIPT_HASH } from '../src/lib/csp.js';
 import { closeTestContext, createTestContext, type TestContext } from './helpers.js';
 import { cloudWorld, type CloudWorld } from './isolation/cloud.js';
 
@@ -26,11 +27,25 @@ describe('the web image (web/Caddyfile)', () => {
 
   it('allows what the pages need and nothing inline for scripts', () => {
     expect(CLOUD_CSP).toContain("default-src 'self'");
-    expect(CLOUD_CSP).toContain("script-src 'self' https://challenges.cloudflare.com");
+    expect(CLOUD_CSP).toContain(
+      `script-src 'self' ${THEME_SCRIPT_HASH} https://challenges.cloudflare.com`,
+    );
     expect(CLOUD_CSP).toContain('frame-src https://challenges.cloudflare.com');
     expect(CLOUD_CSP).toContain("frame-ancestors 'none'");
     expect(CLOUD_CSP).not.toMatch(/script-src[^;]*'unsafe-(inline|eval)'/);
     expect(CLOUD_CSP).not.toMatch(/style-src [^;]*'unsafe-inline'/);
+  });
+
+  it("allows index.html's one inline script by its hash, and no other", () => {
+    // ADR-228: the theme before the first paint. Vite keeps a classic inline script's bytes.
+    const html = readFileSync(new URL('../../web/index.html', import.meta.url), 'utf8');
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1] ?? '');
+    expect(scripts).toHaveLength(1);
+    const hash = `'sha256-${createHash('sha256').update(scripts[0]!).digest('base64')}'`;
+    expect(THEME_SCRIPT_HASH, 'index.html changed: put this hash in csp.ts and the Caddyfile').toBe(
+      hash,
+    );
+    expect(CLOUD_CSP.match(/'sha256-/g)).toHaveLength(1);
   });
 });
 
