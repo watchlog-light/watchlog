@@ -129,29 +129,115 @@ changed** with the **Last 6 hours** window.
 
 ## The What changed page
 
-**What changed** is in the navigation of every cluster and fleet, after Events.
+**What changed** is in the navigation of every cluster and fleet, under Investigate. After the
+learning week the page reads from the top down: what is outside now, what happened, how it
+spread, what moved, why WatchLog thinks so, and the chart last.
 
-- **Windows:** around an alert (from an hour before it started to 15 minutes after it, or
-  now), the last hour, the last 6 hours, or a custom range of up to 24 hours.
-- **The unusual-activity chart:** how many series were unusual each minute, with the window
-  marked.
-- **The rows:** when it started, what, and usual → now: the usual range for that hour, then
-  the latest value while it lasts or the furthest one once it ended, with a bar for how far out
-  it went. Order them by **First to move** (the default) or **Furthest out**. At most 50 rows,
-  then "and N more". Each row links to its object.
-- **The probable cause** underneath: the same answer as on the alert's page, for the alert in
-  alert mode, or for the first row that is a workload or a container. "Open the evidence",
-  "Copy as text" and "Ask your AI" work as everywhere.
+### The header
 
-Each platform is shown in its own words:
+The cluster or fleet, its kind, and a live line: "Watching 251 series · checked 12 s ago",
+with a dot that pulses while the page is open (it stays still if your system asks for reduced
+motion). Then the window: around an alert (from an hour before it started to 15 minutes after
+it, or now), the last hour, the last 6 hours, or a custom range of up to 24 hours.
 
-- **Kubernetes:** `checkout (shop) · p95 response time`, `node-3 · memory`,
-  `reports-worker · connections to postgres`.
-- **Docker:** `storefront-checkout-1 · p95 response time`, shown with its Compose project and
-  service (`storefront · checkout`), and `docker-01 · memory` for a host.
+**Hide WatchLog's own parts (3)** is on by default and remembered in your browser. It hides the
+series of WatchLog itself, so your own services aren't crowded out by the tool watching them:
 
-The list is ordered by time and nothing more: no rule decides that one change caused another.
-The cause underneath is probable cause's own answer, from its fixed rules.
+- **Kubernetes:** WatchLog's pods and the agent's chart (`watchlog-agent`).
+- **Server fleets:** the `watchlog-agent` and `watchlog-integrations` services and process
+  groups, containers of WatchLog's images, and the Compose project that runs WatchLog.
+
+Turn it off to see them too; it applies to the map, the story, the rows and the chart. When a
+place has none of WatchLog's parts, the toggle isn't shown.
+
+### The live map
+
+Every series WatchLog scores is one square, grouped by **workload** on Kubernetes and by
+**server and its services** on a Server fleet (`db-1`, then `postgres · db-1`). Groups with
+something outside come first. After 14 groups the rest fold into "N more". A square's colour is
+the score from the latest minute:
+
+| Square              | Means                                                                              |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| Green, three shades | Inside the usual range (a score of 2 or less): a stronger green is nearer the edge |
+| Faint amber         | Near the edge: past the usual range, but not unusual for 10 minutes yet            |
+| Amber               | Outside: an unusual period is open (a score over 4 for 10 minutes)                 |
+
+Hover or focus a square for the series, its value and its usual range; a group's name links to
+it. The counts sit above ("35 inside · 1 near the edge · 1 outside"), and the footer says how
+many series are still learning. The map refreshes every minute while the page is visible.
+
+### The story
+
+Under the map, the newest episode is selected: a stretch where one series or more was outside
+its usual range (periods less than 5 minutes apart count as one).
+
+- **When and how much:** "Today 14:31 – 15:39 · 3 things moved", or "Today since 19:48" while
+  it lasts.
+- **One sentence**, from fixed templates: "shop/backend's CPU went to 14× usual 2 minutes after
+  the rollout of backend; shop/postgres's CPU then went to 3.4× usual, and at the same time
+  shop/api's CPU went to 3.6× usual."
+- **The cause box:** green **Likely cause** when [probable cause](probable-cause.md) finds one,
+  or when a change is linked to the episode (below). Otherwise grey **No clear cause**, with
+  the checks that found something, by name, or a line saying none of them applies.
+- **‹ 2 of 3 ›** steps through the episodes in the window.
+
+**A change is linked** when it started at most 15 minutes before the first series moved, on
+that series' own workload, container or service, on its node or server, or on something it
+calls or is called by on the service map. The latest such change is the one named.
+
+### How it spread
+
+The linked change, then each series in the order it moved, with the minutes between them:
+`ROLLOUT backend 2.14.0 → 2.15.0` → +2 min → `FIRST shop/backend CPU 14× usual` → +8 min → …
+
+- The change is drawn only when it is linked.
+- An arrow joins two series only when the service map has calls between
+  them or they run on the same node or server. When none of them are joined, the page lists
+  them instead: "moved at the same time; no calls between them".
+- At most 6 boxes, then "and N more". The row wraps, and stacks on a phone.
+
+The arrows show order and a connection that exists. They don't say that one series made the
+next one move.
+
+### What moved
+
+Every series in the episode, by **First to move** (the default) or **Furthest out**. Each row
+has the time and "+N min" after the first, the name and metric, a sparkline of the value
+against its usual band (the grey band; the dashed line is when it left), the value, and a chip:
+"14× usual" above the band, "÷1.5 usual" below it. Each row links to its object.
+
+### Why we think so
+
+- **Every check** probable cause ran, the ones that found something first.
+- **Changed around then:** every change from 30 minutes before the episode to 5 minutes after:
+  - **Kubernetes:** rollouts, image changes, scaling, and node changes.
+  - **Server fleets:** scheduled runs (timers and cron jobs that don't run every few minutes),
+    services that started, restarted or failed, new executables and releases, container
+    re-creates, image changes and Compose changes.
+- **Open the evidence**, **Copy as text** and **Ask your AI**, as everywhere.
+
+### The chart
+
+Last on the page: how many series were outside their usual range each minute, on a labelled
+count axis. Episodes are shaded, the selected one in amber; changes are blue markers with
+short labels; a legend says which is which. Clicking a shaded stretch selects its episode.
+
+### When everything is inside
+
+The map is all green, and in the story's place: "All 251 series are inside their usual range
+for this hour." Under it, the last 7 days' episodes as cards (when, the sentence, the linked
+change), each opening its episode; or "Nothing left its usual range in the last 7 days."
+
+### In each platform's words
+
+- **Kubernetes:** `shop/checkout · p95 response time`, `node-3 · memory`,
+  `reports-worker · connections to postgres`; changes are rollouts, images and scaling.
+- **Server fleets:** `db-1 · CPU`, `postgresql.service · db-1`, `api (pm2) · app-1`,
+  `storefront-checkout-1` with its Compose project and service; changes are scheduled runs,
+  service starts and restarts, and image changes.
+
+The sentence, the chain and the cause come from fixed rules. Nothing is sent to an AI.
 
 ### On every alert
 
@@ -224,10 +310,20 @@ sends nothing anywhere: your install keeps everything it has, with no limits.
   most 24 hours), `sort=first|furthest`: at most 50 rows with the learning state (`learning`: whether it is
   learning, `since`, `until`, `day`, `hoursLearned` of 168, the `week` as 168 characters and
   the `series`) and the
-  probable cause's short form. API tokens with the read scope can call it. See
-  [API](api.md#for-both-kinds).
+  probable cause's short form. Since 0.14.0 it also gives the window's `episodes`, the
+  selected `episode` (choose one with `episode=<unix seconds of its start>`), its `story` (the
+  clauses as codes and facts, the chain, the cause box, the checks, changed around then and
+  the sparklines) and the window's `changes`. `own=show` includes WatchLog's own parts (hidden
+  by default). API tokens with the read scope can call it. See [API](api.md#for-both-kinds).
+- **`GET /api/v1/what-changed/live?cluster=…`:** the map: every scored series with its latest
+  value, usual range, score, state (`inside`, `near` or `outside`) and whether it is WatchLog's
+  own, plus when it was checked and how many series are still learning.
+- **`GET /api/v1/what-changed/recent?cluster=…`:** the last 7 days' episodes (at most 5), for
+  the quiet page.
 - **MCP:** `get_what_changed` with the same arguments, at most 30 rows and 16 KB, each row in
-  its platform's words. Names and labels come back as data. See [MCP](mcp.md).
+  its platform's words, and since 0.14.0 the newest episode's `story`: its clauses, its chain,
+  the cause box's state and change, and what changed around then. Names and labels come back
+  as data. See [MCP](mcp.md).
 
 On Cloud Free the route answers `403` with `urn:watchlog:problem:pro-feature` and the tool says
 What changed is part of Pro; on a Community install the route answers `404` and the tool isn't
@@ -250,7 +346,10 @@ Nothing to set: the anomaly-worker runs in WatchLog Cloud, and agents send nothi
 ## Limits
 
 - **Pro only,** in WatchLog Cloud (and the live demo). No self-hosted install runs it.
-- **Not correlation:** the list is ordered by time; it doesn't link anomalies to each other.
+- **Not correlation:** the episode is ordered by time, and an arrow means only that a call or a
+  node or server joins two series. The one cause it names is a change linked by the rule above,
+  or probable cause's own.
+- **Package updates** aren't among the changes yet: the agent doesn't report them.
 - **10 minutes:** a change shorter than 10 minutes past a score of 4 isn't listed.
 - **UTC hours:** a daylight-saving change moves a local pattern by an hour for up to two
   weeks.
