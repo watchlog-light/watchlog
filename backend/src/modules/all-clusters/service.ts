@@ -3,6 +3,7 @@
 // one page, from data WatchLog already stores. Database reads are one query per table for the
 // whole org, and metrics one VictoriaMetrics query per metric grouped by `cluster_id`
 // (clustersForOrg's scope), so the answer costs the same for 2 clusters or 50.
+import { sql } from 'kysely';
 import { updateAvailable } from '../clusters/agent-update.js';
 import type { Database } from '../../db/index.js';
 import { OrgQueriesBusy } from '../../lib/org-queries.js';
@@ -82,6 +83,10 @@ export interface ClusterRow extends ClusterRef {
   /** What changed in the last 24 hours; null while the cluster is still learning. */
   whatChanged: number | null;
   alerts: number;
+  /** Its certificates, and how many expire within 14 days (or have; 0.13.0). */
+  certificates: { total: number; expiring: number };
+  /** Its scheduled jobs, and how many are failing (0.13.0). */
+  jobs: { total: number; failing: number };
 }
 
 export interface Summary {
@@ -100,6 +105,13 @@ export interface Summary {
     durationSeconds: number;
   } | null;
   resolvedThisWeek: number;
+  /** Certificates that expire within 14 days (or have), and where (0.13.0). */
+  certificatesExpiring: { count: number; places: (ClusterRef & { count: number })[] };
+  /** Scheduled jobs failing now, the first few by name, and where (0.13.0). */
+  jobsFailing: {
+    count: number;
+    jobs: { name: string; node: string; cluster: ClusterRef }[];
+  };
   whatChanged: {
     rows: (RowView & { cluster: ClusterRef })[];
     total: number;
@@ -550,6 +562,53 @@ export async function buildSummary(input: SummaryInput): Promise<Summary> {
   const unitsBy = new Map(unitCounts.map((s) => [s.labels.cluster_id ?? '', s.points[0]?.[1]]));
   const groupsBy = new Map(groupCounts.map((s) => [s.labels.cluster_id ?? '', s.points[0]?.[1]]));
 
+  // Certificates and scheduled jobs (0.13.0): counts per cluster, from the stored inventory.
+  const [certCounts, jobCounts, failingJobs] = ids.length
+    ? await Promise.all([
+        db
+          .selectFrom('certificates')
+          .select((eb) => [
+            'cluster_id',
+            eb.fn.countAll<string>().as('total'),
+            eb.fn
+              .count<string>(
+                sql`CASE WHEN not_after < ${new Date(nowMs + 14 * 86_400_000)} THEN 1 END`,
+              )
+              .as('expiring'),
+          ])
+          .where('cluster_id', 'in', ids)
+          .where('current', '=', true)
+          .groupBy('cluster_id')
+          .execute(),
+        db
+          .selectFrom('scheduled_jobs')
+          .select((eb) => [
+            'cluster_id',
+            eb.fn.countAll<string>().as('total'),
+            eb.fn.count<string>(sql`CASE WHEN state = 'failed' THEN 1 END`).as('failing'),
+          ])
+          .where('cluster_id', 'in', ids)
+          .where('gone_at', 'is', null)
+          .groupBy('cluster_id')
+          .execute(),
+        db
+          .selectFrom('scheduled_jobs')
+          .select(['cluster_id', 'name', 'node'])
+          .where('cluster_id', 'in', ids)
+          .where('gone_at', 'is', null)
+          .where('state', '=', 'failed')
+          .orderBy('name')
+          .limit(10)
+          .execute(),
+      ])
+    : [[], [], []];
+  const certsBy = new Map(
+    certCounts.map((r) => [r.cluster_id, { total: Number(r.total), expiring: Number(r.expiring) }]),
+  );
+  const jobsBy = new Map(
+    jobCounts.map((r) => [r.cluster_id, { total: Number(r.total), failing: Number(r.failing) }]),
+  );
+
   const clusterRows: ClusterRow[] = all.map((c) => {
     const r = refs.get(c.id)!;
     const hosts = agentsOf.get(c.id) ?? [];
@@ -578,6 +637,8 @@ export async function buildSummary(input: SummaryInput): Promise<Summary> {
       problems: p,
       whatChanged: l && l.learning === false ? (changesPerCluster.get(c.id) ?? 0) : null,
       alerts: alertsPerCluster.get(c.id) ?? 0,
+      certificates: certsBy.get(c.id) ?? { total: 0, expiring: 0 },
+      jobs: jobsBy.get(c.id) ?? { total: 0, failing: 0 },
     };
   });
   clusterRows.sort(
@@ -668,6 +729,20 @@ export async function buildSummary(input: SummaryInput): Promise<Summary> {
         }
       : null,
     resolvedThisWeek: resolved.length,
+    certificatesExpiring: {
+      count: clusterRows.reduce((n, c) => n + c.certificates.expiring, 0),
+      places: clusterRows
+        .filter((c) => c.certificates.expiring > 0)
+        .map((c) => ({ ...refs.get(c.id)!, count: c.certificates.expiring })),
+    },
+    jobsFailing: {
+      count: clusterRows.reduce((n, c) => n + c.jobs.failing, 0),
+      jobs: failingJobs.map((j) => ({
+        name: j.name,
+        node: j.node,
+        cluster: refs.get(j.cluster_id)!,
+      })),
+    },
     whatChanged: {
       // One row per series (ADR-229), the cluster part of the series.
       rows: sortRows(
@@ -714,6 +789,14 @@ export function filterKind(s: Summary, kind: Kind): Summary {
     },
     problems: s.problems.filter((p) => p.places.some((pl) => has(pl.cluster))),
     lastResolved: s.lastResolved && has(s.lastResolved.cluster) ? s.lastResolved : null,
+    certificatesExpiring: {
+      count: clusters.reduce((n, c) => n + c.certificates.expiring, 0),
+      places: s.certificatesExpiring.places.filter(has),
+    },
+    jobsFailing: {
+      count: clusters.reduce((n, c) => n + c.jobs.failing, 0),
+      jobs: s.jobsFailing.jobs.filter((j) => has(j.cluster)),
+    },
     whatChanged: {
       rows: s.whatChanged.rows.filter((r) => has(r.cluster)),
       total: s.whatChanged.rows.filter((r) => has(r.cluster)).length,

@@ -33,7 +33,11 @@ interface ApiAll {
     problems: { critical: number; warning: number };
     whatChanged: number | null;
     alerts: number;
+    certificates: { total: number; expiring: number };
+    jobs: { total: number; failing: number };
   })[];
+  certificatesExpiring: { count: number; places: (Ref & { count: number })[] };
+  jobsFailing: { count: number; jobs: { name: string; node: string; cluster: Ref }[] };
   problems: {
     severity: string;
     title: string;
@@ -73,7 +77,7 @@ export const getAllClustersTool = defineTool({
   name: 'get_all_clusters',
   title: 'All clusters and fleets',
   description: describe(
-    'Every Kubernetes cluster and Server fleet of the organization at once: use it first for "is anything wrong anywhere?", "which cluster needs attention?" or "what is broken across prod and staging?". Returns `status` (one sentence), the counts, `problems` (every open problem, critical first, then the most recent: severity, title, why, since, the likely cause when known, and `places`, the clusters and fleets it is open in; the same alert rule on the same workload name in several places, started within 30 minutes of each other, is one problem with several places), `clusters` (one row each: status critical, warning, healthy or waiting for its first agent; agents reporting of total; CPU now and memory as ratios; open problems; What changed in the last 24 hours, null while learning; alerts sent in the range) and `housekeeping` (agents older than the server, failing alert channels, clusters with no channel, eBPF off).',
+    'Every Kubernetes cluster and Server fleet of the organization at once: use it first for "is anything wrong anywhere?", "which cluster needs attention?" or "what is broken across prod and staging?". Returns `status` (one sentence), the counts, `problems` (every open problem, critical first, then the most recent: severity, title, why, since, the likely cause when known, and `places`, the clusters and fleets it is open in; the same alert rule on the same workload name in several places, started within 30 minutes of each other, is one problem with several places), `clusters` (one row each: status critical, warning, healthy or waiting for its first agent; agents reporting of total; CPU now and memory as ratios; open problems; What changed in the last 24 hours, null while learning; alerts sent in the range; certificates with how many expire within 14 days; scheduled jobs with how many are failing), `certificatesExpiring` and `jobsFailing` (the totals and where) and `housekeeping` (agents older than the server, failing alert channels, clusters with no channel, eBPF off).',
     `\`kind\`: all (default), kubernetes or server. \`range\`: 1h, 6h, 24h (default), 7d or 30d, for CPU and alerts. At most ${MCP_ALL_PROBLEMS} problems; \`truncated\` says when cut. For one problem's evidence use explain_problem or explain_alert with its place's cluster; for one cluster, get_problems. Part of WatchLog Pro: on Free the tool says so.`,
     'Example question: "Is anything wrong in any of our clusters?"',
   ),
@@ -152,7 +156,22 @@ export const getAllClustersTool = defineTool({
           problems: c.problems,
           whatChanged: c.whatChanged,
           alerts: c.alerts,
+          certificates: c.certificates,
+          jobs: c.jobs,
         })),
+        // Certificates expiring within 14 days and jobs failing, across them all (0.13.0).
+        certificatesExpiring: {
+          count: a.certificatesExpiring.count,
+          places: a.certificatesExpiring.places.map((p) => ({ ...ref(p), count: p.count })),
+        },
+        jobsFailing: {
+          count: a.jobsFailing.count,
+          jobs: a.jobsFailing.jobs.map((j) => ({
+            name: name(j.name),
+            ...(j.node ? { server: name(j.node) } : {}),
+            cluster: ref(j.cluster),
+          })),
+        },
         learning: a.whatChanged.learning.map(ref),
         housekeeping: {
           latestAgent: a.housekeeping.latestVersion,

@@ -14730,6 +14730,16 @@ export interface paths {
                 whatChanged: number | null;
                 /** @description Alert notifications sent or failed in the range */
                 alerts: number;
+                /** @description Its TLS certificates, and how many expire within 14 days (or have) */
+                certificates: {
+                  total: number;
+                  expiring: number;
+                };
+                /** @description Its scheduled jobs, and how many are failing */
+                jobs: {
+                  total: number;
+                  failing: number;
+                };
               }[];
               problems: {
                 source: 'alert' | 'object';
@@ -14817,6 +14827,32 @@ export interface paths {
                 durationSeconds: number;
               } | null;
               resolvedThisWeek: number;
+              certificatesExpiring: {
+                /** @description Certificates that expire within 14 days, or have */
+                count: number;
+                places: {
+                  /** Format: uuid */
+                  id: string;
+                  name: string;
+                  kind: 'kubernetes' | 'server';
+                  count: number;
+                }[];
+              };
+              jobsFailing: {
+                /** @description Scheduled jobs failing now */
+                count: number;
+                /** @description The first ten, by name */
+                jobs: {
+                  name: string;
+                  node: string;
+                  cluster: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                    kind: 'kubernetes' | 'server';
+                  };
+                }[];
+              };
               whatChanged: {
                 rows: {
                   /** Format: uuid */

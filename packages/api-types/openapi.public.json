@@ -11795,6 +11795,8 @@
                     "problems",
                     "lastResolved",
                     "resolvedThisWeek",
+                    "certificatesExpiring",
+                    "jobsFailing",
                     "whatChanged",
                     "alertsSent",
                     "housekeeping"
@@ -11853,7 +11855,9 @@
                           "memory",
                           "problems",
                           "whatChanged",
-                          "alerts"
+                          "alerts",
+                          "certificates",
+                          "jobs"
                         ],
                         "properties": {
                           "id": { "type": "string", "format": "uuid" },
@@ -11943,6 +11947,24 @@
                           "alerts": {
                             "type": "integer",
                             "description": "Alert notifications sent or failed in the range"
+                          },
+                          "certificates": {
+                            "type": "object",
+                            "required": ["total", "expiring"],
+                            "properties": {
+                              "total": { "type": "integer" },
+                              "expiring": { "type": "integer" }
+                            },
+                            "description": "Its TLS certificates, and how many expire within 14 days (or have)"
+                          },
+                          "jobs": {
+                            "type": "object",
+                            "required": ["total", "failing"],
+                            "properties": {
+                              "total": { "type": "integer" },
+                              "failing": { "type": "integer" }
+                            },
+                            "description": "Its scheduled jobs, and how many are failing"
                           }
                         }
                       }
@@ -12191,6 +12213,67 @@
                       ]
                     },
                     "resolvedThisWeek": { "type": "integer" },
+                    "certificatesExpiring": {
+                      "type": "object",
+                      "required": ["count", "places"],
+                      "properties": {
+                        "count": {
+                          "type": "integer",
+                          "description": "Certificates that expire within 14 days, or have"
+                        },
+                        "places": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["id", "name", "kind", "count"],
+                            "properties": {
+                              "id": { "type": "string", "format": "uuid" },
+                              "name": { "type": "string" },
+                              "kind": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["kubernetes"] },
+                                  { "type": "string", "enum": ["server"] }
+                                ]
+                              },
+                              "count": { "type": "integer" }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "jobsFailing": {
+                      "type": "object",
+                      "required": ["count", "jobs"],
+                      "properties": {
+                        "count": { "type": "integer", "description": "Scheduled jobs failing now" },
+                        "jobs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["name", "node", "cluster"],
+                            "properties": {
+                              "name": { "type": "string" },
+                              "node": { "type": "string" },
+                              "cluster": {
+                                "type": "object",
+                                "required": ["id", "name", "kind"],
+                                "properties": {
+                                  "id": { "type": "string", "format": "uuid" },
+                                  "name": { "type": "string" },
+                                  "kind": {
+                                    "anyOf": [
+                                      { "type": "string", "enum": ["kubernetes"] },
+                                      { "type": "string", "enum": ["server"] }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "description": "The first ten, by name"
+                        }
+                      }
+                    },
                     "whatChanged": {
                       "type": "object",
                       "required": ["rows", "total", "learning"],

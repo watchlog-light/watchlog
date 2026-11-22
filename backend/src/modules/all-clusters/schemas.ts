@@ -68,6 +68,14 @@ const ClusterRow = Type.Object({
     description: 'What changed in the last 24 hours; null while it is still learning',
   }),
   alerts: Type.Integer({ description: 'Alert notifications sent or failed in the range' }),
+  certificates: Type.Object(
+    { total: Type.Integer(), expiring: Type.Integer() },
+    { description: 'Its TLS certificates, and how many expire within 14 days (or have)' },
+  ),
+  jobs: Type.Object(
+    { total: Type.Integer(), failing: Type.Integer() },
+    { description: 'Its scheduled jobs, and how many are failing' },
+  ),
 });
 
 const Channel = Type.Object({ id: Type.String(), name: Type.String(), type: Type.String() });
@@ -95,6 +103,17 @@ export const AllClustersSchema = Type.Object({
     Type.Null(),
   ]),
   resolvedThisWeek: Type.Integer(),
+  certificatesExpiring: Type.Object({
+    count: Type.Integer({ description: 'Certificates that expire within 14 days, or have' }),
+    places: Type.Array(Type.Object({ ...ClusterRef.properties, count: Type.Integer() })),
+  }),
+  jobsFailing: Type.Object({
+    count: Type.Integer({ description: 'Scheduled jobs failing now' }),
+    jobs: Type.Array(
+      Type.Object({ name: Type.String(), node: Type.String(), cluster: ClusterRef }),
+      { description: 'The first ten, by name' },
+    ),
+  }),
   whatChanged: Type.Object({
     rows: Type.Array(Type.Object({ ...RowSchema.properties, cluster: ClusterRef })),
     total: Type.Integer(),

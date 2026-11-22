@@ -896,3 +896,83 @@ describe('Needs attention on /all is every cluster’s own Needs attention (ADR-
     }
   });
 });
+
+describe('certificates and scheduled jobs across them all (0.13.0)', () => {
+  it('counts per cluster and fleet, the two tiles with where they are, and the kind filter', async () => {
+    const { c, cookie, orgId } = await cloudOrg();
+    const prod = await insertCluster(c.db, orgId, 'acme-prod', 'kubernetes');
+    const fleet = await insertCluster(c.db, orgId, 'acme-servers', 'server');
+    const sys = c.app.systemDb;
+    const cert = (clusterId: string, id: string, days: number, node = '') => ({
+      org_id: orgId,
+      cluster_id: clusterId,
+      node,
+      cert_id: id,
+      fingerprint: id.repeat(4),
+      names: [`${id}.acme.com`],
+      subject: `${id}.acme.com`,
+      issuer: 'WL Test CA',
+      chain: 'complete',
+      not_before: new Date(NOW - 60 * 86_400_000),
+      not_after: new Date(NOW + days * 86_400_000),
+    });
+    await sys
+      .insertInto('certificates')
+      .values([
+        cert(prod.id, 'aaaaaaaaaaaaaaaa', 9),
+        cert(prod.id, 'bbbbbbbbbbbbbbbb', 60),
+        cert(fleet.id, 'cccccccccccccccc', -2, 'app-1'),
+      ] as never)
+      .execute();
+    const job = (clusterId: string, id: string, name: string, state: string, node = '') => ({
+      org_id: orgId,
+      cluster_id: clusterId,
+      node,
+      job_id: id,
+      kind: node ? 'timer' : 'cronjob',
+      name,
+      state,
+      enabled: true,
+    });
+    await sys
+      .insertInto('scheduled_jobs')
+      .values([
+        job(prod.id, '1111111111111111', 'shop/report-builder', 'failed'),
+        job(prod.id, '2222222222222222', 'shop/analytics', 'working'),
+        job(fleet.id, '3333333333333333', 'backup.timer', 'failed', 'worker-1'),
+      ] as never)
+      .execute();
+    const res = await get(c, cookie);
+    expect(res.statusCode, res.body).toBe(200);
+    const body = res.json();
+    const row = (name: string) => body.clusters.find((x: { name: string }) => x.name === name);
+    expect(row('acme-prod')).toMatchObject({
+      certificates: { total: 2, expiring: 1 },
+      jobs: { total: 2, failing: 1 },
+    });
+    expect(row('acme-servers')).toMatchObject({
+      certificates: { total: 1, expiring: 1 },
+      jobs: { total: 1, failing: 1 },
+    });
+    expect(body.certificatesExpiring.count).toBe(2);
+    expect(
+      body.certificatesExpiring.places
+        .map((p: { name: string; count: number }) => [p.name, p.count])
+        .sort(),
+    ).toEqual([
+      ['acme-prod', 1],
+      ['acme-servers', 1],
+    ]);
+    expect(body.jobsFailing.count).toBe(2);
+    expect(
+      body.jobsFailing.jobs.map((j: { name: string; node: string }) => [j.name, j.node]),
+    ).toEqual([
+      ['backup.timer', 'worker-1'],
+      ['shop/report-builder', ''],
+    ]);
+    // Server fleets only.
+    const servers = (await get(c, cookie, { kind: 'server' })).json();
+    expect(servers.certificatesExpiring.count).toBe(1);
+    expect(servers.jobsFailing.jobs.map((j: { name: string }) => j.name)).toEqual(['backup.timer']);
+  });
+});
