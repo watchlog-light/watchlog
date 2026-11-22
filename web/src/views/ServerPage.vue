@@ -392,7 +392,7 @@ onMounted(() => {
           <div class="flex items-center justify-between gap-2">
             <RouterLink
               :to="workloadLink(server.name, r.w)"
-              class="min-h-11 content-center truncate font-mono text-13 text-text hover:underline"
+              class="min-h-11 min-w-11 content-center truncate font-mono text-13 text-text hover:underline"
               >{{ r.w.name }}</RouterLink
             >
             <SourceChip :source="r.w.source" :label="$t(`servers.source.${r.w.source}`)" />
@@ -435,7 +435,7 @@ onMounted(() => {
 
     <div v-if="detail" class="grid gap-4 lg:grid-cols-2">
       <section
-        class="rounded-card border border-border bg-surface-1 px-5 py-4"
+        class="min-w-0 rounded-card border border-border bg-surface-1 px-5 py-4"
         data-testid="server-events"
       >
         <h3 class="mb-3 text-16 font-semibold text-text">{{ $t('servers.events.title') }}</h3>
@@ -452,13 +452,15 @@ onMounted(() => {
             <RouterLink
               v-if="eventLink(e)"
               :to="eventLink(e)!"
-              class="hover:underline"
+              class="hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
               :class="e.type === 'Warning' ? 'text-warning-text' : 'text-text'"
             >
               {{ eventText(e) }}
             </RouterLink>
             <span v-else class="text-text">{{ eventText(e) }}</span>
-            <span v-if="e.message" class="min-w-0 text-text-muted">{{ e.message }}</span>
+            <span v-if="e.message" class="min-w-0 break-words text-text-muted">{{
+              e.message
+            }}</span>
             <span
               v-if="e.kind === 'event' && e.count > 1"
               class="font-mono text-12 text-text-subtle"
@@ -485,7 +487,7 @@ onMounted(() => {
         >
       </section>
       <section
-        class="rounded-card border border-border bg-surface-1 px-5 py-4"
+        class="min-w-0 rounded-card border border-border bg-surface-1 px-5 py-4"
         data-testid="server-talks"
       >
         <h3 class="text-16 font-semibold text-text">{{ $t('servers.talksTo.title') }}</h3>
@@ -496,7 +498,7 @@ onMounted(() => {
             :key="i"
             class="flex items-center justify-between gap-3 rounded-control bg-surface-2 px-3 py-2 font-mono text-12"
           >
-            <span class="truncate text-text"
+            <span class="min-w-0 truncate text-text"
               >{{ e.from }} → {{ e.to }}{{ e.port ? `:${e.port}` : '' }}</span
             >
             <span class="flex shrink-0 gap-2 tabular">

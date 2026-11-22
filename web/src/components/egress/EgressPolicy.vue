@@ -141,7 +141,11 @@ function onKey(e: KeyboardEvent, i: number) {
     >
       <CircleAlert class="size-4 shrink-0 text-text-subtle" aria-hidden="true" />
       <span class="min-w-0 flex-1">{{ $t('egress.policy.error') }}</span>
-      <button type="button" class="text-link hover:underline max-lg:min-h-11" @click="page.load">
+      <button
+        type="button"
+        class="text-link hover:underline max-lg:min-h-11 max-lg:min-w-11"
+        @click="page.load"
+      >
         {{ $t('common.retry') }}
       </button>
     </div>
