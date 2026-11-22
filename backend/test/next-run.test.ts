@@ -67,11 +67,20 @@ describe('nextRun', () => {
     expect(nextRun({ ...tmpfiles, everySec: 0 }, NOW)).toBeNull();
   });
 
-  it('a randomized delay: the earliest time and the window', () => {
-    // dpkg-db-backup-like: daily at 00:00, RandomizedDelaySec=4h.
-    expect(nextRun(job({ nextAt: at(24, 0), everySec: 0, randomDelaySec: 4 * HOUR }), NOW)).toEqual(
-      { at: at(24, 0), about: false, windowSec: 4 * HOUR },
-    );
+  it('a randomized delay: a reported time is the drawn one; a computed one gets the window', () => {
+    // apt-daily-upgrade on the demo: 06:00 with RandomizedDelaySec=1h, systemd reports 06:15.
+    expect(nextRun(job({ nextAt: at(30, 15), randomDelaySec: HOUR }), NOW)).toEqual({
+      at: at(30, 15),
+      about: false,
+      windowSec: 0,
+    });
+    // Stepped from the period (the unit runs, so systemd gives none): around, up to 4 h later.
+    expect(
+      nextRun(
+        job({ state: 'running', everySec: 86_400, lastStart: at(0, 5), randomDelaySec: 4 * HOUR }),
+        NOW,
+      ),
+    ).toEqual({ at: at(24, 5), about: true, windowSec: 4 * HOUR });
   });
 
   it('disabled timers, cron lines with no daemon and suspended CronJobs have none', () => {

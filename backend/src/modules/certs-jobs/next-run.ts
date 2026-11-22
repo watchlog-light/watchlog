@@ -29,7 +29,8 @@ export interface NextRun {
   at: number;
   /** Computed from the period rather than reported: say "about". */
   about: boolean;
-  /** It runs somewhere in [at, at + windowSec] (a random delay). */
+  /** It runs somewhere in [at, at + windowSec]: a random delay on a time computed from the
+   * period (a reported time already has its delay applied). */
   windowSec: number;
 }
 
@@ -56,7 +57,9 @@ export function nextRun(j: NextInput, nowSec: number): NextRun | null {
   if (notRunning(j)) return null;
   const windowSec = Math.max(0, j.randomDelaySec);
   const random = windowSec > 0;
-  if (j.nextAt !== null && j.nextAt > nowSec) return { at: j.nextAt, about: false, windowSec };
+  // A time systemd reports already has its random delay applied (NextElapseUSecRealtime is the
+  // drawn time: apt-daily-upgrade's 06:00 with up to 1 h reads 06:15), so it is exact.
+  if (j.nextAt !== null && j.nextAt > nowSec) return { at: j.nextAt, about: false, windowSec: 0 };
   const every = period(j.everySec);
   if (every <= 0) return null;
   // A timer counting from its last run: the last start plus its interval.

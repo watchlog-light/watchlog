@@ -329,10 +329,10 @@ for (const place of PLACES) {
         await expect(list.getByTestId('watched-for')).toHaveText(
           'WatchLog has watched this fleet for 5 hours',
         );
-        // A random delay: "around … (up to 4 h later)" and its faint window.
+        // A random delay: systemd's reported time already has it applied, so it is exact.
         await expect(
           rows.filter({ hasText: 'dpkg-db-backup.timer' }).getByTestId('job-next'),
-        ).toHaveText(/^next around .+ \(up to 4 h later\)$/);
+        ).toHaveText(/^next (\w{3} )?\d\d:\d\d$/);
         // Schedules in words, the raw expression in the tooltip.
         const pg = rows.filter({ hasText: 'pg_dump' }).getByTestId('job-schedule');
         await expect(pg).toHaveText('Daily at 04:00');

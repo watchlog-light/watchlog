@@ -148,7 +148,8 @@ to the job's page:
   put in words shows as written, in monospace; the expression as written is always in the
   tooltip. Under it, the next run: "next 17:55"; "next about 15:25" when it comes from the
   timer's period (a timer whose run is still going, for which systemd gives no next time); "next
-  around 00:00 (up to 4 h later)" for a timer with a random delay. A timer that counts from its
+  around 00:00 (up to 4 h later)" when such a time belongs to a timer with a random delay. A time
+  systemd reports already has its random delay applied, so it is shown as it is. A timer that counts from its
   last run ("after boot, then after each run") gets its last run plus its interval (agent 0.13.1
   or later).
 - **Runs:** a strip over the last 6 hours, 24 hours (the default) or 7 days. A line marks now;
