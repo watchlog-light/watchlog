@@ -39,3 +39,13 @@ html.app-shell body {
     animation: none;
   }
 }
+
+/* The run strip's time before WatchLog first saw a job (0.13.1): hatched, so blank never reads
+   as "didn't run". */
+.wl-hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--border-strong) 0 1.5px,
+    transparent 1.5px 6px
+  );
+}

@@ -6269,7 +6269,8 @@
       "failed": "1 failed, at {when} | {n} failed, at {when}",
       "noFailures": "none failed",
       "missed": "missed its run at {when}",
-      "next": "next run {when}"
+      "next": "next run {when}",
+      "notWatched": "blank at the start: before WatchLog was watching"
     }
   },
   "runningHere": {
@@ -6363,5 +6364,55 @@
     "cantLook": "{names} can't look yet | {names} can't look yet",
     "update": "Update the agents",
     "docs": "How certificates and jobs are found"
+  },
+  "jobRows": {
+    "title": "Jobs and their runs",
+    "columns": {
+      "job": "Job",
+      "schedule": "Schedule",
+      "runs": "Runs",
+      "lastRun": "Last run",
+      "status": "Status"
+    },
+    "why": {
+      "noDaemon": "Disabled: no cron daemon on {server}",
+      "noDaemonHere": "Disabled: no cron daemon runs",
+      "timerOff": "Disabled: the timer is turned off",
+      "suspended": "Suspended: the CronJob is suspended"
+    },
+    "notRunning": {
+      "disabled": "1 not running: disabled | {n} not running: all disabled",
+      "suspended": "1 not running: suspended | {n} not running: all suspended",
+      "both": "{n} not running: {disabled} disabled, {suspended} suspended"
+    },
+    "last": {
+      "failedCode": "Failed, exit {code}",
+      "inARow": "{n} in a row",
+      "ran": "Ran · exit code unknown"
+    },
+    "next": {
+      "at": "next {when}",
+      "about": "next about {when}",
+      "around": "next around {when} (up to {d} later)",
+      "none": "no next run"
+    },
+    "watched": {
+      "fleet": "WatchLog has watched this fleet for 1 minute | WatchLog has watched this fleet for {n} minutes",
+      "cluster": "WatchLog has watched this cluster for 1 minute | WatchLog has watched this cluster for {n} minutes"
+    },
+    "watchedHours": {
+      "fleet": "WatchLog has watched this fleet for 1 hour | WatchLog has watched this fleet for {n} hours",
+      "cluster": "WatchLog has watched this cluster for 1 hour | WatchLog has watched this cluster for {n} hours"
+    },
+    "legend": {
+      "success": "ran fine",
+      "failed": "failed",
+      "slow": "far slower than usual",
+      "missed": "missed",
+      "unknown": "exit code unknown",
+      "next": "next runs",
+      "before": "before WatchLog was watching"
+    },
+    "notRunningEmpty": "None of the jobs here runs."
   }
 }

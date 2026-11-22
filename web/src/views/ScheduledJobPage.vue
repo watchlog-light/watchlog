@@ -23,6 +23,7 @@ import {
   type Words,
 } from '@/lib/certs-jobs';
 import { formatDateTime, formatWhen } from '@/lib/format';
+import { nextLine } from '@/lib/run-timeline';
 import { useClustersStore } from '@/stores/clusters';
 
 // A scheduled job's page (0.10, ADR-223, ADR-224): why it is in its state, its schedule, its
@@ -52,6 +53,12 @@ onMounted(() => void page.load());
 watch([jobId, node, () => clusters.selected?.id], () => void page.load());
 
 const j = computed(() => page.data.value?.job ?? null);
+// The next run as the list and the strip say it (one next-run function, 0.13.1).
+const next = computed(() =>
+  j.value?.nextAt != null
+    ? { at: j.value.nextAt, about: j.value.nextAbout, windowSec: j.value.nextWindowSec }
+    : null,
+);
 const runs = computed(() => page.data.value?.runs ?? []);
 const hours = computed(() => page.data.value?.hours ?? []);
 const say = (w: Words) => t(w.key, w.values ?? {}, Number(w.values?.n ?? 1));
@@ -168,11 +175,7 @@ const cronJobWorkload = computed(() => {
             <dd class="font-mono text-13 break-all text-text-muted">{{ j.schedule }}</dd>
             <dt class="text-text-muted">{{ $t('jobs.detail.next') }}</dt>
             <dd class="text-text">
-              {{
-                j.nextAt
-                  ? formatWhen(new Date(j.nextAt * 1000).toISOString())
-                  : $t('jobs.schedule.noNext')
-              }}
+              {{ say(nextLine(next, (u) => formatWhen(new Date(u * 1000).toISOString()))) }}
             </dd>
             <dt class="text-text-muted">{{ $t('jobs.detail.lastGood') }}</dt>
             <dd class="text-text">{{ j.lastGoodAt ? when(j.lastGoodAt) : '–' }}</dd>
