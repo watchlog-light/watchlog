@@ -327,7 +327,9 @@ async function storeCertificates(
       key_type: c.keyType,
       key_bits: c.keyBits,
       chain: c.chain,
-      name_mismatch: c.nameMismatch ?? [],
+      // `null` reaches here as [""] (the validator coerces it into the array branch): only
+      // real names count, else every certificate would read as a name mismatch.
+      name_mismatch: (c.nameMismatch ?? []).filter((n) => n !== ''),
       endpoints: JSON.stringify(c.endpoints ?? []),
       last_seen: now,
       current: true,

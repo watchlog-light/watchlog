@@ -215,6 +215,21 @@ describe('certificates (ADR-222, ADR-224)', () => {
     expect(r.body.agentsWithout).toEqual([{ node: 'web-2', version: '0.9.10' }]);
   });
 
+  it('a certificate sent with nameMismatch: null has no name mismatch (0.13.0)', async () => {
+    const { post, get } = await setup('server');
+    const now = Math.floor(Date.now() / 1000);
+    const res = await post({
+      node: 'web-1',
+      certificates: [
+        cert('6666666666666666', 'ok.wl.test', now + 60 * DAY, fp('6'), { nameMismatch: null }),
+      ],
+      certificateCoverage: { at: now },
+    });
+    expect(res.statusCode).toBe(204);
+    const r = await get('/certificates');
+    expect(r.body.certificates[0]).toMatchObject({ status: 'ok', nameMismatch: [] });
+  });
+
   it('refuses a malformed snapshot', async () => {
     const { post } = await setup('server');
     const bad = await post({
