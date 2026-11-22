@@ -17,6 +17,23 @@ a run or run far longer than usual ([Certificates and scheduled jobs](certificat
 this hour", fires when a metric stays far outside its usual range for that hour of the week
 ([What changed](what-changed.md#anomaly-alerts)). Each rule sends to the channels you pick for it.
 
+## Held back
+
+Some alerts wait instead of sending, and the Alerts page counts them under **Held back**
+(**Show held alerts** lists them):
+
+- **While a cluster or fleet stops reporting**, its other alerts are held: their data is stale.
+  One alert stands for the cluster until data comes back.
+- **One story per workload** (since 0.12.1). "Has N of M replicas ready" waits while "is
+  crash-looping" fires for the same workload, and a crash loop waits while the OOM kills that
+  cause it fire, for Kubernetes pods and for a server's systemd services and process groups.
+  The waiting alert is kept up to date and sends no message. Its page says which alert it
+  waits under, and that alert's page lists it under "Held back under this alert". If it outlasts
+  the other one, it sends its message then.
+
+A custom rule on pod restarts counts the restarts in the last 15 minutes, so it resolves once
+the pod stops restarting (since 0.12.1; it counted the total before, which never went down).
+
 ## Channels
 
 | Channel  | What you set                                           | Format                                |

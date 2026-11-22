@@ -146,13 +146,18 @@ Recent changes. A cluster or fleet holds at most 1,000.
 Three default rules, severity warning, on for every cluster and fleet. Like every rule, each
 can be edited, sent to the channels you pick, or turned off ([alerts](alerts.md)).
 
-| Rule                                  | Fires when                                                                                                        | Resolves                                                      |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| **New external destination**          | a source starts talking to a name or public network it never used, not marked expected, after its learning period | when marked expected, or after 24 hours without traffic to it |
-| **Raw IP egress**                     | a source opens at least **5 connections in 10 minutes** to the same public network and port                       | after 10 minutes below that                                   |
-| **Large upload to a new destination** | a source sends more than **100 MiB in an hour** to a destination it first used in the last 24 hours               | when the hour's total drops below it                          |
+| Rule                                  | Fires when                                                                                                        | Resolves                                                                           |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **New external destination**          | a source starts talking to a name or public network it never used, not marked expected, after its learning period | when marked expected, or after 24 hours without traffic to any of its destinations |
+| **Raw IP egress**                     | a source opens at least **5 connections in 10 minutes** to the same public network and port                       | after 10 minutes below that                                                        |
+| **Large upload to a new destination** | a source sends more than **100 MiB in an hour** to a destination it first used in the last 24 hours               | when the hour's total drops below it                                               |
 
-One alert per source, destination and port. A destination used again after its alert resolved
+"New external destination" keeps **one alert per source** (since 0.12.1). While it is open, each
+new destination the source talks to joins it: "updater started talking to 24 new destinations",
+with the newest named, and the alert page lists every destination with its first connection.
+A message goes out when it opens; after that, at most once per the rule's repeat interval, and
+only when destinations joined since the last message, naming them. Raw IP and Large upload keep
+one alert per source, destination and port. A destination used again after its alert resolved
 is no longer new, and stays quiet. "Other destinations" never raises "New", since it names
 nothing. Raw IP counts per network (`/24` or `/48`), the finest unit the agent sends.
 
