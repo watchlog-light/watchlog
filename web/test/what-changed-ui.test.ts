@@ -164,6 +164,15 @@ function answer(
   } as WhatChanged;
 }
 
+const stillLearning = {
+  ...LEARNED,
+  series: {
+    ...LEARNED.series,
+    learning: 26,
+    readyAt: new Date(NOW + 3 * 86_400_000).toISOString(),
+  },
+};
+
 let mounted: VueWrapper | null = null;
 afterEach(() => {
   mounted?.unmount();
@@ -434,8 +443,9 @@ describe('the page on a Pro org', () => {
   it('Kubernetes: the live line, the map, the story, how it spread, what moved, why, the chart', async () => {
     const { calls } = mockFetch({
       ...clusters(K8S),
-      [wc(K8S.id)]: { status: 200, body: told(K8S) },
-      [`${wc(K8S.id)}&own=show`]: { status: 200, body: told(K8S) },
+      // 26 series that joined later still learn: the strip and the map's footer say the same.
+      [wc(K8S.id)]: { status: 200, body: told(K8S, { learning: stillLearning }) },
+      [`${wc(K8S.id)}&own=show`]: { status: 200, body: told(K8S, { learning: stillLearning }) },
       [`${wc(K8S.id)}&episode=${Math.floor((NOW - 50 * MIN) / 1000)}`]: {
         status: 200,
         body: told(K8S, { episode: 0 }),

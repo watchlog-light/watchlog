@@ -146,17 +146,21 @@ const aria = computed(() =>
         <span
           v-for="(m, i) in markers"
           :key="i"
-          class="pointer-events-none absolute top-0 w-px bg-info/70"
+          :class="[
+            'pointer-events-none absolute top-0 w-px',
+            m.lane === null ? 'bg-info/30' : 'bg-info/70',
+          ]"
           :style="{ left: `${m.left}%`, height: `${H}px` }"
           data-testid="wc-chart-marker"
           aria-hidden="true"
         >
           <span
+            v-if="m.lane !== null"
             :class="[
               'absolute top-0 text-12 whitespace-nowrap text-info-text max-md:hidden',
               m.left > 75 ? 'right-1.5' : 'left-1.5',
             ]"
-            :style="{ top: `${(i % 3) * 14}px` }"
+            :style="{ top: `${m.lane * 14}px` }"
             >◆ {{ m.label }}</span
           >
         </span>

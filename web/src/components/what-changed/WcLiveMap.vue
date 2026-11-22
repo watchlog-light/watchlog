@@ -18,6 +18,8 @@ const props = defineProps<{
   kind: 'kubernetes' | 'server';
   hideOwn: boolean;
   focus: string | null;
+  /** The learning count the page's strip says, so the two agree; else the worker's. */
+  learningCount?: number | null;
 }>();
 const { t } = useI18n();
 const route = useRoute();
@@ -55,6 +57,7 @@ const title = (c: MapCell, group: string) => {
     }) + ` · ${t(`whatChanged.map.state.${s.state}`)}`
   );
 };
+const learningN = computed(() => props.learningCount ?? props.live?.learning ?? 0);
 const focusLink = (key: string) => ({ query: { ...route.query, focus: key } });
 const moreLabel = computed(() =>
   props.kind === 'server'
@@ -172,10 +175,8 @@ const moreLabel = computed(() =>
 
     <p class="text-13 text-text-subtle" data-testid="wc-map-foot">
       {{ $t('whatChanged.map.foot') }}
-      <template v-if="live && live.learning > 0">
-        {{
-          $t('whatChanged.map.learning', { n: live.learning.toLocaleString('en') }, live.learning)
-        }}
+      <template v-if="learningN > 0">
+        {{ $t('whatChanged.map.learning', { n: learningN.toLocaleString('en') }, learningN) }}
       </template>
     </p>
   </section>

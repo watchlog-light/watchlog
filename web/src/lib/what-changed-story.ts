@@ -236,14 +236,24 @@ export function chartBands(
 }
 
 /** The changes as markers on the chart's time line, with their short labels. */
+/** Label lanes above the chart, and how far apart (in % of its width) two labels in one lane sit. */
+export const MARKER_LANES = 3;
+export const MARKER_LABEL_GAP = 14;
+
+/**
+ * The chart's change markers. Every change is a line; a label only where it fits (three lanes,
+ * 14 % apart), deployments and server changes before scheduled runs, so a busy place (a job
+ * every 10 minutes, scaling every 15) stays readable: the rest are lines without words, and
+ * each one is listed under "Changed around then" for its episode.
+ */
 export function chartMarkers(
   changes: WhatChangedChange[],
   range: { from: string; to: string },
   tr: Tr,
-): { left: number; label: string; at: string }[] {
+): { left: number; label: string; at: string; lane: number | null }[] {
   const a = Date.parse(range.from);
   const b = Date.parse(range.to);
-  return changes
+  const out = changes
     .filter((c) => {
       const t = Date.parse(c.at);
       return t >= a && t <= b;
@@ -256,7 +266,19 @@ export function chartMarkers(
         to: str(c.facts.to),
       }),
       at: c.at,
+      lane: null as number | null,
+      run: c.kind === 'job_run',
     }));
+  const lanes: number[][] = Array.from({ length: MARKER_LANES }, () => []);
+  const order = out.slice().sort((x, y) => Number(x.run) - Number(y.run) || x.left - y.left);
+  for (const m of order) {
+    const lane = lanes.findIndex((l) => l.every((p) => Math.abs(p - m.left) >= MARKER_LABEL_GAP));
+    if (lane >= 0) {
+      lanes[lane]!.push(m.left);
+      m.lane = lane;
+    }
+  }
+  return out.map((m) => ({ left: m.left, label: m.label, at: m.at, lane: m.lane }));
 }
 
 /** The story's rows by first move (the default) or the furthest out. */

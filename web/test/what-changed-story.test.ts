@@ -321,5 +321,35 @@ describe('the shapes', () => {
       tr,
     );
     expect(markers.map((m) => m.label)).toEqual(['rollout backend', 'backup.timer ran']);
+    // A busy place: a run every 10 minutes and scaling every 15 over 6 hours. Labels only
+    // where they fit, deployments first; every change still a line.
+    const busy = [
+      ...Array.from({ length: 36 }, (_, i) => ({
+        at: new Date(Date.parse(range.from) + i * 10 * 60_000).toISOString(),
+        kind: 'job_run' as const,
+        name: 'report-builder',
+        facts: {},
+      })),
+      ...Array.from({ length: 24 }, (_, i) => ({
+        at: new Date(Date.parse(range.from) + i * 15 * 60_000 + 60_000).toISOString(),
+        kind: 'scale' as const,
+        name: 'api',
+        facts: { from: 2, to: 3 },
+      })),
+    ];
+    const m2 = chartMarkers(busy, range, tr);
+    expect(m2).toHaveLength(60);
+    const labelled = m2.filter((m) => m.lane !== null);
+    expect(labelled.length).toBeLessThanOrEqual(3 * Math.ceil(100 / 14));
+    for (let lane = 0; lane < 3; lane++) {
+      const xs = labelled
+        .filter((m) => m.lane === lane)
+        .map((m) => m.left)
+        .sort((p, q) => p - q);
+      for (let i = 1; i < xs.length; i++) expect(xs[i]! - xs[i - 1]!).toBeGreaterThanOrEqual(14);
+    }
+    expect(labelled.filter((m) => m.label.startsWith('scaled')).length).toBeGreaterThan(
+      labelled.filter((m) => m.label.startsWith('report-builder')).length,
+    );
   });
 });

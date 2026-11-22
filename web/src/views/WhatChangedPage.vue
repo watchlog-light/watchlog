@@ -471,7 +471,13 @@ onBeforeUnmount(() => clearInterval(tickTimer));
               {{ $t('whatChanged.map.showAll') }}
             </button>
           </p>
-          <WcLiveMap :live="live" :kind="kind" :hide-own="hideOwn" :focus="focus" />
+          <WcLiveMap
+            :live="live"
+            :kind="kind"
+            :hide-own="hideOwn"
+            :focus="focus"
+            :learning-count="answer?.learning.series?.learning ?? null"
+          />
           <WcEpisode
             v-if="withStory"
             :answer="withStory"

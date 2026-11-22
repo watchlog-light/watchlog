@@ -78,13 +78,12 @@ for (const width of [1440, 390]) {
     const own = page.getByTestId('wc-own');
     await expect(own).toHaveAttribute('aria-pressed', 'true');
     await expect(own).toContainText("Hide WatchLog's own parts (1)");
-    // The map: workloads, the one outside first, the counts, the learning line.
+    // The map: workloads, the one outside first, the counts, the footer.
     const groups = page.getByTestId('wc-map-group');
     await expect(groups.first()).toHaveAttribute('data-outside', '1');
     await expect(page.getByTestId('wc-map-counts')).toContainText('1 outside');
-    await expect(page.getByTestId('wc-map-foot')).toContainText(
-      '26 more series are still learning',
-    );
+    // The footer's learning count is the strip's (none here: every series has learned).
+    await expect(page.getByTestId('wc-map-foot')).toContainText('Checked every minute inside');
     await expect(page.getByTestId('wc-map')).not.toContainText('watchlog/watchlog-backend');
     // The story: after the rollout of backend, its cause box green, the switcher on 2 of 2.
     await expect(page.getByTestId('wc-story-sentence')).toContainText(
