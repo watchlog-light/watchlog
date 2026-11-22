@@ -2,6 +2,7 @@
 // list_alerts and explain_alert (ADR-128).
 import { Type } from 'typebox';
 import { clusterField, resolveCluster, type ClusterRef } from '../clusters.js';
+import { alertSubject } from '../../alerts/render.js';
 import { labels, message, name, text, ToolError } from '../output.js';
 import type { ApiReader } from '../reader.js';
 import { defineTool, describe, eventField, notFound, summary, type ApiEvent } from './common.js';
@@ -31,6 +32,12 @@ export interface ApiAlert {
   flapping?: boolean;
 }
 
+/** What the alert is about (ADR-229): kind, product or workload kind, and the name. */
+function subjectField(l: Record<string, string>) {
+  const s = alertSubject(l);
+  return { kind: s.kind, type: s.type ? text(s.type, 63) : undefined, name: name(s.name) };
+}
+
 /** An alert as tools show it: no rendered title, which puts names inside a sentence (ADR-129). */
 const alertField = (a: ApiAlert) => ({
   id: a.id,
@@ -39,6 +46,7 @@ const alertField = (a: ApiAlert) => ({
   rule: { key: a.rule.key, name: text(a.rule.name, 120) },
   cluster: { name: name(a.cluster.name), kind: a.cluster.kind },
   object: labels(a.labels),
+  subject: subjectField(a.labels),
   detail: message(a.why),
   startedAt: a.startedAt,
   firedAt: a.firedAt,
@@ -51,7 +59,7 @@ export const listAlertsTool = defineTool({
   title: 'List alerts',
   description: describe(
     'WatchLog alerts: firing now (the default), or recent ones (`state: "recent"`: fired or resolved lately), on every cluster or on one.',
-    `Returns counts and up to ${MAX_ALERTS} alerts, newest first. Each has id, state, severity, rule (key and name), cluster (name and kind), object (the labels the alert is about: namespace, workload, pod, container, node or host), detail (why it fired, e.g. the value against the threshold), startedAt, firedAt, resolvedAt and silenced. Pass \`cluster\` or \`severity\` to narrow the list.`,
+    `Returns counts and up to ${MAX_ALERTS} alerts, newest first. Each has id, state, severity, rule (key and name), cluster (name and kind), object (the labels the alert is about: namespace, workload, pod, container, node or host), subject (what it is about: kind — service, workload, pod, node, unit, process-group, container, compose-service, pvc, agent, namespace or cluster — with type, e.g. Redis or Deployment, and name), detail (why it fired, e.g. the value against the threshold), startedAt, firedAt, resolvedAt and silenced. Pass \`cluster\` or \`severity\` to narrow the list.`,
     'Next step: explain_alert with an alert id.',
     'Example question: "Which alerts fired overnight?"',
   ),

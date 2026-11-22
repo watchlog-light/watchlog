@@ -83,7 +83,7 @@ const SERVICE_NAMES: Record<string, string> = {
   elasticsearch: 'Elasticsearch',
 };
 
-function where(l: Record<string, string>): string {
+export function where(l: Record<string, string>): string {
   if (l.service_name)
     return `${SERVICE_NAMES[l.service_type ?? ''] ?? l.service_type ?? 'service'} ${l.service_name}`;
   if (l.pvc) return `${l.namespace}/${l.pvc} (PVC)`;
@@ -91,6 +91,8 @@ function where(l: Record<string, string>): string {
     const base = `${l.namespace}/${l.workload} (${l.workload_kind})`;
     return l.container && !l.pod ? `${base} · ${l.container}` : base;
   }
+  // A pod metric's rule: the pod, never "node" (ADR-229).
+  if (l.pod && l.namespace) return `${l.namespace}/${l.pod} (Pod)`;
   if (l.agent) return `${l.agent === 'cluster' ? 'cluster-agent' : 'agent'} on ${l.node}`;
   if (l.compose_service) return `${l.compose_project}/${l.compose_service} (Compose service)`;
   // A Docker edge's alert names its container but not the host.
@@ -100,7 +102,54 @@ function where(l: Record<string, string>): string {
   if (l.group && l.node) return `${l.node} › ${l.group} (process group)`;
   if (l.unit && l.node) return `${l.node} › ${l.unit}`;
   if (l.node) return l.condition ? `node ${l.node} (${l.condition})` : `node ${l.node}`;
+  if (l.namespace) return `namespace ${l.namespace}`;
   return Object.values(l).join(' ');
+}
+
+export type SubjectKind =
+  | 'service'
+  | 'pvc'
+  | 'workload'
+  | 'pod'
+  | 'agent'
+  | 'compose-service'
+  | 'container'
+  | 'unit'
+  | 'process-group'
+  | 'node'
+  | 'namespace'
+  | 'cluster';
+
+/**
+ * What an alert is about, for MCP and the API (ADR-229): its kind, the product of a monitored
+ * service ("Traefik"), the workload kind, and a name. Sentences are built by `where`.
+ */
+export function alertSubject(l: Record<string, string>): {
+  kind: SubjectKind;
+  name: string;
+  type?: string;
+} {
+  if (l.service_name) {
+    return {
+      kind: 'service',
+      name: l.service_name,
+      type: SERVICE_NAMES[l.service_type ?? ''] ?? l.service_type,
+    };
+  }
+  if (l.pvc) return { kind: 'pvc', name: `${l.namespace}/${l.pvc}` };
+  if (l.workload)
+    return { kind: 'workload', name: `${l.namespace}/${l.workload}`, type: l.workload_kind };
+  if (l.pod && l.namespace) return { kind: 'pod', name: `${l.namespace}/${l.pod}` };
+  if (l.agent) return { kind: 'agent', name: l.node ?? l.agent };
+  if (l.compose_service)
+    return { kind: 'compose-service', name: `${l.compose_project}/${l.compose_service}` };
+  if (l.container)
+    return { kind: 'container', name: l.node ? `${l.node}/${l.container}` : l.container };
+  if (l.group && l.node) return { kind: 'process-group', name: `${l.node}/${l.group}` };
+  if (l.unit && l.node) return { kind: 'unit', name: `${l.node}/${l.unit}` };
+  if (l.node) return { kind: 'node', name: l.node };
+  if (l.namespace) return { kind: 'namespace', name: l.namespace };
+  return { kind: 'cluster', name: '' };
 }
 
 function link(
