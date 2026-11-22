@@ -27,6 +27,7 @@
   --primary-soft: rgba(34, 197, 94, 0.12);
   --primary-glow: rgba(34, 197, 94, 0.35);
   --on-primary: #04140a;
+  --on-critical: #e8eaed;
   --ok: #22c55e;
   --warning: #f5a524;
   --critical: #f04438;
@@ -77,6 +78,7 @@
   --primary-soft: rgba(21, 128, 61, 0.1);
   --primary-glow: rgba(21, 128, 61, 0.28);
   --on-primary: #ffffff;
+  --on-critical: #ffffff;
   --ok: #16a34a;
   --warning: #d97706;
   --critical: #dc2626;

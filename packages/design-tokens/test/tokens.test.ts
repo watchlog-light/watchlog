@@ -34,6 +34,8 @@ const TEXT_TOKENS_DARK: Record<string, string> = {
   '--info-text': '#3b9eff',
   '--link': '#22c55e',
   '--primary-border': 'rgba(34, 197, 94, 0.4)',
+  // The danger button's text: the old `text-text` in dark.
+  '--on-critical': '#e8eaed',
 };
 
 const CHART_DARK = [
@@ -114,7 +116,7 @@ export function contrast(a: string, b: string): number {
 describe.each([
   ['dark', dark],
   ['light', light],
-])('contrast in %s', (_name, t) => {
+])('contrast in %s', (theme, t) => {
   const get = (k: string) => t.get(k) ?? dark.get(k)!;
   const TEXT = [
     '--text',
@@ -131,6 +133,12 @@ describe.each([
   });
   it('on-primary is at least 4.5 on primary', () => {
     expect(contrast(get('--on-primary'), get('--primary'))).toBeGreaterThanOrEqual(4.5);
+  });
+  // Dark keeps its look (3.0, bold text on a button); light's danger button reads at AA.
+  it('on-critical is at least 3 on critical, and 4.5 in light', () => {
+    expect(contrast(get('--on-critical'), get('--critical'))).toBeGreaterThanOrEqual(
+      theme === 'light' ? 4.5 : 3,
+    );
   });
   const LARGE = [
     '--text-subtle',

@@ -20,6 +20,7 @@
   --color-primary-soft: var(--primary-soft);
   --color-primary-glow: var(--primary-glow);
   --color-on-primary: var(--on-primary);
+  --color-on-critical: var(--on-critical);
   --color-ok: var(--ok);
   --color-warning: var(--warning);
   --color-critical: var(--critical);
@@ -62,6 +63,9 @@
   /* 4px spacing base (SPEC §11.3). */
   --spacing: 4px;
 }
+
+/* Light-only adjustments where dark must stay as it is (ADR-228): `light:text-text`. */
+@custom-variant light (&:where([data-theme='light'], [data-theme='light'] *));
 
 @layer base {
   html {

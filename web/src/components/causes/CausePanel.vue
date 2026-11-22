@@ -241,7 +241,7 @@ onMounted(() => {
                   'flex size-6 shrink-0 items-center justify-center rounded-full text-12 font-semibold',
                   i === steps.length - 1
                     ? state === 'was'
-                      ? 'bg-info/50 text-bg'
+                      ? 'bg-info/50 text-bg light:text-text'
                       : 'bg-info text-bg'
                     : 'border border-border-strong text-text-muted',
                 ]"

@@ -18,7 +18,7 @@ const VARIANTS = {
   primary: 'bg-primary text-on-primary hover:bg-primary-hover',
   secondary: 'border border-border-strong bg-transparent text-text hover:bg-surface-2',
   ghost: 'bg-transparent text-text-muted hover:bg-surface-2 hover:text-text',
-  danger: 'bg-critical text-text hover:opacity-90',
+  danger: 'bg-critical text-on-critical hover:opacity-90',
 } as const;
 
 const classes = computed(() => [
