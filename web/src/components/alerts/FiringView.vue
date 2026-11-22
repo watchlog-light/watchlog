@@ -85,7 +85,7 @@ if (props.list.counts.held > 0) {
         <dd v-else-if="list.counts.held > 0">
           <button
             type="button"
-            class="text-12 text-link hover:underline"
+            class="text-12 text-link hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
             data-testid="tile-show-held"
             @click="toggleHeld"
           >
