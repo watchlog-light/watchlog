@@ -40,8 +40,12 @@ export const AlertSchema = Type.Object({
   resolvedAt: NullableString,
   silenced: Type.Boolean(),
   flapping: Type.Boolean(),
-  /** Held back while its cluster is not reporting or its node is NotReady (ADR-094). */
+  /**
+   * Held back while its cluster is not reporting or its node is NotReady (ADR-094), or under
+   * another alert that tells the same story (ADR-229: then `heldBy` is that alert's id).
+   */
   held: Type.Boolean(),
+  heldBy: Type.Optional(Id),
   /**
    * "New external destination" (ADR-229): the source's new destinations, newest first (at
    * most 100), each with its first connection; `destinationCount` says how many in all.
@@ -101,6 +105,8 @@ export const AlertDetailSchema = Type.Object({
   notifications: Type.Array(NotificationSchema),
   /** Earlier episodes of the same rule and scope, newest first (at most 10). */
   history: Type.Array(AlertSchema),
+  /** Open alerts held back under this one (ADR-229), e.g. "0 of 1 replicas ready" under a crash loop. */
+  related: Type.Array(AlertSchema),
   /** Times alerting was not running while this alert was open (to: null = still not). */
   gaps: Type.Array(Type.Object({ from: Type.String(), to: NullableString })),
 });

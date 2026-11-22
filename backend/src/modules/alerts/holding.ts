@@ -90,3 +90,66 @@ export function holdFor(
   if (r.notReadyNodes.size === 0) return null;
   return (_fp, labels) => !!labels.pod && !!labels.node && r.notReadyNodes.has(labels.node);
 }
+
+/**
+ * One story per workload (ADR-229): a rule whose alert only repeats what another firing alert
+ * already says is held back under it. The alert is still evaluated and kept current, but sends
+ * no message and is counted with the held ones; when the other one ends first it is announced
+ * then, as after a silence. "Has N of M replicas ready" waits under "is crash-looping" for the
+ * same workload; a crash loop waits under the OOM kills that cause it, on Kubernetes and on
+ * servers (a systemd service, a process group).
+ */
+const STORY: Record<string, { under: string; key: (l: Record<string, string>) => string | null }> =
+  {
+    'k8s.deployment.unavailable': { under: 'k8s.pod.crashloop', key: workloadKey },
+    'k8s.pod.crashloop': {
+      under: 'k8s.container.oomkilled',
+      key: (l) => workloadKey(l) ?? podKey(l),
+    },
+    'server.unit.crashloop': { under: 'server.unit.oom', key: (l) => onServer(l, 'unit') },
+    'server.process.crashloop': { under: 'server.process.oom', key: (l) => onServer(l, 'group') },
+  };
+
+function workloadKey(l: Record<string, string>): string | null {
+  return l.workload && l.namespace
+    ? `w:${l.namespace}/${l.workload_kind ?? ''}/${l.workload}`
+    : null;
+}
+function podKey(l: Record<string, string>): string | null {
+  return l.pod && l.namespace ? `p:${l.namespace}/${l.pod}` : null;
+}
+function onServer(l: Record<string, string>, k: 'unit' | 'group'): string | null {
+  return l.node && l[k] ? `${k}:${l.node}/${l[k]}` : null;
+}
+
+/**
+ * For a rule and cluster: which alert, if any, each of its alerts is held back under. Read
+ * once per rule and cluster from the alerts open now (firing, not themselves held back).
+ */
+export async function storyHolds(
+  ctx: Pick<EvalContext, 'db' | 'cluster'>,
+  ruleKey: string | null,
+): Promise<((labels: Record<string, string>) => string | null) | null> {
+  const story = ruleKey ? STORY[ruleKey] : undefined;
+  if (!story) return null;
+  const rows = await ctx.db
+    .selectFrom('alert_states as s')
+    .innerJoin('alert_rules as r', 'r.id', 's.rule_id')
+    .select(['s.id', 's.labels'])
+    .where('s.cluster_id', '=', ctx.cluster.id)
+    .where('r.rule_key', '=', story.under)
+    .where('s.state', '=', 'firing')
+    .where('s.held', '=', false)
+    .orderBy('s.started_at', 'asc')
+    .execute();
+  if (rows.length === 0) return null;
+  const by = new Map<string, string>();
+  for (const r of rows) {
+    const l = r.labels as Record<string, string>;
+    for (const k of [workloadKey(l), podKey(l), story.key(l)]) if (k && !by.has(k)) by.set(k, r.id);
+  }
+  return (labels) => {
+    const k = story.key(labels);
+    return k ? (by.get(k) ?? null) : null;
+  };
+}

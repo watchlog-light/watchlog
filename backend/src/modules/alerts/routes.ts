@@ -168,6 +168,10 @@ function toAlert(r: AlertRow, deliveries: Delivery[] = [], now = Date.now()) {
     held: r.held,
     deliveries,
     ...egressDestinations(r.rule_key, details as Record<string, unknown>),
+    // Held back under another alert that tells the same story (ADR-229).
+    ...(r.held && typeof (details as { heldBy?: unknown }).heldBy === 'string'
+      ? { heldBy: (details as { heldBy: string }).heldBy }
+      : {}),
   };
 }
 
@@ -474,7 +478,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
         .where('s.id', '=', request.params.id)
         .executeTakeFirst()) as (AlertRow & { fingerprint: string }) | undefined;
       if (!row) return sendProblem(reply, 404, 'Alert not found');
-      const [notes, history, gaps] = await Promise.all([
+      const [notes, history, gaps, related] = await Promise.all([
         db
           .selectFrom('notification_alerts as na')
           .innerJoin('notifications as n', 'n.id', 'na.notification_id')
@@ -504,6 +508,14 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
           .limit(10)
           .execute(),
         alertingGaps(db, row.started_at, row.resolved_at ?? new Date()),
+        // Alerts held back under this one (ADR-229): the same story, told once.
+        alertsQuery(orgId)
+          .where('s.cluster_id', '=', row.cluster_id)
+          .where('s.state', '<>', 'resolved')
+          .where(sql<string>`s.details->>'heldBy'`, '=', row.id)
+          .orderBy('s.started_at', 'asc')
+          .limit(20)
+          .execute(),
       ]);
       const alert = toAlert(row, (await deliveriesOf([row.id], hideErrors(request))).get(row.id));
       const [likelyCause] =
@@ -537,6 +549,7 @@ export const alertRoutes: FastifyPluginAsyncTypebox<AlertRouteDeps> = async (
             : null,
         })),
         history: (history as AlertRow[]).map((r) => toAlert(r)),
+        related: (related as AlertRow[]).map((r) => toAlert(r)),
         gaps: gaps.map((g) => ({ from: g.from.toISOString(), to: iso(g.to) })),
       };
     },

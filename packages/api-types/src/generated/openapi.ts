@@ -1642,6 +1642,7 @@ export interface paths {
               | 'pod.memory.working_set'
               | 'pod.network.bytes'
               | 'pod.restarts'
+              | 'pod.restarts.increase'
               | 'pod.container.cpu.usage'
               | 'pod.container.cpu.throttled'
               | 'pod.container.cpu.limit'
@@ -7078,6 +7079,8 @@ export interface paths {
                 silenced: boolean;
                 flapping: boolean;
                 held: boolean;
+                /** Format: uuid */
+                heldBy?: string;
                 destinations?: {
                   destination: string;
                   port: number;
@@ -7244,6 +7247,8 @@ export interface paths {
                 silenced: boolean;
                 flapping: boolean;
                 held: boolean;
+                /** Format: uuid */
+                heldBy?: string;
                 destinations?: {
                   destination: string;
                   port: number;
@@ -7329,6 +7334,56 @@ export interface paths {
                 silenced: boolean;
                 flapping: boolean;
                 held: boolean;
+                /** Format: uuid */
+                heldBy?: string;
+                destinations?: {
+                  destination: string;
+                  port: number;
+                  firstSeen: string;
+                }[];
+                destinationCount?: number;
+                deliveries: {
+                  /** Format: uuid */
+                  channelId: string;
+                  name: string;
+                  type: string;
+                  status: string;
+                  error: string | null;
+                }[];
+              }[];
+              related: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                why: string | null;
+                state: 'pending' | 'firing' | 'resolved';
+                severity: 'warning' | 'critical';
+                rule: {
+                  /** Format: uuid */
+                  id: string;
+                  key: string | null;
+                  name: string;
+                };
+                cluster: {
+                  /** Format: uuid */
+                  id: string;
+                  name: string;
+                  kind: string;
+                };
+                labels: {
+                  [key: string]: string;
+                };
+                summary: string | null;
+                pods: string[];
+                podCount: number;
+                startedAt: string;
+                firedAt: string | null;
+                resolvedAt: string | null;
+                silenced: boolean;
+                flapping: boolean;
+                held: boolean;
+                /** Format: uuid */
+                heldBy?: string;
                 destinations?: {
                   destination: string;
                   port: number;

@@ -3661,6 +3661,10 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["pod.restarts.increase"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["pod.container.cpu.usage"]
                       },
                       {
@@ -20850,6 +20854,10 @@
                           "held": {
                             "type": "boolean"
                           },
+                          "heldBy": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
                           "destinations": {
                             "type": "array",
                             "items": {
@@ -21118,7 +21126,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["alert", "notifications", "history", "gaps"],
+                  "required": ["alert", "notifications", "history", "related", "gaps"],
                   "properties": {
                     "alert": {
                       "type": "object",
@@ -21283,6 +21291,10 @@
                         },
                         "held": {
                           "type": "boolean"
+                        },
+                        "heldBy": {
+                          "type": "string",
+                          "format": "uuid"
                         },
                         "destinations": {
                           "type": "array",
@@ -21658,6 +21670,236 @@
                           },
                           "held": {
                             "type": "boolean"
+                          },
+                          "heldBy": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "destinations": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["destination", "port", "firstSeen"],
+                              "properties": {
+                                "destination": {
+                                  "type": "string"
+                                },
+                                "port": {
+                                  "type": "integer"
+                                },
+                                "firstSeen": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          },
+                          "destinationCount": {
+                            "type": "integer"
+                          },
+                          "deliveries": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["channelId", "name", "type", "status", "error"],
+                              "properties": {
+                                "channelId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "error": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "related": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "title",
+                          "why",
+                          "state",
+                          "severity",
+                          "rule",
+                          "cluster",
+                          "labels",
+                          "summary",
+                          "pods",
+                          "podCount",
+                          "startedAt",
+                          "firedAt",
+                          "resolvedAt",
+                          "silenced",
+                          "flapping",
+                          "held",
+                          "deliveries"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "why": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "state": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["pending"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["firing"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["resolved"]
+                              }
+                            ]
+                          },
+                          "severity": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["warning"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["critical"]
+                              }
+                            ]
+                          },
+                          "rule": {
+                            "type": "object",
+                            "required": ["id", "key", "name"],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "key": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "cluster": {
+                            "type": "object",
+                            "required": ["id", "name", "kind"],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "labels": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "summary": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "pods": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "podCount": {
+                            "type": "integer"
+                          },
+                          "startedAt": {
+                            "type": "string"
+                          },
+                          "firedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "resolvedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "silenced": {
+                            "type": "boolean"
+                          },
+                          "flapping": {
+                            "type": "boolean"
+                          },
+                          "held": {
+                            "type": "boolean"
+                          },
+                          "heldBy": {
+                            "type": "string",
+                            "format": "uuid"
                           },
                           "destinations": {
                             "type": "array",

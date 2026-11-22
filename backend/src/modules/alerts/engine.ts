@@ -7,7 +7,7 @@ import { isUniqueViolation, type Database } from '../../db/index.js';
 import type { AlertRules, AlertStates } from '../../db/types.js';
 import { newId } from '../../lib/ids.js';
 import type { VictoriaQueryClient } from '../../lib/victoria.js';
-import { clusterReporting, holdFor } from './holding.js';
+import { clusterReporting, holdFor, storyHolds } from './holding.js';
 import { buildOutboxRows, type Transition } from './outbox.js';
 import { isSilenced, silenceTarget, type ActiveSilence, type SilenceMatchers } from './silences.js';
 import {
@@ -143,6 +143,8 @@ export async function evaluateOrg(
           silences,
           now,
           hold,
+          // One story per workload (ADR-229): what another firing alert already says.
+          await storyHolds({ db, cluster }, rule.rule_key),
         );
         result.transitions += applied.transitions;
         result.notifications += applied.notifications;
@@ -285,6 +287,7 @@ export async function applyObservations(
   silences: ActiveSilence[],
   now: number,
   hold: ((fingerprint: string, labels: Record<string, string>) => boolean) | null = null,
+  heldUnder: ((labels: Record<string, string>) => string | null) | null = null,
 ): Promise<{ transitions: number; notifications: number }> {
   const [open, recent] = await Promise.all([
     db
@@ -337,13 +340,21 @@ export async function applyObservations(
           }
           continue;
         }
+        // Held back under another alert (ADR-229): stepped and kept current like a silenced
+        // alert (no message; announced when the other ends first), but counted as held.
+        const under = heldUnder?.(labels) ?? null;
         const res = step(row ? toEpisode(row) : null, obsBy.get(fp) ?? null, {
           now,
           forMs,
           renotifyMs,
-          silenced,
+          silenced: under ? () => true : silenced,
           recentFirings: recentBy.get(fp) ?? 0,
         });
+        if (res.action === 'insert' || res.action === 'update') {
+          const { heldBy: _was, ...details } = res.episode.details;
+          res.episode.details = under ? { ...details, heldBy: under } : details;
+          if (under) res.episode.silenced = silenced(res.episode.labels, res.episode.severity);
+        }
         if (res.action === 'none') continue;
         if (res.action === 'delete') {
           const del = await trx
@@ -368,17 +379,18 @@ export async function applyObservations(
               fingerprint: fp,
               ...episodeColumns(res.episode),
               rule_snapshot: snapshot,
+              held: !!under,
             })
             .execute();
         } else {
           id = row!.id;
-          if (!res.notify && !row!.held && unchanged(row!, res.episode)) continue;
+          if (!res.notify && row!.held === !!under && unchanged(row!, res.episode)) continue;
           const upd = await trx
             .updateTable('alert_states')
             .set({
               ...episodeColumns(res.episode),
               rule_snapshot: snapshot,
-              held: false,
+              held: !!under,
               version: row!.version + 1,
             })
             .where('id', '=', id)
