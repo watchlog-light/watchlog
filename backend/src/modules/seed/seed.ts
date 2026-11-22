@@ -2,7 +2,8 @@
 // Configuration applied at start from a file (WATCHLOG_SEED_FILE, ADR-122), not through
 // the API: how the read-only demo, which refuses every change, gets its alert rules and
 // its public MCP token (ADR-130, modules/demo/mcp-token.ts).
-// Each rule is created once, matched by name, and never overwritten.
+// Each rule is created once, matched by name, and never overwritten; a rule named in
+// `retiredRules` is deleted at start, with its alerts (ADR-229).
 import { ClusterKindInput, normalizeKind } from '../clusters/schemas.js';
 import { readFile } from 'node:fs/promises';
 import { sql } from 'kysely';
@@ -64,6 +65,14 @@ export const SeedSchema = Type.Object(
   {
     clusters: Type.Optional(Type.Array(SeedClusterSchema, { maxItems: 20 })),
     alertRules: Type.Optional(Type.Array(SeedRuleSchema, { maxItems: 200 })),
+    /**
+     * Names of threshold rules an earlier seed created and this one retires (ADR-229): deleted
+     * at every start, with their alerts. Seeded rules are never overwritten, so this is how a
+     * seeded install drops one without starting over.
+     */
+    retiredRules: Type.Optional(
+      Type.Array(Type.String({ minLength: 1, maxLength: 200 }), { maxItems: 200 }),
+    ),
     /** Services to monitor once the agents report them (ADR-142): seed/services.ts. */
     services: Type.Optional(Type.Array(SeedServiceSchema, { maxItems: 100 })),
     demoMcp: Type.Optional(SeedDemoMcpSchema),
@@ -99,6 +108,11 @@ export async function loadSeedFile(path: string): Promise<Seed> {
   const names = (value.alertRules ?? []).map((r) => r.name);
   const twice = names.find((n, i) => names.indexOf(n) !== i);
   if (twice) throw new SeedFileError(`seed file ${path} names the rule "${twice}" twice`);
+  const retired = new Set(value.retiredRules ?? []);
+  const both = names.find((n) => retired.has(n));
+  if (both) {
+    throw new SeedFileError(`seed file ${path} both seeds and retires the rule "${both}"`);
+  }
   const clusters = (value.clusters ?? []).map((c) => c.name);
   const again = clusters.find((n, i) => clusters.indexOf(n) !== i);
   if (again) throw new SeedFileError(`seed file ${path} names the cluster "${again}" twice`);
@@ -108,6 +122,8 @@ export async function loadSeedFile(path: string): Promise<Seed> {
 export interface SeedResult {
   created: string[];
   existing: string[];
+  /** Rules deleted because the seed retires them (ADR-229). */
+  retired: string[];
   failed: { name: string; reason: string }[];
   /** No org yet: nothing applied (first-run setup applies it). */
   waiting: boolean;
@@ -125,7 +141,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * with that name). A rule that cannot be created is logged and skipped; the rest go on.
  */
 export async function applySeed(db: Database, seed: Seed, log: SeedLogger): Promise<SeedResult> {
-  const result: SeedResult = { created: [], existing: [], failed: [], waiting: false };
+  const result: SeedResult = {
+    created: [],
+    existing: [],
+    retired: [],
+    failed: [],
+    waiting: false,
+  };
   // Clusters first: a seeded rule may name one.
   for (const c of seed.clusters ?? []) {
     const outcome = await ensureTokenCluster(db, {
@@ -146,7 +168,8 @@ export async function applySeed(db: Database, seed: Seed, log: SeedLogger): Prom
     }
   }
   const rules = seed.alertRules ?? [];
-  if (rules.length === 0) return result;
+  const retiredNames = seed.retiredRules ?? [];
+  if (rules.length === 0 && retiredNames.length === 0) return result;
   await db.transaction().execute(async (trx) => {
     // Replicas starting together apply it once.
     await sql`SELECT pg_advisory_xact_lock(hashtext('watchlog:seed'))`.execute(trx);
@@ -159,6 +182,18 @@ export async function applySeed(db: Database, seed: Seed, log: SeedLogger): Prom
     if (!org) {
       result.waiting = true;
       return;
+    }
+    // Retired rules go first, with their alerts (the foreign key cascades): only threshold
+    // rules, as the seed creates, never a default rule of the same name.
+    if (retiredNames.length > 0) {
+      const gone = await trx
+        .deleteFrom('alert_rules')
+        .where('org_id', '=', org.id)
+        .where('type', '=', 'threshold')
+        .where('name', 'in', retiredNames)
+        .returning('name')
+        .execute();
+      result.retired.push(...gone.map((r) => r.name));
     }
     for (const rule of rules) {
       const exists = await trx
@@ -207,6 +242,9 @@ export async function applySeed(db: Database, seed: Seed, log: SeedLogger): Prom
   });
   if (result.waiting) log.info({}, 'seed: no org yet; the rules are applied after first-run setup');
   for (const name of result.created) log.info({ rule: name }, 'seed: alert rule created');
+  for (const name of result.retired) {
+    log.info({ rule: name }, 'seed: retired alert rule deleted, with its alerts');
+  }
   for (const f of result.failed) {
     log.error({ rule: f.name, reason: f.reason }, 'seed: alert rule not created');
   }

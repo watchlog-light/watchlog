@@ -187,6 +187,15 @@ WatchLog's web container (Caddy) serves the dashboard and passes `/api` and `/in
 
 The fields are those of a custom rule in the API. `clusterId` is `null` for every cluster, or a cluster's name or id. `enabled` and `renotifySeconds` are optional. A seed file can't hold channels, so it never holds secrets.
 
+To drop a rule an earlier seed created, list its name in `retiredRules`. At every start the backend deletes custom rules with those names, with their alerts, open and past; a default rule of the same name is never touched. A file that both seeds and retires the same name is invalid.
+
+```json
+{
+  "alertRules": [{ "name": "Node memory above 75%", "...": "..." }],
+  "retiredRules": ["Shop pods keep restarting"]
+}
+```
+
 It can also list services to monitor. Each is monitored as soon as an agent reports it, once per cluster: if you stop monitoring one, it isn't added back. A password is only ever referenced, from a Secret in the collector's namespace or a file under `/etc/watchlog/secrets` on the Docker host, never written in the file:
 
 ```json

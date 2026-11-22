@@ -134,6 +134,56 @@ describe('seed file', () => {
     expect(names).toEqual(expect.arrayContaining(['Node memory above 75%']));
   });
 
+  it('retires rules by name: deleted at start with their alerts, the rest kept (ADR-229)', async () => {
+    ctx = await createTestContext({ demoMode: true });
+    await ensureDemoUser(ctx.db);
+    const org = await ctx.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow();
+    const cluster = await insertCluster(ctx.db, org.id, 'sample-cluster', 'kubernetes');
+    await applySeed(ctx.db, SEED, quiet);
+    const old = await ctx.db
+      .selectFrom('alert_rules')
+      .select('id')
+      .where('name', '=', 'Shop pods keep restarting')
+      .executeTakeFirstOrThrow();
+    // One of its alerts, open for days.
+    await ctx.db
+      .insertInto('alert_states')
+      .values({
+        id: '01a1b869-0000-7000-8000-000000000001',
+        org_id: org.id,
+        rule_id: old.id,
+        cluster_id: cluster.id,
+        fingerprint: 'mongodb-0',
+        state: 'firing',
+        severity: 'warning',
+        labels: JSON.stringify({ pod: 'mongodb-0', namespace: 'shop' }),
+        details: JSON.stringify({}),
+        started_at: new Date(Date.now() - 8 * 86_400_000),
+        fired_at: new Date(Date.now() - 8 * 86_400_000),
+      })
+      .execute();
+
+    const next = {
+      alertRules: [NODE_MEMORY],
+      retiredRules: ['Shop pods keep restarting', 'Never seeded'],
+    } as Seed;
+    expect(await loadSeedFile(file('retired.json', next))).toEqual(next);
+    const r = await applySeed(ctx.db, next, quiet);
+    expect(r.retired).toEqual(['Shop pods keep restarting']);
+    expect((await threshold()).map((x) => x.name)).toEqual(['Node memory above 75%']);
+    expect(await ctx.db.selectFrom('alert_states').select('id').execute()).toEqual([]);
+    // The next start: nothing left to retire.
+    expect((await applySeed(ctx.db, next, quiet)).retired).toEqual([]);
+
+    // A file can't seed and retire the same rule.
+    const err = await loadSeedFile(
+      file('both.json', { alertRules: [NODE_MEMORY], retiredRules: [NODE_MEMORY.name] }),
+    ).catch((e: unknown) => e);
+    expect((err as Error).message).toContain(
+      'both seeds and retires the rule "Node memory above 75%"',
+    );
+  });
+
   it('registers a seeded Docker fleet by its token hash, once, and a rule may name it (ADR-170)', async () => {
     ctx = await createTestContext({ demoMode: true });
     await ensureDemoUser(ctx.db);
