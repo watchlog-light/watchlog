@@ -20,6 +20,7 @@ import {
   DEFAULT_RANGE,
   headerLine,
   hero,
+  countCell,
   kindLine,
   pct,
   placeLink,
@@ -241,7 +242,7 @@ const learningNames = computed(() =>
         </div>
       </div>
 
-      <!-- Four tiles. -->
+      <!-- The tiles (six since 0.13.0: certificates expiring, jobs failing). -->
       <div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4" data-testid="ac-tiles">
         <div
           v-for="tile in tileList"
@@ -360,7 +361,7 @@ const learningNames = computed(() =>
           }}</span>
         </div>
         <div class="overflow-x-auto" data-testid="ac-table-scroll">
-          <table class="w-full min-w-[880px] border-collapse text-14">
+          <table class="w-full min-w-[1040px] border-collapse text-14">
             <thead>
               <tr class="text-left text-12 text-text-muted">
                 <th scope="col" class="border-t border-border px-5 py-2 font-medium">
@@ -380,6 +381,12 @@ const learningNames = computed(() =>
                 </th>
                 <th scope="col" class="border-t border-border px-3 py-2 font-medium">
                   {{ $t('allClusters.table.problems') }}
+                </th>
+                <th scope="col" class="border-t border-border px-3 py-2 font-medium">
+                  {{ $t('allClusters.table.certificates') }}
+                </th>
+                <th scope="col" class="border-t border-border px-3 py-2 font-medium">
+                  {{ $t('allClusters.table.jobs') }}
                 </th>
                 <th scope="col" class="border-t border-border px-3 py-2 font-medium">
                   {{ $t('allClusters.table.whatChanged') }}
@@ -482,6 +489,44 @@ const learningNames = computed(() =>
                         : 'text-text-muted'
                     "
                     >{{ c.problems.critical + c.problems.warning }}</span
+                  >
+                </td>
+                <td class="border-t border-border px-3 py-3 font-mono text-13 whitespace-nowrap">
+                  <RouterLink
+                    :to="{ name: 'certificates', query: { cluster: c.id } }"
+                    :class="
+                      countCell(
+                        c.certificates.total,
+                        c.certificates.expiring,
+                        'allClusters.table.expiring',
+                        tr,
+                      ).bad
+                        ? 'font-semibold text-warning-text hover:underline'
+                        : 'text-text-muted hover:underline'
+                    "
+                    data-testid="ac-row-certs"
+                    >{{
+                      countCell(
+                        c.certificates.total,
+                        c.certificates.expiring,
+                        'allClusters.table.expiring',
+                        tr,
+                      ).text
+                    }}</RouterLink
+                  >
+                </td>
+                <td class="border-t border-border px-3 py-3 font-mono text-13 whitespace-nowrap">
+                  <RouterLink
+                    :to="{ name: 'scheduled-jobs', query: { cluster: c.id } }"
+                    :class="
+                      countCell(c.jobs.total, c.jobs.failing, 'allClusters.table.failing', tr).bad
+                        ? 'font-semibold text-critical-text hover:underline'
+                        : 'text-text-muted hover:underline'
+                    "
+                    data-testid="ac-row-jobs"
+                    >{{
+                      countCell(c.jobs.total, c.jobs.failing, 'allClusters.table.failing', tr).text
+                    }}</RouterLink
                   >
                 </td>
                 <td class="border-t border-border px-3 py-3 text-13">

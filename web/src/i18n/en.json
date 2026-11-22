@@ -6013,7 +6013,11 @@
       "resolvedWeek": "none resolved this week | {n} resolved this week | {n} resolved this week",
       "channel": "{name} {n}",
       "channelFailed": "{name} {n} failed",
-      "noAlerts": "none sent"
+      "noAlerts": "none sent",
+      "certsExpiring": "Certificates expiring, 14 days",
+      "jobsFailing": "Scheduled jobs failing",
+      "noneExpiring": "none within 14 days",
+      "noneFailing": "none failing"
     },
     "attention": {
       "title": "Needs attention, everywhere",
@@ -6037,7 +6041,11 @@
       "cpuAria": "CPU over {range}, now {value}",
       "learning": "learning",
       "none": "none",
-      "changes": "{n} change | {n} changes"
+      "changes": "{n} change | {n} changes",
+      "certificates": "Certificates",
+      "jobs": "Jobs",
+      "expiring": "{n} expiring",
+      "failing": "{n} failing"
     },
     "status": {
       "critical": "Critical",

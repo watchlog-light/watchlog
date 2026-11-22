@@ -10,6 +10,7 @@ import type { CloudConfig } from '@/api/cloud';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import { createAppI18n } from '@/i18n';
 import {
+  countCell,
   showsProLabel,
   allClustersPath,
   chores,
@@ -106,6 +107,8 @@ describe('the words', () => {
       ['Nodes and servers', '30', '1 not reporting'],
       ['Open problems', '5', '2 critical · 3 warning'],
       ['Alerts sent, 24h', '9', 'Telegram 5 · Slack 3 failed · Email 1'],
+      ['Certificates expiring, 14 days', '3', 'acme-prod 1 · acme-staging 1 · office-tools 1'],
+      ['Scheduled jobs failing', '3', 'report-builder · backup.service'],
     ]);
     expect(tiles(HEALTHY, 'server', '24h', tr)[2]!.sub).toBe('3 resolved this week');
     expect(tiles(HEALTHY, 'server', '24h', tr)[1]!.label).toBe('Servers');
@@ -199,7 +202,7 @@ describe('the page', () => {
   it('problems: the sentence, tiles, merged rows with a chip per place, the table, What changed, housekeeping', async () => {
     const { w } = await open('/all', 'pro', { [get()]: { status: 200, body: ATTENTION } });
     expect(w.get('[data-testid="ac-hero"]').text()).toBe('5 clusters and fleets need attention');
-    expect(w.findAll('[data-testid^="ac-tile-"]')).toHaveLength(4);
+    expect(w.findAll('[data-testid^="ac-tile-"]')).toHaveLength(6);
     const rows = w.findAll('[data-testid="ac-problem"]');
     expect(rows).toHaveLength(5);
     // The same crash loop in staging and prod: one row, two chips, each to its own cluster.
@@ -440,5 +443,17 @@ describe('getting there', () => {
       expect(await land('/login', 5, false)).toBe('overview');
       expect(await land('/alerts', 5)).toBe('overview');
     });
+  });
+});
+
+describe('certificates and jobs per cluster (0.13.0)', () => {
+  it('a row says the count and how many need attention', () => {
+    const t = (k: string, v?: Record<string, unknown>) => `${v?.n} ${k.split('.').pop()}`;
+    expect(countCell(12, 1, 'allClusters.table.expiring', t)).toEqual({
+      text: '12 · 1 expiring',
+      bad: true,
+    });
+    expect(countCell(9, 0, 'allClusters.table.failing', t)).toEqual({ text: '9', bad: false });
+    expect(countCell(0, 0, 'allClusters.table.failing', t).text).toBe('–');
   });
 });

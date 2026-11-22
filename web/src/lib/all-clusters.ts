@@ -144,7 +144,10 @@ export interface Tile {
   tone: Tone;
 }
 
-/** The four tiles: clusters and fleets, nodes and servers, open problems, alerts sent. */
+/**
+ * The tiles: clusters and fleets, nodes and servers, open problems, alerts sent, and (0.13.0)
+ * certificates expiring within 14 days and scheduled jobs failing, across all of them.
+ */
 export function tiles(s: AllClusters, kind: Kind, rangeLabel: string, tr: Tr): Tile[] {
   const by = (st: string) => s.clusters.filter((c) => c.status === st).length;
   const statusParts = [
@@ -209,6 +212,25 @@ export function tiles(s: AllClusters, kind: Kind, rangeLabel: string, tr: Tr): T
       value: String(s.alertsSent.total),
       sub: channels.join(' · ') || tr('allClusters.tiles.noAlerts'),
       tone: 'muted',
+    },
+    {
+      key: 'certs',
+      label: tr('allClusters.tiles.certsExpiring'),
+      value: String(s.certificatesExpiring.count),
+      sub:
+        s.certificatesExpiring.places.map((p) => `${p.name} ${p.count}`).join(' · ') ||
+        tr('allClusters.tiles.noneExpiring'),
+      tone: s.certificatesExpiring.count ? 'critical' : 'healthy',
+    },
+    {
+      key: 'jobs',
+      label: tr('allClusters.tiles.jobsFailing'),
+      value: String(s.jobsFailing.count),
+      sub:
+        [...new Set(s.jobsFailing.jobs.map((j) => j.name.split('/').pop() ?? j.name))].join(
+          ' · ',
+        ) || tr('allClusters.tiles.noneFailing'),
+      tone: s.jobsFailing.count ? 'critical' : 'healthy',
     },
   ];
 }
@@ -400,4 +422,17 @@ export function showsProLabel(o: {
   if (o.access === 'pro' || o.demo) return false;
   if (o.isCloud) return o.proFeatures !== true;
   return true;
+}
+
+/** A row's Certificates or Jobs cell: "12 · 1 expiring", "9 · 1 failing", "12", "–". */
+export function countCell(
+  total: number,
+  bad: number,
+  badKey: string,
+  tr: Tr,
+): { text: string; bad: boolean } {
+  if (total === 0) return { text: '–', bad: false };
+  return bad
+    ? { text: `${total} · ${tr(badKey, { n: bad })}`, bad: true }
+    : { text: String(total), bad: false };
 }
