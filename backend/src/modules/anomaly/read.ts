@@ -58,6 +58,8 @@ export interface RowView {
   value: number;
   peakScore: number;
   peakAt: string;
+  /** Other changes of the same series in the window, left out of the list (ADR-229). */
+  more?: number;
 }
 
 export interface Window {
@@ -309,6 +311,40 @@ export function rowView(p: PeriodRow, compose: ComposeOf): RowView {
   };
 }
 
+/**
+ * One row per series (ADR-229): the series' strongest current change (one still out first,
+ * then the furthest), with how many others it had in `more`. Lists only: the chart's counts
+ * and the scoring are unchanged. "Series" is the metric and its subject's labels; on All
+ * clusters the cluster is part of it.
+ */
+export function oncePerSeries<
+  T extends Pick<RowView, 'key' | 'subject' | 'until' | 'peakScore' | 'since' | 'id'>,
+>(rows: T[], extra: (r: T) => string = () => ''): (T & { more?: number })[] {
+  const groups = new Map<string, T[]>();
+  for (const r of rows) {
+    const subject = Object.keys(r.subject)
+      .sort()
+      .map((k) => `${k}=${r.subject[k]}`)
+      .join(',');
+    const k = `${extra(r)}|${r.key}|${subject}`;
+    const g = groups.get(k);
+    if (g) g.push(r);
+    else groups.set(k, [r]);
+  }
+  return [...groups.values()].map((g) => {
+    const best = g
+      .slice()
+      .sort(
+        (a, b) =>
+          Number(a.until !== null) - Number(b.until !== null) ||
+          b.peakScore - a.peakScore ||
+          b.since.localeCompare(a.since) ||
+          a.id.localeCompare(b.id),
+      )[0]!;
+    return g.length > 1 ? { ...best, more: g.length - 1 } : best;
+  });
+}
+
 /** "First to move" (start, then the furthest) or "furthest out" (peak score, then start). */
 export function sortRows<T extends Pick<RowView, 'since' | 'peakScore' | 'id'>>(
   rows: T[],
@@ -383,11 +419,12 @@ export async function readPeriods(
     sortRows(all, 'first')
       .map((r) => causeSubjectOf(r.object))
       .find((s) => s !== null) ?? null;
-  const rows = sortRows(all, sort).slice(0, WHAT_CHANGED_MAX_ROWS);
+  const listed = oncePerSeries(all);
+  const rows = sortRows(listed, sort).slice(0, WHAT_CHANGED_MAX_ROWS);
   return {
     rows,
-    total: all.length,
-    truncated: all.length > rows.length,
+    total: listed.length,
+    truncated: listed.length > rows.length,
     chart: {
       from: new Date(chart.fromMs).toISOString(),
       to: new Date(chart.toMs).toISOString(),

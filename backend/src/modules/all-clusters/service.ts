@@ -15,7 +15,14 @@ import type { ObjectRow } from '../kubernetes/views.js';
 import { sparkStep } from '../overview/step.js';
 import { learningOf } from '../anomaly/learning.js';
 import { composeMap } from '../anomaly/exclusion.js';
-import { nameServices, rowView, sortRows, type PeriodRow, type RowView } from '../anomaly/read.js';
+import {
+  nameServices,
+  oncePerSeries,
+  rowView,
+  sortRows,
+  type PeriodRow,
+  type RowView,
+} from '../anomaly/read.js';
 import { mergeProblems, type ClusterKind, type PlacedProblem } from './merge.js';
 
 /** The ranges the page offers, in seconds: 1h, 6h, 24h, 7d, 30d. */
@@ -654,7 +661,11 @@ export async function buildSummary(input: SummaryInput): Promise<Summary> {
       : null,
     resolvedThisWeek: resolved.length,
     whatChanged: {
-      rows: sortRows(changeRows, 'furthest').slice(0, TOP_CHANGES),
+      // One row per series (ADR-229), the cluster part of the series.
+      rows: sortRows(
+        oncePerSeries(changeRows, (r) => r.cluster.id),
+        'furthest',
+      ).slice(0, TOP_CHANGES),
       total: changePeriods.length,
       learning: all
         .filter((c) => learningOfCluster.get(c.id)?.learning !== false)

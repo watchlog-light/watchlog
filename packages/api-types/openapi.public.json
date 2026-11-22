@@ -12144,6 +12144,11 @@
                                 "description": "How far out it went: distance from usual in spreads"
                               },
                               "peakAt": { "type": "string", "format": "date-time" },
+                              "more": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Other changes of the same series in the window: the list shows a series once, its strongest current change (ADR-229)"
+                              },
                               "cluster": {
                                 "type": "object",
                                 "required": ["id", "name", "kind"],
@@ -13108,7 +13113,12 @@
                             "type": "number",
                             "description": "How far out it went: distance from usual in spreads"
                           },
-                          "peakAt": { "type": "string", "format": "date-time" }
+                          "peakAt": { "type": "string", "format": "date-time" },
+                          "more": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "Other changes of the same series in the window: the list shows a series once, its strongest current change (ADR-229)"
+                          }
                         }
                       },
                       "maxItems": 50

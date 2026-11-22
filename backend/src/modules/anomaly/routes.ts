@@ -86,6 +86,13 @@ export const RowSchema = Type.Object({
   value: Type.Number({ description: 'The latest value while it lasts, the furthest once ended' }),
   peakScore: Type.Number({ description: 'How far out it went: distance from usual in spreads' }),
   peakAt: DateTime,
+  more: Type.Optional(
+    Type.Integer({
+      minimum: 1,
+      description:
+        'Other changes of the same series in the window: the list shows a series once, its strongest current change (ADR-229)',
+    }),
+  ),
 });
 
 const Count = Type.Optional(Type.Integer({ minimum: 1 }));

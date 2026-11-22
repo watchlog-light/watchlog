@@ -39194,6 +39194,11 @@
                           "peakAt": {
                             "type": "string",
                             "format": "date-time"
+                          },
+                          "more": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "Other changes of the same series in the window: the list shows a series once, its strongest current change (ADR-229)"
                           }
                         }
                       },
@@ -40995,6 +41000,11 @@
                               "peakAt": {
                                 "type": "string",
                                 "format": "date-time"
+                              },
+                              "more": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Other changes of the same series in the window: the list shows a series once, its strongest current change (ADR-229)"
                               },
                               "cluster": {
                                 "type": "object",

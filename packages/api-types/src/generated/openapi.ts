@@ -13963,6 +13963,8 @@ export interface paths {
                 peakScore: number;
                 /** Format: date-time */
                 peakAt: string;
+                /** @description Other changes of the same series in the window: the list shows a series once, its strongest current change (ADR-229) */
+                more?: number;
               }[];
               total: number;
               truncated: boolean;
@@ -14577,6 +14579,8 @@ export interface paths {
                   peakScore: number;
                   /** Format: date-time */
                   peakAt: string;
+                  /** @description Other changes of the same series in the window: the list shows a series once, its strongest current change (ADR-229) */
+                  more?: number;
                   cluster: {
                     /** Format: uuid */
                     id: string;
