@@ -351,7 +351,8 @@ export async function applyObservations(
           recentFirings: recentBy.get(fp) ?? 0,
         });
         if (res.action === 'insert' || res.action === 'update') {
-          const { heldBy: _was, ...details } = res.episode.details;
+          const details = { ...res.episode.details };
+          delete details.heldBy;
           res.episode.details = under ? { ...details, heldBy: under } : details;
           if (under) res.episode.silenced = silenced(res.episode.labels, res.episode.severity);
         }
