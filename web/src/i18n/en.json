@@ -4971,7 +4971,8 @@
       "label": "What left its usual range",
       "usual": "Usual:",
       "now": "now",
-      "furthest": "furthest"
+      "furthest": "furthest",
+      "more": "and 1 more change in this window | and {n} more changes in this window"
     },
     "more": "and {n} more",
     "context": {
@@ -6041,7 +6042,8 @@
       "why": "Usually {usual}; now {value}.",
       "empty": "Nothing has left its usual range in the last 24 hours, in any cluster or fleet.",
       "learning": "Still learning: {names}.",
-      "allLearning": "Every cluster and fleet is still learning its usual range."
+      "allLearning": "Every cluster and fleet is still learning its usual range.",
+      "more": "and 1 more change in 24 h | and {n} more changes in 24 h"
     },
     "chores": {
       "title": "Housekeeping",

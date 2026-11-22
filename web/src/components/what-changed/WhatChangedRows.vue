@@ -31,6 +31,8 @@ const view = computed(() =>
     name: objectName(r.object),
     metric: metricText(r, tr),
     context: objectContext(r.object, tr),
+    // A series is listed once (ADR-229): its other changes in the window, counted.
+    more: r.more ?? 0,
     usual: rangeText(r.usualLow, r.usualHigh, r.unit),
     now: valueText(r.value, r.unit),
     ended: r.until !== null,
@@ -85,6 +87,12 @@ const view = computed(() =>
             class="ml-2 font-sans text-12 text-text-subtle max-md:block max-md:ml-0"
             data-testid="wc-context"
             >{{ r.context }}</span
+          >
+          <span
+            v-if="r.more"
+            class="ml-2 font-sans text-12 text-text-subtle max-md:block max-md:ml-0"
+            data-testid="wc-more"
+            >{{ $t('whatChanged.rows.more', { n: r.more }, r.more) }}</span
           >
         </span>
         <span

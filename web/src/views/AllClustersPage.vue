@@ -538,6 +538,9 @@ const learningNames = computed(() =>
                   >{{ changeView(r, tr).title }}</RouterLink
                 >
                 <span class="text-13 text-text-muted">{{ changeView(r, tr).why }}</span>
+                <span v-if="r.more" class="text-12 text-text-subtle" data-testid="ac-change-more">{{
+                  $t('allClusters.changes.more', { n: r.more }, r.more)
+                }}</span>
               </span>
               <span
                 class="shrink-0 rounded-[6px] border border-border bg-surface-2 px-2 py-0.5 text-12 text-text-muted"
