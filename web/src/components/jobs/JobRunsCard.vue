@@ -95,7 +95,7 @@ const clock = (unix: number) => {
 const tickLabel = (unix: number) => {
   const d = new Date(unix * 1000);
   return range.value === '7d'
-    ? d.toLocaleDateString('en', { weekday: 'short', day: 'numeric' })
+    ? d.toLocaleDateString('en', { weekday: 'short' })
     : d.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false });
 };
 /** "systemd timer · demo-server", "cron · /etc/cron.d/php · demo-server", "CronJob in shop". */
@@ -131,7 +131,7 @@ const link = (j: ScheduledJob) => ({
   query: j.node ? { node: j.node } : {},
 });
 const columns =
-  'grid-cols-[minmax(11rem,1.3fr)_minmax(10rem,1.1fr)_minmax(12rem,2.2fr)_minmax(9rem,1fr)_6.5rem_1rem]';
+  'grid-cols-[minmax(15.5rem,1.4fr)_minmax(10rem,1fr)_minmax(12rem,2fr)_minmax(9rem,1fr)_6.5rem_1rem]';
 </script>
 
 <template>
@@ -182,7 +182,7 @@ const columns =
             :key="tk.at"
             :class="[
               'absolute top-0 font-mono text-12 font-normal tracking-normal whitespace-nowrap text-text-subtle',
-              (narrow && i % 2 === 1) || Math.abs(tk.pct - now) < (narrow ? 12 : 7) ? 'hidden' : '',
+              (narrow && i % 2 === 1) || Math.abs(tk.pct - now) < 14 ? 'hidden' : '',
             ]"
             :style="{
               left: `${tk.pct}%`,

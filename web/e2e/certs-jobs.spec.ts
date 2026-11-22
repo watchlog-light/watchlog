@@ -4,7 +4,8 @@
 // phone menu, the collapsed rail's dot), the Overview's "Running here" row, the first-find card
 // (shown once, then gone after ×), both timelines with their range switches (remembered after a
 // reload), a mark opening its run, the old /applications/... URLs redirecting with their query,
-// search's status lines, and the layout checks on every page.
+// search's status lines, and the layout checks on every page. 0.13.1: the Scheduled jobs
+// page is one list (no job twice), with the not-running row, the hatch and the range.
 //
 // Against a running dashboard whose cluster and fleet have certificates and jobs (the agents'
 // inventory, or the same snapshots posted to /ingest/v1/objects). The Overview's metrics and
@@ -177,7 +178,7 @@ for (const place of PLACES) {
         for (const k of [
           'watchlog.sidebarCollapsed',
           'watchlog.certTimeline.range',
-          'watchlog.runTimeline.range',
+          'watchlog.jobRuns.range',
         ])
           localStorage.removeItem(k);
       });
@@ -289,48 +290,81 @@ for (const place of PLACES) {
       await label.click();
       await expect(page).toHaveURL(/\/certificates\/[0-9a-f]{16}/);
 
-      // ---- Scheduled jobs: the run timeline, its range, the filter, a mark opens its run --
+      // ---- Scheduled jobs: one list, its range, the filter, the not-running row (0.13.1) ----
       await page.goto(`/scheduled-jobs?${q}`);
-      const rt = page.getByTestId('run-timeline-card');
-      await expect(rt.getByTestId('run-lane').first()).toBeVisible();
-      await expect(rt.getByRole('button', { name: '24 h' })).toHaveAttribute(
+      const list = page.getByTestId('job-runs');
+      const rows = list.getByTestId('job-row');
+      await expect(rows.first()).toBeVisible();
+      await expect(list.getByRole('button', { name: '24 h' })).toHaveAttribute(
         'aria-pressed',
         'true',
       );
-      // Problems first.
-      await expect(rt.getByTestId('run-lane').first()).toHaveAttribute('data-state', 'failed');
-      await expect(rt.getByTestId('run-mark').first()).toHaveAttribute('aria-label', /.+/);
+      // One list: no other table or timeline, and no job twice on the page.
+      await expect(page.getByTestId('job-list')).toHaveCount(1);
+      await expect(page.getByTestId('run-timeline-card')).toHaveCount(0);
+      const names = await page.getByTestId('job-name').allTextContents();
+      expect(new Set(names).size).toBe(names.length);
+      // Need attention first; rows are one link at least 44 px tall.
+      await expect(rows.first()).toHaveAttribute('data-state', /failed|missed|slow/);
+      const box = await rows.first().getByRole('link').boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+      await expect(list.getByTestId('run-strip').first()).toHaveAttribute('aria-label', /.+/);
       expect(
-        await rt.locator('[data-testid="run-mark"][data-kind="next"]').count(),
+        await list.locator('[data-testid="run-mark"][data-kind="next"]').count(),
       ).toBeGreaterThan(0);
+      // Not running: one collapsed row that opens to their reasons, not counted as attention.
+      const toggle = list.getByTestId('not-running-toggle');
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(list.getByTestId('not-running')).toBeHidden();
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      await expect(list.getByTestId('not-running-why').first()).toBeVisible();
+      if (place.kind === 'server') {
+        await expect(toggle).toHaveText(/2 not running: all disabled/);
+        await expect(list.getByTestId('not-running')).toContainText(
+          'Disabled: no cron daemon on db-1',
+        );
+        // Watched for 5 hours: the strips are hatched before, and the card says so.
+        expect(await list.getByTestId('run-hatch').count()).toBeGreaterThan(0);
+        await expect(list.getByTestId('watched-for')).toHaveText(
+          'WatchLog has watched this fleet for 5 hours',
+        );
+        // A random delay: "around … (up to 4 h later)" and its faint window.
+        await expect(
+          rows.filter({ hasText: 'dpkg-db-backup.timer' }).getByTestId('job-next'),
+        ).toHaveText(/^next around .+ \(up to 4 h later\)$/);
+        // Schedules in words, the raw expression in the tooltip.
+        const pg = rows.filter({ hasText: 'pg_dump' }).getByTestId('job-schedule');
+        await expect(pg).toHaveText('Daily at 04:00');
+        await expect(pg).toHaveAttribute('title', '0 4 * * *');
+      } else {
+        await expect(toggle).toHaveText(/1 not running: suspended/);
+        await expect(list.getByTestId('run-hatch')).toHaveCount(0);
+        await expect(list.getByTestId('watched-for')).toHaveCount(0);
+      }
       await layoutOk(page, `${tag} scheduled jobs`);
       await shot(page, `${tag}-jobs`);
-      await rt.getByRole('button', { name: '7 days' }).click();
-      await expect(rt.getByRole('button', { name: '7 days' })).toHaveAttribute(
+      await list.getByRole('button', { name: '7 days' }).click();
+      await expect(list.getByRole('button', { name: '7 days' })).toHaveAttribute(
         'aria-pressed',
         'true',
       );
       await page.reload();
       await expect(
-        page.getByTestId('run-timeline-card').getByRole('button', { name: '7 days' }),
+        page.getByTestId('job-runs').getByRole('button', { name: '7 days' }),
       ).toHaveAttribute('aria-pressed', 'true');
       await layoutOk(page, `${tag} scheduled jobs 7 d`);
       await shot(page, `${tag}-jobs-7d`);
-      await page.getByTestId('run-timeline-card').getByRole('button', { name: '6 h' }).click();
+      await page.getByTestId('job-runs').getByRole('button', { name: '6 h' }).click();
       await shot(page, `${tag}-jobs-6h`);
-      // The table's filter filters the lanes.
-      const all = await page.getByTestId('run-lane').count();
+      // The filter filters the one list.
+      const all = await page.getByTestId('job-row').count();
       await page.getByTestId('job-filter').filter({ hasText: 'Need attention' }).click();
-      await expect.poll(() => page.getByTestId('run-lane').count()).toBeLessThan(all);
+      await expect.poll(() => page.getByTestId('job-row').count()).toBeLessThan(all);
       await page.getByTestId('job-filter').filter({ hasText: /^All/ }).click();
-      if (place.kind === 'server') {
-        // A past mark opens the job at that run, highlighted.
-        await page.getByTestId('run-timeline-card').getByRole('button', { name: '24 h' }).click();
-        const mark = page.locator('[data-testid="run-mark"]:not([data-kind="next"])').first();
-        await mark.click({ force: true });
-        await expect(page).toHaveURL(/\/scheduled-jobs\/[0-9a-f]{16}\?.*run=\d+/);
-        await expect(page.locator('[data-testid="run-row"][aria-current="true"]')).toHaveCount(1);
-      }
+      // A row opens the job.
+      await page.getByTestId('job-row').first().getByRole('link').click();
+      await expect(page).toHaveURL(/\/scheduled-jobs\/[0-9a-f]{16}/);
 
       // ---- The old URLs redirect, keeping the query --------------------------------------
       await page.goto(`/applications/certificates?${q}&show=attention`);
