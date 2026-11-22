@@ -117,10 +117,15 @@ for (const width of [1440, 390]) {
     await layoutOk(page, `kubernetes ${width} no clear cause`);
     await shot(page, `kubernetes-${width}-no-cause`);
 
-    // WatchLog's own parts: off, then on again; remembered.
+    // WatchLog's own parts: off, then on again; remembered. (On a phone the map folds after
+    // 6 groups, so the own group may be among "N more": the series count says it is back.)
+    const title = page.locator('#wc-map-title');
+    const hiddenTitle = (await title.textContent()) ?? '';
     await page.getByTestId('wc-own').click();
     await expect(page.getByTestId('wc-own')).toHaveAttribute('aria-pressed', 'false');
-    await expect(page.getByTestId('wc-map')).toContainText('watchlog/watchlog-backend');
+    await expect(title).not.toHaveText(hiddenTitle);
+    if (width >= 1024)
+      await expect(page.getByTestId('wc-map')).toContainText('watchlog/watchlog-backend');
     await shot(page, `kubernetes-${width}-own-shown`);
     await page.reload();
     await expect(page.getByTestId('wc-own')).toHaveAttribute('aria-pressed', 'false');

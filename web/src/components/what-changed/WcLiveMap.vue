@@ -4,7 +4,8 @@ import type { WhatChangedLive } from '@watchlog/api-types';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
-import { liveMap, type MapCell } from '@/lib/what-changed-live';
+import { useNarrow } from '@/composables/useNarrow';
+import { liveMap, MAP_GROUPS, MAP_GROUPS_PHONE, type MapCell } from '@/lib/what-changed-live';
 import { metricText, rangeText, valueText } from '@/lib/what-changed';
 
 // The live map (0.14.0, ADR-231): every scored series as one small square, grouped by workload
@@ -22,7 +23,15 @@ const { t } = useI18n();
 const route = useRoute();
 const tr = (k: string, v?: Record<string, unknown>, n?: number) =>
   n === undefined ? t(k, v ?? {}) : t(k, v ?? {}, n);
-const map = computed(() => liveMap(props.live?.series ?? [], props.kind, props.hideOwn));
+const narrow = useNarrow();
+const map = computed(() =>
+  liveMap(
+    props.live?.series ?? [],
+    props.kind,
+    props.hideOwn,
+    narrow.value ? MAP_GROUPS_PHONE : MAP_GROUPS,
+  ),
+);
 
 const CELL: Record<string, string> = {
   'inside-0': 'bg-ok/15',
@@ -97,26 +106,29 @@ const moreLabel = computed(() =>
         aria-hidden="true"
       />
       <div
-        class="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-x-6 gap-y-2.5 max-md:grid-cols-1"
+        class="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-x-6 gap-y-2.5 max-md:grid-cols-1 max-md:gap-y-0"
       >
         <div
           v-for="g in map.groups"
           :key="g.key"
-          :class="['flex min-w-0 flex-col gap-1', focus && focus !== g.key ? 'opacity-40' : '']"
+          :class="[
+            'flex min-w-0 flex-col gap-1 max-md:flex-row max-md:items-center max-md:gap-3',
+            focus && focus !== g.key ? 'opacity-40' : '',
+          ]"
           data-testid="wc-map-group"
           :data-outside="g.outside"
         >
           <RouterLink
             :to="focusLink(g.key)"
             :class="[
-              'block truncate font-mono text-12 hover:underline max-lg:py-3.5',
+              'block truncate font-mono text-12 hover:underline max-lg:py-3.5 max-md:w-[45%] max-md:shrink-0',
               g.outside ? 'text-warning-text' : 'text-text-muted',
             ]"
             :title="g.name"
             >{{ g.name }}</RouterLink
           >
           <span
-            class="flex flex-wrap gap-0.75"
+            class="flex flex-wrap gap-0.75 max-md:min-w-0 max-md:flex-1"
             role="img"
             :aria-label="
               $t('whatChanged.map.groupAria', {
@@ -140,7 +152,11 @@ const moreLabel = computed(() =>
             />
           </span>
         </div>
-        <div v-if="map.folded" class="flex min-w-0 flex-col gap-1" data-testid="wc-map-folded">
+        <div
+          v-if="map.folded"
+          class="flex min-w-0 flex-col gap-1 max-md:py-2"
+          data-testid="wc-map-folded"
+        >
           <span class="font-mono text-12 text-text-subtle">{{ moreLabel }}</span>
           <span class="flex flex-wrap gap-0.75" aria-hidden="true">
             <span

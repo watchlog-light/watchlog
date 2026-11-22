@@ -4,7 +4,7 @@
 // outside). Kubernetes: by workload ("shop/backend"), nodes by name. A Server fleet: by server,
 // each server's services, process groups and containers right after it ("postgres · db-1").
 // Groups with something outside come first, then near the edge; past 14 groups the rest fold
-// into "16 more". WatchLog's own parts drop out when hidden. Pure: the page gives the series.
+// into "16 more" (past 6 on a phone, so the story is near the top). WatchLog's own parts drop out when hidden. Pure: the page gives the series.
 import type { WhatChangedLive } from '@watchlog/api-types';
 
 export type LiveSeries = WhatChangedLive['series'][number];
@@ -12,6 +12,8 @@ export type LiveState = LiveSeries['state'];
 
 /** Groups shown before the rest fold. */
 export const MAP_GROUPS = 14;
+/** On a phone, so the map doesn't push the story below the first screen. */
+export const MAP_GROUPS_PHONE = 6;
 
 export interface MapCell {
   id: string;
@@ -66,6 +68,7 @@ export function liveMap(
   series: LiveSeries[],
   kind: 'kubernetes' | 'server',
   hideOwn: boolean,
+  limit = MAP_GROUPS,
 ): LiveMap {
   const own = series.filter((s) => s.own).length;
   const shown = hideOwn ? series.filter((s) => !s.own) : series;
@@ -108,8 +111,8 @@ export function liveMap(
   });
   const counts = { inside: 0, near: 0, outside: 0 };
   for (const s of shown) counts[s.state]++;
-  const kept = groups.slice(0, MAP_GROUPS);
-  const rest = groups.slice(MAP_GROUPS);
+  const kept = groups.slice(0, limit);
+  const rest = groups.slice(limit);
   return {
     groups: kept,
     folded: rest.length ? { groups: rest.length, cells: rest.flatMap((g) => g.cells) } : null,

@@ -6,7 +6,7 @@
 import type { WhatChangedClause, WhatChangedLive } from '@watchlog/api-types';
 import { describe, expect, it } from 'vitest';
 import { createAppI18n } from '@/i18n';
-import { checkedAgo, liveMap, MAP_GROUPS } from '@/lib/what-changed-live';
+import { checkedAgo, liveMap, MAP_GROUPS, MAP_GROUPS_PHONE } from '@/lib/what-changed-live';
 import {
   changeCauseText,
   chartBands,
@@ -110,6 +110,10 @@ describe('the live map', () => {
     expect(m.groups).toHaveLength(MAP_GROUPS);
     expect(m.folded).toEqual({ groups: 4, cells: expect.any(Array) });
     expect(m.folded!.cells).toHaveLength(4);
+    // On a phone it folds after 6.
+    const phone = liveMap(many, 'kubernetes', true, MAP_GROUPS_PHONE);
+    expect(phone.groups).toHaveLength(6);
+    expect(phone.folded!.groups).toBe(MAP_GROUPS + 4 - 6);
   });
 
   it('"checked 12 s ago" from the worker’s last minute', () => {
