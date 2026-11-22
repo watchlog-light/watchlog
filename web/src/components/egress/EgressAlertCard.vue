@@ -32,6 +32,11 @@ const target = computed(() =>
 const source = computed(() => egressSourceOf(props.alert));
 const sourceQuery = computed(() => egressQueryOf(props.alert));
 const isNew = computed(() => props.alert.rule.key === 'egress.new_destination');
+/** A source's one alert for every new destination (ADR-229): the list, newest first. */
+const listed = computed(() => props.alert.destinations ?? []);
+const count = computed(() => props.alert.destinationCount ?? listed.value.length);
+const named = (d: { destination: string; port: number }) =>
+  d.port ? `${d.destination}:${d.port}` : d.destination;
 
 const same = (r: EgressRow) => r.destination === destination.value && r.port === port.value;
 const page = useLoader(async () => {
@@ -132,6 +137,28 @@ const bytes = (r: EgressRow) =>
         </dd>
       </div>
     </dl>
+
+    <div v-if="count > 1" class="flex flex-col gap-2" data-testid="egress-alert-list">
+      <h4 class="text-13 font-semibold text-text">
+        {{ $t('egress.alert.listTitle', { n: count }) }}
+      </h4>
+      <ul class="flex flex-col divide-y divide-border rounded-control border border-border">
+        <li
+          v-for="d in listed"
+          :key="named(d)"
+          class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2"
+          data-testid="egress-alert-list-item"
+        >
+          <code class="min-w-0 font-mono text-12 break-all text-text">{{ named(d) }}</code>
+          <span class="text-12 text-text-muted tabular">{{
+            $t('egress.alert.firstSeenAt', { at: formatDateTime(d.firstSeen) })
+          }}</span>
+        </li>
+      </ul>
+      <p v-if="count > listed.length" class="text-12 text-text-subtle">
+        {{ $t('egress.alert.listMore', { n: count - listed.length }) }}
+      </p>
+    </div>
 
     <p
       v-if="page.data.value?.row?.expected"

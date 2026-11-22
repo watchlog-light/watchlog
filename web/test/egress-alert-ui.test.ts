@@ -26,6 +26,7 @@ import { createPlugins } from './helpers';
 const NOW = Date.UTC(2026, 10, 15, 11, 15, 0);
 const H = 3_600_000;
 const D = 24 * H;
+const HOUR = 3_600_000;
 const iso = (agoMs: number) => new Date(NOW - agoMs).toISOString();
 const K8S = { id: '01a1de8d-e52d-7188-9878-62ee5fd5309d', name: 'acme-prod', kind: 'kubernetes' };
 const FLEET = { id: '01a1de8d-e52d-7188-9878-62ee5fd5309e', name: 'edge-fleet', kind: 'server' };
@@ -214,7 +215,7 @@ describe('Where it talks, on the alert detail', () => {
       `/egress?cluster=${K8S.id}&namespace=shop&kind=Deployment&workload=orders&q=cdn-update-check.xyz`,
     );
     expect(w.get('[data-testid="egress-alert-quiet"]').text()).toBe(
-      'Why this alert is quiet most of the time: it waited 7 days to learn what acme-prod normally talks to, and stays silent for anything marked expected. One alert per workload and destination.',
+      'Why this alert is quiet most of the time: it waited 7 days to learn what acme-prod normally talks to, and stays silent for anything marked expected. One alert per workload: while it is open, each new destination joins it, and it resolves after 24 hours without traffic to any of them.',
     );
 
     // Mark expected for this workload only (the alert's source is the only one offered).
@@ -337,5 +338,72 @@ describe('View alert on the Egress page', () => {
       '/alerts/01a19300-0000-7000-8000-000000000005',
     ]);
     expect(links[0]!.text()).toBe('View alert');
+  });
+});
+
+describe('a source\'s one "New external destination" alert (ADR-229)', () => {
+  it('lists every destination, newest first, with its first-seen time', async () => {
+    mockFetch({
+      [get(K8S.id, {
+        namespace: 'shop',
+        kind: 'Deployment',
+        workload: 'orders',
+        q: 'mirror-3.example.net',
+      })]: {
+        status: 200,
+        body: answer([row('mirror-3.example.net')]),
+      },
+      [get(K8S.id, { q: 'mirror-3.example.net' })]: {
+        status: 200,
+        body: answer([row('mirror-3.example.net')]),
+      },
+    });
+    const w = await mountWith(EgressAlertCard, {
+      alert: alert({
+        labels: { ...KUBE_LABELS, destination: 'mirror-3.example.net' },
+        cluster: K8S,
+        destinationCount: 3,
+        destinations: [
+          { destination: 'mirror-3.example.net', port: 443, firstSeen: iso(HOUR) },
+          { destination: 'mirror-2.example.net', port: 443, firstSeen: iso(2 * HOUR) },
+          { destination: 'mirror-1.example.net', port: 443, firstSeen: iso(3 * HOUR) },
+        ],
+      }),
+      now: NOW,
+    });
+    const list = w.get('[data-testid="egress-alert-list"]');
+    expect(list.text()).toContain('New destinations (3)');
+    const items = w
+      .findAll('[data-testid="egress-alert-list-item"]')
+      .map((i) => i.get('code').text());
+    expect(items).toEqual([
+      'mirror-3.example.net:443',
+      'mirror-2.example.net:443',
+      'mirror-1.example.net:443',
+    ]);
+    expect(w.findAll('[data-testid="egress-alert-list-item"]')[0]!.text()).toContain('first seen');
+  });
+
+  it('shows no list for a single destination', async () => {
+    mockFetch({
+      [get(K8S.id, {
+        namespace: 'shop',
+        kind: 'Deployment',
+        workload: 'orders',
+        q: 'cdn-update-check.xyz',
+      })]: {
+        status: 200,
+        body: answer([row('cdn-update-check.xyz')]),
+      },
+      [get(K8S.id, { q: 'cdn-update-check.xyz' })]: {
+        status: 200,
+        body: answer([row('cdn-update-check.xyz')]),
+      },
+    });
+    const w = await mountWith(EgressAlertCard, {
+      alert: alert({ labels: KUBE_LABELS, cluster: K8S }),
+      now: NOW,
+    });
+    expect(w.find('[data-testid="egress-alert-list"]').exists()).toBe(false);
   });
 });

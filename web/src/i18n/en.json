@@ -4916,8 +4916,11 @@
       "loadError": "Couldn't load the traffic for this destination.",
       "expected": "Expected · {pattern}. The alert resolves at the next check.",
       "expectedResolved": "Expected · {pattern}.",
-      "quiet": "Why this alert is quiet most of the time: it waited {days} days to learn what {cluster} normally talks to, and stays silent for anything marked expected. One alert per {unit} and destination.",
-      "stillAlerts": "Marking a destination expected doesn't silence Raw IP or Large upload: an expected name doesn't make a raw address or a large upload expected."
+      "quiet": "Why this alert is quiet most of the time: it waited {days} days to learn what {cluster} normally talks to, and stays silent for anything marked expected. One alert per {unit}: while it is open, each new destination joins it, and it resolves after 24 hours without traffic to any of them.",
+      "stillAlerts": "Marking a destination expected doesn't silence Raw IP or Large upload: an expected name doesn't make a raw address or a large upload expected.",
+      "listTitle": "New destinations ({n})",
+      "firstSeenAt": "first seen {at}",
+      "listMore": "and {n} older, not listed"
     }
   },
   "whatChanged": {
