@@ -1,0 +1,37 @@
+WatchLog Enterprise Licence
+
+Copyright (c) 2026 WatchLog. All rights reserved.
+
+This licence covers every file in the ee/ directory of the WatchLog repository (the
+"Enterprise code"), each marked SPDX-License-Identifier: LicenseRef-WatchLog-Enterprise.
+Everything outside ee/ is licensed under the GNU Affero General Public License, version 3
+(see the LICENSE file at the root of the repository), and this licence does not change that.
+
+1. Reading and changing. You may read the Enterprise code, copy it for your own study, and
+   change it, for example to fix a problem or try an idea, on your own systems.
+
+2. Using it in production. You may run the Enterprise code, changed or not, to monitor
+   systems you or your organisation operate only while you hold a valid WatchLog Enterprise
+   licence key for that installation, and only within what the key allows (its features,
+   its units and its end date). Without a valid key, the Enterprise code stays switched off,
+   and you may not change it or WatchLog so that it runs anyway.
+
+3. Development and testing. You may run the Enterprise code without a key to develop and
+   test changes, in environments that do not monitor production systems.
+
+4. No redistribution. You may not sell, rent, sublicense, publish, host for others or
+   otherwise pass on the Enterprise code or your changes to it, on their own or as part of
+   another product or service, except back to WatchLog as a contribution.
+
+5. Contributions. If you send WatchLog a change to the Enterprise code, you allow WatchLog to
+   use it under any licence, including this one.
+
+6. No warranty. The Enterprise code is provided as it is, without warranty of any kind, to
+   the extent the law allows. WatchLog is not liable for any damage arising from its use,
+   except as the law requires or as a separate written agreement with you says.
+
+7. Ending. This licence ends for you if you break it; you must then stop using the
+   Enterprise code. A separate written agreement with WatchLog takes precedence over this
+   text where the two differ.
+
+Contact: see https://watchlog.io/enterprise

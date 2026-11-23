@@ -22,6 +22,8 @@ import {
   setAnomalyGate,
 } from './modules/anomaly/alerts.js';
 import { hasWhatChanged } from './modules/anomaly/gate.js';
+import { LICENSE_JOBS_EVERY_MS, runLicenseJobs } from './modules/license/jobs.js';
+import { LicenseService } from './modules/license/service.js';
 import { AlertWorker } from './modules/alerts/worker.js';
 import { runApiTokenJobs, TOKEN_JOBS_EVERY_MS } from './modules/api-tokens/jobs.js';
 import { EntitlementsService } from './modules/entitlements/service.js';
@@ -103,7 +105,9 @@ const funnel = cloud ? new FunnelRecorder(db, log) : null;
 const victoria = metricsClient(config, entitlements, log);
 // Anomaly alerts (ADR-200): only orgs with What changed (Pro in Cloud, the demo's org) get the
 // rule and its alerts; Community never. The keys that may alert come from the setting.
-const whatChanged = (orgId: string) => hasWhatChanged(config, entitlements, orgId);
+// Self-hosted Enterprise (ADR-232): a licence with `pro` turns What changed on for every org.
+const license = new LicenseService({ config, db });
+const whatChanged = (orgId: string) => hasWhatChanged(config, entitlements, orgId, license);
 setAnomalyGate(whatChanged);
 try {
   setAnomalyAlertKeys(parseAlertKeys(process.env.WATCHLOG_ANOMALY_ALERT_KEYS));
@@ -223,8 +227,11 @@ const worker = new AlertWorker({
   evaluators: lookupEvaluator,
   prepareOrg: async (orgId) => {
     await ensureDefaultRules(db, orgId);
-    // Community and demo-less installs never read an entitlement or write the anomaly rule.
-    if (cloud || config.demoMode) await ensureAnomalyRule(db, orgId, await whatChanged(orgId));
+    // Community without a licence key never reads an entitlement or writes the anomaly rule;
+    // with one, the rule follows the licence (on while it works, off when it ends).
+    if (cloud || config.demoMode || (await license.configured())) {
+      await ensureAnomalyRule(db, orgId, await whatChanged(orgId));
+    }
   },
   victoria,
   retentionDays: config.alertRetentionDays,
@@ -244,6 +251,21 @@ const worker = new AlertWorker({
     },
     ...egressTasks,
     ...cloudTasks,
+    // Self-hosted with a licence key (ADR-232): the units it counts, and the one reminder.
+    ...(cloud
+      ? []
+      : [
+          {
+            name: 'license',
+            everyMs: LICENSE_JOBS_EVERY_MS,
+            run: async (now: number) => {
+              await runLicenseJobs(
+                { db, license, settings: () => settings.alerting(), log, edition: config.edition },
+                now,
+              );
+            },
+          },
+        ]),
   ],
 });
 const server = await worker.listen(config.host, config.workerPort).catch((err: Error) => {

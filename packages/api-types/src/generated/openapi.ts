@@ -11,7 +11,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Liveness check */
+    /** Liveness check, the version and the edition */
     get: {
       parameters: {
         query?: never;
@@ -31,6 +31,537 @@ export interface paths {
               /** @enum {string} */
               status: 'ok';
               version: string;
+              /** @description Enterprise once a WatchLog licence key is set (ADR-232) */
+              edition: 'community' | 'enterprise' | 'cloud';
+              /** @description A licence is set and works now; never its key or customer */
+              licensed: boolean;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/license': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** This installation's Enterprise licence: who it is for, its state and units */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              source: 'env' | 'file' | 'setting' | 'none';
+              /** @description A pasted key is set, but the environment wins */
+              shadowed: boolean;
+              fileError: string | null;
+              state: 'valid' | 'expiring' | 'grace' | 'expired' | 'invalid' | 'none';
+              reason: string;
+              license: {
+                id: string;
+                customer: string;
+                /** @enum {string} */
+                edition: 'enterprise';
+                units: number;
+                features: string[];
+                /** Format: date-time */
+                issuedAt: string;
+                /** Format: date-time */
+                expiresAt: string;
+                /** Format: date-time */
+                graceEndsAt: string;
+              } | null;
+              units: {
+                /** @description The highest daily count of the last 7 days */
+                used: number;
+                limit: number;
+                over: boolean;
+                overSince: string | null;
+                overDays: number;
+                closedSince: string | null;
+                parts: {
+                  [key: string]: number;
+                };
+              } | null;
+              banners: (
+                | {
+                    /** @enum {string} */
+                    kind: 'invalid';
+                    reason: string;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'ended';
+                    endedOn: string;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'grace';
+                    endedOn: string;
+                    stopsOn: string;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'expiring';
+                    endsOn: string;
+                    days: number;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'over';
+                    used: number;
+                    limit: number;
+                    closedSince: string | null;
+                  }
+              )[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    /** Paste a licence key: checked offline at once, kept when it works */
+    put: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            key: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              source: 'env' | 'file' | 'setting' | 'none';
+              /** @description A pasted key is set, but the environment wins */
+              shadowed: boolean;
+              fileError: string | null;
+              state: 'valid' | 'expiring' | 'grace' | 'expired' | 'invalid' | 'none';
+              reason: string;
+              license: {
+                id: string;
+                customer: string;
+                /** @enum {string} */
+                edition: 'enterprise';
+                units: number;
+                features: string[];
+                /** Format: date-time */
+                issuedAt: string;
+                /** Format: date-time */
+                expiresAt: string;
+                /** Format: date-time */
+                graceEndsAt: string;
+              } | null;
+              units: {
+                /** @description The highest daily count of the last 7 days */
+                used: number;
+                limit: number;
+                over: boolean;
+                overSince: string | null;
+                overDays: number;
+                closedSince: string | null;
+                parts: {
+                  [key: string]: number;
+                };
+              } | null;
+              banners: (
+                | {
+                    /** @enum {string} */
+                    kind: 'invalid';
+                    reason: string;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'ended';
+                    endedOn: string;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'grace';
+                    endedOn: string;
+                    stopsOn: string;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'expiring';
+                    endsOn: string;
+                    days: number;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'over';
+                    used: number;
+                    limit: number;
+                    closedSince: string | null;
+                  }
+              )[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        422: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail: string;
+              state: 'valid' | 'expiring' | 'grace' | 'expired' | 'invalid' | 'none';
+            };
+          };
+        };
+      };
+    };
+    post?: never;
+    /** Remove the pasted licence key: licensed features turn off, nothing is deleted */
+    delete: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              source: 'env' | 'file' | 'setting' | 'none';
+              /** @description A pasted key is set, but the environment wins */
+              shadowed: boolean;
+              fileError: string | null;
+              state: 'valid' | 'expiring' | 'grace' | 'expired' | 'invalid' | 'none';
+              reason: string;
+              license: {
+                id: string;
+                customer: string;
+                /** @enum {string} */
+                edition: 'enterprise';
+                units: number;
+                features: string[];
+                /** Format: date-time */
+                issuedAt: string;
+                /** Format: date-time */
+                expiresAt: string;
+                /** Format: date-time */
+                graceEndsAt: string;
+              } | null;
+              units: {
+                /** @description The highest daily count of the last 7 days */
+                used: number;
+                limit: number;
+                over: boolean;
+                overSince: string | null;
+                overDays: number;
+                closedSince: string | null;
+                parts: {
+                  [key: string]: number;
+                };
+              } | null;
+              banners: (
+                | {
+                    /** @enum {string} */
+                    kind: 'invalid';
+                    reason: string;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'ended';
+                    endedOn: string;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'grace';
+                    endedOn: string;
+                    stopsOn: string;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'expiring';
+                    endsOn: string;
+                    days: number;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'over';
+                    used: number;
+                    limit: number;
+                    closedSince: string | null;
+                  }
+              )[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/license/summary': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The edition and whether Pro features are on, for the dashboard */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              edition: 'community' | 'enterprise';
+              /** @description A licence is set and works now (valid, expiring, grace) */
+              licensed: boolean;
+              /** @description Pro features are on for this installation */
+              pro: boolean;
+              endedOn: string | null;
+              customer: string | null;
+              /** @description Owners only; empty for everyone else */
+              banners: (
+                | {
+                    /** @enum {string} */
+                    kind: 'invalid';
+                    reason: string;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'ended';
+                    endedOn: string;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'grace';
+                    endedOn: string;
+                    stopsOn: string;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'expiring';
+                    endsOn: string;
+                    days: number;
+                  }
+                | {
+                    /** @enum {string} */
+                    kind: 'over';
+                    used: number;
+                    limit: number;
+                    closedSince: string | null;
+                  }
+              )[];
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
             };
           };
         };

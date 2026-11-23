@@ -6,13 +6,14 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from 'typebox';
 import type { Config } from '../../config.js';
 import type { Database } from '../../db/index.js';
-import { ProblemType, sendProblem } from '../../lib/problem.js';
+import { sendProblem } from '../../lib/problem.js';
 import type { VictoriaQueryClient } from '../../lib/victoria.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import { requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { causeReader, problemSubject, wantsCause, type CausesService } from '../causes/likely.js';
-import { allClustersExists, hasAllClusters, maxRangeOf } from './gate.js';
+import { proAccess, sendProRefusal } from '../license/pro.js';
+import { maxRangeOf } from './gate.js';
 import { AllClustersSchema } from './schemas.js';
 import { buildSummary, filterKind, NOT_REPORTING, RANGES, type Kind } from './service.js';
 
@@ -57,16 +58,9 @@ export const allClustersRoutes: FastifyPluginAsyncTypebox<{
       },
     },
     async (request, reply) => {
-      if (!allClustersExists(config)) return sendProblem(reply, 404, 'Not Found');
       const orgId = request.user!.org.id;
-      if (!(await hasAllClusters(config, app.entitlements, orgId))) {
-        return sendProblem(
-          reply,
-          403,
-          'All clusters and fleets is part of Pro',
-          ProblemType.proFeature,
-        );
-      }
+      const access = await proAccess(config, app.license, orgId, app.entitlements);
+      if (!access.ok) return sendProRefusal(reply, access, 'All clusters and fleets');
       const range = Number(request.query.range ?? 86_400);
       const maxRange = await maxRangeOf(config, app.entitlements, orgId);
       if (range > maxRange) {

@@ -227,3 +227,44 @@ export function settingsTestEmail(): EmailSpec {
     },
   };
 }
+
+/** A self-hosted Enterprise licence ends in 30 days or fewer (ADR-232): one email per key. */
+export function licenseExpiringEmail(l: {
+  customer: string;
+  expiresAt: Date;
+  graceEndsAt: Date;
+  units: number;
+  site?: string | null;
+}): EmailSpec {
+  const date = day(l.expiresAt);
+  const url = at(l.site, '/settings?tab=license');
+  return {
+    kind: 'info',
+    subject: `Your WatchLog licence ends on ${date}`,
+    preheader: 'Ask us for a new key before then; nothing is deleted either way.',
+    title: `Your WatchLog Enterprise licence ends on ${date}`,
+    intro: [
+      `The licence for ${l.customer} ends on ${date}. Licensed features keep working for 14 more days, until ${day(l.graceEndsAt)}, then turn off.`,
+      'Monitoring, alerts and everything in Community keep working, and nothing is deleted: a new key turns the licensed features back on with their data.',
+    ],
+    facts: [
+      { label: 'Licensed to', value: l.customer },
+      { label: 'Ends', value: when(l.expiresAt) },
+      { label: 'Features stop', value: when(l.graceEndsAt) },
+      { label: 'Units', value: String(l.units) },
+    ],
+    list: {
+      ordered: true,
+      items: [
+        'Write to us for a new key (reply to your licence email, or use the contact page).',
+        'Paste it in Settings › License, or set WATCHLOG_LICENSE where WatchLog runs.',
+      ],
+    },
+    button: url ? { label: 'Open Settings › License', url } : null,
+    note: ['This is the only reminder for this key.'],
+    footer: {
+      why: 'You got this because you are an Owner of this WatchLog installation.',
+      manage: 'The licence is in Settings › License.',
+    },
+  };
+}

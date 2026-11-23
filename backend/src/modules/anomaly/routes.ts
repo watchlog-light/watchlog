@@ -21,7 +21,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Type } from 'typebox';
 import type { Config } from '../../config.js';
 import type { Database } from '../../db/index.js';
-import { ProblemType, sendProblem } from '../../lib/problem.js';
+import { sendProblem } from '../../lib/problem.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { DEMO_MAX_RANGE_S } from '../../plugins/demo.js';
 import { ProblemSchema } from '../auth/schemas.js';
@@ -31,7 +31,7 @@ import { parseSubject } from '../causes/subject.js';
 import { clusterForOrg } from '../clusters/service.js';
 import { PUBLIC_TAG } from '../../openapi/public.js';
 import type { VictoriaQueryClient } from '../../lib/victoria.js';
-import { hasWhatChanged, whatChangedExists } from './gate.js';
+import { proAccess, sendProRefusal } from '../license/pro.js';
 import { isOwnSeries, liveView, ownParts } from './live.js';
 import { buildStory, changeView, recentEpisodes, type BuiltStory } from './story-build.js';
 import { readChanges } from './story-read.js';
@@ -328,14 +328,12 @@ export const whatChangedRoutes: FastifyPluginAsyncTypebox<{
 
   /** The gate every route here shares: the route exists, the org has it, the cluster is its own. */
   async function gate(request: FastifyRequest, reply: FastifyReply, clusterId: string) {
-    // Community: no such route (ADR-202), so its API is unchanged.
-    if (!whatChangedExists(config)) {
-      sendProblem(reply, 404, 'Not Found');
-      return null;
-    }
+    // Community without a licence: no such route (ADR-202), so its API is unchanged. A
+    // licence that ended: 403 `license-ended` (ADR-232).
     const orgId = request.user!.org.id;
-    if (!(await hasWhatChanged(config, app.entitlements, orgId))) {
-      sendProblem(reply, 403, 'What changed is part of Pro', ProblemType.proFeature);
+    const access = await proAccess(config, app.license, orgId, app.entitlements);
+    if (!access.ok) {
+      sendProRefusal(reply, access, 'What changed');
       return null;
     }
     const row = await clusterForOrg(db, orgId, clusterId);

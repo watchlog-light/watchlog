@@ -37,6 +37,10 @@ import { onboardingRoutes } from './modules/onboarding/routes.js';
 import { installManifestRoutes } from './modules/onboarding/cloud-routes.js';
 import { installScriptRoutes } from './modules/onboarding/install-script.js';
 import { healthRoutes } from './modules/health/routes.js';
+import { licenseRoutes } from './modules/license/routes.js';
+import { eeHost, registerEe } from './ee.js';
+import type { EeBackendModule } from './ee-contract.js';
+import { LicenseService } from './modules/license/service.js';
 import { setupRoutes } from './modules/setup/routes.js';
 import type { SetupState } from './modules/setup/service.js';
 import { registerCsrfProtection } from './plugins/csrf.js';
@@ -134,12 +138,18 @@ export interface AppDeps {
   entitlements?: EntitlementsService;
   /** Test hook: the clock of the egress read's "New" badge and default range (ADR-188). */
   now?: () => number;
+  /** Test hook: the licence's trust list and clock (ADR-232); never set in production. */
+  licenseTest?: { trusted: readonly string[]; now?: () => number };
+  /** Test hook: Enterprise modules instead of those found in ee/backend (ADR-232). */
+  eeModules?: EeBackendModule[];
 }
 
 declare module 'fastify' {
   interface FastifyInstance {
     /** Cloud's entitlements and limits (ADR-177); null in Community (no row, no checks). */
     entitlements: EntitlementsService | null;
+    /** The installation's Enterprise licence (ADR-232); Cloud's never has one. */
+    license: LicenseService;
   }
 }
 
@@ -184,6 +194,9 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   const entitlements =
     config.edition === 'cloud' ? (deps.entitlements ?? new EntitlementsService(systemDb)) : null;
   app.decorate('entitlements', entitlements);
+  // Self-hosted Enterprise (ADR-232): the licence every Pro gate reads (proFeatures).
+  const license = new LicenseService({ config, db: deps.db, ...(deps.licenseTest ?? {}) });
+  app.decorate('license', license);
   // Cloud's funnel (ADR-179): written under each event's org, on the request path's pool.
   app.decorate(
     'funnel',
@@ -292,7 +305,17 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
 
   await app.register(
     async (api) => {
-      await api.register(healthRoutes, { version: config.version });
+      await api.register(healthRoutes, {
+        version: config.version,
+        edition: config.edition,
+        license,
+      });
+      await api.register(licenseRoutes, {
+        db: deps.db,
+        license,
+        config,
+        ...(deps.now ? { now: deps.now } : {}),
+      });
       await api.register(setupRoutes, {
         setup: deps.setup,
         systemDb,
@@ -404,6 +427,9 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         settings,
         secretKey: config.secretKey,
       });
+      // Enterprise modules (ee/backend, ADR-232), if ee/ is there: each route behind its
+      // licence feature, read per request. Without ee/ nothing is imported or logged.
+      await registerEe(api, eeHost(config, license, entitlements, app.log), deps.eeModules);
       // The public API only (ADR-126): routes tagged `public`, with the bearer scheme.
       let spec: Record<string, unknown> | undefined;
       api.get(
@@ -420,7 +446,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       db: deps.db,
       version: config.version,
       callsPerMinute: config.apiTokenLimits.mcpCallsPerMinute,
-      whatChanged: whatChangedExists(config),
+      whatChanged: () => whatChangedExists(config, license),
       ...(config.demoMode
         ? {
             demo: {

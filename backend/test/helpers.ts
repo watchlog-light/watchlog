@@ -57,11 +57,13 @@ export async function createTestContext(
       | 'serviceReads'
       | 'fetch'
       | 'now'
+      | 'licenseTest'
+      | 'eeModules'
     >
   > = {},
 ): Promise<TestContext> {
   const db = createDb(inject('databaseUrl'));
-  await sql`TRUNCATE orgs, users, memberships, sessions, clusters, cluster_tokens, retired_cluster_tokens, agent_instances, objects, alert_worker_heartbeats, alerting_periods, secret_key_check, server_settings CASCADE`.execute(
+  await sql`TRUNCATE orgs, users, memberships, sessions, clusters, cluster_tokens, retired_cluster_tokens, agent_instances, objects, alert_worker_heartbeats, alerting_periods, secret_key_check, server_settings, license_notices, usage_hourly CASCADE`.execute(
     db,
   );
   const setup = new SetupState(() => TEST_SETUP_CODE);

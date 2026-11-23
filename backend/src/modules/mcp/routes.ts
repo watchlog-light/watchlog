@@ -22,8 +22,11 @@ export interface McpRoutesOptions {
   /** In demo mode: the public token's limits per visitor and in total (ADR-130). */
   demo?: DemoMcpLimits;
   now?: () => Date;
-  /** Cloud or the live demo: get_what_changed is registered (ADR-202). */
-  whatChanged?: boolean;
+  /**
+   * Whether get_what_changed and get_all_clusters are registered (ADR-202, ADR-232): Cloud,
+   * the live demo, or a licence with `pro`; asked on each request, as a key can be pasted.
+   */
+  whatChanged?: boolean | (() => Promise<boolean>);
 }
 
 type LimitResult = Awaited<ReturnType<ReturnType<FastifyInstance['createRateLimit']>>>;
@@ -78,7 +81,7 @@ export async function registerMcpRoutes(
         now,
         log: app.log,
         funnel: app.funnel,
-        whatChanged: opts.whatChanged ?? false,
+        whatChanged: false,
       }),
     {
       legacy: 'stateless',
@@ -128,6 +131,10 @@ export async function registerMcpRoutes(
           : { allowed: true };
       },
       logCalls: !token.public,
+      whatChanged:
+        typeof opts.whatChanged === 'function'
+          ? await opts.whatChanged().catch(() => false)
+          : (opts.whatChanged ?? false),
     };
     const authInfo: AuthInfo = {
       token: token.prefix,

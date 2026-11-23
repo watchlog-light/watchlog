@@ -67,6 +67,12 @@ export interface McpRequestContext {
   >;
   /** Calls go to the call log; not the demo's public token's (ADR-130). */
   logCalls: boolean;
+  /**
+   * This request's answer to "do get_what_changed and get_all_clusters exist here" (Cloud,
+   * the demo, a licence with `pro`; ADR-232): read per request, so a key pasted in Settings
+   * lists them on the next call. Falls back to the deps' flag.
+   */
+  whatChanged?: boolean;
 }
 
 export interface McpServerDeps {
@@ -84,9 +90,9 @@ export interface McpServerDeps {
 export function buildMcpServer(ctx: McpRequestContext, deps: McpServerDeps): McpServer {
   const server = new McpServer(
     { name: 'watchlog', title: 'WatchLog', version: deps.version },
-    { instructions: serverInstructions(deps.whatChanged) },
+    { instructions: serverInstructions(ctx.whatChanged ?? deps.whatChanged) },
   );
-  for (const tool of toolsFor(deps.whatChanged ?? false)) {
+  for (const tool of toolsFor(ctx.whatChanged ?? deps.whatChanged ?? false)) {
     server.registerTool(
       tool.name,
       {

@@ -267,7 +267,7 @@ describe('the demo entitlement (ADR-203)', () => {
     const pro = await orgWith('kubernetes', 'pro');
     // The demo: no entitlement row at all, and What changed all the same.
     const bare = await orgWith('kubernetes');
-    expect(whatChangedExists(demo)).toBe(true);
+    expect(await whatChangedExists(demo)).toBe(true);
     expect(workerRefusal(demo)).toBeNull();
     expect(await hasWhatChanged(demo, null, bare.orgId)).toBe(true);
     expect(await entitledOrgs(demo, db)).toContain(bare.orgId);

@@ -39,6 +39,15 @@ const ingest: RouteClass = { kind: 'ingest' };
 const mcp: RouteClass = { kind: 'mcp' };
 const cloud: RouteClass = { kind: 'cloud' };
 
+/**
+ * Routes of ee/'s modules (ADR-232), classified here but present only with ee/: the suite
+ * checks them when they exist and doesn't miss them when ee/ is deleted.
+ */
+export const EE_ROUTES: Record<string, RouteClass> = {
+  // The placeholder (feature `network`): no org data at all.
+  'GET /api/v1/ee/placeholder': org,
+};
+
 export const ROUTES: Record<string, RouteClass> = {
   'GET /api/v1/health': pub,
   'GET /api/v1/setup': pub,
@@ -251,6 +260,11 @@ export const ROUTES: Record<string, RouteClass> = {
   'POST /api/v1/alert-channels/:id/test': org,
   'POST /api/v1/alert-channels/:id/telegram/connect': org,
 
+  // The Enterprise licence (ADR-232): the installation's, Community only.
+  'GET /api/v1/license': installation,
+  'PUT /api/v1/license': installation,
+  'DELETE /api/v1/license': installation,
+  'GET /api/v1/license/summary': installation,
   'GET /api/v1/settings/general': installation,
   'PUT /api/v1/settings/general': installation,
   'GET /api/v1/settings/namespaces': pub,

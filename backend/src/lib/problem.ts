@@ -39,6 +39,11 @@ export const ProblemType = {
   confirmMismatch: 'urn:watchlog:problem:confirm-mismatch',
   /** Cloud: a Pro feature (What changed, ADR-202) asked for by an org without it. */
   proFeature: 'urn:watchlog:problem:pro-feature',
+  /**
+   * Self-hosted: a Pro feature whose Enterprise licence ended (after the grace days, ADR-232);
+   * the detail says when, and the data is kept for a new key.
+   */
+  licenseEnded: 'urn:watchlog:problem:license-ended',
 } as const;
 export type ProblemType = (typeof ProblemType)[keyof typeof ProblemType];
 

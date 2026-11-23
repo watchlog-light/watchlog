@@ -12,6 +12,8 @@ export const GLOBAL_TABLES = [
   'recovery_codes',
   // The installation's settings (ADR-093); in Cloud the operator's, their routes 404.
   'server_settings',
+  // The installation's licence (ADR-232): the one reminder each key gets.
+  'license_notices',
   // The secret key's canary (ADR-133).
   'secret_key_check',
   // The alert workers' own state (ADR-088).

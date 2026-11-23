@@ -11684,7 +11684,7 @@
     },
     "/api/v1/health": {
       "get": {
-        "summary": "Liveness check",
+        "summary": "Liveness check, the version and the edition",
         "tags": ["system"],
         "responses": {
           "200": {
@@ -11693,10 +11693,22 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["status", "version"],
+                  "required": ["status", "version", "edition", "licensed"],
                   "properties": {
                     "status": { "type": "string", "enum": ["ok"] },
-                    "version": { "type": "string" }
+                    "version": { "type": "string" },
+                    "edition": {
+                      "anyOf": [
+                        { "type": "string", "enum": ["community"] },
+                        { "type": "string", "enum": ["enterprise"] },
+                        { "type": "string", "enum": ["cloud"] }
+                      ],
+                      "description": "Enterprise once a WatchLog licence key is set (ADR-232)"
+                    },
+                    "licensed": {
+                      "type": "boolean",
+                      "description": "A licence is set and works now; never its key or customer"
+                    }
                   }
                 }
               }

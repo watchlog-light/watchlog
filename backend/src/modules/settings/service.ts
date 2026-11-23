@@ -18,7 +18,7 @@ export interface AlertingSettings {
   telegramProxy?: string;
 }
 
-export type SettingKey = 'general' | 'smtp' | 'telegram' | 'namespaces' | 'logs';
+export type SettingKey = 'general' | 'smtp' | 'telegram' | 'namespaces' | 'logs' | 'license';
 
 /** Who may read container logs on demand (ADR-167): every role by default. */
 export type LogsAccess = 'all' | 'admins' | 'off';

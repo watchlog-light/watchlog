@@ -37,6 +37,8 @@ const SYSTEM_DB: Record<string, string> = {
     "ingest's node limit: each org's recent agents, read before a request's org is bound to a query",
   'modules/entitlements/service.ts':
     'the entitlements cache, read across orgs by ingest and the metrics tiers; the internal API writes it',
+  'modules/license/jobs.ts':
+    "a licensed install's hourly units (ADR-232): self-hosted only, where the app's connection is the owner's",
   'modules/entitlements/usage.ts':
     "the usage job lists the orgs with agents in the hour; each org's row is written withOrg",
   'modules/funnel/day7.ts':

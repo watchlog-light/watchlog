@@ -695,6 +695,12 @@ export interface SeedServices {
   seed_key: string;
 }
 
+export interface LicenseNotices {
+  kind: string;
+  license_id: string;
+  sent_at: Generated<Timestamp>;
+}
+
 export interface ServerSettings {
   key: string;
   secret: string | null;
@@ -994,6 +1000,7 @@ export interface DB {
   scheduled_jobs: ScheduledJobs;
   secret_key_check: SecretKeyCheck;
   seed_services: SeedServices;
+  license_notices: LicenseNotices;
   server_settings: ServerSettings;
   recovery_codes: RecoveryCodes;
   sessions: Sessions;

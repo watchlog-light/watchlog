@@ -10,7 +10,7 @@
   "paths": {
     "/api/v1/health": {
       "get": {
-        "summary": "Liveness check",
+        "summary": "Liveness check, the version and the edition",
         "tags": ["system", "public"],
         "responses": {
           "200": {
@@ -19,7 +19,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["status", "version"],
+                  "required": ["status", "version", "edition", "licensed"],
                   "properties": {
                     "status": {
                       "type": "string",
@@ -27,6 +27,1483 @@
                     },
                     "version": {
                       "type": "string"
+                    },
+                    "edition": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["community"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["enterprise"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["cloud"]
+                        }
+                      ],
+                      "description": "Enterprise once a WatchLog licence key is set (ADR-232)"
+                    },
+                    "licensed": {
+                      "type": "boolean",
+                      "description": "A licence is set and works now; never its key or customer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/license": {
+      "get": {
+        "summary": "This installation's Enterprise licence: who it is for, its state and units",
+        "tags": ["license"],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "source",
+                    "shadowed",
+                    "fileError",
+                    "state",
+                    "reason",
+                    "license",
+                    "units",
+                    "banners"
+                  ],
+                  "properties": {
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["env"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["file"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["setting"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["none"]
+                        }
+                      ]
+                    },
+                    "shadowed": {
+                      "type": "boolean",
+                      "description": "A pasted key is set, but the environment wins"
+                    },
+                    "fileError": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["valid"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["expiring"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["grace"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["expired"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["invalid"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["none"]
+                        }
+                      ]
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "license": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "customer",
+                            "edition",
+                            "units",
+                            "features",
+                            "issuedAt",
+                            "expiresAt",
+                            "graceEndsAt"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "customer": {
+                              "type": "string"
+                            },
+                            "edition": {
+                              "type": "string",
+                              "enum": ["enterprise"]
+                            },
+                            "units": {
+                              "type": "integer"
+                            },
+                            "features": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "issuedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "graceEndsAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "units": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "used",
+                            "limit",
+                            "over",
+                            "overSince",
+                            "overDays",
+                            "closedSince",
+                            "parts"
+                          ],
+                          "properties": {
+                            "used": {
+                              "type": "integer",
+                              "description": "The highest daily count of the last 7 days"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "over": {
+                              "type": "boolean"
+                            },
+                            "overSince": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "overDays": {
+                              "type": "integer"
+                            },
+                            "closedSince": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "description": "After 30 days over: no new places from this day"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "parts": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "banners": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": ["kind", "reason"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["invalid"]
+                              },
+                              "reason": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "endedOn"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["ended"]
+                              },
+                              "endedOn": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "endedOn", "stopsOn"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["grace"]
+                              },
+                              "endedOn": {
+                                "type": "string"
+                              },
+                              "stopsOn": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "endsOn", "days"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["expiring"]
+                              },
+                              "endsOn": {
+                                "type": "string"
+                              },
+                              "days": {
+                                "type": "integer"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "used", "limit", "closedSince"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["over"]
+                              },
+                              "used": {
+                                "type": "integer"
+                              },
+                              "limit": {
+                                "type": "integer"
+                              },
+                              "closedSince": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Paste a licence key: checked offline at once, kept when it works",
+        "tags": ["license"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["key"],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "source",
+                    "shadowed",
+                    "fileError",
+                    "state",
+                    "reason",
+                    "license",
+                    "units",
+                    "banners"
+                  ],
+                  "properties": {
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["env"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["file"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["setting"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["none"]
+                        }
+                      ]
+                    },
+                    "shadowed": {
+                      "type": "boolean",
+                      "description": "A pasted key is set, but the environment wins"
+                    },
+                    "fileError": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["valid"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["expiring"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["grace"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["expired"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["invalid"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["none"]
+                        }
+                      ]
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "license": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "customer",
+                            "edition",
+                            "units",
+                            "features",
+                            "issuedAt",
+                            "expiresAt",
+                            "graceEndsAt"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "customer": {
+                              "type": "string"
+                            },
+                            "edition": {
+                              "type": "string",
+                              "enum": ["enterprise"]
+                            },
+                            "units": {
+                              "type": "integer"
+                            },
+                            "features": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "issuedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "graceEndsAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "units": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "used",
+                            "limit",
+                            "over",
+                            "overSince",
+                            "overDays",
+                            "closedSince",
+                            "parts"
+                          ],
+                          "properties": {
+                            "used": {
+                              "type": "integer",
+                              "description": "The highest daily count of the last 7 days"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "over": {
+                              "type": "boolean"
+                            },
+                            "overSince": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "overDays": {
+                              "type": "integer"
+                            },
+                            "closedSince": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "description": "After 30 days over: no new places from this day"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "parts": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "banners": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": ["kind", "reason"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["invalid"]
+                              },
+                              "reason": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "endedOn"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["ended"]
+                              },
+                              "endedOn": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "endedOn", "stopsOn"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["grace"]
+                              },
+                              "endedOn": {
+                                "type": "string"
+                              },
+                              "stopsOn": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "endsOn", "days"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["expiring"]
+                              },
+                              "endsOn": {
+                                "type": "string"
+                              },
+                              "days": {
+                                "type": "integer"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "used", "limit", "closedSince"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["over"]
+                              },
+                              "used": {
+                                "type": "integer"
+                              },
+                              "limit": {
+                                "type": "integer"
+                              },
+                              "closedSince": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status", "detail", "state"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["valid"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["expiring"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["grace"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["expired"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["invalid"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["none"]
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove the pasted licence key: licensed features turn off, nothing is deleted",
+        "tags": ["license"],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "source",
+                    "shadowed",
+                    "fileError",
+                    "state",
+                    "reason",
+                    "license",
+                    "units",
+                    "banners"
+                  ],
+                  "properties": {
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["env"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["file"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["setting"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["none"]
+                        }
+                      ]
+                    },
+                    "shadowed": {
+                      "type": "boolean",
+                      "description": "A pasted key is set, but the environment wins"
+                    },
+                    "fileError": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["valid"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["expiring"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["grace"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["expired"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["invalid"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["none"]
+                        }
+                      ]
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "license": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "customer",
+                            "edition",
+                            "units",
+                            "features",
+                            "issuedAt",
+                            "expiresAt",
+                            "graceEndsAt"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "customer": {
+                              "type": "string"
+                            },
+                            "edition": {
+                              "type": "string",
+                              "enum": ["enterprise"]
+                            },
+                            "units": {
+                              "type": "integer"
+                            },
+                            "features": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "issuedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "graceEndsAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "units": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "used",
+                            "limit",
+                            "over",
+                            "overSince",
+                            "overDays",
+                            "closedSince",
+                            "parts"
+                          ],
+                          "properties": {
+                            "used": {
+                              "type": "integer",
+                              "description": "The highest daily count of the last 7 days"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "over": {
+                              "type": "boolean"
+                            },
+                            "overSince": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "overDays": {
+                              "type": "integer"
+                            },
+                            "closedSince": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "description": "After 30 days over: no new places from this day"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "parts": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "banners": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": ["kind", "reason"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["invalid"]
+                              },
+                              "reason": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "endedOn"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["ended"]
+                              },
+                              "endedOn": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "endedOn", "stopsOn"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["grace"]
+                              },
+                              "endedOn": {
+                                "type": "string"
+                              },
+                              "stopsOn": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "endsOn", "days"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["expiring"]
+                              },
+                              "endsOn": {
+                                "type": "string"
+                              },
+                              "days": {
+                                "type": "integer"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "used", "limit", "closedSince"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["over"]
+                              },
+                              "used": {
+                                "type": "integer"
+                              },
+                              "limit": {
+                                "type": "integer"
+                              },
+                              "closedSince": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/license/summary": {
+      "get": {
+        "summary": "The edition and whether Pro features are on, for the dashboard",
+        "tags": ["license"],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["edition", "licensed", "pro", "endedOn", "customer", "banners"],
+                  "properties": {
+                    "edition": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["community"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["enterprise"]
+                        }
+                      ]
+                    },
+                    "licensed": {
+                      "type": "boolean",
+                      "description": "A licence is set and works now (valid, expiring, grace)"
+                    },
+                    "pro": {
+                      "type": "boolean",
+                      "description": "Pro features are on for this installation"
+                    },
+                    "endedOn": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "The licence with pro ended on this day"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "customer": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Owners only; null for everyone else"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "banners": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": ["kind", "reason"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["invalid"]
+                              },
+                              "reason": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "endedOn"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["ended"]
+                              },
+                              "endedOn": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "endedOn", "stopsOn"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["grace"]
+                              },
+                              "endedOn": {
+                                "type": "string"
+                              },
+                              "stopsOn": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "endsOn", "days"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["expiring"]
+                              },
+                              "endsOn": {
+                                "type": "string"
+                              },
+                              "days": {
+                                "type": "integer"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["kind", "used", "limit", "closedSince"],
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": ["over"]
+                              },
+                              "used": {
+                                "type": "integer"
+                              },
+                              "limit": {
+                                "type": "integer"
+                              },
+                              "closedSince": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "description": "Owners only; empty for everyone else"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
                     }
                   }
                 }

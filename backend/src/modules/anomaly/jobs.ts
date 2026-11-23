@@ -80,6 +80,11 @@ export interface AnomalyDeps {
    * demo's 14, everywhere else 0, so learning starts at the upgrade (ADR-203, ADR-204).
    */
   lookBackDays?: number;
+  /**
+   * A licensed install 30 days over its units (ADR-232): from this time no new cluster or
+   * fleet is taken on; those with a baseline from before keep being scored. Null: open.
+   */
+  closedSince?: () => Promise<number | null>;
   log: AnomalyLogger;
 }
 
@@ -138,16 +143,30 @@ export async function syncOrgs(deps: AnomalyDeps, nowMs: number): Promise<Map<st
 /** Every Kubernetes and Docker cluster of the entitled orgs. */
 async function targets(deps: AnomalyDeps, orgs: Map<string, number>): Promise<Target[]> {
   const out: Target[] = [];
+  const closed = (await deps.closedSince?.()) ?? null;
   for (const [orgId, learningSince] of orgs) {
     await withOrg(orgId, async () => {
       for (const { id } of await listClusters(deps.db, orgId)) {
         const c = await clusterForOrg(deps.db, orgId, id);
         if (!c || (c.kind !== 'kubernetes' && c.kind !== 'server')) continue;
+        if (closed !== null && !(await coveredBefore(deps.db, id, closed))) continue;
         out.push({ orgId, learningSince, clusterId: id, kind: c.kind, scope: c.scope });
       }
     });
   }
   return out;
+}
+
+/** Whether a cluster was already taken on (a baseline first seen) before a time. */
+async function coveredBefore(db: Database, clusterId: string, ms: number): Promise<boolean> {
+  const row = await db
+    .selectFrom('anomaly_baselines')
+    .select('cluster_id')
+    .where('cluster_id', '=', clusterId)
+    .where('first_seen', '<', new Date(ms))
+    .limit(1)
+    .executeTakeFirst();
+  return !!row;
 }
 
 async function eachTarget(

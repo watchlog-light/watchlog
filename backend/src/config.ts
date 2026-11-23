@@ -61,6 +61,12 @@ export interface Config {
   /** Read-only public demo (ADR-122): passwordless viewer sessions, every change refused. */
   demoMode: boolean;
   /**
+   * The Enterprise licence (ADR-232), self-hosted only: WATCHLOG_LICENSE (the key) or
+   * WATCHLOG_LICENSE_FILE (a path, read on each check). Either wins over a key pasted in
+   * Settings → License. Cloud ignores both: it uses entitlements.
+   */
+  license: { key?: string; file?: string };
+  /**
    * The demo's shared answer cache and load shedding (ADR-206), read only in demo mode:
    * the cache bucket in seconds (5–60), its size in MiB (8–256), and the cache misses to the
    * VictoriaMetrics-backed routes that may run at once (1–256) before the next gets 503.
@@ -434,6 +440,11 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   ] as const) {
     if (v !== undefined && !URL.canParse(v)) throw new Error(`Invalid ${name}: ${v}`);
   }
+  const licenseKey = env.WATCHLOG_LICENSE?.trim() || undefined;
+  const licenseFile = env.WATCHLOG_LICENSE_FILE?.trim() || undefined;
+  if (licenseKey && licenseFile) {
+    throw new Error('Set WATCHLOG_LICENSE or WATCHLOG_LICENSE_FILE, not both');
+  }
   const bootstrapToken = env.WATCHLOG_BOOTSTRAP_CLUSTER_TOKEN;
   if (bootstrapToken !== undefined && !/^wl_ct_[A-Za-z0-9_-]{43}$/.test(bootstrapToken)) {
     throw new Error('Invalid WATCHLOG_BOOTSTRAP_CLUSTER_TOKEN: expected wl_ct_ and 43 characters');
@@ -471,6 +482,13 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
       no: env.NO_PROXY ?? env.no_proxy,
     },
     demoMode: demoMode === 'true',
+    license:
+      edition === 'cloud'
+        ? {}
+        : {
+            ...(licenseKey ? { key: licenseKey } : {}),
+            ...(licenseFile ? { file: licenseFile } : {}),
+          },
     demoCache,
     clientIpHeader: env.WATCHLOG_CLIENT_IP_HEADER,
     clientCountryHeader: env.WATCHLOG_CLIENT_COUNTRY_HEADER,

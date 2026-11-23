@@ -18,14 +18,14 @@ import { sql } from 'kysely';
 import { Type } from 'typebox';
 import type { Config } from '../../config.js';
 import type { Database } from '../../db/index.js';
-import { ProblemType, sendProblem } from '../../lib/problem.js';
+import { sendProblem } from '../../lib/problem.js';
 import type { VictoriaQueryClient } from '../../lib/victoria.js';
 import { requireRole, requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { clusterForOrg } from '../clusters/service.js';
 import { actorOf, audit } from '../users/service.js';
 import { ANOMALY_RULE_KEY } from './alerts.js';
-import { hasWhatChanged } from './gate.js';
+import { proAccess, proExists, sendProRefusal } from '../license/pro.js';
 import { INTEGRATION_KEYS, queriesFor, seriesHash, subjectOf, unitOf } from './keys.js';
 import { composeMap } from './exclusion.js';
 import { labelsOf, objectOf } from './read.js';
@@ -111,19 +111,16 @@ export const anomalyFeedbackRoutes: FastifyPluginAsyncTypebox<{
   const signedIn = requireUser();
   // Community: no such routes (ADR-202), whatever the role.
   const notCommunity = async (_req: FastifyRequest, reply: FastifyReply) => {
-    if (config.edition !== 'cloud' && !config.demoMode) return sendProblem(reply, 404, 'Not Found');
+    if (!(await proExists(config, app.license))) return sendProblem(reply, 404, 'Not Found');
   };
   const canManage = [signedIn, notCommunity, requireRole('owner', 'admin')];
 
   /** The org's anomaly alert with its period, or a problem sent. */
   async function load(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     const orgId = request.user!.org.id;
-    if (config.edition !== 'cloud' && !config.demoMode) {
-      sendProblem(reply, 404, 'Not Found');
-      return null;
-    }
-    if (!(await hasWhatChanged(config, app.entitlements, orgId))) {
-      sendProblem(reply, 403, 'What changed is part of Pro', ProblemType.proFeature);
+    const access = await proAccess(config, app.license, orgId, app.entitlements);
+    if (!access.ok) {
+      sendProRefusal(reply, access, 'What changed');
       return null;
     }
     const alert = await db

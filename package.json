@@ -9,8 +9,10 @@
   },
   "scripts": {
     "dev": "pnpm --parallel --filter @watchlog/backend --filter @watchlog/web dev",
-    "build": "pnpm -r build",
-    "lint": "eslint . && pnpm -r typecheck",
+    "build": "pnpm -r build && pnpm ee:build",
+    "lint": "eslint . && pnpm -r typecheck && pnpm ee:typecheck",
+    "ee:build": "node scripts/ee.mjs build",
+    "ee:typecheck": "node scripts/ee.mjs typecheck",
     "test": "pnpm -r test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -28,7 +28,7 @@ import {
   type SeededOrg,
 } from './cloud.js';
 import { GLOBAL_TABLES } from './tables.js';
-import { MCP_TOOLS, ROUTES, STREAMS, type RouteClass } from './classification.js';
+import { EE_ROUTES, MCP_TOOLS, ROUTES, STREAMS, type RouteClass } from './classification.js';
 
 let w: CloudWorld;
 let A: SeededOrg;
@@ -218,12 +218,14 @@ async function fingerprint(orgId: string): Promise<Record<string, string>> {
 describe('every REST route as org B with org A ids', () => {
   it('classifies every route of the route table, and none is gone', () => {
     const keys = w.routes.map((r) => r.key);
-    const unclassified = keys.filter((k) => !ROUTES[k]);
+    const all = { ...ROUTES, ...EE_ROUTES };
+    const unclassified = keys.filter((k) => !all[k]);
     expect(unclassified, 'classify these in test/isolation/classification.ts').toEqual([]);
+    // ee/'s routes may be absent (the core without ee/, ADR-232); the core's never are.
     expect(Object.keys(ROUTES).filter((k) => !keys.includes(k))).toEqual([]);
     // Cloud-only routes are classified `cloud`, and only they are.
     for (const r of w.routes) {
-      expect(ROUTES[r.key]!.kind === 'cloud', r.key).toBe(isCloudOnly(r.opts));
+      expect(all[r.key]!.kind === 'cloud', r.key).toBe(isCloudOnly(r.opts));
     }
   });
 

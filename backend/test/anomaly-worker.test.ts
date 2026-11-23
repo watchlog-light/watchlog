@@ -516,6 +516,77 @@ describe('gating (ADR-195, ADR-197, ADR-204)', () => {
     expect(run.stderr).toMatch(/anomaly-worker does not start: .*only in WatchLog Cloud/);
   });
 
+  it('a licensed install (ADR-232): the worker starts with a key; every org while it works, none once it ended', async () => {
+    expect(workerRefusal({ edition: 'community', demoMode: false }, true)).toBeNull();
+    const a = await orgWith('kubernetes', null);
+    const b = await orgWith('server', null);
+    const community = { edition: 'community' as const, demoMode: false };
+    const reader = (state: string, features = ['pro']) => ({
+      current: async () => ({
+        source: 'setting' as const,
+        shadowed: false,
+        check: {
+          state: state as never,
+          reason: '',
+          graceEndsAt: null,
+          payload: {
+            v: 1 as const,
+            id: newId(),
+            customer: 'Acme',
+            edition: 'enterprise' as const,
+            units: 5,
+            features,
+            issuedAt: '2026-01-01T00:00:00.000Z',
+            expiresAt: '2027-01-01T00:00:00.000Z',
+          },
+        },
+      }),
+    });
+    for (const state of ['valid', 'expiring', 'grace']) {
+      const listed = await entitledOrgs(community, db, reader(state));
+      expect(listed).toEqual(expect.arrayContaining([a.orgId, b.orgId]));
+      expect(await hasWhatChanged(community, null, a.orgId, reader(state))).toBe(true);
+    }
+    expect(await entitledOrgs(community, db, reader('expired'))).toEqual([]);
+    expect(await entitledOrgs(community, db, reader('valid', ['network']))).toEqual([]);
+    expect(await hasWhatChanged(community, null, a.orgId, reader('expired'))).toBe(false);
+  });
+
+  it('30 days over the licence’s units: no new cluster is taken on; the ones covered go on', async () => {
+    const { orgId, clusterId } = await orgWith(platforms[0]!.kind, null);
+    const vm = new FakeVictoria();
+    vm.series.set(clusterId, [fresh(platforms[0]!.main)]);
+    let closed: number | null = null;
+    const d: AnomalyDeps = { ...deps(vm, async () => [orgId]), closedSince: async () => closed };
+    await runAnomalyMinute(d, START);
+    await learn(d, START, START + 3 * HOUR);
+    // A fleet joins after the install has been over its units for 30 days.
+    closed = START + 3 * HOUR;
+    const late = newId();
+    await db
+      .insertInto('clusters')
+      .values({ id: late, org_id: orgId, name: 'late', kind: 'server' })
+      .execute();
+    vm.series.set(late, [fresh(platforms[1]!.main)]);
+    await learn(d, START + 3 * HOUR, START + 6 * HOUR);
+    const count = async (id: string) =>
+      Number(
+        (
+          await db
+            .selectFrom('anomaly_baselines')
+            .select((e) => e.fn.countAll().as('n'))
+            .where('cluster_id', '=', id)
+            .executeTakeFirstOrThrow()
+        ).n,
+      );
+    expect(await count(clusterId)).toBeGreaterThan(0);
+    expect(await count(late)).toBe(0);
+    // Back under: open again, the late fleet starts learning.
+    closed = null;
+    await learn(d, START + 6 * HOUR, START + 8 * HOUR);
+    expect(await count(late)).toBeGreaterThan(0);
+  });
+
   it('Cloud: only orgs with pro_features are scored; a Free org gets no rows', async () => {
     const pro = await orgWith('kubernetes', 'pro');
     const free = await orgWith('server', 'free');

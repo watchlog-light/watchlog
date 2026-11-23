@@ -32,6 +32,8 @@ export type AuditAction =
   | 'logs_read'
   // The user's own preferences (ADR-228): the dashboard's theme.
   | 'preferences_changed'
+  | 'license_set'
+  | 'license_removed'
   // Cloud (ADR-179): staff's writes through the internal admin API, and support mode.
   | 'staff_entitlements_set'
   | 'staff_org_suspended'

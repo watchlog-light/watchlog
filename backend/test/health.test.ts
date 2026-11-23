@@ -14,7 +14,12 @@ describe('backend app', () => {
   it('GET /api/v1/health returns ok with the version', async () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/api/v1/health' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ status: 'ok', version: '1.2.3-test' });
+    expect(res.json()).toEqual({
+      status: 'ok',
+      version: '1.2.3-test',
+      edition: 'community',
+      licensed: false,
+    });
   });
 
   it('unknown routes return an RFC 9457 problem', async () => {
