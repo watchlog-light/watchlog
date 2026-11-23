@@ -122,6 +122,15 @@ Each integration has its own page: [Redis](integrations/redis.md),
 [Traefik](integrations/traefik.md), [RabbitMQ](integrations/rabbitmq.md) and
 [Kafka](integrations/kafka.md).
 
+## Enterprise
+
+Add a licence key to turn on the Pro features (What changed, All clusters and fleets) on a
+self-hosted install: paste it in **Settings → License**, or set `WATCHLOG_LICENSE`. It is
+checked offline and works air-gapped. With Docker Compose also set
+`COMPOSE_PROFILES=enterprise` in `.env` for What changed's worker; with Helm,
+`license.key` and `anomalyWorker.enabled=true`. Units, expiry and the rest are in
+[Enterprise licence](license.md).
+
 ## Upgrade
 
 Upgrades never need manual steps.

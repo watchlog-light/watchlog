@@ -14,9 +14,10 @@ on "unusual for a Tuesday at 14:00 UTC", with no threshold to write.
 It is statistics only, worked out inside WatchLog: a median and a spread for each hour of the
 week. Nothing is sent to an AI, and the same data always gives the same answer.
 
-**What changed is part of Pro** in [WatchLog Cloud](cloud.md). Cloud Free and the self-hosted
-Community edition see an upgrade page in its place (below); everything else stays free on every
-plan, including alerts, the service map, probable cause and [Egress watch](egress.md).
+**What changed is part of Pro** in [WatchLog Cloud](cloud.md), and on a self-hosted install with
+an [Enterprise licence](license.md) key (since 0.15.0). Cloud Free and the self-hosted Community
+edition see an upgrade page in its place (below); everything else stays free on every plan,
+including alerts, the service map, probable cause and [Egress watch](egress.md).
 
 ## How the usual range is learned
 
@@ -334,12 +335,14 @@ listed. The anomaly alert's page and "Was this worth an alert?" need a browser s
 
 ## Configuration
 
-Nothing to set: the anomaly-worker runs in WatchLog Cloud, and agents send nothing new.
+Nothing to set in Cloud: the anomaly-worker runs there, and agents send nothing new. A
+self-hosted install with an [Enterprise licence](license.md) runs it with `COMPOSE_PROFILES=enterprise`
+(Docker Compose) or `anomalyWorker.enabled=true` (Helm); learning starts when the key is added.
 
 - **`anomalyWorker.enabled`** (Helm chart `watchlog`, default `false`; requests 50m and 128Mi,
   memory limit 512Mi): the separate process that learns the baselines and records unusual
-  periods. It runs only in Cloud mode or with `demoMode` (the live demo), and exits at start
-  anywhere else, so a self-hosted install needs nothing here. See
+  periods. It runs in Cloud mode, with `demoMode` (the live demo) or with a licence key, and
+  exits at start anywhere else, so a Community install needs nothing here. See
   [Configuration](configuration.md).
 - **`WATCHLOG_ANOMALY_ALERT_KEYS`** (the alert worker, Cloud mode): which metrics may raise an
   anomaly alert, as a comma-separated list with `*` as a wildcard and `!` to leave out. The
@@ -348,7 +351,8 @@ Nothing to set: the anomaly-worker runs in WatchLog Cloud, and agents send nothi
 
 ## Limits
 
-- **Pro only,** in WatchLog Cloud (and the live demo). No self-hosted install runs it.
+- **Pro only,** in WatchLog Cloud, the live demo, and self-hosted with an
+  [Enterprise licence](license.md). A Community install doesn't run it.
 - **Not correlation:** the episode is ordered by time, and an arrow means only that a call or a
   node or server joins two series. The one cause it names is a change linked by the rule above,
   or probable cause's own.

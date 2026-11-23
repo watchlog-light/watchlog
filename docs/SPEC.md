@@ -105,7 +105,7 @@ _Not part of the public specification._
 | Air-gapped install, offline license | — | — | — | ✓ |
 | Support | GitHub issues, community chat | Community | Email (2 business days) | SLA + dedicated channel |
 
-Rows marked (Phase 6) are not in 0.6.0: Cloud pages and the site say "coming to Pro" for them (ADR-173). The unified multi-cluster view shipped in 0.11.0 as All clusters and fleets (ADR-226), with the same editions as What changed. Basic anomaly detection shipped in 0.8.0 as What changed (§4.8, ADR-195): Pro and Enterprise in Cloud, and the live demo (ADR-203); Cloud Free and Community see an upgrade page in its place (ADR-201). Self-hosted Enterprise gets it with the licence key (Phase 7). Cloud limits and how they answer (409 `plan-limit`, 402 on ingest for new nodes only): ADR-177.
+Rows marked (Phase 6) are not in 0.6.0: Cloud pages and the site say "coming to Pro" for them (ADR-173). The unified multi-cluster view shipped in 0.11.0 as All clusters and fleets (ADR-226), with the same editions as What changed. Basic anomaly detection shipped in 0.8.0 as What changed (§4.8, ADR-195): Pro and Enterprise in Cloud, and the live demo (ADR-203); Cloud Free and Community see an upgrade page in its place (ADR-201). Self-hosted Enterprise gets every Pro feature with an offline licence key since 0.15.0 (ADR-232, `docs/site/license.md`): one check, `proFeatures(config, license, orgId)`, for every Pro gate; units (Kubernetes nodes plus servers, the highest daily count of 7 days) with a 30-day rule over the limit; 30 days' notice and 14 days of grace. Cloud limits and how they answer (409 `plan-limit`, 402 on ingest for new nodes only): ADR-177.
 
 **Why anomaly detection is paid:** it needs at least 7-14 days of history to learn weekly seasonality, which only the paid retention tiers provide, and it costs real compute per series.
 
@@ -121,7 +121,8 @@ Rows marked (Phase 6) are not in 0.6.0: Cloud pages and the site say "coming to 
 ## 3.4 Licensing and repository layout
 
 - Everything outside `ee/` is **AGPL-3.0**. This lets anyone self-host and modify, but prevents a third party from reselling WatchLog as a closed hosted service.
-- `ee/` contains Enterprise-only code under a **commercial source-available license** (same model as GitLab). Enterprise features MUST be implemented as modules that the core loads only when a valid license key is present. The core MUST build and run with `ee/` deleted.
+- `ee/` contains Enterprise-only code under a **commercial source-available license** (same model as GitLab; `ee/LICENSE`). Enterprise features MUST be implemented as modules that the core loads only when a valid license key is present. The core MUST build and run with `ee/` deleted.
+- **How `ee/` is loaded and checked (0.15.0, ADR-232):** `ee/backend` (TypeScript modules, types from `backend/src/ee-contract.d.ts`) is found by `backend/src/ee.ts` at start-up and each module's routes sit behind its licence feature, read per request (404 unlicensed, 403 `license-ended` after the grace days); `ee/web` (Vue pages and sidebar items) by `import.meta.glob`, behind the same feature with the core's teaser otherwise; `ee/collector` (Go) is a separate module joined to the integrations collector by the `ee` build tag and a generated `go.work`, through the public `agent/ext` package; the collector holds no licence logic. Without `ee/` each of these finds nothing, silently. Files in `ee/` carry `SPDX-License-Identifier: LicenseRef-WatchLog-Enterprise` and only there (`pnpm check:license`); CI's "core without ee" job deletes `ee/` and builds and tests the backend, web, agent and collector.
 - Cloud-only billing code lives in a separate **private** repository, never in the public monorepo.
 - Contributors sign a lightweight CLA (via CLA Assistant) so dual licensing stays possible.
 
@@ -1249,7 +1250,7 @@ Brought forward on 2026-11-13: the Cloud opens as a beta by invite from the wait
 
 ## Phase 7 — Enterprise (as demand appears)
 
-- `ee/`: SSO (OIDC/SAML), LDAP, fine-grained RBAC, audit log, offline license keys, air-gapped install guide, HA Helm values, advanced anomaly correlation.
+- `ee/`: SSO (OIDC/SAML), LDAP, fine-grained RBAC, audit log, offline license keys, air-gapped install guide, HA Helm values, advanced anomaly correlation. **Offline licence keys: done in 0.15.0** (ADR-232): `wl1.` keys signed with Ed25519 and checked offline against built-in public keys, Settings → License or `WATCHLOG_LICENSE`, every Pro feature self-hosted, `ee/` loading and the "core without ee" CI job. Network devices (the first real `ee/` module) come next.
 
 # 14. Non-functional requirements
 

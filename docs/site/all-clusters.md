@@ -9,8 +9,8 @@ One WatchLog holds as many Kubernetes clusters and Server fleets as you run. **A
 fleets** shows every one of them on one page, so you see at a glance whether anything needs
 attention anywhere, without opening each one.
 
-**It is part of Pro** in [WatchLog Cloud](cloud.md), with [What changed](what-changed.md). The
-live demo has it too. Cloud Free and the self-hosted Community edition see the page's layout
+**It is part of Pro** in [WatchLog Cloud](cloud.md), with [What changed](what-changed.md), and
+on a self-hosted install with an [Enterprise licence](license.md). The live demo has it too. Cloud Free and the self-hosted Community edition see the page's layout
 with example data under an upgrade card; the cluster switcher keeps working on every plan.
 
 Open it from the first item in the sidebar, or from the top of the cluster switcher. When your
@@ -73,7 +73,7 @@ curl -H "Authorization: Bearer $WATCHLOG_TOKEN" \
 
 `range` is 3600, 21600, 86400 (the default), 604800 or 2592000 seconds; `kind` is `all`,
 `kubernetes` or `server`. On Cloud Free it answers 403 `pro-feature`; a self-hosted Community
-install answers 404. See the [API](api.md).
+install answers 404, and one whose licence ended 403 `license-ended`. See the [API](api.md).
 
 The answer carries the same certificate and job counts: `certificatesExpiring` and
 `jobsFailing` in the summary, `certificates` and `jobs` on each cluster.
