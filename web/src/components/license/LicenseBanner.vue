@@ -47,7 +47,7 @@ const LICENSE = { name: 'settings', query: { tab: 'license' } } as const;
     <p class="min-w-0 flex-1">{{ text }}</p>
     <RouterLink
       :to="LICENSE"
-      class="font-semibold whitespace-nowrap text-link hover:text-primary-hover max-sm:basis-full max-sm:pl-7"
+      class="inline-flex items-center font-semibold whitespace-nowrap text-link hover:text-primary-hover max-lg:min-h-11 max-sm:basis-full max-sm:pl-7"
       data-testid="license-banner-link"
     >
       {{ banner.kind === 'over' ? $t('license.banner.contact') : $t('license.banner.open') }}

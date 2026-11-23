@@ -2,13 +2,14 @@
 <script setup lang="ts">
 import { KeyRound } from '@lucide/vue';
 import { computed } from 'vue';
+import { licenseDate } from '@/lib/license';
 import { useAuthStore } from '@/stores/auth';
 
 // A licensed feature whose Enterprise licence ended (ADR-232): its page says when, that
 // nothing was deleted, and how to turn it back on (an Owner pastes a new key; others ask one).
 const props = defineProps<{ feature: string }>();
 const auth = useAuthStore();
-const endedOn = computed(() => auth.license?.endedOn ?? '');
+const endedOn = computed(() => (auth.license?.endedOn ? licenseDate(auth.license.endedOn) : ''));
 const owner = computed(() => auth.user?.role === 'owner');
 const _feature = computed(() => props.feature);
 </script>

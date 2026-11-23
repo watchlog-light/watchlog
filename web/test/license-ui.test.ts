@@ -301,7 +301,7 @@ describe('What changed on a licensed install', () => {
     mounted = w;
     await flushPromises();
     expect(w.get('[data-testid="license-ended"]').text()).toContain(
-      'Your licence ended on 2027-05-01',
+      'Your licence ended on 1 May 2027',
     );
     expect(w.text()).toContain('Ask an Owner');
     expect(w.find('[data-testid="wc-upgrade"]').exists()).toBe(false);
