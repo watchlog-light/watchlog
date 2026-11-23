@@ -502,6 +502,9 @@ describe('every mutating route declares its roles (ADR-140)', () => {
       'PUT /api/v1/what-changed/ready-email': ALL,
       'DELETE /api/v1/clusters/:id': OWNER,
       'POST /api/v1/users/:id/owner': OWNER,
+      // The installation's Enterprise licence (ADR-232): Owners only.
+      'PUT /api/v1/license': OWNER,
+      'DELETE /api/v1/license': OWNER,
     };
     for (const [route, roles] of routes) {
       if (PUBLIC.includes(route)) continue;
