@@ -18,11 +18,20 @@ COPY packages/cause-words packages/cause-words
 # The one email template (ADR-220): plain JavaScript.
 COPY packages/email packages/email
 COPY backend backend
+# Enterprise modules (ee/backend, ADR-232) when ee/ is in the build context; the pattern
+# matches nothing without it (tsconfig.base.json is there so the COPY has a source), and the
+# image is the core's alone.
+COPY tsconfig.base.json ee* ee/
 # The server install script (ADR-209), served at /install.sh.
 COPY deploy/linux/install.sh backend/assets/install.sh
 RUN pnpm --filter @watchlog/backend build \
  && pnpm --filter @watchlog/backend deploy --prod /out \
- && cp -r backend/dist /out/dist
+ && cp -r backend/dist /out/dist \
+ && mkdir -p /out/ee \
+ && if [ -f ee/backend/tsconfig.json ]; then \
+      backend/node_modules/.bin/tsc -p ee/backend/tsconfig.json \
+      && cp -r ee/backend/dist /out/ee/backend && cp ee/LICENSE /out/ee/LICENSE; \
+    fi
 # `watchlog`, the command for operators (ADR-140: `watchlog admin reset-password`). The
 # runtime has no shell, so it is a node script; its first line names node's path in the
 # runtime image (distroless keeps it in /nodejs/bin).
@@ -36,6 +45,8 @@ WORKDIR /app
 COPY --from=build /out/package.json ./
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
+# ee/backend's modules beside dist/ (empty without ee/), found by dist/ee.js.
+COPY --from=build /out/ee ./ee
 COPY --from=build /repo/backend/migrations ./migrations
 # The kubectl manifest Cloud serves at /install.yaml (scripts/render-install-manifest.sh).
 COPY --from=build /repo/backend/assets ./assets

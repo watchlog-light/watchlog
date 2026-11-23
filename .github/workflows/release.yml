@@ -60,6 +60,8 @@ jobs:
             context: agent
             dockerfile: agent/Dockerfile
             target: integrations
+            # ADR-232: with ee/collector's packages (the `ee` stage of agent/Dockerfile).
+            contexts: ee=ee
           - image: backend
             context: .
             dockerfile: backend/Dockerfile
@@ -82,6 +84,7 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
+          build-contexts: ${{ matrix.contexts }}
           target: ${{ matrix.target }}
           platforms: linux/amd64,linux/arm64
           push: true

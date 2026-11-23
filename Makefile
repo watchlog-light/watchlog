@@ -13,6 +13,8 @@ BACKEND_RUNTIME_IMAGE ?= gcr.io/distroless/nodejs24-debian12:nonroot
 # Go module proxy for the agent images; unset keeps Go's default. Where
 # proxy.golang.org is blocked:  GOPROXY=https://goproxy.io,direct make images
 GOPROXY_ARG := $(if $(GOPROXY),--build-arg GOPROXY='$(GOPROXY)')
+# The integrations collector with ee/collector (ADR-232), when ee/ is there.
+EE_CONTEXT := $(if $(wildcard ee/collector/go.mod),--build-context ee=ee)
 
 .PHONY: agent agent-linux agent-test agent-lint bpf images image-agent image-cluster-agent image-integrations image-backend image-web clean
 
@@ -48,7 +50,7 @@ image-cluster-agent:
 	docker build $(GOPROXY_ARG) --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) --target cluster-agent -t $(IMAGE_PREFIX)/cluster-agent:$(IMAGE_TAG) agent
 
 image-integrations:
-	docker build $(GOPROXY_ARG) --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) --target integrations -t $(IMAGE_PREFIX)/integrations:$(IMAGE_TAG) agent
+	docker build $(GOPROXY_ARG) --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) --target integrations $(EE_CONTEXT) -t $(IMAGE_PREFIX)/integrations:$(IMAGE_TAG) agent
 
 image-backend:
 	docker build -f backend/Dockerfile --build-arg RUNTIME_IMAGE=$(BACKEND_RUNTIME_IMAGE) --build-arg VERSION=$(VERSION) -t $(IMAGE_PREFIX)/backend:$(IMAGE_TAG) .

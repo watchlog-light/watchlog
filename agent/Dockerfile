@@ -5,6 +5,14 @@
 # Three images from one build (ADR-048, ADR-131): `--target cluster-agent` for the
 # cluster-agent, `--target integrations` for the integrations collector; the default
 # (last) target is the node/Docker agent.
+
+# Enterprise packages (ee/collector, ADR-232): the release passes `--build-context ee=ee`, and
+# the integrations collector is built with them and the `ee` tag. Without it this empty stage
+# stands in, and every binary is the core's alone (as with ee/ deleted). BuildKit may reuse the
+# copied ee/ layer of a build with the context for one without it on the same builder: build
+# the core-only image there with --no-cache.
+FROM scratch AS ee
+
 FROM --platform=$BUILDPLATFORM golang:1.27-bookworm AS build
 ARG TARGETOS TARGETARCH
 ARG VERSION=dev
@@ -16,8 +24,13 @@ COPY go.mod go.sum ./
 ARG GOPROXY
 RUN go mod download
 COPY . .
+COPY --from=ee / /ee/
+# With ee/collector, a go.work joins it to this module for the collector's build only.
+RUN if [ -f /ee/collector/go.mod ]; then printf 'go 1.27\n\nuse (\n\t./src\n\t./ee/collector\n)\n' > /go.work; fi
 RUN for cmd in watchlog-agent watchlog-cluster-agent watchlog-integrations; do \
-      CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
+      tags=; work=off; \
+      if [ "$cmd" = watchlog-integrations ] && [ -f /go.work ]; then tags=ee; work=/go.work; fi; \
+      GOWORK=$work CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -tags "$tags" \
       -ldflags "-s -w -X github.com/watchlog-light/watchlog/agent/internal/version.Version=${VERSION} -X github.com/watchlog-light/watchlog/agent/internal/version.Commit=${COMMIT}" \
       -o /out/$cmd ./cmd/$cmd || exit 1; \
     done \

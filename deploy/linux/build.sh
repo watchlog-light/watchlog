@@ -17,10 +17,15 @@ commit=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || echo unknown)
 pkg=github.com/watchlog-light/watchlog/agent/internal/version
 ldflags="-s -w -X $pkg.Version=$version -X $pkg.Commit=$commit"
 
+# The integrations collector carries ee/collector's packages when ee/ is there (ADR-232).
+ee_tags=$("$root/scripts/ee-go.sh")
+
 for arch in "${arches[@]}"; do
   bin=$(mktemp -d)
   for cmd in watchlog-agent watchlog-integrations; do
-    (cd "$root/agent" && CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags "$ldflags" -o "$bin/$cmd" "./cmd/$cmd")
+    tags=
+    [ "$cmd" = watchlog-integrations ] && tags=$ee_tags
+    (cd "$root/agent" && CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -tags "$tags" -ldflags "$ldflags" -o "$bin/$cmd" "./cmd/$cmd")
   done
   stage=$(mktemp -d)
   cp "$bin"/watchlog-agent "$bin"/watchlog-integrations "$here"/watchlog-agent.service \

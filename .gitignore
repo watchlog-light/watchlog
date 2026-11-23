@@ -29,3 +29,7 @@ __pycache__/
 
 # The emails preview (pnpm --filter @watchlog/backend emails:preview).
 backend/tmp/
+
+# The Go workspace joining ee/collector, written by scripts/ee-go.sh (ADR-232).
+go.work
+go.work.sum

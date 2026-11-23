@@ -117,6 +117,15 @@ jobs:
       - name: Build static linux/amd64 and linux/arm64 binaries
         working-directory: .
         run: make agent-linux
+      # ADR-232: the released collector carries ee/collector's packages (the `ee` tag and a
+      # go.work that joins them); its tests run here, and ee/collector's own.
+      - name: The collector with ee/ (tag ee)
+        working-directory: .
+        run: |
+          tags=$(scripts/ee-go.sh)
+          test "$tags" = ee
+          (cd agent && go build -tags ee ./cmd/watchlog-integrations && go vet -tags ee ./cmd/watchlog-integrations && go test -tags ee ./cmd/watchlog-integrations)
+          (cd ee/collector && go vet ./... && go test ./...)
 
   isolation:
     # The cross-org isolation suite (ADR-182), Cloud's release gate: the backend in Cloud
@@ -241,6 +250,69 @@ jobs:
       - run: pnpm build
       - run: pnpm audit --prod --audit-level high
 
+  # SPEC §3.4, ADR-232: the core MUST build and run with ee/ deleted. This job deletes it in
+  # its checkout, then builds and runs the unit tests of the backend, the web and the agent and
+  # collector.
+  core-without-ee:
+    name: Core without ee
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: watchlog
+          POSTGRES_PASSWORD: watchlog
+          POSTGRES_DB: watchlog
+        ports:
+          - 54320:5432
+        options: >-
+          --health-cmd "pg_isready -U watchlog -d watchlog"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      victoriametrics:
+        image: victoriametrics/victoria-metrics:v1.155.0
+        ports:
+          - 8428:8428
+      mailpit:
+        image: axllent/mailpit:v1.27
+        ports:
+          - 1025:1025
+          - 8025:8025
+        options: >-
+          --health-cmd "/mailpit readyz"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://watchlog:watchlog@127.0.0.1:54320/watchlog
+      WATCHLOG_TEST_VM_URL: http://127.0.0.1:8428
+      WATCHLOG_TEST_SMTP_URL: smtp://127.0.0.1:1025
+      WATCHLOG_TEST_MAILPIT_URL: http://127.0.0.1:8025
+    steps:
+      - uses: actions/checkout@v7
+      - name: Delete ee/
+        run: rm -rf ee && test ! -e ee
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm build
+      - run: pnpm test
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: agent/go.mod
+          cache-dependency-path: agent/go.mod
+      - name: The agent and the collector without ee/
+        working-directory: agent
+        run: |
+          test -z "$(../scripts/ee-go.sh)"
+          go build ./...
+          go vet ./...
+          go test ./...
+
   secrets:
     name: Secrets (gitleaks, full history)
     runs-on: ubuntu-24.04
@@ -277,6 +349,8 @@ jobs:
             dockerfile: agent/Dockerfile
             target: integrations
             platforms: linux/amd64,linux/arm64
+            # ADR-232: with ee/collector's packages (the `ee` stage of agent/Dockerfile).
+            contexts: ee=ee
           - image: backend
             context: .
             dockerfile: backend/Dockerfile
@@ -299,6 +373,7 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
+          build-contexts: ${{ matrix.contexts }}
           target: ${{ matrix.target }}
           platforms: ${{ matrix.platforms }}
           push: false
@@ -312,6 +387,7 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
+          build-contexts: ${{ matrix.contexts }}
           target: ${{ matrix.target }}
           platforms: linux/amd64
           push: false
@@ -332,6 +408,7 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
+          build-contexts: ${{ matrix.contexts }}
           target: ${{ matrix.target }}
           platforms: ${{ matrix.platforms }}
           outputs: type=tar,dest=/tmp/${{ matrix.image }}-fs.tar
