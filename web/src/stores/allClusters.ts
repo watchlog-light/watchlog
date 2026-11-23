@@ -11,6 +11,7 @@ import {
   allClustersPath,
   DEFAULT_RANGE,
   initialAccess,
+  isLicenseEnded,
   isProFeature,
   type Access,
   type Kind,
@@ -29,8 +30,10 @@ export const useAllClustersStore = defineStore('allClusters', () => {
   /** One view of the page; the default one is kept for the sidebar and the switcher. */
   async function fetch(range = DEFAULT_RANGE, kind: Kind = 'all'): Promise<AllClusters | null> {
     const auth = useAuthStore();
-    access.value ??= initialAccess(auth.isCloud, auth.demoMode);
-    if (access.value === 'community' || access.value === 'free') return null;
+    access.value ??= initialAccess(auth.proOnServer, auth.demoMode);
+    if (access.value === 'community' || access.value === 'free' || access.value === 'ended') {
+      return null;
+    }
     try {
       const answer = await api<AllClusters>(allClustersPath(range, kind));
       access.value = 'pro';
@@ -42,6 +45,10 @@ export const useAllClustersStore = defineStore('allClusters', () => {
     } catch (err) {
       if (isProFeature(err)) {
         access.value = 'free';
+        return null;
+      }
+      if (isLicenseEnded(err)) {
+        access.value = 'ended';
         return null;
       }
       throw err;

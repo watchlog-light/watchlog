@@ -1684,7 +1684,8 @@
       "users": "Users",
       "security": "Security",
       "billing": "Plan & billing",
-      "data": "Data"
+      "data": "Data",
+      "license": "License"
     },
     "fromEnvironment": "Set by the server's environment",
     "saved": "Saved.",
@@ -6149,7 +6150,8 @@
       "security": "Account and security",
       "tokens": "API tokens",
       "billing": "Plan and billing",
-      "docs": "Documentation"
+      "docs": "Documentation",
+      "license": "License"
     },
     "plan": {
       "upgrade": "Upgrade →",
@@ -6566,5 +6568,113 @@
       "before": "before WatchLog was watching"
     },
     "notRunningEmpty": "None of the jobs here runs."
+  },
+  "license": {
+    "title": "Enterprise licence",
+    "intro": "The licence key turns on every Pro feature on this installation, for all its organisations. It is checked here, offline: WatchLog never calls home.",
+    "loadFailed": "Couldn't load the licence.",
+    "help": "Units, expiry and what happens over the limit are in the docs.",
+    "docs": "How licences work",
+    "fromEnv": "Set by the server's environment (WATCHLOG_LICENSE or WATCHLOG_LICENSE_FILE); change it there.",
+    "shadowed": "A key pasted here is kept, but the environment's wins.",
+    "edition": {
+      "enterprise": "Enterprise",
+      "community": "Community"
+    },
+    "stateShort": {
+      "valid": "Valid",
+      "expiring": "Ends soon",
+      "grace": "Ended, in grace",
+      "expired": "Ended",
+      "invalid": "Not valid",
+      "none": "No licence"
+    },
+    "state": {
+      "valid": "Licensed features are on until {date}.",
+      "expiring": "Licensed features are on until {date}. Ask us for a new key before then.",
+      "grace": "The licence ended on {date}. Licensed features keep working until {stops}, then turn off.",
+      "expired": "The licence ended on {date}. Licensed features are off; nothing was deleted, and a new key turns them back on.",
+      "invalid": "This key doesn't work: {reason}. Licensed features are off.",
+      "none": "No licence key. This is WatchLog Community: everything in it is free, with no limits. A key adds the Pro features."
+    },
+    "facts": {
+      "customer": "Licensed to",
+      "edition": "Edition",
+      "units": "Units",
+      "features": "Features",
+      "expires": "Ends",
+      "grace": "(features stop {date})",
+      "id": "Key id",
+      "source": "Key from"
+    },
+    "source": {
+      "env": "The environment (WATCHLOG_LICENSE)",
+      "file": "A file (WATCHLOG_LICENSE_FILE)",
+      "setting": "Pasted here",
+      "none": "None"
+    },
+    "feature": {
+      "pro": "Pro features",
+      "network": "Network devices"
+    },
+    "units": {
+      "used": "{used} of {limit} units",
+      "nodes": "{n} node | {n} nodes",
+      "servers": "{n} server | {n} servers"
+    },
+    "over": {
+      "line": "{used} of {limit} units. Your licence covers {limit}; contact us for a larger one.",
+      "rule": "Monitoring never stops. After 30 days over the limit, licensed features take on no new places; everything they cover keeps working.",
+      "closed": "Since {date}, licensed features take on no new places; everything they already cover keeps working."
+    },
+    "paste": {
+      "title": "Add a licence key",
+      "titleReplace": "Replace the key",
+      "intro": "Paste the key you received (one line, starting with wl1.). It is checked at once, offline.",
+      "label": "Licence key",
+      "save": "Check and save",
+      "empty": "Paste a key first.",
+      "failed": "Couldn't save the key. Try again."
+    },
+    "remove": {
+      "button": "Remove key",
+      "title": "Remove the licence key?",
+      "line": "Licensed features turn off. Nothing is deleted: adding a key again turns them back on.",
+      "confirm": "Remove key"
+    },
+    "banner": {
+      "label": "Licence",
+      "invalid": "The licence key doesn't work: {reason}. Licensed features are off.",
+      "ended": "Your licence ended on {date}. Licensed features are off; nothing was deleted.",
+      "grace": "Your licence ended on {date}. Licensed features stop on {stops}.",
+      "expiring": "Your licence ends on {date}, in {n} day. | Your licence ends on {date}, in {n} days.",
+      "over": "{used} of {limit} units. Your licence covers {limit}; contact us for a larger one.",
+      "open": "Settings › License",
+      "contact": "See the licence"
+    },
+    "ended": {
+      "title": "Your licence ended on {date}",
+      "body": "{feature} is part of the Enterprise licence. Nothing was deleted: a new key turns it back on, with its data.",
+      "renew": "Add a new key",
+      "askOwner": "Ask an Owner of this installation for a new licence key."
+    },
+    "about": {
+      "community": "WatchLog Community",
+      "enterprise": "WatchLog Enterprise",
+      "enterpriseFor": "WatchLog Enterprise, licensed to {customer}",
+      "cloud": "WatchLog Cloud"
+    }
+  },
+  "ee": {
+    "teaser": {
+      "title": "Part of WatchLog Enterprise",
+      "body": "This page comes with an Enterprise licence key. Everything else in WatchLog keeps working without one.",
+      "link": "About WatchLog Enterprise"
+    },
+    "placeholder": {
+      "title": "Enterprise module",
+      "answer": "The {module} module answered: licensed for {feature}.",
+      "failed": "The Enterprise module didn't answer."
+    }
   }
 }

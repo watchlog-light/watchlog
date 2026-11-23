@@ -14,6 +14,9 @@ COPY packages/design-tokens packages/design-tokens
 COPY packages/api-types packages/api-types
 COPY packages/cause-words packages/cause-words
 COPY web web
+# Enterprise pages (ee/web, ADR-232) when ee/ is in the build context; without it the pattern
+# matches nothing and the dashboard is the core's alone.
+COPY tsconfig.base.json ee* ee/
 RUN pnpm --filter @watchlog/web build
 
 FROM caddy:2-alpine

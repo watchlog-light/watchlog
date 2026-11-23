@@ -87,7 +87,8 @@ const learningDay = (item: NavItem) => {
   return l?.learning && l.since ? dayOf(l) : 0;
 };
 // Cloud marks the Pro sections, so a Free org knows before it opens one (Community has no plans).
-const pro = (item: NavItem) => auth.isCloud && !!item.pro && !learningDay(item);
+const pro = (item: NavItem) =>
+  (auth.isCloud || !!auth.license?.pro) && !!item.pro && !learningDay(item);
 const linkTitle = (item: NavItem) =>
   collapsed.value
     ? pro(item)
@@ -104,7 +105,7 @@ watch(
 watch(
   () => [clusters.selected?.id, plan.info?.proFeatures] as const,
   ([id, hasPro]) => {
-    if (id && auth.isCloud && hasPro) void learning.load(id);
+    if (id && ((auth.isCloud && hasPro) || auth.license?.pro)) void learning.load(id);
   },
   { immediate: true },
 );
@@ -121,12 +122,13 @@ const allPro = computed(() =>
     demo: auth.demoMode,
     proFeatures: plan.info?.proFeatures,
     access: all.access,
+    licensedPro: !!auth.license?.pro,
   }),
 );
 watch(
   () => [onAll.value, auth.user?.id] as const,
   ([here, user]) => {
-    if (here && user && (auth.isCloud || auth.demoMode)) void all.ensure();
+    if (here && user && auth.proOnServer) void all.ensure();
   },
   { immediate: true },
 );

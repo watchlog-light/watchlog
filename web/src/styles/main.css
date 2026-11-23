@@ -2,6 +2,8 @@
 @import 'tailwindcss';
 @import '@watchlog/design-tokens/tokens.css';
 @import '@watchlog/design-tokens/theme.css';
+/* Enterprise pages (ee/web, ADR-232): their classes too; nothing when ee/ is deleted. */
+@source '../../../ee/web';
 
 body {
   @apply bg-bg text-14 text-text antialiased;

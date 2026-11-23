@@ -7,7 +7,12 @@
     "jsx": "preserve",
     "noEmit": true,
     "types": ["vite/client", "node"],
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": ["./src/*"],
+      "vue": ["./node_modules/vue"],
+      "vue-router": ["./node_modules/vue-router"],
+      "@lucide/vue": ["./node_modules/@lucide/vue"]
+    }
   },
-  "include": ["src", "test", "vite.config.ts"]
+  "include": ["src", "test", "vite.config.ts", "../ee/web"]
 }

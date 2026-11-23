@@ -2,6 +2,7 @@
 import type {
   CurrentUser,
   DemoSessionResponse,
+  LicenseSummary,
   LoginRequest,
   SetupRequest,
   SetupStatus,
@@ -38,6 +39,20 @@ export const useAuthStore = defineStore('auth', () => {
   const support = ref<SupportCurrent | null>(null);
   /** Cloud: what the account must do before anything else (ADR-175 gates). */
   const restriction = computed(() => account.value?.restriction ?? null);
+  /**
+   * Self-hosted: the Enterprise licence as every member's dashboard knows it (ADR-232): the
+   * edition, whether Pro features are on, when they ended; the customer and the banners for
+   * Owners. Null in Cloud (entitlements decide there) and before sign-in.
+   */
+  const license = ref<LicenseSummary | null>(null);
+  /**
+   * Whether Pro pages ask the server (What changed, All clusters): Cloud, the demo, or a
+   * WatchLog licence with `pro`, working or ended. Otherwise they are Community's upgrade
+   * pages without a request, as before.
+   */
+  const proOnServer = computed(
+    () => isCloud.value || demoMode.value || !!license.value?.pro || !!license.value?.endedOn,
+  );
   /** Whether the UI offers changes: not to viewers, and never in the demo. */
   const canManage = computed(
     () => user.value?.role !== 'viewer' && !demoMode.value && !support.value,
@@ -62,6 +77,7 @@ export const useAuthStore = defineStore('auth', () => {
         if (!(err instanceof ApiError && err.status === 401)) throw err;
       }
     }
+    await loadLicense();
     if (user.value && config) {
       // Support mode has no account of its own: the banner's facts instead.
       support.value = await cloudApi.supportCurrent().catch(() => null);
@@ -78,6 +94,20 @@ export const useAuthStore = defineStore('auth', () => {
     } catch {
       // The pages still work; the gates are enforced by the backend anyway.
       account.value = null;
+    }
+  }
+
+  /** The licence summary (self-hosted, signed in); a failure reads as no licence. */
+  async function loadLicense(): Promise<void> {
+    // Cloud uses its plans; the read-only demo has Pro without a licence.
+    if (cloud.value || !user.value || demoMode.value) {
+      license.value = null;
+      return;
+    }
+    try {
+      license.value = await api<LicenseSummary>('/license/summary');
+    } catch {
+      license.value = null;
     }
   }
 
@@ -104,17 +134,20 @@ export const useAuthStore = defineStore('auth', () => {
   /** A sign-in finished elsewhere (the 2FA step, an invite, sign-up). */
   async function signedIn(next: CurrentUser): Promise<void> {
     user.value = next;
+    await loadLicense();
     await loadAccount();
   }
 
   /** Starts a read-only demo session (demo mode only). */
   async function enterDemo(): Promise<void> {
     user.value = (await api<DemoSessionResponse>('/demo/session', { method: 'POST' })).user;
+    await loadLicense();
   }
 
   async function completeSetup(request: SetupRequest): Promise<void> {
     user.value = (await api<UserEnvelope>('/setup', { method: 'POST', body: request })).user;
     setupRequired.value = false;
+    await loadLicense();
   }
 
   async function logout(): Promise<void> {
@@ -126,6 +159,7 @@ export const useAuthStore = defineStore('auth', () => {
       support.value = null;
       user.value = null;
       account.value = null;
+      license.value = null;
     }
   }
 
@@ -164,6 +198,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user,
+    license,
+    proOnServer,
+    loadLicense,
     setTheme,
     setupRequired,
     demoMode,

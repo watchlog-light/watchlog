@@ -89,12 +89,27 @@ export function whatChangedPath(
   return `/what-changed?${p.toString()}`;
 }
 
-/** Who sees What changed: Pro (and the demo) the data; Cloud Free and Community a placeholder. */
-export type WhatChangedAccess = 'pro' | 'free' | 'community';
+/**
+ * Who sees What changed: Pro (the demo, a licensed install) the data; Cloud Free and Community
+ * a placeholder; a licensed install whose licence ended, "Your licence ended on …" (ADR-232).
+ */
+export type WhatChangedAccess = 'pro' | 'free' | 'community' | 'ended';
 
-/** Community asks nothing (the route isn't there); Cloud and the demo ask, and 403 means Free. */
-export function initialAccess(isCloud: boolean, demo: boolean): WhatChangedAccess | null {
-  return isCloud || demo ? null : 'community';
+/**
+ * Community asks nothing (the route isn't there); Cloud, the demo and a licensed install ask
+ * (auth.proOnServer), and 403 means Free, or a licence that ended.
+ */
+export function initialAccess(asks: boolean, demo: boolean): WhatChangedAccess | null {
+  return asks || demo ? null : 'community';
+}
+
+/** A 403 `license-ended`: the install's licence with `pro` ended (ADR-232). */
+export function isLicenseEnded(err: unknown): boolean {
+  return (
+    err instanceof ApiError &&
+    err.status === 403 &&
+    err.problem?.type === 'urn:watchlog:problem:license-ended'
+  );
 }
 
 /** A 403 `pro-feature` from GET /what-changed: the org has no Pro (ADR-202). */

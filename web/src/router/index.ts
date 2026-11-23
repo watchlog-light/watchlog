@@ -3,6 +3,7 @@ import { takeCheckoutOrigin } from '@/lib/checkout-return';
 import type { Component } from 'vue';
 import type { Restriction } from '@/api/cloud';
 import { createRouter, createWebHistory, type Router, type RouteRecordRaw } from 'vue-router';
+import { eeNav, eeRoutes } from '@/ee';
 import {
   Bell,
   Boxes,
@@ -135,9 +136,24 @@ export const NAV_ITEMS: NavItem[] = [
   { name: 'settings', path: '/settings', titleKey: 'nav.settings', icon: Settings, group: 'end' },
 ];
 
+/**
+ * Enterprise modules' sidebar items (ee/web, ADR-232), each in its group after the core's;
+ * none when ee/ isn't there. Unlicensed, their page is the core's teaser (EeGate).
+ */
+export const EE_NAV_ITEMS: NavItem[] = eeNav().map((n) => {
+  const route = eeRoutes().find((r) => r.name === n.name);
+  return {
+    name: n.name,
+    path: route?.path ?? `/${n.name}`,
+    titleKey: n.titleKey,
+    icon: n.icon,
+    group: n.group,
+  };
+});
+
 /** The navigation for the selected cluster's kind. */
 export const navFor = (kind: ClusterKind | null | undefined) =>
-  NAV_ITEMS.filter((i) => !i.kind || i.kind === (kind ?? 'kubernetes'));
+  [...NAV_ITEMS, ...EE_NAV_ITEMS].filter((i) => !i.kind || i.kind === (kind ?? 'kubernetes'));
 
 /** Applications' old tabs (0.10–0.12) and where they are now (0.13.0). */
 export const OLD_APPLICATION_PATHS: [string, string][] = [
@@ -243,6 +259,8 @@ export const routes: RouteRecordRaw[] = [
     path: '/',
     component: () => import('@/layouts/AppShell.vue'),
     children: [
+      // Enterprise modules' pages (ee/web, ADR-232), behind their licence feature.
+      ...eeRoutes(),
       ...NAV_ITEMS.map((item) => ({
         name: item.name,
         path: item.path.slice(1),

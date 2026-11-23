@@ -14,7 +14,7 @@ import { serviceName } from '@/lib/applications';
 import { metricText, objectName, rangeText, valueText } from '@/lib/what-changed';
 
 export type Tr = (key: string, values?: Record<string, unknown>) => string;
-export type Access = 'pro' | 'free' | 'community';
+export type Access = 'pro' | 'free' | 'community' | 'ended';
 export type Kind = 'all' | 'kubernetes' | 'server';
 export type Tone = 'critical' | 'warning' | 'healthy' | 'muted';
 
@@ -28,10 +28,19 @@ export const RANGES: { seconds: number; label: string }[] = [
 ];
 export const DEFAULT_RANGE = 86_400;
 
-/** Community asks nothing (the route isn't there); Cloud and the demo ask; 403 means Free. */
-export function initialAccess(isCloud: boolean, demo: boolean): Access | null {
-  return isCloud || demo ? null : 'community';
+/**
+ * Community asks nothing (the route isn't there); Cloud, the demo and a licensed install ask
+ * (auth.proOnServer); 403 means Free, or a licence that ended (ADR-232).
+ */
+export function initialAccess(asks: boolean, demo: boolean): Access | null {
+  return asks || demo ? null : 'community';
 }
+
+/** A 403 `license-ended`: the install's licence with `pro` ended (ADR-232). */
+export const isLicenseEnded = (err: unknown): boolean =>
+  err instanceof ApiError &&
+  err.status === 403 &&
+  err.problem?.type === 'urn:watchlog:problem:license-ended';
 
 /** A 403 `pro-feature`: the org has no Pro. */
 export const isProFeature = (err: unknown): boolean =>
@@ -418,8 +427,10 @@ export function showsProLabel(o: {
   demo: boolean;
   proFeatures: boolean | null | undefined;
   access: Access | null;
+  /** A licensed install with Pro on (ADR-232). */
+  licensedPro?: boolean;
 }): boolean {
-  if (o.access === 'pro' || o.demo) return false;
+  if (o.access === 'pro' || o.demo || o.licensedPro) return false;
   if (o.isCloud) return o.proFeatures !== true;
   return true;
 }

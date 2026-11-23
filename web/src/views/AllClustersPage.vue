@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
+import LicenseEnded from '@/components/license/LicenseEnded.vue';
 import { Boxes, CircleAlert, CircleCheck, Server } from '@lucide/vue';
 import type { AllClusters, OverviewProblem } from '@watchlog/api-types';
 import { computed, onMounted, ref, watch } from 'vue';
@@ -71,7 +72,9 @@ onMounted(() => {
   void page.load();
 });
 
-const locked = computed(() => store.access === 'free' || store.access === 'community');
+const locked = computed(
+  () => store.access === 'free' || store.access === 'community' || store.access === 'ended',
+);
 const lockedAccess = computed(() => (store.access === 'free' ? 'free' : 'community'));
 /** What the page draws: the org's own, or the example under the upgrade card. */
 const s = computed<AllClusters | null>(() => (locked.value ? EXAMPLE : (page.data.value ?? null)));
@@ -683,7 +686,12 @@ const learningNames = computed(() =>
       v-if="locked"
       class="absolute inset-x-0 top-[140px] flex justify-center px-5 max-sm:top-24 max-sm:px-0"
     >
-      <AllClustersUpgrade :access="lockedAccess" />
+      <LicenseEnded
+        v-if="store.access === 'ended'"
+        :feature="$t('nav.allClusters')"
+        class="w-full"
+      />
+      <AllClustersUpgrade v-else :access="lockedAccess" />
     </div>
   </div>
 </template>

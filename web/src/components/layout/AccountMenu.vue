@@ -18,6 +18,7 @@ import { useTheme, type ThemeChoice } from '@/composables/useTheme';
 import { LINKS } from '@/lib/links';
 import { useAuthStore } from '@/stores/auth';
 import { usePlanStore } from '@/stores/plan';
+import { aboutLine } from '@/lib/license';
 
 // The account button and its menu (0.10.1, design/cloud Sidebar): the user row is one button
 // ("Account, tokens, sign out") that opens a menu above it, or to the right of the collapsed
@@ -52,6 +53,10 @@ const context = computed(() => {
     .join(' · ');
 });
 
+const about = computed(() =>
+  aboutLine({ isCloud: auth.isCloud, demo: auth.demoMode, license: auth.license }, t),
+);
+
 type Item = { key: string; label: string; to: { name: string; query?: Record<string, string> } };
 const items = computed<Item[]>(() => {
   const list: Item[] = [];
@@ -67,6 +72,14 @@ const items = computed<Item[]>(() => {
     label: t('sidebar.account.tokens'),
     to: { name: 'settings', query: { tab: 'tokens' } },
   });
+  // Self-hosted Owners (ADR-232): the licence.
+  if (!auth.isCloud && !auth.demoMode && auth.user?.role === 'owner') {
+    list.push({
+      key: 'license',
+      label: t('sidebar.account.license'),
+      to: { name: 'settings', query: { tab: 'license' } },
+    });
+  }
   if (auth.isCloud) {
     list.push({
       key: 'billing',
@@ -224,6 +237,10 @@ const itemHeight = computed(() => (props.drawer ? 'min-h-11' : 'min-h-9'));
         >
           {{ $t('account.signOut') }}
         </DropdownMenuItem>
+        <!-- About (ADR-232): the edition, and for Owners who the licence is for. -->
+        <p class="px-3 pt-1 pb-2 text-12 text-text-subtle" data-testid="account-about">
+          {{ about }}
+        </p>
       </DropdownMenuContent>
     </DropdownMenuPortal>
   </DropdownMenuRoot>

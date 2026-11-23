@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
+import LicenseEnded from '@/components/license/LicenseEnded.vue';
 import { Hourglass, Radar } from '@lucide/vue';
 import type { Cluster, WhatChanged, WhatChangedLive, WhatChangedStory } from '@watchlog/api-types';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -25,6 +26,7 @@ import {
   customBounds,
   hhmm,
   initialAccess,
+  isLicenseEnded,
   isProFeature,
   MAX_WINDOW_S,
   whatChangedPath,
@@ -100,11 +102,11 @@ const focus = computed(() =>
   typeof route.query.focus === 'string' && route.query.focus ? route.query.focus : null,
 );
 
-const access = ref<WhatChangedAccess | null>(initialAccess(auth.isCloud, auth.demoMode));
+const access = ref<WhatChangedAccess | null>(initialAccess(auth.proOnServer, auth.demoMode));
 const page = useLoader(async () => {
   const cluster: Cluster | null = await clusters.ensure();
   if (!cluster) return { cluster: null, answer: null };
-  if (access.value === 'community') return { cluster, answer: null };
+  if (access.value === 'community' || access.value === 'ended') return { cluster, answer: null };
   try {
     const extra = `${hideOwn.value ? '' : '&own=show'}${episodeParam.value !== undefined ? `&episode=${episodeParam.value}` : ''}`;
     const answer = await api<WhatChanged>(
@@ -122,6 +124,10 @@ const page = useLoader(async () => {
   } catch (err) {
     if (isProFeature(err)) {
       access.value = 'free';
+      return { cluster, answer: null };
+    }
+    if (isLicenseEnded(err)) {
+      access.value = 'ended';
       return { cluster, answer: null };
     }
     throw err;
@@ -306,6 +312,9 @@ onBeforeUnmount(() => clearInterval(tickTimer));
         :action-label="$t('empty.connectCluster')"
         action-to="/settings"
       />
+
+      <!-- A licensed install whose licence ended (ADR-232): when, and how to renew. -->
+      <LicenseEnded v-else-if="access === 'ended'" :feature="$t('nav.whatChanged')" class="mt-6" />
 
       <!-- Cloud Free and Community: the upgrade page (ADR-201). -->
       <WhatChangedUpgrade

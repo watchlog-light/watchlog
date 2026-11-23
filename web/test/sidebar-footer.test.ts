@@ -241,15 +241,20 @@ describe('the account menu', () => {
     expect(q('sign-out')!.className).toContain('text-critical-text');
   });
 
-  it('Community: no account page and no billing, so only tokens, docs and sign out', async () => {
+  it('Community: no account page and no billing, so tokens, the licence (Owners), docs and sign out', async () => {
     const { wrapper } = await mountSidebar({ cloud: false });
     const menu = await openMenu(wrapper);
     const items = [...menu!.querySelectorAll<HTMLElement>('[role="menuitem"]')];
     expect(items.map((i) => i.textContent?.trim())).toEqual([
       'API tokens',
+      'License',
       'Documentation(opens in a new tab)',
       'Sign out',
     ]);
+    // About (ADR-232): the edition.
+    expect(menu!.querySelector('[data-testid="account-about"]')!.textContent?.trim()).toBe(
+      'WatchLog Community',
+    );
     expect(menu!.querySelector('[data-testid="account-menu-context"]')!.textContent).toBe('Owner');
   });
 
@@ -308,7 +313,7 @@ describe('the account menu', () => {
         'account-docs',
       );
       expect(row.previousElementSibling!.previousElementSibling!.getAttribute('data-testid')).toBe(
-        cloud ? 'account-billing' : 'account-tokens',
+        cloud ? 'account-billing' : 'account-license',
       );
       const group = row.querySelector<HTMLElement>('[role="group"]')!;
       expect(document.getElementById(group.getAttribute('aria-labelledby')!)!.textContent).toBe(

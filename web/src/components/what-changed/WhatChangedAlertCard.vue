@@ -8,6 +8,7 @@ import Skeleton from '@/components/ui/Skeleton.vue';
 import { useLoader } from '@/composables/useLoader';
 import {
   initialAccess,
+  isLicenseEnded,
   isProFeature,
   whatChangedPath,
   type WhatChangedAccess,
@@ -24,7 +25,7 @@ import WhatChangedRows from './WhatChangedRows.vue';
 const CARD_ROWS = 3;
 const props = defineProps<{ alert: AlertDetail['alert'] }>();
 const auth = useAuthStore();
-const access = ref<WhatChangedAccess | null>(initialAccess(auth.isCloud, auth.demoMode));
+const access = ref<WhatChangedAccess | null>(initialAccess(auth.proOnServer, auth.demoMode));
 
 const page = useLoader(async () => {
   try {
@@ -36,6 +37,11 @@ const page = useLoader(async () => {
   } catch (err) {
     if (isProFeature(err)) {
       access.value = 'free';
+      return null;
+    }
+    // A licence that ended (ADR-232): no card; the page says why.
+    if (isLicenseEnded(err)) {
+      access.value = 'ended';
       return null;
     }
     throw err;
@@ -61,11 +67,11 @@ const link = computed(() => ({
 watch(
   () => props.alert.id,
   () => {
-    if (access.value !== 'community') void page.load();
+    if (access.value !== 'community' && access.value !== 'ended') void page.load();
   },
 );
 onMounted(() => {
-  if (access.value !== 'community') void page.load();
+  if (access.value !== 'community' && access.value !== 'ended') void page.load();
 });
 </script>
 
@@ -104,7 +110,7 @@ onMounted(() => {
   </RouterLink>
 
   <section
-    v-else-if="access !== 'community'"
+    v-else-if="access !== 'community' && access !== 'ended'"
     class="flex flex-col gap-4 rounded-2xl border border-border bg-surface-1/45 p-5.5 max-md:p-4"
     aria-labelledby="wc-card-title"
     data-testid="wc-card"

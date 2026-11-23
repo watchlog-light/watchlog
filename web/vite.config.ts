@@ -8,6 +8,8 @@ export default defineConfig({
   plugins: [vue(), tailwindcss()],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    // ee/web (ADR-232) is outside this package: its imports of these resolve to the dashboard's.
+    dedupe: ['vue', 'vue-router', 'pinia', 'vue-i18n', '@lucide/vue', '@watchlog/api-types'],
   },
   server: {
     // Next to the backend's 4080, away from Vite's default (other projects use it); a taken
@@ -25,7 +27,7 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     // e2e/ is Playwright's (pnpm test:responsive).
-    include: ['test/**/*.test.ts'],
+    include: ['test/**/*.test.ts', '../ee/web/**/*.test.ts'],
     // Fails a test that renders an i18n key en.json doesn't have.
     setupFiles: ['test/setup.ts'],
   },

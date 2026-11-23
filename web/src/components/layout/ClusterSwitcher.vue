@@ -47,7 +47,7 @@ const allNote = computed(() => {
     });
   }
   if (all.access === 'free') return t('allClusters.switcher.free');
-  if (!auth.isCloud && !auth.demoMode) return t('allClusters.switcher.community');
+  if (!auth.proOnServer) return t('allClusters.switcher.community');
   return undefined;
 });
 const options = computed(() => {

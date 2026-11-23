@@ -12,6 +12,7 @@ import SecuritySettings from '@/components/settings/SecuritySettings.vue';
 import SystemNamespaces from '@/components/settings/SystemNamespaces.vue';
 import PlanBilling from '@/components/plan/PlanBilling.vue';
 import DataSettings from '@/components/settings/DataSettings.vue';
+import LicenseSettings from '@/components/settings/LicenseSettings.vue';
 import { useAuthStore } from '@/stores/auth';
 
 // Settings (alerts redesign): clusters, alert channels with the email server and
@@ -28,12 +29,20 @@ const ALL_TABS = [
   'billing',
   'security',
   'data',
+  'license',
 ] as const;
 type Tab = (typeof ALL_TABS)[number];
 const CLOUD_TABS: readonly Tab[] = ['billing', 'security', 'data'];
 const auth = useAuthStore();
+// Settings › License (ADR-232): self-hosted Owners only; Cloud uses its plans.
 const TABS = computed<readonly Tab[]>(() =>
-  auth.isCloud ? ALL_TABS : ALL_TABS.filter((t) => !CLOUD_TABS.includes(t)),
+  auth.isCloud
+    ? ALL_TABS.filter((t) => t !== 'license')
+    : ALL_TABS.filter(
+        (t) =>
+          !CLOUD_TABS.includes(t) &&
+          (t !== 'license' || (auth.user?.role === 'owner' && !auth.demoMode)),
+      ),
 );
 const route = useRoute();
 const router = useRouter();
@@ -85,6 +94,7 @@ function setTab(t: Tab) {
     <SecuritySettings v-else-if="tab === 'security'" />
     <PlanBilling v-else-if="tab === 'billing'" />
     <DataSettings v-else-if="tab === 'data'" />
+    <LicenseSettings v-else-if="tab === 'license'" />
     <template v-else>
       <!-- The public address is the operator's in Cloud (404 there, ADR-174). -->
       <GeneralSettings v-if="!auth.isCloud" />

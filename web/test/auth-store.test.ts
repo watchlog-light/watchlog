@@ -15,13 +15,27 @@ describe('auth store', () => {
       // Community: the Cloud config route doesn't exist (ADR-175).
       'GET /api/v1/auth/config': problem(404, 'Not Found'),
       'GET /api/v1/me': { status: 200, body: { user: USER } },
+      // Self-hosted (ADR-232): what the dashboard knows of the licence.
+      'GET /api/v1/license/summary': {
+        status: 200,
+        body: {
+          edition: 'community',
+          licensed: false,
+          pro: false,
+          features: [],
+          endedOn: null,
+          customer: null,
+          banners: [],
+        },
+      },
     });
     const auth = useAuthStore();
     await Promise.all([auth.ensureLoaded(), auth.ensureLoaded()]);
     await auth.ensureLoaded();
     expect(auth.user?.email).toBe(USER.email);
     expect(auth.isCloud).toBe(false);
-    expect(calls).toHaveLength(3);
+    expect(auth.license?.edition).toBe('community');
+    expect(calls).toHaveLength(4);
   });
 
   it('treats 401 from /me as signed out', async () => {
