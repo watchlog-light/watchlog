@@ -83,6 +83,22 @@ secret key, the public URL for links, SMTP, the Telegram API and the outbound pr
 # worker read it. Unset: 7.
 - { name: WATCHLOG_EGRESS_LEARNING_DAYS, value: {{ $alerting.egressLearningDays | toString | quote }} }
 {{- end }}
+{{ include "watchlog.licenseEnv" . }}
+{{- end -}}
+
+{{/*
+The Enterprise licence key (ADR-232), from the chart's Secret or an existing one; nothing
+without a key. Read nil-safe (an upgrade with --reuse-values has no license map).
+*/}}
+{{- define "watchlog.licenseEnv" -}}
+{{- $l := include "watchlog.withDefaults" (list .Values.license (dict "key" "" "existingSecret" "" "existingSecretKey" "license")) | fromYaml -}}
+{{- if $l.existingSecret }}
+- name: WATCHLOG_LICENSE
+  valueFrom: { secretKeyRef: { name: {{ $l.existingSecret | quote }}, key: {{ $l.existingSecretKey | quote }} } }
+{{- else if $l.key }}
+- name: WATCHLOG_LICENSE
+  valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-license, key: license } }
+{{- end }}
 {{- end -}}
 
 {{/*

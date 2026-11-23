@@ -21,6 +21,10 @@ x-alerting: &alerting # Encrypts alert channel secrets; back it up with the data
   # Days "New external destination" stays quiet while a fleet or a new container learns
   # its destinations (ADR-187).
   WATCHLOG_EGRESS_LEARNING_DAYS: ${WATCHLOG_EGRESS_LEARNING_DAYS:-7}
+  # WatchLog Enterprise (ADR-232): the licence key, or a file with it (mount it yourself).
+  # Empty is Community; a key pasted in Settings → License works too.
+  WATCHLOG_LICENSE: ${WATCHLOG_LICENSE:-}
+  WATCHLOG_LICENSE_FILE: ${WATCHLOG_LICENSE_FILE:-}
 
 services:
   postgres:
@@ -128,6 +132,25 @@ services:
       retries: 3
       start_period: 30s
     restart: unless-stopped
+
+  # What changed's worker (ADR-197, ADR-232): with an Enterprise licence only. Turn it on with
+  # COMPOSE_PROFILES=enterprise in .env (or `docker compose --profile enterprise up -d`).
+  # Without a licence key it exits at start and stays down; after pasting one in Settings →
+  # License, run `docker compose up -d` again.
+  anomaly-worker:
+    profiles: ['enterprise']
+    image: ghcr.io/watchlog-light/backend:${WATCHLOG_VERSION:-latest}
+    command: ['dist/anomaly-worker.js']
+    environment:
+      DATABASE_URL: postgres://watchlog:${WATCHLOG_DB_PASSWORD}@postgres:5432/watchlog
+      VICTORIAMETRICS_URL: http://victoriametrics:8428
+      <<: *alerting
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      victoriametrics:
+        condition: service_healthy
+    restart: on-failure
 
   web:
     image: ghcr.io/watchlog-light/web:${WATCHLOG_VERSION:-latest}

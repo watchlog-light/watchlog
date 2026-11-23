@@ -2,8 +2,8 @@
 {{/*
 What changed's anomaly-worker (ADR-197): from the backend image, one replica. Off by
 default and read nil-safe (an upgrade with --reuse-values from an older release has no
-anomalyWorker map): it runs only in Cloud or demo mode and exits anywhere else, so only
-the live demo turns it on with this chart. /livez restarts a stuck loop.
+anomalyWorker map): it runs only in Cloud, in demo mode or with an Enterprise licence key
+(license.key, ADR-232) and exits anywhere else. /livez restarts a stuck loop.
 */}}
 {{- $worker := include "watchlog.anomalyWorker" . | fromYaml }}
 {{- if $worker.enabled }}
@@ -40,6 +40,7 @@ spec:
             {{- if .Values.demoMode }}
             - { name: WATCHLOG_DEMO_MODE, value: 'true' }
             {{- end }}
+            {{- include "watchlog.licenseEnv" . | nindent 12 }}
             - { name: WATCHLOG_ANOMALY_WORKER_PORT, value: '4082' }
           ports:
             - { name: health, containerPort: 4082 }

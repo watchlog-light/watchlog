@@ -77,10 +77,18 @@ alertWorker:
     requests: { cpu: 50m, memory: 128Mi }
     limits: { memory: 256Mi }
 
+# WatchLog Enterprise (ADR-232, docs/site/license.md): the licence key, kept in a Secret, or
+# an existing Secret that holds it. Empty is Community; a key pasted in Settings → License
+# works too. With a key, also set anomalyWorker.enabled for What changed.
+license:
+  key: ''
+  existingSecret: ''
+  existingSecretKey: license
+
 # What changed's anomaly-worker (ADR-197): learns each series' usual week and records
-# unusual periods. Pro only: it runs only in WatchLog Cloud or with demoMode (the live demo),
-# and exits at start anywhere else, so it is off by default and a self-hosted install
-# needs nothing here.
+# unusual periods. Pro only: it runs in WatchLog Cloud, with demoMode (the live demo), or with
+# an Enterprise licence key (ADR-232), and exits at start anywhere else, so it is off by
+# default.
 anomalyWorker:
   enabled: false
   resources:
