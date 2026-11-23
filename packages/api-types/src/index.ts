@@ -277,3 +277,9 @@ export type AnomalyFeedback = NonNullable<AnomalyAlert['feedback']>;
 // The ⌘K palette's search (ADR-169).
 export type SearchResponse = JsonBody<Responses<'/api/v1/clusters/{id}/search', 'get'>[200]>;
 export type SearchResult = SearchResponse['results'][number];
+
+/** The Enterprise licence (ADR-232): Settings → License, for Owners. */
+export type LicenseView = JsonBody<Responses<'/api/v1/license', 'get'>[200]>;
+export type LicenseBanner = LicenseView['banners'][number];
+/** What every member's dashboard knows of the licence: the edition, Pro on, when it ended. */
+export type LicenseSummary = JsonBody<Responses<'/api/v1/license/summary', 'get'>[200]>;

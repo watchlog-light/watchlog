@@ -510,6 +510,8 @@ export interface paths {
               licensed: boolean;
               /** @description Pro features are on for this installation */
               pro: boolean;
+              /** @description The working licence's features (pro, network); empty without one */
+              features: string[];
               endedOn: string | null;
               customer: string | null;
               /** @description Owners only; empty for everyone else */

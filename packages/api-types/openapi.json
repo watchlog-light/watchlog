@@ -1332,7 +1332,15 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["edition", "licensed", "pro", "endedOn", "customer", "banners"],
+                  "required": [
+                    "edition",
+                    "licensed",
+                    "pro",
+                    "features",
+                    "endedOn",
+                    "customer",
+                    "banners"
+                  ],
                   "properties": {
                     "edition": {
                       "anyOf": [
@@ -1353,6 +1361,13 @@
                     "pro": {
                       "type": "boolean",
                       "description": "Pro features are on for this installation"
+                    },
+                    "features": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "The working licence's features (pro, network); empty without one"
                     },
                     "endedOn": {
                       "anyOf": [

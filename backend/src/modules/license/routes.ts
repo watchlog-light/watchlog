@@ -88,6 +88,9 @@ const SummarySchema = Type.Object({
     description: 'A licence is set and works now (valid, expiring, grace)',
   }),
   pro: Type.Boolean({ description: 'Pro features are on for this installation' }),
+  features: Type.Array(Type.String(), {
+    description: "The working licence's features (pro, network); empty without one",
+  }),
   endedOn: Nullable(Type.String({ description: 'The licence with pro ended on this day' })),
   customer: Nullable(Type.String({ description: 'Owners only; null for everyone else' })),
   banners: Type.Array(BannerSchema, { description: 'Owners only; empty for everyone else' }),
@@ -242,6 +245,10 @@ export const licenseRoutes: FastifyPluginAsyncTypebox<{
             : ('community' as const),
         licensed: !!cur.check?.payload && ['valid', 'expiring', 'grace'].includes(cur.check.state),
         pro: access.ok,
+        features:
+          cur.check?.payload && ['valid', 'expiring', 'grace'].includes(cur.check.state)
+            ? cur.check.payload.features
+            : [],
         endedOn:
           !access.ok && access.status === 403 && access.type === 'license-ended'
             ? access.endedOn
