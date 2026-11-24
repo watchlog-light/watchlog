@@ -349,7 +349,8 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       .executeTakeFirst();
     let oldest: { deviceId: string; name: string; firmware: string } | null = null;
     for (const d of devices as any[]) {
-      if (!d.firmware) continue;
+      // Switches and routers: a recorder's, a NAS's or an AP's version isn't comparable.
+      if (!d.firmware || ['nvr', 'nas', 'ups', 'ap'].includes(d.kind)) continue;
       if (!oldest || olderVersion(d.firmware, oldest.firmware))
         oldest = { deviceId: d.id, name: d.name, firmware: d.firmware };
     }
@@ -462,6 +463,8 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
           ...deviceView(d, alerts.byDevice.get(id) ?? 0),
           sysName: d.sys_name,
           location: d.location,
+          // An access point's controller (CAPsMAN), by name.
+          parentName: d.parent_id ? (name.get(d.parent_id) ?? null) : null,
           credential: cred ? { id: cred.id, name: cred.name, protocol: cred.protocol } : null,
           certificate:
             d.protocol === 'routeros' || d.protocol === 'dahua'
@@ -1004,12 +1007,15 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       }
       const creds = await db
         .selectFrom('network_credentials')
-        .select('id')
+        .select(['id', 'protocol'])
         .where('org_id', '=', orgId)
         .where('id', 'in', b.credentialIds)
         .execute();
       if (creds.length !== new Set(b.credentialIds).size)
         return problem(reply, 400, 'Unknown credential profile');
+      // Recorders aren't discovered (ADR-234): they are added by address.
+      if (creds.some((c: { protocol: string }) => c.protocol === 'dahua'))
+        return problem(reply, 400, 'Recorders are added by address, not found by discovery');
       const id = host.newId();
       await db
         .insertInto('network_discoveries')

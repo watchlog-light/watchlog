@@ -168,6 +168,16 @@ describe('Wi-Fi, storage, recording and a UPS polled from a cluster', () => {
       settings: { user: 'watchlog' },
       secret: { password: 'nvr-pass' },
     });
+    expect(
+      (
+        await call('POST', '/network/discoveries', {
+          clusterId,
+          host: '',
+          seeds: ['10.0.10.50'],
+          credentialIds: [dahua],
+        })
+      ).statusCode,
+    ).toBe(400);
     const added = (
       await call('POST', '/network/devices', {
         clusterId,
@@ -399,6 +409,7 @@ describe('Wi-Fi, storage, recording and a UPS polled from a cluster', () => {
     const summary = (await call('GET', '/network/summary')).json();
     expect(summary.kinds).toMatchObject({ ap: 3, nas: 1, nvr: 1, ups: 1, router: 1 });
     expect(summary.wifiClients).toBe(10);
+    expect(summary.tiles.oldestFirmware?.name).not.toBe('nvr-1');
     expect(summary.recording).toEqual([
       expect.objectContaining({
         name: 'nvr-1',
@@ -563,6 +574,10 @@ describe('Wi-Fi, storage, recording and a UPS polled from a cluster', () => {
       'ups-1 is on battery',
     );
     expect(await evaluate('network.ups.runtime_low')).toHaveLength(1);
+    // The recorder gives no uptime (0): not a reboot.
+    expect((await evaluate('network.device.rebooted')).map((o) => o.labels.device)).not.toContain(
+      'nvr-1',
+    );
 
     // The disk comes back: recording again at once, the session reconnected.
     clock = NOW + 7 * MIN;
@@ -570,6 +585,69 @@ describe('Wi-Fi, storage, recording and a UPS polled from a cluster', () => {
     const back = (await call('GET', '/network/storage')).json();
     expect(back.recorders[0]).toMatchObject({ recording: true, failed: [] });
     expect(back.sessions[0]).toMatchObject({ connected: true });
+
+    // Another org's UPS, recorder, session and client: never seen here, its UPS not changeable.
+    const other = crypto.randomUUID();
+    const otherCluster = crypto.randomUUID();
+    const db = ctx!.db as unknown as import('../../../backend/src/ee-contract.js').EeDb;
+    await db
+      .insertInto('orgs')
+      .values({ id: other, name: 'Other', slug: `other-${other.slice(0, 8)}`, plan: 'pro' })
+      .execute();
+    await db
+      .insertInto('clusters')
+      .values({ id: otherCluster, org_id: other, name: 'theirs', kind: 'server' })
+      .execute();
+    const theirUps = crypto.randomUUID();
+    const theirNvr = crypto.randomUUID();
+    for (const [id, kind] of [
+      [theirUps, 'ups'],
+      [theirNvr, 'nvr'],
+    ])
+      await db
+        .insertInto('network_devices')
+        .values({
+          id,
+          org_id: other,
+          cluster_id: otherCluster,
+          name: `their-${kind}`,
+          address: `10.9.9.${kind === 'ups' ? 1 : 2}`,
+          protocol: kind === 'nvr' ? 'dahua' : 'snmp',
+          kind,
+          status: 'ok',
+        })
+        .execute();
+    await db
+      .insertInto('network_iscsi_sessions')
+      .values({
+        org_id: other,
+        recorder_id: theirNvr,
+        disk: '/dev/iscsi0',
+        connected: true,
+        seen_at: new Date(clock),
+      })
+      .execute();
+    await db
+      .insertInto('network_wifi_clients')
+      .values({
+        org_id: other,
+        mac: 'a4:83:e7:99:99:99',
+        controller_id: theirUps,
+        ap: 'theirs',
+        seen_at: new Date(clock),
+      })
+      .execute();
+    const mine = (await call('GET', '/network/storage')).json();
+    expect(JSON.stringify(mine)).not.toContain('their-');
+    expect(mine.sessions).toHaveLength(1);
+    expect(
+      (await call('GET', '/network/wireless')).json().clients.map((c: { mac: string }) => c.mac),
+    ).not.toContain('a4:83:e7:99:99:99');
+    expect((await call('GET', '/network/kinds')).json().wifiClients).toBe(10);
+    expect(
+      (await call('PUT', `/network/devices/${theirUps}/feeds`, { feeds: [] })).statusCode,
+    ).toBe(404);
+    expect((await call('GET', `/network/devices/${theirNvr}`)).statusCode).toBe(404);
 
     // Removing the controller removes its access points.
     expect((await call('DELETE', `/network/devices/${edge}`)).statusCode).toBe(204);

@@ -66,6 +66,12 @@ export const EE_ROUTES: Record<string, RouteClass> = {
   'POST /api/v1/network/discoveries': net,
   'GET /api/v1/network/discoveries/:id': net,
   'GET /api/v1/network/setup-commands': net,
+  // 0.17 (ADR-234): Wi-Fi, storage, recording, UPSes.
+  'GET /api/v1/network/kinds': net,
+  'GET /api/v1/network/wireless': net,
+  'GET /api/v1/network/storage': net,
+  'GET /api/v1/network/feed-options': net,
+  'PUT /api/v1/network/devices/:id/feeds': net,
   'POST /ingest/v1/network/report': ingest,
 };
 

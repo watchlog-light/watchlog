@@ -26,8 +26,6 @@ export const USUAL_CLIENTS_MIN = 3;
 /** Many weak clients: at least this share of the AP's clients, besides the count. */
 export const WEAK_SHARE = 0.4;
 
-const held = { heldUnder: UNREACHABLE } as Partial<EeAlertRule>;
-
 function kindRule(
   kind: string,
   key: string,
@@ -98,6 +96,8 @@ type RecHealth = {
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
 export function kindRules(host: EeHost): EeAlertRule[] {
+  // Read here, not at the module's top: alerts.ts imports this file (a cycle).
+  const held = { heldUnder: UNREACHABLE } as Partial<EeAlertRule>;
   return [
     // ------------------------------------------------------------ Wi-Fi
     {

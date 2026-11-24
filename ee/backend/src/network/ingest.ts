@@ -222,7 +222,8 @@ async function applyDevice(
   if (d.state === 'ok' && d.system) {
     const s = d.system;
     const prevUptime = num(row.uptime_s);
-    if (prevUptime !== null && s.uptimeS < prevUptime && s.uptimeS < 3600) {
+    // 0 is "not reported" (a recorder without a CGI uptime), never a fresh boot.
+    if (prevUptime !== null && s.uptimeS > 0 && s.uptimeS < prevUptime && s.uptimeS < 3600) {
       events.push({
         port: '',
         reason: 'DeviceRebooted',
@@ -233,7 +234,7 @@ async function applyDevice(
     }
     Object.assign(set, {
       last_seen: now,
-      uptime_s: s.uptimeS,
+      uptime_s: s.uptimeS > 0 ? s.uptimeS : null,
       ...(s.name ? { sys_name: s.name.slice(0, 253) } : {}),
       ...(s.descr ? { sys_descr: s.descr.slice(0, 1024) } : {}),
       ...(s.objectId ? { sys_object_id: s.objectId.slice(0, 128) } : {}),
