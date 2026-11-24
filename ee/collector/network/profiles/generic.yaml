@@ -1,0 +1,82 @@
+# Any SNMP device (ADR-233), from the public standard MIBs: SNMPv2-MIB, IF-MIB, EtherLike-MIB,
+# HOST-RESOURCES-MIB, ENTITY-MIB, LLDP-MIB, BRIDGE-MIB, Q-BRIDGE-MIB, IP-MIB and
+# POWER-ETHERNET-MIB. Vendor profiles extend it and replace the parts they read differently.
+name: generic
+vendor: ""
+kind: switch
+match: {}
+
+system:
+  descr: 1.3.6.1.2.1.1.1.0      # sysDescr
+  objectID: 1.3.6.1.2.1.1.2.0   # sysObjectID
+  uptime: 1.3.6.1.2.1.1.3.0     # sysUpTime (hundredths of a second)
+  name: 1.3.6.1.2.1.1.5.0       # sysName
+  location: 1.3.6.1.2.1.1.6.0   # sysLocation
+
+interfaces:
+  descr: 1.3.6.1.2.1.2.2.1.2         # ifDescr
+  type: 1.3.6.1.2.1.2.2.1.3          # ifType
+  speed: 1.3.6.1.2.1.2.2.1.5         # ifSpeed (bit/s, 32-bit)
+  physAddress: 1.3.6.1.2.1.2.2.1.6   # ifPhysAddress
+  adminStatus: 1.3.6.1.2.1.2.2.1.7   # ifAdminStatus
+  operStatus: 1.3.6.1.2.1.2.2.1.8    # ifOperStatus
+  inOctets: 1.3.6.1.2.1.2.2.1.10     # ifInOctets (32-bit, when there is no ifHCInOctets)
+  inDiscards: 1.3.6.1.2.1.2.2.1.13   # ifInDiscards
+  inErrors: 1.3.6.1.2.1.2.2.1.14     # ifInErrors
+  outOctets: 1.3.6.1.2.1.2.2.1.16    # ifOutOctets
+  outDiscards: 1.3.6.1.2.1.2.2.1.19  # ifOutDiscards
+  outErrors: 1.3.6.1.2.1.2.2.1.20    # ifOutErrors
+  name: 1.3.6.1.2.1.31.1.1.1.1       # ifName
+  hcInOctets: 1.3.6.1.2.1.31.1.1.1.6   # ifHCInOctets (64-bit)
+  hcOutOctets: 1.3.6.1.2.1.31.1.1.1.10 # ifHCOutOctets
+  highSpeed: 1.3.6.1.2.1.31.1.1.1.15   # ifHighSpeed (Mbit/s)
+  alias: 1.3.6.1.2.1.31.1.1.1.18       # ifAlias
+  fcsErrors: 1.3.6.1.2.1.10.7.2.1.3    # EtherLike-MIB dot3StatsFCSErrors
+  pvid: 1.3.6.1.2.1.17.7.1.4.5.1.1     # Q-BRIDGE-MIB dot1qPvid, by bridge port
+
+entity:
+  descr: 1.3.6.1.2.1.47.1.1.1.1.2     # entPhysicalDescr
+  class: 1.3.6.1.2.1.47.1.1.1.1.5     # entPhysicalClass (chassis 3, powerSupply 6, fan 7, port 10, stack 11)
+  name: 1.3.6.1.2.1.47.1.1.1.1.7      # entPhysicalName
+  firmware: 1.3.6.1.2.1.47.1.1.1.1.9  # entPhysicalFirmwareRev
+  software: 1.3.6.1.2.1.47.1.1.1.1.10 # entPhysicalSoftwareRev
+  serial: 1.3.6.1.2.1.47.1.1.1.1.11   # entPhysicalSerialNum
+  mfg: 1.3.6.1.2.1.47.1.1.1.1.12      # entPhysicalMfgName
+  model: 1.3.6.1.2.1.47.1.1.1.1.13    # entPhysicalModelName
+
+cpu:
+  - oid: 1.3.6.1.2.1.25.3.3.1.2  # hrProcessorLoad (percent)
+    scale: 0.01
+    aggregate: avg
+
+memory:
+  - type: 1.3.6.1.2.1.25.2.3.1.2       # hrStorageType
+    typeValue: 1.3.6.1.2.1.25.2.1.2    # hrStorageRam
+    units: 1.3.6.1.2.1.25.2.3.1.4      # hrStorageAllocationUnits
+    total: 1.3.6.1.2.1.25.2.3.1.5      # hrStorageSize
+    used: 1.3.6.1.2.1.25.2.3.1.6       # hrStorageUsed
+
+neighbours:
+  - protocol: lldp
+    chassisID: 1.0.8802.1.1.2.1.4.1.1.5   # lldpRemChassisId
+    port: 1.0.8802.1.1.2.1.4.1.1.7        # lldpRemPortId
+    portDescr: 1.0.8802.1.1.2.1.4.1.1.8   # lldpRemPortDesc
+    sysName: 1.0.8802.1.1.2.1.4.1.1.9     # lldpRemSysName
+    platform: 1.0.8802.1.1.2.1.4.1.1.10   # lldpRemSysDesc
+    localPort: 1.0.8802.1.1.2.1.3.7.1.3   # lldpLocPortId
+    localDescr: 1.0.8802.1.1.2.1.3.7.1.4  # lldpLocPortDesc
+    manAddr: 1.0.8802.1.1.2.1.4.2.1.3     # lldpRemManAddrIfSubtype (the address is in the index)
+
+macs:
+  basePortIfIndex: 1.3.6.1.2.1.17.1.4.1.2  # dot1dBasePortIfIndex
+  fdbPort: 1.3.6.1.2.1.17.4.3.1.2          # dot1dTpFdbPort
+  fdbStatus: 1.3.6.1.2.1.17.4.3.1.3        # dot1dTpFdbStatus (learned 3)
+  qFdbPort: 1.3.6.1.2.1.17.7.1.2.2.1.2     # dot1qTpFdbPort, index fdbId.mac
+  qFdbStatus: 1.3.6.1.2.1.17.7.1.2.2.1.3   # dot1qTpFdbStatus
+
+arp:
+  netToMediaPhys: 1.3.6.1.2.1.4.22.1.2   # ipNetToMediaPhysAddress, index ifIndex.ip
+  netToPhysPhys: 1.3.6.1.2.1.4.35.1.4    # ipNetToPhysicalPhysAddress, index ifIndex.type.len.ip
+
+poe:
+  detection: 1.3.6.1.2.1.105.1.1.1.6     # pethPsePortDetectionStatus (deliveringPower 3, fault 4)

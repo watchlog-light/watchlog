@@ -8,5 +8,5 @@
 package main
 
 import (
-	_ "github.com/watchlog-light/watchlog/ee/collector/placeholder"
+	_ "github.com/watchlog-light/watchlog/ee/collector/network"
 )

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-WatchLog-Enterprise
 
-package placeholder
+package network
 
 import (
 	"slices"
@@ -10,7 +10,7 @@ import (
 )
 
 func TestRegistersItself(t *testing.T) {
-	if !slices.Contains(ext.Names(), "placeholder") {
+	if !slices.Contains(ext.Names(), "network") {
 		t.Fatalf("ext.Names() = %v", ext.Names())
 	}
 }

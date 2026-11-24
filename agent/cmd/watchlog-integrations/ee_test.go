@@ -13,7 +13,7 @@ import (
 
 // Built with the tag, the collector carries ee/'s packages.
 func TestEnterprisePackagesRegistered(t *testing.T) {
-	if !slices.Contains(ext.Names(), "placeholder") {
-		t.Fatalf("ext.Names() = %v, want the placeholder", ext.Names())
+	if !slices.Contains(ext.Names(), "network") {
+		t.Fatalf("ext.Names() = %v, want network", ext.Names())
 	}
 }

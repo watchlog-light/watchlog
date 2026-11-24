@@ -1,0 +1,39 @@
+# Cisco Nexus on NX-OS (Nexus 3064) (ADR-233): the Catalyst profile where NX-OS has the same
+# MIBs (CISCO-PROCESS-MIB, CISCO-ENTITY-SENSOR-MIB, CISCO-CDP-MIB, LLDP-MIB), and NX-OS's own
+# where it doesn't: CISCO-SYSTEM-EXT-MIB for memory, CISCO-ENTITY-FRU-CONTROL-MIB for fans and
+# power supplies, Q-BRIDGE-MIB for the MAC table.
+name: cisco-nxos
+vendor: Cisco
+extends: cisco-ios
+kind: l3switch
+match:
+  sysObjectID: ["1.3.6.1.4.1.9.12.3.1.3."]
+  sysDescr: ["NX-OS"]
+
+memory:
+  - percent: 1.3.6.1.4.1.9.9.305.1.1.2.0   # cseSysMemoryUtilization (percent)
+
+temperatures: []
+
+fans:
+  - name: 1.3.6.1.2.1.47.1.1.1.1.7          # entPhysicalName, by the same index
+    state: 1.3.6.1.4.1.9.9.117.1.4.1.1.1    # cefcFanTrayOperStatus
+    states: {1: absent, 2: ok, 3: failed, 4: warning}
+
+psus:
+  - name: 1.3.6.1.2.1.47.1.1.1.1.7
+    state: 1.3.6.1.4.1.9.9.117.1.1.2.1.2    # cefcFRUPowerOperStatus
+    states: {1: failed, 2: ok, 3: absent, 4: failed, 5: failed, 6: failed, 7: failed, 8: failed, 9: warning, 10: failed, 11: failed, 12: warning}
+
+macs:
+  basePortIfIndex: 1.3.6.1.2.1.17.1.4.1.2
+  qFdbPort: 1.3.6.1.2.1.17.7.1.2.2.1.2
+  qFdbStatus: 1.3.6.1.2.1.17.7.1.2.2.1.3
+
+poe: {}
+
+lacks:
+  - PoE (no PoE ports on a Nexus 3064)
+  - stacks (Nexus switches don't stack; vPC pairs show as two devices)
+  - CISCO-ENVMON-MIB temperatures (read from CISCO-ENTITY-SENSOR-MIB instead)
+  - memory in bytes (a percentage, from CISCO-SYSTEM-EXT-MIB)
