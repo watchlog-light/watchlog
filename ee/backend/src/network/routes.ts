@@ -206,6 +206,8 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       .where('r.org_id', '=', orgId)
       .where('s.state', '=', 'firing')
       .where('r.rule_key', 'like', 'network.%')
+      // The module's rules carry the device (the core has network.connections.failed too).
+      .where(host.sql<boolean>`s.labels ? 'device_id'`)
       .orderBy('s.started_at', 'desc')
       .limit(200)
       .execute();
