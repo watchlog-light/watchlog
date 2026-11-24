@@ -5,13 +5,18 @@
 // other rule's alert on a device is held back while "Device unreachable" fires for it.
 import type { EeAlertRule, EeHost, Observation } from '../../../../backend/src/ee-contract.js';
 import { speedText } from './ingest.js';
+import { kindRules } from './alerts-kinds.js';
 
-type Ctx = Parameters<EeAlertRule['evaluator']['evaluate']>[0];
-type Cond = { op?: '>' | '<'; value?: number; critical?: number };
+export type Ctx = Parameters<EeAlertRule['evaluator']['evaluate']>[0];
+export type Cond = { op?: '>' | '<'; value?: number; critical?: number };
 
-interface Dev {
+export interface Dev {
   id: string;
   name: string;
+  kind: string;
+  parent_id: string | null;
+  status_since: Date | null;
+  recording: Record<string, any> | null;
   status: string;
   failures: number;
   uptime_s: string | number | null;
@@ -35,21 +40,41 @@ interface Dev {
     }[];
     stack?: { number: number; role: string; state: string }[];
     stackExpected?: number;
+    [k: string]: unknown;
   };
   polled_at: Date | null;
 }
 
 export const UNREACHABLE = 'network.device.unreachable';
-const MIN = 60;
+export const MIN = 60;
+/** What a device is, in an alert's title: "The recorder nvr-1". */
+const KIND_WORD: Record<string, string> = {
+  nvr: 'The recorder ',
+  nas: 'The NAS ',
+  ups: 'The UPS ',
+};
 
 /** The devices this cluster's or fleet's collectors poll, read once per org cycle. */
-function devices(ctx: Ctx): Promise<Dev[]> {
+export function devices(ctx: Ctx): Promise<Dev[]> {
   return ctx.memo(
     `network:devices:${ctx.cluster.id}`,
     () =>
       ctx.db
         .selectFrom('network_devices')
-        .select(['id', 'name', 'status', 'failures', 'uptime_s', 'error', 'health', 'polled_at'])
+        .select([
+          'id',
+          'name',
+          'kind',
+          'parent_id',
+          'status',
+          'status_since',
+          'failures',
+          'uptime_s',
+          'error',
+          'health',
+          'recording',
+          'polled_at',
+        ])
         .where('org_id', '=', ctx.rule.org_id)
         .where('cluster_id', '=', ctx.cluster.id)
         .where('removed_at', 'is', null)
@@ -97,20 +122,20 @@ function linkedPorts(ctx: Ctx): Promise<Map<string, { kind: 'device' | 'host'; t
   });
 }
 
-const labels = (d: Dev, port?: string) => ({
+export const labels = (d: Dev, port?: string) => ({
   device_id: d.id,
   device: d.name,
   ...(port ? { port } : {}),
 });
-const sevOf = (v: number, c: Cond, op: '>' | '<' = '>'): 'warning' | 'critical' =>
+export const sevOf = (v: number, c: Cond, op: '>' | '<' = '>'): 'warning' | 'critical' =>
   c.critical !== undefined && (op === '>' ? v >= c.critical : v <= c.critical)
     ? 'critical'
     : 'warning';
-const cond = (ctx: Ctx, def: Cond): Required<Pick<Cond, 'value'>> & Cond =>
+export const cond = (ctx: Ctx, def: Cond): Required<Pick<Cond, 'value'>> & Cond =>
   ({ ...def, ...((ctx.rule.condition ?? {}) as Cond) }) as never;
-const pct = (v: number) => `${Math.round(v * 100)}%`;
+export const pct = (v: number) => `${Math.round(v * 100)}%`;
 
-function deviceRule(
+export function deviceRule(
   key: string,
   name: string,
   severity: 'warning' | 'critical',
@@ -173,7 +198,7 @@ export function networkRules(host: EeHost): EeAlertRule[] {
           severity: 'critical',
           labels: labels(d),
           details: {
-            title: `${d.name} is unreachable`,
+            title: `${KIND_WORD[d.kind] ?? ''}${d.name} is unreachable`,
             why:
               d.status === 'auth_failed'
                 ? 'it refused the credentials'
@@ -191,7 +216,8 @@ export function networkRules(host: EeHost): EeAlertRule[] {
       0,
       (_ctx, d) => {
         const up = d.uptime_s == null ? null : Number(d.uptime_s);
-        if (d.status !== 'ok' || up === null || up >= 10 * MIN) return null;
+        // An access point's restarts are its CAPsMAN state's alert.
+        if (d.status !== 'ok' || d.kind === 'ap' || up === null || up >= 10 * MIN) return null;
         return {
           fingerprint: `net:${d.id}:reboot`,
           severity: 'warning',
@@ -584,5 +610,6 @@ export function networkRules(host: EeHost): EeAlertRule[] {
         };
       },
     ),
+    ...kindRules(host),
   ];
 }

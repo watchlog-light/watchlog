@@ -9,7 +9,7 @@ import { sealSecret } from './credentials.js';
 interface SeedNetwork {
   credentials?: {
     name: string;
-    protocol: 'snmp' | 'routeros';
+    protocol: 'snmp' | 'routeros' | 'dahua';
     settings: Record<string, unknown>;
     secret: Record<string, string>;
   }[];
@@ -97,7 +97,9 @@ export async function seedNetwork(
         protocol: cred.protocol,
         profile: d.profile ?? (cred.protocol === 'routeros' ? 'mikrotik' : null),
         credential_id: cred.id,
-        kind: d.kind ?? (cred.protocol === 'routeros' ? 'router' : 'switch'),
+        kind:
+          d.kind ??
+          (cred.protocol === 'routeros' ? 'router' : cred.protocol === 'dahua' ? 'nvr' : 'switch'),
       })
       .execute();
     added++;

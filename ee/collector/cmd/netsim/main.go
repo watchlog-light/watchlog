@@ -17,6 +17,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"math"
 	"math/rand/v2"
 	"net"
 	"net/http"
@@ -156,10 +157,55 @@ func main() {
 			go nvrEvents(ctx, log, nvr)
 		}
 	}
+	if *office && *control == "" {
+		go traffic(ctx, agents, nvr, clock)
+	}
 	if *admin != "" {
 		serveAdmin(ctx, log, *admin, agents, router, nvr)
 	}
 	<-ctx.Done()
+}
+
+// traffic drives the ports the 0.17 pages read (ADR-234): the recorder writes about 6 MB/s
+// toward the NAS (next to nothing while its iSCSI disk is lost, when the NAS's target loses its
+// session too), and the access points carry a day's curve, busiest in office hours.
+func traffic(ctx context.Context, agents map[string]*netsim.Agent, nvr *netsim.Dahua, clock func() time.Time) {
+	sw1, sw2, nas := agents["sw-access-1"], agents["sw-access-2"], agents["nas-1"]
+	tick := time.NewTicker(15 * time.Second)
+	defer tick.Stop()
+	was := true
+	for {
+		now := clock()
+		h := float64(now.Hour()) + float64(now.Minute())/60
+		day := math.Max(0, math.Sin((h-7)/12*math.Pi)) // 07:00–19:00
+		jitter := 1 + 0.03*math.Sin(float64(now.Unix())/97)
+		if sw2 != nil {
+			sw2.SetRate("Gi1/0/44", now, (300_000+2_500_000*day)*jitter, (900_000+6_000_000*day)*jitter)
+			sw2.SetRate("Gi1/0/46", now, (200_000+1_600_000*day)*jitter, (600_000+4_200_000*day)*jitter)
+		}
+		if nvr != nil {
+			present := nvr.ISCSIPresent()
+			write := 6_200_000 * jitter
+			if !present {
+				write = 15_000
+			}
+			if sw2 != nil {
+				sw2.SetRate("Gi1/0/40", now, write, 180_000)
+			}
+			if sw1 != nil {
+				sw1.SetRate("Gi1/0/20", now, 120_000, write)
+			}
+			if nas != nil && present != was {
+				nas.SetTarget(1, present)
+			}
+			was = present
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+	}
 }
 
 // events makes the demo's network do something every few hours, at irregular times: a desk

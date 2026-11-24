@@ -14,6 +14,7 @@ import { credentialView, sealSecret, type CredentialRow } from './credentials.js
 import { speedText } from './ingest.js';
 import { RangeError, validRange } from './range.js';
 import { setupCommands, type Platform } from './setup.js';
+import { mapExtras, registerKindRoutes, summaryExtras } from './routes-kinds.js';
 
 const ID = {
   type: 'string',
@@ -145,6 +146,10 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         'd.first_seen',
         'd.last_seen',
         'd.inventory',
+        'd.parent_id',
+        'd.feeds',
+        'd.recording',
+        'd.status_since',
         'c.name as cluster_name',
         'c.kind as cluster_kind',
       ])
@@ -179,6 +184,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       portsTotal: h.portsTotal ?? null,
       update: h.update ?? null,
       managedAp: d.managed_ap,
+      parentId: d.parent_id ?? null,
       poller: {
         clusterId: d.cluster_id,
         name: d.cluster_name,
@@ -348,7 +354,9 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         oldest = { deviceId: d.id, name: d.name, firmware: d.firmware };
     }
     const up = devices.filter((d: any) => d.status === 'ok').length;
+    const extras = await summaryExtras(db, orgId, devices);
     return {
+      ...extras,
       tiles: {
         devices: devices.length,
         up,
@@ -362,6 +370,17 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       attention: alerts.list,
       devices: devices.map((d: any) => deviceView(d, alerts.byDevice.get(d.id) ?? 0)),
     };
+  });
+
+  registerKindRoutes(api, host, {
+    read,
+    write,
+    tags,
+    orgOf: orgOf as (r: unknown) => string,
+    problem,
+    deviceRows,
+    deviceView,
+    openAlerts,
   });
 
   api.get('/network/devices', { ...read, schema: { tags, hide: true } }, async (request) => {
@@ -444,7 +463,10 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
           sysName: d.sys_name,
           location: d.location,
           credential: cred ? { id: cred.id, name: cred.name, protocol: cred.protocol } : null,
-          certificate: d.protocol === 'routeros' ? { pinned: d.cert_pin, seen: d.cert_seen } : null,
+          certificate:
+            d.protocol === 'routeros' || d.protocol === 'dahua'
+              ? { pinned: d.cert_pin, seen: d.cert_seen }
+              : null,
           routes: (d.inventory as { routes?: number })?.routes ?? null,
           gateway: (d.inventory as { gateway?: string })?.gateway ?? null,
           firstSeen: new Date(d.first_seen).toISOString(),
@@ -602,7 +624,9 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         .execute(),
     ]);
     const links = await linkViews(orgId, devices);
+    const extras = await mapExtras(db, orgId, links);
     return {
+      ...extras,
       devices: devices.map((d: any) => ({
         ...deviceView(d, alerts.byDevice.get(d.id) ?? 0),
         gateway: (d.inventory as { gateway?: string })?.gateway ?? null,
@@ -758,7 +782,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
     additionalProperties: false,
     properties: {
       name: NAME,
-      protocol: { enum: ['snmp', 'routeros'] },
+      protocol: { enum: ['snmp', 'routeros', 'dahua'] },
       settings: {
         type: 'object',
         additionalProperties: false,
@@ -770,6 +794,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
           port: { type: 'integer', minimum: 1, maximum: 65535 },
           transport: { enum: ['rest', 'api-ssl', 'api'] },
           allowPlain: { type: 'boolean' },
+          https: { type: 'boolean' },
         },
       },
       secret: {
@@ -797,6 +822,9 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         return 'An SNMPv3 profile needs its authentication and privacy keys (authPriv)';
       if (creating && s.version === '2c' && !b.secret?.community)
         return 'A v2c profile needs its community';
+    } else if (b.protocol === 'dahua') {
+      if (!s.user) return 'A recorder profile needs its read-only user';
+      if (creating && !b.secret?.password) return 'A recorder profile needs its password';
     } else {
       if (!s.user) return 'A RouterOS profile needs a user';
       if (s.transport === 'api' && !s.allowPlain)
@@ -813,7 +841,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       const orgId = orgOf(request);
       const b = request.body as {
         name: string;
-        protocol: 'snmp' | 'routeros';
+        protocol: 'snmp' | 'routeros' | 'dahua';
         settings: Record<string, unknown>;
         secret?: Record<string, string>;
       };
@@ -1129,7 +1157,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
             protocol,
             profile: d.profile || (protocol === 'routeros' ? 'mikrotik' : null),
             credential_id: d.credentialId,
-            kind: protocol === 'routeros' ? 'router' : 'switch',
+            kind: protocol === 'routeros' ? 'router' : protocol === 'dahua' ? 'nvr' : 'switch',
           })
           .execute();
         existing.add(d.address);
@@ -1291,7 +1319,10 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       await db
         .updateTable('network_devices')
         .set({ removed_at: new Date(host.now()) })
-        .where('id', '=', id)
+        .where('org_id', '=', orgId)
+        // A controller's access points go with it.
+        .where((eb: any) => eb.or([eb('id', '=', id), eb('parent_id', '=', id)]))
+        .where('removed_at', 'is', null)
         .execute();
       await db
         .deleteFrom('network_links')

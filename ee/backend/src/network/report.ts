@@ -59,6 +59,8 @@ export interface SystemInfo {
   firmware?: string;
   kind?: string;
   update?: { channel?: string; installed?: string; latest?: string };
+  /** The device's own address, for the switch port it is behind (0.17). */
+  mac?: string;
 }
 export interface Interface {
   index: number;
@@ -101,6 +103,132 @@ export interface DeviceReport {
   system?: SystemInfo;
   health?: Health;
   inventory?: Inventory;
+  wireless?: Wireless;
+  nas?: NAS;
+  recorder?: Recorder;
+  ups?: UPS;
+}
+
+// 0.17 (ADR-234): CAPsMAN, a NAS, a recorder, a UPS.
+export interface Radio {
+  interface: string;
+  ssid?: string;
+  band?: string;
+  channel?: number;
+  frequencyMhz?: number;
+  txPowerDbm?: number;
+  noiseDbm?: number;
+  clients: number;
+  running: boolean;
+}
+export interface AP {
+  name: string;
+  mac?: string;
+  address?: string;
+  model?: string;
+  serial?: string;
+  version?: string;
+  state: string;
+  uptimeS?: number;
+  generation: string;
+  radios: Radio[];
+}
+export interface WifiClient {
+  mac: string;
+  ap: string;
+  interface?: string;
+  ssid?: string;
+  band?: string;
+  signalDbm?: number;
+  txRate?: string;
+  rxRate?: string;
+  uptimeS?: number;
+  bytesTx?: number;
+  bytesRx?: number;
+}
+export interface MeshLink {
+  from: string;
+  to: string;
+  signalDbm?: number;
+  rate?: string;
+}
+export interface Wireless {
+  generations: string[];
+  aps: AP[];
+  clients: WifiClient[];
+  mesh?: MeshLink[];
+}
+export interface Disk {
+  index: number;
+  name?: string;
+  model?: string;
+  capacity?: number;
+  celsius?: number;
+  smart: string;
+  status: string;
+}
+export interface Volume {
+  name: string;
+  total: number;
+  free: number;
+  status: string;
+  raid?: string;
+}
+export interface LUN {
+  name: string;
+  capacity: number;
+  usedPercent?: number;
+  status?: string;
+  mapped: boolean;
+}
+export interface ISCSITarget {
+  name: string;
+  iqn?: string;
+  connected: boolean;
+  status?: string;
+}
+export interface NAS {
+  disks: Disk[];
+  volumes: Volume[];
+  pools?: Volume[];
+  luns: LUN[];
+  targets?: ISCSITarget[];
+}
+export interface RecorderDisk {
+  name: string;
+  iscsi: boolean;
+  state: string;
+  healthy: boolean;
+  total: number;
+  used: number;
+}
+export interface Camera {
+  channel: number;
+  name?: string;
+  online: boolean;
+}
+export interface RecorderEvent {
+  code: string;
+  action: string;
+  index: number;
+  at: number;
+}
+export interface Recorder {
+  disks: RecorderDisk[];
+  cameras: Camera[];
+  events?: RecorderEvent[];
+  active?: RecorderEvent[];
+  stream: boolean;
+}
+export interface UPS {
+  status: string;
+  chargePercent?: number;
+  runtimeS?: number;
+  loadPercent?: number;
+  inputVolts?: number;
+  outputVolts?: number;
+  celsius?: number;
+  replaceBattery: boolean;
 }
 export interface Found {
   address: string;

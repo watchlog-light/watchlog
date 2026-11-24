@@ -124,6 +124,18 @@ func (d *Dahua) SetISCSI(present bool) {
 	}
 }
 
+// ISCSIPresent says whether the iSCSI disk is there (the demo's traffic follows it).
+func (d *Dahua) ISCSIPresent() bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, k := range d.disks {
+		if k.iscsi && !k.present {
+			return false
+		}
+	}
+	return true
+}
+
 // SetUsed sets a disk's used bytes (by name); at 95 % the stream says StorageLowSpace Start,
 // below it Stop.
 func (d *Dahua) SetUsed(name string, used float64) {

@@ -20,6 +20,11 @@ export interface DevRef {
   /** Its own MAC addresses (ports, chassis), lower-case. */
   macs: Set<string>;
   ports: { name: string; descr: string; alias: string }[];
+  /**
+   * A NAS, a recorder, a UPS or an access point (0.17): it reads no MAC table, so it is linked
+   * to the switch port nearest its own address, one-sided.
+   */
+  leaf?: boolean;
 }
 
 export interface NeighbourIn {
@@ -197,6 +202,22 @@ export function mergeLinks(devs: DevRef[], neighbours: NeighbourIn[], macs: MacI
   for (const [a, p, b, q] of pairs) {
     if (linkedPorts.has(`${a.id}/${p}`) || linkedPorts.has(`${b.id}/${q}`)) continue;
     add(a.id, p, b.id, q, 'mac');
+  }
+  // Leaves (ADR-234): on the port with the fewest addresses behind it that sees one of theirs,
+  // that isn't already a link: the access port, not the uplinks it is also seen through.
+  const linkedDevs = new Set([...out.values()].flatMap((l) => [l.aDevice, l.bDevice]));
+  for (const b of devs) {
+    if (!b.leaf || linkedDevs.has(b.id) || seen.has(b.id) || !b.macs.size) continue;
+    let best: [DevRef, string, number] | undefined;
+    for (const a of devs) {
+      if (a.id === b.id || a.leaf) continue;
+      const p = portSeeing(a, b);
+      if (!p) continue;
+      const n = count.get(`${a.id}/${p}`) ?? 0;
+      if (!best || n < best[2]) best = [a, p, n];
+    }
+    const own = b.ports.find((p) => !/^(lo|loopback|bond|br|docker|veth|virbr|tun)/i.test(p.name));
+    if (best) add(best[0].id, best[1], b.id, own?.name ?? 'lan', 'mac');
   }
   return [...out.values()].sort((x, y) =>
     `${x.aDevice}${x.aPort}${x.bDevice}`.localeCompare(`${y.aDevice}${y.aPort}${y.bDevice}`),

@@ -959,7 +959,8 @@ func pollDahua(ctx context.Context, dial DahuaDialFunc, p *Profile, dev Device, 
 		}
 	}
 
-	rec := &Recorder{Disks: []RecorderDisk{}, Cameras: []Camera{}}
+	// A list that couldn't be read stays nil (null): unknown, not empty.
+	rec := &Recorder{}
 	disksRead, camsRead := false, false
 	if b, err := c.Get(ctx, dahuaStorage); err == nil {
 		rec.Disks, disksRead = parseDisks(b), true
@@ -970,6 +971,12 @@ func pollDahua(ctx context.Context, dial DahuaDialFunc, p *Profile, dev Device, 
 		rec.Cameras, camsRead = parseCameras(b, st.titles), true
 	} else if dahuaStateOf(err) != StateError {
 		return fail(err)
+	}
+	if disksRead && rec.Disks == nil {
+		rec.Disks = []RecorderDisk{}
+	}
+	if camsRead && rec.Cameras == nil {
+		rec.Cameras = []Camera{}
 	}
 	if st.stream != nil {
 		st.stream.reconcile(rec.Cameras, rec.Disks, disksRead)

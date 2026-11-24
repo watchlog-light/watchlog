@@ -8,10 +8,21 @@ import type { EeHost, FastifyInstance } from '../../../../backend/src/ee-contrac
 import { FEATURE } from './collector.js';
 import { mergeLinks, placeEndpoints, type DevRef, type MacIn, type NeighbourIn } from './links.js';
 import { vendorOf } from './oui.js';
+import {
+  applyNAS,
+  applyRecorder,
+  applyUPS,
+  applyWireless,
+  macOrNull,
+  type KindEvent,
+  type KindRow,
+} from './kinds.js';
 import type { DeviceReport, Inventory, Report } from './report.js';
 
 /** Errors that stop growing for this long have stopped ("errors started" can fire again). */
 export const ERRORS_QUIET_MS = 10 * 60_000;
+/** Kinds that hang off a switch port and read no MAC table: a NAS, a recorder, a UPS, an AP. */
+const LEAF_KINDS = new Set(['nas', 'nvr', 'ups', 'ap']);
 /** Endpoints not seen for a day are forgotten. */
 export const ENDPOINT_KEPT_MS = 24 * 3600_000;
 const MAX_REPORT_BYTES = 16 << 20;
@@ -61,13 +72,10 @@ export function registerNetworkIngest(ingest: FastifyInstance, host: EeHost): vo
   );
 }
 
-interface DeviceRow {
-  id: string;
-  name: string;
+interface DeviceRow extends KindRow {
   status: string;
   uptime_s: string | number | null;
   cert_pin: string | null;
-  health: Record<string, unknown>;
   kind: string;
 }
 
@@ -97,7 +105,20 @@ export async function applyReport(
   const rows: DeviceRow[] = ids.length
     ? await db
         .selectFrom('network_devices')
-        .select(['id', 'name', 'status', 'uptime_s', 'cert_pin', 'health', 'kind'])
+        .select([
+          'id',
+          'name',
+          'status',
+          'uptime_s',
+          'cert_pin',
+          'health',
+          'kind',
+          'cluster_id',
+          'poller_host',
+          'recording',
+          'feeds',
+          'sys_name',
+        ])
         .where('org_id', '=', owner.orgId)
         .where('cluster_id', '=', owner.clusterId)
         .where('poller_host', '=', r.host)
@@ -222,6 +243,7 @@ async function applyDevice(
       ...(s.serial ? { serial: s.serial.slice(0, 128) } : {}),
       ...(s.firmware ? { firmware: s.firmware.slice(0, 128) } : {}),
       ...(s.kind && row.kind === 'switch' ? { kind: s.kind } : {}),
+      ...(macOrNull(s.mac) ? { mac: macOrNull(s.mac) } : {}),
     });
   }
   if (d.state === 'ok' && d.health) {
@@ -243,6 +265,37 @@ async function applyDevice(
       portsUp: (h.ports ?? []).filter((p) => p.operUp).length,
       portsTotal: (h.ports ?? []).length,
     });
+  }
+  // 0.17's kinds (ADR-234): what each adds to the device's health, and its events.
+  const kindEvents: KindEvent[] = [];
+  const kindHealth: Record<string, unknown> = {};
+  if (d.state === 'ok') {
+    const nowMs = now.getTime();
+    if (d.wireless) {
+      const w = await applyWireless(host, owner.orgId, row, d.wireless, nowMs);
+      kindEvents.push(...w.events);
+      kindHealth.wireless = w.summary;
+    }
+    if (d.nas) {
+      const n = applyNAS(row, d.nas);
+      kindEvents.push(...n.events);
+      Object.assign(kindHealth, n.health);
+    }
+    if (d.ups) {
+      const u = applyUPS(row, d.ups);
+      kindEvents.push(...u.events);
+      Object.assign(kindHealth, u.health);
+    }
+    if (d.recorder) {
+      const r = await applyRecorder(host, owner.orgId, row, d.recorder, nowMs);
+      kindEvents.push(...r.events);
+      Object.assign(kindHealth, r.health);
+      set.recording = JSON.stringify(r.recording);
+    }
+  }
+  if (Object.keys(kindHealth).length) {
+    const base = typeof set.health === 'string' ? JSON.parse(set.health) : row.health;
+    set.health = JSON.stringify({ ...base, ...kindHealth });
   }
   // Inventory first: the ports it lists, so the round's state lands on them.
   if (d.state === 'ok' && d.inventory)
@@ -332,6 +385,7 @@ async function applyDevice(
   }
   await db.updateTable('network_devices').set(set).where('id', '=', row.id).execute();
   for (const e of events) await recordEvents(host, owner.orgId, row, e, now);
+  for (const e of kindEvents) await recordKindEvent(host, owner.orgId, row, e, now);
   return { inventory: d.state === 'ok' && !!d.inventory, pinned };
 }
 
@@ -385,6 +439,73 @@ async function recordEvents(
       message: onPort
         ? `${e.message} ${b.node} is behind it.`
         : `${e.message} ${b.node} is behind ${row.name} · ${b.port}.`,
+      at: now.getTime(),
+      source: 'watchlog-network',
+    });
+  }
+}
+
+/** Reasons of the 0.17 kinds that also go to a place's Events list (not cameras: noisy). */
+const KIND_PLACE_REASONS = new Set([
+  'NotRecording',
+  'RecordingAgain',
+  'ISCSIDiskLost',
+  'ISCSIDiskBack',
+  'ISCSIDisconnected',
+  'ISCSIConnected',
+  'VolumeDegraded',
+  'VolumeReady',
+  'DiskSMART',
+  'UPSOnBattery',
+  'UPSOnline',
+  'UPSBypass',
+  'APDisconnected',
+  'APConnected',
+  'APProvisioningFailed',
+]);
+
+/**
+ * A 0.17 kind's event: on its device's page, and in a place's Events list: the servers and
+ * nodes a UPS feeds, or else the place whose collector polls the device (ADR-234).
+ */
+async function recordKindEvent(
+  host: EeHost,
+  orgId: string,
+  row: DeviceRow,
+  e: KindEvent,
+  now: Date,
+): Promise<void> {
+  const deviceId = e.deviceId ?? row.id;
+  const name = e.deviceName ?? row.name;
+  await host.systemDb
+    .insertInto('network_events')
+    .values({
+      id: host.newId(),
+      org_id: orgId,
+      device_id: deviceId,
+      port: e.port ?? '',
+      reason: e.reason,
+      severity: e.severity,
+      message: e.message,
+      at: now,
+    })
+    .execute();
+  if (!KIND_PLACE_REASONS.has(e.reason)) return;
+  const feeds = e.feeds ? (row.feeds ?? []) : [];
+  const places = feeds.length
+    ? feeds.map((f) => ({ clusterId: f.clusterId, host: f.node }))
+    : [{ clusterId: row.cluster_id, host: '' }];
+  for (const p of places) {
+    await host.events.record({
+      orgId,
+      clusterId: p.clusterId,
+      kind: 'NetworkDevice',
+      name,
+      key: `net:${deviceId}`,
+      host: p.host,
+      reason: e.reason,
+      type: e.severity === 'info' ? 'Normal' : 'Warning',
+      message: p.host && e.feeds ? `${e.message} It feeds ${p.host}.` : e.message,
       at: now.getTime(),
       source: 'watchlog-network',
     });
@@ -468,7 +589,7 @@ export async function mergeOrg(host: EeHost, orgId: string, nowMs: number): Prom
   const now = new Date(nowMs);
   const devices = await db
     .selectFrom('network_devices')
-    .select(['id', 'name', 'sys_name', 'address', 'inventory'])
+    .select(['id', 'name', 'sys_name', 'address', 'inventory', 'mac', 'kind'])
     .where('org_id', '=', orgId)
     .where('removed_at', 'is', null)
     .execute();
@@ -483,11 +604,13 @@ export async function mergeOrg(host: EeHost, orgId: string, nowMs: number): Prom
     name: d.name,
     sysName: d.sys_name,
     address: d.address,
-    macs: new Set(
-      ifs
+    macs: new Set([
+      ...ifs
         .filter((i: any) => i.device_id === d.id && i.mac)
         .map((i: any) => String(i.mac).toLowerCase()),
-    ),
+      ...(d.mac ? [String(d.mac).toLowerCase()] : []),
+    ]),
+    leaf: LEAF_KINDS.has(d.kind),
     ports: ifs
       .filter((i: any) => i.device_id === d.id)
       .map((i: any) => ({ name: i.name, descr: i.descr, alias: i.alias })),

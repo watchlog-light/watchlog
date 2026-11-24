@@ -20,13 +20,15 @@ export type RosSettings = {
   port?: number;
 };
 export type RosSecret = { password?: string };
+/** A recorder's read-only HTTP user (Dahua, ADR-234): digest auth, HTTPS pinned like RouterOS. */
+export type DahuaSettings = { user: string; https?: boolean; port?: number };
 
 export interface CredentialRow {
   id: string;
   org_id: string;
   name: string;
-  protocol: 'snmp' | 'routeros';
-  settings: SnmpSettings | RosSettings;
+  protocol: 'snmp' | 'routeros' | 'dahua';
+  settings: SnmpSettings | RosSettings | DahuaSettings;
   ciphertext: string | null;
 }
 
@@ -77,6 +79,18 @@ export function collectorCredential(host: EeHost, r: CredentialRow, pin?: string
               privProto: s.privProto ?? 'AES',
               privKey: secret.privKey ?? '',
             }),
+      },
+    };
+  }
+  if (r.protocol === 'dahua') {
+    const s = r.settings as DahuaSettings;
+    return {
+      dahua: {
+        user: s.user,
+        password: secret.password ?? '',
+        ...(s.https ? { https: true } : {}),
+        ...(s.port ? { port: s.port } : {}),
+        ...(pin && s.https ? { pin } : {}),
       },
     };
   }
