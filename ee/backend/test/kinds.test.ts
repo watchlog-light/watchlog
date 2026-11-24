@@ -407,6 +407,11 @@ describe('Wi-Fi, storage, recording and a UPS polled from a cluster', () => {
       }),
     ]);
     expect([...(await currentDevices(ctx!.db)).values()]).toEqual([5]);
+    expect((await call('GET', '/network/kinds')).json()).toMatchObject({
+      kinds: { ap: 3, nas: 1, nvr: 1, ups: 1 },
+      devices: 8,
+      wifiClients: 10,
+    });
 
     const wifi = (await call('GET', '/network/wireless')).json();
     expect(wifi.tiles).toMatchObject({

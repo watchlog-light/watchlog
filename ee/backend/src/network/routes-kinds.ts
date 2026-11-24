@@ -219,6 +219,31 @@ export function registerKindRoutes(api: FastifyInstance, host: EeHost, h: KindHe
   const db = host.db;
   const { read, write, tags } = h;
 
+  // The tabs' answer (Wireless and Storage show only where there are such devices): cheap.
+  api.get('/network/kinds', { ...read, schema: { tags, hide: true } }, async (request) => {
+    const orgId = h.orgOf(request);
+    const [rows, clients] = await Promise.all([
+      db
+        .selectFrom('network_devices')
+        .select(['kind', db.fn.countAll().as('n')])
+        .where('org_id', '=', orgId)
+        .where('removed_at', 'is', null)
+        .groupBy('kind')
+        .execute(),
+      db
+        .selectFrom('network_wifi_clients')
+        .select(db.fn.countAll().as('n'))
+        .where('org_id', '=', orgId)
+        .executeTakeFirst(),
+    ]);
+    const kinds = Object.fromEntries(rows.map((r: any) => [r.kind, Number(r.n)]));
+    return {
+      kinds,
+      devices: Object.values(kinds).reduce((a: number, b) => a + (b as number), 0),
+      wifiClients: Number(clients?.n ?? 0),
+    };
+  });
+
   api.get('/network/wireless', { ...read, schema: { tags, hide: true } }, async (request) => {
     const orgId = h.orgOf(request);
     const [devices, alerts] = await Promise.all([h.deviceRows(orgId), h.openAlerts(orgId)]);
