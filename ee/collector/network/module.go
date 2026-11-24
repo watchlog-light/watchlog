@@ -48,6 +48,7 @@ func Run(ctx context.Context, h ext.Host) {
 		h.Log().Error("network profiles", "err", err)
 		return
 	}
+	defer p.Close()
 	p.Configure(h.Config())
 	t := time.NewTicker(time.Second)
 	defer t.Stop()
@@ -85,6 +86,7 @@ func Run(ctx context.Context, h ext.Host) {
 type devState struct {
 	snmp     *snmpState
 	ros      *rosState
+	dahua    *dahuaState
 	lastInv  time.Time
 	failures int
 	nextTry  time.Time
@@ -97,6 +99,10 @@ type Poller struct {
 	dial     DialFunc
 	dialROS  ROSDialFunc
 	profiles Profiles
+	// dialDahua and now are the recorders' client and their event streams' clock (tests
+	// set them with SetDahua).
+	dialDahua DahuaDialFunc
+	now       func() time.Time
 
 	mu      sync.Mutex
 	cfg     Config
@@ -115,7 +121,33 @@ func NewPoller(log *slog.Logger, dial DialFunc, dialROS ROSDialFunc) (*Poller, e
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
-	return &Poller{log: log, dial: dial, dialROS: dialROS, profiles: ps, states: map[string]*devState{}, ran: map[string]bool{}}, nil
+	return &Poller{
+		log: log, dial: dial, dialROS: dialROS, dialDahua: DialDahua, now: time.Now, profiles: ps,
+		states: map[string]*devState{}, ran: map[string]bool{},
+	}, nil
+}
+
+// SetDahua sets how recorders are reached and their event streams' clock (tests, before
+// Configure).
+func (p *Poller) SetDahua(dial DahuaDialFunc, now func() time.Time) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if dial != nil {
+		p.dialDahua = dial
+	}
+	if now != nil {
+		p.now = now
+	}
+}
+
+// Close stops the recorders' event streams.
+func (p *Poller) Close() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for id, st := range p.states {
+		st.dahua.close()
+		delete(p.states, id)
+	}
 }
 
 // Configure takes the module's section of the configuration.
@@ -134,12 +166,28 @@ func (p *Poller) Configure(raw json.RawMessage) {
 	for _, d := range c.Devices {
 		keep[d.ID] = true
 		key := d.Address + "|" + d.Protocol + "|" + d.Profile
+		if d.Protocol == "dahua" {
+			key += "|" + dahuaKey(d)
+		}
 		if st, ok := p.states[d.ID]; !ok || st.key != key {
-			p.states[d.ID] = &devState{snmp: newSNMPState(), ros: newROSState(), key: key}
+			if ok {
+				st.dahua.close()
+			}
+			ns := &devState{snmp: newSNMPState(), ros: newROSState(), key: key}
+			if d.Protocol == "dahua" {
+				ns.dahua = newDahuaState()
+				if !d.Paused {
+					// One event stream per recorder, for as long as it is configured so.
+					ns.dahua.stream = newDahuaStream(p.now)
+					ns.dahua.stream.start(p.dialDahua, d)
+				}
+			}
+			p.states[d.ID] = ns
 		}
 	}
-	for id := range p.states {
+	for id, st := range p.states {
 		if !keep[id] {
+			st.dahua.close()
 			delete(p.states, id)
 		}
 	}
@@ -191,18 +239,21 @@ func (p *Poller) Round(ctx context.Context, now time.Time) (*Report, []Sample) {
 			defer cancel()
 			var rep DeviceReport
 			var samples []Sample
-			if d.Protocol == "routeros" {
+			switch d.Protocol {
+			case "routeros":
 				prof := p.profiles["mikrotik"]
 				if d.Profile != "" && p.profiles[d.Profile] != nil {
 					prof = p.profiles[d.Profile]
 				}
 				rep, samples = pollROS(pctx, p.dialROS, prof, d, st.ros, now, inv)
-			} else {
+			case "dahua":
+				rep, samples = pollDahua(pctx, p.dialDahua, p.profiles["dahua"], d, st.dahua, now, inv)
+			default:
 				rep, samples = pollSNMP(pctx, p.dial, p.profiles, d, st.snmp, now, inv)
 			}
 			if rep.State == StateOK {
 				st.failures, st.nextTry = 0, time.Time{}
-				if rep.Inventory != nil {
+				if rep.Inventory != nil || (inv && d.Protocol == "dahua") {
 					st.lastInv = now
 				}
 			} else {

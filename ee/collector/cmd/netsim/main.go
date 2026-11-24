@@ -6,6 +6,7 @@
 //
 //	netsim -office -listen 0.0.0.0 -snmp-port 1161      # the demo: real time, events every few hours
 //	netsim -fleet 50 -listen 127.0.0.1 -control :0      # the budget run: time set by the caller
+//	netsim -office -dahua-port 8080                      # with a Dahua recorder, nvr-1 (HTTP API)
 //
 // It prints one JSON line per device (name, address, protocol, port) on start.
 package main
@@ -47,7 +48,10 @@ func main() {
 	community := flag.String("community", "public", "the SNMP v2c community")
 	control := flag.String("control", "", "serve POST /time?ms= (a replayed clock) on this address")
 	nodes := flag.String("nodes", "", "JSON list of {mac, ip, vlan} for the servers and nodes behind the switches")
-	admin := flag.String("admin", "", "serve POST /port?device=&port=&up= and /rate?device=&port=&in=&out= (tests) on this address")
+	admin := flag.String("admin", "", "serve POST /port?device=&port=&up=, /rate?device=&port=&in=&out=, /camera?channel=&online= and /iscsi?present= (tests) on this address")
+	dahuaPort := flag.Int("dahua-port", 0, "serve a Dahua recorder (nvr-1) on this HTTP port (0: none)")
+	dahuaUser := flag.String("dahua-user", "watchlog", "the recorder's user")
+	dahuaPassword := flag.String("dahua-password", "read-only-sample", "the recorder's password")
 	flag.Parse()
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
@@ -136,8 +140,24 @@ func main() {
 			go events(ctx, log, agents, router)
 		}
 	}
+	var nvr *netsim.Dahua
+	if *dahuaPort > 0 {
+		nvr = netsim.NVR()
+		nvr.User, nvr.Password, nvr.Clock = *dahuaUser, *dahuaPassword, clock
+		got, err := nvr.Serve(ctx, net.JoinHostPort(*listen, strconv.Itoa(*dahuaPort)), false)
+		if err != nil {
+			log.Error("dahua", "err", err)
+			os.Exit(1)
+		}
+		_, port, _ := net.SplitHostPort(got)
+		p, _ := strconv.Atoi(port)
+		_ = out.Encode(device{Name: "nvr-1", Address: *listen, Port: p, Protocol: "dahua"})
+		if *control == "" && *admin == "" {
+			go nvrEvents(ctx, log, nvr)
+		}
+	}
 	if *admin != "" {
-		serveAdmin(ctx, log, *admin, agents, router)
+		serveAdmin(ctx, log, *admin, agents, router, nvr)
 	}
 	<-ctx.Done()
 }
@@ -178,9 +198,57 @@ func events(ctx context.Context, log *slog.Logger, agents map[string]*netsim.Age
 	}
 }
 
-// serveAdmin lets a test flap a port or load a link now, instead of waiting hours.
-func serveAdmin(ctx context.Context, log *slog.Logger, addr string, agents map[string]*netsim.Agent, router *netsim.RouterOS) {
+// nvrEvents makes the demo's recorder do something at irregular times: every few hours a
+// camera drops for 5 to 20 minutes, and once a day the iSCSI disk is lost for 3 to 8 minutes.
+func nvrEvents(ctx context.Context, log *slog.Logger, nvr *netsim.Dahua) {
+	pause := func(d time.Duration) bool {
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(d):
+			return true
+		}
+	}
+	go func() {
+		for pause(time.Duration(120+rand.IntN(240)) * time.Minute) {
+			ch := rand.IntN(16)
+			log.Info("camera offline", "device", "nvr-1", "channel", ch)
+			nvr.SetCamera(ch, false)
+			if !pause(time.Duration(5+rand.IntN(16)) * time.Minute) {
+				return
+			}
+			nvr.SetCamera(ch, true)
+		}
+	}()
+	for pause(time.Duration(20*60+rand.IntN(8*60)) * time.Minute) {
+		log.Info("iscsi lost", "device", "nvr-1")
+		nvr.SetISCSI(false)
+		if !pause(time.Duration(3+rand.IntN(6)) * time.Minute) {
+			return
+		}
+		nvr.SetISCSI(true)
+	}
+}
+
+// serveAdmin lets a test flap a port, load a link, drop a camera or lose the recorder's
+// iSCSI disk now, instead of waiting hours.
+func serveAdmin(ctx context.Context, log *slog.Logger, addr string, agents map[string]*netsim.Agent, router *netsim.RouterOS, nvr *netsim.Dahua) {
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /camera", func(w http.ResponseWriter, r *http.Request) {
+		ch, err := strconv.Atoi(r.URL.Query().Get("channel"))
+		if nvr == nil || err != nil {
+			http.Error(w, "no recorder or no channel", http.StatusNotFound)
+			return
+		}
+		nvr.SetCamera(ch, r.URL.Query().Get("online") == "true")
+	})
+	mux.HandleFunc("POST /iscsi", func(w http.ResponseWriter, r *http.Request) {
+		if nvr == nil {
+			http.Error(w, "no recorder", http.StatusNotFound)
+			return
+		}
+		nvr.SetISCSI(r.URL.Query().Get("present") == "true")
+	})
 	mux.HandleFunc("POST /port", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		up := q.Get("up") == "true"

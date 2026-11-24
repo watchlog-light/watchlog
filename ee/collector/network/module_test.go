@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -72,7 +73,10 @@ func configOf(t *testing.T, c Config) json.RawMessage {
 func TestPollerRoundsBackoffAndInventory(t *testing.T) {
 	start := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
 	now := start.Add(time.Hour)
-	clock := func() time.Time { return now }
+	// The simulators read the clock from their own goroutines.
+	var at atomic.Int64
+	at.Store(now.UnixNano())
+	clock := func() time.Time { return time.Unix(0, at.Load()).UTC() }
 	devs, agents := lab(t, clock, netsim.Office(nil)[1:2], start)
 	// A device nothing answers on.
 	closed, _ := net.ListenPacket("udp", "127.0.0.1:0")
@@ -128,6 +132,7 @@ func TestPollerRoundsBackoffAndInventory(t *testing.T) {
 			}
 		}
 		now = now.Add(Round)
+		at.Store(now.UnixNano())
 	}
 	if backoff(3) != 2*time.Minute || backoff(4) != 4*time.Minute || backoff(20) != time.Hour {
 		t.Fatal("backoff doubles from 2 minutes to an hour")
