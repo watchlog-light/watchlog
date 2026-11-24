@@ -18,7 +18,7 @@ WatchLog has two parts: the **server** (backend, web UI, PostgreSQL, VictoriaMet
 One chart installs the server and the agents for this cluster:
 
 ```bash
-helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version 0.15.0 \
+helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version 0.16.0 \
   --namespace watchlog --create-namespace
 ```
 
@@ -27,6 +27,8 @@ helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version 0.1
 3. Enter the one-time setup code from `kubectl -n watchlog logs deploy/watchlog-backend -c backend | grep "setup code"` and create your admin account. To skip this step, install with `--set admin.email=you@example.com --set admin.password=...`.
 
 The cluster appears within a minute, named `kubernetes` (set `--set clusterName=prod` to change it). Nodes, workloads, pods and events come first; the service map fills in as workloads talk to each other.
+
+With [network devices](network.md) (Pro and Enterprise), a node's page also shows the switch port it is on (`sw-access-2 · Gi1/0/14 · 1 Gb/s`): the node agent reports its network cards, and the cluster's integrations collector polls the switches.
 
 **PodSecurity:** the node agent needs read-only hostPath mounts, which the `baseline` and `restricted` levels forbid. If your cluster enforces one of them, label the namespace first:
 
@@ -58,8 +60,8 @@ The cluster switcher at the top of the sidebar moves between them. In Pro, [All 
 
 ```bash
 mkdir watchlog && cd watchlog
-curl -fsSLO https://raw.githubusercontent.com/watchlog-light/watchlog/v0.15.0/deploy/docker/compose.yaml
-curl -fsSL -o .env https://raw.githubusercontent.com/watchlog-light/watchlog/v0.15.0/deploy/docker/.env.example
+curl -fsSLO https://raw.githubusercontent.com/watchlog-light/watchlog/v0.16.0/deploy/docker/compose.yaml
+curl -fsSL -o .env https://raw.githubusercontent.com/watchlog-light/watchlog/v0.16.0/deploy/docker/.env.example
 ```
 
 Edit `.env` and set:
@@ -67,7 +69,7 @@ Edit `.env` and set:
 - `WATCHLOG_DB_PASSWORD`: any strong password.
 - `WATCHLOG_SECRET_KEY`: from `openssl rand -base64 32`. Back it up with the database.
 - `WATCHLOG_PUBLIC_URL`: how agents and browsers reach this host, for example `http://10.0.0.5:8080`.
-- `WATCHLOG_VERSION=0.15.0`.
+- `WATCHLOG_VERSION=0.16.0`.
 
 Then start it and get the setup code:
 

@@ -239,6 +239,14 @@ Connections are attributed to the service or process group that opens them, with
 requests and latency for plain HTTP/1.x. They need Linux 5.8 or newer with BTF (Ubuntu 20.10,
 Debian 11 and RHEL 8.2 on). Egress and What changed include services and process groups.
 
+## The switch port
+
+With [network devices](network.md) (Pro and Enterprise), a server's page shows the switch port
+it is on, for example `sw-access-2 · Gi1/0/14 · 1 Gb/s`, linked to that port. The agent reports
+each network card's name, MAC address and addresses; the switches' MAC tables say which port
+that MAC is behind. A port going down, an uplink dropping packets or the switch rebooting shows
+in the server's Events and in its probable cause.
+
 ## Troubleshooting
 
 ```bash

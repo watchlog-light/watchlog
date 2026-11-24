@@ -24,7 +24,7 @@ The features a key lists:
 | Feature   | What it turns on                                                                                                     |
 | --------- | -------------------------------------------------------------------------------------------------------------------- |
 | `pro`     | Everything WatchLog Cloud Pro has: [What changed](what-changed.md), All clusters and fleets, their API and MCP tools |
-| `network` | Network devices (switches, routers, Wi-Fi, NAS, NVRs, UPSes), from the next release                                  |
+| `network` | [Network devices](network.md): switches, routers and the map (Wi-Fi, NAS, NVRs and UPSes next)                       |
 
 ## Adding the key
 
@@ -79,7 +79,7 @@ Everything else is the same as Community.
 A licence covers a number of **units**:
 
 - each **Kubernetes node** and each **server** (a Linux server, with whatever runs on it) is one;
-- from the next release, each **network device** too, with **Wi-Fi access points free**.
+- each **network device** too ([network devices](network.md)), with **Wi-Fi access points free**.
 
 WatchLog counts them from what your agents report, hour by hour. A day's count is its busiest
 hour, and the licence's count is the **highest daily count of the last 7 days**, so a burst of
@@ -95,8 +95,8 @@ of (nodes, servers).
   Community keep working however many units you have: the limit is only about the licensed
   features.
 - **After 30 days in a row over the limit**, licensed features take on **no new places**: a
-  cluster or fleet added after that doesn't start learning What changed (and, from the next
-  release, no new network devices are polled). Everything they already cover keeps working.
+  cluster or fleet added after that doesn't start learning What changed, and no new network
+  devices can be added. Everything they already cover keeps working.
   A day at or under the limit ends the run.
 
 ## Expiry and grace

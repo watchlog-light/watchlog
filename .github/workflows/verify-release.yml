@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Release version without the v, e.g. 0.15.0
+        description: Release version without the v, e.g. 0.16.0
         required: true
 
 permissions:
