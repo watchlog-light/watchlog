@@ -47,6 +47,7 @@ func main() {
 	community := flag.String("community", "public", "the SNMP v2c community")
 	control := flag.String("control", "", "serve POST /time?ms= (a replayed clock) on this address")
 	nodes := flag.String("nodes", "", "JSON list of {mac, ip, vlan} for the servers and nodes behind the switches")
+	admin := flag.String("admin", "", "serve POST /port?device=&port=&up= and /rate?device=&port=&in=&out= (tests) on this address")
 	flag.Parse()
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
@@ -131,9 +132,12 @@ func main() {
 		p1, _ := strconv.Atoi(rp)
 		p2, _ := strconv.Atoi(ap)
 		_ = out.Encode(device{Name: "edge-1", Address: *listen, Port: p1, Protocol: "routeros", APIPort: p2})
-		if *control == "" {
+		if *control == "" && *admin == "" {
 			go events(ctx, log, agents, router)
 		}
+	}
+	if *admin != "" {
+		serveAdmin(ctx, log, *admin, agents, router)
 	}
 	<-ctx.Done()
 }
@@ -172,4 +176,41 @@ func events(ctx context.Context, log *slog.Logger, agents map[string]*netsim.Age
 		sw.SetRate("Te1/1/1", time.Now(), 4_000_000, 2_400_000)
 		_ = router
 	}
+}
+
+// serveAdmin lets a test flap a port or load a link now, instead of waiting hours.
+func serveAdmin(ctx context.Context, log *slog.Logger, addr string, agents map[string]*netsim.Agent, router *netsim.RouterOS) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /port", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		up := q.Get("up") == "true"
+		if q.Get("device") == "edge-1" && router != nil {
+			router.SetRunning(q.Get("port"), up)
+			return
+		}
+		a, ok := agents[q.Get("device")]
+		if !ok {
+			http.Error(w, "no such device", http.StatusNotFound)
+			return
+		}
+		a.SetOper(q.Get("port"), up)
+	})
+	mux.HandleFunc("POST /rate", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		a, ok := agents[q.Get("device")]
+		if !ok {
+			http.Error(w, "no such device", http.StatusNotFound)
+			return
+		}
+		in, _ := strconv.ParseFloat(q.Get("in"), 64)
+		out, _ := strconv.ParseFloat(q.Get("out"), 64)
+		a.SetRate(q.Get("port"), time.Now(), in, out)
+	})
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Error("admin", "err", err)
+		os.Exit(1)
+	}
+	go func() { <-ctx.Done(); _ = ln.Close() }()
+	go func() { _ = (&http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}).Serve(ln) }()
 }

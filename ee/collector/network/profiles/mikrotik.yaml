@@ -6,18 +6,18 @@ vendor: MikroTik
 extends: generic
 kind: router
 match:
-  sysObjectID: ["1.3.6.1.4.1.14988.1"]
+  sysObjectID: ['1.3.6.1.4.1.14988.1']
 
 routeros:
   identity: system/identity
-  resource: system/resource          # version, uptime, CPU load, free and total memory, board
-  routerboard: system/routerboard    # model, serial number, firmware
-  health: system/health              # temperature, voltage, PSU and fan states (RouterOS 7)
-  interfaces: interface              # every interface with its counters
-  ethernet: interface/ethernet       # speed, SFP presence (SFP DOM: rx/tx power where shown)
-  neighbours: ip/neighbor            # MNDP, CDP and LLDP neighbours
+  resource: system/resource # version, uptime, CPU load, free and total memory, board
+  routerboard: system/routerboard # model, serial number, firmware
+  health: system/health # temperature, voltage, PSU and fan states (RouterOS 7)
+  interfaces: interface # every interface with its counters
+  ethernet: interface/ethernet # speed, SFP presence (SFP DOM: rx/tx power where shown)
+  neighbours: ip/neighbor # MNDP, CDP and LLDP neighbours
   arp: ip/arp
   bridgeHosts: interface/bridge/host # the MAC table
-  routes: ip/route                   # the route count and the default gateway
-  update: system/package/update      # the channel and the latest version from the last check
+  routes: ip/route # the route count and the default gateway
+  update: system/package/update # the channel and the latest version from the last check
   vlans: interface/vlan

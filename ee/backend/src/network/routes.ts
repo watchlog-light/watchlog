@@ -304,6 +304,12 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       .where('i.org_id', '=', orgId)
       .where((eb: any) =>
         eb.or([
+          // A port down with a learnt link, or a WatchLog server or node behind it.
+          eb.and([
+            eb('i.admin_up', '=', true),
+            eb('i.oper_up', '=', false),
+            host.sql<boolean>`exists (select 1 from network_endpoints e where e.device_id = i.device_id and e.port = i.name and e.node is not null)`,
+          ]),
           eb.and([
             eb('i.admin_up', '=', true),
             eb('i.oper_up', '=', false),
@@ -573,6 +579,9 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       db
         .selectFrom('network_endpoints as e')
         .leftJoin('clusters as c', 'c.id', 'e.cluster_id')
+        .leftJoin('network_interfaces as i', (j: any) =>
+          j.onRef('i.device_id', '=', 'e.device_id').onRef('i.name', '=', 'e.port'),
+        )
         .select([
           'e.mac',
           'e.ip',
@@ -583,6 +592,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
           'e.node',
           'c.name as cluster_name',
           'c.kind as cluster_kind',
+          'i.oper_up as port_up',
         ])
         .where('e.org_id', '=', orgId)
         .orderBy('e.device_id')
@@ -602,6 +612,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         vendor: e.vendor,
         deviceId: e.device_id,
         port: e.port,
+        portUp: e.port_up ?? null,
         node: e.node
           ? { clusterId: e.cluster_id, cluster: e.cluster_name, kind: e.cluster_kind, name: e.node }
           : null,

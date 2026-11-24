@@ -174,8 +174,21 @@ func mac(name string, n int) []byte {
 // MACString is a model port's MAC address as text.
 func MACString(name string, n int) string { return net.HardwareAddr(mac(name, n)).String() }
 
+// inUse is the ports a neighbour or an endpoint is on: always up (the rest up at random).
+func inUse(s Spec) map[string]bool {
+	m := map[string]bool{}
+	for _, n := range s.Neighbours {
+		m[n.Port] = true
+	}
+	for _, e := range s.Endpoints {
+		m[e.Port] = true
+	}
+	return m
+}
+
 func catalyst(a *Agent, s Spec, oid, model, descr, version string) {
 	system(a, s, oid, descr)
+	used := inUse(s)
 	members := s.Members
 	if members == 0 {
 		members = 1
@@ -186,7 +199,7 @@ func catalyst(a *Agent, s Spec, oid, model, descr, version string) {
 		for p := 1; p <= s.Ports; p++ {
 			idx++
 			name := fmt.Sprintf("Gi%d/0/%d", m, p)
-			up := float64(seeded(s.Name, idx)%1000)/1000 < s.Up
+			up := used[name] || float64(seeded(s.Name, idx)%1000)/1000 < s.Up
 			port(a, s, idx, name, fmt.Sprintf("GigabitEthernet%d/0/%d", m, p), 6, 1000, up, float64(seeded(s.Name, idx)%200_000+5_000))
 			if !up {
 				a.Gauge(ifXTable+".15."+strconv.Itoa(idx), 10)
@@ -196,7 +209,7 @@ func catalyst(a *Agent, s Spec, oid, model, descr, version string) {
 		for u := 1; u <= s.Uplinks; u++ {
 			idx++
 			name := fmt.Sprintf("Te%d/1/%d", m, u)
-			up := u == 1
+			up := u == 1 || used[name]
 			port(a, s, idx, name, fmt.Sprintf("TenGigabitEthernet%d/1/%d", m, u), 6, 10000, up, 4_000_000)
 			bridgePorts = append(bridgePorts, idx)
 			if up {
@@ -382,13 +395,14 @@ func sfp(a *Agent, ifIndex int, name string) {
 func nexus(a *Agent, s Spec) {
 	system(a, s, OIDNexus3064, "Cisco NX-OS(tm) n3000, Software (n3000-uk9), Version 7.0(3)I7(9), RELEASE SOFTWARE Copyright (c) 2002-2020 by Cisco Systems, Inc.")
 	idx := 436207616 // NX-OS's ifIndex for Ethernet1/1
+	used := inUse(s)
 	var phys []int
 	for p := 1; p <= s.Ports+s.Uplinks; p++ {
 		speed := uint(10000)
 		if p > s.Ports {
 			speed = 40000
 		}
-		up := float64(seeded(s.Name, p)%1000)/1000 < s.Up
+		up := used[fmt.Sprintf("Ethernet1/%d", p)] || float64(seeded(s.Name, p)%1000)/1000 < s.Up
 		i := idx + (p-1)*4096
 		port(a, s, i, fmt.Sprintf("Ethernet1/%d", p), fmt.Sprintf("Ethernet1/%d", p), 6, speed, up, 20_000_000)
 		phys = append(phys, i)
