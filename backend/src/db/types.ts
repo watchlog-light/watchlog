@@ -426,6 +426,18 @@ export interface IntegrationProbes {
   username: string | null;
 }
 
+export interface HostInterfaces {
+  addresses: Generated<string[]>;
+  cluster_id: string;
+  mac: string;
+  name: string;
+  node: string;
+  org_id: Generated<string>;
+  speed_mbps: number | null;
+  up: Generated<boolean>;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Integrations {
   cluster_id: string;
   collector_host: Generated<string>;
@@ -976,6 +988,7 @@ export interface DB {
   integration_credentials: IntegrationCredentials;
   integration_events: IntegrationEvents;
   integration_probes: IntegrationProbes;
+  host_interfaces: HostInterfaces;
   integrations: Integrations;
   inventory_coverage: InventoryCoverage;
   invites: Invites;

@@ -25,6 +25,9 @@ type Snapshot struct {
 	CertCoverage any    `json:"certificateCoverage,omitempty"`
 	Jobs         any    `json:"jobs,omitempty"`
 	JobCoverage  any    `json:"jobCoverage,omitempty"`
+	// Interfaces are the host's network cards (ADR-233): matched to the switches' MAC and
+	// ARP tables by the network module, so a server or node shows its switch port.
+	Interfaces any `json:"interfaces,omitempty"`
 }
 
 // Shipper sends Build's snapshot.

@@ -105,6 +105,19 @@ export const InventoryBody = Type.Object({
   certificateCoverage: Nullable(Coverage),
   jobs: Nullable(Type.Array(Job, { maxItems: 100 })),
   jobCoverage: Nullable(Coverage),
+  // The host's network cards (0.16.0, ADR-233); a node agent's snapshot has only these.
+  interfaces: Nullable(
+    Type.Array(
+      Type.Object({
+        name: Str(64),
+        mac: Type.String({ pattern: '^[0-9a-f]{2}(:[0-9a-f]{2}){5}$' }),
+        addresses: Type.Optional(Type.Array(Type.String({ format: 'ipv4' }), { maxItems: 16 })),
+        speedMbps: Type.Optional(Type.Integer({ minimum: 0, maximum: 10_000_000 })),
+        up: Type.Boolean(),
+      }),
+      { maxItems: 32 },
+    ),
+  ),
 });
 export type Inventory = Static<typeof InventoryBody>;
 
@@ -148,6 +161,33 @@ export async function storeInventory(
       : [];
   let renewals: Renewal[] = [];
   await db.transaction().execute(async (trx) => {
+    // The host's network cards (ADR-233): replaced with each snapshot that has them.
+    if (body.interfaces) {
+      await trx
+        .deleteFrom('host_interfaces')
+        .where('cluster_id', '=', clusterId)
+        .where('node', '=', node)
+        .execute();
+      if (body.interfaces.length) {
+        await trx
+          .insertInto('host_interfaces')
+          .values(
+            body.interfaces.map((n) => ({
+              org_id: orgId,
+              cluster_id: clusterId,
+              node,
+              name: n.name,
+              mac: n.mac,
+              addresses: n.addresses ?? [],
+              speed_mbps: n.speedMbps ?? null,
+              up: n.up,
+              updated_at: now,
+            })),
+          )
+          .onConflict((oc) => oc.columns(['cluster_id', 'node', 'name']).doNothing())
+          .execute();
+      }
+    }
     await trx
       .insertInto('inventory_coverage')
       .values({

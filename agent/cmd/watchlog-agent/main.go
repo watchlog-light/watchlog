@@ -28,6 +28,7 @@ import (
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/jobs"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/kubepods"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/network"
+	"github.com/watchlog-light/watchlog/agent/internal/collectors/nics"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/procs"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/runtime"
 	"github.com/watchlog-light/watchlog/agent/internal/collectors/services"
@@ -599,11 +600,18 @@ func run(args []string, stdout io.Writer) int {
 		go certCollector.Run(ctx)
 		inv := &inventory.Shipper{Send: snd.SendObjects, Log: log, Build: func() inventory.Snapshot {
 			list, cov := certCollector.Certificates()
-			snap := inventory.Snapshot{Node: *hostname, Certificates: list, CertCoverage: cov}
+			snap := inventory.Snapshot{Node: *hostname, Certificates: list, CertCoverage: cov,
+				Interfaces: nics.Read(paths.Sys, paths.Proc)}
 			if jobTracker != nil {
 				snap.Jobs = jobTracker.Jobs()
 			}
 			return snap
+		}}
+		go inv.Run(ctx)
+	} else if mode == config.ModeNode {
+		// A Kubernetes node's network cards (ADR-233), from the host's /sys and /proc.
+		inv := &inventory.Shipper{Send: snd.SendObjects, Log: log, Build: func() inventory.Snapshot {
+			return inventory.Snapshot{Node: *hostname, Interfaces: nics.Read(paths.Sys, paths.Proc)}
 		}}
 		go inv.Run(ctx)
 	}

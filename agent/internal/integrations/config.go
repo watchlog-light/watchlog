@@ -5,7 +5,10 @@
 // statements, and pushes metrics and status like the agents do.
 package integrations
 
-import "log/slog"
+import (
+	"encoding/json"
+	"log/slog"
+)
 
 // Config is what the backend serves at /ingest/v1/integrations/config. It may carry
 // credentials (ADR-133): it is kept in memory only and never logged.
@@ -16,6 +19,10 @@ type Config struct {
 	// Probes are connection tests the connect drawer asked for (ADR-134): each is tried
 	// every 5 s, and at once when it is new or "Check now" was pressed.
 	Probes []Probe `json:"probes,omitempty"`
+	// Modules are the Enterprise modules' sections (agent/ext, ADR-233), by module name,
+	// sent only when the org has the module's feature. May carry credentials: in memory
+	// only, never logged.
+	Modules map[string]json.RawMessage `json:"modules,omitempty"`
 }
 
 // Scrape holds the scrape tiers: every IntervalS seconds, heavy views every HeavyEvery scrapes.

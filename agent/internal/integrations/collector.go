@@ -57,6 +57,7 @@ type Collector struct {
 	probeWake  chan struct{}
 	probeSeen  map[string]string
 	credsOnce  sync.Once
+	mods       moduleSet
 }
 
 // Run watches the configuration and scrapes until ctx is cancelled.
@@ -66,6 +67,8 @@ func (c *Collector) Run(ctx context.Context) {
 	go c.watchConfig(ctx)
 	go c.Sender.Run(ctx)
 	go c.probeLoop(ctx)
+	// Enterprise modules (agent/ext, ADR-233), when the collector was built with them.
+	c.startModules(ctx)
 	// The first scrape waits for the first configuration, at most one interval.
 	select {
 	case <-ctx.Done():
@@ -89,6 +92,7 @@ func (c *Collector) Current() *Config { return c.cfg.Load() }
 // SetConfig replaces the configuration (the watcher, and tests).
 func (c *Collector) SetConfig(cfg *Config) {
 	c.cfg.Store(cfg)
+	c.configureModules(cfg)
 	// A new probe, or "Check now" on one: try at once.
 	if c.probeWake != nil && c.probesChanged(cfg) {
 		select {
@@ -290,7 +294,7 @@ func (c *Collector) postStatus(ctx context.Context, version string, targets []Ta
 		targets = targets[:maxTargets]
 	}
 	st := Status{Host: c.Host, Mode: c.Mode, Version: c.Version, ConfigVersion: version,
-		Targets: targets, Self: SelfStatus{Series: int(c.lastSeries.Load()),
+		Targets: targets, Self: SelfStatus{Series: int(c.lastSeries.Load()) + c.moduleSeries(),
 			Namespace: c.Namespace, ServiceAccount: c.ServiceAccount}}
 	if c.Self != nil {
 		st.Self.RSSBytes, st.Self.CPUSeconds = c.Self()
