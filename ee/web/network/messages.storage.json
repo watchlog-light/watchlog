@@ -1,0 +1,128 @@
+{
+  "netStorage": {
+    "tab": "Storage",
+    "attention": "Needs attention",
+    "empty": {
+      "title": "No recorders, NAS or UPS yet",
+      "body": "Add a camera recorder, a NAS or a UPS under Add devices. This page shows whether the cameras are recorded, the storage they write to and the power behind it."
+    },
+    "show": "Show",
+    "hide": "Hide",
+    "online": "Online",
+    "offline": "Offline",
+    "connected": "Connected",
+    "lost": "Lost",
+    "forTime": "for {t}",
+    "celsius": "{c} °C",
+    "polledServer": "Polled from {place}, server {host}",
+    "polledNode": "Polled from {place}, node {host}",
+    "recording": {
+      "title": "Recording",
+      "question": "Are the cameras being recorded?",
+      "someNot": "{n} recorders not recording | {n} recorder not recording | {n} recorders not recording",
+      "state": {
+        "yes": "Recording",
+        "no": "Not recording",
+        "unknown": "Unknown"
+      },
+      "sinceAgo": "since {t} ago",
+      "notAnswering": "The recorder isn't answering ({status}).",
+      "notKnown": "Not known yet.",
+      "signal": {
+        "recorder": "The recorder",
+        "disk": "Its iSCSI disk",
+        "rate": "Writes toward the NAS"
+      },
+      "signalState": {
+        "fine": "fine",
+        "failing": "failing",
+        "unknown": "not known yet"
+      },
+      "cameras": "Cameras online",
+      "ofTotal": "{n} of {of}",
+      "camerasOffline": "{n} offline | {n} offline | {n} offline",
+      "camerasAllOnline": "all online",
+      "disk": "Free on its disk",
+      "freeOf": "{free} of {total}",
+      "rate": "Writing now",
+      "usual": "usually {low}–{high} at this hour",
+      "usualLearning": "its usual is still being learnt",
+      "rateFrom": "from {device} · {port}",
+      "lunOn": "LUN {lun} on {nas}",
+      "noSession": "no iSCSI session seen",
+      "cameraList": "Cameras ({n}) | Camera ({n}) | Cameras ({n})",
+      "channel": "ch {n}"
+    },
+    "daysLeft": {
+      "days": "about {n} days of recording left | about {n} day of recording left | about {n} days of recording left",
+      "underDay": "less than a day of recording left",
+      "full": "full: overwriting its oldest footage",
+      "unknown": "days left not known yet"
+    },
+    "nas": {
+      "title": "NAS",
+      "fanFailing": "Fan {name}: {state}",
+      "psuFailing": "Power supply {name}: {state}",
+      "disks": "Disks",
+      "disk": "Disk",
+      "bay": "Bay {n}",
+      "model": "Model",
+      "temp": "Temp",
+      "smart": "SMART",
+      "status": "Status",
+      "volumes": "Volumes and pools",
+      "pool": "pool",
+      "volume": "volume",
+      "used": "{used} of {total} · {pct}",
+      "luns": "LUNs",
+      "lunUsed": "{pct}% used",
+      "noRecorder": "No recorder connected",
+      "notMapped": "Not mapped to a target"
+    },
+    "iscsi": {
+      "title": "iSCSI sessions",
+      "seenFrom": "Seen from the recorder and the network, not from the NAS: the NAS doesn't list its sessions to a read-only user.",
+      "onMap": "Show on the map",
+      "recorder": "Recorder",
+      "lun": "LUN",
+      "on": "on",
+      "state": "State",
+      "since": "For",
+      "lostAgo": "lost {t} ago",
+      "throughput": "Throughput",
+      "from": "from {device} · {port}"
+    },
+    "ups": {
+      "title": "UPS",
+      "status": {
+        "online": "On mains",
+        "onBattery": "On battery",
+        "bypass": "Bypass",
+        "off": "Off",
+        "unknown": "Unknown"
+      },
+      "replaceBattery": "The battery needs replacing.",
+      "charge": "Charge",
+      "runtime": "Runtime",
+      "load": "Load",
+      "input": "Input",
+      "output": "Output",
+      "temp": "Temperature",
+      "minutes": "{n} min",
+      "noReadings": "No readings yet.",
+      "feeds": "Powers",
+      "feedsEdit": "Edit",
+      "feedsEmpty": "No servers or nodes set.",
+      "feedsHint": "When this UPS goes on battery, the event shows in the Events of the servers and nodes it powers.",
+      "feedsNone": "No servers or nodes report yet.",
+      "feedsLoadError": "The servers and nodes couldn't be loaded.",
+      "feedsSaveError": "Couldn't save. Try again.",
+      "feedsSave": "Save",
+      "feedsCancel": "Cancel",
+      "place": {
+        "server": "Server fleet",
+        "kubernetes": "Kubernetes cluster"
+      }
+    }
+  }
+}

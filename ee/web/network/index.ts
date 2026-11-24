@@ -32,6 +32,18 @@ export const eeWebModule: EeWebModule = {
       meta: { titleKey: 'net.tabs.devices' },
     },
     {
+      name: 'network-wireless',
+      path: 'network/wireless',
+      component: page(() => import('./pages/WirelessPage.vue')),
+      meta: { titleKey: 'netWifi.tab' },
+    },
+    {
+      name: 'network-storage',
+      path: 'network/storage',
+      component: page(() => import('./pages/StoragePage.vue')),
+      meta: { titleKey: 'netStorage.tab' },
+    },
+    {
       name: 'network-device',
       path: 'network/devices/:id',
       component: page(() => import('./pages/DevicePage.vue')),

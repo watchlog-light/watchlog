@@ -6,7 +6,11 @@
     "ago": "{t} ago",
     "now": "Health",
     "range": "Time range",
-    "ranges": { "1h": "1h", "24h": "24h", "7d": "7d" },
+    "ranges": {
+      "1h": "1h",
+      "24h": "24h",
+      "7d": "7d"
+    },
     "facts": {
       "model": "Model",
       "firmware": "Firmware",
@@ -18,7 +22,8 @@
       "profileValue": "{name} · {protocol}",
       "polled": "Last polled",
       "never": "not yet",
-      "location": "Location"
+      "location": "Location",
+      "readVia": "Read through"
     },
     "update": {
       "available": "{latest} is out on the {channel} channel",
@@ -26,7 +31,7 @@
     },
     "cert": {
       "title": "The device's certificate changed",
-      "body": "WatchLog stopped reading this router: the certificate it shows isn't the one WatchLog pinned. That happens after a reset or a new certificate, and also when something sits between WatchLog and the router. Check the fingerprint on the router before accepting it.",
+      "body": "WatchLog stopped reading this device: the certificate it shows isn't the one WatchLog pinned. That happens after a reset or a new certificate, and also when something sits between WatchLog and the device. Check the fingerprint on the device before accepting it.",
       "pinned": "Pinned",
       "seen": "Now shown",
       "accept": "Accept the new certificate",
@@ -60,7 +65,10 @@
       "idle": "not connected",
       "admin-down": "shut down"
     },
-    "legend": { "poe": "PoE", "neighbour": "neighbour" },
+    "legend": {
+      "poe": "PoE",
+      "neighbour": "neighbour"
+    },
     "uplinks": "Uplinks",
     "member": "Member {n}",
     "noPorts": "No ports read yet: they appear after the first poll.",
@@ -128,8 +136,14 @@
       "count": "{n} of {of} members",
       "missing": "{n} member is missing from the stack. | {n} members are missing from the stack."
     },
-    "alerts": { "title": "Open alerts", "none": "No open alerts." },
-    "events": { "title": "Recent events", "none": "No events yet." },
+    "alerts": {
+      "title": "Open alerts",
+      "none": "No open alerts."
+    },
+    "events": {
+      "title": "Recent events",
+      "none": "No events yet."
+    },
     "settings": {
       "title": "Manage",
       "loadError": "The pollers and profiles couldn't be loaded.",
@@ -144,7 +158,18 @@
       "removeHint": "Removing stops polling it and forgets its links and endpoints. Its history stays until retention ends.",
       "remove": "Remove device",
       "removeTitle": "Remove this device?",
-      "removeLine": "WatchLog stops polling it, and its links and endpoints leave the map."
+      "removeLine": "WatchLog stops polling it, and its links and endpoints leave the map.",
+      "managedAp": "CAPsMAN manages this access point: WatchLog reads it through its controller, from the controller's poller and profile."
+    },
+    "elsewhere": {
+      "ap": "Its radios, clients and signal are on the Wireless page.",
+      "nas": "Its disks, volumes and iSCSI LUNs are on the Storage page.",
+      "nvr": "Its recording, cameras and disks are on the Storage page.",
+      "ups": "Its battery, load and what it feeds are on the Storage page.",
+      "openWireless": "Open Wireless",
+      "openStorage": "Open Storage",
+      "controller": "Its CAPsMAN controller",
+      "controllerNamed": "CAPsMAN on {name}"
     }
   },
   "netAdd": {
@@ -176,11 +201,14 @@
       "describeV3": "SNMPv3 · {user} · {auth} / {priv}",
       "describeV2c": "SNMP v2c · community",
       "describeRouteros": "RouterOS · {user} · {transport}",
+      "describeDahua": "Recorder · {user} · {scheme}, port {port}",
+      "byAddress": "Recorders are added by address, below.",
       "name": "Profile name",
       "namePlaceholder": "switches-ro",
       "protocol": "Protocol",
-      "snmp": "SNMP (Cisco, NAS, NVR, UPS…)",
+      "snmp": "SNMP (Cisco, NAS, UPS…)",
       "routeros": "RouterOS (MikroTik)",
+      "dahua": "Recorder (Dahua HTTP API)",
       "version": "SNMP version",
       "v3": "v3 (recommended)",
       "v2c": "v2c",
@@ -206,6 +234,12 @@
       },
       "plainWarning": "The plain API sends the password in clear text. Anyone on the path between the poller and the router can read it.",
       "allowPlain": "Allow unencrypted on this network",
+      "https": "HTTPS",
+      "httpsHint": "Its certificate is pinned on first contact, as for RouterOS; a changed certificate stops polling until an Owner accepts it.",
+      "httpHint": "Plain HTTP: digest authentication keeps the password off the wire, but what the recorder answers is readable on the way.",
+      "port": "Port (optional)",
+      "portHint": "Empty: {port}.",
+      "badPort": "The port is a number from 1 to 65535.",
       "stored": "Stored encrypted; never shown again after you save.",
       "save": "Save profile",
       "failed": "The profile couldn't be saved.",
@@ -218,7 +252,14 @@
     },
     "setup": {
       "title": "How to make this read-only user on the device",
-      "platforms": { "ios": "Cisco IOS", "nxos": "Cisco NX-OS", "routeros": "RouterOS" },
+      "platforms": {
+        "ios": "Cisco IOS",
+        "nxos": "Cisco NX-OS",
+        "routeros": "RouterOS",
+        "dahua": "Recorder (Dahua)",
+        "qnap": "QNAP NAS",
+        "ups": "UPS"
+      },
       "profile": "Profile",
       "poller": "Poller's address (optional)",
       "pollerHint": "Limits the user to this address.",
@@ -269,6 +310,35 @@
       "after": "First data in about a minute. The network's alerts are on by default.",
       "noneAdded": "No device was added.",
       "failed": "The devices couldn't be added."
+    },
+    "guide": {
+      "dahua": {
+        "title": "On the recorder",
+        "user": "Create a user only for WatchLog, in a group with view rights only: no settings, no playback control.",
+        "network": "The poller needs to reach the recorder on TCP 443 (HTTPS) or 80 (HTTP).",
+        "add": "Then add the recorder by its address with this profile (step 3): recorders aren't found by discovery."
+      },
+      "qnap": {
+        "title": "On the QNAP NAS (QTS)",
+        "where": "Open Control Panel → Network & File Services → SNMP and turn SNMP on.",
+        "v3": "Choose SNMPv3 with authentication and privacy, and a read-only user; use the same user, keys and algorithms as an SNMPv3 profile here.",
+        "network": "The poller needs to reach the NAS on UDP 161."
+      },
+      "ups": {
+        "title": "On the UPS",
+        "where": "Turn SNMP on in the UPS's network card (its web page).",
+        "version": "Use SNMPv3 with a read-only user, or v2c with a read-only community where v3 isn't offered.",
+        "network": "The poller needs to reach the network card on UDP 161."
+      }
+    },
+    "capsman": "Wi-Fi access points managed by CAPsMAN aren't added here: they appear on their own once the router that runs CAPsMAN is added, and they don't count as devices.",
+    "recorders": {
+      "title": "Recorders",
+      "intro": "Video recorders don't announce themselves, so discovery doesn't find them: add each one by its address with a recorder profile.",
+      "noProfile": "Make a recorder profile in step 2 first (Recorder, Dahua HTTP API).",
+      "profile": "Recorder profile",
+      "needProfile": "Choose a recorder profile.",
+      "button": "Add recorders | Add {n} recorder | Add {n} recorders"
     }
   }
 }

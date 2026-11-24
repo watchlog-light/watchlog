@@ -5,6 +5,9 @@
 // tree links don't cross. Servers and nodes hang under their switch in the Devices band;
 // unknown endpoints only with the endpoints layer, grouped per device ("+38 more") until
 // expanded. Saved positions (MapData.layout) are applied by the component, by these node ids.
+// Access points, NASes, recorders and UPSes are leaves under their switch port's device (0.17,
+// ADR-234); an access point with only a wireless backhaul (mesh) sits next to its mesh peer, and
+// the mesh itself is drawn as dotted edges between access points.
 import type { Device, DeviceKind, Endpoint, Link, MapData, NodeRef } from '../api';
 import { bandOf, statusTone } from './format';
 
@@ -35,12 +38,17 @@ export interface MapNode {
   endpoint?: Endpoint;
 }
 
+export type MeshLink = MapData['mesh'][number];
+export type IscsiSession = MapData['iscsi'][number];
+
 export interface MapEdge {
   id: string;
-  type: 'link' | 'internet' | 'endpoint';
+  type: 'link' | 'internet' | 'endpoint' | 'mesh';
   from: string;
   to: string;
   link?: Link;
+  /** Wireless backhaul between two access points: dotted, with its signal and rate. */
+  mesh?: MeshLink;
   /** A server's or node's switch port is down (ADR-233): drawn red and dashed. */
   down?: boolean;
   /** Sideways offset in px, so parallel links between the same two devices stay apart. */
@@ -77,6 +85,7 @@ export const hostNodeId = (n: Pick<NodeRef, 'kind' | 'clusterId' | 'name'>) =>
   `h:${n.kind}:${n.clusterId}:${n.name}`;
 export const groupNodeId = (deviceId: string) => `g:${deviceId}`;
 export const endpointNodeId = (mac: string) => `e:${mac}`;
+export const linkEdgeId = (linkId: string) => `l:${linkId}`;
 
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
@@ -135,7 +144,7 @@ export function layoutMap(data: MapData, opts: LayoutOptions): MapLayout {
     list.sort((a, b) => (a.id < b.id ? -1 : 1));
     list.forEach((l, i) =>
       edges.push({
-        id: `l:${l.id}`,
+        id: linkEdgeId(l.id),
         type: 'link',
         from: deviceNodeId(l.a.deviceId),
         to: deviceNodeId(l.b.deviceId),
@@ -193,8 +202,57 @@ export function layoutMap(data: MapData, opts: LayoutOptions): MapLayout {
         .sort(before),
     );
   }
-  for (const d of [...devices].sort((a, b) => before(a.id, b.id)))
-    if (!dist.has(d.id)) walk([d.id]);
+  // Wireless backhaul: one dotted edge per pair of access points. An access point with no wired
+  // link reaches the network through its mesh peer: it hangs where the peer hangs, next to it.
+  const meshPeers = new Map<string, string[]>();
+  const meshPairs = new Set<string>();
+  for (const m of data.mesh ?? []) {
+    if (!devById.has(m.fromId) || !devById.has(m.toId) || m.fromId === m.toId) continue;
+    const key = [m.fromId, m.toId].sort().join('|');
+    if (meshPairs.has(key)) continue;
+    meshPairs.add(key);
+    meshPeers.set(m.fromId, [...(meshPeers.get(m.fromId) ?? []), m.toId]);
+    meshPeers.set(m.toId, [...(meshPeers.get(m.toId) ?? []), m.fromId]);
+    edges.push({
+      id: `m:${key}`,
+      type: 'mesh',
+      from: deviceNodeId(m.fromId),
+      to: deviceNodeId(m.toId),
+      mesh: m,
+      offset: 0,
+    });
+  }
+  const meshAnchor = new Map<string, string>();
+  const meshOnly = (id: string) => !adjacent.has(id) && meshPeers.has(id);
+  const anchor = () => {
+    for (let grew = true; grew;) {
+      grew = false;
+      for (const d of devices) {
+        if (dist.has(d.id) || !meshOnly(d.id)) continue;
+        const peer = meshPeers
+          .get(d.id)!
+          .filter((p) => dist.has(p))
+          .sort(before)[0];
+        if (!peer) continue;
+        dist.set(d.id, dist.get(peer)! + 1);
+        meshAnchor.set(d.id, peer);
+        grew = true;
+      }
+    }
+  };
+  anchor();
+  // Islands (no way to a gateway) get their own trees; mesh-only access points wait for theirs.
+  const rest = [...devices].sort((a, b) => before(a.id, b.id));
+  for (const d of rest)
+    if (!dist.has(d.id) && !meshOnly(d.id)) {
+      walk([d.id]);
+      anchor();
+    }
+  for (const d of rest)
+    if (!dist.has(d.id)) {
+      walk([d.id]);
+      anchor();
+    }
 
   const hasInternet = gateways.length > 0;
   if (hasInternet) {
@@ -221,13 +279,27 @@ export function layoutMap(data: MapData, opts: LayoutOptions): MapLayout {
         offset: 0,
       });
   }
+  // Where each node is placed (its block of leaves or subtrees): its parent's, except a
+  // mesh-only access point, which is placed beside its peer, sorted right after it.
+  const placedUnder = new Map<string, string>();
+  const sortName = new Map<string, string>();
   for (const d of devices) {
     const node = nodes.get(deviceNodeId(d.id))!;
     const p = parentOf.get(d.id);
     if (p) {
       node.parent = deviceNodeId(p);
+      placedUnder.set(node.id, node.parent);
       addChild(node.parent, node.id);
     } else if (d.gateway && hasInternet) node.parent = INTERNET;
+  }
+  for (const [apId, peerId] of meshAnchor) {
+    const node = nodes.get(deviceNodeId(apId))!;
+    const peer = nodes.get(deviceNodeId(peerId))!;
+    node.parent = peer.id;
+    const under = placedUnder.get(peer.id) ?? peer.id;
+    placedUnder.set(node.id, under);
+    sortName.set(node.id, `${sortName.get(peer.id) ?? peer.name}\u0001${node.name}`);
+    addChild(under, node.id);
   }
 
   // Endpoints: WatchLog servers and nodes always, as one node each (under the most
@@ -336,7 +408,7 @@ export function layoutMap(data: MapData, opts: LayoutOptions): MapLayout {
   const isLeaf = (id: string) => nodes.get(id)!.band === 4 && !kids(id).length;
   const order = (id: string) => {
     const list = kids(id);
-    const leaves = list.filter(isLeaf).sort((a, b) => leafRank(a) - leafRank(b) || cmp(a, b));
+    const leaves = list.filter(isLeaf).sort((a, b) => leafRank(a) - leafRank(b) || cmp(a, b, true));
     const subs = list.filter((c) => !isLeaf(c)).sort((a, b) => cmp(a, b));
     return { leaves, subs };
   };
@@ -344,11 +416,13 @@ export function layoutMap(data: MapData, opts: LayoutOptions): MapLayout {
     const t = nodes.get(id)!.type;
     return t === 'device' ? 0 : t === 'host' ? 1 : t === 'endpoint' ? 2 : 3;
   };
-  const cmp = (a: string, b: string) => {
+  const cmp = (a: string, b: string, beside = false) => {
     const na = nodes.get(a)!;
     const nb = nodes.get(b)!;
     if (na.band !== nb.band) return na.band - nb.band;
-    return na.name < nb.name ? -1 : na.name > nb.name ? 1 : a < b ? -1 : 1;
+    const sa = (beside && sortName.get(a)) || na.name;
+    const sb = (beside && sortName.get(b)) || nb.name;
+    return sa < sb ? -1 : sa > sb ? 1 : a < b ? -1 : 1;
   };
   const width = new Map<string, number>();
   const measure = (id: string): number => {
@@ -382,7 +456,7 @@ export function layoutMap(data: MapData, opts: LayoutOptions): MapLayout {
   const treeRoots = roots.map(deviceNodeId);
   let cursor = 0;
   for (const r of treeRoots) {
-    if (nodes.get(r)!.parent && nodes.get(r)!.parent !== INTERNET) continue;
+    if (placedUnder.has(r)) continue;
     measure(r);
     place(r, cursor);
     cursor += width.get(r)!;
@@ -554,4 +628,47 @@ export function searchMap(data: MapData, query: string, limit = 8): SearchHit[] 
       detail: h.detail,
       kind: h.kind,
     }));
+}
+
+export interface IscsiPath {
+  key: string;
+  recorderId: string;
+  nasId: string;
+  /** The recorder's disk and the NAS's LUN. */
+  disk: string;
+  lun: string;
+  connected: boolean;
+  /** The map's edge ids along the path (linkEdgeId). */
+  edges: string[];
+}
+
+/**
+ * The iSCSI layer (ADR-234): each recorder → NAS session and the map edges its traffic takes;
+ * the edge state per edge, a lost session winning over a connected one that shares a link.
+ */
+export function iscsiPaths(data: MapData): {
+  paths: IscsiPath[];
+  edges: Map<string, 'ok' | 'lost'>;
+  nodes: Set<string>;
+} {
+  const paths: IscsiPath[] = [];
+  const edges = new Map<string, 'ok' | 'lost'>();
+  const nodes = new Set<string>();
+  for (const s of data.iscsi ?? []) {
+    const ids = (s.path?.links ?? []).map(linkEdgeId);
+    paths.push({
+      key: `${s.recorderId}|${s.nasId}|${s.disk}|${s.lun}`,
+      recorderId: s.recorderId,
+      nasId: s.nasId,
+      disk: s.disk,
+      lun: s.lun,
+      connected: s.connected,
+      edges: ids,
+    });
+    for (const id of ids)
+      if (!s.connected || !edges.has(id)) edges.set(id, s.connected ? 'ok' : 'lost');
+    nodes.add(deviceNodeId(s.recorderId));
+    nodes.add(deviceNodeId(s.nasId));
+  }
+  return { paths, edges, nodes };
 }

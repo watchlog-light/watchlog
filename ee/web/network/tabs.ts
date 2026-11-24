@@ -8,10 +8,16 @@ export interface NetworkTab {
   route: string;
   titleKey: string;
   order: number;
-  /** A count beside the title (Devices: how many), from the summary. */
-  count?: (s: { devices: number }) => number | null;
+  /** A count beside the title (Devices: how many), from GET /network/kinds. */
+  count?: (s: TabCounts) => number | null;
   /** Shown only when this says so (a tab for a kind of device the network has). */
-  shown?: (s: { kinds: string[] }) => boolean;
+  shown?: (s: TabCounts) => boolean;
+}
+
+export interface TabCounts {
+  devices: number;
+  kinds: Record<string, number>;
+  wifiClients: number;
 }
 
 export const networkTabs = reactive<NetworkTab[]>([]);
@@ -29,4 +35,20 @@ registerNetworkTab({
   titleKey: 'net.tabs.devices',
   order: 30,
   count: (s) => s.devices,
+});
+// 0.17 (ADR-234): shown only where the network has access points, or recorders, a NAS or a UPS.
+registerNetworkTab({
+  route: 'network-wireless',
+  titleKey: 'netWifi.tab',
+  order: 40,
+  shown: (s) => (s.kinds.ap ?? 0) > 0,
+  count: (s) => s.wifiClients,
+});
+const STORAGE_KINDS = ['nvr', 'nas', 'ups'];
+registerNetworkTab({
+  route: 'network-storage',
+  titleKey: 'netStorage.tab',
+  order: 50,
+  shown: (s) => STORAGE_KINDS.some((k) => (s.kinds[k] ?? 0) > 0),
+  count: (s) => STORAGE_KINDS.reduce((n, k) => n + (s.kinds[k] ?? 0), 0),
 });

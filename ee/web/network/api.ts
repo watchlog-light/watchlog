@@ -3,7 +3,15 @@
 import { api } from '@/api/client';
 
 export type DeviceStatus =
-  'pending' | 'ok' | 'unreachable' | 'auth_failed' | 'cert_changed' | 'error';
+  | 'pending'
+  | 'ok'
+  | 'unreachable'
+  | 'auth_failed'
+  | 'cert_changed'
+  | 'error'
+  // An access point CAPsMAN no longer runs, or whose provisioning failed (0.17).
+  | 'disconnected'
+  | 'provisioning';
 export type DeviceKind =
   'router' | 'l3switch' | 'switch' | 'ap' | 'nas' | 'nvr' | 'ups' | 'firewall' | 'other';
 
@@ -23,7 +31,7 @@ export interface Device {
   serial: string;
   firmware: string;
   address: string;
-  protocol: 'snmp' | 'routeros';
+  protocol: 'snmp' | 'routeros' | 'dahua' | 'capsman';
   profile: string | null;
   status: DeviceStatus;
   error: string | null;
@@ -38,6 +46,8 @@ export interface Device {
   portsTotal: number | null;
   update: { channel?: string; installed?: string; latest?: string } | null;
   managedAp: boolean;
+  /** An access point's controller (CAPsMAN), 0.17. */
+  parentId: string | null;
   poller: Poller;
   openAlerts: number;
 }
@@ -66,6 +76,17 @@ export interface Summary {
   };
   attention: Attention[];
   devices: Device[];
+  /** How many devices of each kind (0.17: the Wireless and Storage tabs). */
+  kinds: Record<string, number>;
+  wifiClients: number;
+  /** The Recording card: one line per recorder. */
+  recording: RecordingLine[];
+}
+
+export interface Kinds {
+  kinds: Record<string, number>;
+  devices: number;
+  wifiClients: number;
 }
 
 export interface LinkEnd {
@@ -115,6 +136,17 @@ export interface MapData {
   endpoints: Endpoint[];
   /** Positions an Owner or Admin dragged, by map node id. */
   layout: Record<string, { x: number; y: number }>;
+  /** Wireless backhaul between access points (mesh or WDS): dotted links. */
+  mesh: { fromId: string; toId: string; signalDbm: number | null; rate: string }[];
+  /** iSCSI sessions and the path of links between the recorder and its NAS. */
+  iscsi: {
+    recorderId: string;
+    nasId: string;
+    disk: string;
+    lun: string;
+    connected: boolean;
+    path: { devices: string[]; links: string[] } | null;
+  }[];
 }
 
 export interface Port {
@@ -138,6 +170,7 @@ export interface Port {
 export interface DeviceDetail {
   device: Device & {
     sysName: string;
+    parentName: string | null;
     location: string;
     credential: { id: string; name: string; protocol: string } | null;
     certificate: { pinned: string | null; seen: string | null } | null;
@@ -196,7 +229,7 @@ export interface PollerChoice {
 export interface Credential {
   id: string;
   name: string;
-  protocol: 'snmp' | 'routeros';
+  protocol: 'snmp' | 'routeros' | 'dahua';
   settings: {
     version?: '3' | '2c';
     user?: string;
@@ -205,6 +238,8 @@ export interface Credential {
     port?: number;
     transport?: 'rest' | 'api-ssl' | 'api';
     allowPlain?: boolean;
+    /** A recorder over HTTPS (its certificate pinned on first contact). */
+    https?: boolean;
   };
   secretSet: boolean;
   usedBy: number;
@@ -217,15 +252,248 @@ export interface Found {
   vendor?: string;
   profile?: string;
   credential?: string;
-  protocol?: 'snmp' | 'routeros';
+  protocol?: 'snmp' | 'routeros' | 'dahua';
   answered: boolean;
   error?: string;
   viaNeighbour?: string;
   added: boolean;
 }
 
+// ---------------------------------------------------------------- 0.17 (ADR-234)
+
+/** One of a recorder's three signals: ok, failing (since), or unknown (learning, no port). */
+export interface RecordingSignal {
+  key: 'recorder' | 'disk' | 'rate';
+  ok: boolean | null;
+  why: string;
+  since: string | null;
+}
+
+/** The Overview's Recording card: one line per recorder. */
+export interface RecordingLine {
+  id: string;
+  name: string;
+  /** null: not known yet, or the recorder isn't answering (status). */
+  recording: boolean | null;
+  status: DeviceStatus;
+  since: string | null;
+  why: string | null;
+  cameras: { online: number; total: number };
+  disk: { nasId: string | null; nas: string | null; lun: string } | null;
+  daysLeft: number | null;
+  full: boolean;
+  /** bytes a second */
+  rate: number | null;
+  usual: { low: number; high: number; median: number } | null;
+}
+
+export interface Radio {
+  interface: string;
+  ssid?: string;
+  band?: string;
+  channel?: number;
+  frequencyMhz?: number;
+  txPowerDbm?: number;
+  noiseDbm?: number;
+  clients: number;
+  running: boolean;
+}
+
+export interface AccessPoint extends Device {
+  controllerId: string;
+  controller: string;
+  /** wifi (RouterOS 7's package) or caps-man (legacy) */
+  generation: string;
+  /** CAPsMAN's word */
+  state: string;
+  statusSince: string | null;
+  radios: Radio[];
+  clients: number;
+  weak: number;
+  switchPort: { deviceId: string; device: string; port: string } | null;
+  /** client counts over 24 h, every 30 min */
+  spark: number[];
+}
+
+export interface WifiClient {
+  mac: string;
+  vendor: string;
+  apId: string | null;
+  ap: string;
+  ssid: string;
+  band: string;
+  signalDbm: number | null;
+  txRate: string;
+  rxRate: string;
+  uptimeS: number | null;
+  /** since it connected, both ways */
+  bytes: number;
+}
+
+export interface Wireless {
+  controllers: { id: string; name: string; generations: string[] }[];
+  tiles: {
+    aps: number;
+    apsUp: number;
+    clients: number;
+    weak: number;
+    busiest: { id: string; name: string; clients: number } | null;
+  };
+  /** Below this a client is weak (dBm). */
+  weakDbm: number;
+  aps: AccessPoint[];
+  clients: WifiClient[];
+  mesh: {
+    fromId: string;
+    from: string;
+    toId: string;
+    to: string;
+    signalDbm: number | null;
+    rate: string;
+  }[];
+  /** The access points' switch ports both ways, bytes a second, 24 h at 5 min, and the band. */
+  traffic: {
+    points: Points;
+    band: { t: string; low: number; high: number; median: number }[];
+    stepS: number;
+  };
+  attention: Attention[];
+}
+
+export interface RecorderDiskView {
+  name: string;
+  iscsi: boolean;
+  state: string;
+  healthy: boolean;
+  total: number;
+  used: number;
+  session: { nasId: string | null; nas: string | null; lun: string } | null;
+}
+
+export interface RecorderCard {
+  id: string;
+  name: string;
+  model: string;
+  firmware: string;
+  address: string;
+  status: DeviceStatus;
+  recording: boolean | null;
+  since: string | null;
+  failed: RecordingSignal['key'][];
+  signals: RecordingSignal[];
+  cameras: {
+    online: number;
+    total: number;
+    list: { channel: number; name: string; online: boolean; since: string | null }[];
+  };
+  disks: RecorderDiskView[];
+  free: number;
+  total: number;
+  daysLeft: number | null;
+  /** full and overwriting its oldest footage */
+  full: boolean;
+  rate: number | null;
+  usual: { low: number; high: number; median: number } | null;
+  rateFrom: { device: string; port: string; side: 'recorder' | 'nas' } | null;
+  openAlerts: number;
+  poller: Poller;
+}
+
+export interface NasDisk {
+  index: number;
+  name?: string;
+  model?: string;
+  capacity?: number;
+  celsius?: number;
+  /** good, warning, abnormal, error, unknown (the NAS's word) */
+  smart: string;
+  status: string;
+}
+export interface NasVolume {
+  name: string;
+  total: number;
+  free: number;
+  status: string;
+  raid?: string;
+}
+export interface NasCard extends Device {
+  sensors: { name: string; celsius: number }[];
+  fans: { name: string; state: string }[];
+  psus: { name: string; state: string }[];
+  disks: NasDisk[];
+  volumes: NasVolume[];
+  pools: NasVolume[];
+  luns: {
+    name: string;
+    capacity: number;
+    usedPercent?: number;
+    status?: string;
+    mapped: boolean;
+    session: {
+      recorderId: string;
+      recorder: string;
+      connected: boolean;
+      since: string | null;
+    } | null;
+  }[];
+  targets: { name: string; iqn?: string; connected: boolean; status?: string }[];
+}
+
+export interface ISCSISession {
+  recorderId: string;
+  recorder: string;
+  disk: string;
+  nasId: string | null;
+  nas: string | null;
+  lun: string;
+  target: string;
+  connected: boolean;
+  since: string | null;
+  lostAt: string | null;
+  /** bytes a second */
+  throughputBps: number | null;
+  throughputFrom: { device: string; port: string; side: 'recorder' | 'nas' } | null;
+  /** QTS gives no session table: these are seen from the recorder and the switch ports. */
+  seenFrom: 'recorder' | 'nas';
+}
+
+export interface UpsCard extends Device {
+  ups: {
+    /** online, on-battery, bypass, off, unknown */
+    status: string;
+    chargePercent?: number;
+    runtimeS?: number;
+    loadPercent?: number;
+    inputVolts?: number;
+    outputVolts?: number;
+    celsius?: number;
+    replaceBattery: boolean;
+  } | null;
+  feeds: { clusterId: string; node: string; cluster: string; kind: string }[];
+}
+
+export interface Storage {
+  recorders: RecorderCard[];
+  nases: NasCard[];
+  sessions: ISCSISession[];
+  upses: UpsCard[];
+  attention: Attention[];
+}
+
 export const networkApi = {
   summary: () => api<Summary>('/network/summary'),
+  kinds: () => api<Kinds>('/network/kinds'),
+  wireless: () => api<Wireless>('/network/wireless'),
+  storage: () => api<Storage>('/network/storage'),
+  feedOptions: () =>
+    api<{ hosts: { clusterId: string; cluster: string; kind: string; node: string }[] }>(
+      '/network/feed-options',
+    ),
+  setFeeds: (id: string, feeds: { clusterId: string; node: string }[]) =>
+    api<void>(`/network/devices/${encodeURIComponent(id)}/feeds`, {
+      method: 'PUT',
+      body: { feeds },
+    }),
   devices: () => api<{ devices: Device[] }>('/network/devices'),
   device: (id: string) => api<DeviceDetail>(`/network/devices/${encodeURIComponent(id)}`),
   series: (id: string, range: number, port?: string) =>
@@ -239,7 +507,7 @@ export const networkApi = {
   credentials: () => api<{ credentials: Credential[] }>('/network/credentials'),
   createCredential: (body: {
     name: string;
-    protocol: 'snmp' | 'routeros';
+    protocol: 'snmp' | 'routeros' | 'dahua';
     settings: Credential['settings'];
     secret: Record<string, string>;
   }) => api<{ id: string }>('/network/credentials', { method: 'POST', body }),

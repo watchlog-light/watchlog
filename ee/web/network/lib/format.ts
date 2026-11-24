@@ -37,7 +37,10 @@ export function uptimeText(s: number | null | undefined): string {
   return `${m}m`;
 }
 
-/** A device's status as a tone: up, warning (an alert open), down, or not polled yet. */
+/**
+ * A device's status as a tone: up, warning (an alert open), down (a disconnected access point,
+ * or one whose CAPsMAN provisioning failed, too), or not polled yet.
+ */
 export function statusTone(
   s: DeviceStatus,
   openAlerts = 0,

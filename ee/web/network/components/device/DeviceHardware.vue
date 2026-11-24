@@ -91,7 +91,7 @@ const missingMembers = computed(() =>
       <h3 id="sfp-h" class="border-b border-border px-4 py-3 text-14 font-semibold text-text">
         {{ $t('netDevice.optics.title') }}
       </h3>
-      <div class="overflow-x-auto">
+      <div class="relative overflow-x-auto">
         <table class="w-full min-w-[560px] text-13" data-testid="device-optics">
           <thead class="text-11 tracking-[0.08em] text-text-subtle uppercase">
             <tr class="border-b border-border text-left">

@@ -10,7 +10,8 @@ import TextField from '@/components/ui/TextField.vue';
 import { networkApi, type Credential, type DeviceDetail, type PollerChoice } from '../../api';
 
 // What an Owner or Admin may change on a device (ADR-233): its name, the place that polls it,
-// its credential profile; and removing it.
+// its credential profile; and removing it. An access point CAPsMAN manages is polled through its
+// controller, so only its name changes here.
 const props = defineProps<{ device: DeviceDetail['device'] }>();
 const emit = defineEmits<{ changed: [] }>();
 const { t } = useI18n();
@@ -115,7 +116,10 @@ const currentPoller = `${props.device.poller.clusterId}/${props.device.poller.ho
           {{ $t('netDevice.settings.rename') }}
         </BaseButton>
       </form>
-      <div class="flex flex-col gap-2">
+      <p v-if="device.managedAp" class="text-13 text-text-muted lg:col-span-2">
+        {{ $t('netDevice.settings.managedAp') }}
+      </p>
+      <div v-if="!device.managedAp" class="flex flex-col gap-2">
         <span class="text-13 font-medium text-text">{{ $t('netDevice.settings.poller') }}</span>
         <ComboBox
           v-model="poller"
@@ -132,7 +136,7 @@ const currentPoller = `${props.device.poller.clusterId}/${props.device.poller.ho
           {{ $t('netDevice.settings.move') }}
         </BaseButton>
       </div>
-      <div class="flex flex-col gap-2">
+      <div v-if="!device.managedAp" class="flex flex-col gap-2">
         <span class="text-13 font-medium text-text">{{ $t('netDevice.settings.profile') }}</span>
         <ComboBox
           v-model="credential"

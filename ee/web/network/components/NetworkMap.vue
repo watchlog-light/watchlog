@@ -13,12 +13,14 @@ import {
   deviceNodeId,
   flowOf,
   focusOf,
+  iscsiPaths,
   layoutMap,
   linkTone,
   linkWidth,
   searchMap,
   type MapEdge,
   type MapNode,
+  type MeshLink,
   type SearchHit,
   type Tone,
 } from '../lib/map-layout';
@@ -30,11 +32,12 @@ import KindIcon from './KindIcon.vue';
 // Picking a device or a link lights up its way to the Internet and docks the details panel
 // beside the canvas (below it on phones). An Owner's or Admin's dragged positions are saved
 // for the organisation. `compact` is the Overview's small copy: no panel, a click opens the
-// Map tab on that device.
-const props = withDefaults(defineProps<{ data: MapData; compact?: boolean; focus?: string }>(), {
-  compact: false,
-  focus: undefined,
-});
+// Map tab on that device. Access points' wireless backhaul is dotted (0.17, ADR-234); the iSCSI
+// layer (off by default, `layer="iscsi"` turns it on) lights each recorder → NAS session's path.
+const props = withDefaults(
+  defineProps<{ data: MapData; compact?: boolean; focus?: string; layer?: string }>(),
+  { compact: false, focus: undefined, layer: undefined },
+);
 const { t } = useI18n();
 const router = useRouter();
 const auth = useAuthStore();
@@ -42,12 +45,20 @@ const auth = useAuthStore();
 type Pos = { x: number; y: number };
 type Sel = { type: 'node' | 'link'; id: string };
 
-const layers = reactive({ utilisation: true, endpoints: false });
+const wantsIscsi = () => !props.compact && (props.layer ?? '').split(',').includes('iscsi');
+const layers = reactive({ utilisation: true, endpoints: false, iscsi: wantsIscsi() });
+watch(
+  () => props.layer,
+  () => {
+    if (wantsIscsi()) layers.iscsi = true;
+  },
+);
 const expanded = ref<Set<string>>(new Set());
 const layout = computed(() =>
   layoutMap(props.data, { endpoints: layers.endpoints, expanded: expanded.value }),
 );
 const devName = computed(() => new Map(props.data.devices.map((d) => [d.id, d.name])));
+const iscsi = computed(() => (layers.iscsi ? iscsiPaths(props.data) : null));
 
 // ── Positions: computed, then saved (MapData.layout), then dragged here ─────────────────
 const saved = ref<Record<string, Pos>>({ ...props.data.layout });
@@ -124,6 +135,7 @@ const drawNodes = computed(() => {
   const sel = selected.value?.type === 'node' ? selected.value.id : null;
   const names = view.k >= 0.4;
   const subs = view.k >= 0.75 && !props.compact;
+  const storage = iscsi.value?.nodes;
   return layout.value.nodes.map((n) => {
     const p = pos(n.id);
     return {
@@ -131,6 +143,7 @@ const drawNodes = computed(() => {
       x: p.x,
       y: p.y,
       r: RADIUS[n.type],
+      iscsi: !!storage?.has(n.id),
       faded: !!f && !f.nodes.has(n.id),
       selected: sel === n.id,
       name: names || sel === n.id,
@@ -170,6 +183,14 @@ function linkText(l: Link): string {
   if (l.state === 'down') return t('netMap.down', { port: l.a.port });
   return `${speedText(l.speedMbps)} · ${pct(l.utilisation)}`;
 }
+/** A mesh link's signal and rate: "−61 dBm · 585 Mb/s". */
+function meshText(m: MeshLink): string {
+  const parts = [
+    m.signalDbm != null ? t('netMap.mesh.signal', { dbm: m.signalDbm }) : '',
+    m.rate,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : t('netMap.mesh.title');
+}
 
 const drawEdges = computed(() => {
   const f = focusSet.value;
@@ -189,7 +210,7 @@ const drawEdges = computed(() => {
     const ox = -uy * e.offset;
     const oy = ux * e.offset;
     const l = e.link;
-    const tone = l ? linkTone(l) : e.down ? 'critical' : 'quiet';
+    const tone = l ? linkTone(l) : e.mesh ? 'mesh' : e.down ? 'critical' : 'quiet';
     const isSel = sel === e.id;
     const label =
       !!l &&
@@ -199,17 +220,18 @@ const drawEdges = computed(() => {
         (layers.utilisation &&
           ((l.speedMbps ?? 0) >= 10000 || (na?.band ?? 4) <= 2 || (nb?.band ?? 4) <= 2)));
     return {
+      iscsi: iscsi.value?.edges.get(e.id) ?? null,
       e,
       x1: a.x + ux * ra + ox,
       y1: a.y + uy * ra + oy,
       x2: b.x - ux * rb + ox,
       y2: b.y - uy * rb + oy,
       tone,
-      width: l ? linkWidth(l.speedMbps) : 1.2,
+      width: l ? linkWidth(l.speedMbps) : e.mesh ? 2 : 1.2,
       flow: l && layers.utilisation ? flowOf(l) : null,
       faded: !!f && !f.edges.has(e.id),
       selected: isSel,
-      label: label ? linkText(l!) : '',
+      label: label ? linkText(l!) : e.mesh && !props.compact ? meshText(e.mesh) : '',
     };
   });
 });
@@ -221,7 +243,13 @@ const linkAria = (e: MapEdge) =>
         b: devName.value.get(e.link.b.deviceId) ?? '',
         text: linkText(e.link),
       })
-    : '';
+    : e.mesh
+      ? t('netMap.mesh.aria', {
+          a: devName.value.get(e.mesh.fromId) ?? '',
+          b: devName.value.get(e.mesh.toId) ?? '',
+          text: meshText(e.mesh),
+        })
+      : '';
 
 // ── View: zoom, pan, fit ─────────────────────────────────────────────────────────────────
 const box = ref<HTMLDivElement | null>(null);
@@ -566,6 +594,22 @@ const linkPanel = computed(() => {
   };
 });
 
+const meshPanel = computed(() => {
+  const m = selEdge.value?.mesh;
+  if (!m) return null;
+  return { m, a: devName.value.get(m.fromId) ?? '', b: devName.value.get(m.toId) ?? '' };
+});
+
+/** The iSCSI layer's legend: one line per session. */
+const iscsiLegend = computed(() =>
+  (iscsi.value?.paths ?? []).map((p) => ({
+    key: p.key,
+    text: `${devName.value.get(p.recorderId) ?? p.recorderId} → ${devName.value.get(p.nasId) ?? p.nasId} · ${p.lun || p.disk}`,
+    connected: p.connected,
+    drawn: p.edges.length > 0,
+  })),
+);
+
 const PILL: Record<Tone, string> = {
   ok: 'border-ok text-ok-text',
   warning: 'border-warning text-warning-text',
@@ -672,7 +716,7 @@ function expand(deviceId: string) {
           $t('netMap.layers.title')
         }}</span>
         <button
-          v-for="k in ['utilisation', 'endpoints'] as const"
+          v-for="k in ['utilisation', 'endpoints', 'iscsi'] as const"
           :key="k"
           type="button"
           class="inline-flex h-8 items-center gap-2 rounded-control px-2 text-13 text-text hover:bg-surface-2 max-lg:h-11"
@@ -697,17 +741,6 @@ function expand(deviceId: string) {
               <path d="M3.5 8.5l3 3 6-7" /></svg
           ></span>
           {{ $t(`netMap.layers.${k}`) }}
-        </button>
-        <button
-          type="button"
-          disabled
-          class="inline-flex h-8 cursor-not-allowed items-center gap-2 rounded-control px-2 text-13 text-text-subtle max-lg:h-11"
-          aria-pressed="false"
-          data-testid="map-layer-iscsi"
-        >
-          <span class="size-4 rounded-[4px] border border-border" aria-hidden="true" />
-          {{ $t('netMap.layers.iscsi') }}
-          <span class="text-12">· {{ $t('netMap.layers.nextRelease') }}</span>
         </button>
       </div>
       <p
@@ -769,12 +802,34 @@ function expand(deviceId: string) {
                   d.selected,
                   d.flow?.dur,
                   d.flow?.dir,
+                  d.iscsi,
+                  d.label,
                 ]"
                 :class="{ 'faded-link': d.faded }"
-                :data-testid="d.e.link ? 'map-link' : d.e.down ? 'map-attach' : undefined"
+                :data-testid="
+                  d.e.link
+                    ? 'map-link'
+                    : d.e.mesh
+                      ? 'map-mesh'
+                      : d.e.down
+                        ? 'map-attach'
+                        : undefined
+                "
                 :data-link="d.e.link?.id"
                 :data-state="d.e.link?.state ?? (d.e.down ? 'down' : undefined)"
               >
+                <line
+                  v-if="d.iscsi"
+                  :x1="d.x1"
+                  :y1="d.y1"
+                  :x2="d.x2"
+                  :y2="d.y2"
+                  class="iscsi-path"
+                  :class="`iscsi-${d.iscsi}`"
+                  :stroke-width="d.width + 7"
+                  :data-state="d.iscsi"
+                  data-testid="map-iscsi-path"
+                />
                 <line
                   v-if="d.selected"
                   :x1="d.x1"
@@ -805,7 +860,7 @@ function expand(deviceId: string) {
                   :style="{ animationDuration: `${d.flow.dur}s` }"
                 />
                 <line
-                  v-if="d.e.link && !compact"
+                  v-if="(d.e.link || d.e.mesh) && !compact"
                   :x1="d.x1"
                   :y1="d.y1"
                   :x2="d.x2"
@@ -849,7 +904,7 @@ function expand(deviceId: string) {
               <g
                 v-for="d in drawNodes"
                 :key="d.n.id"
-                v-memo="[d.x, d.y, d.faded, d.selected, d.name, d.sub, d.n]"
+                v-memo="[d.x, d.y, d.faded, d.selected, d.name, d.sub, d.n, d.iscsi]"
                 class="map-node cursor-pointer outline-none"
                 :class="{ 'faded-node': d.faded }"
                 :transform="`translate(${d.x} ${d.y})`"
@@ -892,6 +947,12 @@ function expand(deviceId: string) {
                     :class="`stroke-${d.n.tone}`"
                   />
                   <circle v-if="d.selected" :r="d.r + 9" class="sel-ring" />
+                  <circle
+                    v-if="d.iscsi"
+                    :r="d.r + 13"
+                    class="iscsi-ring"
+                    data-testid="map-iscsi-node"
+                  />
                   <circle :r="d.r" class="node-body" :class="`ring-${d.n.tone}`" />
                   <g
                     :class="
@@ -1018,42 +1079,90 @@ function expand(deviceId: string) {
 
         <div
           v-if="!compact"
-          class="pointer-events-none absolute bottom-2.5 left-2.5 flex flex-wrap items-center gap-x-3.5 gap-y-1 rounded-control border border-border bg-surface-1 px-3 py-1.5 text-12 text-text-muted max-md:hidden"
-          data-testid="map-legend"
+          class="pointer-events-none absolute right-2.5 bottom-2.5 left-2.5 flex flex-col items-start gap-1.5"
         >
-          <span class="flex items-center gap-1.5">
-            <svg width="18" height="6" aria-hidden="true">
-              <line x1="0" y1="3" x2="18" y2="3" class="edge edge-ok" stroke-width="3" />
-            </svg>
-            {{ $t('netMap.legend.speed') }}
-          </span>
-          <span class="flex items-center gap-1.5">
-            <svg width="18" height="6" aria-hidden="true">
-              <line x1="0" y1="3" x2="18" y2="3" class="flow flow-ok" stroke-width="3" />
-            </svg>
-            {{ $t('netMap.legend.traffic') }}
-          </span>
-          <span class="flex items-center gap-1.5">
-            <svg width="18" height="6" aria-hidden="true">
-              <line x1="0" y1="3" x2="18" y2="3" class="edge edge-warning" stroke-width="3" />
-            </svg>
-            {{ $t('netMap.legend.busy') }}
-          </span>
-          <span class="flex items-center gap-1.5">
-            <svg width="18" height="6" aria-hidden="true">
-              <line x1="0" y1="3" x2="18" y2="3" class="edge edge-critical" stroke-width="3" />
-            </svg>
-            {{ $t('netMap.legend.down') }}
-          </span>
-          <span class="max-lg:hidden">{{ $t('netMap.legend.hint') }}</span>
+          <ul
+            v-if="iscsiLegend.length"
+            class="flex max-w-full flex-col gap-0.5 rounded-control border border-border bg-surface-1 px-3 py-1.5 text-12"
+            :aria-label="$t('netMap.layers.iscsi')"
+            data-testid="map-iscsi-legend"
+          >
+            <li
+              v-for="p in iscsiLegend"
+              :key="p.key"
+              class="flex min-w-0 items-center gap-1.5"
+              :class="p.connected ? 'text-text' : 'text-critical-text'"
+              data-testid="map-iscsi-session"
+              :data-connected="p.connected"
+            >
+              <svg width="18" height="6" class="shrink-0" aria-hidden="true">
+                <line
+                  x1="0"
+                  y1="3"
+                  x2="18"
+                  y2="3"
+                  class="iscsi-path"
+                  :class="p.connected ? 'iscsi-ok' : 'iscsi-lost'"
+                  stroke-width="4"
+                />
+              </svg>
+              <span class="min-w-0 truncate font-mono">{{ p.text }}</span>
+              <span v-if="!p.connected" class="shrink-0">· {{ $t('netMap.iscsi.lost') }}</span>
+              <span v-else-if="!p.drawn" class="shrink-0 text-text-subtle"
+                >· {{ $t('netMap.iscsi.noPath') }}</span
+              >
+            </li>
+          </ul>
+          <div
+            class="flex flex-wrap items-center gap-x-3.5 gap-y-1 rounded-control border border-border bg-surface-1 px-3 py-1.5 text-12 text-text-muted max-md:hidden"
+            data-testid="map-legend"
+          >
+            <span class="flex items-center gap-1.5">
+              <svg width="18" height="6" aria-hidden="true">
+                <line x1="0" y1="3" x2="18" y2="3" class="edge edge-ok" stroke-width="3" />
+              </svg>
+              {{ $t('netMap.legend.speed') }}
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg width="18" height="6" aria-hidden="true">
+                <line x1="0" y1="3" x2="18" y2="3" class="flow flow-ok" stroke-width="3" />
+              </svg>
+              {{ $t('netMap.legend.traffic') }}
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg width="18" height="6" aria-hidden="true">
+                <line x1="0" y1="3" x2="18" y2="3" class="edge edge-warning" stroke-width="3" />
+              </svg>
+              {{ $t('netMap.legend.busy') }}
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg width="18" height="6" aria-hidden="true">
+                <line x1="0" y1="3" x2="18" y2="3" class="edge edge-critical" stroke-width="3" />
+              </svg>
+              {{ $t('netMap.legend.down') }}
+            </span>
+            <span v-if="data.mesh?.length" class="flex items-center gap-1.5">
+              <svg width="18" height="6" aria-hidden="true">
+                <line x1="1" y1="3" x2="17" y2="3" class="edge edge-mesh" stroke-width="2" />
+              </svg>
+              {{ $t('netMap.legend.mesh') }}
+            </span>
+            <span class="max-lg:hidden">{{ $t('netMap.legend.hint') }}</span>
+          </div>
         </div>
       </div>
 
       <aside
-        v-if="!compact && (selNode || linkPanel)"
+        v-if="!compact && (selNode || linkPanel || meshPanel)"
         class="flex w-[340px] shrink-0 flex-col gap-4 overflow-y-auto border-l border-border bg-surface-1 p-4 max-md:w-full max-md:border-t max-md:border-l-0"
         :aria-label="
-          selNode ? nodeName(selNode) : linkPanel ? `${linkPanel.a} ↔ ${linkPanel.b}` : ''
+          selNode
+            ? nodeName(selNode)
+            : linkPanel
+              ? `${linkPanel.a} ↔ ${linkPanel.b}`
+              : meshPanel
+                ? `${meshPanel.a} ↔ ${meshPanel.b}`
+                : ''
         "
         data-testid="map-panel"
         @keydown.esc="selected = null"
@@ -1142,10 +1251,7 @@ function expand(deviceId: string) {
                       ? `${devicePanel.d.poller.name} · ${devicePanel.d.poller.host}`
                       : devicePanel.d.poller.name,
                   },
-                  {
-                    k: 'protocol',
-                    v: devicePanel.d.protocol === 'routeros' ? 'RouterOS API' : 'SNMP',
-                  },
+                  { k: 'protocol', v: $t(`net.protocol.${devicePanel.d.protocol}`) },
                 ]"
                 :key="f.k"
               >
@@ -1412,6 +1518,62 @@ function expand(deviceId: string) {
             </RouterLink>
           </section>
         </template>
+
+        <!-- Wireless backhaul between two access points. -->
+        <template v-else-if="meshPanel">
+          <div class="flex items-start gap-3">
+            <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span class="truncate font-mono text-14 text-text" data-testid="map-panel-title"
+                >{{ meshPanel.a }} ↔ {{ meshPanel.b }}</span
+              >
+              <span class="truncate text-12 text-text-muted">{{ $t('netMap.mesh.title') }}</span>
+            </span>
+            <button
+              type="button"
+              class="flex size-8 shrink-0 items-center justify-center rounded-control text-text-muted hover:bg-surface-2 hover:text-text max-lg:size-11"
+              :aria-label="$t('netMap.panel.close')"
+              data-testid="map-panel-close"
+              @click="selected = null"
+            >
+              <X class="size-4" aria-hidden="true" />
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-2" data-testid="map-panel-mesh">
+            <span class="flex min-w-0 flex-col gap-0.5 rounded-control bg-surface-2 px-2.5 py-2">
+              <span class="truncate text-12 text-text-muted">{{
+                $t('netMap.mesh.signalLabel')
+              }}</span>
+              <span class="font-mono text-14 text-text tabular">{{
+                meshPanel.m.signalDbm != null
+                  ? $t('netMap.mesh.signal', { dbm: meshPanel.m.signalDbm })
+                  : '–'
+              }}</span>
+            </span>
+            <span class="flex min-w-0 flex-col gap-0.5 rounded-control bg-surface-2 px-2.5 py-2">
+              <span class="truncate text-12 text-text-muted">{{ $t('netMap.mesh.rate') }}</span>
+              <span class="font-mono text-14 text-text tabular">{{ meshPanel.m.rate || '–' }}</span>
+            </span>
+          </div>
+          <section class="flex flex-col gap-1.5">
+            <h3 class="font-mono text-11 tracking-wider text-text-subtle uppercase">
+              {{ $t('netMap.link.both') }}
+            </h3>
+            <RouterLink
+              v-for="end in [meshPanel.m.fromId, meshPanel.m.toId]"
+              :key="end"
+              :to="{ name: 'network-device', params: { id: end } }"
+              class="flex items-center justify-between gap-2 rounded-control bg-surface-2 px-2.5 py-1.5 text-13 hover:bg-surface-3 max-lg:min-h-11"
+              data-testid="map-panel-end"
+            >
+              <span class="truncate font-mono text-link">{{ devName.get(end) }}</span>
+            </RouterLink>
+          </section>
+          <RouterLink
+            :to="{ name: 'network-wireless' }"
+            class="inline-flex items-center self-start text-13 font-medium text-link hover:underline max-lg:min-h-11"
+            >{{ $t('netMap.mesh.openWireless') }}</RouterLink
+          >
+        </template>
       </aside>
     </div>
   </section>
@@ -1440,6 +1602,33 @@ function expand(deviceId: string) {
 }
 .edge-quiet {
   stroke: var(--border-strong);
+}
+/* Wireless backhaul between access points: dotted. */
+.edge-mesh {
+  stroke: var(--info);
+  stroke-dasharray: 0.1 5;
+  stroke-linecap: round;
+}
+/* The iSCSI layer: a wide band under the link, its own colour; a lost session red and dashed. */
+.iscsi-path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-opacity: 0.45;
+  pointer-events: none;
+}
+.iscsi-ok {
+  stroke: var(--chart-4);
+}
+.iscsi-lost {
+  stroke: var(--critical);
+  stroke-dasharray: 8 6;
+  stroke-linecap: butt;
+}
+.iscsi-ring {
+  fill: none;
+  stroke: var(--chart-4);
+  stroke-width: 2.5;
+  stroke-dasharray: 3 3;
 }
 .edge-selected {
   stroke: var(--text);

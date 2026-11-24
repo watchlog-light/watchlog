@@ -9,11 +9,15 @@ import {
   INTERNET,
   deviceNodeId,
   endpointNodeId,
+  ROW,
+  SLOT,
   flowOf,
   focusOf,
   groupNodeId,
   hostNodeId,
+  iscsiPaths,
   layoutMap,
+  linkEdgeId,
   linkWidth,
   searchMap,
   type MapDevice,
@@ -42,6 +46,7 @@ function device(id: string, kind: DeviceKind, extra: Partial<MapDevice> = {}): M
     portsTotal: 8,
     update: null,
     managedAp: false,
+    parentId: null,
     poller: { clusterId: 'c1', name: 'fleet', kind: 'server', host: 'poller-1' },
     openAlerts: 0,
   };
@@ -119,6 +124,8 @@ function small(): MapData {
       endpoint(200, 'sw-access-1'),
     ],
     layout: {},
+    mesh: [],
+    iscsi: [],
   };
 }
 
@@ -228,7 +235,7 @@ describe('layoutMap', () => {
           : null;
       endpoints.push(endpoint(1000 + i, sw, node));
     }
-    const data: MapData = { devices, links, endpoints, layout: {} };
+    const data: MapData = { devices, links, endpoints, layout: {}, mesh: [], iscsi: [] };
     expect(devices).toHaveLength(200);
 
     layoutMap(data, { endpoints: true }); // warm up
@@ -253,6 +260,123 @@ describe('layoutMap', () => {
     // No two nodes on the same spot.
     const spots = new Set(l.nodes.map((n) => `${Math.round(n.x)},${n.y}`));
     expect(spots.size).toBe(l.nodes.length);
+  });
+});
+
+/** small() plus access points, a recorder and a UPS under sw-access-1; ap-3 has only a mesh. */
+function withLeaves(): MapData {
+  const data = small();
+  const ctrl = { parentId: 'edge-1', managedAp: true, protocol: 'capsman' as const };
+  data.devices.push(
+    device('ap-1', 'ap', ctrl),
+    device('ap-2', 'ap', ctrl),
+    device('ap-3', 'ap', { ...ctrl, status: 'disconnected' }),
+    device('nvr-1', 'nvr', { protocol: 'dahua' }),
+    device('ups-1', 'ups'),
+  );
+  data.links.push(
+    link('sw-access-1', 'ap-1'),
+    link('sw-access-2', 'ap-2'),
+    link('sw-access-1', 'nvr-1'),
+    link('sw-access-1', 'ups-1'),
+  );
+  data.mesh = [
+    { fromId: 'ap-3', toId: 'ap-2', signalDbm: -61, rate: '585 Mb/s' },
+    { fromId: 'ap-2', toId: 'ap-3', signalDbm: -63, rate: '585 Mb/s' },
+  ];
+  return data;
+}
+
+describe('access points, storage and UPSes', () => {
+  it('hangs them as leaves under their switch, in the Devices band', () => {
+    const l = layoutMap(withLeaves(), { endpoints: false });
+    const at = (id: string) => l.byId.get(deviceNodeId(id))!;
+    for (const id of ['ap-1', 'nvr-1', 'ups-1', 'nas-1']) {
+      expect(at(id).parent, id).toBe(deviceNodeId('sw-access-1'));
+      expect(at(id).y, id).toBe(BAND_Y[4]);
+    }
+    expect(at('ap-2').parent).toBe(deviceNodeId('sw-access-2'));
+    // Its controller is not where it hangs: the wired link decides.
+    expect(at('ap-1').parent).not.toBe(deviceNodeId('edge-1'));
+    // Disconnected access points show as down.
+    expect(at('ap-3').tone).toBe('critical');
+    // Leaves sit side by side, none on another.
+    const leaves = ['ap-1', 'nas-1', 'nvr-1', 'ups-1'].map((id) => at(id).x);
+    expect(new Set(leaves).size).toBe(4);
+  });
+
+  it('puts a mesh-only access point next to its peer, with one dotted edge between them', () => {
+    const l = layoutMap(withLeaves(), { endpoints: false });
+    const at = (id: string) => l.byId.get(deviceNodeId(id))!;
+    const ap2 = at('ap-2');
+    const ap3 = at('ap-3');
+    expect(ap3.parent).toBe(ap2.id);
+    expect(ap3.y).toBe(ap2.y);
+    expect(Math.abs(ap3.x - ap2.x)).toBe(SLOT);
+    const mesh = l.edges.filter((e) => e.type === 'mesh');
+    expect(mesh).toHaveLength(1);
+    expect(mesh[0]!.mesh!.signalDbm).toBe(-61);
+    expect([mesh[0]!.from, mesh[0]!.to].sort()).toEqual([ap2.id, ap3.id].sort());
+    // Its way to the Internet is through the peer.
+    const f = focusOf(l, { type: 'node', id: ap3.id });
+    expect(f.nodes.has(ap2.id)).toBe(true);
+    expect(f.nodes.has(deviceNodeId('sw-access-2'))).toBe(true);
+    expect(f.nodes.has(INTERNET)).toBe(true);
+  });
+
+  it('places a mesh-only access point below its peer when the peer stands alone', () => {
+    const data = small();
+    data.devices.push(device('ap-a', 'ap'), device('ap-b', 'ap'));
+    data.mesh = [{ fromId: 'ap-a', toId: 'ap-b', signalDbm: null, rate: '' }];
+    const l = layoutMap(data, { endpoints: false });
+    const a = l.byId.get(deviceNodeId('ap-a'))!;
+    const b = l.byId.get(deviceNodeId('ap-b'))!;
+    expect(a.parent).toBeNull();
+    expect(b.parent).toBe(a.id);
+    expect(b.y).toBe(a.y + ROW);
+    expect(b.x).toBe(a.x);
+  });
+});
+
+describe('iscsiPaths', () => {
+  it("lights each session's links, a lost one over a connected one", () => {
+    const data = withLeaves();
+    const [up, mid] = [data.links[1]!, data.links[4]!];
+    data.iscsi = [
+      {
+        recorderId: 'nvr-1',
+        nasId: 'nas-1',
+        disk: 'disk-1',
+        lun: 'rec-1',
+        connected: true,
+        path: { devices: ['nvr-1', 'sw-access-1', 'nas-1'], links: [mid.id, up.id] },
+      },
+      {
+        recorderId: 'nvr-1',
+        nasId: 'nas-1',
+        disk: 'disk-2',
+        lun: 'rec-2',
+        connected: false,
+        path: { devices: ['nvr-1', 'sw-access-1', 'nas-1'], links: [mid.id] },
+      },
+      {
+        recorderId: 'nvr-1',
+        nasId: 'nas-1',
+        disk: 'disk-3',
+        lun: 'rec-3',
+        connected: true,
+        path: null,
+      },
+    ];
+    const p = iscsiPaths(data);
+    expect(p.paths).toHaveLength(3);
+    expect(p.edges.get(linkEdgeId(up.id))).toBe('ok');
+    expect(p.edges.get(linkEdgeId(mid.id))).toBe('lost');
+    expect([...p.nodes].sort()).toEqual([deviceNodeId('nas-1'), deviceNodeId('nvr-1')]);
+    // The ids are the layout's own edge ids.
+    const l = layoutMap(data, { endpoints: false });
+    for (const id of p.edges.keys()) expect(l.edges.some((e) => e.id === id)).toBe(true);
+    expect(iscsiPaths({ ...data, iscsi: [] }).edges.size).toBe(0);
   });
 });
 

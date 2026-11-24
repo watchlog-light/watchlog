@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: LicenseRef-WatchLog-Enterprise -->
 <script setup lang="ts">
-import { Lock, Plus, Search } from '@lucide/vue';
+import { Cctv, Info, Lock, Plus, Search } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
@@ -19,7 +19,9 @@ import NetworkTabs from '../components/NetworkTabs.vue';
 
 // Adding network devices (ADR-233): (1) the place that polls them, (2) read-only credential
 // profiles, (3) the addresses to start from, (4) what was found, each tested, (5) add the picked
-// ones. Owners and Admins; others see a note.
+// ones. Owners and Admins; others see a note. Recorders (Dahua's HTTP API, ADR-234) don't
+// announce themselves: they are added by address with a recorder profile, without discovery;
+// CAPsMAN's access points come with their controller.
 const auth = useAuthStore();
 const router = useRouter();
 const { t } = useI18n();
@@ -42,8 +44,11 @@ async function load() {
       );
       if (ready.length === 1) poller.value = ready[0]!;
     }
-    if (!chosen.value.length && c.credentials.length)
-      chosen.value = c.credentials.slice(0, 8).map((x) => x.id);
+    if (!chosen.value.length)
+      chosen.value = c.credentials
+        .filter(discoverable)
+        .slice(0, MAX_PROFILES)
+        .map((x) => x.id);
   } catch (err) {
     loadError.value = err instanceof Error ? err.message : t('netAdd.loadError');
   } finally {
@@ -59,6 +64,9 @@ const poller = ref<{ clusterId: string; host: string } | null>(null);
 
 // Step 2
 const MAX_PROFILES = 8;
+/** Profiles discovery can try: SNMP and RouterOS; a recorder's is used by address only. */
+const discoverable = (c: Credential) => c.protocol !== 'dahua';
+const recorderProfiles = computed(() => credentials.value.filter((c) => !discoverable(c)));
 const chosen = ref<string[]>([]);
 const creating = ref(false);
 function toggleProfile(id: string, on: boolean) {
@@ -70,10 +78,22 @@ async function created(id: string) {
   creating.value = false;
   const c = await networkApi.credentials();
   credentials.value = c.credentials;
+  const made = c.credentials.find((x) => x.id === id);
+  if (made && !discoverable(made)) {
+    recorderProfile.value = id;
+    return;
+  }
   if (!chosen.value.includes(id)) chosen.value = [...chosen.value, id].slice(-MAX_PROFILES);
 }
 function describe(c: Credential): string {
   const s = c.settings;
+  if (c.protocol === 'dahua') {
+    return t('netAdd.cred.describeDahua', {
+      user: s.user ?? '–',
+      scheme: s.https === false ? 'HTTP' : 'HTTPS',
+      port: s.port ?? (s.https === false ? 80 : 443),
+    });
+  }
   if (c.protocol === 'routeros') {
     return t('netAdd.cred.describeRouteros', {
       user: s.user ?? '–',
@@ -236,6 +256,62 @@ watch(poller, () => {
   discoveryId.value = null;
   clearTimeout(timer);
 });
+
+// Recorders, by address with a recorder profile (no discovery).
+const recorderText = ref('');
+const recorderProfile = ref('');
+watch(
+  recorderProfiles,
+  (list) => {
+    if (!list.some((c) => c.id === recorderProfile.value))
+      recorderProfile.value = list[0]?.id ?? '';
+  },
+  { immediate: true },
+);
+const recorderAddresses = computed(() =>
+  recorderText.value
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+const recorderProblem = computed(() => {
+  if (!poller.value) return t('netAdd.find.needPoller');
+  if (!recorderAddresses.value.length) return t('netAdd.find.needAddress');
+  if (recorderAddresses.value.length > 64) return t('netAdd.find.tooMany');
+  const bad = recorderAddresses.value.find((s) => s.length > 253 || !ADDRESS.test(s));
+  if (bad) return t('netAdd.find.badAddress', { address: bad });
+  if (!recorderProfile.value) return t('netAdd.recorders.needProfile');
+  return '';
+});
+const addingRecorders = ref(false);
+const recorderError = ref('');
+const recorderSkipped = ref<{ address: string; reason: string }[]>([]);
+async function addRecorders() {
+  if (recorderProblem.value || !poller.value) return;
+  addingRecorders.value = true;
+  recorderError.value = '';
+  recorderSkipped.value = [];
+  try {
+    const r = await networkApi.addDevices({
+      clusterId: poller.value.clusterId,
+      host: poller.value.host,
+      devices: recorderAddresses.value.map((address) => ({
+        address,
+        credentialId: recorderProfile.value,
+      })),
+    });
+    if (r.added.length) {
+      await router.push({ name: 'network-devices' });
+      return;
+    }
+    recorderSkipped.value = r.skipped;
+    recorderError.value = t('netAdd.add.noneAdded');
+  } catch (err) {
+    recorderError.value = err instanceof Error ? err.message : t('netAdd.add.failed');
+  } finally {
+    addingRecorders.value = false;
+  }
+}
 </script>
 
 <template>
@@ -300,7 +376,13 @@ watch(poller, () => {
               class="flex cursor-pointer items-center gap-3 rounded-card border bg-surface-2 px-4 py-3"
               :class="chosen.includes(c.id) ? 'border-primary' : 'border-border'"
             >
+              <Cctv
+                v-if="!discoverable(c)"
+                class="size-[18px] shrink-0 text-text-muted"
+                aria-hidden="true"
+              />
               <input
+                v-else
                 type="checkbox"
                 class="size-[18px] shrink-0 accent-primary"
                 :checked="chosen.includes(c.id)"
@@ -310,6 +392,9 @@ watch(poller, () => {
               <span class="flex min-w-0 flex-1 flex-col">
                 <span class="text-14 font-medium break-all text-text">{{ c.name }}</span>
                 <span class="text-12 text-text-muted">{{ describe(c) }}</span>
+                <span v-if="!discoverable(c)" class="text-12 text-text-subtle">{{
+                  $t('netAdd.cred.byAddress')
+                }}</span>
               </span>
               <span v-if="c.usedBy" class="shrink-0 text-12 text-text-subtle">{{
                 $t('netAdd.cred.usedBy', { n: c.usedBy }, c.usedBy)
@@ -319,8 +404,8 @@ watch(poller, () => {
         </ul>
         <CredentialForm v-if="creating" @created="created" @cancel="creating = false" />
         <details
-          v-if="credentials.length"
           class="group rounded-card border border-border bg-surface-2 px-4 py-2"
+          data-testid="setup-details"
         >
           <summary
             class="flex min-h-9 cursor-pointer items-center text-13 max-lg:min-h-11 text-text-muted hover:text-text"
@@ -385,6 +470,88 @@ watch(poller, () => {
           }}</span>
         </div>
         <p v-if="findError" class="text-13 text-critical-text" role="alert">{{ findError }}</p>
+        <p
+          class="flex items-start gap-2 rounded-control border border-border bg-surface-2 px-3 py-2 text-13 text-text-muted"
+          role="note"
+          data-testid="add-capsman-note"
+        >
+          <Info class="mt-0.5 size-4 shrink-0" aria-hidden="true" />{{ $t('netAdd.capsman') }}
+        </p>
+
+        <div
+          class="flex flex-col gap-3 border-t border-border pt-4"
+          data-testid="add-recorders"
+          role="group"
+          aria-labelledby="s3-rec"
+        >
+          <h4 id="s3-rec" class="text-14 font-semibold text-text">
+            {{ $t('netAdd.recorders.title') }}
+          </h4>
+          <p class="text-13 text-text-muted">{{ $t('netAdd.recorders.intro') }}</p>
+          <p v-if="!recorderProfiles.length" class="text-13 text-text-muted">
+            {{ $t('netAdd.recorders.noProfile') }}
+          </p>
+          <template v-else>
+            <div class="grid gap-3 md:grid-cols-2">
+              <div class="flex flex-col gap-1.5">
+                <label for="add-recorders" class="text-13 font-medium text-text">{{
+                  $t('netAdd.find.seeds')
+                }}</label>
+                <textarea
+                  id="add-recorders"
+                  v-model="recorderText"
+                  rows="3"
+                  class="rounded-control border border-border bg-surface-3 px-3 py-2 font-mono text-14 text-text placeholder:text-text-subtle focus:border-border-strong max-md:text-16"
+                  placeholder="10.0.30.21"
+                  data-testid="add-recorder-addresses"
+                />
+                <p class="text-12 text-text-muted">{{ $t('netAdd.find.seedsHint') }}</p>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label for="add-recorder-profile" class="text-13 font-medium text-text">{{
+                  $t('netAdd.recorders.profile')
+                }}</label>
+                <select
+                  id="add-recorder-profile"
+                  v-model="recorderProfile"
+                  class="h-9 rounded-control border border-border bg-surface-3 px-3 text-14 text-text max-lg:h-11 max-md:text-16"
+                  data-testid="add-recorder-profile"
+                >
+                  <option v-for="c in recorderProfiles" :key="c.id" :value="c.id">
+                    {{ c.name }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <BaseButton
+                :loading="addingRecorders"
+                :disabled="!!recorderProblem"
+                data-testid="add-recorders-submit"
+                @click="addRecorders"
+              >
+                <Plus class="size-4" aria-hidden="true" />{{
+                  $t(
+                    'netAdd.recorders.button',
+                    { n: recorderAddresses.length },
+                    recorderAddresses.length,
+                  )
+                }}
+              </BaseButton>
+              <span v-if="recorderProblem && recorderText" class="text-13 text-text-muted">{{
+                recorderProblem
+              }}</span>
+            </div>
+            <p v-if="recorderError" class="text-13 text-critical-text" role="alert">
+              {{ recorderError }}
+            </p>
+            <ul v-if="recorderSkipped.length" class="text-13 text-text-muted">
+              <li v-for="x in recorderSkipped" :key="x.address">
+                <span class="font-mono">{{ x.address }}</span> · {{ x.reason }}
+              </li>
+            </ul>
+          </template>
+        </div>
       </section>
 
       <!-- 4 -->

@@ -19,7 +19,7 @@ const hot = (v: number | null, warn: number) => (v != null && v >= warn ? 'text-
 </script>
 
 <template>
-  <div class="overflow-x-auto">
+  <div class="relative overflow-x-auto">
     <table class="w-full min-w-[980px] text-13" data-testid="network-devices-table">
       <thead>
         <tr class="text-left font-mono text-11 tracking-[0.08em] text-text-subtle uppercase">

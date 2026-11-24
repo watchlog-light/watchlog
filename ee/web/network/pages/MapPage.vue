@@ -15,7 +15,8 @@ import NetworkTabs from '../components/NetworkTabs.vue';
 
 // The Map tab (ADR-233): the whole network, refreshed every 30 s like the pollers; the view,
 // the layers and the picked device stay put across refreshes. `?focus=<deviceId>` (from the
-// Overview's small map, or a link elsewhere) picks that device and brings it into view.
+// Overview's small map, or a link elsewhere) picks that device and brings it into view;
+// `?layer=iscsi` turns the iSCSI paths layer on.
 const route = useRoute();
 const auth = useAuthStore();
 const page = useLoader(() => networkApi.map());
@@ -28,6 +29,9 @@ const focus = computed(() =>
   typeof route.query.focus === 'string' && route.query.focus ? route.query.focus : undefined,
 );
 const devices = computed(() => page.data.value?.devices.length ?? null);
+const layer = computed(() =>
+  typeof route.query.layer === 'string' && route.query.layer ? route.query.layer : undefined,
+);
 </script>
 
 <template>
@@ -61,7 +65,7 @@ const devices = computed(() => page.data.value?.devices.length ?? null);
         :action-label="auth.canManage ? $t('net.addDevices') : undefined"
         :action-to="auth.canManage ? { name: 'network-add' } : undefined"
       />
-      <NetworkMap v-else :data="page.data.value" :focus="focus" />
+      <NetworkMap v-else :data="page.data.value" :focus="focus" :layer="layer" />
     </template>
   </div>
 </template>

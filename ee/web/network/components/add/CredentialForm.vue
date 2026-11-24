@@ -5,16 +5,19 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import TextField from '@/components/ui/TextField.vue';
+import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
 import { networkApi, type Credential } from '../../api';
 
 // A new read-only credential profile (ADR-233): SNMPv3 by default (SHA-256 and AES, authPriv),
 // v2c with its clear-text warning, or RouterOS over REST, API-SSL, or the plain API only with
-// "allow unencrypted on this network". Keys are write-only: never shown again.
+// "allow unencrypted on this network"; or a recorder's read-only user over Dahua's HTTP API
+// (0.17, ADR-234), HTTPS with its certificate pinned on first contact. Keys are write-only:
+// never shown again.
 const emit = defineEmits<{ created: [id: string]; cancel: [] }>();
 const { t } = useI18n();
 
 const name = ref('');
-const protocol = ref<'snmp' | 'routeros'>('snmp');
+const protocol = ref<'snmp' | 'routeros' | 'dahua'>('snmp');
 const version = ref<'3' | '2c'>('3');
 const user = ref('');
 const authProto = ref('SHA256');
@@ -25,6 +28,14 @@ const community = ref('');
 const password = ref('');
 const transport = ref<'rest' | 'api-ssl' | 'api'>('rest');
 const allowPlain = ref(false);
+const https = ref(true);
+const port = ref('');
+const portNumber = computed(() => (port.value.trim() ? Number(port.value.trim()) : null));
+const portOk = computed(
+  () =>
+    portNumber.value == null ||
+    (Number.isInteger(portNumber.value) && portNumber.value >= 1 && portNumber.value <= 65535),
+);
 
 const AUTH = ['SHA', 'SHA224', 'SHA256', 'SHA384', 'SHA512'];
 const PRIV = ['AES', 'AES192', 'AES256'];
@@ -36,6 +47,10 @@ const problem = computed(() => {
       if (!user.value.trim()) return t('netAdd.cred.needUser');
       if (authKey.value.length < 8 || privKey.value.length < 8) return t('netAdd.cred.needKeys');
     } else if (!community.value) return t('netAdd.cred.needCommunity');
+  } else if (protocol.value === 'dahua') {
+    if (!user.value.trim()) return t('netAdd.cred.needUser');
+    if (!password.value) return t('netAdd.cred.needPassword');
+    if (!portOk.value) return t('netAdd.cred.badPort');
   } else {
     if (!user.value.trim()) return t('netAdd.cred.needUser');
     if (!password.value) return t('netAdd.cred.needPassword');
@@ -66,6 +81,13 @@ async function save() {
       version.value === '3'
         ? { authKey: authKey.value, privKey: privKey.value }
         : { community: community.value };
+  } else if (protocol.value === 'dahua') {
+    settings = {
+      user: user.value.trim(),
+      https: https.value,
+      ...(portNumber.value != null ? { port: portNumber.value } : {}),
+    };
+    secret = { password: password.value };
   } else {
     settings = {
       user: user.value.trim(),
@@ -126,6 +148,15 @@ const select =
               value="routeros"
               class="size-4 accent-primary"
             />{{ $t('netAdd.cred.routeros') }}</label
+          >
+          <label class="inline-flex items-center gap-2 max-lg:min-h-11"
+            ><input
+              v-model="protocol"
+              type="radio"
+              value="dahua"
+              class="size-4 accent-primary"
+              data-testid="cred-protocol-dahua"
+            />{{ $t('netAdd.cred.dahua') }}</label
           >
         </div>
       </fieldset>
@@ -211,6 +242,53 @@ const select =
             $t('netAdd.cred.v2cNote')
           }}
         </p>
+      </div>
+    </template>
+
+    <template v-else-if="protocol === 'dahua'">
+      <div class="grid gap-3 sm:grid-cols-2">
+        <TextField
+          v-model="user"
+          :label="$t('netAdd.cred.user')"
+          autocomplete="off"
+          :maxlength="64"
+        />
+        <TextField
+          v-model="password"
+          type="password"
+          autocomplete="new-password"
+          :label="$t('netAdd.cred.password')"
+          :maxlength="128"
+        />
+        <div class="flex flex-col gap-1">
+          <ToggleSwitch v-model="https" class="max-lg:min-h-11" data-testid="cred-https">{{
+            $t('netAdd.cred.https')
+          }}</ToggleSwitch>
+          <p class="text-12 text-text-muted">
+            {{ https ? $t('netAdd.cred.httpsHint') : $t('netAdd.cred.httpHint') }}
+          </p>
+        </div>
+        <TextField
+          v-model="port"
+          inputmode="numeric"
+          :label="$t('netAdd.cred.port')"
+          :hint="$t('netAdd.cred.portHint', { port: https ? 443 : 80 })"
+          :error="portOk ? undefined : $t('netAdd.cred.badPort')"
+          :placeholder="https ? '443' : '80'"
+          :maxlength="5"
+        />
+      </div>
+      <div
+        class="flex flex-col gap-1.5 rounded-control border border-border bg-surface-1 px-3 py-2.5 text-13 text-text"
+        role="note"
+        data-testid="cred-dahua-guide"
+      >
+        <p class="font-medium">{{ $t('netAdd.guide.dahua.title') }}</p>
+        <ul class="list-disc space-y-1 pl-5 text-text-muted">
+          <li>{{ $t('netAdd.guide.dahua.user') }}</li>
+          <li>{{ $t('netAdd.guide.dahua.network') }}</li>
+          <li>{{ $t('netAdd.guide.dahua.add') }}</li>
+        </ul>
       </div>
     </template>
 

@@ -8,13 +8,23 @@ import { networkApi, type Credential } from '../../api';
 
 // The commands that make a profile's read-only user on the device (ADR-233), for Cisco IOS,
 // NX-OS and RouterOS, written by the server from the profile; the poller's address, when
-// typed, limits who may use them.
+// typed, limits who may use them. Recorders (Dahua), QNAP NASes and UPSes get short steps to
+// follow on the device instead (0.17, ADR-234).
 const props = defineProps<{ credentials: Credential[]; preferred: string[] }>();
 const { t } = useI18n();
 
-type Platform = 'ios' | 'nxos' | 'routeros';
-const PLATFORMS: Platform[] = ['ios', 'nxos', 'routeros'];
+type Commands = 'ios' | 'nxos' | 'routeros';
+type Guide = 'dahua' | 'qnap' | 'ups';
+type Platform = Commands | Guide;
+const PLATFORMS: Platform[] = ['ios', 'nxos', 'routeros', 'dahua', 'qnap', 'ups'];
+/** The steps each guide shows, in order (netAdd.guide.<platform>.<step>). */
+const GUIDES: Record<Guide, string[]> = {
+  dahua: ['user', 'network', 'add'],
+  qnap: ['where', 'v3', 'network'],
+  ups: ['where', 'version', 'network'],
+};
 const platform = ref<Platform>('ios');
+const guide = computed(() => (platform.value in GUIDES ? (platform.value as Guide) : null));
 const protocolOf = (p: Platform) => (p === 'routeros' ? 'routeros' : 'snmp');
 const matching = computed(() =>
   props.credentials.filter((c) => c.protocol === protocolOf(platform.value)),
@@ -41,13 +51,11 @@ watch(
     const mine = ++seq;
     commands.value = '';
     error.value = '';
+    const p = platform.value;
+    if (p === 'dahua' || p === 'qnap' || p === 'ups') return;
     if (!credentialId.value || !pollerOk.value) return;
     try {
-      const r = await networkApi.setupCommands(
-        platform.value,
-        credentialId.value,
-        poller.value.trim(),
-      );
+      const r = await networkApi.setupCommands(p, credentialId.value, poller.value.trim());
       if (mine === seq) commands.value = r.commands;
     } catch (err) {
       if (mine === seq) error.value = err instanceof Error ? err.message : t('netAdd.setup.failed');
@@ -93,7 +101,15 @@ function onKey(e: KeyboardEvent, i: number) {
       </button>
     </div>
     <div role="tabpanel" class="flex flex-col gap-3">
-      <p v-if="!matching.length" class="text-13 text-text-muted">
+      <div v-if="guide" class="flex flex-col gap-2 text-13" :data-testid="`setup-guide-${guide}`">
+        <p class="font-medium text-text">{{ $t(`netAdd.guide.${guide}.title`) }}</p>
+        <ol class="list-decimal space-y-1 pl-5 text-text-muted">
+          <li v-for="step in GUIDES[guide]" :key="step">
+            {{ $t(`netAdd.guide.${guide}.${step}`) }}
+          </li>
+        </ol>
+      </div>
+      <p v-else-if="!matching.length" class="text-13 text-text-muted">
         {{ $t(platform === 'routeros' ? 'netAdd.setup.needRouteros' : 'netAdd.setup.needSnmp') }}
       </p>
       <template v-else>

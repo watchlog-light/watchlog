@@ -13,8 +13,7 @@
       "title": "Show",
       "utilisation": "Link use",
       "endpoints": "Endpoints",
-      "iscsi": "iSCSI paths",
-      "nextRelease": "next release"
+      "iscsi": "iSCSI paths"
     },
     "tools": {
       "in": "Zoom in",
@@ -38,7 +37,8 @@
       "traffic": "moving = traffic",
       "busy": "busy or errors",
       "down": "down",
-      "hint": "Click a device or link: its path to the internet lights up"
+      "hint": "Click a device or link: its path to the internet lights up",
+      "mesh": "wireless backhaul"
     },
     "layout": {
       "saved": "Layout saved",
@@ -116,6 +116,18 @@
     "empty": {
       "title": "No devices yet",
       "text": "Add switches and routers; the map draws itself from what they report."
+    },
+    "mesh": {
+      "title": "Wireless backhaul between access points",
+      "signal": "{dbm} dBm",
+      "signalLabel": "Signal",
+      "rate": "Rate",
+      "aria": "{a} to {b}, wireless: {text}",
+      "openWireless": "Open Wireless"
+    },
+    "iscsi": {
+      "lost": "lost",
+      "noPath": "path not known"
     }
   }
 }

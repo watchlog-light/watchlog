@@ -10,8 +10,8 @@ import { networkApi, type DeviceDetail } from '../../api';
 import { statusTone, uptimeText } from '../../lib/format';
 import KindIcon from '../KindIcon.vue';
 
-// A device's name, state and facts (ADR-233); a RouterOS device whose certificate changed says
-// so first, with "Accept" for Owners.
+// A device's name, state and facts (ADR-233); a RouterOS device or a recorder whose certificate
+// changed says so first, with "Accept" for Owners.
 const props = defineProps<{ detail: DeviceDetail }>();
 const emit = defineEmits<{ changed: [] }>();
 const { t } = useI18n();
@@ -44,7 +44,7 @@ const facts = computed(() => {
       value: v.credential
         ? t('netDevice.facts.profileValue', {
             name: v.credential.name,
-            protocol: protocolText(v.credential.protocol),
+            protocol: t(`net.protocol.${v.credential.protocol}`),
           })
         : '–',
     },
@@ -53,13 +53,11 @@ const facts = computed(() => {
       value: v.polledAt ? t('netDevice.ago', { t: since(v.polledAt) }) : t('netDevice.facts.never'),
     },
   ];
+  if (v.managedAp)
+    rows.push({ label: t('netDevice.facts.readVia'), value: t('net.protocol.capsman') });
   if (v.location) rows.push({ label: t('netDevice.facts.location'), value: v.location });
   return rows;
 });
-
-function protocolText(p: string): string {
-  return p === 'routeros' ? 'RouterOS' : 'SNMP';
-}
 
 const routerOs = computed(() => d.value.protocol === 'routeros');
 const update = computed(() => {
@@ -69,7 +67,10 @@ const update = computed(() => {
   return { ...u, newer };
 });
 
-const certChanged = computed(() => routerOs.value && d.value.status === 'cert_changed');
+// RouterOS and recorders over HTTPS pin their certificate.
+const certChanged = computed(
+  () => (routerOs.value || d.value.protocol === 'dahua') && d.value.status === 'cert_changed',
+);
 const isOwner = computed(() => auth.user?.role === 'owner' && auth.canManage);
 const accepting = ref(false);
 const acceptError = ref('');

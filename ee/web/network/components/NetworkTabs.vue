@@ -1,19 +1,42 @@
 <!-- SPDX-License-Identifier: LicenseRef-WatchLog-Enterprise -->
 <script setup lang="ts">
 import { Plus } from '@lucide/vue';
-import { computed } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-import { networkTabs } from '../tabs';
+import { networkTabs, type TabCounts } from '../tabs';
+import { loadTabCounts, tabCounts } from '../lib/tab-counts';
 
-// The network section's header (ADR-233): its title, the tabs registered in tabs.ts, and
-// "Add devices" for those who may.
-const props = defineProps<{ devices?: number | null; kinds?: string[] }>();
+// The network section's header (ADR-233): its title, the tabs registered in tabs.ts (0.17's
+// Wireless and Storage only where the network has such devices), and "Add devices" for those
+// who may.
+const props = defineProps<{ devices?: number | null }>();
 const route = useRoute();
 const auth = useAuthStore();
-const tabs = computed(() =>
-  networkTabs.filter((t) => !t.shown || t.shown({ kinds: props.kinds ?? [] })),
+const nav = ref<HTMLElement | null>(null);
+// On a phone the tabs scroll sideways: keep the current one in view (Storage is the last).
+function showActive() {
+  void nextTick(() =>
+    nav.value
+      ?.querySelector('[aria-current="page"]')
+      ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }),
+  );
+}
+onMounted(() => {
+  void loadTabCounts();
+  showActive();
+});
+const counts = computed<TabCounts | null>(() =>
+  tabCounts.value
+    ? { ...tabCounts.value, devices: props.devices ?? tabCounts.value.devices }
+    : props.devices != null
+      ? { devices: props.devices, kinds: {}, wifiClients: 0 }
+      : null,
 );
+const tabs = computed(() =>
+  networkTabs.filter((t) => !t.shown || (counts.value ? t.shown(counts.value) : false)),
+);
+watch(tabs, showActive);
 const active = (name: string) =>
   route.name === name || (name === 'network-devices' && route.name === 'network-device');
 </script>
@@ -34,7 +57,11 @@ const active = (name: string) =>
         <Plus class="size-4" aria-hidden="true" />{{ $t('net.addDevices') }}
       </RouterLink>
     </div>
-    <nav class="flex gap-1 overflow-x-auto border-b border-border" :aria-label="$t('nav.network')">
+    <nav
+      ref="nav"
+      class="flex gap-1 overflow-x-auto border-b border-border"
+      :aria-label="$t('nav.network')"
+    >
       <RouterLink
         v-for="t in tabs"
         :key="t.route"
@@ -48,9 +75,9 @@ const active = (name: string) =>
         :aria-current="active(t.route) ? 'page' : undefined"
         >{{ $t(t.titleKey) }}
         <span
-          v-if="t.count && devices != null"
+          v-if="t.count && counts && t.count(counts) != null"
           class="rounded-full bg-surface-2 px-1.5 text-12 text-text-muted tabular"
-          >{{ t.count({ devices }) }}</span
+          >{{ t.count(counts) }}</span
         >
       </RouterLink>
     </nav>

@@ -7,9 +7,11 @@ import { networkApi, type MapData, type Summary } from '../api';
 import DevicesTable from '../components/DevicesTable.vue';
 import NetworkMap from '../components/NetworkMap.vue';
 import NetworkTabs from '../components/NetworkTabs.vue';
+import RecordingCard from '../components/overview/RecordingCard.vue';
 
 // The network's Overview (ADR-233, Main board): tiles, the map smaller, what needs attention,
-// and every device. Refreshed every minute, as the poller polls.
+// and every device; with recorders, the Recording card beside what needs attention (ADR-234).
+// Refreshed every minute, as the poller polls.
 const summary = ref<Summary | null>(null);
 const map = ref<MapData | null>(null);
 const failed = ref(false);
@@ -130,7 +132,7 @@ const pollers = computed(() => [
             v-for="t in tiles"
             :key="t.key"
             :to="t.to"
-            class="flex flex-col gap-1 rounded-card border border-border bg-surface-1 px-4 py-3 hover:bg-surface-2"
+            class="flex min-w-0 flex-col gap-1 rounded-card border border-border bg-surface-1 px-4 py-3 [overflow-wrap:anywhere] hover:bg-surface-2"
             :data-testid="`network-tile-${t.key}`"
           >
             <span class="font-mono text-11 tracking-[0.1em] text-text-muted uppercase">{{
@@ -160,51 +162,57 @@ const pollers = computed(() => [
         </div>
         <NetworkMap v-if="map" :data="map" compact />
 
-        <section
-          class="rounded-card border border-border bg-surface-1"
-          aria-labelledby="net-attention"
-          data-testid="network-attention"
+        <div
+          class="grid items-start gap-4"
+          :class="summary.recording?.length ? 'lg:grid-cols-2' : ''"
         >
-          <div class="flex items-center gap-2 border-b border-border px-4 py-3">
-            <h2 id="net-attention" class="text-14 font-semibold text-text">
-              {{ $t('net.overview.attention') }}
-            </h2>
-            <span class="rounded-full bg-surface-2 px-1.5 text-12 text-text-muted tabular">{{
-              summary.attention.length
-            }}</span>
-          </div>
-          <p v-if="!summary.attention.length" class="px-4 py-4 text-13 text-text-muted">
-            {{ $t('net.overview.allGood') }}
-          </p>
-          <RouterLink
-            v-for="a in summary.attention"
-            :key="a.alertId"
-            :to="{
-              name: 'network-device',
-              params: { id: a.deviceId },
-              query: a.port ? { port: a.port } : {},
-            }"
-            class="grid grid-cols-[88px_1fr_auto] items-center gap-3 border-t border-border px-4 py-2.5 first:border-t-0 hover:bg-surface-2"
-            data-testid="network-attention-row"
+          <section
+            class="rounded-card border border-border bg-surface-1"
+            aria-labelledby="net-attention"
+            data-testid="network-attention"
           >
-            <span>
-              <span
-                class="inline-flex h-5 items-center rounded-full border px-2 text-11 font-semibold uppercase"
-                :class="SEV[a.severity]"
-                >{{ $t(`net.severity.${a.severity}`) }}</span
-              >
-            </span>
-            <span class="flex min-w-0 flex-col">
-              <span class="truncate text-13 font-medium text-text">{{ a.what }}</span>
-              <span class="truncate text-12 text-text-muted">{{
-                a.why ? `${a.where} · ${a.why}` : a.where
+            <div class="flex items-center gap-2 border-b border-border px-4 py-3">
+              <h2 id="net-attention" class="text-14 font-semibold text-text">
+                {{ $t('net.overview.attention') }}
+              </h2>
+              <span class="rounded-full bg-surface-2 px-1.5 text-12 text-text-muted tabular">{{
+                summary.attention.length
               }}</span>
-            </span>
-            <span class="font-mono text-12 text-text-subtle" :title="a.since">{{
-              age(a.since)
-            }}</span>
-          </RouterLink>
-        </section>
+            </div>
+            <p v-if="!summary.attention.length" class="px-4 py-4 text-13 text-text-muted">
+              {{ $t('net.overview.allGood') }}
+            </p>
+            <RouterLink
+              v-for="a in summary.attention"
+              :key="a.alertId"
+              :to="{
+                name: 'network-device',
+                params: { id: a.deviceId },
+                query: a.port ? { port: a.port } : {},
+              }"
+              class="grid grid-cols-[88px_1fr_auto] items-center gap-3 border-t border-border px-4 py-2.5 first:border-t-0 hover:bg-surface-2"
+              data-testid="network-attention-row"
+            >
+              <span>
+                <span
+                  class="inline-flex h-5 items-center rounded-full border px-2 text-11 font-semibold uppercase"
+                  :class="SEV[a.severity]"
+                  >{{ $t(`net.severity.${a.severity}`) }}</span
+                >
+              </span>
+              <span class="flex min-w-0 flex-col">
+                <span class="truncate text-13 font-medium text-text">{{ a.what }}</span>
+                <span class="truncate text-12 text-text-muted">{{
+                  a.why ? `${a.where} · ${a.why}` : a.where
+                }}</span>
+              </span>
+              <span class="font-mono text-12 text-text-subtle" :title="a.since">{{
+                age(a.since)
+              }}</span>
+            </RouterLink>
+          </section>
+          <RecordingCard v-if="summary.recording?.length" :lines="summary.recording" />
+        </div>
 
         <section
           class="overflow-hidden rounded-card border border-border bg-surface-1"

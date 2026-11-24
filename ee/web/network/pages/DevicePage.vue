@@ -11,6 +11,7 @@ import SkeletonDetailHeader from '@/components/ui/SkeletonDetailHeader.vue';
 import { ApiError } from '@/api/client';
 import { useAuthStore } from '@/stores/auth';
 import { networkApi, type DeviceDetail, type DeviceSeries } from '../api';
+import DeviceElsewhere from '../components/device/DeviceElsewhere.vue';
 import DeviceEvents from '../components/device/DeviceEvents.vue';
 import DeviceHardware from '../components/device/DeviceHardware.vue';
 import DeviceHeader from '../components/device/DeviceHeader.vue';
@@ -24,7 +25,8 @@ import { healthTone, servedPorts } from '../lib/front-panel';
 
 // A network device (ADR-233): its facts, its ports as on its front, the picked port's traffic and
 // what is on its other end, CPU, memory and temperature, its hardware, events and alerts; and
-// for Owners and Admins, renaming, moving and removing it.
+// for Owners and Admins, renaming, moving and removing it. Access points, NASes, recorders and
+// UPSes (ADR-234) have no front panel: a line points to the Wireless or Storage page instead.
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
@@ -107,6 +109,9 @@ const portEndpoints = computed(() =>
 function select(name: string) {
   void router.replace({ query: { ...route.query, port: name } });
 }
+
+const ELSEWHERE = new Set(['ap', 'nas', 'nvr', 'ups']);
+const elsewhere = computed(() => !!detail.value && ELSEWHERE.has(detail.value.device.kind));
 
 const neighbours = computed(() =>
   (detail.value?.ports ?? [])
@@ -251,7 +256,9 @@ const charts = computed(() => {
         </div>
       </div>
 
+      <DeviceElsewhere v-if="elsewhere" :device="detail.device" />
       <section
+        v-else
         class="flex min-w-0 flex-col gap-4 rounded-card border border-border bg-surface-1 p-4"
         aria-labelledby="fp-h"
       >
@@ -296,7 +303,13 @@ const charts = computed(() => {
         </div>
       </section>
 
-      <PortsTable :ports="detail.ports" :selected="selected" :served="served" @select="select" />
+      <PortsTable
+        v-if="!elsewhere || detail.ports.length"
+        :ports="detail.ports"
+        :selected="selected"
+        :served="served"
+        @select="select"
+      />
 
       <div class="grid gap-4 lg:grid-cols-3">
         <TimeSeriesChart

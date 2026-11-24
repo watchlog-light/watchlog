@@ -30,7 +30,9 @@
       "unreachable": "Unreachable",
       "auth_failed": "Credentials refused",
       "cert_changed": "Certificate changed",
-      "error": "Error"
+      "error": "Error",
+      "disconnected": "Disconnected",
+      "provisioning": "Provisioning failed"
     },
     "device": {
       "title": "Device"
@@ -98,6 +100,28 @@
         "down": "Down",
         "pending": "Not polled yet"
       }
+    },
+    "protocol": {
+      "snmp": "SNMP",
+      "routeros": "RouterOS API",
+      "dahua": "Dahua HTTP API",
+      "capsman": "CAPsMAN"
+    },
+    "recording": {
+      "title": "Recording",
+      "yes": "Recording",
+      "no": "Not recording",
+      "noSince": "Not recording since {at}",
+      "unknown": "Unknown",
+      "cameras": "{online} / {total} cameras",
+      "diskOn": "{lun} on {nas}",
+      "daysLeft": "less than a day left | {n} day left | {n} days left",
+      "full": "full, overwriting the oldest",
+      "usual": "usual {low} to {high}",
+      "summaryAll": "the recorder is writing | all {n} recorders writing",
+      "summaryNo": "{n} not recording | {n} not recording",
+      "summarySome": "{n} of {of} writing",
+      "note": "Read from each recorder, its switch port and the NAS. A recorder that stops writing raises an alert, even while it still answers."
     }
   }
 }

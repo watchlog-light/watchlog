@@ -1,0 +1,85 @@
+{
+  "netWifi": {
+    "tab": "Wireless",
+    "attention": "Needs attention",
+    "dbm": "{n} dBm",
+    "empty": {
+      "title": "No access points yet",
+      "body": "Add a CAPsMAN controller under Add devices. The access points it runs appear here with their clients."
+    },
+    "tile": {
+      "aps": "Access points up",
+      "apsAllUp": "all up | all up | all {n} up",
+      "apsDown": "{n} not up | {n} not up | {n} not up",
+      "clients": "Clients now",
+      "clientsSub": "on {n} access points | on {n} access point | on {n} access points",
+      "weak": "Weak signal",
+      "weakSub": "clients below {dbm} dBm | client below {dbm} dBm | clients below {dbm} dBm",
+      "busiest": "Busiest access point",
+      "busiestSub": "{n} clients | {n} client | {n} clients",
+      "busiestNone": "no clients yet"
+    },
+    "status": {
+      "ok": "Up",
+      "pending": "Not polled yet",
+      "unreachable": "Unreachable",
+      "auth_failed": "Credentials refused",
+      "cert_changed": "Certificate changed",
+      "error": "Error",
+      "disconnected": "Disconnected",
+      "provisioning": "Provisioning failed"
+    },
+    "aps": {
+      "title": "Access points",
+      "from": "from {names} | from {names} | from {names}",
+      "name": "Name",
+      "status": "Status",
+      "model": "Model",
+      "radios": "Radios",
+      "clients": "Clients",
+      "switchPort": "Switch port",
+      "controller": "Controller",
+      "uptime": "Uptime",
+      "controllerOn": "CAPsMAN on {name}",
+      "sparkLabel": "Clients over 24 hours, {n} now | Clients over 24 hours, {n} now | Clients over 24 hours, {n} now",
+      "weak": "{n} weak | {n} weak | {n} weak"
+    },
+    "mesh": {
+      "title": "Mesh links",
+      "to": "to"
+    },
+    "traffic": {
+      "title": "Wireless traffic, 24 h",
+      "hint": "through the access points' switch ports, both ways",
+      "now": "Now {now}",
+      "nowUsual": "Now {now}, usually {low}–{high} at this hour",
+      "aria": "Wireless traffic over 24 hours, {now} now",
+      "empty": "No traffic yet. It is read from the switch ports the access points hang off.",
+      "legendLine": "Traffic",
+      "legendBand": "Usual for the hour",
+      "learning": "The usual band appears after a week of data."
+    },
+    "clients": {
+      "title": "Clients",
+      "search": "Search MAC or vendor",
+      "filter": "Show clients",
+      "all": "All",
+      "weak": "Weak signal",
+      "mac": "MAC",
+      "vendor": "Vendor",
+      "ap": "Access point",
+      "ssid": "SSID",
+      "band": "Band",
+      "signal": "Signal",
+      "rate": "Rate tx / rx",
+      "connected": "Connected for",
+      "traffic": "Traffic",
+      "none": "No clients match.",
+      "sort": {
+        "ap": "sorted by access point",
+        "signalAsc": "weakest first",
+        "signalDesc": "strongest first"
+      }
+    }
+  }
+}
