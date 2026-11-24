@@ -312,7 +312,7 @@ describe('plan-limit messages', () => {
   const say = (wrapper: { get(s: string): { text(): string } }, limit: string) =>
     wrapper.get(`[data-testid="limit-${limit}"]`).text();
   const OFFER = {
-    live: 'Upgrade to Pro in Settings › Plan & billing: $3 per node or server a month, $15 minimum.',
+    live: 'Upgrade to Pro in Settings › Plan & billing: $3 per node, server or network device a month, $15 minimum.',
     beta: 'Try Pro, free during the beta, in Settings › Plan & billing.',
     plain: 'Upgrade to Pro in Settings › Plan & billing.',
   };
@@ -360,7 +360,9 @@ describe('plan-limit messages', () => {
     const other = await mountWith(Harness);
     await usePlanStore().load();
     await flushPromises();
-    expect(say(other.wrapper, 'clusters')).toContain('$4 per node or server a month, $20 minimum.');
+    expect(say(other.wrapper, 'clusters')).toContain(
+      '$4 per node, server or network device a month, $20 minimum.',
+    );
   });
 
   it('billing out of reach, or no price yet: still the upgrade, never "free"', async () => {

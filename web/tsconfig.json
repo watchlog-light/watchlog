@@ -11,7 +11,9 @@
       "@/*": ["./src/*"],
       "vue": ["./node_modules/vue"],
       "vue-router": ["./node_modules/vue-router"],
-      "@lucide/vue": ["./node_modules/@lucide/vue"]
+      "@lucide/vue": ["./node_modules/@lucide/vue"],
+      "vue-i18n": ["./node_modules/vue-i18n"],
+      "vitest": ["./node_modules/vitest"]
     }
   },
   "include": ["src", "test", "vite.config.ts", "../ee/web"]

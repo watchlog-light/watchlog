@@ -4,10 +4,24 @@ import { createI18n } from 'vue-i18n';
 import enFile from './en.json';
 
 /**
- * The English messages: en.json, with the probable-cause headlines (causes.headline.<code>)
+ * The English messages: en.json (and ee/'s), with the probable-cause headlines (causes.headline.<code>)
  * from @watchlog/cause-words, the templates the notifications render too (ADR-157).
  */
-export const en = { ...enFile, causes: { ...enFile.causes, headline: HEADLINES } };
+/**
+ * Enterprise modules' words (ee/web/<module>/messages*.json, ADR-232), found at build time like
+ * their pages; none without ee/.
+ */
+const eeMessages = Object.values(
+  import.meta.glob<{ default: Record<string, unknown> }>('../../../ee/web/*/messages*.json', {
+    eager: true,
+  }),
+).reduce<Record<string, unknown>>((all, m) => ({ ...all, ...m.default }), {});
+
+export const en = {
+  ...eeMessages,
+  ...enFile,
+  causes: { ...enFile.causes, headline: HEADLINES },
+} as typeof enFile & { causes: typeof enFile.causes & { headline: typeof HEADLINES } };
 
 export type MessageSchema = typeof en;
 

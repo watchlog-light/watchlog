@@ -20,9 +20,12 @@ describe('AppSidebar', () => {
     const wrapper = mount(AppSidebar, { global: { plugins: [router, i18n, pinia] } });
 
     // All clusters and fleets first (ADR-226), with its "Pro" label; then the cluster's pages.
+    // Network (ADR-233) carries its "Pro" label where it isn't on (Community without a key).
     expect(wrapper.findAll('nav a').map((a) => a.text())).toEqual([
       'All clusters and fleetsPro',
-      ...navFor('kubernetes').map((i) => i18n.global.t(i.titleKey)),
+      ...navFor('kubernetes').map(
+        (i) => i18n.global.t(i.titleKey) + (i.feature === 'network' ? 'Pro' : ''),
+      ),
     ]);
     const active = wrapper.get('nav a[aria-current="page"]');
     expect(active.text()).toBe('Nodes');
@@ -58,10 +61,17 @@ describe('AppSidebar', () => {
     expect(wrapper.get('nav a[aria-current="page"]').text()).toBe('Settings');
   });
 
-  it('Cloud marks the Pro sections with a chip; Community has none', async () => {
+  it('Cloud marks the Pro sections with a chip; Community only Network (ADR-233)', async () => {
     const { router, i18n, pinia } = await createPlugins('/');
     const wrapper = mount(AppSidebar, { global: { plugins: [router, i18n, pinia] } });
+    expect(
+      wrapper.findAll('[data-testid="nav-pro"]').map((c) => c.element.closest('a')?.textContent),
+    ).toEqual(['NetworkPro']);
+    // A licence with `network`: no chip.
+    useAuthStore().license = { features: ['network'] } as never;
+    await flushPromises();
     expect(wrapper.find('[data-testid="nav-pro"]').exists()).toBe(false);
+    useAuthStore().license = null;
 
     const auth = useAuthStore();
     auth.cloud = {
@@ -76,8 +86,12 @@ describe('AppSidebar', () => {
     } as unknown as NonNullable<typeof auth.cloud>;
     await flushPromises();
     const chips = wrapper.findAll('[data-testid="nav-pro"]');
-    expect(chips).toHaveLength(navFor('kubernetes').filter((i) => i.pro).length);
-    expect(chips.map((c) => c.element.closest('a')?.textContent)).toEqual(['What changedPro']);
+    // Cloud Free: What changed and Network.
+    expect(chips).toHaveLength(navFor('kubernetes').filter((i) => i.pro || i.feature).length);
+    expect(chips.map((c) => c.element.closest('a')?.textContent)).toEqual([
+      'NetworkPro',
+      'What changedPro',
+    ]);
     // Info tone, like the page's own chip; never the primary colour.
     expect(chips[0]!.classes()).toEqual(
       expect.arrayContaining(['text-info-text', 'border-info/50']),

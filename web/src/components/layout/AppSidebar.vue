@@ -10,6 +10,7 @@ import { NAV_GROUPS, navFor, type NavGroup, type NavItem } from '@/router';
 import { certBadge, jobBadge, type NavBadge } from '@/lib/certs-jobs';
 import { useCertsJobsStore } from '@/stores/certsJobs';
 import { countLine, showsProLabel, toneOf, type Tone } from '@/lib/all-clusters';
+import { networkOn } from '@/lib/network';
 import { useAllClustersStore } from '@/stores/allClusters';
 import { useApplicationsStore } from '@/stores/applications';
 import { useAuthStore } from '@/stores/auth';
@@ -88,7 +89,14 @@ const learningDay = (item: NavItem) => {
 };
 // Cloud marks the Pro sections, so a Free org knows before it opens one (Community has no plans).
 const pro = (item: NavItem) =>
-  (auth.isCloud || !!auth.license?.pro) && !!item.pro && !learningDay(item);
+  item.feature === 'network'
+    ? !networkOn({
+        isCloud: auth.isCloud,
+        demo: auth.demoMode,
+        proFeatures: plan.info?.proFeatures,
+        licenseFeatures: auth.license?.features,
+      })
+    : (auth.isCloud || !!auth.license?.pro) && !!item.pro && !learningDay(item);
 const linkTitle = (item: NavItem) =>
   collapsed.value
     ? pro(item)

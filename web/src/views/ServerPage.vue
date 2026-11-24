@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
+import NetworkPortLine from '@/components/network/NetworkPortLine.vue';
 import CertsJobsCard from '@/components/applications/CertsJobsCard.vue';
 import { ArrowLeft, CornerDownRight } from '@lucide/vue';
 import type { MetricKey, ServerDetail, ServerWorkloadList } from '@watchlog/api-types';
@@ -249,6 +250,8 @@ onMounted(() => {
       >
         {{ $t('servers.oldAgent') }}
       </p>
+      <!-- The switch port it is on (ADR-233), where network devices are on. -->
+      <NetworkPortLine v-if="clusterId" :cluster-id="clusterId" :node="name" />
     </header>
 
     <dl v-if="usage.length" class="grid grid-cols-2 gap-3 lg:grid-cols-4">

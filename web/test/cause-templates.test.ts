@@ -56,6 +56,10 @@ const HEADLINES: [string, Facts][] = [
   ],
   ['job_failed_exit', { name: 'report', job: 'report-e2e-1794332238', exitCode: 2 }],
   ['job_failed', { name: 'report', job: 'report-29001' }],
+  // 0.16 (ADR-233): the network under it.
+  ['network_port_down', { name: 'db', host: 'db-1', device: 'sw-access-2', port: 'Gi1/0/14' }],
+  ['network_device_rebooted', { name: 'db', host: 'db-1', device: 'sw-access-2' }],
+  ['network_uplink_errors', { name: 'db', host: 'db-1', device: 'sw-access-2', port: 'Te1/1/1' }],
   // v0.7 slice 5 (ADR-187): the egress alerts' rule, Kubernetes and Docker changes.
   ['change_before_egress_image', { name: 'orders', n: 7, image: 'shop/orders:3.8.2' }],
   ['change_before_egress_rollout', { name: 'orders', n: 1, to: '5' }],
@@ -230,6 +234,9 @@ const CHECKS: [CauseCheck['topic'], string, Facts][] = [
 
 /** Steps the engine itself adds (the walk's edge step) and the rules' steps. */
 const STEPS: [string, Facts][] = [
+  ['network_port_down', { host: 'db-1', device: 'sw-access-2', port: 'Gi1/0/14' }],
+  ['network_device_rebooted', { host: 'db-1', device: 'sw-access-2' }],
+  ['network_uplink_errors', { host: 'db-1', device: 'sw-access-2', port: 'Te1/1/1' }],
   ['edge_failed', { pct: 38, port: 9898 }],
   ['edge_errors', { pct: 5.5 }],
   ['edge_slow', { p95Ms: 420 }],
@@ -354,6 +361,9 @@ const STEPS: [string, Facts][] = [
 
 /** Causes of the catalog's rules: the short line (Needs attention, notifications). */
 const CAUSES: [string, Facts][] = [
+  ['network_port_down', { host: 'db-1', device: 'sw-access-2', port: 'Gi1/0/14' }],
+  ['network_device_rebooted', { host: 'db-1', device: 'sw-access-2' }],
+  ['network_uplink_errors', { host: 'db-1', device: 'sw-access-2', port: 'Te1/1/1' }],
   ['server_oom', { name: 'worker' }],
   [
     'oom_limit',

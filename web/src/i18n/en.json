@@ -47,7 +47,8 @@
       "certsAttention": "1 certificate needs a look | {n} certificates need a look",
       "jobsFailing": "1 job failing | {n} jobs failing",
       "jobsAttention": "1 job needs a look | {n} jobs need a look"
-    }
+    },
+    "network": "Network"
   },
   "clusterSwitcher": {
     "label": "Cluster",
@@ -3706,7 +3707,10 @@
       "dns_nxdomain": "A name it looks up doesn't exist",
       "application_finding": "A problem on {name}",
       "server_oom": "OOM-killed; it has no memory limit of its own",
-      "certificate_bad": "Its certificate is expired or wrong where {target} is called"
+      "certificate_bad": "Its certificate is expired or wrong where {target} is called",
+      "network_port_down": "The switch port of {host} went down",
+      "network_device_rebooted": "{device} rebooted",
+      "network_uplink_errors": "The uplink of {device} is dropping packets"
     },
     "check": {
       "what": {
@@ -3878,7 +3882,10 @@
       "cert_expired": "Its certificate for {cert} on port {port} expired a day ago. | Its certificate for {cert} on port {port} expired {n} days ago.",
       "cert_name_mismatch": "Its certificate for {cert} on port {port} doesn't cover {asked}, a name it is served for.",
       "scheduled_run_failed": "Its timer {job} started it and the run failed. | Its timer {job} started it and the last {n} runs failed.",
-      "scheduled_run_failed_exit": "Its timer {job} started it and the run failed with exit code {exitCode}. | Its timer {job} started it and the last {n} runs failed, the last with exit code {exitCode}."
+      "scheduled_run_failed_exit": "Its timer {job} started it and the run failed with exit code {exitCode}. | Its timer {job} started it and the last {n} runs failed, the last with exit code {exitCode}.",
+      "network_port_down": "{device} · {port} went down; {host} is behind it.",
+      "network_device_rebooted": "{device} rebooted; {host} is behind it.",
+      "network_uplink_errors": "The uplink {port} of {device} is dropping packets; {host} is behind it."
     },
     "connector": {
       "calls": "calls",
@@ -4378,7 +4385,7 @@
       "upgradePro": "Upgrade to Pro · {perNode} per node →",
       "upgradeProPlain": "Upgrade to Pro →",
       "offer": {
-        "price": "Upgrade to Pro in Settings › Plan & billing: {perNode} per node or server a month, {minimum} minimum.",
+        "price": "Upgrade to Pro in Settings › Plan & billing: {perNode} per node, server or network device a month, {minimum} minimum.",
         "plain": "Upgrade to Pro in Settings › Plan & billing.",
         "beta": "Try Pro, free during the beta, in Settings › Plan & billing."
       },
@@ -4457,7 +4464,7 @@
         "annualSaves": "{perNode} per node a year · saves {saves} a year",
         "annualCommit": "Annual commits to {n} nodes; nodes above it are billed monthly at {perNode}.",
         "countedTitle": "How nodes are counted",
-        "countedBody": "Every hour we record how many Kubernetes nodes and servers sent data. Your bill uses the 95th percentile of those counts, so a few hours of autoscaling don’t cost you a month.",
+        "countedBody": "Every hour we record how many Kubernetes nodes, servers and network devices sent data (Wi-Fi access points managed by a controller are free). Your bill uses the 95th percentile of those counts, so a few hours of autoscaling don’t cost you a month.",
         "countedExample": "Example: 10 nodes most of the month and 40 for one busy day is billed as 10.",
         "countedLimit": "The plan's node limit counts the nodes and hosts that sent data in the last 24 hours. A new one over the limit is refused; the ones already sending never are.",
         "invoicesTitle": "Invoices and payment method",
@@ -5339,7 +5346,13 @@
       "service_failed": "{target} failing on {host}",
       "unit_changed": "{target}'s unit file changing on {host}",
       "release": "a new {target} executable on {host}",
-      "job_run": "{target} running on {host}"
+      "job_run": "{target} running on {host}",
+      "port_down": "{target} going down",
+      "port_up": "{target} coming back up",
+      "port_speed": "{target} changing speed from {from} to {to}",
+      "port_errors": "errors starting on {target}",
+      "uplink_errors": "the uplink {target} dropping packets",
+      "device_reboot": "{target} rebooting"
     },
     "marker": {
       "rollout": "rollout {target}",
@@ -5353,7 +5366,13 @@
       "service_failed": "{target} failed",
       "unit_changed": "{target} unit changed",
       "release": "new {target}",
-      "job_run": "{target} ran"
+      "job_run": "{target} ran",
+      "port_down": "{target} down",
+      "port_up": "{target} up",
+      "port_speed": "{target} {from} → {to}",
+      "port_errors": "errors on {target}",
+      "uplink_errors": "uplink {target} dropping",
+      "device_reboot": "{target} rebooted"
     },
     "story": {
       "after_change": "{who}'s {what} went to {factor} {gap} after {change}",
@@ -5403,7 +5422,13 @@
         "service_failed": "Failure",
         "unit_changed": "Unit file",
         "release": "New release",
-        "job_run": "Scheduled run"
+        "job_run": "Scheduled run",
+        "port_down": "Port down",
+        "port_up": "Port up",
+        "port_speed": "Port speed",
+        "port_errors": "Port errors",
+        "uplink_errors": "Uplink errors",
+        "device_reboot": "Switch reboot"
       },
       "fromTo": "{from} → {to}",
       "on": "on {host}"
@@ -6306,7 +6331,7 @@
       "point3": "What changed across all of them, ranked",
       "point4": "Silent servers, old agents and broken alert channels in one place",
       "upgrade": "Upgrade to Pro",
-      "price": "{perNode} per node or server a month · {minimum} minimum covers the first 5",
+      "price": "{perNode} per node, server or network device a month · {minimum} minimum covers the first 5",
       "askOwner": "Ask an Owner to upgrade",
       "owners": "Owners: {names}",
       "tryCloud": "Try WatchLog Cloud",
@@ -6670,11 +6695,22 @@
       "title": "Part of WatchLog Enterprise",
       "body": "This page comes with an Enterprise licence key. Everything else in WatchLog keeps working without one.",
       "link": "About WatchLog Enterprise"
+    }
+  },
+  "network": {
+    "teaser": {
+      "title": "Network",
+      "pictureAlt": "A network map: the Internet, a router, a core switch and two access switches, with the servers behind them; one link busy, one port down.",
+      "line1": "See the switches and routers your servers sit on: which port each server is on, how busy each link is, and what's connected to what.",
+      "line2": "Find the cause faster: a switch port going down, an uplink dropping packets or a switch rebooting shows on the server's page and in its probable cause.",
+      "line3": "Polled read-only from inside your network by the collector you already run: SNMP v3 for Cisco and others, the REST API for MikroTik.",
+      "available": "Available in Pro and Enterprise",
+      "upgrade": "See Plan & billing",
+      "contact": "About WatchLog Enterprise"
     },
-    "placeholder": {
-      "title": "Enterprise module",
-      "answer": "The {module} module answered: licensed for {feature}.",
-      "failed": "The Enterprise module didn't answer."
+    "portLine": {
+      "label": "Switch port:",
+      "down": "down"
     }
   }
 }

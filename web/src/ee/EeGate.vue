@@ -2,19 +2,34 @@
 <script setup lang="ts">
 import { Lock } from '@lucide/vue';
 import { computed, type Component } from 'vue';
+import NetworkTeaser from '@/components/network/NetworkTeaser.vue';
+import { networkOn } from '@/lib/network';
 import { useAuthStore } from '@/stores/auth';
+import { usePlanStore } from '@/stores/plan';
 
 // An Enterprise module's page (ADR-232): the module while the licence lists its feature (in
 // Cloud and the demo the backend decides, so the page asks it), the core's teaser otherwise.
 const props = defineProps<{ feature: string; page: Component }>();
 const auth = useAuthStore();
-const on = computed(
-  () => auth.isCloud || auth.demoMode || !!auth.license?.features.includes(props.feature),
+const plan = usePlanStore();
+// Network devices (ADR-233): Cloud Free gets the teaser too, without asking the server.
+const on = computed(() =>
+  props.feature === 'network'
+    ? networkOn({
+        isCloud: auth.isCloud,
+        demo: auth.demoMode,
+        proFeatures: plan.info?.proFeatures,
+        licenseFeatures: auth.license?.features,
+      })
+    : auth.isCloud || auth.demoMode || !!auth.license?.features.includes(props.feature),
 );
+// The core's own teaser of a feature, where it has one.
+const teasers: Record<string, Component> = { network: NetworkTeaser };
 </script>
 
 <template>
   <component :is="page" v-if="on" />
+  <component :is="teasers[feature]" v-else-if="teasers[feature]" />
   <section
     v-else
     class="mx-auto mt-10 flex max-w-xl flex-col items-start gap-3 rounded-2xl border border-border bg-surface-1 px-6 py-6 max-md:px-4"

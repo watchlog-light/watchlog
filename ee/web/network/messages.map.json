@@ -1,0 +1,121 @@
+{
+  "netMap": {
+    "label": "Network map",
+    "internet": "Internet",
+    "bands": {
+      "0": "Internet",
+      "1": "Edge",
+      "2": "Core",
+      "3": "Access",
+      "4": "Devices"
+    },
+    "layers": {
+      "title": "Show",
+      "utilisation": "Link use",
+      "endpoints": "Endpoints",
+      "iscsi": "iSCSI paths",
+      "nextRelease": "next release"
+    },
+    "tools": {
+      "in": "Zoom in",
+      "out": "Zoom out",
+      "fit": "Fit to screen",
+      "reset": "Reset layout"
+    },
+    "search": {
+      "label": "Find a device or endpoint",
+      "placeholder": "Find a device, IP or MAC",
+      "none": "Nothing matches",
+      "kind": {
+        "device": "Device",
+        "server": "Server",
+        "node": "Node",
+        "endpoint": "Endpoint"
+      }
+    },
+    "legend": {
+      "speed": "thicker = faster",
+      "traffic": "moving = traffic",
+      "busy": "busy or errors",
+      "down": "down",
+      "hint": "Click a device or link: its path to the internet lights up"
+    },
+    "layout": {
+      "saved": "Layout saved",
+      "saveError": "The layout couldn't be saved.",
+      "notSaved": "Only Owners and Admins save the layout."
+    },
+    "more": "+{n} more",
+    "nodeAria": "{name}, {kind}, {status}",
+    "linkAria": "{a} to {b}: {text}",
+    "down": "{port} down",
+    "unknownEndpoint": "Unknown endpoint",
+    "pick": {
+      "title": "Pick a device or a link",
+      "text": "Its health, its ports with problems and what's behind it show up here."
+    },
+    "facts": {
+      "cpu": "CPU",
+      "memory": "Memory",
+      "ports": "Ports up",
+      "portsValue": "{up} / {total}",
+      "temperature": "Temperature",
+      "uptime": "Up for",
+      "address": "Address",
+      "model": "Model",
+      "firmware": "Firmware",
+      "poller": "Polled by",
+      "protocol": "Protocol",
+      "cluster": "Cluster or fleet",
+      "mac": "MAC",
+      "ip": "IP",
+      "vendor": "Vendor",
+      "port": "Port",
+      "connectedTo": "Connected to"
+    },
+    "panel": {
+      "close": "Close",
+      "problems": "Ports with problems",
+      "noProblems": "No port problems.",
+      "behind": "Behind it",
+      "nothingBehind": "No endpoints seen behind it.",
+      "servers": "WatchLog servers",
+      "nodes": "Kubernetes nodes",
+      "others": "Other endpoints",
+      "byVendor": "{vendor} · {n}",
+      "gateways": "Gateways",
+      "openDevice": "Open device",
+      "openServer": "Open server",
+      "openNode": "Open node",
+      "endpointsOn": "Endpoints on {device}",
+      "showAll": "Show them on the map",
+      "andMore": "and {n} more",
+      "seenOn": "Seen on"
+    },
+    "link": {
+      "use": "Use now",
+      "speed": "Speed",
+      "errors": "Errors",
+      "errorsRising": "Rising",
+      "errorsNone": "None",
+      "via": "Learnt from",
+      "lastSeen": "Last seen",
+      "both": "Both ends",
+      "state": {
+        "ok": "Up",
+        "warn": "Busy or errors",
+        "down": "Down"
+      }
+    },
+    "via": {
+      "cdp": "CDP",
+      "lldp": "LLDP",
+      "mndp": "MNDP",
+      "mac": "MAC table"
+    },
+    "empty": {
+      "title": "No devices yet",
+      "text": "Add switches and routers; the map draws itself from what they report."
+    }
+  }
+}

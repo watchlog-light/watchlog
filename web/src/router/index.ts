@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Network,
   Radar,
+  Router as RouterIcon,
   ScrollText,
   Server,
   Settings,
@@ -53,6 +54,11 @@ export interface NavItem {
   kind?: ClusterKind;
   /** A Pro feature: Cloud's sidebar marks it with a "Pro" chip. */
   pro?: boolean;
+  /**
+   * A Pro and Enterprise feature by its licence name (ADR-233): marked "Pro" in every edition
+   * where it isn't on (Cloud Free, Community without a key).
+   */
+  feature?: string;
   /**
    * The sidebar's group (0.13.0, ADR-230): the top (no label), "Running here",
    * "Investigate", and the end after a divider.
@@ -104,6 +110,15 @@ export const NAV_ITEMS: NavItem[] = [
     path: '/scheduled-jobs',
     titleKey: 'nav.scheduledJobs',
     icon: CalendarClock,
+    group: 'running',
+  },
+  // Network devices (ADR-233): the item is the core's, the pages ee/'s (a teaser without it).
+  {
+    name: 'network',
+    path: '/network',
+    titleKey: 'nav.network',
+    icon: RouterIcon,
+    feature: 'network',
     group: 'running',
   },
   // Investigate.
@@ -261,7 +276,18 @@ export const routes: RouteRecordRaw[] = [
     children: [
       // Enterprise modules' pages (ee/web, ADR-232), behind their licence feature.
       ...eeRoutes(),
-      ...NAV_ITEMS.map((item) => ({
+      // Without ee/ (or its network pages) /network and below are the core's teaser.
+      ...(eeRoutes().some((r) => r.name === 'network')
+        ? []
+        : [
+            {
+              name: 'network',
+              path: 'network/:rest(.*)*',
+              component: () => import('@/views/NetworkTeaserPage.vue'),
+              meta: { titleKey: 'nav.network' },
+            },
+          ]),
+      ...NAV_ITEMS.filter((item) => item.name !== 'network').map((item) => ({
         name: item.name,
         path: item.path.slice(1),
         component: views[item.name]!,

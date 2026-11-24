@@ -1,0 +1,103 @@
+{
+  "net": {
+    "subtitle": "Switches, routers and what's connected to them, polled read-only.",
+    "addDevices": "Add devices",
+    "tabs": {
+      "overview": "Overview",
+      "map": "Map",
+      "devices": "Devices"
+    },
+    "kind": {
+      "internet": "Internet",
+      "router": "Router",
+      "firewall": "Firewall",
+      "l3switch": "L3 switch",
+      "switch": "Switch",
+      "ap": "Access point",
+      "nas": "NAS",
+      "nvr": "NVR",
+      "ups": "UPS",
+      "server": "Server",
+      "node": "Node",
+      "camera": "Camera",
+      "other": "Device",
+      "unknown": "Unknown"
+    },
+    "status": {
+      "ok": "Up",
+      "warning": "Warning",
+      "pending": "Not polled yet",
+      "unreachable": "Unreachable",
+      "auth_failed": "Credentials refused",
+      "cert_changed": "Certificate changed",
+      "error": "Error"
+    },
+    "device": {
+      "title": "Device"
+    },
+    "add": {
+      "title": "Add devices"
+    },
+    "loadError": "The network couldn't be loaded.",
+    "retry": "Retry",
+    "table": {
+      "device": "Device",
+      "model": "Model",
+      "status": "Status",
+      "address": "Address",
+      "cpu": "CPU",
+      "memory": "Memory",
+      "temp": "Temp",
+      "ports": "Ports up",
+      "firmware": "Firmware",
+      "uptime": "Up for",
+      "poller": "Polled by",
+      "update": "{v} available",
+      "none": "No devices match."
+    },
+    "severity": {
+      "critical": "Critical",
+      "warning": "Warning"
+    },
+    "overview": {
+      "polling": "Polling 1 device from {from} | Polling {n} devices from {from}",
+      "emptyTitle": "No network devices yet",
+      "emptyBody": "Add your switches and routers: WatchLog reads them, read-only, from a collector you already run.",
+      "mapTitle": "How it's connected",
+      "mapHint": "· drawn from CDP, LLDP and MNDP, nothing to draw by hand",
+      "openMap": "Open the full map →",
+      "attention": "Needs attention",
+      "allGood": "Nothing needs a look.",
+      "anySnmp": "Also reads firewalls, UPSes, printers and PDUs: anything with SNMP",
+      "tile": {
+        "devices": "Devices up",
+        "ports": "Ports with problems",
+        "busy": "Links over 80%",
+        "firmware": "Oldest firmware",
+        "allUp": "all up",
+        "downSub": "{n} down",
+        "pendingSub": "{n} not polled yet",
+        "portsSub": "a link down, errors, or slower than usual",
+        "portsNone": "none",
+        "busySub": "of 1 link | of {n} links",
+        "firmwareSub": "on {name}",
+        "firmwareNone": "not read yet"
+      }
+    },
+    "devices": {
+      "search": "Find a device, address or model",
+      "kind": "Kind",
+      "status": "Status",
+      "poller": "Polled by",
+      "allKinds": "All kinds",
+      "allStatuses": "Any status",
+      "allPollers": "Any poller",
+      "statusFilter": {
+        "ok": "Up",
+        "warning": "Warning",
+        "down": "Down",
+        "pending": "Not polled yet"
+      }
+    }
+  }
+}

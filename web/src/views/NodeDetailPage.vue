@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
+import NetworkPortLine from '@/components/network/NetworkPortLine.vue';
 import { ArrowLeft } from '@lucide/vue';
 import type { KubeNodeDetail, MetricKey } from '@watchlog/api-types';
 import { computed, onMounted, watch } from 'vue';
@@ -155,6 +156,8 @@ onMounted(page.load);
               · {{ $t('kube.nodes.age', { d: since(node.createdAt) }) }}</template
             >
           </p>
+          <!-- The switch port it is on (ADR-233), where network devices are on. -->
+          <NetworkPortLine v-if="clusterId" class="mt-1" :cluster-id="clusterId" :node="name" />
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <TonePill :tone="tone" :label="$t(`kube.nodes.status.${node.status}`)" />

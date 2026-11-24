@@ -299,7 +299,7 @@ describe('the wizard', () => {
     await flushPromises();
     const said = wrapper.get('form').text();
     expect(said).toContain(
-      'Cloud Free has one cluster or Server fleet; Pro has no limit on them. Upgrade to Pro in Settings › Plan & billing: $3 per node or server a month, $15 minimum.',
+      'Cloud Free has one cluster or Server fleet; Pro has no limit on them. Upgrade to Pro in Settings › Plan & billing: $3 per node, server or network device a month, $15 minimum.',
     );
     expect(said).not.toMatch(/beta|free during|Docker fleet/i);
     expect(calls.filter((c) => c.path === '/api/v1/plan')).toHaveLength(1);
@@ -588,7 +588,7 @@ describe('the first-week card', () => {
     expect(wrapper.get('[data-testid="first-week-channel"]').attributes('data-done')).toBe('true');
     const team = wrapper.get('[data-testid="first-week-teammate"]');
     expect(team.text()).toContain(
-      'Cloud Free has one user; Pro has room for your team. Upgrade to Pro in Settings › Plan & billing: $3 per node or server a month, $15 minimum.',
+      'Cloud Free has one user; Pro has room for your team. Upgrade to Pro in Settings › Plan & billing: $3 per node, server or network device a month, $15 minimum.',
     );
     expect(team.text()).not.toMatch(/beta|free during/i);
     expect(team.get('a').attributes('href')).toBe('/settings?tab=billing');
