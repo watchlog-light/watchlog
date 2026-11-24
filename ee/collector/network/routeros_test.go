@@ -94,8 +94,8 @@ func TestRouterOS(t *testing.T) {
 		t.Fatal(err)
 	}
 	rep, samples = pollROS(ctx, DialROS, p, dev, st, now.Add(2*time.Minute), false)
-	if rep.State != StateCertChanged || rep.System != nil || len(samples) != 0 {
-		t.Fatalf("changed certificate: %s %+v", rep.State, rep.System)
+	if rep.State != StateCertChanged || rep.System != nil || len(samples) != 0 || rep.Fingerprint == "" || rep.Fingerprint == pin {
+		t.Fatalf("changed certificate: %s %+v %q", rep.State, rep.System, rep.Fingerprint)
 	}
 	newPin := ""
 	{

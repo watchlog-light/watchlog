@@ -36,6 +36,10 @@ func pollROS(ctx context.Context, dial ROSDialFunc, p *Profile, dev Device, st *
 	c, err := dial(ctx, dev.Address, dev.RouterOS)
 	if err != nil {
 		rep.State, rep.Error = rosStateOf(err), err.Error()
+		var cc *CertChangedError
+		if errors.As(err, &cc) {
+			rep.Fingerprint = cc.Seen
+		}
 		return rep, nil
 	}
 	defer func() { _ = c.Close() }()

@@ -35,6 +35,24 @@ var (
 	errNotRead = errors.New("not a RouterOS path WatchLog reads")
 )
 
+// CertChangedError is ErrCertChanged with the certificate seen, for the Owner to accept.
+type CertChangedError struct{ Seen string }
+
+func (e *CertChangedError) Error() string   { return ErrCertChanged.Error() }
+func (e *CertChangedError) Is(t error) bool { return t == ErrCertChanged }
+
+// certChanged finds the error in a TLS failure (wrapped by net/http or crypto/tls).
+func certChanged(err error, seen string) error {
+	var c *CertChangedError
+	if errors.As(err, &c) {
+		return c
+	}
+	if err != nil && strings.Contains(err.Error(), ErrCertChanged.Error()) {
+		return &CertChangedError{Seen: seen}
+	}
+	return nil
+}
+
 // ROS is a RouterOS connection that can only read: print a menu, or run the one monitor
 // command (interface/ethernet/monitor once), which RouterOS runs with the read policy.
 type ROS interface {
@@ -75,7 +93,7 @@ func pinVerifier(pin string, seen *string) func(tls.ConnectionState) error {
 		fp := hex.EncodeToString(sum[:])
 		*seen = fp
 		if pin != "" && !strings.EqualFold(pin, fp) {
-			return ErrCertChanged
+			return &CertChangedError{Seen: fp}
 		}
 		return nil
 	}
@@ -171,8 +189,8 @@ func (r *restROS) do(ctx context.Context, method, path string, body []byte) ([]m
 	}
 	res, err := r.client.Do(req)
 	if err != nil {
-		if errors.Is(err, ErrCertChanged) || strings.Contains(err.Error(), ErrCertChanged.Error()) {
-			return nil, ErrCertChanged
+		if c := certChanged(err, r.Fingerprint()); c != nil {
+			return nil, c
 		}
 		return nil, err
 	}
@@ -257,8 +275,8 @@ func dialAPI(ctx context.Context, address string, port int, c *ROSCred, useTLS b
 	var err error
 	if useTLS {
 		conn, err = (&tls.Dialer{NetDialer: d, Config: tlsConfig(c.Pin, &a.fp)}).DialContext(ctx, "tcp", addr)
-		if err != nil && strings.Contains(err.Error(), ErrCertChanged.Error()) {
-			return nil, ErrCertChanged
+		if c := certChanged(err, a.fp); c != nil {
+			return nil, c
 		}
 	} else {
 		conn, err = d.DialContext(ctx, "tcp", addr)
