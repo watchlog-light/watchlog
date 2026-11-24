@@ -91,6 +91,8 @@ func (a *Agent) SetDiskSMART(disk, v int) { a.Int(qnapDisk+".5."+strconv.Itoa(di
 func UPS(name string, start time.Time, apc bool) *Agent {
 	a := NewAgent(name, start)
 	s := Spec{Name: name}
+	// Its network card: the office's switch sees this MAC (MACString(name, 2)) on its port.
+	port(a, s, 2, "eth0", "eth0", 6, 100, true, 2_000)
 	if apc {
 		system(a, s, "1.3.6.1.4.1.318.1.3.27", "APC Web/SNMP Management Card (MB:v4.1.0 PF:v6.9.6)")
 		b := "1.3.6.1.4.1.318.1.1.1"

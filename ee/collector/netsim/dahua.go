@@ -75,7 +75,7 @@ type nvrStream struct {
 func NVR() *Dahua {
 	d := &Dahua{
 		User: "watchlog", Password: "read-only-sample", Serial: "8L0ABC1234567", Name: "nvr-1",
-		Model: "DHI-NVR5216-16P-4KS2E", Version: "4.001.0000000.3.R,build:2023-08-17", MAC: "3C:EF:8C:01:02:03",
+		Model: "DHI-NVR5216-16P-4KS2E", Version: "4.001.0000000.3.R,build:2023-08-17", MAC: strings.ToUpper(NVRMAC),
 		nonces: map[string]bool{}, streams: map[*nvrStream]struct{}{},
 	}
 	for i := 0; i < 16; i++ {

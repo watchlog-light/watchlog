@@ -406,7 +406,7 @@ func TestDahuaPollerRound(t *testing.T) {
 	}
 	s := d.System
 	if s.Name != "nvr-1" || s.Model != fake.Model || s.Serial != fake.Serial || s.Firmware != "4.001.0000000.3.R" ||
-		s.Vendor != "Dahua" || s.Kind != "nvr" || s.UptimeS != 0 || s.MAC != "3c:ef:8c:01:02:03" {
+		s.Vendor != "Dahua" || s.Kind != "nvr" || s.UptimeS != 0 || s.MAC != netsim.NVRMAC {
 		t.Fatalf("system %+v", s)
 	}
 	r := d.Recorder
