@@ -267,13 +267,27 @@ export function registerIntegrationIngest(
       const owner = request.ingestOwner!;
       const { host = '', wait = 0 } = request.query as { host?: string; wait?: number };
       const known = (request.headers['if-none-match'] ?? '').replace(/^W\/|"/g, '');
-      let config = await buildCollectorConfig(db, owner.clusterId, host, secretKey);
+      let config = await buildCollectorConfig(
+        db,
+        owner.clusterId,
+        host,
+        secretKey,
+        new Date(),
+        owner.orgId,
+      );
       if (wait > 0 && known && known === config.version) {
         const aborted = new AbortController();
         request.raw.on('close', () => aborted.abort());
         await notifier.wait(owner.clusterId, wait * 1000, aborted.signal);
         if (aborted.signal.aborted) return reply;
-        config = await buildCollectorConfig(db, owner.clusterId, host, secretKey);
+        config = await buildCollectorConfig(
+          db,
+          owner.clusterId,
+          host,
+          secretKey,
+          new Date(),
+          owner.orgId,
+        );
       }
       reply.header('etag', `"${config.version}"`).header('cache-control', 'no-store');
       if (known && known === config.version) return reply.code(304).send(null);

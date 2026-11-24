@@ -4,6 +4,7 @@
 // full") and a "why" line with the facts behind it ("last exit: Error (code 1) · 9
 // restarts", "threshold 85% · full in ~6 h"). The web and every channel use the same
 // text. Built from the evaluators' facts at read time, so relative times stay true.
+import { isModuleRule } from './module-rules.js';
 import { metricUnit } from '../query/catalog.js';
 import {
   ANOMALY_RULE_KEY,
@@ -78,6 +79,8 @@ export function alertText(a: AlertTextInput): AlertText {
   const wl = subject(l);
   if (a.ruleKey?.startsWith('egress.')) return egressText(a) ?? fallback;
   if (a.ruleKey === ANOMALY_RULE_KEY) return anomalyText(a) ?? fallback;
+  // A module's rule (ADR-233) writes its own sentence from fixed templates.
+  if (isModuleRule(a.ruleKey) && str(d.title)) return { title: str(d.title)!, why: str(d.why) };
   switch (a.ruleKey) {
     case 'k8s.pod.crashloop':
       return {

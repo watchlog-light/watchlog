@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// The units an Enterprise licence counts (ADR-232): Kubernetes nodes plus servers, from the
-// hourly usage rows (usage_hourly, which the alert-worker records on a licensed install as
-// Cloud does for its bill), as the highest daily count of the last 7 days. A day's count is
-// its busiest hour. The network module (next release) adds its devices through
-// `registerUnitSource`, access points free, so the one count stays here.
+// The units an Enterprise licence counts (ADR-232): Kubernetes nodes plus servers plus network
+// devices (ADR-233), from the hourly usage rows (usage_hourly, which the alert-worker records
+// on a licensed install as Cloud does for its bill), as the highest daily count of the last 7
+// days. A day's count is its busiest hour. The network module counts its devices through
+// `registerUnitSource` (access points managed by a controller free); the hourly job stores
+// them in usage_hourly.devices, so the bill and the licence read one count.
 //
 // Over the limit: Owners see it at once; core monitoring never stops. After 30 days in a row
 // over the limit, licensed features take on no new places (and no new devices); everything
@@ -27,11 +28,20 @@ export interface DayCount {
   parts: Record<string, number>;
 }
 
-/** More units from outside the core: network devices (ee/, next release). */
+/** More units from outside the core: network devices (ee/, ADR-233). */
 export interface UnitSource {
   name: string;
-  /** Each UTC day's count in [fromMs, toMs), keyed YYYY-MM-DD. */
-  daily(db: Database, fromMs: number, toMs: number): Promise<Map<string, number>>;
+  /** Each org's count now, keyed by org id (the hourly usage job stores it). */
+  current(db: Database): Promise<Map<string, number>>;
+}
+
+/** Every source's count now, per org (the hourly usage job). */
+export async function currentDevices(db: Database): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  for (const s of sources) {
+    for (const [org, n] of await s.current(db)) out.set(org, (out.get(org) ?? 0) + n);
+  }
+  return out;
 }
 
 const sources: UnitSource[] = [];
@@ -57,28 +67,26 @@ export async function dailyUnits(db: Database, nowMs: number): Promise<DayCount[
       'hour',
       sql<number>`sum(nodes)::int`.as('nodes'),
       sql<number>`sum(docker_hosts)::int`.as('servers'),
+      sql<number>`sum(devices)::int`.as('devices'),
     ])
     .where('hour', '>=', new Date(from))
     .where('hour', '<', new Date(to))
     .groupBy('hour')
     .execute();
-  const best = new Map<string, { nodes: number; servers: number }>();
+  const best = new Map<string, { nodes: number; servers: number; devices: number }>();
   for (const r of rows) {
     const d = dayOf(new Date(r.hour).getTime());
     const b = best.get(d);
-    if (!b || r.nodes + r.servers > b.nodes + b.servers) {
-      best.set(d, { nodes: r.nodes, servers: r.servers });
+    if (!b || r.nodes + r.servers + r.devices > b.nodes + b.servers + b.devices) {
+      best.set(d, { nodes: r.nodes, servers: r.servers, devices: r.devices });
     }
   }
-  const extra = await Promise.all(
-    sources.map(async (s) => [s.name, await s.daily(db, from, to)] as const),
-  );
   const out: DayCount[] = [];
   for (let t = from; t < to; t += DAY_MS) {
     const d = dayOf(t);
-    const b = best.get(d) ?? { nodes: 0, servers: 0 };
+    const b = best.get(d) ?? { nodes: 0, servers: 0, devices: 0 };
     const parts: Record<string, number> = { nodes: b.nodes, servers: b.servers };
-    for (const [name, m] of extra) parts[name] = m.get(d) ?? 0;
+    if (b.devices > 0) parts.devices = b.devices;
     out.push({ day: d, units: Object.values(parts).reduce((a, n) => a + n, 0), parts });
   }
   return out;

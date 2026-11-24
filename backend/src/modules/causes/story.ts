@@ -60,7 +60,14 @@ export type ChangeKind =
   | 'service_failed'
   | 'unit_changed'
   | 'release'
-  | 'job_run';
+  | 'job_run'
+  // A switch or router the place sits behind (ADR-233, from the network module's events).
+  | 'port_down'
+  | 'port_up'
+  | 'port_speed'
+  | 'port_errors'
+  | 'uplink_errors'
+  | 'device_reboot';
 
 /** Something that changed in the place: a marker, a server event, a scheduled run. */
 export interface Change {

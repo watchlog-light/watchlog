@@ -10,6 +10,7 @@ import { CERT_JOB_RULES } from './certs-jobs-rules.js';
 import { EGRESS_RULES } from '../egress/rules.js';
 import { ANOMALY_RULE } from '../anomaly/alerts.js';
 import { thresholdEvaluator, type ThresholdScope } from './threshold.js';
+import { addModuleRules } from './module-rules.js';
 import type { Condition } from './defaults.js';
 
 /** The default rules every org gets. */
@@ -24,6 +25,12 @@ export const DEFAULT_RULES: DefaultRule[] = [
  * to orgs with What changed by its own upkeep (ADR-200).
  */
 const BY_KEY = new Map([...DEFAULT_RULES, ANOMALY_RULE].map((r) => [r.key, r]));
+
+/** Default rules from Enterprise modules (ADR-233, module-rules.ts), by key too. */
+export function registerModuleRules(rules: DefaultRule[]): void {
+  addModuleRules(rules);
+  for (const r of rules) BY_KEY.set(r.key, r);
+}
 export const defaultRuleOf = (key: string | null | undefined): DefaultRule | undefined =>
   key ? BY_KEY.get(key) : undefined;
 

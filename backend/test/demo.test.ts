@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Read-only demo mode (ADR-122): passwordless viewer sessions, every change refused in one
 // place, and no secret or secret-adjacent data in any answer.
+import { existsSync } from 'node:fs';
 import type { RouteOptions } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
@@ -610,6 +611,10 @@ describe('ingest stays token-only', () => {
         '/ingest/v1/integrations/status',
         '/ingest/v1/logs/:requestId',
         '/ingest/v1/logs/requests',
+        // ee/'s network module (ADR-233), when ee/ is there.
+        ...(existsSync(new URL('../../ee/backend/src/network', import.meta.url))
+          ? ['/ingest/v1/network/report']
+          : []),
         '/ingest/v1/objects',
         '/ingest/v1/process-rules',
         '/ingest/v1/write',

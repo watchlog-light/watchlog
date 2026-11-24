@@ -3,7 +3,7 @@
 import { loadDatabaseUrl } from './config.js';
 import pg from 'pg';
 import { describeDbError, waitForDatabase } from './db/index.js';
-import { migrateUp } from './db/migrate.js';
+import { migrateEeUp, migrateUp } from './db/migrate.js';
 import { appRoleName, grantAppRole } from './db/app-role.js';
 
 const config = { databaseUrl: loadDatabaseUrl() };
@@ -23,6 +23,9 @@ try {
   );
   const ran = await migrateUp(config.databaseUrl);
   console.log(ran.length ? `applied migrations: ${ran.join(', ')}` : 'database is up to date');
+  // Enterprise modules (ee/, ADR-233): their own tables, only when ee/ is there.
+  const ee = await migrateEeUp(config.databaseUrl);
+  if (ee.length) console.log(`applied Enterprise migrations: ${ee.join(', ')}`);
   // Cloud (ADR-174): the request path's role gets the tables, new ones included.
   if (process.env.WATCHLOG_EDITION === 'cloud') {
     const role = appRoleName(process.env.DATABASE_URL ?? '');

@@ -72,6 +72,9 @@ const SYSTEM_DB: Record<string, string> = {
   'plugins/auth.ts': 'the session lookup',
   'plugins/demo.ts': 'the demo session lookup',
   'plugins/service-identity.ts': "the alert worker's in-process reads name their org",
+  'ee.ts':
+    'Enterprise modules (ADR-233): their ingest and loops across orgs, each query scoped by org',
+  'ee-contract.d.ts': 'the type of what ee.ts hands a module (ADR-233)',
 };
 
 const AUTHORISED_SCOPE: Record<string, string> = {

@@ -30,7 +30,8 @@ RUN pnpm --filter @watchlog/backend build \
  && mkdir -p /out/ee \
  && if [ -f ee/backend/tsconfig.json ]; then \
       backend/node_modules/.bin/tsc -p ee/backend/tsconfig.json \
-      && cp -r ee/backend/dist /out/ee/backend && cp ee/LICENSE /out/ee/LICENSE; \
+      && cp -r ee/backend/dist /out/ee/backend && cp ee/LICENSE /out/ee/LICENSE \
+      && if [ -d ee/backend/migrations ]; then cp -r ee/backend/migrations /out/ee/backend/migrations; fi; \
     fi
 # `watchlog`, the command for operators (ADR-140: `watchlog admin reset-password`). The
 # runtime has no shell, so it is a node script; its first line names node's path in the
@@ -45,7 +46,8 @@ WORKDIR /app
 COPY --from=build /out/package.json ./
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
-# ee/backend's modules beside dist/ (empty without ee/), found by dist/ee.js.
+# ee/backend's modules beside dist/ (empty without ee/), found by dist/ee.js; their
+# migrations in ee/backend/migrations, run by dist/migrate.js after the core's (ADR-233).
 COPY --from=build /out/ee ./ee
 COPY --from=build /repo/backend/migrations ./migrations
 # The kubectl manifest Cloud serves at /install.yaml (scripts/render-install-manifest.sh).

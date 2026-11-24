@@ -38,7 +38,7 @@ import { installManifestRoutes } from './modules/onboarding/cloud-routes.js';
 import { installScriptRoutes } from './modules/onboarding/install-script.js';
 import { healthRoutes } from './modules/health/routes.js';
 import { licenseRoutes } from './modules/license/routes.js';
-import { eeHost, registerEe } from './ee.js';
+import { eeHost, loadEeModules, registerEe, registerEeIngest } from './ee.js';
 import type { EeBackendModule } from './ee-contract.js';
 import { LicenseService } from './modules/license/service.js';
 import { setupRoutes } from './modules/setup/routes.js';
@@ -292,6 +292,18 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   );
   app.addHook('onClose', () => alertHttp.close());
   const settings = new SettingsService(deps.db, config);
+  // Enterprise modules (ee/backend, ADR-232, ADR-233), if ee/ is there: found once, given one
+  // host for their API and ingest routes. Without ee/ nothing is imported or logged.
+  const eeModules = deps.eeModules ?? (await loadEeModules());
+  const ee = eeHost(config, license, entitlements, app.log, {
+    db: deps.db,
+    systemDb,
+    secretKey: config.secretKey,
+    victoria,
+    notifier: collectors,
+    eventsRetentionDays: config.eventsRetentionDays,
+    ...(deps.now ? { now: deps.now } : {}),
+  });
   // One answer cache for GET /causes and the likelyCause fields (ADR-155).
   const causes = deps.causes ?? new CausesService();
   // Right-sizing (ADR-168): the use over the window, kept an hour per cluster.
@@ -429,7 +441,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       });
       // Enterprise modules (ee/backend, ADR-232), if ee/ is there: each route behind its
       // licence feature, read per request. Without ee/ nothing is imported or logged.
-      await registerEe(api, eeHost(config, license, entitlements, app.log), deps.eeModules);
+      await registerEe(api, ee, eeModules);
       // The public API only (ADR-126): routes tagged `public`, with the bearer scheme.
       let spec: Record<string, unknown> | undefined;
       api.get(
@@ -484,6 +496,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     nodeGate,
     seriesGate,
     nodeSightings,
+    ee: (ingest) => registerEeIngest(ingest, ee, eeModules),
   });
 
   // Seeded services (ADR-142): monitored as soon as the agents report them, so tried on

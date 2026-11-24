@@ -35,6 +35,11 @@ export interface DefaultRule {
   /** The catalog metric per cluster kind (metric rules; the preview queries it). */
   metrics?: Partial<Record<'kubernetes' | 'server', string>>;
   evaluator: RuleEvaluator;
+  /**
+   * A module's rule (ADR-233): held back under this rule's alert on the same device (one story
+   * per device, ADR-229), keyed by the `device_id` label.
+   */
+  heldUnder?: string;
 }
 
 /** An OOM kill keeps its alert firing this long (ADR-072). */

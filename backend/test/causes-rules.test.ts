@@ -588,6 +588,8 @@ describe('the catalog', () => {
       ['job_failed', 'kubernetes'],
       ['node_or_host', 'kubernetes+server'],
       ['cpu_throttled', 'kubernetes+server'],
+      // 0.16 (ADR-233): the network under it, from the network module's events.
+      ['network_port', 'kubernetes+server'],
       ['dependency_down', 'kubernetes+server'],
       ['certificate_bad', 'kubernetes+server'],
       ['connection_refused', 'kubernetes+server'],

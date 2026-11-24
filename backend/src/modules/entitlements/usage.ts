@@ -17,6 +17,7 @@
 // the owner's connection (systemDb), then writes each org's row inside `withOrg` on the
 // app connection, under Row-Level Security (ADR-174).
 import { sql } from 'kysely';
+import { currentDevices } from '../license/units.js';
 import type { Database } from '../../db/index.js';
 import { withOrg } from '../../db/org-context.js';
 import { percentile95 } from './plans.js';
@@ -77,6 +78,10 @@ export async function recordUsage(deps: UsageJobDeps, nowMs: number): Promise<nu
     if (row) row.observed = o;
     else orgs.set(o.org_id, { reported: zero, observed: o });
   }
+  // Network devices (ADR-233), from the module's count; none without ee/.
+  const devices = await currentDevices(deps.systemDb);
+  for (const org of devices.keys())
+    if (!orgs.has(org)) orgs.set(org, { reported: zero, observed: zero });
   const higher = (col: string) =>
     sql<number>`greatest(usage_hourly.${sql.ref(col)}, excluded.${sql.ref(col)})`;
   for (const [orgId, { reported: r, observed: o }] of orgs) {
@@ -92,6 +97,7 @@ export async function recordUsage(deps: UsageJobDeps, nowMs: number): Promise<nu
           reported_docker_hosts: r.docker_hosts,
           observed_nodes: o.nodes,
           observed_docker_hosts: o.docker_hosts,
+          devices: devices.get(orgId) ?? 0,
         })
         .onConflict((oc) =>
           oc.columns(['org_id', 'hour']).doUpdateSet({
@@ -101,6 +107,7 @@ export async function recordUsage(deps: UsageJobDeps, nowMs: number): Promise<nu
             reported_docker_hosts: higher('reported_docker_hosts'),
             observed_nodes: higher('observed_nodes'),
             observed_docker_hosts: higher('observed_docker_hosts'),
+            devices: higher('devices'),
             updated_at: sql`now()`,
           }),
         )
@@ -118,6 +125,8 @@ export interface UsageHour {
   hour: string;
   nodes: number;
   dockerHosts: number;
+  /** Network devices (ADR-233): one unit each, like a node. */
+  devices: number;
   total: number;
 }
 
@@ -150,7 +159,7 @@ export async function usageReport(
     end > start
       ? await db
           .selectFrom('usage_hourly')
-          .select(['hour', 'nodes', 'docker_hosts'])
+          .select(['hour', 'nodes', 'docker_hosts', 'devices'])
           .where('org_id', '=', orgId)
           .where('hour', '>=', start)
           .where('hour', '<', end)
@@ -161,7 +170,8 @@ export async function usageReport(
     hour: new Date(r.hour).toISOString(),
     nodes: r.nodes,
     dockerHosts: r.docker_hosts,
-    total: r.nodes + r.docker_hosts,
+    devices: r.devices,
+    total: r.nodes + r.docker_hosts + r.devices,
   }));
   const hoursInPeriod = Math.max(0, Math.ceil((end.getTime() - start.getTime()) / HOUR_MS));
   const totals = hours.map((h) => h.total);

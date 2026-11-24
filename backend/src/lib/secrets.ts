@@ -4,6 +4,7 @@
 // with associated data, so a ciphertext copied to another row doesn't decrypt. During a
 // key rotation the previous key (WATCHLOG_SECRET_KEY_PREVIOUS) still decrypts.
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { sql } from 'kysely';
 import type { Database } from '../db/index.js';
 
 const VERSION = 'v1';
@@ -160,6 +161,7 @@ export async function rotateSecretKey(
   integrations: number;
   probes: number;
   totp: number;
+  modules: number;
 }> {
   const move = (ct: string, aad?: string) =>
     encryptSecret(newKey, decryptWith(oldKey, ct, aad), aad);
@@ -239,6 +241,21 @@ export async function rotateSecretKey(
         .where('id', '=', u.id)
         .execute();
     }
+    // Enterprise modules' secrets (ADR-233), from the columns their migrations list; each is
+    // bound to its row's id, as `<table>:<id>`.
+    let modules = 0;
+    const cols = await trx.selectFrom('module_secret_columns').selectAll().execute();
+    for (const c of cols) {
+      const rows = await sql<{ id: string; secret: string }>`
+        select ${sql.ref(c.id_column)}::text as id, ${sql.ref(c.secret_column)} as secret
+        from ${sql.table(c.table_name)} where ${sql.ref(c.secret_column)} is not null`.execute(trx);
+      for (const r of rows.rows) {
+        const aad = `${c.table_name}:${r.id}`;
+        await sql`update ${sql.table(c.table_name)} set ${sql.ref(c.secret_column)} = ${move(r.secret, aad)}
+          where ${sql.ref(c.id_column)}::text = ${r.id}`.execute(trx);
+        modules++;
+      }
+    }
     await trx
       .insertInto('secret_key_check')
       .values({ id: 1, canary: encryptSecret(newKey, CANARY) })
@@ -250,6 +267,7 @@ export async function rotateSecretKey(
       integrations: creds.length,
       probes: probes.length,
       totp: totp.length,
+      modules,
     };
   });
 }

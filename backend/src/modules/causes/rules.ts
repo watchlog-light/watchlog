@@ -16,6 +16,7 @@ import { changeBeforeEgress } from './rules/change-before-egress.js';
 import { connectionRefused } from './rules/connection-refused.js';
 import { dependencyDown } from './rules/dependency-down.js';
 import { dnsNxdomain } from './rules/dns-nxdomain.js';
+import { networkPort } from './rules/network-port.js';
 import { OWN_RULES } from './rules/own.js';
 import { run } from './rules/run.js';
 import type { Candidate, CheckTopic, Platform } from './types.js';
@@ -56,6 +57,8 @@ export interface Rule {
  */
 export const RULES: Rule[] = [
   ...OWN_RULES,
+  // 0.16 (ADR-233): the network under the nodes or servers, from the network module's events.
+  networkPort,
   dependencyDown,
   certificateBad,
   connectionRefused,

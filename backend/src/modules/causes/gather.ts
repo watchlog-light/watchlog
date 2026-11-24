@@ -3,6 +3,7 @@
 // the changes around it, the nodes or hosts under it and its place on the service map. Each
 // part is optional: a part that can't be read leaves its slot empty and the checks say
 // "couldn't check", never a failed answer.
+import { NETWORK_EVENT_KINDS } from '../events/kinds.js';
 import { ApiReadError } from '../mcp/reader.js';
 import { increase, sumCounts, type Point } from './counts.js';
 import { conditionTaint, HELD_BY_NODES } from './rules/common.js';
@@ -98,8 +99,46 @@ interface PodDetail {
 
 const byNewest = (a: EvEvent, b: EvEvent) => Date.parse(b.lastSeen) - Date.parse(a.lastSeen);
 
-/** The evidence about one focus. */
+/**
+ * Whether the network module (ee/, ADR-233) is loaded: only then are its events read for the
+ * nodes and servers under a focus. Without it there are none, and nothing more is asked.
+ */
+let networkEvidence = false;
+export function useNetworkEvidence(on = true): void {
+  networkEvidence = on;
+}
+
+/** The evidence about one focus, with the network under its nodes or servers (ADR-233). */
 export async function gather(reader: Reader, input: GatherInput): Promise<Evidence> {
+  const ev = await gatherFocus(reader, input);
+  if (!networkEvidence) return ev;
+  const names = [
+    ...new Set([
+      ...ev.nodes.map((n) => n.name),
+      ...ev.hosts.map((h) => h.name),
+      ...ev.pods.flatMap((p) => (p.node ? [p.node] : [])),
+      ...ev.containers.flatMap((c) => (c.host ? [c.host] : [])),
+    ]),
+  ];
+  if (names.length) {
+    const events = await soft(
+      reader
+        .get<{ events: EvEvent[] }>(`/clusters/${ev.clusterId}/events`, {
+          kinds: NETWORK_EVENT_KINDS.join(','),
+          hosts: names.slice(0, MAX_NODES).join(','),
+          from: sec(ev.window.from),
+          to: Math.max(sec(ev.window.to), sec(ev.window.from) + 1),
+          limit: 50,
+        })
+        .then((r) => r.events),
+      [] as EvEvent[],
+    );
+    if (events.length) ev.network = [...events].sort(byNewest);
+  }
+  return ev;
+}
+
+async function gatherFocus(reader: Reader, input: GatherInput): Promise<Evidence> {
   const { clusterId, focus, window } = input;
   const base = `/clusters/${clusterId}`;
   const ev: Evidence = {

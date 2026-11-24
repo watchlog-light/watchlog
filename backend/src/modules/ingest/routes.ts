@@ -2,7 +2,7 @@
 // Agent ingest API (SPEC §8.2): token auth, limits, server-side cluster_id (ADR-025/026/027).
 import { registerProcessRulesIngest } from '../servers/rules.js';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createGunzip } from 'node:zlib';
 import { bindOrg } from '../../db/org-context.js';
 import { Type } from 'typebox';
@@ -80,6 +80,8 @@ export interface IngestOptions {
   seriesGate?: SeriesGate | null;
   /** Cloud: the nodes the written series name, for the bill (SR-8). Null in Community. */
   nodeSightings?: NodeSightings | null;
+  /** Enterprise modules' ingest routes (ADR-233), with this plugin's token auth. */
+  ee?: (ingest: FastifyInstance) => void;
 }
 
 const Str = (max: number) => Type.String({ maxLength: max });
@@ -704,6 +706,7 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
     notifier: opts.notifier ?? new ConfigNotifier(),
     secretKey: opts.secretKey,
   });
+  opts.ee?.(app);
 
   app.post(
     '/heartbeat',

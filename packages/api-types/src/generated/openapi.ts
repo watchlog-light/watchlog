@@ -14924,7 +14924,13 @@ export interface paths {
                     | 'service_failed'
                     | 'unit_changed'
                     | 'release'
-                    | 'job_run';
+                    | 'job_run'
+                    | 'port_down'
+                    | 'port_up'
+                    | 'port_speed'
+                    | 'port_errors'
+                    | 'uplink_errors'
+                    | 'device_reboot';
                   name: string;
                   namespace?: string;
                   host?: string;
@@ -15006,7 +15012,13 @@ export interface paths {
                     | 'service_failed'
                     | 'unit_changed'
                     | 'release'
-                    | 'job_run';
+                    | 'job_run'
+                    | 'port_down'
+                    | 'port_up'
+                    | 'port_speed'
+                    | 'port_errors'
+                    | 'uplink_errors'
+                    | 'device_reboot';
                   name: string;
                   namespace?: string;
                   host?: string;
@@ -15084,7 +15096,13 @@ export interface paths {
                   | 'service_failed'
                   | 'unit_changed'
                   | 'release'
-                  | 'job_run';
+                  | 'job_run'
+                  | 'port_down'
+                  | 'port_up'
+                  | 'port_speed'
+                  | 'port_errors'
+                  | 'uplink_errors'
+                  | 'device_reboot';
                 name: string;
                 namespace?: string;
                 host?: string;

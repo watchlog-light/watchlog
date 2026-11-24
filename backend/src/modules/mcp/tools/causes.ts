@@ -23,6 +23,8 @@ export const RULE_MEANS: Record<string, string> = {
   unschedulable: 'The scheduler cannot place its pod (CPU, memory, node selector or taints).',
   node_or_host:
     'The node or Docker host under it: not Ready, cordoned, under pressure, out of memory, or no longer reporting.',
+  network_port:
+    'The switch port, uplink or switch a node or server sits behind went down, drops packets or rebooted (from the network module).',
   application_finding:
     'A monitored service it uses (or the service asked about) has an active finding (facts.finding), followed to the object the finding names when there is one.',
   certificate_bad:

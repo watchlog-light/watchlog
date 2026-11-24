@@ -41845,6 +41845,30 @@
                                         {
                                           "type": "string",
                                           "enum": ["job_run"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["port_down"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["port_up"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["port_speed"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["port_errors"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["uplink_errors"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["device_reboot"]
                                         }
                                       ]
                                     },
@@ -42185,6 +42209,30 @@
                                       {
                                         "type": "string",
                                         "enum": ["job_run"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["port_down"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["port_up"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["port_speed"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["port_errors"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["uplink_errors"]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": ["device_reboot"]
                                       }
                                     ]
                                   },
@@ -42468,6 +42516,30 @@
                               {
                                 "type": "string",
                                 "enum": ["job_run"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["port_down"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["port_up"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["port_speed"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["port_errors"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["uplink_errors"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["device_reboot"]
                               }
                             ]
                           },

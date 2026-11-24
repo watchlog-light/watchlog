@@ -526,6 +526,12 @@ export interface K8sEvents {
   updated_at: Generated<Timestamp>;
 }
 
+export interface ModuleSecretColumns {
+  id_column: string;
+  secret_column: string;
+  table_name: string;
+}
+
 export interface McpCalls {
   args: Generated<string>;
   at: Generated<Timestamp>;
@@ -794,6 +800,7 @@ export interface Users {
 }
 
 export interface UsageHourly {
+  devices: Generated<number>;
   docker_hosts: Generated<number>;
   hour: Timestamp;
   nodes: Generated<number>;
@@ -997,6 +1004,7 @@ export interface DB {
   lifecycle_emails: LifecycleEmails;
   k8s_events: K8sEvents;
   mcp_calls: McpCalls;
+  module_secret_columns: ModuleSecretColumns;
   memberships: Memberships;
   node_sightings: NodeSightings;
   notification_alerts: NotificationAlerts;

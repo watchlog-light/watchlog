@@ -2,6 +2,8 @@
 // The alert-worker process (SPEC §5.1, ADR-073): `node dist/alert-worker.js`.
 import { pino } from 'pino';
 import { buildApp } from './app.js';
+import { eeHost, loadEeModules } from './ee.js';
+import { useNetworkEvidence } from './modules/causes/gather.js';
 import { loadConfig, type Config } from './config.js';
 import { setEgressLearningDays } from './modules/egress/learning.js';
 import { createDb, describeDbError, waitForDatabase } from './db/index.js';
@@ -217,6 +219,22 @@ const channelDeps = {
   edition: config.edition,
   funnel,
 };
+
+// Enterprise modules (ADR-233): their alert rules and unit counts, in this process too.
+const eeModules = await loadEeModules();
+if (eeModules.length) {
+  const host = eeHost(config, license, entitlements, log, {
+    db,
+    systemDb,
+    secretKey: config.secretKey,
+    victoria,
+    notifier: null,
+    eventsRetentionDays: config.eventsRetentionDays,
+  });
+  for (const m of eeModules) await m.worker?.(host);
+  if (eeModules.some((m) => m.feature === 'network')) useNetworkEvidence();
+  log.info({ modules: eeModules.map((m) => m.name) }, 'Enterprise modules loaded');
+}
 
 const worker = new AlertWorker({
   db,

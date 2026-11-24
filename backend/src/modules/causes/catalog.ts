@@ -10,6 +10,8 @@ export const CATALOG = [
   'image_pull',
   'unschedulable',
   'node_or_host',
+  // 0.16 (ADR-233): the switch port, uplink or device a server or node sits behind.
+  'network_port',
   'application_finding',
   // 0.10 (ADR-225): an expired or wrong certificate where a failing edge arrives.
   'certificate_bad',

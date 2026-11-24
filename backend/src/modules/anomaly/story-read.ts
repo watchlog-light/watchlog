@@ -10,6 +10,7 @@
 import type { Database } from '../../db/index.js';
 import type { Change, ChangeKind, Related } from '../causes/story.js';
 import { isOwnChange, type OwnParts } from './live.js';
+import { NETWORK_EVENT_KINDS } from '../events/kinds.js';
 import type { ClusterKind, ObjectView } from './read.js';
 
 const MARKER_KINDS: Record<string, ChangeKind> = {
@@ -26,6 +27,15 @@ const EVENT_KINDS: Record<string, ChangeKind> = {
   Failed: 'service_failed',
   UnitChanged: 'unit_changed',
   Release: 'release',
+};
+/** The network module's events (ADR-233): the switch port or device a server or node is behind. */
+const NETWORK_KINDS: Record<string, ChangeKind> = {
+  PortDown: 'port_down',
+  PortUp: 'port_up',
+  SpeedChanged: 'port_speed',
+  ErrorsStarted: 'port_errors',
+  UplinkErrors: 'uplink_errors',
+  DeviceRebooted: 'device_reboot',
 };
 const CHANGES_MAX = 200;
 
@@ -69,8 +79,18 @@ export async function readChanges(
       .selectFrom('k8s_events')
       .select(['involved_kind', 'involved_name', 'reason', 'host', 'last_ts', 'message'])
       .where('cluster_id', '=', clusterId)
-      .where('involved_kind', 'in', ['Service', 'Process'])
-      .where('reason', 'in', Object.keys(EVENT_KINDS))
+      .where((eb) =>
+        eb.or([
+          eb.and([
+            eb('involved_kind', 'in', ['Service', 'Process']),
+            eb('reason', 'in', Object.keys(EVENT_KINDS)),
+          ]),
+          eb.and([
+            eb('involved_kind', 'in', NETWORK_EVENT_KINDS),
+            eb('reason', 'in', Object.keys(NETWORK_KINDS)),
+          ]),
+        ]),
+      )
       .where('day', '>=', new Date(fromMs - 86_400_000))
       .where('last_ts', '>=', from)
       .where('last_ts', '<=', to)
@@ -118,6 +138,19 @@ export async function readChanges(
     });
   }
   for (const e of events) {
+    if (NETWORK_EVENT_KINDS.includes(e.involved_kind)) {
+      // "sw-access-2 · Gi1/0/14" (a port) or "sw-access-2" (the device); from/to for a speed.
+      const [device, ...port] = e.involved_name.split('/');
+      const speed = e.reason === 'SpeedChanged' ? /from (\S+) to (\S+)/.exec(e.message) : null;
+      out.push({
+        at: new Date(e.last_ts).getTime(),
+        kind: NETWORK_KINDS[e.reason]!,
+        name: port.length ? `${device} · ${port.join('/')}` : (device ?? e.involved_name),
+        ...(e.host ? { host: e.host } : {}),
+        facts: { from: speed?.[1] ?? null, to: speed?.[2] ?? null },
+      });
+      continue;
+    }
     // A process group's event matters only for a new executable; its starts are its own.
     if (e.involved_kind === 'Process' && e.reason !== 'Release') continue;
     out.push({

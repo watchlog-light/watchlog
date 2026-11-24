@@ -84,6 +84,8 @@ const SERVICE_NAMES: Record<string, string> = {
 };
 
 export function where(l: Record<string, string>): string {
+  // A network device and its port (ADR-233).
+  if (l.device_id) return l.port ? `${l.device} · ${l.port}` : (l.device ?? l.device_id);
   if (l.service_name)
     return `${SERVICE_NAMES[l.service_type ?? ''] ?? l.service_type ?? 'service'} ${l.service_name}`;
   if (l.pvc) return `${l.namespace}/${l.pvc} (PVC)`;
@@ -118,6 +120,7 @@ export type SubjectKind =
   | 'process-group'
   | 'node'
   | 'namespace'
+  | 'device'
   | 'cluster';
 
 /**
@@ -129,6 +132,9 @@ export function alertSubject(l: Record<string, string>): {
   name: string;
   type?: string;
 } {
+  if (l.device_id) {
+    return { kind: 'device', name: l.port ? `${l.device}/${l.port}` : (l.device ?? '') };
+  }
   if (l.service_name) {
     return {
       kind: 'service',
@@ -169,6 +175,8 @@ function link(
   let path: string;
   // An egress alert: the Egress page, filtered to its source and destination (ADR-187).
   if (l.destination) return egressLink(base, l, cluster.id);
+  // A network device's alert: its page (ADR-233).
+  if (l.device_id) return `${base.replace(/\/+$/, '')}/network/devices/${e(l.device_id)}`;
   // Certificates and scheduled jobs have their own pages since 0.13.0, searched by name.
   if (ruleKey?.startsWith('cert.') || ruleKey?.startsWith('job.')) {
     const page = ruleKey.startsWith('cert.') ? 'certificates' : 'scheduled-jobs';

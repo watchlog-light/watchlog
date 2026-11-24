@@ -600,6 +600,7 @@ describe('usage_hourly and the 95th percentile', () => {
       hour: from.toISOString(),
       nodes: 10,
       dockerHosts: 2,
+      devices: 0,
       total: 12,
     });
     // So far, 100 hours into the period: 4 busy hours of 100 stay under 5 %.

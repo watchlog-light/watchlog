@@ -3,6 +3,7 @@
 // or fleet is silent, one alert stands for the cluster and its other alerts are held:
 // kept as they are, neither notified nor resolved, because their data is stale. Pod
 // alerts whose pod runs on a NotReady node are held under that node's alert.
+import { moduleRules } from './module-rules.js';
 import type { NodeCondition } from '../kubernetes/views.js';
 import type { EvalContext } from './engine.js';
 
@@ -110,6 +111,12 @@ const STORY: Record<string, { under: string; key: (l: Record<string, string>) =>
     'server.process.crashloop': { under: 'server.process.oom', key: (l) => onServer(l, 'group') },
   };
 
+/** A module rule's story (ADR-233): under another rule's alert on the same device. */
+function moduleStory(key: string): (typeof STORY)[string] | undefined {
+  const under = moduleRules().find((r) => r.key === key)?.heldUnder;
+  return under ? { under, key: (l) => (l.device_id ? `d:${l.device_id}` : null) } : undefined;
+}
+
 function workloadKey(l: Record<string, string>): string | null {
   return l.workload && l.namespace
     ? `w:${l.namespace}/${l.workload_kind ?? ''}/${l.workload}`
@@ -130,7 +137,7 @@ export async function storyHolds(
   ctx: Pick<EvalContext, 'db' | 'cluster'>,
   ruleKey: string | null,
 ): Promise<((labels: Record<string, string>) => string | null) | null> {
-  const story = ruleKey ? STORY[ruleKey] : undefined;
+  const story = ruleKey ? (STORY[ruleKey] ?? moduleStory(ruleKey)) : undefined;
   if (!story) return null;
   const rows = await ctx.db
     .selectFrom('alert_states as s')

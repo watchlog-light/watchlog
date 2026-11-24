@@ -3,7 +3,7 @@
 import pg from 'pg';
 import type { TestProject } from 'vitest/node';
 import { describeDbError } from '../src/db/index.js';
-import { migrateUp } from '../src/db/migrate.js';
+import { migrateEeUp, migrateUp } from '../src/db/migrate.js';
 
 const DEFAULT_URL = 'postgres://watchlog:watchlog@127.0.0.1:54320/watchlog';
 const TEST_DB = 'watchlog_test';
@@ -31,6 +31,7 @@ export default async function setup(project: TestProject) {
   const testUrl = new URL(baseUrl);
   testUrl.pathname = `/${TEST_DB}`;
   await migrateUp(testUrl.toString());
+  await migrateEeUp(testUrl.toString());
   // Cloud signup opens by invitation by default (ADR-173); the suites that sign up through
   // the API test accounts, not waves, so the test database starts in public mode.
   // accounts.test.ts's invite-wave cases switch to invite mode and back.

@@ -26,6 +26,10 @@ export const GLOBAL_TABLES = [
   // Cloud (ADR-173): the signup mode and the signup invites of the waves, before any org.
   'cloud_settings',
   'signup_invites',
-  // node-pg-migrate's bookkeeping; watchlog_app has no grant on it.
+  // node-pg-migrate's bookkeeping; watchlog_app has no grant on it. Enterprise modules'
+  // migrations (ADR-233) keep their own, present only with ee/.
   'pgmigrations',
+  'pgmigrations_ee',
+  // The columns Enterprise modules encrypt, for rotate-secret-key (ADR-233): table names only.
+  'module_secret_columns',
 ] as const;

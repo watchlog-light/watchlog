@@ -47,6 +47,11 @@ export const HEADLINES = {
   job_failed_exit:
     "{name}'s run {job} failed: its pods exited with code {exitCode} until it gave up.",
   job_failed: "{name}'s run {job} failed.",
+  // 0.16 (ADR-233): the network under the node or server.
+  network_port_down: '{name} fails since the switch port of {host} went down ({device} · {port}).',
+  network_device_rebooted: '{name} fails since {device}, the switch {host} is behind, rebooted.',
+  network_uplink_errors:
+    'The uplink of {device} is dropping packets, and {host} is behind it; that can slow {name}.',
   // ADR-187: the egress alerts' rule; `n` is the minutes from the change to the first connection.
   change_before_egress_image:
     'Started 1 minute after {name} was changed to image {image}. | Started {n} minutes after {name} was changed to image {image}.',

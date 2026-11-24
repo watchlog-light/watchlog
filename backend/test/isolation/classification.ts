@@ -43,9 +43,30 @@ const cloud: RouteClass = { kind: 'cloud' };
  * Routes of ee/'s modules (ADR-232), classified here but present only with ee/: the suite
  * checks them when they exist and doesn't miss them when ee/ is deleted.
  */
+const NETWORK = 'the network module is licensed in ee/backend/test/network.test.ts, not here: 404';
+const net: RouteClass = { kind: 'org', control: NETWORK };
 export const EE_ROUTES: Record<string, RouteClass> = {
-  // The placeholder (feature `network`): no org data at all.
-  'GET /api/v1/ee/placeholder': org,
+  // Network devices (ADR-233): every route behind the `network` feature, its rows by org.
+  'GET /api/v1/network/summary': net,
+  'GET /api/v1/network/devices': net,
+  'GET /api/v1/network/devices/:id': net,
+  'GET /api/v1/network/devices/:id/series': net,
+  'POST /api/v1/network/devices': net,
+  'PATCH /api/v1/network/devices/:id': net,
+  'DELETE /api/v1/network/devices/:id': net,
+  'POST /api/v1/network/devices/:id/accept-certificate': net,
+  'GET /api/v1/network/map': net,
+  'PUT /api/v1/network/map/layout': net,
+  'GET /api/v1/network/attachments': net,
+  'GET /api/v1/network/pollers': net,
+  'GET /api/v1/network/credentials': net,
+  'POST /api/v1/network/credentials': net,
+  'PATCH /api/v1/network/credentials/:id': net,
+  'DELETE /api/v1/network/credentials/:id': net,
+  'POST /api/v1/network/discoveries': net,
+  'GET /api/v1/network/discoveries/:id': net,
+  'GET /api/v1/network/setup-commands': net,
+  'POST /ingest/v1/network/report': ingest,
 };
 
 export const ROUTES: Record<string, RouteClass> = {

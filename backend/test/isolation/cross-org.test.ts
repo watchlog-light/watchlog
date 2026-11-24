@@ -1121,7 +1121,11 @@ describe('Row-Level Security (the second layer)', () => {
     const others = res.rows
       .map((r) => r.name)
       .filter((n) => !tables.includes(n) && n !== 'orgs' && !/^k8s_events_\d{8}$/.test(n));
-    expect(others.sort()).toEqual([...GLOBAL_TABLES].sort());
+    // pgmigrations_ee exists only with ee/ (ADR-233); the core without it has none.
+    const ee = others.includes('pgmigrations_ee');
+    expect(others.sort()).toEqual(
+      [...GLOBAL_TABLES].filter((t) => ee || t !== 'pgmigrations_ee').sort(),
+    );
   });
 
   it('a connection with no org setting sees no row of any tenant table', async () => {

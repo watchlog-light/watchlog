@@ -45,6 +45,8 @@ export const UsageView = Type.Object({
       hour: Type.String(),
       nodes: Type.Integer(),
       dockerHosts: Type.Integer(),
+      // Network devices (ADR-233): one unit each; in `total` and the p95.
+      devices: Type.Integer(),
       total: Type.Integer(),
     }),
   ),

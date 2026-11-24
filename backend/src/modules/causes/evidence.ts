@@ -395,6 +395,12 @@ export interface Evidence {
    * Service's on Kubernetes, the target's server's on Servers). Absent when not read.
    */
   certificates?: EvCertificate[];
+  /**
+   * 0.16 (ADR-233): the network module's events about the nodes or servers under the focus
+   * (a switch port down, an uplink dropping packets, the switch rebooted), newest first.
+   * Absent without the module or when none.
+   */
+  network?: EvEvent[];
 }
 
 /** A certificate as GET /clusters/:id/certificates lists it, as far as causes read it. */

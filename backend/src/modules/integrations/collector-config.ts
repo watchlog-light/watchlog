@@ -5,6 +5,7 @@
 import { createHash } from 'node:crypto';
 import type { Database } from '../../db/index.js';
 import { openAccess, type CollectorCredential } from './credentials.js';
+import { collectorSections } from './sections.js';
 
 export const INTEGRATION_TYPES = [
   'redis',
@@ -73,6 +74,8 @@ export interface CollectorConfig {
   scrape: { interval_s: number; heavy_every: number };
   targets: CollectorTarget[];
   probes: CollectorProbe[];
+  /** Enterprise modules' sections (ADR-233), only when there are some. */
+  modules?: Record<string, unknown>;
 }
 
 /** Scrape tiers (ADR-131): 15 s, heavy views (tables, statements, queues) every 30 s. */
@@ -159,6 +162,8 @@ export async function buildCollectorConfig(
   host: string,
   key: Buffer,
   now = new Date(),
+  /** The collector's org: with it, Enterprise modules add their sections. */
+  orgId?: string,
 ): Promise<CollectorConfig> {
   const [rows, probeRows] = await Promise.all([
     db
@@ -285,10 +290,12 @@ export async function buildCollectorConfig(
     requested: p.requested_at.toISOString(),
     ...credentialOf(p.id, p),
   }));
+  const modules = orgId ? await collectorSections({ orgId, clusterId, host }) : {};
   const body = {
     scrape: { interval_s: SCRAPE_INTERVAL_S, heavy_every: HEAVY_EVERY },
     targets: out,
     probes: probeOut,
+    ...(Object.keys(modules).length ? { modules } : {}),
   };
   const version = createHash('sha256').update(JSON.stringify(body)).digest('hex').slice(0, 32);
   return { version, ...body };
