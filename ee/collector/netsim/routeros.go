@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
@@ -230,6 +231,30 @@ func (r *RouterOS) NewCert() (string, error) {
 	r.mu.Unlock()
 	sum := sha256.Sum256(der)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+// StableCert gives the router the certificate a seed derives: an Ed25519 key from the seed's
+// SHA-256 and a fixed template, so the same seed gives the same certificate (and pin) after
+// every restart. The demo uses it: a new certificate would pause edge-1 as "certificate
+// changed", and nobody can accept one in demo mode. Not a secret: the simulator's only.
+func (r *RouterOS) StableCert(seed string) (string, error) {
+	sum := sha256.Sum256([]byte("netsim-routeros:" + seed))
+	key := ed25519.NewKeyFromSeed(sum[:])
+	tpl := &x509.Certificate{
+		SerialNumber: new(big.Int).SetBytes(sum[:8]), Subject: pkix.Name{CommonName: "edge-1"},
+		NotBefore: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), NotAfter: time.Date(2036, 1, 1, 0, 0, 0, 0, time.UTC),
+		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tpl, tpl, key.Public(), key)
+	if err != nil {
+		return "", err
+	}
+	r.mu.Lock()
+	r.cert = tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
+	r.mu.Unlock()
+	pin := sha256.Sum256(der)
+	return hex.EncodeToString(pin[:]), nil
 }
 
 func (r *RouterOS) tlsConfig() *tls.Config {

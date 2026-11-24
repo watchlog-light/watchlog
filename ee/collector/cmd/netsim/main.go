@@ -53,6 +53,7 @@ func main() {
 	dahuaPort := flag.Int("dahua-port", 0, "serve a Dahua recorder (nvr-1) on this HTTP port (0: none)")
 	dahuaUser := flag.String("dahua-user", "watchlog", "the recorder's user")
 	dahuaPassword := flag.String("dahua-password", "read-only-sample", "the recorder's password")
+	certSeed := flag.String("cert-seed", "", "derive the router's certificate from this seed: the same after a restart (the demo)")
 	flag.Parse()
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
@@ -122,6 +123,12 @@ func main() {
 	if *office {
 		router = netsim.Edge(start)
 		router.Clock = clock
+		if *certSeed != "" {
+			if _, err := router.StableCert(*certSeed); err != nil {
+				log.Error("cert", "err", err)
+				os.Exit(1)
+			}
+		}
 		rest, err := router.ServeREST(ctx, net.JoinHostPort(*listen, strconv.Itoa(*restPort)))
 		if err != nil {
 			log.Error("rest", "err", err)
