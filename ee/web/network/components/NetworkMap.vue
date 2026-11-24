@@ -139,10 +139,12 @@ const drawNodes = computed(() => {
   });
 });
 
+/** Labels share a slot with their neighbours: a long name is cut (the tooltip has it whole). */
+const LABEL_MAX = 16;
 function nodeName(n: MapNode): string {
   if (n.type === 'internet') return t('netMap.internet');
   if (n.type === 'group') return t('netMap.more', { n: n.behind });
-  return n.name;
+  return n.name.length > LABEL_MAX ? `${n.name.slice(0, LABEL_MAX - 1)}…` : n.name;
 }
 const TONE_TEXT: Record<Tone, string> = {
   ok: 'text-ok-text',
