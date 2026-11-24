@@ -176,4 +176,10 @@ export interface EeBackendModule {
    * (host.alerts.register, host.registerUnitSource). Its routes aren't registered there.
    */
   worker?(host: EeHost): Promise<void>;
+  /**
+   * The seed file's `modules.<name>` (ADR-142's seed, for the demo): applied to the first org
+   * at start and every minute (its clusters and collectors may come later); it must be
+   * idempotent and answer what is still missing.
+   */
+  seed?(host: EeHost, orgId: string, section: unknown): Promise<{ pending: boolean }>;
 }

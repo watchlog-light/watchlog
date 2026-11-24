@@ -516,6 +516,44 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     app.addHook('onClose', async () => clearInterval(seeding));
   }
 
+  // Enterprise modules' seed sections (ADR-233, the demo's network devices): tried on start
+  // and every minute until each says nothing is pending.
+  const moduleSeeds = eeModules.filter((m) => m.seed && deps.seed?.modules?.[m.name] !== undefined);
+  if (moduleSeeds.length) {
+    const pending = new Set(moduleSeeds.map((m) => m.name));
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const run = async () => {
+      const org = await systemDb
+        .selectFrom('orgs')
+        .select('id')
+        .orderBy('created_at')
+        .limit(1)
+        .executeTakeFirst();
+      if (!org) return;
+      for (const m of moduleSeeds) {
+        if (!pending.has(m.name)) continue;
+        try {
+          const r = await m.seed!(ee, org.id, deps.seed!.modules![m.name]);
+          if (!r.pending) pending.delete(m.name);
+        } catch (err) {
+          app.log.error(
+            { err: (err as Error).message, module: m.name },
+            'seed: module not applied',
+          );
+        }
+      }
+      if (!pending.size) clearInterval(timer);
+    };
+    app.addHook('onReady', async () => {
+      await run();
+      if (pending.size) {
+        timer = setInterval(() => void run(), 60_000);
+        timer.unref();
+      }
+    });
+    app.addHook('onClose', async () => clearInterval(timer));
+  }
+
   // The worker's in-process app serves reads only; the backend maintains the partitions.
   if (deps.serviceReads) return app;
   // Event partitions (ADR-061): on start, then every 6 hours.

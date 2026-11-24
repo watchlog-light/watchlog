@@ -76,6 +76,13 @@ export const SeedSchema = Type.Object(
     /** Services to monitor once the agents report them (ADR-142): seed/services.ts. */
     services: Type.Optional(Type.Array(SeedServiceSchema, { maxItems: 100 })),
     demoMcp: Type.Optional(SeedDemoMcpSchema),
+    /**
+     * Enterprise modules' sections (ADR-233), by module name: each module checks its own
+     * (the demo's network devices). Ignored without ee/.
+     */
+    modules: Type.Optional(
+      Type.Record(Type.String({ pattern: '^[a-z][a-z0-9-]*$' }), Type.Unknown()),
+    ),
   },
   { additionalProperties: false },
 );

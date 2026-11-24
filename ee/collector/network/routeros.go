@@ -115,6 +115,12 @@ func DialROS(ctx context.Context, address string, c *ROSCred) (ROS, error) {
 	if c == nil {
 		return nil, errors.New("no RouterOS credential")
 	}
+	// An address with its own port ("10.0.0.1:8443") is the transport's port.
+	if h, p, ok := hostPort(address); ok {
+		cc := *c
+		cc.Port = int(p)
+		address, c = h, &cc
+	}
 	switch c.Transport {
 	case "api":
 		if !c.AllowPlain {

@@ -40,11 +40,24 @@ func Read(sysRoot, procRoot string) []NIC {
 		return nil
 	}
 	addrs := ipv4ByIface(procRoot)
+	// A node or server that is itself a container (kind, k3d, LXC) has no physical port: its
+	// default route's interface is the one a switch sees (its veth's MAC on the bridge).
+	keep := map[string]bool{}
+	for _, e := range entries {
+		if physical(filepath.Join(base, e.Name()), e.Name()) {
+			keep[e.Name()] = true
+		}
+	}
+	if len(keep) == 0 {
+		if d := defaultIface(procRoot); d != "" {
+			keep[d] = true
+		}
+	}
 	var out []NIC
 	for _, e := range entries {
 		name := e.Name()
 		dir := filepath.Join(base, name)
-		if !physical(dir, name) {
+		if !keep[name] {
 			continue
 		}
 		mac := strings.TrimSpace(readFile(filepath.Join(dir, "address")))
@@ -63,6 +76,20 @@ func Read(sysRoot, procRoot string) []NIC {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
+}
+
+// defaultIface is the interface of the IPv4 default route (” when there is none).
+func defaultIface(procRoot string) string {
+	for i, line := range strings.Split(readFile(filepath.Join(procRoot, "1", "net", "route")), "\n") {
+		f := strings.Fields(line)
+		if i == 0 || len(f) < 2 {
+			continue
+		}
+		if f[1] == "00000000" {
+			return f[0]
+		}
+	}
+	return ""
 }
 
 // physical keeps ports with a device behind them and bonds; containers' veths, bridges,

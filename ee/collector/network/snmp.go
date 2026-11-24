@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,6 +59,10 @@ func Dial(address string, c *SNMPCred, v3Context, community string) (Reader, err
 	if c.Port > 0 && c.Port < 65536 {
 		port = uint16(c.Port)
 	}
+	// An address with its own port ("10.0.0.2:1161", a device behind NAT or a simulator).
+	if h, p, ok := hostPort(address); ok {
+		address, port = h, p
+	}
 	g := &gosnmp.GoSNMP{
 		Target:             address,
 		Port:               port,
@@ -104,6 +110,19 @@ func Dial(address string, c *SNMPCred, v3Context, community string) (Reader, err
 		return nil, err
 	}
 	return &session{g: g}, nil
+}
+
+// hostPort splits "host:port" (and "[v6]:port"); false for a bare host or IPv6 address.
+func hostPort(address string) (string, uint16, bool) {
+	h, p, err := net.SplitHostPort(address)
+	if err != nil {
+		return "", 0, false
+	}
+	n, err := strconv.Atoi(p)
+	if err != nil || n <= 0 || n > 65535 {
+		return "", 0, false
+	}
+	return h, uint16(n), true
 }
 
 func authProto(s string) (gosnmp.SnmpV3AuthProtocol, error) {

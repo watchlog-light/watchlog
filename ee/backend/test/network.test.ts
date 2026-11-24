@@ -551,3 +551,52 @@ describe('a network polled from a server of a fleet', () => {
     expect((await config('web-2')).modules.network.devices).toHaveLength(1);
   });
 });
+
+describe('the seed (the demo)', () => {
+  it('adds the declared profiles and devices once, pending until the place exists', async () => {
+    const { call } = await app(['network']);
+    const { network } = await import('../src/network/index.js');
+    const section = {
+      credentials: [
+        {
+          name: 'office',
+          protocol: 'snmp',
+          settings: { version: '2c' },
+          secret: { community: 'public' },
+        },
+      ],
+      devices: [
+        {
+          name: 'core-1',
+          address: 'netsim.netsim.svc:1161',
+          credential: 'office',
+          clusterKind: 'kubernetes',
+        },
+      ],
+    };
+    const orgId = (await ctx!.db.selectFrom('orgs').select('id').executeTakeFirstOrThrow()).id;
+    const { eeHost } = await import('../../../backend/src/ee.js');
+    const h = eeHost(
+      { edition: 'community', demoMode: false },
+      { current: async () => ({ check: null }) } as never,
+      null,
+      { info: () => {}, warn: () => {}, error: () => {} },
+      {
+        db: ctx!.db,
+        systemDb: ctx!.db,
+        secretKey: Buffer.alloc(32, 7),
+        victoria: null,
+        notifier: null,
+        eventsRetentionDays: 15,
+      },
+    );
+    expect(await network.seed!(h, orgId, section)).toEqual({ pending: true });
+    await call('POST', '/clusters', { name: 'demo', kind: 'kubernetes' });
+    expect(await network.seed!(h, orgId, section)).toEqual({ pending: false });
+    expect(await network.seed!(h, orgId, section)).toEqual({ pending: false });
+    const devices = (await call('GET', '/network/devices')).json().devices;
+    expect(devices.map((d: { name: string; address: string }) => `${d.name} ${d.address}`)).toEqual(
+      ['core-1 netsim.netsim.svc:1161'],
+    );
+  });
+});

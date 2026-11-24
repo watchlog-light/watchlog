@@ -6,6 +6,7 @@ import { networkRules } from './alerts.js';
 import { FEATURE, networkSection } from './collector.js';
 import { registerNetworkIngest } from './ingest.js';
 import { registerNetworkRoutes } from './routes.js';
+import { seedNetwork } from './seed.js';
 
 /** A device is one unit, like a node or a server; an access point a controller manages is free. */
 function registerShared(host: EeHost): void {
@@ -39,4 +40,5 @@ export const network: EeBackendModule = {
   async worker(host) {
     registerShared(host);
   },
+  seed: seedNetwork,
 };

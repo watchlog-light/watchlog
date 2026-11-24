@@ -78,3 +78,18 @@ func TestRead(t *testing.T) {
 		t.Fatal("a missing /sys gives nothing")
 	}
 }
+
+// A node that is a container (k3d, kind): no physical port, so its default route's veth.
+func TestReadContainerNode(t *testing.T) {
+	sys, proc := t.TempDir(), t.TempDir()
+	net := filepath.Join(sys, "class", "net")
+	write(t, filepath.Join(net, "eth0", "address"), "02:42:ac:12:00:03\n")
+	write(t, filepath.Join(net, "eth0", "operstate"), "up\n")
+	write(t, filepath.Join(net, "cni0", "address"), "02:42:ac:12:00:99\n")
+	write(t, filepath.Join(net, "lo", "address"), "00:00:00:00:00:00\n")
+	write(t, filepath.Join(proc, "1", "net", "route"), "Iface\tDestination\tGateway\nethX\t000011AC\t00000000\neth0\t00000000\t010012AC\n")
+	got := Read(sys, proc)
+	if len(got) != 1 || got[0].Name != "eth0" || got[0].MAC != "02:42:ac:12:00:03" || !got[0].Up {
+		t.Fatalf("got %+v", got)
+	}
+}
