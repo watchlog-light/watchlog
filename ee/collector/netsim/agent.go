@@ -168,6 +168,9 @@ func (a *Agent) pdu(oid string, now time.Time) gosnmp.SnmpPDU {
 	secs := now.Sub(start).Seconds()
 	switch v.Type {
 	case gosnmp.TimeTicks:
+		if v.V != nil {
+			return gosnmp.SnmpPDU{Name: "." + oid, Type: gosnmp.TimeTicks, Value: v.V}
+		}
 		return gosnmp.SnmpPDU{Name: "." + oid, Type: gosnmp.TimeTicks, Value: uint32(uint64(secs*100) % (1 << 32))}
 	case gosnmp.Counter32:
 		n := math.Mod(v.Base+v.Rate*secs, 1<<32)

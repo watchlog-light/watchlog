@@ -101,6 +101,10 @@ func Build(s Spec, start time.Time) *Agent {
 		s.VLANs = []int{1, 10, 20}
 	}
 	switch s.Model {
+	case "QNAP":
+		return QNAP(s.Name, start)
+	case "UPS":
+		return UPS(s.Name, start, false)
 	case "Catalyst3850":
 		if s.Members == 0 {
 			s.Members = 1

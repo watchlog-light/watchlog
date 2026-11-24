@@ -28,12 +28,14 @@ type Device struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Address string `json:"address"`
-	// Protocol is "snmp" or "routeros".
+	// Protocol is "snmp", "routeros" or "dahua".
 	Protocol string `json:"protocol"`
 	// Profile is a profile's name, or "" to match one from sysObjectID and sysDescr.
 	Profile  string    `json:"profile,omitempty"`
 	SNMP     *SNMPCred `json:"snmp,omitempty"`
 	RouterOS *ROSCred  `json:"routeros,omitempty"`
+	// Dahua is an NVR's HTTP API login (protocol "dahua", 0.17).
+	Dahua *DahuaCred `json:"dahua,omitempty"`
 	// Paused devices aren't polled (a changed certificate waiting for an Owner).
 	Paused bool `json:"paused,omitempty"`
 	// Linked are the ports the backend knows a link or a WatchLog node or server behind:
@@ -79,6 +81,22 @@ func (ROSCred) String() string { return "routeros-credential(redacted)" }
 
 // LogValue keeps a credential out of structured logs.
 func (ROSCred) LogValue() slog.Value { return slog.StringValue("routeros-credential(redacted)") }
+
+// DahuaCred is a Dahua recorder's read-only user (HTTP digest), over HTTP or HTTPS. With
+// HTTPS the certificate is pinned on first contact, as RouterOS's is.
+type DahuaCred struct {
+	User     string `json:"user"`
+	Password string `json:"password"`
+	HTTPS    bool   `json:"https,omitempty"`
+	Port     int    `json:"port,omitempty"`
+	Pin      string `json:"pin,omitempty"`
+}
+
+// String keeps a credential out of any log line.
+func (DahuaCred) String() string { return "dahua-credential(redacted)" }
+
+// LogValue keeps a credential out of structured logs.
+func (DahuaCred) LogValue() slog.Value { return slog.StringValue("dahua-credential(redacted)") }
 
 // Discovery is one "find the devices" request from the Add page: try each seed and each
 // address of a range with each credential, and follow CDP, LLDP and MNDP from the seeds.

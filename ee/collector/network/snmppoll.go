@@ -59,6 +59,9 @@ func pollSNMP(ctx context.Context, dial DialFunc, profiles Profiles, dev Device,
 		st.prof = profiles[dev.Profile]
 		if st.prof == nil {
 			st.prof = profiles.For(sys.ObjectID, sys.Descr)
+			if st.prof.Name == "generic" {
+				st.prof = probe(ctx, r, profiles, st.prof)
+			}
 		}
 	}
 	p := st.prof
@@ -79,9 +82,29 @@ func pollSNMP(ctx context.Context, dial DialFunc, profiles Profiles, dev Device,
 	if p.Stack != nil && p.Stack.Number != "" {
 		health.Stack = readStack(ctx, r, p)
 	}
+	// A NAS's storage and a UPS's power (0.17).
+	if p.NAS != nil {
+		rep.NAS = readNAS(ctx, r, p.NAS, sys, health)
+		samples = append(samples, nasSamples(dev.ID, rep.NAS)...)
+	}
+	if p.UPS != nil {
+		rep.UPS = readUPS(ctx, r, p.UPS, sys)
+		samples = append(samples, upsSamples(dev.ID, rep.UPS)...)
+	}
 	rep.System, rep.Health, rep.State = sys, health, StateOK
 	samples = append(samples, deviceSamples(dev.ID, sys, health)...)
 	return rep, samples
+}
+
+// probe tries the profiles that have a probe OID: the first whose OID answers.
+func probe(ctx context.Context, r Reader, ps Profiles, fallback *Profile) *Profile {
+	for _, p := range ps.Probed() {
+		vs, err := r.Get(ctx, []string{p.Match.Probe})
+		if err == nil && len(vs) > 0 {
+			return p
+		}
+	}
+	return fallback
 }
 
 func stateOf(err error) string {

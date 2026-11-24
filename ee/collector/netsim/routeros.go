@@ -42,6 +42,7 @@ type RouterOS struct {
 	cert    tls.Certificate
 	Writes  atomic.Int64 // requests that weren't reads
 	Version string
+	caps    *capsman
 }
 
 type rosIface struct {
@@ -107,6 +108,8 @@ func Edge(start time.Time) *RouterOS {
 	add("sfp-sfpplus2", "ether", "ISP", true, "10Gbps", 25_000_000, 6_000_000, true)
 	add("bridge1", "bridge", "", true, "", 0, 0, false)
 	add("vlan150", "vlan", "Wi-Fi", true, "", 0, 0, false)
+	// The APs, managed by this router's CAPsMAN (0.17).
+	r.caps = &capsman{down: map[string]bool{}}
 	return r
 }
 
@@ -158,6 +161,9 @@ func (r *RouterOS) menu(path string) ([]map[string]string, bool) {
 			}
 		}
 		return out, true
+	}
+	if rows, ok := r.wifiMenu(path, r.now()); ok {
+		return rows, true
 	}
 	rows, ok := r.menus[path]
 	return rows, ok

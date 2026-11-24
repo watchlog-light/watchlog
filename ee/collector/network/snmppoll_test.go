@@ -91,7 +91,7 @@ func TestPollCatalystOverSNMP(t *testing.T) {
 	for _, m := range inv.MACs {
 		vlans[m.VLAN]++
 	}
-	if vlans[10] != 1 || vlans[20] != 6 {
+	if vlans[10] != 2 || vlans[20] != 6 || vlans[150] != 2 {
 		t.Fatalf("MACs by VLAN %v (%+v)", vlans, inv.MACs)
 	}
 	if len(inv.ARP) == 0 {

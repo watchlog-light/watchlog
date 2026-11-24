@@ -206,6 +206,9 @@ func pollROS(ctx context.Context, dial ROSDialFunc, p *Profile, dev Device, st *
 		st.busy = busy
 		rep.Inventory = inv
 	}
+	// CAPsMAN (0.17): the APs and their clients, every round.
+	rep.Wireless = readWireless(ctx, c)
+	samples = append(samples, wirelessSamples(dev.ID, rep.Wireless)...)
 	rep.System, rep.Health, rep.State = sys, h, StateOK
 	samples = append(samples, deviceSamples(dev.ID, sys, h)...)
 	return rep, samples

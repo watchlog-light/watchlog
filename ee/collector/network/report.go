@@ -36,6 +36,11 @@ type DeviceReport struct {
 	System      *System    `json:"system,omitempty"`
 	Health      *Health    `json:"health,omitempty"`
 	Inventory   *Inventory `json:"inventory,omitempty"`
+	// 0.17 (ADR-234): what a controller, a NAS, a recorder or a UPS adds.
+	Wireless *Wireless `json:"wireless,omitempty"`
+	NAS      *NAS      `json:"nas,omitempty"`
+	Recorder *Recorder `json:"recorder,omitempty"`
+	UPS      *UPS      `json:"ups,omitempty"`
 }
 
 // System is what identifies the device and how long it has been up.
@@ -50,6 +55,9 @@ type System struct {
 	Serial   string `json:"serial,omitempty"`
 	Firmware string `json:"firmware,omitempty"`
 	Kind     string `json:"kind,omitempty"`
+	// MAC is the device's own address, for the switch port it is behind (0.17): a NAS's or a
+	// UPS card's from IF-MIB, a recorder's from its network config.
+	MAC string `json:"mac,omitempty"`
 	// Update is RouterOS's channel and whether a newer version is there.
 	Update *Update `json:"update,omitempty"`
 }
@@ -191,4 +199,164 @@ type Found struct {
 	Answered     bool   `json:"answered"`
 	Error        string `json:"error,omitempty"`
 	ViaNeighbour string `json:"viaNeighbour,omitempty"`
+}
+
+// Wireless is what a CAPsMAN controller (a RouterOS router) says about its access points and
+// their clients (0.17, ADR-234), read every round. Clients are rows, never series labels.
+type Wireless struct {
+	// Generations read: "wifi" (/interface/wifi/capsman) and/or "legacy" (/caps-man).
+	Generations []string     `json:"generations"`
+	APs         []AP         `json:"aps"`
+	Clients     []WifiClient `json:"clients"`
+	// Mesh is the wireless backhaul between APs (wifi mesh or WDS).
+	Mesh []MeshLink `json:"mesh,omitempty"`
+}
+
+// AP is one access point CAPsMAN manages.
+type AP struct {
+	// Name is the CAP's identity; MAC its base MAC (to find its switch port).
+	Name       string  `json:"name"`
+	MAC        string  `json:"mac,omitempty"`
+	Address    string  `json:"address,omitempty"`
+	Model      string  `json:"model,omitempty"`
+	Serial     string  `json:"serial,omitempty"`
+	Version    string  `json:"version,omitempty"`
+	State      string  `json:"state"` // running, disconnected, provisioning-failed
+	UptimeS    int64   `json:"uptimeS,omitempty"`
+	Generation string  `json:"generation"`
+	Radios     []Radio `json:"radios"`
+}
+
+// Radio is one of an AP's interfaces.
+type Radio struct {
+	Interface  string   `json:"interface"`
+	SSID       string   `json:"ssid,omitempty"`
+	Band       string   `json:"band,omitempty"` // 2ghz-ax, 5ghz-ac, ...
+	Channel    int      `json:"channel,omitempty"`
+	FrequencyM int      `json:"frequencyMhz,omitempty"`
+	TxPowerDBm *float64 `json:"txPowerDbm,omitempty"`
+	NoiseDBm   *float64 `json:"noiseDbm,omitempty"`
+	Clients    int      `json:"clients"`
+	Running    bool     `json:"running"`
+}
+
+// WifiClient is one station in a registration table.
+type WifiClient struct {
+	MAC       string   `json:"mac"`
+	AP        string   `json:"ap"`
+	Interface string   `json:"interface,omitempty"`
+	SSID      string   `json:"ssid,omitempty"`
+	Band      string   `json:"band,omitempty"`
+	SignalDBm *float64 `json:"signalDbm,omitempty"`
+	TxRate    string   `json:"txRate,omitempty"`
+	RxRate    string   `json:"rxRate,omitempty"`
+	UptimeS   int64    `json:"uptimeS,omitempty"`
+	BytesTx   float64  `json:"bytesTx,omitempty"`
+	BytesRx   float64  `json:"bytesRx,omitempty"`
+}
+
+// MeshLink is a wireless backhaul between two APs.
+type MeshLink struct {
+	From      string   `json:"from"`
+	To        string   `json:"to"`
+	SignalDBm *float64 `json:"signalDbm,omitempty"`
+	Rate      string   `json:"rate,omitempty"`
+}
+
+// NAS is a storage device's disks, volumes, LUNs and iSCSI targets (QNAP's NAS-MIB, 0.17).
+type NAS struct {
+	Disks   []Disk        `json:"disks"`
+	Volumes []Volume      `json:"volumes"`
+	Pools   []Volume      `json:"pools,omitempty"`
+	LUNs    []LUN         `json:"luns"`
+	Targets []ISCSITarget `json:"targets,omitempty"`
+}
+
+// Disk is one physical disk.
+type Disk struct {
+	Index    int      `json:"index"`
+	Name     string   `json:"name,omitempty"`
+	Model    string   `json:"model,omitempty"`
+	Capacity float64  `json:"capacity,omitempty"`
+	Celsius  *float64 `json:"celsius,omitempty"`
+	// SMART: good, warning, abnormal, error, unknown. Status: ready, no-disk, rw-error, ...
+	SMART  string `json:"smart"`
+	Status string `json:"status"`
+}
+
+// Volume is a volume (or a storage pool) with its use and state.
+type Volume struct {
+	Name   string  `json:"name"`
+	Total  float64 `json:"total"`
+	Free   float64 `json:"free"`
+	Status string  `json:"status"` // ready, degraded, rebuilding, ... (as the NAS says)
+	RAID   string  `json:"raid,omitempty"`
+}
+
+// LUN is an iSCSI LUN.
+type LUN struct {
+	Name        string   `json:"name"`
+	Capacity    float64  `json:"capacity"`
+	UsedPercent *float64 `json:"usedPercent,omitempty"`
+	Status      string   `json:"status,omitempty"`
+	Mapped      bool     `json:"mapped"`
+}
+
+// ISCSITarget is a target and whether an initiator is connected.
+type ISCSITarget struct {
+	Name      string `json:"name"`
+	IQN       string `json:"iqn,omitempty"`
+	Connected bool   `json:"connected"`
+	Status    string `json:"status,omitempty"`
+}
+
+// Recorder is an NVR's own view (Dahua's HTTP API, 0.17): its disks, cameras and events.
+type Recorder struct {
+	Disks   []RecorderDisk `json:"disks"`
+	Cameras []Camera       `json:"cameras"`
+	// Events are the attach stream's events since the last round, and Active what is still on
+	// (Start without Stop): StorageFailure, StorageNotExist, StorageLowSpace, RecordFailure,
+	// NetAbort, VideoLoss (per channel).
+	Events []RecorderEvent `json:"events,omitempty"`
+	Active []RecorderEvent `json:"active,omitempty"`
+	// Stream says whether the event stream is connected now.
+	Stream bool `json:"stream"`
+}
+
+// RecorderDisk is one of the recorder's disks, local or iSCSI.
+type RecorderDisk struct {
+	Name    string  `json:"name"`
+	ISCSI   bool    `json:"iscsi"`
+	State   string  `json:"state"` // the recorder's word ("Success" is healthy)
+	Healthy bool    `json:"healthy"`
+	Total   float64 `json:"total"`
+	Used    float64 `json:"used"`
+}
+
+// Camera is one channel.
+type Camera struct {
+	Channel int    `json:"channel"`
+	Name    string `json:"name,omitempty"`
+	Online  bool   `json:"online"`
+}
+
+// RecorderEvent is one event from the stream.
+type RecorderEvent struct {
+	Code   string `json:"code"`
+	Action string `json:"action"` // Start, Stop, Pulse
+	Index  int    `json:"index"`
+	At     int64  `json:"at"`
+}
+
+// UPS is a UPS's state (RFC 1628 UPS-MIB or APC PowerNet-MIB, 0.17).
+type UPS struct {
+	// Status: online, on-battery, bypass, off, unknown.
+	Status         string   `json:"status"`
+	ChargePercent  *float64 `json:"chargePercent,omitempty"`
+	RuntimeS       *float64 `json:"runtimeS,omitempty"`
+	LoadPercent    *float64 `json:"loadPercent,omitempty"`
+	InputVolts     *float64 `json:"inputVolts,omitempty"`
+	OutputVolts    *float64 `json:"outputVolts,omitempty"`
+	Celsius        *float64 `json:"celsius,omitempty"`
+	ReplaceBattery bool     `json:"replaceBattery"`
 }

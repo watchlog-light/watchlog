@@ -22,6 +22,7 @@ func Office(nodes []Endpoint) []Spec {
 	}
 	a2 := Spec{
 		Name: "sw-access-2", Model: "Catalyst3850", Ports: 48, Uplinks: 4, Members: 2, Up: 0.4, Address: "10.0.0.12",
+		VLANs:      []int{1, 10, 20, 150},
 		Neighbours: []Neighbour{{Port: "Te1/1/1", RemoteName: "core-1", RemotePort: "Ethernet1/48", RemoteAddr: "10.0.0.2", Platform: "N3K-C3064PQ-10GX"}},
 	}
 	for i, n := range nodes {
@@ -44,8 +45,22 @@ func Office(nodes []Endpoint) []Spec {
 			a2.Endpoints = append(a2.Endpoints, e)
 		}
 	}
-	return []Spec{core, a1, a2}
+	// 0.17: the NAS and a UPS behind sw-access-1, the recorder and two APs behind
+	// sw-access-2 (ap-warehouse hangs off ap-office over Wi-Fi).
+	a1.Endpoints = append(a1.Endpoints,
+		Endpoint{Port: "Gi1/0/20", MAC: MACString("nas-1", 2), VLAN: 10, IP: "10.0.10.40"},
+		Endpoint{Port: "Gi1/0/21", MAC: MACString("ups-1", 2), VLAN: 10, IP: "10.0.10.41"},
+	)
+	a2.Endpoints = append(a2.Endpoints,
+		Endpoint{Port: "Gi1/0/40", MAC: NVRMAC, VLAN: 10, IP: "10.0.10.50"},
+		Endpoint{Port: "Gi1/0/44", MAC: simAPs[0].mac, VLAN: 150, IP: simAPs[0].addr},
+		Endpoint{Port: "Gi1/0/46", MAC: simAPs[1].mac, VLAN: 150, IP: simAPs[1].addr},
+	)
+	return []Spec{core, a1, a2, {Name: "nas-1", Model: "QNAP"}, {Name: "ups-1", Model: "UPS"}}
 }
+
+// NVRMAC is the simulated recorder's own MAC address (its network config says so).
+const NVRMAC = "3c:ef:8c:00:00:01"
 
 // Fleet is n 52-port access switches (48 copper, 4 SFP+), the budget run's load.
 func Fleet(n int) []Spec {

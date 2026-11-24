@@ -9,7 +9,7 @@ func TestProfilesLoadAndMatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, n := range []string{"generic", "cisco-ios", "cisco-nxos", "mikrotik"} {
+	for _, n := range []string{"generic", "cisco-ios", "cisco-nxos", "mikrotik", "qnap", "ups-mib", "apc-ups"} {
 		if ps[n] == nil {
 			t.Fatalf("profile %s missing", n)
 		}
@@ -20,7 +20,9 @@ func TestProfilesLoadAndMatch(t *testing.T) {
 		{"1.3.6.1.4.1.9.1.2134", "Cisco IOS Software [Amsterdam], Catalyst L3 Switch Software (CAT3K_CAA-UNIVERSALK9-M), Version 16.12.9", "cisco-ios"},
 		{"1.3.6.1.4.1.9.12.3.1.3.1106", "Cisco NX-OS(tm) n3000, Software (n3000-uk9), Version 7.0(3)I7(9)", "cisco-nxos"},
 		{".1.3.6.1.4.1.14988.1", "RouterOS CCR2004-16G-2S+", "mikrotik"},
-		{"1.3.6.1.4.1.8072.3.2.10", "Linux nas-1 5.10.60-qnap", "generic"},
+		{"1.3.6.1.4.1.8072.3.2.10", "Linux nas-1 5.10.60-qnap", "qnap"},
+		{"1.3.6.1.4.1.8072.3.2.10", "Linux web-1 6.1.0", "generic"},
+		{"1.3.6.1.4.1.318.1.3.27", "APC Web/SNMP Management Card", "apc-ups"},
 	}
 	for _, c := range cases {
 		if got := ps.For(c.oid, c.descr); got.Name != c.want {

@@ -46,6 +46,9 @@ type Profile struct {
 	Stack        *StackOIDs      `yaml:"stack"`
 	// RouterOS lists what the RouterOS reader asks for (MikroTik): the only paths it reads.
 	RouterOS *ROSPaths `yaml:"routeros"`
+	// NAS and UPS (0.17, ADR-234): a storage device's disks, volumes and LUNs; a UPS's power.
+	NAS *NASOIDs `yaml:"nas"`
+	UPS *UPSOIDs `yaml:"ups"`
 	// Lacks lists what the family doesn't have, for the docs and the ADR.
 	Lacks []string `yaml:"lacks"`
 }
@@ -55,6 +58,9 @@ type Match struct {
 	SysObjectID []string `yaml:"sysObjectID"`
 	SysDescr    []string `yaml:"sysDescr"`
 	NotSysDescr []string `yaml:"notSysDescr"`
+	// Probe is an OID that answers only on this kind of device (QNAP's model name, UPS-MIB's
+	// identity): tried when no sysObjectID matches, as a QNAP or a UPS card may say "Linux".
+	Probe string `yaml:"probe"`
 }
 
 // SystemOIDs are SNMPv2-MIB's system group.
@@ -220,6 +226,63 @@ type ROSPaths struct {
 	VLANs       string `yaml:"vlans"`
 }
 
+// Column is one column of a table: its OID, and how to read it.
+type Column struct {
+	OID string `yaml:"oid"`
+	// States maps an integer value to WatchLog's word; Scale multiplies a number.
+	States map[int]string `yaml:"states"`
+	Scale  float64        `yaml:"scale"`
+}
+
+// NASTable is a table read column by column, rows by index.
+type NASTable struct {
+	Name     Column `yaml:"name"`
+	Model    Column `yaml:"model"`
+	Celsius  Column `yaml:"celsius"`
+	SMART    Column `yaml:"smart"`
+	Status   Column `yaml:"status"`
+	Capacity Column `yaml:"capacity"`
+	Total    Column `yaml:"total"`
+	Free     Column `yaml:"free"`
+	Used     Column `yaml:"usedPercent"`
+	RAID     Column `yaml:"raid"`
+	Mapped   Column `yaml:"mapped"`
+	IQN      Column `yaml:"iqn"`
+	Speed    Column `yaml:"speed"`
+}
+
+// NASOIDs are a storage device's tables: the newer ones first, the older as a fallback.
+type NASOIDs struct {
+	Model       string     `yaml:"model"`
+	CPUCelsius  string     `yaml:"cpuCelsius"`
+	SysCelsius  string     `yaml:"systemCelsius"`
+	Disks       []NASTable `yaml:"disks"`
+	Volumes     []NASTable `yaml:"volumes"`
+	Pools       []NASTable `yaml:"pools"`
+	RAID        []NASTable `yaml:"raid"`
+	LUNs        []NASTable `yaml:"luns"`
+	Targets     []NASTable `yaml:"targets"`
+	Fans        []NASTable `yaml:"fans"`
+	PowerSupply []NASTable `yaml:"powerSupplies"`
+}
+
+// UPSOIDs read a UPS (RFC 1628 UPS-MIB or APC PowerNet-MIB).
+type UPSOIDs struct {
+	Model       Column `yaml:"model"`
+	Status      Column `yaml:"status"`
+	Charge      Column `yaml:"charge"`
+	Runtime     Column `yaml:"runtime"` // scaled to seconds
+	Load        Column `yaml:"load"`
+	InputVolts  Column `yaml:"inputVolts"`
+	OutputVolts Column `yaml:"outputVolts"`
+	Celsius     Column `yaml:"celsius"`
+	// Replace: a scalar whose States say "replace", or an alarm table whose values include
+	// ReplaceAlarm (UPS-MIB's upsAlarmBatteryBad).
+	Replace      Column `yaml:"replace"`
+	AlarmTable   string `yaml:"alarmTable"`
+	ReplaceAlarm string `yaml:"replaceAlarm"`
+}
+
 // Profiles is the loaded set, each merged with what it extends.
 type Profiles map[string]*Profile
 
@@ -326,6 +389,12 @@ func merged(raw map[string]*Profile, name string, depth int) (*Profile, error) {
 	if out.RouterOS == nil {
 		out.RouterOS = parent.RouterOS
 	}
+	if out.NAS == nil {
+		out.NAS = parent.NAS
+	}
+	if out.UPS == nil {
+		out.UPS = parent.UPS
+	}
 	return &out, nil
 }
 
@@ -357,6 +426,18 @@ func (ps Profiles) For(objectID, descr string) *Profile {
 		return ps["generic"]
 	}
 	return best
+}
+
+// Probed returns the profiles that have a probe, by name (for a device no sysObjectID matched).
+func (ps Profiles) Probed() []*Profile {
+	var out []*Profile
+	for _, p := range ps {
+		if p.Match.Probe != "" {
+			out = append(out, p)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
 }
 
 func descrAllows(m Match, descr string) bool {
