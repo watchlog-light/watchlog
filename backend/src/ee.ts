@@ -21,6 +21,7 @@ import { ensureDefaultRules, registerModuleRules } from './modules/alerts/rules.
 import { moduleRules } from './modules/alerts/module-rules.js';
 import { clustersForOrg } from './modules/clusters/service.js';
 import { recordEvent } from './modules/events/record.js';
+import { usualBands, usualWindow, type UsualBand } from './modules/anomaly/usual.js';
 import { useNetworkEvidence } from './modules/causes/gather.js';
 import type { ConfigNotifier } from './modules/integrations/notifier.js';
 import { registerCollectorSection } from './modules/integrations/sections.js';
@@ -126,6 +127,7 @@ export function eeHost(
           },
         }
       : null,
+    baseline: { bands: bandsReader(deps) },
     collector: {
       registerSection: registerCollectorSection,
       notify: (clusterId) => deps.notifier?.notify(clusterId),
@@ -142,6 +144,37 @@ export function eeHost(
       config.edition === 'cloud' || config.demoMode
         ? null
         : closedSince(license, deps.systemDb, (deps.now ?? Date.now)()),
+  };
+}
+
+/** Five-minute points: 4,032 per series over the 14 days. */
+const BAND_STEP_S = 300;
+const BAND_CACHE_MAX = 2000;
+
+/**
+ * The usual bands of a series (ADR-234), the window read once an hour per series: a recorder's
+ * card and its alert ask every minute.
+ */
+function bandsReader(deps: EeHostDeps): EeHost['baseline']['bands'] {
+  const cache = new Map<string, { at: number; points: Array<[number, number]> }>();
+  return async (orgId, clusterIds, expr, from, to, unit) => {
+    if (!deps.victoria) return [];
+    const { start, end } = usualWindow(to);
+    const key = `${orgId}|${[...clusterIds].sort().join(',')}|${expr}`;
+    let hit = cache.get(key);
+    if (!hit || hit.at !== end) {
+      const scope = await orgScope(deps.systemDb, orgId, clusterIds);
+      const series = scope
+        ? await deps.victoria.queryRange(scope, expr, start / 1000, end / 1000, BAND_STEP_S)
+        : [];
+      const points: Array<[number, number]> = [];
+      for (const s of series)
+        for (const [t, v] of s.points) if (v !== null) points.push([t * 1000, v]);
+      hit = { at: end, points };
+      if (cache.size >= BAND_CACHE_MAX) cache.delete(cache.keys().next().value!);
+      cache.set(key, hit);
+    }
+    return usualBands(hit.points, from, to, unit, BAND_STEP_S) satisfies UsualBand[];
   };
 }
 

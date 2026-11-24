@@ -23,6 +23,18 @@ export interface QuerySeries {
   points: [number, number | null][];
 }
 
+export type BaselineUnit =
+  'ratio' | 'bytes' | 'bytes_per_second' | 'cores' | 'load' | 'count' | 'seconds' | 'per_second';
+
+/** An hour's usual band: from `t` (the hour's start, ms), learning until 7 days of data. */
+export interface UsualBand {
+  t: number;
+  median: number;
+  low: number;
+  high: number;
+  learning: boolean;
+}
+
 export interface Observation {
   fingerprint: string;
   severity: 'warning' | 'critical';
@@ -109,6 +121,22 @@ export interface EeHost {
       step: number,
     ): Promise<QuerySeries[]>;
   } | null;
+  /**
+   * The usual band of a series (ADR-234), with What changed's statistics (ADR-196): each hour's
+   * median ± 2 spreads over the 14 days before `to`'s hour, the series of `expr` summed. Hours
+   * with too little data behind them are left out; empty without VictoriaMetrics. Cached per
+   * hour.
+   */
+  baseline: {
+    bands(
+      orgId: string,
+      clusterIds: string[],
+      expr: string,
+      from: number,
+      to: number,
+      unit: BaselineUnit,
+    ): Promise<UsualBand[]>;
+  };
   /** The integrations collector's configuration (ADR-131). */
   collector: {
     /**
