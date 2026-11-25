@@ -66,15 +66,22 @@ interface Model {
   block: number;
   /** Stacks (one panel per member, ports named Gi<member>/0/<n>). */
   stack: boolean;
+  /** Its ports always carry a member number: one switch alone is still "member 1". */
+  memberAlways?: boolean;
 }
 
 const MODELS: Model[] = [
   { name: 'Catalyst 2960X', match: /2960-?X/i, main: 48, block: 12, stack: true },
   { name: 'Catalyst 2960-Plus', match: /2960(\+|-?plus)/i, main: 48, block: 12, stack: false },
   { name: 'Catalyst 2960S', match: /2960-?S/i, main: 48, block: 12, stack: true },
-  { name: 'Catalyst 3850', match: /3850/, main: 48, block: 12, stack: true },
+  { name: 'Catalyst 3850', match: /3850/, main: 48, block: 12, stack: true, memberAlways: true },
+  { name: 'Catalyst 9200L', match: /9200L/i, main: 48, block: 12, stack: true },
+  { name: 'Catalyst 9300', match: /C?9300/i, main: 48, block: 12, stack: true, memberAlways: true },
+  { name: 'Catalyst 1000', match: /C1000/i, main: 48, block: 12, stack: false },
   { name: 'Nexus 3064', match: /3064/, main: 48, block: 12, stack: false },
+  { name: 'Nexus 9372PX', match: /9372PX/i, main: 48, block: 12, stack: false },
   { name: 'CCR2004-16G-2S+', match: /CCR2004-16G-2S/i, main: 16, block: 8, stack: false },
+  { name: 'CCR2116-12G-4S+', match: /CCR2116-12G-4S/i, main: 13, block: 13, stack: false },
 ];
 
 export function modelOf(model: string): Model | null {
@@ -149,7 +156,7 @@ function memberPanel(ports: Port[], model: Model, member: number | null): Panel 
   let main = ordered.filter((p) => !isCage(p));
   let cages = ordered.filter(isCage);
   if (main.length === 0) {
-    // All cages (Nexus 3064): the first are the main block, the rest the uplinks (QSFP).
+    // All cages (a fixed Nexus): the first are the main block, the rest the uplinks (QSFP).
     main = ordered.slice(0, model.main);
     cages = ordered.slice(model.main);
   } else if (main.length > model.main) {
@@ -192,8 +199,7 @@ export function frontPanel(model: string, ports: Port[]): FrontPanel {
     members.set(k, [...(members.get(k) ?? []), p]);
   }
   // A stack shows its member numbers; a single switch (one member, or names without one) not.
-  const stacked =
-    m.stack && (members.size > 1 || (m.name === 'Catalyst 3850' && !members.has(null)));
+  const stacked = m.stack && (members.size > 1 || (!!m.memberAlways && !members.has(null)));
   const keys = [...members.keys()].sort((a, b) => (a ?? 0) - (b ?? 0));
   return {
     model: m.name,

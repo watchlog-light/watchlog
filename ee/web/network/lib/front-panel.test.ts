@@ -89,7 +89,13 @@ describe('names and cages', () => {
     expect(modelOf('WS-C3850-48P')?.name).toBe('Catalyst 3850');
     expect(modelOf('N3K-C3064PQ-10GX')?.name).toBe('Nexus 3064');
     expect(modelOf('CCR2004-16G-2S+')?.name).toBe('CCR2004-16G-2S+');
-    expect(modelOf('TS-433')).toBeNull();
+    expect(modelOf('TS-464')).toBeNull();
+    // The live demo's office (1.0.0): a generic set of current products.
+    expect(modelOf('C9200L-48T-4X')?.name).toBe('Catalyst 9200L');
+    expect(modelOf('C9300-48P')?.name).toBe('Catalyst 9300');
+    expect(modelOf('C1000-48T-4G-L')?.name).toBe('Catalyst 1000');
+    expect(modelOf('N9K-C9372PX')?.name).toBe('Nexus 9372PX');
+    expect(modelOf('CCR2116-12G-4S+')?.name).toBe('CCR2116-12G-4S+');
   });
 
   it('orders by the numbers within a prefix, prefixes in ifIndex order', () => {
@@ -152,6 +158,44 @@ describe('frontPanel', () => {
     expect(names(fp.others)).toEqual(['Fa0']);
   });
 
+  it("draws the demo's office: a 9300 stack, a 9200L, a Nexus 9372PX and a CCR2116", () => {
+    const stack = frontPanel('C9300-48P', [
+      ...range('Gi1/0/', 1, 48),
+      ...range('Te1/1/', 1, 4),
+      ...range('Gi2/0/', 1, 48),
+      ...range('Te2/1/', 1, 4),
+    ]);
+    expect(stack.model).toBe('Catalyst 9300');
+    expect(stack.panels.map((p) => p.member)).toEqual([1, 2]);
+    expect(names(stack.panels[0]!.cages!.top)).toEqual(['Te1/1/1', 'Te1/1/3']);
+    const access = frontPanel('C9200L-48T-4X', [
+      ...range('Gi1/0/', 1, 48),
+      ...range('Te1/1/', 1, 4),
+    ]);
+    expect(access.model).toBe('Catalyst 9200L');
+    expect(access.panels).toHaveLength(1);
+    expect(access.panels[0]!.member).toBeNull();
+    expect(access.panels[0]!.blocks).toHaveLength(4);
+    const core = frontPanel(
+      'N9K-C9372PX',
+      range('Ethernet1/', 1, 54).map((p) => ({ ...p, kind: 'sfp' as const })),
+    );
+    expect(core.model).toBe('Nexus 9372PX');
+    expect(core.panels[0]!.blocks).toHaveLength(4);
+    expect(names(core.panels[0]!.cages!.top)).toEqual([
+      'Ethernet1/49',
+      'Ethernet1/51',
+      'Ethernet1/53',
+    ]);
+    const edge = frontPanel('CCR2116-12G-4S+', [
+      ...range('ether', 1, 13),
+      ...range('sfp-sfpplus', 1, 4).map((p) => ({ ...p, kind: 'sfp' as const })),
+    ]);
+    expect(edge.model).toBe('CCR2116-12G-4S+');
+    expect(edge.panels[0]!.blocks).toHaveLength(1);
+    expect(edge.panels[0]!.cages!.top).toHaveLength(2);
+  });
+
   it('draws a 3850 stack as one panel per member, uplink modules in cages', () => {
     const ports = [
       port('Gi0/0'),
@@ -208,7 +252,7 @@ describe('frontPanel', () => {
     const b = port('eth1');
     a.index = 20;
     b.index = 3;
-    const fp = frontPanel('TS-433', [a, b, port('lo', { kind: 'virtual' })]);
+    const fp = frontPanel('TS-464', [a, b, port('lo', { kind: 'virtual' })]);
     expect(fp.model).toBeNull();
     expect(fp.panels).toHaveLength(1);
     expect(fp.panels[0]!.rows!.map(names)).toEqual([['eth1', 'eth0']]);
