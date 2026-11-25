@@ -4,6 +4,7 @@ package integrations
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -95,6 +96,15 @@ const maxModuleReply = 1 << 20
 // Post sends body to /ingest/v1/<path> with the collector's token; the answer's body, when
 // JSON, is decoded into nothing (a module that needs it posts through its own client).
 func (h *moduleHost) Post(ctx context.Context, path string, body any) error {
+	return h.post(ctx, path, body, false)
+}
+
+// PostGzip is Post with the body gzipped.
+func (h *moduleHost) PostGzip(ctx context.Context, path string, body any) error {
+	return h.post(ctx, path, body, true)
+}
+
+func (h *moduleHost) post(ctx context.Context, path string, body any, compress bool) error {
 	if h.c.Config == nil {
 		return fmt.Errorf("no backend configured")
 	}
@@ -103,9 +113,23 @@ func (h *moduleHost) Post(ctx context.Context, path string, body any) error {
 	if err != nil {
 		return err
 	}
+	if compress {
+		var gz bytes.Buffer
+		w := gzip.NewWriter(&gz)
+		if _, err := w.Write(data); err != nil {
+			return err
+		}
+		if err := w.Close(); err != nil {
+			return err
+		}
+		data = gz.Bytes()
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+strings.TrimPrefix(path, "/"), bytes.NewReader(data))
 	if err != nil {
 		return err
+	}
+	if compress {
+		req.Header.Set("Content-Encoding", "gzip")
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+h.c.Config.Token)
@@ -157,7 +181,7 @@ func (c *Collector) startModules(ctx context.Context) {
 			}()
 			m.Run(ctx, h)
 		}()
-		c.Log.Info("enterprise module started", "module", m.Name)
+		c.Log.Info("module started", "module", m.Name)
 	}
 }
 

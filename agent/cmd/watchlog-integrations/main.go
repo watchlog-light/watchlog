@@ -26,6 +26,8 @@ import (
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/mongodb"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/mysql"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/nginx"
+	// The core's own module: scrapes the endpoints of a user's own metrics (1.0.0, ADR-236).
+	_ "github.com/watchlog-light/watchlog/agent/internal/integrations/ownmetrics"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/phpfpm"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/postgres"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/rabbitmq"
@@ -160,9 +162,10 @@ func run(args []string, stdout io.Writer) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	// Enterprise packages (ee/collector, ADR-232): only in a collector built with `-tags ee`.
+	// The modules: own metrics (core), and the Enterprise packages (ee/collector, ADR-232) in
+	// a collector built with `-tags ee`.
 	if names := ext.Names(); len(names) > 0 {
-		slog.Info("enterprise packages", "modules", names)
+		slog.Info("modules", "names", names)
 	}
 	slog.Info("integrations collector started", "mode", *mode, "host", *host, "version", version.Version,
 		"endpoint", base.String())

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package ext is how Enterprise packages (ee/collector, ADR-232, ADR-233) join the
-// integrations collector: each registers itself from an init function, and the collector,
-// built with the `ee` build tag, imports them. Without the tag, or with ee/ deleted, nothing
-// registers and the collector is the core's alone.
+// Package ext is how modules join the integrations collector: each registers itself from an
+// init function. Enterprise packages (ee/collector, ADR-232, ADR-233) are imported with the
+// `ee` build tag; without the tag, or with ee/ deleted, none of them registers. The core's own
+// module (own metrics, 1.0.0, ADR-236) is always there, with no licence feature.
 //
 // A module with a Run function is started by the collector. It gets its own section of the
 // collector's configuration (the backend's `modules.<name>`, sent only when the org has the
@@ -53,6 +53,9 @@ type Host interface {
 	// Post sends a JSON body to the backend's ingest API, path relative to /ingest/v1
 	// ("network/report"), with the collector's token.
 	Post(ctx context.Context, path string, body any) error
+	// PostGzip is Post with the body gzipped, for reports that are large every time (a
+	// scrape's samples).
+	PostGzip(ctx context.Context, path string, body any) error
 	// Mode is "kubernetes" or "docker" (a server); HostName the server's name ('' on
 	// Kubernetes).
 	Mode() string

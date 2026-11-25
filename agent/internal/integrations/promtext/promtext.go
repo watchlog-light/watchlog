@@ -137,3 +137,33 @@ func parseLabels(s string) (map[string]string, int, bool) {
 		labels[key] = b.String()
 	}
 }
+
+// ParseSample reads one sample line (`name{labels} value [timestamp]`): the name, its labels
+// and its value. A timestamp and an OpenMetrics exemplar after the value are ignored. NaN is
+// kept (the caller decides); a line that doesn't parse answers false.
+func ParseSample(line string) (Sample, bool) {
+	end := strings.IndexAny(line, "{ \t")
+	if end <= 0 {
+		return Sample{}, false
+	}
+	s := Sample{Name: line[:end]}
+	rest := line[end:]
+	if strings.HasPrefix(rest, "{") {
+		labels, n, ok := parseLabels(rest[1:])
+		if !ok {
+			return s, false
+		}
+		s.Labels = labels
+		rest = rest[1+n:]
+	}
+	fields := strings.Fields(rest)
+	if len(fields) == 0 {
+		return s, false
+	}
+	v, err := parseValue(fields[0])
+	if err != nil {
+		return s, false
+	}
+	s.Value = v
+	return s, true
+}

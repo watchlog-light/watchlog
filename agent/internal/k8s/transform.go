@@ -23,11 +23,18 @@ const (
 )
 
 // keepAnnotations is the annotation allow-list (ADR-053): rollout revision, change
-// cause, and the static pod config hash the node agent sees in cgroup paths.
+// cause, the static pod config hash the node agent sees in cgroup paths, and the six that
+// say a pod's own metrics may be scraped (1.0.0, ADR-236).
 var keepAnnotations = map[string]bool{
 	"deployment.kubernetes.io/revision": true,
 	"kubernetes.io/change-cause":        true,
 	"kubernetes.io/config.mirror":       true,
+	ScrapeAnnotation:                    true,
+	ScrapePortAnnotation:                true,
+	ScrapePathAnnotation:                true,
+	PromScrapeAnnotation:                true,
+	PromPortAnnotation:                  true,
+	PromPathAnnotation:                  true,
 }
 
 func truncate(s string, n int) string {

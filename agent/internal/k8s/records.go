@@ -161,6 +161,9 @@ func podRecord(p *corev1.Pod, owners Owners) Record {
 	if h := p.Annotations["kubernetes.io/config.mirror"]; h != "" {
 		spec["mirror"] = h
 	}
+	if s := scrapeOf(p.Annotations); s != nil {
+		spec["scrape"] = s
+	}
 	var pvcs []string
 	for _, v := range p.Spec.Volumes {
 		if v.PersistentVolumeClaim != nil {
