@@ -57,6 +57,13 @@ import { DemoSessions } from './modules/demo/service.js';
 import { parseTrustedProxies, registerClientIp } from './plugins/client-ip.js';
 import { demoRoutes } from './modules/demo/routes.js';
 import { dockerRoutes } from './modules/docker/routes.js';
+import { Belonging } from './modules/own-metrics/belonging.js';
+import { ownLimitsProvider } from './modules/own-metrics/limits.js';
+import { Probes } from './modules/own-metrics/probes.js';
+import { ownMetricsRoutes } from './modules/own-metrics/routes.js';
+import { OwnMetrics } from './modules/own-metrics/service.js';
+import { SCRAPE_INTERVAL_S, Targets } from './modules/own-metrics/targets.js';
+import { registerCollectorSection } from './modules/integrations/sections.js';
 import { serverRoutes } from './modules/servers/routes.js';
 import { certsJobsRoutes } from './modules/certs-jobs/routes.js';
 import { processRuleRoutes } from './modules/servers/rules.js';
@@ -115,7 +122,13 @@ export interface AppDeps {
   /** Cloud: each org's concurrent VictoriaMetrics queries (SR-9); tests pass their own. */
   orgQueries?: OrgQueryLimiter;
   /** Test overrides for the ingest rate limits (ADR-027). */
-  ingestBuckets?: { agent?: BucketSpec; clusterAgent?: BucketSpec; cluster?: BucketSpec };
+  ingestBuckets?: {
+    agent?: BucketSpec;
+    clusterAgent?: BucketSpec;
+    cluster?: BucketSpec;
+    metricWrite?: BucketSpec;
+    metricPush?: BucketSpec;
+  };
   /** Alert rules from WATCHLOG_SEED_FILE, applied again once first-run setup made an org. */
   seed?: Seed;
   /** Test hook: sees every route as it is registered (the demo guard's route test). */
@@ -304,6 +317,52 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     eventsRetentionDays: config.eventsRetentionDays,
     ...(deps.now ? { now: deps.now } : {}),
   });
+  // Your metrics (1.0.0, ADR-236): what the collectors scrape, what each series belongs to,
+  // and the one pipeline scrapes, remote write and pushes go through. Every edition.
+  const ownTargets = new Targets(deps.db, deps.now);
+  const ownProbes = new Probes(deps.db, victoria ?? null, ownTargets, deps.now);
+  const own = new OwnMetrics({
+    db: deps.db,
+    victoria: victoria ?? null,
+    limits: ownLimitsProvider({
+      config,
+      db: deps.db,
+      entitlements,
+      license,
+      ...(deps.now ? { now: deps.now } : {}),
+    }),
+    log: app.log,
+    ...(deps.now ? { now: deps.now } : {}),
+  });
+  const ownIngest = {
+    own,
+    targets: ownTargets,
+    belonging: new Belonging(deps.db, deps.now),
+    probes: ownProbes,
+    ...(deps.now ? { now: deps.now } : {}),
+  };
+  app.decorate('ownMetrics', own);
+  // The collector's section: the endpoints this collector scrapes, and a search when one runs.
+  registerCollectorSection('own_metrics', async ({ clusterId, host }) => {
+    const targets = await ownTargets.forCollector(clusterId, host);
+    const probe = ownProbes.current(clusterId);
+    const candidates =
+      probe && !probe.answered.has(host) ? probe.candidates.filter((c) => c.host === host) : [];
+    if (!targets.length && !candidates.length) return undefined;
+    return {
+      interval_s: SCRAPE_INTERVAL_S,
+      targets: targets.map((t) => ({ id: t.id, url: t.url })),
+      ...(candidates.length
+        ? {
+            probe: { id: probe!.id, candidates: candidates.map((c) => ({ id: c.id, url: c.url })) },
+          }
+        : {}),
+    };
+  });
+  if (!deps.serviceReads) {
+    app.addHook('onReady', async () => own.start());
+    app.addHook('onClose', () => own.stop());
+  }
   // One answer cache for GET /causes and the likelyCause fields (ADR-155).
   const causes = deps.causes ?? new CausesService();
   // Right-sizing (ADR-168): the use over the window, kept an hour per cluster.
@@ -421,6 +480,14 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         ...(deps.now ? { now: deps.now } : {}),
       });
       await api.register(apiTokenRoutes, { db: deps.db });
+      await api.register(ownMetricsRoutes, {
+        db: deps.db,
+        own,
+        targets: ownTargets,
+        probes: ownProbes,
+        tokens,
+        notifier: collectors,
+      });
       // Cloud only (ADR-173): Community never registers these, so they answer 404.
       if (accounts && entitlements) {
         await registerCloudOnly(api, config.edition, cloudApiRoutes, {
@@ -496,6 +563,9 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     nodeGate,
     seriesGate,
     nodeSightings,
+    own: ownIngest,
+    metricWriteBucket: deps.ingestBuckets?.metricWrite,
+    metricPushBucket: deps.ingestBuckets?.metricPush,
     ee: (ingest) => registerEeIngest(ingest, ee, eeModules),
   });
 

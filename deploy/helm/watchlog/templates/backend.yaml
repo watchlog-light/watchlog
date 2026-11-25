@@ -42,6 +42,8 @@ spec:
             # Browsers and outside agents arrive through the web service's Caddy.
             - { name: WATCHLOG_TRUST_PROXY, value: 'true' }
             - { name: WATCHLOG_EVENTS_RETENTION_DAYS, value: {{ .Values.backend.eventsRetentionDays | quote }} }
+            {{- /* Nil-safe: a values file from before 1.0.0 has no such key (ADR-107). */}}
+            - { name: WATCHLOG_OWN_METRIC_SERIES, value: {{ .Values.backend.ownMetricSeries | default 20000 | int64 | quote }} }
             - { name: WATCHLOG_BOOTSTRAP_CLUSTER_NAME, value: {{ .Values.clusterName | quote }} }
             - name: WATCHLOG_BOOTSTRAP_CLUSTER_TOKEN
               valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-cluster-token, key: token } }

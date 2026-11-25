@@ -10,13 +10,16 @@ import { recordLimitHit } from './node-gate.js';
 import { atLimit, type LimitKind } from './plans.js';
 import type { EntitlementsService } from './service.js';
 
+/** What of "Your metrics" a plan limits (1.0.0, ADR-236); the numbers are in own-metrics.ts. */
+export type OwnLimitKind = 'own-sources' | 'own-dashboards' | 'own-widgets' | 'own-alerts';
+
 /** Where the way out is: Settings › Plan & billing. */
 export const BILLING_PATH = '/settings?tab=billing';
 
 export function sendPlanLimit(
   reply: FastifyReply,
   status: 402 | 409,
-  limit: LimitKind | 'series',
+  limit: LimitKind | 'series' | OwnLimitKind,
   max: number | null,
   detail: string,
 ): FastifyReply {

@@ -326,6 +326,21 @@ export const ROUTES: Record<string, RouteClass> = {
   'PATCH /api/v1/applications/:id': org,
   'GET /api/v1/causes': org,
 
+  // Your metrics (1.0.0, ADR-236): per cluster or fleet, behind clusterForOrg.
+  'GET /api/v1/clusters/:id/own-metrics': org,
+  'POST /api/v1/clusters/:id/own-metrics/tokens': org,
+  'DELETE /api/v1/clusters/:id/own-metrics/tokens/:tokenId': org,
+  'POST /api/v1/clusters/:id/own-metrics/sources': {
+    kind: 'org',
+    body: { namespace: 'default', workloadKind: 'Deployment', workload: 'probe', port: 9102 },
+  },
+  'DELETE /api/v1/clusters/:id/own-metrics/sources/:sourceId': org,
+  'PUT /api/v1/clusters/:id/own-metrics/settings': org,
+  'POST /api/v1/clusters/:id/own-metrics/find': org,
+  'GET /api/v1/clusters/:id/own-metrics/find': {
+    kind: 'org',
+    control: 'no search is running in the seed: 404 for A too, with nothing of A in it',
+  },
   'GET /api/v1/api-tokens': org,
   'POST /api/v1/api-tokens': org,
   'GET /api/v1/api-tokens/:id': org,
@@ -348,6 +363,11 @@ export const ROUTES: Record<string, RouteClass> = {
 
   'POST /ingest/v1/write': ingest,
   'POST /ingest/v1/objects': ingest,
+  // Own metrics (ADR-236): a collector's scrapes with the cluster token; pushes with a
+  // write-only `wl_mt_` token, whose cluster is the token's (own-metrics tests).
+  'POST /ingest/v1/own-metrics/scrape': ingest,
+  'POST /ingest/v1/own-metrics/probe': ingest,
+  'POST /ingest/v1/metrics': ingest,
   'POST /ingest/v1/events': ingest,
   'GET /ingest/v1/logs/requests': ingest,
   'POST /ingest/v1/logs/:requestId': ingest,

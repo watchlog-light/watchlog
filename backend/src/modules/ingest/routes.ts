@@ -9,6 +9,12 @@ import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
 import { ProblemType, sendProblem } from '../../lib/problem.js';
+import { isMetricToken } from '../own-metrics/tokens.js';
+import {
+  ownRemoteWrite,
+  registerOwnMetricsIngest,
+  type OwnIngestDeps,
+} from '../own-metrics/ingest.js';
 import { authorisedScope, VictoriaError, type VictoriaClient } from '../../lib/victoria.js';
 import type { TokenOwner } from '../clusters/tokens.js';
 import { ProblemSchema } from '../auth/schemas.js';
@@ -33,6 +39,8 @@ import {
   CLUSTER_AGENT_BUCKET,
   CLUSTER_AGENT_ID,
   CLUSTER_BUCKET,
+  METRIC_PUSH_BUCKET,
+  METRIC_WRITE_BUCKET,
   TokenBuckets,
   type BucketSpec,
 } from './rate-limit.js';
@@ -62,6 +70,11 @@ declare module 'fastify' {
 export interface IngestOptions {
   db: Database;
   tokens: TokenCache;
+  /** Own metrics (1.0.0, ADR-236): the collector's scrapes, remote write and pushes. */
+  own?: OwnIngestDeps;
+  /** Tests: the own-metrics tokens' buckets. */
+  metricWriteBucket?: BucketSpec;
+  metricPushBucket?: BucketSpec;
   victoria?: VictoriaClient;
   agentBucket?: BucketSpec;
   clusterAgentBucket?: BucketSpec;
@@ -261,6 +274,18 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
   app.addHook('onClose', async () => clearInterval(pruner));
 
   app.decorateRequest('ingestOwner', null);
+  app.decorateRequest('metricOwner', null);
+  // An own-metrics token (`wl_mt_`, ADR-236) has its own budget, per token: remote write in
+  // batches, pushes one value at a time.
+  const metricWriteBuckets = new TokenBuckets(opts.metricWriteBucket ?? METRIC_WRITE_BUCKET);
+  const metricPushBuckets = new TokenBuckets(opts.metricPushBucket ?? METRIC_PUSH_BUCKET);
+  const metricPruner = setInterval(() => {
+    metricWriteBuckets.prune();
+    metricPushBuckets.prune();
+  }, 60_000);
+  metricPruner.unref();
+  app.addHook('onClose', async () => clearInterval(metricPruner));
+  const tokenUsed = new Map<string, number>();
 
   // Every answer to an authenticated agent: errors are recorded per cluster and
   // endpoint, a success ends the failure (ADR-117). Recording never fails the request.
@@ -293,6 +318,57 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
   app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
     const header = request.headers.authorization ?? '';
     const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+    // An own-metrics token writes own metrics and nothing else: remote write and pushes.
+    if (isMetricToken(token)) {
+      const metricOwner = await tokens.verifyMetric(token);
+      if (!metricOwner) {
+        return sendProblem(reply, 401, 'Missing, invalid or revoked own-metrics token');
+      }
+      const url = request.routeOptions.url ?? '';
+      const push = url === '/ingest/v1/metrics';
+      if (!push && url !== '/ingest/v1/write') {
+        return sendProblem(
+          reply,
+          403,
+          'An own-metrics token can only send own metrics (remote write to /ingest/v1/write, pushes to /ingest/v1/metrics) and change events',
+        );
+      }
+      request.metricOwner = metricOwner;
+      bindOrg(metricOwner.orgId);
+      const ent = request.server.entitlements;
+      const block = ent ? await ent.ingestBlock(metricOwner.orgId) : null;
+      if (block) {
+        return sendProblem(
+          reply,
+          402,
+          block === 'deleting'
+            ? 'This organization is scheduled for deletion; its data is not stored.'
+            : 'This organization is suspended; its data is not stored.',
+          block === 'deleting' ? ProblemType.orgDeleting : ProblemType.orgSuspended,
+        );
+      }
+      const wait = (push ? metricPushBuckets : metricWriteBuckets).take(metricOwner.tokenId);
+      if (wait > 0) {
+        reply.header('retry-after', String(wait));
+        return sendProblem(
+          reply,
+          429,
+          'Own-metrics rate limit reached for this token; retry later',
+        );
+      }
+      // When it was last used, written at most once a minute per token.
+      const nowMs = Date.now();
+      if (nowMs - (tokenUsed.get(metricOwner.tokenId) ?? 0) > 60_000) {
+        tokenUsed.set(metricOwner.tokenId, nowMs);
+        void db
+          .updateTable('own_metric_tokens')
+          .set({ last_used_at: new Date(nowMs) })
+          .where('id', '=', metricOwner.tokenId)
+          .execute()
+          .catch((err: unknown) => request.log.warn({ err }, 'recording a token use failed'));
+      }
+      return;
+    }
     const owner = token ? await tokens.verify(token) : null;
     if (!owner) return sendProblem(reply, 401, 'Missing, invalid or revoked cluster token');
     request.ingestOwner = owner;
@@ -359,6 +435,11 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
       },
     },
     async (request, reply) => {
+      // An own-metrics token: Prometheus remote write of the user's own metrics (ADR-236).
+      if (request.metricOwner) {
+        if (!opts.own) return sendProblem(reply, 503, 'Own metrics are not available');
+        return ownRemoteWrite(opts.own, request, reply, request.metricOwner);
+      }
       const owner = request.ingestOwner!;
       const body = request.body;
       if (!(body instanceof Buffer)) {
@@ -707,6 +788,7 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
     secretKey: opts.secretKey,
   });
   opts.ee?.(app);
+  if (opts.own) registerOwnMetricsIngest(app, opts.own);
 
   app.post(
     '/heartbeat',

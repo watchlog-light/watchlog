@@ -61,6 +61,8 @@ function pathFor(route: string, o: SeededOrg): string {
     url.includes('/docker/') || url.includes('/servers') || url.includes('/process-rules');
   return url
     .replace(/^\/api\/v1\/clusters\/:id/, `/api/v1/clusters/${docker ? o.docker.id : o.k8s.id}`)
+    .replace('/own-metrics/tokens/:tokenId', `/own-metrics/tokens/${o.own.tokenId}`)
+    .replace('/own-metrics/sources/:sourceId', `/own-metrics/sources/${o.own.sourceId}`)
     .replace(':tokenId', o.k8s.tokenId)
     .replace('/nodes/:name', `/nodes/${o.node}`)
     .replace('/pods/:namespace/:name', `/pods/${o.pod.namespace}/${o.pod.name}`)

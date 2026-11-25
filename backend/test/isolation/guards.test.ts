@@ -88,6 +88,9 @@ const AUTHORISED_SCOPE: Record<string, string> = {
   'modules/egress/rules.ts': "the alert worker's egress rules (ADR-187), read under withOrg",
   'modules/integrations/discovery.ts': "the org's clusters, read with its filter",
   'modules/integrations/routes.ts': "services read with the org's filter (composite key)",
+  'modules/own-metrics/service.ts':
+    'own metrics are written for the cluster of the token that sent them (ADR-236)',
+  'modules/own-metrics/probes.ts': 'the listening ports of a fleet clusterForOrg checked',
 };
 
 function sources(dir: string): string[] {

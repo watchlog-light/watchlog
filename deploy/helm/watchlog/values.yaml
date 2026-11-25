@@ -60,6 +60,9 @@ backend:
     requests: { cpu: 100m, memory: 192Mi }
     limits: { memory: 512Mi }
   eventsRetentionDays: 15
+  # Your metrics (1.0.0): how many series of your own metrics the installation keeps active at
+  # once. New series over it are refused; WatchLog's own monitoring is never affected.
+  ownMetricSeries: 20000
   # A header the proxy in front sets to the visitor's address (nginx: X-Real-IP), so rate
   # limits count each visitor. Leave empty unless that proxy always sets it.
   clientIpHeader: ''

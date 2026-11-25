@@ -613,11 +613,15 @@ describe('ingest stays token-only', () => {
         '/ingest/v1/integrations/status',
         '/ingest/v1/logs/:requestId',
         '/ingest/v1/logs/requests',
+        // Own metrics (ADR-236): pushes with a write-only token, never a cookie.
+        '/ingest/v1/metrics',
         // ee/'s network module (ADR-233), when ee/ is there.
         ...(existsSync(new URL('../../ee/backend/src/network', import.meta.url))
           ? ['/ingest/v1/network/report']
           : []),
         '/ingest/v1/objects',
+        '/ingest/v1/own-metrics/probe',
+        '/ingest/v1/own-metrics/scrape',
         '/ingest/v1/process-rules',
         '/ingest/v1/write',
       ]);

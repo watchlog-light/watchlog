@@ -317,6 +317,7 @@ export interface Clusters {
   name: string;
   node_count: Generated<number>;
   org_id: string;
+  own_metrics_prometheus_annotations: Generated<boolean>;
   status: Generated<string>;
   updated_at: Generated<Timestamp>;
 }
@@ -641,6 +642,71 @@ export interface Orgs {
   suspension_kind: string | null;
   trial_ends_at: Timestamp | null;
   updated_at: Generated<Timestamp>;
+}
+
+export interface OwnMetrics {
+  cluster_id: string;
+  first_seen: Generated<Timestamp>;
+  help: Generated<string>;
+  hidden: Generated<boolean>;
+  id: string;
+  label_names: Generated<string[]>;
+  last_seen: Generated<Timestamp>;
+  name: string;
+  org_id: Generated<string>;
+  refused: Json | null;
+  type: string;
+  type_override: string | null;
+  unit: Generated<string>;
+  unit_override: string | null;
+}
+
+export interface OwnMetricTokens {
+  cluster_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: string;
+  last_used_at: Timestamp | null;
+  name: string;
+  org_id: Generated<string>;
+  prefix: string;
+  revoked_at: Timestamp | null;
+  token_hash: Buffer;
+}
+
+export interface OwnSeries {
+  cluster_id: string;
+  fingerprint: string;
+  first_seen: Generated<Timestamp>;
+  labels: Generated<Json>;
+  last_seen: Generated<Timestamp>;
+  metric_id: string;
+  org_id: Generated<string>;
+  owner_kind: Generated<string>;
+  owner_name: Generated<string>;
+  owner_namespace: Generated<string>;
+  owner_workload_kind: Generated<string>;
+  series_name: string;
+  source_id: string;
+  total: number | null;
+}
+
+export interface OwnSources {
+  cluster_id: string;
+  config: Generated<Json>;
+  created_at: Generated<Timestamp>;
+  dropped: Generated<Json>;
+  error: string | null;
+  id: string;
+  key: string;
+  kind: string;
+  label: string;
+  last_reported_at: Timestamp | null;
+  org_id: Generated<string>;
+  owner: Generated<Json>;
+  refused: Generated<boolean>;
+  series: Generated<number>;
+  token_id: string | null;
 }
 
 export interface PasswordResets {
@@ -1013,6 +1079,10 @@ export interface DB {
   onboarding_states: OnboardingStates;
   org_deletions: OrgDeletions;
   orgs: Orgs;
+  own_metric_tokens: OwnMetricTokens;
+  own_metrics: OwnMetrics;
+  own_series: OwnSeries;
+  own_sources: OwnSources;
   password_resets: PasswordResets;
   process_rules: ProcessRules;
   plan_limit_emails: PlanLimitEmails;

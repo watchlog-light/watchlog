@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { OWN_SELF_HOSTED_SERIES } from './modules/entitlements/own-metrics.js';
 import { parseSecretKey } from './lib/secrets.js';
 import {
   DEFAULT_TRUSTED_PROXIES,
@@ -42,6 +43,11 @@ export interface Config {
   adminPassword?: string;
   /** Days of Kubernetes events kept (ADR-061; Community 15). */
   eventsRetentionDays: number;
+  /**
+   * Own-metric series a self-hosted installation keeps active at once (1.0.0, ADR-236;
+   * WATCHLOG_OWN_METRIC_SERIES, default 20,000). Cloud's caps come from the plan instead.
+   */
+  ownMetricSeries: number;
   /** Kubernetes cluster created with this token at start (Helm chart, ADR-069). */
   bootstrapCluster?: { name: string; token: string };
   /** Days resolved alerts and sent notifications are kept (ADR-087). */
@@ -257,6 +263,10 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
       `Invalid WATCHLOG_EVENTS_RETENTION_DAYS: ${env.WATCHLOG_EVENTS_RETENTION_DAYS}`,
     );
   }
+  const ownMetricSeries = Number(env.WATCHLOG_OWN_METRIC_SERIES ?? OWN_SELF_HOSTED_SERIES);
+  if (!Number.isInteger(ownMetricSeries) || ownMetricSeries < 0 || ownMetricSeries > 5_000_000) {
+    throw new Error(`Invalid WATCHLOG_OWN_METRIC_SERIES: ${env.WATCHLOG_OWN_METRIC_SERIES}`);
+  }
   const alertRetentionDays = Number(env.WATCHLOG_ALERT_RETENTION_DAYS ?? 90);
   if (!Number.isInteger(alertRetentionDays) || alertRetentionDays < 1 || alertRetentionDays > 400) {
     throw new Error(`Invalid WATCHLOG_ALERT_RETENTION_DAYS: ${env.WATCHLOG_ALERT_RETENTION_DAYS}`);
@@ -467,6 +477,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     adminEmail: env.WATCHLOG_ADMIN_EMAIL,
     adminPassword: env.WATCHLOG_ADMIN_PASSWORD,
     eventsRetentionDays,
+    ownMetricSeries,
     bootstrapCluster: bootstrapToken
       ? { name: env.WATCHLOG_BOOTSTRAP_CLUSTER_NAME ?? 'kubernetes', token: bootstrapToken }
       : undefined,

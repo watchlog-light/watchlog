@@ -16,6 +16,12 @@ export const CLUSTER_AGENT_BUCKET: BucketSpec = { ratePerSec: 5, burst: 100 };
 /** X-WatchLog-Agent value of the cluster-agent (agent/cmd/watchlog-cluster-agent). */
 export const CLUSTER_AGENT_ID = 'cluster-agent';
 export const CLUSTER_BUCKET: BucketSpec = { ratePerSec: 250, burst: 500 };
+/**
+ * An own-metrics token (ADR-236), per token: remote write sends batches (Prometheus's default
+ * is a few a second per shard), a push is one request per value or small group.
+ */
+export const METRIC_WRITE_BUCKET: BucketSpec = { ratePerSec: 20, burst: 100 };
+export const METRIC_PUSH_BUCKET: BucketSpec = { ratePerSec: 100, burst: 300 };
 
 interface Bucket {
   tokens: number;

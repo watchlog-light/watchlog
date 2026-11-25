@@ -194,6 +194,8 @@ export interface SeededOrg {
   /** The org's expected destinations (ADR-186): Kubernetes, then Docker. */
   expectedIds: [string, string];
   apiToken: { id: string; value: string };
+  /** Your metrics (1.0.0): a write-only token and a panel-added endpoint on the Kubernetes cluster. */
+  own: { tokenId: string; token: string; sourceId: string };
   inviteId: string;
   /** Strings and ids that only this org's data contains. */
   markers: string[];
@@ -796,6 +798,15 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     })
     .execute();
   const token = await api('POST', '/api-tokens', { name: `${label}-token` });
+  const ownToken = await api('POST', `/clusters/${k8s.id}/own-metrics/tokens`, {
+    name: `${label}-metrics`,
+  });
+  const ownSource = await api('POST', `/clusters/${k8s.id}/own-metrics/sources`, {
+    namespace: pod.namespace,
+    workloadKind: 'Deployment',
+    workload: `${label}-own`,
+    port: 9100,
+  });
   const invite = await api('POST', '/users/invites', {
     email: `invitee@${label}.test`,
     role: 'viewer',
@@ -841,6 +852,11 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     ignoreId,
     expectedIds: expectedIds as [string, string],
     apiToken: { id: token.token.id as string, value: token.value as string },
+    own: {
+      tokenId: ownToken.id as string,
+      token: ownToken.value as string,
+      sourceId: ownSource.id as string,
+    },
     inviteId,
     markers,
     certId,

@@ -6864,6 +6864,276 @@
         "security": [{ "bearerAuth": [] }]
       }
     },
+    "/api/v1/clusters/{id}/own-metrics": {
+      "get": {
+        "summary": "Your metrics: what is used, the sources and what each dropped, the tokens",
+        "tags": ["own-metrics"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "usage",
+                    "limits",
+                    "sources",
+                    "tokens",
+                    "metrics",
+                    "hidden",
+                    "settings",
+                    "kind",
+                    "servers"
+                  ],
+                  "properties": {
+                    "usage": {
+                      "type": "object",
+                      "required": ["series", "sources"],
+                      "properties": {
+                        "series": { "type": "number" },
+                        "sources": { "type": "number" }
+                      }
+                    },
+                    "limits": {
+                      "type": "object",
+                      "required": [
+                        "series",
+                        "seriesPerSource",
+                        "sources",
+                        "dashboards",
+                        "widgetsPerDashboard",
+                        "alerts",
+                        "usualRange",
+                        "watched"
+                      ],
+                      "properties": {
+                        "series": { "type": "number" },
+                        "seriesPerSource": { "type": "number" },
+                        "sources": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                        "dashboards": { "type": "number" },
+                        "widgetsPerDashboard": { "type": "number" },
+                        "alerts": {
+                          "anyOf": [
+                            { "type": "string", "enum": ["none"] },
+                            { "type": "string", "enum": ["threshold"] },
+                            { "type": "string", "enum": ["all"] }
+                          ]
+                        },
+                        "usualRange": { "type": "boolean" },
+                        "watched": { "type": "number" }
+                      }
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "kind",
+                          "label",
+                          "owner",
+                          "owners",
+                          "series",
+                          "lastReportedAt",
+                          "error",
+                          "refused",
+                          "dropped",
+                          "removable",
+                          "by"
+                        ],
+                        "properties": {
+                          "id": { "type": "string" },
+                          "kind": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["scrape_pod"] },
+                              { "type": "string", "enum": ["scrape_address"] },
+                              { "type": "string", "enum": ["remote_write"] },
+                              { "type": "string", "enum": ["push"] }
+                            ]
+                          },
+                          "label": { "type": "string" },
+                          "owner": {
+                            "type": "object",
+                            "required": ["kind", "namespace", "workloadKind", "name"],
+                            "properties": {
+                              "kind": {
+                                "anyOf": [
+                                  { "type": "string", "enum": [""] },
+                                  { "type": "string", "enum": ["workload"] },
+                                  { "type": "string", "enum": ["server"] }
+                                ]
+                              },
+                              "namespace": { "type": "string" },
+                              "workloadKind": { "type": "string" },
+                              "name": { "type": "string" }
+                            }
+                          },
+                          "owners": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["kind", "namespace", "workloadKind", "name"],
+                              "properties": {
+                                "kind": {
+                                  "anyOf": [
+                                    { "type": "string", "enum": [""] },
+                                    { "type": "string", "enum": ["workload"] },
+                                    { "type": "string", "enum": ["server"] }
+                                  ]
+                                },
+                                "namespace": { "type": "string" },
+                                "workloadKind": { "type": "string" },
+                                "name": { "type": "string" }
+                              }
+                            }
+                          },
+                          "series": { "type": "number" },
+                          "lastReportedAt": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "error": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "refused": { "type": "boolean" },
+                          "dropped": {
+                            "type": "object",
+                            "required": [
+                              "reserved",
+                              "invalid",
+                              "cardinality",
+                              "sourceCap",
+                              "orgCap",
+                              "sources"
+                            ],
+                            "properties": {
+                              "reserved": { "type": "number" },
+                              "invalid": { "type": "number" },
+                              "cardinality": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": ["metric", "label"],
+                                  "properties": {
+                                    "metric": { "type": "string" },
+                                    "label": { "type": "string" }
+                                  }
+                                }
+                              },
+                              "sourceCap": { "type": "number" },
+                              "orgCap": { "type": "number" },
+                              "sources": { "type": "boolean" }
+                            }
+                          },
+                          "removable": { "type": "boolean" },
+                          "by": { "type": "string" }
+                        }
+                      }
+                    },
+                    "tokens": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["id", "name", "prefix", "createdAt", "lastUsedAt"],
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "prefix": { "type": "string" },
+                          "createdAt": { "type": "number" },
+                          "lastUsedAt": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                        }
+                      }
+                    },
+                    "metrics": { "type": "number", "description": "Metrics on the default list" },
+                    "hidden": { "type": "number", "description": "Metrics behind \"Show all\"" },
+                    "settings": {
+                      "type": "object",
+                      "required": ["prometheusAnnotations"],
+                      "properties": { "prometheusAnnotations": { "type": "boolean" } }
+                    },
+                    "kind": {
+                      "anyOf": [
+                        { "type": "string", "enum": ["kubernetes"] },
+                        { "type": "string", "enum": ["server"] }
+                      ]
+                    },
+                    "servers": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
     "/api/v1/clusters/{id}/pods": {
       "get": {
         "summary": "Pods with status, last termination and usage (SPEC §4.3)",
