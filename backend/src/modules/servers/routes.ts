@@ -993,7 +993,7 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
         instant(cluster.scope, instants),
         talksTo(cluster.scope, flowSel),
         instant(cluster.scope, [
-          releasesOf ? `max(tlast_change_timestamp(${releasesOf}[6h]))` : null,
+          releasesOf ? lastReleaseQuery(releasesOf) : null,
           ref.source === 'service'
             ? `max(clamp_max(rate(watchlog_service_cpu_throttled_seconds_total{${sel}}[5m]), 1))`
             : null,
@@ -1055,6 +1055,14 @@ export const serverRoutes: FastifyPluginAsyncTypebox<{
     },
   );
 };
+
+/**
+ * When a service or process group was last released, within 6 hours: the last change of its
+ * releases counter (MetricsQL's `tlast_change_over_time`).
+ */
+export function lastReleaseQuery(releases: string): string {
+  return `max(tlast_change_over_time(${releases}[6h]))`;
+}
 
 /**
  * When the crash loop that is still going began: the first minute of the last run of
