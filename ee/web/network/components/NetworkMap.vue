@@ -7,8 +7,10 @@ import { useRouter, type RouteLocationRaw } from 'vue-router';
 import SearchField from '@/components/ui/SearchField.vue';
 import { useMotion } from '@/composables/useMotion';
 import { useAuthStore } from '@/stores/auth';
-import { networkApi, type Endpoint, type Link, type MapData } from '../api';
-import { bpsText, pct, speedLong, speedText, uptimeText } from '../lib/format';
+import { networkApi, type DeviceDetail, type Endpoint, type Link, type MapData } from '../api';
+import { panelTiles } from '../lib/device-view';
+import { bpsText, pct, speedLong, speedText } from '../lib/format';
+import { tileText } from '../lib/tile-text';
 import {
   deviceNodeId,
   flowOf,
@@ -502,9 +504,15 @@ const tip = computed(() => {
   const lines: string[] = [];
   const d = n.device;
   if (d) {
+    // Only what it reports: a recorder or a UPS has no CPU to name.
     if (d.cpu != null || d.memory != null)
       lines.push(
-        `${t('netMap.facts.cpu')} ${pct(d.cpu)} · ${t('netMap.facts.memory')} ${pct(d.memory)}`,
+        [
+          d.cpu != null ? `${t('netMap.facts.cpu')} ${pct(d.cpu)}` : '',
+          d.memory != null ? `${t('netMap.facts.memory')} ${pct(d.memory)}` : '',
+        ]
+          .filter(Boolean)
+          .join(' · '),
       );
     else if (d.portsTotal != null)
       lines.push(
@@ -535,9 +543,37 @@ const hostRoute = (h: {
     ? { name: 'node', params: { name: h.name }, query: { cluster: h.clusterId } }
     : { name: 'server', params: { server: h.name }, query: { cluster: h.clusterId } };
 
+// The selected device's own detail (1.0.0): the panel's tiles follow its kind, as its page does
+// (ADR-235). Read when a device is picked and again when the map refreshes; until it arrives,
+// or when it can't be read, the panel shows only what the map knows and the device reports.
+const panelDetail = ref<DeviceDetail | null>(null);
+let detailFor = '';
+async function loadPanelDetail(id: string | undefined) {
+  if (!id) {
+    detailFor = '';
+    panelDetail.value = null;
+    return;
+  }
+  if (detailFor !== id) panelDetail.value = null;
+  detailFor = id;
+  try {
+    const d = await networkApi.device(id);
+    if (detailFor === id) panelDetail.value = d;
+  } catch {
+    // The panel keeps the map's own facts.
+  }
+}
+watch(
+  () => [selNode.value?.device?.id, props.data] as const,
+  ([id]) => void loadPanelDetail(props.compact ? undefined : id),
+  { immediate: true },
+);
+
 const devicePanel = computed(() => {
   const d = selNode.value?.device;
   if (!d) return null;
+  const detail = panelDetail.value?.device.id === d.id ? panelDetail.value : null;
+  const tiles = panelTiles(d, detail).map((x) => tileText(t, x));
   const problems = props.data.links
     .filter((l) => l.state !== 'ok' && (l.a.deviceId === d.id || l.b.deviceId === d.id))
     .map((l) => {
@@ -569,6 +605,7 @@ const devicePanel = computed(() => {
   const list = [...hosts.values()].sort((a, b) => (a.name < b.name ? -1 : 1));
   return {
     d,
+    tiles,
     problems,
     servers: list.filter((h) => h.kind === 'server'),
     nodes: list.filter((h) => h.kind === 'kubernetes'),
@@ -1212,28 +1249,25 @@ function expand(deviceId: string) {
             <p v-if="devicePanel.d.error" class="text-13 text-critical-text">
               {{ devicePanel.d.error }}
             </p>
-            <div class="grid grid-cols-2 gap-2">
+            <!-- The tiles of its kind, as on its page (ADR-235): a recorder shows whether it
+                 records, its cameras and the recording left, never four dashes. -->
+            <div
+              v-if="devicePanel.tiles.length"
+              class="grid grid-cols-2 gap-2"
+              data-testid="map-panel-tiles"
+            >
               <span
-                v-for="f in [
-                  { k: 'cpu', v: pct(devicePanel.d.cpu) },
-                  { k: 'memory', v: pct(devicePanel.d.memory) },
-                  {
-                    k: 'ports',
-                    v:
-                      devicePanel.d.portsTotal != null
-                        ? $t('netMap.facts.portsValue', {
-                            up: devicePanel.d.portsUp ?? 0,
-                            total: devicePanel.d.portsTotal,
-                          })
-                        : '–',
-                  },
-                  { k: 'uptime', v: uptimeText(devicePanel.d.uptimeS) },
-                ]"
-                :key="f.k"
-                class="flex flex-col gap-0.5 rounded-control bg-surface-2 px-2.5 py-2"
+                v-for="f in devicePanel.tiles"
+                :key="f.key"
+                class="flex min-w-0 flex-col gap-0.5 rounded-control bg-surface-2 px-2.5 py-2"
+                :data-tile="f.key"
               >
-                <span class="text-12 text-text-muted">{{ $t(`netMap.facts.${f.k}`) }}</span>
-                <span class="font-mono text-14 text-text tabular">{{ f.v }}</span>
+                <span class="text-12 text-text-muted">{{ f.label }}</span>
+                <span
+                  class="text-text"
+                  :class="f.small ? 'text-13 font-medium' : 'font-mono text-14 tabular'"
+                  >{{ f.value }}</span
+                >
               </span>
             </div>
             <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-13">
@@ -1252,11 +1286,11 @@ function expand(deviceId: string) {
                       : devicePanel.d.poller.name,
                   },
                   { k: 'protocol', v: $t(`net.protocol.${devicePanel.d.protocol}`) },
-                ]"
+                ].filter((x) => x.v)"
                 :key="f.k"
               >
                 <dt class="text-text-muted">{{ $t(`netMap.facts.${f.k}`) }}</dt>
-                <dd class="min-w-0 truncate font-mono text-text">{{ f.v || '–' }}</dd>
+                <dd class="min-w-0 truncate font-mono text-text">{{ f.v }}</dd>
               </template>
             </dl>
 

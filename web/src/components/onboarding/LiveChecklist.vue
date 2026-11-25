@@ -44,6 +44,9 @@ const steps = computed(() => {
 });
 
 const unit = computed(() => (props.kind === 'server' ? 'hosts' : 'nodes'));
+/** "1 server", "13 services": a count with its own singular. */
+const count = (what: string, v: number | undefined) =>
+  t(`onboarding.check.count.${what}`, { n: v ?? 0 }, v ?? 0);
 function detail(s: OnboardingStep & { active: boolean }): string {
   const n = (v: number | undefined) => v ?? 0;
   if (s.state === 'waiting') {
@@ -56,19 +59,19 @@ function detail(s: OnboardingStep & { active: boolean }): string {
     case 'clusterAgent':
       return t('onboarding.check.clusterAgent.done');
     case 'metrics':
+      // Each count has its own singular ("1 server: 13 services, 1 process group, 2 containers").
       // A server (ADR-208): its systemd services and process groups too.
       if (props.kind === 'server' && (s.units !== undefined || s.processGroups !== undefined))
         return t('onboarding.check.metrics.done.servers', {
-          nodes: n(s.nodes),
-          units: n(s.units),
-          groups: n(s.processGroups),
-          containers: n(s.containers),
+          nodes: count('servers', s.nodes),
+          units: count('units', s.units),
+          groups: count('groups', s.processGroups),
+          containers: count('containers', s.containers),
         });
-      return t(
-        `onboarding.check.metrics.done.${unit.value}`,
-        { nodes: n(s.nodes), containers: n(s.containers) },
-        n(s.containers),
-      );
+      return t(`onboarding.check.metrics.done.${unit.value}`, {
+        nodes: count(unit.value, s.nodes),
+        containers: count('containers', s.containers),
+      });
     case 'ebpf':
       if (s.state === 'done')
         return t(`onboarding.check.ebpf.done.${unit.value}`, { n: n(s.enabled) }, n(s.enabled));
@@ -77,11 +80,10 @@ function detail(s: OnboardingStep & { active: boolean }): string {
         : t('onboarding.check.ebpf.off', { node: s.node ?? '' });
     case 'map':
       return s.state === 'done'
-        ? t(
-            'onboarding.check.map.done',
-            { services: n(s.services), connections: n(s.connections) },
-            n(s.connections),
-          )
+        ? t('onboarding.check.map.done', {
+            services: count('services', s.services),
+            connections: count('connections', s.connections),
+          })
         : t('onboarding.check.map.off');
   }
   return '';

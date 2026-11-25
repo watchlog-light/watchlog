@@ -61,9 +61,11 @@ const rows = computed(() =>
         : '',
       left: r.full
         ? t('net.recording.full')
-        : r.daysLeft != null
-          ? t('net.recording.daysLeft', { n: Math.floor(r.daysLeft) }, Math.floor(r.daysLeft))
-          : '',
+        : r.daysCalculating
+          ? t('net.recording.calculating')
+          : r.daysLeft != null
+            ? t('net.recording.daysLeft', { n: Math.floor(r.daysLeft) }, Math.floor(r.daysLeft))
+            : '',
       rate: r.rate != null ? rateText(r.rate) : '',
       slow: r.rate != null && !!r.usual && r.rate < r.usual.low,
       usual,

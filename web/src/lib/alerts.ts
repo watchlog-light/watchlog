@@ -5,9 +5,23 @@ import type { RouteLocationRaw } from 'vue-router';
 import { serviceName } from './applications';
 import type { Tone } from './kube';
 
+/**
+ * A server's systemd service or process group named the way flow series name it: `workload`
+ * with `workload_kind` "Service" or "ProcessGroup" and no namespace (a failed-connections
+ * alert's source). Read as `unit` or `group`, so it is never taken for a Kubernetes workload
+ * ("Service undefined/demo-load.service"). The backend's render.ts does the same.
+ */
+export function serverWorkloadLabels(l: Record<string, string>): Record<string, string> {
+  if (!l.workload || l.namespace || l.unit || l.group) return l;
+  const { workload, workload_kind: kind, ...rest } = l;
+  if (kind === 'Service') return { ...rest, unit: workload };
+  if (kind === 'ProcessGroup' || kind === 'Process') return { ...rest, group: workload };
+  return l;
+}
+
 /** "wl-test/web (Deployment)", "node worker-1", "host-1/redis" — like the messages. */
 export function alertWhere(a: Pick<Alert, 'labels'>): string {
-  const l = a.labels;
+  const l = serverWorkloadLabels(a.labels);
   // A monitored service's rule (ADR-229): "Redis shop/redis", as the messages say.
   if (l.service_name) return `${serviceName(l.service_type ?? '') || 'service'} ${l.service_name}`;
   if (l.pvc) return `${l.namespace}/${l.pvc} (PVC)`;
@@ -27,6 +41,9 @@ export function alertWhere(a: Pick<Alert, 'labels'>): string {
   // A server's systemd service or process group (ADR-208).
   if (l.group && l.node) return `${l.node} › ${l.group} (process group)`;
   if (l.unit && l.node) return `${l.node} › ${l.unit}`;
+  // A unit or group whose server isn't known (an alert from before 1.0.0): its name alone.
+  if (l.group) return `${l.group} (process group)`;
+  if (l.unit) return l.unit;
   if (l.node) return l.condition ? `node ${l.node} (${l.condition})` : `node ${l.node}`;
   if (l.namespace) return `namespace ${l.namespace}`;
   return Object.values(l).join(' ');
@@ -36,7 +53,7 @@ export function alertWhere(a: Pick<Alert, 'labels'>): string {
 export function alertTarget(
   a: Pick<Alert, 'labels' | 'cluster'> & { rule?: Pick<Alert['rule'], 'key'> },
 ): RouteLocationRaw | null {
-  const l = a.labels;
+  const l = serverWorkloadLabels(a.labels);
   // Certificates and scheduled jobs have their own pages (0.13.0), searched by name.
   const key = a.rule?.key ?? '';
   if (key.startsWith('cert.') || key.startsWith('job.')) {
@@ -82,7 +99,7 @@ export function alertTarget(
 
 /** The name of that object, for "Open …". */
 export function alertTargetName(a: Pick<Alert, 'labels' | 'cluster'>): string {
-  const l = a.labels;
+  const l = serverWorkloadLabels(a.labels);
   if (l.agent === 'all' || l.agent === 'cluster') return a.cluster.name;
   if (l.service_name) return l.service_name;
   if (l.compose_service) return `${l.compose_project}/${l.compose_service}`;
@@ -177,7 +194,7 @@ export function alertScope(a: Pick<Alert, 'labels' | 'cluster' | 'podCount'>): {
   name: string;
   extra: string | null;
 } {
-  const l = a.labels;
+  const l = serverWorkloadLabels(a.labels);
   if (l.agent === 'all') return { kind: a.cluster.kind, name: a.cluster.name, extra: null };
   if (l.service_name) {
     const type = l.service_type ? serviceName(l.service_type) : undefined;
@@ -198,8 +215,10 @@ export function alertScope(a: Pick<Alert, 'labels' | 'cluster' | 'podCount'>): {
       return { kind: 'compose', name: `${l.compose_project}/${l.compose_service}`, extra: null };
     }
     // A systemd service or a process group on a server (ADR-208).
-    if (l.unit) return { kind: 'unit', name: `${l.node ?? ''} › ${l.unit}`, extra: null };
-    if (l.group) return { kind: 'group', name: `${l.node ?? ''} › ${l.group}`, extra: null };
+    // Without its server (an alert from before 1.0.0): the name alone, never " › name".
+    const on = (name: string) => (l.node ? `${l.node} › ${name}` : name);
+    if (l.unit) return { kind: 'unit', name: on(l.unit), extra: null };
+    if (l.group) return { kind: 'group', name: on(l.group), extra: null };
     if (l.node) return { kind: 'host', name: l.node, extra: l.container ?? null };
     return { kind: a.cluster.kind, name: a.cluster.name, extra: null };
   }

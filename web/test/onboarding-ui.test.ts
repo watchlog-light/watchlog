@@ -216,6 +216,42 @@ describe('the live checklist', () => {
     expect(state('map').text()).toContain('After about 2 minutes of traffic');
   });
 
+  it('every count has its own singular: one server, one node, one connection', async () => {
+    // A one-server fleet (the live demo's): "1 server", never "1 servers".
+    const one = status('server', ['agent', 'metrics', 'ebpf', 'map']);
+    for (const st of one.steps)
+      Object.assign(st, {
+        nodes: 1,
+        units: 13,
+        processGroups: 1,
+        containers: 2,
+        enabled: 1,
+        services: 1,
+        connections: 6,
+      });
+    const server = await mountWith(LiveChecklist, '/', true, { status: one, kind: 'server' });
+    expect(server.wrapper.get('[data-testid="check-agent"]').text()).toContain('on 1 host');
+    expect(server.wrapper.get('[data-testid="check-metrics"]').text()).toContain(
+      '1 server: 13 services, 1 process group, 2 containers',
+    );
+    expect(server.wrapper.get('[data-testid="check-map"]').text()).toContain(
+      '1 service, 6 connections so far',
+    );
+    const k8s = status('kubernetes', ['agent', 'clusterAgent', 'metrics', 'ebpf', 'map']);
+    for (const st of k8s.steps)
+      Object.assign(st, { nodes: 1, containers: 1, services: 2, connections: 1 });
+    const cluster = await mountWith(LiveChecklist, '/', true, { status: k8s, kind: 'kubernetes' });
+    expect(cluster.wrapper.get('[data-testid="check-metrics"]').text()).toContain(
+      '1 node, 1 container',
+    );
+    expect(cluster.wrapper.get('[data-testid="check-map"]').text()).toContain(
+      '2 services, 1 connection so far',
+    );
+    expect(server.wrapper.text() + cluster.wrapper.text()).not.toMatch(
+      /\b1 (servers|nodes|hosts|services|containers|connections|process groups)\b/,
+    );
+  });
+
   it('Docker: hosts, no cluster agent; eBPF off says why and how to fix it', async () => {
     const s = status('server', ['agent', 'metrics']);
     s.steps[2] = {

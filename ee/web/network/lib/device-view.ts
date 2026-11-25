@@ -4,7 +4,7 @@
 // (SNMP, RouterOS) report CPU, memory, temperature and ports when their profile reads them; an
 // access point read through CAPsMAN reports its clients and radios instead; a UPS its charge,
 // runtime and load; a recorder whether it records, its cameras and the days left.
-import type { DeviceDetail, DeviceSeries, Radio } from '../api';
+import type { Device, DeviceDetail, DeviceSeries, Radio } from '../api';
 
 export type TileKey =
   | 'cpu'
@@ -23,7 +23,8 @@ export type TileKey =
   | 'load'
   | 'recording'
   | 'cameras'
-  | 'daysLeft';
+  | 'daysLeft'
+  | 'uptime';
 
 export type ChartKey =
   'cpu' | 'memory' | 'temperature' | 'clients' | 'charge' | 'runtime' | 'load' | 'camerasOnline';
@@ -76,7 +77,14 @@ export function deviceTiles(detail: DeviceDetail): TileSpec[] {
     out.push(
       { key: 'recording', value: k.recorder.recording },
       { key: 'cameras', value: k.recorder.camerasOnline, of: k.recorder.camerasTotal },
-      { key: 'daysLeft', value: k.recorder.full ? 'full' : k.recorder.daysLeft },
+      {
+        key: 'daysLeft',
+        value: k.recorder.full
+          ? 'full'
+          : k.recorder.daysCalculating
+            ? 'calculating'
+            : k.recorder.daysLeft,
+      },
     );
   }
   if (k.ups) {
@@ -103,6 +111,34 @@ export function deviceTiles(detail: DeviceDetail): TileSpec[] {
   if (poe > 0) out.push({ key: 'poe', value: poe });
   if (d.routes != null) out.push({ key: 'routes', value: d.routes, extra: d.gateway });
   return out;
+}
+
+/**
+ * The map's side panel (1.0.0): at most four tiles, by the same rule as the device's page. With
+ * the device's detail, its kind's own tiles first (a recorder: recording, cameras, the recording
+ * left; a UPS: charge, runtime, load; an access point: clients, radios, weak clients), then what
+ * else it reports, then how long it has been up. Before the detail arrives, only what the map
+ * itself knows and the device reports. Never a tile with "–" for a fact it can't have.
+ */
+export function panelTiles(
+  d: Pick<Device, 'cpu' | 'memory' | 'portsUp' | 'portsTotal' | 'uptimeS'>,
+  detail: DeviceDetail | null,
+): TileSpec[] {
+  const out: TileSpec[] = detail ? deviceTiles(detail) : [];
+  if (!detail) {
+    if (d.cpu != null) out.push({ key: 'cpu', value: d.cpu });
+    if (d.memory != null) out.push({ key: 'memory', value: d.memory });
+    if (d.portsTotal) out.push({ key: 'ports', value: d.portsUp ?? 0, of: d.portsTotal });
+  }
+  const up = detail?.device.uptimeS ?? d.uptimeS;
+  const tiles = out.filter((x) => x.value != null).slice(0, up != null ? 3 : 4);
+  if (up != null) tiles.push({ key: 'uptime', value: up });
+  return tiles;
+}
+
+/** The facts worth a row: one with no value isn't shown ("Uptime –" on a recorder). */
+export function withValue<T extends { value: string | null | undefined }>(rows: T[]): T[] {
+  return rows.filter((r) => r.value != null && r.value.trim() !== '' && r.value.trim() !== '–');
 }
 
 /** The charts: the device's reported metrics only. */

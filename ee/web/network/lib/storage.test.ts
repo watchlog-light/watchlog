@@ -29,6 +29,11 @@ describe('recording', () => {
     expect(daysLeftWords({ daysLeft: 0.4, full: false })).toEqual({ key: 'underDay', n: 0 });
     expect(daysLeftWords({ daysLeft: null, full: true })).toEqual({ key: 'full', n: 0 });
     expect(daysLeftWords({ daysLeft: null, full: false })).toEqual({ key: 'unknown', n: 0 });
+    // No hour of its write rate yet: calculating, whatever the number would be.
+    expect(daysLeftWords({ daysLeft: null, full: false, daysCalculating: true })).toEqual({
+      key: 'calculating',
+      n: 0,
+    });
   });
 
   it('places the write rate against its usual band', () => {

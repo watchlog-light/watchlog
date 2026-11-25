@@ -57,7 +57,8 @@
       "days": "about {n} days of recording left | about {n} day of recording left | about {n} days of recording left",
       "underDay": "less than a day of recording left",
       "full": "full: overwriting its oldest footage",
-      "unknown": "days left not known yet"
+      "unknown": "days left not known yet",
+      "calculating": "calculating the recording left (needs an hour of its write rate)"
     },
     "nas": {
       "title": "NAS",

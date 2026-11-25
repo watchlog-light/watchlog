@@ -3,7 +3,15 @@
 // devices shaped like the demo's.
 import { describe, expect, it } from 'vitest';
 import type { DeviceDetail } from '../api';
-import { chartPoints, deviceCharts, deviceTiles, radiosText } from './device-view';
+import {
+  chartPoints,
+  deviceCharts,
+  deviceTiles,
+  panelTiles,
+  radiosText,
+  withValue,
+} from './device-view';
+import { tileText } from './tile-text';
 
 function detail(
   device: Partial<DeviceDetail['device']>,
@@ -178,5 +186,106 @@ describe('the tiles and charts per source', () => {
       '6.0 GHz',
     );
     expect(radiosText([])).toBe('');
+  });
+});
+
+describe("the map's side panel follows the device's kind (1.0.0)", () => {
+  const none = { cpu: null, memory: null, portsUp: null, portsTotal: null, uptimeS: null };
+  const recorder = detail(
+    { kind: 'nvr', protocol: 'dahua' },
+    {
+      kind: {
+        recorder: {
+          recording: true,
+          camerasOnline: 16,
+          camerasTotal: 16,
+          daysLeft: 12.4,
+          daysCalculating: false,
+          full: false,
+        },
+      },
+    },
+  );
+  // vue-i18n's t, as far as these tiles need it: the key, its values and the plural's count.
+  const t = (key: string, values?: Record<string, unknown>, count?: number) =>
+    `${key}${values ? `:${Object.values(values).join(',')}` : ''}${count !== undefined ? `#${count}` : ''}`;
+
+  it('a recorder: recording, cameras and the recording left, never four dashes', () => {
+    const tiles = panelTiles(none, recorder);
+    expect(tiles.map((x) => x.key)).toEqual(['recording', 'cameras', 'daysLeft']);
+    expect(tiles.map((x) => tileText(t, x).value)).toEqual([
+      'netDevice.tiles.recordingYes',
+      '16 / 16',
+      'netDevice.tiles.days:12#12',
+    ]);
+    // Before its detail arrives the map knows nothing it reports: no tile at all.
+    expect(panelTiles(none, null)).toEqual([]);
+    for (const x of tiles) expect(tileText(t, x).value).not.toBe('–');
+  });
+
+  it('a switch keeps CPU, memory and ports, with how long it has been up', () => {
+    const sw = { cpu: 0.08, memory: 0.35, portsUp: 46, portsTotal: 104, uptimeS: 3_275_000 };
+    expect(panelTiles(sw, null).map((x) => x.key)).toEqual(['cpu', 'memory', 'ports', 'uptime']);
+    const full = detail({ ...sw, temperature: 41 });
+    expect(panelTiles(sw, full).map((x) => x.key)).toEqual([
+      'cpu',
+      'memory',
+      'temperature',
+      'uptime',
+    ]);
+    expect(tileText(t, { key: 'uptime', value: 3_275_000 }).value).toBe('37d 21h');
+  });
+
+  it('a UPS and an access point show their own', () => {
+    const ups = detail({ kind: 'ups' }, {
+      kind: { ups: { chargePercent: 100, runtimeS: 2700, loadPercent: 31 } },
+    } as never);
+    expect(panelTiles(none, ups).map((x) => x.key)).toEqual(['charge', 'runtime', 'load']);
+    const ap = detail(
+      { kind: 'ap', protocol: 'capsman', managedAp: true, parentId: 'r' },
+      { kind: { ap: { clients: 9, weak: 1, weakDbm: -75, radios: [], generation: 'wifi' } } },
+    );
+    expect(panelTiles(none, ap).map((x) => x.key)).toEqual(['clients', 'weak']);
+  });
+
+  it('the recording left: calculating before an hour of data, words under a day', () => {
+    const tile = (r: object) =>
+      tileText(
+        t,
+        deviceTiles(
+          detail(
+            { kind: 'nvr' },
+            {
+              kind: {
+                recorder: {
+                  recording: true,
+                  camerasOnline: 1,
+                  camerasTotal: 1,
+                  daysLeft: null,
+                  full: false,
+                  ...r,
+                },
+              },
+            },
+          ),
+        ).find((x) => x.key === 'daysLeft')!,
+      );
+    expect(tile({ daysCalculating: true }).value).toBe('netDevice.tiles.calculating');
+    expect(tile({ daysLeft: 0.4 }).value).toBe('netDevice.tiles.underDay');
+    expect(tile({ daysLeft: 1.9 }).value).toBe('netDevice.tiles.days:1#1');
+    expect(tile({ full: true }).value).toBe('netDevice.tiles.full');
+    for (const r of [{ daysCalculating: true }, { daysLeft: 0.4 }, { daysLeft: 0.01 }])
+      expect(tile(r).value).not.toMatch(/:0\b/);
+  });
+
+  it('a header fact with no value is not a row', () => {
+    const rows = withValue([
+      { label: 'Model', value: 'Dahua' },
+      { label: 'Uptime', value: null },
+      { label: 'Serial', value: '' },
+      { label: 'Firmware', value: '–' },
+      { label: 'Address', value: '10.0.10.50' },
+    ]);
+    expect(rows.map((r) => r.label)).toEqual(['Model', 'Address']);
   });
 });

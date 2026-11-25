@@ -188,6 +188,8 @@ export interface DeviceDetail {
       camerasOnline: number;
       camerasTotal: number;
       daysLeft: number | null;
+      /** No hour of its write rate yet (1.0.0): "calculating", never a number. */
+      daysCalculating?: boolean;
       full: boolean;
     };
   };
@@ -295,6 +297,7 @@ export interface RecordingLine {
   cameras: { online: number; total: number };
   disk: { nasId: string | null; nas: string | null; lun: string } | null;
   daysLeft: number | null;
+  daysCalculating?: boolean;
   full: boolean;
   /** bytes a second */
   rate: number | null;
@@ -404,6 +407,8 @@ export interface RecorderCard {
   free: number;
   total: number;
   daysLeft: number | null;
+  /** No hour of its write rate yet: "calculating". */
+  daysCalculating?: boolean;
   /** full and overwriting its oldest footage */
   full: boolean;
   rate: number | null;

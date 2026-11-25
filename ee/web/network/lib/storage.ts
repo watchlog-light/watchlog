@@ -15,14 +15,21 @@ export function signalState(s: Pick<RecordingSignal, 'ok'>): 'true' | 'false' | 
 }
 
 /**
- * Days of recording left as words: the i18n key under netStorage.daysLeft and its count.
- * Full: overwriting its oldest footage. Unknown: no disk or no write rate.
+ * Days of recording left as words: the i18n key (under netStorage.daysLeft, netDevice.daysLeft
+ * and net.recording.left) and its count. Full: overwriting its oldest footage. Calculating: no
+ * hour of its write rate yet (1.0.0). Unknown: no disk, or nothing written in the hour. Under a
+ * day is said in words, never "0 days".
  */
-export function daysLeftWords(r: Pick<RecorderCard, 'daysLeft' | 'full'>): {
-  key: 'full' | 'unknown' | 'underDay' | 'days';
+export function daysLeftWords(r: {
+  daysLeft: number | null;
+  full: boolean;
+  daysCalculating?: boolean;
+}): {
+  key: 'full' | 'calculating' | 'unknown' | 'underDay' | 'days';
   n: number;
 } {
   if (r.full) return { key: 'full', n: 0 };
+  if (r.daysCalculating) return { key: 'calculating', n: 0 };
   if (r.daysLeft == null) return { key: 'unknown', n: 0 };
   if (r.daysLeft < 1) return { key: 'underDay', n: 0 };
   return { key: 'days', n: Math.floor(r.daysLeft) };

@@ -4637,10 +4637,20 @@
         "label": "First metrics received",
         "waiting": "Waiting for the first metrics…",
         "done": {
-          "nodes": "{nodes} nodes, {containers} containers | {nodes} nodes, {containers} container | {nodes} nodes, {containers} containers",
-          "hosts": "{nodes} hosts, {containers} containers | {nodes} hosts, {containers} container | {nodes} hosts, {containers} containers",
-          "servers": "{nodes} servers: {units} services, {groups} process groups, {containers} containers"
+          "nodes": "{nodes}, {containers}",
+          "hosts": "{nodes}, {containers}",
+          "servers": "{nodes}: {units}, {groups}, {containers}"
         }
+      },
+      "count": {
+        "nodes": "{n} nodes | {n} node | {n} nodes",
+        "hosts": "{n} hosts | {n} host | {n} hosts",
+        "servers": "{n} servers | {n} server | {n} servers",
+        "containers": "{n} containers | {n} container | {n} containers",
+        "units": "{n} services | {n} service | {n} services",
+        "groups": "{n} process groups | {n} process group | {n} process groups",
+        "services": "{n} services | {n} service | {n} services",
+        "connections": "{n} connections | {n} connection | {n} connections"
       },
       "ebpf": {
         "label": "eBPF network monitoring",
@@ -4657,7 +4667,7 @@
         "label": "Service map ready",
         "waiting": "Waiting for traffic between services…",
         "later": "After about 2 minutes of traffic",
-        "done": "{services} services, {connections} connections so far | {services} services, {connections} connection so far | {services} services, {connections} connections so far",
+        "done": "{services}, {connections} so far",
         "off": "Drawn from workloads and services; connections need eBPF"
       }
     },

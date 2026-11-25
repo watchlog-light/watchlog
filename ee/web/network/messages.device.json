@@ -69,8 +69,12 @@
       "cameras": "Cameras online",
       "camerasSub": "of its cameras",
       "daysLeft": "Recording left",
-      "days": "{n} days",
-      "full": "Full, overwriting the oldest"
+      "days": "{n} days | {n} day | {n} days",
+      "full": "Full, overwriting the oldest",
+      "underDay": "Under a day",
+      "calculating": "Calculating",
+      "calculatingSub": "needs an hour of its write rate",
+      "uptime": "Up for"
     },
     "panel": {
       "title": "Ports",

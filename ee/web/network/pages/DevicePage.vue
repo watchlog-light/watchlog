@@ -22,9 +22,9 @@ import FrontPanel from '../components/device/FrontPanel.vue';
 import PortDetail from '../components/device/PortDetail.vue';
 import PortsTable from '../components/device/PortsTable.vue';
 import NetworkTabs from '../components/NetworkTabs.vue';
-import { pct } from '../lib/format';
 import { servedPorts } from '../lib/front-panel';
 import { chartPoints, deviceCharts, deviceTiles, type ChartKey } from '../lib/device-view';
+import { tileText } from '../lib/tile-text';
 
 // A network device (ADR-233): its facts, its ports as on its front, the picked port's traffic and
 // what is on its other end, CPU, memory and temperature, its hardware, events and alerts; and
@@ -127,123 +127,11 @@ const neighbours = computed(() =>
     .map((p) => ({ ...p.neighbour!, local: p.name })),
 );
 
-const runtimeText = (sec: number) =>
-  sec >= 3600
-    ? t('netDevice.tiles.hoursMinutes', {
-        h: Math.floor(sec / 3600),
-        m: Math.round((sec % 3600) / 60),
-      })
-    : t('netDevice.tiles.minutes', { m: Math.round(sec / 60) });
-
-// Only what the device reports (0.17.1, lib/device-view.ts).
+// Only what the device reports (0.17.1, lib/device-view.ts), in the words the map's panel
+// uses too (lib/tile-text.ts).
 const tiles = computed(() => {
   const d = detail.value;
-  if (!d) return [];
-  return deviceTiles(d).map((x) => {
-    const label = t(`netDevice.tiles.${x.key}`);
-    const n = (v: unknown) => (typeof v === 'number' ? v : null);
-    switch (x.key) {
-      case 'cpu':
-      case 'memory':
-        return { key: x.key, label, value: pct(n(x.value)), sub: '' };
-      case 'temperature':
-        return {
-          key: x.key,
-          label,
-          value: `${Math.round(n(x.value) ?? 0)} °C`,
-          sub: x.extra != null ? t('netDevice.tiles.limit', { c: x.extra }) : '',
-        };
-      case 'ports':
-        return {
-          key: x.key,
-          label,
-          value: `${x.value} / ${x.of}`,
-          sub: t('netDevice.tiles.portsSub'),
-        };
-      case 'power':
-      case 'fans':
-        return { key: x.key, label, value: `${x.value} / ${x.of}`, sub: t('netDevice.tiles.ok') };
-      case 'poe':
-        return {
-          key: x.key,
-          label,
-          value: `${Math.round(n(x.value) ?? 0)} W`,
-          sub: t('netDevice.tiles.poeSub'),
-        };
-      case 'routes':
-        return { key: x.key, label, value: String(x.value), sub: String(x.extra ?? '') };
-      case 'clients':
-        return {
-          key: x.key,
-          label,
-          value: x.value == null ? '–' : String(x.value),
-          sub: t('netDevice.tiles.clientsSub'),
-        };
-      case 'radios':
-        return {
-          key: x.key,
-          label,
-          value: x.value == null ? '–' : String(x.value),
-          sub: '',
-          small: true,
-        };
-      case 'weak':
-        return {
-          key: x.key,
-          label,
-          value: x.value == null ? '–' : String(x.value),
-          sub: t('netDevice.tiles.weakSub', { dbm: x.extra ?? -75 }),
-        };
-      case 'charge':
-      case 'load':
-        return {
-          key: x.key,
-          label,
-          value: x.value == null ? '–' : `${Math.round(n(x.value) ?? 0)}%`,
-          sub: '',
-        };
-      case 'runtime':
-        return {
-          key: x.key,
-          label,
-          value: x.value == null ? '–' : runtimeText(n(x.value) ?? 0),
-          sub: '',
-        };
-      case 'recording':
-        return {
-          key: x.key,
-          label,
-          value:
-            x.value === true
-              ? t('netDevice.tiles.recordingYes')
-              : x.value === false
-                ? t('netDevice.tiles.recordingNo')
-                : t('netDevice.tiles.recordingUnknown'),
-          sub: '',
-          small: true,
-        };
-      case 'cameras':
-        return {
-          key: x.key,
-          label,
-          value: `${x.value} / ${x.of}`,
-          sub: t('netDevice.tiles.camerasSub'),
-        };
-      case 'daysLeft':
-        return {
-          key: x.key,
-          label,
-          value:
-            x.value === 'full'
-              ? t('netDevice.tiles.full')
-              : x.value == null
-                ? '–'
-                : t('netDevice.tiles.days', { n: Math.floor(n(x.value) ?? 0) }),
-          sub: '',
-          small: x.value === 'full',
-        };
-    }
-  });
+  return d ? deviceTiles(d).map((x) => tileText(t, x)) : [];
 });
 
 const windowOf = computed<[number, number]>(() => {

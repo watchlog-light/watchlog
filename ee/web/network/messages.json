@@ -121,7 +121,8 @@
       "summaryAll": "the recorder is writing | all {n} recorders writing",
       "summaryNo": "{n} not recording | {n} not recording",
       "summarySome": "{n} of {of} writing",
-      "note": "Read from each recorder, its switch port and the NAS. A recorder that stops writing raises an alert, even while it still answers."
+      "note": "Read from each recorder, its switch port and the NAS. A recorder that stops writing raises an alert, even while it still answers.",
+      "calculating": "recording left: calculating"
     }
   }
 }

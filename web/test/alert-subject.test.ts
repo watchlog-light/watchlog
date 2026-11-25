@@ -112,4 +112,36 @@ describe('alertScope, alertWhere and alertTarget per subject', () => {
     expect(alertScope(group)).toMatchObject({ kind: 'group', name: 'web-01 › api' });
     expect(alertWhere(group)).toBe('web-01 › api (process group)');
   });
+
+  it("a server's failed-connections alert names the unit and its server, never undefined", () => {
+    // The live demo's "demo-load.service cannot reach orders.service" read
+    // "Service undefined/demo-load.service": flow series name a unit as a workload.
+    const flow = alert(
+      {
+        node: 'demo-server',
+        workload: 'demo-load.service',
+        workload_kind: 'Service',
+        dst_kind: 'workload',
+        dst_workload: 'orders.service',
+      },
+      fleet,
+    );
+    expect(alertScope(flow)).toEqual({
+      kind: 'unit',
+      name: 'demo-server › demo-load.service',
+      extra: null,
+    });
+    expect(alertWhere(flow)).toBe('demo-server › demo-load.service');
+    expect(alertTarget(flow)).toEqual({
+      name: 'server-workload',
+      params: { server: 'demo-server', workload: 'service:demo-load.service' },
+    });
+    expect(alertTargetName(flow)).toBe('demo-load.service');
+    const group = alert({ node: 'web-01', workload: 'api', workload_kind: 'ProcessGroup' }, fleet);
+    expect(alertScope(group)).toMatchObject({ kind: 'group', name: 'web-01 › api' });
+    // Raised before 1.0.0, without its server: the name alone.
+    const old = alert({ workload: 'demo-load.service', workload_kind: 'Service' }, fleet);
+    expect(alertScope(old)).toMatchObject({ kind: 'unit', name: 'demo-load.service' });
+    expect(alertWhere(old)).toBe('demo-load.service');
+  });
 });

@@ -7,6 +7,7 @@ import BaseButton from '@/components/ui/BaseButton.vue';
 import { since } from '@/lib/time';
 import { useAuthStore } from '@/stores/auth';
 import { networkApi, type DeviceDetail } from '../../api';
+import { withValue } from '../../lib/device-view';
 import { statusTone, uptimeText } from '../../lib/format';
 import KindIcon from '../KindIcon.vue';
 
@@ -31,14 +32,16 @@ const tone = computed(() => TONES[statusTone(d.value.status)]);
 const facts = computed(() => {
   const v = d.value;
   const poller = v.poller.host ? `${v.poller.name} · ${v.poller.host}` : v.poller.name;
-  const rows: { label: string; value: string; mono?: boolean }[] = [
+  // A fact with no value isn't shown (1.0.0): a recorder reports no uptime, an access point
+  // read through its controller no serial; "Uptime –" said nothing.
+  const rows: { label: string; value: string | null; mono?: boolean }[] = [
     {
       label: t('netDevice.facts.model'),
-      value: [v.vendor, v.model].filter(Boolean).join(' ') || '–',
+      value: [v.vendor, v.model].filter(Boolean).join(' ') || null,
     },
-    { label: t('netDevice.facts.firmware'), value: v.firmware || '–', mono: true },
-    { label: t('netDevice.facts.serial'), value: v.serial || '–', mono: true },
-    { label: t('netDevice.facts.uptime'), value: uptimeText(v.uptimeS) },
+    { label: t('netDevice.facts.firmware'), value: v.firmware || null, mono: true },
+    { label: t('netDevice.facts.serial'), value: v.serial || null, mono: true },
+    { label: t('netDevice.facts.uptime'), value: v.uptimeS != null ? uptimeText(v.uptimeS) : null },
     { label: t('netDevice.facts.address'), value: v.address, mono: true },
     { label: t('netDevice.facts.poller'), value: poller },
     // An access point read through its controller has no profile of its own.
@@ -52,7 +55,7 @@ const facts = computed(() => {
                   name: v.credential.name,
                   protocol: t(`net.protocol.${v.credential.protocol}`),
                 })
-              : '–',
+              : null,
           },
         ]),
     {
@@ -68,7 +71,7 @@ const facts = computed(() => {
         : t('net.protocol.capsman'),
     });
   if (v.location) rows.push({ label: t('netDevice.facts.location'), value: v.location });
-  return rows;
+  return withValue(rows);
 });
 
 const routerOs = computed(() => d.value.protocol === 'routeros');
