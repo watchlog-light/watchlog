@@ -23,7 +23,8 @@
       "polled": "Last polled",
       "never": "not yet",
       "location": "Location",
-      "readVia": "Read through"
+      "readVia": "Read through",
+      "readViaValue": "CAPsMAN on {name}"
     },
     "update": {
       "available": "{latest} is out on the {channel} channel",
@@ -50,7 +51,26 @@
       "ok": "OK",
       "poe": "PoE",
       "poeSub": "drawn by its ports",
-      "routes": "Routes"
+      "routes": "Routes",
+      "clients": "Clients now",
+      "clientsSub": "connected to it",
+      "radios": "Radios",
+      "weak": "Weak signal",
+      "weakSub": "clients below {dbm} dBm",
+      "charge": "Battery charge",
+      "runtime": "Runtime on battery",
+      "load": "Load",
+      "minutes": "{m} min",
+      "hoursMinutes": "{h} h {m} min",
+      "recording": "Recording",
+      "recordingYes": "Recording",
+      "recordingNo": "Not recording",
+      "recordingUnknown": "Not known",
+      "cameras": "Cameras online",
+      "camerasSub": "of its cameras",
+      "daysLeft": "Recording left",
+      "days": "{n} days",
+      "full": "Full, overwriting the oldest"
     },
     "panel": {
       "title": "Ports",
@@ -116,7 +136,12 @@
       "memory": "Memory",
       "temperature": "Temperature, °C",
       "empty": "No data in this time range.",
-      "error": "The chart couldn't be loaded."
+      "error": "The chart couldn't be loaded.",
+      "clients": "Clients",
+      "charge": "Battery charge",
+      "load": "Load",
+      "runtime": "Runtime on battery",
+      "camerasOnline": "Cameras online"
     },
     "hardware": {
       "title": "Hardware",
@@ -170,7 +195,8 @@
       "openStorage": "Open Storage",
       "controller": "Its CAPsMAN controller",
       "controllerNamed": "CAPsMAN on {name}"
-    }
+    },
+    "openAlerts": "no open alerts | {n} open alert | {n} open alerts"
   },
   "netAdd": {
     "title": "Add network devices",

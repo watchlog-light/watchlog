@@ -179,6 +179,18 @@ export interface DeviceDetail {
     firstSeen: string;
     lastSeen: string | null;
   };
+  /** What the device's kind reports instead of CPU, memory and ports (0.17.1). */
+  kind: {
+    ap?: { clients: number; weak: number; weakDbm: number; radios: Radio[]; generation: string };
+    ups?: UpsCard['ups'];
+    recorder?: {
+      recording: boolean | null;
+      camerasOnline: number;
+      camerasTotal: number;
+      daysLeft: number | null;
+      full: boolean;
+    };
+  };
   health: {
     sensors: { name: string; celsius: number; threshold?: number; state?: string }[];
     fans: { name: string; state: string }[];
@@ -216,6 +228,8 @@ export interface DeviceSeries {
   cpu: Points;
   memory: Points;
   temperature: Points;
+  /** The kind's own series: an AP's `clients`; a UPS's `charge`, `runtime`, `load`; a recorder's `camerasOnline`. */
+  kind?: Record<string, Points>;
   port: { name: string; inBps: Points; outBps: Points; errors: Points; discards: Points } | null;
 }
 

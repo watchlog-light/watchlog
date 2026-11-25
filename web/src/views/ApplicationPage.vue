@@ -30,6 +30,7 @@ import {
 } from '@/lib/applications';
 import { formatDateTime } from '@/lib/format';
 import { PAGE_RANGES, rangeOf, SEVERITY_TOKEN } from '@/lib/panels';
+import { offeredRanges } from '@/lib/ranges';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 
@@ -43,7 +44,15 @@ const router = useRouter();
 const auth = useAuthStore();
 
 const id = computed(() => String(route.params.id));
-const range = computed(() => rangeOf(route.query.range));
+// The demo answers at most its limit (ADR-122): longer ranges aren't offered, and a link
+// asking for one gets the longest that is.
+const ranges = computed(() => offeredRanges(PAGE_RANGES, auth.demoMaxRangeS));
+const range = computed(() => {
+  const r = rangeOf(route.query.range);
+  return ranges.value.some((x) => x.seconds === r)
+    ? r
+    : ranges.value[ranges.value.length - 1]!.seconds;
+});
 
 const page = useLoader(() =>
   api<ApplicationDetail>(`/applications/${id.value}?range=${range.value}`),
@@ -198,7 +207,7 @@ async function resume() {
             class="flex gap-0.5 rounded-control border border-border bg-surface-1 p-0.5"
           >
             <button
-              v-for="r in PAGE_RANGES"
+              v-for="r in ranges"
               :key="r.seconds"
               type="button"
               :aria-pressed="range === r.seconds"

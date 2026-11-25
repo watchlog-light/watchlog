@@ -24,7 +24,9 @@ const TONES = {
   critical: 'bg-critical/15 text-critical-text',
   neutral: 'bg-surface-3 text-text-muted',
 } as const;
-const tone = computed(() => TONES[statusTone(d.value.status, d.value.openAlerts)]);
+// The pill is the device's own state (0.17.1): open alerts are a chip of their own beside it, not
+// an amber "Up" (the map's ring and the lists still mix them in).
+const tone = computed(() => TONES[statusTone(d.value.status)]);
 
 const facts = computed(() => {
   const v = d.value;
@@ -39,22 +41,32 @@ const facts = computed(() => {
     { label: t('netDevice.facts.uptime'), value: uptimeText(v.uptimeS) },
     { label: t('netDevice.facts.address'), value: v.address, mono: true },
     { label: t('netDevice.facts.poller'), value: poller },
-    {
-      label: t('netDevice.facts.profile'),
-      value: v.credential
-        ? t('netDevice.facts.profileValue', {
-            name: v.credential.name,
-            protocol: t(`net.protocol.${v.credential.protocol}`),
-          })
-        : '–',
-    },
+    // An access point read through its controller has no profile of its own.
+    ...(v.managedAp && v.parentId
+      ? []
+      : [
+          {
+            label: t('netDevice.facts.profile'),
+            value: v.credential
+              ? t('netDevice.facts.profileValue', {
+                  name: v.credential.name,
+                  protocol: t(`net.protocol.${v.credential.protocol}`),
+                })
+              : '–',
+          },
+        ]),
     {
       label: t('netDevice.facts.polled'),
       value: v.polledAt ? t('netDevice.ago', { t: since(v.polledAt) }) : t('netDevice.facts.never'),
     },
   ];
   if (v.managedAp)
-    rows.push({ label: t('netDevice.facts.readVia'), value: t('net.protocol.capsman') });
+    rows.push({
+      label: t('netDevice.facts.readVia'),
+      value: v.parentName
+        ? t('netDevice.facts.readViaValue', { name: v.parentName })
+        : t('net.protocol.capsman'),
+    });
   if (v.location) rows.push({ label: t('netDevice.facts.location'), value: v.location });
   return rows;
 });
@@ -138,6 +150,12 @@ async function accept() {
           :class="tone"
           data-testid="device-status"
           >{{ $t(`net.status.${d.status}`) }}</span
+        >
+        <span
+          v-if="d.openAlerts > 0"
+          class="inline-flex h-6 shrink-0 items-center rounded-full bg-warning/15 px-2.5 text-12 font-semibold text-warning-text"
+          data-testid="device-open-alerts"
+          >{{ $t('netDevice.openAlerts', d.openAlerts) }}</span
         >
         <span class="text-13 text-text-muted">{{ $t(`net.kind.${d.kind}`) }}</span>
       </div>

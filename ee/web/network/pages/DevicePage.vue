@@ -4,11 +4,13 @@ import { ArrowRight } from '@lucide/vue';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import TimeSeriesChart, { type ChartSeries } from '@/components/charts/TimeSeriesChart.vue';
+import TimeSeriesChart from '@/components/charts/TimeSeriesChart.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import SkeletonChart from '@/components/ui/SkeletonChart.vue';
 import SkeletonDetailHeader from '@/components/ui/SkeletonDetailHeader.vue';
 import { ApiError } from '@/api/client';
+import { chartFailure } from '@/lib/chart-error';
+import { offeredRanges } from '@/lib/ranges';
 import { useAuthStore } from '@/stores/auth';
 import { networkApi, type DeviceDetail, type DeviceSeries } from '../api';
 import DeviceElsewhere from '../components/device/DeviceElsewhere.vue';
@@ -21,7 +23,8 @@ import PortDetail from '../components/device/PortDetail.vue';
 import PortsTable from '../components/device/PortsTable.vue';
 import NetworkTabs from '../components/NetworkTabs.vue';
 import { pct } from '../lib/format';
-import { healthTone, servedPorts } from '../lib/front-panel';
+import { servedPorts } from '../lib/front-panel';
+import { chartPoints, deviceCharts, deviceTiles, type ChartKey } from '../lib/device-view';
 
 // A network device (ADR-233): its facts, its ports as on its front, the picked port's traffic and
 // what is on its other end, CPU, memory and temperature, its hardware, events and alerts; and
@@ -52,22 +55,27 @@ async function load() {
 }
 
 const RANGES = [
-  { key: '1h', s: 3600 },
-  { key: '24h', s: 86400 },
-  { key: '7d', s: 7 * 86400 },
+  { key: '1h', seconds: 3600 },
+  { key: '24h', seconds: 86400 },
+  { key: '7d', seconds: 7 * 86400 },
 ] as const;
+// The demo answers at most its limit (ADR-122): longer ranges aren't offered there.
+const ranges = computed(() => offeredRanges(RANGES, auth.demoMaxRangeS));
 const range = ref<number>(86400);
 
 const series = ref<DeviceSeries | null>(null);
 const seriesLoading = ref(false);
 const seriesFailed = ref(false);
+/** A refusal's own words (no Retry), or null for the chart's message with Retry. */
+const seriesFailure = ref<{ text: string | null; retry: boolean }>({ text: null, retry: true });
 async function loadSeries() {
   seriesLoading.value = true;
   seriesFailed.value = false;
   try {
     series.value = await networkApi.series(id.value, range.value);
-  } catch {
+  } catch (err) {
     seriesFailed.value = true;
+    seriesFailure.value = chartFailure(err);
   } finally {
     seriesLoading.value = false;
   }
@@ -119,87 +127,149 @@ const neighbours = computed(() =>
     .map((p) => ({ ...p.neighbour!, local: p.name })),
 );
 
+const runtimeText = (sec: number) =>
+  sec >= 3600
+    ? t('netDevice.tiles.hoursMinutes', {
+        h: Math.floor(sec / 3600),
+        m: Math.round((sec % 3600) / 60),
+      })
+    : t('netDevice.tiles.minutes', { m: Math.round(sec / 60) });
+
+// Only what the device reports (0.17.1, lib/device-view.ts).
 const tiles = computed(() => {
   const d = detail.value;
   if (!d) return [];
-  const hot = d.health.sensors.find((s) => s.threshold != null);
-  const okCount = (xs: { state: string }[]) =>
-    xs.filter((x) => healthTone(x.state) === 'ok').length;
-  const poe = d.ports.reduce((n, p) => n + (p.poeWatts ?? 0), 0);
-  const out = [
-    { label: t('netDevice.tiles.cpu'), value: pct(d.device.cpu), sub: '' },
-    { label: t('netDevice.tiles.memory'), value: pct(d.device.memory), sub: '' },
-    {
-      label: t('netDevice.tiles.temperature'),
-      value: d.device.temperature == null ? '–' : `${Math.round(d.device.temperature)} °C`,
-      sub: hot?.threshold != null ? t('netDevice.tiles.limit', { c: hot.threshold }) : '',
-    },
-    {
-      label: t('netDevice.tiles.ports'),
-      value:
-        d.device.portsTotal == null ? '–' : `${d.device.portsUp ?? 0} / ${d.device.portsTotal}`,
-      sub: t('netDevice.tiles.portsSub'),
-    },
-  ];
-  if (d.health.psus.length) {
-    out.push({
-      label: t('netDevice.tiles.power'),
-      value: `${okCount(d.health.psus)} / ${d.health.psus.length}`,
-      sub: t('netDevice.tiles.ok'),
-    });
-  }
-  if (d.health.fans.length) {
-    out.push({
-      label: t('netDevice.tiles.fans'),
-      value: `${okCount(d.health.fans)} / ${d.health.fans.length}`,
-      sub: t('netDevice.tiles.ok'),
-    });
-  }
-  if (poe > 0)
-    out.push({
-      label: t('netDevice.tiles.poe'),
-      value: `${Math.round(poe)} W`,
-      sub: t('netDevice.tiles.poeSub'),
-    });
-  if (d.device.routes != null)
-    out.push({
-      label: t('netDevice.tiles.routes'),
-      value: String(d.device.routes),
-      sub: d.device.gateway ?? '',
-    });
-  return out;
+  return deviceTiles(d).map((x) => {
+    const label = t(`netDevice.tiles.${x.key}`);
+    const n = (v: unknown) => (typeof v === 'number' ? v : null);
+    switch (x.key) {
+      case 'cpu':
+      case 'memory':
+        return { key: x.key, label, value: pct(n(x.value)), sub: '' };
+      case 'temperature':
+        return {
+          key: x.key,
+          label,
+          value: `${Math.round(n(x.value) ?? 0)} °C`,
+          sub: x.extra != null ? t('netDevice.tiles.limit', { c: x.extra }) : '',
+        };
+      case 'ports':
+        return {
+          key: x.key,
+          label,
+          value: `${x.value} / ${x.of}`,
+          sub: t('netDevice.tiles.portsSub'),
+        };
+      case 'power':
+      case 'fans':
+        return { key: x.key, label, value: `${x.value} / ${x.of}`, sub: t('netDevice.tiles.ok') };
+      case 'poe':
+        return {
+          key: x.key,
+          label,
+          value: `${Math.round(n(x.value) ?? 0)} W`,
+          sub: t('netDevice.tiles.poeSub'),
+        };
+      case 'routes':
+        return { key: x.key, label, value: String(x.value), sub: String(x.extra ?? '') };
+      case 'clients':
+        return {
+          key: x.key,
+          label,
+          value: x.value == null ? '–' : String(x.value),
+          sub: t('netDevice.tiles.clientsSub'),
+        };
+      case 'radios':
+        return {
+          key: x.key,
+          label,
+          value: x.value == null ? '–' : String(x.value),
+          sub: '',
+          small: true,
+        };
+      case 'weak':
+        return {
+          key: x.key,
+          label,
+          value: x.value == null ? '–' : String(x.value),
+          sub: t('netDevice.tiles.weakSub', { dbm: x.extra ?? -75 }),
+        };
+      case 'charge':
+      case 'load':
+        return {
+          key: x.key,
+          label,
+          value: x.value == null ? '–' : `${Math.round(n(x.value) ?? 0)}%`,
+          sub: '',
+        };
+      case 'runtime':
+        return {
+          key: x.key,
+          label,
+          value: x.value == null ? '–' : runtimeText(n(x.value) ?? 0),
+          sub: '',
+        };
+      case 'recording':
+        return {
+          key: x.key,
+          label,
+          value:
+            x.value === true
+              ? t('netDevice.tiles.recordingYes')
+              : x.value === false
+                ? t('netDevice.tiles.recordingNo')
+                : t('netDevice.tiles.recordingUnknown'),
+          sub: '',
+          small: true,
+        };
+      case 'cameras':
+        return {
+          key: x.key,
+          label,
+          value: `${x.value} / ${x.of}`,
+          sub: t('netDevice.tiles.camerasSub'),
+        };
+      case 'daysLeft':
+        return {
+          key: x.key,
+          label,
+          value:
+            x.value === 'full'
+              ? t('netDevice.tiles.full')
+              : x.value == null
+                ? '–'
+                : t('netDevice.tiles.days', { n: Math.floor(n(x.value) ?? 0) }),
+          sub: '',
+          small: x.value === 'full',
+        };
+    }
+  });
 });
 
 const windowOf = computed<[number, number]>(() => {
   const to = Math.floor(Date.now() / 1000);
   return [to - range.value, to];
 });
-const charts = computed(() => {
-  const s = series.value;
-  const one = (name: string, pts: DeviceSeries['cpu'] | undefined): ChartSeries[] => [
-    { name, points: pts ?? [] },
-  ];
-  return [
-    {
-      key: 'cpu',
-      title: t('netDevice.charts.cpu'),
-      unit: 'ratio' as const,
-      series: one(t('netDevice.charts.cpu'), s?.cpu),
-    },
-    {
-      key: 'mem',
-      title: t('netDevice.charts.memory'),
-      unit: 'ratio' as const,
-      series: one(t('netDevice.charts.memory'), s?.memory),
-    },
-    {
-      key: 'temp',
-      title: t('netDevice.charts.temperature'),
-      unit: 'count' as const,
-      series: one(t('netDevice.charts.temperature'), s?.temperature),
-    },
-  ];
-});
+const CHART_UNIT: Record<ChartKey, 'ratio' | 'count' | 'seconds'> = {
+  cpu: 'ratio',
+  memory: 'ratio',
+  temperature: 'count',
+  clients: 'count',
+  charge: 'ratio',
+  load: 'ratio',
+  runtime: 'seconds',
+  camerasOnline: 'count',
+};
+const charts = computed(() =>
+  detail.value
+    ? deviceCharts(detail.value).map((key) => ({
+        key,
+        title: t(`netDevice.charts.${key}`),
+        unit: CHART_UNIT[key],
+        series: [{ name: t(`netDevice.charts.${key}`), points: chartPoints(series.value, key) }],
+      }))
+    : [],
+);
 </script>
 
 <template>
@@ -224,17 +294,18 @@ const charts = computed(() => {
           :aria-label="$t('netDevice.range')"
         >
           <button
-            v-for="r in RANGES"
+            v-for="r in ranges"
             :key="r.key"
             type="button"
             class="rounded-control px-3 py-1.5 max-lg:min-h-11 max-lg:min-w-11"
             :class="
-              range === r.s
+              range === r.seconds
                 ? 'bg-surface-3 font-semibold text-text'
                 : 'text-text-muted hover:text-text'
             "
-            :aria-pressed="range === r.s"
-            @click="range = r.s"
+            :aria-pressed="range === r.seconds"
+            :data-testid="`device-range-${r.key}`"
+            @click="range = r.seconds"
           >
             {{ $t(`netDevice.ranges.${r.key}`) }}
           </button>
@@ -247,11 +318,16 @@ const charts = computed(() => {
       >
         <div
           v-for="tile in tiles"
-          :key="tile.label"
+          :key="tile.key"
           class="flex flex-col gap-1 rounded-card border border-border bg-surface-1 px-4 py-3"
+          :data-testid="`device-tile-${tile.key}`"
         >
           <span class="text-13 text-text-muted">{{ tile.label }}</span>
-          <span class="font-mono text-20 text-text tabular">{{ tile.value }}</span>
+          <span
+            class="text-text tabular"
+            :class="'small' in tile && tile.small ? 'text-15 font-medium' : 'font-mono text-20'"
+            >{{ tile.value }}</span
+          >
           <span class="min-h-4 truncate text-12 text-text-muted">{{ tile.sub }}</span>
         </div>
       </div>
@@ -311,7 +387,7 @@ const charts = computed(() => {
         @select="select"
       />
 
-      <div class="grid gap-4 lg:grid-cols-3">
+      <div v-if="charts.length" class="grid gap-4 lg:grid-cols-3" data-testid="device-charts">
         <TimeSeriesChart
           v-for="c in charts"
           :key="c.key"
@@ -321,8 +397,10 @@ const charts = computed(() => {
           :window="windowOf"
           :loading="seriesLoading"
           :error="seriesFailed"
+          :no-retry="!seriesFailure.retry"
           :empty-text="$t('netDevice.charts.empty')"
-          :error-text="$t('netDevice.charts.error')"
+          :error-text="seriesFailure.text ?? $t('netDevice.charts.error')"
+          :data-testid="`device-chart-${c.key}`"
           @retry="loadSeries"
         />
       </div>

@@ -4,14 +4,22 @@ import { Clock } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import { computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import { DEMO_TIME_RANGES, TIME_RANGES, useUiStore } from '@/stores/ui';
+import { offeredRanges } from '@/lib/ranges';
+import { RANGE_SECONDS } from '@/lib/time';
+import { TIME_RANGES, useUiStore } from '@/stores/ui';
 
 // The time range of the charts: a compact segmented control in the top bar, or a
 // full-width one with 44 px buttons in the filter sheet (phones).
 defineProps<{ sheet?: boolean }>();
 const { timeRange } = storeToRefs(useUiStore());
 const auth = useAuthStore();
-const ranges = computed(() => (auth.demoMode ? DEMO_TIME_RANGES : TIME_RANGES));
+// The read-only demo answers at most its limit (ADR-122): longer ranges aren't offered there.
+const ranges = computed(() =>
+  offeredRanges(
+    TIME_RANGES.map((r) => ({ r, seconds: RANGE_SECONDS[r] })),
+    auth.demoMaxRangeS,
+  ).map((x) => x.r),
+);
 </script>
 
 <template>

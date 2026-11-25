@@ -46,7 +46,10 @@ async function mountLogin(path: string, demoMode: boolean) {
 describe('demo entry', () => {
   it('learns demo mode from GET /setup', async () => {
     mockFetch({
-      'GET /api/v1/setup': { status: 200, body: { required: false, demoMode: true } },
+      'GET /api/v1/setup': {
+        status: 200,
+        body: { required: false, demoMode: true, demoMaxRangeS: 86_400 },
+      },
       'GET /api/v1/me': problem(401, 'Sign in to continue'),
     });
     await createPlugins('/setup');
@@ -159,7 +162,9 @@ describe('time ranges in the demo', () => {
         .findAll('button')
         .map((b) => b.text());
     expect(labels()).toHaveLength(5);
+    // What GET /setup gives in the demo: the backend's own limit (DEMO_MAX_RANGE_S).
     useAuthStore().demoMode = true;
+    useAuthStore().demoMaxRangeS = 86_400;
     const demo = labels();
     expect(demo).toHaveLength(4);
     expect(demo.join(' ')).not.toMatch(/7/);

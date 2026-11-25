@@ -25,6 +25,8 @@ export const useAuthStore = defineStore('auth', () => {
   const setupRequired = ref(false);
   /** A read-only public demo (ADR-122): passwordless entry, every change refused. */
   const demoMode = ref(false);
+  /** The demo's longest query range in seconds (ADR-122); null when this isn't the demo. */
+  const demoMaxRangeS = ref<number | null>(null);
   /** The demo's public read-only MCP token (ADR-130), offered on Settings → API tokens. */
   const demoMcpToken = ref<string | null>(null);
   /** Email is set up: "Forgot your password?" emails a link (ADR-140). */
@@ -65,6 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
     // Cloud signs people up; the installation's first-run setup isn't offered there.
     setupRequired.value = status.required && !config;
     demoMode.value = status.demoMode;
+    demoMaxRangeS.value = status.demoMode ? (status.demoMaxRangeS ?? null) : null;
     demoMcpToken.value = (status.demoMode && status.demoMcpToken) || null;
     smtp.value = status.smtp;
     user.value = null;
@@ -204,6 +207,7 @@ export const useAuthStore = defineStore('auth', () => {
     setTheme,
     setupRequired,
     demoMode,
+    demoMaxRangeS,
     demoMcpToken,
     smtp,
     canManage,

@@ -4,6 +4,7 @@ import { ArrowRight } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { RouteLocationRaw } from 'vue-router';
+import { chartFailure } from '@/lib/chart-error';
 import TimeSeriesChart, { type ChartSeries } from '@/components/charts/TimeSeriesChart.vue';
 import { since } from '@/lib/time';
 import { networkApi, type DeviceDetail, type DeviceSeries, type Port } from '../../api';
@@ -23,6 +24,8 @@ const { t } = useI18n();
 const series = ref<DeviceSeries | null>(null);
 const loading = ref(false);
 const failed = ref(false);
+/** A refusal's own words without Retry (0.17.1), else the chart's message with Retry. */
+const failure = ref<{ text: string | null; retry: boolean }>({ text: null, retry: true });
 let seq = 0;
 async function load() {
   const mine = ++seq;
@@ -31,8 +34,11 @@ async function load() {
   try {
     const s = await networkApi.series(props.deviceId, props.range, props.port.name);
     if (mine === seq) series.value = s;
-  } catch {
-    if (mine === seq) failed.value = true;
+  } catch (err) {
+    if (mine === seq) {
+      failed.value = true;
+      failure.value = chartFailure(err);
+    }
   } finally {
     if (mine === seq) loading.value = false;
   }
@@ -134,7 +140,8 @@ function nodeLink(n: NonNullable<DeviceDetail['endpoints'][number]['node']>): Ro
       :loading="loading"
       :error="failed"
       :empty-text="$t('netDevice.charts.empty')"
-      :error-text="$t('netDevice.charts.error')"
+      :error-text="failure.text ?? $t('netDevice.charts.error')"
+      :no-retry="!failure.retry"
       plain
       @retry="load"
     />
@@ -146,7 +153,8 @@ function nodeLink(n: NonNullable<DeviceDetail['endpoints'][number]['node']>): Ro
       :loading="loading"
       :error="failed"
       :empty-text="$t('netDevice.charts.empty')"
-      :error-text="$t('netDevice.charts.error')"
+      :error-text="failure.text ?? $t('netDevice.charts.error')"
+      :no-retry="!failure.retry"
       :zero-text="$t('netDevice.port.noFaults')"
       plain
       @retry="load"

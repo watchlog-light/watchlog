@@ -94,6 +94,11 @@ const props = defineProps<{
   plain?: boolean;
   /** Stacked areas (parts of a whole); dashed and dotted series stay lines on top. */
   stacked?: boolean;
+  /**
+   * Asking again gets the same answer (a refusal that explains itself, 0.17.1): the error's
+   * words without Retry.
+   */
+  noRetry?: boolean;
 }>();
 defineEmits<{ retry: [] }>();
 
@@ -325,7 +330,7 @@ watch(resolved, () => void nextTick(render));
       </h3>
       <span class="flex items-center gap-2">
         <button
-          v-if="error && hasData"
+          v-if="error && hasData && !noRetry"
           type="button"
           class="text-12 text-critical-text hover:underline"
           :title="errorText"
@@ -367,8 +372,13 @@ watch(resolved, () => void nextTick(render));
           role="alert"
           class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-13 text-text-subtle"
         >
-          {{ errorText }}
-          <BaseButton variant="secondary" data-testid="chart-retry" @click="$emit('retry')">
+          <span data-testid="chart-error">{{ errorText }}</span>
+          <BaseButton
+            v-if="!noRetry"
+            variant="secondary"
+            data-testid="chart-retry"
+            @click="$emit('retry')"
+          >
             {{ $t('common.retry') }}
           </BaseButton>
         </div>
