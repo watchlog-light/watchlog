@@ -35,7 +35,7 @@ func TestQNAP(t *testing.T) {
 	dev := serveAgent(t, q, func() time.Time { return now })
 	ps, _ := LoadProfiles()
 	rep, samples := pollSNMP(context.Background(), Dial, ps, dev, newSNMPState(), now, true)
-	if rep.State != StateOK || rep.Profile != "qnap" || rep.System.Model != "TS-433" || rep.System.Kind != "nas" {
+	if rep.State != StateOK || rep.Profile != "qnap" || rep.System.Model != "TS-464" || rep.System.Kind != "nas" {
 		t.Fatalf("%s %s %+v", rep.State, rep.Profile, rep.System)
 	}
 	n := rep.NAS

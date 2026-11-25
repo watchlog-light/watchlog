@@ -1,4 +1,4 @@
-# Cisco Nexus on NX-OS (Nexus 3064) (ADR-233): the Catalyst profile where NX-OS has the same
+# Cisco Nexus on NX-OS (ADR-233): the Catalyst profile where NX-OS has the same
 # MIBs (CISCO-PROCESS-MIB, CISCO-ENTITY-SENSOR-MIB, CISCO-CDP-MIB, LLDP-MIB), and NX-OS's own
 # where it doesn't: CISCO-SYSTEM-EXT-MIB for memory, CISCO-ENTITY-FRU-CONTROL-MIB for fans and
 # power supplies, Q-BRIDGE-MIB for the MAC table.
@@ -47,7 +47,7 @@ macs:
 poe: {}
 
 lacks:
-  - PoE (no PoE ports on a Nexus 3064)
+  - PoE (fixed Nexus switches have no PoE ports)
   - stacks (Nexus switches don't stack; vPC pairs show as two devices)
   - CISCO-ENVMON-MIB temperatures (read from CISCO-ENTITY-SENSOR-MIB instead)
   - memory in bytes (a percentage, from CISCO-SYSTEM-EXT-MIB)

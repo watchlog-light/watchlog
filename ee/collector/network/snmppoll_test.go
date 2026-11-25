@@ -46,13 +46,13 @@ func TestPollCatalystOverSNMP(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	// sw-access-2: a stack of two 3850s, PoE, per-VLAN MAC tables.
+	// sw-access-2: a stack of two, PoE, per-VLAN MAC tables.
 	st := newSNMPState()
 	rep, samples := pollSNMP(ctx, Dial, ps, devs[2], st, now, true)
 	if rep.State != StateOK {
 		t.Fatalf("state %s: %s", rep.State, rep.Error)
 	}
-	if rep.Profile != "cisco-ios" || rep.System.Model != "WS-C3850-48P" || rep.System.Firmware != "16.12.9" || rep.System.Serial == "" {
+	if rep.Profile != "cisco-ios" || rep.System.Model != "C9300-48P" || rep.System.Firmware != "17.9.5" || rep.System.Serial == "" {
 		t.Fatalf("system %+v profile %s", rep.System, rep.Profile)
 	}
 	if rep.System.UptimeS != 30*24*3600 {
@@ -82,7 +82,7 @@ func TestPollCatalystOverSNMP(t *testing.T) {
 		}
 	}
 	if poe == 0 {
-		t.Fatal("no PoE draw on the 3850")
+		t.Fatal("no PoE draw on the stack")
 	}
 	if len(inv.Neighbours) != 2 || inv.Neighbours[0].RemoteName != "core-1" || inv.Neighbours[0].LocalPort != "Te1/1/1" {
 		t.Fatalf("neighbours %+v", inv.Neighbours)
@@ -128,7 +128,7 @@ func TestPollCatalystOverSNMP(t *testing.T) {
 	// core-1: the Nexus. Memory as a percentage, fans from FRU control, Q-BRIDGE MACs.
 	st = newSNMPState()
 	rep, _ = pollSNMP(ctx, Dial, ps, devs[0], st, now, true)
-	if rep.State != StateOK || rep.Profile != "cisco-nxos" || rep.System.Model != "N3K-C3064PQ-10GX" {
+	if rep.State != StateOK || rep.Profile != "cisco-nxos" || rep.System.Model != "N9K-C9372PX" {
 		t.Fatalf("nexus %s %s %+v", rep.State, rep.Profile, rep.System)
 	}
 	if rep.Health.MemTotal == nil || *rep.Health.MemTotal != 100 || len(rep.Health.Fans) != 4 || len(rep.Health.PSUs) != 2 || rep.Health.Temperature == nil || *rep.Health.Temperature != 46 {

@@ -53,12 +53,12 @@ type rosIface struct {
 	monitor      map[string]string
 }
 
-// Edge is the office's router, edge-1: a CCR2004-16G-2S+ with its SFP+ uplinks to the core
+// Edge is the office's router, edge-1: a CCR2116-12G-4S+ with its SFP+ uplinks to the core
 // and the ISP.
 func Edge(start time.Time) *RouterOS {
 	r := &RouterOS{User: "watchlog", Password: "read-only-sample", Start: start, Version: "7.16.2 (stable)", menus: map[string][]map[string]string{}}
 	r.menus["system/identity"] = []map[string]string{{"name": "edge-1"}}
-	r.menus["system/routerboard"] = []map[string]string{{"routerboard": "true", "model": "CCR2004-16G-2S+", "serial-number": "HE10ABC0001", "current-firmware": "7.16.2", "upgrade-firmware": "7.16.2"}}
+	r.menus["system/routerboard"] = []map[string]string{{"routerboard": "true", "model": "CCR2116-12G-4S+", "serial-number": "HF30XYZ0001", "current-firmware": "7.16.2", "upgrade-firmware": "7.16.2"}}
 	r.menus["system/health"] = []map[string]string{
 		{".id": "*1", "name": "cpu-temperature", "value": "51", "type": "C"},
 		{".id": "*2", "name": "board-temperature1", "value": "39", "type": "C"},
@@ -69,7 +69,7 @@ func Edge(start time.Time) *RouterOS {
 	}
 	r.menus["system/package/update"] = []map[string]string{{"channel": "stable", "installed-version": "7.16.2", "latest-version": "7.16.2", "status": "System is already up to date"}}
 	r.menus["ip/neighbor"] = []map[string]string{
-		{".id": "*1", "interface": "sfp-sfpplus1", "address": "10.0.0.2", "mac-address": MACString("core-1", 1), "identity": "core-1", "platform": "Cisco", "board": "N3K-C3064PQ-10GX", "interface-name": "Ethernet1/1", "discovered-by": "cdp,lldp"},
+		{".id": "*1", "interface": "sfp-sfpplus1", "address": "10.0.0.2", "mac-address": MACString("core-1", 1), "identity": "core-1", "platform": "Cisco", "board": "N9K-C9372PX", "interface-name": "Ethernet1/1", "discovered-by": "cdp,lldp"},
 	}
 	r.menus["ip/arp"] = []map[string]string{
 		{".id": "*1", "address": "10.0.0.2", "mac-address": MACString("core-1", 1), "interface": "sfp-sfpplus1"},
@@ -102,11 +102,13 @@ func Edge(start time.Time) *RouterOS {
 		r.ifaces = append(r.ifaces, rosIface{row: row, inRate: in, outR: out, base: float64(len(r.ifaces)) * 1e9, monitor: mon})
 	}
 	add("ether1", "ether", "management", true, "1Gbps", 2_000, 1_500, false)
-	for i := 2; i <= 16; i++ {
+	for i := 2; i <= 13; i++ {
 		add(fmt.Sprintf("ether%d", i), "ether", "", i <= 3, "1Gbps", 30_000, 20_000, false)
 	}
 	add("sfp-sfpplus1", "ether", "to core-1", true, "10Gbps", 40_000_000, 25_000_000, true)
 	add("sfp-sfpplus2", "ether", "ISP", true, "10Gbps", 25_000_000, 6_000_000, true)
+	add("sfp-sfpplus3", "ether", "", false, "10Gbps", 0, 0, true)
+	add("sfp-sfpplus4", "ether", "", false, "10Gbps", 0, 0, true)
 	add("bridge1", "bridge", "", true, "", 0, 0, false)
 	add("vlan150", "vlan", "Wi-Fi", true, "", 0, 0, false)
 	// The APs, managed by this router's CAPsMAN (0.17).
@@ -140,7 +142,7 @@ func (r *RouterOS) menu(path string) ([]map[string]string, bool) {
 	case "system/resource":
 		return []map[string]string{{
 			"uptime": fmtUptime(r.now().Sub(r.Start)), "version": r.Version, "cpu-load": "4", "free-memory": "3221225472",
-			"total-memory": "4294967296", "board-name": "CCR2004-16G-2S+", "architecture-name": "arm64", "cpu-count": "4",
+			"total-memory": "17179869184", "board-name": "CCR2116-12G-4S+", "architecture-name": "arm64", "cpu-count": "16",
 		}}, true
 	case "interface":
 		out := make([]map[string]string, len(r.ifaces))

@@ -211,8 +211,8 @@ describe('a network polled from a cluster', () => {
           system: {
             name: 'core-1',
             uptimeS: 900000,
-            model: 'N3K-C3064PQ-10GX',
-            firmware: '7.0(3)I7(9)',
+            model: 'N9K-C9372PX',
+            firmware: '9.3(13)',
             vendor: 'Cisco',
             kind: 'l3switch',
           },
@@ -250,8 +250,8 @@ describe('a network polled from a cluster', () => {
           system: {
             name: 'sw-access-2',
             uptimeS: uptime,
-            model: 'WS-C3850-48P',
-            firmware: '16.12.9',
+            model: 'C9300-48P',
+            firmware: '17.9.5',
             vendor: 'Cisco',
             kind: 'switch',
           },
@@ -335,8 +335,8 @@ describe('a network polled from a cluster', () => {
       detail.events.map((e: { reason: string; port: string }) => `${e.reason} ${e.port}`),
     ).toEqual(expect.arrayContaining(['PortDown Gi1/0/14', 'PortDown Gi1/0/15']));
     expect(detail.device).toMatchObject({
-      model: 'WS-C3850-48P',
-      firmware: '16.12.9',
+      model: 'C9300-48P',
+      firmware: '17.9.5',
       status: 'ok',
     });
     expect(

@@ -46,12 +46,15 @@ const (
 	cefcPower   = "1.3.6.1.4.1.9.9.117.1.1.2.1.2"
 )
 
-// The sysObjectIDs the models answer with (CISCO-PRODUCTS-MIB, MIKROTIK-MIB).
+// The sysObjectIDs the models answer with: one under ciscoProducts for each Catalyst, one under
+// NX-OS's branch for the Nexus, MikroTik's. The profiles match the branch and the description,
+// never the number, so these are samples. The models are a generic set (1.0.0): a small office
+// of current, widely sold products, mirroring nobody's network.
 const (
-	OIDCatalyst2960X = "1.3.6.1.4.1.9.1.1208"
-	OIDCatalyst2960S = "1.3.6.1.4.1.9.1.1257"
-	OIDCatalyst3850  = "1.3.6.1.4.1.9.1.2134"
-	OIDNexus3064     = "1.3.6.1.4.1.9.12.3.1.3.1106"
+	OIDCatalyst9200L = "1.3.6.1.4.1.9.1.2694"
+	OIDCatalyst1000  = "1.3.6.1.4.1.9.1.2780"
+	OIDCatalyst9300  = "1.3.6.1.4.1.9.1.2494"
+	OIDNexus9300     = "1.3.6.1.4.1.9.12.3.1.3.1508"
 	OIDMikroTik      = "1.3.6.1.4.1.14988.1"
 	OIDNetSNMPLinux  = "1.3.6.1.4.1.8072.3.2.10"
 )
@@ -73,10 +76,10 @@ type Endpoint struct {
 // Spec describes one simulated device.
 type Spec struct {
 	Name       string
-	Model      string  // a Catalyst2960X, Catalyst2960S, Catalyst3850, Nexus3064 or Generic
+	Model      string  // a Catalyst9200L, Catalyst1000, Catalyst9300, Nexus9300 or Generic
 	Ports      int     // copper ports (Catalyst) or SFP+ ports (Nexus)
 	Uplinks    int     // SFP uplinks (Catalyst) or QSFP (Nexus)
-	Members    int     // stack members (Catalyst3850)
+	Members    int     // stack members (Catalyst9300)
 	Up         float64 // the share of copper ports with a link, 0..1
 	Address    string
 	Neighbours []Neighbour
@@ -105,19 +108,20 @@ func Build(s Spec, start time.Time) *Agent {
 		return QNAP(s.Name, start)
 	case "UPS":
 		return UPS(s.Name, start, false)
-	case "Catalyst3850":
+	case "Catalyst9300":
 		if s.Members == 0 {
 			s.Members = 1
 		}
-		catalyst(a, s, OIDCatalyst3850, "WS-C3850-48P", "Cisco IOS Software [Amsterdam], Catalyst L3 Switch Software (CAT3K_CAA-UNIVERSALK9-M), Version 16.12.9, RELEASE SOFTWARE (fc2)", "16.12.9")
-	case "Catalyst2960S":
-		catalyst(a, s, OIDCatalyst2960S, "WS-C2960S-48TS-L", "Cisco IOS Software, C2960S Software (C2960S-UNIVERSALK9-M), Version 15.2(2)E10, RELEASE SOFTWARE (fc3)", "15.2(2)E10")
-	case "Nexus3064":
+		catalyst(a, s, OIDCatalyst9300, "C9300-48P", "Cisco IOS Software [Cupertino], Catalyst L3 Switch Software (CAT9K_IOSXE), Version 17.9.5, RELEASE SOFTWARE (fc1)", "17.9.5")
+	case "Catalyst1000":
+		// Classic IOS 15: SHA only for SNMPv3 (docs/site/network.md).
+		catalyst(a, s, OIDCatalyst1000, "C1000-48T-4G-L", "Cisco IOS Software, C1000 Software (C1000-UNIVERSALK9-M), Version 15.2(7)E8, RELEASE SOFTWARE (fc2)", "15.2(7)E8")
+	case "Nexus9300":
 		nexus(a, s)
 	case "Generic":
 		generic(a, s)
 	default:
-		catalyst(a, s, OIDCatalyst2960X, "WS-C2960X-48TS-L", "Cisco IOS Software, C2960X Software (C2960X-UNIVERSALK9-M), Version 15.2(7)E8, RELEASE SOFTWARE (fc2)", "15.2(7)E8")
+		catalyst(a, s, OIDCatalyst9200L, "C9200L-48T-4X", "Cisco IOS Software [Cupertino], Catalyst L3 Switch Software (CAT9K_LITE_IOSXE), Version 17.9.5, RELEASE SOFTWARE (fc1)", "17.9.5")
 	}
 	return a
 }
@@ -237,7 +241,7 @@ func catalyst(a *Agent, s Spec, oid, model, descr, version string) {
 		a.Str(entPhys+".11."+e, fmt.Sprintf("FOC%08d", seeded(s.Name, m)%100_000_000))
 		a.Str(entPhys+".12."+e, "Cisco Systems, Inc.")
 		a.Str(entPhys+".13."+e, model)
-		if s.Model == "Catalyst3850" {
+		if s.Model == "Catalyst9300" {
 			a.Int(cswInfo+".1."+e, m)
 			role := 2
 			switch m {
@@ -311,8 +315,8 @@ func catalyst(a *Agent, s Spec, oid, model, descr, version string) {
 			a.Bytes(arpMedia+"."+strconv.Itoa(1000+len(bridgePorts)+1)+"."+e.IP, hw)
 		}
 	}
-	// PoE on the first member's copper ports (the 3850-48P).
-	if s.Model == "Catalyst3850" {
+	// PoE on the first member's copper ports (the 48P).
+	if s.Model == "Catalyst9300" {
 		for p := 1; p <= s.Ports; p++ {
 			key := "1." + strconv.Itoa(p)
 			draw := p%4 == 0 && float64(seeded(s.Name, p)%1000)/1000 < s.Up
@@ -397,7 +401,7 @@ func sfp(a *Agent, ifIndex int, name string) {
 }
 
 func nexus(a *Agent, s Spec) {
-	system(a, s, OIDNexus3064, "Cisco NX-OS(tm) n3000, Software (n3000-uk9), Version 7.0(3)I7(9), RELEASE SOFTWARE Copyright (c) 2002-2020 by Cisco Systems, Inc.")
+	system(a, s, OIDNexus9300, "Cisco NX-OS(tm) nxos.9.3.13.bin, Software (nxos), Version 9.3(13), RELEASE SOFTWARE Copyright (c) 2002-2023 by Cisco Systems, Inc.")
 	idx := 436207616 // NX-OS's ifIndex for Ethernet1/1
 	used := inUse(s)
 	var phys []int
@@ -417,12 +421,12 @@ func nexus(a *Agent, s Spec) {
 		a.Str(lldpLocPort+".4."+strconv.Itoa(i), descrOf(a, i))
 		a.Gauge(qPvid+"."+strconv.Itoa(k+1), 1)
 	}
-	a.Str(entPhys+".2.10", "Nexus 3064 Chassis")
+	a.Str(entPhys+".2.10", "Nexus9000 C9372PX chassis")
 	a.Int(entPhys+".5.10", 3)
-	a.Str(entPhys+".7.10", "Nexus3064 Chassis")
-	a.Str(entPhys+".10.10", "7.0(3)I7(9)")
+	a.Str(entPhys+".7.10", "Nexus9000 C9372PX chassis")
+	a.Str(entPhys+".10.10", "9.3(13)")
 	a.Str(entPhys+".11.10", fmt.Sprintf("FOC%08d", seeded(s.Name, 9)%100_000_000))
-	a.Str(entPhys+".13.10", "N3K-C3064PQ-10GX")
+	a.Str(entPhys+".13.10", "N9K-C9372PX")
 	for k := 0; k < 4; k++ {
 		e := strconv.Itoa(534 + k)
 		a.Str(entPhys+".7."+e, fmt.Sprintf("Fan Module-%d", k+1))

@@ -96,7 +96,7 @@ const recorder = (id: string, iscsiHealthy = true, offline: number[] = []) => ({
   system: {
     name: 'nvr-1',
     uptimeS: 0,
-    model: 'NVR5364',
+    model: 'NVR4216',
     vendor: 'Dahua',
     kind: 'nvr',
     firmware: '4.003',
@@ -203,7 +203,7 @@ describe('Wi-Fi, storage, recording and a UPS polled from a cluster', () => {
       name,
       mac,
       address: `10.0.150.${mac.slice(-1)}`,
-      model: 'cAP ax',
+      model: 'hAP ax3',
       version: '7.18.2',
       state,
       uptimeS: 7200,
@@ -287,7 +287,7 @@ describe('Wi-Fi, storage, recording and a UPS polled from a cluster', () => {
             name: 'edge-1',
             uptimeS: 90000,
             vendor: 'MikroTik',
-            model: 'CCR2004',
+            model: 'CCR2116',
             kind: 'router',
           },
           health: { cpu: 0.05, ports: [] },
@@ -325,7 +325,7 @@ describe('Wi-Fi, storage, recording and a UPS polled from a cluster', () => {
           state: 'ok',
           polledAt: clock,
           profile: 'qnap',
-          system: { name: 'nas-1', uptimeS: 90000, vendor: 'QNAP', model: 'TS-433', kind: 'nas' },
+          system: { name: 'nas-1', uptimeS: 90000, vendor: 'QNAP', model: 'TS-464', kind: 'nas' },
           health: { temperature: 41, sensors: [{ name: 'CPU', celsius: 41 }] },
           nas: {
             disks: [1, 2, 3, 4].map((i) => ({
@@ -374,13 +374,13 @@ describe('Wi-Fi, storage, recording and a UPS polled from a cluster', () => {
             targets: [
               {
                 name: 'nvr-1',
-                iqn: 'iqn.2004-04.com.qnap:ts-433:iscsi.nvr-1',
+                iqn: 'iqn.2004-04.com.qnap:ts-464:iscsi.nvr-1',
                 connected: o.iscsi ?? true,
                 status: o.iscsi === false ? 'ready' : 'connected',
               },
               {
                 name: 'nvr-2',
-                iqn: 'iqn.2004-04.com.qnap:ts-433:iscsi.nvr-2',
+                iqn: 'iqn.2004-04.com.qnap:ts-464:iscsi.nvr-2',
                 connected: false,
                 status: 'ready',
               },

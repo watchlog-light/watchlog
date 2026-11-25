@@ -120,7 +120,7 @@ type Optic struct {
 	Celsius *float64 `json:"celsius,omitempty"`
 }
 
-// StackMember is one switch of a stack (Catalyst 3850).
+// StackMember is one switch of a stack (a stackable Catalyst).
 type StackMember struct {
 	Number int    `json:"number"`
 	Role   string `json:"role"`  // active, standby, member

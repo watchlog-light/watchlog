@@ -23,9 +23,9 @@ type capsman struct {
 type simAP struct{ name, mac, addr, model string }
 
 var simAPs = []simAP{
-	{"ap-lobby", "48:a9:8a:10:00:01", "10.0.150.11", "cAP ax"},
-	{"ap-office", "48:a9:8a:10:00:02", "10.0.150.12", "cAP ax"},
-	{"ap-warehouse", "48:a9:8a:10:00:03", "10.0.150.13", "wAP ax"},
+	{"ap-lobby", "48:a9:8a:10:00:01", "10.0.150.11", "hAP ax3"},
+	{"ap-office", "48:a9:8a:10:00:02", "10.0.150.12", "hAP ax3"},
+	{"ap-warehouse", "48:a9:8a:10:00:03", "10.0.150.13", "hAP ax2"},
 }
 
 // EnableCAPsMAN turns on the router's CAPsMAN; legacy serves the /caps-man menus instead.

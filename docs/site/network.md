@@ -72,8 +72,8 @@ snmp-server group watchlog-ro v3 priv context vlan- match prefix read WATCHLOG-R
 snmp-server user watchlog watchlog-ro v3 auth sha <auth-key> priv aes 128 <privacy-key> access WATCHLOG-SNMP
 ```
 
-On IOS XE 17 and later you can use `auth sha-2 256` instead of `auth sha`; IOS 15 (the
-Catalyst 2960 family) has SHA only. Catalyst switches keep their MAC table per VLAN: WatchLog
+On IOS XE 17 and later you can use `auth sha-2 256` instead of `auth sha`; classic IOS 15 (on
+older Catalyst access switches) has SHA only. Catalyst switches keep their MAC table per VLAN: WatchLog
 reads each VLAN through its context (`vlan-<id>` with v3, `community@<id>` with v2c), which is
 what the `context` line allows.
 
@@ -127,7 +127,7 @@ to once an hour, until it answers.
 Vendor support is data: one YAML profile per family (generic SNMP, Cisco IOS, Cisco NX-OS,
 MikroTik) maps the public MIBs to what WatchLog shows. Any SNMP device gets the generic
 profile: interfaces, CPU and memory where HOST-RESOURCES-MIB has them, model and serial from
-ENTITY-MIB, LLDP, MAC tables and ARP. The Nexus profile lacks PoE and stacks (a Nexus 3064 has
+ENTITY-MIB, LLDP, MAC tables and ARP. The Nexus profile lacks PoE and stacks (fixed Nexus switches have
 neither) and reads memory as a percentage.
 
 Counters become series named `watchlog_net_*`, labelled by the device's id and the port's name

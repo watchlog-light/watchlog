@@ -15,11 +15,11 @@ func TestProfilesLoadAndMatch(t *testing.T) {
 		}
 	}
 	cases := []struct{ oid, descr, want string }{
-		// Catalyst 2960X-48TS-L, 2960-Plus, 3850-48P: under ciscoProducts.
-		{"1.3.6.1.4.1.9.1.1208", "Cisco IOS Software, C2960X Software (C2960X-UNIVERSALK9-M), Version 15.2(7)E8", "cisco-ios"},
-		{"1.3.6.1.4.1.9.1.2134", "Cisco IOS Software [Amsterdam], Catalyst L3 Switch Software (CAT3K_CAA-UNIVERSALK9-M), Version 16.12.9", "cisco-ios"},
-		{"1.3.6.1.4.1.9.12.3.1.3.1106", "Cisco NX-OS(tm) n3000, Software (n3000-uk9), Version 7.0(3)I7(9)", "cisco-nxos"},
-		{".1.3.6.1.4.1.14988.1", "RouterOS CCR2004-16G-2S+", "mikrotik"},
+		// Catalysts on classic IOS and on IOS XE: under ciscoProducts.
+		{"1.3.6.1.4.1.9.1.2780", "Cisco IOS Software, C1000 Software (C1000-UNIVERSALK9-M), Version 15.2(7)E8", "cisco-ios"},
+		{"1.3.6.1.4.1.9.1.2494", "Cisco IOS Software [Cupertino], Catalyst L3 Switch Software (CAT9K_IOSXE-M), Version 16.12.9", "cisco-ios"},
+		{"1.3.6.1.4.1.9.12.3.1.3.1508", "Cisco NX-OS(tm) nxos.9.3.13.bin, Software (nxos), Version 9.3(13)", "cisco-nxos"},
+		{".1.3.6.1.4.1.14988.1", "RouterOS CCR2116-12G-4S+", "mikrotik"},
 		{"1.3.6.1.4.1.8072.3.2.10", "Linux nas-1 5.10.60-qnap", "qnap"},
 		{"1.3.6.1.4.1.8072.3.2.10", "Linux web-1 6.1.0", "generic"},
 		{"1.3.6.1.4.1.318.1.3.27", "APC Web/SNMP Management Card", "apc-ups"},

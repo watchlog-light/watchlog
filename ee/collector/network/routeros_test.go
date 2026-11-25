@@ -52,14 +52,14 @@ func TestRouterOS(t *testing.T) {
 		t.Fatalf("fingerprint %q, want the pin %q", rep.Fingerprint, pin)
 	}
 	s := rep.System
-	if s.Name != "edge-1" || s.Model != "CCR2004-16G-2S+" || s.Firmware != "7.16.2" || s.Serial == "" || s.UptimeS != int64((15*24+3)*3600) {
+	if s.Name != "edge-1" || s.Model != "CCR2116-12G-4S+" || s.Firmware != "7.16.2" || s.Serial == "" || s.UptimeS != int64((15*24+3)*3600) {
 		t.Fatalf("system %+v", s)
 	}
 	if s.Update == nil || s.Update.Channel != "stable" || s.Update.Latest != "7.16.2" {
 		t.Fatalf("update %+v", s.Update)
 	}
 	h := rep.Health
-	if *h.CPU != 0.04 || *h.MemTotal != 4294967296 || *h.Temperature != 51 || len(h.Fans) != 2 || len(h.PSUs) != 2 {
+	if *h.CPU != 0.04 || *h.MemTotal != 17179869184 || *h.Temperature != 51 || len(h.Fans) != 2 || len(h.PSUs) != 2 {
 		t.Fatalf("health %+v", h)
 	}
 	if len(h.Optics) != 2 || *h.Optics[0].RxDBm != -3.112 {

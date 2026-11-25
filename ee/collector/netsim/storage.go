@@ -33,7 +33,7 @@ func QNAP(name string, start time.Time) *Agent {
 		port(a, s, p+1, "eth"+strconv.Itoa(p-1), "eth"+strconv.Itoa(p-1), 6, 2500, true, 30_000_000)
 	}
 	a.Int(hrProc+".196608", 9)
-	a.Str(qnapEX+".12.0", "TS-433")
+	a.Str(qnapEX+".12.0", "TS-464")
 	a.Int(qnapEX+".5.0", 48)
 	a.Int(qnapEX+".6.0", 36)
 	const tb = 1 << 40
@@ -65,7 +65,7 @@ func QNAP(name string, start time.Time) *Agent {
 		a.Str(qnapLUN+".6."+i, n)
 		a.Int(qnapLUN+".8."+i, 1)
 		a.Str(qnapTgt+".3."+i, n+"-target")
-		a.Str(qnapTgt+".4."+i, "iqn.2004-04.com.qnap:ts-433:iscsi."+n)
+		a.Str(qnapTgt+".4."+i, "iqn.2004-04.com.qnap:ts-464:iscsi."+n)
 		a.Int(qnapTgt+".5."+i, 1) // connected
 	}
 	for f := 1; f <= 2; f++ {
@@ -109,7 +109,7 @@ func UPS(name string, start time.Time, apc bool) *Agent {
 	}
 	system(a, s, "1.3.6.1.4.1.8072.3.2.10", "Linux "+name+" UPS network card")
 	b := "1.3.6.1.2.1.33.1"
-	a.Str(b+".1.2.0", "5PX 1500")
+	a.Str(b+".1.2.0", "9SX 1500")
 	a.Int(b+".4.1.0", 3) // normal
 	a.Int(b+".2.4.0", 100)
 	a.Int(b+".2.3.0", 52)
