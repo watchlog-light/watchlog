@@ -195,7 +195,7 @@ export interface SeededOrg {
   expectedIds: [string, string];
   apiToken: { id: string; value: string };
   /** Your metrics (1.0.0): a write-only token and a panel-added endpoint on the Kubernetes cluster. */
-  own: { tokenId: string; token: string; sourceId: string };
+  own: { tokenId: string; token: string; sourceId: string; metricId: string; pinId: string };
   inviteId: string;
   /** Strings and ids that only this org's data contains. */
   markers: string[];
@@ -807,6 +807,26 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
     workload: `${label}-own`,
     port: 9100,
   });
+  // One pushed metric of its own, tied to a Deployment of the fixture and pinned to its page.
+  const pushed = await app.inject({
+    method: 'POST',
+    url: '/ingest/v1/metrics',
+    headers: { authorization: `Bearer ${ownToken.value as string}` },
+    payload: { name: `${label}_orders_total`, value: 3, workload: 'kube-system/coredns' },
+  });
+  if (pushed.statusCode !== 200) throw new Error(`own-metrics push: ${pushed.body}`);
+  const ownMetric = (await api('GET', `/clusters/${k8s.id}/own-metrics/metrics`)).metrics[0] as {
+    id: string;
+  };
+  const ownPin = await api('POST', `/clusters/${k8s.id}/own-metrics/pins`, {
+    metricId: ownMetric.id,
+    owner: {
+      kind: 'workload',
+      namespace: 'kube-system',
+      workloadKind: 'Deployment',
+      name: 'coredns',
+    },
+  });
   const invite = await api('POST', '/users/invites', {
     email: `invitee@${label}.test`,
     role: 'viewer',
@@ -856,6 +876,8 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
       tokenId: ownToken.id as string,
       token: ownToken.value as string,
       sourceId: ownSource.id as string,
+      metricId: ownMetric.id,
+      pinId: ownPin.id as string,
     },
     inviteId,
     markers,

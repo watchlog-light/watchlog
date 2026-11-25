@@ -7134,6 +7134,1148 @@
         "security": [{ "bearerAuth": [] }]
       }
     },
+    "/api/v1/clusters/{id}/own-metrics/metrics": {
+      "get": {
+        "summary": "Your metrics: each with its type, where it comes from and its value now",
+        "tags": ["own-metrics"],
+        "description": "A counter's value is its rate per second, a histogram's its p95, a timestamp's the seconds since it; a gauge is as it is. `all=true` adds the Go, process and scrape internals.",
+        "parameters": [
+          { "schema": { "type": "boolean" }, "in": "query", "name": "all", "required": false },
+          {
+            "schema": {
+              "anyOf": [
+                { "type": "string", "enum": ["workload"] },
+                { "type": "string", "enum": ["server"] }
+              ]
+            },
+            "in": "query",
+            "name": "ownerKind",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "maxLength": 253 },
+            "in": "query",
+            "name": "namespace",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "maxLength": 64 },
+            "in": "query",
+            "name": "workloadKind",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "maxLength": 253 },
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "description": "The workload's or the server's name"
+          },
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["metrics", "hidden"],
+                  "properties": {
+                    "metrics": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "words",
+                          "type",
+                          "detectedType",
+                          "unit",
+                          "detectedUnit",
+                          "shown",
+                          "help",
+                          "hidden",
+                          "labels",
+                          "refused",
+                          "firstSeenAt",
+                          "lastSeenAt",
+                          "series",
+                          "sources",
+                          "owners",
+                          "ownerCount",
+                          "untied",
+                          "pushed",
+                          "value"
+                        ],
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "words": {
+                            "type": "string",
+                            "description": "A few words made from the name"
+                          },
+                          "type": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["counter"] },
+                              { "type": "string", "enum": ["gauge"] },
+                              { "type": "string", "enum": ["histogram"] },
+                              { "type": "string", "enum": ["summary"] },
+                              { "type": "string", "enum": ["timestamp"] }
+                            ]
+                          },
+                          "detectedType": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["counter"] },
+                              { "type": "string", "enum": ["gauge"] },
+                              { "type": "string", "enum": ["histogram"] },
+                              { "type": "string", "enum": ["summary"] },
+                              { "type": "string", "enum": ["timestamp"] }
+                            ]
+                          },
+                          "unit": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["seconds"] },
+                              { "type": "string", "enum": ["bytes"] },
+                              { "type": "string", "enum": ["celsius"] },
+                              { "type": "string", "enum": ["ratio"] },
+                              { "type": "string", "enum": ["percent"] },
+                              { "type": "string", "enum": ["count"] }
+                            ]
+                          },
+                          "detectedUnit": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["seconds"] },
+                              { "type": "string", "enum": ["bytes"] },
+                              { "type": "string", "enum": ["celsius"] },
+                              { "type": "string", "enum": ["ratio"] },
+                              { "type": "string", "enum": ["percent"] },
+                              { "type": "string", "enum": ["count"] }
+                            ]
+                          },
+                          "shown": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["rate"] },
+                              { "type": "string", "enum": ["p95"] },
+                              { "type": "string", "enum": ["as_is"] },
+                              { "type": "string", "enum": ["time_since"] }
+                            ]
+                          },
+                          "help": { "type": "string" },
+                          "hidden": {
+                            "type": "boolean",
+                            "description": "Off the default list (Go, process and scrape internals)"
+                          },
+                          "labels": { "type": "array", "items": { "type": "string" } },
+                          "refused": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["label"],
+                                "properties": { "label": { "type": "string" } }
+                              },
+                              { "type": "null" }
+                            ]
+                          },
+                          "firstSeenAt": { "type": "number" },
+                          "lastSeenAt": { "type": "number" },
+                          "series": { "type": "number" },
+                          "sources": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["id", "label", "kind"],
+                              "properties": {
+                                "id": { "type": "string" },
+                                "label": { "type": "string" },
+                                "kind": {
+                                  "anyOf": [
+                                    { "type": "string", "enum": ["scrape_pod"] },
+                                    { "type": "string", "enum": ["scrape_address"] },
+                                    { "type": "string", "enum": ["remote_write"] },
+                                    { "type": "string", "enum": ["push"] }
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          "owners": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["kind", "namespace", "workloadKind", "name"],
+                              "properties": {
+                                "kind": {
+                                  "anyOf": [
+                                    { "type": "string", "enum": [""] },
+                                    { "type": "string", "enum": ["workload"] },
+                                    { "type": "string", "enum": ["server"] }
+                                  ]
+                                },
+                                "namespace": { "type": "string" },
+                                "workloadKind": { "type": "string" },
+                                "name": { "type": "string" }
+                              }
+                            }
+                          },
+                          "ownerCount": { "type": "number" },
+                          "untied": { "type": "boolean" },
+                          "pushed": { "type": "boolean" },
+                          "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                        }
+                      }
+                    },
+                    "hidden": {
+                      "type": "number",
+                      "description": "Metrics left off without all=true"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/v1/clusters/{id}/own-metrics/metrics/{metricId}": {
+      "get": {
+        "summary": "One of your metrics: its value now, its labels and where it is used",
+        "tags": ["own-metrics"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "metricId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["metric", "p50", "p99", "labels", "usedIn"],
+                  "properties": {
+                    "metric": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "words",
+                        "type",
+                        "detectedType",
+                        "unit",
+                        "detectedUnit",
+                        "shown",
+                        "help",
+                        "hidden",
+                        "labels",
+                        "refused",
+                        "firstSeenAt",
+                        "lastSeenAt",
+                        "series",
+                        "sources",
+                        "owners",
+                        "ownerCount",
+                        "untied",
+                        "pushed",
+                        "value"
+                      ],
+                      "properties": {
+                        "id": { "type": "string" },
+                        "name": { "type": "string" },
+                        "words": {
+                          "type": "string",
+                          "description": "A few words made from the name"
+                        },
+                        "type": {
+                          "anyOf": [
+                            { "type": "string", "enum": ["counter"] },
+                            { "type": "string", "enum": ["gauge"] },
+                            { "type": "string", "enum": ["histogram"] },
+                            { "type": "string", "enum": ["summary"] },
+                            { "type": "string", "enum": ["timestamp"] }
+                          ]
+                        },
+                        "detectedType": {
+                          "anyOf": [
+                            { "type": "string", "enum": ["counter"] },
+                            { "type": "string", "enum": ["gauge"] },
+                            { "type": "string", "enum": ["histogram"] },
+                            { "type": "string", "enum": ["summary"] },
+                            { "type": "string", "enum": ["timestamp"] }
+                          ]
+                        },
+                        "unit": {
+                          "anyOf": [
+                            { "type": "string", "enum": ["seconds"] },
+                            { "type": "string", "enum": ["bytes"] },
+                            { "type": "string", "enum": ["celsius"] },
+                            { "type": "string", "enum": ["ratio"] },
+                            { "type": "string", "enum": ["percent"] },
+                            { "type": "string", "enum": ["count"] }
+                          ]
+                        },
+                        "detectedUnit": {
+                          "anyOf": [
+                            { "type": "string", "enum": ["seconds"] },
+                            { "type": "string", "enum": ["bytes"] },
+                            { "type": "string", "enum": ["celsius"] },
+                            { "type": "string", "enum": ["ratio"] },
+                            { "type": "string", "enum": ["percent"] },
+                            { "type": "string", "enum": ["count"] }
+                          ]
+                        },
+                        "shown": {
+                          "anyOf": [
+                            { "type": "string", "enum": ["rate"] },
+                            { "type": "string", "enum": ["p95"] },
+                            { "type": "string", "enum": ["as_is"] },
+                            { "type": "string", "enum": ["time_since"] }
+                          ]
+                        },
+                        "help": { "type": "string" },
+                        "hidden": {
+                          "type": "boolean",
+                          "description": "Off the default list (Go, process and scrape internals)"
+                        },
+                        "labels": { "type": "array", "items": { "type": "string" } },
+                        "refused": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["label"],
+                              "properties": { "label": { "type": "string" } }
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "firstSeenAt": { "type": "number" },
+                        "lastSeenAt": { "type": "number" },
+                        "series": { "type": "number" },
+                        "sources": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["id", "label", "kind"],
+                            "properties": {
+                              "id": { "type": "string" },
+                              "label": { "type": "string" },
+                              "kind": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["scrape_pod"] },
+                                  { "type": "string", "enum": ["scrape_address"] },
+                                  { "type": "string", "enum": ["remote_write"] },
+                                  { "type": "string", "enum": ["push"] }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "owners": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["kind", "namespace", "workloadKind", "name"],
+                            "properties": {
+                              "kind": {
+                                "anyOf": [
+                                  { "type": "string", "enum": [""] },
+                                  { "type": "string", "enum": ["workload"] },
+                                  { "type": "string", "enum": ["server"] }
+                                ]
+                              },
+                              "namespace": { "type": "string" },
+                              "workloadKind": { "type": "string" },
+                              "name": { "type": "string" }
+                            }
+                          }
+                        },
+                        "ownerCount": { "type": "number" },
+                        "untied": { "type": "boolean" },
+                        "pushed": { "type": "boolean" },
+                        "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                      }
+                    },
+                    "p50": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                    "p99": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                    "labels": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["name", "values", "top"],
+                        "properties": {
+                          "name": { "type": "string" },
+                          "values": { "type": "number" },
+                          "top": { "type": "array", "items": { "type": "string" } }
+                        }
+                      }
+                    },
+                    "usedIn": {
+                      "type": "object",
+                      "required": ["pins"],
+                      "properties": {
+                        "pins": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["id", "owner"],
+                            "properties": {
+                              "id": { "type": "string" },
+                              "owner": {
+                                "type": "object",
+                                "required": ["kind", "namespace", "workloadKind", "name"],
+                                "properties": {
+                                  "kind": {
+                                    "anyOf": [
+                                      { "type": "string", "enum": [""] },
+                                      { "type": "string", "enum": ["workload"] },
+                                      { "type": "string", "enum": ["server"] }
+                                    ]
+                                  },
+                                  "namespace": { "type": "string" },
+                                  "workloadKind": { "type": "string" },
+                                  "name": { "type": "string" }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/v1/clusters/{id}/own-metrics/metrics/{metricId}/series": {
+      "get": {
+        "summary": "A metric over a range, as it is shown; split by one label: the top 5 and the rest",
+        "tags": ["own-metrics"],
+        "parameters": [
+          {
+            "schema": { "type": "number" },
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "description": "Unix seconds"
+          },
+          {
+            "schema": { "type": "number" },
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "description": "Unix seconds"
+          },
+          {
+            "schema": { "type": "integer", "minimum": 1, "maximum": 86400 },
+            "in": "query",
+            "name": "step",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "maxLength": 200 },
+            "in": "query",
+            "name": "by",
+            "required": false,
+            "description": "One label to split by"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                { "type": "string", "enum": ["p50"] },
+                { "type": "string", "enum": ["p95"] },
+                { "type": "string", "enum": ["p99"] }
+              ]
+            },
+            "in": "query",
+            "name": "stat",
+            "required": false
+          },
+          {
+            "schema": {
+              "anyOf": [
+                { "type": "string", "enum": ["workload"] },
+                { "type": "string", "enum": ["server"] }
+              ]
+            },
+            "in": "query",
+            "name": "ownerKind",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "maxLength": 253 },
+            "in": "query",
+            "name": "namespace",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "maxLength": 64 },
+            "in": "query",
+            "name": "workloadKind",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "maxLength": 253 },
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "description": "The workload's or the server's name"
+          },
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "metricId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["step", "unit", "shown", "values", "lines"],
+                  "properties": {
+                    "step": { "type": "number" },
+                    "unit": {
+                      "anyOf": [
+                        { "type": "string", "enum": ["seconds"] },
+                        { "type": "string", "enum": ["bytes"] },
+                        { "type": "string", "enum": ["celsius"] },
+                        { "type": "string", "enum": ["ratio"] },
+                        { "type": "string", "enum": ["percent"] },
+                        { "type": "string", "enum": ["count"] }
+                      ]
+                    },
+                    "shown": {
+                      "anyOf": [
+                        { "type": "string", "enum": ["rate"] },
+                        { "type": "string", "enum": ["p95"] },
+                        { "type": "string", "enum": ["as_is"] },
+                        { "type": "string", "enum": ["time_since"] }
+                      ]
+                    },
+                    "values": {
+                      "type": "number",
+                      "description": "The split label's values in the range"
+                    },
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["value", "other", "points"],
+                        "properties": {
+                          "value": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "other": { "type": "boolean" },
+                          "points": {
+                            "type": "array",
+                            "items": {
+                              "type": "array",
+                              "items": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                              "minItems": 2,
+                              "maxItems": 2
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/v1/clusters/{id}/own-metrics/pins": {
+      "get": {
+        "summary": "The metrics pinned to a workload's or a server's page, with the last hour of each",
+        "tags": ["own-metrics"],
+        "parameters": [
+          {
+            "schema": {
+              "anyOf": [
+                { "type": "string", "enum": ["workload"] },
+                { "type": "string", "enum": ["server"] }
+              ]
+            },
+            "in": "query",
+            "name": "ownerKind",
+            "required": true
+          },
+          {
+            "schema": { "type": "string", "maxLength": 253 },
+            "in": "query",
+            "name": "namespace",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "maxLength": 64 },
+            "in": "query",
+            "name": "workloadKind",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "maxLength": 253 },
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "description": "The workload's or the server's name"
+          },
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["pins", "max", "metrics"],
+                  "properties": {
+                    "pins": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["id", "metric", "spark"],
+                        "properties": {
+                          "id": { "type": "string" },
+                          "metric": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "words",
+                              "type",
+                              "detectedType",
+                              "unit",
+                              "detectedUnit",
+                              "shown",
+                              "help",
+                              "hidden",
+                              "labels",
+                              "refused",
+                              "firstSeenAt",
+                              "lastSeenAt",
+                              "series",
+                              "sources",
+                              "owners",
+                              "ownerCount",
+                              "untied",
+                              "pushed",
+                              "value"
+                            ],
+                            "properties": {
+                              "id": { "type": "string" },
+                              "name": { "type": "string" },
+                              "words": {
+                                "type": "string",
+                                "description": "A few words made from the name"
+                              },
+                              "type": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["counter"] },
+                                  { "type": "string", "enum": ["gauge"] },
+                                  { "type": "string", "enum": ["histogram"] },
+                                  { "type": "string", "enum": ["summary"] },
+                                  { "type": "string", "enum": ["timestamp"] }
+                                ]
+                              },
+                              "detectedType": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["counter"] },
+                                  { "type": "string", "enum": ["gauge"] },
+                                  { "type": "string", "enum": ["histogram"] },
+                                  { "type": "string", "enum": ["summary"] },
+                                  { "type": "string", "enum": ["timestamp"] }
+                                ]
+                              },
+                              "unit": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["seconds"] },
+                                  { "type": "string", "enum": ["bytes"] },
+                                  { "type": "string", "enum": ["celsius"] },
+                                  { "type": "string", "enum": ["ratio"] },
+                                  { "type": "string", "enum": ["percent"] },
+                                  { "type": "string", "enum": ["count"] }
+                                ]
+                              },
+                              "detectedUnit": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["seconds"] },
+                                  { "type": "string", "enum": ["bytes"] },
+                                  { "type": "string", "enum": ["celsius"] },
+                                  { "type": "string", "enum": ["ratio"] },
+                                  { "type": "string", "enum": ["percent"] },
+                                  { "type": "string", "enum": ["count"] }
+                                ]
+                              },
+                              "shown": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["rate"] },
+                                  { "type": "string", "enum": ["p95"] },
+                                  { "type": "string", "enum": ["as_is"] },
+                                  { "type": "string", "enum": ["time_since"] }
+                                ]
+                              },
+                              "help": { "type": "string" },
+                              "hidden": {
+                                "type": "boolean",
+                                "description": "Off the default list (Go, process and scrape internals)"
+                              },
+                              "labels": { "type": "array", "items": { "type": "string" } },
+                              "refused": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "required": ["label"],
+                                    "properties": { "label": { "type": "string" } }
+                                  },
+                                  { "type": "null" }
+                                ]
+                              },
+                              "firstSeenAt": { "type": "number" },
+                              "lastSeenAt": { "type": "number" },
+                              "series": { "type": "number" },
+                              "sources": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": ["id", "label", "kind"],
+                                  "properties": {
+                                    "id": { "type": "string" },
+                                    "label": { "type": "string" },
+                                    "kind": {
+                                      "anyOf": [
+                                        { "type": "string", "enum": ["scrape_pod"] },
+                                        { "type": "string", "enum": ["scrape_address"] },
+                                        { "type": "string", "enum": ["remote_write"] },
+                                        { "type": "string", "enum": ["push"] }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "owners": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": ["kind", "namespace", "workloadKind", "name"],
+                                  "properties": {
+                                    "kind": {
+                                      "anyOf": [
+                                        { "type": "string", "enum": [""] },
+                                        { "type": "string", "enum": ["workload"] },
+                                        { "type": "string", "enum": ["server"] }
+                                      ]
+                                    },
+                                    "namespace": { "type": "string" },
+                                    "workloadKind": { "type": "string" },
+                                    "name": { "type": "string" }
+                                  }
+                                }
+                              },
+                              "ownerCount": { "type": "number" },
+                              "untied": { "type": "boolean" },
+                              "pushed": { "type": "boolean" },
+                              "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                            }
+                          },
+                          "spark": {
+                            "type": "array",
+                            "items": {
+                              "type": "array",
+                              "items": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                              "minItems": 2,
+                              "maxItems": 2
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "max": { "type": "number" },
+                    "metrics": {
+                      "type": "number",
+                      "description": "Metrics this workload or server has"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
     "/api/v1/clusters/{id}/pods": {
       "get": {
         "summary": "Pods with status, last termination and usage (SPEC §4.3)",

@@ -60,6 +60,7 @@ import { dockerRoutes } from './modules/docker/routes.js';
 import { Belonging } from './modules/own-metrics/belonging.js';
 import { ownLimitsProvider } from './modules/own-metrics/limits.js';
 import { Probes } from './modules/own-metrics/probes.js';
+import { ownMetricReadRoutes } from './modules/own-metrics/metric-routes.js';
 import { ownMetricsRoutes } from './modules/own-metrics/routes.js';
 import { OwnMetrics } from './modules/own-metrics/service.js';
 import { SCRAPE_INTERVAL_S, Targets } from './modules/own-metrics/targets.js';
@@ -488,6 +489,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         tokens,
         notifier: collectors,
       });
+      await api.register(ownMetricReadRoutes, { db: deps.db, own, victoria });
       // Cloud only (ADR-173): Community never registers these, so they answer 404.
       if (accounts && entitlements) {
         await registerCloudOnly(api, config.edition, cloudApiRoutes, {

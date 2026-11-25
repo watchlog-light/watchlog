@@ -63,6 +63,8 @@ function pathFor(route: string, o: SeededOrg): string {
     .replace(/^\/api\/v1\/clusters\/:id/, `/api/v1/clusters/${docker ? o.docker.id : o.k8s.id}`)
     .replace('/own-metrics/tokens/:tokenId', `/own-metrics/tokens/${o.own.tokenId}`)
     .replace('/own-metrics/sources/:sourceId', `/own-metrics/sources/${o.own.sourceId}`)
+    .replace('/own-metrics/metrics/:metricId', `/own-metrics/metrics/${o.own.metricId}`)
+    .replace('/own-metrics/pins/:pinId', `/own-metrics/pins/${o.own.pinId}`)
     .replace(':tokenId', o.k8s.tokenId)
     .replace('/nodes/:name', `/nodes/${o.node}`)
     .replace('/pods/:namespace/:name', `/pods/${o.pod.namespace}/${o.pod.name}`)
@@ -96,6 +98,7 @@ function pathFor(route: string, o: SeededOrg): string {
 function idFor(key: string, o: SeededOrg): string {
   const k = key.toLowerCase();
   if (k.includes('cluster')) return o.k8s.id;
+  if (k.includes('metric')) return o.own.metricId;
   if (k.includes('rule')) return o.ruleId;
   if (k.includes('channel')) return o.channelId;
   if (k.includes('alert')) return o.alertId;

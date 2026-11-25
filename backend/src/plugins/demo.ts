@@ -150,6 +150,11 @@ export const DEMO_QUERY_ROUTES: readonly string[] = [
   'POST /api/v1/query/range',
   'GET /api/v1/alerts/:id/chart',
   'GET /api/v1/clusters/:id/overview',
+  // Your metrics (1.0.0): the list's values, a metric's line, a page's pins.
+  'GET /api/v1/clusters/:id/own-metrics/metrics',
+  'GET /api/v1/clusters/:id/own-metrics/metrics/:metricId',
+  'GET /api/v1/clusters/:id/own-metrics/metrics/:metricId/series',
+  'GET /api/v1/clusters/:id/own-metrics/pins',
   'GET /api/v1/clusters/:id/nodes',
   'GET /api/v1/clusters/:id/nodes/:name',
   'GET /api/v1/clusters/:id/workloads',

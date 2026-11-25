@@ -49,7 +49,7 @@ async function cluster(kind: 'server' | 'kubernetes', name: string = kind): Prom
 }
 
 const api = (
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   url: string,
   payload?: object,
   as = cookie,
@@ -1118,5 +1118,436 @@ describe('the caps', () => {
       });
       expect(next).toMatchObject({ stored: 100, dropped: { sourceCap: 0 } });
     });
+  });
+});
+
+describe('reading: the list, a metric, its line, corrections and pins', () => {
+  // A query is answered as of the current second, so a value pushed in this same second is
+  // not in it yet (in a deployment VictoriaMetrics answers 5 s behind anyway): the app's
+  // clock runs 2 s behind here.
+  beforeEach(() => start({}, { now: () => Date.now() - 2000 }));
+
+  /** Four scrapes of one pod, 30 s apart, ending now. */
+  async function scraped() {
+    const c = await cluster('kubernetes');
+    await pod(c, { name: 'orders-1', scrape: { by: 'watchlog' } });
+    const [t] = (await section(c))!.targets;
+    const now = Date.now();
+    const methods = ['card', 'cash', 'paypal', 'stripe', 'wire', 'gift', 'crypto'];
+    for (let i = 3; i >= 0; i--) {
+      const k = 3 - i;
+      const res = await report(c, {
+        at: now - i * 30_000,
+        targets: [
+          {
+            id: t!.id,
+            series: [
+              // 6 a minute for card, less for each next method.
+              ...methods.map((method, j) => ({
+                n: 'orders_created_total',
+                l: { method },
+                v: 100 + k * (methods.length - j) * 0.5,
+              })),
+              { n: 'jobs_waiting', l: { queue: 'mail' }, v: 12 },
+              { n: 'jobs_waiting', l: { queue: 'invoices' }, v: 30 },
+              { n: 'cache_hit_ratio', l: { cache: 'a' }, v: 0.5 },
+              { n: 'cache_hit_ratio', l: { cache: 'b' }, v: 0.9 },
+              // Every request under 0.5 s, 2 a scrape.
+              { n: 'checkout_duration_seconds_bucket', l: { le: '0.25' }, v: 0 },
+              { n: 'checkout_duration_seconds_bucket', l: { le: '0.5' }, v: k * 2 },
+              { n: 'checkout_duration_seconds_bucket', l: { le: '+Inf' }, v: k * 2 },
+              { n: 'checkout_duration_seconds_sum', v: k * 0.8 },
+              { n: 'checkout_duration_seconds_count', v: k * 2 },
+              { n: 'backup_last_success_timestamp_seconds', v: Math.floor(now / 1000) - 7200 },
+              { n: 'go_goroutines', v: 31 },
+            ],
+            types: { orders_created_total: 'counter', checkout_duration_seconds: 'histogram' },
+          },
+        ],
+      });
+      expect(res.statusCode).toBe(204);
+    }
+    await fetch(`${TEST_VM_URL}/internal/force_flush`);
+    return c;
+  }
+
+  const list = async (c: Cluster, query = '') => {
+    const res = await api('GET', `/clusters/${c.id}/own-metrics/metrics${query}`);
+    expect(res.statusCode, res.body).toBe(200);
+    return res.json() as {
+      hidden: number;
+      metrics: {
+        id: string;
+        name: string;
+        words: string;
+        type: string;
+        unit: string;
+        shown: string;
+        value: number | null;
+        series: number;
+        labels: string[];
+        hidden: boolean;
+        pushed: boolean;
+        untied: boolean;
+        owners: { kind: string; name: string }[];
+        sources: { label: string; kind: string }[];
+        refused: { label: string } | null;
+      }[];
+    };
+  };
+
+  it('lists each metric with its type, where it comes from and its value now', async () => {
+    const c = await scraped();
+    const l = await list(c);
+    expect(l.hidden).toBe(1);
+    expect(l.metrics.map((m) => m.name)).toEqual([
+      'backup_last_success_timestamp_seconds',
+      'cache_hit_ratio',
+      'checkout_duration_seconds',
+      'jobs_waiting',
+      'orders_created_total',
+    ]);
+    const by = Object.fromEntries(l.metrics.map((m) => [m.name, m]));
+    expect(by.orders_created_total).toMatchObject({
+      words: 'Orders created',
+      type: 'counter',
+      unit: 'count',
+      shown: 'rate',
+      series: 7,
+      labels: ['method'],
+      pushed: false,
+      untied: false,
+      owners: [{ kind: 'workload', name: 'orders' }],
+      sources: [{ label: 'orders :8080/metrics', kind: 'scrape_pod' }],
+    });
+    // 0.5 × (7+6+…+1) = 14 more every 30 s.
+    expect(by.orders_created_total!.value!).toBeCloseTo(14 / 30, 1);
+    // A count is summed over its series, a ratio averaged.
+    expect(by.jobs_waiting).toMatchObject({ type: 'gauge', shown: 'as_is', value: 42 });
+    expect(by.cache_hit_ratio).toMatchObject({ unit: 'ratio', value: 0.7 });
+    expect(by.checkout_duration_seconds).toMatchObject({
+      type: 'histogram',
+      unit: 'seconds',
+      shown: 'p95',
+      series: 5,
+    });
+    expect(by.checkout_duration_seconds!.value!).toBeGreaterThan(0.25);
+    expect(by.checkout_duration_seconds!.value!).toBeLessThanOrEqual(0.5);
+    expect(by.backup_last_success_timestamp_seconds).toMatchObject({
+      type: 'timestamp',
+      unit: 'seconds',
+      shown: 'time_since',
+    });
+    expect(by.backup_last_success_timestamp_seconds!.value!).toBeGreaterThan(7190);
+    expect(by.backup_last_success_timestamp_seconds!.value!).toBeLessThan(7300);
+
+    const all = await list(c, '?all=true');
+    expect(all.hidden).toBe(0);
+    expect(all.metrics.find((m) => m.name === 'go_goroutines')).toMatchObject({
+      hidden: true,
+      value: 31,
+    });
+    // Narrowed to a page's owner; another workload has none.
+    const own = await list(
+      c,
+      '?ownerKind=workload&namespace=shop&workloadKind=Deployment&owner=orders',
+    );
+    expect(own.metrics).toHaveLength(5);
+    const none = await list(
+      c,
+      '?ownerKind=workload&namespace=shop&workloadKind=Deployment&owner=cart',
+    );
+    expect(none.metrics).toEqual([]);
+    expect(
+      (await api('GET', `/clusters/${c.id}/own-metrics/metrics?ownerKind=workload`)).statusCode,
+    ).toBe(400);
+  });
+
+  it('a metric’s page: its labels, a histogram’s other quantiles, where it is pinned', async () => {
+    const c = await scraped();
+    const l = await list(c);
+    const orders = l.metrics.find((m) => m.name === 'orders_created_total')!;
+    const res = await api('GET', `/clusters/${c.id}/own-metrics/metrics/${orders.id}`);
+    expect(res.statusCode).toBe(200);
+    const d = res.json();
+    expect(d.metric).toMatchObject({ name: 'orders_created_total', series: 7 });
+    expect(d.labels).toEqual([
+      { name: 'method', values: 7, top: ['card', 'cash', 'crypto', 'gift', 'paypal'] },
+      { name: 'pod', values: 1, top: ['orders-1'] },
+    ]);
+    expect(d.usedIn).toEqual({ pins: [] });
+    expect(d.p50).toBeNull();
+    const checkout = l.metrics.find((m) => m.name === 'checkout_duration_seconds')!;
+    const h = (await api('GET', `/clusters/${c.id}/own-metrics/metrics/${checkout.id}`)).json();
+    expect(h.p50).toBeGreaterThan(0.25);
+    expect(h.p99).toBeLessThanOrEqual(0.5);
+    expect(h.p99).toBeGreaterThanOrEqual(h.p50);
+    expect((await api('GET', `/clusters/${c.id}/own-metrics/metrics/${newId()}`)).statusCode).toBe(
+      404,
+    );
+  });
+
+  it('a metric’s line over a range; split by a label: the top 5 and the rest as one', async () => {
+    const c = await scraped();
+    const l = await list(c);
+    const orders = l.metrics.find((m) => m.name === 'orders_created_total')!;
+    const to = Math.floor(Date.now() / 1000);
+    const range = `from=${to - 900}&to=${to}&step=30`;
+    const plain = await api(
+      'GET',
+      `/clusters/${c.id}/own-metrics/metrics/${orders.id}/series?${range}`,
+    );
+    expect(plain.statusCode, plain.body).toBe(200);
+    const p = plain.json();
+    expect(p).toMatchObject({ step: 30, unit: 'count', shown: 'rate', values: 0 });
+    expect(p.lines).toHaveLength(1);
+    expect(p.lines[0]).toMatchObject({ value: null, other: false });
+    expect(p.lines[0].points.at(-1)[1]).toBeCloseTo(14 / 30, 1);
+
+    const split = (
+      await api(
+        'GET',
+        `/clusters/${c.id}/own-metrics/metrics/${orders.id}/series?${range}&by=method`,
+      )
+    ).json();
+    expect(split.values).toBe(7);
+    expect(split.lines.map((x: { value: string | null }) => x.value)).toEqual([
+      'card',
+      'cash',
+      'paypal',
+      'stripe',
+      'wire',
+      null,
+    ]);
+    expect(split.lines[5].other).toBe(true);
+    // The rest (gift and crypto) as one line: 0.5 × (2+1) every 30 s.
+    expect(split.lines[5].points.at(-1)[1]).toBeCloseTo(1.5 / 30, 2);
+    expect(split.lines[0].points.at(-1)[1]).toBeCloseTo(3.5 / 30, 2);
+
+    // A histogram's quantile, and its line for one owner.
+    const checkout = l.metrics.find((m) => m.name === 'checkout_duration_seconds')!;
+    const q = (
+      await api(
+        'GET',
+        `/clusters/${c.id}/own-metrics/metrics/${checkout.id}/series?${range}&stat=p50&ownerKind=workload&namespace=shop&workloadKind=Deployment&owner=orders`,
+      )
+    ).json();
+    expect(q).toMatchObject({ unit: 'seconds', shown: 'p95' });
+    expect(q.lines[0].points.at(-1)[1]).toBeGreaterThan(0.25);
+    const elsewhere = (
+      await api(
+        'GET',
+        `/clusters/${c.id}/own-metrics/metrics/${checkout.id}/series?${range}&ownerKind=workload&namespace=shop&workloadKind=Deployment&owner=cart`,
+      )
+    ).json();
+    expect(elsewhere.lines).toEqual([]);
+
+    for (const bad of ['by=le', 'by=wl_own', 'by=cluster_id', 'by=bad-name']) {
+      const res = await api(
+        'GET',
+        `/clusters/${c.id}/own-metrics/metrics/${orders.id}/series?${range}&${bad}`,
+      );
+      expect(res.statusCode, bad).toBe(400);
+    }
+    const backwards = await api(
+      'GET',
+      `/clusters/${c.id}/own-metrics/metrics/${orders.id}/series?from=${to}&to=${to - 60}`,
+    );
+    expect(backwards.statusCode).toBe(400);
+  });
+
+  it('a type or a unit can be corrected, and the correction survives the next report', async () => {
+    const c = await cluster('kubernetes');
+    const t = await token(c);
+    await push(t.value, { name: 'queue_depth', type: 'gauge', value: 5 });
+    const [m] = (await list(c)).metrics;
+    expect(m).toMatchObject({
+      type: 'gauge',
+      unit: 'count',
+      shown: 'as_is',
+      pushed: true,
+      untied: true,
+    });
+    const viewer = await createUserSession(ctx.db, { role: 'viewer', orgId: c.orgId });
+    const no = await api(
+      'PATCH',
+      `/clusters/${c.id}/own-metrics/metrics/${m!.id}`,
+      { type: 'counter' },
+      viewer.cookie,
+    );
+    expect(no.statusCode).toBe(403);
+    const fixed = await api('PATCH', `/clusters/${c.id}/own-metrics/metrics/${m!.id}`, {
+      type: 'counter',
+      unit: 'bytes',
+    });
+    expect(fixed.statusCode).toBe(200);
+    expect(fixed.json().metric).toMatchObject({
+      type: 'counter',
+      detectedType: 'gauge',
+      unit: 'bytes',
+      detectedUnit: 'count',
+      shown: 'rate',
+    });
+    await push(t.value, { name: 'queue_depth', type: 'gauge', value: 6 });
+    expect((await list(c)).metrics[0]).toMatchObject({ type: 'counter', unit: 'bytes' });
+    // Back to what the name says.
+    const back = await api('PATCH', `/clusters/${c.id}/own-metrics/metrics/${m!.id}`, {
+      type: null,
+      unit: null,
+    });
+    expect(back.json().metric).toMatchObject({ type: 'gauge', unit: 'count' });
+    expect(
+      (await api('PATCH', `/clusters/${c.id}/own-metrics/metrics/${m!.id}`, { type: 'nonsense' }))
+        .statusCode,
+    ).toBe(400);
+  });
+
+  it('a refused metric can be checked again: fine when the label has few values now', async () => {
+    const c = await cluster('kubernetes');
+    const t = await token(c);
+    const many = Array.from({ length: 101 }, (_, i) => ({
+      name: 'logins_total',
+      value: 1,
+      labels: { user_id: `u${i}` },
+    }));
+    await push(t.value, { metrics: many });
+    const [m] = (await list(c)).metrics;
+    expect(m!.refused).toEqual({ label: 'user_id' });
+    // Still too many: refused again at the next report.
+    await api('PATCH', `/clusters/${c.id}/own-metrics/metrics/${m!.id}`, { checkAgain: true });
+    expect((await list(c)).metrics[0]!.refused).toBeNull();
+    const again = await push(t.value, { metrics: many });
+    expect(again.json().dropped.cardinality).toEqual([
+      { metric: 'logins_total', label: 'user_id' },
+    ]);
+    expect((await list(c)).metrics[0]!.refused).toEqual({ label: 'user_id' });
+  });
+
+  it('pins: on the page of the workload a metric belongs to, six at most', async () => {
+    const c = await cluster('kubernetes');
+    await workload(c, 'shop', 'Deployment', 'orders');
+    const t = await token(c);
+    const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((x) => `metric_${x}`);
+    await push(t.value, {
+      workload: 'shop/orders',
+      metrics: [
+        ...names.map((name, i) => ({ name, value: i + 1 })),
+        { name: 'untied_metric', value: 9, workload: 'x/y' },
+      ],
+    });
+    await fetch(`${TEST_VM_URL}/internal/force_flush`);
+    const l = await list(c);
+    const id = (name: string) => l.metrics.find((m) => m.name === name)!.id;
+    const owner = {
+      kind: 'workload',
+      namespace: 'shop',
+      workloadKind: 'Deployment',
+      name: 'orders',
+    };
+    const page = '?ownerKind=workload&namespace=shop&workloadKind=Deployment&owner=orders';
+    const empty = (await api('GET', `/clusters/${c.id}/own-metrics/pins${page}`)).json();
+    expect(empty).toEqual({ pins: [], max: 6, metrics: 7 });
+
+    const viewer = await createUserSession(ctx.db, { role: 'viewer', orgId: c.orgId });
+    expect(
+      (
+        await api(
+          'POST',
+          `/clusters/${c.id}/own-metrics/pins`,
+          { metricId: id('metric_a'), owner },
+          viewer.cookie,
+        )
+      ).statusCode,
+    ).toBe(403);
+    // A metric is pinned where it belongs, nowhere else.
+    const elsewhere = await api('POST', `/clusters/${c.id}/own-metrics/pins`, {
+      metricId: id('untied_metric'),
+      owner,
+    });
+    expect(elsewhere.statusCode).toBe(404);
+    const pins: string[] = [];
+    for (const name of names.slice(0, 6)) {
+      const res = await api('POST', `/clusters/${c.id}/own-metrics/pins`, {
+        metricId: id(name),
+        owner,
+      });
+      expect(res.statusCode, res.body).toBe(201);
+      pins.push(res.json().id);
+    }
+    const twice = await api('POST', `/clusters/${c.id}/own-metrics/pins`, {
+      metricId: id('metric_a'),
+      owner,
+    });
+    expect(twice.statusCode).toBe(409);
+    const seventh = await api('POST', `/clusters/${c.id}/own-metrics/pins`, {
+      metricId: id('metric_g'),
+      owner,
+    });
+    expect(seventh.statusCode).toBe(409);
+    expect(seventh.json().detail).toMatch(/at most 6/);
+
+    const got = (
+      await api('GET', `/clusters/${c.id}/own-metrics/pins${page}`, undefined, viewer.cookie)
+    ).json();
+    expect(got.pins.map((p: { metric: { name: string } }) => p.metric.name)).toEqual(
+      names.slice(0, 6),
+    );
+    expect(got.pins[2]).toMatchObject({ id: pins[2], metric: { name: 'metric_c', value: 3 } });
+    // The last hour's line: its points are a minute apart, so a value two seconds old has none yet.
+    expect(Array.isArray(got.pins[2].spark)).toBe(true);
+    const detail = (
+      await api('GET', `/clusters/${c.id}/own-metrics/metrics/${id('metric_a')}`)
+    ).json();
+    expect(detail.usedIn.pins).toEqual([{ id: pins[0], owner }]);
+
+    expect(
+      (
+        await api(
+          'DELETE',
+          `/clusters/${c.id}/own-metrics/pins/${pins[0]}`,
+          undefined,
+          viewer.cookie,
+        )
+      ).statusCode,
+    ).toBe(403);
+    expect((await api('DELETE', `/clusters/${c.id}/own-metrics/pins/${pins[0]}`)).statusCode).toBe(
+      204,
+    );
+    expect((await api('DELETE', `/clusters/${c.id}/own-metrics/pins/${pins[0]}`)).statusCode).toBe(
+      404,
+    );
+    expect(
+      (await api('POST', `/clusters/${c.id}/own-metrics/pins`, { metricId: id('metric_g'), owner }))
+        .statusCode,
+    ).toBe(201);
+  });
+
+  it('on a fleet, a metric is pinned to its server’s page', async () => {
+    const c = await cluster('server');
+    await server(c, 'db-1');
+    const t = await token(c);
+    await push(t.value, {
+      name: 'backup_last_success_timestamp_seconds',
+      value: Math.floor(Date.now() / 1000) - 600,
+      server: 'db-1',
+    });
+    await fetch(`${TEST_VM_URL}/internal/force_flush`);
+    const [m] = (await list(c)).metrics;
+    expect(m!.owners).toEqual([{ kind: 'server', namespace: '', workloadKind: '', name: 'db-1' }]);
+    const pin = await api('POST', `/clusters/${c.id}/own-metrics/pins`, {
+      metricId: m!.id,
+      owner: { kind: 'server', name: 'db-1' },
+    });
+    expect(pin.statusCode).toBe(201);
+    const got = (
+      await api('GET', `/clusters/${c.id}/own-metrics/pins?ownerKind=server&owner=db-1`)
+    ).json();
+    expect(got.pins).toHaveLength(1);
+    expect(got.pins[0].metric.value).toBeGreaterThan(590);
+    expect(got.pins[0].metric.value).toBeLessThan(700);
+    expect(
+      (await api('GET', `/clusters/${c.id}/own-metrics/pins?ownerKind=server&owner=web-1`)).json()
+        .pins,
+    ).toEqual([]);
   });
 });

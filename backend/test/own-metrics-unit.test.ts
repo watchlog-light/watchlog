@@ -6,6 +6,8 @@ import {
   ownMetricLimits,
   OWN_SELF_HOSTED_SERIES,
 } from '../src/modules/entitlements/own-metrics.js';
+import { exprFor, exprForMany } from '../src/modules/own-metrics/expr.js';
+import type { OwnType, OwnUnit } from '../src/modules/own-metrics/naming.js';
 import {
   cleanLabels,
   familiesOf,
@@ -310,5 +312,95 @@ describe('tokens', () => {
   it('knows its own prefix', () => {
     expect(isMetricToken('wl_mt_abc')).toBe(true);
     expect(isMetricToken('wl_abc')).toBe(false);
+  });
+});
+
+describe('how each type is read', () => {
+  const m = (name: string, type: OwnType, unit: OwnUnit = 'count', pushed = false) => ({
+    name,
+    type,
+    unit,
+    pushed,
+  });
+
+  it('a counter is its rate, summed; own metrics only', () => {
+    expect(exprFor(m('orders_created_total', 'counter'))).toBe(
+      'sum (rate({__name__="orders_created_total",wl_own!=""}[120s]))',
+    );
+    // A pushed counter is read over ten minutes; a wide step widens the window.
+    expect(exprFor(m('emails_sent', 'counter', 'count', true))).toContain('[600s]');
+    expect(exprFor(m('orders_created_total', 'counter'), { step: 300 })).toContain('[1200s]');
+  });
+
+  it('a gauge is summed when it counts, averaged when it is a ratio or a duration', () => {
+    expect(exprFor(m('jobs_waiting', 'gauge'))).toBe(
+      'sum (last_over_time({__name__="jobs_waiting",wl_own!=""}[300s]))',
+    );
+    expect(exprFor(m('cache_hit_ratio', 'gauge', 'ratio'))).toMatch(/^avg \(/);
+    expect(exprFor(m('queue_latency_seconds', 'gauge', 'seconds'))).toMatch(/^avg \(/);
+    expect(exprFor(m('disk_used_bytes', 'gauge', 'bytes'))).toMatch(/^sum \(/);
+  });
+
+  it('a histogram is a quantile of its buckets; a summary its average; a timestamp the time since', () => {
+    expect(exprFor(m('checkout_duration_seconds', 'histogram', 'seconds'))).toBe(
+      'histogram_quantile(0.95, sum by (le) (rate({__name__="checkout_duration_seconds_bucket",wl_own!=""}[120s])))',
+    );
+    expect(
+      exprFor(m('checkout_duration_seconds', 'histogram', 'seconds'), { stat: 'p50' }),
+    ).toContain('histogram_quantile(0.5,');
+    expect(exprFor(m('rpc_seconds', 'summary', 'seconds'))).toBe(
+      'sum (rate({__name__="rpc_seconds_sum",wl_own!=""}[120s])) / sum (rate({__name__="rpc_seconds_count",wl_own!=""}[120s]))',
+    );
+    expect(exprFor(m('backup_last_success_timestamp', 'timestamp', 'seconds'))).toBe(
+      'clamp_min(time() - max (last_over_time({__name__="backup_last_success_timestamp",wl_own!=""}[3d])), 0)',
+    );
+  });
+
+  it('splits by one label, narrows to an owner, and reads "the rest" as one line', () => {
+    const owner = {
+      kind: 'workload' as const,
+      namespace: 'shop',
+      workloadKind: 'Deployment',
+      name: 'orders',
+    };
+    expect(exprFor(m('orders_created_total', 'counter'), { by: 'method', owner })).toBe(
+      'sum by (method) (rate({__name__="orders_created_total",wl_own!="",wl_ns="shop",wl_wkind="Deployment",wl_workload="orders"}[120s]))',
+    );
+    expect(
+      exprFor(m('checkout_duration_seconds', 'histogram', 'seconds'), { by: 'step' }),
+    ).toContain('sum by (le, step)');
+    expect(
+      exprFor(m('orders_created_total', 'counter'), {
+        by: 'method',
+        exclude: ['card', 'a.b|c', 'say "hi"'],
+      }),
+    ).toBe(
+      'sum (rate({__name__="orders_created_total",wl_own!="",method!~"card|a\\\\.b\\\\|c|say \\"hi\\""}[120s]))',
+    );
+    expect(exprFor(m('jobs_waiting', 'gauge'), { by: 'queue', only: 'mail' })).toBe(
+      'sum (last_over_time({__name__="jobs_waiting",wl_own!="",queue="mail"}[300s]))',
+    );
+    expect(
+      exprFor(m('gpu_temperature_celsius', 'gauge', 'celsius'), {
+        owner: { kind: 'server', namespace: '', workloadKind: '', name: 'gpu-1' },
+      }),
+    ).toBe(
+      'avg (last_over_time({__name__="gpu_temperature_celsius",wl_own!="",wl_server="gpu-1"}[300s]))',
+    );
+  });
+
+  it('refuses anything that is not a metric or label name', () => {
+    expect(() => exprFor(m('bad"name', 'gauge'))).toThrow();
+    expect(() => exprFor(m('ok', 'gauge'), { by: 'x"}or{' })).toThrow();
+    expect(() => exprForMany({ type: 'gauge', sum: true, pushed: false }, ['a', 'b}'])).toThrow();
+  });
+
+  it('reads many metrics of one kind in one query', () => {
+    expect(exprForMany({ type: 'counter', sum: true, pushed: false }, ['a_total', 'b_total'])).toBe(
+      'sum by (wl_metric) (label_copy(rate({__name__=~"a_total|b_total",wl_own!=""}[120s]) keep_metric_names, "__name__", "wl_metric"))',
+    );
+    expect(exprForMany({ type: 'histogram', sum: true, pushed: false }, ['h'])).toContain(
+      '{__name__=~"h_bucket",wl_own!=""}',
+    );
   });
 });

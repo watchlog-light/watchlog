@@ -674,6 +674,20 @@ export interface OwnMetricTokens {
   token_hash: Buffer;
 }
 
+export interface OwnPins {
+  cluster_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: string;
+  metric_id: string;
+  org_id: Generated<string>;
+  owner_kind: string;
+  owner_name: string;
+  owner_namespace: Generated<string>;
+  owner_workload_kind: Generated<string>;
+  position: Generated<number>;
+}
+
 export interface OwnSeries {
   cluster_id: string;
   fingerprint: string;
@@ -1081,6 +1095,7 @@ export interface DB {
   orgs: Orgs;
   own_metric_tokens: OwnMetricTokens;
   own_metrics: OwnMetrics;
+  own_pins: OwnPins;
   own_series: OwnSeries;
   own_sources: OwnSources;
   password_resets: PasswordResets;
