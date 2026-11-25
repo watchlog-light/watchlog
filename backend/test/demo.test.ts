@@ -177,6 +177,7 @@ describe('demo mode guard', () => {
       demoMode: false,
       demoMcpToken: null,
       smtp: false,
+      demoMaxRangeS: null,
     });
     expect((await api('POST', '/demo/session')).statusCode).toBe(404);
   });
@@ -194,6 +195,7 @@ describe('demo sessions', () => {
       demoMode: true,
       demoMcpToken: null,
       smtp: false,
+      demoMaxRangeS: 86_400,
     });
     const before = Date.now();
     const { res, cookie } = await enterDemo();

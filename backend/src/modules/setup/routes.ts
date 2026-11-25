@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { DEMO_MAX_RANGE_S } from '../../plugins/demo.js';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
@@ -41,6 +42,10 @@ export const setupRoutes: FastifyPluginAsyncTypebox<{
             smtp: Type.Boolean({
               description: 'Email is set up: "Forgot your password?" emails a reset link',
             }),
+            demoMaxRangeS: Type.Union([Type.Integer(), Type.Null()], {
+              description:
+                "The demo's longest query range in seconds (longer ones answer 400); null elsewhere",
+            }),
           }),
         },
       },
@@ -50,6 +55,7 @@ export const setupRoutes: FastifyPluginAsyncTypebox<{
       demoMode,
       demoMcpToken: demoMode ? (demoMcpToken ?? null) : null,
       smtp: !demoMode && !!(await smtpConfigured?.().catch(() => false)),
+      demoMaxRangeS: demoMode ? DEMO_MAX_RANGE_S : null,
     }),
   );
 

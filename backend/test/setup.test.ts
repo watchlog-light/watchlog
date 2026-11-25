@@ -31,6 +31,7 @@ describe('first-run setup', () => {
       demoMode: false,
       demoMcpToken: null,
       smtp: false,
+      demoMaxRangeS: null,
     });
   });
 
@@ -87,6 +88,7 @@ describe('first-run setup', () => {
       demoMode: false,
       demoMcpToken: null,
       smtp: false,
+      demoMaxRangeS: null,
     });
   });
 

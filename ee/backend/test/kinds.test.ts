@@ -443,6 +443,28 @@ describe('Wi-Fi, storage, recording and a UPS polled from a cluster', () => {
       weak: 5,
       switchPort: { device: 'sw-access-2', port: 'Gi1/0/44' },
     });
+    // The device page's facts for kinds without CPU, memory or ports (0.17.1).
+    const apPage = (await call('GET', `/network/devices/${lobby.id}`)).json();
+    expect(apPage.kind.ap).toMatchObject({ clients: 7, weak: 5, weakDbm: -75 });
+    expect(apPage.kind.ap.radios).toHaveLength(2);
+    expect(apPage.device.parentName).toBe('edge-1');
+    expect((await call('GET', `/network/devices/${upsId}`)).json().kind.ups).toMatchObject({
+      status: 'online',
+    });
+    expect((await call('GET', `/network/devices/${nvr}`)).json().kind.recorder).toMatchObject({
+      recording: true,
+      camerasOnline: 16,
+      camerasTotal: 16,
+    });
+    expect((await call('GET', `/network/devices/${sw}`)).json().kind).toEqual({});
+    expect(
+      Object.keys(
+        (await call('GET', `/network/devices/${lobby.id}/series?range=3600`)).json().kind,
+      ),
+    ).toEqual(['clients']);
+    expect(
+      Object.keys((await call('GET', `/network/devices/${upsId}/series?range=3600`)).json().kind),
+    ).toEqual(['charge', 'runtime', 'load']);
     expect(wifi.clients.find((c: { mac: string }) => c.mac === 'a4:83:e7:00:00:08')).toMatchObject({
       ap: 'ap-office',
       signalDbm: -60,

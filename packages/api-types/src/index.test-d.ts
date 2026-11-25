@@ -46,6 +46,7 @@ describe('generated API types', () => {
       demoMode: boolean;
       demoMcpToken: string | null;
       smtp: boolean;
+      demoMaxRangeS: number | null;
     }>();
   });
 

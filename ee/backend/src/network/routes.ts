@@ -12,6 +12,7 @@ import type {
 import { FEATURE } from './collector.js';
 import { credentialView, sealSecret, type CredentialRow } from './credentials.js';
 import { speedText } from './ingest.js';
+import { WEAK_DBM } from './kinds.js';
 import { RangeError, validRange } from './range.js';
 import { setupCommands, type Platform } from './setup.js';
 import { mapExtras, registerKindRoutes, summaryExtras } from './routes-kinds.js';
@@ -475,6 +476,8 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
           firstSeen: new Date(d.first_seen).toISOString(),
           lastSeen: d.last_seen ? new Date(d.last_seen).toISOString() : null,
         },
+        // What the device's kind reports instead of CPU, memory and ports (ADR-234, 0.17.1).
+        kind: await kindFacts(orgId, d, h),
         health: {
           sensors: h.sensors ?? [],
           fans: h.fans ?? [],
@@ -522,6 +525,49 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
     },
   );
 
+  /** An access point's clients now and weak; a UPS's readings; a recorder's state. */
+  async function kindFacts(orgId: string, d: any, h: Record<string, any>) {
+    if (d.kind === 'ap') {
+      const c = await db
+        .selectFrom('network_wifi_clients')
+        .select([
+          db.fn.countAll().as('n'),
+          host.sql<number>`count(*) filter (where signal_dbm < ${WEAK_DBM})`.as('weak'),
+        ])
+        .where('org_id', '=', orgId)
+        .where('ap_id', '=', d.id)
+        .executeTakeFirst();
+      return {
+        ap: {
+          clients: Number(c?.n ?? 0),
+          weak: Number(c?.weak ?? 0),
+          weakDbm: WEAK_DBM,
+          radios: (h.ap?.radios ?? []) as unknown[],
+          generation: (h.ap?.generation as string | undefined) ?? '',
+        },
+      };
+    }
+    if (d.kind === 'ups') return { ups: h.ups ?? null };
+    if (d.kind === 'nvr') {
+      const r = (d.recording ?? {}) as { recording?: boolean | null };
+      const rec = (h.recorder ?? {}) as {
+        cameras?: { online: boolean }[];
+        daysLeft?: number | null;
+        full?: boolean;
+      };
+      return {
+        recorder: {
+          recording: d.status === 'ok' ? (r.recording ?? null) : null,
+          camerasOnline: (rec.cameras ?? []).filter((c) => c.online).length,
+          camerasTotal: (rec.cameras ?? []).length,
+          daysLeft: rec.daysLeft ?? null,
+          full: !!rec.full,
+        },
+      };
+    }
+    return {};
+  }
+
   api.get(
     '/network/devices/:id/series',
     {
@@ -545,7 +591,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       const { range = 3600, port } = request.query as { range?: number; port?: string };
       const d = await db
         .selectFrom('network_devices')
-        .select(['id', 'cluster_id'])
+        .select(['id', 'cluster_id', 'kind', 'name', 'parent_id'])
         .where('org_id', '=', orgId)
         .where('id', '=', id)
         .executeTakeFirst();
@@ -582,12 +628,32 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
             )
           : Promise.resolve([]),
       ]);
+      // What the kind reports instead (ADR-234, 0.17.1): an access point's clients (its
+      // controller's series), a UPS's charge, runtime and load, a recorder's cameras online.
+      const esc = (v: string) => v.replace(/["\\]/g, '');
+      const kindExprs: Record<string, string> =
+        d.kind === 'ap' && d.parent_id
+          ? {
+              clients: `sum(watchlog_net_wifi_clients{device="${esc(d.parent_id)}",ap="${esc(d.name)}"})`,
+            }
+          : d.kind === 'ups'
+            ? {
+                charge: `max(watchlog_net_ups_charge_ratio{${sel}})`,
+                runtime: `max(watchlog_net_ups_runtime_seconds{${sel}})`,
+                load: `max(watchlog_net_ups_load_ratio{${sel}})`,
+              }
+            : d.kind === 'nvr'
+              ? { camerasOnline: `max(watchlog_net_cameras_online{${sel}})` }
+              : {};
+      const kindKeys = Object.keys(kindExprs);
+      const kindPoints = await Promise.all(kindKeys.map((k) => q(kindExprs[k]!)));
       return {
         range,
         step,
         cpu,
         memory,
         temperature,
+        kind: Object.fromEntries(kindKeys.map((k, i) => [k, kindPoints[i]])),
         port: port ? { name: port, inBps, outBps, errors, discards } : null,
       };
     },

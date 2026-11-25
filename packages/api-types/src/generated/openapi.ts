@@ -608,6 +608,8 @@ export interface paths {
               demoMcpToken: string | null;
               /** @description Email is set up: "Forgot your password?" emails a reset link */
               smtp: boolean;
+              /** @description The demo's longest query range in seconds (longer ones answer 400); null elsewhere */
+              demoMaxRangeS: number | null;
             };
           };
         };
