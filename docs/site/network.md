@@ -165,6 +165,13 @@ draw. Below: CPU, memory and temperature, fans and power supplies, the SFP optic
 own thresholds, events, and for MikroTik the RouterOS version and whether its channel has an
 update.
 
+A device's page shows only what that device reports. An access point read through CAPsMAN has no
+CPU, memory or ports of its own to read: its page shows its clients, its radios (band and channel)
+and its weak clients, with its clients over time, and links to the Wireless page. A UPS shows its
+charge, runtime and load; a recorder whether it is recording, its cameras and the days of
+recording left. The status beside the name is the device's own (up, down); open alerts show as a
+separate count.
+
 ## Wi-Fi (MikroTik CAPsMAN)
 
 When a MikroTik router runs CAPsMAN, WatchLog reads its access points and their clients over the
