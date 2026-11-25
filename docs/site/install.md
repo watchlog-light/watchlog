@@ -184,8 +184,13 @@ docker compose exec -T postgres psql -U watchlog -d postgres \
 docker compose up -d
 ```
 
-The old images stay on the host after an upgrade unless you remove them, so the previous version
-starts without a download.
+With an Enterprise licence (`COMPOSE_PROFILES=enterprise`, [licence](license.md)), stop the
+`anomaly-worker` with the others. The old images stay on the host after an upgrade unless you
+remove them, so the previous version starts without a download.
+
+A `compose.override.yaml` that sets something for every service (log rotation, for example)
+should name the `anomaly-worker` too once the `enterprise` profile is on: an override's settings
+reach only the services it names.
 
 ### Update the agents
 
