@@ -59,7 +59,7 @@ case "$name" in
     wait_http "http://127.0.0.1:$port/api/v1/health"
     curl -fsS "http://127.0.0.1:$port/api/v1/health"
     echo
-    test "$(curl -fsS "http://127.0.0.1:$port/api/v1/setup")" = '{"required":true,"demoMode":false,"demoMcpToken":null,"smtp":false}'
+    test "$(curl -fsS "http://127.0.0.1:$port/api/v1/setup")" = '{"required":true,"demoMode":false,"demoMcpToken":null,"smtp":false,"demoMaxRangeS":null}'
     # ADR-140: the `watchlog` command runs in the image (no shell there) and reaches the
     # database; before setup there is no Owner to reset.
     cli=$(docker run --rm --network smoke-net --entrypoint watchlog -e DATABASE_URL="$db_url" \
