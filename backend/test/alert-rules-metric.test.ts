@@ -150,6 +150,46 @@ describe('metric rules: trigger and resolve', () => {
     expect((await alerts()).map((a) => a.state)).toEqual(['resolved']);
   });
 
+  it('network.connections.failed on a server: the alert carries the server, one per server', async () => {
+    await setup('network.connections.failed');
+    // Two servers run a unit of the same name; only web-01's fails.
+    const edge = (host: string) => ({
+      host,
+      workload_kind: 'Service',
+      workload: 'demo-load.service',
+      dst_kind: 'workload',
+      dst_workload_kind: 'Service',
+      dst_workload: 'orders.service',
+      dst_port: '8080',
+    });
+    for (const host of ['web-01', 'web-02']) {
+      await write(
+        'watchlog_flow_connections_total',
+        edge(host),
+        counter(() => 2),
+      );
+      await write(
+        'watchlog_flow_connect_failed_total',
+        edge(host),
+        counter(() => (host === 'web-01' ? 1 : 0)),
+      );
+    }
+    await evaluate(3, 6);
+    await evaluate(8.5, 12);
+    expect(await alerts()).toMatchObject([
+      {
+        state: 'firing',
+        fingerprint: 'flow:web-01:/demo-load.service>workload:/orders.service',
+        labels: {
+          node: 'web-01',
+          workload: 'demo-load.service',
+          workload_kind: 'Service',
+          dst_workload: 'orders.service',
+        },
+      },
+    ]);
+  });
+
   it('network.connections.failed: the share never reads above 100 %', async () => {
     await setup('network.connections.failed');
     const edge = {

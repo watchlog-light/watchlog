@@ -45,7 +45,7 @@ export function recorderView(d: any, sessions: any[]) {
   };
   const disks = h.disks ?? [];
   const cams = h.cameras ?? [];
-  const left = daysLeft(disks, r.rate ?? null);
+  const left = daysLeft(disks, r.rateHour ?? null);
   const mine = sessions.filter((s) => s.recorder_id === d.id);
   return {
     id: d.id,
@@ -83,6 +83,7 @@ export function recorderView(d: any, sessions: any[]) {
     free: left.free,
     total: left.total,
     daysLeft: left.days,
+    daysCalculating: left.calculating,
     full: left.full,
     rate: r.rate ?? null,
     usual: r.usual ?? null,
@@ -207,6 +208,7 @@ export async function summaryExtras(db: Db, orgId: string, devices: any[]) {
         cameras: { online: v.cameras.online, total: v.cameras.total },
         disk: v.disks.find((k) => k.iscsi)?.session ?? null,
         daysLeft: v.daysLeft,
+        daysCalculating: v.daysCalculating,
         full: v.full,
         rate: v.rate,
         usual: v.usual,

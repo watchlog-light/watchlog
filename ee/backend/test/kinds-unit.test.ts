@@ -17,6 +17,7 @@ import {
 import { mergeLinks, type DevRef } from '../src/network/links.js';
 import {
   daysLeft,
+  hourRateOf,
   diskSignal,
   NOT_RECORDING_MS,
   rateSignal,
@@ -137,9 +138,32 @@ describe('days of recording left', () => {
     // 6 TB free at 6 MB/s: about 11.6 days.
     expect(daysLeft([local, iscsi], 6e6).days).toBeCloseTo((6 * TB) / 6e6 / 86400, 5);
     expect(daysLeft([local], 2e6).days).toBeCloseTo((0.6 * TB) / 2e6 / 86400, 5);
-    expect(daysLeft([iscsi], 0).days).toBe(null);
-    expect(daysLeft([iscsi], null).days).toBe(null);
+    expect(daysLeft([iscsi], 0)).toMatchObject({ days: null, calculating: false });
+    // No hour of traffic yet (a new recorder, a restart of the poller): "calculating", never a
+    // number from a few minutes' rate, and never "0 days".
+    expect(daysLeft([iscsi], null)).toMatchObject({ days: null, calculating: true, full: false });
+    expect(daysLeft([iscsi], undefined)).toMatchObject({ days: null, calculating: true });
     expect(daysLeft([], 1e6)).toMatchObject({ days: null, total: 0 });
+  });
+  it("divides by the last hour's average, and only once an hour of traffic exists", () => {
+    // An hour of samples: the hour's average counts.
+    expect(hourRateOf(6e6, 12)).toBe(6e6);
+    // Ten minutes after the recorder was added, or after the poller's restart lost the older
+    // samples: nothing an hour back, so no rate, so "calculating".
+    expect(hourRateOf(48e6, 0)).toBe(null);
+    expect(hourRateOf(48e6, undefined)).toBe(null);
+    expect(hourRateOf(undefined, 12)).toBe(null);
+    expect(hourRateOf(Number.NaN, 12)).toBe(null);
+    // The recorder restarted: its port went quiet for minutes inside the hour. The hour's
+    // average is lower, never zero days: 6 TB at 5.5 MB/s is still about 12 days.
+    const left = daysLeft([iscsi], hourRateOf(5.5e6, 12));
+    expect(left.calculating).toBe(false);
+    expect(Math.floor(left.days!)).toBe(12);
+    // Before the hour: no number at all.
+    expect(daysLeft([iscsi], hourRateOf(900e6, 0))).toMatchObject({
+      days: null,
+      calculating: true,
+    });
   });
   it('a full disk overwrites its oldest footage: no countdown', () => {
     expect(daysLeft([{ ...iscsi, used: iscsi.total * 0.995 }], 6e6)).toMatchObject({

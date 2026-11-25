@@ -455,6 +455,9 @@ describe('Wi-Fi, storage, recording and a UPS polled from a cluster', () => {
       recording: true,
       camerasOnline: 16,
       camerasTotal: 16,
+      // No hour of its port's traffic yet: "calculating", never a number (and never "0 days").
+      daysLeft: null,
+      daysCalculating: true,
     });
     expect((await call('GET', `/network/devices/${sw}`)).json().kind).toEqual({});
     expect(

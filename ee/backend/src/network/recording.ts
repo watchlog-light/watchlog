@@ -39,6 +39,12 @@ export interface RecordingState {
   iscsi: string[];
   /** The write rate now (bytes a second) and its usual band, where known. */
   rate?: number | null;
+  /**
+   * The write rate averaged over the last hour, which "days of recording left" divides by; null
+   * until an hour of its port's traffic exists (1.0.0): the instant rate after a restart of the
+   * recorder or the poller said "0 days".
+   */
+  rateHour?: number | null;
   usual?: { low: number; high: number; median: number } | null;
   /** Where the rate is read: the recorder's switch port, or the NAS's. */
   rateFrom?: { device: string; port: string; side: 'recorder' | 'nas' } | null;
@@ -133,6 +139,20 @@ export function stepRecording(
   return { iscsi: prev?.iscsi ?? [], ...extra, signals, recording, failed, since, at };
 }
 
+/**
+ * The write rate "days of recording left" divides by: the hour's average, and only once the
+ * port's series is an hour old (`samplesAnHourAgo`: how many of its samples lie 55 to 65 minutes
+ * back). Before that it is null, "calculating": a rate over the first minutes after a recorder
+ * was added, or after the poller came back, isn't a day's rate.
+ */
+export function hourRateOf(
+  hourRate: number | null | undefined,
+  samplesAnHourAgo: number | null | undefined,
+): number | null {
+  if (!samplesAnHourAgo || hourRate == null || !Number.isFinite(hourRate)) return null;
+  return Math.max(0, hourRate);
+}
+
 /** The disks its footage goes to: its iSCSI disks, or all when it has none. */
 export function recordingDisks(disks: RecorderDisk[]): RecorderDisk[] {
   const iscsi = disks.filter((d) => d.iscsi);
@@ -140,20 +160,25 @@ export function recordingDisks(disks: RecorderDisk[]): RecorderDisk[] {
 }
 
 /**
- * Days of recording left at the current write rate: free space / rate. A full disk (under 1%
- * free) is overwriting its oldest footage, the way recorders are usually set: no countdown.
+ * Days of recording left: free space / the write rate averaged over the last hour. A full disk
+ * (under 1% free) is overwriting its oldest footage, the way recorders are usually set: no
+ * countdown. `calculating` while the hour's rate isn't known yet (its port has less than an hour
+ * of traffic): never a number from a few minutes' rate. A recorder that wrote nothing in the
+ * hour has no countdown either (`days` null, not calculating).
  */
 export function daysLeft(
   disks: RecorderDisk[],
-  rateBps: number | null | undefined,
-): { days: number | null; full: boolean; free: number; total: number } {
+  rateHourBps: number | null | undefined,
+): { days: number | null; full: boolean; calculating: boolean; free: number; total: number } {
   const ds = recordingDisks(disks).filter((d) => d.healthy);
   const total = ds.reduce((s, d) => s + d.total, 0);
   const free = ds.reduce((s, d) => s + Math.max(0, d.total - d.used), 0);
-  if (!total) return { days: null, full: false, free, total };
-  if (free / total < FULL_SHARE) return { days: null, full: true, free, total };
-  if (!rateBps || rateBps <= 0) return { days: null, full: false, free, total };
-  return { days: free / rateBps / 86_400, full: false, free, total };
+  const none = { days: null, full: false, calculating: false, free, total };
+  if (!total) return none;
+  if (free / total < FULL_SHARE) return { ...none, full: true };
+  if (rateHourBps == null) return { ...none, calculating: true };
+  if (rateHourBps <= 0) return none;
+  return { ...none, days: free / rateHourBps / 86_400 };
 }
 
 /** The words for a recorder not recording: "its iSCSI disk iscsi0 is gone". */

@@ -641,8 +641,10 @@ const ENTRIES = {
     unit: 'ratio',
     agg: 'sum',
     expr: (s, r) => {
+      // `host` is a server's own label (Kubernetes series carry `node`, so a cluster's edges
+      // still sum over its nodes): a unit's name alone doesn't say which server it runs on.
       const by =
-        'namespace, workload_kind, workload, container, dst_kind, dst_namespace, dst_workload_kind, dst_workload, dst_service, dst';
+        'host, namespace, workload_kind, workload, container, dst_kind, dst_namespace, dst_workload_kind, dst_workload, dst_service, dst';
       // A share is at most 1: the two counters are scraped apart, so the failed rate can
       // come out a little above the total (an alert read "102% of connections failed").
       return `clamp_max(sum by (${by}) (rate(watchlog_flow_connect_failed_total${s()}[${r}])) / (sum by (${by}) (rate(watchlog_flow_connections_total${s()}[${r}])) > 0.05), 1)`;

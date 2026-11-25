@@ -553,6 +553,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       const rec = (h.recorder ?? {}) as {
         cameras?: { online: boolean }[];
         daysLeft?: number | null;
+        daysCalculating?: boolean;
         full?: boolean;
       };
       return {
@@ -561,6 +562,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
           camerasOnline: (rec.cameras ?? []).filter((c) => c.online).length,
           camerasTotal: (rec.cameras ?? []).length,
           daysLeft: rec.daysLeft ?? null,
+          daysCalculating: !!rec.daysCalculating,
           full: !!rec.full,
         },
       };

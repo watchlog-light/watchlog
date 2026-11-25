@@ -27,6 +27,33 @@ describe('where (messages) and alertSubject (MCP)', () => {
     expect(where(onServer)).toBe('PostgreSQL web-01/postgres');
   });
 
+  it("a server's failed-connections alert: the unit and its server, never undefined/<unit>", () => {
+    // Flow series name a server's unit as workload + workload_kind "Service", with no namespace.
+    const l = {
+      node: 'demo-server',
+      workload: 'demo-load.service',
+      workload_kind: 'Service',
+      dst_kind: 'workload',
+      dst_workload: 'orders.service',
+      dst_workload_kind: 'Service',
+    };
+    expect(where(l)).toBe('demo-server › demo-load.service');
+    expect(alertSubject(l)).toEqual({ kind: 'unit', name: 'demo-server/demo-load.service' });
+    const group = {
+      node: 'web-01',
+      workload: 'api',
+      workload_kind: 'ProcessGroup',
+      dst_kind: 'ip',
+    };
+    expect(where(group)).toBe('web-01 › api (process group)');
+    expect(alertSubject(group)).toEqual({ kind: 'process-group', name: 'web-01/api' });
+    // An alert raised before 1.0.0 has no server: the unit's name alone, never "undefined".
+    const old = { workload: 'demo-load.service', workload_kind: 'Service', dst_kind: 'workload' };
+    expect(where(old)).toBe('demo-load.service');
+    expect(alertSubject(old)).toEqual({ kind: 'unit', name: 'demo-load.service' });
+    expect(where(l) + where(old) + where(group)).not.toContain('undefined');
+  });
+
   it('a pod metric: the pod', () => {
     const l = { pod: 'mongodb-0', namespace: 'shop' };
     expect(where(l)).toBe('shop/mongodb-0 (Pod)');

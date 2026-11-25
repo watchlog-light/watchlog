@@ -83,7 +83,22 @@ const SERVICE_NAMES: Record<string, string> = {
   elasticsearch: 'Elasticsearch',
 };
 
-export function where(l: Record<string, string>): string {
+/**
+ * A server's systemd service or process group named the way flow series name it: `workload`
+ * with `workload_kind` "Service" or "ProcessGroup" and no namespace (a failed-connections
+ * alert's source, ADR-208). Read as `unit` or `group`, so it is never taken for a Kubernetes
+ * workload ("undefined/demo-load.service").
+ */
+export function serverWorkloadLabels(l: Record<string, string>): Record<string, string> {
+  if (!l.workload || l.namespace || l.unit || l.group) return l;
+  const { workload, workload_kind: kind, ...rest } = l;
+  if (kind === 'Service') return { ...rest, unit: workload };
+  if (kind === 'ProcessGroup' || kind === 'Process') return { ...rest, group: workload };
+  return l;
+}
+
+export function where(labels: Record<string, string>): string {
+  const l = serverWorkloadLabels(labels);
   // A network device and its port (ADR-233).
   if (l.device_id) return l.port ? `${l.device} · ${l.port}` : (l.device ?? l.device_id);
   if (l.service_name)
@@ -103,6 +118,9 @@ export function where(l: Record<string, string>): string {
   // A server's systemd service or process group (ADR-208).
   if (l.group && l.node) return `${l.node} › ${l.group} (process group)`;
   if (l.unit && l.node) return `${l.node} › ${l.unit}`;
+  // A unit or group whose server isn't known (an alert from before 1.0.0): its name alone.
+  if (l.group) return `${l.group} (process group)`;
+  if (l.unit) return l.unit;
   if (l.node) return l.condition ? `node ${l.node} (${l.condition})` : `node ${l.node}`;
   if (l.namespace) return `namespace ${l.namespace}`;
   return Object.values(l).join(' ');
@@ -127,11 +145,12 @@ export type SubjectKind =
  * What an alert is about, for MCP and the API (ADR-229): its kind, the product of a monitored
  * service ("Traefik"), the workload kind, and a name. Sentences are built by `where`.
  */
-export function alertSubject(l: Record<string, string>): {
+export function alertSubject(labels: Record<string, string>): {
   kind: SubjectKind;
   name: string;
   type?: string;
 } {
+  const l = serverWorkloadLabels(labels);
   if (l.device_id) {
     return { kind: 'device', name: l.port ? `${l.device}/${l.port}` : (l.device ?? '') };
   }
@@ -151,8 +170,8 @@ export function alertSubject(l: Record<string, string>): {
     return { kind: 'compose-service', name: `${l.compose_project}/${l.compose_service}` };
   if (l.container)
     return { kind: 'container', name: l.node ? `${l.node}/${l.container}` : l.container };
-  if (l.group && l.node) return { kind: 'process-group', name: `${l.node}/${l.group}` };
-  if (l.unit && l.node) return { kind: 'unit', name: `${l.node}/${l.unit}` };
+  if (l.group) return { kind: 'process-group', name: l.node ? `${l.node}/${l.group}` : l.group };
+  if (l.unit) return { kind: 'unit', name: l.node ? `${l.node}/${l.unit}` : l.unit };
   if (l.node) return { kind: 'node', name: l.node };
   if (l.namespace) return { kind: 'namespace', name: l.namespace };
   return { kind: 'cluster', name: '' };

@@ -8,6 +8,7 @@ import { nameKey } from './links.js';
 import { vendorOf } from './oui.js';
 import {
   daysLeft,
+  hourRateOf,
   diskSignal,
   notRecordingWhy,
   rateSignal,
@@ -430,6 +431,8 @@ export function applyUPS(
 /** The rate a recorder writes toward its NAS now and its usual band (ADR-234, signal 3). */
 export interface RateReading {
   rate: number | null;
+  /** The rate averaged over the last hour; null until its port has an hour of traffic. */
+  rateHour: number | null;
   usual: { low: number; high: number; median: number; learning: boolean } | null;
   from: { device: string; port: string; side: 'recorder' | 'nas' } | null;
 }
@@ -447,7 +450,7 @@ export async function recorderRate(
   nasId: string | null,
   nowMs: number,
 ): Promise<RateReading> {
-  const none: RateReading = { rate: null, usual: null, from: null };
+  const none: RateReading = { rate: null, rateHour: null, usual: null, from: null };
   if (!host.victoria) return none;
   const port =
     (await attachedPort(host, orgId, recorderId)) ??
@@ -456,11 +459,26 @@ export async function recorderRate(
   const side = port.leaf === recorderId ? 'recorder' : 'nas';
   const metric =
     side === 'recorder' ? 'watchlog_net_if_in_bytes_total' : 'watchlog_net_if_out_bytes_total';
-  const expr = `sum(rate(${metric}{device="${esc(port.device)}",ifname="${esc(port.port)}"}[5m]))`;
+  const sel = `${metric}{device="${esc(port.device)}",ifname="${esc(port.port)}"}`;
+  const expr = `sum(rate(${sel}[5m]))`;
   const from = { device: port.deviceName, port: port.port, side } as const;
   try {
-    const [now] = await host.victoria.query(orgId, [port.cluster], expr, Math.floor(nowMs / 1000));
+    const at = Math.floor(nowMs / 1000);
+    const [now] = await host.victoria.query(orgId, [port.cluster], expr, at);
     const rate = now?.points[0]?.[1] ?? null;
+    // The hour's average, for "days of recording left": rate() over the hour spans a counter
+    // reset and a gap in polling. Only once the port's series is an hour old (a sample from
+    // 55 to 65 minutes ago): a new device or a new port is "calculating" until then.
+    const [[hour], [old]] = await Promise.all([
+      host.victoria.query(orgId, [port.cluster], `sum(rate(${sel}[1h]))`, at),
+      host.victoria.query(
+        orgId,
+        [port.cluster],
+        `count(last_over_time(${sel}[10m] offset 55m))`,
+        at,
+      ),
+    ]);
+    const rateHour = hourRateOf(hour?.points[0]?.[1], old?.points[0]?.[1]);
     const [band] = await host.baseline.bands(
       orgId,
       [port.cluster],
@@ -471,6 +489,7 @@ export async function recorderRate(
     );
     return {
       rate,
+      rateHour,
       usual: band
         ? { low: band.low, high: band.high, median: band.median, learning: band.learning }
         : null,
@@ -593,6 +612,7 @@ export async function applyRecorder(
     {
       iscsi: sigDisk.iscsi,
       rate: r.rate,
+      rateHour: r.rateHour,
       usual:
         r.usual && !r.usual.learning
           ? { low: r.usual.low, high: r.usual.high, median: r.usual.median }
@@ -613,7 +633,7 @@ export async function applyRecorder(
       message: `${row.name} is recording again.`,
     });
   if (disks) await syncSessions(host, orgId, row, disks, state.iscsi, nowMs, events);
-  const left = disks ? daysLeft(disks, r.rate) : null;
+  const left = disks ? daysLeft(disks, r.rateHour) : null;
   return {
     events,
     recording: state,
@@ -624,6 +644,7 @@ export async function applyRecorder(
         active: (rec.active ?? []).slice(0, 64),
         stream: rec.stream,
         daysLeft: left?.days ?? null,
+        daysCalculating: left?.calculating ?? false,
         full: left?.full ?? false,
         free: left?.free ?? null,
         total: left?.total ?? null,

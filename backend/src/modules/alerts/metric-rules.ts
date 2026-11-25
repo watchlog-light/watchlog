@@ -175,8 +175,12 @@ function flowScope(l: Record<string, string>) {
     if (l[k]) labels[k] = l[k]!;
   }
   const dst = l.dst_workload ?? l.dst_service ?? l.dst ?? l.dst_kind;
+  // On a server the source is one server's unit, process group or container: the alert names
+  // the server (`node`, as every server alert does), next to the edge's own labels, which the
+  // service map looks the alert up by.
+  if (l.host) labels.node = l.host;
   return {
-    fingerprint: `flow:${l.namespace ?? ''}/${src}>${l.dst_kind}:${l.dst_namespace ?? ''}/${dst}`,
+    fingerprint: `flow:${l.host ? `${l.host}:` : ''}${l.namespace ?? ''}/${src}>${l.dst_kind}:${l.dst_namespace ?? ''}/${dst}`,
     labels,
   };
 }
