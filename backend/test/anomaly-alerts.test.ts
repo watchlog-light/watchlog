@@ -217,6 +217,16 @@ describe('the rule: one alert per subject and metric', () => {
       last: 1.6,
       startedAt: T0 - 10 * MIN,
     });
+    // A watched own metric of the workload (ADR-238) is in What changed, and alerts only by
+    // the rule its user made for it: this rule leaves it alone.
+    await period(ctx.db, orgId, clusterId, {
+      metric: 'own:per_second:orders_created_total',
+      subject: CHECKOUT,
+      usual: [0.05, 0.09],
+      median: 0.07,
+      last: 0.6,
+      startedAt: T0 - 10 * MIN,
+    });
     await cycle(T0 + MIN);
     await cycle(T0 + 2 * MIN);
     await cycle(T0 + 3 * MIN);

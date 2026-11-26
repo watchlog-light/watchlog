@@ -31,7 +31,7 @@ import {
   firingAlerts,
   seriesTokens,
 } from './exclusion.js';
-import { ownKeyParts, unitOf } from './keys.js';
+import { OWN_KEY_PREFIX, ownKeyParts, unitOf } from './keys.js';
 import { wordsOf } from '../own-metrics/naming.js';
 import { labelsOf } from './read.js';
 
@@ -367,7 +367,11 @@ const anomalyEvaluator: RuleEvaluator = {
       .where('ended_at', 'is', null)
       .orderBy('started_at')
       .execute();
-    const allowed = periods.filter((p) => alertKeys(p.metric));
+    // A watched own metric alerts by its own rule ("outside its usual range", ADR-238), made
+    // by the user for that metric: this rule leaves it alone.
+    const allowed = periods.filter(
+      (p) => alertKeys(p.metric) && !p.metric.startsWith(OWN_KEY_PREFIX),
+    );
     if (!allowed.length) return [];
     const kind = ctx.cluster.kind;
     const [open, markers, containers, services] = await Promise.all([
