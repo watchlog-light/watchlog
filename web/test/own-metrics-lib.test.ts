@@ -40,6 +40,7 @@ const metric = (over: Partial<OwnMetric>): OwnMetric => ({
   ownerCount: 1,
   untied: false,
   pushed: false,
+  watched: false,
   value: 1,
   ...over,
 });

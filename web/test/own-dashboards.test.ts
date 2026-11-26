@@ -50,6 +50,7 @@ const metric = (name: string, over: Partial<OwnMetric> = {}): OwnMetric => ({
   ownerCount: 0,
   untied: true,
   pushed: true,
+  watched: false,
   value: 42,
   ...over,
 });
@@ -225,6 +226,7 @@ async function mountTab(routes: Routes, role = 'owner', path = '/your-metrics') 
     unit: 'count',
     shown: 'as_is',
     values: 2,
+    band: null,
     lines: [
       { value: 'emails', other: false, points: [[1, 400]] },
       { value: 'invoices', other: false, points: [[1, 20]] },

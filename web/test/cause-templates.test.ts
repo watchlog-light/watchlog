@@ -260,6 +260,7 @@ const STEPS: [string, Facts][] = [
   ['new_version_oom_no_limit', {}],
   ['changed_image', { from: 'busybox:latest', to: 'busybox:1.36' }],
   ['rolled_out', { from: '1', to: '2' }],
+  ['changed_external', { title: 'Deployed orders 2.15.0', source: 'your CI' }],
   ['recreated', { image: 'busybox:1.37' }],
   ['compose_up', { project: 'causes-e2e' }],
   ['pull_not_found', { image: 'busybox:0.0-causes-e2e-missing' }],

@@ -14,12 +14,15 @@ import BaseButton from '@/components/ui/BaseButton.vue';
 import ComboBox from '@/components/ui/ComboBox.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import { useLoader } from '@/composables/useLoader';
+import { useChangeMarkers } from '@/composables/useChangeMarkers';
 import { usePolling } from '@/composables/usePolling';
 import {
   OWN_TYPES,
   OWN_UNITS,
+  outside,
   ownerLink,
   ownerText,
+  usualText,
   written,
   type OwnType,
   type OwnUnit,
@@ -31,7 +34,7 @@ import { useToastStore } from '@/stores/toast';
 import { useUiStore } from '@/stores/ui';
 
 const props = defineProps<{ cluster: string; metricId: string }>();
-const emit = defineEmits<{ changed: [] }>();
+const emit = defineEmits<{ changed: []; alert: [metricId: string] }>();
 const { t } = useI18n();
 const ui = useUiStore();
 const auth = useAuthStore();
@@ -99,6 +102,25 @@ const splitModel = computed<string | null>({
   get: () => by.value ?? NO_SPLIT,
   set: (v) => (by.value = !v || v === NO_SPLIT ? null : v),
 });
+
+// The usual range of a watched metric (Pro): under the value, and a band under the line.
+const usual = computed(() => m.value?.usual ?? null);
+const usualWords = computed(() => (m.value ? usualText(usual.value, m.value) : null));
+const unusual = computed(() => outside(m.value?.value, usual.value));
+const band = computed(() => (by.value ? undefined : (series.data.value?.band ?? undefined)));
+// What changed for what the metric belongs to (rollouts, a deploy told by CI): lines on the chart.
+const markerTarget = computed(() => {
+  const o = m.value && m.value.ownerCount === 1 ? m.value.owners[0] : undefined;
+  if (o?.kind === 'workload') return { target: `${o.workloadKind}/${o.namespace}/${o.name}` };
+  if (o?.kind === 'server') return { target: `Node/${o.name}` };
+  return null;
+});
+const markers = useChangeMarkers(() => props.cluster, markerTarget);
+const toggleWatch = () =>
+  act(
+    () => ownMetricsApi.watch(props.cluster, props.metricId, !m.value!.watched),
+    t(m.value!.watched ? 'ownMetrics.watch.stopped' : 'ownMetrics.watch.started'),
+  ).then(() => series.load());
 
 const from = computed(() => {
   const metric = m.value;
@@ -219,6 +241,19 @@ const checkAgain = () =>
             }}</span>
           </p>
           <p
+            v-if="usualWords || usual?.learning"
+            :class="['text-13', unusual ? 'font-semibold text-warning-text' : 'text-text-muted']"
+            data-testid="own-usual"
+          >
+            {{
+              usualWords
+                ? $t(unusual ? 'ownMetrics.watch.outside' : 'ownMetrics.watch.usual', {
+                    range: usualWords,
+                  })
+                : $t('ownMetrics.watch.learning')
+            }}
+          </p>
+          <p
             v-if="m.type === 'histogram' && detail.data.value"
             class="text-13 text-text-muted"
             data-testid="own-quantiles"
@@ -268,6 +303,9 @@ const checkAgain = () =>
           :lines="lines"
           :showing="showing"
           :window="span"
+          :band="band"
+          :band-name="$t('ownMetrics.watch.band')"
+          :markers="markers"
           :loading="series.loading.value"
           :error="!!series.error.value"
           :label="m.words"
@@ -298,6 +336,24 @@ const checkAgain = () =>
               owner: ownerText(o),
             })
           }}
+        </BaseButton>
+        <BaseButton
+          v-if="m.type !== 'timestamp' || m.watched"
+          variant="secondary"
+          :disabled="busy || (!m.watched && !auth.proOnServer)"
+          :title="!m.watched && !auth.proOnServer ? $t('ownMetrics.watch.pro') : undefined"
+          data-testid="own-watch"
+          @click="toggleWatch"
+        >
+          {{ $t(m.watched ? 'ownMetrics.watch.stop' : 'ownMetrics.watch.start') }}
+          <span
+            v-if="!auth.proOnServer"
+            class="ml-1 inline-flex h-4.5 items-center rounded-full border border-info/50 px-1.5 text-12 font-semibold text-info-text"
+            >{{ $t('nav.pro') }}</span
+          >
+        </BaseButton>
+        <BaseButton variant="secondary" data-testid="own-alert-on" @click="emit('alert', m.id)">
+          {{ $t('ownMetrics.detail.alertOnIt') }}
         </BaseButton>
         <BaseButton variant="ghost" data-testid="own-correct" @click="correcting = !correcting">
           {{ $t('ownMetrics.detail.correct') }}

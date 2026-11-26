@@ -12,9 +12,18 @@ import { useUiStore } from '@/stores/ui';
 export function markerLabel(m: ChangeMarker, t: (key: string, args?: object) => string): string {
   const name = m.target.split('/').slice(1).at(-1) ?? m.target;
   const kind = m.target.split('/')[0] ?? '';
-  const d = m.details as { from?: unknown; to?: unknown; action?: string };
+  const d = m.details as {
+    from?: unknown;
+    to?: unknown;
+    action?: string;
+    title?: string;
+    source?: string;
+  };
   const list = (v: unknown) => (Array.isArray(v) ? v.join(', ') : String(v ?? '–'));
   switch (m.kind) {
+    // A change told from outside (a deploy from CI): its own words, and who said it.
+    case 'external':
+      return t('kube.markers.external', { title: d.title ?? name, source: d.source ?? '' });
     case 'node':
       return t(`kube.markers.node.${d.action === 'removed' ? 'removed' : 'added'}`, { name });
     case 'image':

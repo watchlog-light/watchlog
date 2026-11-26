@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The API of "Your metrics" (1.0.0, ADR-236), per cluster or fleet.
 import type {
+  OwnAlertInput,
+  OwnAlertList,
+  OwnAlertPreview,
   OwnDashboard,
   OwnDashboardList,
   OwnFound,
@@ -89,6 +92,18 @@ export const ownMetricsApi = {
       method: 'PUT',
       body: { prometheusAnnotations },
     }),
+  watch: (cluster: string, id: string, watched: boolean) =>
+    api<{ watched: boolean }>(`${base(cluster)}/metrics/${id}/watch`, {
+      method: 'PUT',
+      body: { watched },
+    }),
+  alerts: (cluster: string) => api<OwnAlertList>(`${base(cluster)}/alerts`),
+  alertPreview: (cluster: string, body: OwnAlertInput) =>
+    api<OwnAlertPreview>(`${base(cluster)}/alerts/preview`, { method: 'POST', body }),
+  createAlert: (cluster: string, body: OwnAlertInput) =>
+    api<{ id: string; name: string }>(`${base(cluster)}/alerts`, { method: 'POST', body }),
+  deleteAlert: (cluster: string, id: string) =>
+    api<void>(`${base(cluster)}/alerts/${id}`, { method: 'DELETE' }),
   find: (cluster: string) => api<OwnFound>(`${base(cluster)}/find`, { method: 'POST' }),
   found: (cluster: string) => api<OwnFound>(`${base(cluster)}/find`),
 };

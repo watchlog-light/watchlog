@@ -316,3 +316,13 @@ export type OwnWidget = OwnDashboard['widgets'][number];
 export type OwnWidgetInput = NonNullable<
   RequestBody<'/api/v1/own-dashboards/{id}', 'put'>['widgets']
 >[number];
+
+/** Alerts on own metrics (1.0.0, ADR-236). */
+export type OwnAlertList = JsonBody<
+  Responses<'/api/v1/clusters/{id}/own-metrics/alerts', 'get'>[200]
+>;
+export type OwnAlertRule = OwnAlertList['rules'][number];
+export type OwnAlertInput = RequestBody<'/api/v1/clusters/{id}/own-metrics/alerts', 'post'>;
+export type OwnAlertPreview = JsonBody<
+  Responses<'/api/v1/clusters/{id}/own-metrics/alerts/preview', 'post'>[200]
+>;

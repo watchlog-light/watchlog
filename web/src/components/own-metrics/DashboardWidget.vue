@@ -11,7 +11,14 @@ import OwnMetricChart from '@/components/own-metrics/OwnMetricChart.vue';
 import RankedBars from '@/components/own-metrics/RankedBars.vue';
 import { chartShape, problemOf } from '@/lib/own-dashboard';
 import type { OwnLine } from '@/lib/own-chart';
-import { ratePer, written, type OwnShown, type OwnUnit } from '@/lib/own-metrics';
+import {
+  outside,
+  ratePer,
+  usualText,
+  written,
+  type OwnShown,
+  type OwnUnit,
+} from '@/lib/own-metrics';
 import { rangeWindow } from '@/lib/time';
 import { useUiStore } from '@/stores/ui';
 
@@ -35,6 +42,8 @@ const showing = computed(() => ({
 }));
 const number = computed(() => props.widget.shape === 'number');
 const now = computed(() => written(m.value?.value, showing.value));
+const usualWords = computed(() => usualText(m.value?.usual, showing.value));
+const unusual = computed(() => outside(m.value?.value, m.value?.usual));
 
 const span = ref<[number, number]>(rangeWindow(ui.timeRange));
 const data = ref<OwnMetricSeries | null>(null);
@@ -154,16 +163,26 @@ const to = computed(() =>
         })
       }}
     </p>
-    <p
-      v-else-if="number"
-      class="mt-2 text-32 leading-tight font-bold tabular-nums text-text"
-      data-testid="own-widget-number"
-    >
-      {{ now.value }}
-      <span class="text-14 font-normal text-text-muted">{{
-        now.ago ? $t('ownMetrics.ago') : now.unit
-      }}</span>
-    </p>
+    <div v-else-if="number" class="mt-2">
+      <p
+        class="text-32 leading-tight font-bold tabular-nums text-text"
+        data-testid="own-widget-number"
+      >
+        {{ now.value }}
+        <span class="text-14 font-normal text-text-muted">{{
+          now.ago ? $t('ownMetrics.ago') : now.unit
+        }}</span>
+      </p>
+      <p
+        v-if="usualWords"
+        :class="['mt-1 text-12', unusual ? 'font-semibold text-warning-text' : 'text-text-muted']"
+        data-testid="own-widget-usual"
+      >
+        {{
+          $t(unusual ? 'ownMetrics.watch.outside' : 'ownMetrics.watch.usual', { range: usualWords })
+        }}
+      </p>
+    </div>
     <div
       v-else-if="widget.shape === 'bars' && widget.by"
       class="mt-3 min-h-24 flex-1"
@@ -183,6 +202,8 @@ const to = computed(() =>
         :showing="chartShowing"
         :shape="chartShape(widget.shape)"
         :window="span"
+        :band="widget.by ? undefined : (data?.band ?? undefined)"
+        :band-name="$t('ownMetrics.watch.band')"
         :loading="loading"
         :error="failed"
         :label="widget.title"

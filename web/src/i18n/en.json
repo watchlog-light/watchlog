@@ -830,7 +830,8 @@
       "node": {
         "added": "Node {name} added",
         "removed": "Node {name} removed"
-      }
+      },
+      "external": "{title} · from {source}"
     },
     "workloads": {
       "tabs": {
@@ -3813,6 +3814,7 @@
       "rolled_out": "Rolled out: revision {from} → {to}.",
       "recreated": "Re-created from {image}.",
       "compose_up": "Compose project {project} brought up.",
+      "changed_external": "{title} (told by {source}).",
       "pull_not_found": "Can't pull {image}: the registry has no such image or tag.",
       "pull_denied": "Can't pull {image}: the registry refused access.",
       "pull_unreachable": "Can't pull {image}: the registry can't be reached.",
@@ -5363,7 +5365,8 @@
       "port_speed": "{target} changing speed from {from} to {to}",
       "port_errors": "errors starting on {target}",
       "uplink_errors": "the uplink {target} dropping packets",
-      "device_reboot": "{target} rebooting"
+      "device_reboot": "{target} rebooting",
+      "external": "{title}, as {source} said"
     },
     "marker": {
       "rollout": "rollout {target}",
@@ -5383,7 +5386,8 @@
       "port_speed": "{target} {from} → {to}",
       "port_errors": "errors on {target}",
       "uplink_errors": "uplink {target} dropping",
-      "device_reboot": "{target} rebooted"
+      "device_reboot": "{target} rebooted",
+      "external": "{title}"
     },
     "story": {
       "after_change": "{who}'s {what} went to {factor} {gap} after {change}",
@@ -5439,7 +5443,8 @@
         "port_speed": "Port speed",
         "port_errors": "Port errors",
         "uplink_errors": "Uplink errors",
-        "device_reboot": "Switch reboot"
+        "device_reboot": "Switch reboot",
+        "external": "From outside"
       },
       "fromTo": "{from} → {to}",
       "on": "on {host}"
@@ -6832,7 +6837,8 @@
       "none": "None",
       "nowhere": "Nowhere yet",
       "untied": "WatchLog doesn't know which workload or server this metric belongs to, so it can't be pinned to a page. It works everywhere else.",
-      "addToDashboard": "Add to a dashboard"
+      "addToDashboard": "Add to a dashboard",
+      "alertOnIt": "Alert on it"
     },
     "pins": {
       "title": "Its own metrics",
@@ -7049,6 +7055,80 @@
       "added": "Added to {name}.",
       "open": "Open it",
       "onDashboard": "On the dashboard {name}"
+    },
+    "watch": {
+      "start": "Watch with What changed",
+      "stop": "Stop watching",
+      "started": "Watched: its usual range is learnt from now on (a week before it is used).",
+      "stopped": "No longer watched.",
+      "pro": "Watching a metric with What changed is part of Pro.",
+      "usual": "usual {range}",
+      "outside": "outside its usual {range}",
+      "learning": "learning its usual range",
+      "band": "usual range"
+    },
+    "alerts": {
+      "title": "Alerts on your metrics",
+      "error": "The alerts couldn't be loaded.",
+      "failed": "That didn't work. Try again.",
+      "count": "1 rule | {n} rules",
+      "firing": "{n} firing",
+      "none": "No alert on your metrics yet.",
+      "alsoUnder": "These also appear with every other alert, and on the workload or server the metric belongs to, under",
+      "noChannel": "no channel",
+      "noChannels": "No channel yet: add one under Settings.",
+      "state": {
+        "ok": "ok",
+        "okFired": "ok · last fired {ago}",
+        "firing": "Firing | Firing on {n}",
+        "off": "turned off",
+        "gone": "resting: the metric doesn't report",
+        "error": "can't be read"
+      },
+      "turnOff": "Turn off",
+      "turnOn": "Turn on",
+      "new": "New alert",
+      "when": "When",
+      "isLabel": "Is",
+      "is": {
+        "above": "above a value",
+        "below": "below a value",
+        "unusual": "outside its usual range",
+        "absent": "not reported for",
+        "older": "older than"
+      },
+      "proOnly": "Part of Pro",
+      "watchFirst": "Watch the metric with What changed first",
+      "value": "Value",
+      "valueIn": "Value ({unit})",
+      "unit": "Unit",
+      "span": {
+        "min": "minutes",
+        "h": "hours",
+        "d": "days"
+      },
+      "for": "For",
+      "atOnce": "at once",
+      "minutes": "1 minute | {n} minutes",
+      "severityLabel": "Severity",
+      "severity": {
+        "warning": "Warning",
+        "critical": "Critical"
+      },
+      "channel": "Where",
+      "name": "Name (optional)",
+      "namePlaceholder": "Queue is backing up",
+      "willSay": "It will say",
+      "holdsNow": "This holds right now: the alert would fire at once.",
+      "incomplete": "Pick the metric and give the value.",
+      "create": "Create alert",
+      "created": "Alert created: {name}.",
+      "deleteTitle": "Delete this alert rule?",
+      "deleteBody": "It stops watching the metric. Alerts it raised resolve.",
+      "deleteConfirm": "Delete rule",
+      "upgradeTitle": "Alerts on your own metrics are part of Pro",
+      "upgradeBody": "On Free you see your metrics, pin them and build a dashboard. Pro tells you when a number goes wrong: above or below a value, not reported, a backup too old, or outside its usual range.",
+      "upgrade": "See Pro"
     }
   }
 }

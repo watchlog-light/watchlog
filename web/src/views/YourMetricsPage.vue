@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { ownMetricsApi } from '@/api/own-metrics';
 import AddToDashboard from '@/components/own-metrics/AddToDashboard.vue';
+import AlertsTab from '@/components/own-metrics/AlertsTab.vue';
 import DashboardsTab from '@/components/own-metrics/DashboardsTab.vue';
 import MetricDetail from '@/components/own-metrics/MetricDetail.vue';
 import MetricList from '@/components/own-metrics/MetricList.vue';
@@ -23,7 +24,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useClustersStore } from '@/stores/clusters';
 import { useToastStore } from '@/stores/toast';
 
-const TABS = ['dashboards', 'metrics'] as const;
+const TABS = ['dashboards', 'metrics', 'alerts'] as const;
 type Tab = (typeof TABS)[number];
 
 const route = useRoute();
@@ -83,6 +84,10 @@ const selected = computed<string | null>(() => {
 });
 const select = (id: string | null) =>
   void router.replace({ query: { ...route.query, metric: id ?? undefined } });
+
+// "Alert on it": the Alerts tab, with the metric already chosen.
+const alertOn = (id: string) =>
+  void router.replace({ query: { ...route.query, tab: 'alerts', alert: id } });
 
 // "Add to a dashboard" from the selected metric.
 const { t } = useI18n();
@@ -214,6 +219,7 @@ function added(d: { id: string; name: string }) {
             :cluster="data.cluster.id"
             :metric-id="selected"
             @changed="page.load"
+            @alert="alertOn"
           >
             <template #actions>
               <BaseButton data-testid="own-add-to-dashboard" @click="adding = true">
@@ -230,6 +236,12 @@ function added(d: { id: string; name: string }) {
           />
         </div>
       </div>
+      <AlertsTab
+        v-if="tab === 'alerts'"
+        :cluster="{ id: data.cluster.id, name: data.cluster.name }"
+        :metrics="metrics"
+        :preset="typeof route.query.alert === 'string' ? route.query.alert : null"
+      />
     </template>
   </div>
 </template>

@@ -10,7 +10,7 @@ import { ownMetricsApi } from '@/api/own-metrics';
 import SparkLine from '@/components/overview/SparkLine.vue';
 import { useLoader } from '@/composables/useLoader';
 import { usePolling } from '@/composables/usePolling';
-import { ownerText, written } from '@/lib/own-metrics';
+import { outside, ownerText, usualText, written } from '@/lib/own-metrics';
 import { useAuthStore } from '@/stores/auth';
 
 const props = defineProps<{ clusterId: string; owner: OwnOwner }>();
@@ -79,6 +79,25 @@ async function unpin(p: OwnPin) {
                 ? $t('ownMetrics.ago')
                 : written(p.metric.value, p.metric).unit
             }}</span>
+          </span>
+          <span
+            v-if="usualText(p.metric.usual, p.metric)"
+            :class="[
+              'mt-0.5 block text-12',
+              outside(p.metric.value, p.metric.usual)
+                ? 'font-semibold text-warning-text'
+                : 'text-text-muted',
+            ]"
+            data-testid="own-pin-usual"
+          >
+            {{
+              $t(
+                outside(p.metric.value, p.metric.usual)
+                  ? 'ownMetrics.watch.outside'
+                  : 'ownMetrics.watch.usual',
+                { range: usualText(p.metric.usual, p.metric) },
+              )
+            }}
           </span>
           <SparkLine :values="p.spark.map((x) => x[1] ?? null)" color-token="--chart-1" />
           <span class="mt-1 block truncate font-mono text-12 text-text-subtle">{{

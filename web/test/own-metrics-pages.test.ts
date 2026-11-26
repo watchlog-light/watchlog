@@ -5,6 +5,7 @@ import type { OwnMetric, OwnMetricsSummary } from '@watchlog/api-types';
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ownMetricsApi } from '@/api/own-metrics';
+import { markerLabel } from '@/composables/useChangeMarkers';
 import PinnedMetrics from '@/components/own-metrics/PinnedMetrics.vue';
 import { chartSummary, ownChartOption, thin } from '@/lib/own-chart';
 import { useAuthStore } from '@/stores/auth';
@@ -12,7 +13,7 @@ import YourMetricsAddPage from '@/views/YourMetricsAddPage.vue';
 import YourMetricsPage from '@/views/YourMetricsPage.vue';
 import { FLEET } from './docker-fixtures';
 import { mockFetch, problem, USER, type Routes } from './fetch-mock';
-import { createPlugins } from './helpers';
+import { chooseOption, createPlugins, listedOptions } from './helpers';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -53,6 +54,7 @@ const metric = (over: Partial<OwnMetric>): OwnMetric => ({
   ownerCount: 1,
   untied: false,
   pushed: false,
+  watched: false,
   value: 0.07,
   ...over,
 });
@@ -162,6 +164,7 @@ async function mountAt(
     unit: 'count',
     shown: 'rate',
     values: 0,
+    band: null,
     lines: [{ value: null, other: false, points: [[1, 0.07]] }],
   });
   const plugins = await createPlugins(path);
@@ -776,5 +779,331 @@ describe('the chart’s option', () => {
         showing,
       ),
     ).toBe('stripe: 2 /s; paypal: –');
+  });
+});
+
+describe('the usual range, watching and alerting from a metric’s page', () => {
+  const watched = {
+    ...M_ORDERS,
+    watched: true,
+    usual: { low: 0.06, high: 0.085, learning: false },
+  };
+  const routes = (m: OwnMetric, extra: Routes = {}): Routes => ({
+    [`GET ${base}`]: { status: 200, body: summary() },
+    [`GET ${base}/metrics?spark=true`]: { status: 200, body: { metrics: [m], hidden: 0 } },
+    [`GET ${base}/metrics/${m.id}`]: { status: 200, body: detailOf(m) },
+    ...extra,
+  });
+
+  it('shows a watched metric’s usual range, and says when its value is outside it', async () => {
+    const inside = await mountAt(YourMetricsPage, '/your-metrics?tab=metrics', routes(watched));
+    expect(inside.wrapper.get('[data-testid="own-usual"]').text()).toBe('usual 3.6 – 5.1 /min');
+    expect(inside.wrapper.get('[data-testid="own-watch"]').text()).toContain('Stop watching');
+    inside.wrapper.unmount();
+    const high = { ...watched, value: 0.2 };
+    const out = await mountAt(YourMetricsPage, '/your-metrics?tab=metrics', routes(high));
+    expect(out.wrapper.get('[data-testid="own-usual"]').text()).toBe(
+      'outside its usual 3.6 – 5.1 /min',
+    );
+    out.wrapper.unmount();
+    const young = { ...watched, usual: { low: null, high: null, learning: true } };
+    const learning = await mountAt(YourMetricsPage, '/your-metrics?tab=metrics', routes(young));
+    expect(learning.wrapper.get('[data-testid="own-usual"]').text()).toBe(
+      'learning its usual range',
+    );
+    learning.wrapper.unmount();
+  });
+
+  it('starts watching (Pro), and without Pro says whose feature it is', async () => {
+    // Community without a licence: the button says Pro and does nothing.
+    const plain = await mountAt(YourMetricsPage, '/your-metrics?tab=metrics', routes(M_ORDERS));
+    const off = plain.wrapper.get('[data-testid="own-watch"]');
+    expect(off.text()).toContain('Watch with What changed');
+    expect(off.text()).toContain('Pro');
+    expect(off.attributes('disabled')).toBeDefined();
+    plain.wrapper.unmount();
+
+    const pro = await mountAt(
+      YourMetricsPage,
+      '/your-metrics?tab=metrics',
+      routes(M_ORDERS, {
+        [`PUT ${base}/metrics/${M_ORDERS.id}/watch`]: { status: 200, body: { watched: true } },
+      }),
+    );
+    useAuthStore().license = { pro: true } as never;
+    await flushPromises();
+    await pro.wrapper.get('[data-testid="own-watch"]').trigger('click');
+    await flushPromises();
+    expect(pro.calls.find((c) => c.method === 'PUT')!.body).toEqual({ watched: true });
+    pro.wrapper.unmount();
+  });
+
+  it('“Alert on it” opens the Alerts tab with the metric chosen', async () => {
+    const { wrapper, router } = await mountAt(YourMetricsPage, '/your-metrics?tab=metrics', {
+      ...routes(M_ORDERS),
+      [`GET ${base}/alerts`]: {
+        status: 200,
+        body: { rules: [], allowed: 'threshold', watched: { used: 0, max: 0 } },
+      },
+      'GET /api/v1/alert-channels': { status: 200, body: { channels: [] } },
+    });
+    await wrapper.get('[data-testid="own-alert-on"]').trigger('click');
+    await flushPromises();
+    expect(router.currentRoute.value.query).toMatchObject({ tab: 'alerts', alert: M_ORDERS.id });
+    expect(wrapper.get('[data-testid="own-alerts"]').text()).toContain(
+      'No alert on your metrics yet.',
+    );
+    expect(
+      wrapper.get('[data-testid="own-alert-metric"] [role="combobox"]').attributes('placeholder'),
+    ).toBe('orders_created_total');
+    wrapper.unmount();
+  });
+});
+
+describe('the Alerts tab', () => {
+  const RULES = {
+    allowed: 'all',
+    watched: { used: 1, max: 50 },
+    rules: [
+      {
+        id: 'r1',
+        name: 'Payment failures above usual',
+        metric: 'payment_failures_total',
+        metricId: 'm1',
+        is: 'unusual',
+        value: null,
+        per: null,
+        forSeconds: 600,
+        severity: 'warning',
+        enabled: true,
+        channelIds: ['c1'],
+        condition: 'outside its usual range for 10 min',
+        firing: 1,
+        lastFiredAt: Date.now() - 12 * 60_000,
+        evalError: null,
+      },
+      {
+        id: 'r2',
+        name: 'Backup too old',
+        metric: 'backup_last_success_timestamp',
+        metricId: M_BACKUP.id,
+        is: 'older',
+        value: 93600,
+        per: null,
+        forSeconds: 0,
+        severity: 'critical',
+        enabled: true,
+        channelIds: [],
+        condition: 'older than 26 h',
+        firing: 0,
+        lastFiredAt: null,
+        evalError: null,
+      },
+      {
+        id: 'r3',
+        name: 'Queue is backing up',
+        metric: 'queue_jobs_waiting',
+        metricId: null,
+        is: 'above',
+        value: 500,
+        per: null,
+        forSeconds: 900,
+        severity: 'warning',
+        enabled: true,
+        channelIds: [],
+        condition: 'above 500 for 15 min',
+        firing: 0,
+        lastFiredAt: Date.now() - 3 * 86_400_000,
+        evalError: null,
+      },
+    ],
+  };
+  const CHANNELS = { channels: [{ id: 'c1', name: 'Slack #alerts', type: 'slack' }] };
+  const routes = (extra: Routes = {}): Routes => ({
+    [`GET ${base}`]: { status: 200, body: summary() },
+    [`GET ${base}/metrics?spark=true`]: { status: 200, body: LIST },
+    [`GET ${base}/alerts`]: { status: 200, body: RULES },
+    'GET /api/v1/alert-channels': { status: 200, body: CHANNELS },
+    ...extra,
+  });
+
+  it('lists each rule with what it asks, whether it fires and where it goes', async () => {
+    const { wrapper } = await mountAt(YourMetricsPage, '/your-metrics?tab=alerts', routes());
+    expect(wrapper.get('[data-testid="own-alerts-count"]').text()).toBe('3 rules · 1 firing');
+    const rows = wrapper.findAll('[data-testid="own-alert-rule"]');
+    expect(rows[0]!.text()).toContain('Payment failures above usual');
+    expect(rows[0]!.text()).toMatch(
+      /payment_failures_total · outside its usual range for 10 min\s*Pro/,
+    );
+    expect(rows[0]!.get('[data-testid="own-alert-state"]').text()).toBe('Firing');
+    expect(rows[0]!.text()).toContain('Slack #alerts');
+    expect(rows[1]!.text()).toContain('Critical');
+    expect(rows[1]!.text()).toContain('backup_last_success_timestamp · older than 26 h');
+    expect(rows[1]!.get('[data-testid="own-alert-state"]').text()).toBe('ok');
+    expect(rows[1]!.text()).toContain('no channel');
+    // A metric that stopped reporting: its rule rests.
+    expect(rows[2]!.get('[data-testid="own-alert-state"]').text()).toBe(
+      "resting: the metric doesn't report",
+    );
+    expect(wrapper.get('[data-testid="own-alerts"]').text()).toContain(
+      'These also appear with every other alert',
+    );
+    wrapper.unmount();
+  });
+
+  it('makes an alert: the value as it is typed, the sentence it will say, then the rule', async () => {
+    const { wrapper, calls } = await mountAt(
+      YourMetricsPage,
+      `/your-metrics?tab=alerts&alert=${M_ORDERS.id}`,
+      routes({
+        [`POST ${base}/alerts/preview`]: {
+          status: 200,
+          body: {
+            sentence: 'Orders created on shop/orders is 4.2 /min, below 2 /min for 5 min.',
+            condition: 'below 2 /min for 5 min',
+            holds: false,
+          },
+        },
+        [`POST ${base}/alerts`]: [
+          problem(400, 'Give the value to compare with'),
+          { status: 201, body: { id: 'r9', name: 'Orders created below' } },
+        ],
+      }),
+    );
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const form = wrapper.get('[data-testid="own-alert-form"]');
+    // Nothing typed: nothing is sent.
+    await form.trigger('submit');
+    expect(wrapper.get('[data-testid="own-alert-error"]').text()).toBe(
+      'Pick the metric and give the value.',
+    );
+    await chooseOption(wrapper, 'own-alert-is', 'below a value');
+    await form.get('[data-testid="own-alert-value"] input').setValue('2');
+    await vi.advanceTimersByTimeAsync(350);
+    await flushPromises();
+    vi.useRealTimers();
+    // A rate typed per minute is sent per second, with the unit it was typed in.
+    const preview = calls.filter((c) => c.path.endsWith('/alerts/preview')).at(-1)!.body as Record<
+      string,
+      unknown
+    >;
+    expect(preview).toMatchObject({
+      metricId: M_ORDERS.id,
+      is: 'below',
+      per: 'min',
+      forSeconds: 300,
+      severity: 'warning',
+    });
+    expect(preview.value as number).toBeCloseTo(2 / 60, 6);
+    expect(wrapper.get('[data-testid="own-alert-sentence"]').text()).toContain(
+      'Orders created on shop/orders is 4.2 /min, below 2 /min for 5 min.',
+    );
+    await form.trigger('submit');
+    await flushPromises();
+    expect(wrapper.get('[data-testid="own-alert-error"]').text()).toBe(
+      'Give the value to compare with',
+    );
+    await form.trigger('submit');
+    await flushPromises();
+    expect(calls.filter((c) => c.method === 'POST' && c.path.endsWith('/alerts'))).toHaveLength(2);
+    expect(wrapper.find('[data-testid="own-alert-error"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('a timestamp is asked how old it is; "outside its usual range" needs Pro and a watched metric', async () => {
+    const { wrapper } = await mountAt(
+      YourMetricsPage,
+      `/your-metrics?tab=alerts&alert=${M_BACKUP.id}`,
+      routes(),
+    );
+    const input = wrapper.get('[data-testid="own-alert-is"] [role="combobox"]');
+    await input.trigger('focus');
+    await input.trigger('keydown', { key: 'ArrowDown' });
+    await flushPromises();
+    expect(listedOptions()).toEqual(['not reported for', 'older than']);
+    await chooseOption(wrapper, 'own-alert-metric', 'orders_created_total');
+    await input.trigger('focus');
+    await input.trigger('keydown', { key: 'ArrowDown' });
+    await flushPromises();
+    const options = listedOptions();
+    expect(options.slice(0, 2)).toEqual(['above a value', 'below a value']);
+    // Not watched yet: the choice is there, greyed, saying what to do first.
+    expect(options[2]).toMatch(
+      /outside its usual range\s*Pro\s*Watch the metric with What changed first/,
+    );
+    wrapper.unmount();
+  });
+
+  it('turns a rule off and deletes it (asked first); a Viewer only reads', async () => {
+    const { wrapper, calls } = await mountAt(
+      YourMetricsPage,
+      '/your-metrics?tab=alerts',
+      routes({
+        'PATCH /api/v1/alert-rules/r2': { status: 200, body: {} },
+        [`DELETE ${base}/alerts/r2`]: { status: 204 },
+      }),
+    );
+    const row = wrapper.findAll('[data-testid="own-alert-rule"]')[1]!;
+    await row.get('[data-testid="own-alert-toggle"]').trigger('click');
+    await flushPromises();
+    expect(calls.find((c) => c.method === 'PATCH')!.body).toEqual({ enabled: false });
+    await wrapper
+      .findAll('[data-testid="own-alert-rule"]')[1]!
+      .get('[data-testid="own-alert-delete"]')
+      .trigger('click');
+    await flushPromises();
+    expect(document.body.textContent).toContain('Delete this alert rule?');
+    document.querySelector<HTMLElement>('[data-testid="own-alert-confirm-confirm"]')!.click();
+    await flushPromises();
+    expect(calls.some((c) => c.method === 'DELETE' && c.path.endsWith('/alerts/r2'))).toBe(true);
+    wrapper.unmount();
+
+    const viewer = await mountAt(
+      YourMetricsPage,
+      '/your-metrics?tab=alerts',
+      { ...routes(), 'GET /api/v1/alert-channels': { status: 403 } },
+      KUBE,
+      'viewer',
+    );
+    expect(viewer.wrapper.findAll('[data-testid="own-alert-rule"]')).toHaveLength(3);
+    expect(viewer.wrapper.find('[data-testid="own-alert-form"]').exists()).toBe(false);
+    expect(viewer.wrapper.find('[data-testid="own-alert-toggle"]').exists()).toBe(false);
+    viewer.wrapper.unmount();
+  });
+
+  it('Cloud Free: says alerts on own metrics are Pro’s, with no form', async () => {
+    const { wrapper } = await mountAt(
+      YourMetricsPage,
+      '/your-metrics?tab=alerts',
+      routes({
+        [`GET ${base}/alerts`]: {
+          status: 200,
+          body: { rules: [], allowed: 'none', watched: { used: 0, max: 0 } },
+        },
+      }),
+    );
+    expect(wrapper.get('[data-testid="own-alerts-upgrade"]').text()).toContain(
+      'Alerts on your own metrics are part of Pro',
+    );
+    expect(wrapper.find('[data-testid="own-alert-form"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+});
+
+describe('a change told from outside, on a chart', () => {
+  it('reads in its own words, with who said it', () => {
+    const t = (key: string, args?: object) => `${key} ${JSON.stringify(args)}`;
+    expect(
+      markerLabel(
+        {
+          kind: 'external',
+          target: 'Deployment/shop/orders',
+          namespace: 'shop',
+          ts: '2026-11-26T14:01:00Z',
+          details: { title: 'Deployed orders 2.15.0', what: 'deploy', source: 'your CI' },
+        },
+        t,
+      ),
+    ).toBe('kube.markers.external {"title":"Deployed orders 2.15.0","source":"your CI"}');
   });
 });

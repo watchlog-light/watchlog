@@ -115,6 +115,30 @@ export function chartPer(lines: { points: (number | null)[][] }[]): Per {
   return ratePer(max);
 }
 
+/** A watched metric's usual range for this hour, as the API gives it. */
+export interface Usual {
+  low: number | null;
+  high: number | null;
+  learning: boolean;
+}
+
+/** "3.6 – 5.1 /min": the range in the value's own scale; null while it is learnt. */
+export function usualText(u: Usual | null | undefined, s: Showing, per?: Per): string | null {
+  if (!u || u.learning || u.low === null || u.high === null) return null;
+  const p = s.shown === 'rate' ? (per ?? ratePer(u.high)) : undefined;
+  const low = written(u.low, s, p);
+  const high = written(u.high, s, p);
+  const unit = high.unit === '%' ? '%' : high.unit ? ` ${high.unit}` : '';
+  return `${low.value} – ${high.value}${unit}`;
+}
+
+/** Whether a value is outside its usual range now. */
+export function outside(v: number | null | undefined, u: Usual | null | undefined): boolean {
+  if (v === null || v === undefined || !u || u.learning || u.low === null || u.high === null)
+    return false;
+  return v < u.low || v > u.high;
+}
+
 // ------------------------------------------------------------------- what it belongs to
 
 /** "shop/orders", "server gpu-1"; null when it is tied to nothing. */
