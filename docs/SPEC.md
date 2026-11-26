@@ -55,7 +55,7 @@ WatchLog v2 MUST NOT include, in any edition, until explicitly re-scoped:
 - APM / distributed tracing / profiling / code-level instrumentation, also on servers: WatchLog watches processes, cgroups and the network, never code.
 - Log management (search, indexing). Showing the last N lines of a container's log, a unit's journal or a process manager's log on demand is allowed (P1).
 - Synthetic monitoring, uptime checks from multiple regions, RUM. (Network devices, §4.17, are not this: no HTTP or ping checks of websites or services from outside; WatchLog reads the switches and routers the servers sit on, from inside the network, as the infrastructure under them. Re-scoped by the owner on 2026-11-24, ADR-233.)
-- Custom dashboard builder. Dashboards are opinionated and fixed in v2.0.
+- A dashboard builder beyond widgets of the user's own metrics. WatchLog's own pages are opinionated and fixed. Dashboards exist for the user's own metrics only (§4.18), built from widgets (a metric, a shape, at most one label to split by, a size): no query language, no variables, no formulas, and none of WatchLog's own metrics on them. (A custom dashboard builder was a non-goal in full until 1.0.0; re-scoped by the owner on 2026-11-25, ADR-237.)
 - Docker Swarm, Nomad, OpenShift-specific features (they may work, but are not targeted).
 
 ## 2.6 Lessons from WatchLog v1

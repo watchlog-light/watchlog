@@ -66,6 +66,8 @@ throttling and node conditions (default alert rules already cover them as events
 up/down, certificate or size metrics. On a server a container is followed by its name, which a
 Compose re-create keeps, and shown with its Compose project and service.
 
+Your own metrics join it when you [watch them](your-metrics.md#the-usual-range-and-what-changed), and a deploy your CI [tells WatchLog about](your-metrics.md#change-events) is listed under **Changed around then** with the changes WatchLog saw itself.
+
 ## The learning period
 
 A series is used once it has **7 days** of its own data: every hour of the week learned

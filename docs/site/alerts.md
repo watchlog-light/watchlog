@@ -15,7 +15,7 @@ external destinations ([Egress watch](egress.md)), and, on Kubernetes and Server
 certificates that expire within 14 days or are served wrong and scheduled jobs that fail, miss
 a run or run far longer than usual ([Certificates and scheduled jobs](certificates-and-jobs.md)). In WatchLog Cloud Pro, one more rule, "Unusual for
 this hour", fires when a metric stays far outside its usual range for that hour of the week
-([What changed](what-changed.md#anomaly-alerts)). Each rule sends to the channels you pick for it.
+([What changed](what-changed.md#anomaly-alerts)). Each rule sends to the channels you pick for it. Rules on the numbers your own apps report are made under [Your metrics](your-metrics.md#alerts) and are listed here with the rest.
 
 ## Held back
 
