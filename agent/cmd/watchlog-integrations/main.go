@@ -26,8 +26,6 @@ import (
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/mongodb"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/mysql"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/nginx"
-	// The core's own module: scrapes the endpoints of a user's own metrics (1.0.0, ADR-236).
-	_ "github.com/watchlog-light/watchlog/agent/internal/integrations/ownmetrics"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/phpfpm"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/postgres"
 	"github.com/watchlog-light/watchlog/agent/internal/integrations/rabbitmq"
@@ -36,6 +34,9 @@ import (
 	"github.com/watchlog-light/watchlog/agent/internal/runner"
 	"github.com/watchlog-light/watchlog/agent/internal/sender"
 	"github.com/watchlog-light/watchlog/agent/internal/version"
+
+	// The core's own module: scrapes the endpoints of a user's own metrics (1.0.0, ADR-236).
+	_ "github.com/watchlog-light/watchlog/agent/internal/integrations/ownmetrics"
 )
 
 // Buffer limits: smaller than the agent's, the collector's data is less critical
