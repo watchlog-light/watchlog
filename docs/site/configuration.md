@@ -260,6 +260,52 @@ A public demo can also publish a read-only MCP token, which only works in demo m
 
 `token` is any value of an API token's shape: `wl_pat_` and 43 letters, digits, `-` or `_`. The limits are optional, and these are their defaults. Settings → API tokens shows the token to the demo's visitors, and they leave no trace in WatchLog: no last use, no address, no call log.
 
+A seed can also set up [your own metrics](your-metrics.md) for an install that refuses changes: a write-only token (by its SHA-256 and the 8 characters after `wl_mt_`, so the value stays with whatever sends), dashboards, pins, watched metrics and alert rules. Each is made once and never overwritten; a pin, watching and an alert wait until their metric has reported.
+
+```json
+{
+  "ownMetrics": {
+    "tokens": [
+      {
+        "cluster": "demo",
+        "name": "your CI",
+        "tokenSha256": "<64 hex>",
+        "tokenPrefix": "<8 chars>"
+      }
+    ],
+    "dashboards": [
+      {
+        "name": "Shop business",
+        "widgets": [
+          { "cluster": "demo", "metric": "orders_created_total", "shape": "number", "w": 3 },
+          {
+            "cluster": "demo",
+            "metric": "payment_failures_total",
+            "shape": "bars",
+            "by": "provider",
+            "w": 4
+          }
+        ]
+      }
+    ],
+    "pins": [{ "cluster": "demo", "metric": "orders_created_total", "workload": "shop/orders" }],
+    "watched": [{ "cluster": "demo", "metric": "payment_failures_total" }],
+    "alerts": [
+      {
+        "cluster": "demo",
+        "name": "Queue is backing up",
+        "metric": "queue_jobs_waiting",
+        "is": "above",
+        "value": 500,
+        "forSeconds": 900
+      }
+    ]
+  }
+}
+```
+
+Make the token as `wl_mt_` and 43 letters, digits, `-` or `_`; its hash is `printf '%s' "$TOKEN" | sha256sum`.
+
 ## Agent options
 
 Set as environment variables, or as flags in the `docker run` command. The install commands set the required ones.
