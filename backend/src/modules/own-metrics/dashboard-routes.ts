@@ -16,7 +16,10 @@ import { ProblemSchema } from '../auth/schemas.js';
 import { clustersForOrg } from '../clusters/service.js';
 import { sendPlanLimit } from '../entitlements/limits.js';
 import { LABEL_NAME, METRIC_NAME, wordsOf } from './naming.js';
-import { listMetrics, valuesNow, type MetricInfo } from './read.js';
+import { exprFor } from './expr.js';
+import { exprMetric, listMetrics, valuesNow, type MetricInfo } from './read.js';
+import type { OwnUsual, UsualNow } from './usual.js';
+import { statUnit } from './words.js';
 import type { OwnMetrics } from './service.js';
 
 export const SHAPES = ['number', 'line', 'area', 'bars'] as const;
@@ -53,6 +56,10 @@ const ResolvedS = Type.Union([
     refused: Type.Union([Type.Object({ label: Type.String() }), Type.Null()]),
     series: Type.Number(),
     value: N,
+    /** A watched metric's usual range for this hour (Pro). */
+    usual: Type.Optional(
+      Type.Union([Type.Object({ low: N, high: N, learning: Type.Boolean() }), Type.Null()]),
+    ),
   }),
   Type.Null(),
 ]);
@@ -80,6 +87,7 @@ const Name = Type.String({ minLength: 1, maxLength: 80 });
 export interface DashboardRoutesOptions {
   db: Database;
   own: OwnMetrics;
+  usual: OwnUsual;
   victoria: VictoriaQueryClient | null | undefined;
 }
 
@@ -105,7 +113,7 @@ function stored(raw: unknown): Widget[] {
 
 export const ownDashboardRoutes: FastifyPluginAsyncTypebox<DashboardRoutesOptions> = async (
   app,
-  { db, own, victoria },
+  { db, own, usual, victoria },
 ) => {
   const read = [requireUser(), requireRole('owner', 'admin', 'viewer')];
   const write = [requireUser(), requireRole('owner', 'admin')];
@@ -157,7 +165,8 @@ export const ownDashboardRoutes: FastifyPluginAsyncTypebox<DashboardRoutesOption
       if (!nameOf.has(w.clusterId)) continue;
       byCluster.set(w.clusterId, (byCluster.get(w.clusterId) ?? new Set()).add(w.metric));
     }
-    const found = new Map<string, MetricInfo & { value: number | null }>();
+    const found = new Map<string, MetricInfo & { value: number | null; usual: UsualNow | null }>();
+    const pro = (await own.usage(orgId)).limits.usualRange;
     await Promise.all(
       [...byCluster].map(async ([clusterId, names]) => {
         const metrics = await listMetrics(db, clusterId, { names: [...names] });
@@ -169,8 +178,23 @@ export const ownDashboardRoutes: FastifyPluginAsyncTypebox<DashboardRoutesOption
                 return new Map<string, number | null>();
               })
             : new Map<string, number | null>();
-        for (const m of metrics)
-          found.set(`${clusterId}|${m.name}`, { ...m, value: values.get(m.id) ?? null });
+        for (const m of metrics) {
+          const range =
+            pro && m.watched && victoria && scope
+              ? await usual.shown(
+                  scope,
+                  clusterId,
+                  exprFor(exprMetric(m), { step: 300 }),
+                  Date.now(),
+                  statUnit(m),
+                )
+              : null;
+          found.set(`${clusterId}|${m.name}`, {
+            ...m,
+            value: values.get(m.id) ?? null,
+            usual: range,
+          });
+        }
       }),
     );
     return widgets.map((w) => {
@@ -190,6 +214,7 @@ export const ownDashboardRoutes: FastifyPluginAsyncTypebox<DashboardRoutesOption
               refused: m.refused,
               series: m.series,
               value: m.value,
+              usual: m.usual,
             }
           : null,
       };

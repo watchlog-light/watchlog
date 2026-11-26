@@ -1288,7 +1288,7 @@ describe('reading: the list, a metric, its line, corrections and pins', () => {
       { name: 'method', values: 7, top: ['card', 'cash', 'crypto', 'gift', 'paypal'] },
       { name: 'pod', values: 1, top: ['orders-1'] },
     ]);
-    expect(d.usedIn).toEqual({ pins: [] });
+    expect(d.usedIn).toEqual({ pins: [], dashboards: [] });
     expect(d.p50).toBeNull();
     const checkout = l.metrics.find((m) => m.name === 'checkout_duration_seconds')!;
     const h = (await api('GET', `/clusters/${c.id}/own-metrics/metrics/${checkout.id}`)).json();

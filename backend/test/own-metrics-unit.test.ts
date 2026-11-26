@@ -6,7 +6,7 @@ import {
   ownMetricLimits,
   OWN_SELF_HOSTED_SERIES,
 } from '../src/modules/entitlements/own-metrics.js';
-import { exprFor, exprForMany } from '../src/modules/own-metrics/expr.js';
+import { ageExpr, exprFor, exprForMany, lagExpr } from '../src/modules/own-metrics/expr.js';
 import type { OwnType, OwnUnit } from '../src/modules/own-metrics/naming.js';
 import {
   cleanLabels,
@@ -386,6 +386,26 @@ describe('how each type is read', () => {
       }),
     ).toBe(
       'avg (last_over_time({__name__="gpu_temperature_celsius",wl_own!="",wl_server="gpu-1"}[300s]))',
+    );
+  });
+
+  it('an alert reads one line for each workload or server', () => {
+    expect(exprFor(m('queue_jobs_waiting', 'gauge'), { perOwner: true })).toBe(
+      'sum by (wl_ns, wl_wkind, wl_workload, wl_server) (last_over_time({__name__="queue_jobs_waiting",wl_own!=""}[300s]))',
+    );
+    expect(
+      exprFor(m('checkout_duration_seconds', 'histogram', 'seconds'), { perOwner: true }),
+    ).toContain('sum by (le, wl_ns, wl_wkind, wl_workload, wl_server)');
+    // "Not reported for": seconds since the last sample; a histogram by its buckets.
+    expect(lagExpr(m('queue_jobs_waiting', 'gauge'))).toBe(
+      'min by (wl_ns, wl_wkind, wl_workload, wl_server) (lag({__name__="queue_jobs_waiting",wl_own!=""}[7d]))',
+    );
+    expect(lagExpr(m('checkout_duration_seconds', 'histogram', 'seconds'))).toContain(
+      '__name__="checkout_duration_seconds_bucket"',
+    );
+    // "Older than": a timestamp's age, looked for a week back.
+    expect(ageExpr(m('backup_last_success_timestamp', 'timestamp', 'seconds'))).toBe(
+      'clamp_min(time() - max by (wl_ns, wl_wkind, wl_workload, wl_server) (last_over_time({__name__="backup_last_success_timestamp",wl_own!=""}[7d])), 0)',
     );
   });
 

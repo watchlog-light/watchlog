@@ -299,6 +299,14 @@ export const RuleSchema = Type.Object({
   firing: Type.Integer(),
   evalError: NullableString,
   defaultKey: NullableString,
+  /** A rule on one of your own metrics (1.0.0): the metric and what is asked of it. */
+  own: Type.Optional(
+    Type.Object({
+      metric: Type.String(),
+      is: Type.String(),
+      per: NullableString,
+    }),
+  ),
   /** The monitored service a rule is scoped to; null when it was removed. */
   service: Type.Optional(
     Type.Union([

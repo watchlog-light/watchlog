@@ -91,6 +91,7 @@ const AUTHORISED_SCOPE: Record<string, string> = {
   'modules/own-metrics/service.ts':
     'own metrics are written for the cluster of the token that sent them (ADR-236)',
   'modules/own-metrics/probes.ts': 'the listening ports of a fleet clusterForOrg checked',
+  'modules/own-metrics/alerts.ts': "the alert worker's rules on own metrics, read under withOrg",
 };
 
 function sources(dir: string): string[] {

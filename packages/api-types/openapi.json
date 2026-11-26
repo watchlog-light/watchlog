@@ -25929,6 +25929,28 @@
                               }
                             ]
                           },
+                          "own": {
+                            "type": "object",
+                            "required": ["metric", "is", "per"],
+                            "properties": {
+                              "metric": {
+                                "type": "string"
+                              },
+                              "is": {
+                                "type": "string"
+                              },
+                              "per": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
                           "service": {
                             "anyOf": [
                               {
@@ -26561,6 +26583,28 @@
                         }
                       ]
                     },
+                    "own": {
+                      "type": "object",
+                      "required": ["metric", "is", "per"],
+                      "properties": {
+                        "metric": {
+                          "type": "string"
+                        },
+                        "is": {
+                          "type": "string"
+                        },
+                        "per": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    },
                     "service": {
                       "anyOf": [
                         {
@@ -27187,6 +27231,28 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "own": {
+                      "type": "object",
+                      "required": ["metric", "is", "per"],
+                      "properties": {
+                        "metric": {
+                          "type": "string"
+                        },
+                        "is": {
+                          "type": "string"
+                        },
+                        "per": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
                     },
                     "service": {
                       "anyOf": [
@@ -27871,6 +27937,28 @@
                               }
                             ]
                           },
+                          "own": {
+                            "type": "object",
+                            "required": ["metric", "is", "per"],
+                            "properties": {
+                              "metric": {
+                                "type": "string"
+                              },
+                              "is": {
+                                "type": "string"
+                              },
+                              "per": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
                           "service": {
                             "anyOf": [
                               {
@@ -28334,6 +28422,28 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "own": {
+                      "type": "object",
+                      "required": ["metric", "is", "per"],
+                      "properties": {
+                        "metric": {
+                          "type": "string"
+                        },
+                        "is": {
+                          "type": "string"
+                        },
+                        "per": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
                     },
                     "service": {
                       "anyOf": [
@@ -49272,6 +49382,7 @@
                           "ownerCount",
                           "untied",
                           "pushed",
+                          "watched",
                           "value"
                         ],
                         "properties": {
@@ -49525,10 +49636,50 @@
                           "pushed": {
                             "type": "boolean"
                           },
+                          "watched": {
+                            "type": "boolean",
+                            "description": "Watched with What changed (Pro)"
+                          },
                           "value": {
                             "anyOf": [
                               {
                                 "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "usual": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["low", "high", "learning"],
+                                "properties": {
+                                  "low": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "high": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "learning": {
+                                    "type": "boolean"
+                                  }
+                                }
                               },
                               {
                                 "type": "null"
@@ -49768,6 +49919,7 @@
                         "ownerCount",
                         "untied",
                         "pushed",
+                        "watched",
                         "value"
                       ],
                       "properties": {
@@ -50021,10 +50173,50 @@
                         "pushed": {
                           "type": "boolean"
                         },
+                        "watched": {
+                          "type": "boolean",
+                          "description": "Watched with What changed (Pro)"
+                        },
                         "value": {
                           "anyOf": [
                             {
                               "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "usual": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["low", "high", "learning"],
+                              "properties": {
+                                "low": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "high": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "learning": {
+                                  "type": "boolean"
+                                }
+                              }
                             },
                             {
                               "type": "null"
@@ -50394,6 +50586,7 @@
                         "ownerCount",
                         "untied",
                         "pushed",
+                        "watched",
                         "value"
                       ],
                       "properties": {
@@ -50647,10 +50840,50 @@
                         "pushed": {
                           "type": "boolean"
                         },
+                        "watched": {
+                          "type": "boolean",
+                          "description": "Watched with What changed (Pro)"
+                        },
                         "value": {
                           "anyOf": [
                             {
                               "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "usual": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["low", "high", "learning"],
+                              "properties": {
+                                "low": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "high": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "learning": {
+                                  "type": "boolean"
+                                }
+                              }
                             },
                             {
                               "type": "null"
@@ -50913,7 +51146,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["step", "unit", "shown", "values", "lines"],
+                  "required": ["step", "unit", "shown", "values", "band", "lines"],
                   "properties": {
                     "step": {
                       "type": "number"
@@ -50969,6 +51202,31 @@
                     "values": {
                       "type": "number",
                       "description": "The split label's values in the range"
+                    },
+                    "band": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "minItems": 3,
+                            "maxItems": 3
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "lines": {
                       "type": "array",
@@ -51304,6 +51562,7 @@
                               "ownerCount",
                               "untied",
                               "pushed",
+                              "watched",
                               "value"
                             ],
                             "properties": {
@@ -51557,10 +51816,50 @@
                               "pushed": {
                                 "type": "boolean"
                               },
+                              "watched": {
+                                "type": "boolean",
+                                "description": "Watched with What changed (Pro)"
+                              },
                               "value": {
                                 "anyOf": [
                                   {
                                     "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "usual": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "required": ["low", "high", "learning"],
+                                    "properties": {
+                                      "low": {
+                                        "anyOf": [
+                                          {
+                                            "type": "number"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "high": {
+                                        "anyOf": [
+                                          {
+                                            "type": "number"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "learning": {
+                                        "type": "boolean"
+                                      }
+                                    }
                                   },
                                   {
                                     "type": "null"
@@ -52122,6 +52421,1342 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{id}/own-metrics/alerts": {
+      "get": {
+        "summary": "The alert rules on your own metrics, with what each says and whether it fires",
+        "tags": ["public", "own-metrics"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["rules", "allowed", "watched"],
+                  "properties": {
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "metric",
+                          "metricId",
+                          "is",
+                          "value",
+                          "per",
+                          "forSeconds",
+                          "severity",
+                          "enabled",
+                          "channelIds",
+                          "condition",
+                          "firing",
+                          "lastFiredAt",
+                          "evalError"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "metric": {
+                            "type": "string"
+                          },
+                          "metricId": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "is": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["above"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["below"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["unusual"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["absent"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["older"]
+                              }
+                            ]
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "per": {
+                            "anyOf": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["s"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["min"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["h"]
+                                  }
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "forSeconds": {
+                            "type": "integer"
+                          },
+                          "severity": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["warning"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["critical"]
+                              }
+                            ]
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "channelIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "condition": {
+                            "type": "string"
+                          },
+                          "firing": {
+                            "type": "integer"
+                          },
+                          "lastFiredAt": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "evalError": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "allowed": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["none"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["threshold"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["all"]
+                        }
+                      ]
+                    },
+                    "watched": {
+                      "type": "object",
+                      "required": ["used", "max"],
+                      "properties": {
+                        "used": {
+                          "type": "integer"
+                        },
+                        "max": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Alert on one of your metrics",
+        "tags": ["own-metrics"],
+        "description": "`above` and `below` compare the metric as it is shown (a rate per second) with `value`; `absent` (\"not reported for\") and `older` (timestamps) take `value` in seconds; `unusual` (Pro) needs a watched metric.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["metricId", "is"],
+                "properties": {
+                  "metricId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "is": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["above"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["below"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["unusual"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["absent"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["older"]
+                      }
+                    ]
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "per": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["s"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["min"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["h"]
+                      }
+                    ]
+                  },
+                  "forSeconds": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 86400
+                  },
+                  "severity": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["warning"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["critical"]
+                      }
+                    ]
+                  },
+                  "channelIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "maxItems": 20
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["id", "name"],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{id}/own-metrics/alerts/preview": {
+      "post": {
+        "summary": "What an alert would say now, before it is made",
+        "tags": ["own-metrics"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["metricId", "is"],
+                "properties": {
+                  "metricId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "is": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["above"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["below"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["unusual"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["absent"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["older"]
+                      }
+                    ]
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "per": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["s"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["min"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["h"]
+                      }
+                    ]
+                  },
+                  "forSeconds": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 86400
+                  },
+                  "severity": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["warning"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["critical"]
+                      }
+                    ]
+                  },
+                  "channelIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "maxItems": 20
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["sentence", "condition", "holds"],
+                  "properties": {
+                    "sentence": {
+                      "type": "string"
+                    },
+                    "condition": {
+                      "type": "string"
+                    },
+                    "holds": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{id}/own-metrics/alerts/{ruleId}": {
+      "delete": {
+        "summary": "Delete an alert rule on one of your metrics",
+        "tags": ["own-metrics"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "ruleId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{id}/own-metrics/metrics/{metricId}/watch": {
+      "put": {
+        "summary": "Watch a metric with What changed (Pro), or stop",
+        "tags": ["own-metrics"],
+        "description": "Its usual range for each hour of the week is learnt (a week before it is used) and shown, and \"outside its usual range\" can be alerted on. At most 50 watched metrics in an organisation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["watched"],
+                "properties": {
+                  "watched": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "metricId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["watched"],
+                  "properties": {
+                    "watched": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -52746,6 +54381,42 @@
                                         "type": "null"
                                       }
                                     ]
+                                  },
+                                  "usual": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "required": ["low", "high", "learning"],
+                                        "properties": {
+                                          "low": {
+                                            "anyOf": [
+                                              {
+                                                "type": "number"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "high": {
+                                            "anyOf": [
+                                              {
+                                                "type": "number"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "learning": {
+                                            "type": "boolean"
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
                                   }
                                 }
                               },
@@ -53174,6 +54845,42 @@
                                     "anyOf": [
                                       {
                                         "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "usual": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "required": ["low", "high", "learning"],
+                                        "properties": {
+                                          "low": {
+                                            "anyOf": [
+                                              {
+                                                "type": "number"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "high": {
+                                            "anyOf": [
+                                              {
+                                                "type": "number"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "learning": {
+                                            "type": "boolean"
+                                          }
+                                        }
                                       },
                                       {
                                         "type": "null"

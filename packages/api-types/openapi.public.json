@@ -151,6 +151,15 @@
                           "firing": { "type": "integer" },
                           "evalError": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                           "defaultKey": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "own": {
+                            "type": "object",
+                            "required": ["metric", "is", "per"],
+                            "properties": {
+                              "metric": { "type": "string" },
+                              "is": { "type": "string" },
+                              "per": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                            }
+                          },
                           "service": {
                             "anyOf": [
                               {
@@ -7136,6 +7145,175 @@
         "security": [{ "bearerAuth": [] }]
       }
     },
+    "/api/v1/clusters/{id}/own-metrics/alerts": {
+      "get": {
+        "summary": "The alert rules on your own metrics, with what each says and whether it fires",
+        "tags": ["own-metrics"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["rules", "allowed", "watched"],
+                  "properties": {
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "metric",
+                          "metricId",
+                          "is",
+                          "value",
+                          "per",
+                          "forSeconds",
+                          "severity",
+                          "enabled",
+                          "channelIds",
+                          "condition",
+                          "firing",
+                          "lastFiredAt",
+                          "evalError"
+                        ],
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "metric": { "type": "string" },
+                          "metricId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "is": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["above"] },
+                              { "type": "string", "enum": ["below"] },
+                              { "type": "string", "enum": ["unusual"] },
+                              { "type": "string", "enum": ["absent"] },
+                              { "type": "string", "enum": ["older"] }
+                            ]
+                          },
+                          "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "per": {
+                            "anyOf": [
+                              {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["s"] },
+                                  { "type": "string", "enum": ["min"] },
+                                  { "type": "string", "enum": ["h"] }
+                                ]
+                              },
+                              { "type": "null" }
+                            ]
+                          },
+                          "forSeconds": { "type": "integer" },
+                          "severity": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["warning"] },
+                              { "type": "string", "enum": ["critical"] }
+                            ]
+                          },
+                          "enabled": { "type": "boolean" },
+                          "channelIds": { "type": "array", "items": { "type": "string" } },
+                          "condition": { "type": "string" },
+                          "firing": { "type": "integer" },
+                          "lastFiredAt": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "evalError": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                        }
+                      }
+                    },
+                    "allowed": {
+                      "anyOf": [
+                        { "type": "string", "enum": ["none"] },
+                        { "type": "string", "enum": ["threshold"] },
+                        { "type": "string", "enum": ["all"] }
+                      ]
+                    },
+                    "watched": {
+                      "type": "object",
+                      "required": ["used", "max"],
+                      "properties": { "used": { "type": "integer" }, "max": { "type": "integer" } }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
     "/api/v1/clusters/{id}/own-metrics/metrics": {
       "get": {
         "summary": "Your metrics: each with its type, where it comes from and its value now",
@@ -7215,6 +7393,7 @@
                           "ownerCount",
                           "untied",
                           "pushed",
+                          "watched",
                           "value"
                         ],
                         "properties": {
@@ -7330,7 +7509,25 @@
                           "ownerCount": { "type": "number" },
                           "untied": { "type": "boolean" },
                           "pushed": { "type": "boolean" },
+                          "watched": {
+                            "type": "boolean",
+                            "description": "Watched with What changed (Pro)"
+                          },
                           "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "usual": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["low", "high", "learning"],
+                                "properties": {
+                                  "low": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                                  "high": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                                  "learning": { "type": "boolean" }
+                                }
+                              },
+                              { "type": "null" }
+                            ]
+                          },
                           "spark": {
                             "type": "array",
                             "items": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
@@ -7486,6 +7683,7 @@
                         "ownerCount",
                         "untied",
                         "pushed",
+                        "watched",
                         "value"
                       ],
                       "properties": {
@@ -7601,7 +7799,25 @@
                         "ownerCount": { "type": "number" },
                         "untied": { "type": "boolean" },
                         "pushed": { "type": "boolean" },
-                        "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                        "watched": {
+                          "type": "boolean",
+                          "description": "Watched with What changed (Pro)"
+                        },
+                        "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                        "usual": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["low", "high", "learning"],
+                              "properties": {
+                                "low": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                                "high": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                                "learning": { "type": "boolean" }
+                              }
+                            },
+                            { "type": "null" }
+                          ]
+                        }
                       }
                     },
                     "p50": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
@@ -7827,7 +8043,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["step", "unit", "shown", "values", "lines"],
+                  "required": ["step", "unit", "shown", "values", "band", "lines"],
                   "properties": {
                     "step": { "type": "number" },
                     "unit": {
@@ -7851,6 +8067,20 @@
                     "values": {
                       "type": "number",
                       "description": "The split label's values in the range"
+                    },
+                    "band": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "array",
+                            "items": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                            "minItems": 3,
+                            "maxItems": 3
+                          }
+                        },
+                        { "type": "null" }
+                      ]
                     },
                     "lines": {
                       "type": "array",
@@ -8067,6 +8297,7 @@
                               "ownerCount",
                               "untied",
                               "pushed",
+                              "watched",
                               "value"
                             ],
                             "properties": {
@@ -8182,7 +8413,29 @@
                               "ownerCount": { "type": "number" },
                               "untied": { "type": "boolean" },
                               "pushed": { "type": "boolean" },
-                              "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                              "watched": {
+                                "type": "boolean",
+                                "description": "Watched with What changed (Pro)"
+                              },
+                              "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                              "usual": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "required": ["low", "high", "learning"],
+                                    "properties": {
+                                      "low": {
+                                        "anyOf": [{ "type": "number" }, { "type": "null" }]
+                                      },
+                                      "high": {
+                                        "anyOf": [{ "type": "number" }, { "type": "null" }]
+                                      },
+                                      "learning": { "type": "boolean" }
+                                    }
+                                  },
+                                  { "type": "null" }
+                                ]
+                              }
                             }
                           },
                           "spark": {
@@ -14335,7 +14588,25 @@
                                     ]
                                   },
                                   "series": { "type": "number" },
-                                  "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                                  "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                                  "usual": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "required": ["low", "high", "learning"],
+                                        "properties": {
+                                          "low": {
+                                            "anyOf": [{ "type": "number" }, { "type": "null" }]
+                                          },
+                                          "high": {
+                                            "anyOf": [{ "type": "number" }, { "type": "null" }]
+                                          },
+                                          "learning": { "type": "boolean" }
+                                        }
+                                      },
+                                      { "type": "null" }
+                                    ]
+                                  }
                                 }
                               },
                               { "type": "null" }

@@ -28,6 +28,8 @@ import {
   type MetricInfo,
 } from './read.js';
 import type { Owner, OwnMetrics } from './service.js';
+import type { OwnUsual } from './usual.js';
+import { statUnit } from './words.js';
 
 const Params = Type.Object({ id: Type.String({ format: 'uuid' }) });
 const MetricParams = Type.Object({
@@ -79,7 +81,12 @@ const MetricS = Type.Object({
   ownerCount: Type.Number(),
   untied: Type.Boolean(),
   pushed: Type.Boolean(),
+  watched: Type.Boolean({ description: 'Watched with What changed (Pro)' }),
   value: N,
+  /** A watched metric's usual range for this hour (Pro); low and high are null while it learns. */
+  usual: Type.Optional(
+    Type.Union([Type.Object({ low: N, high: N, learning: Type.Boolean() }), Type.Null()]),
+  ),
 });
 
 const ListedS = Type.Object({
@@ -126,6 +133,7 @@ const PinS = Type.Object({
 export interface OwnMetricRoutesOptions {
   db: Database;
   own: OwnMetrics;
+  usual: OwnUsual;
   victoria: VictoriaQueryClient | null | undefined;
 }
 
@@ -134,7 +142,7 @@ const NOT_FOUND = 'Cluster or fleet not found';
 
 export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptions> = async (
   app,
-  { db, own, victoria },
+  { db, own, usual, victoria },
 ) => {
   const read = [requireUser(), requireRole('owner', 'admin', 'viewer')];
   const write = [requireUser(), requireRole('owner', 'admin')];
@@ -142,19 +150,43 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
   const noStorage = (reply: Parameters<typeof sendProblem>[0]) =>
     sendProblem(reply, 503, 'Metrics storage is not configured');
 
+  /** A watched metric's usual range for this hour; null when it isn't watched or the plan has none. */
+  const usualNow = async (
+    cluster: { id: string; org_id: string; scope: Parameters<typeof valuesNow>[1] },
+    m: MetricInfo,
+    owner?: Owner,
+  ) => {
+    if (!m.watched || !victoria) return null;
+    if (!(await own.usage(cluster.org_id)).limits.usualRange) return null;
+    return usual.shown(
+      cluster.scope,
+      cluster.id,
+      exprFor(exprMetric(m), { owner, step: 300 }),
+      Date.now(),
+      statUnit(m),
+    );
+  };
+
   const withValues = async (
-    scope: Parameters<typeof valuesNow>[1],
+    cluster: { id: string; org_id: string; scope: Parameters<typeof valuesNow>[1] },
     metrics: MetricInfo[],
     owner?: Owner,
   ) => {
-    const values = victoria
-      ? await valuesNow(victoria, scope, metrics, owner).catch((err: unknown) => {
-          // The list is still worth showing without its values.
-          app.log.warn({ err: (err as Error).message }, 'own metrics: reading values failed');
-          return new Map<string, number | null>();
-        })
-      : new Map<string, number | null>();
-    return metrics.map((m) => ({ ...m, value: values.get(m.id) ?? null }));
+    const [values, usuals] = await Promise.all([
+      victoria
+        ? valuesNow(victoria, cluster.scope, metrics, owner).catch((err: unknown) => {
+            // The list is still worth showing without its values.
+            app.log.warn({ err: (err as Error).message }, 'own metrics: reading values failed');
+            return new Map<string, number | null>();
+          })
+        : new Map<string, number | null>(),
+      Promise.all(metrics.map((m) => usualNow(cluster, m, owner))),
+    ]);
+    return metrics.map((m, i) => ({
+      ...m,
+      value: values.get(m.id) ?? null,
+      usual: usuals[i] ?? null,
+    }));
   };
 
   app.get(
@@ -193,7 +225,7 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
       const every = await listMetrics(db, cluster.id, owner ? { owner } : {});
       const shown = request.query.all ? every : every.filter((m) => !m.hidden);
       const [metrics, lines] = await Promise.all([
-        withValues(cluster.scope, shown, owner),
+        withValues(cluster, shown, owner),
         request.query.spark && victoria
           ? sparks(victoria, cluster.scope, shown).catch((err: unknown) => {
               app.log.warn({ err: (err as Error).message }, 'own metrics: reading sparks failed');
@@ -247,7 +279,7 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
       const [m] = await listMetrics(db, cluster.id, { ids: [request.params.metricId] });
       if (!m) return sendProblem(reply, 404, 'Metric not found');
       const [[metric], labels, pins, quantiles, dashboards] = await Promise.all([
-        withValues(cluster.scope, [m]),
+        withValues(cluster, [m]),
         labelFacts(db, cluster.id, m.id),
         db
           .selectFrom('own_pins')
@@ -314,6 +346,11 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
             unit: UnitS,
             shown: ShownS,
             values: Type.Number({ description: "The split label's values in the range" }),
+            /** A watched metric's usual range over the range (Pro): [unix seconds, low, high]. */
+            band: Type.Union([
+              Type.Array(Type.Array(N, { minItems: 3, maxItems: 3 })),
+              Type.Null(),
+            ]),
             lines: Type.Array(
               Type.Object({
                 value: Type.Union([Type.String(), Type.Null()]),
@@ -347,7 +384,7 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
       if (!victoria) return noStorage(reply);
       const [m] = await listMetrics(db, cluster.id, { ids: [request.params.metricId] });
       if (!m) return sendProblem(reply, 404, 'Metric not found');
-      return metricSeries(victoria, cluster.scope, m, {
+      const answer = await metricSeries(victoria, cluster.scope, m, {
         from,
         to,
         step: chooseStep(to - from, q.step),
@@ -355,6 +392,27 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
         owner,
         stat: q.stat,
       });
+      // The usual range, drawn under an unsplit line of a watched metric.
+      let band: (number | null)[][] | null = null;
+      if (!q.by && m.watched && (await own.usage(cluster.org_id)).limits.usualRange) {
+        const hours = await usual
+          .bands(
+            cluster.scope,
+            cluster.id,
+            exprFor(exprMetric(m), { owner, step: 300, stat: q.stat }),
+            from * 1000,
+            to * 1000,
+            statUnit(m),
+          )
+          .catch(() => []);
+        const known = hours.filter((h) => !h.learning);
+        if (known.length) {
+          band = known.map((h) => [Math.max(from, h.t / 1000), h.low, h.high]);
+          const last = known.at(-1)!;
+          band.push([to, last.low, last.high]);
+        }
+      }
+      return { ...answer, band };
     },
   );
 
@@ -403,7 +461,7 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
       }
       const [m] = await listMetrics(db, cluster.id, { ids: [request.params.metricId] });
       if (!m) return sendProblem(reply, 404, 'Metric not found');
-      const [metric] = await withValues(cluster.scope, [m]);
+      const [metric] = await withValues(cluster, [m]);
       return { metric: metric! };
     },
   );
@@ -456,7 +514,7 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
         listMetrics(db, cluster.id, { ids: rows.map((r) => r.metric_id) }),
         listMetrics(db, cluster.id, { owner }),
       ]);
-      const metrics = await withValues(cluster.scope, pinned, owner);
+      const metrics = await withValues(cluster, pinned, owner);
       const to = Math.floor(Date.now() / 1000);
       const sparks = await Promise.all(
         pinned.map((m) =>

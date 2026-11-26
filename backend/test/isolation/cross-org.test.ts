@@ -66,6 +66,7 @@ function pathFor(route: string, o: SeededOrg): string {
     .replace('/own-metrics/metrics/:metricId', `/own-metrics/metrics/${o.own.metricId}`)
     .replace('/own-metrics/pins/:pinId', `/own-metrics/pins/${o.own.pinId}`)
     .replace('/own-dashboards/:id', `/own-dashboards/${o.own.dashboardId}`)
+    .replace('/own-metrics/alerts/:ruleId', `/own-metrics/alerts/${o.ruleId}`)
     .replace(':tokenId', o.k8s.tokenId)
     .replace('/nodes/:name', `/nodes/${o.node}`)
     .replace('/pods/:namespace/:name', `/pods/${o.pod.namespace}/${o.pod.name}`)

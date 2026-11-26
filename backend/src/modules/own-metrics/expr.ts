@@ -12,7 +12,14 @@
 //
 // Every selector carries wl_own!="" (only own metrics match, never WatchLog's own series) and
 // the cluster comes from the scope, as everywhere.
-import { LABEL_NAME, METRIC_NAME, OWN_LABEL, type OwnType, type OwnUnit } from './naming.js';
+import {
+  LABEL_NAME,
+  METRIC_NAME,
+  OWN_LABEL,
+  OWNER_LABELS,
+  type OwnType,
+  type OwnUnit,
+} from './naming.js';
 import type { Owner } from './service.js';
 
 export type Stat = 'p50' | 'p95' | 'p99';
@@ -41,6 +48,8 @@ export interface ExprOptions {
   /** With `by`: only this value (an alert on one line of a split). */
   only?: string;
   stat?: Stat;
+  /** One line for each workload or server the series belong to (an alert names its owner). */
+  perOwner?: boolean;
 }
 
 /** A label value inside a double-quoted PromQL string. */
@@ -87,8 +96,12 @@ function selector(name: string, o: ExprOptions): string {
 
 /** The expression that shows a metric: its value now, or its line over a range. */
 export function exprFor(m: ExprMetric, o: ExprOptions = {}): string {
-  // "Other" and "only" are one line: no grouping.
-  const split = o.by && o.only === undefined && !o.exclude?.length ? o.by : '';
+  // "Other" and "only" are one line: no grouping by the label.
+  const groups = [
+    ...(o.perOwner ? OWNER_LABELS : []),
+    ...(o.by && o.only === undefined && !o.exclude?.length ? [o.by] : []),
+  ];
+  const split = groups.join(', ');
   const by = split ? ` by (${split})` : '';
   const w = `${window(m, o.step)}s`;
   switch (m.type) {
@@ -140,6 +153,24 @@ export function exprForMany(
     default:
       return `${kind.sum ? 'sum' : 'avg'} ${by} (${named(`last_over_time(${sel}[${kind.pushed ? 1800 : 300}s])`)})`;
   }
+}
+
+/** How far back an alert looks for a metric's last report or newest timestamp. */
+export const ALERT_LOOKBACK = '7d';
+
+/**
+ * Seconds since each owner's series of a metric last reported: for "not reported for". A
+ * histogram is watched by its buckets, a summary by its sum.
+ */
+export function lagExpr(m: ExprMetric, o: Pick<ExprOptions, 'owner'> = {}): string {
+  const name =
+    m.type === 'histogram' ? `${m.name}_bucket` : m.type === 'summary' ? `${m.name}_sum` : m.name;
+  return `min by (${OWNER_LABELS.join(', ')}) (lag(${selector(name, o)}[${ALERT_LOOKBACK}]))`;
+}
+
+/** The age of a timestamp metric per owner, looked for a week back: for "older than". */
+export function ageExpr(m: ExprMetric, o: Pick<ExprOptions, 'owner'> = {}): string {
+  return `clamp_min(time() - max by (${OWNER_LABELS.join(', ')}) (last_over_time(${selector(m.name, o)}[${ALERT_LOOKBACK}])), 0)`;
 }
 
 /** The unit of what is shown: a timestamp's "time since" is seconds; a summary keeps its own. */

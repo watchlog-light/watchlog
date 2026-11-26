@@ -57,7 +57,10 @@ import { DemoSessions } from './modules/demo/service.js';
 import { parseTrustedProxies, registerClientIp } from './plugins/client-ip.js';
 import { demoRoutes } from './modules/demo/routes.js';
 import { dockerRoutes } from './modules/docker/routes.js';
+import { ownAlertRoutes } from './modules/own-metrics/alert-routes.js';
+import { configureOwnAlerts } from './modules/own-metrics/alerts.js';
 import { Belonging } from './modules/own-metrics/belonging.js';
+import { OwnUsual } from './modules/own-metrics/usual.js';
 import { ownLimitsProvider } from './modules/own-metrics/limits.js';
 import { Probes } from './modules/own-metrics/probes.js';
 import { ownDashboardRoutes } from './modules/own-metrics/dashboard-routes.js';
@@ -344,6 +347,9 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     ...(deps.now ? { now: deps.now } : {}),
   };
   app.decorate('ownMetrics', own);
+  // Alerts on own metrics read the org's limits and a watched metric's usual range.
+  const ownUsual = new OwnUsual(victoria);
+  configureOwnAlerts({ limits: async (orgId) => (await own.usage(orgId)).limits, usual: ownUsual });
   // The collector's section: the endpoints this collector scrapes, and a search when one runs.
   registerCollectorSection('own_metrics', async ({ clusterId, host }) => {
     const targets = await ownTargets.forCollector(clusterId, host);
@@ -491,8 +497,9 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         notifier: collectors,
         endpointFor: installTarget(config, settings).endpointFor,
       });
-      await api.register(ownMetricReadRoutes, { db: deps.db, own, victoria });
-      await api.register(ownDashboardRoutes, { db: deps.db, own, victoria });
+      await api.register(ownMetricReadRoutes, { db: deps.db, own, usual: ownUsual, victoria });
+      await api.register(ownAlertRoutes, { db: deps.db, own, usual: ownUsual, victoria });
+      await api.register(ownDashboardRoutes, { db: deps.db, own, usual: ownUsual, victoria });
       // Cloud only (ADR-173): Community never registers these, so they answer 404.
       if (accounts && entitlements) {
         await registerCloudOnly(api, config.edition, cloudApiRoutes, {

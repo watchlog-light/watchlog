@@ -8971,6 +8971,11 @@ export interface paths {
                 firing: number;
                 evalError: string | null;
                 defaultKey: string | null;
+                own?: {
+                  metric: string;
+                  is: string;
+                  per: string | null;
+                };
                 service?: {
                   id: string;
                   name: string;
@@ -9153,6 +9158,11 @@ export interface paths {
               firing: number;
               evalError: string | null;
               defaultKey: string | null;
+              own?: {
+                metric: string;
+                is: string;
+                per: string | null;
+              };
               service?: {
                 id: string;
                 name: string;
@@ -9463,6 +9473,11 @@ export interface paths {
               firing: number;
               evalError: string | null;
               defaultKey: string | null;
+              own?: {
+                metric: string;
+                is: string;
+                per: string | null;
+              };
               service?: {
                 id: string;
                 name: string;
@@ -9622,6 +9637,11 @@ export interface paths {
                 firing: number;
                 evalError: string | null;
                 defaultKey: string | null;
+                own?: {
+                  metric: string;
+                  is: string;
+                  per: string | null;
+                };
                 service?: {
                   id: string;
                   name: string;
@@ -9783,6 +9803,11 @@ export interface paths {
               firing: number;
               evalError: string | null;
               defaultKey: string | null;
+              own?: {
+                metric: string;
+                is: string;
+                per: string | null;
+              };
               service?: {
                 id: string;
                 name: string;
@@ -17962,7 +17987,14 @@ export interface paths {
                 ownerCount: number;
                 untied: boolean;
                 pushed: boolean;
+                /** @description Watched with What changed (Pro) */
+                watched: boolean;
                 value: number | null;
+                usual?: {
+                  low: number | null;
+                  high: number | null;
+                  learning: boolean;
+                } | null;
                 /** @description With spark=true: the last hour in 12 points */
                 spark?: (number | null)[];
               }[];
@@ -18114,7 +18146,14 @@ export interface paths {
                 ownerCount: number;
                 untied: boolean;
                 pushed: boolean;
+                /** @description Watched with What changed (Pro) */
+                watched: boolean;
                 value: number | null;
+                usual?: {
+                  low: number | null;
+                  high: number | null;
+                  learning: boolean;
+                } | null;
               };
               p50: number | null;
               p99: number | null;
@@ -18268,7 +18307,14 @@ export interface paths {
                 ownerCount: number;
                 untied: boolean;
                 pushed: boolean;
+                /** @description Watched with What changed (Pro) */
+                watched: boolean;
                 value: number | null;
+                usual?: {
+                  low: number | null;
+                  high: number | null;
+                  learning: boolean;
+                } | null;
               };
             };
           };
@@ -18377,6 +18423,7 @@ export interface paths {
               shown: 'rate' | 'p95' | 'as_is' | 'time_since';
               /** @description The split label's values in the range */
               values: number;
+              band: (number | null)[][] | null;
               lines: {
                 value: string | null;
                 other: boolean;
@@ -18553,7 +18600,14 @@ export interface paths {
                   ownerCount: number;
                   untied: boolean;
                   pushed: boolean;
+                  /** @description Watched with What changed (Pro) */
+                  watched: boolean;
                   value: number | null;
+                  usual?: {
+                    low: number | null;
+                    high: number | null;
+                    learning: boolean;
+                  } | null;
                 };
                 spark: (number | null)[][];
               }[];
@@ -18863,6 +18917,630 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/clusters/{id}/own-metrics/alerts': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The alert rules on your own metrics, with what each says and whether it fires */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              rules: {
+                id: string;
+                name: string;
+                metric: string;
+                metricId: string | null;
+                is: 'above' | 'below' | 'unusual' | 'absent' | 'older';
+                value: number | null;
+                per: ('s' | 'min' | 'h') | null;
+                forSeconds: number;
+                severity: 'warning' | 'critical';
+                enabled: boolean;
+                channelIds: string[];
+                condition: string;
+                firing: number;
+                lastFiredAt: number | null;
+                evalError: string | null;
+              }[];
+              allowed: 'none' | 'threshold' | 'all';
+              watched: {
+                used: number;
+                max: number;
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    /**
+     * Alert on one of your metrics
+     * @description `above` and `below` compare the metric as it is shown (a rate per second) with `value`; `absent` ("not reported for") and `older` (timestamps) take `value` in seconds; `unusual` (Pro) needs a watched metric.
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** Format: uuid */
+            metricId: string;
+            is: 'above' | 'below' | 'unusual' | 'absent' | 'older';
+            value?: number;
+            per?: 's' | 'min' | 'h';
+            forSeconds?: number;
+            severity?: 'warning' | 'critical';
+            channelIds?: string[];
+            name?: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              id: string;
+              name: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        402: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/clusters/{id}/own-metrics/alerts/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** What an alert would say now, before it is made */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** Format: uuid */
+            metricId: string;
+            is: 'above' | 'below' | 'unusual' | 'absent' | 'older';
+            value?: number;
+            per?: 's' | 'min' | 'h';
+            forSeconds?: number;
+            severity?: 'warning' | 'critical';
+            channelIds?: string[];
+            name?: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              sentence: string;
+              condition: string;
+              holds: boolean;
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        402: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/clusters/{id}/own-metrics/alerts/{ruleId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete an alert rule on one of your metrics */
+    delete: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+          ruleId: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        204: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/clusters/{id}/own-metrics/metrics/{metricId}/watch': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Watch a metric with What changed (Pro), or stop
+     * @description Its usual range for each hour of the week is learnt (a week before it is used) and shown, and "outside its usual range" can be alerted on. At most 50 watched metrics in an organisation.
+     */
+    put: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+          metricId: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            watched: boolean;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              watched: boolean;
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        403: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/own-dashboards': {
     parameters: {
       query?: never;
@@ -19137,6 +19815,11 @@ export interface paths {
                   } | null;
                   series: number;
                   value: number | null;
+                  usual?: {
+                    low: number | null;
+                    high: number | null;
+                    learning: boolean;
+                  } | null;
                 } | null;
                 clusterName: string | null;
               }[];
@@ -19259,6 +19942,11 @@ export interface paths {
                   } | null;
                   series: number;
                   value: number | null;
+                  usual?: {
+                    low: number | null;
+                    high: number | null;
+                    learning: boolean;
+                  } | null;
                 } | null;
                 clusterName: string | null;
               }[];

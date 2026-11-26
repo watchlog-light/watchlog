@@ -669,6 +669,7 @@ export interface OwnMetrics {
   type_override: string | null;
   unit: Generated<string>;
   unit_override: string | null;
+  watched_at: Timestamp | null;
 }
 
 export interface OwnMetricTokens {

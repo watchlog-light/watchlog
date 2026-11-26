@@ -7,25 +7,36 @@ import { metricUnit } from '../query/catalog.js';
 import type { Condition } from './defaults.js';
 import { conditionError, metricKinds } from './conditions.js';
 import { defaultRuleOf } from './rules.js';
+import { OWN_RULE_TYPE, ownSpecOf } from '../own-metrics/alerts.js';
 
 export type RuleRowView = Selectable<AlertRules>;
 
 export function ruleView(r: RuleRowView, firing: number) {
   const def = defaultRuleOf(r.rule_key);
+  // A rule on a user's own metric (ADR-236): a custom rule like a threshold, with what it is
+  // about in `own`. It is made and changed under Your metrics.
+  const own = r.type === OWN_RULE_TYPE ? ownSpecOf(r.scope) : null;
   const metricRule = def ? !!def.condition : true;
   const unit = def ? (def.unit ?? null) : r.metric ? metricUnit(r.metric) : null;
   const cond = r.condition as Partial<Condition>;
   return {
     id: r.id,
-    type: r.type as 'default' | 'threshold',
+    type: (r.type === OWN_RULE_TYPE ? 'threshold' : r.type) as 'default' | 'threshold',
     ruleKey: r.rule_key,
     name: r.name,
     source: (metricRule ? 'metric' : 'state') as 'metric' | 'state',
     unit,
     metric: r.metric,
     clusterId: r.cluster_id,
-    appliesTo: def ? [...def.evaluator.kinds] : r.metric ? metricKinds(r.metric) : [],
-    scope: (r.scope ?? {}) as Record<string, never>,
+    appliesTo: def
+      ? [...def.evaluator.kinds]
+      : r.metric
+        ? metricKinds(r.metric)
+        : own
+          ? ['kubernetes', 'server']
+          : [],
+    scope: (own ? {} : (r.scope ?? {})) as Record<string, never>,
+    ...(own ? { own: { metric: own.metric, is: own.is, per: own.per ?? null } } : {}),
     condition:
       metricRule && cond.op && typeof cond.value === 'number'
         ? {
@@ -79,6 +90,8 @@ export async function validateRuleChange(
   }
   if (body.scope !== undefined) {
     if (rule.type === 'default') return { error: 'Default rules apply to whole clusters' };
+    if (rule.type === OWN_RULE_TYPE)
+      return { error: 'A rule on one of your metrics is changed under Your metrics' };
     set.scope = JSON.stringify(body.scope);
   }
   if (body.channelIds !== undefined) {

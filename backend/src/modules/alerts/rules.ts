@@ -11,6 +11,7 @@ import { EGRESS_RULES } from '../egress/rules.js';
 import { ANOMALY_RULE } from '../anomaly/alerts.js';
 import { thresholdEvaluator, type ThresholdScope } from './threshold.js';
 import { addModuleRules } from './module-rules.js';
+import { OWN_RULE_TYPE, ownEvaluator } from '../own-metrics/alerts.js';
 import type { Condition } from './defaults.js';
 
 /** The default rules every org gets. */
@@ -36,6 +37,8 @@ export const defaultRuleOf = (key: string | null | undefined): DefaultRule | und
 
 export const lookupEvaluator: EvaluatorLookup = (rule) => {
   if (rule.rule_key) return BY_KEY.get(rule.rule_key)?.evaluator;
+  // A user's own metric (1.0.0, ADR-236): its expression comes from the own-metrics module.
+  if (rule.type === OWN_RULE_TYPE) return ownEvaluator;
   return rule.type === 'threshold' && rule.metric ? thresholdEvaluator(rule.metric) : undefined;
 };
 

@@ -61,6 +61,8 @@ export interface MetricInfo {
   untied: boolean;
   /** Every source of it is a push. */
   pushed: boolean;
+  /** Watched with What changed (Pro): its usual range is learnt and shown. */
+  watched: boolean;
 }
 
 export interface MetricFilter {
@@ -208,6 +210,7 @@ export async function listMetrics(
       ownerCount: owners.length,
       untied: agg?.untied ?? false,
       pushed: from.length > 0 && from.every((s) => s.kind === 'push'),
+      watched: r.watched_at !== null,
     };
   });
 }

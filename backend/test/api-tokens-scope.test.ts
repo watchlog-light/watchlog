@@ -46,6 +46,7 @@ const ALLOWED = [
   'GET /api/v1/clusters/:id/nodes/:name',
   'GET /api/v1/clusters/:id/overview',
   'GET /api/v1/clusters/:id/own-metrics',
+  'GET /api/v1/clusters/:id/own-metrics/alerts',
   'GET /api/v1/clusters/:id/own-metrics/metrics',
   'GET /api/v1/clusters/:id/own-metrics/metrics/:metricId',
   'GET /api/v1/clusters/:id/own-metrics/metrics/:metricId/series',

@@ -26,6 +26,9 @@ import {
 import { hasWhatChanged } from './modules/anomaly/gate.js';
 import { LICENSE_JOBS_EVERY_MS, runLicenseJobs } from './modules/license/jobs.js';
 import { LicenseService } from './modules/license/service.js';
+import { configureOwnAlerts } from './modules/own-metrics/alerts.js';
+import { ownLimitsProvider } from './modules/own-metrics/limits.js';
+import { OwnUsual } from './modules/own-metrics/usual.js';
 import { AlertWorker } from './modules/alerts/worker.js';
 import { runApiTokenJobs, TOKEN_JOBS_EVERY_MS } from './modules/api-tokens/jobs.js';
 import { EntitlementsService } from './modules/entitlements/service.js';
@@ -110,6 +113,12 @@ const victoria = metricsClient(config, entitlements, log);
 // Self-hosted Enterprise (ADR-232): a licence with `pro` turns What changed on for every org.
 const license = new LicenseService({ config, db });
 const whatChanged = (orgId: string) => hasWhatChanged(config, entitlements, orgId, license);
+// Alerts on a user's own metrics (1.0.0, ADR-236): the org's limits (Free has none, the usual
+// range is Pro's) and a watched metric's usual range, read here as the server reads them.
+configureOwnAlerts({
+  limits: ownLimitsProvider({ config, db, entitlements, license }),
+  usual: new OwnUsual(victoria),
+});
 setAnomalyGate(whatChanged);
 try {
   setAnomalyAlertKeys(parseAlertKeys(process.env.WATCHLOG_ANOMALY_ALERT_KEYS));

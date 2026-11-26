@@ -359,6 +359,26 @@ export const ROUTES: Record<string, RouteClass> = {
     control: 'the generated owner is not the metric’s: 404 for A too, with nothing of A in it',
   },
   'DELETE /api/v1/clusters/:id/own-metrics/pins/:pinId': org,
+  // Alerts on own metrics and "Watch with What changed" (ADR-236, ADR-238). The seeded orgs
+  // are on Cloud Free, which has neither: A is refused by its plan (402, 403), B gets 404.
+  'GET /api/v1/clusters/:id/own-metrics/alerts': org,
+  'POST /api/v1/clusters/:id/own-metrics/alerts': {
+    kind: 'org',
+    control: 'Cloud Free has no alerts on own metrics: 402 for A, with nothing of A in it',
+  },
+  'POST /api/v1/clusters/:id/own-metrics/alerts/preview': {
+    kind: 'org',
+    control: 'Cloud Free has no alerts on own metrics: 402 for A, with nothing of A in it',
+  },
+  'DELETE /api/v1/clusters/:id/own-metrics/alerts/:ruleId': {
+    kind: 'org',
+    control: 'no rule is seeded (Free can make none): 404 for A too',
+  },
+  'PUT /api/v1/clusters/:id/own-metrics/metrics/:metricId/watch': {
+    kind: 'org',
+    body: { watched: true },
+    control: 'watching is Pro: 403 for A on Free, with nothing of A in it',
+  },
   // Dashboards of own metrics (1.0.0, ADR-237): the org's rows.
   'GET /api/v1/own-dashboards': org,
   'GET /api/v1/own-dashboards/:id': org,

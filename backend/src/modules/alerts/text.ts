@@ -79,6 +79,9 @@ export function alertText(a: AlertTextInput): AlertText {
   const wl = subject(l);
   if (a.ruleKey?.startsWith('egress.')) return egressText(a) ?? fallback;
   if (a.ruleKey === ANOMALY_RULE_KEY) return anomalyText(a) ?? fallback;
+  // An alert on a user's own metric (ADR-236) carries its sentence: the metric's words, its
+  // owner and its value as the page writes it.
+  if (d.own === true && str(d.title)) return { title: str(d.title)!, why: str(d.why) };
   // A module's rule (ADR-233) writes its own sentence from fixed templates.
   if (isModuleRule(a.ruleKey) && str(d.title)) return { title: str(d.title)!, why: str(d.why) };
   switch (a.ruleKey) {
