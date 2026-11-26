@@ -118,6 +118,40 @@ describe('Combobox (ADR-092)', () => {
     w.unmount();
   });
 
+  it('highlights what was typed in the options it found', async () => {
+    const { w } = host({}, null);
+    input().focus();
+    await key('ArrowDown');
+    input().value = 'node cpu';
+    input().dispatchEvent(new Event('input', { bubbles: true }));
+    await flushPromises();
+    expect(options().map((o) => o.textContent?.trim())).toEqual([
+      'Node CPU utilizationbusy share of all cores',
+    ]);
+    const hits = [...document.querySelectorAll('[data-testid="combobox-hit"]')].map(
+      (m) => m.textContent,
+    );
+    expect(hits).toEqual(['Node', 'CPU']);
+    w.unmount();
+  });
+
+  it('windows 5,000 options: never 5,000 rows in the page', async () => {
+    const many = Array.from({ length: 5000 }, (_, i) => ({
+      value: `wl-${i}`,
+      label: `workload-${i}`,
+      description: `namespace team-${i % 40}`,
+      group: i % 2 ? 'Deployments' : 'StatefulSets',
+    }));
+    const { w } = host({ options: many }, null);
+    input().focus();
+    await key('ArrowDown');
+    // The test DOM has no layout, so how many rows fit can't be said here; that the list is
+    // windowed can: a screenful at most. In a real browser 5,000 options draw 18 rows, each
+    // with its description and group (measured for ADR-239).
+    expect(options().length).toBeLessThan(100);
+    w.unmount();
+  });
+
   it('virtualises long lists (namespaces, workloads, nodes)', async () => {
     const many = Array.from({ length: 2000 }, (_, i) => ({
       value: `ns-${i}`,

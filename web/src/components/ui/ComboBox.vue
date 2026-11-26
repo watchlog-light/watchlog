@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts" generic="M extends boolean = false">
-import { Check, ChevronDown, X } from '@lucide/vue';
+import { ChevronDown, X } from '@lucide/vue';
 import {
   ComboboxAnchor,
   ComboboxContent,
@@ -8,7 +8,6 @@ import {
   ComboboxGroup,
   ComboboxInput,
   ComboboxItem,
-  ComboboxItemIndicator,
   ComboboxLabel,
   ComboboxPortal,
   ComboboxRoot,
@@ -17,14 +16,19 @@ import {
   ComboboxVirtualizer,
 } from 'reka-ui';
 import { computed, ref, watch, type Component } from 'vue';
+import ComboBoxRow from '@/components/ui/ComboBoxRow.vue';
 import { useCompact, useNarrow } from '@/composables/useNarrow';
+import { termsOf } from '@/lib/highlight';
 
-// Searchable select (SPEC §11.3, ADR-092): type to filter, keyboard navigation, groups,
-// optional icon and description per option, multi-select with removable chips, a
-// clear button and a "No matches" state; long lists are virtualised. Reka UI supplies
-// the ARIA combobox/listbox mechanics; everything visible is styled here with tokens.
-// Below 768 px the list opens as a full-width bottom sheet with its own search field
-// and 44 px rows; below 1024 px the field itself is 44 px high.
+// The one searchable select (SPEC §11.3, ADR-092, ADR-239): type to filter with what matched
+// highlighted, keyboard navigation, groups, optional icon and description per option,
+// multi-select with removable chips, a clear button and a "No matches" state. Long lists are
+// windowed (5,000 options draw a screenful of rows), each row still with its description,
+// badge and group. Reka UI supplies the ARIA combobox/listbox mechanics; everything visible is
+// styled here with tokens. The list is in a portal, so a dialog never clips it, and it opens
+// upward when there is no room below. Below 768 px it opens as a full-width bottom sheet with
+// its own search field and 44 px rows; below 1024 px the field itself is 44 px high.
+// There is no native select element and no other dropdown in the app (test/combobox-only.test.ts).
 export interface ComboboxOption {
   value: string;
   label: string;
@@ -87,12 +91,12 @@ const selected = computed<string[]>(() =>
       : [],
 );
 
+const terms = computed(() => termsOf(search.value));
 const filtered = computed(() => {
-  const terms = search.value.toLowerCase().split(/\s+/).filter(Boolean);
-  if (!terms.length) return props.options;
+  if (!terms.value.length) return props.options;
   return props.options.filter((o) => {
     const text = `${o.label} ${o.description ?? ''} ${o.group ?? ''}`.toLowerCase();
-    return terms.every((t) => text.includes(t));
+    return terms.value.every((t) => text.includes(t));
   });
 });
 const groups = computed(() => {
@@ -102,6 +106,11 @@ const groups = computed(() => {
 });
 const virtual = computed(() => props.options.length > props.virtualizeAbove);
 const narrow = useNarrow();
+/** A windowed list's rows share one height: taller when any option has a description. */
+const described = computed(() => props.options.some((o) => o.description));
+const rowHeight = computed(() =>
+  described.value ? (narrow.value ? 56 : 48) : narrow.value ? 44 : 32,
+);
 const compact = useCompact();
 
 const singleLabel = computed(() =>
@@ -229,6 +238,8 @@ const anchor = computed(() => [
       <ComboboxContent
         :position="narrow ? 'inline' : 'popper'"
         :side-offset="4"
+        :collision-padding="8"
+        avoid-collisions
         :class="
           narrow
             ? 'fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-card border-t border-border-strong bg-surface-2 shadow-menu'
@@ -278,23 +289,20 @@ const anchor = computed(() => [
             v-if="virtual"
             v-slot="{ option }"
             :options="filtered"
-            :estimate-size="narrow ? 44 : 32"
+            :estimate-size="rowHeight"
             :text-content="(o: ComboboxOption) => o.label"
           >
             <ComboboxItem
               :value="option.value"
               :disabled="option.disabled"
+              :style="{ height: `${rowHeight}px` }"
               :class="[
-                'flex w-full cursor-pointer items-center gap-2 rounded-control px-2 py-1.5 text-13 text-text outline-none data-[disabled]:opacity-50 data-[highlighted]:bg-surface-3',
-                narrow ? 'min-h-11 text-14' : '',
+                'flex w-full cursor-pointer items-start gap-2 rounded-control px-2 py-1.5 text-13 text-text outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[highlighted]:bg-surface-3',
+                narrow ? 'py-2.5 text-14' : '',
               ]"
+              data-testid="combobox-option"
             >
-              <span class="flex size-3.5 shrink-0 items-center justify-center">
-                <ComboboxItemIndicator
-                  ><Check class="size-3.5 text-link" aria-hidden="true"
-                /></ComboboxItemIndicator>
-              </span>
-              <span class="truncate">{{ option.label }}</span>
+              <ComboBoxRow :option="option" :terms="terms" windowed />
             </ComboboxItem>
           </ComboboxVirtualizer>
           <template v-else>
@@ -316,35 +324,7 @@ const anchor = computed(() => [
                 ]"
                 data-testid="combobox-option"
               >
-                <span class="mt-0.5 flex size-3.5 shrink-0 items-center justify-center">
-                  <ComboboxItemIndicator
-                    ><Check class="size-3.5 text-link" aria-hidden="true"
-                  /></ComboboxItemIndicator>
-                </span>
-                <component
-                  :is="o.icon"
-                  v-if="o.icon"
-                  class="mt-0.5 size-3.5 shrink-0 text-text-muted"
-                  aria-hidden="true"
-                />
-                <span
-                  v-if="o.dot"
-                  :class="['mt-1.5 size-2 shrink-0 rounded-full', o.dot]"
-                  aria-hidden="true"
-                />
-                <span class="min-w-0 flex-1">
-                  <span class="flex items-center gap-2">
-                    <span class="truncate">{{ o.label }}</span>
-                    <span
-                      v-if="o.badge"
-                      class="inline-flex h-4.5 shrink-0 items-center rounded-full border border-info/50 px-1.5 text-12 font-semibold text-info-text"
-                      >{{ o.badge }}</span
-                    >
-                  </span>
-                  <span v-if="o.description" class="block text-12 text-text-muted">{{
-                    o.description
-                  }}</span>
-                </span>
+                <ComboBoxRow :option="o" :terms="terms" />
               </ComboboxItem>
             </ComboboxGroup>
           </template>

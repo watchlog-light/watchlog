@@ -21,7 +21,7 @@ import {
   toasts,
 } from './confirm';
 import { mockFetch, problem, USER } from './fetch-mock';
-import { createPlugins } from './helpers';
+import { chooseOption, createPlugins } from './helpers';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -298,7 +298,7 @@ describe('Settings → Users', () => {
     expect(w.get('[data-role-card="viewer"]').text()).toContain('Silence alerts');
     expect(w.get('[data-testid="audit"]').text()).toContain('Invited oncall@example.com as viewer');
 
-    await rows[2]!.get('[data-testid="role"]').setValue('admin');
+    await chooseOption(rows[2]!, 'role', 'Admin');
     await flushPromises();
     expect(calls.find((c) => c.method === 'PATCH')!.body).toEqual({ role: 'admin' });
     // The server answers 204 with no body: that is a success, said and reloaded.

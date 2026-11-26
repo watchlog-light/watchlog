@@ -9,7 +9,7 @@ import LogsPanel from '@/components/logs/LogsPanel.vue';
 import LogsAccess from '@/components/settings/LogsAccess.vue';
 import { useAuthStore } from '@/stores/auth';
 import { mockFetch, USER, type Routes } from './fetch-mock';
-import { createPlugins } from './helpers';
+import { chooseOption, createPlugins, optionsOf } from './helpers';
 
 const CLUSTER = '01a18f0e-a6c2-71ef-a7b4-42d765746d50';
 const POD_URL = `/api/v1/clusters/${CLUSTER}/pods/logs-e2e/printer/logs`;
@@ -130,12 +130,11 @@ describe('LogsPanel', () => {
         previous: true,
       }),
     });
-    const options = w.findAll('[data-testid="logs-container"] option').map((o) => o.text());
-    expect(options).toEqual(['main', 'sidecar', 'setup (init)']);
+    expect(await optionsOf(w, 'logs-container')).toEqual(['main', 'sidecar', 'setup (init)']);
     await w.get('[data-testid="logs-read"]').trigger('submit');
     await flushPromises();
-    await w.get('[data-testid="logs-lines"]').setValue('500');
-    await w.get('[data-testid="logs-container"]').setValue('sidecar');
+    await chooseOption(w, 'logs-lines', '500');
+    await chooseOption(w, 'logs-container', 'sidecar');
     await flushPromises();
     await w.get('[data-testid="logs-previous"] input').setValue(true);
     await flushPromises();

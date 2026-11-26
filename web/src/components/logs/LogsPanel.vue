@@ -6,6 +6,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n';
 import { API_BASE, api, ApiError } from '@/api/client';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import ComboBox from '@/components/ui/ComboBox.vue';
 import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
 import { useCopy } from '@/composables/useCopy';
 import { useAuthStore } from '@/stores/auth';
@@ -62,6 +63,26 @@ watch(ordered, (list) => {
   if (!list.some((c) => c.name === container.value)) container.value = list[0]?.name ?? '';
 });
 const lines = ref<number>(200);
+// The two choices as Combobox options (ADR-239).
+const containerOptions = computed(() =>
+  ordered.value.map((c) => ({
+    value: c.name,
+    label: c.init ? t('logs.initContainer', { name: c.name }) : c.name,
+  })),
+);
+const containerModel = computed<string | null>({
+  get: () => container.value,
+  set: (v) => {
+    if (v) container.value = v;
+  },
+});
+const lineOptions = computed(() => LINE_CHOICES.map((l) => ({ value: String(l), label: n(l) })));
+const linesModel = computed<string | null>({
+  get: () => String(lines.value),
+  set: (v) => {
+    if (v) lines.value = Number(v);
+  },
+});
 const previous = ref(false);
 const follow = ref(false);
 const showTimes = ref(false);
@@ -303,25 +324,23 @@ onBeforeUnmount(stopFollowing);
             class="flex flex-col gap-1 text-12 text-text-muted"
           >
             {{ $t('logs.container') }}
-            <select
-              v-model="container"
-              class="h-9 rounded-control border border-border bg-surface-2 px-2 text-13 text-text max-lg:h-11"
-              data-testid="logs-container"
-            >
-              <option v-for="c in ordered" :key="c.name" :value="c.name">
-                {{ c.init ? $t('logs.initContainer', { name: c.name }) : c.name }}
-              </option>
-            </select>
+            <ComboBox
+              v-model="containerModel"
+              class="min-w-44"
+              :options="containerOptions"
+              :label="$t('logs.container')"
+              testid="logs-container"
+            />
           </label>
           <label class="flex flex-col gap-1 text-12 text-text-muted">
             {{ $t('logs.lines') }}
-            <select
-              v-model.number="lines"
-              class="h-9 rounded-control border border-border bg-surface-2 px-2 text-13 text-text max-lg:h-11"
-              data-testid="logs-lines"
-            >
-              <option v-for="l in LINE_CHOICES" :key="l" :value="l">{{ n(l) }}</option>
-            </select>
+            <ComboBox
+              v-model="linesModel"
+              class="w-28"
+              :options="lineOptions"
+              :label="$t('logs.lines')"
+              testid="logs-lines"
+            />
           </label>
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
             <ToggleSwitch

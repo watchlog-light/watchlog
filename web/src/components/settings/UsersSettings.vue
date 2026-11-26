@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n';
 import { useProOffer } from '@/composables/useProOffer';
 import { ApiError, api } from '@/api/client';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import ComboBox from '@/components/ui/ComboBox.vue';
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import LockedControl from '@/components/ui/LockedControl.vue';
@@ -82,6 +83,9 @@ function openInvite() {
 const fmtDay = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 const roleName = (r: string) => t(`users.roles.${r}.name`);
+const roleOptions = computed(() =>
+  (['admin', 'viewer'] as const).map((r) => ({ value: r, label: roleName(r) })),
+);
 
 function showInviteLink(
   email: string,
@@ -412,19 +416,18 @@ const auditText = (a: UserList['audit'][number]) =>
               </span>
             </span>
             <span>
-              <select
+              <ComboBox
                 v-if="editable(r) && canManage"
-                :value="r.role"
-                class="h-8.5 rounded-control border border-border bg-surface-2 px-2 text-13 text-text max-lg:h-11"
-                :aria-label="$t('users.roleFor', { email: r.email })"
-                data-testid="role"
-                @change="
-                  setRole(r.user!, ($event.target as HTMLSelectElement).value as 'admin' | 'viewer')
+                class="w-32"
+                variant="toolbar"
+                :model-value="r.role"
+                :options="roleOptions"
+                :label="$t('users.roleFor', { email: r.email })"
+                testid="role"
+                @update:model-value="
+                  (v) => v && v !== r.role && setRole(r.user!, v as 'admin' | 'viewer')
                 "
-              >
-                <option value="admin">{{ roleName('admin') }}</option>
-                <option value="viewer">{{ roleName('viewer') }}</option>
-              </select>
+              />
               <span v-else class="text-13 text-text" data-testid="role-fixed">{{
                 roleName(r.role)
               }}</span>

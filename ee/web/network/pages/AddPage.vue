@@ -5,6 +5,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import ComboBox from '@/components/ui/ComboBox.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import SkeletonChart from '@/components/ui/SkeletonChart.vue';
 import TextField from '@/components/ui/TextField.vue';
@@ -260,6 +261,12 @@ watch(poller, () => {
 // Recorders, by address with a recorder profile (no discovery).
 const recorderText = ref('');
 const recorderProfile = ref('');
+const recorderProfileModel = computed<string | null>({
+  get: () => recorderProfile.value || null,
+  set: (v) => {
+    if (v) recorderProfile.value = v;
+  },
+});
 watch(
   recorderProfiles,
   (list) => {
@@ -508,19 +515,15 @@ async function addRecorders() {
                 <p class="text-12 text-text-muted">{{ $t('netAdd.find.seedsHint') }}</p>
               </div>
               <div class="flex flex-col gap-1.5">
-                <label for="add-recorder-profile" class="text-13 font-medium text-text">{{
+                <span class="text-13 font-medium text-text">{{
                   $t('netAdd.recorders.profile')
-                }}</label>
-                <select
-                  id="add-recorder-profile"
-                  v-model="recorderProfile"
-                  class="h-9 rounded-control border border-border bg-surface-3 px-3 text-14 text-text max-lg:h-11 max-md:text-16"
-                  data-testid="add-recorder-profile"
-                >
-                  <option v-for="c in recorderProfiles" :key="c.id" :value="c.id">
-                    {{ c.name }}
-                  </option>
-                </select>
+                }}</span>
+                <ComboBox
+                  v-model="recorderProfileModel"
+                  :options="recorderProfiles.map((c) => ({ value: c.id, label: c.name }))"
+                  :label="$t('netAdd.recorders.profile')"
+                  testid="add-recorder-profile"
+                />
               </div>
             </div>
             <div class="flex flex-wrap items-center gap-3">

@@ -11,6 +11,7 @@ import EgressTable from '@/components/egress/EgressTable.vue';
 import ExpectationsList from '@/components/egress/ExpectationsList.vue';
 import SegmentedControl from '@/components/overview/SegmentedControl.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import ComboBox from '@/components/ui/ComboBox.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import LoadingIndicator from '@/components/ui/LoadingIndicator.vue';
@@ -137,8 +138,14 @@ function clearFilters() {
   filter.clearText();
   setQuery(Object.fromEntries([...SOURCE_KEYS, 'badge'].map((k) => [k, undefined])));
 }
-const onSelect = (key: string, e: Event) => {
-  const v = (e.target as HTMLSelectElement).value || undefined;
+/** The "All …" choice of a source filter (an empty value reads as no choice at all). */
+const ALL = '__all__';
+const choices = (values: readonly string[], allKey: string) => [
+  { value: ALL, label: t(allKey) },
+  ...values.map((v) => ({ value: v, label: v })),
+];
+const onSelect = (key: string, picked: string | string[] | null) => {
+  const v = typeof picked === 'string' && picked !== ALL ? picked : undefined;
   setQuery(
     key === 'namespace'
       ? { namespace: v, workload: undefined, kind: undefined }
@@ -279,58 +286,53 @@ onMounted(() => {
             </button>
           </div>
           <template v-if="!docker">
-            <select
-              class="select"
-              :aria-label="$t('egress.filter.namespace')"
-              :value="sourceQuery.namespace ?? ''"
-              data-testid="filter-namespace"
-              @change="onSelect('namespace', $event)"
-            >
-              <option value="">{{ $t('egress.filter.allNamespaces') }}</option>
-              <option v-for="n in namespaces" :key="n" :value="n">{{ n }}</option>
-            </select>
-            <select
-              class="select"
-              :aria-label="$t('egress.filter.workload')"
-              :value="sourceQuery.workload ?? ''"
-              data-testid="filter-workload"
-              @change="onSelect('workload', $event)"
-            >
-              <option value="">{{ $t('egress.filter.allWorkloads') }}</option>
-              <option v-for="w in workloads" :key="w" :value="w">{{ w }}</option>
-            </select>
+            <ComboBox
+              class="w-44"
+              variant="toolbar"
+              :model-value="sourceQuery.namespace ?? ALL"
+              :options="choices(namespaces, 'egress.filter.allNamespaces')"
+              :label="$t('egress.filter.namespace')"
+              testid="filter-namespace"
+              @update:model-value="(v) => onSelect('namespace', v)"
+            />
+            <ComboBox
+              class="w-44"
+              variant="toolbar"
+              :model-value="sourceQuery.workload ?? ALL"
+              :options="choices(workloads, 'egress.filter.allWorkloads')"
+              :label="$t('egress.filter.workload')"
+              testid="filter-workload"
+              @update:model-value="(v) => onSelect('workload', v)"
+            />
           </template>
           <template v-else>
-            <select
-              class="select"
-              :aria-label="$t('egress.filter.host')"
-              :value="sourceQuery.host ?? ''"
-              data-testid="filter-host"
-              @change="onSelect('host', $event)"
-            >
-              <option value="">{{ $t('egress.filter.allHosts') }}</option>
-              <option v-for="h in hosts" :key="h" :value="h">{{ h }}</option>
-            </select>
-            <select
-              class="select"
-              :aria-label="$t('egress.filter.project')"
-              :value="sourceQuery.project ?? ''"
-              data-testid="filter-project"
-              @change="onSelect('project', $event)"
-            >
-              <option value="">{{ $t('egress.filter.allProjects') }}</option>
-              <option v-for="p in projects" :key="p" :value="p">{{ p }}</option>
-            </select>
-            <select
-              class="select"
-              :aria-label="$t('egress.filter.container')"
-              :value="sourceQuery.container ?? ''"
-              data-testid="filter-container"
-              @change="onSelect('container', $event)"
-            >
-              <option value="">{{ $t('egress.filter.allContainers') }}</option>
-              <option v-for="c in containers" :key="c" :value="c">{{ c }}</option>
-            </select>
+            <ComboBox
+              class="w-44"
+              variant="toolbar"
+              :model-value="sourceQuery.host ?? ALL"
+              :options="choices(hosts, 'egress.filter.allHosts')"
+              :label="$t('egress.filter.host')"
+              testid="filter-host"
+              @update:model-value="(v) => onSelect('host', v)"
+            />
+            <ComboBox
+              class="w-44"
+              variant="toolbar"
+              :model-value="sourceQuery.project ?? ALL"
+              :options="choices(projects, 'egress.filter.allProjects')"
+              :label="$t('egress.filter.project')"
+              testid="filter-project"
+              @update:model-value="(v) => onSelect('project', v)"
+            />
+            <ComboBox
+              class="w-44"
+              variant="toolbar"
+              :model-value="sourceQuery.container ?? ALL"
+              :options="choices(containers, 'egress.filter.allContainers')"
+              :label="$t('egress.filter.container')"
+              testid="filter-container"
+              @update:model-value="(v) => onSelect('container', v)"
+            />
           </template>
           <SearchField
             v-model="filter.input.value"
@@ -428,23 +430,9 @@ onMounted(() => {
   font-weight: 600;
 }
 .chip:focus-visible,
-.select:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-.select {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface-1);
-  color: var(--text);
-  font-size: 13px;
-  padding: 5px 8px;
-  max-width: 14rem;
-}
 /* Touch screens: 44 px targets. */
 @media (max-width: 1023px) {
-  .chip,
-  .select {
+  .chip {
     min-height: 44px;
     padding-inline: 14px;
   }

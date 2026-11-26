@@ -3,6 +3,7 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import CodeBlock from '@/components/ui/CodeBlock.vue';
+import ComboBox from '@/components/ui/ComboBox.vue';
 import TextField from '@/components/ui/TextField.vue';
 import { networkApi, type Credential } from '../../api';
 
@@ -30,6 +31,12 @@ const matching = computed(() =>
   props.credentials.filter((c) => c.protocol === protocolOf(platform.value)),
 );
 const credentialId = ref('');
+const credentialModel = computed<string | null>({
+  get: () => credentialId.value || null,
+  set: (v) => {
+    if (v) credentialId.value = v;
+  },
+});
 watch(
   [matching, () => props.preferred],
   () => {
@@ -115,16 +122,13 @@ function onKey(e: KeyboardEvent, i: number) {
       <template v-else>
         <div class="grid gap-3 sm:grid-cols-2">
           <div class="flex flex-col gap-1.5">
-            <label for="setup-cred" class="text-13 font-medium text-text">{{
-              $t('netAdd.setup.profile')
-            }}</label>
-            <select
-              id="setup-cred"
-              v-model="credentialId"
-              class="h-9 rounded-control border border-border bg-surface-3 px-3 text-14 text-text max-lg:h-11 max-md:text-16"
-            >
-              <option v-for="c in matching" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
+            <span class="text-13 font-medium text-text">{{ $t('netAdd.setup.profile') }}</span>
+            <ComboBox
+              v-model="credentialModel"
+              :options="matching.map((c) => ({ value: c.id, label: c.name }))"
+              :label="$t('netAdd.setup.profile')"
+              testid="setup-cred"
+            />
           </div>
           <TextField
             v-model="poller"

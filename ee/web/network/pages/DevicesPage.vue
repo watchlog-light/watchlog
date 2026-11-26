@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import ComboBox from '@/components/ui/ComboBox.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import SkeletonTable from '@/components/ui/SkeletonTable.vue';
 import { networkApi, type Device } from '../api';
@@ -52,8 +53,10 @@ const shown = computed(() =>
       (!q('q') || `${d.name} ${d.address} ${d.model}`.toLowerCase().includes(q('q').toLowerCase())),
   ),
 );
-const select =
-  'h-9 rounded-lg border border-border bg-surface-1 px-2 text-13 text-text max-md:h-11';
+/** The "All …" choice of a filter (an empty value reads as no choice at all). */
+const ALL = '__all__';
+const pick = (key: string, v: string | string[] | null) =>
+  set(key, typeof v === 'string' && v !== ALL ? v : '');
 </script>
 
 <template>
@@ -68,38 +71,45 @@ const select =
         class="h-9 w-64 rounded-lg border border-border bg-surface-1 px-3 text-13 text-text max-md:h-11 max-md:w-full"
         @input="set('q', ($event.target as HTMLInputElement).value)"
       />
-      <select
-        :value="q('kind')"
-        :class="select"
-        :aria-label="$t('net.devices.kind')"
-        data-testid="filter-kind"
-        @change="set('kind', ($event.target as HTMLSelectElement).value)"
-      >
-        <option value="">{{ $t('net.devices.allKinds') }}</option>
-        <option v-for="k in kinds" :key="k" :value="k">{{ $t(`net.kind.${k}`) }}</option>
-      </select>
-      <select
-        :value="q('status')"
-        :class="select"
-        :aria-label="$t('net.devices.status')"
-        data-testid="filter-status"
-        @change="set('status', ($event.target as HTMLSelectElement).value)"
-      >
-        <option value="">{{ $t('net.devices.allStatuses') }}</option>
-        <option v-for="s in ['ok', 'warning', 'down', 'pending']" :key="s" :value="s">
-          {{ $t(`net.devices.statusFilter.${s}`) }}
-        </option>
-      </select>
-      <select
-        :value="q('poller')"
-        :class="select"
-        :aria-label="$t('net.devices.poller')"
-        data-testid="filter-poller"
-        @change="set('poller', ($event.target as HTMLSelectElement).value)"
-      >
-        <option value="">{{ $t('net.devices.allPollers') }}</option>
-        <option v-for="[k, label] in pollers" :key="k" :value="k">{{ label }}</option>
-      </select>
+      <ComboBox
+        class="w-44 max-md:w-full"
+        variant="toolbar"
+        :model-value="q('kind') || ALL"
+        :options="[
+          { value: ALL, label: $t('net.devices.allKinds') },
+          ...kinds.map((k) => ({ value: k, label: $t(`net.kind.${k}`) })),
+        ]"
+        :label="$t('net.devices.kind')"
+        testid="filter-kind"
+        @update:model-value="(v) => pick('kind', v)"
+      />
+      <ComboBox
+        class="w-44 max-md:w-full"
+        variant="toolbar"
+        :model-value="q('status') || ALL"
+        :options="[
+          { value: ALL, label: $t('net.devices.allStatuses') },
+          ...['ok', 'warning', 'down', 'pending'].map((s) => ({
+            value: s,
+            label: $t(`net.devices.statusFilter.${s}`),
+          })),
+        ]"
+        :label="$t('net.devices.status')"
+        testid="filter-status"
+        @update:model-value="(v) => pick('status', v)"
+      />
+      <ComboBox
+        class="w-52 max-md:w-full"
+        variant="toolbar"
+        :model-value="q('poller') || ALL"
+        :options="[
+          { value: ALL, label: $t('net.devices.allPollers') },
+          ...pollers.map(([k, label]) => ({ value: k, label })),
+        ]"
+        :label="$t('net.devices.poller')"
+        testid="filter-poller"
+        @update:model-value="(v) => pick('poller', v)"
+      />
     </div>
     <ErrorState v-if="failed && !devices" :message="$t('net.loadError')" @retry="load" />
     <SkeletonTable v-else-if="!devices" :label="$t('common.loading')" />

@@ -16,7 +16,7 @@ import { useEgressStore } from '@/stores/egress';
 import EgressPage from '@/views/EgressPage.vue';
 import { FLEET } from './docker-fixtures';
 import { mockFetch, USER } from './fetch-mock';
-import { createPlugins } from './helpers';
+import { chooseOption, chosenIn, createPlugins, optionsOf } from './helpers';
 
 const NOW = Date.UTC(2026, 10, 15, 9, 30, 0);
 const H = 3_600_000;
@@ -273,10 +273,7 @@ describe('the Egress page', () => {
     expect(w.findAll('[data-testid="egress-row"]')).toHaveLength(K8S_ROWS.length);
     expect(w.find('[data-testid="filter-namespace"]').exists()).toBe(true);
     expect(w.find('[data-testid="filter-host"]').exists()).toBe(false);
-    expect(w.findAll('[data-testid="filter-namespace"] option').map((o) => o.text())).toEqual([
-      'All namespaces',
-      'wl-test',
-    ]);
+    expect(await optionsOf(w, 'filter-namespace')).toEqual(['All namespaces', 'wl-test']);
     expect(w.get('[data-testid="egress-footer"]').text()).toContain('forgotten');
     expect(useEgressStore().newCount[CLUSTER.id]).toBe(2);
     w.unmount();
@@ -304,7 +301,7 @@ describe('the Egress page', () => {
     expect(plugins.router.currentRoute.value.query.badge).toBe('new');
     expect(w.get('[data-testid="chip-new"]').attributes('aria-pressed')).toBe('true');
     expect(w.findAll('[data-testid="egress-row"]')).toHaveLength(2);
-    await w.get('[data-testid="filter-namespace"]').setValue('wl-test');
+    await chooseOption(w, 'filter-namespace', 'wl-test');
     await flushPromises();
     expect(plugins.router.currentRoute.value.query.namespace).toBe('wl-test');
     await w.get('[data-testid="egress-range"] button:nth-child(3)').trigger('click');
@@ -329,18 +326,9 @@ describe('the Egress page', () => {
     });
     const { w } = await mountWith(EgressPage, '/egress');
     expect(w.find('[data-testid="filter-namespace"]').exists()).toBe(false);
-    expect(w.findAll('[data-testid="filter-host"] option').map((o) => o.text())).toEqual([
-      'All hosts',
-      'docker-02',
-    ]);
-    expect(w.findAll('[data-testid="filter-project"] option').map((o) => o.text())).toEqual([
-      'All Compose projects',
-      'storefront',
-    ]);
-    expect(w.findAll('[data-testid="filter-container"] option').map((o) => o.text())).toEqual([
-      'All containers',
-      'cron',
-    ]);
+    expect(await optionsOf(w, 'filter-host')).toEqual(['All hosts', 'docker-02']);
+    expect(await optionsOf(w, 'filter-project')).toEqual(['All Compose projects', 'storefront']);
+    expect(await optionsOf(w, 'filter-container')).toEqual(['All containers', 'cron']);
     expect(w.get('[data-testid="egress-summary"]').text()).toContain(
       'from 2 containers and Compose services',
     );
@@ -363,9 +351,7 @@ describe('the Egress page', () => {
       `/api/v1/egress?cluster=${FLEET.id}&project=storefront&service=api`,
     );
     expect(w.get('[data-testid="egress-service"]').text()).toBe('Compose service storefront · api');
-    expect((w.get('[data-testid="filter-project"]').element as HTMLSelectElement).value).toBe(
-      'storefront',
-    );
+    expect(chosenIn(w, 'filter-project')).toBe('storefront');
     w.unmount();
   });
 

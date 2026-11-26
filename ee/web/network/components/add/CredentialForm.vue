@@ -4,6 +4,7 @@ import { TriangleAlert } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import ComboBox from '@/components/ui/ComboBox.vue';
 import TextField from '@/components/ui/TextField.vue';
 import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
 import { networkApi, type Credential } from '../../api';
@@ -39,6 +40,15 @@ const portOk = computed(
 
 const AUTH = ['SHA', 'SHA224', 'SHA256', 'SHA384', 'SHA512'];
 const PRIV = ['AES', 'AES192', 'AES256'];
+const choice = (r: { value: string }) =>
+  computed<string | null>({
+    get: () => r.value,
+    set: (v) => {
+      if (v) r.value = v;
+    },
+  });
+const authModel = choice(authProto);
+const privModel = choice(privProto);
 
 const problem = computed(() => {
   if (!name.value.trim()) return t('netAdd.cred.needName');
@@ -113,9 +123,6 @@ async function save() {
     saving.value = false;
   }
 }
-
-const select =
-  'h-9 rounded-control border border-border bg-surface-3 px-3 text-14 text-text focus:border-border-strong max-lg:h-11 max-md:text-16';
 </script>
 
 <template>
@@ -189,14 +196,18 @@ const select =
         />
         <div class="hidden sm:block" />
         <div class="flex flex-col gap-1.5">
-          <label for="cred-auth" class="text-13 font-medium text-text">{{
-            $t('netAdd.cred.authProto')
-          }}</label>
-          <select id="cred-auth" v-model="authProto" :class="select">
-            <option v-for="a in AUTH" :key="a" :value="a">
-              {{ a === 'SHA' ? 'SHA-1' : a.replace('SHA', 'SHA-') }}
-            </option>
-          </select>
+          <span class="text-13 font-medium text-text">{{ $t('netAdd.cred.authProto') }}</span>
+          <ComboBox
+            v-model="authModel"
+            :options="
+              AUTH.map((a) => ({
+                value: a,
+                label: a === 'SHA' ? 'SHA-1' : a.replace('SHA', 'SHA-'),
+              }))
+            "
+            :label="$t('netAdd.cred.authProto')"
+            testid="cred-auth"
+          />
         </div>
         <TextField
           v-model="authKey"
@@ -207,14 +218,18 @@ const select =
           :maxlength="128"
         />
         <div class="flex flex-col gap-1.5">
-          <label for="cred-priv" class="text-13 font-medium text-text">{{
-            $t('netAdd.cred.privProto')
-          }}</label>
-          <select id="cred-priv" v-model="privProto" :class="select">
-            <option v-for="p in PRIV" :key="p" :value="p">
-              {{ p === 'AES' ? 'AES-128' : p.replace('AES', 'AES-') }}
-            </option>
-          </select>
+          <span class="text-13 font-medium text-text">{{ $t('netAdd.cred.privProto') }}</span>
+          <ComboBox
+            v-model="privModel"
+            :options="
+              PRIV.map((p) => ({
+                value: p,
+                label: p === 'AES' ? 'AES-128' : p.replace('AES', 'AES-'),
+              }))
+            "
+            :label="$t('netAdd.cred.privProto')"
+            testid="cred-priv"
+          />
         </div>
         <TextField
           v-model="privKey"

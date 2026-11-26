@@ -38,3 +38,33 @@ export function listedOptions(): string[] {
     (o) => o.textContent?.trim() ?? '',
   );
 }
+
+type Root = {
+  get(selector: string): {
+    trigger(event: string, opts?: object): Promise<void>;
+    attributes(name: string): string | undefined;
+  };
+};
+
+/** The options a Combobox offers: opens it and reads the list it controls. */
+export async function optionsOf(root: Root, testid: string): Promise<string[]> {
+  const { flushPromises } = await import('@vue/test-utils');
+  const selector = `[data-testid="${testid}"] [role="combobox"]`;
+  const input = root.get(selector);
+  await input.trigger('focus');
+  await input.trigger('keydown', { key: 'ArrowDown' });
+  await flushPromises();
+  // Another Combobox opened earlier may still be listed: read this one's own list.
+  const list = document.getElementById(root.get(selector).attributes('aria-controls') ?? '');
+  const options = [...(list ?? document).querySelectorAll<HTMLElement>('[role="option"]')].map(
+    (o) => o.textContent?.trim() ?? '',
+  );
+  await input.trigger('keydown', { key: 'Escape' });
+  await flushPromises();
+  return options;
+}
+
+/** What a single-value Combobox shows as chosen (its value is the field's placeholder). */
+export function chosenIn(root: Root, testid: string): string {
+  return root.get(`[data-testid="${testid}"] [role="combobox"]`).attributes('placeholder') ?? '';
+}
