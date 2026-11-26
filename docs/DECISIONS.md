@@ -4239,3 +4239,18 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **When the allowance is full, nothing changes:** new series are refused and counted as refused for the plan's series (`orgCap`), known ones keep flowing, and the Sources table says how many and why, in the words it already uses.
   - **Cloud Free's 3 sources still count a token's remote write as one source.**
 - Consequences: one Prometheus can fill an organisation's allowance by itself, which is what the allowance is for; `write_relabel_configs` in the docs' example stays the advice. Nothing is migrated: a token that was cut at 500 is admitted up to the allowance from its next request. The docs' table has a row for it, and the Add a source page says it under "Kept under control".
+
+## ADR-241: What a user sets on the network pages can be changed and undone
+
+- Date: 2026-11-26 · Status: accepted (owner's brief for 1.0.2, after a customer's report; extends ADR-233 and ADR-234)
+- Context: a credential profile made with a mistake could be neither corrected nor removed from the page: the API had the calls, the page never made them. The same gap was on other things a user sets by hand: a device's address, an accepted certificate, the poller of many devices at once.
+- Decision:
+  - **A profile is edited and deleted from its card.** The form is the one that makes a profile, filled in without its secrets; a secret left empty is kept. The protocol can't change, because the profile's devices are read with it. A profile in use can't be deleted; its devices move to another profile of the same protocol first (`POST /network/credentials/:id/move`), in one step the dialog offers.
+  - **"Test against an address" is a discovery of one address.** The values as typed (merged with the saved secrets for the fields left empty) go to the chosen poller as a discovery with one seed and one credential, sealed like a profile's secret, kept for 100 seconds and deleted once read. Nothing new is asked of the poller, so the limits are discovery's, and an older collector can run it. The outcome is read from the poller's own sentence: answered, refused, no answer, a certificate that isn't the pinned one. A recorder profile needs a collector from 1.0.2.
+  - **A collector reports what a discovery found at once**, not with its next round: a finished one immediately, progress at most every 5 seconds, a refused post again after 5 seconds. An older collector still answers, with its next round.
+  - **A device** can change its address (its pins are cleared: it is contacted like a new device), be paused and resumed (a status of its own, `paused`; ingest ignores a late report), and comes back as the same device, with its history, when its address is added again after a removal.
+  - **An accepted certificate can be undone** by an Owner: the pin from before is kept (`cert_prev`) and pinned again.
+  - **A poller's devices move together** (`POST /network/pollers/move`), and step 1 says how many devices each poller reads, also for a server that no longer has a collector.
+  - **Every one of these is in the audit trail**, without secrets. The core lets a module write its own actions (`network_…`) through `host.audit`.
+  - **Viewers read the profile cards** (never a secret) with the controls locked; the demo is read-only as everywhere.
+- Consequences: a test answers in a few seconds with a 1.0.2 collector and in up to a minute and a half with an older one; the page says so while it waits. SNMP v2c can't tell a wrong community from a silent address, and the page says that too. Which disk a recorder writes to and what manages an access point are read from the devices, not set by hand, so they have nothing to undo.

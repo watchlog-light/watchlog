@@ -33,6 +33,11 @@ Devices are read from inside your network by the **integrations collector** you 
 device has one poller; you can move it later on the device's page. The poller needs to reach
 each device on the ports below, and nothing else needs to reach the poller.
 
+When a server stops being a good place to poll from (it is being retired, or it lost its route
+to the devices), step 1 of **Add devices** says how many devices each poller reads and offers
+**Move them to another poller**: all of them at once, read from there from the next poll. Their
+history, profiles and paused state stay.
+
 ## Adding devices
 
 1. **The poller.**
@@ -53,6 +58,49 @@ each device on the ports below, and nothing else needs to reach the poller.
    from the devices that answer and proposes what they see; nothing is added on its own.
 4. **What was found:** each address with the profile it matched and whether it answered.
 5. **Add N devices.**
+
+## Changing, testing and deleting a profile
+
+Each profile's card in step 2 of **Add devices** has **Edit** and **Delete**, for Owners and
+Admins. A Viewer sees the cards without being able to use them, and nobody ever sees a secret.
+
+- **Edit** opens the profile's form filled in with everything except its secrets. Leave a key,
+  a community or a password empty to keep the current one; type a new one to replace it. The
+  protocol can't change, because the profile's devices are read with it: make a new profile
+  instead. The form says how many devices use the profile; after you save, they are read with
+  the new values from the next poll.
+- **Test against an address** is in the same form, for a new profile and for one you are
+  editing. It reads one device with the values as typed, before anything is saved, through the
+  poller you choose, and says what happened: the device answered (with its name and model), it
+  refused the user or the key, nothing answered at that address, or the certificate isn't the
+  one pinned for the device already added there. The test only reads, one address at a time. A
+  device that uses SNMP v2c stays silent when the community is wrong, so that reads as "nothing
+  answered". A collector from 1.0.2 answers in a few seconds; an older one answers with its
+  next round, up to a minute and a half later, and can't test a recorder profile.
+- **Delete** asks first, naming the profile. A profile that devices use can't be deleted: the
+  dialog lists them and offers **Move them to another profile** of the same protocol, and then
+  the delete goes through. Deleting a profile never touches a device's own settings.
+
+Every change to a profile is in the audit trail (**Settings → Users**), without its secrets.
+
+## Changing or removing a device
+
+A device's page has its settings at the bottom, for Owners and Admins:
+
+- **Name, address, poller and profile.** An address typed wrong is corrected here; the device
+  keeps its history. A new address means the device is contacted like a new one: a pinned
+  certificate is pinned again on first contact.
+- **Pause polling** stops reading the device without removing it: its status says Paused, its
+  alerts rest and its history stays. **Resume polling** reads it again within a minute.
+- **Remove device** stops polling it and takes its links and endpoints off the map. Its history
+  stays until your retention ends. If you add the same address again, by hand or after
+  discovery finds it, the same device comes back with its history.
+- **A changed certificate** (RouterOS, a recorder over HTTPS) pauses the device until an Owner
+  accepts the new one. An accept made by mistake can be undone: the device's page offers
+  **Undo the accept** to the Owner, which pins the certificate from before again.
+
+What a UPS powers is set on the UPS's page and can be changed there at any time. Which disk a
+recorder writes to isn't set by hand: WatchLog reads it from the recorder and the NAS.
 
 ## Setup on the devices
 
