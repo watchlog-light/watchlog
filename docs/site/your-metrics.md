@@ -17,6 +17,142 @@ a metric, a shape and a size.
 WatchLog's own pages (Overview, Workloads, Servers, the Service Map and the rest) stay as they
 are. Dashboards exist for your own metrics only.
 
+## Your first metric in two minutes
+
+You need nothing installed: one HTTP call sends a number.
+
+1. Open **Your metrics → Add a source**. It asks **Where is your number?** and opens **Push a
+   value**.
+2. **Create a token.** Its value (`wl_mt_…`) is shown once: copy it. A token can only send; it
+   can't read anything.
+3. **Say what the number is:** the server or workload it belongs to, a name and a value. The
+   name decides how it is read:
+   - ends in `_total`: a **counter**. Each push adds up. Push `1` for every order, and you see
+     orders per minute.
+   - ends in `_timestamp_seconds`: a **time**. Push the clock after a good backup, and you see
+     "last good backup: 3 h ago".
+   - anything else: a **gauge**. The last value wins. Push `12` for 12 jobs waiting.
+4. **Run the command** where the number is. The page fills in your installation's address, your
+   token and what you chose; here it is with placeholders:
+
+<!-- snippet:push:curl -->
+<!-- prettier-ignore-start -->
+```bash
+curl -sS -X POST https://<your WatchLog>/ingest/v1/metrics \
+  -H "Authorization: Bearer wl_mt_…" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "orders_total", "value": 1, "server": "web-1"}'
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+5. The page says **Received `orders_total` = 1** within a few seconds, with **Open it**, **Put
+   it on a dashboard** and **Alert on it**.
+
+No terminal at hand? **Send a test value for me** on the same page sends one value
+(`my_first_test_value`) through your token, so you see the whole path; **Remove the test
+value** takes it away again. It is an ordinary pushed value while it exists: one series of
+your plan's, and no extra source.
+
+The same call from where your number lives:
+
+**A script run by cron**
+
+<!-- snippet:push:cron -->
+<!-- prettier-ignore-start -->
+```bash
+#!/usr/bin/env bash
+# push.sh: run it from cron, for example every five minutes:
+#   */5 * * * * /usr/local/bin/push.sh
+set -euo pipefail
+value=1   # your number, for example: value=$(ls /var/spool/jobs | wc -l)
+curl -sS --fail -X POST https://<your WatchLog>/ingest/v1/metrics \
+  -H "Authorization: Bearer wl_mt_…" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"orders_total\", \"value\": $value, \"server\": \"web-1\"}"
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+**Node.js**
+
+<!-- snippet:push:node -->
+<!-- prettier-ignore-start -->
+```js
+// Node.js 18 or later: fetch is built in.
+await fetch("https://<your WatchLog>/ingest/v1/metrics", {
+  method: "POST",
+  headers: { Authorization: "Bearer wl_mt_…", "Content-Type": "application/json" },
+  body: JSON.stringify({ name: "orders_total", value: 1, server: "web-1" }),
+});
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+**Python**
+
+<!-- snippet:push:python -->
+<!-- prettier-ignore-start -->
+```python
+import json, urllib.request
+
+req = urllib.request.Request(
+    "https://<your WatchLog>/ingest/v1/metrics",
+    data=json.dumps({"name": "orders_total", "value": 1, "server": "web-1"}).encode(),
+    headers={"Authorization": "Bearer wl_mt_…", "Content-Type": "application/json"},
+)
+urllib.request.urlopen(req)
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+**PHP**
+
+<!-- snippet:push:php -->
+<!-- prettier-ignore-start -->
+```php
+$context = stream_context_create(["http" => [
+  "method" => "POST",
+  "header" => "Authorization: Bearer wl_mt_…\r\nContent-Type: application/json",
+  "content" => json_encode(["name" => "orders_total", "value" => 1, "server" => "web-1"]),
+]]);
+file_get_contents("https://<your WatchLog>/ingest/v1/metrics", false, $context);
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+**Go**
+
+<!-- snippet:push:go -->
+<!-- prettier-ignore-start -->
+```go
+// import "net/http" and "strings"
+body := strings.NewReader(`{"name": "orders_total", "value": 1, "server": "web-1"}`)
+req, _ := http.NewRequest("POST", "https://<your WatchLog>/ingest/v1/metrics", body)
+req.Header.Set("Authorization", "Bearer wl_mt_…")
+req.Header.Set("Content-Type", "application/json")
+if res, err := http.DefaultClient.Do(req); err == nil {
+	res.Body.Close()
+}
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+If nothing arrives: check that the token is copied whole, that your WatchLog's address is
+reachable from the machine that runs the command, and the answer's status code (`curl -i`
+shows it). `401`: the token isn't whole, or it was revoked. `400`: the body isn't right, and
+the answer names the field. `429`: too many calls a second, and the answer says how long to
+wait. `200` with `"stored": 0`: the answer says what was dropped and why.
+
+## Which way is for me
+
+- **The number is in a script, a cron job, CI or your own code:** [push a value](#1-push-a-value).
+  One command, nothing to install.
+- **Your app or an exporter already has a `/metrics` page:** [expose `/metrics`](#2-expose-metrics).
+  WatchLog reads it every 30 seconds.
+- **You already run Prometheus:** [send from Prometheus](#3-send-from-prometheus). It sends the
+  few metrics you choose.
+
 ## What each plan includes
 
 |                                                      | Cloud Free                      | Cloud Pro                                          | Self-hosted Community                  | Self-hosted with a licence (`pro`) |
@@ -36,78 +172,20 @@ already pays for. A self-hosted installation sets its cap with `backend.ownMetri
 the Helm chart, or `WATCHLOG_OWN_METRIC_SERIES` with Docker Compose
 ([Configuration](configuration.md)).
 
-A **series** is one metric with one set of label values: `orders_created_total{method="card"}`
-and `orders_created_total{method="cash"}` are two. A series counts while it reported within
-the last hour.
+**A series is one line on a chart: one metric with one set of labels.** `orders_total` is 1
+series however often you send it. `orders_total` split by 3 payment methods is 3. There is no
+limit on how many times you send: "1,000 series" is not "1,000 calls". A series counts while it
+reported within the last hour.
 
 ## Three ways in
 
 Open **Your metrics → Add a source**. All three end in the same place.
 
-### 1. Expose `/metrics`
+### 1. Push a value
 
-Anything that serves the Prometheus text format or OpenMetrics: an exporter, or your own app
-with a Prometheus client library. WatchLog's collector reads it every 30 seconds.
-
-**In a Kubernetes cluster**, annotate the pod template:
-
-```yaml
-spec:
-  template:
-    metadata:
-      annotations:
-        watchlog.io/scrape: 'true'
-        watchlog.io/port: '8080' # default: the pod's first named port
-        watchlog.io/path: '/metrics' # default
-```
-
-`watchlog.io/port` takes a number or a port's name. If your pods already carry
-`prometheus.io/scrape: "true"`, turn on **Also scrape pods annotated prometheus.io/scrape**
-on the same page; it is off by default, per cluster.
-
-**On a server**, give the address on that server, for example `localhost:9400/metrics`. The
-collector on that server reads it. A server installed before the collector was part of the
-agent gets it with `curl -fsSL https://<your WatchLog>/install.sh | sudo sh -s -- --upgrade`.
-
-**Find endpoints for me** tries `/metrics` on the ports WatchLog already sees (a pod's declared
-ports, a server's listening ports) and lists the ones that answer with metrics; each is added
-with one click, with no annotation needed.
-
-What the collector accepts: `http` and `https` addresses, an answer of up to 5 MB within 10
-seconds, and no redirect to another host. **It sends no credentials**: an endpoint behind basic
-auth or a bearer token can't be scraped yet. Use remote write or a push for those.
-
-### 2. Send from Prometheus
-
-If you already run Prometheus, send WatchLog the few metrics you want to see there. Create a
-token on the **Add a source** page (it is shown once), then add to `prometheus.yml`:
-
-```yaml
-remote_write:
-  - url: https://<your WatchLog>/ingest/v1/write
-    authorization:
-      credentials: wl_mt_…
-    write_relabel_configs:
-      # Send only what you want to see in WatchLog.
-      - source_labels: [__name__]
-        regex: 'orders_.*|checkout_duration_seconds.*|queue_jobs_waiting'
-        action: keep
-```
-
-Keep the `write_relabel_configs`: without it Prometheus sends everything it scrapes, and your
-plan's series fill with metrics nobody opens.
-
-### 3. Push a value
-
-One HTTP call from a script, a cron job or CI, with the same kind of token:
-
-```bash
-curl -sS -X POST https://<your WatchLog>/ingest/v1/metrics \
-  -H "Authorization: Bearer wl_mt_…" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "backup_last_success_timestamp_seconds",
-       "value": '"$(date +%s)"', "server": "db-1"}'
-```
+One HTTP call with a token, from a script, a cron job, CI or your own code:
+[Your first metric in two minutes](#your-first-metric-in-two-minutes) has it start to finish, in
+curl, Bash, Node.js, Python, PHP and Go.
 
 | Field      | Meaning                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------- |
@@ -119,8 +197,26 @@ curl -sS -X POST https://<your WatchLog>/ingest/v1/metrics \
 | `server`   | On a fleet: the server it belongs to.                                                               |
 
 A **counter** push adds its value to the metric's running total (push `1` for each order, or
-`12` for the twelve since the last push). A **gauge** push keeps the last value. Several values
-go in one call:
+`12` for the twelve since the last push). A **gauge** push keeps the last value. A timestamp is
+pushed like this, after the job it is about:
+
+<!-- snippet:push-timestamp -->
+<!-- prettier-ignore-start -->
+```bash
+#!/usr/bin/env bash
+# push.sh: run it from cron, for example every five minutes:
+#   */5 * * * * /usr/local/bin/push.sh
+set -euo pipefail
+value=$(date +%s)   # now: run this after the job succeeded
+curl -sS --fail -X POST https://<your WatchLog>/ingest/v1/metrics \
+  -H "Authorization: Bearer wl_mt_…" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"backup_last_success_timestamp_seconds\", \"value\": $value, \"server\": \"web-1\"}"
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+Several values go in one call, at most 500:
 
 ```json
 {
@@ -148,8 +244,206 @@ The answer says what was stored and what was dropped, and why:
 }
 ```
 
-A token is limited to 100 pushes a second (bursts of 300); over that the answer is `429` with
-`Retry-After`.
+### 2. Expose `/metrics`
+
+Many apps and every Prometheus exporter have an address that lists their numbers as plain
+text. Give WatchLog that address and its collector reads it every 30 seconds, in the Prometheus
+text format or OpenMetrics. The page looks like this:
+
+<!-- snippet:metrics-sample -->
+<!-- prettier-ignore-start -->
+```text
+# TYPE orders_total counter
+orders_total{method="card"} 1842
+# TYPE queue_jobs_waiting gauge
+queue_jobs_waiting{queue="emails"} 12
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+**On a server**, give the address on that server, for example `localhost:9400/metrics`. The
+collector on that server reads it. A server installed before the collector was part of the
+agent gets it with `curl -fsSL https://<your WatchLog>/install.sh | sudo sh -s -- --upgrade`.
+
+**In a Kubernetes cluster**, choose the workload and give its port (and its path, when it isn't
+`/metrics`). **Scrape it** adds the port in WatchLog: nothing in the cluster changes and no pod
+restarts.
+
+**Test** reads the address once, through that server's or that cluster's collector, before
+anything is added, and says what it found: how many series and a few of their names; nothing is
+listening on that port; it answered, but not with metrics (a web page); it asks for a password,
+which scraping can't send yet; too slow (over 10 seconds) or too big (over 5 MB). When a cap
+would cut it, it says how many series would be kept. Test needs the collector from 1.0.3; with
+an older one it says the collector didn't answer, and **Scrape it** still works.
+
+**Find endpoints for me** tries `/metrics` on the ports WatchLog already sees (a pod's declared
+ports, a server's listening ports), says which ports it tried and which it left out (SSH and
+databases never serve metrics), and lists the ones that answer; each is added with one click.
+
+**No `/metrics` page yet?** Three ways forward:
+
+- [Push a value](#1-push-a-value) instead. The quickest.
+- Add one to your app with the Prometheus library for your language. One counter on port 9400:
+
+  **Node.js**
+
+<!-- snippet:expose:node -->
+<!-- prettier-ignore-start -->
+```js
+// npm install @prometheus-io/client   (the library that was "prom-client")
+const http = require("http");
+const client = require("@prometheus-io/client");
+
+const orders = new client.Counter({ name: "orders_total", help: "Orders created" });
+// where an order is created:
+orders.inc();
+
+http.createServer(async (req, res) => {
+  res.setHeader("Content-Type", client.register.contentType);
+  res.end(await client.register.metrics());
+}).listen(9400);
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+**Python**
+
+<!-- snippet:expose:python -->
+<!-- prettier-ignore-start -->
+```python
+# pip install prometheus-client
+from prometheus_client import Counter, start_http_server
+
+orders = Counter("orders", "Orders created")  # exposed as orders_total
+start_http_server(9400)
+# where an order is created:
+orders.inc()
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+**Go**
+
+<!-- snippet:expose:go -->
+<!-- prettier-ignore-start -->
+```go
+// go get github.com/prometheus/client_golang
+import (
+	"net/http"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+)
+
+var orders = promauto.NewCounter(prometheus.CounterOpts{Name: "orders_total", Help: "Orders created"})
+
+func main() {
+	// where an order is created: orders.Inc()
+	http.Handle("/metrics", promhttp.Handler())
+	http.ListenAndServe(":9400", nil)
+}
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+**PHP**
+
+<!-- snippet:expose:php -->
+<!-- prettier-ignore-start -->
+```php
+// composer require promphp/prometheus_client_php
+// metrics.php, served at /metrics (APCu keeps the count between requests)
+$registry = new Prometheus\CollectorRegistry(new Prometheus\Storage\APC());
+// where an order is created:
+$registry->getOrRegisterCounter("", "orders_total", "Orders created")->inc();
+
+header("Content-Type: " . Prometheus\RenderTextFormat::MIME_TYPE);
+echo (new Prometheus\RenderTextFormat())->render($registry->getMetricFamilySamples());
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+**Java**
+
+<!-- snippet:expose:java -->
+<!-- prettier-ignore-start -->
+```java
+// Maven: io.prometheus:prometheus-metrics-core
+//    and io.prometheus:prometheus-metrics-exporter-httpserver
+import io.prometheus.metrics.core.metrics.Counter;
+import io.prometheus.metrics.exporter.httpserver.HTTPServer;
+
+Counter orders = Counter.builder().name("orders_total").help("Orders created").register();
+HTTPServer server = HTTPServer.builder().port(9400).buildAndStart();
+// where an order is created:
+orders.inc();
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+- Use an exporter: a small program that publishes numbers for something else (a GPU, a queue,
+  a device). WatchLog already collects each server's and container's CPU, memory, disk and
+  network, so node_exporter and cAdvisor aren't needed.
+
+**Or keep it with the workload:** annotate its pod template, as one command or in its manifest.
+Changing the pod template restarts its pods.
+
+<!-- snippet:kubectl-patch -->
+<!-- prettier-ignore-start -->
+```bash
+kubectl -n shop patch deployment orders --type merge \
+  -p '{"spec":{"template":{"metadata":{"annotations":{"watchlog.io/scrape":"true","watchlog.io/port":"8080"}}}}}'
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+<!-- snippet:annotation -->
+<!-- prettier-ignore-start -->
+```yaml
+spec:
+  template:
+    metadata:
+      annotations:
+        watchlog.io/scrape: "true"
+        watchlog.io/port: "8080"      # default: the first named port
+        watchlog.io/path: "/metrics"  # default
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+`watchlog.io/port` takes a number or a port's name. If your pods already carry
+`prometheus.io/scrape: "true"`, turn on **Also scrape pods annotated prometheus.io/scrape**
+on the same page; it is off by default, per cluster.
+
+What the collector accepts: `http` and `https` addresses, an answer of up to 5 MB within 10
+seconds, and no redirect to another host. **It sends no credentials**: an endpoint behind basic
+auth or a bearer token can't be scraped yet. Use remote write or a push for those.
+
+### 3. Send from Prometheus
+
+Only if you already run Prometheus. It keeps scraping as before, and also sends WatchLog the
+few metrics you name. Create a token on the **Add a source** page (it is shown once), then add
+to `prometheus.yml` and reload it:
+
+<!-- snippet:remote-write -->
+<!-- prettier-ignore-start -->
+```yaml
+remote_write:
+  - url: https://<your WatchLog>/ingest/v1/write
+    authorization:
+      credentials: wl_mt_…
+    write_relabel_configs:
+      # Send only what you want to see in WatchLog.
+      - source_labels: [__name__]
+        regex: "orders_.*|checkout_duration_seconds.*|queue_jobs_waiting"
+        action: keep
+```
+<!-- prettier-ignore-end -->
+<!-- /snippet -->
+
+Keep the `write_relabel_configs`: without it Prometheus sends everything it scrapes, and your
+plan's series fill with metrics nobody opens. The page says when the first samples arrive.
 
 ### Tokens
 
@@ -157,6 +451,31 @@ A token (`wl_mt_…`) can only **send** your own metrics and [change events](#ch
 the cluster or fleet it was made for. It can't read anything, and it can't send WatchLog's own
 data. Owners and Admins create and revoke tokens; a revoked token stops being accepted at
 once.
+
+## Limits on sending
+
+Three limits protect the installation, and WatchLog's own monitoring comes first under all of
+them: its agents' data is never the thing that gives way.
+
+| Limit                                 | Pushes                         | Remote write               | The answer over it                               |
+| ------------------------------------- | ------------------------------ | -------------------------- | ------------------------------------------------ |
+| One token                             | 100 a second, bursts of 300    | 20 a second, bursts of 100 | `429` with `Retry-After`                         |
+| All of an organisation's tokens       | 300 a second, bursts of 900    | 60 a second, bursts of 300 | `429` with `Retry-After`; it says "organization" |
+| The installation, when it is strained | own-metric calls are set aside | the same                   | `503` with `Retry-After: 15`                     |
+
+- **`429`: slow down.** Wait the seconds `Retry-After` says and send again. Prometheus does this
+  by itself; a script should too. Nothing is lost on WatchLog's side that you didn't send.
+- **`503`: the installation is busy.** Its backend is behind (its event loop, its writes to the
+  metrics store or its database connections), so calls with your own metrics are refused for a
+  moment while the agents' data keeps being taken. Send again after `Retry-After`. A
+  self-hosted installation sets the thresholds with `WATCHLOG_SHED_EVENT_LOOP_LAG_MS`,
+  `WATCHLOG_SHED_METRIC_WRITES_IN_FLIGHT` and `WATCHLOG_SHED_DB_WAITING`
+  ([Configuration](configuration.md)).
+- **One push** carries at most 500 values and 128 KB (`400` and `413` say so).
+- **Tokens:** an organisation has at most 20, over all its clusters and fleets.
+
+These are limits on calls. They have nothing to do with your plan's **series**, which count
+lines on charts, not how often you send.
 
 ## What a metric belongs to
 
@@ -183,7 +502,9 @@ WatchLog's own monitoring is never affected by any of this.
 - **A token's remote write has no cap of its own** (since 1.0.1): one Prometheus sends
   thousands of series through one token, so your plan's series are its only limit. The rule
   of 100 values for a label holds for it like for everything else.
-- **Over your plan's series**, new series are refused. Series already known keep flowing.
+- **Over your plan's series**, new series are refused. Series already known keep flowing. A
+  series is one line on a chart (one metric with one set of labels), not a call: sending the
+  same series more often never uses more of them.
 - **Over your plan's sources** (3 on Free), a new source isn't stored at all.
 
 The **Sources** table on **Add a source** shows, for each source, how it arrives, what it
@@ -374,4 +695,6 @@ The read routes are part of the [public API](api.md) and work with an API token:
 - `GET /api/v1/clusters/{id}/own-metrics/alerts`: the alert rules on your metrics.
 
 Sending uses an own-metrics token, not an API token: `POST /ingest/v1/write` (remote write),
-`POST /ingest/v1/metrics` (push) and `POST /api/v1/events` (change events).
+`POST /ingest/v1/metrics` (push: [the call in six languages](#your-first-metric-in-two-minutes),
+[its fields](#1-push-a-value) and [its limits](#limits-on-sending)) and `POST /api/v1/events`
+(change events).
