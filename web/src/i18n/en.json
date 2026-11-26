@@ -6831,7 +6831,8 @@
       "usedIn": "Used in",
       "none": "None",
       "nowhere": "Nowhere yet",
-      "untied": "WatchLog doesn't know which workload or server this metric belongs to, so it can't be pinned to a page. It works everywhere else."
+      "untied": "WatchLog doesn't know which workload or server this metric belongs to, so it can't be pinned to a page. It works everywhere else.",
+      "addToDashboard": "Add to a dashboard"
     },
     "pins": {
       "title": "Its own metrics",
@@ -6956,6 +6957,98 @@
       "removeTitle": "Stop scraping this endpoint?",
       "removeBody": "Its metrics stop arriving. What it sent stays until it ages out.",
       "removeConfirm": "Stop scraping"
+    },
+    "widget": {
+      "shown": {
+        "p95": "p95",
+        "time_since": "time since"
+      },
+      "by": "by {label}",
+      "problem": {
+        "gone": "{metric} no longer reports. The widget shows it again when it does, or change the widget in Edit.",
+        "refused": "{metric} is refused: too many values for the label {label}. Nothing of it is stored.",
+        "cluster": "The cluster or fleet {metric} came from was deleted."
+      },
+      "per": {
+        "s": "per second",
+        "min": "per minute",
+        "h": "per hour"
+      }
+    },
+    "editor": {
+      "add": "Add a widget",
+      "change": "Change the widget",
+      "noMetrics": "This cluster or fleet reports no metric of its own yet. Add a source first.",
+      "metric": "1 · Metric",
+      "shape": "2 · Show it as",
+      "shapes": {
+        "number": "Number",
+        "line": "Line",
+        "area": "Area",
+        "bars": "Bars"
+      },
+      "split": "3 · Split by",
+      "numberNoSplit": "A number is one value: it isn't split.",
+      "size": "4 · Size",
+      "sizes": {
+        "small": "Small",
+        "third": "A third",
+        "medium": "Medium",
+        "twoThirds": "Two thirds",
+        "wide": "Wide"
+      },
+      "title": "Title",
+      "preview": "Preview",
+      "addTo": "Add to dashboard",
+      "update": "Update the widget",
+      "hint": "Drag a widget by its handle to move it, by its corner to resize it. No queries: a widget is a metric, a shape and a size."
+    },
+    "dashboards": {
+      "error": "The dashboards couldn't be loaded.",
+      "failed": "That didn't work. Try again.",
+      "new": "New dashboard",
+      "newOption": "A new dashboard…",
+      "limit": "Your plan has one dashboard. | Your plan has {n} dashboards.",
+      "edit": "Edit",
+      "done": "Done",
+      "rename": "Rename",
+      "duplicate": "Duplicate",
+      "copyName": "{name} copy",
+      "create": "Create",
+      "name": "Name",
+      "nameNeeded": "Give the dashboard a name.",
+      "naming": {
+        "new": "New dashboard",
+        "rename": "Rename the dashboard",
+        "copy": "Duplicate the dashboard"
+      },
+      "emptyTitle": "Build a dashboard from your metrics",
+      "emptyBody": "One widget at a time: pick a metric, how to show it, and its size. There is nothing to query and nothing to learn.",
+      "noWidgets": "This dashboard has no widget yet. Owners and Admins add them with Edit.",
+      "widgets": "1 widget | {n} widgets",
+      "widgetLimit": "A dashboard has at most {n} widgets on your plan.",
+      "widgetTools": "Move, resize, change or remove {name}",
+      "drag": "Move {name}: drag, or use the arrow keys",
+      "dragHint": "Drag to move",
+      "earlier": "Move {name} earlier",
+      "later": "Move {name} later",
+      "narrower": "Make {name} narrower",
+      "wider": "Make {name} wider",
+      "change": "Change {name}",
+      "remove": "Remove {name}",
+      "corner": "Resize {name}: drag, or use the arrow keys",
+      "deleteTitle": "Delete this dashboard?",
+      "deleteBody": "Its widgets go with it. The metrics stay.",
+      "deleteConfirm": "Delete dashboard",
+      "unsavedTitle": "Leave without saving?",
+      "unsavedBody": "The changes to this dashboard aren't saved yet.",
+      "keepEditing": "Keep editing",
+      "discard": "Discard changes",
+      "addTitle": "Add to a dashboard",
+      "which": "Dashboard",
+      "added": "Added to {name}.",
+      "open": "Open it",
+      "onDashboard": "On the dashboard {name}"
     }
   }
 }

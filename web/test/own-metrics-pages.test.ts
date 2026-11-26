@@ -134,7 +134,7 @@ const detailOf = (m: OwnMetric, over: object = {}) => ({
   p50: m.type === 'histogram' ? 0.21 : null,
   p99: m.type === 'histogram' ? 0.9 : null,
   labels: m.labels.map((name) => ({ name, values: 7, top: ['card', 'cash'] })),
-  usedIn: { pins: [] },
+  usedIn: { pins: [], dashboards: [] },
   ...over,
 });
 
@@ -190,7 +190,11 @@ describe('Your metrics: the list and a metric', () => {
   });
 
   it('shows what is used, each metric as its type reads, and the first metric’s detail', async () => {
-    const { wrapper, series } = await mountAt(YourMetricsPage, '/your-metrics', routes());
+    const { wrapper, series } = await mountAt(
+      YourMetricsPage,
+      '/your-metrics?tab=metrics',
+      routes(),
+    );
     expect(wrapper.get('[data-testid="own-usage"]').text()).toBe('412 of 2,000 series');
     const rows = wrapper.findAll('[data-testid="own-row"]');
     expect(rows).toHaveLength(3);
@@ -221,7 +225,11 @@ describe('Your metrics: the list and a metric', () => {
   });
 
   it('opens another metric from the list; a histogram shows its other quantiles', async () => {
-    const { wrapper, router } = await mountAt(YourMetricsPage, '/your-metrics', routes());
+    const { wrapper, router } = await mountAt(
+      YourMetricsPage,
+      '/your-metrics?tab=metrics',
+      routes(),
+    );
     await wrapper.findAll('[data-testid="own-row"]')[1]!.trigger('click');
     await flushPromises();
     expect(router.currentRoute.value.query.metric).toBe(M_CHECKOUT.id);
@@ -231,7 +239,7 @@ describe('Your metrics: the list and a metric', () => {
   });
 
   it('filters by what is typed and by where metrics come from', async () => {
-    const { wrapper } = await mountAt(YourMetricsPage, '/your-metrics', routes());
+    const { wrapper } = await mountAt(YourMetricsPage, '/your-metrics?tab=metrics', routes());
     await wrapper.get('[data-testid="own-chip-pushed"]').trigger('click');
     expect(wrapper.findAll('[data-testid="own-row"]')).toHaveLength(1);
     await wrapper.get('[data-testid="own-chip-ns:shop"]').trigger('click');
@@ -244,7 +252,7 @@ describe('Your metrics: the list and a metric', () => {
   });
 
   it('“Show all” reads the internals too', async () => {
-    const { wrapper, calls } = await mountAt(YourMetricsPage, '/your-metrics', {
+    const { wrapper, calls } = await mountAt(YourMetricsPage, '/your-metrics?tab=metrics', {
       ...routes(),
       [`GET ${base}/metrics?all=true&spark=true`]: {
         status: 200,
@@ -275,8 +283,10 @@ describe('Your metrics: the list and a metric', () => {
   });
 
   it('pins a metric to the page it belongs to, and unpins it', async () => {
-    const pinned = detailOf(M_ORDERS, { usedIn: { pins: [{ id: 'pin-1', owner: ORDERS }] } });
-    const { wrapper, calls } = await mountAt(YourMetricsPage, '/your-metrics', {
+    const pinned = detailOf(M_ORDERS, {
+      usedIn: { pins: [{ id: 'pin-1', owner: ORDERS }], dashboards: [] },
+    });
+    const { wrapper, calls } = await mountAt(YourMetricsPage, '/your-metrics?tab=metrics', {
       ...routes(),
       [`GET ${base}/metrics/${M_ORDERS.id}`]: [
         { status: 200, body: detailOf(M_ORDERS) },
@@ -304,7 +314,7 @@ describe('Your metrics: the list and a metric', () => {
 
   it('says why a metric is refused and lets an Admin check it again', async () => {
     const refused = { ...M_ORDERS, refused: { label: 'user_id' } };
-    const { wrapper, calls } = await mountAt(YourMetricsPage, '/your-metrics', {
+    const { wrapper, calls } = await mountAt(YourMetricsPage, '/your-metrics?tab=metrics', {
       ...routes(),
       [`GET ${base}/metrics?spark=true`]: { status: 200, body: { metrics: [refused], hidden: 0 } },
       [`GET ${base}/metrics/${M_ORDERS.id}`]: { status: 200, body: detailOf(refused) },
@@ -321,7 +331,13 @@ describe('Your metrics: the list and a metric', () => {
   });
 
   it('a Viewer reads everything and changes nothing', async () => {
-    const { wrapper } = await mountAt(YourMetricsPage, '/your-metrics', routes(), KUBE, 'viewer');
+    const { wrapper } = await mountAt(
+      YourMetricsPage,
+      '/your-metrics?tab=metrics',
+      routes(),
+      KUBE,
+      'viewer',
+    );
     expect(wrapper.find('[data-testid="own-actions"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="own-add"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="own-name"]').text()).toBe('orders_created_total');
@@ -329,7 +345,7 @@ describe('Your metrics: the list and a metric', () => {
   });
 
   it('with nothing reporting: the three ways in', async () => {
-    const { wrapper } = await mountAt(YourMetricsPage, '/your-metrics', {
+    const { wrapper } = await mountAt(YourMetricsPage, '/your-metrics?tab=metrics', {
       [`GET ${base}`]: {
         status: 200,
         body: summary({ sources: [], usage: { series: 0, sources: 0 } }),
@@ -346,7 +362,7 @@ describe('Your metrics: the list and a metric', () => {
   });
 
   it('says so when the plan’s series are all in use', async () => {
-    const { wrapper } = await mountAt(YourMetricsPage, '/your-metrics', {
+    const { wrapper } = await mountAt(YourMetricsPage, '/your-metrics?tab=metrics', {
       ...routes(),
       [`GET ${base}`]: { status: 200, body: summary({ usage: { series: 2000, sources: 2 } }) },
     });

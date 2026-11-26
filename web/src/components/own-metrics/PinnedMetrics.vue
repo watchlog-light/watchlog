@@ -29,11 +29,11 @@ const data = computed(() => page.data.value);
 const name = computed(() => props.owner.name);
 const all = computed(() => ({
   name: 'your-metrics',
-  query: { cluster: props.clusterId, q: ownerText(props.owner) ?? undefined },
+  query: { cluster: props.clusterId, tab: 'metrics', q: ownerText(props.owner) ?? undefined },
 }));
 const metricLink = (p: OwnPin) => ({
   name: 'your-metrics',
-  query: { cluster: props.clusterId, metric: p.metric.id },
+  query: { cluster: props.clusterId, tab: 'metrics', metric: p.metric.id },
 });
 async function unpin(p: OwnPin) {
   await ownMetricsApi.unpin(props.clusterId, p.id).catch(() => undefined);

@@ -5,11 +5,15 @@
 // and without a metric: the three ways in.
 import { Plus } from '@lucide/vue';
 import { computed, onMounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { ownMetricsApi } from '@/api/own-metrics';
+import AddToDashboard from '@/components/own-metrics/AddToDashboard.vue';
+import DashboardsTab from '@/components/own-metrics/DashboardsTab.vue';
 import MetricDetail from '@/components/own-metrics/MetricDetail.vue';
 import MetricList from '@/components/own-metrics/MetricList.vue';
 import OwnEmpty from '@/components/own-metrics/OwnEmpty.vue';
+import BaseButton from '@/components/ui/BaseButton.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import SkeletonTable from '@/components/ui/SkeletonTable.vue';
 import { useLoader } from '@/composables/useLoader';
@@ -17,8 +21,9 @@ import { useNarrow } from '@/composables/useNarrow';
 import { usePolling } from '@/composables/usePolling';
 import { useAuthStore } from '@/stores/auth';
 import { useClustersStore } from '@/stores/clusters';
+import { useToastStore } from '@/stores/toast';
 
-const TABS = ['metrics'] as const;
+const TABS = ['dashboards', 'metrics'] as const;
 type Tab = (typeof TABS)[number];
 
 const route = useRoute();
@@ -78,6 +83,25 @@ const selected = computed<string | null>(() => {
 });
 const select = (id: string | null) =>
   void router.replace({ query: { ...route.query, metric: id ?? undefined } });
+
+// "Add to a dashboard" from the selected metric.
+const { t } = useI18n();
+const toast = useToastStore();
+const adding = ref(false);
+/** Bumped when something the detail lists changed elsewhere (a dashboard it was added to). */
+const detailKey = ref(0);
+const selectedMetric = computed(() => metrics.value.find((m) => m.id === selected.value) ?? null);
+function added(d: { id: string; name: string }) {
+  toast.show(t('ownMetrics.dashboards.added', { name: d.name }), 'info', {
+    label: t('ownMetrics.dashboards.open'),
+    run: () =>
+      void router.push({
+        name: 'your-metrics',
+        query: { cluster: data.value?.cluster.id, dashboard: d.id },
+      }),
+  });
+  detailKey.value++;
+}
 </script>
 
 <template>
@@ -141,25 +165,30 @@ const select = (id: string | null) =>
         :aria-label="$t('nav.yourMetrics')"
       >
         <button
-          v-for="t in TABS"
-          :key="t"
+          v-for="name in TABS"
+          :key="name"
           type="button"
           role="tab"
-          :aria-selected="tab === t"
+          :aria-selected="tab === name"
           :class="[
             '-mb-px border-b-2 px-3 py-2 text-13 whitespace-nowrap transition-colors max-lg:min-h-11',
-            tab === t
+            tab === name
               ? 'border-primary text-text'
               : 'border-transparent text-text-muted hover:text-text',
           ]"
-          :data-testid="`own-tab-${t}`"
-          @click="setTab(t)"
+          :data-testid="`own-tab-${name}`"
+          @click="setTab(name)"
         >
-          {{ $t(`ownMetrics.tabs.${t}`) }}
+          {{ $t(`ownMetrics.tabs.${name}`) }}
         </button>
       </nav>
 
-      <div v-if="tab === 'metrics'" class="flex flex-wrap items-start gap-4">
+      <DashboardsTab
+        v-if="tab === 'dashboards'"
+        :cluster="{ id: data.cluster.id, name: data.cluster.name }"
+        :metrics="metrics"
+      />
+      <div v-else-if="tab === 'metrics'" class="flex flex-wrap items-start gap-4">
         <MetricList
           v-if="!narrow || !selected"
           v-model:show-all="showAll"
@@ -180,7 +209,25 @@ const select = (id: string | null) =>
           >
             ← {{ $t('ownMetrics.tabs.metrics') }}
           </button>
-          <MetricDetail :cluster="data.cluster.id" :metric-id="selected" @changed="page.load" />
+          <MetricDetail
+            :key="detailKey"
+            :cluster="data.cluster.id"
+            :metric-id="selected"
+            @changed="page.load"
+          >
+            <template #actions>
+              <BaseButton data-testid="own-add-to-dashboard" @click="adding = true">
+                {{ $t('ownMetrics.detail.addToDashboard') }}
+              </BaseButton>
+            </template>
+          </MetricDetail>
+          <AddToDashboard
+            v-if="selectedMetric"
+            v-model:open="adding"
+            :metric="selectedMetric"
+            :cluster="{ id: data.cluster.id, name: data.cluster.name }"
+            @added="added"
+          />
         </div>
       </div>
     </template>

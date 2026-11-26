@@ -365,7 +365,14 @@ const checkAgain = () =>
             {{ $t('ownMetrics.detail.usedIn') }}
           </dt>
           <dd class="mt-1.5 text-14 leading-relaxed text-text" data-testid="own-used">
-            <slot name="used" :metric="m" />
+            <RouterLink
+              v-for="d in detail.data.value?.usedIn.dashboards ?? []"
+              :key="d.id"
+              :to="{ name: 'your-metrics', query: { cluster, dashboard: d.id } }"
+              class="block text-link hover:underline"
+            >
+              {{ $t('ownMetrics.dashboards.onDashboard', { name: d.name }) }}
+            </RouterLink>
             <template v-for="p in detail.data.value?.usedIn.pins ?? []" :key="p.id">
               <RouterLink
                 v-if="ownerLink(p.owner, cluster)"
@@ -376,7 +383,10 @@ const checkAgain = () =>
               </RouterLink>
             </template>
             <span
-              v-if="!(detail.data.value?.usedIn.pins.length ?? 0) && !$slots.used"
+              v-if="
+                !(detail.data.value?.usedIn.pins.length ?? 0) &&
+                !(detail.data.value?.usedIn.dashboards.length ?? 0)
+              "
               class="text-text-muted"
               >{{ $t('ownMetrics.detail.nowhere') }}</span
             >

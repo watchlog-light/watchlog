@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The API of "Your metrics" (1.0.0, ADR-236), per cluster or fleet.
 import type {
+  OwnDashboard,
+  OwnDashboardList,
   OwnFound,
   OwnMetric,
   OwnMetricDetail,
@@ -10,6 +12,7 @@ import type {
   OwnNewToken,
   OwnOwner,
   OwnPins,
+  OwnWidgetInput,
 } from '@watchlog/api-types';
 import { api } from '@/api/client';
 import { ownerQuery, type OwnType, type OwnUnit } from '@/lib/own-metrics';
@@ -88,4 +91,18 @@ export const ownMetricsApi = {
     }),
   find: (cluster: string) => api<OwnFound>(`${base(cluster)}/find`, { method: 'POST' }),
   found: (cluster: string) => api<OwnFound>(`${base(cluster)}/find`),
+};
+
+/** Dashboards of own metrics: the org's, not a cluster's. */
+export const ownDashboardsApi = {
+  list: () => api<OwnDashboardList>('/own-dashboards'),
+  get: (id: string) => api<OwnDashboard>(`/own-dashboards/${id}`),
+  create: (name: string, copyOf?: string) =>
+    api<{ id: string; name: string }>('/own-dashboards', {
+      method: 'POST',
+      body: { name, ...(copyOf ? { copyOf } : {}) },
+    }),
+  save: (id: string, body: { name?: string; widgets?: OwnWidgetInput[] }) =>
+    api<OwnDashboard>(`/own-dashboards/${id}`, { method: 'PUT', body }),
+  remove: (id: string) => api<void>(`/own-dashboards/${id}`, { method: 'DELETE' }),
 };
