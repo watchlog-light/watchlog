@@ -185,6 +185,28 @@ func (p *Poller) probe(ctx context.Context, addr string, d Discovery, neighbours
 			_ = r.Close()
 			cancel()
 			return f, out
+		case "dahua":
+			// A recorder profile tried against one address (1.0.2): its name and model, two reads.
+			r, err := p.dialDahua(pctx, addr, c.Dahua)
+			if err != nil {
+				cancel()
+				f.Error = err.Error()
+				continue
+			}
+			name, err := r.Get(pctx, dahuaMachineName)
+			if err != nil {
+				r.Close()
+				cancel()
+				f.Error = err.Error()
+				continue
+			}
+			model, _ := r.Get(pctx, dahuaDeviceType)
+			r.Close()
+			cancel()
+			return Found{
+				Address: addr, Vendor: "Dahua", Profile: "dahua", Credential: c.ID, Protocol: "dahua", Answered: true,
+				Name: parseKV(name)["name"], Model: parseKV(model)["type"],
+			}, nil
 		default:
 			r, err := p.dial(addr, c.SNMP, "", "")
 			if err != nil {

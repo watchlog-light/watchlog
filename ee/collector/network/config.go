@@ -115,4 +115,7 @@ type Candidate struct {
 	Protocol string    `json:"protocol"`
 	SNMP     *SNMPCred `json:"snmp,omitempty"`
 	RouterOS *ROSCred  `json:"routeros,omitempty"`
+	// Dahua is tried only by "Test against an address" (1.0.2): recorders are added by
+	// address, never swept for.
+	Dahua *DahuaCred `json:"dahua,omitempty"`
 }
