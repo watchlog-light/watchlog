@@ -759,6 +759,13 @@ describe('a recorder and a UPS polled from a server of a fleet', () => {
         })
       ).statusCode,
     ).toBe(204);
+    // Set by hand, so the audit trail says who set it (1.0.2).
+    const audited = await ctx!.db
+      .selectFrom('audit_events')
+      .select(['details'])
+      .where('action', '=', 'network_feeds_changed')
+      .execute();
+    expect(audited.at(-1)?.details).toMatchObject({ feeds: 'db-1' });
 
     for (let i = 1; i <= 6; i++) {
       clock = NOW + i * MIN;

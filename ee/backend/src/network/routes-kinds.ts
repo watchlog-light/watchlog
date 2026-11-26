@@ -578,7 +578,7 @@ export function registerKindRoutes(api: FastifyInstance, host: EeHost, h: KindHe
       const { feeds } = request.body as { feeds: { clusterId: string; node: string }[] };
       const d = await db
         .selectFrom('network_devices')
-        .select(['id', 'kind'])
+        .select(['id', 'kind', 'name'])
         .where('org_id', '=', orgId)
         .where('id', '=', id)
         .where('removed_at', 'is', null)
@@ -601,6 +601,11 @@ export function registerKindRoutes(api: FastifyInstance, host: EeHost, h: KindHe
         .set({ feeds: JSON.stringify(unique), updated_at: new Date(host.now()) })
         .where('id', '=', id)
         .execute();
+      // 1.0.2: what a UPS powers is set by hand, so the audit trail says who set it.
+      await host.audit(request, 'network_feeds_changed', {
+        device: d.name,
+        feeds: unique.map((f) => f.node).join(', ') || 'none',
+      });
       return reply.code(204).send();
     },
   );
