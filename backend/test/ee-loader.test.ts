@@ -79,5 +79,7 @@ describe('loading ee/', () => {
     // Not signed in: 401 before anything about the licence.
     const anon = await ctx!.app.inject({ method: 'GET', url: '/api/v1/ee/fake' });
     expect(anon.statusCode).toBe(401);
-  });
+    // The app is built four times: 3 to 5 seconds on CI's runners, past the default limit on a
+    // slow one (it failed there at 5.4 s on 2026-11-26).
+  }, 30_000);
 });

@@ -659,7 +659,8 @@ describe('the write-only token', () => {
     expect(Number(limited.headers['retry-after'])).toBeGreaterThan(0);
     // Another token has its own allowance.
     expect((await push(b.value, { name: 'jobs_waiting', value: 1 })).statusCode).toBe(200);
-  });
+    // A second app is built here: 4.7 s on a CI runner on 2026-11-26, under the default by little.
+  }, 30_000);
 });
 
 describe('remote write', () => {
