@@ -6896,7 +6896,8 @@
       },
       "limits": {
         "title": "Kept under control",
-        "source": "At most {max} series from one source; the rest are dropped and the table below says which.",
+        "source": "At most {max} series from one scraped endpoint, and from one token's pushes; the rest are dropped and the table below says which.",
+        "remoteWrite": "A token's remote write has no cap of its own: a whole Prometheus fits, up to your plan's series.",
         "plan": "{max} series on your plan; {used} in use.",
         "sources": "{max} sources on your plan.",
         "labels": "A label with more than 100 values on one metric (ids, emails, paths) gets that metric refused, with the label's name.",
@@ -6955,7 +6956,7 @@
       "failing": "The last read failed: {error}",
       "dropped": {
         "sources": "Over your plan's {max} sources: nothing of it is stored. Remove a source, or upgrade.",
-        "sourceCap": "1 series dropped: one source brings at most {max}. | {n} series dropped: one source brings at most {max}.",
+        "sourceCap": "1 series dropped: an endpoint or a token's pushes bring at most {max}. | {n} series dropped: an endpoint or a token's pushes bring at most {max}.",
         "orgCap": "1 new series refused: all {max} series of your plan are in use. | {n} new series refused: all {max} series of your plan are in use.",
         "cardinality": "{metric} refused: too many values for {label}.",
         "reserved": "1 series refused: names starting watchlog_ are WatchLog's own. | {n} series refused: names starting watchlog_ are WatchLog's own.",

@@ -389,7 +389,11 @@ describe('Add a source', () => {
     expect(panel.text()).toContain('watchlog.io/scrape: "true"');
     expect(panel.text()).toContain('watchlog.io/port');
     expect(wrapper.get('[data-testid="own-limits"]').text()).toContain(
-      'At most 500 series from one source',
+      "At most 500 series from one scraped endpoint, and from one token's pushes",
+    );
+    // 1.0.1 (ADR-240): a token's remote write is limited by the plan's series only.
+    expect(wrapper.get('[data-testid="own-limits-remote-write"]').text()).toBe(
+      "A token's remote write has no cap of its own: a whole Prometheus fits, up to your plan's series.",
     );
     expect(wrapper.get('[data-testid="own-limits"]').text()).toContain(
       '2,000 series on your plan; 412 in use.',
@@ -401,7 +405,7 @@ describe('Add a source', () => {
     expect(source.text()).toContain('296');
     expect(source.get('[data-testid="own-source-state"]').text()).toBe('ok · just now');
     expect(source.get('[data-testid="own-source-dropped"]').text()).toBe(
-      '38 series dropped: one source brings at most 500.',
+      "38 series dropped: an endpoint or a token's pushes bring at most 500.",
     );
     // Scraped because of its annotation: removed there, not here.
     expect(source.find('[data-testid="own-source-remove"]').exists()).toBe(false);

@@ -276,6 +276,9 @@ async function addAddress() {
             <h3 class="text-14 font-semibold text-text">{{ $t('ownMetrics.add.limits.title') }}</h3>
             <ul class="mt-2 flex flex-col gap-1.5 text-13 leading-relaxed text-text-muted">
               <li>{{ $t('ownMetrics.add.limits.source', { max: limits.seriesPerSource }) }}</li>
+              <li data-testid="own-limits-remote-write">
+                {{ $t('ownMetrics.add.limits.remoteWrite') }}
+              </li>
               <li>
                 {{
                   $t('ownMetrics.add.limits.plan', {
