@@ -31,7 +31,8 @@ import {
   firingAlerts,
   seriesTokens,
 } from './exclusion.js';
-import { unitOf } from './keys.js';
+import { ownKeyParts, unitOf } from './keys.js';
+import { wordsOf } from '../own-metrics/naming.js';
 import { labelsOf } from './read.js';
 
 export { ANOMALY_RULE_KEY };
@@ -114,6 +115,9 @@ const KEY_WORDS: Record<string, string> = {
 };
 
 export function metricWords(key: string, peer?: string | null): string {
+  // A watched own metric: a few words from its name ("orders created").
+  const own = ownKeyParts(key);
+  if (own) return wordsOf(own.name).toLowerCase();
   const w = KEY_WORDS[key];
   if (w) return w.replace('{peer}', peer ?? '?');
   // An integration's key: "redis.ops.rate" → "ops rate".

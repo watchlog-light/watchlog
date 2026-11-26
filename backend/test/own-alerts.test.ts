@@ -5,8 +5,12 @@
 // and the usual range.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
-import { VictoriaQueryClient } from '../src/lib/victoria.js';
+import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import { lookupEvaluator } from '../src/modules/alerts/rules.js';
+import { metricWords } from '../src/modules/anomaly/alerts.js';
+import { unitOf } from '../src/modules/anomaly/keys.js';
+import { objectOf } from '../src/modules/anomaly/read.js';
+import { watchedQueries } from '../src/modules/own-metrics/watched.js';
 import { alertText } from '../src/modules/alerts/text.js';
 import { ownMetricLimits } from '../src/modules/entitlements/own-metrics.js';
 import {
@@ -695,5 +699,116 @@ describe('Watch with What changed, and the usual range (Pro)', () => {
       (await api('PUT', `${base}/metrics/${await metricId('c_gauge')}/watch`, { watched: true }))
         .statusCode,
     ).toBe(200);
+  });
+});
+
+describe('a watched metric in What changed (ADR-238)', () => {
+  it('is one more series of its workload, under the labels What changed reads', async () => {
+    await start();
+    plan(PRO);
+    const now = Date.now() - 2 * MIN;
+    await pod('orders-1', 'orders');
+    await write([
+      ...line(
+        'orders_created_total',
+        { namespace: 'shop', pod: 'orders-1', method: 'card' },
+        now - 10 * MIN,
+        now,
+        (t) => (t - now) / 1000 + 5000,
+      ),
+      ...line('orders_created_total', {}, now - 10 * MIN, now, () => 1),
+      ...line('plain_gauge', { namespace: 'shop', pod: 'orders-1' }, now - 10 * MIN, now, () => 3),
+      ...line(
+        'backup_timestamp',
+        { namespace: 'shop', pod: 'orders-1' },
+        now - 10 * MIN,
+        now,
+        () => now / 1000,
+      ),
+    ]);
+    // Nothing watched: What changed asks for nothing more.
+    expect(await watchedQueries(ctx.db, clusterId)).toEqual([]);
+    const base = `/clusters/${clusterId}/own-metrics`;
+    await api('PUT', `${base}/metrics/${await metricId('orders_created_total')}/watch`, {
+      watched: true,
+    });
+    const queries = await watchedQueries(ctx.db, clusterId);
+    expect(queries).toHaveLength(1);
+    const q = queries[0]!;
+    expect(q.key).toBe('own:per_second:orders_created_total');
+    expect(q.unit).toBe('per_second');
+    expect(unitOf(q.key)).toBe('per_second');
+    expect(metricWords(q.key)).toBe('orders created');
+    // Read as the worker reads it: one line for shop/orders, none for the series tied to nothing.
+    const at = Math.floor(now / 1000);
+    const rows = await vm.queryRange(authorisedScope(clusterId), q.expr, at - 300, at, 60);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.labels).toEqual({
+      namespace: 'shop',
+      workload: 'orders',
+      workload_kind: 'Deployment',
+    });
+    expect(rows[0]!.points.at(-1)![1]).toBeCloseTo(1, 1);
+    expect(objectOf(q.key, rows[0]!.labels)).toEqual({
+      object: { kind: 'workload', name: 'orders', namespace: 'shop', workloadKind: 'Deployment' },
+      peer: null,
+    });
+  });
+
+  it('on a fleet it is its server’s; a name too long for a key is left out', async () => {
+    await start('server');
+    plan(PRO);
+    await ctx.db
+      .insertInto('agent_instances')
+      .values({
+        id: newId(),
+        cluster_id: clusterId,
+        node: 'gpu-1',
+        mode: 'docker',
+        agent_version: '1',
+        last_seen_at: new Date(),
+      })
+      .execute();
+    const now = Date.now() - 2 * MIN;
+    const long = `m_${'x'.repeat(90)}`;
+    await write([
+      ...line(
+        'gpu_temperature_celsius',
+        { instance: 'gpu-1:9400', gpu: '0' },
+        now - 10 * MIN,
+        now,
+        () => 70,
+      ),
+      ...line(
+        'gpu_temperature_celsius',
+        { instance: 'gpu-1:9400', gpu: '1' },
+        now - 10 * MIN,
+        now,
+        () => 80,
+      ),
+      ...line(long, { instance: 'gpu-1:9400' }, now - 10 * MIN, now, () => 1),
+    ]);
+    const base = `/clusters/${clusterId}/own-metrics`;
+    await api('PUT', `${base}/metrics/${await metricId('gpu_temperature_celsius')}/watch`, {
+      watched: true,
+    });
+    await api('PUT', `${base}/metrics/${await metricId(long)}/watch`, { watched: true });
+    const queries = await watchedQueries(ctx.db, clusterId);
+    expect(queries.map((q) => q.key)).toEqual(['own:count:gpu_temperature_celsius']);
+    const at = Math.floor(now / 1000);
+    const rows = await vm.queryRange(
+      authorisedScope(clusterId),
+      queries[0]!.expr,
+      at - 300,
+      at,
+      60,
+    );
+    expect(rows.map((r) => r.labels)).toEqual([{ host: 'gpu-1' }]);
+    // A temperature is averaged over its series.
+    expect(rows[0]!.points.at(-1)![1]).toBe(75);
+    expect(objectOf(queries[0]!.key, rows[0]!.labels).object).toEqual({
+      kind: 'host',
+      name: 'gpu-1',
+    });
   });
 });

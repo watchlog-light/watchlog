@@ -4,6 +4,7 @@
 // step through the catalog's own template (ADR-028); the service map's edges, which are not
 // catalog keys, through fixed templates below with the map's own labels (ADR-139).
 import { createHash } from 'node:crypto';
+import type { Database } from '../../db/index.js';
 import { buildQuery, metricUnit, type MetricKey, type Unit } from '../query/catalog.js';
 
 export type ClusterKind = 'kubernetes' | 'server';
@@ -129,6 +130,7 @@ export const EDGE_KEYS = {
 export type ScoredKey = MetricKey | keyof typeof EDGE_KEYS;
 
 export interface KeyQuery {
+  /** A fixed key, or a watched own metric's (`own:<unit>:<name>`, typed as one of them). */
   key: ScoredKey;
   unit: Unit;
   expr: string;
@@ -170,8 +172,35 @@ export function queriesFor(kind: ClusterKind, integrationTypes: Iterable<string>
   return out;
 }
 
+/**
+ * A watched own metric's key (1.0.0, ADR-238): its statistics unit and its name,
+ * "own:per_second:orders_created_total". The key says the unit because nothing else here knows
+ * a user's metric.
+ */
+export const OWN_KEY_PREFIX = 'own:';
+export const ownKey = (unit: Unit, name: string): string => `${OWN_KEY_PREFIX}${unit}:${name}`;
+export function ownKeyParts(key: string): { unit: Unit; name: string } | null {
+  if (!key.startsWith(OWN_KEY_PREFIX)) return null;
+  const rest = key.slice(OWN_KEY_PREFIX.length);
+  const i = rest.indexOf(':');
+  return i > 0 ? { unit: rest.slice(0, i) as Unit, name: rest.slice(i + 1) } : null;
+}
+
+type ExtraQueries = (db: Database, clusterId: string) => Promise<KeyQuery[]>;
+let extra: ExtraQueries | null = null;
+/** Set by the own-metrics module: the watched own metrics of a cluster, as queries. */
+export function setExtraQueries(fn: ExtraQueries | null): void {
+  extra = fn;
+}
+/** The queries a cluster has beyond the fixed keys; none unless a module set them. */
+export async function extraQueries(db: Database, clusterId: string): Promise<KeyQuery[]> {
+  return extra ? extra(db, clusterId) : [];
+}
+
 /** The unit of a scored key. */
 export function unitOf(key: string): Unit {
+  const own = ownKeyParts(key);
+  if (own) return own.unit;
   if (key in EDGE_KEYS) return EDGE_KEYS[key as keyof typeof EDGE_KEYS].unit;
   return metricUnit(key) ?? 'count';
 }

@@ -7,7 +7,7 @@
 // a range of at most 24 hours. The page, the alert card, the API and the MCP tool read it.
 import type { Database } from '../../db/index.js';
 import { composeMap } from './exclusion.js';
-import { unitOf } from './keys.js';
+import { OWN_KEY_PREFIX, unitOf } from './keys.js';
 
 /** Rows in an answer at most; `total` and `truncated` say how many matched. */
 export const WHAT_CHANGED_MAX_ROWS = 50;
@@ -160,6 +160,21 @@ export function objectOf(
   l: Record<string, string>,
   compose: ComposeOf = new Map(),
 ): { object: ObjectView; peer: string | null } {
+  // A watched own metric (ADR-238): the workload or the server it belongs to.
+  if (key.startsWith(OWN_KEY_PREFIX)) {
+    if (l.workload) {
+      return {
+        object: {
+          kind: 'workload',
+          name: l.workload,
+          ...(l.namespace ? { namespace: l.namespace } : {}),
+          ...(l.workload_kind ? { workloadKind: l.workload_kind } : {}),
+        },
+        peer: null,
+      };
+    }
+    return { object: { kind: 'host', name: l.host ?? '' }, peer: null };
+  }
   if (key.startsWith('workload.http.')) {
     if (l.dst_kind === 'container' && l.dst) {
       return { object: containerView(l.dst, undefined, compose), peer: null };

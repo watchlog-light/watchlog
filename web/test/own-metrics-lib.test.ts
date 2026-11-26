@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { OwnMetric } from '@watchlog/api-types';
 import { describe, expect, it } from 'vitest';
+import { metricText, ownWords } from '@/lib/what-changed';
 import {
   chartPer,
   chipsOf,
@@ -214,5 +215,18 @@ describe('sources and snippets', () => {
     expect(pushSnippet('https://w.example.com', 'wl_mt_abc', 'server')).toContain(
       '"server": "db-1"',
     );
+  });
+});
+
+describe('a watched metric in What changed', () => {
+  it('reads as a few words from its name, never as its key', () => {
+    const tr = (key: string) => key;
+    expect(metricText({ key: 'own:per_second:orders_created_total', peer: null }, tr)).toBe(
+      'orders created',
+    );
+    expect(metricText({ key: 'own:seconds:checkout_duration_seconds', peer: null }, tr)).toBe(
+      'checkout duration',
+    );
+    expect(ownWords('gpu_temperature_celsius')).toBe('gpu temperature');
   });
 });

@@ -29,6 +29,8 @@ import { LicenseService } from './modules/license/service.js';
 import { configureOwnAlerts } from './modules/own-metrics/alerts.js';
 import { ownLimitsProvider } from './modules/own-metrics/limits.js';
 import { OwnUsual } from './modules/own-metrics/usual.js';
+import { watchedQueries } from './modules/own-metrics/watched.js';
+import { setExtraQueries } from './modules/anomaly/keys.js';
 import { AlertWorker } from './modules/alerts/worker.js';
 import { runApiTokenJobs, TOKEN_JOBS_EVERY_MS } from './modules/api-tokens/jobs.js';
 import { EntitlementsService } from './modules/entitlements/service.js';
@@ -119,6 +121,8 @@ configureOwnAlerts({
   limits: ownLimitsProvider({ config, db, entitlements, license }),
   usual: new OwnUsual(victoria),
 });
+// What changed scores the watched own metrics with its own keys (ADR-238).
+setExtraQueries(watchedQueries);
 setAnomalyGate(whatChanged);
 try {
   setAnomalyAlertKeys(parseAlertKeys(process.env.WATCHLOG_ANOMALY_ALERT_KEYS));

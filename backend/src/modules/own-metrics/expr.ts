@@ -50,6 +50,8 @@ export interface ExprOptions {
   stat?: Stat;
   /** One line for each workload or server the series belong to (an alert names its owner). */
   perOwner?: boolean;
+  /** Only series that belong to a workload, or to a server (What changed places them there). */
+  owned?: 'workload' | 'server';
 }
 
 /** A label value inside a double-quoted PromQL string. */
@@ -86,6 +88,8 @@ function selector(name: string, o: ExprOptions): string {
   } else if (owner?.kind === 'server') {
     parts.push(`wl_server=${quote(owner.name)}`);
   }
+  if (o.owned === 'workload') parts.push('wl_workload!=""');
+  else if (o.owned === 'server') parts.push('wl_server!=""');
   if (o.by) {
     if (!LABEL_NAME.test(o.by)) throw new Error(`not a label name: ${o.by}`);
     if (o.only !== undefined) parts.push(`${o.by}=${quote(o.only)}`);

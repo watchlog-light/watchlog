@@ -62,6 +62,8 @@ import { configureOwnAlerts } from './modules/own-metrics/alerts.js';
 import { Belonging } from './modules/own-metrics/belonging.js';
 import { changeEventRoutes } from './modules/own-metrics/events.js';
 import { OwnUsual } from './modules/own-metrics/usual.js';
+import { watchedQueries } from './modules/own-metrics/watched.js';
+import { setExtraQueries } from './modules/anomaly/keys.js';
 import { ownLimitsProvider } from './modules/own-metrics/limits.js';
 import { Probes } from './modules/own-metrics/probes.js';
 import { ownDashboardRoutes } from './modules/own-metrics/dashboard-routes.js';
@@ -352,6 +354,8 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
   // Alerts on own metrics read the org's limits and a watched metric's usual range.
   const ownUsual = new OwnUsual(victoria);
   configureOwnAlerts({ limits: async (orgId) => (await own.usage(orgId)).limits, usual: ownUsual });
+  // What changed reads the watched own metrics with its own keys (ADR-238).
+  setExtraQueries(watchedQueries);
   // The collector's section: the endpoints this collector scrapes, and a search when one runs.
   registerCollectorSection('own_metrics', async ({ clusterId, host }) => {
     const targets = await ownTargets.forCollector(clusterId, host);

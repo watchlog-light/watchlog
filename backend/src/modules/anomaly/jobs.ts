@@ -27,6 +27,7 @@ import { seriesReady } from './coverage.js';
 import { coverageOf, recordLearning } from './learning.js';
 import { writeLive, type LiveEntry } from './live.js';
 import {
+  extraQueries,
   queriesFor,
   seriesHash,
   STEP_S,
@@ -199,10 +200,14 @@ async function clusterQueries(db: Database, t: Target): Promise<KeyQuery[]> {
     .distinct()
     .where('cluster_id', '=', t.clusterId)
     .execute();
-  return queriesFor(
-    t.kind,
-    types.map((r) => r.type),
-  );
+  return [
+    ...queriesFor(
+      t.kind,
+      types.map((r) => r.type),
+    ),
+    // The org's watched own metrics (ADR-238), on the workload or server they belong to.
+    ...(await extraQueries(db, t.clusterId)),
+  ];
 }
 
 /** Runs the queries a few at a time. */

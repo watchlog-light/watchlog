@@ -224,11 +224,22 @@ const KNOWN_METRICS = new Set([
 ]);
 const keyOf = (key: string) => key.replace(/\./g, '_');
 
+/** "orders_created_total" → "orders created": the words the metric's own page uses, in a sentence. */
+export function ownWords(name: string): string {
+  const base = name
+    .replace(/_total$/, '')
+    .replace(/_timestamp(_seconds)?$/, '')
+    .replace(/_(seconds|bytes|celsius|ratio|percent)$/, '');
+  return (base || name).split(/[_:]+/).filter(Boolean).join(' ');
+}
+
 /** What moved, short: "p95 response time", "connections to postgres", "Redis commands/s". */
 export function metricText(row: Pick<WhatChangedRow, 'key' | 'peer'>, tr: Tr): string {
   if (KNOWN_METRICS.has(row.key)) {
     return tr(`whatChanged.metric.${keyOf(row.key)}`, { peer: row.peer ?? '?' });
   }
+  // A watched own metric ("own:per_second:orders_created_total"): a few words from its name.
+  if (row.key.startsWith('own:')) return ownWords(row.key.split(':').slice(2).join(':'));
   const name = tr(`metricNames.${keyOf(row.key)}`);
   return name === `metricNames.${keyOf(row.key)}` ? row.key : name;
 }

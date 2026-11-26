@@ -26,7 +26,14 @@ import { clusterForOrg } from '../clusters/service.js';
 import { actorOf, audit } from '../users/service.js';
 import { ANOMALY_RULE_KEY } from './alerts.js';
 import { proAccess, proExists, sendProRefusal } from '../license/pro.js';
-import { INTEGRATION_KEYS, queriesFor, seriesHash, subjectOf, unitOf } from './keys.js';
+import {
+  extraQueries,
+  INTEGRATION_KEYS,
+  queriesFor,
+  seriesHash,
+  subjectOf,
+  unitOf,
+} from './keys.js';
 import { composeMap } from './exclusion.js';
 import { labelsOf, objectOf } from './read.js';
 import { ObjectSchema } from './routes.js';
@@ -251,9 +258,10 @@ export const anomalyFeedbackRoutes: FastifyPluginAsyncTypebox<{
         if (r) band.push({ from: new Date(h).toISOString(), low: r.low, high: r.high });
       }
       let points: [number, number | null][] = [];
-      const q = queriesFor(kind, Object.keys(INTEGRATION_KEYS)).find(
-        (x) => x.key === period.metric,
-      );
+      const q = [
+        ...queriesFor(kind, Object.keys(INTEGRATION_KEYS)),
+        ...(await extraQueries(db, cluster.id)),
+      ].find((x) => x.key === period.metric);
       if (victoria && q) {
         try {
           const series = await victoria.queryRange(

@@ -27,7 +27,7 @@ import {
   type StoryRow,
 } from '../causes/story.js';
 import { parseSubject } from '../causes/subject.js';
-import { INTEGRATION_KEYS, queriesFor, seriesHash, subjectOf } from './keys.js';
+import { extraQueries, INTEGRATION_KEYS, queriesFor, seriesHash, subjectOf } from './keys.js';
 import { causeSubjectOf, oncePerSeries, sortRows, type ClusterKind, type RowView } from './read.js';
 import type { OwnParts } from './live.js';
 import { readChanges, relatedBy, workloadNodes, type MapRead } from './story-read.js';
@@ -141,7 +141,10 @@ async function sparks(
   toMs: number,
 ): Promise<StoryView['spark']> {
   if (!deps.victoria || !rows.length) return [];
-  const queries = queriesFor(cluster.kind, Object.keys(INTEGRATION_KEYS));
+  const queries = [
+    ...queriesFor(cluster.kind, Object.keys(INTEGRATION_KEYS)),
+    ...(await extraQueries(deps.db, cluster.id)),
+  ];
   const from = Math.floor(fromMs / 60_000) * 60;
   const to = Math.ceil(toMs / 60_000) * 60;
   const out: StoryView['spark'] = [];
