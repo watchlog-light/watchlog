@@ -4,6 +4,7 @@ package network
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/netip"
 	"sort"
@@ -153,6 +154,9 @@ func (p *Poller) discover(ctx context.Context, d Discovery) {
 // probe tries each credential on an address; with neighbours, it also reads the device's
 // CDP, LLDP or MNDP table and proposes what it sees.
 func (p *Poller) probe(ctx context.Context, addr string, d Discovery, neighbours bool) (Found, []Found) {
+	if d.Find {
+		return p.find(ctx, addr, d), nil
+	}
 	f := Found{Address: addr, Error: errNoCredential.Error()}
 	for _, c := range d.Credentials {
 		pctx, cancel := context.WithTimeout(ctx, probeTimeout)
@@ -244,4 +248,58 @@ func (p *Poller) probe(ctx context.Context, addr string, d Discovery, neighbours
 		}
 	}
 	return f, nil
+}
+
+// find is "Find what works" (1.0.4): one SNMPv3 profile's passwords, with each combination of
+// protocols in the order given, against one address, one try at a time and no retries, until
+// one answers. What the device reports narrows the rest: a wrong digest rules out that
+// authentication; a privacy that doesn't match (a report, or silence after the engine
+// discovery) means the authentication is right, so only its combinations are left; an unknown
+// user, another security level or no answer at all ends the search. It never tries another
+// user, password or address.
+func (p *Poller) find(ctx context.Context, addr string, d Discovery) Found {
+	f := Found{Address: addr, Error: errNoCredential.Error()}
+	authOK := ""
+	ruledOut := map[string]bool{}
+	for _, c := range d.Credentials {
+		if c.SNMP == nil || ctx.Err() != nil {
+			continue
+		}
+		auth := strings.ToUpper(c.SNMP.AuthProto)
+		if ruledOut[auth] || (authOK != "" && auth != authOK) {
+			continue
+		}
+		f.Tried = append(f.Tried, c.ID)
+		pctx, cancel := context.WithTimeout(ctx, probeTimeout)
+		r, err := p.dial(addr, c.SNMP, "", "")
+		if err == nil {
+			if s, ok := r.(*session); ok {
+				s.g.Retries = 0
+			}
+			var sys *System
+			sys, err = readSystem(pctx, r)
+			_ = r.Close()
+			if err == nil {
+				cancel()
+				prof := p.profiles.For(sys.ObjectID, sys.Descr)
+				tried := f.Tried
+				f = Found{Address: addr, Name: sys.Name, Model: sys.Model, Vendor: prof.Vendor, Profile: prof.Name, Credential: c.ID, Protocol: "snmp", Answered: true, Tried: tried}
+				if f.Model == "" {
+					f.Model = firstLine(sys.Descr)
+				}
+				return f
+			}
+		}
+		cancel()
+		f.Error = err.Error()
+		switch {
+		case errors.Is(err, errSNMPUser), errors.Is(err, errSNMPLevel), errors.Is(err, errNoAnswer):
+			return f
+		case errors.Is(err, errSNMPDigest):
+			ruledOut[auth] = true
+		case errors.Is(err, errSNMPPrivacy), errors.Is(err, errSNMPSilent):
+			authOK = auth
+		}
+	}
+	return f
 }

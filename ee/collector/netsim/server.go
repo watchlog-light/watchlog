@@ -12,11 +12,13 @@ import (
 	"github.com/gosnmp/gosnmp"
 )
 
-// Server answers SNMP v2c for many agents on one UDP socket each, as a lab of devices would.
-// It answers GET, GETNEXT and GETBULK; anything else gets a genErr. Clock is the time the
-// counters are read at (a replayed hour passes faster than an hour).
+// Server answers SNMP v2c and SNMPv3 (1.0.4) for many agents on one UDP socket each, as a lab
+// of devices would. It answers GET, GETNEXT and GETBULK; anything else gets a genErr. Clock is
+// the time the counters are read at (a replayed hour passes faster than an hour). Users are the
+// SNMPv3 users every agent answers, unless the agent has its own (a QNAP's: SHA with DES).
 type Server struct {
 	Community string
+	Users     []V3User
 	Clock     func() time.Time
 	mu        sync.Mutex
 	conns     []net.PacketConn
@@ -57,6 +59,16 @@ func (s *Server) serve(pc net.PacketConn, a *Agent) {
 			}
 			continue
 		}
+		if isV3(buf[:n]) {
+			users := s.Users
+			if len(a.Users) > 0 {
+				users = a.Users
+			}
+			if out := s.v3(a, append([]byte(nil), buf[:n]...), users, s.now()); out != nil {
+				_, _ = pc.WriteTo(out, from)
+			}
+			continue
+		}
 		req, err := dec.SnmpDecodePacket(buf[:n])
 		if err != nil || req.Version != gosnmp.Version2c {
 			continue
@@ -83,11 +95,32 @@ func cutAt(c string) (string, string, bool) {
 	return c, "", false
 }
 
-// respond builds the answer to one request.
+// isV3 reads the message's version: SEQUENCE, then INTEGER 3.
+func isV3(b []byte) bool {
+	if len(b) < 2 || b[0] != 0x30 {
+		return false
+	}
+	i := 2
+	if b[1]&0x80 != 0 {
+		i += int(b[1] & 0x7f)
+	}
+	return len(b) > i+2 && b[i] == 0x02 && b[i+1] == 0x01 && b[i+2] == 0x03
+}
+
+// respond builds the answer to one v2c request.
 func respond(a *Agent, req *gosnmp.SnmpPacket, now time.Time) ([]byte, error) {
+	res, err := answer(a, req, now)
+	if err != nil {
+		return nil, err
+	}
+	res.Version, res.Community = req.Version, req.Community
+	return res.MarshalMsg()
+}
+
+// answer is the response PDU to a request, whatever its version.
+func answer(a *Agent, req *gosnmp.SnmpPacket, now time.Time) (*gosnmp.SnmpPacket, error) {
 	res := &gosnmp.SnmpPacket{
-		Version: req.Version, Community: req.Community, PDUType: gosnmp.GetResponse,
-		RequestID: req.RequestID, Logger: gosnmp.NewLogger(nil),
+		PDUType: gosnmp.GetResponse, RequestID: req.RequestID, Logger: gosnmp.NewLogger(nil),
 	}
 	switch req.PDUType {
 	case gosnmp.GetRequest:
@@ -112,5 +145,5 @@ func respond(a *Agent, req *gosnmp.SnmpPacket, now time.Time) ([]byte, error) {
 		res.Error = gosnmp.GenErr
 		res.Variables = req.Variables
 	}
-	return res.MarshalMsg()
+	return res, nil
 }

@@ -28,6 +28,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gosnmp/gosnmp"
 	"github.com/watchlog-light/watchlog/ee/collector/netsim"
 )
 
@@ -53,6 +54,9 @@ func main() {
 	dahuaPort := flag.Int("dahua-port", 0, "serve a Dahua recorder (nvr-1) on this HTTP port (0: none)")
 	dahuaUser := flag.String("dahua-user", "watchlog", "the recorder's user")
 	dahuaPassword := flag.String("dahua-password", "read-only-sample", "the recorder's password")
+	v3User := flag.String("v3-user", "watchlog", "the SNMPv3 user every device answers (1.0.4)")
+	v3Auth := flag.String("v3-auth-pass", "read-only-auth", "the SNMPv3 user's authentication password")
+	v3Priv := flag.String("v3-priv-pass", "read-only-priv", "the SNMPv3 user's privacy password")
 	certSeed := flag.String("cert-seed", "", "derive the router's certificate from this seed: the same after a restart (the demo)")
 	flag.Parse()
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -100,11 +104,18 @@ func main() {
 		specs = netsim.Office(eps)
 	}
 	specs = append(specs, netsim.Fleet(*fleet)...)
-	srv := &netsim.Server{Community: *community, Clock: clock}
+	// Every device answers v2c with the community, and SNMPv3 as WatchLog recommends it
+	// (SHA-256 with AES); the NAS answers SNMPv3 only as QTS can set it up: SHA with DES (1.0.4).
+	srv := &netsim.Server{Community: *community, Clock: clock, Users: []netsim.V3User{{
+		Name: *v3User, Auth: gosnmp.SHA256, AuthPass: *v3Auth, Priv: gosnmp.AES, PrivPass: *v3Priv,
+	}}}
 	agents := map[string]*netsim.Agent{}
 	out := json.NewEncoder(os.Stdout)
 	for i, s := range specs {
 		a := netsim.Build(s, start)
+		if s.Model == "QNAP" {
+			a.Users = netsim.QNAPUsers(*v3User, *v3Auth, *v3Priv)
+		}
 		agents[s.Name] = a
 		addr := net.JoinHostPort(*listen, "0")
 		if *snmpPort > 0 {

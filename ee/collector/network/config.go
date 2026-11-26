@@ -50,7 +50,9 @@ type SNMPCred struct {
 	Port      int    `json:"port,omitempty"`
 	Community string `json:"community,omitempty"`
 	User      string `json:"user,omitempty"`
-	// AuthProto: SHA, SHA224, SHA256, SHA384, SHA512. PrivProto: AES, AES192, AES256.
+	// AuthProto: SHA, SHA224, SHA256, SHA384, SHA512, MD5, or NONE (noAuthNoPriv). PrivProto:
+	// AES, AES192, AES256, AES192C, AES256C (Cisco's key extension), DES, or NONE (authNoPriv).
+	// MD5, DES, the C forms and NONE for authentication need the 1.0.4 collector.
 	AuthProto string `json:"authProto,omitempty"`
 	AuthKey   string `json:"authKey,omitempty"`
 	PrivProto string `json:"privProto,omitempty"`
@@ -107,6 +109,10 @@ type Discovery struct {
 	Range       string      `json:"range,omitempty"`
 	Neighbours  bool        `json:"neighbours"`
 	Credentials []Candidate `json:"credentials"`
+	// Find is "Find what works" (1.0.4): the candidates are one SNMPv3 profile's passwords
+	// with each combination of protocols, tried one at a time against one address, with no
+	// retries, until one answers; what the device reports rules the others out.
+	Find bool `json:"find,omitempty"`
 }
 
 // Candidate is one credential profile a discovery tries.

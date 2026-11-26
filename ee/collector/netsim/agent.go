@@ -30,9 +30,11 @@ type Value struct {
 // (Cisco's community@vlan and vlan-<id> contexts).
 type Agent struct {
 	Name string
-	mu   sync.RWMutex
-	vals map[string]*Value
-	oids []oidKey
+	// Users are the SNMPv3 users this device answers (1.0.4); none: the server's.
+	Users []V3User
+	mu    sync.RWMutex
+	vals  map[string]*Value
+	oids  []oidKey
 	// vlans are the per-VLAN contexts' own values (BRIDGE-MIB).
 	vlans map[int]*Agent
 	start time.Time

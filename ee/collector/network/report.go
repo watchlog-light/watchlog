@@ -199,6 +199,8 @@ type Found struct {
 	Answered     bool   `json:"answered"`
 	Error        string `json:"error,omitempty"`
 	ViaNeighbour string `json:"viaNeighbour,omitempty"`
+	// Tried are the candidates "Find what works" tried, in order (1.0.4).
+	Tried []string `json:"tried,omitempty"`
 }
 
 // Wireless is what a CAPsMAN controller (a RouterOS router) says about its access points and
