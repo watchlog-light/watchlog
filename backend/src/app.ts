@@ -488,6 +488,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         probes: ownProbes,
         tokens,
         notifier: collectors,
+        endpointFor: installTarget(config, settings).endpointFor,
       });
       await api.register(ownMetricReadRoutes, { db: deps.db, own, victoria });
       // Cloud only (ADR-173): Community never registers these, so they answer 404.

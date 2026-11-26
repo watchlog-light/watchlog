@@ -16,7 +16,14 @@ import { clusterForOrg } from '../clusters/service.js';
 import { OWN_PINS_PER_PAGE } from '../entitlements/own-metrics.js';
 import { chooseStep } from '../query/catalog.js';
 import { LABEL_NAME, OWN_TYPES, OWN_UNITS } from './naming.js';
-import { labelFacts, listMetrics, metricSeries, valuesNow, type MetricInfo } from './read.js';
+import {
+  labelFacts,
+  listMetrics,
+  metricSeries,
+  sparks,
+  valuesNow,
+  type MetricInfo,
+} from './read.js';
 import type { Owner, OwnMetrics } from './service.js';
 
 const Params = Type.Object({ id: Type.String({ format: 'uuid' }) });
@@ -70,6 +77,13 @@ const MetricS = Type.Object({
   untied: Type.Boolean(),
   pushed: Type.Boolean(),
   value: N,
+});
+
+const ListedS = Type.Object({
+  ...MetricS.properties,
+  spark: Type.Optional(
+    Type.Array(N, { description: 'With spark=true: the last hour in 12 points' }),
+  ),
 });
 
 /** What a page's owner is, in a query string. */
@@ -152,11 +166,12 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
         params: Params,
         querystring: Type.Object({
           all: Type.Optional(Type.Boolean()),
+          spark: Type.Optional(Type.Boolean()),
           ...OwnerQuery,
         }),
         response: {
           200: Type.Object({
-            metrics: Type.Array(MetricS),
+            metrics: Type.Array(ListedS),
             hidden: Type.Number({ description: 'Metrics left off without all=true' }),
           }),
           400: ProblemSchema,
@@ -174,8 +189,17 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
       await own.flush();
       const every = await listMetrics(db, cluster.id, owner ? { owner } : {});
       const shown = request.query.all ? every : every.filter((m) => !m.hidden);
+      const [metrics, lines] = await Promise.all([
+        withValues(cluster.scope, shown, owner),
+        request.query.spark && victoria
+          ? sparks(victoria, cluster.scope, shown).catch((err: unknown) => {
+              app.log.warn({ err: (err as Error).message }, 'own metrics: reading sparks failed');
+              return null;
+            })
+          : null,
+      ]);
       return {
-        metrics: await withValues(cluster.scope, shown, owner),
+        metrics: lines ? metrics.map((m) => ({ ...m, spark: lines.get(m.id) ?? [] })) : metrics,
         hidden: every.length - shown.length,
       };
     },

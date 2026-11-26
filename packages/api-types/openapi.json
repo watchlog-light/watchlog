@@ -47185,7 +47185,8 @@
                     "hidden",
                     "settings",
                     "kind",
-                    "servers"
+                    "servers",
+                    "endpoint"
                   ],
                   "properties": {
                     "usage": {
@@ -47512,6 +47513,9 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "endpoint": {
+                      "type": "string"
                     }
                   }
                 }
@@ -49173,6 +49177,14 @@
           },
           {
             "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "spark",
+            "required": false
+          },
+          {
+            "schema": {
               "anyOf": [
                 {
                   "type": "string",
@@ -49522,6 +49534,20 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "spark": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "description": "With spark=true: the last hour in 12 points"
                           }
                         }
                       }

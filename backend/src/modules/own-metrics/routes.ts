@@ -4,6 +4,7 @@
 // Prometheus-annotations switch, and "Find endpoints for me". Everyone reads; Owners and Admins
 // add and remove. The demo refuses every change like any other (ADR-122).
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
+import type { FastifyRequest } from 'fastify';
 import { Type } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
@@ -100,6 +101,8 @@ const SummaryS = Type.Object({
   kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('server')]),
   /** A fleet's servers, for "an address on one server". */
   servers: Type.Array(Type.String()),
+  /** Where remote write and pushes are sent: this server's address as senders reach it. */
+  endpoint: Type.String(),
 });
 
 const NewSource = Type.Union([
@@ -150,6 +153,8 @@ export interface OwnRoutesOptions {
   probes: Probes;
   tokens: TokenCache;
   notifier: ConfigNotifier;
+  /** Where agents push to (the ingest or Public URL, else the request's own address). */
+  endpointFor: (request: FastifyRequest) => Promise<string>;
 }
 
 const noDrops: Dropped = {
@@ -163,7 +168,7 @@ const noDrops: Dropped = {
 
 export const ownMetricsRoutes: FastifyPluginAsyncTypebox<OwnRoutesOptions> = async (
   app,
-  { db, own, targets, probes, tokens, notifier },
+  { db, own, targets, probes, tokens, notifier, endpointFor },
 ) => {
   const read = [requireUser(), requireRole('owner', 'admin', 'viewer')];
   const write = [requireUser(), requireRole('owner', 'admin')];
@@ -285,6 +290,7 @@ export const ownMetricsRoutes: FastifyPluginAsyncTypebox<OwnRoutesOptions> = asy
         settings: { prometheusAnnotations: cluster.own_metrics_prometheus_annotations },
         kind: cluster.kind === 'server' ? ('server' as const) : ('kubernetes' as const),
         servers: servers.map((s) => s.node),
+        endpoint: await endpointFor(request),
       };
     },
   );

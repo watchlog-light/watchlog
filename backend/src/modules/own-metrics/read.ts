@@ -217,6 +217,40 @@ const last = (s: QuerySeries | undefined): number | null => {
   return p ? p[1] : null;
 };
 
+/** The metrics of one kind share one query; summaries are read one by one. */
+function batches(metrics: readonly MetricInfo[]): {
+  alone: MetricInfo[];
+  groups: { expr: string; chunk: MetricInfo[]; suffix: string }[];
+} {
+  const by = new Map<string, MetricInfo[]>();
+  const alone: MetricInfo[] = [];
+  for (const m of metrics) {
+    if (m.type === 'summary') {
+      alone.push(m);
+      continue;
+    }
+    const sum = m.type === 'gauge' ? summed(m.unit) : true;
+    const key = `${m.type}|${sum}|${m.pushed}`;
+    by.set(key, [...(by.get(key) ?? []), m]);
+  }
+  const groups: { expr: string; chunk: MetricInfo[]; suffix: string }[] = [];
+  for (const [key, list] of by) {
+    const [type, sum, pushed] = key.split('|');
+    for (let i = 0; i < list.length; i += 60) {
+      const chunk = list.slice(i, i + 60);
+      groups.push({
+        chunk,
+        suffix: type === 'histogram' ? '_bucket' : '',
+        expr: exprForMany(
+          { type: type as 'counter', sum: sum === 'true', pushed: pushed === 'true' },
+          chunk.map((m) => m.name),
+        ),
+      });
+    }
+  }
+  return { alone, groups };
+}
+
 /**
  * The value now of each metric, by id: a handful of queries for the whole list (the metrics of
  * one kind share one), or one per metric when an owner narrows them.
@@ -236,40 +270,52 @@ export async function valuesNow(
     await Promise.all(metrics.map(one));
     return out;
   }
-  const groups = new Map<string, MetricInfo[]>();
-  const alone: MetricInfo[] = [];
-  for (const m of metrics) {
-    if (m.type === 'summary') {
-      alone.push(m);
-      continue;
-    }
-    const sum = m.type === 'gauge' ? summed(m.unit) : true;
-    const key = `${m.type}|${sum}|${m.pushed}`;
-    groups.set(key, [...(groups.get(key) ?? []), m]);
-  }
-  const jobs: Promise<void>[] = alone.map(one);
-  for (const [key, list] of groups) {
-    const [type, sum, pushed] = key.split('|');
-    for (let i = 0; i < list.length; i += 60) {
-      const chunk = list.slice(i, i + 60);
-      const suffix = type === 'histogram' ? '_bucket' : '';
-      jobs.push(
-        victoria
-          .query(
-            scope,
-            exprForMany(
-              { type: type as 'counter', sum: sum === 'true', pushed: pushed === 'true' },
-              chunk.map((m) => m.name),
-            ),
-          )
-          .then((rows) => {
-            const byName = new Map(rows.map((r) => [r.labels[MANY_NAME] ?? '', r]));
-            for (const m of chunk) out.set(m.id, last(byName.get(m.name + suffix)));
-          }),
+  const { alone, groups } = batches(metrics);
+  await Promise.all([
+    ...alone.map(one),
+    ...groups.map(async ({ expr, chunk, suffix }) => {
+      const rows = await victoria.query(scope, expr);
+      const byName = new Map(rows.map((r) => [r.labels[MANY_NAME] ?? '', r]));
+      for (const m of chunk) out.set(m.id, last(byName.get(m.name + suffix)));
+    }),
+  ]);
+  return out;
+}
+
+/** The last hour of each metric in 12 points, by id: the list's small lines, in a few queries. */
+export async function sparks(
+  victoria: VictoriaQueryClient,
+  scope: ClusterScope,
+  metrics: readonly MetricInfo[],
+  nowS = Math.floor(Date.now() / 1000),
+): Promise<Map<string, (number | null)[]>> {
+  const out = new Map<string, (number | null)[]>();
+  const step = 300;
+  // Ending now, so the last point is the value the row shows.
+  const to = nowS;
+  const from = to - 11 * step;
+  const values = (s: QuerySeries | undefined): (number | null)[] => {
+    const at = new Map((s?.points ?? []).map(([t, v]) => [t, v]));
+    return Array.from({ length: 12 }, (_, i) => at.get(from + i * step) ?? null);
+  };
+  const { alone, groups } = batches(metrics);
+  await Promise.all([
+    ...alone.map(async (m) => {
+      const rows = await victoria.queryRange(
+        scope,
+        exprFor(exprMetric(m), { step }),
+        from,
+        to,
+        step,
       );
-    }
-  }
-  await Promise.all(jobs);
+      out.set(m.id, values(rows[0]));
+    }),
+    ...groups.map(async ({ expr, chunk, suffix }) => {
+      const rows = await victoria.queryRange(scope, expr, from, to, step);
+      const byName = new Map(rows.map((r) => [r.labels[MANY_NAME] ?? '', r]));
+      for (const m of chunk) out.set(m.id, values(byName.get(m.name + suffix)));
+    }),
+  ]);
   return out;
 }
 

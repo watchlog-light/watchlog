@@ -1241,6 +1241,17 @@ describe('reading: the list, a metric, its line, corrections and pins', () => {
     expect(by.backup_last_success_timestamp_seconds!.value!).toBeGreaterThan(7190);
     expect(by.backup_last_success_timestamp_seconds!.value!).toBeLessThan(7300);
 
+    // The list's small lines: the last hour in 12 points, asked for with the list.
+    expect('spark' in l.metrics[0]!).toBe(false);
+    const withSparks = (
+      await api('GET', `/clusters/${c.id}/own-metrics/metrics?spark=true`)
+    ).json();
+    const spark = withSparks.metrics.find((m: { name: string }) => m.name === 'jobs_waiting').spark;
+    expect(spark).toHaveLength(12);
+    expect(spark.filter((v: number | null) => v !== null).every((v: number) => v === 42)).toBe(
+      true,
+    );
+
     const all = await list(c, '?all=true');
     expect(all.hidden).toBe(0);
     expect(all.metrics.find((m) => m.name === 'go_goroutines')).toMatchObject({

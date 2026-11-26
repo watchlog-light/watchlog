@@ -6892,7 +6892,8 @@
                     "hidden",
                     "settings",
                     "kind",
-                    "servers"
+                    "servers",
+                    "endpoint"
                   ],
                   "properties": {
                     "usage": {
@@ -7061,7 +7062,8 @@
                         { "type": "string", "enum": ["server"] }
                       ]
                     },
-                    "servers": { "type": "array", "items": { "type": "string" } }
+                    "servers": { "type": "array", "items": { "type": "string" } },
+                    "endpoint": { "type": "string" }
                   }
                 }
               }
@@ -7141,6 +7143,7 @@
         "description": "A counter's value is its rate per second, a histogram's its p95, a timestamp's the seconds since it; a gauge is as it is. `all=true` adds the Go, process and scrape internals.",
         "parameters": [
           { "schema": { "type": "boolean" }, "in": "query", "name": "all", "required": false },
+          { "schema": { "type": "boolean" }, "in": "query", "name": "spark", "required": false },
           {
             "schema": {
               "anyOf": [
@@ -7327,7 +7330,12 @@
                           "ownerCount": { "type": "number" },
                           "untied": { "type": "boolean" },
                           "pushed": { "type": "boolean" },
-                          "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                          "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "spark": {
+                            "type": "array",
+                            "items": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                            "description": "With spark=true: the last hour in 12 points"
+                          }
                         }
                       }
                     },

@@ -16982,6 +16982,7 @@ export interface paths {
               };
               kind: 'kubernetes' | 'server';
               servers: string[];
+              endpoint: string;
             };
           };
         };
@@ -17905,6 +17906,7 @@ export interface paths {
       parameters: {
         query?: {
           all?: boolean;
+          spark?: boolean;
           ownerKind?: 'workload' | 'server';
           namespace?: string;
           workloadKind?: string;
@@ -17961,6 +17963,8 @@ export interface paths {
                 untied: boolean;
                 pushed: boolean;
                 value: number | null;
+                /** @description With spark=true: the last hour in 12 points */
+                spark?: (number | null)[];
               }[];
               /** @description Metrics left off without all=true */
               hidden: number;

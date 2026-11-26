@@ -283,3 +283,28 @@ export type LicenseView = JsonBody<Responses<'/api/v1/license', 'get'>[200]>;
 export type LicenseBanner = LicenseView['banners'][number];
 /** What every member's dashboard knows of the licence: the edition, Pro on, when it ended. */
 export type LicenseSummary = JsonBody<Responses<'/api/v1/license/summary', 'get'>[200]>;
+
+/** Your metrics (1.0.0, ADR-236): what is used, the sources, the tokens. */
+export type OwnMetricsSummary = JsonBody<
+  Responses<'/api/v1/clusters/{id}/own-metrics', 'get'>[200]
+>;
+export type OwnSource = OwnMetricsSummary['sources'][number];
+export type OwnOwner = OwnSource['owner'];
+export type OwnMetricToken = OwnMetricsSummary['tokens'][number];
+export type OwnMetricLimits = OwnMetricsSummary['limits'];
+export type OwnNewToken = JsonBody<
+  Responses<'/api/v1/clusters/{id}/own-metrics/tokens', 'post'>[201]
+>;
+export type OwnFound = JsonBody<Responses<'/api/v1/clusters/{id}/own-metrics/find', 'get'>[200]>;
+export type OwnMetricList = JsonBody<
+  Responses<'/api/v1/clusters/{id}/own-metrics/metrics', 'get'>[200]
+>;
+export type OwnMetric = OwnMetricList['metrics'][number];
+export type OwnMetricDetail = JsonBody<
+  Responses<'/api/v1/clusters/{id}/own-metrics/metrics/{metricId}', 'get'>[200]
+>;
+export type OwnMetricSeries = JsonBody<
+  Responses<'/api/v1/clusters/{id}/own-metrics/metrics/{metricId}/series', 'get'>[200]
+>;
+export type OwnPins = JsonBody<Responses<'/api/v1/clusters/{id}/own-metrics/pins', 'get'>[200]>;
+export type OwnPin = OwnPins['pins'][number];
