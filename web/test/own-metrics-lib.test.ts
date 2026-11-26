@@ -201,7 +201,6 @@ describe('sources and snippets', () => {
       }),
     ).toBe(38);
   });
-
 });
 
 describe('a watched metric in What changed', () => {
