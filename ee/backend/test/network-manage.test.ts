@@ -977,6 +977,8 @@ describe('SNMPv3 protocols (1.0.4)', () => {
     expect(nx({ authProto: 'SHA', privProto: 'DES' })).toContain(
       'auth sha <auth-key> priv <privacy-key>',
     );
+    expect(nx({ authProto: 'SHA', privProto: 'DES' })).toContain('AES-128 from it');
+    expect(nx({ authProto: 'SHA', privProto: 'AES' })).not.toContain('show snmp user');
     expect(nx({ authProto: 'MD5', privProto: 'AES' })).toContain(
       'auth md5 <auth-key> priv aes-128 <privacy-key>',
     );

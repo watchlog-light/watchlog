@@ -74,6 +74,11 @@ export function setupCommands(
       notes.push('! NX-OS has no SHA-224: choose SHA-256 in the profile.');
     if (level === 'authPriv' && privProto !== 'AES' && privProto !== 'DES')
       notes.push('! NX-OS encrypts with AES-128 or DES only: choose one of them in the profile.');
+    // NX-OS 10.1(1) made AES-128 the default: a bare "priv" may no longer mean DES there.
+    if (level === 'authPriv' && privProto === 'DES')
+      notes.push(
+        '! A bare "priv" is DES before NX-OS 10.1 and AES-128 from it: check with "show snmp user".',
+      );
     const priv =
       level !== 'authPriv'
         ? ''
