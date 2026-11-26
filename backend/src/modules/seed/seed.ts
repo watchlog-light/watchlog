@@ -13,6 +13,7 @@ import type { Database } from '../../db/index.js';
 import { ConditionSchema, Severity, ThresholdScopeSchema } from '../alerts/schemas.js';
 import { insertThresholdRule } from '../alerts/rules.js';
 import { validateThreshold } from '../alerts/threshold.js';
+import { SeedOwnMetricsSchema } from './own-metrics.js';
 import { SeedServiceSchema } from './services.js';
 import { ensureTokenCluster } from '../clusters/bootstrap.js';
 
@@ -76,6 +77,8 @@ export const SeedSchema = Type.Object(
     /** Services to monitor once the agents report them (ADR-142): seed/services.ts. */
     services: Type.Optional(Type.Array(SeedServiceSchema, { maxItems: 100 })),
     demoMcp: Type.Optional(SeedDemoMcpSchema),
+    /** Own metrics (ADR-236): a write-only token, dashboards, pins, watching and alert rules. */
+    ownMetrics: Type.Optional(SeedOwnMetricsSchema),
     /**
      * Enterprise modules' sections (ADR-233), by module name: each module checks its own
      * (the demo's network devices). Ignored without ee/.

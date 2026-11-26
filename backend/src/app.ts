@@ -61,6 +61,7 @@ import { ownAlertRoutes } from './modules/own-metrics/alert-routes.js';
 import { configureOwnAlerts } from './modules/own-metrics/alerts.js';
 import { Belonging } from './modules/own-metrics/belonging.js';
 import { changeEventRoutes } from './modules/own-metrics/events.js';
+import { applySeedOwnMetrics } from './modules/seed/own-metrics.js';
 import { OwnUsual } from './modules/own-metrics/usual.js';
 import { watchedQueries } from './modules/own-metrics/watched.js';
 import { setExtraQueries } from './modules/anomaly/keys.js';
@@ -610,6 +611,27 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
       seeding.unref();
     });
     app.addHook('onClose', async () => clearInterval(seeding));
+  }
+
+  // The seed's own-metrics section (ADR-236): tried on start and every minute until its
+  // clusters exist and its metrics have reported (a pin needs the metric's series).
+  const seededOwn = deps.seed?.ownMetrics;
+  if (seededOwn) {
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const run = async () => {
+      try {
+        const r = await applySeedOwnMetrics(systemDb, seededOwn, app.log);
+        if (!r.pending) clearInterval(timer);
+      } catch (err) {
+        app.log.error({ err: (err as Error).message }, 'seed: own metrics not applied');
+      }
+    };
+    app.addHook('onReady', async () => {
+      timer = setInterval(() => void run(), 60_000);
+      timer.unref();
+      await run();
+    });
+    app.addHook('onClose', async () => clearInterval(timer));
   }
 
   // Enterprise modules' seed sections (ADR-233, the demo's network devices): tried on start

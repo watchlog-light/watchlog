@@ -3,12 +3,16 @@
 // what the collector is told to scrape, its reports, remote write and pushes with the
 // write-only token, what each series belongs to, every cap with what it says, and the panel's
 // sources, tokens and "Find endpoints for me".
+import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
+import Value from 'typebox/value';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
 import type { OwnMetricLimits } from '../src/modules/entitlements/own-metrics.js';
 import { ownMetricLimits } from '../src/modules/entitlements/own-metrics.js';
 import { OwnMetrics, type SourceRef } from '../src/modules/own-metrics/service.js';
+import { applySeedOwnMetrics } from '../src/modules/seed/own-metrics.js';
+import { SeedSchema } from '../src/modules/seed/seed.js';
 import {
   closeTestContext,
   createTestContext,
@@ -1779,5 +1783,141 @@ describe('dashboards of own metrics', () => {
       dashboards: 1,
       widgetsPerDashboard: 8,
     });
+  });
+});
+
+describe('the seed’s own-metrics section (a read-only demo’s way in)', () => {
+  beforeEach(() => start({}, { now: () => Date.now() - 60_000 }));
+  const log = { info: () => {}, warn: () => {} };
+
+  it('adds a token by its hash, a dashboard, and later the pins, watching and alerts their metrics allow', async () => {
+    const c = await cluster('kubernetes', 'demo');
+    await workload(c, 'shop', 'Deployment', 'orders');
+    const value = `wl_mt_${'k'.repeat(43)}`;
+    const seed = {
+      tokens: [
+        {
+          cluster: 'demo',
+          name: 'your CI',
+          tokenSha256: createHash('sha256').update(value).digest('hex'),
+          tokenPrefix: 'kkkkkkkk',
+        },
+      ],
+      dashboards: [
+        {
+          name: 'Shop business',
+          widgets: [
+            {
+              cluster: 'demo',
+              metric: 'orders_created_total',
+              title: 'Orders created',
+              shape: 'number' as const,
+              w: 3 as const,
+            },
+            {
+              cluster: 'demo',
+              metric: 'queue_jobs_waiting',
+              shape: 'area' as const,
+              by: 'queue',
+              w: 6 as const,
+            },
+            { cluster: 'demo', metric: 'watchlog_node_cpu', shape: 'line' as const, w: 6 as const },
+          ],
+        },
+      ],
+      pins: [{ cluster: 'demo', metric: 'orders_created_total', workload: 'shop/orders' }],
+      watched: [{ cluster: 'demo', metric: 'orders_created_total' }],
+      alerts: [
+        {
+          cluster: 'demo',
+          name: 'Queue is backing up',
+          metric: 'queue_jobs_waiting',
+          is: 'above' as const,
+          value: 500,
+          forSeconds: 900,
+        },
+      ],
+    };
+    // Before anything reported: the token and the dashboard are there, the pin waits.
+    const first = await applySeedOwnMetrics(ctx.db, seed, log);
+    expect(first.pending).toBe(true);
+    const board = (await api('GET', '/own-dashboards')).json().dashboards;
+    expect(board).toMatchObject([{ name: 'Shop business', widgets: 2 }]);
+    const shown = (await api('GET', `/own-dashboards/${board[0].id}`)).json();
+    expect(
+      shown.widgets.map((w: { title: string; resolved: unknown }) => [w.title, w.resolved]),
+    ).toEqual([
+      ['Orders created', null],
+      ['Queue jobs waiting', null],
+    ]);
+    // The seeded token sends: its value never was in the seed.
+    const pushed = await push(value, {
+      workload: 'shop/orders',
+      metrics: [
+        { name: 'orders_created_total', value: 3 },
+        { name: 'queue_jobs_waiting', value: 12, labels: { queue: 'mail' } },
+      ],
+    });
+    expect(pushed.statusCode, pushed.body).toBe(200);
+    await ctx.app.ownMetrics.flush();
+    const second = await applySeedOwnMetrics(ctx.db, seed, log);
+    expect(second.pending).toBe(false);
+    const pins = (
+      await api(
+        'GET',
+        `/clusters/${c.id}/own-metrics/pins?ownerKind=workload&namespace=shop&workloadKind=Deployment&owner=orders`,
+      )
+    ).json();
+    expect(pins.pins.map((p: { metric: { name: string } }) => p.metric.name)).toEqual([
+      'orders_created_total',
+    ]);
+    const metrics = (await api('GET', `/clusters/${c.id}/own-metrics/metrics`)).json().metrics;
+    expect(metrics.find((m: { name: string }) => m.name === 'orders_created_total').watched).toBe(
+      true,
+    );
+    const rules = (await api('GET', `/clusters/${c.id}/own-metrics/alerts`)).json().rules;
+    expect(rules).toMatchObject([
+      {
+        name: 'Queue is backing up',
+        metric: 'queue_jobs_waiting',
+        is: 'above',
+        value: 500,
+        forSeconds: 900,
+      },
+    ]);
+    // Applied again: nothing is doubled, and what a user changed stays.
+    await api('PUT', `/own-dashboards/${board[0].id}`, { name: 'Shop' });
+    await applySeedOwnMetrics(ctx.db, seed, log);
+    const after = (await api('GET', '/own-dashboards')).json().dashboards;
+    expect(after.map((d: { name: string }) => d.name).sort()).toEqual(['Shop', 'Shop business']);
+    expect((await api('GET', `/clusters/${c.id}/own-metrics`)).json().tokens).toHaveLength(1);
+    expect((await api('GET', `/clusters/${c.id}/own-metrics/alerts`)).json().rules).toHaveLength(1);
+  });
+
+  it('waits for a cluster it names, and the seed file takes the section', async () => {
+    await cluster('kubernetes', 'demo');
+    const seed = {
+      dashboards: [
+        {
+          name: 'Elsewhere',
+          widgets: [{ cluster: 'not-yet', metric: 'x', shape: 'line' as const, w: 6 as const }],
+        },
+      ],
+    };
+    expect((await applySeedOwnMetrics(ctx.db, seed, log)).pending).toBe(true);
+    expect((await api('GET', '/own-dashboards')).json().dashboards).toEqual([]);
+    expect(Value.Check(SeedSchema, { ownMetrics: seed })).toBe(true);
+    expect(
+      Value.Check(SeedSchema, {
+        ownMetrics: {
+          dashboards: [{ name: 'x', widgets: [{ cluster: 'c', metric: 'm', shape: 'pie', w: 6 }] }],
+        },
+      }),
+    ).toBe(false);
+    expect(
+      Value.Check(SeedSchema, {
+        ownMetrics: { tokens: [{ cluster: 'c', name: 'n', token: 'wl_mt_plain' }] },
+      }),
+    ).toBe(false);
   });
 });
