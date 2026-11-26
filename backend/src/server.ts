@@ -122,6 +122,7 @@ if (cloud && app.entitlements) {
       funnel: app.funnel,
       settings: () => internalSettings.alerting(),
       logLevel: config.logLevel,
+      ownCalls: () => ({ calls: app.ownIngestStats.snapshot(), shedding: pressure.shedding() }),
     });
     internal = built;
     app.addHook('onClose', () => built.close());

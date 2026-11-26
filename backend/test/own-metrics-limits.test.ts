@@ -490,3 +490,59 @@ describe('the counts', () => {
     );
   });
 });
+
+describe('the Cloud admin’s view of own-metric calls', () => {
+  it('reads what was taken, limited and set aside, and why calls are set aside now', async () => {
+    const { buildInternalApp } = await import('../src/modules/internal/app.js');
+    const { OwnIngestStats } = await import('../src/modules/ingest/own-stats.js');
+    const stats = new OwnIngestStats({ warn: () => {}, info: () => {} });
+    stats.count('push', 'accepted');
+    stats.count('push', 'accepted');
+    stats.count('push', 'limited_org');
+    stats.count('remote_write', 'shed', 'event loop lag 412 ms');
+    const cfg = { token: 'billing-token-for-tests', adminToken: 'admin-token-for-tests' };
+    const build = (
+      ownCalls?: () => { calls: ReturnType<typeof stats.snapshot>; shedding: string | null },
+    ) =>
+      buildInternalApp(
+        { ...cfg, host: '127.0.0.1', port: 0 },
+        {
+          systemDb: undefined as never,
+          entitlements: undefined as never,
+          logLevel: 'silent',
+          ...(ownCalls ? { ownCalls } : {}),
+        },
+      );
+    const internal = await build(() => ({
+      calls: stats.snapshot(),
+      shedding: 'event loop lag 412 ms',
+    }));
+    const get = (token: string) =>
+      internal.inject({
+        method: 'GET',
+        url: '/internal/admin/own-metric-calls',
+        headers: { authorization: `Bearer ${token}` },
+      });
+    const res = await get(cfg.adminToken);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      calls: {
+        push: { accepted: 2, limited_token: 0, limited_org: 1, shed: 0 },
+        remote_write: { accepted: 0, limited_token: 0, limited_org: 0, shed: 1 },
+      },
+      shedding: 'event loop lag 412 ms',
+    });
+    // The Cloud admin's token only (SR-5): billing's isn't taken on an admin route.
+    expect((await get(cfg.token)).statusCode).toBe(401);
+    await internal.close();
+    // A process that doesn't take ingest has nothing to say.
+    const without = await build();
+    const none = await without.inject({
+      method: 'GET',
+      url: '/internal/admin/own-metric-calls',
+      headers: { authorization: `Bearer ${cfg.adminToken}` },
+    });
+    expect(none.statusCode).toBe(404);
+    await without.close();
+  });
+});

@@ -23,6 +23,7 @@ import type { AlertingSettings } from '../settings/service.js';
 import { adminRoutes } from './admin.js';
 import { EntitlementView, entitlementView, Limit, PlanLiteral, UsageView } from './views.js';
 import { rememberNulls, withNulls } from './nulls.js';
+import type { OwnCallCounts } from '../ingest/own-stats.js';
 
 export interface InternalAppDeps {
   systemDb: Database;
@@ -32,6 +33,11 @@ export interface InternalAppDeps {
   /** The email server and public address: support links and the Owners' email (ADR-179). */
   settings?: () => Promise<Pick<AlertingSettings, 'smtp' | 'publicUrl'>>;
   logLevel?: string;
+  /**
+   * What ingest did with own-metrics calls since the process started, and whether it is
+   * setting them aside now (1.0.3): the staff's view of the limits on sending.
+   */
+  ownCalls?: () => { calls: OwnCallCounts; shedding: string | null };
   /** Test hooks. */
   logStream?: { write(line: string): void };
   onRoute?: (route: RouteOptions) => void;
@@ -215,6 +221,36 @@ export async function buildInternalApp(
         owners: rows.map((r) => ({ email: r.email, name: r.name || null })),
         orgName: org.name,
       };
+    },
+  );
+
+  // Own-metric calls (1.0.3): taken, limited for a token or an organisation, set aside under
+  // pressure; and why they are set aside now, if they are. For the Cloud admin.
+  const Counts = Type.Object({
+    accepted: Type.Integer(),
+    limited_token: Type.Integer(),
+    limited_org: Type.Integer(),
+    shed: Type.Integer(),
+  });
+  app.get(
+    '/internal/admin/own-metric-calls',
+    {
+      schema: {
+        summary:
+          'Own-metric pushes and remote writes since the process started: accepted, limited, shed',
+        response: {
+          200: Type.Object({
+            calls: Type.Object({ push: Counts, remote_write: Counts }),
+            shedding: Type.Union([Type.String(), Type.Null()]),
+          }),
+          401: ProblemSchema,
+          404: ProblemSchema,
+        },
+      },
+    },
+    async (_request, reply) => {
+      if (!deps.ownCalls) return sendProblem(reply, 404, 'Not available in this process');
+      return deps.ownCalls();
     },
   );
 

@@ -519,6 +519,8 @@ export const INTERNAL_ROUTES = [
   // The beta-to-billing notice, asked for by billing (ADR-179).
   'POST /internal/orgs/:id/beta-notice',
   // The Cloud admin's API (ADR-179): also needs X-WatchLog-Staff (internal.test.ts).
+  // Own-metric calls since the process started (1.0.3): counts, nothing of any org.
+  'GET /internal/admin/own-metric-calls',
   'GET /internal/admin/orgs',
   // The Cloud admin's Users page (0.9.9): read-only, never a secret.
   'GET /internal/admin/users',
