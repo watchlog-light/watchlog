@@ -43,7 +43,8 @@ history, profiles and paused state stay.
 1. **The poller.**
 2. **Credential profiles.** One profile serves many devices:
    - **SNMP v3** (the default and the recommendation): a user with authentication and privacy
-     (`authPriv`), SHA-2 (or SHA) and AES.
+     (`authPriv`), SHA-2 (or SHA) and AES. See [SNMPv3's protocols](#snmpv3s-protocols) for
+     what else a device may need.
    - **SNMP v2c** works too, but its community string travels in clear text: use it only on a
      management network you trust.
    - **RouterOS** (MikroTik): a read-only user. WatchLog uses the REST API over HTTPS, and falls
@@ -59,6 +60,34 @@ history, profiles and paused state stay.
 4. **What was found:** each address with the profile it matched and whether it answered.
 5. **Add N devices.**
 
+## SNMPv3's protocols
+
+An SNMPv3 profile has a **security level** and, for that level, its protocols:
+
+| Security level             | What it uses                                              |
+| -------------------------- | --------------------------------------------------------- |
+| Authentication and privacy | an authentication and a privacy protocol, with both keys  |
+| Authentication only        | an authentication protocol and its key; nothing encrypted |
+| Neither                    | the user name alone                                       |
+
+The form groups the protocols:
+
+- **Recommended:** authentication with SHA-256, SHA-1, SHA-224, SHA-384 or SHA-512; privacy
+  with AES-128, AES-192 or AES-256. **AES-192 (Cisco)** and **AES-256 (Cisco)** are for Cisco
+  IOS's `priv aes 192` and `priv aes 256`, which extend the key in Cisco's own way: a profile
+  with plain AES-192 or AES-256 gets no answer from such a switch.
+- **For older devices:** MD5 for authentication and DES for privacy. They are weak by today's
+  standards. Use them only when the device offers nothing else, as QNAP's QTS does, and keep
+  SNMP reachable from the poller only.
+
+A new profile starts with SHA-256 and AES-128. A profile with MD5 or DES carries a small
+**older encryption** mark on its card and on its devices' pages; one without privacy says
+**not encrypted**. They are only marks: nothing alerts on them.
+
+A poller reads these protocols from collector 1.0.4. An older collector refuses a profile with
+MD5, DES, Cisco's AES or without authentication, and the device's page and the profile's card say
+which server's collector to update; see [Updating the collector](#updating-the-collector).
+
 ## Changing, testing and deleting a profile
 
 Each profile's card in step 2 of **Add devices** has **Edit** and **Delete**, for Owners and
@@ -73,10 +102,19 @@ Admins. A Viewer sees the cards without being able to use them, and nobody ever 
   editing. It reads one device with the values as typed, before anything is saved, through the
   poller you choose, and says what happened: the device answered (with its name and model), it
   refused the user or the key, nothing answered at that address, or the certificate isn't the
-  one pinned for the device already added there. The test only reads, one address at a time. A
+  one pinned for the device already added there. For SNMPv3 it says which value is wrong: the
+  device doesn't know the user; the authentication password or protocol doesn't match; the
+  device answered but the privacy protocol or password doesn't match (a QNAP wants DES); or the
+  user has another security level on the device. The test only reads, one address at a time. A
   device that uses SNMP v2c stays silent when the community is wrong, so that reads as "nothing
   answered". A collector from 1.0.2 answers in a few seconds; an older one answers with its
   next round, up to a minute and a half later, and can't test a recorder profile.
+- **Find what works** is next to the test, for an SNMPv3 profile with authentication. With the
+  user and the passwords as typed, it tries the authentication and privacy protocols against
+  that one address, the profile's own first: one request for each combination, one at a time,
+  and it stops at the first that answers. Then it offers **Use these**, which puts those
+  protocols in the form; you save the profile. It never tries other passwords, users or
+  addresses, and it stops at once when the device doesn't know the user or doesn't answer.
 - **Delete** asks first, naming the profile. A profile that devices use can't be deleted: the
   dialog lists them and offers **Move them to another profile** of the same protocol, and then
   the delete goes through. Deleting a profile never touches a device's own settings.
@@ -121,7 +159,8 @@ snmp-server user watchlog watchlog-ro v3 auth sha <auth-key> priv aes 128 <priva
 ```
 
 On IOS XE 17 and later you can use `auth sha-2 256` instead of `auth sha`; classic IOS 15 (on
-older Catalyst access switches) has SHA only. Catalyst switches keep their MAC table per VLAN: WatchLog
+older Catalyst access switches) has SHA only. For `priv aes 192` or `priv aes 256`, choose
+**AES-192 (Cisco)** or **AES-256 (Cisco)** in the profile. Catalyst switches keep their MAC table per VLAN: WatchLog
 reads each VLAN through its context (`vlan-<id>` with v3, `community@<id>` with v2c), which is
 what the `context` line allows.
 
@@ -134,7 +173,9 @@ snmp-server user watchlog network-operator auth sha-256 <auth-key> priv aes-128 
 snmp-server user watchlog use-ipv4acl WATCHLOG-SNMP
 ```
 
-`network-operator` is NX-OS's read-only role.
+`network-operator` is NX-OS's read-only role. NX-OS encrypts with AES-128 or DES (a bare
+`priv`); from NX-OS 10.1, a bare `priv` means AES-128, so check with `show snmp user`. It has no
+SHA-224; SHA-256 needs NX-OS 9.3(7).
 
 ### MikroTik RouterOS 7
 
@@ -250,10 +291,23 @@ A QNAP is read over **SNMPv3**, like a switch: model, system and CPU temperature
 supplies, each disk's model, temperature and SMART status, volumes and storage pools with their
 use and RAID state, LUNs with their use, and the iSCSI targets.
 
-In QTS: **Control Panel → Network & File Services → SNMP**: enable SNMP, choose **SNMPv3**, give
-it a user with authentication (SHA) and privacy (AES), and use the same in a WatchLog SNMPv3
-profile. QTS's SNMP is read-only; this user can't change anything. Add the NAS by address with
-that profile; it is recognised as a QNAP.
+In QTS: **Control Panel → Network & File Services → SNMP**:
+
+1. Tick **Enable SNMP Service** and choose **SNMP V3**.
+2. Give a **user name** for WatchLog.
+3. Tick **Use Authentication**, choose **HMAC-SHA**, and give an authentication password.
+4. Tick **Use Privacy** and give a privacy password. QTS offers no choice of privacy protocol:
+   it encrypts with **DES**.
+
+So the WatchLog profile is **SHA with DES** (SHA-1 under Authentication, DES under Privacy), with
+the same user and passwords. A profile with AES gets no answer from a QNAP: its test says the
+privacy protocol doesn't match. **Add devices → Setup on the devices → QNAP** has **New profile
+for a QNAP**, which starts the form with SHA and DES, and a QNAP's page links to it when the NAS
+can't be read. **Find what works** finds the same from a profile with other protocols. DES needs
+collector 1.0.4 on the poller.
+
+QTS's SNMP is read-only; this user can't change anything. Add the NAS by address with that
+profile; it is recognised as a QNAP.
 
 QTS doesn't give a read-only account its iSCSI sessions (only administrators can open Storage &
 Snapshots), so WatchLog doesn't ask for one. It works out which recorder uses which LUN from the
@@ -295,10 +349,20 @@ card with one line per recorder.
 ## UPSes
 
 UPSes are read over SNMP (v3 or v2c, read-only) on their network card: the standard UPS-MIB
-(RFC 1628) for most makes, and APC's PowerNet-MIB for APC. WatchLog shows the status (online, on
-battery, bypass), the battery's charge and runtime, the load, input and output voltage, the
-temperature and whether the battery needs replacing, on a UPS card on **Storage** and with its
-own icon on the map.
+(RFC 1628) for most makes, and APC's PowerNet-MIB for APC.
+
+Give a read-only SNMPv3 user authentication and privacy on the card, and the same protocols in
+the profile:
+
+| Card                                                                                           | Where                                            | SNMPv3 protocols                                               |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------- |
+| APC Network Management Card 3                                                                  | Configuration → Network → SNMPv3 → User Profiles | SHA-256 or SHA, AES-256 or AES (firmware 2.5); SHA, AES before |
+| APC Network Management Card 2                                                                  | Configuration → Network → SNMPv3 → User Profiles | SHA or MD5, AES or DES: choose SHA with AES                    |
+| Eaton Network-M2 / M3                                                                          | Settings → SNMP                                  | SHA-256, SHA-384, SHA-512 or SHA, AES-128/192/256              |
+| CyberPower RMCARD205 / 305                                                                     | System → Network Service → SNMPv3 Service        | SHA or MD5, AES or DES: choose SHA with AES                    | WatchLog shows the status (online, on |
+| battery, bypass), the battery's charge and runtime, the load, input and output voltage, the    |
+| temperature and whether the battery needs replacing, on a UPS card on **Storage** and with its |
+| own icon on the map.                                                                           |
 
 On the UPS card, Owners and Admins can say which WatchLog servers or nodes it **feeds**. When it
 goes on battery (and back), that shows in those servers' and nodes' Events.
@@ -360,6 +424,19 @@ unreachable".
 | UPS runtime low                          | under 10 minutes of battery                                                                                                                                                  |
 | UPS battery needs replacing              | the UPS says so                                                                                                                                                              |
 | UPS overload                             | load over 90% (critical at 100%), for 2 minutes                                                                                                                              |
+
+## Updating the collector
+
+A poller's collector is updated with its agent:
+
+- **A server:** run the install script's upgrade on that server, as root:
+  `curl -fsSL https://<your WatchLog>/install.sh | sudo sh -s -- --upgrade`. See
+  [Linux servers](servers.md#update-the-agents).
+- **A Kubernetes cluster:** `helm upgrade` of the chart the cluster runs (`watchlog` or
+  `watchlog-agent`) with `--reuse-values`; see [Install](install.md#upgrade). The cluster's
+  **Settings → Agents** shows the exact command.
+
+Devices that the old collector couldn't read are read from its next poll after the update.
 
 ## How devices count
 
