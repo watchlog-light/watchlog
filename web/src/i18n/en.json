@@ -48,7 +48,8 @@
       "jobsFailing": "1 job failing | {n} jobs failing",
       "jobsAttention": "1 job needs a look | {n} jobs need a look"
     },
-    "network": "Network"
+    "network": "Network",
+    "yourMetrics": "Your metrics"
   },
   "clusterSwitcher": {
     "label": "Cluster",
@@ -6721,6 +6722,240 @@
     "portLine": {
       "label": "Switch port:",
       "down": "down"
+    }
+  },
+  "ownMetrics": {
+    "intro": "Numbers your own apps and exporters report: on dashboards you build, one by one, and in alerts.",
+    "usage": "{used} of {max} series",
+    "addSource": "Add a source",
+    "error": "Your metrics couldn't be loaded.",
+    "full": "All {max} series of your plan are in use. Series already known keep flowing; new ones are refused.",
+    "fullLink": "See what each source dropped",
+    "ago": "ago",
+    "tabs": {
+      "dashboards": "Dashboards",
+      "metrics": "All metrics",
+      "alerts": "Alerts"
+    },
+    "empty": {
+      "title": "Nothing reports yet",
+      "description": "WatchLog already shows what your servers and clusters do. Here it shows what your own software counts: orders, failed payments, queue depth, the last good backup. Three ways in; all of them end in the same place."
+    },
+    "ways": {
+      "scrape": {
+        "title": "Expose /metrics",
+        "sub": "An exporter or your own app: WatchLog reads it every 30 seconds."
+      },
+      "prometheus": {
+        "title": "Send from Prometheus",
+        "sub": "Remote write the few metrics you choose."
+      },
+      "push": {
+        "title": "Push a value",
+        "sub": "One HTTP call from a script, a cron job or CI."
+      }
+    },
+    "type": {
+      "counter": "Counter",
+      "gauge": "Gauge",
+      "histogram": "Histogram",
+      "summary": "Summary",
+      "timestamp": "Timestamp"
+    },
+    "unit": {
+      "count": "A number",
+      "seconds": "Seconds",
+      "bytes": "Bytes",
+      "ratio": "A share (0 to 1)",
+      "percent": "Percent",
+      "celsius": "Degrees Celsius"
+    },
+    "shown": {
+      "rate": "shown as a rate",
+      "p95": "shown as p95",
+      "as_is": "shown as it is",
+      "time_since": "shown as the time since"
+    },
+    "from": {
+      "pushed": "pushed",
+      "untied": "Not tied to anything"
+    },
+    "list": {
+      "search": "Find a metric",
+      "from": "Where they come from",
+      "chips": {
+        "all": "All",
+        "pushed": "Pushed",
+        "untied": "Not tied"
+      },
+      "none": "No metric matches.",
+      "hidden": "{shown} of {total} · Go and process internals are hidden.",
+      "all": "All {total}, with the Go and process internals.",
+      "showAll": "Show all",
+      "hideInternals": "Hide internals"
+    },
+    "refused": {
+      "short": "Refused",
+      "why": "Refused: too many values for the label {label} (more than 100 at once). Nothing new of this metric is stored. Labels such as ids, emails and paths don't belong on a metric.",
+      "checkAgain": "Check again",
+      "checking": "The metric will be taken again at its next report."
+    },
+    "chart": {
+      "empty": "No values in this range.",
+      "error": "The values couldn't be read."
+    },
+    "detail": {
+      "label": "The selected metric",
+      "error": "This metric couldn't be loaded.",
+      "failed": "That didn't work. Try again.",
+      "from": "from {from}",
+      "quantiles": "p50 {p50} · p99 {p99}",
+      "splitBy": "Split by",
+      "splitNothing": "Nothing",
+      "values": "1 value | {n} values",
+      "other": "other",
+      "noValue": "(none)",
+      "top": "{label} has {n} values: the 5 highest now, and the rest as one line.",
+      "pinTo": "Pin to {owner}",
+      "unpinFrom": "Unpin from {owner}",
+      "pinned": "Pinned to {owner}.",
+      "unpinned": "Unpinned from {owner}.",
+      "pinnedOn": "Pinned on {owner}",
+      "correct": "Correct the type or unit",
+      "typeLabel": "Type",
+      "unitLabel": "Unit",
+      "detected": "Detected as: {what}",
+      "labels": "Labels",
+      "series": "Series",
+      "seriesCount": "1 series | {n} series",
+      "usedIn": "Used in",
+      "none": "None",
+      "nowhere": "Nowhere yet",
+      "untied": "WatchLog doesn't know which workload or server this metric belongs to, so it can't be pinned to a page. It works everywhere else."
+    },
+    "pins": {
+      "title": "Its own metrics",
+      "about": "Pinned here by you; at most {max} on a page.",
+      "all": "The 1 metric of {name} | All {n} metrics of {name}",
+      "offer": "{name} reports 1 metric of its own. Pin it here from its page. | {name} reports {n} metrics of its own. Pin up to {max} here from their pages.",
+      "unpin": "Unpin {name}",
+      "error": "Its own metrics couldn't be loaded."
+    },
+    "add": {
+      "breadcrumb": "Where you are",
+      "intro": "Three ways in. All of them end in the same place: the metric appears under Your metrics, on its workload or server.",
+      "ways": "Ways to add a source",
+      "failed": "That didn't work. Try again.",
+      "addressNeeded": "Pick the server and give the address.",
+      "tokenHint": "Create a token below: its value appears here, ready to copy. It is shown once.",
+      "scrape": {
+        "kube": {
+          "h": "Annotate the pod",
+          "p": "Add these annotations to the pod template of anything that serves Prometheus metrics. WatchLog's collector reads the endpoint every 30 seconds, in the text or OpenMetrics format. Nothing else to install.",
+          "code": "In the workload's pod template",
+          "prometheus": "Also scrape pods annotated prometheus.io/scrape",
+          "prometheusOn": "Pods annotated prometheus.io/scrape are scraped too."
+        },
+        "server": {
+          "h": "Give the address on one server",
+          "p": "The collector on that server reads the address every 30 seconds, in the text or OpenMetrics format: an exporter, or your own app's /metrics.",
+          "server": "Server",
+          "pick": "Pick a server",
+          "address": "Address",
+          "add": "Scrape it"
+        }
+      },
+      "prometheus": {
+        "h": "Add a remote write to Prometheus",
+        "p": "Prometheus sends what you keep in write_relabel_configs, nothing else. Series are tied to a workload by their namespace and pod labels, to a server by instance or host.",
+        "code": "prometheus.yml"
+      },
+      "push": {
+        "h": "Send a value with one HTTP call",
+        "p": "A counter adds its value to the total; a gauge keeps the last value. Say what it belongs to with \"workload\" (namespace/name) or \"server\".",
+        "code": "From a script or a cron job",
+        "more": "Several values go in one call, as a \"metrics\" list. A name ending in _total is a counter; one ending in _timestamp_seconds is a timestamp, shown as \"3 h ago\"."
+      },
+      "next": {
+        "title": "What happens next",
+        "scrape": "Within a minute the endpoint is listed below, with its series.",
+        "prometheus": "After Prometheus reloads, the token is listed below with what it sent.",
+        "push": "After the first call, the token is listed below with what it sent.",
+        "appears": "Its metrics appear under Your metrics, on the workload or server they belong to.",
+        "use": "Put them on a dashboard, pin them to a page, or alert on them."
+      },
+      "limits": {
+        "title": "Kept under control",
+        "source": "At most {max} series from one source; the rest are dropped and the table below says which.",
+        "plan": "{max} series on your plan; {used} in use.",
+        "sources": "{max} sources on your plan.",
+        "labels": "A label with more than 100 values on one metric (ids, emails, paths) gets that metric refused, with the label's name.",
+        "readOnly": "WatchLog only reads the endpoint. It sends no credentials to your app."
+      }
+    },
+    "tokens": {
+      "title": "Tokens",
+      "about": "A token can only send your own metrics and change events to this cluster or fleet. It can't read anything.",
+      "name": "Name",
+      "namePlaceholder": "ci and cron",
+      "nameNeeded": "Give the token a name.",
+      "create": "Create a token",
+      "failed": "The token couldn't be created.",
+      "once": "Token \"{name}\": copy it now. It won't be shown again.",
+      "value": "Token",
+      "used": "used {ago}",
+      "neverUsed": "never used",
+      "revoke": "Revoke",
+      "revokeTitle": "Revoke this token?",
+      "revokeBody": "Whatever sends with it stops being stored at once. What it sent stays until it ages out.",
+      "viewer": "Owners and Admins create tokens."
+    },
+    "find": {
+      "button": "Find endpoints for me",
+      "about": "Tries /metrics on the ports WatchLog already sees.",
+      "failed": "The search couldn't be started.",
+      "nothingToTry": "Every port WatchLog sees is already scraped, or none is open.",
+      "searching": "Trying 1 port… | Trying {n} ports…",
+      "none": "None of the ports tried answers with metrics.",
+      "noAnswer": "No answer from the collector yet. It may be an older version: update the agent and try again.",
+      "found": "1 endpoint with metrics, of {asked} tried. | {n} endpoints with metrics, of {asked} tried.",
+      "series": "1 series | {n} series",
+      "add": "Scrape it",
+      "added": "Added"
+    },
+    "sources": {
+      "title": "Sources",
+      "count": "1 source · {series} series | {n} sources · {series} series",
+      "none": "No source yet.",
+      "col": {
+        "source": "Source",
+        "how": "How",
+        "owner": "Belongs to",
+        "series": "Series",
+        "state": "State"
+      },
+      "how": {
+        "scrape": "Scraped, every 30 s",
+        "prometheus": "Prometheus remote write",
+        "push": "Pushed"
+      },
+      "ok": "ok · {ago}",
+      "notOk": "not stored",
+      "waiting": "waiting for its first report",
+      "failing": "The last read failed: {error}",
+      "dropped": {
+        "sources": "Over your plan's {max} sources: nothing of it is stored. Remove a source, or upgrade.",
+        "sourceCap": "1 series dropped: one source brings at most {max}. | {n} series dropped: one source brings at most {max}.",
+        "orgCap": "1 new series refused: all {max} series of your plan are in use. | {n} new series refused: all {max} series of your plan are in use.",
+        "cardinality": "{metric} refused: too many values for {label}.",
+        "reserved": "1 series refused: names starting watchlog_ are WatchLog's own. | {n} series refused: names starting watchlog_ are WatchLog's own.",
+        "invalid": "1 series dropped: not a valid metric or label name. | {n} series dropped: not a valid metric or label name."
+      },
+      "remove": "Remove",
+      "byAnnotation": "by annotation",
+      "removeTitle": "Stop scraping this endpoint?",
+      "removeBody": "Its metrics stop arriving. What it sent stays until it ages out.",
+      "removeConfirm": "Stop scraping"
     }
   }
 }

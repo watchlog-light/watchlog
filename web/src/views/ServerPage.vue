@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import NetworkPortLine from '@/components/network/NetworkPortLine.vue';
+import PinnedMetrics from '@/components/own-metrics/PinnedMetrics.vue';
 import CertsJobsCard from '@/components/applications/CertsJobsCard.vue';
 import { ArrowLeft, CornerDownRight } from '@lucide/vue';
 import type { MetricKey, ServerDetail, ServerWorkloadList } from '@watchlog/api-types';
@@ -432,6 +433,14 @@ onMounted(() => {
         </button>
       </div>
     </section>
+
+    <!-- Its own metrics, pinned here (1.0.0, ADR-236). -->
+    <PinnedMetrics
+      v-if="detail && clusterId"
+      :key="`own-${name}`"
+      :cluster-id="clusterId"
+      :owner="{ kind: 'server', namespace: '', workloadKind: '', name }"
+    />
 
     <!-- This server's certificates and scheduled jobs (0.10). -->
     <CertsJobsCard v-if="detail && clusterId" :cluster-id="clusterId" :node="name" />

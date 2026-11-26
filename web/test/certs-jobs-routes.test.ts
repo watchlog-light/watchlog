@@ -51,7 +51,13 @@ describe('the old addresses under Applications', () => {
 
   it('the sidebar groups: the top, Running here, Investigate, the end', () => {
     const by = (g: string) => NAV_ITEMS.filter((i) => i.group === g).map((i) => i.name);
-    expect(by('running')).toEqual(['applications', 'certificates', 'scheduled-jobs', 'network']);
+    expect(by('running')).toEqual([
+      'applications',
+      'certificates',
+      'scheduled-jobs',
+      'network',
+      'your-metrics',
+    ]);
     expect(by('investigate')).toEqual(['events', 'what-changed', 'service-map', 'egress']);
     expect(by('end')).toEqual(['alerts', 'settings']);
   });

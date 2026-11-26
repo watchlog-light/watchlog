@@ -6,6 +6,7 @@ import { computed, onMounted, watch } from 'vue';
 import { usePolling } from '@/composables/usePolling';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
+import PinnedMetrics from '@/components/own-metrics/PinnedMetrics.vue';
 import CausePanel from '@/components/causes/CausePanel.vue';
 import TalksToInternet from '@/components/egress/TalksToInternet.vue';
 import EgressPolicy from '@/components/egress/EgressPolicy.vue';
@@ -279,6 +280,18 @@ onMounted(() => {
           "
           :name="`${owner.namespace}/${owner.name}`"
           quiet
+        />
+        <!-- Its own metrics, pinned here (1.0.0, ADR-236). -->
+        <PinnedMetrics
+          v-if="view === 'pods' && owner && owner.kind && page.data.value"
+          :key="`own-${owner.namespace}/${owner.kind}/${owner.name}`"
+          :cluster-id="page.data.value.clusterId"
+          :owner="{
+            kind: 'workload',
+            namespace: owner.namespace,
+            workloadKind: owner.kind,
+            name: owner.name,
+          }"
         />
         <!-- Its requests and limits against 7 days of use (ADR-168). -->
         <RightSizingPanel

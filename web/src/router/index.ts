@@ -8,6 +8,7 @@ import {
   Bell,
   Boxes,
   CalendarClock,
+  ChartSpline,
   Database,
   Globe,
   LayoutDashboard,
@@ -121,6 +122,14 @@ export const NAV_ITEMS: NavItem[] = [
     feature: 'network',
     group: 'running',
   },
+  // Your metrics (1.0.0, ADR-236): what the user's own apps and exporters report.
+  {
+    name: 'your-metrics',
+    path: '/your-metrics',
+    titleKey: 'nav.yourMetrics',
+    icon: ChartSpline,
+    group: 'running',
+  },
   // Investigate.
   {
     name: 'events',
@@ -178,7 +187,7 @@ export const OLD_APPLICATION_PATHS: [string, string][] = [
   ['applications/scheduled-jobs/:jobId', 'scheduled-job'],
 ];
 
-const RANGED = new Set(['overview', 'nodes', 'workloads', 'events', 'service-map']);
+const RANGED = new Set(['overview', 'nodes', 'workloads', 'events', 'service-map', 'your-metrics']);
 
 const views: Record<string, () => Promise<Component>> = {
   overview: () => import('@/views/OverviewPage.vue'),
@@ -192,6 +201,7 @@ const views: Record<string, () => Promise<Component>> = {
   'service-map': () => import('@/views/ServiceMapPage.vue'),
   egress: () => import('@/views/EgressPage.vue'),
   'what-changed': () => import('@/views/WhatChangedPage.vue'),
+  'your-metrics': () => import('@/views/YourMetricsPage.vue'),
   alerts: () => import('@/views/AlertsPage.vue'),
   settings: () => import('@/views/SettingsPage.vue'),
 };
@@ -363,6 +373,13 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'docker/hosts/:host/containers/:name',
         redirect: (to) => ({ name: 'docker-container', params: to.params, query: to.query }),
+      },
+      // Your metrics: adding a source (1.0.0, ADR-236).
+      {
+        name: 'your-metrics-add',
+        path: 'your-metrics/add',
+        component: () => import('@/views/YourMetricsAddPage.vue'),
+        meta: { titleKey: 'nav.yourMetrics' },
       },
       // A certificate's and a job's page (0.13.0, their own pages since; ADR-230).
       {
