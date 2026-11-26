@@ -113,3 +113,60 @@ func TestProbeOutcomes(t *testing.T) {
 	// A collector before 1.0.2 had no recorder case: the sentence the backend reads then.
 	failed("a credential the probe can't use", try(Candidate{Protocol: "snmp"}), "no SNMP credential")
 }
+
+// What a test or a discovery found is ready to report as soon as it is done, without waiting
+// for the next round (1.0.2); what couldn't be sent goes with the next round, unless a newer
+// state of the same discovery is queued.
+func TestDiscoveryReportsAtOnce(t *testing.T) {
+	old := probeEvery
+	probeEvery = time.Millisecond
+	defer func() { probeEvery = old }()
+	start := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	clock := func() time.Time { return start.Add(time.Hour) }
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	devs, _ := lab(t, clock, netsim.Office(nil)[:1], start)
+
+	p, _ := NewPoller(nil, fastDial, DialROS)
+	p.Configure(configOf(t, Config{Discover: []Discovery{{ID: "test-1", Seeds: []string{"127.0.0.1"}, Credentials: []Candidate{
+		{ID: "test-1", Protocol: "snmp", SNMP: &SNMPCred{Version: "2c", Community: "public", Port: devs[0].SNMP.Port}},
+	}}}}))
+	select {
+	case <-p.Ready():
+		t.Fatal("ready before anything ran")
+	default:
+	}
+	p.Round(ctx, start)
+	var got []DiscoveryReport
+	deadline := time.After(10 * time.Second)
+	for len(got) == 0 || !got[len(got)-1].Done {
+		select {
+		case <-p.Ready():
+			got = append(got, p.TakeDiscoveries()...)
+		case <-deadline:
+			t.Fatalf("no finished discovery without another round: %+v", got)
+		}
+	}
+	last := got[len(got)-1]
+	if last.ID != "test-1" || len(last.Found) != 1 || !last.Found[0].Answered {
+		t.Fatalf("found %+v", last)
+	}
+	// Taken once: the next round has nothing of it to repeat.
+	if rep, _ := p.Round(ctx, start.Add(time.Minute)); rep != nil && len(rep.Discovery) != 0 {
+		t.Fatalf("reported twice: %+v", rep.Discovery)
+	}
+
+	// A report that couldn't be sent joins the next round; a newer state wins over it.
+	p.requeue([]DiscoveryReport{{ID: "a", Done: false}, {ID: "b", Done: true}})
+	p.addDiscovery(DiscoveryReport{ID: "a", Done: true})
+	p.requeue([]DiscoveryReport{{ID: "a", Done: false}})
+	rep, _ := p.Round(ctx, start.Add(2*time.Minute))
+	if rep == nil || len(rep.Discovery) != 2 {
+		t.Fatalf("requeued: %+v", rep)
+	}
+	for _, d := range rep.Discovery {
+		if !d.Done {
+			t.Fatalf("an older state replaced a newer one: %+v", rep.Discovery)
+		}
+	}
+}

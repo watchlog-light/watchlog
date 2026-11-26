@@ -33,6 +33,10 @@ const (
 	// as the Kafka probes' does (0.13).
 	BackoffFirst = 2 * time.Minute
 	BackoffMax   = time.Hour
+	// PartialEvery is how often a running discovery's progress is reported between rounds;
+	// RetryFound is the wait before offering again what couldn't be posted.
+	PartialEvery = 5 * time.Second
+	RetryFound   = 5 * time.Second
 	// ReportPath is the backend's ingest path for the rounds.
 	ReportPath = "network/report"
 )
@@ -53,6 +57,7 @@ func Run(ctx context.Context, h ext.Host) {
 	t := time.NewTicker(time.Second)
 	defer t.Stop()
 	next := time.Now()
+	var retry time.Time // when to offer again what couldn't be posted
 	for {
 		select {
 		case <-ctx.Done():
@@ -60,7 +65,29 @@ func Run(ctx context.Context, h ext.Host) {
 		case <-h.Changed():
 			p.Configure(h.Config())
 			next = time.Now() // new devices or discoveries: start now
+		case <-p.Ready():
+			// A discovery or a profile's test has something to say (1.0.2): it is reported
+			// at once, not with the next round, so "Test against an address" answers in
+			// seconds.
+			found := p.TakeDiscoveries()
+			if len(found) == 0 {
+				continue
+			}
+			rep := &Report{Host: h.HostName(), Devices: []DeviceReport{}, Discovery: found}
+			pctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			if err := h.Post(pctx, ReportPath, rep); err != nil {
+				// Refused for now (the ingest's rate limit) or unreachable: tried again
+				// shortly, and with the next round at the latest.
+				h.Log().Warn("posting what a discovery found", "err", err)
+				p.requeue(found)
+				retry = time.Now().Add(RetryFound)
+			}
+			cancel()
 		case now := <-t.C:
+			if !retry.IsZero() && !now.Before(retry) {
+				retry = time.Time{}
+				p.signal()
+			}
 			if now.Before(next) {
 				continue
 			}
@@ -109,7 +136,10 @@ type Poller struct {
 	states  map[string]*devState
 	ran     map[string]bool // discoveries already run
 	pending []DiscoveryReport
-	disc    sync.WaitGroup
+	ready   chan struct{} // a discovery has something to report
+	// lastPartial is when a running discovery's progress was last offered.
+	lastPartial time.Time
+	disc        sync.WaitGroup
 }
 
 // NewPoller loads the profiles.
@@ -123,7 +153,7 @@ func NewPoller(log *slog.Logger, dial DialFunc, dialROS ROSDialFunc) (*Poller, e
 	}
 	return &Poller{
 		log: log, dial: dial, dialROS: dialROS, dialDahua: DialDahua, now: time.Now, profiles: ps,
-		states: map[string]*devState{}, ran: map[string]bool{},
+		states: map[string]*devState{}, ran: map[string]bool{}, ready: make(chan struct{}, 1),
 	}, nil
 }
 
@@ -299,16 +329,66 @@ func backoff(n int) time.Duration {
 // WaitDiscoveries waits for the running discoveries (tests, the budget run).
 func (p *Poller) WaitDiscoveries() { p.disc.Wait() }
 
-func (p *Poller) addDiscovery(r DiscoveryReport) {
+// Ready fires when a discovery has something to report.
+func (p *Poller) Ready() <-chan struct{} { return p.ready }
+
+// TakeDiscoveries hands over what the discoveries found since the last report.
+func (p *Poller) TakeDiscoveries() []DiscoveryReport {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	out := p.pending
+	p.pending = nil
+	return out
+}
+
+// addDiscovery queues what a discovery found (its latest state replaces an earlier one that
+// wasn't sent yet). A finished one is offered at once; one still running at most every
+// PartialEvery, so a discovery doesn't spend the collector's ingest budget on its progress.
+func (p *Poller) addDiscovery(r DiscoveryReport) {
+	p.mu.Lock()
+	replaced := false
 	for i := range p.pending {
 		if p.pending[i].ID == r.ID {
 			p.pending[i] = r
-			return
+			replaced = true
 		}
 	}
-	p.pending = append(p.pending, r)
+	if !replaced {
+		p.pending = append(p.pending, r)
+	}
+	now := time.Now()
+	offer := r.Done || now.Sub(p.lastPartial) >= PartialEvery
+	if offer && !r.Done {
+		p.lastPartial = now
+	}
+	p.mu.Unlock()
+	if offer {
+		p.signal()
+	}
+}
+
+// signal says there is something to report, without waiting for anyone to listen.
+func (p *Poller) signal() {
+	select {
+	case p.ready <- struct{}{}:
+	default:
+	}
+}
+
+// requeue puts back what couldn't be sent, for the next round; a newer state of the same
+// discovery queued meanwhile wins.
+func (p *Poller) requeue(rs []DiscoveryReport) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, r := range rs {
+		newer := false
+		for i := range p.pending {
+			newer = newer || p.pending[i].ID == r.ID
+		}
+		if !newer {
+			p.pending = append(p.pending, r)
+		}
+	}
 }
 
 var errNoCredential = errors.New("no credential answered")
