@@ -19,16 +19,17 @@ are. Dashboards exist for your own metrics only.
 
 ## What each plan includes
 
-|                                                      | Cloud Free        | Cloud Pro                                          | Self-hosted Community                  | Self-hosted with a licence (`pro`) |
-| ---------------------------------------------------- | ----------------- | -------------------------------------------------- | -------------------------------------- | ---------------------------------- |
-| Series in the organisation                           | 200               | 200 for each billed node or server, at least 1,000 | the installation's cap (20,000)        | the installation's cap             |
-| Series from one source                               | 100               | 500                                                | 500                                    | 500                                |
-| Kept for                                             | 3 days            | 30 days                                            | the installation's retention           | the installation's retention       |
-| Sources                                              | 3                 | no limit                                           | no limit                               | no limit                           |
-| Dashboards                                           | 1, with 8 widgets | 50, with 24 widgets each                           | 50, with 24 widgets each               | 50, with 24 widgets each           |
-| Pin to a workload's or server's page                 | yes               | yes                                                | yes                                    | yes                                |
-| Alerts on your metrics                               | none              | all                                                | above, below, not reported, older than | all                                |
-| Usual range, "outside its usual range", What changed | no                | yes                                                | no                                     | yes                                |
+|                                                      | Cloud Free                      | Cloud Pro                                          | Self-hosted Community                  | Self-hosted with a licence (`pro`) |
+| ---------------------------------------------------- | ------------------------------- | -------------------------------------------------- | -------------------------------------- | ---------------------------------- |
+| Series in the organisation                           | 200                             | 200 for each billed node or server, at least 1,000 | the installation's cap (20,000)        | the installation's cap             |
+| Series from one endpoint, or one token's pushes      | 100                             | 500                                                | 500                                    | 500                                |
+| Series from one token's remote write                 | up to the organisation's series | up to the organisation's series                    | up to the installation's cap           | up to the installation's cap       |
+| Kept for                                             | 3 days                          | 30 days                                            | the installation's retention           | the installation's retention       |
+| Sources                                              | 3                               | no limit                                           | no limit                               | no limit                           |
+| Dashboards                                           | 1, with 8 widgets               | 50, with 24 widgets each                           | 50, with 24 widgets each               | 50, with 24 widgets each           |
+| Pin to a workload's or server's page                 | yes                             | yes                                                | yes                                    | yes                                |
+| Alerts on your metrics                               | none                            | all                                                | above, below, not reported, older than | all                                |
+| Usual range, "outside its usual range", What changed | no                              | yes                                                | no                                     | yes                                |
 
 Nothing here is billed on its own: Cloud Pro's allowance follows the nodes and servers it
 already pays for. A self-hosted installation sets its cap with `backend.ownMetricSeries` in
@@ -178,7 +179,10 @@ WatchLog's own monitoring is never affected by any of this.
   that metric refused, and the page names the label: _too many values for `user_id`_. Remove
   the label at the source, then press **Check again** on the metric.
 - **Over a source's series** (100 on Free, 500 otherwise), the source's extra series are
-  dropped.
+  dropped. A source here is one scraped endpoint, or one token's pushes.
+- **A token's remote write has no cap of its own** (since 1.0.1): one Prometheus sends
+  thousands of series through one token, so your plan's series are its only limit. The rule
+  of 100 values for a label holds for it like for everything else.
 - **Over your plan's series**, new series are refused. Series already known keep flowing.
 - **Over your plan's sources** (3 on Free), a new source isn't stored at all.
 

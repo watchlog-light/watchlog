@@ -98,7 +98,7 @@ _Not part of the public specification._
 | Unified multi-cluster view: All clusters and fleets (0.11.0, ADR-226) | — (upgrade page) | — (upgrade page) | ✓ | ✓ |
 | Network devices: switches, routers, the map, ports and links (0.16.0, §4.17, ADR-233); Wi-Fi (CAPsMAN), a NAS and iSCSI, recorders ("is it recording?") and UPSes (0.17.0, ADR-234); a device is one unit, controller-managed Wi-Fi access points free | — (teaser) | — (teaser) | ✓ | ✓ (licence feature `network`) |
 | Your metrics (1.0.0, §4.18, ADR-236): series in the org | The installation's cap (20,000) | 200 | 200 for each billed node or server, at least 1,000 | The installation's cap |
-| Your metrics: series from one source; sources | 500; no limit | 100; 3 | 500; no limit | 500; no limit |
+| Your metrics: series from one scraped endpoint or one token's pushes; sources (a token's remote write has no cap of its own: the org's series limit it, 1.0.1, ADR-240) | 500; no limit | 100; 3 | 500; no limit | 500; no limit |
 | Your metrics: dashboards (ADR-237) | 50, 24 widgets each | 1, 8 widgets | 50, 24 widgets each | 50, 24 widgets each |
 | Your metrics: pin to a workload's or a server's page | ✓ | ✓ | ✓ | ✓ |
 | Your metrics: alerts | above, below, not reported for, older than | — (the tab says so) | all | all |

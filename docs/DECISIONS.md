@@ -4227,3 +4227,15 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **What is not a Combobox, and why:** the service map's and the network map's search boxes (the text is itself the page's filter, with matches as suggestions), the command palette (commands), menus of actions, and segmented controls of a few buttons.
   - **A test holds it** (`web/test/combobox-only.test.ts`): a native select, a second listbox or reka's Select in any component, core or `ee/`, fails with where it is.
 - Consequences: measured in a browser with 5,000 options: 18 rows in the page, open in about 120 ms. An "All …" choice is an option like the others, with a value of its own, because an empty value reads as no choice.
+
+## ADR-240: A token's remote write is limited by the organisation's series, not as one source (amends ADR-236)
+
+- Date: 2026-11-26 · Status: accepted (owner's decision after 1.0.0)
+- Context: ADR-236 capped every source at 500 series (100 on Cloud Free), and counted a token's remote write as one source. That cap fits what it was written for, one scraped endpoint: an exporter that suddenly serves 5,000 series is a mistake worth stopping. A remote-write token is a whole Prometheus. In 1.0.0's capacity run a 5,000-series stream had to be split over 10 tokens to be stored; sent through one, 500 were kept and 4,500 dropped, in an organisation whose allowance had room for all of them.
+- Decision:
+  - **A token's remote write has no per-source cap.** The organisation's allowance is its only series limit: 200 on Cloud Free; 200 for each billed node or server on Cloud Pro, at least 1,000; the installation's setting when self-hosted. The one place the numbers live says so (`sourceSeriesCap` in `modules/entitlements/own-metrics.ts`).
+  - **A scraped endpoint and a token's pushes keep their cap** (100 on Free, 500 otherwise), unchanged.
+  - **The rule of 100 values for one label on one metric stays**, for remote write too: it is what stops a user id or a URL path, and it names the label.
+  - **When the allowance is full, nothing changes:** new series are refused and counted as refused for the plan's series (`orgCap`), known ones keep flowing, and the Sources table says how many and why, in the words it already uses.
+  - **Cloud Free's 3 sources still count a token's remote write as one source.**
+- Consequences: one Prometheus can fill an organisation's allowance by itself, which is what the allowance is for; `write_relabel_configs` in the docs' example stays the advice. Nothing is migrated: a token that was cut at 500 is admitted up to the allowance from its next request. The docs' table has a row for it, and the Add a source page says it under "Kept under control".
