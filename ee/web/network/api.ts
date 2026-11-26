@@ -9,6 +9,8 @@ export type DeviceStatus =
   | 'auth_failed'
   | 'cert_changed'
   | 'error'
+  // Paused by the user (1.0.2): not polled, its alerts rest.
+  | 'paused'
   // An access point CAPsMAN no longer runs, or whose provisioning failed (0.17).
   | 'disconnected'
   | 'provisioning';
@@ -46,6 +48,8 @@ export interface Device {
   portsTotal: number | null;
   update: { channel?: string; installed?: string; latest?: string } | null;
   managedAp: boolean;
+  /** An Owner accepted a new certificate and the one before is kept: it can be undone (1.0.2). */
+  certUndo?: boolean;
   /** An access point's controller (CAPsMAN), 0.17. */
   parentId: string | null;
   poller: Poller;
@@ -239,7 +243,8 @@ export interface PollerChoice {
   clusterId: string;
   name: string;
   kind: 'kubernetes' | 'server';
-  hosts: { host: string; collector: boolean; reporting: boolean }[];
+  /** `devices`: how many this poller reads (1.0.2). */
+  hosts: { host: string; collector: boolean; reporting: boolean; devices?: number }[];
 }
 
 export interface Credential {
@@ -499,6 +504,35 @@ export interface Storage {
   attention: Attention[];
 }
 
+/** A device a credential profile reads (the edit form's count, the delete dialog's list). */
+export interface ProfileDevice {
+  id: string;
+  name: string;
+  address: string;
+  kind?: string;
+}
+
+/** What "Test against an address" found (1.0.2). */
+export type TestOutcome =
+  | 'answered'
+  | 'refused'
+  | 'no_answer'
+  | 'certificate'
+  | 'plain_refused'
+  | 'unsupported'
+  | 'poller_silent'
+  | 'error';
+export interface CredentialTest {
+  id: string;
+  done: boolean;
+  address?: string;
+  outcome?: TestOutcome;
+  name?: string;
+  model?: string;
+  vendor?: string;
+  detail?: string;
+}
+
 export const networkApi = {
   summary: () => api<Summary>('/network/summary'),
   kinds: () => api<Kinds>('/network/kinds'),
@@ -530,6 +564,40 @@ export const networkApi = {
     settings: Credential['settings'];
     secret: Record<string, string>;
   }) => api<{ id: string }>('/network/credentials', { method: 'POST', body }),
+  // 1.0.2: a profile is edited (a secret left empty is kept), deleted, its devices moved, and
+  // tried against one address before it is saved.
+  updateCredential: (
+    id: string,
+    body: { name?: string; settings?: Credential['settings']; secret?: Record<string, string> },
+  ) => api<void>(`/network/credentials/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
+  deleteCredential: (id: string) =>
+    api<void>(`/network/credentials/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  credentialDevices: (id: string) =>
+    api<{ devices: ProfileDevice[] }>(`/network/credentials/${encodeURIComponent(id)}/devices`),
+  moveCredentialDevices: (id: string, to: string) =>
+    api<{ moved: number }>(`/network/credentials/${encodeURIComponent(id)}/move`, {
+      method: 'POST',
+      body: { to },
+    }),
+  testCredential: (body: {
+    clusterId: string;
+    host: string;
+    address: string;
+    protocol: 'snmp' | 'routeros' | 'dahua';
+    settings: Credential['settings'];
+    secret: Record<string, string>;
+    credentialId?: string;
+  }) => api<{ id: string }>('/network/credential-tests', { method: 'POST', body }),
+  credentialTest: (id: string) =>
+    api<CredentialTest>(`/network/credential-tests/${encodeURIComponent(id)}`),
+  restoreCertificate: (id: string) =>
+    api<void>(`/network/devices/${encodeURIComponent(id)}/restore-certificate`, {
+      method: 'POST',
+    }),
+  movePoller: (
+    from: { clusterId: string; host: string },
+    to: { clusterId: string; host: string },
+  ) => api<{ moved: number }>('/network/pollers/move', { method: 'POST', body: { from, to } }),
   discover: (body: {
     clusterId: string;
     host: string;

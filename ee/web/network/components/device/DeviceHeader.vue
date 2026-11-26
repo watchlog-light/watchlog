@@ -87,6 +87,22 @@ const certChanged = computed(
   () => (routerOs.value || d.value.protocol === 'dahua') && d.value.status === 'cert_changed',
 );
 const isOwner = computed(() => auth.user?.role === 'owner' && auth.canManage);
+// An accept made by mistake (1.0.2): an Owner pins the certificate from before again.
+const canUndo = computed(() => !!d.value.certUndo && !certChanged.value);
+const undoing = ref(false);
+const undoError = ref('');
+async function undoAccept() {
+  undoing.value = true;
+  undoError.value = '';
+  try {
+    await networkApi.restoreCertificate(d.value.id);
+    emit('changed');
+  } catch (err) {
+    undoError.value = err instanceof Error ? err.message : t('netDevice.cert.failed');
+  } finally {
+    undoing.value = false;
+  }
+}
 const accepting = ref(false);
 const acceptError = ref('');
 async function accept() {
@@ -112,6 +128,27 @@ async function accept() {
       <ArrowLeft class="size-4" aria-hidden="true" />{{ $t('netDevice.back') }}
     </RouterLink>
 
+    <section
+      v-if="canUndo"
+      class="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-surface-1 p-4"
+      data-testid="cert-accepted"
+    >
+      <div class="flex min-w-0 flex-col gap-1">
+        <h2 class="text-14 font-semibold text-text">{{ $t('netDevice.cert.acceptedTitle') }}</h2>
+        <p class="max-w-prose text-13 text-text-muted">{{ $t('netDevice.cert.acceptedBody') }}</p>
+        <p v-if="undoError" class="text-13 text-critical-text" role="alert">{{ undoError }}</p>
+      </div>
+      <BaseButton
+        v-if="isOwner"
+        variant="secondary"
+        :loading="undoing"
+        data-testid="cert-undo"
+        @click="undoAccept"
+      >
+        {{ $t('netDevice.cert.undo') }}
+      </BaseButton>
+      <span v-else class="text-13 text-text-muted">{{ $t('netDevice.cert.ownerOnly') }}</span>
+    </section>
     <section
       v-if="certChanged"
       role="alert"

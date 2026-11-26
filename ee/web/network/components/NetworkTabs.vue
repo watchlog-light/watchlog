@@ -57,16 +57,19 @@ const active = (name: string) =>
         <Plus class="size-4" aria-hidden="true" />{{ $t('net.addDevices') }}
       </RouterLink>
     </div>
+    <!-- The tabs scroll sideways on a narrow window, with no scrollbar of their own: the rule
+         under them is drawn inside the row, so nothing reaches past it (a tab's 1 px overlap
+         made the row scroll up and down too, with a stray control at its right edge). -->
     <nav
       ref="nav"
-      class="flex gap-1 overflow-x-auto border-b border-border"
+      class="flex gap-1 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--border)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       :aria-label="$t('nav.network')"
     >
       <RouterLink
         v-for="t in tabs"
         :key="t.route"
         :to="{ name: t.route }"
-        class="-mb-px inline-flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-3 text-13 font-medium max-md:h-11"
+        class="inline-flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-3 text-13 font-medium max-md:h-11"
         :class="
           active(t.route)
             ? 'border-primary text-text'

@@ -9,7 +9,16 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     // ee/web (ADR-232) is outside this package: its imports of these resolve to the dashboard's.
-    dedupe: ['vue', 'vue-router', 'pinia', 'vue-i18n', '@lucide/vue', '@watchlog/api-types'],
+    // (@vue/test-utils for its component tests.)
+    dedupe: [
+      'vue',
+      'vue-router',
+      'pinia',
+      'vue-i18n',
+      '@lucide/vue',
+      '@watchlog/api-types',
+      '@vue/test-utils',
+    ],
   },
   server: {
     // Next to the backend's 4080, away from Vite's default (other projects use it); a taken

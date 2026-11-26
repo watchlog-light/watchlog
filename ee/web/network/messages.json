@@ -32,7 +32,8 @@
       "cert_changed": "Certificate changed",
       "error": "Error",
       "disconnected": "Disconnected",
-      "provisioning": "Provisioning failed"
+      "provisioning": "Provisioning failed",
+      "paused": "Paused"
     },
     "device": {
       "title": "Device"

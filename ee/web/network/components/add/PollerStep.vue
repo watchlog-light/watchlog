@@ -3,11 +3,14 @@
 import { Boxes, Server } from '@lucide/vue';
 import CodeBlock from '@/components/ui/CodeBlock.vue';
 import type { PollerChoice } from '../../api';
+import PollerMove from './PollerMove.vue';
 
 // Step 1 (ADR-233): the place that reads the devices, each in its own words: a Kubernetes
 // cluster's collector polls from inside the cluster; on a Server fleet one of its servers does,
 // and a server without the collector shows the one line that adds it.
 defineProps<{ pollers: PollerChoice[] }>();
+// 1.0.2: each poller says how many devices it reads, and they can be moved to another.
+const emit = defineEmits<{ moved: [] }>();
 const model = defineModel<{ clusterId: string; host: string } | null>({ required: true });
 
 const installLine = `curl -fsSL ${window.location.origin}/install.sh | sudo sh -s -- --upgrade`;
@@ -45,6 +48,13 @@ const isPicked = (clusterId: string, host: string) =>
             }}</span>
           </span>
         </label>
+        <PollerMove
+          :from="{ clusterId: p.clusterId, host: '' }"
+          :name="p.name"
+          :devices="p.hosts[0]?.devices ?? 0"
+          :pollers="pollers"
+          @moved="emit('moved')"
+        />
       </template>
       <template v-else>
         <span class="text-11 tracking-[0.08em] text-text-subtle uppercase">
@@ -84,6 +94,13 @@ const isPicked = (clusterId: string, host: string) =>
               }}</span>
             </span>
           </label>
+          <PollerMove
+            :from="{ clusterId: p.clusterId, host: h.host }"
+            :name="h.host"
+            :devices="h.devices ?? 0"
+            :pollers="pollers"
+            @moved="emit('moved')"
+          />
           <div v-if="!h.collector" class="flex flex-col gap-1.5 sm:pl-8">
             <p class="text-12 text-text-muted">
               {{ $t('netAdd.poller.install', { host: h.host }) }}

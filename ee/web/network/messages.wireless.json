@@ -27,7 +27,8 @@
       "cert_changed": "Certificate changed",
       "error": "Error",
       "disconnected": "Disconnected",
-      "provisioning": "Provisioning failed"
+      "provisioning": "Provisioning failed",
+      "paused": "Paused"
     },
     "aps": {
       "title": "Access points",

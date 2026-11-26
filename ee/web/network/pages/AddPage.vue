@@ -1,17 +1,19 @@
 <!-- SPDX-License-Identifier: LicenseRef-WatchLog-Enterprise -->
 <script setup lang="ts">
-import { Cctv, Info, Lock, Plus, Search } from '@lucide/vue';
+import { Cctv, ChevronRight, Info, Lock, Pencil, Plus, Search, Trash2 } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import ComboBox from '@/components/ui/ComboBox.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
+import LockedControl from '@/components/ui/LockedControl.vue';
 import SkeletonChart from '@/components/ui/SkeletonChart.vue';
 import TextField from '@/components/ui/TextField.vue';
 import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
 import { useAuthStore } from '@/stores/auth';
 import { networkApi, type Credential, type Found, type PollerChoice } from '../api';
+import CredentialDelete from '../components/add/CredentialDelete.vue';
 import CredentialForm from '../components/add/CredentialForm.vue';
 import FoundList from '../components/add/FoundList.vue';
 import PollerStep from '../components/add/PollerStep.vue';
@@ -20,11 +22,13 @@ import NetworkTabs from '../components/NetworkTabs.vue';
 
 // Adding network devices (ADR-233): (1) the place that polls them, (2) read-only credential
 // profiles, (3) the addresses to start from, (4) what was found, each tested, (5) add the picked
-// ones. Owners and Admins; others see a note. Recorders (Dahua's HTTP API, ADR-234) don't
+// ones. Owners and Admins; others see a note and the profiles, without their controls
+// (1.0.2: a profile is edited, tested against an address and deleted from its card). Recorders (Dahua's HTTP API, ADR-234) don't
 // announce themselves: they are added by address with a recorder profile, without discovery;
 // CAPsMAN's access points come with their controller.
 const auth = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 const { t } = useI18n();
 
 const pollers = ref<PollerChoice[]>([]);
@@ -38,6 +42,9 @@ async function load() {
     const [p, c] = await Promise.all([networkApi.pollers(), networkApi.credentials()]);
     pollers.value = p.pollers;
     credentials.value = c.credentials;
+    // A link from a device's page: its profile, open for editing.
+    const wanted = typeof route.query.profile === 'string' ? route.query.profile : '';
+    if (auth.canManage && wanted && c.credentials.some((x) => x.id === wanted)) edit(wanted);
     if (!poller.value) {
       // One place that can poll: picked already.
       const ready = p.pollers.flatMap((x) =>
@@ -56,9 +63,8 @@ async function load() {
     loading.value = false;
   }
 }
-onMounted(() => {
-  if (auth.canManage) void load();
-});
+// A Viewer reads the profiles too (never a secret), without their controls.
+onMounted(() => void load());
 
 // Step 1
 const poller = ref<{ clusterId: string; host: string } | null>(null);
@@ -70,6 +76,65 @@ const discoverable = (c: Credential) => c.protocol !== 'dahua';
 const recorderProfiles = computed(() => credentials.value.filter((c) => !discoverable(c)));
 const chosen = ref<string[]>([]);
 const creating = ref(false);
+/** The profile open in the form, and the one a dialog asks about deleting (1.0.2). */
+const editingId = ref<string | null>(null);
+const editing = computed(() => credentials.value.find((c) => c.id === editingId.value) ?? null);
+const deleting = ref<Credential | null>(null);
+const deleteOpen = computed({
+  get: () => deleting.value !== null,
+  set: (v: boolean) => {
+    if (!v) deleting.value = null;
+  },
+});
+const note = ref('');
+// The buttons are locked for a Viewer (LockedControl); the handlers refuse too.
+function edit(id: string) {
+  if (!auth.canManage) return;
+  creating.value = false;
+  note.value = '';
+  editingId.value = id;
+}
+function askDelete(c: Credential) {
+  if (auth.canManage) deleting.value = c;
+}
+function startNew() {
+  editingId.value = null;
+  note.value = '';
+  creating.value = true;
+}
+async function reload() {
+  const [p, c] = await Promise.all([networkApi.pollers(), networkApi.credentials()]);
+  pollers.value = p.pollers;
+  credentials.value = c.credentials;
+  // What no longer exists leaves the selection.
+  const ids = new Set(c.credentials.map((x) => x.id));
+  chosen.value = chosen.value.filter((id) => ids.has(id));
+  if (recorderProfile.value && !ids.has(recorderProfile.value)) recorderProfile.value = '';
+}
+async function saved() {
+  const name = editing.value?.name ?? '';
+  editingId.value = null;
+  await reload();
+  note.value = t('netAdd.cred.savedNote', { name });
+}
+async function removed(id: string) {
+  const name = deleting.value?.name ?? '';
+  deleting.value = null;
+  if (editingId.value === id) editingId.value = null;
+  await reload();
+  note.value = t('netAdd.remove.done', { name });
+}
+/** The protocols of the ticked profiles (else of all), for the help section's title. */
+const guideProtocols = computed(() => {
+  const picked = credentials.value.filter((c) => chosen.value.includes(c.id));
+  const list = (picked.length ? picked : credentials.value).filter(discoverable);
+  const words = new Set(
+    list.map((c) =>
+      c.protocol === 'routeros' ? 'RouterOS' : c.settings.version === '2c' ? 'SNMP v2c' : 'SNMPv3',
+    ),
+  );
+  return words.size ? [...words].join(', ') : 'SNMPv3, RouterOS';
+});
 function toggleProfile(id: string, on: boolean) {
   chosen.value = on
     ? [...chosen.value, id].slice(0, MAX_PROFILES)
@@ -337,7 +402,7 @@ async function addRecorders() {
       <Lock class="mt-0.5 size-4 shrink-0" aria-hidden="true" />{{ $t('netAdd.viewer') }}
     </section>
 
-    <template v-else-if="loading">
+    <template v-if="loading">
       <SkeletonChart framed />
     </template>
     <ErrorState v-else-if="loadError" :message="loadError" @retry="load" />
@@ -345,6 +410,7 @@ async function addRecorders() {
     <template v-else>
       <!-- 1 -->
       <section
+        v-if="auth.canManage"
         class="flex flex-col gap-3 rounded-card border border-border bg-surface-1 p-4 sm:p-5"
         aria-labelledby="s1"
       >
@@ -352,7 +418,7 @@ async function addRecorders() {
           <span class="mr-2 font-mono text-primary">1</span>{{ $t('netAdd.poller.title') }}
         </h3>
         <p class="text-14 text-text-muted">{{ $t('netAdd.poller.intro') }}</p>
-        <PollerStep v-model="poller" :pollers="pollers" />
+        <PollerStep v-model="poller" :pollers="pollers" @moved="reload" />
       </section>
 
       <!-- 2 -->
@@ -365,23 +431,42 @@ async function addRecorders() {
             <span class="mr-2 font-mono text-primary">2</span>{{ $t('netAdd.cred.title') }}
           </h3>
           <BaseButton
-            v-if="!creating"
+            v-if="!creating && auth.canManage"
             variant="secondary"
             data-testid="cred-new"
-            @click="creating = true"
+            @click="startNew"
           >
             <Plus class="size-4" aria-hidden="true" />{{ $t('netAdd.cred.new') }}
           </BaseButton>
         </div>
-        <p class="text-14 text-text-muted">{{ $t('netAdd.cred.intro', { n: MAX_PROFILES }) }}</p>
+        <p v-if="auth.canManage" class="text-14 text-text-muted">
+          {{ $t('netAdd.cred.intro', { n: MAX_PROFILES }) }}
+        </p>
+        <p
+          v-if="note"
+          class="rounded-control border border-ok/40 bg-ok/10 px-3 py-2 text-13 text-text"
+          role="status"
+          data-testid="cred-note"
+        >
+          {{ note }}
+        </p>
         <p v-if="!credentials.length && !creating" class="text-13 text-text-muted">
           {{ $t('netAdd.cred.none') }}
         </p>
         <ul v-if="credentials.length" class="grid gap-2 md:grid-cols-2">
-          <li v-for="c in credentials" :key="c.id">
+          <li
+            v-for="c in credentials"
+            :key="c.id"
+            class="flex items-stretch rounded-card border bg-surface-2"
+            :class="[
+              chosen.includes(c.id) ? 'border-primary' : 'border-border',
+              editingId === c.id ? 'ring-1 ring-primary' : '',
+            ]"
+            :data-testid="`cred-card-${c.name}`"
+          >
             <label
-              class="flex cursor-pointer items-center gap-3 rounded-card border bg-surface-2 px-4 py-3"
-              :class="chosen.includes(c.id) ? 'border-primary' : 'border-border'"
+              class="flex min-w-0 flex-1 items-center gap-3 py-3 pl-4"
+              :class="auth.canManage && discoverable(c) ? 'cursor-pointer' : ''"
             >
               <Cctv
                 v-if="!discoverable(c)"
@@ -389,7 +474,7 @@ async function addRecorders() {
                 aria-hidden="true"
               />
               <input
-                v-else
+                v-else-if="auth.canManage"
                 type="checkbox"
                 class="size-[18px] shrink-0 accent-primary"
                 :checked="chosen.includes(c.id)"
@@ -402,24 +487,91 @@ async function addRecorders() {
                 <span v-if="!discoverable(c)" class="text-12 text-text-subtle">{{
                   $t('netAdd.cred.byAddress')
                 }}</span>
+                <span v-if="c.usedBy" class="text-12 text-text-subtle">{{
+                  $t('netAdd.cred.usedBy', { n: c.usedBy }, c.usedBy)
+                }}</span>
               </span>
-              <span v-if="c.usedBy" class="shrink-0 text-12 text-text-subtle">{{
-                $t('netAdd.cred.usedBy', { n: c.usedBy }, c.usedBy)
-              }}</span>
             </label>
+            <!-- Edit and delete: Owners and Admins; a Viewer sees them locked (1.0.2). -->
+            <LockedControl align="end">
+              <span class="flex shrink-0 items-center gap-1 px-2">
+                <button
+                  type="button"
+                  class="inline-flex size-9 items-center justify-center rounded-control text-text-muted hover:bg-surface-3 hover:text-text max-lg:size-11"
+                  :aria-label="$t('netAdd.cred.editOne', { name: c.name })"
+                  :title="$t('netAdd.cred.edit')"
+                  :data-testid="`cred-edit-${c.name}`"
+                  @click="edit(c.id)"
+                >
+                  <Pencil class="size-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex size-9 items-center justify-center rounded-control text-text-muted hover:bg-surface-3 hover:text-critical-text max-lg:size-11"
+                  :aria-label="$t('netAdd.remove.one', { name: c.name })"
+                  :title="$t('common.delete')"
+                  :data-testid="`cred-delete-${c.name}`"
+                  @click="askDelete(c)"
+                >
+                  <Trash2 class="size-4" aria-hidden="true" />
+                </button>
+              </span>
+            </LockedControl>
           </li>
         </ul>
-        <CredentialForm v-if="creating" @created="created" @cancel="creating = false" />
+        <CredentialForm
+          v-if="creating"
+          :pollers="pollers"
+          :poller="poller"
+          @created="created"
+          @cancel="creating = false"
+        />
+        <template v-if="editing">
+          <h4 class="text-14 font-semibold text-text" data-testid="cred-editing">
+            {{ $t('netAdd.cred.editing', { name: editing.name }) }}
+          </h4>
+          <!-- Keyed: another profile is another form. -->
+          <CredentialForm
+            :key="editing.id"
+            :editing="editing"
+            :pollers="pollers"
+            :poller="poller"
+            @saved="saved"
+            @cancel="editingId = null"
+            @fresh="startNew"
+          />
+        </template>
+        <CredentialDelete
+          v-if="deleting"
+          v-model:open="deleteOpen"
+          :profile="deleting"
+          :profiles="credentials"
+          @moved="reload"
+          @deleted="removed"
+        />
+        <!-- Help, folded: what it is says so (a chevron, and the protocols it is about). -->
         <details
-          class="group rounded-card border border-border bg-surface-2 px-4 py-2"
+          v-if="auth.canManage"
+          class="group rounded-card border border-border bg-surface-2"
           data-testid="setup-details"
         >
           <summary
-            class="flex min-h-9 cursor-pointer items-center text-13 max-lg:min-h-11 text-text-muted hover:text-text"
+            class="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 text-13 font-medium text-text hover:bg-surface-3 [&::-webkit-details-marker]:hidden"
           >
-            {{ $t('netAdd.setup.title') }}
+            <ChevronRight
+              class="size-4 shrink-0 text-text-muted transition-transform group-open:rotate-90"
+              aria-hidden="true"
+            />
+            <span class="min-w-0">{{ $t('netAdd.setup.title') }}</span>
+            <span
+              class="shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-12 font-normal text-text-muted"
+              >{{ guideProtocols }}</span
+            >
+            <span class="ml-auto hidden shrink-0 text-12 font-normal text-text-subtle sm:inline">{{
+              $t('netAdd.setup.help')
+            }}</span>
           </summary>
-          <div class="pt-2 pb-2">
+          <div class="border-t border-border px-4 pt-3 pb-4">
             <SetupCommands :credentials="credentials" :preferred="chosen" />
           </div>
         </details>
@@ -427,6 +579,7 @@ async function addRecorders() {
 
       <!-- 3 -->
       <section
+        v-if="auth.canManage"
         class="flex flex-col gap-3 rounded-card border border-border bg-surface-1 p-4 sm:p-5"
         aria-labelledby="s3"
       >

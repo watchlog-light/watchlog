@@ -7,30 +7,53 @@ import BaseButton from '@/components/ui/BaseButton.vue';
 import ComboBox from '@/components/ui/ComboBox.vue';
 import TextField from '@/components/ui/TextField.vue';
 import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
-import { networkApi, type Credential } from '../../api';
+import { networkApi, type Credential, type PollerChoice } from '../../api';
+import CredentialTest from './CredentialTest.vue';
 
 // A new read-only credential profile (ADR-233): SNMPv3 by default (SHA-256 and AES, authPriv),
 // v2c with its clear-text warning, or RouterOS over REST, API-SSL, or the plain API only with
 // "allow unencrypted on this network"; or a recorder's read-only user over Dahua's HTTP API
 // (0.17, ADR-234), HTTPS with its certificate pinned on first contact. Keys are write-only:
 // never shown again.
-const emit = defineEmits<{ created: [id: string]; cancel: [] }>();
+//
+// The same form edits a profile (1.0.2): filled in with what isn't secret; a secret left empty
+// is kept; the protocol can't change (its devices are read with it). And it tries the values
+// as typed against one address, through a poller, before anything is saved.
+const props = withDefaults(
+  defineProps<{
+    /** The profile being edited; none for a new one. */
+    editing?: Credential | null;
+    /** The places that can run a test, and the one chosen in step 1. */
+    pollers?: PollerChoice[];
+    poller?: { clusterId: string; host: string } | null;
+  }>(),
+  { editing: null, pollers: () => [], poller: null },
+);
+const emit = defineEmits<{ created: [id: string]; saved: [id: string]; cancel: []; fresh: [] }>();
 const { t } = useI18n();
 
-const name = ref('');
-const protocol = ref<'snmp' | 'routeros' | 'dahua'>('snmp');
-const version = ref<'3' | '2c'>('3');
-const user = ref('');
-const authProto = ref('SHA256');
-const privProto = ref('AES');
+const was = props.editing?.settings ?? {};
+const name = ref(props.editing?.name ?? '');
+const protocol = ref<'snmp' | 'routeros' | 'dahua'>(props.editing?.protocol ?? 'snmp');
+const version = ref<'3' | '2c'>(was.version ?? '3');
+const user = ref(was.user ?? '');
+const authProto = ref(was.authProto ?? 'SHA256');
+const privProto = ref(was.privProto ?? 'AES');
 const authKey = ref('');
 const privKey = ref('');
 const community = ref('');
 const password = ref('');
-const transport = ref<'rest' | 'api-ssl' | 'api'>('rest');
-const allowPlain = ref(false);
-const https = ref(true);
-const port = ref('');
+const transport = ref<'rest' | 'api-ssl' | 'api'>(was.transport ?? 'rest');
+const allowPlain = ref(was.allowPlain ?? false);
+const https = ref(was.https ?? true);
+const port = ref(was.port != null ? String(was.port) : '');
+/** A secret the saved profile has: it may be left empty. With another SNMP version, it has none. */
+const kept = computed(
+  () =>
+    !!props.editing?.secretSet &&
+    (protocol.value !== 'snmp' || (was.version ?? '3') === version.value),
+);
+const secretHint = computed(() => (kept.value ? t('netAdd.cred.keepHint') : undefined));
 const portNumber = computed(() => (port.value.trim() ? Number(port.value.trim()) : null));
 const portOk = computed(
   () =>
@@ -55,15 +78,16 @@ const problem = computed(() => {
   if (protocol.value === 'snmp') {
     if (version.value === '3') {
       if (!user.value.trim()) return t('netAdd.cred.needUser');
-      if (authKey.value.length < 8 || privKey.value.length < 8) return t('netAdd.cred.needKeys');
-    } else if (!community.value) return t('netAdd.cred.needCommunity');
+      const short = (k: string) => (kept.value && !k ? false : k.length < 8);
+      if (short(authKey.value) || short(privKey.value)) return t('netAdd.cred.needKeys');
+    } else if (!community.value && !kept.value) return t('netAdd.cred.needCommunity');
   } else if (protocol.value === 'dahua') {
     if (!user.value.trim()) return t('netAdd.cred.needUser');
-    if (!password.value) return t('netAdd.cred.needPassword');
+    if (!password.value && !kept.value) return t('netAdd.cred.needPassword');
     if (!portOk.value) return t('netAdd.cred.badPort');
   } else {
     if (!user.value.trim()) return t('netAdd.cred.needUser');
-    if (!password.value) return t('netAdd.cred.needPassword');
+    if (!password.value && !kept.value) return t('netAdd.cred.needPassword');
     if (transport.value === 'api' && !allowPlain.value) return t('netAdd.cred.needAllowPlain');
   }
   return '';
@@ -72,9 +96,8 @@ const problem = computed(() => {
 const saving = ref(false);
 const error = ref('');
 const tried = ref(false);
-async function save() {
-  tried.value = true;
-  if (problem.value) return;
+/** The settings and the secrets as typed (an empty secret means the saved one in an edit). */
+function values(): { settings: Credential['settings']; secret: Record<string, string> } {
   let settings: Credential['settings'];
   let secret: Record<string, string>;
   if (protocol.value === 'snmp') {
@@ -106,9 +129,28 @@ async function save() {
     };
     secret = { password: password.value };
   }
+  return { settings, secret };
+}
+
+async function save() {
+  tried.value = true;
+  if (problem.value) return;
+  const { settings, secret } = values();
   saving.value = true;
   error.value = '';
   try {
+    if (props.editing) {
+      // Only what was typed is sent of the secrets: the others are kept.
+      const typed = Object.fromEntries(Object.entries(secret).filter(([, v]) => v !== ''));
+      await networkApi.updateCredential(props.editing.id, {
+        name: name.value.trim(),
+        settings,
+        ...(Object.keys(typed).length ? { secret: typed } : {}),
+      });
+      authKey.value = privKey.value = community.value = password.value = '';
+      emit('saved', props.editing.id);
+      return;
+    }
     const r = await networkApi.createCredential({
       name: name.value.trim(),
       protocol: protocol.value,
@@ -138,7 +180,22 @@ async function save() {
         :placeholder="$t('netAdd.cred.namePlaceholder')"
         :maxlength="64"
       />
-      <fieldset class="flex flex-col gap-1.5">
+      <div v-if="editing" class="flex flex-col gap-1.5" data-testid="cred-protocol-fixed">
+        <span class="text-13 font-medium text-text">{{ $t('netAdd.cred.protocol') }}</span>
+        <span class="text-14 text-text">{{ $t(`netAdd.cred.${protocol}`) }}</span>
+        <span class="text-12 text-text-muted"
+          >{{ $t('netAdd.cred.protocolFixed') }}
+          <button
+            type="button"
+            class="text-link hover:underline max-lg:min-h-11"
+            data-testid="cred-fresh"
+            @click="emit('fresh')"
+          >
+            {{ $t('netAdd.cred.makeNew') }}
+          </button></span
+        >
+      </div>
+      <fieldset v-else class="flex flex-col gap-1.5">
         <legend class="mb-1.5 text-13 font-medium text-text">
           {{ $t('netAdd.cred.protocol') }}
         </legend>
@@ -214,7 +271,8 @@ async function save() {
           type="password"
           autocomplete="new-password"
           :label="$t('netAdd.cred.authKey')"
-          :hint="$t('netAdd.cred.keyHint')"
+          :placeholder="secretHint"
+          :hint="secretHint ?? $t('netAdd.cred.keyHint')"
           :maxlength="128"
         />
         <div class="flex flex-col gap-1.5">
@@ -236,7 +294,8 @@ async function save() {
           type="password"
           autocomplete="new-password"
           :label="$t('netAdd.cred.privKey')"
-          :hint="$t('netAdd.cred.keyHint')"
+          :placeholder="secretHint"
+          :hint="secretHint ?? $t('netAdd.cred.keyHint')"
           :maxlength="128"
         />
       </div>
@@ -246,6 +305,8 @@ async function save() {
           type="password"
           autocomplete="new-password"
           :label="$t('netAdd.cred.community')"
+          :placeholder="secretHint"
+          :hint="secretHint"
           :maxlength="128"
         />
         <p
@@ -273,6 +334,8 @@ async function save() {
           type="password"
           autocomplete="new-password"
           :label="$t('netAdd.cred.password')"
+          :placeholder="secretHint"
+          :hint="secretHint"
           :maxlength="128"
         />
         <div class="flex flex-col gap-1">
@@ -320,6 +383,8 @@ async function save() {
           type="password"
           autocomplete="new-password"
           :label="$t('netAdd.cred.password')"
+          :placeholder="secretHint"
+          :hint="secretHint"
           :maxlength="128"
         />
       </div>
@@ -366,12 +431,29 @@ async function save() {
       </div>
     </template>
 
+    <p
+      v-if="editing && editing.usedBy"
+      class="rounded-control border border-border bg-surface-1 px-3 py-2 text-13 text-text-muted"
+      data-testid="cred-used"
+    >
+      {{ $t('netAdd.cred.usedNote', { n: editing.usedBy }, editing.usedBy) }}
+    </p>
+    <CredentialTest
+      :pollers="pollers"
+      :poller="poller"
+      :protocol="protocol"
+      :values="values"
+      :problem="problem"
+      :credential-id="editing?.id"
+    />
     <p class="text-12 text-text-subtle">{{ $t('netAdd.cred.stored') }}</p>
     <p v-if="error || (tried && problem)" class="text-13 text-critical-text" role="alert">
       {{ error || problem }}
     </p>
     <div class="flex flex-wrap gap-2">
-      <BaseButton type="submit" :loading="saving">{{ $t('netAdd.cred.save') }}</BaseButton>
+      <BaseButton type="submit" :loading="saving" data-testid="cred-save">{{
+        editing ? $t('netAdd.cred.saveChanges') : $t('netAdd.cred.save')
+      }}</BaseButton>
       <BaseButton variant="secondary" @click="emit('cancel')">{{ $t('common.cancel') }}</BaseButton>
     </div>
   </form>

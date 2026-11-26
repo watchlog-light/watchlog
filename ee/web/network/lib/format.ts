@@ -45,7 +45,8 @@ export function statusTone(
   s: DeviceStatus,
   openAlerts = 0,
 ): 'ok' | 'warning' | 'critical' | 'neutral' {
-  if (s === 'pending') return 'neutral';
+  // Not polled yet, or paused by the user: neither up nor down.
+  if (s === 'pending' || s === 'paused') return 'neutral';
   if (s !== 'ok') return 'critical';
   return openAlerts > 0 ? 'warning' : 'ok';
 }

@@ -37,7 +37,10 @@
       "seen": "Now shown",
       "accept": "Accept the new certificate",
       "ownerOnly": "An Owner can accept it.",
-      "failed": "The certificate couldn't be accepted."
+      "failed": "The certificate couldn't be accepted.",
+      "acceptedTitle": "A new certificate was accepted for this device",
+      "acceptedBody": "If that was a mistake, an Owner can undo it: the certificate pinned before is pinned again. If the device still shows the new one, WatchLog stops reading it until an Owner decides, as before the accept.",
+      "undo": "Undo the accept"
     },
     "tiles": {
       "cpu": "CPU",
@@ -184,11 +187,22 @@
       "useProfile": "Use this profile",
       "saved": "Saved. The poller picks it up within a minute.",
       "failed": "The change couldn't be saved.",
-      "removeHint": "Removing stops polling it and forgets its links and endpoints. Its history stays until retention ends.",
+      "removeHint": "Removing stops polling it and takes its links and endpoints off the map. Its history stays until retention ends, and adding the same address again brings the device back with it.",
       "remove": "Remove device",
       "removeTitle": "Remove this device?",
       "removeLine": "WatchLog stops polling it, and its links and endpoints leave the map.",
-      "managedAp": "CAPsMAN manages this access point: WatchLog reads it through its controller, from the controller's poller and profile."
+      "managedAp": "CAPsMAN manages this access point: WatchLog reads it through its controller, from the controller's poller and profile.",
+      "address": "Address",
+      "addressHint": "Where the poller reaches it. Its history stays; a certificate is pinned again on first contact.",
+      "changeAddress": "Change address",
+      "addressSaved": "Saved. It is read at the new address from the next poll.",
+      "editProfile": "Edit the profile {name}",
+      "pause": "Pause polling",
+      "resume": "Resume polling",
+      "pauseHint": "Pausing stops WatchLog reading this device, and its alerts rest. Its history, links and place on the map stay. Use it for planned work on the device.",
+      "pausedHint": "Polling is paused: WatchLog isn't reading this device and its alerts rest. Its history stays.",
+      "pausedNow": "Paused. The poller stops reading it within a minute.",
+      "resumed": "Resumed. It is read again from the next poll."
     },
     "elsewhere": {
       "ap": "Its radios, clients and signal are on the Wireless page.",
@@ -205,7 +219,7 @@
   "netAdd": {
     "title": "Add network devices",
     "readOnly": "WatchLog only reads. It never changes a device's settings, and it sweeps an address range only when you give one.",
-    "viewer": "Only Owners and Admins add network devices. Ask one of them to add the devices you need.",
+    "viewer": "Only Owners and Admins add network devices and change credential profiles. You can see the profiles here; their secrets are never shown to anyone.",
     "loadError": "The pollers and profiles couldn't be loaded.",
     "poller": {
       "title": "Read them from where?",
@@ -220,7 +234,15 @@
       "noCollector": "The collector isn't on this server yet.",
       "notReporting": "Its collector hasn't reported in the last 10 minutes.",
       "install": "Run this on {host} to add the collector; it updates the agent in place.",
-      "installLabel": "Add the collector"
+      "installLabel": "Add the collector",
+      "reads": "Reads {n} device | Reads {n} devices",
+      "moveThem": "Move it to another poller… | Move them to another poller…",
+      "moveTo": "Read this device of {name} from | Read these {n} devices of {name} from",
+      "moveLabel": "The poller to move to",
+      "moveChoose": "Choose a cluster or a server",
+      "move": "Move",
+      "moveHint": "They are read from there from the next poll. Their history and profiles stay; a paused device stays paused.",
+      "moveFailed": "The devices couldn't be moved."
     },
     "cred": {
       "title": "Read-only credentials",
@@ -278,7 +300,16 @@
       "needKeys": "SNMPv3 needs both keys, at least 8 characters each.",
       "needCommunity": "Give the community.",
       "needPassword": "Give the password.",
-      "needAllowPlain": "Tick “Allow unencrypted on this network” to use the plain API."
+      "needAllowPlain": "Tick “Allow unencrypted on this network” to use the plain API.",
+      "edit": "Edit",
+      "editOne": "Edit the profile {name}",
+      "editing": "Edit {name}",
+      "saveChanges": "Save changes",
+      "savedNote": "{name} is saved. Its devices are read with the new values from the next poll.",
+      "keepHint": "Leave empty to keep the current one",
+      "protocolFixed": "A profile's protocol can't change: its devices are read with it.",
+      "makeNew": "Make a new profile instead",
+      "usedNote": "{n} device uses this profile. It will be read with the new values from the next poll. | {n} devices use this profile. They will be read with the new values from the next poll."
     },
     "setup": {
       "title": "How to make this read-only user on the device",
@@ -296,7 +327,8 @@
       "pollerBad": "An IPv4 or IPv6 address only.",
       "needSnmp": "Make an SNMP profile first.",
       "needRouteros": "Make a RouterOS profile first.",
-      "failed": "The commands couldn't be loaded."
+      "failed": "The commands couldn't be loaded.",
+      "help": "How-to"
     },
     "find": {
       "title": "Find the devices",
@@ -369,6 +401,53 @@
       "profile": "Recorder profile",
       "needProfile": "Choose a recorder profile.",
       "button": "Add recorders | Add {n} recorder | Add {n} recorders"
+    },
+    "remove": {
+      "title": "Delete this credential profile?",
+      "one": "Delete the profile {name}",
+      "unused": "No device uses it. Deleting it can't be undone; the devices' own settings are never touched.",
+      "inUse": "{n} device is read with this profile, so it can't be deleted yet. Move it to another profile first. | {n} devices are read with this profile, so it can't be deleted yet. Move them to another profile first.",
+      "more": "and {n} more",
+      "moveTo": "Move them to another profile",
+      "choose": "Choose a profile",
+      "moveHint": "Only profiles of the same protocol are listed. The devices are read with it from the next poll.",
+      "move": "Move {n} device | Move {n} devices",
+      "confirm": "Delete profile",
+      "done": "{name} is deleted.",
+      "failed": "The profile couldn't be changed.",
+      "noOther": {
+        "snmp": "There is no other SNMP profile to move them to. Make one first, or edit this one instead.",
+        "routeros": "There is no other RouterOS profile to move them to. Make one first, or edit this one instead.",
+        "dahua": "There is no other recorder profile to move them to. Make one first, or edit this one instead."
+      }
+    },
+    "test": {
+      "title": "Test against an address",
+      "intro": "Reads one device with the values above, as typed, before anything is saved. Read-only, through the poller you choose.",
+      "address": "A device's address",
+      "from": "Test from",
+      "run": "Test",
+      "running": "Asking the poller to read it…",
+      "needAddress": "Give the address of one device to read.",
+      "badAddress": "That isn't an address: letters, digits, dots, colons and dashes.",
+      "noPoller": "No poller has a collector yet: choose one in step 1 and add its collector, then test.",
+      "noPollerShort": "No poller with a collector",
+      "failed": "The test couldn't be run.",
+      "outcome": {
+        "answered": "{address} answered. These values work.",
+        "answeredAs": "{address} answered: {device}. These values work.",
+        "refused": {
+          "snmp": "The device answered and refused these values: the user, the authentication or the privacy key is wrong, or their protocols don't match the device's.",
+          "routeros": "The router answered and refused the user or the password.",
+          "dahua": "The recorder answered and refused the user or the password."
+        },
+        "no_answer": "Nothing answered at {address}. The address or the port may be wrong, the device may not allow this poller, or (SNMP v2c) the community is wrong: a device stays silent then.",
+        "certificate": "{address} showed a certificate that isn't the one pinned for the device already added there. Nothing was sent to it. An Owner accepts a new certificate on the device's page.",
+        "plain_refused": "The plain API sends the password in clear: tick \"Allow unencrypted on this network\" to use it.",
+        "unsupported": "This poller's collector is older than 1.0.2 and can't test a recorder profile. Update it, or save the profile and add the recorder to see it answer.",
+        "poller_silent": "The poller didn't report back. Is its collector running? Step 1 says when it last reported.",
+        "error": "It couldn't be read: {detail}"
+      }
     }
   }
 }
