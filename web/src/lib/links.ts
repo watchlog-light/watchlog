@@ -25,5 +25,7 @@ export const LINKS = {
   jobsHow: 'https://watchlog.io/docs/certificates-and-jobs/#scheduled-jobs',
   /** "Your first metric in two minutes" (docs/site/your-metrics.md, 1.0.3). */
   firstMetric: 'https://watchlog.io/docs/your-metrics/#your-first-metric-in-two-minutes',
+  /** Updating a poller's collector on a server and in a cluster (docs/site/network.md, 1.0.4). */
+  collectorUpdate: 'https://watchlog.io/docs/network/#updating-the-collector',
   kubeletTls: `${DOCS}/faq.md#nodes-say-the-kubelet-certificate-is-not-verified-how-do-i-fix-it`,
 } as const;

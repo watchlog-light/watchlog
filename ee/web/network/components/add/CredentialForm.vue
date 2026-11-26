@@ -8,6 +8,18 @@ import ComboBox from '@/components/ui/ComboBox.vue';
 import TextField from '@/components/ui/TextField.vue';
 import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
 import { networkApi, type Credential, type PollerChoice } from '../../api';
+import {
+  AUTH_OLDER,
+  AUTH_RECOMMENDED,
+  authLabel,
+  isOlder,
+  LEVELS,
+  PRIV_OLDER,
+  PRIV_RECOMMENDED,
+  privLabel,
+  QNAP_PRESET,
+  type Level,
+} from '../../lib/snmp';
 import CredentialTest from './CredentialTest.vue';
 
 // A new read-only credential profile (ADR-233): SNMPv3 by default (SHA-256 and AES, authPriv),
@@ -26,8 +38,10 @@ const props = withDefaults(
     /** The places that can run a test, and the one chosen in step 1. */
     pollers?: PollerChoice[];
     poller?: { clusterId: string; host: string } | null;
+    /** A new profile for a known device (1.0.4): a QNAP's is SHA with DES. */
+    preset?: 'qnap' | null;
   }>(),
-  { editing: null, pollers: () => [], poller: null },
+  { editing: null, pollers: () => [], poller: null, preset: null },
 );
 const emit = defineEmits<{ created: [id: string]; saved: [id: string]; cancel: []; fresh: [] }>();
 const { t } = useI18n();
@@ -37,8 +51,38 @@ const name = ref(props.editing?.name ?? '');
 const protocol = ref<'snmp' | 'routeros' | 'dahua'>(props.editing?.protocol ?? 'snmp');
 const version = ref<'3' | '2c'>(was.version ?? '3');
 const user = ref(was.user ?? '');
-const authProto = ref(was.authProto ?? 'SHA256');
-const privProto = ref(was.privProto ?? 'AES');
+// The security level (1.0.4): a profile from before has none, and is authPriv.
+const level = ref<Level>(was.level ?? 'authPriv');
+const qnap = !props.editing && props.preset === 'qnap';
+const authProto = ref(was.authProto ?? (qnap ? QNAP_PRESET.authProto : 'SHA256'));
+const privProto = ref(was.privProto ?? (qnap ? QNAP_PRESET.privProto : 'AES'));
+const withAuth = computed(() => level.value !== 'noAuthNoPriv');
+const withPriv = computed(() => level.value === 'authPriv');
+/** MD5 or DES chosen: one calm line under the choices. */
+const older = computed(
+  () => withAuth.value && isOlder(authProto.value, withPriv.value ? privProto.value : null),
+);
+const authOptions = computed(() => [
+  ...AUTH_RECOMMENDED.map((a) => ({
+    value: a,
+    label: authLabel(a),
+    group: t('netAdd.cred.recommended'),
+  })),
+  ...AUTH_OLDER.map((a) => ({ value: a, label: authLabel(a), group: t('netAdd.cred.older') })),
+]);
+const privOptions = computed(() => [
+  ...PRIV_RECOMMENDED.map((p) => ({
+    value: p,
+    label: privLabel(p),
+    group: t('netAdd.cred.recommended'),
+  })),
+  ...PRIV_OLDER.map((p) => ({ value: p, label: privLabel(p), group: t('netAdd.cred.older') })),
+]);
+/** "Find what works" answered (1.0.4): its protocols are put in the form. */
+function useFound(f: { authProto: string; privProto: string }) {
+  authProto.value = f.authProto;
+  if (f.privProto !== 'NONE') privProto.value = f.privProto;
+}
 const authKey = ref('');
 const privKey = ref('');
 const community = ref('');
@@ -53,7 +97,14 @@ const kept = computed(
     !!props.editing?.secretSet &&
     (protocol.value !== 'snmp' || (was.version ?? '3') === version.value),
 );
+/** A key the saved profile has: its level had it. */
+const keptKey = (k: 'authKey' | 'privKey') => {
+  if (!kept.value) return false;
+  const before = (was.level ?? 'authPriv') as Level;
+  return k === 'authKey' ? before !== 'noAuthNoPriv' : before === 'authPriv';
+};
 const secretHint = computed(() => (kept.value ? t('netAdd.cred.keepHint') : undefined));
+const keyHint = (k: 'authKey' | 'privKey') => (keptKey(k) ? t('netAdd.cred.keepHint') : undefined);
 const portNumber = computed(() => (port.value.trim() ? Number(port.value.trim()) : null));
 const portOk = computed(
   () =>
@@ -61,8 +112,6 @@ const portOk = computed(
     (Number.isInteger(portNumber.value) && portNumber.value >= 1 && portNumber.value <= 65535),
 );
 
-const AUTH = ['SHA', 'SHA224', 'SHA256', 'SHA384', 'SHA512'];
-const PRIV = ['AES', 'AES192', 'AES256'];
 const choice = (r: { value: string }) =>
   computed<string | null>({
     get: () => r.value,
@@ -78,8 +127,11 @@ const problem = computed(() => {
   if (protocol.value === 'snmp') {
     if (version.value === '3') {
       if (!user.value.trim()) return t('netAdd.cred.needUser');
-      const short = (k: string) => (kept.value && !k ? false : k.length < 8);
-      if (short(authKey.value) || short(privKey.value)) return t('netAdd.cred.needKeys');
+      const short = (k: string, which: 'authKey' | 'privKey') =>
+        keptKey(which) && !k ? false : k.length < 8;
+      if (withAuth.value && short(authKey.value, 'authKey'))
+        return t(withPriv.value ? 'netAdd.cred.needKeys' : 'netAdd.cred.needAuthKey');
+      if (withPriv.value && short(privKey.value, 'privKey')) return t('netAdd.cred.needKeys');
     } else if (!community.value && !kept.value) return t('netAdd.cred.needCommunity');
   } else if (protocol.value === 'dahua') {
     if (!user.value.trim()) return t('netAdd.cred.needUser');
@@ -101,18 +153,23 @@ function values(): { settings: Credential['settings']; secret: Record<string, st
   let settings: Credential['settings'];
   let secret: Record<string, string>;
   if (protocol.value === 'snmp') {
+    // The level is said only when it isn't the usual authPriv (1.0.4), with the protocols it uses.
     settings =
       version.value === '3'
         ? {
             version: '3',
             user: user.value.trim(),
-            authProto: authProto.value,
-            privProto: privProto.value,
+            ...(level.value !== 'authPriv' ? { level: level.value } : {}),
+            ...(withAuth.value ? { authProto: authProto.value } : {}),
+            ...(withPriv.value ? { privProto: privProto.value } : {}),
           }
         : { version: '2c' };
     secret =
       version.value === '3'
-        ? { authKey: authKey.value, privKey: privKey.value }
+        ? {
+            ...(withAuth.value ? { authKey: authKey.value } : {}),
+            ...(withPriv.value ? { privKey: privKey.value } : {}),
+          }
         : { community: community.value };
   } else if (protocol.value === 'dahua') {
     settings = {
@@ -244,6 +301,29 @@ async function save() {
           >
         </div>
       </fieldset>
+      <p
+        v-if="qnap && version === '3'"
+        class="rounded-control border border-border bg-surface-1 px-3 py-2 text-13 leading-relaxed text-text-muted"
+        data-testid="cred-qnap-preset"
+      >
+        {{ $t('netAdd.cred.qnapPreset') }}
+      </p>
+      <fieldset v-if="version === '3'" class="flex flex-col gap-1.5" data-testid="cred-level">
+        <legend class="mb-1.5 text-13 font-medium text-text">
+          {{ $t('netAdd.cred.level') }}
+        </legend>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-13 text-text">
+          <label v-for="l in LEVELS" :key="l" class="inline-flex items-center gap-2 max-lg:min-h-11"
+            ><input
+              v-model="level"
+              type="radio"
+              :value="l"
+              class="size-4 accent-primary"
+              :data-testid="`cred-level-${l}`"
+            />{{ $t(`netAdd.cred.levels.${l}`) }}</label
+          >
+        </div>
+      </fieldset>
       <div v-if="version === '3'" class="grid gap-3 sm:grid-cols-2">
         <TextField
           v-model="user"
@@ -252,52 +332,62 @@ async function save() {
           :maxlength="64"
         />
         <div class="hidden sm:block" />
-        <div class="flex flex-col gap-1.5">
-          <span class="text-13 font-medium text-text">{{ $t('netAdd.cred.authProto') }}</span>
-          <ComboBox
-            v-model="authModel"
-            :options="
-              AUTH.map((a) => ({
-                value: a,
-                label: a === 'SHA' ? 'SHA-1' : a.replace('SHA', 'SHA-'),
-              }))
-            "
-            :label="$t('netAdd.cred.authProto')"
-            testid="cred-auth"
+        <template v-if="withAuth">
+          <div class="flex flex-col gap-1.5">
+            <span class="text-13 font-medium text-text">{{ $t('netAdd.cred.authProto') }}</span>
+            <ComboBox
+              v-model="authModel"
+              :options="authOptions"
+              :label="$t('netAdd.cred.authProto')"
+              testid="cred-auth"
+            />
+          </div>
+          <TextField
+            v-model="authKey"
+            type="password"
+            autocomplete="new-password"
+            :label="$t('netAdd.cred.authKey')"
+            :placeholder="keyHint('authKey')"
+            :hint="keyHint('authKey') ?? $t('netAdd.cred.keyHint')"
+            :maxlength="128"
           />
-        </div>
-        <TextField
-          v-model="authKey"
-          type="password"
-          autocomplete="new-password"
-          :label="$t('netAdd.cred.authKey')"
-          :placeholder="secretHint"
-          :hint="secretHint ?? $t('netAdd.cred.keyHint')"
-          :maxlength="128"
-        />
-        <div class="flex flex-col gap-1.5">
-          <span class="text-13 font-medium text-text">{{ $t('netAdd.cred.privProto') }}</span>
-          <ComboBox
-            v-model="privModel"
-            :options="
-              PRIV.map((p) => ({
-                value: p,
-                label: p === 'AES' ? 'AES-128' : p.replace('AES', 'AES-'),
-              }))
-            "
-            :label="$t('netAdd.cred.privProto')"
-            testid="cred-priv"
+        </template>
+        <template v-if="withPriv">
+          <div class="flex flex-col gap-1.5">
+            <span class="text-13 font-medium text-text">{{ $t('netAdd.cred.privProto') }}</span>
+            <ComboBox
+              v-model="privModel"
+              :options="privOptions"
+              :label="$t('netAdd.cred.privProto')"
+              testid="cred-priv"
+            />
+          </div>
+          <TextField
+            v-model="privKey"
+            type="password"
+            autocomplete="new-password"
+            :label="$t('netAdd.cred.privKey')"
+            :placeholder="keyHint('privKey')"
+            :hint="keyHint('privKey') ?? $t('netAdd.cred.keyHint')"
+            :maxlength="128"
           />
-        </div>
-        <TextField
-          v-model="privKey"
-          type="password"
-          autocomplete="new-password"
-          :label="$t('netAdd.cred.privKey')"
-          :placeholder="secretHint"
-          :hint="secretHint ?? $t('netAdd.cred.keyHint')"
-          :maxlength="128"
-        />
+        </template>
+        <p
+          v-if="older"
+          class="text-13 leading-relaxed text-text-muted sm:col-span-2"
+          role="note"
+          data-testid="cred-older-note"
+        >
+          {{ $t('netAdd.cred.olderNote') }}
+        </p>
+        <p
+          v-else-if="level !== 'authPriv'"
+          class="text-13 leading-relaxed text-text-muted sm:col-span-2"
+          role="note"
+          data-testid="cred-plain-note"
+        >
+          {{ $t(`netAdd.cred.plainNote.${level}`) }}
+        </p>
       </div>
       <div v-else class="flex flex-col gap-3">
         <TextField
@@ -445,6 +535,8 @@ async function save() {
       :values="values"
       :problem="problem"
       :credential-id="editing?.id"
+      :can-find="protocol === 'snmp' && version === '3' && withAuth"
+      @use="useFound"
     />
     <p class="text-12 text-text-subtle">{{ $t('netAdd.cred.stored') }}</p>
     <p v-if="error || (tried && problem)" class="text-13 text-critical-text" role="alert">

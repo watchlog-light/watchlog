@@ -50,6 +50,8 @@ export interface Device {
   managedAp: boolean;
   /** An Owner accepted a new certificate and the one before is kept: it can be undone (1.0.2). */
   certUndo?: boolean;
+  /** Its collector is older than 1.0.4 and can't read its profile: what it can't ("DES"…). */
+  olderCollector?: string | null;
   /** An access point's controller (CAPsMAN), 0.17. */
   parentId: string | null;
   poller: Poller;
@@ -176,7 +178,13 @@ export interface DeviceDetail {
     sysName: string;
     parentName: string | null;
     location: string;
-    credential: { id: string; name: string; protocol: string } | null;
+    credential: {
+      id: string;
+      name: string;
+      protocol: string;
+      /** MD5 or DES ("older"), or no SNMPv3 privacy ("plain"): a small mark (1.0.4). */
+      strength?: 'older' | 'plain' | null;
+    } | null;
     certificate: { pinned: string | null; seen: string | null } | null;
     routes: number | null;
     gateway: string | null;
@@ -254,6 +262,8 @@ export interface Credential {
   settings: {
     version?: '3' | '2c';
     user?: string;
+    /** SNMPv3's security level (1.0.4); a profile without one is authPriv. */
+    level?: 'authPriv' | 'authNoPriv' | 'noAuthNoPriv';
     authProto?: string;
     privProto?: string;
     port?: number;
@@ -264,6 +274,10 @@ export interface Credential {
   };
   secretSet: boolean;
   usedBy: number;
+  /** MD5 or DES ("older"), or no SNMPv3 privacy ("plain"): a small mark on its card (1.0.4). */
+  strength?: 'older' | 'plain' | null;
+  /** Pollers whose collector is older than 1.0.4 and refused this profile (1.0.4). */
+  olderCollector?: { what: string; pollers: string[] } | null;
 }
 
 export interface Found {
@@ -516,6 +530,11 @@ export interface ProfileDevice {
 export type TestOutcome =
   | 'answered'
   | 'refused'
+  | 'user'
+  | 'auth'
+  | 'privacy'
+  | 'level'
+  | 'collector_old'
   | 'no_answer'
   | 'certificate'
   | 'plain_refused'
@@ -531,6 +550,11 @@ export interface CredentialTest {
   model?: string;
   vendor?: string;
   detail?: string;
+  /** "Find what works" (1.0.4): the protocols that answered, and how many were tried. */
+  found?: { authProto: string; privProto: string };
+  tried?: number;
+  /** What an older collector can't read ("DES", "MD5"…), with collector_old. */
+  collector?: string;
 }
 
 export const networkApi = {
@@ -587,6 +611,7 @@ export const networkApi = {
     settings: Credential['settings'];
     secret: Record<string, string>;
     credentialId?: string;
+    find?: boolean;
   }) => api<{ id: string }>('/network/credential-tests', { method: 'POST', body }),
   credentialTest: (id: string) =>
     api<CredentialTest>(`/network/credential-tests/${encodeURIComponent(id)}`),

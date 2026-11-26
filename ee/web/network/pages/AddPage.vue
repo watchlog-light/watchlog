@@ -11,6 +11,7 @@ import LockedControl from '@/components/ui/LockedControl.vue';
 import SkeletonChart from '@/components/ui/SkeletonChart.vue';
 import TextField from '@/components/ui/TextField.vue';
 import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
+import { LINKS } from '@/lib/links';
 import { useAuthStore } from '@/stores/auth';
 import { networkApi, type Credential, type Found, type PollerChoice } from '../api';
 import CredentialDelete from '../components/add/CredentialDelete.vue';
@@ -19,6 +20,8 @@ import FoundList from '../components/add/FoundList.vue';
 import PollerStep from '../components/add/PollerStep.vue';
 import SetupCommands from '../components/add/SetupCommands.vue';
 import NetworkTabs from '../components/NetworkTabs.vue';
+import StrengthMark from '../components/StrengthMark.vue';
+import { authLabel, privLabel } from '../lib/snmp';
 
 // Adding network devices (ADR-233): (1) the place that polls them, (2) read-only credential
 // profiles, (3) the addresses to start from, (4) what was found, each tested, (5) add the picked
@@ -45,6 +48,8 @@ async function load() {
     // A link from a device's page: its profile, open for editing.
     const wanted = typeof route.query.profile === 'string' ? route.query.profile : '';
     if (auth.canManage && wanted && c.credentials.some((x) => x.id === wanted)) edit(wanted);
+    // A link from a QNAP's page or its setup steps (1.0.4): a new profile, SHA with DES.
+    else if (auth.canManage && route.query.new === 'qnap') startNew('qnap');
     if (!poller.value) {
       // One place that can poll: picked already.
       const ready = p.pollers.flatMap((x) =>
@@ -97,9 +102,12 @@ function edit(id: string) {
 function askDelete(c: Credential) {
   if (auth.canManage) deleting.value = c;
 }
-function startNew() {
+/** A new profile's preset (1.0.4): a QNAP's is SHA with DES, and the form says why. */
+const preset = ref<'qnap' | null>(null);
+function startNew(kind: 'qnap' | null = null) {
   editingId.value = null;
   note.value = '';
+  preset.value = kind;
   creating.value = true;
 }
 async function reload() {
@@ -166,13 +174,12 @@ function describe(c: Credential): string {
       transport: t(`netAdd.cred.transports.${s.transport ?? 'rest'}`),
     });
   }
-  return s.version === '2c'
-    ? t('netAdd.cred.describeV2c')
-    : t('netAdd.cred.describeV3', {
-        user: s.user ?? '–',
-        auth: s.authProto ?? 'SHA',
-        priv: s.privProto ?? 'AES',
-      });
+  if (s.version === '2c') return t('netAdd.cred.describeV2c');
+  const user = s.user ?? '–';
+  const auth = authLabel(s.authProto ?? 'SHA');
+  if (s.level === 'noAuthNoPriv') return t('netAdd.cred.describeV3None', { user });
+  if (s.level === 'authNoPriv') return t('netAdd.cred.describeV3Auth', { user, auth });
+  return t('netAdd.cred.describeV3', { user, auth, priv: privLabel(s.privProto ?? 'AES') });
 }
 
 // Step 3
@@ -436,7 +443,7 @@ async function addRecorders() {
             v-if="!creating && auth.canManage"
             variant="secondary"
             data-testid="cred-new"
-            @click="startNew"
+            @click="startNew()"
           >
             <Plus class="size-4" aria-hidden="true" />{{ $t('netAdd.cred.new') }}
           </BaseButton>
@@ -484,8 +491,34 @@ async function addRecorders() {
                 @change="toggleProfile(c.id, ($event.target as HTMLInputElement).checked)"
               />
               <span class="flex min-w-0 flex-1 flex-col">
-                <span class="text-14 font-medium break-all text-text">{{ c.name }}</span>
+                <span class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span class="text-14 font-medium break-all text-text">{{ c.name }}</span>
+                  <StrengthMark v-if="c.strength" :strength="c.strength" />
+                </span>
                 <span class="text-12 text-text-muted">{{ describe(c) }}</span>
+                <span
+                  v-if="c.olderCollector"
+                  class="text-12 text-text-muted"
+                  :data-testid="`cred-old-collector-${c.name}`"
+                  >{{
+                    $t(
+                      'netAdd.cred.olderCollector',
+                      {
+                        servers: c.olderCollector.pollers.join(', '),
+                        what: c.olderCollector.what,
+                      },
+                      c.olderCollector.pollers.length,
+                    )
+                  }}
+                  <a
+                    :href="LINKS.collectorUpdate"
+                    target="_blank"
+                    rel="noopener"
+                    class="underline underline-offset-2"
+                    @click.stop
+                    >{{ $t('netAdd.test.howUpdate') }}</a
+                  ></span
+                >
                 <span v-if="!discoverable(c)" class="text-12 text-text-subtle">{{
                   $t('netAdd.cred.byAddress')
                 }}</span>
@@ -523,8 +556,10 @@ async function addRecorders() {
         </ul>
         <CredentialForm
           v-if="creating"
+          :key="preset ?? 'new'"
           :pollers="pollers"
           :poller="poller"
+          :preset="preset"
           @created="created"
           @cancel="creating = false"
         />
@@ -540,7 +575,7 @@ async function addRecorders() {
             :poller="poller"
             @saved="saved"
             @cancel="editingId = null"
-            @fresh="startNew"
+            @fresh="startNew()"
           />
         </template>
         <CredentialDelete
@@ -577,7 +612,11 @@ async function addRecorders() {
             }}</span>
           </summary>
           <div class="border-t border-border px-4 pt-3 pb-4">
-            <SetupCommands :credentials="credentials" :preferred="chosen" />
+            <SetupCommands
+              :credentials="credentials"
+              :preferred="chosen"
+              @qnap="startNew('qnap')"
+            />
           </div>
         </details>
       </section>

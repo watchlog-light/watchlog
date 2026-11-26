@@ -6,6 +6,8 @@ import { useI18n } from 'vue-i18n';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import ComboBox, { type ComboboxOption } from '@/components/ui/ComboBox.vue';
 import TextField from '@/components/ui/TextField.vue';
+import { LINKS } from '@/lib/links';
+import { authLabel, privLabel } from '../../lib/snmp';
 import {
   networkApi,
   type Credential,
@@ -28,7 +30,10 @@ const props = defineProps<{
   /** What is still missing in the form, in its own words; '' when it can be tried. */
   problem: string;
   credentialId?: string | undefined;
+  /** An SNMPv3 profile with authentication: "Find what works" can try its protocols (1.0.4). */
+  canFind?: boolean;
 }>();
+const emit = defineEmits<{ use: [found: { authProto: string; privProto: string }] }>();
 const { t } = useI18n();
 
 const address = ref('');
@@ -83,14 +88,21 @@ const cannot = computed(() => {
   return '';
 });
 
-async function test() {
+/** The test was "Find what works": its result offers the protocols that answered. */
+const finding = ref(false);
+/** Where the last test ran: an old collector's message names it. */
+const ranOn = ref('');
+
+async function test(find = false) {
   error.value = '';
   result.value = null;
+  finding.value = find;
   if (cannot.value || !from.value || !address.value.trim()) {
     error.value = cannot.value || t('netAdd.test.needAddress');
     return;
   }
   const cut = from.value.indexOf('/');
+  ranOn.value = options.value.find((o) => o.value === from.value)?.label ?? '';
   const mine = ++run;
   running.value = true;
   try {
@@ -103,6 +115,7 @@ async function test() {
       settings,
       secret,
       ...(props.credentialId ? { credentialId: props.credentialId } : {}),
+      ...(find ? { find: true } : {}),
     });
     // The poller picks it up at once; its answer is asked for until it is there.
     const poll = async () => {
@@ -139,10 +152,32 @@ const sentence = computed(() => {
       : t('netAdd.test.outcome.answered', { address: r.address });
   }
   if (r.outcome === 'refused') return t(`netAdd.test.outcome.refused.${props.protocol}`);
+  if (r.outcome === 'collector_old')
+    return t('netAdd.test.outcome.collector_old', {
+      server: ranOn.value || t('netAdd.test.thisPoller'),
+      what: r.collector || '',
+    });
   if (r.outcome === 'error')
     return t('netAdd.test.outcome.error', { detail: r.detail || t('netAdd.test.failed') });
   return t(`netAdd.test.outcome.${r.outcome}`, { address: r.address });
 });
+/** "Find what works" answered: which protocols, and how many combinations were tried. */
+const foundLine = computed(() => {
+  const f = result.value?.found;
+  if (!finding.value || !f) return '';
+  const what =
+    f.privProto === 'NONE'
+      ? authLabel(f.authProto)
+      : t('netAdd.test.find.pair', { auth: authLabel(f.authProto), priv: privLabel(f.privProto) });
+  const n = result.value?.tried ?? 1;
+  return t('netAdd.test.find.answered', { what, n }, n);
+});
+/** Nothing answered any combination: say how many were tried. */
+const triedLine = computed(() =>
+  finding.value && result.value && result.value.outcome !== 'answered' && result.value.tried
+    ? t('netAdd.test.find.none', { n: result.value.tried })
+    : '',
+);
 </script>
 
 <template>
@@ -173,9 +208,27 @@ const sentence = computed(() => {
           testid="cred-test-poller"
         />
       </div>
-      <BaseButton variant="secondary" :loading="running" data-testid="cred-test-run" @click="test">
+      <BaseButton
+        variant="secondary"
+        :loading="running && !finding"
+        :disabled="running && finding"
+        data-testid="cred-test-run"
+        @click="test()"
+      >
         {{ $t('netAdd.test.run') }}
       </BaseButton>
+    </div>
+    <div v-if="canFind" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <BaseButton
+        variant="ghost"
+        :loading="running && finding"
+        :disabled="running && !finding"
+        data-testid="cred-test-find"
+        @click="test(true)"
+      >
+        {{ $t('netAdd.test.find.run') }}
+      </BaseButton>
+      <span class="text-12 text-text-muted">{{ $t('netAdd.test.find.hint') }}</span>
     </div>
     <p
       v-if="running"
@@ -203,7 +256,35 @@ const sentence = computed(() => {
         aria-hidden="true"
       />
       <CircleAlert v-else class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-      <span class="min-w-0 break-words">{{ sentence }}</span>
+      <span class="min-w-0 break-words"
+        >{{ sentence }}
+        <a
+          v-if="result.outcome === 'collector_old'"
+          :href="LINKS.collectorUpdate"
+          target="_blank"
+          rel="noopener"
+          class="underline underline-offset-2"
+          data-testid="cred-test-update-link"
+          >{{ $t('netAdd.test.howUpdate') }}</a
+        ></span
+      >
+    </p>
+    <div
+      v-if="!running && foundLine"
+      class="flex flex-wrap items-center gap-x-3 gap-y-2 text-13 text-text"
+      data-testid="cred-test-found"
+    >
+      <span class="min-w-0">{{ foundLine }}</span>
+      <BaseButton data-testid="cred-test-use" @click="result?.found && emit('use', result.found)">
+        {{ $t('netAdd.test.find.use') }}
+      </BaseButton>
+    </div>
+    <p
+      v-else-if="!running && triedLine"
+      class="text-12 text-text-muted"
+      data-testid="cred-test-tried"
+    >
+      {{ triedLine }}
     </p>
     <p
       v-else-if="error"

@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import BaseButton from '@/components/ui/BaseButton.vue';
 import CodeBlock from '@/components/ui/CodeBlock.vue';
 import ComboBox from '@/components/ui/ComboBox.vue';
 import TextField from '@/components/ui/TextField.vue';
@@ -12,6 +13,8 @@ import { networkApi, type Credential } from '../../api';
 // typed, limits who may use them. Recorders (Dahua), QNAP NASes and UPSes get short steps to
 // follow on the device instead (0.17, ADR-234).
 const props = defineProps<{ credentials: Credential[]; preferred: string[] }>();
+/** "New profile for a QNAP": SHA with DES, as QTS encrypts (1.0.4). */
+const emit = defineEmits<{ qnap: [] }>();
 const { t } = useI18n();
 
 type Commands = 'ios' | 'nxos' | 'routeros';
@@ -21,7 +24,8 @@ const PLATFORMS: Platform[] = ['ios', 'nxos', 'routeros', 'dahua', 'qnap', 'ups'
 /** The steps each guide shows, in order (netAdd.guide.<platform>.<step>). */
 const GUIDES: Record<Guide, string[]> = {
   dahua: ['user', 'network', 'add'],
-  qnap: ['where', 'v3', 'network'],
+  // QTS's own screen (1.0.4): SNMP V3, a user, HMAC-SHA, "Use Privacy" (which is DES).
+  qnap: ['where', 'v3', 'auth', 'privacy', 'profile', 'network'],
   ups: ['where', 'version', 'network'],
 };
 const platform = ref<Platform>('ios');
@@ -115,6 +119,11 @@ function onKey(e: KeyboardEvent, i: number) {
             {{ $t(`netAdd.guide.${guide}.${step}`) }}
           </li>
         </ol>
+        <div v-if="guide === 'qnap'">
+          <BaseButton variant="secondary" data-testid="setup-qnap-profile" @click="emit('qnap')">
+            {{ $t('netAdd.guide.qnap.make') }}
+          </BaseButton>
+        </div>
       </div>
       <p v-else-if="!matching.length" class="text-13 text-text-muted">
         {{ $t(platform === 'routeros' ? 'netAdd.setup.needRouteros' : 'netAdd.setup.needSnmp') }}

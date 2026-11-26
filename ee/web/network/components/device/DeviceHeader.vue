@@ -3,13 +3,16 @@
 import { ArrowLeft, ShieldAlert } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { RouterLink } from 'vue-router';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import { LINKS } from '@/lib/links';
 import { since } from '@/lib/time';
 import { useAuthStore } from '@/stores/auth';
 import { networkApi, type DeviceDetail } from '../../api';
 import { withValue } from '../../lib/device-view';
 import { statusTone, uptimeText } from '../../lib/format';
 import KindIcon from '../KindIcon.vue';
+import StrengthMark from '../StrengthMark.vue';
 
 // A device's name, state and facts (ADR-233); a RouterOS device or a recorder whose certificate
 // changed says so first, with "Accept" for Owners.
@@ -34,7 +37,12 @@ const facts = computed(() => {
   const poller = v.poller.host ? `${v.poller.name} · ${v.poller.host}` : v.poller.name;
   // A fact with no value isn't shown (1.0.0): a recorder reports no uptime, an access point
   // read through its controller no serial; "Uptime –" said nothing.
-  const rows: { label: string; value: string | null; mono?: boolean }[] = [
+  const rows: {
+    label: string;
+    value: string | null;
+    mono?: boolean;
+    strength?: 'older' | 'plain' | null;
+  }[] = [
     {
       label: t('netDevice.facts.model'),
       value: [v.vendor, v.model].filter(Boolean).join(' ') || null,
@@ -56,6 +64,8 @@ const facts = computed(() => {
                   protocol: t(`net.protocol.${v.credential.protocol}`),
                 })
               : null,
+            // MD5 or DES, or no SNMPv3 privacy: a small mark beside it (1.0.4).
+            strength: v.credential?.strength ?? null,
           },
         ]),
     {
@@ -73,6 +83,24 @@ const facts = computed(() => {
   if (v.location) rows.push({ label: t('netDevice.facts.location'), value: v.location });
   return withValue(rows);
 });
+
+/** Its collector is older than 1.0.4 and can't read its profile: said in words, with a link. */
+const olderCollector = computed(() => {
+  const what = d.value.olderCollector;
+  if (!what) return '';
+  const p = d.value.poller;
+  const server = p.kind === 'kubernetes' ? p.name : p.host || p.name;
+  return t('netAdd.test.outcome.collector_old', { server, what });
+});
+/** A QNAP that can't be read (1.0.4): a new profile for it is SHA with DES. */
+const qnapHint = computed(
+  () =>
+    auth.canManage &&
+    /qnap/i.test(d.value.vendor) &&
+    d.value.status !== 'ok' &&
+    d.value.protocol === 'snmp' &&
+    !d.value.olderCollector,
+);
 
 const routerOs = computed(() => d.value.protocol === 'routeros');
 const update = computed(() => {
@@ -199,7 +227,31 @@ async function accept() {
         >
         <span class="text-13 text-text-muted">{{ $t(`net.kind.${d.kind}`) }}</span>
       </div>
-      <p v-if="d.error && d.status !== 'ok'" class="text-13 text-critical-text">{{ d.error }}</p>
+      <p
+        v-if="olderCollector"
+        class="text-13 text-critical-text"
+        data-testid="device-old-collector"
+      >
+        {{ olderCollector }}
+        <a
+          :href="LINKS.collectorUpdate"
+          target="_blank"
+          rel="noopener"
+          class="underline underline-offset-2"
+          >{{ $t('netAdd.test.howUpdate') }}</a
+        >
+      </p>
+      <p v-else-if="d.error && d.status !== 'ok'" class="text-13 text-critical-text">
+        {{ d.error }}
+      </p>
+      <p v-if="qnapHint" class="text-13 text-text-muted" data-testid="device-qnap-hint">
+        {{ $t('netDevice.qnapHint') }}
+        <RouterLink
+          :to="{ name: 'network-add', query: { new: 'qnap' } }"
+          class="text-primary underline underline-offset-2"
+          >{{ $t('netAdd.guide.qnap.make') }}</RouterLink
+        >
+      </p>
       <p v-if="update" class="text-13 text-text-muted" data-testid="device-update">
         <span class="font-mono text-text">RouterOS {{ update.installed ?? '–' }}</span>
         <template v-if="update.newer">
@@ -223,8 +275,12 @@ async function accept() {
     >
       <div v-for="f in facts" :key="f.label" class="flex min-w-0 flex-col gap-0.5">
         <dt class="text-11 tracking-[0.08em] text-text-subtle uppercase">{{ f.label }}</dt>
-        <dd class="text-13 break-words text-text" :class="f.mono ? 'font-mono' : ''">
-          {{ f.value }}
+        <dd
+          class="flex flex-wrap items-center gap-x-2 gap-y-1 text-13 break-words text-text"
+          :class="f.mono ? 'font-mono' : ''"
+        >
+          <span class="min-w-0 break-words">{{ f.value }}</span>
+          <StrengthMark v-if="f.strength" :strength="f.strength" />
         </dd>
       </div>
     </dl>

@@ -214,7 +214,8 @@
       "controller": "Its CAPsMAN controller",
       "controllerNamed": "CAPsMAN on {name}"
     },
-    "openAlerts": "no open alerts | {n} open alert | {n} open alerts"
+    "openAlerts": "no open alerts | {n} open alert | {n} open alerts",
+    "qnapHint": "QTS encrypts SNMPv3 with DES: a QNAP's profile is SHA with DES, or press “Find what works” in its profile's test."
   },
   "netAdd": {
     "title": "Add network devices",
@@ -251,6 +252,16 @@
       "new": "New profile",
       "usedBy": "used by {n} device | used by {n} devices",
       "describeV3": "SNMPv3 · {user} · {auth} / {priv}",
+      "describeV3Auth": "SNMPv3 · {user} · {auth}, no privacy",
+      "describeV3None": "SNMPv3 · {user} · no authentication",
+      "strength": {
+        "older": "older encryption",
+        "plain": "not encrypted"
+      },
+      "strengthHint": {
+        "older": "This profile uses MD5 or DES, which are weak by today’s standards.",
+        "plain": "This profile reads the device without SNMPv3 privacy: its answers cross the network unencrypted."
+      },
       "describeV2c": "SNMP v2c · community",
       "describeRouteros": "RouterOS · {user} · {transport}",
       "describeDahua": "Recorder · {user} · {scheme}, port {port}",
@@ -269,6 +280,20 @@
       "authKey": "Authentication key",
       "privProto": "Privacy",
       "privKey": "Privacy key",
+      "level": "Security level",
+      "levels": {
+        "authPriv": "Authentication and privacy",
+        "authNoPriv": "Authentication only",
+        "noAuthNoPriv": "Neither"
+      },
+      "recommended": "Recommended",
+      "older": "For older devices",
+      "olderNote": "DES and MD5 are weak by today's standards. Use them only when the device offers nothing else, as QNAP's QTS does, and keep SNMP reachable from the poller only.",
+      "plainNote": {
+        "authNoPriv": "Without privacy, what the device answers crosses the network unencrypted. Use it only where the device can't encrypt, on a network you trust.",
+        "noAuthNoPriv": "Without authentication or privacy, anyone who knows the user name can read the device, and its answers cross the network unencrypted. Use it only on a network you trust."
+      },
+      "qnapPreset": "QTS encrypts SNMPv3 with DES and offers no other privacy protocol, so a QNAP's profile is SHA with DES. On the NAS, tick “Use Authentication” with HMAC-SHA and “Use Privacy”.",
       "keyHint": "At least 8 characters. Never shown again after you save.",
       "community": "Community",
       "v2cNote": "SNMP v2c sends the community string in clear text over the network. Use it only where v3 isn't possible, on a network you trust.",
@@ -298,6 +323,7 @@
       "needName": "Give the profile a name.",
       "needUser": "Give the user.",
       "needKeys": "SNMPv3 needs both keys, at least 8 characters each.",
+      "needAuthKey": "Give the authentication key, at least 8 characters.",
       "needCommunity": "Give the community.",
       "needPassword": "Give the password.",
       "needAllowPlain": "Tick “Allow unencrypted on this network” to use the plain API.",
@@ -309,7 +335,8 @@
       "keepHint": "Leave empty to keep the current one",
       "protocolFixed": "A profile's protocol can't change: its devices are read with it.",
       "makeNew": "Make a new profile instead",
-      "usedNote": "{n} device uses this profile. It will be read with the new values from the next poll. | {n} devices use this profile. They will be read with the new values from the next poll."
+      "usedNote": "{n} device uses this profile. It will be read with the new values from the next poll. | {n} devices use this profile. They will be read with the new values from the next poll.",
+      "olderCollector": "The collector on {servers} is older than 1.0.4 and can't read with {what}; update it. | The collectors on {servers} are older than 1.0.4 and can't read with {what}; update them."
     },
     "setup": {
       "title": "How to make this read-only user on the device",
@@ -382,14 +409,18 @@
       },
       "qnap": {
         "title": "On the QNAP NAS (QTS)",
-        "where": "Open Control Panel → Network & File Services → SNMP and turn SNMP on.",
-        "v3": "Choose SNMPv3 with authentication and privacy, and a read-only user; use the same user, keys and algorithms as an SNMPv3 profile here.",
-        "network": "The poller needs to reach the NAS on UDP 161."
+        "where": "Open Control Panel → Network & File Services → SNMP, tick “Enable SNMP Service” and choose SNMP V3.",
+        "v3": "Give a user name for WatchLog.",
+        "auth": "Tick “Use Authentication”, choose HMAC-SHA and give an authentication password (8 characters or more).",
+        "privacy": "Tick “Use Privacy” and give a privacy password. QTS offers no choice of privacy protocol: it encrypts with DES.",
+        "profile": "So the profile here is SHA with DES, with the same user and passwords. A profile with AES gets no answer from a QNAP.",
+        "network": "The poller needs to reach the NAS on UDP 161.",
+        "make": "New profile for a QNAP (SHA with DES)"
       },
       "ups": {
         "title": "On the UPS",
-        "where": "Turn SNMP on in the UPS's network card (its web page).",
-        "version": "Use SNMPv3 with a read-only user, or v2c with a read-only community where v3 isn't offered.",
+        "where": "Turn SNMP on in the UPS's network card (its web page): on APC's, Configuration → Network → SNMPv3 → User Profiles; on Eaton's, Settings → SNMP; on CyberPower's, System → Network Service → SNMPv3 Service.",
+        "version": "Give a read-only SNMPv3 user authentication and privacy. Eaton's cards and APC's NMC3 offer SHA-256 with AES; APC's NMC2 and CyberPower's cards offer SHA with AES: choose the same here. Use v2c with a read-only community only where v3 isn't offered.",
         "network": "The poller needs to reach the network card on UDP 161."
       }
     },
@@ -442,12 +473,27 @@
           "routeros": "The router answered and refused the user or the password.",
           "dahua": "The recorder answered and refused the user or the password."
         },
+        "user": "The device answered: it doesn't know this SNMPv3 user. Check the user name, as it is written on the device.",
+        "auth": "The device answered: the authentication password or protocol doesn't match. Check the authentication key and whether the device uses SHA, SHA-2 or MD5.",
+        "privacy": "The device answered, but the privacy protocol or password doesn't match: if this is a QNAP, choose DES.",
+        "level": "The device answered: it wants another security level for this user. Check whether the device's user has authentication and privacy turned on.",
+        "collector_old": "The collector on {server} is older than 1.0.4 and can't read with {what}; update it.",
         "no_answer": "Nothing answered at {address}. The address or the port may be wrong, the device may not allow this poller, or (SNMP v2c) the community is wrong: a device stays silent then.",
         "certificate": "{address} showed a certificate that isn't the one pinned for the device already added there. Nothing was sent to it. An Owner accepts a new certificate on the device's page.",
         "plain_refused": "The plain API sends the password in clear: tick \"Allow unencrypted on this network\" to use it.",
         "unsupported": "This poller's collector is older than 1.0.2 and can't test a recorder profile. Update it, or save the profile and add the recorder to see it answer.",
         "poller_silent": "The poller didn't report back. Is its collector running? Step 1 says when it last reported.",
         "error": "It couldn't be read: {detail}"
+      },
+      "thisPoller": "this poller",
+      "howUpdate": "How to update the collector",
+      "find": {
+        "run": "Find what works",
+        "hint": "Tries the protocols with these passwords against this address, one request each, one at a time.",
+        "pair": "{auth} with {priv}",
+        "answered": "{what} answered. | {what} answered (tried {n} combinations).",
+        "use": "Use these",
+        "none": "No combination answered ({n} tried)."
       }
     }
   }
