@@ -745,6 +745,43 @@ describe('remote write', () => {
     );
   });
 
+  it('a token’s remote write isn’t cut at a source’s 500 series: the org’s allowance limits it (1.0.1, ADR-240)', async () => {
+    const c = await cluster('kubernetes');
+    const t = await token(c, 'prometheus');
+    const at = Date.now();
+    // 600 series: 12 metrics of 50, so no label has too many values.
+    const res = await remoteWrite(
+      t.value,
+      Array.from({ length: 600 }, (_, i) => ({
+        labels: { __name__: `prom_metric_${Math.floor(i / 50)}`, shard: `s${i % 50}` },
+        value: i,
+        timestampMs: at,
+      })),
+    );
+    expect(res.statusCode).toBe(204);
+    const s = await summary(c);
+    expect(s.usage.series).toBe(600);
+    expect(s.sources).toHaveLength(1);
+    expect(s.sources[0]).toMatchObject({
+      kind: 'remote_write',
+      series: 600,
+      dropped: { sourceCap: 0, orgCap: 0, cardinality: [] },
+    });
+    // Pushes with the same token are another source, and keep a source's cap of 500 (a push
+    // carries at most 500 values, so two of them).
+    const values = (from: number, n: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        name: `pushed_${Math.floor((from + i) / 50)}`,
+        type: 'gauge',
+        value: 1,
+        labels: { shard: `s${(from + i) % 50}` },
+      }));
+    const one = await push(t.value, { metrics: values(0, 300) });
+    expect(one.json()).toMatchObject({ stored: 300, dropped: { sourceCap: 0 } });
+    const two = await push(t.value, { metrics: values(300, 210) });
+    expect(two.json()).toMatchObject({ stored: 200, dropped: { sourceCap: 10, orgCap: 0 } });
+  });
+
   it('refuses a body that isn’t remote write', async () => {
     const c = await cluster('kubernetes');
     const t = await token(c);
@@ -1121,6 +1158,123 @@ describe('the caps', () => {
         series: series('m_a', 100, 100),
       });
       expect(next).toMatchObject({ stored: 100, dropped: { sourceCap: 0 } });
+    });
+
+    // 1.0.1 (ADR-240): a token's remote write is a whole Prometheus, limited by the org's
+    // allowance only; an endpoint and a token's pushes keep their own cap.
+    const prom = (key: string): SourceRef => ({ ...src(key), kind: 'remote_write' });
+
+    it('Cloud Pro: one remote-write token brings more than 500, up to the org’s allowance; known series keep flowing', async () => {
+      limits = ownMetricLimits({ edition: 'cloud', plan: 'pro', pro: true, billedNodes: 5 });
+      expect(limits).toMatchObject({ series: 1000, seriesPerSource: 500 });
+      const first = await own.ingest({
+        orgId: c.orgId,
+        clusterId: c.id,
+        source: prom('token:t1:remote_write'),
+        series: series('prom', 700),
+      });
+      expect(first).toMatchObject({
+        stored: 700,
+        sourceSeries: 700,
+        dropped: { sourceCap: 0, orgCap: 0 },
+      });
+      // 400 new ones: 300 fit the org's 1,000, 100 are refused, and it says so as the org's cap.
+      const more = await own.ingest({
+        orgId: c.orgId,
+        clusterId: c.id,
+        source: prom('token:t1:remote_write'),
+        series: series('prom', 400, 700),
+      });
+      expect(more).toMatchObject({ stored: 300, dropped: { sourceCap: 0, orgCap: 100 } });
+      expect(await own.usage(c.orgId)).toMatchObject({ series: 1000, sources: 1 });
+      // Full: every series already known keeps flowing, and nothing new is admitted.
+      const again = await own.ingest({
+        orgId: c.orgId,
+        clusterId: c.id,
+        source: prom('token:t1:remote_write'),
+        series: [...series('prom', 1000), ...series('late', 5)],
+      });
+      expect(again).toMatchObject({ stored: 1000, dropped: { sourceCap: 0, orgCap: 5 } });
+      // An endpoint next to it still has its own cap; here the org is full first.
+      const endpoint = await own.ingest({
+        orgId: c.orgId,
+        clusterId: c.id,
+        source: { ...src('pod:shop/Deployment/orders:8080/metrics'), kind: 'scrape_pod' },
+        series: series('scraped', 3),
+      });
+      expect(endpoint).toMatchObject({ stored: 0, dropped: { orgCap: 3, sourceCap: 0 } });
+      await own.flush();
+      const row = await ctx.db
+        .selectFrom('own_sources')
+        .select(['series', 'dropped'])
+        .where('key', '=', 'token:t1:remote_write')
+        .executeTakeFirstOrThrow();
+      expect(row.series).toBe(1000);
+      // The row says what the last report dropped, as for every source.
+      expect(row.dropped).toMatchObject({ sourceCap: 0, orgCap: 5 });
+    });
+
+    it('Cloud Free: a remote-write token is one of the 3 sources and brings up to the org’s 200; pushes keep 100', async () => {
+      const a = await own.ingest({
+        orgId: c.orgId,
+        clusterId: c.id,
+        source: prom('token:t1:remote_write'),
+        series: series('prom', 150),
+      });
+      expect(a).toMatchObject({ stored: 150, dropped: { sourceCap: 0, orgCap: 0 } });
+      // The same token's pushes are a second source: 50 fit the org's 200, and the other 70 are
+      // refused for the org before the source's own 100 is reached.
+      const b = await own.ingest({
+        orgId: c.orgId,
+        clusterId: c.id,
+        source: src('token:t1:push'),
+        series: series('pushed', 120),
+      });
+      expect(b).toMatchObject({ stored: 50, dropped: { orgCap: 70, sourceCap: 0 } });
+      const more = await own.ingest({
+        orgId: c.orgId,
+        clusterId: c.id,
+        source: prom('token:t1:remote_write'),
+        series: series('prom', 60, 150),
+      });
+      expect(more).toMatchObject({ stored: 0, dropped: { sourceCap: 0, orgCap: 60 } });
+      // A second and a third token are sources too: the fourth source isn't stored at all.
+      await own.ingest({
+        orgId: c.orgId,
+        clusterId: c.id,
+        source: prom('token:t2:remote_write'),
+        series: series('other', 1),
+      });
+      const fourth = await own.ingest({
+        orgId: c.orgId,
+        clusterId: c.id,
+        source: prom('token:t3:remote_write'),
+        series: series('fourth', 1),
+      });
+      expect(fourth).toMatchObject({ stored: 0, dropped: { sources: true } });
+      expect(await own.usage(c.orgId)).toMatchObject({ series: 200, sources: 3 });
+    });
+
+    it('remote write keeps the label rule: 101 values of one label refuse the metric, by the label’s name', async () => {
+      limits = ownMetricLimits({ edition: 'cloud', plan: 'pro', pro: true, billedNodes: 5 });
+      const res = await own.ingest({
+        orgId: c.orgId,
+        clusterId: c.id,
+        source: prom('token:t1:remote_write'),
+        series: [
+          ...Array.from({ length: 101 }, (_, i) => ({
+            name: 'http_requests_total',
+            labels: { user_id: `u${i}` },
+            samples: [[Date.now(), 1]] as [number, number][],
+          })),
+          ...series('fine', 20),
+        ],
+      });
+      expect(res.dropped.cardinality).toEqual([
+        { metric: 'http_requests_total', label: 'user_id' },
+      ]);
+      expect(res.dropped.sourceCap).toBe(0);
+      expect(res.stored).toBe(120);
     });
   });
 });

@@ -7,6 +7,8 @@
 //   series in the org     200          200 per billed node or     the installation's  the same
 //                                      server, at least 1,000     cap (20,000)        setting
 //   series from a source  100          500                        500                 500
+//     (a scraped endpoint, or a token's pushes. A token's remote write has no cap of its
+//     own since 1.0.1, ADR-240: it is a whole Prometheus, and the org's series limit it.)
 //   kept for              3 days       30 days                    the installation's retention
 //   sources               3            no limit                   no limit            no limit
 //   dashboards            1 × 8        50 × 24                    50 × 24             50 × 24
@@ -24,7 +26,7 @@ export type OwnAlerts = 'none' | 'threshold' | 'all';
 export interface OwnMetricLimits {
   /** Own-metric series the org may have active at once. */
   series: number;
-  /** Series one source (an endpoint, a token's remote write, a token's pushes) may bring. */
+  /** Series one scraped endpoint or one token's pushes may bring (sourceSeriesCap). */
   seriesPerSource: number;
   /** Sources the org may have; null is no limit. */
   sources: number | null;
@@ -67,6 +69,15 @@ export const OWN_WATCHED = 50;
 export const OWN_LABEL_VALUES = 100;
 /** Metrics pinned to one workload's or server's page. */
 export const OWN_PINS_PER_PAGE = 6;
+
+/**
+ * The series one source may bring, or null when only the org's allowance limits it: a token's
+ * remote write (1.0.1, ADR-240). One Prometheus sends thousands of series through one token,
+ * so the cap that fits an endpoint cut it at 500; the org's allowance already bounds it.
+ */
+export function sourceSeriesCap(kind: string, limits: OwnMetricLimits): number | null {
+  return kind === 'remote_write' ? null : limits.seriesPerSource;
+}
 
 export interface OwnMetricEdition {
   edition: 'community' | 'cloud';

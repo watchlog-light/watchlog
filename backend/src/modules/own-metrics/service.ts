@@ -22,7 +22,11 @@ import type { Database } from '../../db/index.js';
 import { withOrg } from '../../db/org-context.js';
 import { newId } from '../../lib/ids.js';
 import { authorisedScope, type VictoriaClient } from '../../lib/victoria.js';
-import { OWN_LABEL_VALUES, type OwnMetricLimits } from '../entitlements/own-metrics.js';
+import {
+  OWN_LABEL_VALUES,
+  sourceSeriesCap,
+  type OwnMetricLimits,
+} from '../entitlements/own-metrics.js';
 import {
   cleanLabels,
   familiesOf,
@@ -570,7 +574,8 @@ export class OwnMetrics {
       const fp = fingerprint(s.name, labels);
       let st = c.series.get(fp);
       if (!st) {
-        if (src.series.size >= limits.seriesPerSource) {
+        const cap = sourceSeriesCap(src.kind, limits);
+        if (cap !== null && src.series.size >= cap) {
           dropped.sourceCap++;
           continue;
         }

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ownMetricLimits,
   OWN_SELF_HOSTED_SERIES,
+  sourceSeriesCap,
 } from '../src/modules/entitlements/own-metrics.js';
 import { ageExpr, exprFor, exprForMany, lagExpr } from '../src/modules/own-metrics/expr.js';
 import type { OwnType, OwnUnit } from '../src/modules/own-metrics/naming.js';
@@ -246,6 +247,18 @@ describe('remote write, read and written again', () => {
 });
 
 describe('each edition’s numbers', () => {
+  it('a token’s remote write has no cap of its own; an endpoint and pushes keep theirs (1.0.1, ADR-240)', () => {
+    for (const limits of [
+      ownMetricLimits({ edition: 'cloud', plan: 'free', pro: false }),
+      ownMetricLimits({ edition: 'cloud', plan: 'pro', pro: true, billedNodes: 3 }),
+      ownMetricLimits({ edition: 'community', pro: false, installationSeries: 20_000 }),
+    ]) {
+      expect(sourceSeriesCap('remote_write', limits)).toBeNull();
+      for (const kind of ['scrape_pod', 'scrape_address', 'push'])
+        expect(sourceSeriesCap(kind, limits)).toBe(limits.seriesPerSource);
+    }
+  });
+
   it('Cloud Free: 200 series, 100 a source, 3 sources, one dashboard of 8, no alerts', () => {
     expect(ownMetricLimits({ edition: 'cloud', plan: 'free', pro: false })).toEqual({
       series: 200,
