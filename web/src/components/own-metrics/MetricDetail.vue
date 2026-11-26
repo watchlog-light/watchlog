@@ -425,7 +425,7 @@ const checkAgain = () =>
               v-for="d in detail.data.value?.usedIn.dashboards ?? []"
               :key="d.id"
               :to="{ name: 'your-metrics', query: { cluster, dashboard: d.id } }"
-              class="block text-link hover:underline"
+              class="block text-link hover:underline max-lg:flex max-lg:min-h-11 max-lg:items-center"
             >
               {{ $t('ownMetrics.dashboards.onDashboard', { name: d.name }) }}
             </RouterLink>
@@ -433,7 +433,7 @@ const checkAgain = () =>
               <RouterLink
                 v-if="ownerLink(p.owner, cluster)"
                 :to="ownerLink(p.owner, cluster)!"
-                class="block text-link hover:underline"
+                class="block text-link hover:underline max-lg:flex max-lg:min-h-11 max-lg:items-center"
               >
                 {{ $t('ownMetrics.detail.pinnedOn', { owner: ownerText(p.owner) }) }}
               </RouterLink>

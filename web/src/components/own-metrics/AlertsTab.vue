@@ -400,7 +400,7 @@ async function remove() {
               </button>
               <button
                 type="button"
-                class="text-link hover:underline max-lg:min-h-11"
+                class="text-link hover:underline max-lg:min-h-11 max-lg:min-w-11"
                 data-testid="own-alert-delete"
                 @click="deleting = r"
               >

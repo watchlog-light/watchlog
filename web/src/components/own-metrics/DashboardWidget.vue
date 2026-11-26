@@ -138,9 +138,12 @@ const to = computed(() =>
     <header class="flex items-start justify-between gap-2">
       <div class="min-w-0">
         <h3 class="truncate text-14 font-semibold text-text">
-          <RouterLink v-if="to && !plain" :to="to" class="hover:underline">{{
-            widget.title
-          }}</RouterLink>
+          <RouterLink
+            v-if="to && !plain"
+            :to="to"
+            class="hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:max-w-full max-lg:items-center"
+            >{{ widget.title }}</RouterLink
+          >
           <template v-else>{{ widget.title }}</template>
         </h3>
         <p v-if="!problem" class="mt-0.5 truncate text-12 text-text-muted">

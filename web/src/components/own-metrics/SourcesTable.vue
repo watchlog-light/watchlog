@@ -90,7 +90,9 @@ async function remove() {
     >
       {{ $t('ownMetrics.sources.none') }}
     </p>
-    <div v-else class="overflow-x-auto">
+    <!-- relative: the heading's visually hidden label is positioned, and without a positioned
+         scroller it would widen the page on a phone instead of scrolling with the table. -->
+    <div v-else class="relative overflow-x-auto">
       <table class="w-full min-w-[640px] border-collapse text-left text-14">
         <thead>
           <tr class="border-t border-border text-12 text-text-subtle">

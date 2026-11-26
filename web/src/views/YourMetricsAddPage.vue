@@ -173,7 +173,9 @@ async function addAddress() {
         </button>
       </div>
 
-      <div class="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <!-- grid-cols-1: one column that may shrink, so a snippet scrolls in its block on a phone
+           instead of widening the page. -->
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <section
           class="flex flex-col gap-4 rounded-card border border-border bg-surface-1 px-5 py-5"
           role="tabpanel"

@@ -59,7 +59,11 @@ async function unpin(p: OwnPin) {
           }}</template>
         </p>
       </div>
-      <RouterLink :to="all" class="text-13 text-link hover:underline" data-testid="own-pins-all">
+      <RouterLink
+        :to="all"
+        class="text-13 text-link hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+        data-testid="own-pins-all"
+      >
         {{ $t('ownMetrics.pins.all', { n: data.metrics, name }, data.metrics) }} →
       </RouterLink>
     </div>
