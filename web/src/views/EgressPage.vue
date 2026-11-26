@@ -429,7 +429,10 @@ onMounted(() => {
   color: var(--link);
   font-weight: 600;
 }
-.chip:focus-visible,
+.chip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
 /* Touch screens: 44 px targets. */
 @media (max-width: 1023px) {
   .chip {
