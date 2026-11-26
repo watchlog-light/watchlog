@@ -3635,6 +3635,7 @@
       "network_certificate_accepted": "Network: accepted the new certificate of {device}",
       "network_certificate_restored": "Network: undid the accepted certificate of {device}",
       "network_poller_moved": "Network: moved the devices of the poller {from} to {to} ({devices})",
+      "network_feeds_changed": "Network: set what {device} powers ({feeds})",
       "egress_expected_added": "Marked {pattern} expected (port {port}, {source})",
       "egress_expected_removed": "Removed the expectation {pattern} (port {port}, {source})",
       "anomaly_feedback_given": "Answered \"Was this worth an alert?\" on {metric}: {answer}",
