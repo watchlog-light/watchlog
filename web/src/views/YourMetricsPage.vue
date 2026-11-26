@@ -93,6 +93,16 @@ const alertOn = (id: string) =>
 const { t } = useI18n();
 const toast = useToastStore();
 const adding = ref(false);
+// "Put it on a dashboard" from Add a source's first value (1.0.3): the dialog opens here.
+watch(
+  () => [route.query.add, selected.value] as const,
+  ([add, id]) => {
+    if (add !== 'dashboard' || !id) return;
+    adding.value = true;
+    void router.replace({ query: { ...route.query, add: undefined } });
+  },
+  { immediate: true },
+);
 /** Bumped when something the detail lists changed elsewhere (a dashboard it was added to). */
 const detailKey = ref(0);
 const selectedMetric = computed(() => metrics.value.find((m) => m.id === selected.value) ?? null);

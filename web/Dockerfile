@@ -9,10 +9,12 @@ COPY web/package.json web/
 COPY packages/design-tokens/package.json packages/design-tokens/
 COPY packages/api-types/package.json packages/api-types/
 COPY packages/cause-words/package.json packages/cause-words/
+COPY packages/snippets/package.json packages/snippets/
 RUN pnpm install --frozen-lockfile --filter @watchlog/web...
 COPY packages/design-tokens packages/design-tokens
 COPY packages/api-types packages/api-types
 COPY packages/cause-words packages/cause-words
+COPY packages/snippets packages/snippets
 COPY web web
 # Enterprise pages (ee/web, ADR-232) when ee/ is in the build context; without it the pattern
 # matches nothing and the dashboard is the core's alone.

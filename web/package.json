@@ -19,6 +19,7 @@
     "@tanstack/vue-virtual": "3.13.50",
     "@watchlog/api-types": "workspace:*",
     "@watchlog/cause-words": "workspace:*",
+    "@watchlog/snippets": "workspace:*",
     "@watchlog/design-tokens": "workspace:*",
     "echarts": "^6.1.0",
     "pinia": "^4.1.0",

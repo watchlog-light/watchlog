@@ -9,7 +9,6 @@ import { markerLabel } from '@/composables/useChangeMarkers';
 import PinnedMetrics from '@/components/own-metrics/PinnedMetrics.vue';
 import { chartSummary, ownChartOption, thin } from '@/lib/own-chart';
 import { useAuthStore } from '@/stores/auth';
-import YourMetricsAddPage from '@/views/YourMetricsAddPage.vue';
 import YourMetricsPage from '@/views/YourMetricsPage.vue';
 import { FLEET } from './docker-fixtures';
 import { mockFetch, problem, USER, type Routes } from './fetch-mock';
@@ -127,6 +126,7 @@ const summary = (over: Partial<OwnMetricsSummary> = {}): OwnMetricsSummary => ({
   settings: { prometheusAnnotations: false },
   kind: 'kubernetes',
   servers: [],
+  workloads: [],
   endpoint: 'https://watchlog.example.com',
   ...over,
 });
@@ -347,7 +347,7 @@ describe('Your metrics: the list and a metric', () => {
     wrapper.unmount();
   });
 
-  it('with nothing reporting: the three ways in', async () => {
+  it('with nothing reporting: the question Add a source opens with, each answer leading there', async () => {
     const { wrapper } = await mountAt(YourMetricsPage, '/your-metrics?tab=metrics', {
       [`GET ${base}`]: {
         status: 200,
@@ -357,8 +357,17 @@ describe('Your metrics: the list and a metric', () => {
     });
     const empty = wrapper.get('[data-testid="own-empty"]');
     expect(empty.text()).toContain('Nothing reports yet');
-    for (const way of ['scrape', 'prometheus', 'push'])
-      expect(empty.get(`[data-testid="own-way-${way}"]`).attributes('href')).toContain(
+    expect(empty.text()).toContain('Where is your number?');
+    expect(empty.text()).toContain('Simplest: one command');
+    // Push first: it needs nothing installed.
+    const answers = empty.findAll('[data-testid^="own-choose-"]');
+    expect(answers.map((a) => a.attributes('data-testid'))).toEqual([
+      'own-choose-push',
+      'own-choose-scrape',
+      'own-choose-prometheus',
+    ]);
+    for (const way of ['push', 'scrape', 'prometheus'])
+      expect(empty.get(`[data-testid="own-choose-${way}"]`).attributes('href')).toContain(
         `/your-metrics/add?cluster=${KUBE.id}&way=${way}`,
       );
     wrapper.unmount();
@@ -376,226 +385,7 @@ describe('Your metrics: the list and a metric', () => {
   });
 });
 
-describe('Add a source', () => {
-  it('in a cluster: the annotations, the Prometheus switch, the limits and what each source dropped', async () => {
-    const { wrapper, calls } = await mountAt(YourMetricsAddPage, '/your-metrics/add', {
-      [`GET ${base}`]: [
-        { status: 200, body: summary() },
-        { status: 200, body: summary({ settings: { prometheusAnnotations: true } }) },
-      ],
-      [`PUT ${base}/settings`]: { status: 200, body: { prometheusAnnotations: true } },
-    });
-    const panel = wrapper.get('[data-testid="own-add-panel-scrape"]');
-    expect(panel.text()).toContain('watchlog.io/scrape: "true"');
-    expect(panel.text()).toContain('watchlog.io/port');
-    expect(wrapper.get('[data-testid="own-limits"]').text()).toContain(
-      "At most 500 series from one scraped endpoint, and from one token's pushes",
-    );
-    // 1.0.1 (ADR-240): a token's remote write is limited by the plan's series only.
-    expect(wrapper.get('[data-testid="own-limits-remote-write"]').text()).toBe(
-      "A token's remote write has no cap of its own: a whole Prometheus fits, up to your plan's series.",
-    );
-    expect(wrapper.get('[data-testid="own-limits"]').text()).toContain(
-      '2,000 series on your plan; 412 in use.',
-    );
-    const source = wrapper.get('[data-testid="own-source"]');
-    expect(source.text()).toContain('orders :8080/metrics');
-    expect(source.text()).toContain('Scraped, every 30 s');
-    expect(source.text()).toContain('shop/orders');
-    expect(source.text()).toContain('296');
-    expect(source.get('[data-testid="own-source-state"]').text()).toBe('ok · just now');
-    expect(source.get('[data-testid="own-source-dropped"]').text()).toBe(
-      "38 series dropped: an endpoint or a token's pushes bring at most 500.",
-    );
-    // Scraped because of its annotation: removed there, not here.
-    expect(source.find('[data-testid="own-source-remove"]').exists()).toBe(false);
-    await wrapper.get('[data-testid="own-prom-toggle"] input').setValue(true);
-    await flushPromises();
-    expect(calls.find((c) => c.method === 'PUT')!.body).toEqual({ prometheusAnnotations: true });
-    wrapper.unmount();
-  });
-
-  it('Prometheus and push: the real address, and the token once it is made', async () => {
-    const { wrapper, calls } = await mountAt(
-      YourMetricsAddPage,
-      '/your-metrics/add?way=prometheus',
-      {
-        [`GET ${base}`]: { status: 200, body: summary() },
-        [`POST ${base}/tokens`]: [
-          problem(409, 'A token with this name exists; pick another name'),
-          {
-            status: 201,
-            body: {
-              id: 't1',
-              name: 'prometheus',
-              prefix: 'abcdefgh',
-              value: 'wl_mt_abcdefgh_secret',
-            },
-          },
-        ],
-      },
-    );
-    const panel = () => wrapper.get('[data-testid="own-add-panel-prometheus"]').text();
-    expect(panel()).toContain('url: https://watchlog.example.com/ingest/v1/write');
-    expect(panel()).toContain('credentials: wl_mt_…');
-    expect(panel()).toContain('action: keep');
-    expect(wrapper.find('[data-testid="own-token-hint"]').exists()).toBe(true);
-    // Without a name nothing is sent.
-    await wrapper.get('[data-testid="own-token-form"]').trigger('submit');
-    expect(wrapper.get('[data-testid="own-tokens"]').text()).toContain('Give the token a name.');
-    await wrapper.get('[data-testid="own-token-form"] input').setValue('prometheus');
-    await wrapper.get('[data-testid="own-token-form"]').trigger('submit');
-    await flushPromises();
-    expect(wrapper.get('[data-testid="own-tokens"]').text()).toContain(
-      'A token with this name exists',
-    );
-    await wrapper.get('[data-testid="own-token-form"]').trigger('submit');
-    await flushPromises();
-    expect(calls.filter((c) => c.method === 'POST').at(-1)!.body).toEqual({ name: 'prometheus' });
-    expect(wrapper.get('[data-testid="own-token-made"]').text()).toContain('wl_mt_abcdefgh_secret');
-    expect(wrapper.get('[data-testid="own-token-made"]').text()).toContain(
-      "It won't be shown again.",
-    );
-    expect(panel()).toContain('credentials: wl_mt_abcdefgh_secret');
-    await wrapper.get('[data-testid="own-add-way-push"]').trigger('click');
-    await flushPromises();
-    const push = wrapper.get('[data-testid="own-add-panel-push"]').text();
-    expect(push).toContain('https://watchlog.example.com/ingest/v1/metrics');
-    expect(push).toContain('Bearer wl_mt_abcdefgh_secret');
-    expect(push).toContain('"workload": "shop/orders"');
-    wrapper.unmount();
-  });
-
-  it('on a fleet: an address on one server, with the server’s own words on a mistake', async () => {
-    const fleetBase = `/api/v1/clusters/${FLEET.id}/own-metrics`;
-    const fleet = summary({
-      kind: 'server',
-      servers: ['db-1'],
-      sources: [
-        {
-          id: 's9',
-          kind: 'scrape_address',
-          label: 'db-1 :9400/metrics',
-          owner: { kind: 'server', namespace: '', workloadKind: '', name: 'db-1' },
-          owners: [],
-          series: 0,
-          lastReportedAt: Date.now() - 40_000,
-          error: 'connection refused',
-          refused: false,
-          dropped: {
-            reserved: 0,
-            invalid: 0,
-            cardinality: [{ metric: 'logins_total', label: 'user_id' }],
-            sourceCap: 0,
-            orgCap: 0,
-            sources: false,
-          },
-          removable: true,
-          by: 'panel',
-        },
-      ],
-    });
-    const { wrapper, calls } = await mountAt(
-      YourMetricsAddPage,
-      '/your-metrics/add',
-      {
-        [`GET ${fleetBase}`]: { status: 200, body: fleet },
-        [`POST ${fleetBase}/sources`]: [
-          problem(
-            400,
-            'Give an address like localhost:9400/metrics (http or https, no user or password)',
-          ),
-          { status: 201, body: { id: 's10' } },
-        ],
-        [`DELETE ${fleetBase}/sources/s9`]: { status: 204 },
-      },
-      FLEET,
-    );
-    expect(wrapper.get('[data-testid="own-add-panel-scrape"]').text()).toContain(
-      'Give the address on one server',
-    );
-    const state = wrapper.get('[data-testid="own-source"]');
-    expect(state.get('[data-testid="own-source-state"]').text()).toBe('not stored');
-    expect(state.text()).toContain('The last read failed: connection refused');
-    expect(state.text()).toContain('logins_total refused: too many values for user_id.');
-    // One server: it is already picked.
-    await wrapper
-      .get('[data-testid="own-address-form"] input[placeholder="localhost:9400/metrics"]')
-      .setValue('user:pw@localhost:9400');
-    await wrapper.get('[data-testid="own-address-form"]').trigger('submit');
-    await flushPromises();
-    expect(wrapper.get('[data-testid="own-add-error"]').text()).toContain('no user or password');
-    await wrapper
-      .get('[data-testid="own-address-form"] input[placeholder="localhost:9400/metrics"]')
-      .setValue('localhost:9100/metrics');
-    await wrapper.get('[data-testid="own-address-form"]').trigger('submit');
-    await flushPromises();
-    expect(calls.filter((c) => c.method === 'POST').at(-1)!.body).toEqual({
-      server: 'db-1',
-      address: 'localhost:9100/metrics',
-    });
-    // A source added in the panel is removed here, after a question.
-    await wrapper.get('[data-testid="own-source-remove"]').trigger('click');
-    await flushPromises();
-    const confirm = document.querySelector<HTMLElement>(
-      '[data-testid="own-source-confirm-confirm"]',
-    );
-    expect(document.body.textContent).toContain('Stop scraping this endpoint?');
-    confirm?.click();
-    await flushPromises();
-    wrapper.unmount();
-  });
-
-  it('finds endpoints and adds one with a click', async () => {
-    const found = {
-      id: 'p1',
-      done: true,
-      asked: 2,
-      found: [
-        {
-          series: 42,
-          names: ['orders_created_total', 'jobs_waiting'],
-          add: {
-            kind: 'pod',
-            namespace: 'shop',
-            workloadKind: 'Deployment',
-            workload: 'cart',
-            port: 9102,
-          },
-        },
-      ],
-    };
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    const { wrapper, calls } = await mountAt(YourMetricsAddPage, '/your-metrics/add', {
-      [`GET ${base}`]: { status: 200, body: summary() },
-      [`POST ${base}/find`]: { status: 202, body: { id: 'p1', done: false, asked: 2, found: [] } },
-      [`GET ${base}/find`]: { status: 200, body: found },
-      [`POST ${base}/sources`]: { status: 201, body: { id: 's3' } },
-    });
-    await wrapper.get('[data-testid="own-find-start"]').trigger('click');
-    await flushPromises();
-    expect(wrapper.get('[data-testid="own-find-state"]').text()).toBe('Trying 2 ports…');
-    await vi.advanceTimersByTimeAsync(2100);
-    await flushPromises();
-    expect(wrapper.get('[data-testid="own-find-state"]').text()).toBe(
-      '1 endpoint with metrics, of 2 tried.',
-    );
-    const row = wrapper.get('[data-testid="own-found"]');
-    expect(row.text()).toContain('shop/cart :9102');
-    expect(row.text()).toContain('42 series · orders_created_total, jobs_waiting');
-    await row.get('[data-testid="own-found-add"]').trigger('click');
-    await flushPromises();
-    expect(calls.find((c) => c.method === 'POST' && c.path.endsWith('/sources'))!.body).toEqual({
-      namespace: 'shop',
-      workloadKind: 'Deployment',
-      workload: 'cart',
-      port: 9102,
-    });
-    expect(row.text()).toContain('Added');
-    vi.useRealTimers();
-    wrapper.unmount();
-  });
-});
+// Add a source has its own file since 1.0.3: own-add-source.test.ts.
 
 describe('Its own metrics, on a workload’s page', () => {
   const q = 'ownerKind=workload&owner=orders&namespace=shop&workloadKind=Deployment';

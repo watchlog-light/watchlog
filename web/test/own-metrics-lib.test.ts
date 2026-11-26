@@ -11,9 +11,7 @@ import {
   ownerLink,
   ownerQuery,
   ownerText,
-  pushSnippet,
   ratePer,
-  remoteWriteSnippet,
   sinceWords,
   wayOf,
   written,
@@ -204,18 +202,6 @@ describe('sources and snippets', () => {
     ).toBe(38);
   });
 
-  it('shows the real address and the token in what is copied', () => {
-    const rw = remoteWriteSnippet('https://watchlog.example.com', 'wl_mt_abc');
-    expect(rw).toContain('url: https://watchlog.example.com/ingest/v1/write');
-    expect(rw).toContain('credentials: wl_mt_abc');
-    expect(rw).toContain('action: keep');
-    expect(pushSnippet('https://w.example.com', 'wl_mt_abc', 'kubernetes')).toContain(
-      '"workload": "shop/orders"',
-    );
-    expect(pushSnippet('https://w.example.com', 'wl_mt_abc', 'server')).toContain(
-      '"server": "db-1"',
-    );
-  });
 });
 
 describe('a watched metric in What changed', () => {

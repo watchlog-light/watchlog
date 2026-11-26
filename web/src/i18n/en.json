@@ -6758,9 +6758,13 @@
     },
     "empty": {
       "title": "Nothing reports yet",
-      "description": "WatchLog already shows what your servers and clusters do. Here it shows what your own software counts: orders, failed payments, queue depth, the last good backup. Three ways in; all of them end in the same place."
+      "description": "WatchLog already shows what your servers and clusters do. Here it shows what your own software counts: orders, failed payments, queue depth, the last good backup."
     },
     "ways": {
+      "push": {
+        "title": "Push a value",
+        "sub": "One HTTP call from a script, a cron job or CI."
+      },
       "scrape": {
         "title": "Expose /metrics",
         "sub": "An exporter or your own app: WatchLog reads it every 30 seconds."
@@ -6768,10 +6772,6 @@
       "prometheus": {
         "title": "Send from Prometheus",
         "sub": "Remote write the few metrics you choose."
-      },
-      "push": {
-        "title": "Push a value",
-        "sub": "One HTTP call from a script, a cron job or CI."
       }
     },
     "type": {
@@ -6864,55 +6864,226 @@
     },
     "add": {
       "breadcrumb": "Where you are",
-      "intro": "Three ways in. All of them end in the same place: the metric appears under Your metrics, on its workload or server.",
+      "intro": "Send WatchLog a number of your own: orders, jobs waiting, the last good backup. It appears under Your metrics, on the server or workload it belongs to.",
       "ways": "Ways to add a source",
       "failed": "That didn't work. Try again.",
-      "addressNeeded": "Pick the server and give the address.",
-      "tokenHint": "Create a token below: its value appears here, ready to copy. It is shown once.",
+      "viewer": "Only Owners and Admins add sources and create tokens. You can read how each way works; the buttons that change things are theirs.",
+      "demo": "This demo is read-only: nothing is created here. The commands are what you would run on your own WatchLog.",
+      "chooser": {
+        "q": "Where is your number?",
+        "push": {
+          "q": "In a script, a cron job, my CI, or my own code",
+          "sub": "You have the number; you just need to send it.",
+          "badge": "Simplest: one command"
+        },
+        "scrape": {
+          "q": "My app or an exporter already has a /metrics page",
+          "sub": "WatchLog reads it every 30 seconds."
+        },
+        "prometheus": {
+          "q": "I already run Prometheus",
+          "sub": "It sends the few metrics you choose."
+        },
+        "found": "1 found here | {n} found here",
+        "looking": "Looking for /metrics pages here…"
+      },
+      "token": {
+        "h": "A token to send with",
+        "name": "Name",
+        "defaultName": "my first metrics",
+        "create": "Create a token",
+        "another": "Create another",
+        "nameNeeded": "Give the token a name.",
+        "once": "Shown once. It can only send, never read.",
+        "have": "You have 1 token here ({names}). Its value was shown once and can't be shown again. | You have {n} tokens here ({names}). Their values were shown once and can't be shown again.",
+        "haveUse": "Use one you kept: paste it where the command says wl_mt_…, and choose it here so this page can tell you when its value arrives.",
+        "watch": "The token you will use",
+        "watchPick": "Choose a token",
+        "value": "Your token",
+        "fill": "Create a token to fill this in.",
+        "locked": "A token is created by an Owner or an Admin."
+      },
+      "push": {
+        "number": "Your number",
+        "belongsServer": "Server it belongs to",
+        "belongsWorkload": "Workload it belongs to",
+        "pickServer": "Choose a server",
+        "pickWorkload": "Choose a workload",
+        "noOwner": "Without one, the value is kept but isn't tied to any page.",
+        "name": "Name",
+        "value": "Value",
+        "badName": "A name is letters, digits and underscores, doesn't start with a digit, and can't start with watchlog_.",
+        "badValue": "A value is a number. The command sends 1 until this is one.",
+        "counter": {
+          "b": "Ends in _total: a counter.",
+          "t": "Each push adds up. Push 1 for every order; you see orders per minute."
+        },
+        "gauge": {
+          "b": "Anything else: a gauge.",
+          "t": "The last value wins. Push 12 for 12 jobs waiting."
+        },
+        "timestamp": {
+          "b": "Ends in _timestamp_seconds: a time.",
+          "t": "Push the clock after a good backup; you see \"last good backup: 3 h ago\".",
+          "use": "Use this example"
+        },
+        "reads": {
+          "counter": "{name} will be read as a counter.",
+          "gauge": "{name} will be read as a gauge.",
+          "timestamp": "{name} will be read as a time."
+        },
+        "run": "Run this where the number is",
+        "lang": "Language",
+        "orTest": "or, with no terminal:",
+        "test": "Send a test value for me",
+        "testFailed": "The test value couldn't be sent.",
+        "more": "Several values go in one call, as a \"metrics\" list. A \"labels\" object splits a metric: with a method label, one line per payment method."
+      },
+      "first": {
+        "waiting": "Waiting for your first value…",
+        "waitingSub": "It appears here within a few seconds of the command.",
+        "waitingSamples": "Waiting for your first samples…",
+        "waitingSamplesSub": "They appear here within a minute of Prometheus reloading.",
+        "received": "Received {name} = {value}",
+        "receivedNoValue": "Received {name}",
+        "receivedSamples": "Received 1 series, {name} | Received {n} series of {metrics} metrics, for example {name}",
+        "for": "for {owner}, {ago}",
+        "untied": "not tied to a server or workload, {ago}",
+        "moment": "a moment ago",
+        "ago": "{t} ago",
+        "open": "Open it",
+        "dashboard": "Put it on a dashboard",
+        "alert": "Alert on it",
+        "alertLocked": "Alerts on your own metrics aren't part of the Free plan.",
+        "isTest": "This is the test value the page sent. A value from your own command shows here the same way.",
+        "removeTest": "Remove the test value",
+        "removed": "The test value is removed.",
+        "refused": {
+          "sources": "It wasn't stored: your plan's {max} sources are all in use, and this token would be one more. Remove a source below, or upgrade.",
+          "series": "It wasn't stored: your plan's {max} series are all in use."
+        },
+        "late": {
+          "title": "Nothing has arrived in two minutes. Three things to check:",
+          "token": "The token is copied whole: it starts with wl_mt_ and has no space or line break in it.",
+          "reach": "{endpoint} is reachable from the machine that runs the command.",
+          "code": "The answer's status code (add -i to curl to see it):",
+          "c401": "401: the token isn't whole, or it was revoked.",
+          "c400": "400: the body isn't right; the answer names the field.",
+          "c429": "429: too many calls a second; the answer says how long to wait.",
+          "c200": "200 with \"stored\": 0: the answer says what was dropped and why."
+        }
+      },
       "scrape": {
+        "h": "Read a /metrics page",
+        "what": "Many apps and every Prometheus exporter have an address that lists their numbers as plain text. Give WatchLog that address and its collector reads it every 30 seconds. It only reads, and sends no password. The page looks like this:",
+        "sample": "A /metrics page",
+        "server": {
+          "server": "Server",
+          "pick": "Choose a server",
+          "address": "Address",
+          "test": "Test",
+          "add": "Scrape it",
+          "needed": "Choose the server and give the address."
+        },
         "kube": {
-          "h": "Annotate the pod",
-          "p": "Add these annotations to the pod template of anything that serves Prometheus metrics. WatchLog's collector reads the endpoint every 30 seconds, in the text or OpenMetrics format. Nothing else to install.",
-          "code": "In the workload's pod template",
+          "workload": "Workload",
+          "pick": "Choose a workload",
+          "port": "Port",
+          "path": "Path",
+          "test": "Test",
+          "add": "Scrape it",
+          "needed": "Choose the workload and give its port.",
+          "noRestart": "Scrape it adds the port here in WatchLog: nothing in the cluster changes and no pod restarts.",
+          "annotate": "Or annotate the workload yourself",
+          "annotateP": "The same thing kept with the workload, in its own manifest. Changing the pod template restarts its pods.",
+          "patch": "One command",
+          "yaml": "In the workload's pod template",
           "prometheus": "Also scrape pods annotated prometheus.io/scrape",
           "prometheusOn": "Pods annotated prometheus.io/scrape are scraped too."
         },
-        "server": {
-          "h": "Give the address on one server",
-          "p": "The collector on that server reads the address every 30 seconds, in the text or OpenMetrics format: an exporter, or your own app's /metrics.",
-          "server": "Server",
-          "pick": "Pick a server",
-          "address": "Address",
-          "add": "Scrape it"
+        "added": "Added. Its metrics appear within a minute; the table below shows it."
+      },
+      "test": {
+        "running": "Asking the collector to read {address}…",
+        "failed": "The test couldn't be run.",
+        "kept": {
+          "source": "{kept} of them would be kept: one endpoint brings at most {max} series.",
+          "plan": "{kept} of them would be kept: your plan has room for that many more series."
+        },
+        "outcome": {
+          "answered": "Answered: 1 series, {names}. | Answered: {n} series, for example {names}.",
+          "refused": "Nothing is listening on that port. Is the app running, and on that port?",
+          "no_host": "That name doesn't resolve from there. Is the address spelled right?",
+          "slow": "Too slow: no answer within 10 seconds.",
+          "big": "Too big: the page is larger than 5 MB, more than a scrape reads.",
+          "auth": "It asks for a password ({detail}), which scraping can't send yet: use Push or remote write for this one.",
+          "status": "It answered {detail}, not a metrics page. Is the path right?",
+          "html": "It answered, but not with metrics (it looks like HTML). Is the path right? Most apps use /metrics.",
+          "not_metrics": "It answered, but not with metrics: nothing in the answer reads as the Prometheus text format.",
+          "redirect": "It redirects to another host, which a scrape doesn't follow. Give the address it redirects to.",
+          "tls": "The secure connection failed: {detail}",
+          "address": "That isn't an http or https address.",
+          "silent": "The collector there didn't answer the test. It needs the 1.0.3 collector (update the agent), or it isn't running. Scrape it still works: the table below shows within a minute whether it reads.",
+          "other": "It couldn't be read: {detail}"
         }
       },
-      "prometheus": {
-        "h": "Add a remote write to Prometheus",
-        "p": "Prometheus sends what you keep in write_relabel_configs, nothing else. Series are tied to a workload by their namespace and pod labels, to a server by instance or host.",
-        "code": "prometheus.yml"
+      "none": {
+        "title": "No /metrics page here yet? Three ways forward",
+        "push": {
+          "b": "Push a value instead",
+          "t": "One command, nothing to install. The quickest."
+        },
+        "app": {
+          "b": "Add one to my app",
+          "t": "A few lines with the Prometheus library for your language: one counter on port 9400.",
+          "then": "Then give the address above: localhost:9400/metrics."
+        },
+        "exporter": {
+          "b": "Use an exporter",
+          "t": "A small program that publishes numbers for something else: a GPU, a queue, a device. WatchLog already collects each server's and container's CPU, memory, disk and network, so node_exporter and cAdvisor aren't needed."
+        },
+        "lang": "Language"
       },
-      "push": {
-        "h": "Send a value with one HTTP call",
-        "p": "A counter adds its value to the total; a gauge keeps the last value. Say what it belongs to with \"workload\" (namespace/name) or \"server\".",
-        "code": "From a script or a cron job",
-        "more": "Several values go in one call, as a \"metrics\" list. A name ending in _total is a counter; one ending in _timestamp_seconds is a timestamp, shown as \"3 h ago\"."
+      "prometheus": {
+        "h": "Send from your Prometheus",
+        "who": "Only if you already run Prometheus. It keeps scraping as before, and also sends WatchLog the metrics you name.",
+        "code": "Add to prometheus.yml, then reload it",
+        "keep": "The keep rule is what makes it a few metrics and not all of them: name yours in its regex.",
+        "tied": "Series are tied to a workload by their namespace and pod labels, to a server by instance or host."
       },
       "next": {
         "title": "What happens next",
-        "scrape": "Within a minute the endpoint is listed below, with its series.",
-        "prometheus": "After Prometheus reloads, the token is listed below with what it sent.",
-        "push": "After the first call, the token is listed below with what it sent.",
-        "appears": "Its metrics appear under Your metrics, on the workload or server they belong to.",
-        "use": "Put them on a dashboard, pin them to a page, or alert on them."
+        "push": [
+          "The value arrives within seconds, and this page says so.",
+          "It appears under Your metrics, on the server or workload you chose.",
+          "Put it on a dashboard, pin it to that page, or alert on it."
+        ],
+        "scrape": [
+          "Test the address: WatchLog says what it found, in words.",
+          "Scrape it: its metrics appear within a minute.",
+          "Pin the ones you care about; the rest stay in the list."
+        ],
+        "prometheus": [
+          "Reload Prometheus; samples arrive within a minute.",
+          "WatchLog ties them to the servers and workloads it knows.",
+          "Only the metrics your keep rule names are sent."
+        ]
       },
       "limits": {
         "title": "Kept under control",
-        "source": "At most {max} series from one scraped endpoint, and from one token's pushes; the rest are dropped and the table below says which.",
+        "onPlan": "On your plan",
+        "used": "{used} of {max} series",
+        "series": "A series is one line on a chart: one metric with one set of labels. orders_total is 1 series however often you send it. orders_total split by 3 payment methods is 3. There is no limit on how many times you send.",
+        "source": "One scraped endpoint, or one token's pushes, brings at most {max} series.",
         "remoteWrite": "A token's remote write has no cap of its own: a whole Prometheus fits, up to your plan's series.",
-        "plan": "{max} series on your plan; {used} in use.",
-        "sources": "{max} sources on your plan.",
+        "sources": "{max} sources on your plan; {used} in use.",
         "labels": "A label with more than 100 values on one metric (ids, emails, paths) gets that metric refused, with the label's name.",
-        "readOnly": "WatchLog only reads the endpoint. It sends no credentials to your app."
+        "full": "When the series are all in use, new ones are refused and known ones keep flowing."
+      },
+      "stuck": {
+        "title": "Stuck?",
+        "codes": "401: the token isn't whole. 400: the answer names the field. 429: too many calls a second.",
+        "docs": "Your first metric in two minutes"
       }
     },
     "tokens": {
@@ -6934,16 +7105,22 @@
     },
     "find": {
       "button": "Find endpoints for me",
-      "about": "Tries /metrics on the ports WatchLog already sees.",
+      "about": "Tries /metrics on the ports WatchLog already sees. Nothing restarts.",
       "failed": "The search couldn't be started.",
-      "nothingToTry": "Every port WatchLog sees is already scraped, or none is open.",
+      "nothingToTry": "Nothing to try: no port is open here that isn't scraped already or known never to serve metrics.",
       "searching": "Trying 1 port… | Trying {n} ports…",
-      "none": "None of the ports tried answers with metrics.",
+      "none": "None answers with metrics.",
       "noAnswer": "No answer from the collector yet. It may be an older version: update the agent and try again.",
       "found": "1 endpoint with metrics, of {asked} tried. | {n} endpoints with metrics, of {asked} tried.",
       "series": "1 series | {n} series",
       "add": "Scrape it",
-      "added": "Added"
+      "added": "Added",
+      "triedServer": "Tried /metrics on 1 listening port: {ports}. | Tried /metrics on {n} listening ports: {ports}.",
+      "triedKube": "Tried /metrics on 1 port of {workloads}: {ports}. | Tried /metrics on {n} ports of {workloads}: {ports}.",
+      "workloads": "1 workload | {n} workloads",
+      "skipped": "Left out {ports}: they speak their own protocol (SSH, a database), never metrics.",
+      "scraped": "1 port is scraped already. | {n} ports are scraped already.",
+      "more": "and {n} more"
     },
     "sources": {
       "title": "Sources",

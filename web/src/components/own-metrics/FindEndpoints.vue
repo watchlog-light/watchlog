@@ -2,20 +2,29 @@
 <script setup lang="ts">
 // "Find endpoints for me" (1.0.0, ADR-236): the collectors try the ports WatchLog already
 // knows (a pod's declared ports, a server's listening ports) on /metrics and say which answer
-// with metrics. Each can be added with one click.
+// with metrics. Each can be added with one click. Since 1.0.3 it says what it tried, and the
+// page may hand it the search it ran quietly on opening (`initial`).
 import type { OwnFound } from '@watchlog/api-types';
-import { onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '@/api/client';
 import { ownMetricsApi, type NewSource } from '@/api/own-metrics';
 import BaseButton from '@/components/ui/BaseButton.vue';
+import { portsText } from '@/lib/own-add';
 
-const props = defineProps<{ cluster: string }>();
-const emit = defineEmits<{ changed: [] }>();
+const props = defineProps<{ cluster: string; kube?: boolean; initial?: OwnFound | null }>();
+/** `none`: a finished search found nothing (the page offers the ways forward). */
+const emit = defineEmits<{ changed: []; none: [nothing: boolean] }>();
 const { t } = useI18n();
 
 type Found = OwnFound['found'][number];
-const state = ref<OwnFound | null>(null);
+const state = ref<OwnFound | null>(props.initial ?? null);
+watch(
+  () => props.initial,
+  (v) => {
+    if (v && !searching.value) state.value = v;
+  },
+);
 const searching = ref(false);
 const error = ref('');
 const added = ref(new Set<string>());
@@ -64,6 +73,32 @@ async function start() {
   }
 }
 
+// What was tried, in words: "Tried /metrics on 6 listening ports: 80, 3000, …".
+const more = (n: number) => t('ownMetrics.find.more', { n });
+const tried = computed(() => {
+  const s = state.value;
+  if (!s || s.tried.ports.length === 0) return '';
+  const n = s.tried.ports.length;
+  const ports = portsText(s.tried.ports, more);
+  return props.kube
+    ? t(
+        'ownMetrics.find.triedKube',
+        {
+          n,
+          ports,
+          workloads: t('ownMetrics.find.workloads', { n: s.tried.workloads }, s.tried.workloads),
+        },
+        n,
+      )
+    : t('ownMetrics.find.triedServer', { n, ports }, n);
+});
+const finished = computed(() => !!state.value && !searching.value);
+watch(
+  [finished, () => state.value?.found.length ?? 0],
+  ([done, n]) => emit('none', done && n === 0),
+  { immediate: true },
+);
+
 const adding = ref('');
 async function add(f: Found) {
   adding.value = keyOf(f);
@@ -104,14 +139,19 @@ async function add(f: Found) {
     </div>
     <p v-if="error" class="mt-2 text-13 text-critical-text" role="alert">{{ error }}</p>
     <template v-if="state">
-      <p class="mt-3 text-13 text-text-muted" role="status" data-testid="own-find-state">
+      <p
+        class="mt-3 text-13 leading-relaxed text-text-muted"
+        role="status"
+        data-testid="own-find-state"
+      >
         <template v-if="state.asked === 0">{{ $t('ownMetrics.find.nothingToTry') }}</template>
         <template v-else-if="searching">{{
           $t('ownMetrics.find.searching', { n: state.asked }, state.asked)
         }}</template>
-        <template v-else-if="state.found.length === 0">{{
-          $t(state.done ? 'ownMetrics.find.none' : 'ownMetrics.find.noAnswer')
-        }}</template>
+        <template v-else-if="state.found.length === 0"
+          >{{ tried }}
+          {{ $t(state.done ? 'ownMetrics.find.none' : 'ownMetrics.find.noAnswer') }}</template
+        >
         <template v-else>{{
           $t(
             'ownMetrics.find.found',
@@ -119,6 +159,20 @@ async function add(f: Found) {
             state.found.length,
           )
         }}</template>
+      </p>
+      <p
+        v-if="!searching && (state.tried.skipped.length || state.tried.scraped)"
+        class="mt-1 text-12 leading-relaxed text-text-subtle"
+        data-testid="own-find-skipped"
+      >
+        <template v-if="state.tried.skipped.length">{{
+          $t('ownMetrics.find.skipped', { ports: portsText(state.tried.skipped, more) })
+        }}</template>
+        <template v-if="state.tried.scraped">
+          {{
+            $t('ownMetrics.find.scraped', { n: state.tried.scraped }, state.tried.scraped)
+          }}</template
+        >
       </p>
       <ul
         v-if="state.found.length"

@@ -314,6 +314,8 @@ importers:
 
   packages/email: {}
 
+  packages/snippets: {}
+
   web:
     dependencies:
       '@fontsource-variable/inter':
@@ -337,6 +339,9 @@ importers:
       '@watchlog/design-tokens':
         specifier: workspace:*
         version: link:../packages/design-tokens
+      '@watchlog/snippets':
+        specifier: workspace:*
+        version: link:../packages/snippets
       echarts:
         specifier: ^6.1.0
         version: 6.1.0

@@ -15,7 +15,8 @@ import TextField from '@/components/ui/TextField.vue';
 import { agoShort } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
 
-const props = defineProps<{ cluster: string; summary: OwnMetricsSummary }>();
+// `listOnly`: Add a source makes tokens in its own steps (1.0.3); here they are listed and revoked.
+const props = defineProps<{ cluster: string; summary: OwnMetricsSummary; listOnly?: boolean }>();
 const emit = defineEmits<{ changed: []; made: [value: string] }>();
 const { t } = useI18n();
 const auth = useAuthStore();
@@ -67,7 +68,7 @@ async function revoke() {
     <p class="mt-1 text-13 leading-relaxed text-text-muted">{{ $t('ownMetrics.tokens.about') }}</p>
 
     <div
-      v-if="made"
+      v-if="made && !listOnly"
       class="mt-3 rounded-card border border-warning/40 bg-warning/10 px-4 py-3"
       role="status"
       data-testid="own-token-made"
@@ -105,7 +106,7 @@ async function revoke() {
     </ul>
 
     <form
-      v-if="auth.canManage"
+      v-if="auth.canManage && !listOnly"
       class="mt-3 flex flex-wrap items-end gap-2"
       data-testid="own-token-form"
       @submit.prevent="create"
@@ -127,7 +128,9 @@ async function revoke() {
         {{ $t('ownMetrics.tokens.create') }}
       </BaseButton>
     </form>
-    <p v-else class="mt-3 text-13 text-text-subtle">{{ $t('ownMetrics.tokens.viewer') }}</p>
+    <p v-else-if="!auth.canManage" class="mt-3 text-13 text-text-subtle">
+      {{ $t('ownMetrics.tokens.viewer') }}
+    </p>
 
     <ConfirmDialog
       v-model:open="open"

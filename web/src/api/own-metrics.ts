@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The API of "Your metrics" (1.0.0, ADR-236), per cluster or fleet.
 import type {
+  OwnAddressTest,
   OwnAlertInput,
   OwnAlertList,
   OwnAlertPreview,
@@ -15,6 +16,8 @@ import type {
   OwnNewToken,
   OwnOwner,
   OwnPins,
+  OwnReceived,
+  OwnTestValue,
   OwnWidgetInput,
 } from '@watchlog/api-types';
 import { api } from '@/api/client';
@@ -106,6 +109,18 @@ export const ownMetricsApi = {
     api<void>(`${base(cluster)}/alerts/${id}`, { method: 'DELETE' }),
   find: (cluster: string) => api<OwnFound>(`${base(cluster)}/find`, { method: 'POST' }),
   found: (cluster: string) => api<OwnFound>(`${base(cluster)}/find`),
+  // 1.0.3: an address read once before it is scraped; what a token has sent; a test value.
+  test: (cluster: string, body: NewSource) =>
+    api<OwnAddressTest>(`${base(cluster)}/test`, { method: 'POST', body }),
+  tested: (cluster: string) => api<OwnAddressTest>(`${base(cluster)}/test`),
+  received: (cluster: string, tokenId: string, since?: number) =>
+    api<OwnReceived>(
+      `${base(cluster)}/tokens/${tokenId}/received${since === undefined ? '' : `?since=${since}`}`,
+    ),
+  sendTestValue: (cluster: string, body: { tokenId: string; server?: string; workload?: string }) =>
+    api<OwnTestValue>(`${base(cluster)}/test-value`, { method: 'POST', body }),
+  removeTestValue: (cluster: string) =>
+    api<void>(`${base(cluster)}/test-value`, { method: 'DELETE' }),
 };
 
 /** Dashboards of own metrics: the org's, not a cluster's. */

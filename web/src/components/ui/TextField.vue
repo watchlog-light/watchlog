@@ -11,7 +11,10 @@ defineProps<{
   required?: boolean;
   minlength?: number;
   maxlength?: number;
+  /** A code to type as it is printed (a setup code, a one-time code): spaced capitals. */
   mono?: boolean;
+  /** Something technical that keeps its own case (an address, a metric's name): monospace. */
+  technical?: boolean;
   readonly?: boolean;
   placeholder?: string;
   inputmode?: 'text' | 'numeric' | 'email';
@@ -51,7 +54,11 @@ defineExpose({
         'h-9 rounded-control border bg-surface-3 px-3 text-14 text-text placeholder:text-text-subtle max-lg:h-11 max-md:text-16',
         'focus:border-border-strong',
         error ? 'border-critical' : 'border-border',
-        mono ? 'font-mono tracking-wider uppercase' : '',
+        // A code's own capitals never reach its placeholder: that one is written as it reads.
+        mono
+          ? 'font-mono tracking-wider uppercase placeholder:tracking-normal placeholder:normal-case'
+          : '',
+        technical ? 'font-mono' : '',
         readonly ? 'cursor-default text-text-muted' : '',
       ]"
     />
