@@ -87,6 +87,16 @@ export interface EeHost {
   hasFeature(orgId: string, feature: string): Promise<boolean>;
   /** Adds the module's devices to the licence's unit count (license/units.ts). */
   registerUnitSource(source: EeUnitSource): void;
+  /**
+   * One line of the org's audit trail (Settings → Users), by the request's user: a module's
+   * actions are named `<module>_<what happened>` (`network_profile_changed`). Details are
+   * shown as they are: names and counts, never a secret.
+   */
+  audit(
+    request: FastifyRequest,
+    action: `network_${string}`,
+    details?: Record<string, string | number | boolean | null>,
+  ): Promise<void>;
   log: {
     info(o: object, m: string): void;
     warn(o: object, m: string): void;

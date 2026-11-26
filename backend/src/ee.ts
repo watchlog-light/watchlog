@@ -34,6 +34,7 @@ import type { LicenseReader } from './modules/license/service.js';
 import { registerUnitSource } from './modules/license/units.js';
 import { closedSince } from './modules/license/closed.js';
 import { requireRole, requireUser } from './plugins/auth.js';
+import { actorOf, audit, type AuditAction } from './modules/users/service.js';
 
 /** The places ee/backend's entry can be, for the file running now. */
 export function eeCandidates(here = import.meta.url): string[] {
@@ -105,6 +106,16 @@ export function eeHost(
     registerUnitSource: (s) =>
       registerUnitSource(s as unknown as Parameters<typeof registerUnitSource>[0]),
     log,
+    audit: async (request, action, details) => {
+      const user = (request as FastifyRequest & { user?: { org: { id: string } } | null }).user;
+      if (!user) return;
+      await audit(deps.db, {
+        orgId: user.org.id,
+        action: action as AuditAction,
+        actor: actorOf(request),
+        ...(details ? { details } : {}),
+      });
+    },
     db: deps.db as unknown as EeHost['db'],
     systemDb: deps.systemDb as unknown as EeHost['systemDb'],
     sql,

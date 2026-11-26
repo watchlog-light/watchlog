@@ -63,6 +63,14 @@ export const EE_ROUTES: Record<string, RouteClass> = {
   'POST /api/v1/network/credentials': net,
   'PATCH /api/v1/network/credentials/:id': net,
   'DELETE /api/v1/network/credentials/:id': net,
+  // 1.0.2: a profile's devices, moving them, trying a profile, undoing an accepted
+  // certificate, moving a poller's devices.
+  'GET /api/v1/network/credentials/:id/devices': net,
+  'POST /api/v1/network/credentials/:id/move': net,
+  'POST /api/v1/network/credential-tests': net,
+  'GET /api/v1/network/credential-tests/:id': net,
+  'POST /api/v1/network/devices/:id/restore-certificate': net,
+  'POST /api/v1/network/pollers/move': net,
   'POST /api/v1/network/discoveries': net,
   'GET /api/v1/network/discoveries/:id': net,
   'GET /api/v1/network/setup-commands': net,

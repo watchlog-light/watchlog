@@ -509,6 +509,8 @@ describe('every mutating route declares its roles (ADR-140)', () => {
       'DELETE /api/v1/license': OWNER,
       // A RouterOS device's new certificate (ADR-233): Owners only, when ee/ is there.
       'POST /api/v1/network/devices/:id/accept-certificate': OWNER,
+      // 1.0.2: an accept made by mistake is undone by an Owner too.
+      'POST /api/v1/network/devices/:id/restore-certificate': OWNER,
     };
     for (const [route, roles] of routes) {
       if (PUBLIC.includes(route)) continue;

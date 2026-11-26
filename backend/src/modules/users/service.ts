@@ -54,7 +54,9 @@ export type AuditAction =
   | 'egress_expected_removed'
   // What changed (ADR-200): "Was this worth an alert?" answered on an anomaly alert, or undone.
   | 'anomaly_feedback_given'
-  | 'anomaly_feedback_undone';
+  | 'anomaly_feedback_undone'
+  // An Enterprise module's changes (1.0.2): the network module's profiles and devices.
+  | `network_${string}`;
 
 export interface Actor {
   id: string | null;
