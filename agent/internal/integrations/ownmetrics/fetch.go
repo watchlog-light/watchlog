@@ -7,9 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -63,7 +66,7 @@ func Fetch(ctx context.Context, client *http.Client, target string) (Scrape, err
 	}
 	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusOK {
-		return Scrape{}, fmt.Errorf("the endpoint answered %d", res.StatusCode)
+		return Scrape{}, &StatusError{Code: res.StatusCode}
 	}
 	if res.ContentLength > MaxBody {
 		return Scrape{}, errTooBig
@@ -71,6 +74,7 @@ func Fetch(ctx context.Context, client *http.Client, target string) (Scrape, err
 	// One byte past the limit tells an answer that is too big from one that just fits.
 	body := &capped{r: io.LimitReader(res.Body, MaxBody+1)}
 	out, err := Parse(body)
+	out.ContentType = res.Header.Get("Content-Type")
 	if body.n > MaxBody {
 		return Scrape{}, errTooBig
 	}
@@ -78,6 +82,76 @@ func Fetch(ctx context.Context, client *http.Client, target string) (Scrape, err
 		return out, plain(err)
 	}
 	return out, nil
+}
+
+// StatusError is an answer other than 200.
+type StatusError struct{ Code int }
+
+func (e *StatusError) Error() string { return fmt.Sprintf("the endpoint answered %d", e.Code) }
+
+// Why says in one word why an address doesn't give metrics, for "Test" on the Add a source page
+// (1.0.3): the page turns it into a sentence. detail carries what the word alone doesn't (a
+// status code, the error's own text).
+//
+//	refused      nothing is listening on that port
+//	no_host      the name doesn't resolve
+//	slow         no answer within the scrape's 10 seconds
+//	big          the answer is larger than the scrape's 5 MB
+//	auth         401 or 403: it asks for credentials, which scraping can't send
+//	status       another status than 200 (detail: the code)
+//	html         it answered with a web page
+//	not_metrics  it answered, but not in the Prometheus text format
+//	redirect     it redirects to another host
+//	tls          the TLS handshake failed (detail: why)
+//	address      not an http or https address
+//	other        anything else (detail: the error)
+func Why(s Scrape, err error) (reason, detail string) {
+	var se *StatusError
+	var dns *net.DNSError
+	switch {
+	case err == nil && len(s.Series) > 0:
+		return "", ""
+	case errors.As(err, &se):
+		if se.Code == http.StatusUnauthorized || se.Code == http.StatusForbidden {
+			return "auth", strconv.Itoa(se.Code)
+		}
+		return "status", strconv.Itoa(se.Code)
+	case errors.Is(err, errTooBig):
+		return "big", ""
+	case errors.Is(err, errRedirect):
+		return "redirect", ""
+	case errors.Is(err, errScheme):
+		return "address", ""
+	case err != nil && (errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "no answer within") || strings.Contains(err.Error(), "Client.Timeout")):
+		return "slow", ""
+	case err != nil && (errors.Is(err, syscall.ECONNREFUSED) || strings.Contains(err.Error(), "connection refused")):
+		return "refused", ""
+	case errors.As(err, &dns) || (err != nil && strings.Contains(err.Error(), "no such host")):
+		return "no_host", ""
+	case err != nil && (strings.Contains(err.Error(), "tls:") || strings.Contains(err.Error(), "x509:")):
+		return "tls", short(err.Error())
+	}
+	// It answered 200: a web page, something else that isn't metrics, or nothing at all.
+	if strings.Contains(strings.ToLower(s.ContentType), "html") {
+		return "html", ""
+	}
+	if err != nil && !isParse(err) {
+		return "other", short(err.Error())
+	}
+	return "not_metrics", ""
+}
+
+// isParse says whether an error came from reading the text format (not from the network).
+func isParse(err error) bool {
+	var ne net.Error
+	return !errors.As(err, &ne)
+}
+
+func short(s string) string {
+	if len(s) > 200 {
+		return s[:200]
+	}
+	return s
 }
 
 type capped struct {
@@ -101,7 +175,7 @@ func plain(err error) error {
 	}
 	var ue *url.Error
 	if errors.As(err, &ue) {
-		return errors.New(ue.Err.Error())
+		return ue.Err // without the method and the address; still the error it was
 	}
 	return err
 }

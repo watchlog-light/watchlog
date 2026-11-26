@@ -25,7 +25,9 @@ type Series struct {
 
 // Scrape is what one endpoint exposed.
 type Scrape struct {
-	Series []Series
+	// ContentType is the answer's Content-Type header (set by Fetch; a test says "HTML" from it).
+	ContentType string
+	Series      []Series
 	// Types and Help by metric family, from the TYPE and HELP lines.
 	Types map[string]string
 	Help  map[string]string

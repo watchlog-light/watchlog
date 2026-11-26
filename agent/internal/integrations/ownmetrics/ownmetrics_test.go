@@ -265,3 +265,92 @@ func TestRegistered(t *testing.T) {
 	}
 	t.Fatalf("the module isn't registered: %v", ext.Names())
 }
+
+// "Test" (1.0.3): an address a user typed is read once, and when it gives no metrics the
+// answer says why in one word the page can put in a sentence.
+func TestTestSaysWhy(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/metrics":
+			_, _ = w.Write([]byte(text))
+		case "/page":
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write([]byte("<!doctype html><html><body>hello</body></html>"))
+		case "/json":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"status":"ok"}`))
+		case "/empty":
+			w.Header().Set("Content-Type", "text/plain")
+		case "/secret":
+			w.Header().Set("WWW-Authenticate", `Basic realm="metrics"`)
+			w.WriteHeader(http.StatusUnauthorized)
+		case "/forbidden":
+			w.WriteHeader(http.StatusForbidden)
+		case "/big":
+			w.Header().Set("Content-Length", fmt.Sprint(MaxBody+1))
+			w.WriteHeader(http.StatusOK)
+		case "/away":
+			http.Redirect(w, r, "http://elsewhere.invalid/metrics", http.StatusFound)
+		case "/slow":
+			select {
+			case <-r.Context().Done():
+			case <-time.After(3 * time.Second):
+			}
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	client := NewClient()
+	why := func(path string, timeout time.Duration) (ProbeResult, Scrape) {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		u := srv.URL + path
+		if strings.HasPrefix(path, "http") {
+			u = path
+		}
+		s, err := Fetch(ctx, client, u)
+		var res ProbeResult
+		res.Reason, res.Detail = Why(s, err)
+		return res, s
+	}
+	for path, want := range map[string][2]string{
+		"/metrics":                    {"", ""},
+		"/page":                       {"html", ""},
+		"/json":                       {"not_metrics", ""},
+		"/empty":                      {"not_metrics", ""},
+		"/secret":                     {"auth", "401"},
+		"/forbidden":                  {"auth", "403"},
+		"/missing":                    {"status", "404"},
+		"/big":                        {"big", ""},
+		"/away":                       {"redirect", ""},
+		"http://127.0.0.1:1/metrics":  {"refused", ""},
+		"ftp://127.0.0.1/metrics":     {"address", ""},
+		"http://nowhere.invalid:9100": {"no_host", ""},
+	} {
+		got, _ := why(path, 5*time.Second)
+		if got.Reason != want[0] || got.Detail != want[1] {
+			t.Errorf("%s: got %q (%q), want %q (%q)", path, got.Reason, got.Detail, want[0], want[1])
+		}
+	}
+	if got, _ := why("/slow", 100*time.Millisecond); got.Reason != "slow" {
+		t.Errorf("a slow endpoint: %+v", got)
+	}
+
+	// Through the module: a test is answered once per id, beside a probe, with the reasons.
+	h := &fakeHost{posts: map[string][]json.RawMessage{}, ch: make(chan struct{}, 1)}
+	r := &runner{h: h, client: client, now: time.Now}
+	cfg := Config{Test: &Probe{ID: "t1", Candidates: []Target{
+		{ID: "ok", URL: srv.URL + "/metrics"}, {ID: "page", URL: srv.URL + "/page"}, {ID: "gone", URL: "http://127.0.0.1:1/metrics"},
+	}}}
+	r.probe(context.Background(), cfg)
+	r.probe(context.Background(), cfg)
+	var pr ProbeReport
+	if len(h.posts["own-metrics/probe"]) != 1 || json.Unmarshal(h.posts["own-metrics/probe"][0], &pr) != nil {
+		t.Fatalf("test posts %v", h.posts["own-metrics/probe"])
+	}
+	if pr.ID != "t1" || !pr.Results[0].OK || pr.Results[0].Series != 8 || pr.Results[0].Reason != "" ||
+		pr.Results[1].OK || pr.Results[1].Reason != "html" || pr.Results[2].Reason != "refused" {
+		t.Fatalf("test %+v", pr.Results)
+	}
+}

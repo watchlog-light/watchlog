@@ -33,6 +33,9 @@ type Config struct {
 	IntervalS int      `json:"interval_s"`
 	Targets   []Target `json:"targets"`
 	Probe     *Probe   `json:"probe,omitempty"`
+	// Test asks about addresses a user typed ("Test" on the Add a source page, 1.0.3): each is
+	// read once within the scrape's own limits and answered with why, when it gives no metrics.
+	Test *Probe `json:"test,omitempty"`
 }
 
 // Target is one endpoint, named by the backend.
@@ -80,6 +83,9 @@ type ProbeResult struct {
 	OK     bool     `json:"ok"`
 	Series int      `json:"series"`
 	Names  []string `json:"names,omitempty"`
+	// Reason and Detail say why not (see Why), since 1.0.3.
+	Reason string `json:"reason,omitempty"`
+	Detail string `json:"detail,omitempty"`
 }
 
 func init() { ext.Register(ext.Module{Name: Name, Run: Run}) }
@@ -94,6 +100,7 @@ type runner struct {
 	client *http.Client
 	now    func() time.Time
 	probed string
+	tested string
 }
 
 func (r *runner) config() Config {
@@ -210,13 +217,18 @@ func batches(reports []TargetReport, max int) [][]TargetReport {
 	return out
 }
 
-// probe tries each candidate once per probe id and says which ones expose metrics.
+// probe answers "Find endpoints for me" (each candidate tried for 3 seconds) and "Test" (the
+// addresses a user typed, within the scrape's own 10 seconds), each once per id.
 func (r *runner) probe(ctx context.Context, cfg Config) {
-	p := cfg.Probe
-	if p == nil || p.ID == "" || p.ID == r.probed {
+	r.ask(ctx, cfg.Probe, &r.probed, probeTimeout)
+	r.ask(ctx, cfg.Test, &r.tested, Timeout)
+}
+
+func (r *runner) ask(ctx context.Context, p *Probe, done *string, timeout time.Duration) {
+	if p == nil || p.ID == "" || p.ID == *done {
 		return
 	}
-	r.probed = p.ID
+	*done = p.ID
 	cands := p.Candidates
 	if len(cands) > maxProbes {
 		cands = cands[:maxProbes]
@@ -230,10 +242,11 @@ func (r *runner) probe(ctx context.Context, cfg Config) {
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			pctx, cancel := context.WithTimeout(ctx, probeTimeout)
+			pctx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
 			res := ProbeResult{ID: c.ID}
-			if s, err := Fetch(pctx, r.client, c.URL); err == nil && len(s.Series) > 0 {
+			s, err := Fetch(pctx, r.client, c.URL)
+			if err == nil && len(s.Series) > 0 {
 				res.OK, res.Series = true, len(s.Series)
 				seen := map[string]bool{}
 				for _, x := range s.Series {
@@ -242,6 +255,8 @@ func (r *runner) probe(ctx context.Context, cfg Config) {
 						res.Names = append(res.Names, x.Name)
 					}
 				}
+			} else {
+				res.Reason, res.Detail = Why(s, err)
 			}
 			results[i] = res
 		}()
