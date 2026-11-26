@@ -97,6 +97,12 @@ _Not part of the public specification._
 | Users | Unlimited: Owner, Admin, Viewer (ADR-140) | 1 | Up to 10 | Unlimited |
 | Unified multi-cluster view: All clusters and fleets (0.11.0, ADR-226) | — (upgrade page) | — (upgrade page) | ✓ | ✓ |
 | Network devices: switches, routers, the map, ports and links (0.16.0, §4.17, ADR-233); Wi-Fi (CAPsMAN), a NAS and iSCSI, recorders ("is it recording?") and UPSes (0.17.0, ADR-234); a device is one unit, controller-managed Wi-Fi access points free | — (teaser) | — (teaser) | ✓ | ✓ (licence feature `network`) |
+| Your metrics (1.0.0, §4.18, ADR-236): series in the org | The installation's cap (20,000) | 200 | 200 for each billed node or server, at least 1,000 | The installation's cap |
+| Your metrics: series from one source; sources | 500; no limit | 100; 3 | 500; no limit | 500; no limit |
+| Your metrics: dashboards (ADR-237) | 50, 24 widgets each | 1, 8 widgets | 50, 24 widgets each | 50, 24 widgets each |
+| Your metrics: pin to a workload's or a server's page | ✓ | ✓ | ✓ | ✓ |
+| Your metrics: alerts | above, below, not reported for, older than | — (the tab says so) | all | all |
+| Your metrics: the usual range, "outside its usual range", watched in What changed (ADR-238) | — | — | ✓ | ✓ (a licence listing `pro`) |
 | SLO / availability reports | — | — | ✓ (Phase 6) | ✓ |
 | Anomaly detection — basic: What changed and anomaly alerts (0.8.0, ADR-195) | — (upgrade page) | — (upgrade page) | ✓ | ✓ |
 | Anomaly detection — advanced (correlation & root-cause hints) | — | — | — | ✓ |
@@ -695,6 +701,20 @@ The switches and routers the servers and nodes sit on: what's connected to what,
 - **UPSes (0.17):** RFC 1628 UPS-MIB and APC PowerNet-MIB: status, charge, runtime, load, voltages, temperature, replace flag; a UPS card on Storage, its own map icon; "feeds" a WatchLog server or node, whose Events then show it going on battery.
 - **Alerts (0.17 defaults, thresholds in ADR-234):** AP disconnected, AP with no clients when it usually has them, many weak clients, 2.4 GHz overlap; NAS disk SMART, disk hot, RAID degraded or rebuilding, volume or LUN over 90%, iSCSI session lost; recorder not recording, iSCSI disk lost, storage full soon, cameras offline (grouped per recorder); UPS on battery, runtime under 10 minutes, battery to replace, overload. NAS and recorder unreachable are the device's unreachable.
 
+## 4.18 Your metrics — 1.0.0, All (ADR-236 to ADR-238)
+
+The numbers a user's own apps and exporters report: orders created, failed payments, checkout time, jobs waiting, the last good backup, a GPU's temperature. Under "Your metrics" in the sidebar (Running here), for Kubernetes clusters and Server fleets. No query language anywhere: a metric is shown as its type reads, and a dashboard is built from widgets.
+
+- **Three ways in, one pipeline (ADR-236).** *Scrape*: the integrations collector reads an endpoint every 30 s (text format and OpenMetrics; http/https, 5 MB, 10 s, no redirect to another host, no credentials yet). Kubernetes: pods annotated `watchlog.io/scrape: "true"`, with `watchlog.io/port` (a number or a port's name; default the first named port) and `watchlog.io/path` (default `/metrics`); `prometheus.io/scrape` too when the cluster's setting is on (off by default); workload ports added in the panel. Servers: an address added in the panel for one server. "Find endpoints for me" tries `/metrics` on the ports WatchLog already sees. *Prometheus remote write* to `/ingest/v1/write` with a write-only token (`wl_mt_…`, made in the panel, shown once); the docs' example keeps only named metrics with `write_relabel_configs`. *Push*: `POST /ingest/v1/metrics` with the same token (a counter adds to its total, a gauge keeps the last value), rate-limited per token with 429 and `Retry-After`.
+- **Rules.** Names starting `watchlog_` are refused. Own series are stored apart under the reserved label `wl_own`, with their owner in `wl_ns`, `wl_wkind`, `wl_workload` or `wl_server` and the tenancy labels injected. A series belongs to the scraped pod's workload or the scraped server; for remote write to the workload of its `namespace` and `pod` labels or the server of its `instance`; for a push to what the push says; else "Not tied to anything". A label with more than 100 values on one metric gets the metric refused, the reason naming the label. Types from `TYPE` lines or the name's suffix (`_total`, `_bucket`/`_sum`/`_count`, `_timestamp`), units from the suffix, both correctable. `go_*`, `process_*`, `promhttp_*` and `scrape_*` are hidden behind "Show all".
+- **Caps (§3.2), all from `modules/entitlements/own-metrics.ts`.** Over a cap, new series are refused and known ones keep flowing; the Sources table says what was refused and why. WatchLog's own monitoring is never affected. A downgrade keeps data until it ages out. Retention follows the plan's tier (ADR-177).
+- **The page.** A header with the series used of those allowed and "Add a source"; tabs Dashboards, All metrics, Alerts; without a source, the three ways in. A metric's page: its value as its type reads (a counter as a rate in the best unit; a histogram's p95 with p50 and p99; a gauge as it is; a timestamp as "3 h ago"), its line over the range with the usual range as a band (Pro), "Split by" one label (the top 5 and the rest), labels, series, where it is used, and Add to a dashboard, Pin to its owner, Alert on it.
+- **Pinning.** Up to 6 metrics on a workload's page (Kubernetes) or a server's page (fleets), as "Its own metrics".
+- **Dashboards (ADR-237).** The organisation's, on a 12-column grid; Owners and Admins build, everyone reads. A widget is a metric, a shape (Number, Line, Area, Bars), at most one label to split by, a size (3, 4, 6, 8 or 12 columns) and a title. Edit mode has a side panel with a live preview, drag and corner-resize with buttons and keys for both, "Done" to save, and a question before leaving unsaved changes. One time range, read again every 30 s while visible. No query language, variables, formulas, thresholds on charts, WatchLog's own metrics, sharing links or exports.
+- **Alerts.** Ordinary alert rules (type `own`): above, below, outside its usual range (Pro), not reported for, older than (timestamps); for how long; severity; channels; the sentence it will say shown before it is made. They are held, grouped and silenced like every other rule and show on the workload or server the metric belongs to.
+- **Watch with What changed (Pro, ADR-238).** Per metric, at most 50 in an organisation: the usual range of each hour of the week, learnt for a week first, shown with the value and as a band; "outside its usual range" as an alert condition; and the metric as one more series in What changed's list and story, on the workload or server it belongs to.
+- **Change events (ADR-238).** `POST /api/v1/events` with an own-metrics token: a deploy, a config change, a migration or a flag, with a title, what it belongs to, an optional link and a time. In Events, as a marker on charts, under "Changed around then" and in probable cause, labelled with the token's name. Never an alert; rate-limited.
+
 # 5. System architecture
 
 ## 5.1 Components
@@ -952,6 +972,8 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | `GET/POST /clusters` · `GET/PATCH/DELETE /clusters/:id` | Create returns install commands + token (shown once) |
 | `POST /clusters/:id/tokens` · `DELETE /clusters/:id/tokens/:tid` | Rotate / revoke |
 | `GET /clusters/:id/onboarding-status` | Server-sent events: `agent_seen`, `cluster_agent_seen`, `first_metrics`, `ebpf_status`, `service_map_ready` |
+| `GET /clusters/:id/own-metrics` · `…/own-metrics/metrics` · `…/metrics/:metricId` · `…/metrics/:metricId/series` · `…/own-metrics/pins` · `…/own-metrics/alerts` · `GET /own-dashboards` · `GET /own-dashboards/:id` | Your metrics (§4.18): usage and sources, each metric with its value now, a metric over a range split by at most one label, a page's pins, the alert rules, and the dashboards. Changes (sources, tokens, corrections, pins, dashboards, alerts, watching) are the panel's, for Owners and Admins |
+| `POST /events` | A change event from outside with an own-metrics token (§4.18, ADR-238); never a session or an API token |
 | `GET /clusters/:id/overview` | Data for §4.1; each of the first 20 problems carries `likelyCause` when one cause is likely (ADR-148, ADR-155), and `causeState` (`likely`, `possible`, `none`) with up to two `possibleCauses` (`{rule, code, facts, since, where}`, `where` the step where it starts: `{code, facts, name}`) for the Needs-attention line (ADR-156, ADR-157) |
 | `GET /clusters/:id/nodes` · `/nodes/:name` | |
 | `GET /clusters/:id/workloads` · `/pods` · `/pods/:ns/:name` | |
@@ -985,6 +1007,9 @@ REST + JSON, base path `/api/v1`. Auth: HTTP-only secure session cookie for the 
 | Method & path | Body | Notes |
 |---|---|---|
 | `POST /ingest/v1/write` | Prometheus remote_write (protobuf + snappy) | Backend validates token, injects `cluster_id`/`tenant_id`, enforces series limits, forwards to VictoriaMetrics |
+| `POST /ingest/v1/write` with an own-metrics token (`wl_mt_…`) | Prometheus remote write (protobuf + snappy) | Your metrics (§4.18, ADR-236): every series judged on its own (name, labels, caps) and written again under `wl_own`; `204` also when series were refused (the Sources table says which) |
+| `POST /ingest/v1/metrics` | `{name, type?, value, labels?, workload?, server?}` or `{metrics:[…], workload?, server?}` (JSON) | A push with an own-metrics token; answers `200 {stored, dropped}`; `429` with `Retry-After` over 100 a second |
+| `POST /ingest/v1/own-metrics/scrape`, `…/probe` | The collector's scrapes (gzipped JSON) and its answer to "Find endpoints for me" | Cluster token; a report is taken only for an endpoint the backend handed out |
 | `POST /ingest/v1/heartbeat` | `{agent_version, mode, node, capabilities:{ebpf, cgroup}, series}` | Updates `clusters.last_seen_at`; triggers onboarding SSE |
 | `POST /ingest/v1/objects` | `{snapshot|delta, objects:[...]}` (JSON, gzip) | |
 | `POST /ingest/v1/events` | `{events:[{uid, namespace, involved:{kind, namespace, name, uid}, type, reason, message, count, first_ts, last_ts, reporting_controller}]}` (≤ 1,000 per request, JSON, gzip) | ADR-061 |

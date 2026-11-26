@@ -258,6 +258,24 @@ The egress routes, the badges and the suggested policy are explained in
 [Egress watch](egress.md#api-and-mcp). The usual ranges, the learning period and the rows of
 `/what-changed` are explained in [What changed](what-changed.md#api-and-mcp).
 
+### Your metrics
+
+The numbers your own apps report ([Your metrics](your-metrics.md)): what is used and the
+sources, each metric with its value now, one metric over a range (split by one label with
+`by=`), the dashboards, and the alert rules on them.
+
+```bash
+curl -H "$H" "$WATCHLOG/api/v1/clusters/$CLUSTER/own-metrics"
+curl -H "$H" "$WATCHLOG/api/v1/clusters/$CLUSTER/own-metrics/metrics"
+curl -H "$H" "$WATCHLOG/api/v1/clusters/$CLUSTER/own-metrics/metrics/$METRIC/series?from=1794150000&to=1794153600&by=method"
+curl -H "$H" "$WATCHLOG/api/v1/own-dashboards"
+curl -H "$H" "$WATCHLOG/api/v1/clusters/$CLUSTER/own-metrics/alerts"
+```
+
+Sending is not part of this API and doesn't use an API token: metrics and
+[change events](your-metrics.md#change-events) are sent with a write-only own-metrics token
+(`wl_mt_…`).
+
 ### Metrics
 
 `POST /api/v1/query/range` returns a metric's series between two times (Unix seconds). It
