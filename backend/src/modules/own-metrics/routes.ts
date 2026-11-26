@@ -5,7 +5,7 @@
 // add and remove. The demo refuses every change like any other (ADR-122).
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyRequest } from 'fastify';
-import { Type } from 'typebox';
+import { Type, type Static } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
 import { sendProblem } from '../../lib/problem.js';
@@ -16,13 +16,16 @@ import { clusterForOrg } from '../clusters/service.js';
 import { sendPlanLimit } from '../entitlements/limits.js';
 import type { TokenCache } from '../ingest/token-cache.js';
 import type { ConfigNotifier } from '../integrations/notifier.js';
-import type { Probes } from './probes.js';
+import type { Belonging } from './belonging.js';
+import type { AddressTest, Probes } from './probes.js';
 import type { Dropped, OwnMetrics } from './service.js';
 import { normaliseAddress, podSourceKey, type PanelPod, type Targets } from './targets.js';
 import {
+  countOrgMetricTokens,
   issueMetricToken,
   listMetricTokens,
   MAX_METRIC_TOKENS,
+  MAX_ORG_METRIC_TOKENS,
   revokeMetricToken,
 } from './tokens.js';
 
@@ -101,6 +104,10 @@ const SummaryS = Type.Object({
   kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('server')]),
   /** A fleet's servers, for "an address on one server". */
   servers: Type.Array(Type.String()),
+  /** Kubernetes: the workloads a push or a scraped port can belong to (the page's picker). */
+  workloads: Type.Array(
+    Type.Object({ namespace: Type.String(), kind: Type.String(), name: Type.String() }),
+  ),
   /** Where remote write and pushes are sent: this server's address as senders reach it. */
   endpoint: Type.String(),
 });
@@ -123,6 +130,14 @@ const FoundS = Type.Object({
   id: Type.String(),
   done: Type.Boolean(),
   asked: Type.Number({ description: 'Candidates tried' }),
+  tried: Type.Object({
+    ports: Type.Array(Type.Number(), { description: 'Ports asked for /metrics' }),
+    skipped: Type.Array(Type.Number(), {
+      description: 'Ports left out because they never serve metrics (SSH, databases)',
+    }),
+    scraped: Type.Number({ description: 'Ports left out because they are scraped already' }),
+    workloads: Type.Number({ description: 'Kubernetes: workloads whose ports were tried' }),
+  }),
   found: Type.Array(
     Type.Object({
       series: Type.Number(),
@@ -146,6 +161,54 @@ const FoundS = Type.Object({
   ),
 });
 
+/** The name of the value "Send a test value for me" sends: plainly a test, and a gauge. */
+export const TEST_METRIC = 'my_first_test_value';
+
+const TestS = Type.Object({
+  id: Type.String(),
+  done: Type.Boolean(),
+  address: Type.String({ description: 'The address as it was read' }),
+  outcome: Type.Optional(
+    Type.String({
+      description:
+        'answered, or why not: refused, no_host, slow, big, auth, status, html, not_metrics, redirect, tls, address, other, silent (the collector did not answer the test)',
+    }),
+  ),
+  series: Type.Optional(Type.Number()),
+  names: Type.Optional(Type.Array(Type.String())),
+  kept: Type.Optional(
+    Type.Number({ description: 'Series that would be kept within the caps, when fewer than read' }),
+  ),
+  cap: Type.Optional(Type.Union([Type.Literal('source'), Type.Literal('plan')])),
+  detail: Type.Optional(Type.String()),
+});
+
+const ReceivedS = Type.Object({
+  /** The server's clock, for the next `since` (the page's own clock may differ). */
+  now: Type.Number(),
+  received: Type.Union([
+    Type.Null(),
+    Type.Object({
+      at: Type.Number(),
+      way: Type.Union([Type.Literal('push'), Type.Literal('remote_write')]),
+      metricId: Type.String(),
+      name: Type.String(),
+      owner: OwnerS,
+      value: N,
+      series: Type.Number({ description: 'Series this token sent since then' }),
+      metrics: Type.Number({ description: 'Metrics this token sent since then' }),
+    }),
+  ]),
+});
+
+const TestValueS = Type.Object({
+  name: Type.String(),
+  value: Type.Number(),
+  stored: Type.Boolean(),
+  /** Why it wasn't stored: the plan's sources or series are in use. */
+  refused: Type.Optional(Type.Union([Type.Literal('sources'), Type.Literal('series')])),
+});
+
 export interface OwnRoutesOptions {
   db: Database;
   own: OwnMetrics;
@@ -155,6 +218,8 @@ export interface OwnRoutesOptions {
   notifier: ConfigNotifier;
   /** Where agents push to (the ingest or Public URL, else the request's own address). */
   endpointFor: (request: FastifyRequest) => Promise<string>;
+  belonging: Belonging;
+  now?: () => number;
 }
 
 const noDrops: Dropped = {
@@ -168,7 +233,7 @@ const noDrops: Dropped = {
 
 export const ownMetricsRoutes: FastifyPluginAsyncTypebox<OwnRoutesOptions> = async (
   app,
-  { db, own, targets, probes, tokens, notifier, endpointFor },
+  { db, own, targets, probes, tokens, notifier, endpointFor, belonging, now = Date.now },
 ) => {
   const read = [requireUser(), requireRole('owner', 'admin', 'viewer')];
   const write = [requireUser(), requireRole('owner', 'admin')];
@@ -190,7 +255,7 @@ export const ownMetricsRoutes: FastifyPluginAsyncTypebox<OwnRoutesOptions> = asy
       if (!cluster) return sendProblem(reply, 404, NOT_FOUND);
       // What is in memory is newer than the rows: write it first.
       await own.flush();
-      const [usage, sources, tokenRows, counts, owners, servers] = await Promise.all([
+      const [usage, sources, tokenRows, counts, owners, servers, workloads] = await Promise.all([
         own.usage(cluster.org_id),
         db
           .selectFrom('own_sources')
@@ -229,6 +294,18 @@ export const ownMetricsRoutes: FastifyPluginAsyncTypebox<OwnRoutesOptions> = asy
               .orderBy('node')
               .execute()
           : Promise.resolve([]),
+        cluster.kind === 'server'
+          ? Promise.resolve([])
+          : db
+              .selectFrom('objects')
+              .select(['namespace', 'kind', 'name'])
+              .where('cluster_id', '=', cluster.id)
+              .where('kind', 'in', ['Deployment', 'StatefulSet', 'DaemonSet'])
+              .where('deleted_at', 'is', null)
+              .orderBy('namespace')
+              .orderBy('name')
+              .limit(2000)
+              .execute(),
       ]);
       const ownersOf = new Map<string, (typeof owners)[number][]>();
       for (const o of owners) ownersOf.set(o.source_id, [...(ownersOf.get(o.source_id) ?? []), o]);
@@ -290,6 +367,11 @@ export const ownMetricsRoutes: FastifyPluginAsyncTypebox<OwnRoutesOptions> = asy
         settings: { prometheusAnnotations: cluster.own_metrics_prometheus_annotations },
         kind: cluster.kind === 'server' ? ('server' as const) : ('kubernetes' as const),
         servers: servers.map((s) => s.node),
+        workloads: workloads.map((w) => ({
+          namespace: w.namespace ?? '',
+          kind: w.kind,
+          name: w.name,
+        })),
         endpoint: await endpointFor(request),
       };
     },
@@ -335,6 +417,14 @@ export const ownMetricsRoutes: FastifyPluginAsyncTypebox<OwnRoutesOptions> = asy
       }
       if (existing.some((t) => t.name === name)) {
         return sendProblem(reply, 409, 'A token with this name exists; pick another name');
+      }
+      // And the org over all its clusters and fleets (1.0.3).
+      if ((await countOrgMetricTokens(db, request.user!.org.id)) >= MAX_ORG_METRIC_TOKENS) {
+        return sendProblem(
+          reply,
+          409,
+          `An organization can have ${MAX_ORG_METRIC_TOKENS} own-metrics tokens over all its clusters and fleets; revoke one first`,
+        );
       }
       const t = await issueMetricToken(db, cluster.id, name, request.user!.id);
       return reply.code(201).send({ id: t.id, name, prefix: t.prefix, value: t.value });
@@ -565,6 +655,7 @@ export const ownMetricsRoutes: FastifyPluginAsyncTypebox<OwnRoutesOptions> = asy
     id: p.id,
     done: probes.done(p),
     asked: p.candidates.length,
+    tried: p.tried,
     found: p.found.map((f) => ({ series: f.series, names: f.names, add: f.candidate.add })),
   });
 
@@ -605,6 +696,319 @@ export const ownMetricsRoutes: FastifyPluginAsyncTypebox<OwnRoutesOptions> = asy
       const p = probes.current(cluster.id);
       if (!p) return sendProblem(reply, 404, 'No search is running; start one');
       return foundOf(p);
+    },
+  );
+  // ------------------------------------------------------------- "Test" before "Scrape it"
+
+  /** A test's answer in the page's terms: what was read, and what the caps would keep of it. */
+  const testOf = async (orgId: string, t: AddressTest): Promise<Static<typeof TestS>> => {
+    const base = { id: t.id, done: probes.testDone(t), address: t.shown };
+    if (!t.result) return base.done ? { ...base, outcome: 'silent' } : base;
+    if (!t.result.ok) {
+      return {
+        ...base,
+        outcome: t.result.reason,
+        ...(t.result.detail ? { detail: t.result.detail } : {}),
+      };
+    }
+    const { series, names } = t.result;
+    const usage = await own.usage(orgId);
+    const room = Math.max(0, usage.limits.series - usage.series);
+    const kept = Math.min(series, usage.limits.seriesPerSource, room);
+    return {
+      ...base,
+      outcome: 'answered',
+      series,
+      names,
+      ...(kept < series
+        ? {
+            kept,
+            cap: usage.limits.seriesPerSource <= room ? ('source' as const) : ('plan' as const),
+          }
+        : {}),
+    };
+  };
+
+  app.post(
+    '/clusters/:id/own-metrics/test',
+    {
+      preHandler: write,
+      schema: {
+        summary:
+          'Test an address before scraping it: its collector reads it once and says what it found',
+        tags: PANEL,
+        params: Params,
+        body: NewSource,
+        response: {
+          202: TestS,
+          400: ProblemSchema,
+          401: ProblemSchema,
+          403: ProblemSchema,
+          404: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
+      if (!cluster) return sendProblem(reply, 404, NOT_FOUND);
+      const body = request.body;
+      let test: AddressTest;
+      if ('server' in body) {
+        if (cluster.kind !== 'server') {
+          return sendProblem(reply, 400, 'An address is tested on a server of a Server fleet');
+        }
+        const url = normaliseAddress(body.address);
+        if (!url) {
+          return sendProblem(
+            reply,
+            400,
+            'Give an address like localhost:9400/metrics (http or https, no user or password)',
+          );
+        }
+        const server = await db
+          .selectFrom('agent_instances')
+          .select('node')
+          .where('cluster_id', '=', cluster.id)
+          .where('node', '=', body.server)
+          .executeTakeFirst();
+        if (!server) return sendProblem(reply, 400, `No server named ${body.server} in this fleet`);
+        test = probes.startTest(cluster.id, {
+          host: body.server,
+          url,
+          shown: url.replace(/^http:\/\//, ''),
+        });
+      } else {
+        if (cluster.kind === 'server') {
+          return sendProblem(reply, 400, "A workload's port is tested in a Kubernetes cluster");
+        }
+        // One running pod of the workload answers for all of them, as "Find endpoints" does.
+        const pods = await db
+          .selectFrom('objects')
+          .select(['name', 'spec_summary', 'status_summary'])
+          .where('cluster_id', '=', cluster.id)
+          .where('kind', '=', 'Pod')
+          .where('namespace', '=', body.namespace)
+          .where('deleted_at', 'is', null)
+          .orderBy('name')
+          .execute();
+        const pod = pods.find((p) => {
+          const w = (p.spec_summary as { workload?: { kind?: string; name?: string } }).workload;
+          const st = p.status_summary as { phase?: string; pod_ip?: string };
+          return (
+            (w?.name || p.name) === body.workload &&
+            (w?.kind || 'Pod') === body.workloadKind &&
+            st.phase === 'Running' &&
+            !!st.pod_ip
+          );
+        });
+        if (!pod) {
+          return sendProblem(
+            reply,
+            400,
+            `No running pod of ${body.namespace}/${body.workload} to read`,
+          );
+        }
+        const raw = (pod.status_summary as { pod_ip: string }).pod_ip;
+        const ip = raw.includes(':') ? `[${raw}]` : raw;
+        const path = body.path ?? '/metrics';
+        test = probes.startTest(cluster.id, {
+          host: '',
+          url: `http://${ip}:${body.port}${path}`,
+          shown: `${body.namespace}/${body.workload} :${body.port}${path}`,
+        });
+      }
+      notifier.notify(cluster.id);
+      return reply.code(202).send(await testOf(cluster.org_id, test));
+    },
+  );
+
+  app.get(
+    '/clusters/:id/own-metrics/test',
+    {
+      preHandler: read,
+      schema: {
+        summary: 'What the test of an address found',
+        tags: PANEL,
+        params: Params,
+        response: { 200: TestS, 401: ProblemSchema, 403: ProblemSchema, 404: ProblemSchema },
+      },
+    },
+    async (request, reply) => {
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
+      if (!cluster) return sendProblem(reply, 404, NOT_FOUND);
+      const t = probes.currentTest(cluster.id);
+      if (!t) return sendProblem(reply, 404, 'No test is running; start one');
+      return testOf(cluster.org_id, t);
+    },
+  );
+
+  // ------------------------------------------------------------- the first value of a token
+
+  app.get(
+    '/clusters/:id/own-metrics/tokens/:tokenId/received',
+    {
+      preHandler: read,
+      schema: {
+        summary: 'What a token has sent since a moment: the page waits on it for the first value',
+        tags: PANEL,
+        params: Type.Object({
+          id: Type.String({ format: 'uuid' }),
+          tokenId: Type.String({ format: 'uuid' }),
+        }),
+        querystring: Type.Object({ since: Type.Optional(Type.Integer({ minimum: 0 })) }),
+        response: { 200: ReceivedS, 401: ProblemSchema, 403: ProblemSchema, 404: ProblemSchema },
+      },
+    },
+    async (request, reply) => {
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
+      if (!cluster) return sendProblem(reply, 404, NOT_FOUND);
+      const { tokenId } = request.params;
+      const token = (await listMetricTokens(db, cluster.id)).find((t) => t.id === tokenId);
+      if (!token) return sendProblem(reply, 404, 'Token not found');
+      // What is in memory is newer than the rows: write it first.
+      await own.flush();
+      const since = new Date(request.query.since ?? 0);
+      const rows = await db
+        .selectFrom('own_series as s')
+        .innerJoin('own_sources as src', 'src.id', 's.source_id')
+        .innerJoin('own_metrics as m', 'm.id', 's.metric_id')
+        .select([
+          'm.id as metricId',
+          'm.name',
+          'src.kind',
+          's.owner_kind',
+          's.owner_namespace',
+          's.owner_workload_kind',
+          's.owner_name',
+          's.last_seen',
+        ])
+        .where('s.cluster_id', '=', cluster.id)
+        .where('src.key', 'in', [`token:${tokenId}:push`, `token:${tokenId}:remote_write`])
+        .where('s.last_seen', '>=', since)
+        .orderBy('s.last_seen', 'desc')
+        .orderBy('m.name')
+        .limit(2000)
+        .execute();
+      const first = rows[0];
+      if (!first) return { now: now(), received: null };
+      const last = own.lastPushed(tokenId);
+      return {
+        now: now(),
+        received: {
+          at: first.last_seen.getTime(),
+          way: first.kind === 'push' ? ('push' as const) : ('remote_write' as const),
+          metricId: first.metricId,
+          name: first.name,
+          owner: {
+            kind: first.owner_kind as 'server',
+            namespace: first.owner_namespace,
+            workloadKind: first.owner_workload_kind,
+            name: first.owner_name,
+          },
+          value: last && last.name === first.name ? last.value : null,
+          series: rows.length,
+          metrics: new Set(rows.map((r) => r.metricId)).size,
+        },
+      };
+    },
+  );
+
+  // ------------------------------------------------------------- "Send a test value for me"
+
+  app.post(
+    '/clusters/:id/own-metrics/test-value',
+    {
+      preHandler: write,
+      schema: {
+        summary:
+          'Send a test value for me: one value sent as a push of this token would be, without a terminal',
+        tags: PANEL,
+        params: Params,
+        body: Type.Object({
+          tokenId: Type.String({ format: 'uuid' }),
+          server: Type.Optional(Type.String({ maxLength: 253 })),
+          workload: Type.Optional(Type.String({ maxLength: 400 })),
+        }),
+        response: {
+          200: TestValueS,
+          401: ProblemSchema,
+          403: ProblemSchema,
+          404: ProblemSchema,
+          503: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
+      if (!cluster) return sendProblem(reply, 404, NOT_FOUND);
+      const { tokenId, server, workload } = request.body;
+      const token = (await listMetricTokens(db, cluster.id)).find((t) => t.id === tokenId);
+      if (!token) return sendProblem(reply, 404, 'Token not found');
+      const known = await belonging.known(cluster.id);
+      const value = 1;
+      try {
+        // The same way in as a push with this token: its source, its caps, its owner.
+        const result = await own.ingest({
+          orgId: cluster.org_id,
+          clusterId: cluster.id,
+          source: {
+            kind: 'push',
+            key: `token:${tokenId}:push`,
+            label: `token "${token.name}"`,
+            owner: { kind: '', namespace: '', workloadKind: '', name: '' },
+            tokenId,
+          },
+          series: [
+            {
+              name: TEST_METRIC,
+              labels: {},
+              samples: [[now(), value]],
+              add: false,
+              owner: belonging.fromPush(known, { workload, server }),
+            },
+          ],
+          types: new Map(),
+        });
+        const stored = result.stored > 0;
+        if (stored) own.notePushed(tokenId, TEST_METRIC, value);
+        return {
+          name: TEST_METRIC,
+          value,
+          stored,
+          ...(stored
+            ? {}
+            : { refused: result.dropped.sources ? ('sources' as const) : ('series' as const) }),
+        };
+      } catch (err) {
+        request.log.error({ err: (err as Error).message }, 'metrics storage unavailable');
+        reply.header('retry-after', '30');
+        return sendProblem(reply, 503, 'Metrics storage temporarily unavailable');
+      }
+    },
+  );
+
+  app.delete(
+    '/clusters/:id/own-metrics/test-value',
+    {
+      preHandler: write,
+      schema: {
+        summary: 'Remove the test value: its metric leaves the list and its series no longer count',
+        tags: PANEL,
+        params: Params,
+        response: { 204: Type.Null(), 401: ProblemSchema, 403: ProblemSchema, 404: ProblemSchema },
+      },
+    },
+    async (request, reply) => {
+      const cluster = await clusterForOrg(db, request.user!.org.id, request.params.id);
+      if (!cluster) return sendProblem(reply, 404, NOT_FOUND);
+      // Memory first (it holds the series' rows), then the metric; its series go with it.
+      await own.forget(cluster.id);
+      await db
+        .deleteFrom('own_metrics')
+        .where('cluster_id', '=', cluster.id)
+        .where('name', '=', TEST_METRIC)
+        .execute();
+      return reply.code(204).send(null);
     },
   );
 };

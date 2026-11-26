@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { bootstrapCluster, buildApp } from './app.js';
 import { loadConfig, type Config } from './config.js';
-import { createDb, describeDbError, waitForDatabase } from './db/index.js';
+import { createDb, dbWaiting, describeDbError, waitForDatabase } from './db/index.js';
+import { victoriaWritesInFlight } from './lib/victoria.js';
+import { watchPressure } from './modules/ingest/pressure.js';
 import { assertAppRole } from './db/app-role.js';
 import { checkSecretKey, usePreviousSecretKey } from './lib/secrets.js';
 import { SetupState } from './modules/setup/service.js';
@@ -34,8 +36,14 @@ const cloud = config.edition === 'cloud';
 const db = createDb(config.databaseUrl, { orgScoped: cloud });
 const systemDb = cloud ? createDb(config.databaseSystemUrl) : db;
 const setup = new SetupState();
-const app = await buildApp(config, { db, systemDb, setup, seed });
+// Under pressure a user's own metrics give way first, never the agents' data (1.0.3).
+const pressure = watchPressure(config.shed, {
+  metricWritesInFlight: victoriaWritesInFlight,
+  dbWaiting: () => dbWaiting(db) + (systemDb === db ? 0 : dbWaiting(systemDb)),
+});
+const app = await buildApp(config, { db, systemDb, setup, seed, pressure });
 app.addHook('onClose', async () => {
+  pressure.stop();
   await db.destroy();
   if (systemDb !== db) await systemDb.destroy();
 });

@@ -32,6 +32,18 @@ export interface Found {
   names: string[];
 }
 
+/** What a search tried, for the page to say so (1.0.3). */
+export interface Tried {
+  /** The ports asked for /metrics, in order. */
+  ports: number[];
+  /** Listening or declared ports left out because they never serve metrics (SSH, databases). */
+  skipped: number[];
+  /** Ports left out because they are scraped already. */
+  scraped: number;
+  /** Kubernetes: the workloads whose ports were tried. */
+  workloads: number;
+}
+
 interface Probe {
   id: string;
   clusterId: string;
@@ -40,6 +52,43 @@ interface Probe {
   /** The collectors (by host) that answered. */
   answered: Set<string>;
   found: Found[];
+  tried: Tried;
+}
+
+/** How long a test waits for the collector: its 10 seconds for the address, and the way back. */
+export const TEST_WAIT_MS = 15_000;
+
+/**
+ * Why an address gives no metrics, in the collector's word (agent/internal/integrations/
+ * ownmetrics/fetch.go, Why); `silent` when the collector didn't answer the test at all (it is
+ * older than 1.0.3, or not running).
+ */
+export type TestReason =
+  | 'refused'
+  | 'no_host'
+  | 'slow'
+  | 'big'
+  | 'auth'
+  | 'status'
+  | 'html'
+  | 'not_metrics'
+  | 'redirect'
+  | 'tls'
+  | 'address'
+  | 'other'
+  | 'silent';
+
+/** "Test" on the Add a source page (1.0.3): one address read once by its collector. */
+export interface AddressTest {
+  id: string;
+  clusterId: string;
+  at: number;
+  /** The server whose collector reads it ('' on Kubernetes). */
+  host: string;
+  url: string;
+  /** The address as the page shows it. */
+  shown: string;
+  result: { ok: boolean; series: number; names: string[]; reason: string; detail: string } | null;
 }
 
 interface PodSpec {
@@ -49,6 +98,7 @@ interface PodSpec {
 
 export class Probes {
   private readonly byCluster = new Map<string, Probe>();
+  private readonly tests = new Map<string, AddressTest>();
 
   constructor(
     private readonly db: Database,
@@ -77,6 +127,10 @@ export class Probes {
       .where('id', '=', clusterId)
       .executeTakeFirst();
     const candidates: Candidate[] = [];
+    const ports = new Set<number>();
+    const skipped = new Set<number>();
+    const workloads = new Set<string>();
+    let already = 0;
     if (cluster?.kind === 'server') {
       const rows = this.victoria
         ? await this.victoria
@@ -89,10 +143,19 @@ export class Probes {
       for (const r of rows) {
         const port = Number(r.labels.port);
         const host = r.labels.host ?? '';
-        if (!host || !Number.isInteger(port) || SKIP_PORTS.has(port)) continue;
+        if (!host || !Number.isInteger(port)) continue;
+        if (SKIP_PORTS.has(port)) {
+          skipped.add(port);
+          continue;
+        }
         const address = `localhost:${port}/metrics`;
         const url = `http://${address}`;
-        if (scraped.has(url) || candidates.some((c) => c.host === host && c.url === url)) continue;
+        if (scraped.has(url)) {
+          already++;
+          continue;
+        }
+        if (candidates.some((c) => c.host === host && c.url === url)) continue;
+        ports.add(port);
         candidates.push({
           id: `${host}|${port}`,
           url,
@@ -120,11 +183,21 @@ export class Probes {
         const workload = spec.workload?.name || p.name;
         const ip = status.pod_ip.includes(':') ? `[${status.pod_ip}]` : status.pod_ip;
         for (const port of (spec.containers ?? []).flatMap((c) => c.ports ?? [])) {
-          if (!port.port || SKIP_PORTS.has(port.port)) continue;
+          if (!port.port) continue;
+          if (SKIP_PORTS.has(port.port)) {
+            skipped.add(port.port);
+            continue;
+          }
           const key = `${p.namespace}|${workloadKind}|${workload}|${port.port}`;
           const url = `http://${ip}:${port.port}/metrics`;
-          if (seen.has(key) || scraped.has(url)) continue;
+          if (seen.has(key)) continue;
+          if (scraped.has(url)) {
+            already++;
+            continue;
+          }
           seen.add(key);
+          ports.add(port.port);
+          workloads.add(`${p.namespace}|${workloadKind}|${workload}`);
           candidates.push({
             id: key,
             url,
@@ -141,9 +214,44 @@ export class Probes {
       candidates: candidates.slice(0, MAX_CANDIDATES),
       answered: new Set(),
       found: [],
+      tried: {
+        ports: [...ports].sort((a, b) => a - b),
+        skipped: [...skipped].sort((a, b) => a - b),
+        scraped: already,
+        workloads: workloads.size,
+      },
     };
     this.byCluster.set(clusterId, probe);
     return probe;
+  }
+
+  /** Starts a test of one address; a newer test of the same cluster replaces an older one. */
+  startTest(clusterId: string, t: { host: string; url: string; shown: string }): AddressTest {
+    const test: AddressTest = { id: newId(), clusterId, at: this.now(), ...t, result: null };
+    this.tests.set(clusterId, test);
+    return test;
+  }
+
+  /** The cluster's test, while the page may still ask about it. */
+  currentTest(clusterId: string): AddressTest | null {
+    const t = this.tests.get(clusterId);
+    if (!t) return null;
+    if (this.now() - t.at > TTL_MS) {
+      this.tests.delete(clusterId);
+      return null;
+    }
+    return t;
+  }
+
+  /** The test its collector still has to answer, for the collector's configuration. */
+  pendingTest(clusterId: string, host: string): AddressTest | null {
+    const t = this.currentTest(clusterId);
+    return t && !t.result && t.host === host && this.now() - t.at <= TEST_WAIT_MS ? t : null;
+  }
+
+  /** Whether the test has its answer, or waited long enough to say the collector is silent. */
+  testDone(t: AddressTest): boolean {
+    return t.result !== null || this.now() - t.at > TEST_WAIT_MS;
   }
 
   /** A collector's answer. */
@@ -151,8 +259,30 @@ export class Probes {
     clusterId: string,
     id: string,
     host: string,
-    results: { id: string; ok: boolean; series: number; names?: string[] }[],
+    results: {
+      id: string;
+      ok: boolean;
+      series: number;
+      names?: string[];
+      reason?: string;
+      detail?: string;
+    }[],
   ): void {
+    const t = this.currentTest(clusterId);
+    if (t && t.id === id && t.host === host) {
+      const r = results[0];
+      if (r && !t.result) {
+        t.result = {
+          ok: r.ok,
+          series: r.series,
+          names: (r.names ?? []).slice(0, 5),
+          // A collector older than 1.0.3 answers a probe without saying why.
+          reason: r.ok ? '' : r.reason || 'other',
+          detail: r.detail ?? '',
+        };
+      }
+      return;
+    }
     const p = this.current(clusterId);
     if (!p || p.id !== id) return;
     p.answered.add(host);

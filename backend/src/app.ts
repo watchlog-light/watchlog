@@ -20,6 +20,8 @@ import { ensureBootstrapCluster } from './modules/clusters/bootstrap.js';
 import { ensureEventPartitions } from './modules/events/partitions.js';
 import { ingestRoutes } from './modules/ingest/routes.js';
 import { TokenCache } from './modules/ingest/token-cache.js';
+import type { Pressure } from './modules/ingest/pressure.js';
+import { OwnIngestStats } from './modules/ingest/own-stats.js';
 import { ConfigNotifier } from './modules/integrations/notifier.js';
 import { installTarget } from './modules/clusters/install.js';
 import { connectRoutes } from './modules/integrations/connect.js';
@@ -137,8 +139,15 @@ export interface AppDeps {
     cluster?: BucketSpec;
     metricWrite?: BucketSpec;
     metricPush?: BucketSpec;
+    metricOrgWrite?: BucketSpec;
+    metricOrgPush?: BucketSpec;
     changeEvents?: BucketSpec;
   };
+  /**
+   * Whether the backend is under pressure (1.0.3): while it is, ingest sheds own-metric pushes
+   * and remote write. The server passes the one that measures; without one nothing is shed.
+   */
+  pressure?: Pressure;
   /** Alert rules from WATCHLOG_SEED_FILE, applied again once first-run setup made an org. */
   seed?: Seed;
   /** Test hook: sees every route as it is registered (the demo guard's route test). */
@@ -352,6 +361,9 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     ...(deps.now ? { now: deps.now } : {}),
   };
   app.decorate('ownMetrics', own);
+  // What ingest did with own-metrics calls (1.0.3): taken, limited, shed.
+  const ownIngestStats = new OwnIngestStats(app.log);
+  app.decorate('ownIngestStats', ownIngestStats);
   // Alerts on own metrics read the org's limits and a watched metric's usual range.
   const ownUsual = new OwnUsual(victoria);
   configureOwnAlerts({ limits: async (orgId) => (await own.usage(orgId)).limits, usual: ownUsual });
@@ -363,10 +375,13 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     const probe = ownProbes.current(clusterId);
     const candidates =
       probe && !probe.answered.has(host) ? probe.candidates.filter((c) => c.host === host) : [];
-    if (!targets.length && !candidates.length) return undefined;
+    // An address a user is testing on the Add a source page (1.0.3).
+    const test = ownProbes.pendingTest(clusterId, host);
+    if (!targets.length && !candidates.length && !test) return undefined;
     return {
       interval_s: SCRAPE_INTERVAL_S,
       targets: targets.map((t) => ({ id: t.id, url: t.url })),
+      ...(test ? { test: { id: test.id, candidates: [{ id: 'test', url: test.url }] } } : {}),
       ...(candidates.length
         ? {
             probe: { id: probe!.id, candidates: candidates.map((c) => ({ id: c.id, url: c.url })) },
@@ -503,6 +518,8 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         tokens,
         notifier: collectors,
         endpointFor: installTarget(config, settings).endpointFor,
+        belonging: ownIngest.belonging,
+        ...(deps.now ? { now: deps.now } : {}),
       });
       await api.register(ownMetricReadRoutes, { db: deps.db, own, usual: ownUsual, victoria });
       await api.register(changeEventRoutes, {
@@ -593,6 +610,10 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
     own: ownIngest,
     metricWriteBucket: deps.ingestBuckets?.metricWrite,
     metricPushBucket: deps.ingestBuckets?.metricPush,
+    metricOrgWriteBucket: deps.ingestBuckets?.metricOrgWrite,
+    metricOrgPushBucket: deps.ingestBuckets?.metricOrgPush,
+    pressure: deps.pressure,
+    ownStats: ownIngestStats,
     ee: (ingest) => registerEeIngest(ingest, ee, eeModules),
   });
 

@@ -48,6 +48,7 @@ export async function createTestContext(
     Pick<
       AppDeps,
       | 'ingestBuckets'
+      | 'pressure'
       | 'orgLimits'
       | 'orgQueries'
       | 'onRoute'

@@ -15,12 +15,22 @@ export interface DbOptions {
   orgScoped?: boolean;
 }
 
+const pools = new WeakMap<Database, pg.Pool>();
+
 export function createDb(databaseUrl: string, opts: DbOptions = {}): Database {
   const pool = new pg.Pool({ connectionString: databaseUrl, max: 10 });
-  return new Kysely<DB>({
+  const db = new Kysely<DB>({
     dialect: new PostgresDialect({ pool: opts.orgScoped ? orgScopedPool(pool) : pool }),
   });
+  pools.set(db, pool);
+  return db;
 }
+
+/**
+ * Queries waiting for a free connection of this database's pool now: one of the signals
+ * ingest sheds own metrics on (modules/ingest/pressure.ts).
+ */
+export const dbWaiting = (db: Database): number => pools.get(db)?.waitingCount ?? 0;
 
 // One round trip: the org, and read-only for a support-mode request (ADR-179), reset to off
 // for every other checkout so it never outlives that request's use of the connection.

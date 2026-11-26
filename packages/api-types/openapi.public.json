@@ -6902,6 +6902,7 @@
                     "settings",
                     "kind",
                     "servers",
+                    "workloads",
                     "endpoint"
                   ],
                   "properties": {
@@ -7072,6 +7073,18 @@
                       ]
                     },
                     "servers": { "type": "array", "items": { "type": "string" } },
+                    "workloads": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["namespace", "kind", "name"],
+                        "properties": {
+                          "namespace": { "type": "string" },
+                          "kind": { "type": "string" },
+                          "name": { "type": "string" }
+                        }
+                      }
+                    },
                     "endpoint": { "type": "string" }
                   }
                 }

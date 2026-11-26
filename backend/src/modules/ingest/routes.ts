@@ -12,9 +12,12 @@ import { ProblemType, sendProblem } from '../../lib/problem.js';
 import { isMetricToken } from '../own-metrics/tokens.js';
 import {
   ownRemoteWrite,
+  PUSH_NEEDS_TOKEN,
+  PUSH_TOO_LARGE,
   registerOwnMetricsIngest,
   type OwnIngestDeps,
 } from '../own-metrics/ingest.js';
+import { OWN_PUSH_BYTES } from '../entitlements/own-metrics.js';
 import { authorisedScope, VictoriaError, type VictoriaClient } from '../../lib/victoria.js';
 import type { TokenOwner } from '../clusters/tokens.js';
 import { ProblemSchema } from '../auth/schemas.js';
@@ -39,11 +42,15 @@ import {
   CLUSTER_AGENT_BUCKET,
   CLUSTER_AGENT_ID,
   CLUSTER_BUCKET,
+  METRIC_ORG_PUSH_BUCKET,
+  METRIC_ORG_WRITE_BUCKET,
   METRIC_PUSH_BUCKET,
   METRIC_WRITE_BUCKET,
   TokenBuckets,
   type BucketSpec,
 } from './rate-limit.js';
+import { OwnIngestStats } from './own-stats.js';
+import { NO_PRESSURE, type Pressure } from './pressure.js';
 import { inspectWriteRequest, RemoteWriteError } from './remote-write.js';
 import type { TokenCache } from './token-cache.js';
 import type { NodeGate } from '../entitlements/node-gate.js';
@@ -58,6 +65,8 @@ export const MAX_SERIES_PER_REQUEST = 20_000;
 /** An agent is considered reporting while it sent a heartbeat within this window (SPEC §4.7). */
 export const AGENT_STALE_MS = 3 * 60 * 1000;
 const UNAVAILABLE_RETRY_AFTER_S = 15;
+/** Seconds a shed own-metrics call is asked to wait (1.0.3). */
+export const SHED_RETRY_AFTER_S = 15;
 /** Decompressed size limit for inventory snapshots (gzip bomb protection). */
 export const MAX_OBJECTS_BYTES = 16 << 20;
 
@@ -75,6 +84,13 @@ export interface IngestOptions {
   /** Tests: the own-metrics tokens' buckets. */
   metricWriteBucket?: BucketSpec;
   metricPushBucket?: BucketSpec;
+  /** Tests: the ceiling of all of one org's own-metrics tokens together (1.0.3). */
+  metricOrgWriteBucket?: BucketSpec;
+  metricOrgPushBucket?: BucketSpec;
+  /** Under pressure own-metric pushes and remote write are shed first (1.0.3). */
+  pressure?: Pressure;
+  /** Counts what happened to own-metrics calls; the app's, so others can read it. */
+  ownStats?: OwnIngestStats;
   victoria?: VictoriaClient;
   agentBucket?: BucketSpec;
   clusterAgentBucket?: BucketSpec;
@@ -252,6 +268,10 @@ const NODE_OVER_PLAN = `This node is over the plan's node limit; its data is not
 const nodeOverPlan = (reply: FastifyReply) =>
   sendPlanLimit(reply, 402, 'nodes', null, NODE_OVER_PLAN);
 
+/** The two routes an own-metrics token may call, as the router names them. */
+const PUSH_URL = '/ingest/v1/metrics';
+const WRITE_URL = '/ingest/v1/write';
+
 const ownerKey = (owner: { orgId: string; clusterId: string }) => ({
   orgId: owner.orgId,
   clusterId: owner.clusterId,
@@ -279,9 +299,19 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
   // batches, pushes one value at a time.
   const metricWriteBuckets = new TokenBuckets(opts.metricWriteBucket ?? METRIC_WRITE_BUCKET);
   const metricPushBuckets = new TokenBuckets(opts.metricPushBucket ?? METRIC_PUSH_BUCKET);
+  // And all of one org's tokens together have a ceiling, a few times one token's (1.0.3).
+  const metricOrgWriteBuckets = new TokenBuckets(
+    opts.metricOrgWriteBucket ?? METRIC_ORG_WRITE_BUCKET,
+  );
+  const metricOrgPushBuckets = new TokenBuckets(opts.metricOrgPushBucket ?? METRIC_ORG_PUSH_BUCKET);
+  const pressure = opts.pressure ?? NO_PRESSURE;
+  const ownStats = opts.ownStats ?? new OwnIngestStats(app.log);
   const metricPruner = setInterval(() => {
     metricWriteBuckets.prune();
     metricPushBuckets.prune();
+    metricOrgWriteBuckets.prune();
+    metricOrgPushBuckets.prune();
+    ownStats.report();
   }, 60_000);
   metricPruner.unref();
   app.addHook('onClose', async () => clearInterval(metricPruner));
@@ -318,15 +348,29 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
   app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
     const header = request.headers.authorization ?? '';
     const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+    const url = request.routeOptions.url ?? '';
+    const push = url === PUSH_URL;
     // An own-metrics token writes own metrics and nothing else: remote write and pushes.
     if (isMetricToken(token)) {
+      const kind = push ? 'push' : 'remote_write';
+      const ownRoute = push || url === WRITE_URL;
+      // Under pressure a user's own metrics give way first, so the agents' and collectors'
+      // data keeps being taken (1.0.3): refused here, before the token is even looked up.
+      const reason = ownRoute ? pressure.shedding() : null;
+      if (reason) {
+        ownStats.count(kind, 'shed', reason);
+        reply.header('retry-after', String(SHED_RETRY_AFTER_S));
+        return sendProblem(
+          reply,
+          503,
+          'WatchLog is under heavy load and is not taking own metrics right now; retry later',
+        );
+      }
       const metricOwner = await tokens.verifyMetric(token);
       if (!metricOwner) {
         return sendProblem(reply, 401, 'Missing, invalid or revoked own-metrics token');
       }
-      const url = request.routeOptions.url ?? '';
-      const push = url === '/ingest/v1/metrics';
-      if (!push && url !== '/ingest/v1/write') {
+      if (!ownRoute) {
         return sendProblem(
           reply,
           403,
@@ -349,6 +393,7 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
       }
       const wait = (push ? metricPushBuckets : metricWriteBuckets).take(metricOwner.tokenId);
       if (wait > 0) {
+        ownStats.count(kind, 'limited_token');
         reply.header('retry-after', String(wait));
         return sendProblem(
           reply,
@@ -356,6 +401,23 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
           'Own-metrics rate limit reached for this token; retry later',
         );
       }
+      // The org's ceiling comes second, so a token over its own limit takes nothing from
+      // what the org's other tokens may send.
+      const orgWait = (push ? metricOrgPushBuckets : metricOrgWriteBuckets).take(metricOwner.orgId);
+      if (orgWait > 0) {
+        ownStats.count(kind, 'limited_org');
+        reply.header('retry-after', String(orgWait));
+        return sendProblem(
+          reply,
+          429,
+          'Own-metrics rate limit reached for this organization (all its tokens together); retry later',
+        );
+      }
+      // A push is small: one over the limit is refused by its Content-Length, unread.
+      if (push && Number(request.headers['content-length'] ?? 0) > OWN_PUSH_BYTES) {
+        return sendProblem(reply, 413, PUSH_TOO_LARGE);
+      }
+      ownStats.count(kind, 'accepted');
       // When it was last used, written at most once a minute per token.
       const nowMs = Date.now();
       if (nowMs - (tokenUsed.get(metricOwner.tokenId) ?? 0) > 60_000) {
@@ -371,6 +433,8 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<IngestOptions> = async (app
     }
     const owner = token ? await tokens.verify(token) : null;
     if (!owner) return sendProblem(reply, 401, 'Missing, invalid or revoked cluster token');
+    // A push needs an own-metrics token: said here, before the body is read.
+    if (push) return sendProblem(reply, 403, PUSH_NEEDS_TOKEN);
     request.ingestOwner = owner;
     // The cluster's org, never one the agent names (ADR-174).
     bindOrg(owner.orgId);

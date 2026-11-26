@@ -22,6 +22,12 @@ export const CLUSTER_BUCKET: BucketSpec = { ratePerSec: 250, burst: 500 };
  */
 export const METRIC_WRITE_BUCKET: BucketSpec = { ratePerSec: 20, burst: 100 };
 export const METRIC_PUSH_BUCKET: BucketSpec = { ratePerSec: 100, burst: 300 };
+/**
+ * All of one org's own-metrics tokens together (1.0.3): three times one token's rate, so 20
+ * tokens can't bring 20 times it. Checked after the token's own bucket.
+ */
+export const METRIC_ORG_WRITE_BUCKET: BucketSpec = { ratePerSec: 60, burst: 300 };
+export const METRIC_ORG_PUSH_BUCKET: BucketSpec = { ratePerSec: 300, burst: 900 };
 
 interface Bucket {
   tokens: number;

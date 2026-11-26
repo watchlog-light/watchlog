@@ -352,6 +352,21 @@ export const ROUTES: Record<string, RouteClass> = {
     kind: 'org',
     control: 'no search is running in the seed: 404 for A too, with nothing of A in it',
   },
+  // Add a source (1.0.3): an address tested by its collector, what a token has sent, a test value.
+  'POST /api/v1/clusters/:id/own-metrics/test': {
+    kind: 'org',
+    body: { server: 'web-1', address: 'localhost:9400/metrics' },
+  },
+  'GET /api/v1/clusters/:id/own-metrics/test': {
+    kind: 'org',
+    control: 'no test is running in the seed: 404 for A too, with nothing of A in it',
+  },
+  'GET /api/v1/clusters/:id/own-metrics/tokens/:tokenId/received': org,
+  'POST /api/v1/clusters/:id/own-metrics/test-value': {
+    kind: 'org',
+    body: { tokenId: '00000000-0000-4000-8000-000000000000' },
+  },
+  'DELETE /api/v1/clusters/:id/own-metrics/test-value': org,
   'GET /api/v1/clusters/:id/own-metrics/metrics': org,
   'GET /api/v1/clusters/:id/own-metrics/metrics/:metricId': org,
   'GET /api/v1/clusters/:id/own-metrics/metrics/:metricId/series': { kind: 'org', query: lastHour },

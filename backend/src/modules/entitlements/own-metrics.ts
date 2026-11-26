@@ -69,6 +69,17 @@ export const OWN_WATCHED = 50;
 export const OWN_LABEL_VALUES = 100;
 /** Metrics pinned to one workload's or server's page. */
 export const OWN_PINS_PER_PAGE = 6;
+/** Active own-metrics tokens (`wl_mt_`) one cluster or fleet may have. */
+export const OWN_TOKENS_PER_CLUSTER = 20;
+/**
+ * Active own-metrics tokens an org may have over all its clusters and fleets (1.0.3: the
+ * owner's number). Tokens made before it keep working; a new one is refused at the limit.
+ */
+export const OWN_TOKENS_PER_ORG = 20;
+/** Values in one push (POST /ingest/v1/metrics). */
+export const OWN_PUSH_VALUES = 500;
+/** The body of one push, in bytes: room for 500 values of about 250 bytes each. */
+export const OWN_PUSH_BYTES = 128 * 1024;
 
 /**
  * The series one source may bring, or null when only the org's allowance limits it: a token's

@@ -56,6 +56,13 @@ function single(scope: ClusterScope): void {
   if (scope.clusterIds) throw new Error('a clusters scope can only query');
 }
 
+/**
+ * Remote-write calls to VictoriaMetrics that have not answered yet, in this process: one of
+ * the signals ingest sheds own metrics on (modules/ingest/pressure.ts).
+ */
+let writesInFlight = 0;
+export const victoriaWritesInFlight = (): number => writesInFlight;
+
 export class VictoriaClient {
   constructor(
     protected readonly baseUrl: string,
@@ -81,26 +88,31 @@ export class VictoriaClient {
   /** Forwards a remote_write body unchanged; cluster_id is injected by VictoriaMetrics. */
   async write(scope: ClusterScope, body: Uint8Array): Promise<void> {
     single(scope);
-    let res: Response;
+    writesInFlight++;
     try {
-      res = await fetch(this.url('/api/v1/write', scope), {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/x-protobuf',
-          'content-encoding': 'snappy',
-          'x-prometheus-remote-write-version': '0.1.0',
-        },
-        body,
-        signal: AbortSignal.timeout(this.timeoutMs),
-      });
-    } catch (err) {
-      throw new VictoriaError(`VictoriaMetrics unreachable: ${(err as Error).message}`, 0);
+      let res: Response;
+      try {
+        res = await fetch(this.url('/api/v1/write', scope), {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/x-protobuf',
+            'content-encoding': 'snappy',
+            'x-prometheus-remote-write-version': '0.1.0',
+          },
+          body,
+          signal: AbortSignal.timeout(this.timeoutMs),
+        });
+      } catch (err) {
+        throw new VictoriaError(`VictoriaMetrics unreachable: ${(err as Error).message}`, 0);
+      }
+      if (!res.ok) {
+        const text = (await res.text()).slice(0, 300);
+        throw new VictoriaError(`VictoriaMetrics write failed: ${res.status} ${text}`, res.status);
+      }
+      await res.body?.cancel();
+    } finally {
+      writesInFlight--;
     }
-    if (!res.ok) {
-      const text = (await res.text()).slice(0, 300);
-      throw new VictoriaError(`VictoriaMetrics write failed: ${res.status} ${text}`, res.status);
-    }
-    await res.body?.cancel();
   }
 
   /**

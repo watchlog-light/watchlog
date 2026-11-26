@@ -7,13 +7,15 @@ import { timingSafeEqual } from 'node:crypto';
 import type { Database } from '../../db/index.js';
 import { isUniqueViolation } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
+import { OWN_TOKENS_PER_CLUSTER, OWN_TOKENS_PER_ORG } from '../entitlements/own-metrics.js';
 import { randomToken, sha256 } from '../../lib/tokens.js';
 
 export const METRIC_TOKEN_PREFIX = 'wl_mt_';
 const TOKEN_LENGTH = METRIC_TOKEN_PREFIX.length + 43;
 const PREFIX_LENGTH = 8;
-/** Active tokens one cluster or fleet may have. */
-export const MAX_METRIC_TOKENS = 20;
+/** Active tokens one cluster or fleet may have, and one org over all of them. */
+export const MAX_METRIC_TOKENS = OWN_TOKENS_PER_CLUSTER;
+export const MAX_ORG_METRIC_TOKENS = OWN_TOKENS_PER_ORG;
 
 export interface MetricTokenOwner {
   clusterId: string;
@@ -83,6 +85,17 @@ export async function listMetricTokens(db: Database, clusterId: string) {
     .where('revoked_at', 'is', null)
     .orderBy('created_at')
     .execute();
+}
+
+/** The org's active tokens, in every cluster and fleet. */
+export async function countOrgMetricTokens(db: Database, orgId: string): Promise<number> {
+  const row = await db
+    .selectFrom('own_metric_tokens')
+    .select((eb) => eb.fn.countAll<string>().as('n'))
+    .where('org_id', '=', orgId)
+    .where('revoked_at', 'is', null)
+    .executeTakeFirst();
+  return Number(row?.n ?? 0);
 }
 
 /** Revokes a token; its sources (and their series) go with it. */

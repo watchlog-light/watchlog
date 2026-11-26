@@ -235,6 +235,22 @@ export class OwnMetrics {
     await this.flush();
   }
 
+  /**
+   * The last value a token pushed, for the page that waits for a first value ("Received
+   * orders_total = 1"). In memory only: after a restart the page says what arrived without
+   * the number.
+   */
+  private readonly pushed = new Map<string, { name: string; value: number; at: number }>();
+
+  notePushed(tokenId: string, name: string, value: number): void {
+    if (this.pushed.size > 5000) this.pushed.clear();
+    this.pushed.set(tokenId, { name, value, at: this.now() });
+  }
+
+  lastPushed(tokenId: string): { name: string; value: number; at: number } | null {
+    return this.pushed.get(tokenId) ?? null;
+  }
+
   /** Forgets what is in memory (a source was removed, a metric's type corrected). */
   async forget(clusterId: string): Promise<void> {
     await this.flush();
@@ -721,13 +737,15 @@ export class OwnMetrics {
               .where('fingerprint', 'in', seen.slice(i, i + 2000))
               .execute();
           }
-          for (const [fp, total] of totals) {
-            await db
-              .updateTable('own_series')
-              .set({ total })
-              .where('cluster_id', '=', c.clusterId)
-              .where('fingerprint', '=', fp)
-              .execute();
+          // The pushed counters' totals, one statement for up to 2,000 series (1.0.3): a
+          // token pushing to 500 counters costs one write here, not 500.
+          for (let i = 0; i < totals.length; i += 2000) {
+            const part = totals.slice(i, i + 2000);
+            await sql`
+              UPDATE own_series AS s SET total = v.total
+              FROM unnest(${part.map((t) => t[0])}::text[], ${part.map((t) => t[1])}::float8[])
+                AS v (fingerprint, total)
+              WHERE s.cluster_id = ${c.clusterId} AND s.fingerprint = v.fingerprint`.execute(db);
           }
           for (const s of sources) {
             await db

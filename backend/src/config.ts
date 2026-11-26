@@ -48,6 +48,14 @@ export interface Config {
    * WATCHLOG_OWN_METRIC_SERIES, default 20,000). Cloud's caps come from the plan instead.
    */
   ownMetricSeries: number;
+  /**
+   * When ingest sheds own-metric pushes and remote write (1.0.3; modules/ingest/pressure.ts),
+   * never the agents' and collectors' data. Each is a threshold, 0 turns it off: the event
+   * loop's lag in ms (WATCHLOG_SHED_EVENT_LOOP_LAG_MS, default 200), writes to VictoriaMetrics
+   * in flight (WATCHLOG_SHED_METRIC_WRITES_IN_FLIGHT, default 100) and queries waiting for a
+   * PostgreSQL connection (WATCHLOG_SHED_DB_WAITING, default 50).
+   */
+  shed: { eventLoopLagMs: number; metricWritesInFlight: number; dbWaiting: number };
   /** Kubernetes cluster created with this token at start (Helm chart, ADR-069). */
   bootstrapCluster?: { name: string; token: string };
   /** Days resolved alerts and sent notifications are kept (ADR-087). */
@@ -267,6 +275,11 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
   if (!Number.isInteger(ownMetricSeries) || ownMetricSeries < 0 || ownMetricSeries > 5_000_000) {
     throw new Error(`Invalid WATCHLOG_OWN_METRIC_SERIES: ${env.WATCHLOG_OWN_METRIC_SERIES}`);
   }
+  const shed = {
+    eventLoopLagMs: boundedInt(env, 'WATCHLOG_SHED_EVENT_LOOP_LAG_MS', 200, 0, 60_000),
+    metricWritesInFlight: boundedInt(env, 'WATCHLOG_SHED_METRIC_WRITES_IN_FLIGHT', 100, 0, 100_000),
+    dbWaiting: boundedInt(env, 'WATCHLOG_SHED_DB_WAITING', 50, 0, 100_000),
+  };
   const alertRetentionDays = Number(env.WATCHLOG_ALERT_RETENTION_DAYS ?? 90);
   if (!Number.isInteger(alertRetentionDays) || alertRetentionDays < 1 || alertRetentionDays > 400) {
     throw new Error(`Invalid WATCHLOG_ALERT_RETENTION_DAYS: ${env.WATCHLOG_ALERT_RETENTION_DAYS}`);
@@ -478,6 +491,7 @@ export function loadConfig(rawEnv: NodeJS.ProcessEnv = process.env): Config {
     adminPassword: env.WATCHLOG_ADMIN_PASSWORD,
     eventsRetentionDays,
     ownMetricSeries,
+    shed,
     bootstrapCluster: bootstrapToken
       ? { name: env.WATCHLOG_BOOTSTRAP_CLUSTER_NAME ?? 'kubernetes', token: bootstrapToken }
       : undefined,

@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // 60-second cache in front of verifyClusterToken (ADR-025). Only successful lookups
 // are cached, so a newly issued token works immediately; revocation clears entries
-// on this instance at once and elsewhere within the TTL.
+// on this instance at once and elsewhere within the TTL. An own-metrics token's failed
+// lookups are cached too (see metricUnknown).
 import type { Database } from '../../db/index.js';
 import { sha256 } from '../../lib/tokens.js';
 import { verifyClusterToken, type TokenOwner } from '../clusters/tokens.js';
 import { isMetricToken, verifyMetricToken, type MetricTokenOwner } from '../own-metrics/tokens.js';
 
 export const TOKEN_CACHE_TTL_MS = 60_000;
+/** How long a value that was no own-metrics token is refused without a lookup. */
+export const UNKNOWN_TOKEN_TTL_MS = 10_000;
 const MAX_ENTRIES = 50_000;
 
 export class TokenCache {
@@ -41,16 +44,32 @@ export class TokenCache {
     { owner: MetricTokenOwner; expiresAt: number }
   >();
 
+  /**
+   * Values that were not a token when last looked up (1.0.3), so a client that keeps sending
+   * a revoked or mistyped token costs one lookup every ten seconds, not one per call. A token
+   * made in the panel is random and never tried before it exists; one a seed file adds by its
+   * hash may have been, and works within those ten seconds.
+   */
+  private readonly metricUnknown = new Map<string, number>();
+
   async verifyMetric(token: string): Promise<MetricTokenOwner | null> {
     if (!isMetricToken(token)) return null;
     const key = sha256(token).toString('base64');
     const hit = this.metricEntries.get(key);
     if (hit && hit.expiresAt > this.now()) return hit.owner;
     if (hit) this.metricEntries.delete(key);
+    const unknownUntil = this.metricUnknown.get(key);
+    if (unknownUntil !== undefined) {
+      if (unknownUntil > this.now()) return null;
+      this.metricUnknown.delete(key);
+    }
     const owner = await verifyMetricToken(this.db, token);
     if (owner) {
       if (this.metricEntries.size >= MAX_ENTRIES) this.metricEntries.clear();
       this.metricEntries.set(key, { owner, expiresAt: this.now() + TOKEN_CACHE_TTL_MS });
+    } else {
+      if (this.metricUnknown.size >= MAX_ENTRIES) this.metricUnknown.clear();
+      this.metricUnknown.set(key, this.now() + UNKNOWN_TOKEN_TTL_MS);
     }
     return owner;
   }

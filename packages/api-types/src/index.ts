@@ -296,6 +296,17 @@ export type OwnNewToken = JsonBody<
   Responses<'/api/v1/clusters/{id}/own-metrics/tokens', 'post'>[201]
 >;
 export type OwnFound = JsonBody<Responses<'/api/v1/clusters/{id}/own-metrics/find', 'get'>[200]>;
+/** "Test" on Add a source (1.0.3): what one address answered, in the collector's word. */
+export type OwnAddressTest = JsonBody<
+  Responses<'/api/v1/clusters/{id}/own-metrics/test', 'get'>[200]
+>;
+/** What a token has sent since a moment: the page waits on it for the first value. */
+export type OwnReceived = JsonBody<
+  Responses<'/api/v1/clusters/{id}/own-metrics/tokens/{tokenId}/received', 'get'>[200]
+>;
+export type OwnTestValue = JsonBody<
+  Responses<'/api/v1/clusters/{id}/own-metrics/test-value', 'post'>[200]
+>;
 export type OwnMetricList = JsonBody<
   Responses<'/api/v1/clusters/{id}/own-metrics/metrics', 'get'>[200]
 >;

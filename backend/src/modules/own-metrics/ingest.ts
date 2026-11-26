@@ -16,6 +16,7 @@ import { Type, type Static } from 'typebox';
 import { sendProblem } from '../../lib/problem.js';
 import { VictoriaError } from '../../lib/victoria.js';
 import { ProblemSchema } from '../auth/schemas.js';
+import { OWN_PUSH_BYTES, OWN_PUSH_VALUES } from '../entitlements/own-metrics.js';
 import type { Belonging } from './belonging.js';
 import { OWN_TYPES, typeFromName, type OwnType } from './naming.js';
 import type { Probes } from './probes.js';
@@ -27,8 +28,12 @@ import { decodeWrite, WireError } from './wire.js';
 /** One remote-write request: decoded size, series and samples. */
 export const WRITE_LIMITS = { maxDecodedBytes: 32 << 20, maxSeries: 20_000, maxSamples: 200_000 };
 const MAX_SCRAPE_BYTES = 32 << 20;
-/** Values in one push. */
-export const MAX_PUSH = 500;
+/** Values in one push, and its body in bytes (the numbers: entitlements/own-metrics.ts). */
+export const MAX_PUSH = OWN_PUSH_VALUES;
+export const PUSH_TOO_MANY = `A push carries at most ${MAX_PUSH} values; send the rest in another call`;
+export const PUSH_TOO_LARGE = `A push is at most ${OWN_PUSH_BYTES / 1024} KB; send fewer values in one call`;
+export const PUSH_NEEDS_TOKEN =
+  'Pushes need an own-metrics token (wl_mt_…): make one under Your metrics → Add a source';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -86,6 +91,9 @@ const ProbeBody = Type.Object({
       ok: Type.Boolean(),
       series: Type.Integer({ minimum: 0 }),
       names: Type.Optional(Type.Array(Type.String({ maxLength: 300 }), { maxItems: 10 })),
+      // Why not, since the 1.0.3 collector (a test's answer says it in words).
+      reason: Type.Optional(Type.String({ maxLength: 32 })),
+      detail: Type.Optional(Type.String({ maxLength: 300 })),
     }),
     { maxItems: 1000 },
   ),
@@ -284,7 +292,22 @@ export function registerOwnMetricsIngest(app: FastifyInstance, deps: OwnIngestDe
   app.post<{ Body: PushBody }>(
     '/metrics',
     {
-      bodyLimit: 1 << 20,
+      // Small on purpose (1.0.3): a push is a few values, not an agent's batch.
+      bodyLimit: OWN_PUSH_BYTES,
+      // Too many values is said in words, before each one is checked against the schema.
+      preValidation: async (request, reply) => {
+        const metrics = (request.body as { metrics?: unknown } | null)?.metrics;
+        if (Array.isArray(metrics) && metrics.length > MAX_PUSH) {
+          return sendProblem(reply, 400, PUSH_TOO_MANY);
+        }
+      },
+      // A body sent without a Content-Length is cut off while it is read.
+      errorHandler: (error, _request, reply) => {
+        if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
+          return sendProblem(reply, 413, PUSH_TOO_LARGE);
+        }
+        throw error;
+      },
       schema: {
         summary: 'Push one or more values of your own metrics',
         description:
@@ -296,6 +319,7 @@ export function registerOwnMetricsIngest(app: FastifyInstance, deps: OwnIngestDe
           400: ProblemSchema,
           401: ProblemSchema,
           403: ProblemSchema,
+          413: ProblemSchema,
           429: ProblemSchema,
           503: ProblemSchema,
         },
@@ -303,13 +327,7 @@ export function registerOwnMetricsIngest(app: FastifyInstance, deps: OwnIngestDe
     },
     async (request, reply) => {
       const owner = request.metricOwner;
-      if (!owner) {
-        return sendProblem(
-          reply,
-          403,
-          'Pushes need an own-metrics token (wl_mt_…): make one under Your metrics → Add a source',
-        );
-      }
+      if (!owner) return sendProblem(reply, 403, PUSH_NEEDS_TOKEN);
       const body = request.body;
       const list = 'metrics' in body ? body.metrics : [body];
       const top = 'metrics' in body ? { workload: body.workload, server: body.server } : {};
@@ -350,6 +368,10 @@ export function registerOwnMetricsIngest(app: FastifyInstance, deps: OwnIngestDe
       } catch (err) {
         return storageDown(reply, request, err);
       }
+      // For the page that waits for a first value ("Received orders_total = 1"): the last
+      // value of this call, in memory only.
+      const last = list[list.length - 1];
+      if (result.stored > 0 && last) deps.own.notePushed(owner.tokenId, last.name, last.value);
       return reply.code(200).send({ stored: result.stored, dropped: result.dropped });
     },
   );
