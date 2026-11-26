@@ -3,7 +3,7 @@
 // this collector polls, with their credentials, and the discoveries asked of it. Left out for
 // an org without the feature, so an unlicensed collector polls nothing.
 import type { EeHost } from '../../../../backend/src/ee-contract.js';
-import { collectorCredential, type CredentialRow } from './credentials.js';
+import { collectorCredential, findOrder, type CredentialRow } from './credentials.js';
 
 export const FEATURE = 'network';
 
@@ -137,6 +137,7 @@ export async function networkSection(
           settings: CredentialRow['settings'];
           ciphertext: string;
           pin?: string;
+          find?: boolean;
         };
       };
       // "Test against an address" (1.0.2): one address with the values as typed, which are
@@ -154,6 +155,27 @@ export async function networkSection(
           },
           q.test.pin ?? null,
         );
+        // "Find what works" (1.0.4): the same passwords with each combination of protocols,
+        // in order; the collector tries them one at a time (an older one, without pruning).
+        if (q.test.find && cred && 'snmp' in cred) {
+          const base = cred.snmp as Record<string, unknown>;
+          return {
+            id: r.id,
+            seeds: q.seeds,
+            neighbours: false,
+            find: true,
+            credentials: findOrder(q.test.settings as Record<string, unknown>).map((c) => ({
+              id: `${r.id}|${c.auth}|${c.priv}`,
+              protocol: 'snmp',
+              snmp: {
+                ...base,
+                authProto: c.auth,
+                privProto: c.priv,
+                ...(c.priv === 'NONE' ? { privKey: undefined } : {}),
+              },
+            })),
+          };
+        }
         return {
           id: r.id,
           seeds: q.seeds,

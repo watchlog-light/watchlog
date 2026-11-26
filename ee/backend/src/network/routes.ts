@@ -10,7 +10,16 @@ import type {
   FastifyRequest,
 } from '../../../../backend/src/ee-contract.js';
 import { FEATURE } from './collector.js';
-import { credentialView, sealSecret, type CredentialRow } from './credentials.js';
+import {
+  AUTH_PROTOS,
+  credentialView,
+  LEVELS,
+  olderCollector,
+  PRIV_PROTOS,
+  sealSecret,
+  strengthOf,
+  type CredentialRow,
+} from './credentials.js';
 import { speedText } from './ingest.js';
 import { WEAK_DBM } from './kinds.js';
 import { RangeError, validRange } from './range.js';
@@ -216,6 +225,8 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       parentId: d.parent_id ?? null,
       // An Owner accepted a new certificate, and the one before is kept: it can be undone.
       certUndo: !!d.cert_prev,
+      // Its collector can't read its profile (older than 1.0.4): what it can't read, e.g. "DES".
+      olderCollector: olderCollector(d.error),
       poller: {
         clusterId: d.cluster_id,
         name: d.cluster_name,
@@ -468,7 +479,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         d.credential_id
           ? db
               .selectFrom('network_credentials')
-              .select(['id', 'name', 'protocol'])
+              .select(['id', 'name', 'protocol', 'settings'])
               .where('id', '=', d.credential_id)
               .executeTakeFirst()
           : null,
@@ -496,7 +507,14 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
           location: d.location,
           // An access point's controller (CAPsMAN), by name.
           parentName: d.parent_id ? (name.get(d.parent_id) ?? null) : null,
-          credential: cred ? { id: cred.id, name: cred.name, protocol: cred.protocol } : null,
+          credential: cred
+            ? {
+                id: cred.id,
+                name: cred.name,
+                protocol: cred.protocol,
+                strength: strengthOf(cred.protocol, cred.settings),
+              }
+            : null,
           certificate:
             d.protocol === 'routeros' || d.protocol === 'dahua'
               ? { pinned: d.cert_pin, seen: d.cert_seen }
@@ -856,7 +874,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
 
   api.get('/network/credentials', { ...read, schema: { tags, hide: true } }, async (request) => {
     const orgId = orgOf(request);
-    const [rows, used] = await Promise.all([
+    const [rows, used, refused] = await Promise.all([
       db
         .selectFrom('network_credentials')
         .selectAll()
@@ -870,10 +888,31 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         .where('removed_at', 'is', null)
         .groupBy('credential_id')
         .execute(),
+      // Devices whose collector is too old for their profile (1.0.4), to say so on its card.
+      db
+        .selectFrom('network_devices as d')
+        .innerJoin('clusters as c', 'c.id', 'd.cluster_id')
+        .select(['d.credential_id', 'd.error', 'd.poller_host', 'c.name as cluster_name', 'c.kind'])
+        .where('d.org_id', '=', orgId)
+        .where('d.removed_at', 'is', null)
+        .where('d.error', 'like', '%isn%t supported (%')
+        .execute(),
     ]);
     const n = new Map(used.map((u: any) => [u.credential_id, u.n]));
+    const old = new Map<string, { what: string; pollers: string[] }>();
+    for (const r of refused as any[]) {
+      const what = olderCollector(r.error);
+      if (!what || !r.credential_id) continue;
+      const where = r.kind === 'kubernetes' ? r.cluster_name : r.poller_host || r.cluster_name;
+      const o = old.get(r.credential_id) ?? { what, pollers: [] };
+      if (!o.pollers.includes(where)) o.pollers.push(where);
+      old.set(r.credential_id, o);
+    }
     return {
-      credentials: rows.map((r: any) => credentialView(r as CredentialRow, n.get(r.id) ?? 0)),
+      credentials: rows.map((r: any) => ({
+        ...credentialView(r as CredentialRow, n.get(r.id) ?? 0),
+        olderCollector: old.get(r.id) ?? null,
+      })),
     };
   });
 
@@ -890,8 +929,9 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         properties: {
           version: { enum: ['3', '2c'] },
           user: { type: 'string', maxLength: 64 },
-          authProto: { enum: ['SHA', 'SHA224', 'SHA256', 'SHA384', 'SHA512'] },
-          privProto: { enum: ['AES', 'AES192', 'AES256'] },
+          level: { enum: [...LEVELS] },
+          authProto: { enum: [...AUTH_PROTOS] },
+          privProto: { enum: [...PRIV_PROTOS] },
           port: { type: 'integer', minimum: 1, maximum: 65535 },
           transport: { enum: ['rest', 'api-ssl', 'api'] },
           allowPlain: { type: 'boolean' },
@@ -919,8 +959,12 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
     if (b.protocol === 'snmp') {
       if (!s.version) return 'Choose SNMP v3 (recommended) or v2c';
       if (s.version === '3' && !s.user) return 'An SNMPv3 profile needs a user';
-      if (creating && s.version === '3' && (!b.secret?.authKey || !b.secret?.privKey))
-        return 'An SNMPv3 profile needs its authentication and privacy keys (authPriv)';
+      // The keys its level uses (1.0.4): both with privacy, the authentication key without.
+      const level = (s.level as string | undefined) ?? 'authPriv';
+      if (creating && s.version === '3' && level !== 'noAuthNoPriv' && !b.secret?.authKey)
+        return 'An SNMPv3 profile with authentication needs its authentication key';
+      if (creating && s.version === '3' && level === 'authPriv' && !b.secret?.privKey)
+        return 'An SNMPv3 profile with privacy needs its privacy key';
       if (creating && s.version === '2c' && !b.secret?.community)
         return 'A v2c profile needs its community';
     } else if (b.protocol === 'dahua') {

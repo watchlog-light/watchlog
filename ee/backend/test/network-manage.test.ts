@@ -17,7 +17,15 @@ import {
   type TestContext,
 } from '../../../backend/test/helpers.js';
 import { licenseKey, TEST_KEYS } from '../../../backend/test/license-keys.js';
-import { outcomeOf } from '../src/network/routes-manage.js';
+import {
+  AUTH_PROTOS,
+  findOrder,
+  olderCollector,
+  PRIV_PROTOS,
+  strengthOf,
+} from '../src/network/credentials.js';
+import { comboOf, outcomeOf } from '../src/network/routes-manage.js';
+import { setupCommands } from '../src/network/setup.js';
 
 /** A row or a JSON object whose shape the test reads field by field. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -443,6 +451,8 @@ describe.each(['kubernetes', 'server'] as const)(
         name: 'core-1',
         model: 'C9300-48P',
         vendor: 'Cisco',
+        // The profile the collector matched (1.0.4: a QNAP's preselects SHA with DES).
+        profile: '',
       });
       // Nothing was saved by testing: the profile still has its first user.
       expect(
@@ -862,6 +872,31 @@ describe('what a probe’s error means', () => {
       ],
       // A collector older than 1.0.2 asked to test a recorder.
       ['no SNMP credential', 'dahua', 'unsupported'],
+      // SNMPv3's reports, said by a collector from 1.0.4.
+      ["the device refused the SNMP credentials: it doesn't know this SNMPv3 user", 'snmp', 'user'],
+      [
+        "the device refused the SNMP credentials: the authentication password or protocol doesn't match",
+        'snmp',
+        'auth',
+      ],
+      [
+        "the device refused the SNMP credentials: the privacy protocol or password doesn't match",
+        'snmp',
+        'privacy',
+      ],
+      [
+        "the device answered SNMPv3, then went silent: the privacy protocol or password doesn't match",
+        'snmp',
+        'privacy',
+      ],
+      [
+        'the device refused the SNMP credentials: it wants another security level for this user',
+        'snmp',
+        'level',
+      ],
+      // A collector older than 1.0.4 that can't read the protocols.
+      ['SNMPv3 privacy "DES" isn\'t supported (AES)', 'snmp', 'collector_old'],
+      ['SNMPv3 authentication "MD5" isn\'t supported (SHA or SHA-2)', 'snmp', 'collector_old'],
       ['no credential answered', 'snmp', 'error'],
       ['RouterOS REST system/identity answered 500', 'routeros', 'error'],
     ] as const)
@@ -874,3 +909,370 @@ function without<T extends object, K extends keyof T>(o: T, key: K): Omit<T, K> 
   delete rest[key];
   return rest;
 }
+
+describe('SNMPv3 protocols (1.0.4)', () => {
+  it("names what an older collector can't read, and how strong a profile is", () => {
+    expect(olderCollector('SNMPv3 privacy "DES" isn\'t supported (AES)')).toBe('DES');
+    expect(olderCollector('SNMPv3 authentication "MD5" isn\'t supported (SHA or SHA-2)')).toBe(
+      'MD5',
+    );
+    expect(olderCollector('SNMPv3 authentication "NONE" isn\'t supported (SHA or SHA-2)')).toBe(
+      'no authentication',
+    );
+    expect(olderCollector('SNMPv3 privacy "AES256C" isn\'t supported (AES)')).toBe(
+      "Cisco's AES256",
+    );
+    // A 1.0.4 collector's own refusal of an unknown value isn't an old collector.
+    expect(olderCollector('SNMPv3 privacy "XYZ" isn\'t supported (AES or DES)')).toBeNull();
+    expect(olderCollector(null)).toBeNull();
+    const v3 = { version: '3' };
+    expect(strengthOf('snmp', { ...v3, authProto: 'SHA256', privProto: 'AES' })).toBeNull();
+    expect(strengthOf('snmp', { ...v3, authProto: 'SHA', privProto: 'DES' })).toBe('older');
+    expect(strengthOf('snmp', { ...v3, authProto: 'MD5', privProto: 'AES' })).toBe('older');
+    expect(strengthOf('snmp', { ...v3, level: 'authNoPriv', authProto: 'SHA' })).toBe('plain');
+    expect(strengthOf('snmp', { ...v3, level: 'noAuthNoPriv' })).toBe('plain');
+    expect(strengthOf('snmp', { version: '2c' })).toBe('plain');
+    expect(strengthOf('routeros', { user: 'x' })).toBeNull();
+  });
+
+  it('"Find what works": the profile\'s own protocols first, then the usual ones; no privacy without it', () => {
+    const order = findOrder({ version: '3', authProto: 'SHA256', privProto: 'AES' });
+    expect(order).toHaveLength(36);
+    expect(order.slice(0, 3)).toEqual([
+      { auth: 'SHA256', priv: 'AES' },
+      { auth: 'SHA256', priv: 'DES' },
+      { auth: 'SHA256', priv: 'AES256' },
+    ]);
+    expect(new Set(order.map((c) => `${c.auth}|${c.priv}`)).size).toBe(36);
+    expect(order[6]).toEqual({ auth: 'SHA', priv: 'AES' });
+    expect(findOrder({ version: '3', level: 'authNoPriv', authProto: 'MD5' })).toEqual(
+      ['MD5', 'SHA', 'SHA256', 'SHA512', 'SHA384', 'SHA224'].map((auth) => ({
+        auth,
+        priv: 'NONE',
+      })),
+    );
+    expect(comboOf('7f3c|SHA|DES')).toEqual({ authProto: 'SHA', privProto: 'DES' });
+    expect(comboOf('7f3c')).toBeNull();
+  });
+
+  it('setup commands follow the protocols and the level on IOS and NX-OS', () => {
+    const ios = (s: object) =>
+      setupCommands('ios', '10.0.0.50', { version: '3', user: 'watchlog', ...s });
+    const nx = (s: object) =>
+      setupCommands('nxos', '10.0.0.50', { version: '3', user: 'watchlog', ...s });
+    expect(ios({ authProto: 'SHA', privProto: 'DES' })).toContain(
+      'v3 auth sha <auth-key> priv des <privacy-key>',
+    );
+    expect(ios({ authProto: 'MD5', privProto: 'AES' })).toContain(
+      'auth md5 <auth-key> priv aes 128',
+    );
+    expect(ios({ authProto: 'SHA', privProto: 'AES256C' })).toContain('priv aes 256');
+    expect(ios({ authProto: 'SHA', privProto: 'AES256' })).toContain('choose "AES-256 (Cisco)"');
+    const authOnly = ios({ level: 'authNoPriv', authProto: 'SHA' });
+    expect(authOnly).toContain('snmp-server group watchlog-ro v3 auth read');
+    expect(authOnly).not.toContain('priv');
+    expect(ios({ level: 'noAuthNoPriv' })).toContain(
+      'snmp-server group watchlog-ro v3 noauth read',
+    );
+    expect(nx({ authProto: 'SHA', privProto: 'DES' })).toContain(
+      'auth sha <auth-key> priv <privacy-key>',
+    );
+    expect(nx({ authProto: 'MD5', privProto: 'AES' })).toContain(
+      'auth md5 <auth-key> priv aes-128 <privacy-key>',
+    );
+    expect(nx({ authProto: 'SHA224', privProto: 'AES256' })).toContain('NX-OS has no SHA-224');
+    expect(nx({ authProto: 'SHA224', privProto: 'AES256' })).toContain('AES-128 or DES only');
+    expect(nx({ level: 'authNoPriv', authProto: 'SHA384' })).toContain('auth sha-384 <auth-key>\n');
+  });
+});
+
+describe.each(['kubernetes', 'server'] as const)(
+  'SNMPv3 protocols, polled from a %s (1.0.4)',
+  (kind) => {
+    it('takes every authentication with every privacy at the three levels, and sends the collector what each means', async () => {
+      const w = await world(kind);
+      let i = 0;
+      for (const authProto of AUTH_PROTOS)
+        for (const privProto of PRIV_PROTOS) {
+          const r = await w.call('POST', '/network/credentials', {
+            name: `p-${i++}`,
+            protocol: 'snmp',
+            settings: { version: '3', user: 'watchlog', authProto, privProto },
+            secret: { authKey: 'auth-key-123', privKey: 'priv-key-123' },
+          });
+          expect(r.statusCode, `${authProto}/${privProto}: ${r.body}`).toBe(201);
+        }
+      expect(i).toBe(36);
+      const make = (name: string, settings: object, secret: object) =>
+        w.call('POST', '/network/credentials', { name, protocol: 'snmp', settings, secret });
+      // Each level asks for the keys it uses, and no more.
+      const authOnly = await make(
+        'auth-only',
+        { version: '3', user: 'u', level: 'authNoPriv', authProto: 'SHA' },
+        { authKey: 'auth-key-123' },
+      );
+      expect(authOnly.statusCode, authOnly.body).toBe(201);
+      const plain = await make('plain', { version: '3', user: 'u', level: 'noAuthNoPriv' }, {});
+      expect(plain.statusCode, plain.body).toBe(201);
+      expect(
+        (await make('x1', { version: '3', user: 'u', level: 'authNoPriv' }, {})).json().detail,
+      ).toBe('An SNMPv3 profile with authentication needs its authentication key');
+      expect(
+        (
+          await make(
+            'x2',
+            { version: '3', user: 'u', authProto: 'SHA', privProto: 'DES' },
+            { authKey: 'auth-key-123' },
+          )
+        ).json().detail,
+      ).toBe('An SNMPv3 profile with privacy needs its privacy key');
+      expect(
+        (
+          await make(
+            'x3',
+            { version: '3', user: 'u', privProto: '3DES' },
+            { authKey: 'a'.repeat(8), privKey: 'b'.repeat(8) },
+          )
+        ).statusCode,
+      ).toBe(400);
+      expect(
+        (await make('x4', { version: '3', user: 'u', level: 'authOnly' }, {})).statusCode,
+      ).toBe(400);
+      // The cards say how strong each is.
+      const list = (await w.call('GET', '/network/credentials')).json().credentials as Row[];
+      const byName = new Map(list.map((c) => [c.name, c]));
+      expect(byName.get('auth-only')!.strength).toBe('plain');
+      expect(byName.get('plain')!.strength).toBe('plain');
+      expect(list.filter((c) => c.strength === 'older').length).toBe(6 + 5);
+      expect(list.filter((c) => c.strength === null).length).toBe(36 - 11);
+
+      // What the collector gets for each level: NONE says the level.
+      const add = async (credentialId: string, address: string) =>
+        (
+          await w.call('POST', '/network/devices', {
+            clusterId: w.clusterId,
+            host: w.host,
+            devices: [{ address, name: address, credentialId }],
+          })
+        ).json().added[0] as string;
+      const qnap = list.find(
+        (c) => c.settings.authProto === 'SHA' && c.settings.privProto === 'DES',
+      )!;
+      await add(qnap.id, '10.0.0.40');
+      await add(authOnly.json().id, '10.0.0.41');
+      await add(plain.json().id, '10.0.0.42');
+      const snmpOf = (address: string) =>
+        w.config().then((c) => c.devices.find((d: Row) => d.address === address)!.snmp as Row);
+      expect(await snmpOf('10.0.0.40')).toEqual({
+        version: '3',
+        user: 'watchlog',
+        authProto: 'SHA',
+        authKey: 'auth-key-123',
+        privProto: 'DES',
+        privKey: 'priv-key-123',
+      });
+      expect(await snmpOf('10.0.0.41')).toEqual({
+        version: '3',
+        user: 'u',
+        authProto: 'SHA',
+        authKey: 'auth-key-123',
+        privProto: 'NONE',
+      });
+      expect(await snmpOf('10.0.0.42')).toEqual({
+        version: '3',
+        user: 'u',
+        authProto: 'NONE',
+        privProto: 'NONE',
+      });
+    });
+
+    it("an older collector's refusal is said on the device and its profile, with where it runs", async () => {
+      const w = await world(kind);
+      const id = (
+        await w.call('POST', '/network/credentials', {
+          name: 'nas-ro',
+          protocol: 'snmp',
+          settings: { version: '3', user: 'watchlog', authProto: 'SHA', privProto: 'DES' },
+          secret: { authKey: 'auth-key-123', privKey: 'priv-key-123' },
+        })
+      ).json().id as string;
+      const device = (
+        await w.call('POST', '/network/devices', {
+          clusterId: w.clusterId,
+          host: w.host,
+          devices: [{ address: '10.0.0.40', name: 'nas-1', credentialId: id }],
+        })
+      ).json().added[0] as string;
+      await w.report({
+        devices: [
+          {
+            id: device,
+            state: 'error',
+            polledAt: NOW,
+            failures: 1,
+            error: 'SNMPv3 privacy "DES" isn\'t supported (AES)',
+          },
+        ],
+      });
+      const d = (await w.call('GET', `/network/devices/${device}`)).json().device;
+      expect(d.olderCollector).toBe('DES');
+      expect(d.credential).toMatchObject({ name: 'nas-ro', strength: 'older' });
+      const card = (await w.call('GET', '/network/credentials')).json().credentials[0];
+      expect(card.olderCollector).toEqual({
+        what: 'DES',
+        pollers: [kind === 'server' ? 'web-1' : 'prod'],
+      });
+      // Read once the collector is updated: the note goes.
+      await w.report({
+        devices: [
+          { id: device, state: 'ok', polledAt: NOW, system: { name: 'nas-1' }, health: {} },
+        ],
+      });
+      expect(
+        (await w.call('GET', `/network/devices/${device}`)).json().device.olderCollector,
+      ).toBeNull();
+      expect(
+        (await w.call('GET', '/network/credentials')).json().credentials[0].olderCollector,
+      ).toBeNull();
+    });
+
+    it('the test says which value is wrong; "Find what works" sends the combinations and says which answered', async () => {
+      const w = await world(kind);
+      const start = (body: object) =>
+        w.call('POST', '/network/credential-tests', {
+          clusterId: w.clusterId,
+          host: w.host,
+          address: '10.0.0.40',
+          ...body,
+        });
+      const qnapAes = {
+        protocol: 'snmp',
+        settings: { version: '3', user: 'watchlog', authProto: 'SHA256', privProto: 'AES' },
+        secret: { authKey: 'auth-key-123', privKey: 'priv-key-123' },
+      };
+      const outcome = async (error: string) => {
+        const id = (await start(qnapAes)).json().id as string;
+        await w.report({
+          discovery: [
+            { id, done: true, found: [{ address: '10.0.0.40', answered: false, error }] },
+          ],
+        });
+        return (await w.call('GET', `/network/credential-tests/${id}`)).json();
+      };
+      expect(
+        (await outcome("the device refused the SNMP credentials: it doesn't know this SNMPv3 user"))
+          .outcome,
+      ).toBe('user');
+      expect(
+        (
+          await outcome(
+            "the device refused the SNMP credentials: the authentication password or protocol doesn't match",
+          )
+        ).outcome,
+      ).toBe('auth');
+      expect(
+        (
+          await outcome(
+            "the device answered SNMPv3, then went silent: the privacy protocol or password doesn't match",
+          )
+        ).outcome,
+      ).toBe('privacy');
+      expect(
+        (
+          await outcome(
+            'the device refused the SNMP credentials: it wants another security level for this user',
+          )
+        ).outcome,
+      ).toBe('level');
+      expect(await outcome('SNMPv3 privacy "DES" isn\'t supported (AES)')).toMatchObject({
+        outcome: 'collector_old',
+        collector: 'DES',
+      });
+
+      // Find what works: one discovery, the combinations in order, the passwords as typed.
+      const find = await start({ ...qnapAes, find: true });
+      expect(find.statusCode, find.body).toBe(201);
+      const id = find.json().id as string;
+      const d = (await w.config()).discover.find((x: Row) => x.id === id) as Row;
+      expect(d.find).toBe(true);
+      expect(d.seeds).toEqual(['10.0.0.40']);
+      expect(d.credentials).toHaveLength(36);
+      expect(d.credentials.slice(0, 2).map((c: Row) => c.id)).toEqual([
+        `${id}|SHA256|AES`,
+        `${id}|SHA256|DES`,
+      ]);
+      for (const c of d.credentials as Row[]) {
+        expect(c.snmp).toMatchObject({
+          version: '3',
+          user: 'watchlog',
+          authKey: 'auth-key-123',
+          privKey: 'priv-key-123',
+        });
+        expect(c.id.startsWith(`${id}|`)).toBe(true);
+      }
+      await w.report({
+        discovery: [
+          {
+            id,
+            done: true,
+            found: [
+              {
+                address: '10.0.0.40',
+                answered: true,
+                name: 'nas-1',
+                model: 'TS-453D',
+                vendor: 'QNAP',
+                profile: 'qnap',
+                credential: `${id}|SHA|DES`,
+                tried: [`${id}|SHA256|AES`, `${id}|SHA|AES`, `${id}|SHA|AES256`, `${id}|SHA|DES`],
+              },
+            ],
+          },
+        ],
+      });
+      expect((await w.call('GET', `/network/credential-tests/${id}`)).json()).toEqual({
+        id,
+        done: true,
+        address: '10.0.0.40',
+        outcome: 'answered',
+        name: 'nas-1',
+        model: 'TS-453D',
+        vendor: 'QNAP',
+        profile: 'qnap',
+        found: { authProto: 'SHA', privProto: 'DES' },
+        tried: 4,
+      });
+      // Nothing answered: the last reason, and how many were tried.
+      const none = (await start({ ...qnapAes, find: true })).json().id as string;
+      await w.report({
+        discovery: [
+          {
+            id: none,
+            done: true,
+            found: [
+              {
+                address: '10.0.0.40',
+                answered: false,
+                error: "the device refused the SNMP credentials: it doesn't know this SNMPv3 user",
+                tried: [`${none}|SHA256|AES`],
+              },
+            ],
+          },
+        ],
+      });
+      expect((await w.call('GET', `/network/credential-tests/${none}`)).json()).toMatchObject({
+        outcome: 'user',
+        tried: 1,
+      });
+      // Only for SNMPv3 with authentication.
+      for (const settings of [
+        { version: '2c' },
+        { version: '3', user: 'u', level: 'noAuthNoPriv' },
+      ])
+        expect(
+          (await start({ protocol: 'snmp', settings, secret: { community: 'public' }, find: true }))
+            .statusCode,
+        ).toBe(400);
+    });
+  },
+);

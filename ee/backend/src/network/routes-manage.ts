@@ -16,7 +16,7 @@ import type {
   FastifyReply,
   FastifyRequest,
 } from '../../../../backend/src/ee-contract.js';
-import { openSecret, sealSecret, type CredentialRow } from './credentials.js';
+import { olderCollector, openSecret, sealSecret, type CredentialRow } from './credentials.js';
 
 /**
  * How long a test may take before the page says the poller didn't answer. A 1.0.2 collector
@@ -30,6 +30,13 @@ export const TESTS_PER_MINUTE = 20;
 export type TestOutcome =
   | 'answered'
   | 'refused'
+  // SNMPv3's reports, said as which value is wrong (1.0.4, a collector from 1.0.4).
+  | 'user'
+  | 'auth'
+  | 'privacy'
+  | 'level'
+  // The poller's collector is older than 1.0.4 and can't read these protocols.
+  | 'collector_old'
   | 'no_answer'
   | 'certificate'
   | 'plain_refused'
@@ -43,7 +50,12 @@ export type TestOutcome =
  */
 export function outcomeOf(error: string, protocol: string): TestOutcome {
   const e = error.toLowerCase();
+  if (olderCollector(error)) return 'collector_old';
   if (/certificate changed/.test(e)) return 'certificate';
+  if (/doesn't know this snmpv3 user/.test(e)) return 'user';
+  if (/authentication password or protocol doesn't match/.test(e)) return 'auth';
+  if (/privacy protocol or password doesn't match/.test(e)) return 'privacy';
+  if (/wants another security level/.test(e)) return 'level';
   if (/refused the (snmp credentials|routeros user|user)/.test(e)) return 'refused';
   if (/sends the password in clear/.test(e)) return 'plain_refused';
   // A collector older than 1.0.2 has no recorder probe: it tries SNMP without a credential.
@@ -68,7 +80,14 @@ const SECRET_WORDS: Record<string, string> = {
 /** The secrets a protocol and its settings use; the others are dropped. */
 function secretsFor(protocol: string, settings: Record<string, unknown>): readonly string[] {
   if (protocol !== 'snmp') return ['password'];
-  return settings.version === '2c' ? ['community'] : ['authKey', 'privKey'];
+  if (settings.version === '2c') return ['community'];
+  // The keys the profile's level uses (1.0.4): none, the authentication key, or both.
+  const level = (settings.level as string | undefined) ?? 'authPriv';
+  return level === 'noAuthNoPriv'
+    ? []
+    : level === 'authNoPriv'
+      ? ['authKey']
+      : ['authKey', 'privKey'];
 }
 
 /** A form's secrets as typed: empty means "the saved one" while a profile is edited. */
@@ -379,6 +398,8 @@ export function registerManageRoutes(api: FastifyInstance, host: EeHost, h: Mana
             secret: SecretAsTyped,
             /** The profile being edited: secrets left empty are its saved ones. */
             credentialId: ID,
+            /** "Find what works" (1.0.4): the combinations of protocols, with these passwords. */
+            find: { type: 'boolean' },
           },
         },
       },
@@ -393,7 +414,19 @@ export function registerManageRoutes(api: FastifyInstance, host: EeHost, h: Mana
         settings: Record<string, unknown>;
         secret?: Record<string, string>;
         credentialId?: string;
+        find?: boolean;
       };
+      if (
+        b.find &&
+        (b.protocol !== 'snmp' ||
+          b.settings.version !== '3' ||
+          (b.settings.level ?? 'authPriv') === 'noAuthNoPriv')
+      )
+        return problem(
+          reply,
+          400,
+          '"Find what works" tries the protocols of an SNMPv3 profile with authentication',
+        );
       const bad = await h.checkPoller(orgId, b.clusterId, b.host);
       if (bad) return problem(reply, 400, bad);
       const poller = (await h.pollers(orgId))
@@ -460,6 +493,7 @@ export function registerManageRoutes(api: FastifyInstance, host: EeHost, h: Mana
               settings: b.settings,
               ciphertext: sealSecret(host, id, secret),
               ...(known?.cert_pin ? { pin: known.cert_pin } : {}),
+              ...(b.find ? { find: true } : {}),
             },
           }),
           expires_at: new Date(host.now() + TEST_MS),
@@ -499,6 +533,10 @@ export function registerManageRoutes(api: FastifyInstance, host: EeHost, h: Mana
       if (!found) {
         return { id, done: true, address, outcome: 'poller_silent' satisfies TestOutcome };
       }
+      // "Find what works": which combination answered, and how many were tried.
+      const finding = (q.test as { find?: boolean }).find === true;
+      const tried = Array.isArray(found.tried) ? (found.tried as unknown[]).length : undefined;
+      const combo = finding ? comboOf(String(found.credential ?? '')) : null;
       if (found.answered) {
         return {
           id,
@@ -508,15 +546,21 @@ export function registerManageRoutes(api: FastifyInstance, host: EeHost, h: Mana
           name: String(found.name ?? ''),
           model: String(found.model ?? ''),
           vendor: String(found.vendor ?? ''),
+          profile: String(found.profile ?? ''),
+          ...(combo ? { found: combo } : {}),
+          ...(finding && tried !== undefined ? { tried } : {}),
         };
       }
       const error = String(found.error ?? '');
       const outcome = outcomeOf(error, q.test.protocol);
+      const what = olderCollector(error);
       return {
         id,
         done: true,
         address,
         outcome,
+        ...(what ? { collector: what } : {}),
+        ...(finding && tried !== undefined ? { tried } : {}),
         // The collector's own sentence, only when it is none of the known cases.
         ...(outcome === 'error' ? { detail: error.slice(0, 300) } : {}),
       };
@@ -652,4 +696,11 @@ export function registerManageRoutes(api: FastifyInstance, host: EeHost, h: Mana
       return { moved: rows.length };
     },
   );
+}
+
+/** A "Find what works" candidate's id, `<test id>|<auth>|<priv>`, as protocols. */
+export function comboOf(id: string): { authProto: string; privProto: string } | null {
+  const [, auth, priv] = id.split('|');
+  if (!auth || !priv) return null;
+  return { authProto: auth, privProto: priv };
 }
