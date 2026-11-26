@@ -1,0 +1,19 @@
+{
+  "kubernetes": {
+    "key": "own:count:queue_jobs_waiting",
+    "unit": "count",
+    "object": {
+      "kind": "workload",
+      "name": "worker",
+      "namespace": "shop",
+      "workloadKind": "Deployment"
+    },
+    "peer": null
+  },
+  "server": {
+    "key": "own:count:queue_jobs_waiting",
+    "unit": "count",
+    "object": { "kind": "host", "name": "db-1" },
+    "peer": null
+  }
+}
