@@ -188,6 +188,8 @@ async function applyDevice(
   d: DeviceReport,
   now: Date,
 ): Promise<{ inventory: boolean; pinned: boolean }> {
+  // A device the user paused (1.0.2) isn't polled; a report still on its way changes nothing.
+  if (row.status === 'paused') return { inventory: false, pinned: false };
   const db = host.systemDb;
   const events: {
     port: string;

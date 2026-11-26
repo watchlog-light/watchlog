@@ -16,6 +16,7 @@ import { WEAK_DBM } from './kinds.js';
 import { RangeError, validRange } from './range.js';
 import { setupCommands, type Platform } from './setup.js';
 import { mapExtras, registerKindRoutes, summaryExtras } from './routes-kinds.js';
+import { registerManageRoutes } from './routes-manage.js';
 
 const ID = {
   type: 'string',
@@ -65,7 +66,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
 
   /** The org's places, with each one's collectors (Kubernetes: one, host ''; servers: one each). */
   async function pollers(orgId: string) {
-    const [clusters, collectors, servers] = await Promise.all([
+    const [clusters, collectors, servers, reads] = await Promise.all([
       db
         .selectFrom('clusters')
         .select(['id', 'name', 'kind'])
@@ -84,7 +85,17 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         .where('org_id', '=', orgId)
         .where('mode', '=', 'docker')
         .execute(),
+      db
+        .selectFrom('network_devices')
+        .select(['cluster_id', 'poller_host', host.sql<number>`count(*)::int`.as('n')])
+        .where('org_id', '=', orgId)
+        .where('removed_at', 'is', null)
+        .groupBy(['cluster_id', 'poller_host'])
+        .execute(),
     ]);
+    /** The devices a poller reads (1.0.2: the Add page says so, and offers to move them). */
+    const devicesOf = (clusterId: string, h: string): number =>
+      reads.find((r: any) => r.cluster_id === clusterId && r.poller_host === h)?.n ?? 0;
     const fresh = (t: Date | null) => !!t && host.now() - new Date(t).getTime() < 10 * 60_000;
     return clusters.map((c: { id: string; name: string; kind: string }) => {
       const cols = collectors.filter((x: { cluster_id: string }) => x.cluster_id === c.id);
@@ -94,7 +105,14 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
           clusterId: c.id,
           name: c.name,
           kind: 'kubernetes',
-          hosts: [{ host: '', collector: !!col, reporting: fresh(col?.last_seen_at ?? null) }],
+          hosts: [
+            {
+              host: '',
+              collector: !!col,
+              reporting: fresh(col?.last_seen_at ?? null),
+              devices: devicesOf(c.id, ''),
+            },
+          ],
         };
       }
       const names = new Set<string>([
@@ -102,6 +120,10 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
           .filter((s: { cluster_id: string }) => s.cluster_id === c.id)
           .map((s: { node: string }) => s.node),
         ...cols.map((x: { host: string }) => x.host).filter(Boolean),
+        // A server that left the fleet but still has devices: listed, so they can be moved.
+        ...reads
+          .filter((r: any) => r.cluster_id === c.id && r.poller_host)
+          .map((r: any) => r.poller_host as string),
       ]);
       return {
         clusterId: c.id,
@@ -109,7 +131,12 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         kind: 'server',
         hosts: [...names].sort().map((h) => {
           const col = cols.find((x: { host: string }) => x.host === h);
-          return { host: h, collector: !!col, reporting: fresh(col?.last_seen_at ?? null) };
+          return {
+            host: h,
+            collector: !!col,
+            reporting: fresh(col?.last_seen_at ?? null),
+            devices: devicesOf(c.id, h),
+          };
         }),
       };
     });
@@ -143,6 +170,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         'd.sys_name',
         'd.location',
         'd.cert_pin',
+        'd.cert_prev',
         'd.cert_seen',
         'd.first_seen',
         'd.last_seen',
@@ -186,6 +214,8 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       update: h.update ?? null,
       managedAp: d.managed_ap,
       parentId: d.parent_id ?? null,
+      // An Owner accepted a new certificate, and the one before is kept: it can be undone.
+      certUndo: !!d.cert_prev,
       poller: {
         clusterId: d.cluster_id,
         name: d.cluster_name,
@@ -936,86 +966,10 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
           return problem(reply, 409, 'A profile with that name exists');
         throw err;
       }
+      await host.audit(request, 'network_profile_added', { profile: b.name, protocol: b.protocol });
       return reply.code(201).send({ id });
     },
   );
-
-  api.patch(
-    '/network/credentials/:id',
-    {
-      ...write,
-      schema: { tags, hide: true, params: IdParams, body: { ...CredentialBody, required: [] } },
-    },
-    async (request, reply) => {
-      const orgId = orgOf(request);
-      const { id } = request.params as { id: string };
-      const row = await db
-        .selectFrom('network_credentials')
-        .selectAll()
-        .where('org_id', '=', orgId)
-        .where('id', '=', id)
-        .executeTakeFirst();
-      if (!row) return problem(reply, 404, 'Profile not found');
-      const b = request.body as {
-        name?: string;
-        settings?: Record<string, unknown>;
-        secret?: Record<string, string>;
-      };
-      const merged = {
-        protocol: row.protocol,
-        settings: { ...(row.settings as object), ...(b.settings ?? {}) },
-      };
-      const bad = checkCredential(merged, false);
-      if (bad) return problem(reply, 400, bad);
-      await db
-        .updateTable('network_credentials')
-        .set({
-          ...(b.name ? { name: b.name } : {}),
-          settings: JSON.stringify(merged.settings),
-          ...(b.secret ? { ciphertext: sealSecret(host, id, b.secret) } : {}),
-          updated_at: new Date(host.now()),
-        })
-        .where('id', '=', id)
-        .execute();
-      await notifyPollers(orgId, { credentialId: id });
-      return reply.code(204).send();
-    },
-  );
-
-  api.delete(
-    '/network/credentials/:id',
-    { ...write, schema: { tags, hide: true, params: IdParams } },
-    async (request, reply) => {
-      const orgId = orgOf(request);
-      const { id } = request.params as { id: string };
-      const used = await db
-        .selectFrom('network_devices')
-        .select('id')
-        .where('org_id', '=', orgId)
-        .where('credential_id', '=', id)
-        .where('removed_at', 'is', null)
-        .executeTakeFirst();
-      if (used) return problem(reply, 409, 'Devices use this profile; give them another first');
-      const r = await db
-        .deleteFrom('network_credentials')
-        .where('org_id', '=', orgId)
-        .where('id', '=', id)
-        .executeTakeFirst();
-      if (!Number(r.numDeletedRows)) return problem(reply, 404, 'Profile not found');
-      return reply.code(204).send();
-    },
-  );
-
-  async function notifyPollers(orgId: string, by: { credentialId?: string; deviceId?: string }) {
-    let q = db
-      .selectFrom('network_devices')
-      .select('cluster_id')
-      .distinct()
-      .where('org_id', '=', orgId);
-    if (by.credentialId) q = q.where('credential_id', '=', by.credentialId);
-    if (by.deviceId) q = q.where('id', '=', by.deviceId);
-    for (const r of await q.execute()) host.collector.notify(r.cluster_id);
-  }
 
   /** The poller exists in the org: a cluster, and on a fleet one of its servers. */
   async function checkPoller(orgId: string, clusterId: string, h: string): Promise<string | null> {
@@ -1028,6 +982,23 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       return "Choose one of the fleet's servers";
     return null;
   }
+
+  registerManageRoutes(api, host, {
+    read,
+    write,
+    owner,
+    tags,
+    ID,
+    IdParams,
+    ADDRESS,
+    HOST,
+    CredentialBody,
+    orgOf,
+    problem,
+    checkCredential,
+    checkPoller,
+    pollers,
+  });
 
   api.post(
     '/network/discoveries',
@@ -1118,7 +1089,8 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         .where('org_id', '=', orgId)
         .where('id', '=', id)
         .executeTakeFirst();
-      if (!r) return problem(reply, 404, 'Discovery not found');
+      if (!r || (r.request as { test?: unknown }).test)
+        return problem(reply, 404, 'Discovery not found');
       const known = new Set(
         (
           await db
@@ -1206,7 +1178,21 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
             .execute()
         ).map((d: any) => d.address),
       );
+      // A device removed before and added again at the same address comes back as itself
+      // (1.0.2): its id, so its history, its name and its place on the map, with the profile
+      // and the poller chosen now. Its access points come back with its next report.
+      const removed = new Map<string, { id: string; protocol: string }>();
+      for (const r of (await db
+        .selectFrom('network_devices')
+        .select(['id', 'address', 'protocol'])
+        .where('org_id', '=', orgId)
+        .where('removed_at', 'is not', null)
+        .where('parent_id', 'is', null)
+        .orderBy('removed_at', 'asc')
+        .execute()) as { id: string; address: string; protocol: string }[])
+        removed.set(r.address, { id: r.id, protocol: r.protocol });
       const added: string[] = [];
+      const restored: string[] = [];
       const skipped: { address: string; reason: string }[] = [];
       for (const d of b.devices) {
         const protocol = protoOf.get(d.credentialId);
@@ -1216,6 +1202,33 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         }
         if (existing.has(d.address)) {
           skipped.push({ address: d.address, reason: 'already added' });
+          continue;
+        }
+        const back = removed.get(d.address);
+        if (back && back.protocol === protocol) {
+          await db
+            .updateTable('network_devices')
+            .set({
+              removed_at: null,
+              cluster_id: b.clusterId,
+              poller_host: b.host,
+              credential_id: d.credentialId,
+              ...(d.name ? { name: d.name } : {}),
+              status: 'pending',
+              failures: 0,
+              error: null,
+              // Trusted anew: what it shows now is pinned on first contact.
+              cert_pin: null,
+              cert_seen: null,
+              cert_prev: null,
+              updated_at: new Date(host.now()),
+            })
+            .where('org_id', '=', orgId)
+            .where('id', '=', back.id)
+            .execute();
+          existing.add(d.address);
+          added.push(back.id);
+          restored.push(back.id);
           continue;
         }
         const id = host.newId();
@@ -1241,8 +1254,12 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         // The network's alert rules, the first time the org adds a device (ADR-233).
         await host.alerts.ensure(orgId);
         host.collector.notify(b.clusterId);
+        await host.audit(request, 'network_devices_added', {
+          devices: added.length,
+          restored: restored.length,
+        });
       }
-      return reply.code(201).send({ added, skipped });
+      return reply.code(201).send({ added, restored, skipped });
     },
   );
 
@@ -1262,6 +1279,9 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
             clusterId: ID,
             host: HOST,
             credentialId: ID,
+            // 1.0.2: an address typed wrong is corrected; polling is paused and resumed.
+            address: ADDRESS,
+            paused: { type: 'boolean' },
             kind: {
               enum: [
                 'router',
@@ -1290,17 +1310,48 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         credentialId?: string;
         kind?: string;
         managedAp?: boolean;
+        address?: string;
+        paused?: boolean;
       };
       const d = await db
         .selectFrom('network_devices')
-        .select(['id', 'cluster_id', 'poller_host', 'protocol'])
+        .select(['id', 'name', 'address', 'status', 'cluster_id', 'poller_host', 'protocol'])
         .where('org_id', '=', orgId)
         .where('id', '=', id)
         .where('removed_at', 'is', null)
         .executeTakeFirst();
       if (!d) return problem(reply, 404, 'Device not found');
       const set: Record<string, unknown> = { updated_at: new Date(host.now()) };
+      const changed: string[] = [];
+      if (b.name && b.name !== d.name) changed.push('name');
+      if (b.kind) changed.push('kind');
       if (b.name) set.name = b.name;
+      if (b.address && b.address !== d.address) {
+        const taken = await db
+          .selectFrom('network_devices')
+          .select('name')
+          .where('org_id', '=', orgId)
+          .where('address', '=', b.address)
+          .where('removed_at', 'is', null)
+          .where('id', '!=', id)
+          .executeTakeFirst();
+        if (taken) return problem(reply, 409, `${taken.name} is already at ${b.address}`);
+        // Another address is another device to trust: the certificate is pinned again on first
+        // contact, and the device is tried at once. Its history stays (it is the same device).
+        Object.assign(set, {
+          address: b.address,
+          cert_pin: null,
+          cert_seen: null,
+          cert_prev: null,
+          failures: 0,
+          ...(d.status === 'paused' ? {} : { status: 'pending' }),
+        });
+        changed.push('address');
+      }
+      if (b.paused !== undefined && b.paused !== (d.status === 'paused')) {
+        Object.assign(set, { status: b.paused ? 'paused' : 'pending', failures: 0, error: null });
+        changed.push(b.paused ? 'paused' : 'resumed');
+      }
       if (b.kind) set.kind = b.kind;
       if (b.managedAp !== undefined) set.managed_ap = b.managedAp;
       if (b.clusterId !== undefined || b.host !== undefined) {
@@ -1308,7 +1359,14 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         const h = b.host ?? d.poller_host;
         const bad = await checkPoller(orgId, c, h);
         if (bad) return problem(reply, 400, bad);
-        Object.assign(set, { cluster_id: c, poller_host: h, status: 'pending', failures: 0 });
+        const paused = (set.status ?? d.status) === 'paused';
+        Object.assign(set, {
+          cluster_id: c,
+          poller_host: h,
+          failures: 0,
+          ...(paused ? {} : { status: 'pending' }),
+        });
+        if (c !== d.cluster_id || h !== d.poller_host) changed.push('poller');
       }
       if (b.credentialId) {
         const c = await db
@@ -1320,8 +1378,14 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         if (!c || c.protocol !== d.protocol)
           return problem(reply, 400, 'Choose a profile of the same protocol');
         set.credential_id = b.credentialId;
+        changed.push('profile');
       }
       await db.updateTable('network_devices').set(set).where('id', '=', id).execute();
+      if (changed.length)
+        await host.audit(request, 'network_device_changed', {
+          device: (set.name as string | undefined) ?? d.name,
+          changed: changed.join(', '),
+        });
       host.collector.notify(d.cluster_id);
       if (set.cluster_id && set.cluster_id !== d.cluster_id)
         host.collector.notify(set.cluster_id as string);
@@ -1338,7 +1402,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       const { id } = request.params as { id: string };
       const d = await db
         .selectFrom('network_devices')
-        .select(['id', 'cluster_id', 'cert_seen', 'status'])
+        .select(['id', 'name', 'cluster_id', 'cert_pin', 'cert_seen', 'status'])
         .where('org_id', '=', orgId)
         .where('id', '=', id)
         .where('removed_at', 'is', null)
@@ -1351,6 +1415,8 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         .updateTable('network_devices')
         .set({
           cert_pin: d.cert_seen ?? null,
+          // Kept, so an accept made by mistake can be undone (restore-certificate).
+          cert_prev: d.cert_pin ?? null,
           cert_seen: null,
           status: 'pending',
           failures: 0,
@@ -1372,6 +1438,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         })
         .execute();
       host.collector.notify(d.cluster_id);
+      await host.audit(request, 'network_certificate_accepted', { device: d.name });
       return reply.code(204).send();
     },
   );
@@ -1384,7 +1451,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
       const { id } = request.params as { id: string };
       const d = await db
         .selectFrom('network_devices')
-        .select(['id', 'cluster_id'])
+        .select(['id', 'name', 'address', 'cluster_id'])
         .where('org_id', '=', orgId)
         .where('id', '=', id)
         .where('removed_at', 'is', null)
@@ -1409,6 +1476,7 @@ export async function registerNetworkRoutes(api: FastifyInstance, host: EeHost):
         .where('device_id', '=', id)
         .execute();
       host.collector.notify(d.cluster_id);
+      await host.audit(request, 'network_device_removed', { device: d.name, address: d.address });
       return reply.code(204).send();
     },
   );

@@ -102,7 +102,8 @@ export async function networkSection(
           protocol: d.protocol,
           ...(d.profile ? { profile: d.profile } : {}),
           ...cred,
-          ...(d.status === 'cert_changed' ? { paused: true } : {}),
+          // Not polled: a changed certificate waiting for an Owner, or paused by the user (1.0.2).
+          ...(d.status === 'cert_changed' || d.status === 'paused' ? { paused: true } : {}),
           ...(linked.get(d.id as string)?.size
             ? { linked: [...linked.get(d.id as string)!].sort() }
             : {}),
@@ -131,7 +132,35 @@ export async function networkSection(
         range?: string;
         neighbours: boolean;
         credentialIds: string[];
+        test?: {
+          protocol: CredentialRow['protocol'];
+          settings: CredentialRow['settings'];
+          ciphertext: string;
+          pin?: string;
+        };
       };
+      // "Test against an address" (1.0.2): one address with the values as typed, which are
+      // sealed in this row and belong to no profile.
+      if (q.test) {
+        const cred = collectorCredential(
+          host,
+          {
+            id: r.id,
+            org_id: c.orgId,
+            name: 'test',
+            protocol: q.test.protocol,
+            settings: q.test.settings,
+            ciphertext: q.test.ciphertext,
+          },
+          q.test.pin ?? null,
+        );
+        return {
+          id: r.id,
+          seeds: q.seeds,
+          neighbours: false,
+          credentials: cred ? [{ id: r.id, protocol: q.test.protocol, ...cred }] : [],
+        };
+      }
       return {
         id: r.id,
         seeds: q.seeds,
