@@ -307,3 +307,35 @@ describe('Plan & billing once billing is live', () => {
     expect(wrapper.get('[data-testid="checkout-return"]').text()).toContain('nothing was charged');
   });
 });
+
+describe('Your metrics on the plan page (1.0.0, ADR-236)', () => {
+  it('shows the series used of those the plan allows, and says nothing is billed for them', async () => {
+    const cluster = {
+      id: '01a18f42-06e7-7078-a01a-ea39c791d700',
+      name: 'prod',
+      kind: 'kubernetes',
+    };
+    const { wrapper } = await mountTab({
+      'GET /api/v1/plan': { status: 200, body: FREE },
+      'GET /api/v1/plan/billing': { status: 200, body: OFF },
+      'GET /api/v1/clusters': { status: 200, body: { clusters: [cluster] } },
+      [`GET /api/v1/clusters/${cluster.id}/own-metrics`]: {
+        status: 200,
+        body: { usage: { series: 150, sources: 2 }, limits: { series: 200 } },
+      },
+    });
+    const text = wrapper.text();
+    expect(text).toContain('Your metrics: series');
+    expect(text).toContain('150 / 200');
+    expect(text).toContain('Free: 200 series, 3 sources, one dashboard.');
+  });
+
+  it('is left out when the organisation has no cluster yet', async () => {
+    const { wrapper } = await mountTab({
+      'GET /api/v1/plan': { status: 200, body: FREE },
+      'GET /api/v1/plan/billing': { status: 200, body: OFF },
+      'GET /api/v1/clusters': { status: 200, body: { clusters: [] } },
+    });
+    expect(wrapper.text()).not.toContain('Your metrics: series');
+  });
+});

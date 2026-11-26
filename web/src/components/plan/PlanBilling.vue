@@ -12,7 +12,9 @@ import {
 } from '@/api/cloud';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import { money } from '@/lib/what-changed-upgrade';
+import { ownMetricsApi } from '@/api/own-metrics';
 import { useAuthStore } from '@/stores/auth';
+import { useClustersStore } from '@/stores/clusters';
 import { usePlanStore } from '@/stores/plan';
 
 // Settings › Plan & billing (ADR-177, ADR-178, Billing.dc.html), Cloud only: the plan, what
@@ -25,6 +27,7 @@ import { usePlanStore } from '@/stores/plan';
 const { t } = useI18n();
 const plan = usePlanStore();
 const auth = useAuthStore();
+const clusters = useClustersStore();
 const route = useRoute();
 const billing = ref<BillingState | null>(null);
 const busy = ref<'beta' | 'checkout' | 'portal' | null>(null);
@@ -37,9 +40,24 @@ async function loadBilling() {
     billing.value = null;
   }
 }
+// Your metrics (1.0.0, ADR-236): the series used of those the plan allows. Nothing is billed
+// for them; the number is the organisation's, read through any of its clusters.
+const own = ref<{ used: number; max: number } | null>(null);
+async function loadOwn() {
+  try {
+    await clusters.ensure();
+    const first = clusters.list[0];
+    if (!first) return;
+    const s = await ownMetricsApi.summary(first.id);
+    own.value = { used: s.usage.series, max: s.limits.series };
+  } catch {
+    own.value = null;
+  }
+}
 onMounted(() => {
   void plan.load();
   void loadBilling();
+  void loadOwn();
 });
 const p = computed(() => plan.info);
 const isOwner = computed(() => auth.user?.role === 'owner');
@@ -108,6 +126,17 @@ const meters = computed<Meter[]>(() => {
       share: Math.min(1, x.limits.retentionDays / 30),
       note: pro ? t('cloud.plan.billing.retentionPro') : t('cloud.plan.billing.proRetention'),
     },
+    ...(own.value
+      ? [
+          {
+            id: 'own-metrics',
+            label: t('cloud.plan.billing.ownSeries'),
+            value: `${own.value.used.toLocaleString('en-US')} / ${own.value.max.toLocaleString('en-US')}`,
+            share: share(own.value.used, own.value.max),
+            note: pro ? t('cloud.plan.billing.ownPro') : t('cloud.plan.billing.ownFree'),
+          },
+        ]
+      : []),
   ];
 });
 

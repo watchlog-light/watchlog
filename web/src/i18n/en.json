@@ -4432,7 +4432,7 @@
         "countsInvites": "Open invites count too",
         "proRetention": "Pro: 30 days",
         "retentionPro": "The longest Cloud keeps",
-        "proLimits": "Unlimited clusters and nodes · 30 days of data · up to 10 users",
+        "proLimits": "Unlimited clusters and nodes · 30 days of data · up to 10 users · your metrics: 200 series per node",
         "proComing": "SLO reports: coming to Pro",
         "proSupport": "Email support within 2 business days",
         "estimateFor": "Estimate for",
@@ -4474,7 +4474,10 @@
         "invoicesBody": "Managed in Stripe’s customer portal: cards, invoices, VAT number and cancelling.",
         "whenBilling": "Available when billing starts",
         "manage": "Manage billing",
-        "afterUpgrade": "Available after you upgrade"
+        "afterUpgrade": "Available after you upgrade",
+        "ownSeries": "Your metrics: series",
+        "ownFree": "Free: 200 series, 3 sources, one dashboard. Pro: 200 per node or server, alerts and the usual range",
+        "ownPro": "200 for each billed node or server, at least 1,000. Not billed separately"
       },
       "betaTag": "free during beta"
     },
