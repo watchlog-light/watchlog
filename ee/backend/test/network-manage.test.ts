@@ -19,6 +19,10 @@ import {
 import { licenseKey, TEST_KEYS } from '../../../backend/test/license-keys.js';
 import { outcomeOf } from '../src/network/routes-manage.js';
 
+/** A row or a JSON object whose shape the test reads field by field. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
+
 const NOW = Math.floor(Date.now() / 60_000) * 60_000;
 let ctx: TestContext | undefined;
 afterEach(async () => {
@@ -40,7 +44,7 @@ interface World {
   clusterId: string;
   /** The poller's host: '' for a cluster's collector, a server's name on a fleet. */
   host: string;
-  config: () => Promise<{ devices: Record<string, any>[]; discover: Record<string, any>[] }>;
+  config: () => Promise<{ devices: Row[]; discover: Row[] }>;
   report: (body: object) => Promise<number>;
 }
 
@@ -310,7 +314,7 @@ describe.each(['kubernetes', 'server'] as const)(
       expect(
         (await w.call('GET', '/network/credentials'))
           .json()
-          .credentials.map((c: any) => [c.name, c.usedBy]),
+          .credentials.map((c: Row) => [c.name, c.usedBy]),
       ).toEqual([
         ['office-new', 2],
         ['routers-ro', 0],
@@ -593,7 +597,7 @@ describe.each(['kubernetes', 'server'] as const)(
           .selectFrom('network_devices' as never)
           .select(['address', 'status', 'cert_pin', 'removed_at', 'name'] as never)
           .where('id' as never, '=', id as never)
-          .executeTakeFirstOrThrow() as Promise<Record<string, any>>;
+          .executeTakeFirstOrThrow() as Promise<Row>;
       expect(await row()).toMatchObject({ status: 'ok', cert_pin: 'ab'.repeat(32) });
 
       // An address typed wrong: corrected, tried at once, trusted anew; another device's is refused.
@@ -678,7 +682,7 @@ describe.each(['kubernetes', 'server'] as const)(
           .selectFrom('network_devices' as never)
           .select(['cert_pin', 'cert_prev', 'status'] as never)
           .where('id' as never, '=', id as never)
-          .executeTakeFirstOrThrow()) as Record<string, any>;
+          .executeTakeFirstOrThrow()) as Row;
       // Nothing to undo before an accept.
       expect((await w.call('POST', `/network/devices/${id}/restore-certificate`)).statusCode).toBe(
         409,
@@ -717,7 +721,7 @@ describe.each(['kubernetes', 'server'] as const)(
 
       // The poller's devices, to another poller.
       const pollers = (await w.call('GET', '/network/pollers')).json().pollers;
-      expect(pollers[0].hosts.find((x: any) => x.host === w.host)).toMatchObject({ devices: 1 });
+      expect(pollers[0].hosts.find((x: Row) => x.host === w.host)).toMatchObject({ devices: 1 });
       let to: { clusterId: string; host: string };
       if (kind === 'server') to = { clusterId: w.clusterId, host: 'web-2' };
       else {
@@ -866,6 +870,7 @@ describe('what a probe’s error means', () => {
 });
 
 function without<T extends object, K extends keyof T>(o: T, key: K): Omit<T, K> {
-  const { [key]: _, ...rest } = o;
+  const rest = { ...o };
+  delete rest[key];
   return rest;
 }
