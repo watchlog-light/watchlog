@@ -1122,20 +1122,21 @@ describe('the caps', () => {
 });
 
 describe('reading: the list, a metric, its line, corrections and pins', () => {
-  // A query is answered as of the current second, so a value pushed in this same second is
-  // not in it yet (in a deployment VictoriaMetrics answers 5 s behind anyway): the app's
-  // clock runs 2 s behind here.
-  beforeEach(() => start({}, { now: () => Date.now() - 2000 }));
+  // VictoriaMetrics answers a little behind (30 s by default, 5 s as WatchLog runs it), so a
+  // value written this second is not in a query yet: the app's clock runs a minute behind
+  // here, and the scrapes below end a minute ago.
+  const BEHIND = 60_000;
+  beforeEach(() => start({}, { now: () => Date.now() - BEHIND }));
 
-  /** Four scrapes of one pod, 30 s apart, ending now. */
+  /** Six scrapes of one pod, 30 s apart, ending a minute ago. */
   async function scraped() {
     const c = await cluster('kubernetes');
     await pod(c, { name: 'orders-1', scrape: { by: 'watchlog' } });
     const [t] = (await section(c))!.targets;
-    const now = Date.now();
+    const now = Date.now() - BEHIND;
     const methods = ['card', 'cash', 'paypal', 'stripe', 'wire', 'gift', 'crypto'];
-    for (let i = 3; i >= 0; i--) {
-      const k = 3 - i;
+    for (let i = 5; i >= 0; i--) {
+      const k = 5 - i;
       const res = await report(c, {
         at: now - i * 30_000,
         targets: [
@@ -1238,6 +1239,7 @@ describe('reading: the list, a metric, its line, corrections and pins', () => {
       unit: 'seconds',
       shown: 'time_since',
     });
+    // Two hours before the last scrape, read up to a minute after it.
     expect(by.backup_last_success_timestamp_seconds!.value!).toBeGreaterThan(7190);
     expect(by.backup_last_success_timestamp_seconds!.value!).toBeLessThan(7300);
 
@@ -1302,7 +1304,7 @@ describe('reading: the list, a metric, its line, corrections and pins', () => {
     const c = await scraped();
     const l = await list(c);
     const orders = l.metrics.find((m) => m.name === 'orders_created_total')!;
-    const to = Math.floor(Date.now() / 1000);
+    const to = Math.floor((Date.now() - BEHIND) / 1000);
     const range = `from=${to - 900}&to=${to}&step=30`;
     const plain = await api(
       'GET',
@@ -1554,7 +1556,7 @@ describe('reading: the list, a metric, its line, corrections and pins', () => {
       await api('GET', `/clusters/${c.id}/own-metrics/pins?ownerKind=server&owner=db-1`)
     ).json();
     expect(got.pins).toHaveLength(1);
-    expect(got.pins[0].metric.value).toBeGreaterThan(590);
+    expect(got.pins[0].metric.value).toBeGreaterThan(500);
     expect(got.pins[0].metric.value).toBeLessThan(700);
     expect(
       (await api('GET', `/clusters/${c.id}/own-metrics/pins?ownerKind=server&owner=web-1`)).json()

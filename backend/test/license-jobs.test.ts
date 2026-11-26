@@ -62,7 +62,8 @@ async function agent(orgId: string, mode: 'node' | 'docker', n: number) {
         node: `n${i}`,
         mode,
         agent_version: '0.15.0',
-        last_seen_at: new Date(NOW - 60_000),
+        // Within NOW's own hour, also in an hour's first minute.
+        last_seen_at: new Date(NOW),
       })
       .execute();
   }

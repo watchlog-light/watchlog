@@ -15,8 +15,10 @@ import { ProblemSchema } from '../auth/schemas.js';
 import { clusterForOrg } from '../clusters/service.js';
 import { OWN_PINS_PER_PAGE } from '../entitlements/own-metrics.js';
 import { chooseStep } from '../query/catalog.js';
+import { exprFor } from './expr.js';
 import { LABEL_NAME, OWN_TYPES, OWN_UNITS } from './naming.js';
 import {
+  exprMetric,
   labelFacts,
   listMetrics,
   metricSeries,
@@ -255,13 +257,9 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
         m.type === 'histogram' && victoria
           ? Promise.all(
               (['p50', 'p99'] as const).map((stat) =>
-                metricSeries(victoria, cluster.scope, m, {
-                  from: Math.floor(Date.now() / 1000),
-                  to: Math.floor(Date.now() / 1000),
-                  step: 15,
-                  stat,
-                })
-                  .then((a) => a.lines[0]?.points.at(-1)?.[1] ?? null)
+                victoria
+                  .query(cluster.scope, exprFor(exprMetric(m), { stat }))
+                  .then((rows) => rows[0]?.points.at(-1)?.[1] ?? null)
                   .catch(() => null),
               ),
             )
