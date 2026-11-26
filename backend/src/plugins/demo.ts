@@ -155,6 +155,7 @@ export const DEMO_QUERY_ROUTES: readonly string[] = [
   'GET /api/v1/clusters/:id/own-metrics/metrics/:metricId',
   'GET /api/v1/clusters/:id/own-metrics/metrics/:metricId/series',
   'GET /api/v1/clusters/:id/own-metrics/pins',
+  'GET /api/v1/own-dashboards/:id',
   'GET /api/v1/clusters/:id/nodes',
   'GET /api/v1/clusters/:id/nodes/:name',
   'GET /api/v1/clusters/:id/workloads',

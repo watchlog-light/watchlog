@@ -195,7 +195,14 @@ export interface SeededOrg {
   expectedIds: [string, string];
   apiToken: { id: string; value: string };
   /** Your metrics (1.0.0): a write-only token and a panel-added endpoint on the Kubernetes cluster. */
-  own: { tokenId: string; token: string; sourceId: string; metricId: string; pinId: string };
+  own: {
+    tokenId: string;
+    token: string;
+    sourceId: string;
+    metricId: string;
+    pinId: string;
+    dashboardId: string;
+  };
   inviteId: string;
   /** Strings and ids that only this org's data contains. */
   markers: string[];
@@ -827,6 +834,20 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
       name: 'coredns',
     },
   });
+  const ownDashboard = await api('POST', '/own-dashboards', { name: `${label} shop` });
+  await api('PUT', `/own-dashboards/${ownDashboard.id as string}`, {
+    widgets: [
+      {
+        id: 'w1',
+        clusterId: k8s.id,
+        metric: `${label}_orders_total`,
+        title: `${label} orders`,
+        shape: 'line',
+        by: null,
+        w: 6,
+      },
+    ],
+  });
   const invite = await api('POST', '/users/invites', {
     email: `invitee@${label}.test`,
     role: 'viewer',
@@ -878,6 +899,7 @@ export async function seedOrg(w: CloudWorld, label: 'zzalpha' | 'zzbeta'): Promi
       sourceId: ownSource.id as string,
       metricId: ownMetric.id,
       pinId: ownPin.id as string,
+      dashboardId: ownDashboard.id as string,
     },
     inviteId,
     markers,

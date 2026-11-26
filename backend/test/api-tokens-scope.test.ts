@@ -28,6 +28,8 @@ const ALLOWED = [
   'GET /api/v1/applications/collectors',
   'GET /api/v1/applications/discovered',
   'GET /api/v1/causes',
+  'GET /api/v1/own-dashboards',
+  'GET /api/v1/own-dashboards/:id',
   'GET /api/v1/clusters',
   'GET /api/v1/clusters/:id',
   'GET /api/v1/clusters/:id/agents',

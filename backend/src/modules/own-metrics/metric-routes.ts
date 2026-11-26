@@ -15,6 +15,7 @@ import { ProblemSchema } from '../auth/schemas.js';
 import { clusterForOrg } from '../clusters/service.js';
 import { OWN_PINS_PER_PAGE } from '../entitlements/own-metrics.js';
 import { chooseStep } from '../query/catalog.js';
+import { dashboardsOf } from './dashboard-routes.js';
 import { exprFor } from './expr.js';
 import { LABEL_NAME, OWN_TYPES, OWN_UNITS } from './naming.js';
 import {
@@ -230,6 +231,7 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
             ),
             usedIn: Type.Object({
               pins: Type.Array(Type.Object({ id: Type.String(), owner: OwnerS })),
+              dashboards: Type.Array(Type.Object({ id: Type.String(), name: Type.String() })),
             }),
           }),
           401: ProblemSchema,
@@ -244,7 +246,7 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
       await own.flush();
       const [m] = await listMetrics(db, cluster.id, { ids: [request.params.metricId] });
       if (!m) return sendProblem(reply, 404, 'Metric not found');
-      const [[metric], labels, pins, quantiles] = await Promise.all([
+      const [[metric], labels, pins, quantiles, dashboards] = await Promise.all([
         withValues(cluster.scope, [m]),
         labelFacts(db, cluster.id, m.id),
         db
@@ -264,6 +266,7 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
               ),
             )
           : Promise.resolve([null, null]),
+        dashboardsOf(db, cluster.org_id, cluster.id, m.name),
       ]);
       return {
         metric: metric!,
@@ -271,6 +274,7 @@ export const ownMetricReadRoutes: FastifyPluginAsyncTypebox<OwnMetricRoutesOptio
         p99: quantiles[1] ?? null,
         labels,
         usedIn: {
+          dashboards,
           pins: pins.map((p) => ({
             id: p.id,
             owner: {

@@ -644,6 +644,16 @@ export interface Orgs {
   updated_at: Generated<Timestamp>;
 }
 
+export interface OwnDashboards {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: string;
+  name: string;
+  org_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  widgets: Generated<Json>;
+}
+
 export interface OwnMetrics {
   cluster_id: string;
   first_seen: Generated<Timestamp>;
@@ -1093,6 +1103,7 @@ export interface DB {
   onboarding_states: OnboardingStates;
   org_deletions: OrgDeletions;
   orgs: Orgs;
+  own_dashboards: OwnDashboards;
   own_metric_tokens: OwnMetricTokens;
   own_metrics: OwnMetrics;
   own_pins: OwnPins;

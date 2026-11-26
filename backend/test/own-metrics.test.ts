@@ -1564,3 +1564,220 @@ describe('reading: the list, a metric, its line, corrections and pins', () => {
     ).toEqual([]);
   });
 });
+
+describe('dashboards of own metrics', () => {
+  const BEHIND = 60_000;
+  beforeEach(() => start({}, { now: () => Date.now() - BEHIND }));
+
+  const widget = (c: Cluster, over: Record<string, unknown> = {}) => ({
+    id: 'w1',
+    clusterId: c.id,
+    metric: 'jobs_waiting',
+    title: '',
+    shape: 'line',
+    by: null,
+    w: 6,
+    ...over,
+  });
+
+  async function withMetrics() {
+    const c = await cluster('kubernetes');
+    const t = await token(c);
+    await push(t.value, {
+      metrics: [
+        { name: 'jobs_waiting', value: 12, labels: { queue: 'mail' } },
+        { name: 'orders_created_total', value: 3 },
+      ],
+    });
+    await fetch(`${TEST_VM_URL}/internal/force_flush`);
+    return c;
+  }
+
+  it('Owners and Admins build them; everyone reads; a widget shows what its metric is now', async () => {
+    const c = await withMetrics();
+    const viewer = await createUserSession(ctx.db, { role: 'viewer', orgId: c.orgId });
+    expect((await api('POST', '/own-dashboards', { name: 'x' }, viewer.cookie)).statusCode).toBe(
+      403,
+    );
+    const made = await api('POST', '/own-dashboards', { name: ' Shop business ' });
+    expect(made.statusCode).toBe(201);
+    const id = made.json().id as string;
+    expect(made.json().name).toBe('Shop business');
+    expect((await api('POST', '/own-dashboards', { name: 'shop BUSINESS' })).statusCode).toBe(409);
+
+    const saved = await api('PUT', `/own-dashboards/${id}`, {
+      widgets: [
+        widget(c, { id: 'a', shape: 'number', w: 3 }),
+        widget(c, {
+          id: 'b',
+          metric: 'orders_created_total',
+          title: 'Orders',
+          shape: 'bars',
+          w: 8,
+        }),
+        widget(c, { id: 'c', by: 'queue', shape: 'area', w: 4 }),
+        widget(c, { id: 'd', metric: 'gone_metric', w: 12 }),
+      ],
+    });
+    expect(saved.statusCode, saved.body).toBe(200);
+    const d = (await api('GET', `/own-dashboards/${id}`, undefined, viewer.cookie)).json();
+    expect(d.name).toBe('Shop business');
+    expect(
+      d.widgets.map((w: { id: string; w: number; shape: string }) => [w.id, w.w, w.shape]),
+    ).toEqual([
+      ['a', 3, 'number'],
+      ['b', 8, 'bars'],
+      ['c', 4, 'area'],
+      ['d', 12, 'line'],
+    ]);
+    // A title left empty starts as the metric's words.
+    expect(d.widgets[0]).toMatchObject({
+      title: 'Jobs waiting',
+      clusterName: 'kubernetes',
+      resolved: {
+        name: 'jobs_waiting',
+        type: 'gauge',
+        shown: 'as_is',
+        value: 12,
+        labels: ['queue'],
+      },
+    });
+    expect(d.widgets[1]).toMatchObject({
+      title: 'Orders',
+      resolved: { type: 'counter', shown: 'rate' },
+    });
+    expect(d.widgets[2].by).toBe('queue');
+    // A metric that doesn't report: the widget stays and says so.
+    expect(d.widgets[3]).toMatchObject({ title: 'Gone metric', resolved: null });
+
+    const list = (await api('GET', '/own-dashboards', undefined, viewer.cookie)).json();
+    expect(list).toEqual({
+      dashboards: [{ id, name: 'Shop business', widgets: 4 }],
+      limits: { dashboards: 50, widgetsPerDashboard: 24 },
+    });
+    // Where a metric is used.
+    const metrics = (await api('GET', `/clusters/${c.id}/own-metrics/metrics`)).json().metrics;
+    const jobs = metrics.find((m: { name: string }) => m.name === 'jobs_waiting');
+    const detail = (await api('GET', `/clusters/${c.id}/own-metrics/metrics/${jobs.id}`)).json();
+    expect(detail.usedIn.dashboards).toEqual([{ id, name: 'Shop business' }]);
+
+    expect(
+      (await api('PUT', `/own-dashboards/${id}`, { name: 'Shop' }, viewer.cookie)).statusCode,
+    ).toBe(403);
+    const renamed = await api('PUT', `/own-dashboards/${id}`, { name: 'Shop' });
+    expect(renamed.json()).toMatchObject({ name: 'Shop' });
+    expect(renamed.json().widgets).toHaveLength(4);
+    expect(
+      (await api('DELETE', `/own-dashboards/${id}`, undefined, viewer.cookie)).statusCode,
+    ).toBe(403);
+    expect((await api('DELETE', `/own-dashboards/${id}`)).statusCode).toBe(204);
+    expect((await api('GET', `/own-dashboards/${id}`)).statusCode).toBe(404);
+  });
+
+  it('a widget is a metric, a shape, a label and a size: nothing else is taken', async () => {
+    const c = await withMetrics();
+    const id = (await api('POST', '/own-dashboards', { name: 'D' })).json().id as string;
+    const put = (widgets: unknown[]) => api('PUT', `/own-dashboards/${id}`, { widgets });
+    const other = await createUserSession(ctx.db, { role: 'owner' });
+    const theirs = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/clusters',
+      cookies: { wl_session: other.cookie },
+      payload: { name: 'theirs', kind: 'kubernetes' },
+    });
+    for (const [bad, why] of [
+      [widget(c, { clusterId: theirs.json().cluster.id }), /not yours/],
+      [widget(c, { metric: 'watchlog_node_cpu_usage_cores' }), /Not one of your metrics/],
+      [widget(c, { metric: 'sum(rate(x[5m]))' }), /Not one of your metrics/],
+      [widget(c, { by: 'wl_own' }), /Not a label/],
+      [widget(c, { by: 'a,b' }), /Not a label/],
+    ] as const) {
+      const res = await put([bad]);
+      expect(res.statusCode, JSON.stringify(bad)).toBe(400);
+      expect(res.json().detail).toMatch(why);
+    }
+    // The schema refuses anything a widget doesn't have.
+    for (const bad of [
+      widget(c, { shape: 'pie' }),
+      widget(c, { w: 5 }),
+      widget(c, { id: 'has space' }),
+      { ...widget(c), query: 'up' },
+    ]) {
+      const res = await put([bad]);
+      // An unknown property is dropped, never stored; the rest is a 400.
+      if ('query' in bad) {
+        expect(res.statusCode).toBe(200);
+        expect(JSON.stringify(res.json())).not.toContain('query');
+      } else expect(res.statusCode, JSON.stringify(bad)).toBe(400);
+    }
+    expect((await put([widget(c), widget(c)])).json().detail).toMatch(/share the id/);
+    // Another org can't read or change it.
+    expect((await api('GET', `/own-dashboards/${id}`, undefined, other.cookie)).statusCode).toBe(
+      404,
+    );
+    expect(
+      (await api('PUT', `/own-dashboards/${id}`, { name: 'x' }, other.cookie)).statusCode,
+    ).toBe(404);
+    expect(
+      (await api('GET', '/own-dashboards', undefined, other.cookie)).json().dashboards,
+    ).toEqual([]);
+  });
+
+  it('a copy has the same widgets under new ids', async () => {
+    const c = await withMetrics();
+    const id = (await api('POST', '/own-dashboards', { name: 'Shop' })).json().id as string;
+    await api('PUT', `/own-dashboards/${id}`, {
+      widgets: [widget(c, { id: 'a' }), widget(c, { id: 'b', w: 12 })],
+    });
+    const copy = await api('POST', '/own-dashboards', { name: 'Shop copy', copyOf: id });
+    expect(copy.statusCode).toBe(201);
+    const d = (await api('GET', `/own-dashboards/${copy.json().id}`)).json();
+    expect(d.widgets.map((w: { metric: string; w: number }) => [w.metric, w.w])).toEqual([
+      ['jobs_waiting', 6],
+      ['jobs_waiting', 12],
+    ]);
+    expect(d.widgets.map((w: { id: string }) => w.id)).not.toContain('a');
+    expect(
+      (await api('POST', '/own-dashboards', { name: 'Nope', copyOf: newId() })).statusCode,
+    ).toBe(404);
+  });
+
+  it('Cloud Free: one dashboard of 8 widgets; a downgrade keeps what there is', async () => {
+    const c = await withMetrics();
+    const pro = await ctx.app.ownMetrics.usage(c.orgId);
+    const many = (n: number) => Array.from({ length: n }, (_, i) => widget(c, { id: `w${i}` }));
+    const first = (await api('POST', '/own-dashboards', { name: 'One' })).json().id as string;
+    const second = (await api('POST', '/own-dashboards', { name: 'Two' })).json().id as string;
+    expect((await api('PUT', `/own-dashboards/${second}`, { widgets: many(12) })).statusCode).toBe(
+      200,
+    );
+    expect((await api('PUT', `/own-dashboards/${second}`, { widgets: many(25) })).statusCode).toBe(
+      402,
+    );
+
+    // The org is now on Free.
+    const free = ownMetricLimits({ edition: 'cloud', plan: 'free', pro: false });
+    ctx.app.ownMetrics.usage = async () => ({ ...pro, limits: free });
+    const third = await api('POST', '/own-dashboards', { name: 'Three' });
+    expect(third.statusCode).toBe(402);
+    expect(third.json()).toMatchObject({ code: 'plan-limit', limit: 'own-dashboards', max: 1 });
+    const grow = await api('PUT', `/own-dashboards/${first}`, { widgets: many(9) });
+    expect(grow.statusCode).toBe(402);
+    expect(grow.json()).toMatchObject({ code: 'plan-limit', limit: 'own-widgets', max: 8 });
+    expect((await api('PUT', `/own-dashboards/${first}`, { widgets: many(8) })).statusCode).toBe(
+      200,
+    );
+    // What it had before stays readable and can be rearranged or shrunk, not grown.
+    expect((await api('GET', `/own-dashboards/${second}`)).json().widgets).toHaveLength(12);
+    expect(
+      (await api('PUT', `/own-dashboards/${second}`, { widgets: many(12).reverse() })).statusCode,
+    ).toBe(200);
+    expect((await api('PUT', `/own-dashboards/${second}`, { widgets: many(13) })).statusCode).toBe(
+      402,
+    );
+    expect((await api('GET', '/own-dashboards')).json().limits).toEqual({
+      dashboards: 1,
+      widgetsPerDashboard: 8,
+    });
+  });
+});

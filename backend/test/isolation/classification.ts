@@ -359,6 +359,12 @@ export const ROUTES: Record<string, RouteClass> = {
     control: 'the generated owner is not the metric’s: 404 for A too, with nothing of A in it',
   },
   'DELETE /api/v1/clusters/:id/own-metrics/pins/:pinId': org,
+  // Dashboards of own metrics (1.0.0, ADR-237): the org's rows.
+  'GET /api/v1/own-dashboards': org,
+  'GET /api/v1/own-dashboards/:id': org,
+  'POST /api/v1/own-dashboards': org,
+  'PUT /api/v1/own-dashboards/:id': { kind: 'org', body: { name: 'probe renamed' } },
+  'DELETE /api/v1/own-dashboards/:id': org,
   'GET /api/v1/api-tokens': org,
   'POST /api/v1/api-tokens': org,
   'GET /api/v1/api-tokens/:id': org,

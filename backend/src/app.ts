@@ -60,6 +60,7 @@ import { dockerRoutes } from './modules/docker/routes.js';
 import { Belonging } from './modules/own-metrics/belonging.js';
 import { ownLimitsProvider } from './modules/own-metrics/limits.js';
 import { Probes } from './modules/own-metrics/probes.js';
+import { ownDashboardRoutes } from './modules/own-metrics/dashboard-routes.js';
 import { ownMetricReadRoutes } from './modules/own-metrics/metric-routes.js';
 import { ownMetricsRoutes } from './modules/own-metrics/routes.js';
 import { OwnMetrics } from './modules/own-metrics/service.js';
@@ -491,6 +492,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         endpointFor: installTarget(config, settings).endpointFor,
       });
       await api.register(ownMetricReadRoutes, { db: deps.db, own, victoria });
+      await api.register(ownDashboardRoutes, { db: deps.db, own, victoria });
       // Cloud only (ADR-173): Community never registers these, so they answer 404.
       if (accounts && entitlements) {
         await registerCloudOnly(api, config.edition, cloudApiRoutes, {

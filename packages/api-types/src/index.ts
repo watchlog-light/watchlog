@@ -308,3 +308,11 @@ export type OwnMetricSeries = JsonBody<
 >;
 export type OwnPins = JsonBody<Responses<'/api/v1/clusters/{id}/own-metrics/pins', 'get'>[200]>;
 export type OwnPin = OwnPins['pins'][number];
+
+/** Dashboards of own metrics (1.0.0, ADR-237). */
+export type OwnDashboardList = JsonBody<Responses<'/api/v1/own-dashboards', 'get'>[200]>;
+export type OwnDashboard = JsonBody<Responses<'/api/v1/own-dashboards/{id}', 'get'>[200]>;
+export type OwnWidget = OwnDashboard['widgets'][number];
+export type OwnWidgetInput = NonNullable<
+  RequestBody<'/api/v1/own-dashboards/{id}', 'put'>['widgets']
+>[number];
