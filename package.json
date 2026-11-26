@@ -18,6 +18,7 @@
     "format:check": "prettier --check .",
     "check:license": "scripts/check-license-headers.sh",
     "check:private": "scripts/check-private-paths.sh",
+    "docs:snippets": "node scripts/docs-snippets.mjs",
     "infra:up": "docker compose -f deploy/docker/compose.dev.yaml up -d --wait",
     "infra:down": "docker compose -f deploy/docker/compose.dev.yaml down",
     "api-types:generate": "pnpm --filter @watchlog/api-types generate"

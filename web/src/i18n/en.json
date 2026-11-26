@@ -6748,7 +6748,7 @@
     "usage": "{used} of {max} series",
     "addSource": "Add a source",
     "error": "Your metrics couldn't be loaded.",
-    "full": "All {max} series of your plan are in use. Series already known keep flowing; new ones are refused.",
+    "full": "All {max} series of your plan are in use. Series already known keep flowing; new ones are refused. A series is one line on a chart (one metric with one set of labels), not a call: sending the same ones more often uses no more.",
     "fullLink": "See what each source dropped",
     "ago": "ago",
     "tabs": {
@@ -7145,7 +7145,7 @@
       "dropped": {
         "sources": "Over your plan's {max} sources: nothing of it is stored. Remove a source, or upgrade.",
         "sourceCap": "1 series dropped: an endpoint or a token's pushes bring at most {max}. | {n} series dropped: an endpoint or a token's pushes bring at most {max}.",
-        "orgCap": "1 new series refused: all {max} series of your plan are in use. | {n} new series refused: all {max} series of your plan are in use.",
+        "orgCap": "1 new series refused: all {max} series of your plan are in use. A series is one line on a chart, not a call: the ones you already send keep flowing however often you send. | {n} new series refused: all {max} series of your plan are in use. A series is one line on a chart, not a call: the ones you already send keep flowing however often you send.",
         "cardinality": "{metric} refused: too many values for {label}.",
         "reserved": "1 series refused: names starting watchlog_ are WatchLog's own. | {n} series refused: names starting watchlog_ are WatchLog's own.",
         "invalid": "1 series dropped: not a valid metric or label name. | {n} series dropped: not a valid metric or label name."

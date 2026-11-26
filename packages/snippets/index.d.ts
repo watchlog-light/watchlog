@@ -44,3 +44,9 @@ export type ExposeLang = 'node' | 'python' | 'go' | 'php' | 'java';
 export declare const EXPOSE_LANGS: readonly ExposeLang[];
 export declare const EXPOSE_LANG_NAMES: Readonly<Record<ExposeLang, string>>;
 export declare function exposeSnippet(lang: ExposeLang): string;
+
+/** [code fence language, code] of a docs marker's id; null when unknown. */
+export declare function docSnippet(id: string): [string, string] | null;
+/** A Markdown page with every `<!-- snippet:id -->…<!-- /snippet -->` filled from here. */
+export declare function fillDocSnippets(markdown: string): string;
+export declare function docSnippetIds(markdown: string): string[];

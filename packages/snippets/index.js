@@ -316,3 +316,62 @@ export function exposeSnippet(lang) {
   if (!lines) throw new Error(`no /metrics snippet in ${lang}`);
   return lines.join('\n');
 }
+
+// ------------------------------------------------------------------ the docs' copies
+
+/** What the docs show where the page shows the installation's own address and names. */
+const DOC = {
+  endpoint: 'https://<your WatchLog>',
+  token: '',
+  name: PUSH_EXAMPLE.name,
+  value: PUSH_EXAMPLE.value,
+  owner: { server: 'web-1' },
+};
+const FENCE = { curl: 'bash', cron: 'bash', node: 'js', python: 'python', php: 'php', go: 'go' };
+const EXPOSE_FENCE = { node: 'js', python: 'python', go: 'go', php: 'php', java: 'java' };
+
+/** The snippet a docs marker names, with its code fence's language; null for an unknown id. */
+export function docSnippet(id) {
+  const [kind, lang] = id.split(':');
+  if (kind === 'push' && PUSH_LANGS.includes(lang)) return [FENCE[lang], pushSnippet(lang, DOC)];
+  if (kind === 'push-timestamp')
+    return ['bash', pushSnippet('cron', { ...DOC, name: 'backup_last_success_timestamp_seconds' })];
+  if (kind === 'expose' && EXPOSE_LANGS.includes(lang))
+    return [EXPOSE_FENCE[lang], exposeSnippet(lang)];
+  if (id === 'remote-write') return ['yaml', remoteWriteSnippet(DOC.endpoint, '')];
+  if (id === 'annotation') return ['yaml', annotationSnippet()];
+  if (id === 'kubectl-patch')
+    return [
+      'bash',
+      kubectlPatchSnippet({ namespace: 'shop', kind: 'Deployment', name: 'orders', port: 8080 }),
+    ];
+  if (id === 'metrics-sample') return ['text', METRICS_SAMPLE];
+  return null;
+}
+
+const MARK = /<!-- snippet:([a-z:-]+) -->[\s\S]*?<!-- \/snippet -->/g;
+
+/**
+ * A Markdown page with every `<!-- snippet:id -->…<!-- /snippet -->` filled from here, so the
+ * docs can't drift from the page. The formatter is told to leave the block as it is written.
+ */
+export function fillDocSnippets(markdown) {
+  return markdown.replace(MARK, (whole, id) => {
+    const s = docSnippet(id);
+    if (!s) throw new Error(`docs: no snippet named ${id}`);
+    return [
+      `<!-- snippet:${id} -->`,
+      '<!-- prettier-ignore-start -->',
+      `\`\`\`${s[0]}`,
+      s[1],
+      '```',
+      '<!-- prettier-ignore-end -->',
+      '<!-- /snippet -->',
+    ].join('\n');
+  });
+}
+
+/** The snippet ids a page uses, for the test that every one is known. */
+export function docSnippetIds(markdown) {
+  return [...markdown.matchAll(MARK)].map((m) => m[1]);
+}
