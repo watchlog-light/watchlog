@@ -63,6 +63,14 @@ backend:
   # Your metrics (1.0.0): how many series of your own metrics the installation keeps active at
   # once. New series over it are refused; WatchLog's own monitoring is never affected.
   ownMetricSeries: 20000
+  # Your metrics (1.0.3): when the backend is strained, calls with your own metrics are answered
+  # 503 for a moment and the agents' data keeps being taken. The backend is "strained" when its
+  # event loop lags this many milliseconds, this many writes to VictoriaMetrics are in flight,
+  # or this many queries wait for a PostgreSQL connection. 0 turns a signal off.
+  shed:
+    eventLoopLagMs: 200
+    metricWritesInFlight: 100
+    dbWaiting: 50
   # A header the proxy in front sets to the visitor's address (nginx: X-Real-IP), so rate
   # limits count each visitor. Leave empty unless that proxy always sets it.
   clientIpHeader: ''

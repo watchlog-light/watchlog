@@ -44,6 +44,10 @@ spec:
             - { name: WATCHLOG_EVENTS_RETENTION_DAYS, value: {{ .Values.backend.eventsRetentionDays | quote }} }
             {{- /* Nil-safe: a values file from before 1.0.0 has no such key (ADR-107). */}}
             - { name: WATCHLOG_OWN_METRIC_SERIES, value: {{ .Values.backend.ownMetricSeries | default 20000 | int64 | quote }} }
+            {{- /* Nil-safe: a values file from before 1.0.3 has no `shed` (ADR-107). 0 turns a signal off. */}}
+            - { name: WATCHLOG_SHED_EVENT_LOOP_LAG_MS, value: {{ dig "shed" "eventLoopLagMs" 200 .Values.backend | int64 | quote }} }
+            - { name: WATCHLOG_SHED_METRIC_WRITES_IN_FLIGHT, value: {{ dig "shed" "metricWritesInFlight" 100 .Values.backend | int64 | quote }} }
+            - { name: WATCHLOG_SHED_DB_WAITING, value: {{ dig "shed" "dbWaiting" 50 .Values.backend | int64 | quote }} }
             - { name: WATCHLOG_BOOTSTRAP_CLUSTER_NAME, value: {{ .Values.clusterName | quote }} }
             - name: WATCHLOG_BOOTSTRAP_CLUSTER_TOKEN
               valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-cluster-token, key: token } }

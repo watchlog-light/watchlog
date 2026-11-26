@@ -90,6 +90,10 @@ services:
       WATCHLOG_MCP_ENABLED: ${WATCHLOG_MCP_ENABLED:-true}
       # Your metrics: series of your own metrics kept active at once.
       WATCHLOG_OWN_METRIC_SERIES: ${WATCHLOG_OWN_METRIC_SERIES:-20000}
+      # Your metrics: when the backend is strained, calls with your own metrics give way first.
+      WATCHLOG_SHED_EVENT_LOOP_LAG_MS: ${WATCHLOG_SHED_EVENT_LOOP_LAG_MS:-200}
+      WATCHLOG_SHED_METRIC_WRITES_IN_FLIGHT: ${WATCHLOG_SHED_METRIC_WRITES_IN_FLIGHT:-100}
+      WATCHLOG_SHED_DB_WAITING: ${WATCHLOG_SHED_DB_WAITING:-50}
       WATCHLOG_TRUSTED_PROXIES: ${WATCHLOG_TRUSTED_PROXIES:-}
       WATCHLOG_COOKIE_SECURE: ${WATCHLOG_COOKIE_SECURE:-}
     depends_on:
