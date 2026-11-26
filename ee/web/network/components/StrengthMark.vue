@@ -10,7 +10,7 @@ defineProps<{ strength: 'older' | 'plain' }>();
 
 <template>
   <span
-    class="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-1.5 py-px text-11 leading-4 whitespace-nowrap text-text-muted"
+    class="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-1.5 py-px text-12 leading-4 whitespace-nowrap text-text-muted"
     :title="$t(`netAdd.cred.strengthHint.${strength}`)"
     :data-testid="`strength-${strength}`"
   >
