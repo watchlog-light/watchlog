@@ -78,8 +78,20 @@ export function ownChartOption(input: OwnChartInput, colors: OwnColors): Record<
   const colorOf = (l: OwnLine, i: number) =>
     l.colorToken ? colors.token(l.colorToken) : colors.palette[i % colors.palette.length]!;
 
+  // The top of the axis. Stacked series (a split drawn as areas or as bars) reach the sum of
+  // the series at each moment, not the largest one: scaled to the largest, everything above it
+  // was drawn outside the chart (1.0.1).
   let top = 0;
-  for (const l of lines) for (const p of l.points) top = Math.max(top, p[1] ?? 0);
+  if ((shape === 'area' || shape === 'bars') && !single) {
+    const sums = new Map<number, number>();
+    for (const l of lines)
+      for (const [t, v] of shape === 'bars' ? thin(l.points) : l.points)
+        if (t !== null && t !== undefined && v !== null && v !== undefined)
+          sums.set(t, (sums.get(t) ?? 0) + v);
+    for (const v of sums.values()) top = Math.max(top, v);
+  } else {
+    for (const l of lines) for (const p of l.points) top = Math.max(top, p[1] ?? 0);
+  }
   for (const b of input.band ?? []) top = Math.max(top, b[2] ?? 0);
   const step = niceStep(top || 1, 3);
 
