@@ -428,7 +428,9 @@ async function addRecorders() {
       >
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h3 id="s2" class="text-16 font-semibold text-text">
-            <span class="mr-2 font-mono text-primary">2</span>{{ $t('netAdd.cred.title') }}
+            <!-- A Viewer sees this section alone: no step number. -->
+            <span v-if="auth.canManage" class="mr-2 font-mono text-primary">2</span
+            >{{ $t('netAdd.cred.title') }}
           </h3>
           <BaseButton
             v-if="!creating && auth.canManage"
@@ -459,7 +461,7 @@ async function addRecorders() {
             :key="c.id"
             class="flex items-stretch rounded-card border bg-surface-2"
             :class="[
-              chosen.includes(c.id) ? 'border-primary' : 'border-border',
+              auth.canManage && chosen.includes(c.id) ? 'border-primary' : 'border-border',
               editingId === c.id ? 'ring-1 ring-primary' : '',
             ]"
             :data-testid="`cred-card-${c.name}`"
@@ -562,12 +564,15 @@ async function addRecorders() {
               class="size-4 shrink-0 text-text-muted transition-transform group-open:rotate-90"
               aria-hidden="true"
             />
-            <span class="min-w-0">{{ $t('netAdd.setup.title') }}</span>
-            <span
-              class="shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-12 font-normal text-text-muted"
-              >{{ guideProtocols }}</span
-            >
-            <span class="ml-auto hidden shrink-0 text-12 font-normal text-text-subtle sm:inline">{{
+            <!-- On a narrow window the protocols go under the title, not beside it. -->
+            <span class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 py-2">
+              <span class="min-w-0">{{ $t('netAdd.setup.title') }}</span>
+              <span
+                class="shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-12 font-normal text-text-muted"
+                >{{ guideProtocols }}</span
+              >
+            </span>
+            <span class="hidden shrink-0 text-12 font-normal text-text-subtle sm:inline">{{
               $t('netAdd.setup.help')
             }}</span>
           </summary>

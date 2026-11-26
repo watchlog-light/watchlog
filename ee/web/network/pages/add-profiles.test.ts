@@ -280,6 +280,25 @@ describe('Test against an address', () => {
     expect(calls.some((c) => c.path === `${BASE}/credentials` && c.method === 'POST')).toBe(false);
   });
 
+  it('says after a while that an older collector answers with its next round', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const { w } = await page({
+      ...lists([V3]),
+      [`POST ${BASE}/credential-tests`]: { status: 201, body: { id: 't3' } },
+      [`GET ${BASE}/credential-tests/t3`]: { status: 200, body: { id: 't3', done: false } },
+    });
+    await w.get(tid('cred-edit-switches-v3')).trigger('click');
+    await w.get(`${tid('cred-test-address')} input`).setValue('10.0.10.2');
+    await w.get(tid('cred-test-run')).trigger('click');
+    await flushPromises();
+    expect(w.find(tid('cred-test-running')).exists()).toBe(true);
+    expect(w.find(tid('cred-test-slow')).exists()).toBe(false);
+    await vi.advanceTimersByTimeAsync(8100);
+    await flushPromises();
+    expect(w.get(tid('cred-test-slow')).text()).toContain('A collector older than 1.0.2');
+    w.unmount();
+  });
+
   it("asks for what is missing instead of calling, and says the server's refusal", async () => {
     const { w, calls } = await page({
       ...lists([V3]),

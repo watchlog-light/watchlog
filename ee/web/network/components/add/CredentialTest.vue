@@ -56,6 +56,15 @@ watch(
 );
 
 const running = ref(false);
+/** Waiting longer than a 1.0.2 collector takes: an older one answers with its next round. */
+const slow = ref(false);
+const SLOW_MS = 8000;
+let slowTimer: ReturnType<typeof setTimeout> | undefined;
+watch(running, (on) => {
+  clearTimeout(slowTimer);
+  slow.value = false;
+  if (on) slowTimer = setTimeout(() => (slow.value = true), SLOW_MS);
+});
 const result = ref<CredentialTest | null>(null);
 const error = ref('');
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -63,6 +72,7 @@ let run = 0;
 onBeforeUnmount(() => {
   run++;
   clearTimeout(timer);
+  clearTimeout(slowTimer);
 });
 
 const addressOk = computed(() => /^[A-Za-z0-9.:_-]{1,253}$/.test(address.value.trim()));
@@ -173,7 +183,11 @@ const sentence = computed(() => {
       role="status"
       data-testid="cred-test-running"
     >
-      <LoaderCircle class="size-4 animate-spin" aria-hidden="true" />{{ $t('netAdd.test.running') }}
+      <LoaderCircle class="size-4 shrink-0 animate-spin" aria-hidden="true" />
+      <span class="min-w-0"
+        >{{ $t('netAdd.test.running') }}
+        <span v-if="slow" data-testid="cred-test-slow">{{ $t('netAdd.test.slow') }}</span></span
+      >
     </p>
     <p
       v-else-if="result"

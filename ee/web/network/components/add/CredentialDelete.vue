@@ -93,11 +93,13 @@ async function remove() {
         </ul>
         <template v-if="others.length">
           <div class="flex flex-col gap-1.5">
-            <span class="text-13 font-medium text-text">{{ $t('netAdd.remove.moveTo') }}</span>
+            <span class="text-13 font-medium text-text">{{
+              $t('netAdd.remove.moveTo', devices.length)
+            }}</span>
             <ComboBox
               v-model="to"
               :options="others"
-              :label="$t('netAdd.remove.moveTo')"
+              :label="$t('netAdd.remove.moveTo', devices.length)"
               :placeholder="$t('netAdd.remove.choose')"
               testid="cred-delete-to"
             />

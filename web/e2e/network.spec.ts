@@ -104,7 +104,7 @@ for (const width of [1440, 390]) {
     const all = await page.getByTestId('network-device-row').count();
     // The filters are Comboboxes (ADR-239): open, pick the option by its name.
     await page.getByTestId('filter-kind').click();
-    await page.getByRole('option', { name: 'Routers', exact: true }).click();
+    await page.getByRole('option', { name: 'Router', exact: true }).click();
     await expect(page.getByTestId('network-device-row')).toHaveCount(1);
     await page.getByTestId('filter-kind').click();
     await page.getByRole('option', { name: 'All kinds', exact: true }).click();
