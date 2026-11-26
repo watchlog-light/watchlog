@@ -98,6 +98,9 @@ async function sendTest() {
 <template>
   <div class="flex flex-col" data-testid="own-push">
     <StepRow :n="1" :title="$t('ownMetrics.add.token.h')">
+      <p class="mb-3 text-13 leading-relaxed text-text-muted">
+        {{ $t('ownMetrics.add.token.what') }}
+      </p>
       <TokenStep
         ref="tokenStep"
         :cluster="cluster"
@@ -111,6 +114,9 @@ async function sendTest() {
     </StepRow>
 
     <StepRow :n="2" :title="$t('ownMetrics.add.push.number')">
+      <p class="mb-3 text-13 leading-relaxed text-text-muted">
+        {{ $t('ownMetrics.add.push.yours') }}
+      </p>
       <div class="grid gap-3 sm:grid-cols-3">
         <label class="flex min-w-0 flex-col gap-1.5 text-13 font-medium text-text">
           {{
@@ -180,6 +186,9 @@ async function sendTest() {
     </StepRow>
 
     <StepRow :n="3" :title="$t('ownMetrics.add.push.run')">
+      <p class="mb-3 text-13 leading-relaxed text-text-muted">
+        {{ $t('ownMetrics.add.push.where') }}
+      </p>
       <div
         role="tablist"
         class="flex flex-wrap gap-1.5"

@@ -123,9 +123,11 @@ async function remove() {
               <template v-if="owners(s).length">
                 <template v-for="(o, i) in owners(s)" :key="o.text">
                   {{ i ? ', ' : ''
-                  }}<RouterLink v-if="o.to" :to="o.to" class="text-link hover:underline">{{
-                    o.text
-                  }}</RouterLink
+                  }}<RouterLink
+                    v-if="o.to"
+                    :to="o.to"
+                    class="text-link hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center"
+                    >{{ o.text }}</RouterLink
                   ><template v-else>{{ o.text }}</template>
                 </template>
               </template>

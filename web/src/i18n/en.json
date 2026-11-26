@@ -6894,14 +6894,15 @@
         "create": "Create a token",
         "another": "Create another",
         "nameNeeded": "Give the token a name.",
-        "once": "Shown once. It can only send, never read.",
+        "once": "Shown once: copy it now if you will use it elsewhere. It is already in the command below. It can only send, never read.",
         "have": "You have 1 token here ({names}). Its value was shown once and can't be shown again. | You have {n} tokens here ({names}). Their values were shown once and can't be shown again.",
         "haveUse": "Use one you kept: paste it where the command says wl_mt_…, and choose it here so this page can tell you when its value arrives.",
         "watch": "The token you will use",
         "watchPick": "Choose a token",
         "value": "Your token",
         "fill": "Create a token to fill this in.",
-        "locked": "A token is created by an Owner or an Admin."
+        "locked": "A token is created by an Owner or an Admin.",
+        "what": "A token is a password for sending: whoever has it can send numbers to this place, and nothing else."
       },
       "push": {
         "number": "Your number",
@@ -6937,7 +6938,9 @@
         "orTest": "or, with no terminal:",
         "test": "Send a test value for me",
         "testFailed": "The test value couldn't be sent.",
-        "more": "Several values go in one call, as a \"metrics\" list. A \"labels\" object splits a metric: with a method label, one line per payment method."
+        "more": "Several values go in one call, as a \"metrics\" list. A \"labels\" object splits a metric: with a method label, one line per payment method.",
+        "yours": "orders_total and 1 are examples: call it what it counts, and send your own number.",
+        "where": "In a terminal on any machine that can reach this address, or from your own script or job. It sends the value once."
       },
       "first": {
         "waiting": "Waiting for your first value…",
@@ -7001,7 +7004,8 @@
           "prometheus": "Also scrape pods annotated prometheus.io/scrape",
           "prometheusOn": "Pods annotated prometheus.io/scrape are scraped too."
         },
-        "added": "Added. Its metrics appear within a minute; the table below shows it."
+        "added": "Added. Its metrics appear within a minute; the table below shows it.",
+        "testVsAdd": "Test reads the address once and says what it found. Scrape it reads it every 30 seconds from now on."
       },
       "test": {
         "running": "Asking the collector to read {address}…",
@@ -7107,7 +7111,7 @@
       "button": "Find endpoints for me",
       "about": "Tries /metrics on the ports WatchLog already sees. Nothing restarts.",
       "failed": "The search couldn't be started.",
-      "nothingToTry": "Nothing to try: no port is open here that isn't scraped already or known never to serve metrics.",
+      "nothingToTry": "Nothing to try: WatchLog sees no listening port here that could have a /metrics page.",
       "searching": "Trying 1 port… | Trying {n} ports…",
       "none": "None answers with metrics.",
       "noAnswer": "No answer from the collector yet. It may be an older version: update the agent and try again.",

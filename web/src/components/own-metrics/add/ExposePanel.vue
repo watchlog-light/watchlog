@@ -290,6 +290,9 @@ const nothing = ref(false);
         </BaseButton>
       </form>
 
+      <p class="text-13 leading-relaxed text-text-muted" data-testid="own-test-vs-add">
+        {{ $t('ownMetrics.add.scrape.testVsAdd') }}
+      </p>
       <AddressTest
         :test="test"
         :running="testing"

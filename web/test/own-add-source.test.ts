@@ -215,9 +215,7 @@ describe('Push a value', () => {
       name: 'my first metrics',
     });
     expect(w.get(tid('own-token-value')).text()).toBe(TOKEN.value);
-    expect(w.get(tid('own-token-made')).text()).toContain(
-      'Shown once. It can only send, never read.',
-    );
+    expect(w.get(tid('own-token-made')).text()).toContain('It can only send, never read.');
     expect(w.get(tid('own-push-code')).text()).toContain(`Bearer ${TOKEN.value}`);
     expect(w.find(tid('own-token-hint')).exists()).toBe(false);
     expect(w.get(tid('own-first-waiting')).text()).toContain('Waiting for your first value…');

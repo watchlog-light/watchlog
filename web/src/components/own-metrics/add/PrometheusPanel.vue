@@ -30,6 +30,9 @@ const code = computed(() => remoteWriteSnippet(props.summary.endpoint, props.mad
       </p>
     </div>
     <StepRow :n="1" :title="$t('ownMetrics.add.token.h')">
+      <p class="mb-3 text-13 leading-relaxed text-text-muted">
+        {{ $t('ownMetrics.add.token.what') }}
+      </p>
       <TokenStep
         :cluster="cluster"
         :summary="summary"
