@@ -18,8 +18,12 @@ import type {
 } from '../../../../backend/src/ee-contract.js';
 import { openSecret, sealSecret, type CredentialRow } from './credentials.js';
 
-/** How long a test may take before the page says the poller didn't answer. */
-export const TEST_MS = 45_000;
+/**
+ * How long a test may take before the page says the poller didn't answer. A 1.0.2 collector
+ * reports a test as soon as it is done (seconds); an older one with its next round, a minute
+ * after it started, so the limit is longer than a round.
+ */
+export const TEST_MS = 100_000;
 /** Tests an org may start in a minute. */
 export const TESTS_PER_MINUTE = 20;
 
