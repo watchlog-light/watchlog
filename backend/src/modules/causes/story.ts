@@ -61,6 +61,8 @@ export type ChangeKind =
   | 'unit_changed'
   | 'release'
   | 'job_run'
+  // Told from outside with a token (ADR-238): a deploy, a config change, a migration.
+  | 'external'
   // A switch or router the place sits behind (ADR-233, from the network module's events).
   | 'port_down'
   | 'port_up'

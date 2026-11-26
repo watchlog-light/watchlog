@@ -17,6 +17,8 @@ export interface RecordedEvent {
   key: string;
   /** The server or Kubernetes node it concerns ('' for the whole place). */
   host: string;
+  /** The namespace of the workload it concerns, when it concerns one. */
+  namespace?: string;
   /** "PortDown", "PortUp", "SpeedChanged", "ErrorsStarted", "DeviceRebooted", "UplinkErrors". */
   reason: string;
   type: 'Normal' | 'Warning';
@@ -40,7 +42,7 @@ export async function recordEvent(
     day: at.toISOString().slice(0, 10) as unknown as Date,
     involved_key: e.key.slice(0, 640),
     reason: e.reason.slice(0, 128),
-    namespace: '',
+    namespace: e.namespace ?? '',
     involved_kind: e.kind,
     involved_name: e.name.slice(0, 512),
     involved_uid: '',

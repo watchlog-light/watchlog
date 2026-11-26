@@ -31,6 +31,11 @@ export const DEMO_ALLOWED: readonly { method: string; url: string; why: string }
   },
   {
     method: 'POST',
+    url: '/api/v1/events',
+    why: "a change event from outside: only a write-only own-metrics token can send one (ADR-238), like the agents' ingest",
+  },
+  {
+    method: 'POST',
     url: '/mcp',
     why: 'the MCP server: its tools only read (ADR-127), the public demo token uses it (ADR-130)',
   },

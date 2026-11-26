@@ -244,8 +244,15 @@ export function telling(events: EvEvent[], from: string): EvEvent | null {
 }
 
 /** Changes that bring a new version: what bad_change and image_pull look for. */
-export const VERSION_KINDS = ['image', 'recreate', 'rollout', 'compose'] as const;
-const PREFER: Record<string, number> = { image: 0, recreate: 1, rollout: 2, compose: 3 };
+export const VERSION_KINDS = ['image', 'recreate', 'rollout', 'compose', 'external'] as const;
+// A change WatchLog saw itself comes before one it was told about (a CI's event, ADR-238).
+const PREFER: Record<string, number> = {
+  image: 0,
+  recreate: 1,
+  rollout: 2,
+  compose: 3,
+  external: 4,
+};
 
 /**
  * The subject's own version changes inside the window that did not come after the symptom,
@@ -303,6 +310,10 @@ export function changeStep(ev: Evidence, m: EvMarker) {
     case 'recreate':
       code = 'recreated';
       facts = { image: String(d.image ?? '') || '?' };
+      break;
+    case 'external':
+      code = 'changed_external';
+      facts = { title: String(d.title ?? ''), source: String(d.source ?? '') };
       break;
     default:
       code = 'compose_up';

@@ -199,6 +199,7 @@ export const ChangeSchema = Type.Object({
     Type.Literal('unit_changed'),
     Type.Literal('release'),
     Type.Literal('job_run'),
+    Type.Literal('external'),
     Type.Literal('port_down'),
     Type.Literal('port_up'),
     Type.Literal('port_speed'),

@@ -484,6 +484,8 @@ describe('every mutating route declares its roles (ADR-140)', () => {
       'POST /api/v1/demo/session',
       'POST /api/v1/invites/:token/accept',
       'POST /api/v1/password-resets/:token',
+      // A change event from outside: a write-only own-metrics token, never a session (ADR-238).
+      'POST /api/v1/events',
     ];
     const undeclared = [...routes]
       .filter(([k, v]) => v === 'NONE' && !PUBLIC.includes(k))

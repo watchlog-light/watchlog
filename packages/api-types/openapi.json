@@ -41969,6 +41969,10 @@
                                         },
                                         {
                                           "type": "string",
+                                          "enum": ["external"]
+                                        },
+                                        {
+                                          "type": "string",
                                           "enum": ["port_down"]
                                         },
                                         {
@@ -42333,6 +42337,10 @@
                                       },
                                       {
                                         "type": "string",
+                                        "enum": ["external"]
+                                      },
+                                      {
+                                        "type": "string",
                                         "enum": ["port_down"]
                                       },
                                       {
@@ -42637,6 +42645,10 @@
                               {
                                 "type": "string",
                                 "enum": ["job_run"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["external"]
                               },
                               {
                                 "type": "string",
@@ -52421,6 +52433,256 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events": {
+      "post": {
+        "summary": "Tell WatchLog about a change: a deploy, a config change, a migration",
+        "tags": ["own-metrics"],
+        "description": "With an own-metrics token (`wl_mt_…`, made under Your metrics → Add a source), from CI or a script. The event shows in Events, as a marker on charts, under \"Changed around then\" in What changed and in probable cause, labelled with the token's name. It never raises an alert.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "\"Deployed orders 2.15.0\""
+                  },
+                  "kind": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["deploy"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["config"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["migration"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["flag"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["other"]
+                      }
+                    ]
+                  },
+                  "workload": {
+                    "type": "string",
+                    "maxLength": 400
+                  },
+                  "server": {
+                    "type": "string",
+                    "maxLength": 253
+                  },
+                  "link": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "pattern": "^https?://"
+                  },
+                  "time": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 40
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["id", "belongsTo"],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "belongsTo": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "string"
+                    },
+                    "max": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
             "description": "Default Response",
             "content": {
               "application/json": {

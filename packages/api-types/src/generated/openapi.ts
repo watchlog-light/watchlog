@@ -14952,6 +14952,7 @@ export interface paths {
                     | 'unit_changed'
                     | 'release'
                     | 'job_run'
+                    | 'external'
                     | 'port_down'
                     | 'port_up'
                     | 'port_speed'
@@ -15040,6 +15041,7 @@ export interface paths {
                     | 'unit_changed'
                     | 'release'
                     | 'job_run'
+                    | 'external'
                     | 'port_down'
                     | 'port_up'
                     | 'port_speed'
@@ -15124,6 +15126,7 @@ export interface paths {
                   | 'unit_changed'
                   | 'release'
                   | 'job_run'
+                  | 'external'
                   | 'port_down'
                   | 'port_up'
                   | 'port_speed'
@@ -18912,6 +18915,132 @@ export interface paths {
         };
       };
     };
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Tell WatchLog about a change: a deploy, a config change, a migration
+     * @description With an own-metrics token (`wl_mt_…`, made under Your metrics → Add a source), from CI or a script. The event shows in Events, as a marker on charts, under "Changed around then" in What changed and in probable cause, labelled with the token's name. It never raises an alert.
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** @description "Deployed orders 2.15.0" */
+            title: string;
+            kind?: 'deploy' | 'config' | 'migration' | 'flag' | 'other';
+            workload?: string;
+            server?: string;
+            link?: string;
+            time?: number | string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              id: string;
+              belongsTo: string | null;
+            };
+          };
+        };
+        /** @description Default Response */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        402: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        429: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;

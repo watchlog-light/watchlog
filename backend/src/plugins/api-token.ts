@@ -15,6 +15,10 @@ import { isInternalCall } from '../lib/internal-call.js';
 import { ProblemType, sendProblem } from '../lib/problem.js';
 import { SESSION_COOKIE } from '../modules/auth/sessions.js';
 import { isTokenPath, MCP_PATH, tokenAllows } from '../modules/api-tokens/scope.js';
+import { isMetricToken } from '../modules/own-metrics/tokens.js';
+
+/** POST here takes an own-metrics token, not an API token (own-metrics/events.ts). */
+export const CHANGE_EVENTS_ROUTE = '/api/v1/events';
 import { TokenUsage, verifyApiToken, type RequestToken } from '../modules/api-tokens/service.js';
 import { storableIp } from '../modules/api-tokens/tokens.js';
 
@@ -68,6 +72,14 @@ export function registerApiTokenAuth(app: FastifyInstance, opts: ApiTokenAuthOpt
     if (!isTokenPath(request.url)) return;
     const value = bearerToken(request);
     if (value === undefined) return;
+    // A change event from outside (ADR-238) comes with an own-metrics token, checked by its
+    // route: the one place under /api that takes one.
+    if (
+      isMetricToken(value) &&
+      request.method === 'POST' &&
+      request.routeOptions.url === CHANGE_EVENTS_ROUTE
+    )
+      return;
     if (request.cookies[SESSION_COOKIE] !== undefined) {
       return sendProblem(reply, 400, TOKEN_WITH_SESSION_MESSAGE, ProblemType.tokenWithSession);
     }

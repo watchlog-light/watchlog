@@ -60,6 +60,7 @@ import { dockerRoutes } from './modules/docker/routes.js';
 import { ownAlertRoutes } from './modules/own-metrics/alert-routes.js';
 import { configureOwnAlerts } from './modules/own-metrics/alerts.js';
 import { Belonging } from './modules/own-metrics/belonging.js';
+import { changeEventRoutes } from './modules/own-metrics/events.js';
 import { OwnUsual } from './modules/own-metrics/usual.js';
 import { ownLimitsProvider } from './modules/own-metrics/limits.js';
 import { Probes } from './modules/own-metrics/probes.js';
@@ -133,6 +134,7 @@ export interface AppDeps {
     cluster?: BucketSpec;
     metricWrite?: BucketSpec;
     metricPush?: BucketSpec;
+    changeEvents?: BucketSpec;
   };
   /** Alert rules from WATCHLOG_SEED_FILE, applied again once first-run setup made an org. */
   seed?: Seed;
@@ -498,6 +500,14 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         endpointFor: installTarget(config, settings).endpointFor,
       });
       await api.register(ownMetricReadRoutes, { db: deps.db, own, usual: ownUsual, victoria });
+      await api.register(changeEventRoutes, {
+        db: deps.db,
+        tokens,
+        belonging: ownIngest.belonging,
+        eventsRetentionDays: config.eventsRetentionDays,
+        bucket: deps.ingestBuckets?.changeEvents,
+        ...(deps.now ? { now: deps.now } : {}),
+      });
       await api.register(ownAlertRoutes, { db: deps.db, own, usual: ownUsual, victoria });
       await api.register(ownDashboardRoutes, { db: deps.db, own, usual: ownUsual, victoria });
       // Cloud only (ADR-173): Community never registers these, so they answer 404.

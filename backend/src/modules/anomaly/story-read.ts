@@ -20,6 +20,8 @@ const MARKER_KINDS: Record<string, ChangeKind> = {
   compose: 'compose',
   recreate: 'recreate',
   node: 'node',
+  // A change told from outside (ADR-238): a deploy from CI, a config change.
+  external: 'external',
 };
 const EVENT_KINDS: Record<string, ChangeKind> = {
   Started: 'service_start',
@@ -129,11 +131,17 @@ export async function readChanges(
           ? { namespace: m.namespace }
           : {}),
       ...(t.host ? { host: t.host } : {}),
+      // An event about a server names it as its target.
+      ...(m.kind === 'external' && t.kind === 'Node' ? { host: t.name } : {}),
       facts: {
         from: fact(d.from),
         to: fact(d.to),
         workloadKind: t.kind,
         ...(d.image ? { image: fact(d.image) } : {}),
+        // An event from outside says what happened in its own words, and who said it.
+        ...(m.kind === 'external'
+          ? { title: fact(d.title), what: fact(d.what), source: fact(d.source) }
+          : {}),
       },
     });
   }
