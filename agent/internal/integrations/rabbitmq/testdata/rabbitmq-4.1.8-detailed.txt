@@ -1,0 +1,155 @@
+# TYPE rabbitmq_detailed_raft_term_total counter
+# HELP rabbitmq_detailed_raft_term_total Current Raft term number
+rabbitmq_detailed_raft_term_total{vhost="/",queue="orders.payments.dlq"} 1
+rabbitmq_detailed_raft_term_total{raft_cluster="rabbit_stream_coordinator"} 1
+rabbitmq_detailed_raft_term_total{vhost="/",queue="orders.payments"} 1
+rabbitmq_detailed_raft_term_total{raft_cluster="rabbitmq_metadata"} 1
+# TYPE rabbitmq_detailed_raft_log_snapshot_index gauge
+# HELP rabbitmq_detailed_raft_log_snapshot_index Raft log snapshot index
+rabbitmq_detailed_raft_log_snapshot_index{vhost="/",queue="orders.payments.dlq"} 0
+rabbitmq_detailed_raft_log_snapshot_index{raft_cluster="rabbit_stream_coordinator"} 0
+rabbitmq_detailed_raft_log_snapshot_index{vhost="/",queue="orders.payments"} 9014
+rabbitmq_detailed_raft_log_snapshot_index{raft_cluster="rabbitmq_metadata"} 0
+# TYPE rabbitmq_detailed_raft_log_last_applied_index gauge
+# HELP rabbitmq_detailed_raft_log_last_applied_index Raft log last applied index
+rabbitmq_detailed_raft_log_last_applied_index{vhost="/",queue="orders.payments.dlq"} 1346
+rabbitmq_detailed_raft_log_last_applied_index{raft_cluster="rabbit_stream_coordinator"} 8
+rabbitmq_detailed_raft_log_last_applied_index{vhost="/",queue="orders.payments"} 9048
+rabbitmq_detailed_raft_log_last_applied_index{raft_cluster="rabbitmq_metadata"} 2
+# TYPE rabbitmq_detailed_raft_log_commit_index gauge
+# HELP rabbitmq_detailed_raft_log_commit_index Raft log commit index
+rabbitmq_detailed_raft_log_commit_index{vhost="/",queue="orders.payments.dlq"} 1346
+rabbitmq_detailed_raft_log_commit_index{raft_cluster="rabbit_stream_coordinator"} 8
+rabbitmq_detailed_raft_log_commit_index{vhost="/",queue="orders.payments"} 9048
+rabbitmq_detailed_raft_log_commit_index{raft_cluster="rabbitmq_metadata"} 2
+# TYPE rabbitmq_detailed_raft_log_last_written_index gauge
+# HELP rabbitmq_detailed_raft_log_last_written_index Raft log last written index
+rabbitmq_detailed_raft_log_last_written_index{vhost="/",queue="orders.payments.dlq"} 1346
+rabbitmq_detailed_raft_log_last_written_index{raft_cluster="rabbit_stream_coordinator"} 8
+rabbitmq_detailed_raft_log_last_written_index{vhost="/",queue="orders.payments"} 9049
+rabbitmq_detailed_raft_log_last_written_index{raft_cluster="rabbitmq_metadata"} 2
+# TYPE rabbitmq_detailed_raft_entry_commit_latency_seconds gauge
+# HELP rabbitmq_detailed_raft_entry_commit_latency_seconds Time taken for a log entry to be committed
+rabbitmq_detailed_raft_entry_commit_latency_seconds{vhost="/",queue="orders.payments.dlq"} 0.003
+rabbitmq_detailed_raft_entry_commit_latency_seconds{raft_cluster="rabbit_stream_coordinator"} 0.0
+rabbitmq_detailed_raft_entry_commit_latency_seconds{vhost="/",queue="orders.payments"} 0.003
+rabbitmq_detailed_raft_entry_commit_latency_seconds{raft_cluster="rabbitmq_metadata"} 0.001
+# TYPE rabbitmq_detailed_queue_messages_ready gauge
+# HELP rabbitmq_detailed_queue_messages_ready Messages ready to be delivered to consumers
+rabbitmq_detailed_queue_messages_ready{vhost="/",queue="orders.payments.dlq"} 1344
+rabbitmq_detailed_queue_messages_ready{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages_ready{vhost="/",queue="audit.events"} 4289
+rabbitmq_detailed_queue_messages_ready{vhost="/",queue="orders.payments"} 0
+# TYPE rabbitmq_detailed_queue_messages_unacked gauge
+# HELP rabbitmq_detailed_queue_messages_unacked Messages delivered to consumers but not yet acknowledged
+rabbitmq_detailed_queue_messages_unacked{vhost="/",queue="orders.payments.dlq"} 0
+rabbitmq_detailed_queue_messages_unacked{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages_unacked{vhost="/",queue="audit.events"} 0
+rabbitmq_detailed_queue_messages_unacked{vhost="/",queue="orders.payments"} 1
+# TYPE rabbitmq_detailed_queue_messages gauge
+# HELP rabbitmq_detailed_queue_messages Sum of ready and unacknowledged messages - total queue depth
+rabbitmq_detailed_queue_messages{vhost="/",queue="orders.payments.dlq"} 1344
+rabbitmq_detailed_queue_messages{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages{vhost="/",queue="audit.events"} 4289
+rabbitmq_detailed_queue_messages{vhost="/",queue="orders.payments"} 1
+# TYPE rabbitmq_detailed_queue_process_reductions_total counter
+# HELP rabbitmq_detailed_queue_process_reductions_total Total number of queue process reductions
+rabbitmq_detailed_queue_process_reductions_total{vhost="/",queue="orders.payments.dlq"} 867873
+rabbitmq_detailed_queue_process_reductions_total{vhost="/",queue="emails.send"} 2377492
+rabbitmq_detailed_queue_process_reductions_total{vhost="/",queue="audit.events"} 0
+rabbitmq_detailed_queue_process_reductions_total{vhost="/",queue="orders.payments"} 7079461
+# TYPE rabbitmq_detailed_queue_consumers gauge
+# HELP rabbitmq_detailed_queue_consumers Consumers on a queue
+rabbitmq_detailed_queue_consumers{vhost="/",queue="orders.payments.dlq"} 0
+rabbitmq_detailed_queue_consumers{vhost="/",queue="emails.send"} 1
+rabbitmq_detailed_queue_consumers{vhost="/",queue="audit.events"} 1
+rabbitmq_detailed_queue_consumers{vhost="/",queue="orders.payments"} 1
+# TYPE rabbitmq_detailed_exchange_messages_published_total counter
+# HELP rabbitmq_detailed_exchange_messages_published_total Total number of messages published into an exchange
+rabbitmq_detailed_exchange_messages_published_total{vhost="/",exchange="orders"} 9580
+rabbitmq_detailed_exchange_messages_published_total{vhost="/",exchange="events"} 4354
+# TYPE rabbitmq_detailed_exchange_messages_confirmed_total counter
+# HELP rabbitmq_detailed_exchange_messages_confirmed_total Total number of messages published into an exchange and confirmed
+rabbitmq_detailed_exchange_messages_confirmed_total{vhost="/",exchange="orders"} 9580
+rabbitmq_detailed_exchange_messages_confirmed_total{vhost="/",exchange="events"} 4354
+# TYPE rabbitmq_detailed_exchange_messages_unroutable_returned_total counter
+# HELP rabbitmq_detailed_exchange_messages_unroutable_returned_total Total number of messages published as mandatory into an exchange and returned to the publisher as unroutable
+rabbitmq_detailed_exchange_messages_unroutable_returned_total{vhost="/",exchange="orders"} 436
+rabbitmq_detailed_exchange_messages_unroutable_returned_total{vhost="/",exchange="events"} 0
+# TYPE rabbitmq_detailed_exchange_messages_unroutable_dropped_total counter
+# HELP rabbitmq_detailed_exchange_messages_unroutable_dropped_total Total number of messages published as non-mandatory into an exchange and dropped as unroutable
+rabbitmq_detailed_exchange_messages_unroutable_dropped_total{vhost="/",exchange="orders"} 436
+rabbitmq_detailed_exchange_messages_unroutable_dropped_total{vhost="/",exchange="events"} 0
+# TYPE rabbitmq_detailed_queue_get_ack_total counter
+# HELP rabbitmq_detailed_queue_get_ack_total Total number of messages fetched from a queue with basic.get in manual acknowledgement mode
+rabbitmq_detailed_queue_get_ack_total{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_get_ack_total{vhost="/",queue="audit.events"} 0
+rabbitmq_detailed_queue_get_ack_total{vhost="/",queue="orders.payments"} 0
+# TYPE rabbitmq_detailed_queue_get_total counter
+# HELP rabbitmq_detailed_queue_get_total Total number of messages fetched from a queue with basic.get in automatic acknowledgement mode
+rabbitmq_detailed_queue_get_total{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_get_total{vhost="/",queue="audit.events"} 0
+rabbitmq_detailed_queue_get_total{vhost="/",queue="orders.payments"} 0
+# TYPE rabbitmq_detailed_queue_messages_delivered_ack_total counter
+# HELP rabbitmq_detailed_queue_messages_delivered_ack_total Total number of messages delivered from a queue to consumers in manual acknowledgement mode
+rabbitmq_detailed_queue_messages_delivered_ack_total{vhost="/",queue="emails.send"} 4720
+rabbitmq_detailed_queue_messages_delivered_ack_total{vhost="/",queue="audit.events"} 4354
+rabbitmq_detailed_queue_messages_delivered_ack_total{vhost="/",queue="orders.payments"} 4724
+# TYPE rabbitmq_detailed_queue_messages_delivered_total counter
+# HELP rabbitmq_detailed_queue_messages_delivered_total Total number of messages delivered from a queue to consumers in automatic acknowledgement mode
+rabbitmq_detailed_queue_messages_delivered_total{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages_delivered_total{vhost="/",queue="audit.events"} 0
+rabbitmq_detailed_queue_messages_delivered_total{vhost="/",queue="orders.payments"} 0
+# TYPE rabbitmq_detailed_queue_messages_redelivered_total counter
+# HELP rabbitmq_detailed_queue_messages_redelivered_total Total number of messages redelivered from a queue to consumers
+rabbitmq_detailed_queue_messages_redelivered_total{vhost="/",queue="emails.send"} 366
+rabbitmq_detailed_queue_messages_redelivered_total{vhost="/",queue="audit.events"} 0
+rabbitmq_detailed_queue_messages_redelivered_total{vhost="/",queue="orders.payments"} 370
+# TYPE rabbitmq_detailed_queue_messages_acked_total counter
+# HELP rabbitmq_detailed_queue_messages_acked_total Total number of messages acknowledged by consumers on a queue
+rabbitmq_detailed_queue_messages_acked_total{vhost="/",queue="emails.send"} 3682
+rabbitmq_detailed_queue_messages_acked_total{vhost="/",queue="audit.events"} 4354
+rabbitmq_detailed_queue_messages_acked_total{vhost="/",queue="orders.payments"} 3677
+# TYPE rabbitmq_detailed_queue_get_empty_total counter
+# HELP rabbitmq_detailed_queue_get_empty_total Total number of times basic.get operations fetched no message on a queue
+rabbitmq_detailed_queue_get_empty_total{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_get_empty_total{vhost="/",queue="audit.events"} 0
+rabbitmq_detailed_queue_get_empty_total{vhost="/",queue="orders.payments"} 0
+# TYPE rabbitmq_detailed_queue_exchange_messages_published_total counter
+# HELP rabbitmq_detailed_queue_exchange_messages_published_total Total number of messages published into a queue through an exchange
+rabbitmq_detailed_queue_exchange_messages_published_total{vhost="/",exchange="orders",queue="emails.send"} 4354
+rabbitmq_detailed_queue_exchange_messages_published_total{vhost="/",exchange="orders",queue="orders.payments"} 4354
+rabbitmq_detailed_queue_exchange_messages_published_total{vhost="/",exchange="events",queue="audit.events"} 4354
+# TYPE rabbitmq_cluster_exchange_name gauge
+# HELP rabbitmq_cluster_exchange_name Enumerates exchanges without any additional info. This value is cluster-wide. A cheaper alternative to `exchange_bindings`
+rabbitmq_cluster_exchange_name{vhost="/",exchange="amq.match",type="headers"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="amq.headers",type="headers"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="amq.direct",type="direct"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="amq.topic",type="topic"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="orders",type="topic"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="events",type="fanout"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="orders.dlx",type="fanout"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="amq.fanout",type="fanout"} 1
+# TYPE rabbitmq_detailed_queue_info gauge
+# HELP rabbitmq_detailed_queue_info A metric with a constant '1' value and labels that provide some queue details
+rabbitmq_detailed_queue_info{vhost="/",queue="audit.events",queue_type="rabbit_stream_queue",membership="leader"} 1
+rabbitmq_detailed_queue_info{vhost="/",queue="orders.payments",queue_type="rabbit_quorum_queue",membership="leader"} 1
+rabbitmq_detailed_queue_info{vhost="/",queue="orders.payments.dlq",queue_type="rabbit_quorum_queue",membership="leader"} 1
+rabbitmq_detailed_queue_info{vhost="/",queue="emails.send",queue_type="rabbit_classic_queue",membership="leader"} 1
+# TYPE rabbitmq_build_info untyped
+# HELP rabbitmq_build_info RabbitMQ & Erlang/OTP version info
+rabbitmq_build_info{rabbitmq_version="4.1.8",prometheus_plugin_version="4.1.8",prometheus_client_version="4.11.0",erlang_version="27.3.4.20"} 1
+# TYPE rabbitmq_identity_info untyped
+# HELP rabbitmq_identity_info RabbitMQ node & cluster identity info
+rabbitmq_identity_info{rabbitmq_node="rabbit@wl-rmq-41",rabbitmq_cluster="rabbit@wl-rmq-41",rabbitmq_cluster_permanent_id="rabbitmq-cluster-id-J3EawQV0D32IjsHgOU0dWA",rabbitmq_endpoint="detailed"} 1
+# TYPE telemetry_scrape_duration_seconds summary
+# HELP telemetry_scrape_duration_seconds Scrape duration
+telemetry_scrape_duration_seconds_count{registry="detailed",content_type="text/plain; version=0.0.4"} 23
+telemetry_scrape_duration_seconds_sum{registry="detailed",content_type="text/plain; version=0.0.4"} 0.021397584
+# TYPE telemetry_scrape_size_bytes summary
+# HELP telemetry_scrape_size_bytes Scrape size, not encoded
+telemetry_scrape_size_bytes_count{registry="detailed",content_type="text/plain; version=0.0.4"} 23
+telemetry_scrape_size_bytes_sum{registry="detailed",content_type="text/plain; version=0.0.4"} 78685
+# TYPE telemetry_scrape_encoded_size_bytes summary
+# HELP telemetry_scrape_encoded_size_bytes Scrape size, encoded
+

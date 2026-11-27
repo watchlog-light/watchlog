@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/watchlog-light/watchlog/agent/internal/integrations"
+	"github.com/watchlog-light/watchlog/agent/internal/integrations/promtext"
 	"github.com/watchlog-light/watchlog/agent/internal/metrics"
 )
 
@@ -73,8 +74,9 @@ func server(t *testing.T) (*httptest.Server, string) {
 		case "/metrics":
 			_, _ = w.Write(metricsBody)
 		case "/metrics/detailed":
+			// queue_metrics and 3.13's channel families: not in this old fixture.
 			if !strings.Contains(r.URL.RawQuery, "family=queue_coarse_metrics") {
-				t.Errorf("detailed families: %s", r.URL.RawQuery)
+				return
 			}
 			_, _ = w.Write(detailedBody)
 			_, _ = w.Write([]byte(extra.String()))
@@ -164,6 +166,10 @@ func TestNodeAndQueues(t *testing.T) {
 		t.Error("orders' consumers")
 	}
 	for _, s := range res.Samples {
+		if strings.Contains(s.Name, "exchange_messages") && !strings.Contains(s.Name, "queue_exchange") ||
+			s.Name == "rabbitmq_cluster_exchange_name" {
+			continue // the exchange's own series
+		}
 		for _, l := range s.Labels {
 			if l.Name == "exchange" || l.Name == "channel" {
 				t.Fatalf("%s kept %s", s.Name, l.Name)
@@ -193,5 +199,150 @@ func TestPluginOff(t *testing.T) {
 	p := r.Probe(context.Background(), integrations.Target{Members: []integrations.Member{{Name: "x", Address: "127.0.0.1:1"}}})
 	if p.Code != integrations.ProbeUnreachable {
 		t.Errorf("probe %+v", p)
+	}
+}
+
+// A real node of each version (Step 0 of 1.1.0): a classic, a quorum and a stream queue, a
+// dead-letter queue, a topic and a fanout exchange, a publisher with unroutable messages,
+// a consumer that rejects and nacks some. Captured from rabbitmq:3.13.7 and 4.1.8.
+func fixture(t *testing.T, v string) (*httptest.Server, string) {
+	read := func(f string) []byte {
+		b, err := os.ReadFile("testdata/rabbitmq-" + v + "-" + f + ".txt")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return b
+	}
+	m, d, q, c := read("metrics"), read("detailed"), read("queue-metrics"), read("channels")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/metrics":
+			_, _ = w.Write(m)
+		case strings.Contains(r.URL.RawQuery, "family=queue_coarse_metrics"):
+			_, _ = w.Write(d)
+		case strings.Contains(r.URL.RawQuery, "family=channel_queue_metrics"):
+			_, _ = w.Write(c)
+		case strings.Contains(r.URL.RawQuery, "family=queue_metrics"):
+			_, _ = w.Write(q)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	_, port, _ := net.SplitHostPort(strings.TrimPrefix(srv.URL, "http://"))
+	return srv, port
+}
+
+func TestBothVersions(t *testing.T) {
+	for _, v := range []string{"3.13", "4.1.8"} {
+		t.Run(v, func(t *testing.T) {
+			srv, port := fixture(t, v)
+			defer srv.Close()
+			ln, addr := amqp(t)
+			defer func() { _ = ln.Close() }()
+			r := New()
+			r.Port = port
+			res := r.Scrape(context.Background(), integrations.Target{ID: "s", Members: []integrations.Member{{Name: "rabbit-0", Address: addr}}}, true)
+			if res.State != integrations.StateOK {
+				t.Fatal(res.Error)
+			}
+			// Each queue's type, from the label (4.x) or from its Raft and stream series (3.13).
+			for q, want := range map[string]string{"emails.send": "classic", "orders.payments": "quorum", "orders.payments.dlq": "quorum", "audit.events": "stream"} {
+				if _, ok := value(res.Samples, "rabbitmq_detailed_queue_info", "queue", q, "type", want); !ok {
+					t.Errorf("%s isn't %s", q, want)
+				}
+			}
+			// The leader is told by 4.x only.
+			_, leader := value(res.Samples, "rabbitmq_detailed_queue_info", "queue", "orders.payments", "membership", "leader")
+			if leader != (v == "4.1.8") {
+				t.Errorf("leader known = %v", leader)
+			}
+			// In, acked and redelivered per queue: 4.x's own, 3.13's summed over channels.
+			if v, _ := value(res.Samples, "rabbitmq_detailed_queue_messages_acked_total", "queue", "emails.send"); v <= 0 {
+				t.Errorf("emails.send acked = %v", v)
+			}
+			if v, _ := value(res.Samples, "rabbitmq_detailed_queue_messages_redelivered_total", "queue", "orders.payments"); v <= 0 {
+				t.Errorf("orders.payments redelivered = %v", v)
+			}
+			if v, _ := value(res.Samples, "rabbitmq_detailed_queue_exchange_messages_published_total", "queue", "audit.events"); v <= 0 {
+				t.Errorf("published into the stream = %v", v)
+			}
+			if v, _ := value(res.Samples, "rabbitmq_detailed_queue_consumer_utilisation", "queue", "emails.send"); v <= 0 {
+				t.Errorf("utilisation = %v", v)
+			}
+			if _, ok := value(res.Samples, "rabbitmq_detailed_raft_term_total", "queue", "orders.payments"); !ok {
+				t.Error("no Raft term")
+			}
+			// Exchanges: names with types, and per-exchange publish and unroutable counts.
+			if _, ok := value(res.Samples, "rabbitmq_cluster_exchange_name", "exchange", "orders", "type", "topic"); !ok {
+				t.Error("no orders (topic)")
+			}
+			if v, _ := value(res.Samples, "rabbitmq_detailed_exchange_messages_published_total", "exchange", "orders"); v <= 0 {
+				t.Errorf("orders published = %v", v)
+			}
+			if v, _ := value(res.Samples, "rabbitmq_detailed_exchange_messages_unroutable_dropped_total", "exchange", "orders"); v <= 0 {
+				t.Errorf("orders dropped = %v", v)
+			}
+			// The node: its version, uptime; sockets on 3.13 only (4.x dropped the metric).
+			if _, ok := value(res.Samples, "watchlog_rabbitmq_node_info", "version", map[string]string{"3.13": "3.13.7", "4.1.8": "4.1.8"}[v]); !ok {
+				t.Error("no node info")
+			}
+			if _, ok := value(res.Samples, "rabbitmq_erlang_uptime_seconds"); !ok {
+				t.Error("no uptime")
+			}
+			_, sockets := value(res.Samples, "rabbitmq_process_max_tcp_sockets")
+			if sockets != (v == "3.13") {
+				t.Errorf("sockets = %v", sockets)
+			}
+			for _, s := range res.Samples {
+				for _, l := range s.Labels {
+					if l.Name == "channel" {
+						t.Fatalf("%s kept a channel", s.Name)
+					}
+				}
+			}
+		})
+	}
+}
+
+// 3.13's per-channel sums stay monotonic: a channel that closes keeps its count in the total.
+func TestFoldKeepsClosedChannels(t *testing.T) {
+	f := &fold{last: map[string]float64{}, carried: map[string]float64{}}
+	s := func(ch string, v float64) promtext.Sample {
+		return promtext.Sample{Name: "rabbitmq_detailed_channel_messages_acked_total", Labels: map[string]string{"channel": ch, "vhost": "/", "queue": "q"}, Value: v}
+	}
+	total := func(in []promtext.Sample) float64 {
+		for _, x := range in {
+			if x.Name == "rabbitmq_detailed_queue_messages_acked_total" && x.Labels["queue"] == "q" {
+				return x.Value
+			}
+		}
+		return -1
+	}
+	if v := total(f.add([]promtext.Sample{s("<0.1.0>", 10), s("<0.2.0>", 5)})); v != 15 {
+		t.Fatalf("first = %v", v)
+	}
+	// <0.1.0> closed; <0.3.0> opened.
+	if v := total(f.add([]promtext.Sample{s("<0.2.0>", 7), s("<0.3.0>", 1)})); v != 18 {
+		t.Fatalf("after a close = %v, want 18 (10 carried + 7 + 1)", v)
+	}
+	// Every channel gone: the total stays.
+	if v := total(f.add(nil)); v != 18 {
+		t.Fatalf("all closed = %v", v)
+	}
+}
+
+// The heavy scrape of a 3.13 node: four requests, the per-channel sums and the caps.
+func BenchmarkHeavy313(b *testing.B) {
+	t := &testing.T{}
+	srv, port := fixture(t, "3.13")
+	defer srv.Close()
+	ln, addr := amqp(t)
+	defer func() { _ = ln.Close() }()
+	r := New()
+	r.Port = port
+	target := integrations.Target{ID: "s", Members: []integrations.Member{{Name: "rabbit-0", Address: addr}}}
+	b.ReportAllocs()
+	for b.Loop() {
+		r.Scrape(context.Background(), target, true)
 	}
 }

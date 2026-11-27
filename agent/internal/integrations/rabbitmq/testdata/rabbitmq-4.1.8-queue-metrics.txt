@@ -1,0 +1,104 @@
+# TYPE rabbitmq_detailed_queue_consumers gauge
+# HELP rabbitmq_detailed_queue_consumers Consumers on a queue
+rabbitmq_detailed_queue_consumers{vhost="/",queue="orders.payments.dlq"} 0
+rabbitmq_detailed_queue_consumers{vhost="/",queue="emails.send"} 1
+rabbitmq_detailed_queue_consumers{vhost="/",queue="audit.events"} 1
+rabbitmq_detailed_queue_consumers{vhost="/",queue="orders.payments"} 1
+# TYPE rabbitmq_detailed_queue_consumer_capacity gauge
+# HELP rabbitmq_detailed_queue_consumer_capacity Consumer capacity
+rabbitmq_detailed_queue_consumer_capacity{vhost="/",queue="orders.payments.dlq"} 0
+rabbitmq_detailed_queue_consumer_capacity{vhost="/",queue="emails.send"} 1.0
+rabbitmq_detailed_queue_consumer_capacity{vhost="/",queue="orders.payments"} 1.0
+# TYPE rabbitmq_detailed_queue_consumer_utilisation gauge
+# HELP rabbitmq_detailed_queue_consumer_utilisation Same as consumer capacity
+rabbitmq_detailed_queue_consumer_utilisation{vhost="/",queue="orders.payments.dlq"} 0
+rabbitmq_detailed_queue_consumer_utilisation{vhost="/",queue="emails.send"} 1.0
+rabbitmq_detailed_queue_consumer_utilisation{vhost="/",queue="orders.payments"} 1.0
+# TYPE rabbitmq_detailed_queue_process_memory_bytes gauge
+# HELP rabbitmq_detailed_queue_process_memory_bytes Memory in bytes used by the Erlang queue process
+rabbitmq_detailed_queue_process_memory_bytes{vhost="/",queue="orders.payments.dlq"} 197156
+rabbitmq_detailed_queue_process_memory_bytes{vhost="/",queue="emails.send"} 30088
+rabbitmq_detailed_queue_process_memory_bytes{vhost="/",queue="audit.events"} 6096
+rabbitmq_detailed_queue_process_memory_bytes{vhost="/",queue="orders.payments"} 68636
+# TYPE rabbitmq_detailed_queue_messages_ram gauge
+# HELP rabbitmq_detailed_queue_messages_ram Ready and unacknowledged messages stored in memory
+rabbitmq_detailed_queue_messages_ram{vhost="/",queue="orders.payments.dlq"} 0
+rabbitmq_detailed_queue_messages_ram{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages_ram{vhost="/",queue="orders.payments"} 0
+# TYPE rabbitmq_detailed_queue_messages_ram_bytes gauge
+# HELP rabbitmq_detailed_queue_messages_ram_bytes Size of ready and unacknowledged messages stored in memory
+rabbitmq_detailed_queue_messages_ram_bytes{vhost="/",queue="orders.payments.dlq"} 0
+rabbitmq_detailed_queue_messages_ram_bytes{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages_ram_bytes{vhost="/",queue="orders.payments"} 0
+# TYPE rabbitmq_detailed_queue_messages_ready_ram gauge
+# HELP rabbitmq_detailed_queue_messages_ready_ram Ready messages stored in memory
+rabbitmq_detailed_queue_messages_ready_ram{vhost="/",queue="emails.send"} 0
+# TYPE rabbitmq_detailed_queue_messages_unacked_ram gauge
+# HELP rabbitmq_detailed_queue_messages_unacked_ram Unacknowledged messages stored in memory
+rabbitmq_detailed_queue_messages_unacked_ram{vhost="/",queue="emails.send"} 0
+# TYPE rabbitmq_detailed_queue_messages_persistent gauge
+# HELP rabbitmq_detailed_queue_messages_persistent Persistent messages
+rabbitmq_detailed_queue_messages_persistent{vhost="/",queue="orders.payments.dlq"} 1344
+rabbitmq_detailed_queue_messages_persistent{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages_persistent{vhost="/",queue="orders.payments"} 1
+# TYPE rabbitmq_detailed_queue_messages_persistent_bytes gauge
+# HELP rabbitmq_detailed_queue_messages_persistent_bytes Size in bytes of persistent messages
+rabbitmq_detailed_queue_messages_persistent_bytes{vhost="/",queue="orders.payments.dlq"} 6377
+rabbitmq_detailed_queue_messages_persistent_bytes{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages_persistent_bytes{vhost="/",queue="orders.payments"} 5
+# TYPE rabbitmq_detailed_queue_messages_bytes gauge
+# HELP rabbitmq_detailed_queue_messages_bytes Size in bytes of ready and unacknowledged messages
+rabbitmq_detailed_queue_messages_bytes{vhost="/",queue="orders.payments.dlq"} 6377
+rabbitmq_detailed_queue_messages_bytes{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages_bytes{vhost="/",queue="orders.payments"} 5
+# TYPE rabbitmq_detailed_queue_messages_ready_bytes gauge
+# HELP rabbitmq_detailed_queue_messages_ready_bytes Size in bytes of ready messages
+rabbitmq_detailed_queue_messages_ready_bytes{vhost="/",queue="orders.payments.dlq"} 6377
+rabbitmq_detailed_queue_messages_ready_bytes{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages_ready_bytes{vhost="/",queue="orders.payments"} 0
+# TYPE rabbitmq_detailed_queue_messages_unacked_bytes gauge
+# HELP rabbitmq_detailed_queue_messages_unacked_bytes Size in bytes of all unacknowledged messages
+rabbitmq_detailed_queue_messages_unacked_bytes{vhost="/",queue="orders.payments.dlq"} 0
+rabbitmq_detailed_queue_messages_unacked_bytes{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages_unacked_bytes{vhost="/",queue="orders.payments"} 5
+# TYPE rabbitmq_detailed_queue_messages_paged_out gauge
+# HELP rabbitmq_detailed_queue_messages_paged_out Messages paged out to disk
+rabbitmq_detailed_queue_messages_paged_out{vhost="/",queue="emails.send"} 0
+# TYPE rabbitmq_detailed_queue_messages_paged_out_bytes gauge
+# HELP rabbitmq_detailed_queue_messages_paged_out_bytes Size in bytes of messages paged out to disk
+rabbitmq_detailed_queue_messages_paged_out_bytes{vhost="/",queue="emails.send"} 0
+# TYPE rabbitmq_detailed_queue_head_message_timestamp gauge
+# HELP rabbitmq_detailed_queue_head_message_timestamp Timestamp of the first message in the queue, if any
+rabbitmq_detailed_queue_head_message_timestamp{vhost="/",queue="emails.send"} NaN
+# TYPE rabbitmq_detailed_queue_disk_reads_total counter
+# HELP rabbitmq_detailed_queue_disk_reads_total Total number of times queue read messages from disk
+rabbitmq_detailed_queue_disk_reads_total{vhost="/",queue="emails.send"} 0
+# TYPE rabbitmq_detailed_queue_disk_writes_total counter
+# HELP rabbitmq_detailed_queue_disk_writes_total Total number of times queue wrote messages to disk
+rabbitmq_detailed_queue_disk_writes_total{vhost="/",queue="emails.send"} 0
+# TYPE rabbitmq_detailed_stream_segments counter
+# HELP rabbitmq_detailed_stream_segments Total number of stream segment files
+rabbitmq_detailed_stream_segments{vhost="/",queue="audit.events"} 1
+# TYPE rabbitmq_detailed_queue_info gauge
+# HELP rabbitmq_detailed_queue_info A metric with a constant '1' value and labels that provide some queue details
+rabbitmq_detailed_queue_info{vhost="/",queue="audit.events",queue_type="rabbit_stream_queue",membership="leader"} 1
+rabbitmq_detailed_queue_info{vhost="/",queue="orders.payments",queue_type="rabbit_quorum_queue",membership="leader"} 1
+rabbitmq_detailed_queue_info{vhost="/",queue="orders.payments.dlq",queue_type="rabbit_quorum_queue",membership="leader"} 1
+rabbitmq_detailed_queue_info{vhost="/",queue="emails.send",queue_type="rabbit_classic_queue",membership="leader"} 1
+# TYPE rabbitmq_build_info untyped
+# HELP rabbitmq_build_info RabbitMQ & Erlang/OTP version info
+rabbitmq_build_info{rabbitmq_version="4.1.8",prometheus_plugin_version="4.1.8",prometheus_client_version="4.11.0",erlang_version="27.3.4.20"} 1
+# TYPE rabbitmq_identity_info untyped
+# HELP rabbitmq_identity_info RabbitMQ node & cluster identity info
+rabbitmq_identity_info{rabbitmq_node="rabbit@wl-rmq-41",rabbitmq_cluster="rabbit@wl-rmq-41",rabbitmq_cluster_permanent_id="rabbitmq-cluster-id-J3EawQV0D32IjsHgOU0dWA",rabbitmq_endpoint="detailed"} 1
+# TYPE telemetry_scrape_duration_seconds summary
+# HELP telemetry_scrape_duration_seconds Scrape duration
+telemetry_scrape_duration_seconds_count{registry="detailed",content_type="text/plain; version=0.0.4"} 24
+telemetry_scrape_duration_seconds_sum{registry="detailed",content_type="text/plain; version=0.0.4"} 0.022419417
+# TYPE telemetry_scrape_size_bytes summary
+# HELP telemetry_scrape_size_bytes Scrape size, not encoded
+telemetry_scrape_size_bytes_count{registry="detailed",content_type="text/plain; version=0.0.4"} 24
+telemetry_scrape_size_bytes_sum{registry="detailed",content_type="text/plain; version=0.0.4"} 91684
+# TYPE telemetry_scrape_encoded_size_bytes summary
+# HELP telemetry_scrape_encoded_size_bytes Scrape size, encoded
+

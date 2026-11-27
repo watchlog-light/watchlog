@@ -1,0 +1,73 @@
+# TYPE rabbitmq_detailed_channel_messages_published_total counter
+# HELP rabbitmq_detailed_channel_messages_published_total Total number of messages published into an exchange on a channel
+rabbitmq_detailed_channel_messages_published_total{channel="<0.813.0>",vhost="/",exchange="events"} 4354
+rabbitmq_detailed_channel_messages_published_total{channel="<0.813.0>",vhost="/",exchange="orders"} 9580
+# TYPE rabbitmq_detailed_channel_messages_confirmed_total counter
+# HELP rabbitmq_detailed_channel_messages_confirmed_total Total number of messages published into an exchange and confirmed on the channel
+rabbitmq_detailed_channel_messages_confirmed_total{channel="<0.813.0>",vhost="/",exchange="events"} 4354
+rabbitmq_detailed_channel_messages_confirmed_total{channel="<0.813.0>",vhost="/",exchange="orders"} 9580
+# TYPE rabbitmq_detailed_channel_messages_unroutable_returned_total counter
+# HELP rabbitmq_detailed_channel_messages_unroutable_returned_total Total number of messages published as mandatory into an exchange and returned to the publisher as unroutable
+rabbitmq_detailed_channel_messages_unroutable_returned_total{channel="<0.813.0>",vhost="/",exchange="events"} 0
+rabbitmq_detailed_channel_messages_unroutable_returned_total{channel="<0.813.0>",vhost="/",exchange="orders"} 436
+# TYPE rabbitmq_detailed_channel_messages_unroutable_dropped_total counter
+# HELP rabbitmq_detailed_channel_messages_unroutable_dropped_total Total number of messages published as non-mandatory into an exchange and dropped as unroutable
+rabbitmq_detailed_channel_messages_unroutable_dropped_total{channel="<0.813.0>",vhost="/",exchange="events"} 0
+rabbitmq_detailed_channel_messages_unroutable_dropped_total{channel="<0.813.0>",vhost="/",exchange="orders"} 436
+# TYPE rabbitmq_detailed_channel_get_ack_total counter
+# HELP rabbitmq_detailed_channel_get_ack_total Total number of messages fetched with basic.get in manual acknowledgement mode
+rabbitmq_detailed_channel_get_ack_total{channel="<0.812.0>",vhost="/",queue="audit.events"} 0
+rabbitmq_detailed_channel_get_ack_total{channel="<0.803.0>",vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_channel_get_ack_total{channel="<0.803.0>",vhost="/",queue="orders.payments"} 0
+# TYPE rabbitmq_detailed_channel_get_total counter
+# HELP rabbitmq_detailed_channel_get_total Total number of messages fetched with basic.get in automatic acknowledgement mode
+rabbitmq_detailed_channel_get_total{channel="<0.812.0>",vhost="/",queue="audit.events"} 0
+rabbitmq_detailed_channel_get_total{channel="<0.803.0>",vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_channel_get_total{channel="<0.803.0>",vhost="/",queue="orders.payments"} 0
+# TYPE rabbitmq_detailed_channel_messages_delivered_ack_total counter
+# HELP rabbitmq_detailed_channel_messages_delivered_ack_total Total number of messages delivered to consumers in manual acknowledgement mode
+rabbitmq_detailed_channel_messages_delivered_ack_total{channel="<0.812.0>",vhost="/",queue="audit.events"} 4354
+rabbitmq_detailed_channel_messages_delivered_ack_total{channel="<0.803.0>",vhost="/",queue="emails.send"} 4720
+rabbitmq_detailed_channel_messages_delivered_ack_total{channel="<0.803.0>",vhost="/",queue="orders.payments"} 4724
+# TYPE rabbitmq_detailed_channel_messages_delivered_total counter
+# HELP rabbitmq_detailed_channel_messages_delivered_total Total number of messages delivered to consumers in automatic acknowledgement mode
+rabbitmq_detailed_channel_messages_delivered_total{channel="<0.812.0>",vhost="/",queue="audit.events"} 0
+rabbitmq_detailed_channel_messages_delivered_total{channel="<0.803.0>",vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_channel_messages_delivered_total{channel="<0.803.0>",vhost="/",queue="orders.payments"} 0
+# TYPE rabbitmq_detailed_channel_messages_redelivered_total counter
+# HELP rabbitmq_detailed_channel_messages_redelivered_total Total number of messages redelivered to consumers
+rabbitmq_detailed_channel_messages_redelivered_total{channel="<0.812.0>",vhost="/",queue="audit.events"} 0
+rabbitmq_detailed_channel_messages_redelivered_total{channel="<0.803.0>",vhost="/",queue="emails.send"} 366
+rabbitmq_detailed_channel_messages_redelivered_total{channel="<0.803.0>",vhost="/",queue="orders.payments"} 370
+# TYPE rabbitmq_detailed_channel_messages_acked_total counter
+# HELP rabbitmq_detailed_channel_messages_acked_total Total number of messages acknowledged by consumers
+rabbitmq_detailed_channel_messages_acked_total{channel="<0.812.0>",vhost="/",queue="audit.events"} 4354
+rabbitmq_detailed_channel_messages_acked_total{channel="<0.803.0>",vhost="/",queue="emails.send"} 3682
+rabbitmq_detailed_channel_messages_acked_total{channel="<0.803.0>",vhost="/",queue="orders.payments"} 3677
+# TYPE rabbitmq_detailed_channel_get_empty_total counter
+# HELP rabbitmq_detailed_channel_get_empty_total Total number of times basic.get operations fetched no message
+rabbitmq_detailed_channel_get_empty_total{channel="<0.812.0>",vhost="/",queue="audit.events"} 0
+rabbitmq_detailed_channel_get_empty_total{channel="<0.803.0>",vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_channel_get_empty_total{channel="<0.803.0>",vhost="/",queue="orders.payments"} 0
+# TYPE rabbitmq_detailed_queue_messages_published_total counter
+# HELP rabbitmq_detailed_queue_messages_published_total Total number of messages published into a queue through an exchange on a channel
+rabbitmq_detailed_queue_messages_published_total{channel="<0.813.0>",queue_vhost="/",queue="emails.send",exchange_vhost="/",exchange="orders"} 4354
+rabbitmq_detailed_queue_messages_published_total{channel="<0.813.0>",queue_vhost="/",queue="orders.payments",exchange_vhost="/",exchange="orders"} 4354
+rabbitmq_detailed_queue_messages_published_total{channel="<0.813.0>",queue_vhost="/",queue="audit.events",exchange_vhost="/",exchange="events"} 4354
+# TYPE rabbitmq_build_info untyped
+# HELP rabbitmq_build_info RabbitMQ & Erlang/OTP version info
+rabbitmq_build_info{rabbitmq_version="4.1.8",prometheus_plugin_version="4.1.8",prometheus_client_version="4.11.0",erlang_version="27.3.4.20"} 1
+# TYPE rabbitmq_identity_info untyped
+# HELP rabbitmq_identity_info RabbitMQ node & cluster identity info
+rabbitmq_identity_info{rabbitmq_node="rabbit@wl-rmq-41",rabbitmq_cluster="rabbit@wl-rmq-41",rabbitmq_cluster_permanent_id="rabbitmq-cluster-id-J3EawQV0D32IjsHgOU0dWA",rabbitmq_endpoint="detailed"} 1
+# TYPE telemetry_scrape_duration_seconds summary
+# HELP telemetry_scrape_duration_seconds Scrape duration
+telemetry_scrape_duration_seconds_count{registry="detailed",content_type="text/plain; version=0.0.4"} 25
+telemetry_scrape_duration_seconds_sum{registry="detailed",content_type="text/plain; version=0.0.4"} 0.023369417
+# TYPE telemetry_scrape_size_bytes summary
+# HELP telemetry_scrape_size_bytes Scrape size, not encoded
+telemetry_scrape_size_bytes_count{registry="detailed",content_type="text/plain; version=0.0.4"} 25
+telemetry_scrape_size_bytes_sum{registry="detailed",content_type="text/plain; version=0.0.4"} 99790
+# TYPE telemetry_scrape_encoded_size_bytes summary
+# HELP telemetry_scrape_encoded_size_bytes Scrape size, encoded
+

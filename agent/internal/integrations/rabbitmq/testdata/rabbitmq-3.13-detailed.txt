@@ -1,0 +1,93 @@
+# TYPE rabbitmq_detailed_raft_term_total counter
+# HELP rabbitmq_detailed_raft_term_total Current Raft term number
+rabbitmq_detailed_raft_term_total{vhost="/",queue="orders.payments.dlq"} 1
+rabbitmq_detailed_raft_term_total 1
+rabbitmq_detailed_raft_term_total{vhost="/",queue="orders.payments"} 1
+rabbitmq_detailed_raft_term_total 1
+# TYPE rabbitmq_detailed_raft_log_snapshot_index gauge
+# HELP rabbitmq_detailed_raft_log_snapshot_index Raft log snapshot index
+rabbitmq_detailed_raft_log_snapshot_index{vhost="/",queue="orders.payments.dlq"} 0
+rabbitmq_detailed_raft_log_snapshot_index 0
+rabbitmq_detailed_raft_log_snapshot_index{vhost="/",queue="orders.payments"} 8194
+rabbitmq_detailed_raft_log_snapshot_index 0
+# TYPE rabbitmq_detailed_raft_log_last_applied_index gauge
+# HELP rabbitmq_detailed_raft_log_last_applied_index Raft log last applied index
+rabbitmq_detailed_raft_log_last_applied_index{vhost="/",queue="orders.payments.dlq"} 1346
+rabbitmq_detailed_raft_log_last_applied_index 8
+rabbitmq_detailed_raft_log_last_applied_index{vhost="/",queue="orders.payments"} 9050
+rabbitmq_detailed_raft_log_last_applied_index 11
+# TYPE rabbitmq_detailed_raft_log_commit_index gauge
+# HELP rabbitmq_detailed_raft_log_commit_index Raft log commit index
+rabbitmq_detailed_raft_log_commit_index{vhost="/",queue="orders.payments.dlq"} 1346
+rabbitmq_detailed_raft_log_commit_index 8
+rabbitmq_detailed_raft_log_commit_index{vhost="/",queue="orders.payments"} 9050
+rabbitmq_detailed_raft_log_commit_index 11
+# TYPE rabbitmq_detailed_raft_log_last_written_index gauge
+# HELP rabbitmq_detailed_raft_log_last_written_index Raft log last written index
+rabbitmq_detailed_raft_log_last_written_index{vhost="/",queue="orders.payments.dlq"} 1346
+rabbitmq_detailed_raft_log_last_written_index 8
+rabbitmq_detailed_raft_log_last_written_index{vhost="/",queue="orders.payments"} 9051
+rabbitmq_detailed_raft_log_last_written_index 11
+# TYPE rabbitmq_detailed_raft_entry_commit_latency_seconds gauge
+# HELP rabbitmq_detailed_raft_entry_commit_latency_seconds Time taken for a log entry to be committed
+rabbitmq_detailed_raft_entry_commit_latency_seconds{vhost="/",queue="orders.payments.dlq"} 0.003
+rabbitmq_detailed_raft_entry_commit_latency_seconds 0.001
+rabbitmq_detailed_raft_entry_commit_latency_seconds{vhost="/",queue="orders.payments"} 0.003
+rabbitmq_detailed_raft_entry_commit_latency_seconds 0.001
+# TYPE rabbitmq_detailed_queue_messages_ready gauge
+# HELP rabbitmq_detailed_queue_messages_ready Messages ready to be delivered to consumers
+rabbitmq_detailed_queue_messages_ready{vhost="/",queue="orders.payments.dlq"} 1344
+rabbitmq_detailed_queue_messages_ready{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages_ready{vhost="/",queue="orders.payments"} 0
+rabbitmq_detailed_queue_messages_ready{vhost="/",queue="audit.events"} 4294
+# TYPE rabbitmq_detailed_queue_messages_unacked gauge
+# HELP rabbitmq_detailed_queue_messages_unacked Messages delivered to consumers but not yet acknowledged
+rabbitmq_detailed_queue_messages_unacked{vhost="/",queue="orders.payments.dlq"} 0
+rabbitmq_detailed_queue_messages_unacked{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages_unacked{vhost="/",queue="orders.payments"} 1
+rabbitmq_detailed_queue_messages_unacked{vhost="/",queue="audit.events"} 0
+# TYPE rabbitmq_detailed_queue_messages gauge
+# HELP rabbitmq_detailed_queue_messages Sum of ready and unacknowledged messages - total queue depth
+rabbitmq_detailed_queue_messages{vhost="/",queue="orders.payments.dlq"} 1344
+rabbitmq_detailed_queue_messages{vhost="/",queue="emails.send"} 0
+rabbitmq_detailed_queue_messages{vhost="/",queue="orders.payments"} 1
+rabbitmq_detailed_queue_messages{vhost="/",queue="audit.events"} 4294
+# TYPE rabbitmq_detailed_queue_process_reductions_total counter
+# HELP rabbitmq_detailed_queue_process_reductions_total Total number of queue process reductions
+rabbitmq_detailed_queue_process_reductions_total{vhost="/",queue="orders.payments.dlq"} 911828
+rabbitmq_detailed_queue_process_reductions_total{vhost="/",queue="emails.send"} 2368967
+rabbitmq_detailed_queue_process_reductions_total{vhost="/",queue="orders.payments"} 7237357
+rabbitmq_detailed_queue_process_reductions_total{vhost="/",queue="audit.events"} 0
+# TYPE rabbitmq_detailed_queue_consumers gauge
+# HELP rabbitmq_detailed_queue_consumers Consumers on a queue
+rabbitmq_detailed_queue_consumers{vhost="/",queue="orders.payments.dlq"} 0
+rabbitmq_detailed_queue_consumers{vhost="/",queue="emails.send"} 1
+rabbitmq_detailed_queue_consumers{vhost="/",queue="orders.payments"} 1
+rabbitmq_detailed_queue_consumers{vhost="/",queue="audit.events"} 1
+# TYPE rabbitmq_cluster_exchange_name gauge
+# HELP rabbitmq_cluster_exchange_name Enumerates exchanges without any additional info. This value is cluster-wide. A cheaper alternative to `exchange_bindings`
+rabbitmq_cluster_exchange_name{vhost="/",exchange="events",type="fanout"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="amq.match",type="headers"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="amq.fanout",type="fanout"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="amq.direct",type="direct"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="amq.headers",type="headers"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="amq.topic",type="topic"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="orders.dlx",type="fanout"} 1
+rabbitmq_cluster_exchange_name{vhost="/",exchange="orders",type="topic"} 1
+# TYPE rabbitmq_build_info untyped
+# HELP rabbitmq_build_info RabbitMQ & Erlang/OTP version info
+rabbitmq_build_info{rabbitmq_version="3.13.7",prometheus_plugin_version="3.13.7",prometheus_client_version="4.11.0",erlang_version="26.2.5.16"} 1
+# TYPE rabbitmq_identity_info untyped
+# HELP rabbitmq_identity_info RabbitMQ node & cluster identity info
+rabbitmq_identity_info{rabbitmq_node="rabbit@wl-rmq-313",rabbitmq_cluster="rabbit@wl-rmq-313",rabbitmq_cluster_permanent_id="rabbitmq-cluster-id-h1quhpOIF3ndJVJaENYUeA"} 1
+# TYPE telemetry_scrape_duration_seconds summary
+# HELP telemetry_scrape_duration_seconds Scrape duration
+telemetry_scrape_duration_seconds_count{registry="detailed",content_type="text/plain; version=0.0.4"} 25
+telemetry_scrape_duration_seconds_sum{registry="detailed",content_type="text/plain; version=0.0.4"} 0.033062499
+# TYPE telemetry_scrape_encoded_size_bytes summary
+# HELP telemetry_scrape_encoded_size_bytes Scrape size, encoded
+# TYPE telemetry_scrape_size_bytes summary
+# HELP telemetry_scrape_size_bytes Scrape size, not encoded
+telemetry_scrape_size_bytes_count{registry="detailed",content_type="text/plain; version=0.0.4"} 25
+telemetry_scrape_size_bytes_sum{registry="detailed",content_type="text/plain; version=0.0.4"} 70103
+
