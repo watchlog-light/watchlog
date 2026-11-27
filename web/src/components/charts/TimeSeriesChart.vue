@@ -158,6 +158,9 @@ function yAxisTicks(): { interval: number; max: number } | undefined {
 
 function decorations() {
   const muted = token('--text-muted');
+  const [spanFrom, spanTo] = span.value;
+  // A marker in the right half writes its label to the left of the line, so it stays inside.
+  const rightHalf = (ts: number) => ts - spanFrom > (spanTo - spanFrom) / 2;
   const lines = [
     ...shownMarkers.value.map((m) => ({
       xAxis: m.ts * 1000,
@@ -169,6 +172,7 @@ function decorations() {
             formatter: '{b}',
             // Horizontal above the line's top end, so its time stays readable.
             position: 'end',
+            align: rightHalf(m.ts) ? 'right' : 'left',
             color: token(m.colorToken ?? '--text-muted'),
             fontSize: 12,
           }
@@ -256,7 +260,14 @@ function render() {
     {
       color: palette,
       animation: false,
-      grid: { left: 8, right: 16, top: 28, bottom: 8, containLabel: true },
+      // A labelled marker writes above the plot: room for it under the legend.
+      grid: {
+        left: 8,
+        right: 16,
+        top: shownMarkers.value.some((m) => m.labelled) ? 46 : 28,
+        bottom: 8,
+        containLabel: true,
+      },
       legend: {
         show: props.series.length > 1 || !!props.band,
         data: [...props.series.map((s) => s.name), ...(props.band ? [props.band.label] : [])],

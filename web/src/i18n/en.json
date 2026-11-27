@@ -3387,18 +3387,18 @@
           "unacked": "Unacked",
           "publish": "Publish",
           "deliver": "Deliver",
-          "redeliver": "Redeliver",
-          "ack": "Ack",
+          "redeliver": "Redelivered",
+          "ack": "Acked",
           "confirm": "Confirm",
           "dropped": "Unroutable, dropped",
           "returned": "Unroutable, returned",
           "deadLettered": "Dead-lettered",
-          "otherQueues": "the other queues",
-          "published": "published",
-          "busy": "busy",
-          "consumers": "consumers",
-          "opened": "opened",
-          "closed": "closed"
+          "otherQueues": "Other queues",
+          "published": "Published",
+          "busy": "Busy",
+          "consumers": "Consumers",
+          "opened": "Opened",
+          "closed": "Closed"
         },
         "cols": {
           "queue": "Queue",
@@ -3596,7 +3596,8 @@
         "anHourAgo": "{n} an hour ago",
         "noneNeedLook": "No queue needs a look.",
         "allQueuesPlain": "All queues →",
-        "unroutableEmpty": "Nothing was redelivered, dropped, returned or dead-lettered in this range."
+        "unroutableEmpty": "Nothing was redelivered, dropped, returned or dead-lettered in this range.",
+        "busyBeforeDrop": "above 90% busy before they left"
       }
     },
     "kafka": {

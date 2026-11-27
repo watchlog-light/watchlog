@@ -450,6 +450,28 @@ describe('1.1.1: the design and one source of truth', () => {
     expect(mark.label.show).toBe(true);
   });
 
+  it('B5: the lost chart is one line when everything is zero', async () => {
+    const at = Math.floor(Date.now() / 1000);
+    const w = await mountPanel({
+      ...base,
+      id: 'lost',
+      title: `${P}.unroutable`,
+      kind: 'line',
+      unit: 'per_second',
+      zeroKey: `${P}.unroutableEmpty`,
+      series: [
+        {
+          nameKey: `${P}.series.redeliver`,
+          points: [
+            [at - 600, 0],
+            [at, 0],
+          ],
+        },
+      ],
+    });
+    expect(w.get('[data-testid="chart-zero"]').text()).toContain('Nothing was redelivered');
+  });
+
   it('B2: tiles have sentence-case 13 px labels and 26 px values', async () => {
     const w = await mountPanel({
       ...base,

@@ -73,6 +73,11 @@ const series = computed<ChartSeries[]>(() => {
         : chartToken(i),
   }));
 });
+const zeroKey = computed(() =>
+  props.panel.kind === 'line' || props.panel.kind === 'stack'
+    ? (props.panel as PanelOf<'line'>).zeroKey
+    : undefined,
+);
 const isChart = computed(
   () =>
     (props.panel.kind === 'line' || props.panel.kind === 'stack') &&
@@ -94,6 +99,7 @@ const isChart = computed(
     :loading="loading"
     :error="error || panel.state === 'error'"
     :empty-text="$t('integrations.panel.empty')"
+    :zero-text="zeroKey ? $t(zeroKey) : undefined"
     :error-text="$t('integrations.panel.error')"
     :data-panel="panel.id"
     :data-kind="panel.kind"

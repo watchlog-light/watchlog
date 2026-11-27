@@ -87,7 +87,7 @@ export function formatValue(v: number | null | undefined, unit: Unit): string {
     case 'load':
       return v.toFixed(2);
     case 'count':
-      return String(Math.round(v));
+      return Math.round(v).toLocaleString('en');
     case 'per_second':
       return formatRate(v);
     case 'seconds':

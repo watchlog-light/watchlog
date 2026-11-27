@@ -119,7 +119,7 @@ const drainText = (r: Row) => (r.drain.state === 'eta' ? formatDuration(r.drain.
               :key="c.key"
               scope="col"
               :aria-sort="panel.full ? ariaSort(c.key) : undefined"
-              :class="['px-4 py-2 font-medium', c.right ? 'text-right' : '']"
+              :class="['px-4 py-2 font-medium whitespace-nowrap', c.right ? 'text-right' : '']"
             >
               <button
                 v-if="panel.full"
