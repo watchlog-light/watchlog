@@ -186,22 +186,43 @@ export function rankEnded(out: Ended[], lostAt: number | null): Ended[] {
  * its consumers. The plugin doesn't say which client consumed which queue, so they are
  * ranked by how close their end came to the moment the consumers left.
  */
-export async function endedClients(ctx: PageContext, lostAt: number | null): Promise<Ended[]> {
+export async function endedClients(
+  ctx: PageContext,
+  lostAt: number | null,
+  opts: { withRestarted?: boolean } = {},
+): Promise<Ended[]> {
   if (!ctx.vm) return [];
   const dst = await destination(ctx);
   if (!dst) return [];
   const port = 'port' in ctx.row.target ? ctx.row.target.port : null;
   const own = await ownComponents(ctx);
-  const clients = await ctx.vm.query(
-    ctx.scope,
-    `max by (${SOURCE}) (present_over_time(watchlog_flow_connections_total{${dst}${port ? `,dst_port="${port}"` : ''}}[24h]))`,
-    Math.floor(ctx.now / 1000),
+  const sel = `${dst}${port ? `,dst_port="${port}"` : ''}`;
+  const at = Math.floor(ctx.now / 1000);
+  const [clients, now] = await Promise.all([
+    ctx.vm.query(
+      ctx.scope,
+      `max by (${SOURCE}) (present_over_time(watchlog_flow_connections_total{${sel}}[24h]))`,
+      at,
+    ),
+    // Connected again now (a byte in the last two minutes, as the Clients tab says): a
+    // restarted client isn't a lost consumer (1.1.2).
+    ctx.vm.query(
+      ctx.scope,
+      `sum by (${SOURCE}) (rate(watchlog_flow_bytes_total{${sel}}[2m])) > 0`,
+      at,
+    ),
+  ]);
+  const back = new Set(
+    now.map((x) =>
+      x.labels.workload ? `${x.labels.namespace}/${x.labels.workload}` : (x.labels.container ?? ''),
+    ),
   );
   const out: Ended[] = [];
   for (const c of clients) {
     const l = c.labels;
     if (l.workload && l.namespace) {
       if (own.workloads.has(`${l.namespace}/${l.workload}`)) continue;
+      if (!opts.withRestarted && back.has(`${l.namespace}/${l.workload}`)) continue;
       const e = await endedOf(
         ctx,
         { namespace: l.namespace, workload: l.workload, workload_kind: l.workload_kind },
@@ -210,6 +231,7 @@ export async function endedClients(ctx: PageContext, lostAt: number | null): Pro
       if (e) out.push(e);
     } else if (l.container) {
       if (own.containers.has(l.container)) continue;
+      if (!opts.withRestarted && back.has(l.container)) continue;
       const e = await endedOf(ctx, { container: l.container }, lostAt);
       if (e) out.push(e);
     }

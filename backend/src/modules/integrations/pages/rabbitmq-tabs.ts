@@ -149,7 +149,8 @@ export async function overview(input: PageContext): Promise<Panel[]> {
     range(ctx, `sum(rabbitmq_detailed_queue_messages_ready{${s}})`),
     queueRows(ctx),
     clientRows(ctx).catch(() => [] as ClientsPanel['rows']),
-    endedClients(ctx, null).catch(() => []),
+    // The charts' markers keep a client that restarted (drawn neutral).
+    endedClients(ctx, null, { withRestarted: true }).catch(() => []),
     usualNow(ctx, `sum(rabbitmq_queue_messages_ready{${s}})`, 'count'),
     usualNow(ctx, `sum(rabbitmq_queue_messages_unacked{${s}})`, 'count'),
     usualNow(ctx, g('received'), 'per_second'),

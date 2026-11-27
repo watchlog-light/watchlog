@@ -1080,6 +1080,35 @@ describe('the RabbitMQ page', () => {
       const consumer = clients.find((x) => x.name.includes('consumer'))!;
       expect(consumer.state.key).toBe('restarted');
       expect(consumer.severity).toBeUndefined();
+      // 1.1.2: a second queue that has no consumers is not blamed on the consumer that
+      // restarted and is connected again (the demo linked it).
+      const emails = { vhost: '/', queue: 'emails' };
+      await Promise.all([
+        write(c.id, 'rabbitmq_detailed_queue_messages_ready', svc(emails), (i) =>
+          i < 40 ? 0 : (i - 40) * 30,
+        ),
+        write(c.id, 'rabbitmq_detailed_queue_messages_unacked', svc(emails), () => 0),
+        write(c.id, 'rabbitmq_detailed_queue_consumers', svc(emails), (i) => (i < 40 ? 1 : 0)),
+      ]);
+      await fetch(`${TEST_VM_URL}/internal/force_flush`);
+      // The collector reports again (the page keeps its findings 15 s otherwise).
+      await status(c.token, k8s ? '' : 'h1', [
+        {
+          id,
+          state: 'ok',
+          service_version: '4.1.8',
+          members: [{ name: 'rabbitmq-0', up: true }],
+          extra: {
+            rabbitmq: [{ member: 'rabbitmq-0', node: 'rabbit@0', cluster: 'c2', plugin: true }],
+          },
+        },
+      ]);
+      const again = (await api('GET', `/applications/${id}`)).json();
+      const lost = again.reasons.find(
+        (x: { code: string; links?: unknown[] }) => x.code === 'queue_no_consumers',
+      );
+      expect(lost).toBeDefined();
+      expect(JSON.stringify(lost.links ?? [])).not.toContain('consumer');
     });
   }
 
