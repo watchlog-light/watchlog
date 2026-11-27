@@ -244,12 +244,14 @@ export async function overview(input: PageContext): Promise<Panel[]> {
 
   // What happened, on the charts: the clients that ended (OOM-killed, exited) in the window.
   const from = ctx.now / 1000 - ctx.range;
+  // A client that is connected again is no longer a problem: its marker isn't red (1.1.1).
+  const back = new Set(clients.filter((x) => x.state.key !== 'ended').map((x) => x.name));
   const markers = ended
     .filter((e) => e.at !== null && e.at >= from)
     .map((e) => ({
       at: e.at!,
       text: { key: `${P}.markerEnded`, values: { name: e.name, how: e.how, at: e.at } },
-      severity: 'critical' as Severity,
+      ...(back.has(e.name) ? {} : { severity: 'critical' as Severity }),
     }));
 
   const top = topQueue[0];
@@ -260,7 +262,8 @@ export async function overview(input: PageContext): Promise<Panel[]> {
         `sum(rabbitmq_detailed_queue_messages_ready{${s},vhost="${esc(top.labels.vhost ?? '/')}",queue="${esc(top.labels.queue ?? '')}"})`,
       )
     : [];
-  const restLine = topLine.length ? minus(readyLine[0], topLine[0]) : null;
+  // "The other queues" only when there are others.
+  const restLine = topLine.length && rows.length > 1 ? minus(readyLine[0], topLine[0]) : null;
   const look = needALook(rows);
 
   return [

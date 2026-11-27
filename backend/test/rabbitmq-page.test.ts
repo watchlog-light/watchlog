@@ -938,7 +938,7 @@ describe('the RabbitMQ page', () => {
       const orders = { vhost: '/', queue: 'orders' };
       // Publish 3/s all along; deliver 3/s, with a 12/s burst draining the backlog 15 minutes ago.
       let delivered = 0;
-      const dst = k8s
+      const dst: Record<string, string> = k8s
         ? {
             dst_kind: 'workload',
             dst_namespace: 'shop',
@@ -947,7 +947,7 @@ describe('the RabbitMQ page', () => {
             dst_port: '5672',
           }
         : { dst_kind: 'container', dst: 'shop-rabbitmq-1', dst_port: '5672' };
-      const src = (w: string) =>
+      const src = (w: string): Record<string, string> =>
         k8s
           ? {
               namespace: 'shop',
