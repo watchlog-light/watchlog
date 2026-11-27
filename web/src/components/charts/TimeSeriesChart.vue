@@ -85,6 +85,8 @@ const props = defineProps<{
   errorText: string;
   /** Shown instead of a flat line at zero when every value is 0 (e.g. an idle disk). */
   zeroText?: string;
+  /** All zero: the card shrinks to the one line instead of keeping the plot's height (1.1.1). */
+  compactZero?: boolean;
   /** Short note beside the title, e.g. "No memory limit". */
   note?: string;
   markers?: ChartMarker[];
@@ -159,8 +161,14 @@ function yAxisTicks(): { interval: number; max: number } | undefined {
 function decorations() {
   const muted = token('--text-muted');
   const [spanFrom, spanTo] = span.value;
-  // A marker in the right half writes its label to the left of the line, so it stays inside.
+  // A marker's label goes to the side of its line with more room and wraps within it, so it
+  // stays inside the plot and keeps its time on a phone.
   const rightHalf = (ts: number) => ts - spanFrom > (spanTo - spanFrom) / 2;
+  const plotWidth = Math.max((el.value?.clientWidth || 600) - 64, 120);
+  const room = (ts: number) => {
+    const f = Math.min(Math.max((ts - spanFrom) / (spanTo - spanFrom || 1), 0), 1);
+    return Math.max(Math.round(plotWidth * Math.max(f, 1 - f)) - 8, 80);
+  };
   const lines = [
     ...shownMarkers.value.map((m) => ({
       xAxis: m.ts * 1000,
@@ -173,6 +181,9 @@ function decorations() {
             // Horizontal above the line's top end, so its time stays readable.
             position: 'end',
             align: rightHalf(m.ts) ? 'right' : 'left',
+            width: room(m.ts),
+            overflow: 'break',
+            lineHeight: 14,
             color: token(m.colorToken ?? '--text-muted'),
             fontSize: 12,
           }
@@ -410,7 +421,7 @@ watch(resolved, () => void nextTick(render));
     </ul>
     <div
       class="relative mt-2"
-      :class="plain ? 'min-h-64 flex-1' : 'h-48'"
+      :class="allZero && compactZero ? 'h-6' : plain ? 'min-h-64 flex-1' : 'h-48'"
       :aria-busy="loading ? 'true' : undefined"
     >
       <div
@@ -421,7 +432,8 @@ watch(resolved, () => void nextTick(render));
       />
       <p
         v-if="allZero"
-        class="absolute inset-0 flex items-center justify-center text-13 text-text-subtle"
+        class="absolute inset-0 flex items-center text-13 text-text-subtle"
+        :class="compactZero ? 'justify-start' : 'justify-center'"
         data-testid="chart-zero"
       >
         {{ zeroText }}

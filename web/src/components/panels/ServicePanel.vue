@@ -100,6 +100,7 @@ const isChart = computed(
     :error="error || panel.state === 'error'"
     :empty-text="$t('integrations.panel.empty')"
     :zero-text="zeroKey ? $t(zeroKey) : undefined"
+    compact-zero
     :error-text="$t('integrations.panel.error')"
     :data-panel="panel.id"
     :data-kind="panel.kind"
