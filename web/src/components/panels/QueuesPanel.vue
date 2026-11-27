@@ -101,7 +101,14 @@ const drainText = (r: Row) => (r.drain.state === 'eta' ? formatDuration(r.drain.
         {{ $t('integrations.rabbitmq.panels.cols.noConsumers') }}
       </label>
     </div>
-    <div class="-mx-4 overflow-x-auto">
+    <p
+      v-if="!panel.full && !panel.rows.length"
+      class="text-13 text-text-muted"
+      data-testid="queues-fine"
+    >
+      {{ $t('integrations.rabbitmq.panels.noneNeedLook') }}
+    </p>
+    <div v-else class="-mx-4 overflow-x-auto">
       <table class="w-full min-w-[52rem] text-13">
         <thead>
           <tr
@@ -168,6 +175,7 @@ const drainText = (r: Row) => (r.drain.state === 'eta' ? formatDuration(r.drain.
                   >{{ r.ready.toLocaleString('en') }}</span
                 >
                 <span
+                  v-if="r.ready > 0"
                   class="h-1.5 min-w-12 flex-1 overflow-hidden rounded-full bg-surface-3"
                   aria-hidden="true"
                 >
@@ -232,7 +240,11 @@ const drainText = (r: Row) => (r.drain.state === 'eta' ? formatDuration(r.drain.
       :to="{ name: 'application', params: { id: page.appId }, query: { tab: 'queues' } }"
       class="self-end text-13 text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
       data-testid="queues-all"
-      >{{ $t('integrations.rabbitmq.panels.allQueuesLink', { n: panel.total }) }}</RouterLink
+      >{{
+        panel.rows.length
+          ? $t('integrations.rabbitmq.panels.allQueuesLink', { n: panel.total }, panel.total)
+          : $t('integrations.rabbitmq.panels.allQueuesPlain')
+      }}</RouterLink
     >
   </div>
 </template>

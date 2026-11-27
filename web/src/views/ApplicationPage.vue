@@ -29,7 +29,7 @@ import {
   serviceName,
 } from '@/lib/applications';
 import { formatDateTime } from '@/lib/format';
-import { PAGE_RANGES, rangeOf, SEVERITY_TOKEN } from '@/lib/panels';
+import { PAGE_RANGES, panelSlots, rangeOf, SEVERITY_TOKEN } from '@/lib/panels';
 import { linkRoute, queueRoute, type PanelLink } from '@/lib/service-links';
 import { SERVICE_PAGE } from '@/lib/service-page';
 import { formatDuration } from '@/lib/units';
@@ -134,6 +134,7 @@ const reasons = computed(() =>
       if (links.length >= 3) break;
     }
     return {
+      code: r.code,
       severity: r.severity,
       text: reasonLine(r, app.value!.cluster, (iso) => formatDateTime(iso)),
       // When a growing queue takes memory to the high watermark at this rate.
@@ -158,6 +159,16 @@ watch(
   },
   { immediate: true },
 );
+// Everything connected and nothing else to say (1.1.1): one muted line under the header.
+const allWell = computed(
+  () =>
+    reasons.value.length === 1 &&
+    reasons.value[0]!.code === 'connected' &&
+    reasons.value[0]!.severity === 'ok',
+);
+// A page with a Clients tab shows who connects there, not under the panels (1.1.1).
+const hasClientsTab = computed(() => tabs.value.some((x) => x.id === 'clients'));
+const slots = computed(() => panelSlots(panels.data.value?.panels ?? []));
 // The service's alerts are a tab of their own where the page has one (RabbitMQ, 1.1.0).
 const alertsTab = computed(() => tabs.value.some((x) => x.view === 'alerts'));
 const inAlertsTab = computed(() => tabs.value.find((x) => x.id === tab.value)?.view === 'alerts');
@@ -311,7 +322,17 @@ async function resume() {
         </LockedControl>
       </section>
 
+      <p
+        v-if="allWell"
+        class="-mt-2 flex items-center gap-2 text-13 text-text-muted"
+        data-testid="reasons-ok"
+      >
+        <span class="size-2 rounded-full bg-ok" aria-hidden="true" />{{
+          $t(reasons[0]!.text.key, reasons[0]!.text.values)
+        }}
+      </p>
       <section
+        v-else
         :aria-label="$t('integrations.page.sees')"
         class="flex flex-col gap-2.5 rounded-card border border-border bg-surface-1 px-4 py-3.5 sm:px-5"
         data-testid="reasons"
@@ -459,22 +480,45 @@ async function resume() {
         :aria-busy="panels.loading.value ? 'true' : undefined"
         data-testid="panels"
       >
-        <ServicePanel
-          v-for="p in panels.data.value.panels"
-          :key="`${panels.data.value.tab}-${p.id}`"
-          :panel="p"
-          :window="window"
-          :loading="panels.loading.value"
-          :error="!!panels.error.value"
-          :class="['min-w-0', p.span === 2 ? 'md:col-span-2' : '']"
-          @retry="panels.load"
-          @changed="panels.load"
-        />
+        <template
+          v-for="sl in slots"
+          :key="`${panels.data.value.tab}-${sl.kind === 'one' ? sl.panel.id : sl.side.id}`"
+        >
+          <ServicePanel
+            v-if="sl.kind === 'one'"
+            :panel="sl.panel"
+            :window="window"
+            :loading="panels.loading.value"
+            :error="!!panels.error.value"
+            :class="['min-w-0', sl.panel.span === 2 ? 'md:col-span-2' : '']"
+            @retry="panels.load"
+            @changed="panels.load"
+          />
+          <!-- A 380 px column beside the rest, one row (the design's checks and queues). -->
+          <div
+            v-else
+            class="grid min-w-0 gap-3.5 md:col-span-2 lg:grid-cols-[380px_minmax(0,1fr)]"
+            data-testid="panel-pair"
+          >
+            <ServicePanel
+              v-for="p in [sl.side, sl.main]"
+              :key="p.id"
+              :panel="p"
+              :window="window"
+              :loading="panels.loading.value"
+              :error="!!panels.error.value"
+              class="min-w-0"
+              @retry="panels.load"
+              @changed="panels.load"
+            />
+          </div>
+        </template>
       </div>
 
       <div class="flex flex-wrap items-start gap-3.5">
         <ServiceAlerts v-if="!alertsTab" :app="app" />
         <section
+          v-if="!hasClientsTab"
           class="flex min-w-0 flex-[1_1_18rem] flex-col gap-3 rounded-card border border-border bg-surface-1 px-4 py-4 sm:px-5"
           data-testid="connected"
         >

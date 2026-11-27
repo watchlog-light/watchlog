@@ -71,6 +71,8 @@ export interface ChartMarker {
   colorToken?: string;
   /** Opened when the line is clicked (and linked in the screen-reader list). */
   link?: RouteLocationRaw;
+  /** Its label always shows at the top of the line, not only on hover (1.1.1). */
+  labelled?: boolean;
 }
 
 const props = defineProps<{
@@ -161,7 +163,15 @@ function decorations() {
       xAxis: m.ts * 1000,
       name: m.label,
       lineStyle: { color: token(m.colorToken ?? '--text-subtle'), type: 'dashed', width: 1 },
-      label: { show: false },
+      label: m.labelled
+        ? {
+            show: true,
+            formatter: '{b}',
+            position: 'insideEndTop',
+            color: token(m.colorToken ?? '--text-muted'),
+            fontSize: 11,
+          }
+        : { show: false },
       emphasis: { label: { show: true, formatter: '{b}', color: muted, fontSize: 12 } },
     })),
     ...(props.thresholds ?? []).map((t) => ({

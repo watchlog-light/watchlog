@@ -3416,14 +3416,14 @@
         "usualNow": "usual for this hour",
         "aboveUsual": "above usual ({low}–{high})",
         "belowUsual": "below usual ({low}–{high})",
-        "markerEnded": "{name} {how}",
+        "markerEnded": "{at} {name} {how}",
         "readyByQueue": "Ready messages by queue",
         "needLook": "Queues that need a look",
         "needLookEmpty": "No queue yet: queues appear here once a client declares one.",
         "allQueues": "Every queue",
         "allQueuesEmpty": "No queue yet: queues appear here once a client declares one. A node without its metrics plugin shows none (Overview says how to turn it on).",
         "queuesLimit": "The {n} deepest queues of each node, and every queue with messages and no consumer",
-        "allQueuesLink": "All {n} queues →",
+        "allQueuesLink": "The queue → | All {n} queues →",
         "flow": {
           "title": "Message flow, now",
           "titleEmpty": "Nothing flows yet: the flow fills in once publishers and queues report.",
@@ -3440,7 +3440,8 @@
           "unroutable": "unroutable",
           "gone": "gone {at}",
           "note": "Who publishes, where it waits, who takes it. Services are told apart by their traffic: a guess where the direction is clear.",
-          "noteNoFlows": "Without network flows, RabbitMQ's own counts of publishing channels and consumers stand in."
+          "noteNoFlows": "Without network flows, RabbitMQ's own counts of publishing channels and consumers stand in.",
+          "msgPerSecond": "msg/s"
         },
         "checks": {
           "title": "Health checks",
@@ -3455,7 +3456,7 @@
           "queuesN": "{n} queue | {n} queues",
           "allQueues": "all queues",
           "memory": "No memory alarm",
-          "ofLimit": "{pct}% of the watermark",
+          "ofLimit": "{pct} of the watermark",
           "disk": "No disk alarm",
           "aboveLimit": "{bytes} above the limit",
           "nodes": "Every node answers",
@@ -3494,7 +3495,8 @@
           "quiet": "No traffic now",
           "ended": "{how}, {at}",
           "whereWorkload": "{namespace} · {kind}",
-          "whereContainer": "{project} · container"
+          "whereContainer": "{project} · container",
+          "restarted": "Running, {how} at {at}"
         },
         "nodes": "Nodes",
         "nodesEmpty": "No node reports yet.",
@@ -3541,7 +3543,7 @@
           "membersN": "on {n} nodes | on {n} nodes",
           "commitLatency": "Raft commit latency",
           "onDisk": "Messages on disk",
-          "busy": "Consumer utilisation",
+          "busy": "Consumers busy",
           "redelivered": "Redelivered, last hour"
         },
         "probableCause": "Probable cause",
@@ -3585,7 +3587,16 @@
         },
         "backToQueues": "{name} · queues",
         "vhostIs": "vhost {vhost}",
-        "leaderIs": "leader {node}"
+        "leaderIs": "leader {node}",
+        "steady": "steady",
+        "normal": "normal",
+        "unackedHigh": "more than 10,000",
+        "messagesASecond": "messages a second",
+        "behindPublish": "behind the publishers",
+        "anHourAgo": "{n} an hour ago",
+        "noneNeedLook": "No queue needs a look.",
+        "allQueuesPlain": "All queues →",
+        "unroutableEmpty": "Nothing was redelivered, dropped, returned or dead-lettered in this range."
       }
     },
     "kafka": {

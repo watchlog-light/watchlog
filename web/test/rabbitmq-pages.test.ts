@@ -297,7 +297,7 @@ describe('the Overview panels', () => {
           id: 'memory',
           labelKey: `${P}.checks.memory`,
           state: 'pass',
-          value: { key: `${P}.checks.ofLimit`, values: { pct: 61 } },
+          value: { key: `${P}.checks.ofLimit`, values: { pct: '61%' } },
         },
         {
           id: 'unroutable',
@@ -358,6 +358,118 @@ describe('the Overview panels', () => {
     ]);
     expect(opt.series[2].data[0]).toEqual([0, 4]);
     expect(opt.legend.data).toEqual(['Ready', 'usual range']);
+  });
+});
+
+describe('1.1.1: the design and one source of truth', () => {
+  it('A5: with no queue to look at, one line and the link to all queues', async () => {
+    const w = await mountPanel({ ...QUEUES, full: false, total: 1, rows: [] });
+    expect(w.get('[data-testid="queues-fine"]').text()).toBe('No queue needs a look.');
+    expect(w.find('table').exists()).toBe(false);
+    expect(w.get('[data-testid="queues-all"]').text()).toBe('All queues →');
+    const one = await mountPanel({
+      ...QUEUES,
+      full: false,
+      total: 1,
+      rows: QUEUES.kind === 'queues' ? QUEUES.rows.slice(0, 1) : [],
+    });
+    expect(one.get('[data-testid="queues-all"]').text()).toBe('The queue →');
+  });
+
+  it('B6: no bar track for a queue with nothing ready', async () => {
+    const w = await mountPanel({
+      ...QUEUES,
+      rows: [row('orders', { ready: 0, drain: { state: 'empty' } })],
+    });
+    expect(w.get('[data-queue="orders"]').findAll('.rounded-full.bg-surface-3')).toHaveLength(0);
+  });
+
+  it("B1: a flow card's number and its unit beside it", async () => {
+    const w = await mountPanel({
+      ...base,
+      id: 'flow',
+      title: `${P}.flow.title`,
+      kind: 'flow',
+      columns: [
+        {
+          id: 'publishers',
+          title: { key: `${P}.flow.publishers`, values: { n: 1 } },
+          value: 1240,
+          unit: 'per_second',
+          rows: [],
+          next: 1240,
+        },
+        {
+          id: 'queues',
+          title: { key: `${P}.flow.queues`, values: { n: 1 } },
+          value: 19870,
+          unit: 'count',
+          valueKey: `${P}.flow.ready`,
+          rows: [],
+        },
+      ],
+    });
+    const values = w
+      .findAll('[data-testid="flow-value"]')
+      .map((v) => v.text().replace(/\s+/g, ' '));
+    expect(values).toEqual(['1,240msg/s', '19,870ready']);
+    expect(w.get('[data-testid="flow-publishers"]').text()).toContain('Publishers · 1 service');
+  });
+
+  it('A6: a marker always carries its time and what happened', async () => {
+    setOption.mockClear();
+    const at = 1800;
+    await mountPanel({
+      ...base,
+      id: 'rates',
+      title: `${P}.publishDeliver`,
+      kind: 'line',
+      unit: 'per_second',
+      markers: [
+        {
+          at,
+          text: {
+            key: `${P}.markerEnded`,
+            values: { name: 'shop/consumer', how: 'OOMKilled', at },
+          },
+          severity: 'critical',
+        },
+      ],
+      series: [
+        {
+          nameKey: `${P}.series.publish`,
+          points: [
+            [at - 600, 3],
+            [at, 3],
+          ],
+        },
+      ],
+    });
+    const mark = setOption.mock.calls.at(-1)![0].series[0].markLine.data[0];
+    expect(mark.name).toMatch(/\d\d:\d\d shop\/consumer OOMKilled$/);
+    expect(mark.label.show).toBe(true);
+  });
+
+  it('B2: tiles have sentence-case 13 px labels and 26 px values', async () => {
+    const w = await mountPanel({
+      ...base,
+      id: 'summary',
+      title: `${P}.summary`,
+      kind: 'stat',
+      tiles: [
+        {
+          id: 'consumers',
+          labelKey: `${P}.consumers`,
+          value: 1,
+          unit: 'count',
+          sub: { key: `${P}.steady` },
+        },
+      ],
+    });
+    const tile = w.get('[data-tile="consumers"]');
+    expect(tile.find('.uppercase').exists()).toBe(false);
+    expect(tile.find('.text-26').text()).toBe('1');
+    expect(tile.text()).toContain('steady');
   });
 });
 
@@ -722,6 +834,8 @@ describe('the RabbitMQ page itself', () => {
       attachTo: document.body,
     });
     await flushPromises();
+    // A Clients tab: who connects lives there, not under the panels (1.1.1).
+    expect(w.find('[data-testid="connected"]').exists()).toBe(false);
     const tabs = w.findAll('[data-testid="tab"]').map((t) => t.text().replace(/\s+/g, ' '));
     expect(tabs).toEqual(['Overview', 'Queues · 42', 'Clients', 'Nodes · 3', 'Alerts']);
     const reason = w.get('[data-testid="reason"]').text();

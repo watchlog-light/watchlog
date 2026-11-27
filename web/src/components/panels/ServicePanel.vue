@@ -5,7 +5,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import TimeSeriesChart, { type ChartSeries } from '@/components/charts/TimeSeriesChart.vue';
 import { chartToken, SEVERITY_TOKEN, type PanelOf } from '@/lib/panels';
-import { whenAndAgo } from '@/lib/format';
+import { formatWhen } from '@/lib/format';
 import BarsPanel from './BarsPanel.vue';
 import CauseCardPanel from './CauseCardPanel.vue';
 import ChecksPanel from './ChecksPanel.vue';
@@ -40,9 +40,11 @@ const markers = computed(() => {
   if (p.kind !== 'line' && p.kind !== 'stack') return [];
   return ((p as PanelOf<'line'>).markers ?? []).map((m) => {
     const v = { ...(m.text.values ?? {}) } as Record<string, unknown>;
-    if (typeof v.at === 'number') v.at = whenAndAgo(v.at);
+    // Its time and what happened, always on the line (1.1.1): "18:15 shop/consumer OOMKilled".
+    v.at = formatWhen(new Date(m.at * 1000).toISOString());
     return {
       ts: m.at,
+      labelled: true,
       label: t(m.text.key, v),
       ...(m.severity && m.severity !== 'info' ? { colorToken: SEVERITY_TOKEN[m.severity] } : {}),
     };

@@ -90,3 +90,20 @@ export function gaugeLevel(value: number, max: number, warnAt = 0.8) {
   const severity: Severity = share >= 0.95 ? 'critical' : share >= warnAt ? 'warning' : 'ok';
   return { share, severity };
 }
+
+/** A row of the panel grid: one panel, or a side column (380 px) beside the rest (1.1.1). */
+export type PanelSlot = { kind: 'one'; panel: Panel } | { kind: 'pair'; side: Panel; main: Panel };
+
+/** The panels as grid rows: a 'side' panel followed by a 'main' one share a row. */
+export function panelSlots(panels: Panel[]): PanelSlot[] {
+  const out: PanelSlot[] = [];
+  for (let i = 0; i < panels.length; i++) {
+    const p = panels[i]!;
+    const next = panels[i + 1];
+    if (p.layout === 'side' && next?.layout === 'main') {
+      out.push({ kind: 'pair', side: p, main: next });
+      i++;
+    } else out.push({ kind: 'one', panel: p });
+  }
+  return out;
+}

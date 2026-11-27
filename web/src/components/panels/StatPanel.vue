@@ -32,12 +32,11 @@ const shown = (t: PanelOf<'stat'>['tiles'][number]) =>
       ]"
       :data-tile="t.id"
     >
-      <span class="text-11 font-medium tracking-wider text-text-muted uppercase">{{
-        $t(t.labelKey)
-      }}</span>
-      <span :class="['text-22 font-semibold tabular-nums', SEVERITY_TEXT[t.severity ?? 'ok']]">{{
-        shown(t)
-      }}</span>
+      <span class="text-13 text-text-muted">{{ $t(t.labelKey) }}</span>
+      <span
+        :class="['text-26 leading-tight font-bold tabular-nums', SEVERITY_TEXT[t.severity ?? 'ok']]"
+        >{{ shown(t) }}</span
+      >
       <span v-if="t.sub" class="text-12 text-text-muted">{{
         $t(t.sub.key, subValues(t.sub.values))
       }}</span>

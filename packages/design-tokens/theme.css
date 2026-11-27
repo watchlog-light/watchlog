@@ -48,6 +48,8 @@
   --text-16: 16px;
   --text-20: 20px;
   --text-24: 24px;
+  /* A tile's or a flow card's number (1.1.1, the RabbitMQ design R1). */
+  --text-26: 26px;
   --text-32: 32px;
   --text-48: 48px;
   --text-64: 64px;
