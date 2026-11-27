@@ -1669,7 +1669,11 @@
     "process_oom_kills_increase": "Process group OOM kills in 10 min",
     "process_releases_increase": "Process group releases in 10 min",
     "process_gone": "Process group gone",
-    "pod_restarts_increase": "Pod restarts (last 15 min)"
+    "pod_restarts_increase": "Pod restarts (last 15 min)",
+    "rabbitmq_queue_ready": "RabbitMQ queue ready messages",
+    "rabbitmq_queue_consumers": "RabbitMQ queue consumers",
+    "rabbitmq_queue_in_rate": "RabbitMQ messages into a queue/s",
+    "rabbitmq_queue_watermark_eta": "RabbitMQ time until the memory watermark (growing queue)"
   },
   "combobox": {
     "noMatches": "No matches",
@@ -2480,7 +2484,8 @@
         "kafka_group_lost": "When a group has no members and its lag grows for 5 minutes (critical)",
         "phpfpm_max_children_reached": "When every worker is busy (pm.max_children reached)",
         "phpfpm_listen_queue": "When requests wait for a free worker for 5 minutes",
-        "phpfpm_busy": "When more than 90% of the workers are busy for 10 minutes"
+        "phpfpm_busy": "When more than 90% of the workers are busy for 10 minutes",
+        "rabbitmq_watermark_soon": "When a growing queue takes memory to the high watermark within an hour"
       }
     },
     "metricsError": "Key metrics couldn't be loaded.",
@@ -2787,7 +2792,8 @@
         "sat": "Sat",
         "sun": "Sun"
       },
-      "missing": "It needs {missing}."
+      "missing": "It needs {missing}.",
+      "usualRange": "usual range"
     },
     "generic": {
       "panels": {
@@ -3339,7 +3345,11 @@
         "overview": "Overview",
         "queues": "Queues",
         "rates": "Message rates",
-        "resources": "Resources"
+        "resources": "Resources",
+        "clients": "Clients",
+        "nodes": "Nodes",
+        "alerts": "Alerts",
+        "queue": "Queue"
       },
       "panels": {
         "summary": "At a glance",
@@ -3382,16 +3392,200 @@
           "confirm": "Confirm",
           "dropped": "Unroutable, dropped",
           "returned": "Unroutable, returned",
-          "deadLettered": "Dead-lettered"
+          "deadLettered": "Dead-lettered",
+          "otherQueues": "the other queues",
+          "published": "published",
+          "busy": "busy",
+          "consumers": "consumers",
+          "opened": "opened",
+          "closed": "closed"
         },
         "cols": {
           "queue": "Queue",
           "ready": "Ready",
           "unacked": "Unacked",
+          "in": "In /s",
+          "out": "Out /s",
           "consumers": "Consumers",
-          "publish": "Publish",
-          "deliver": "Deliver"
-        }
+          "drain": "Drains in",
+          "searchQueues": "Search queues",
+          "noConsumers": "No consumers",
+          "busyPct": "{pct}% busy",
+          "noneMatch": "No queue matches."
+        },
+        "usualNow": "usual for this hour",
+        "aboveUsual": "above usual ({low}–{high})",
+        "belowUsual": "below usual ({low}–{high})",
+        "markerEnded": "{name} {how}",
+        "readyByQueue": "Ready messages by queue",
+        "needLook": "Queues that need a look",
+        "needLookEmpty": "No queue yet: queues appear here once a client declares one.",
+        "allQueues": "Every queue",
+        "allQueuesEmpty": "No queue yet: queues appear here once a client declares one. A node without its metrics plugin shows none (Overview says how to turn it on).",
+        "queuesLimit": "The {n} deepest queues of each node, and every queue with messages and no consumer",
+        "allQueuesLink": "All {n} queues →",
+        "flow": {
+          "title": "Message flow, now",
+          "titleEmpty": "Nothing flows yet: the flow fills in once publishers and queues report.",
+          "publishers": "Publishers · {n} services",
+          "publishersChannels": "Publishers · {n} channels",
+          "exchanges": "Exchanges · {n}",
+          "queues": "Queues · {n}",
+          "consumers": "Consumers · {n} services",
+          "consumersCount": "Consumers · {n}",
+          "in": "in",
+          "ready": "ready",
+          "more": "more",
+          "moreN": "{n} more",
+          "unroutable": "unroutable",
+          "gone": "gone {at}",
+          "note": "Who publishes, where it waits, who takes it. Services are told apart by their traffic: a guess where the direction is clear.",
+          "noteNoFlows": "Without network flows, RabbitMQ's own counts of publishing channels and consumers stand in."
+        },
+        "checks": {
+          "title": "Health checks",
+          "titleEmpty": "No metrics yet: the checks run once the metrics plugin reports.",
+          "summary": "{n} of {m} pass",
+          "state": {
+            "pass": "Passes",
+            "warn": "Warning",
+            "fail": "Fails"
+          },
+          "consumers": "Every queue with messages has a consumer",
+          "queuesN": "{n} queue | {n} queues",
+          "allQueues": "all queues",
+          "memory": "No memory alarm",
+          "ofLimit": "{pct}% of the watermark",
+          "disk": "No disk alarm",
+          "aboveLimit": "{bytes} above the limit",
+          "nodes": "Every node answers",
+          "nOfM": "{n} of {m}",
+          "leaders": "Every quorum queue has a leader",
+          "elections": "No quorum leader elections in the last hour",
+          "electionsN": "{n} elections",
+          "version": "The same version on every node",
+          "versionsN": "{n} versions",
+          "versionOne": "{version}",
+          "unroutable": "No unroutable messages",
+          "perSecond": "{n}/s",
+          "plugin": "Metrics plugin on every node"
+        },
+        "drain": {
+          "eta": "at this rate",
+          "growing": "growing",
+          "never": "never",
+          "empty": "—",
+          "stream": "—"
+        },
+        "clients": "Clients",
+        "clientsEmpty": "No client seen in the last 24 hours. Clients come from the agents' network flows: check that the agents on the nodes where your apps run report flows (Service Map shows them).",
+        "clientsNote": "Every workload that opened a connection to this broker in the last 24 hours, seen by the agents on the network. No credentials, no management API.",
+        "client": {
+          "workload": "Workload",
+          "where": "Where",
+          "connections": "Connections",
+          "sends": "Sends",
+          "receives": "Receives",
+          "mostly": "Mostly",
+          "state": "State",
+          "mostly_publishes": "publishes",
+          "mostly_consumes": "consumes",
+          "running": "Running",
+          "quiet": "No traffic now",
+          "ended": "{how}, {at}",
+          "whereWorkload": "{namespace} · {kind}",
+          "whereContainer": "{project} · container"
+        },
+        "nodes": "Nodes",
+        "nodesEmpty": "No node reports yet.",
+        "nodesNote": "Each node against its own limits. A node at a limit blocks publishers on the whole cluster.",
+        "limit": {
+          "memory": "Memory of the high watermark",
+          "disk": "Disk alarm limit of free disk",
+          "fds": "File descriptors",
+          "sockets": "Sockets",
+          "processes": "Erlang processes"
+        },
+        "node": {
+          "connections": "Connections",
+          "leaders": "Queue leaders",
+          "uptime": "Up",
+          "down": "Doesn't answer: {error}"
+        },
+        "churn": "Connection churn",
+        "churnNote": "A client that reconnects in a loop shows here before it shows anywhere else.",
+        "queueMissing": "This queue",
+        "queueMissingEmpty": "WatchLog doesn't read this queue now: it is gone, or it isn't among the 200 deepest of its node and has a consumer.",
+        "queueMissingNote": "{queue}",
+        "noneHeld": "no one holds messages",
+        "wasUntil": "{n} until {at}",
+        "busyPct": "{pct}% busy",
+        "lastAck": "Since the last ack",
+        "ackingNow": "acking now",
+        "noAck6h": "no ack in 6 hours",
+        "sinceLastAck": "nothing acked since",
+        "fillsMemory": "Fills memory in",
+        "drainsIn": "Drains in",
+        "atThisRate": "at this rate",
+        "markerLost": "last consumer gone",
+        "usualBandNote": "grey band: the usual range for this hour",
+        "inOut": "In against acked",
+        "consumersBusy": "How busy the consumers are",
+        "consumerCount": "Consumers",
+        "thisQueue": "This queue",
+        "fact": {
+          "type": "Type",
+          "vhost": "Virtual host",
+          "leader": "Leader",
+          "members": "Replicas",
+          "membersN": "on {n} nodes | on {n} nodes",
+          "commitLatency": "Raft commit latency",
+          "onDisk": "Messages on disk",
+          "busy": "Consumer utilisation",
+          "redelivered": "Redelivered, last hour"
+        },
+        "probableCause": "Probable cause",
+        "causeEnded": "{name} was connected to this broker and was {how} at {at}, when this queue lost its consumers.",
+        "causeSlow": "The consumers are {pct}% busy and still fall behind: they are slower than the publishers.",
+        "causeCaveat": "RabbitMQ doesn't say which client consumed which queue. This is the client that left when the consumers did.",
+        "causeNone": "Nothing points to a cause now.",
+        "openName": "Open {name}",
+        "openQueue": "Open the queue",
+        "watermarkIn": "At this rate memory reaches the high watermark in about {d}.",
+        "whatHappened": "What happened",
+        "whatHappenedEmpty": "Nothing happened around this queue in this range.",
+        "whatHappenedNote": "From what WatchLog already has",
+        "event": {
+          "consumers": "Consumers on this queue: {from} → {to}",
+          "busy": "Consumers reach {pct}% busy",
+          "ended": "{name} {how}",
+          "alertFired": "Alert “{name}” fired",
+          "alertResolved": "Alert “{name}” resolved"
+        },
+        "source": {
+          "rabbitmq": "RabbitMQ",
+          "kubernetes": "Kubernetes",
+          "docker": "Docker",
+          "alerts": "Alerts"
+        },
+        "queueAlerts": {
+          "title": "Alerts on this queue",
+          "unconsumed": "Grows with no consumers, 5 min",
+          "depth": "Ready above 5,000",
+          "deadLetters": "Receives dead letters",
+          "state": {
+            "firing": "Firing",
+            "quiet": "Quiet",
+            "off": "Off"
+          },
+          "none": "No alert on this queue yet.",
+          "addOne": "Add an alert for this queue",
+          "added": "Added “{name}”. It notifies every channel; change that in Alerts.",
+          "deadLetterHint": "RabbitMQ counts dead letters for the whole broker, not per queue: “Receives dead letters” is for a dead-letter queue."
+        },
+        "backToQueues": "{name} · queues",
+        "vhostIs": "vhost {vhost}",
+        "leaderIs": "leader {node}"
       }
     },
     "kafka": {

@@ -405,6 +405,13 @@ export const routes: RouteRecordRaw[] = [
           hash: string;
         }) => ({ name, params: to.params, query: to.query, hash: to.hash }) as never,
       })),
+      // One RabbitMQ queue (1.1.0, ADR-243): its own address, ?vhost= outside the default.
+      {
+        name: 'application-queue',
+        path: 'applications/:id/queues/:queue',
+        component: () => import('@/views/ApplicationQueuePage.vue'),
+        meta: { titleKey: 'nav.applications', charts: true },
+      },
       // A monitored service (SPEC §4.12); it has its own time range (ADR-135).
       {
         name: 'application',

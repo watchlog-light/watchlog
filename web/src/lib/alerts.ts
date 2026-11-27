@@ -442,6 +442,10 @@ export const SERVICE_METRICS_BY_TYPE: Record<string, typeof SERVICE_METRICS> = {
     { key: 'rabbitmq.memory.ratio', unit: 'ratio', start: { op: '>', value: 0.8 } },
     { key: 'rabbitmq.alarms', unit: 'count', start: { op: '>', value: 0 } },
     { key: 'rabbitmq.dead_lettered.rate', unit: 'per_second', start: { op: '>', value: 0 } },
+    { key: 'rabbitmq.queue.ready', unit: 'count', start: { op: '>', value: 5000 } },
+    { key: 'rabbitmq.queue.consumers', unit: 'count', start: { op: '<', value: 1 } },
+    { key: 'rabbitmq.queue.in.rate', unit: 'per_second', start: { op: '>', value: 0 } },
+    { key: 'rabbitmq.queue.watermark_eta', unit: 'seconds', start: { op: '<', value: 3600 } },
   ],
   'php-fpm': [
     { key: 'php-fpm.max_children_reached.increase', unit: 'count', start: { op: '>', value: 0 } },

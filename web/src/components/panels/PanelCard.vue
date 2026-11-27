@@ -56,7 +56,8 @@ defineEmits<{ retry: [] }>();
       class="text-13 text-text-subtle"
       data-testid="panel-empty"
     >
-      {{ $t('integrations.panel.empty') }}
+      <!-- A panel's own empty words (1.1.0): what is missing and the one step that fixes it. -->
+      {{ $te(`${panel.title}Empty`) ? $t(`${panel.title}Empty`) : $t('integrations.panel.empty') }}
     </p>
     <slot v-else />
   </section>

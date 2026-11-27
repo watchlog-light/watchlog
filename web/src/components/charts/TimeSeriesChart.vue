@@ -86,6 +86,8 @@ const props = defineProps<{
   /** Short note beside the title, e.g. "No memory limit". */
   note?: string;
   markers?: ChartMarker[];
+  /** A usual range drawn as a shaded band behind the series (1.1.0, What changed's statistics). */
+  band?: { label: string; low: (number | null)[][]; high: (number | null)[][] };
   /** Unix seconds [from, to]; the top bar's time range when not set. */
   window?: [number, number];
   thresholds?: ChartThreshold[];
@@ -142,6 +144,7 @@ function yAxisTicks(): { interval: number; max: number } | undefined {
   const max = Math.max(
     0,
     ...props.series.flatMap((s) => s.points.map((p) => p[1] ?? 0)),
+    ...(props.band?.high.map((p) => p[1] ?? 0) ?? []),
     // Room above a line for its label.
     ...lines.map((v) => v * 1.05),
   );
@@ -202,6 +205,37 @@ function decorations() {
   };
 }
 
+/** The usual band: its low edge, then its height stacked on it, shaded in a neutral token. */
+function bandSeries() {
+  const b = props.band;
+  if (!b) return [];
+  const highAt = new Map(b.high.map(([t, v]) => [t, v]));
+  const common = {
+    type: 'line' as const,
+    stack: 'usual-band',
+    showSymbol: false,
+    silent: true,
+    lineStyle: { opacity: 0 },
+    z: 0,
+  };
+  return [
+    { ...common, name: '\u0000band-low', data: b.low.map(([t, v]) => [(t ?? 0) * 1000, v]) },
+    {
+      ...common,
+      name: b.label,
+      color: token('--text-subtle'),
+      areaStyle: { color: token('--text-subtle'), opacity: 0.14 },
+      data: b.low.map(([t, v]) => {
+        const h = highAt.get(t ?? 0);
+        return [
+          (t ?? 0) * 1000,
+          v === null || v === undefined || h === null || h === undefined ? null : h - v,
+        ];
+      }),
+    },
+  ] as Record<string, unknown>[];
+}
+
 function render() {
   if (!chart.value) return;
   const palette = Array.from({ length: 8 }, (_, i) => token(`--chart-${i + 1}`));
@@ -213,7 +247,8 @@ function render() {
       animation: false,
       grid: { left: 8, right: 16, top: 28, bottom: 8, containLabel: true },
       legend: {
-        show: props.series.length > 1,
+        show: props.series.length > 1 || !!props.band,
+        data: [...props.series.map((s) => s.name), ...(props.band ? [props.band.label] : [])],
         top: 0,
         right: 0,
         textStyle: { color: muted, fontSize: 12 },
@@ -249,26 +284,28 @@ function render() {
         },
         splitLine: { lineStyle: { color: border } },
       },
-      series: props.series.map((s, i) => ({
-        name: s.name,
-        type: 'line',
-        showSymbol: !s.dotted && s.points.filter((p) => p[1] !== null).length <= 2,
-        connectNulls: false,
-        ...(s.step ? { step: 'end' } : {}),
-        ...(s.colorToken ? { color: token(s.colorToken) } : {}),
-        ...(props.stacked && !s.dashed && !s.dotted
-          ? { stack: 'total', areaStyle: { opacity: 0.35 } }
-          : {}),
-        lineStyle: {
-          width: s.dashed || s.dotted ? 1 : 1.5,
-          type: s.dashed ? 'dashed' : s.dotted ? 'dotted' : 'solid',
-        },
-        // No data is a gap in the line, not a straight line across it (ADR-159).
-        data: (s.dotted ? s.points : breakGaps(s.points)).map(([t, v]) => [(t ?? 0) * 1000, v]),
-        // Markers, thresholds and shaded ranges hang on the first series; a marker's
-        // name shows on hover, a threshold's label always.
-        ...(i === 0 ? decorations() : {}),
-      })),
+      series: (props.series as ChartSeries[])
+        .map((s, i): Record<string, unknown> => ({
+          name: s.name,
+          type: 'line',
+          showSymbol: !s.dotted && s.points.filter((p) => p[1] !== null).length <= 2,
+          connectNulls: false,
+          ...(s.step ? { step: 'end' } : {}),
+          ...(s.colorToken ? { color: token(s.colorToken) } : {}),
+          ...(props.stacked && !s.dashed && !s.dotted
+            ? { stack: 'total', areaStyle: { opacity: 0.35 } }
+            : {}),
+          lineStyle: {
+            width: s.dashed || s.dotted ? 1 : 1.5,
+            type: s.dashed ? 'dashed' : s.dotted ? 'dotted' : 'solid',
+          },
+          // No data is a gap in the line, not a straight line across it (ADR-159).
+          data: (s.dotted ? s.points : breakGaps(s.points)).map(([t, v]) => [(t ?? 0) * 1000, v]),
+          // Markers, thresholds and shaded ranges hang on the first series; a marker's
+          // name shows on hover, a threshold's label always.
+          ...(i === 0 ? decorations() : {}),
+        }))
+        .concat(bandSeries()),
     },
     { notMerge: true },
   );
@@ -298,6 +335,7 @@ watch(
     props.series,
     props.unit,
     props.markers,
+    props.band,
     props.window,
     props.thresholds,
     props.areas,

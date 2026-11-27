@@ -5,8 +5,18 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import TimeSeriesChart, { type ChartSeries } from '@/components/charts/TimeSeriesChart.vue';
 import { chartToken, SEVERITY_TOKEN, type PanelOf } from '@/lib/panels';
+import { whenAndAgo } from '@/lib/format';
 import BarsPanel from './BarsPanel.vue';
+import CauseCardPanel from './CauseCardPanel.vue';
+import ChecksPanel from './ChecksPanel.vue';
+import ClientsPanel from './ClientsPanel.vue';
+import FactsPanel from './FactsPanel.vue';
+import FlowPanel from './FlowPanel.vue';
 import GaugePanel from './GaugePanel.vue';
+import NodesPanel from './NodesPanel.vue';
+import QueueAlertsPanel from './QueueAlertsPanel.vue';
+import QueuesPanel from './QueuesPanel.vue';
+import TimelinePanel from './TimelinePanel.vue';
 import HeatPanel from './HeatPanel.vue';
 import HistPanel from './HistPanel.vue';
 import PanelCard from './PanelCard.vue';
@@ -21,8 +31,30 @@ const props = defineProps<{
   loading?: boolean;
   error?: boolean;
 }>();
-defineEmits<{ retry: [] }>();
+defineEmits<{ retry: []; changed: [] }>();
 const { t } = useI18n();
+
+// What happened, on the chart (1.1.0): a consumer OOM-killed, the last consumer gone.
+const markers = computed(() => {
+  const p = props.panel;
+  if (p.kind !== 'line' && p.kind !== 'stack') return [];
+  return ((p as PanelOf<'line'>).markers ?? []).map((m) => {
+    const v = { ...(m.text.values ?? {}) } as Record<string, unknown>;
+    if (typeof v.at === 'number') v.at = whenAndAgo(v.at);
+    return {
+      ts: m.at,
+      label: t(m.text.key, v),
+      ...(m.severity && m.severity !== 'info' ? { colorToken: SEVERITY_TOKEN[m.severity] } : {}),
+    };
+  });
+});
+// The usual range of the first series, for this hour of the week (What changed).
+const band = computed(() => {
+  const p = props.panel;
+  if (p.kind !== 'line' && p.kind !== 'stack') return undefined;
+  const b = (p as PanelOf<'line'>).band;
+  return b ? { label: t('integrations.panel.usualRange'), low: b.low, high: b.high } : undefined;
+});
 
 const series = computed<ChartSeries[]>(() => {
   const p = props.panel;
@@ -53,6 +85,8 @@ const isChart = computed(
     :note="panel.note ? $t(panel.note.key, panel.note.values ?? {}) : undefined"
     :unit="(panel as PanelOf<'line'>).unit"
     :series="series"
+    :markers="markers"
+    :band="band"
     :stacked="panel.kind === 'stack'"
     :window="window"
     :loading="loading"
@@ -70,5 +104,18 @@ const isChart = computed(
     <GaugePanel v-else-if="panel.kind === 'gauge'" :panel="panel" />
     <HeatPanel v-else-if="panel.kind === 'heat'" :panel="panel" />
     <TablePanel v-else-if="panel.kind === 'table'" :panel="panel" />
+    <FlowPanel v-else-if="panel.kind === 'flow'" :panel="panel" />
+    <ChecksPanel v-else-if="panel.kind === 'checks'" :panel="panel" />
+    <QueuesPanel v-else-if="panel.kind === 'queues'" :panel="panel" />
+    <ClientsPanel v-else-if="panel.kind === 'clients'" :panel="panel" />
+    <NodesPanel v-else-if="panel.kind === 'nodes'" :panel="panel" />
+    <TimelinePanel v-else-if="panel.kind === 'timeline'" :panel="panel" />
+    <FactsPanel v-else-if="panel.kind === 'facts'" :panel="panel" />
+    <CauseCardPanel v-else-if="panel.kind === 'cause'" :panel="panel" />
+    <QueueAlertsPanel
+      v-else-if="panel.kind === 'queue_alerts'"
+      :panel="panel"
+      @changed="$emit('changed')"
+    />
   </PanelCard>
 </template>

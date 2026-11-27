@@ -54,6 +54,21 @@ export function formatRate(v: number): string {
   return `${n}/s`;
 }
 
+/** "4 min", "2 h 40 min", "3 d 5 h": a duration (1.1.0: drains in, since the last ack). */
+export function formatDuration(seconds: number): string {
+  const s = Math.round(Math.abs(seconds));
+  if (s < 90) return `${s} s`;
+  if (s < 3600) return `${Math.round(s / 60)} min`;
+  if (s < 86_400) {
+    const h = Math.floor(s / 3600);
+    const m = Math.round((s % 3600) / 60);
+    return m && m < 60 ? `${h} h ${m} min` : `${m === 60 ? h + 1 : h} h`;
+  }
+  const d = Math.floor(s / 86_400);
+  const h = Math.round((s % 86_400) / 3600);
+  return h && h < 24 ? `${d} d ${h} h` : `${h === 24 ? d + 1 : d} d`;
+}
+
 export function formatValue(v: number | null | undefined, unit: Unit): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return '–';
   switch (unit) {
@@ -76,7 +91,7 @@ export function formatValue(v: number | null | undefined, unit: Unit): string {
     case 'per_second':
       return formatRate(v);
     case 'seconds':
-      // Connect latencies: milliseconds below a second.
-      return formatSeconds(v);
+      // Connect latencies: milliseconds below a second; durations as minutes and hours.
+      return Math.abs(v) >= 90 ? formatDuration(v) : formatSeconds(v);
   }
 }

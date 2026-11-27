@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { ArrowLeft, Database, Network, PauseCircle, Settings2 } from '@lucide/vue';
 import type { ApplicationDetail, ApplicationPanels } from '@watchlog/api-types';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, provide, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError, api } from '@/api/client';
@@ -30,6 +30,9 @@ import {
 } from '@/lib/applications';
 import { formatDateTime } from '@/lib/format';
 import { PAGE_RANGES, rangeOf, SEVERITY_TOKEN } from '@/lib/panels';
+import { linkRoute, queueRoute, type PanelLink } from '@/lib/service-links';
+import { SERVICE_PAGE } from '@/lib/service-page';
+import { formatDuration } from '@/lib/units';
 import { offeredRanges } from '@/lib/ranges';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
@@ -114,13 +117,50 @@ const HEALTH_STYLE = {
   unknown: 'bg-surface-3 text-text-muted',
 } as const;
 const reasons = computed(() =>
-  (page.data.value?.reasons ?? []).map((r) => ({
-    severity: r.severity,
-    text: reasonLine(r, app.value!.cluster, (iso) => formatDateTime(iso)),
-    // A command or configuration to apply (stub_status, ingress-nginx's metrics).
-    command: typeof r.facts.command === 'string' && r.facts.command ? r.facts.command : null,
-  })),
+  (page.data.value?.reasons ?? []).map((r) => {
+    const f = r.facts;
+    const links: { to: ReturnType<typeof linkRoute>; key: string; name: string }[] = [];
+    // A queue's finding (1.1.0): its page, then the workload or container it points to.
+    if (typeof f.queueRaw === 'string' && f.queueRaw)
+      links.push({
+        to: queueRoute(id.value, typeof f.vhost === 'string' ? f.vhost : '/', f.queueRaw),
+        key: 'integrations.rabbitmq.panels.openQueue',
+        name: String(f.queue ?? f.queueRaw),
+      });
+    for (const l of r.links ?? []) {
+      if (l.kind !== 'workload' && l.kind !== 'container') continue;
+      const to = linkRoute(l as PanelLink, id.value, app.value!.cluster.id);
+      if (to) links.push({ to, key: 'integrations.rabbitmq.panels.openName', name: l.name });
+      if (links.length >= 3) break;
+    }
+    return {
+      severity: r.severity,
+      text: reasonLine(r, app.value!.cluster, (iso) => formatDateTime(iso)),
+      // When a growing queue takes memory to the high watermark at this rate.
+      watermark:
+        typeof f.watermarkIn === 'number' && f.watermarkIn > 0
+          ? formatDuration(f.watermarkIn)
+          : null,
+      links,
+      // A command or configuration to apply (stub_status, ingress-nginx's metrics).
+      command: typeof f.command === 'string' && f.command ? f.command : null,
+    };
+  }),
 );
+// What the panels need to link (1.1.0): this service and its cluster.
+const servicePage = reactive({ appId: '', clusterId: '' });
+provide(SERVICE_PAGE, servicePage);
+watch(
+  () => [id.value, app.value?.cluster.id] as const,
+  ([a, c]) => {
+    servicePage.appId = a;
+    servicePage.clusterId = c ?? '';
+  },
+  { immediate: true },
+);
+// The service's alerts are a tab of their own where the page has one (RabbitMQ, 1.1.0).
+const alertsTab = computed(() => tabs.value.some((x) => x.view === 'alerts'));
+const inAlertsTab = computed(() => tabs.value.find((x) => x.id === tab.value)?.view === 'alerts');
 const connected = computed(() => page.data.value?.connected ?? null);
 const settingsOpen = ref(false);
 
@@ -298,6 +338,19 @@ async function resume() {
               <span>
                 <span class="sr-only">{{ $t(`integrations.severity.${r.severity}`) }}: </span>
                 {{ $t(r.text.key, r.text.values) }}
+                <template v-if="r.watermark">
+                  {{ $t('integrations.rabbitmq.panels.watermarkIn', { d: r.watermark }) }}</template
+                >
+              </span>
+              <span v-if="r.links.length" class="flex flex-wrap gap-x-4 gap-y-1 text-13">
+                <RouterLink
+                  v-for="(l, j) in r.links"
+                  :key="j"
+                  :to="l.to!"
+                  class="text-primary hover:underline"
+                  data-testid="reason-link"
+                  >{{ $t(l.key, { name: l.name }) }}</RouterLink
+                >
               </span>
               <CodeBlock
                 v-if="r.command"
@@ -357,7 +410,10 @@ async function resume() {
           data-testid="tab"
           @click="setQuery({ tab: tb.id === tabs[0]?.id ? undefined : tb.id })"
         >
-          {{ $t(tb.title) }}
+          {{ $t(tb.title)
+          }}<span v-if="tb.count !== undefined && tb.count !== null" class="text-text-subtle">
+            · {{ tb.count }}</span
+          >
         </button>
       </div>
       <p
@@ -372,8 +428,11 @@ async function resume() {
         }}
       </p>
 
+      <div v-if="inAlertsTab" role="tabpanel" class="flex" data-testid="alerts-tab">
+        <ServiceAlerts :app="app" />
+      </div>
       <ErrorState
-        v-if="panels.error.value && !panels.data.value"
+        v-else-if="panels.error.value && !panels.data.value"
         inline
         :message="$t('integrations.panel.error')"
         :retrying="panels.loading.value"
@@ -409,11 +468,12 @@ async function resume() {
           :error="!!panels.error.value"
           :class="['min-w-0', p.span === 2 ? 'md:col-span-2' : '']"
           @retry="panels.load"
+          @changed="panels.load"
         />
       </div>
 
       <div class="flex flex-wrap items-start gap-3.5">
-        <ServiceAlerts :app="app" />
+        <ServiceAlerts v-if="!alertsTab" :app="app" />
         <section
           class="flex min-w-0 flex-[1_1_18rem] flex-col gap-3 rounded-card border border-border bg-surface-1 px-4 py-4 sm:px-5"
           data-testid="connected"
