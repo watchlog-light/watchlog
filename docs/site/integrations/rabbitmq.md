@@ -24,6 +24,8 @@ docker exec shop-rabbitmq-1 rabbitmq-plugins enable rabbitmq_prometheus
 No restart is needed. WatchLog doesn't use the management API, never creates a RabbitMQ user,
 and never reads messages.
 
+For a tour in pictures, see [RabbitMQ monitoring](/applications/rabbitmq/).
+
 The **Clients** tab and the names of publishers and consumers come from the agents' network
 flows (eBPF), which the agents report on Kubernetes and on Linux servers. Without them the page
 still works, and RabbitMQ's own counts of publishing channels and consumers stand in.
