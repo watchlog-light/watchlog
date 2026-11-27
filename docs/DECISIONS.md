@@ -4302,3 +4302,4 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **Percentages have one formatter** (the backend's `pctText`), and the web shows counts with thousands separators.
   - **A line panel may carry `zeroKey`**: the sentence said instead of a flat chart when every point is zero.
 - Consequences: around a change the page can lag the node total by up to 30 seconds, but never disagrees with itself. The Overview no longer has its own connected list; the Clients tab is the one place for it.
+- Amended in 1.1.2 (the live demo, two events within the hour): several labelled markers take turns on two rows above the plot, each cut to one line at its room, time first; a lagging Deliver is said against the publish rate, and the hour's peak is no longer read.
