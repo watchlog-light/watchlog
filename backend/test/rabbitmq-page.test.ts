@@ -349,7 +349,7 @@ describe('the RabbitMQ page', () => {
           vhost: '/',
           queue: 'orders',
         },
-        (i) => (i < LOST ? 0.6 + (0.39 * i) / LOST : 0),
+        (i) => (i < LOST ? 0.4 - (0.39 * i) / LOST : 0),
       ),
       write(
         k8s.id,
@@ -435,11 +435,15 @@ describe('the RabbitMQ page', () => {
       ps.find((p) => p.id === pid)!;
     const ov = await tab('overview');
     const tiles = panel(ov, 'summary').tiles as Tile[];
-    expect(tiles.find((t) => t.id === 'consumers')).toMatchObject({
-      value: 0,
-      sub: { values: { n: 1 } },
-      severity: 'warning',
+    // 1.1.1: the per-queue consumers, the rows' and the checks' source: emails' 2 (orders has
+    // none, its finding says so). Consumers present: the tile isn't red. The series are 30
+    // minutes old, so there is no "an hour ago" yet.
+    const consumersTile = tiles.find((t) => t.id === 'consumers')!;
+    expect(consumersTile).toMatchObject({
+      value: 2,
+      sub: { key: 'integrations.rabbitmq.panels.steady' },
     });
+    expect(consumersTile.severity).toBeUndefined();
     expect(tiles.find((t) => t.id === 'deliver')).toMatchObject({
       sub: { key: 'integrations.rabbitmq.panels.wasRate' },
     });
@@ -844,6 +848,235 @@ describe('the RabbitMQ page', () => {
       links: [{ kind: 'container', id: 'shop-consumer-1' }],
     });
   });
+
+  // 1.1.1: the demo's healthy moment. The consumer was OOM-killed 20 minutes ago and its
+  // restarted pod (Kubernetes) or container (server) is connected again; the backlog drained.
+  for (const kind of ['kubernetes', 'server'] as const) {
+    it(`a restarted consumer that is connected again is no problem anywhere (${kind})`, async () => {
+      const c = await cluster(`healthy-${kind}`, kind);
+      const k8s = kind === 'kubernetes';
+      const oomAt = new Date(NOW - 20 * MIN).toISOString();
+      if (k8s) {
+        await object(
+          c.id,
+          'Pod',
+          'shop',
+          'consumer-7d9-x1',
+          { workload: { kind: 'Deployment', name: 'consumer' } },
+          {
+            phase: 'Running',
+            containers: [
+              {
+                name: 'consumer',
+                state: 'running',
+                restart_count: 1,
+                last_termination: { reason: 'OOMKilled', exit_code: 137, finished_at: oomAt },
+              },
+            ],
+          },
+        );
+      } else {
+        await object(
+          c.id,
+          'DockerContainer',
+          'shop',
+          'shop-consumer-1',
+          { compose_service: 'consumer' },
+          {
+            state: 'running',
+            oom_killed: true,
+            restart_count: 1,
+            finished_at: oomAt,
+          },
+          'h1',
+        );
+        await object(
+          c.id,
+          'DockerContainer',
+          'shop',
+          'shop-rabbitmq-1',
+          { compose_service: 'rabbitmq' },
+          { state: 'running' },
+          'h1',
+        );
+      }
+      const target = k8s
+        ? {
+            kind: 'workload',
+            namespace: 'shop',
+            workload_kind: 'StatefulSet',
+            workload: 'rabbitmq',
+            port: 5672,
+          }
+        : {
+            kind: 'compose',
+            host: 'h1',
+            compose_project: 'shop',
+            compose_service: 'rabbitmq',
+            port: 5672,
+          };
+      const id = (
+        await api('POST', '/applications', { clusterId: c.id, type: 'rabbitmq', target })
+      ).json().application.id as string;
+      await status(c.token, k8s ? '' : 'h1', [
+        {
+          id,
+          state: 'ok',
+          service_version: '4.1.8',
+          members: [{ name: 'rabbitmq-0', up: true }],
+          extra: {
+            rabbitmq: [{ member: 'rabbitmq-0', node: 'rabbit@0', cluster: 'c', plugin: true }],
+          },
+        },
+      ]);
+      const svc = (extra: Record<string, string> = {}) => ({
+        service: id,
+        service_type: 'rabbitmq',
+        member: 'rabbitmq-0',
+        ...extra,
+      });
+      const orders = { vhost: '/', queue: 'orders' };
+      // Publish 3/s all along; deliver 3/s, with a 12/s burst draining the backlog 15 minutes ago.
+      let delivered = 0;
+      const dst = k8s
+        ? {
+            dst_kind: 'workload',
+            dst_namespace: 'shop',
+            dst_workload_kind: 'StatefulSet',
+            dst_workload: 'rabbitmq',
+            dst_port: '5672',
+          }
+        : { dst_kind: 'container', dst: 'shop-rabbitmq-1', dst_port: '5672' };
+      const src = (w: string) =>
+        k8s
+          ? {
+              namespace: 'shop',
+              workload_kind: w === 'rabbitmq' ? 'StatefulSet' : 'Deployment',
+              workload: w,
+            }
+          : { host: 'h1', container: `shop-${w}-1`, compose_project: 'shop', compose_service: w };
+      await Promise.all([
+        write(c.id, 'rabbitmq_queue_messages_ready', svc(), () => 0),
+        write(c.id, 'rabbitmq_queue_messages_unacked', svc(), () => 0),
+        write(c.id, 'rabbitmq_global_messages_received_total', svc(), (i) => i * 45),
+        write(
+          c.id,
+          'rabbitmq_global_messages_delivered_total',
+          svc(),
+          (i) => (delivered += i >= 56 && i < 60 ? 180 : 45),
+        ),
+        write(c.id, 'rabbitmq_consumers', svc(), () => 1),
+        write(c.id, 'rabbitmq_process_resident_memory_bytes', svc(), () => 0.0031 * 2 ** 30),
+        write(c.id, 'rabbitmq_resident_memory_limit_bytes', svc(), () => 2 ** 30),
+        write(c.id, 'rabbitmq_alarms_memory_used_watermark', svc(), () => 0),
+        write(c.id, 'rabbitmq_detailed_queue_messages_ready', svc(orders), () => 0),
+        write(c.id, 'rabbitmq_detailed_queue_messages_unacked', svc(orders), () => 0),
+        write(c.id, 'rabbitmq_detailed_queue_consumers', svc(orders), () => 1),
+        write(c.id, 'rabbitmq_detailed_queue_consumer_utilisation', svc(orders), () => 1),
+        write(
+          c.id,
+          'rabbitmq_detailed_queue_exchange_messages_published_total',
+          svc(orders),
+          (i) => i * 45,
+        ),
+        write(
+          c.id,
+          'rabbitmq_detailed_queue_messages_delivered_ack_total',
+          svc(orders),
+          (i) => i * 45,
+        ),
+        // The consumer receives, the publisher sends (long-lived: no new connection), and the
+        // broker's own pods talk to its port (never a client).
+        write(
+          c.id,
+          'watchlog_flow_bytes_total',
+          { ...src('consumer'), ...dst, dir: 'received' },
+          (i) => i * 6000,
+        ),
+        write(
+          c.id,
+          'watchlog_flow_bytes_total',
+          { ...src('consumer'), ...dst, dir: 'sent' },
+          (i) => i * 900,
+        ),
+        write(c.id, 'watchlog_flow_connections_total', { ...src('consumer'), ...dst }, (i) =>
+          i < 40 ? 1 : 2,
+        ),
+        write(
+          c.id,
+          'watchlog_flow_bytes_total',
+          { ...src('publisher'), ...dst, dir: 'sent' },
+          (i) => i * 4600,
+        ),
+        write(
+          c.id,
+          'watchlog_flow_bytes_total',
+          { ...src('publisher'), ...dst, dir: 'received' },
+          (i) => i * 15,
+        ),
+        write(c.id, 'watchlog_flow_connections_total', { ...src('publisher'), ...dst }, () => 1),
+        write(
+          c.id,
+          'watchlog_flow_connections_total',
+          { ...src('rabbitmq'), ...dst },
+          (i) => i * 6,
+        ),
+      ]);
+      await fetch(`${TEST_VM_URL}/internal/force_flush`);
+      const d = (await api('GET', `/applications/${id}`)).json();
+      expect(d.application.health).toBe('ok');
+      // A4: the connected list leaves out the broker itself and has the long-lived publisher.
+      const connected = (d.connected.items as { name: string }[]).map((x) => x.name);
+      expect(connected).not.toContain(k8s ? 'rabbitmq' : 'shop-rabbitmq-1');
+      expect(connected).toContain(k8s ? 'publisher' : 'shop-publisher-1');
+      const ov = await tabOf(id)('overview');
+      const tiles = ov.find((p) => p.id === 'summary')!.tiles as Tile[];
+      // A1: one count of consumers; nothing red, nothing gone.
+      expect(tiles.find((t) => t.id === 'consumers')).toMatchObject({ value: 1 });
+      expect(tiles.find((t) => t.id === 'consumers')!.severity).toBeUndefined();
+      const cols = ov.find((p) => p.id === 'flow')!.columns as {
+        id: string;
+        rows: { name: string; text?: { key: string }; severity?: string }[];
+      }[];
+      const consumerRows = cols.find((x) => x.id === 'consumers')!.rows;
+      expect(consumerRows.map((r) => r.name)).toEqual([k8s ? 'shop/consumer' : 'shop-consumer-1']);
+      expect(consumerRows[0]!.text).toBeUndefined();
+      expect(consumerRows[0]!.severity).toBeUndefined();
+      const checks = ov.find((p) => p.id === 'checks')!.items as { state: string }[];
+      expect(checks.every((x) => x.state === 'pass')).toBe(true);
+      // A2: deliver equals publish and nothing waits: no warning for the earlier burst.
+      const deliverTile = tiles.find((t) => t.id === 'deliver')!;
+      expect(deliverTile.severity).toBeUndefined();
+      expect(deliverTile.sub?.key).not.toBe('integrations.rabbitmq.panels.wasRate');
+      // A3: the check writes the memory as the tile does.
+      expect(
+        (
+          ov.find((p) => p.id === 'checks')!.items as {
+            id: string;
+            value: { values: { pct: string } };
+          }[]
+        ).find((x) => x.id === 'memory')!.value.values.pct,
+      ).toBe('0.31%');
+      // A5: no queue needs a look.
+      expect(ov.find((p) => p.id === 'needLook')).toMatchObject({ rows: [], total: 1 });
+      // The row: idle consumers are 0% busy, not 100%.
+      expect(
+        (await api('GET', `/applications/${id}/rabbitmq/queues`)).json().queues[0],
+      ).toMatchObject({ consumers: 1, busy: 0 });
+      // The Clients tab: the restart said, not in red; the broker not a client of itself.
+      const clients = (await tabOf(id)('clients')).find((p) => p.id === 'clients')!.rows as {
+        name: string;
+        state: { key: string };
+        severity?: string;
+      }[];
+      expect(clients.map((x) => x.name).sort()).toEqual(
+        k8s ? ['shop/consumer', 'shop/publisher'] : ['shop-consumer-1', 'shop-publisher-1'],
+      );
+      const consumer = clients.find((x) => x.name.includes('consumer'))!;
+      expect(consumer.state.key).toBe('restarted');
+      expect(consumer.severity).toBeUndefined();
+    });
+  }
 
   it('warns before a growing queue takes a node to its memory watermark', async () => {
     const k8s = await cluster('mem', 'kubernetes');

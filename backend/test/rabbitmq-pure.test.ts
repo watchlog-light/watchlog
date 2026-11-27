@@ -3,9 +3,20 @@
 // look, a client's role from the direction of its traffic, and how busy the consumers were
 // before they left.
 import { describe, expect, it } from 'vitest';
-import { mostlyOf, ROLE_MIN_BYTES } from '../src/modules/integrations/pages/rabbitmq-clients.js';
+import { isServiceItself } from '../src/modules/integrations/pages/connected.js';
+import {
+  clientStateOf,
+  mostlyOf,
+  ROLE_MIN_BYTES,
+} from '../src/modules/integrations/pages/rabbitmq-clients.js';
+import {
+  consumersOf,
+  deliverLags,
+  needALook,
+  pctText,
+} from '../src/modules/integrations/pages/rabbitmq-tabs.js';
 import { busyBefore } from '../src/modules/integrations/pages/rabbitmq-queue.js';
-import { drainOf, severityOf } from '../src/modules/integrations/pages/rabbitmq-queues.js';
+import { busyOf, drainOf, severityOf } from '../src/modules/integrations/pages/rabbitmq-queues.js';
 
 const q = (over: object) => ({
   ready: 100,
@@ -77,5 +88,125 @@ describe('busy before the drop', () => {
     ];
     expect(busyBefore(pts, 3000)).toBe(0.99);
     expect(busyBefore([[100, 0.4]], 3000)).toBeNull();
+  });
+});
+
+// 1.1.1: one source of truth.
+const qrow = (over: object) => {
+  const base = {
+    vhost: '/',
+    queue: 'q',
+    name: 'q',
+    type: 'classic' as const,
+    ready: 0,
+    unacked: 0,
+    in: 3,
+    out: 3,
+    consumers: 1,
+    busy: 0,
+    ...over,
+  };
+  const row = { ...base, drain: drainOf(base) };
+  const severity = severityOf(row);
+  return severity ? { ...row, severity } : row;
+};
+
+describe('A1: consumers, read once', () => {
+  it('a client is gone only when it ended and nothing of it is connected now', () => {
+    const oom = { how: 'OOMKilled', at: 1000 };
+    expect(clientStateOf(oom, false)).toMatchObject({
+      state: { key: 'ended', values: { how: 'OOMKilled' } },
+      severity: 'critical',
+    });
+    // Its restarted pod is connected again: running, the restart said without red.
+    const back = clientStateOf(oom, true);
+    expect(back.state).toEqual({ key: 'restarted', values: { how: 'OOMKilled', at: 1000 } });
+    expect(back.severity).toBeUndefined();
+    expect(clientStateOf(null, true).state.key).toBe('running');
+    expect(clientStateOf(null, false).state.key).toBe('quiet');
+  });
+
+  it('the tile, the rows and the checks count the same consumers', () => {
+    expect(consumersOf([qrow({ consumers: 2 }), qrow({ queue: 'b', consumers: 1 })])).toBe(3);
+    expect(consumersOf([qrow({ consumers: null })])).toBeNull();
+  });
+
+  it('busy is 1 − utilisation, and only with consumers ("100% busy" was idle)', () => {
+    expect(busyOf(1, 2)).toBe(0);
+    expect(busyOf(0.02, 2)).toBe(0.98);
+    expect(busyOf(0, 0)).toBeNull();
+    expect(busyOf(null, 3)).toBeNull();
+  });
+});
+
+describe('A2: deliver warns only when consumers fall behind', () => {
+  it('draining a backlog is not a drop', () => {
+    // Publish = deliver, the queue empty: no warning, whatever the hour's peak was.
+    expect(deliverLags(3, 3, 0)).toBe(false);
+    // Deliver above publish (draining a backlog): no warning.
+    expect(deliverLags(12, 3, -9)).toBe(false);
+    // Below publish while ready grows: a warning.
+    expect(deliverLags(0, 3, 3)).toBe(true);
+    // Below publish but ready not growing (a short dip): no warning.
+    expect(deliverLags(2, 3, 0)).toBe(false);
+  });
+});
+
+describe('A3: the same number, the same rounding', () => {
+  it('writes a ratio as the dashboard does', () => {
+    expect(pctText(0.0031)).toBe('0.31%');
+    expect(pctText(0.061)).toBe('6.1%');
+    expect(pctText(0.61)).toBe('61%');
+    expect(pctText(0)).toBe('0%');
+  });
+});
+
+describe('A4: a service is never its own client', () => {
+  it('leaves out its own pods, Compose service, container and unit', () => {
+    const k8s = {
+      kind: 'workload',
+      namespace: 'shop',
+      workload_kind: 'StatefulSet',
+      workload: 'rabbitmq',
+      port: 5672,
+    } as const;
+    expect(isServiceItself(k8s, { namespace: 'shop', workload: 'rabbitmq' })).toBe(true);
+    expect(isServiceItself(k8s, { namespace: 'shop', workload: 'publisher' })).toBe(false);
+    const compose = {
+      kind: 'compose',
+      host: 'h1',
+      compose_project: 'shop',
+      compose_service: 'rabbitmq',
+      port: 5672,
+    } as const;
+    expect(
+      isServiceItself(compose, {
+        compose_project: 'shop',
+        compose_service: 'rabbitmq',
+        container: 'shop-rabbitmq-1',
+      }),
+    ).toBe(true);
+    expect(isServiceItself(compose, { compose_project: 'shop', compose_service: 'consumer' })).toBe(
+      false,
+    );
+  });
+});
+
+describe('A5: only queues with a finding need a look', () => {
+  it('leaves out a healthy queue, keeps no consumers, growing, 95% busy and dead letters', () => {
+    const rows = [
+      qrow({ queue: 'orders' }),
+      qrow({ queue: 'payments', ready: 300, consumers: 0, out: 0 }),
+      qrow({ queue: 'emails', ready: 2000, in: 10, out: 5, busy: 0.5 }),
+      qrow({ queue: 'invoices', ready: 50, busy: 0.97 }),
+      qrow({ queue: 'orders.dlq', ready: 12, consumers: 0, out: 0, in: 0.1 }),
+    ];
+    expect(needALook(rows).map((q) => q.queue)).toEqual([
+      'payments',
+      'emails',
+      'invoices',
+      'orders.dlq',
+    ]);
+    expect(needALook([qrow({ queue: 'orders' })])).toEqual([]);
   });
 });

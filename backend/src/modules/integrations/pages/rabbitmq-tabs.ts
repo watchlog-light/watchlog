@@ -10,7 +10,7 @@ import { clientRows } from './rabbitmq-clients.js';
 import { byNeed, queueRows, watermarkIn } from './rabbitmq-queues.js';
 import { endedClients, nodesOf, queueGrowth } from './rabbitmq.js';
 import { bytes } from './owners.js';
-import { instant, one, pointsOf, range, valueOf } from './query.js';
+import { instant, one, pointsOf, range, valueOf, windowOf } from './query.js';
 import type { QuerySeries } from '../../../lib/victoria.js';
 import type {
   ChecksPanel,
@@ -61,9 +61,58 @@ const perMin = (perSecond: number) => Math.round(Math.abs(perSecond) * 60);
 
 // ------------------------------------------------------------------------- Overview
 
-export async function overview(ctx: PageContext): Promise<Panel[]> {
+/**
+ * One instant for the whole page (1.1.1): every value is read at the same 30-second boundary
+ * (the heavy scrape's), so the tiles, the flow, the rows, the checks and the findings never
+ * read two moments of a change.
+ */
+export const aligned = (ctx: PageContext): PageContext => ({
+  ...ctx,
+  now: Math.floor(ctx.now / 30_000) * 30_000,
+});
+
+/**
+ * A rate's window: at least four scrape intervals (the per-queue counters come every 30 s), and
+ * at least two of the chart's steps, so a steady publisher draws a steady line at 6 h and 24 h.
+ */
+export const rateWindow = (ctx: PageContext) =>
+  `${Math.max(120, 2 * windowOf(ctx.range, ctx.now).step)}s`;
+
+/** "0.31%": a ratio as the dashboard writes it (web/src/lib/units.ts formatValue). */
+export function pctText(v: number | null): string | null {
+  if (v === null || !Number.isFinite(v)) return null;
+  if (v === 0) return '0%';
+  return `${(v * 100).toFixed(v < 0.01 ? 2 : v < 0.1 ? 1 : 0)}%`;
+}
+
+/** The Deliver tile warns only when consumers fall behind: below publish while ready grows. */
+export function deliverLags(
+  deliver: number | null,
+  publish: number | null,
+  readyGrowth: number | null,
+): boolean {
+  return (
+    deliver !== null &&
+    publish !== null &&
+    readyGrowth !== null &&
+    deliver < publish * 0.9 &&
+    readyGrowth > 0.05
+  );
+}
+
+/** The consumers the page shows: the per-queue series' sum, the same as the rows and checks. */
+export const consumersOf = (rows: QueueRow[]): number | null =>
+  rows.some((q) => q.consumers !== null) ? rows.reduce((a, q) => a + (q.consumers ?? 0), 0) : null;
+
+/** The queues with a finding: no consumers, growing, consumers 95%+ busy, dead letters. */
+export const needALook = (rows: QueueRow[]): QueueRow[] => rows.filter((q) => q.severity);
+
+export async function overview(input: PageContext): Promise<Panel[]> {
+  const ctx = aligned(input);
   const s = one(ctx.row.id);
-  const g = (m: string) => `sum(rate(rabbitmq_global_messages_${m}_total{${s}}[${RATE}]))`;
+  const w = rateWindow(ctx);
+  const g = (m: string, win = RATE) =>
+    `sum(rate(rabbitmq_global_messages_${m}_total{${s}}[${win}]))`;
   const [
     ready,
     growth,
@@ -71,14 +120,12 @@ export async function overview(ctx: PageContext): Promise<Panel[]> {
     publish,
     deliver,
     deliverPeak,
-    consumers,
-    consumersWas,
+    consumersAgo,
     memory,
     publishLine,
     deliverLine,
     topQueue,
     readyLine,
-    lostLine,
     rows,
     clients,
     ended,
@@ -93,25 +140,15 @@ export async function overview(ctx: PageContext): Promise<Panel[]> {
     instant(ctx, g('received')),
     instant(ctx, g('delivered')),
     instant(ctx, `max_over_time(${g('delivered')}[1h:1m])`),
-    instant(ctx, `sum(rabbitmq_consumers{${s}})`),
-    instant(ctx, `max_over_time(sum(rabbitmq_consumers{${s}})[1h:1m])`),
+    instant(ctx, `sum(rabbitmq_detailed_queue_consumers{${s}} offset 1h)`),
     instant(
       ctx,
       `max(rabbitmq_process_resident_memory_bytes{${s}} / (rabbitmq_resident_memory_limit_bytes{${s}} > 0))`,
     ),
-    range(ctx, g('received')),
-    range(ctx, g('delivered')),
+    range(ctx, g('received', w)),
+    range(ctx, g('delivered', w)),
     instant(ctx, `topk(1, sum by (vhost, queue) (rabbitmq_detailed_queue_messages_ready{${s}}))`),
     range(ctx, `sum(rabbitmq_detailed_queue_messages_ready{${s}})`),
-    range(ctx, g('redelivered')).then(async (red) => ({
-      red,
-      dropped: await range(ctx, g('unroutable_dropped')),
-      returned: await range(ctx, g('unroutable_returned')),
-      dead: await range(
-        ctx,
-        `sum(rate({__name__=~"rabbitmq_global_messages_dead_lettered_.*_total",${s}}[${RATE}]))`,
-      ),
-    })),
     queueRows(ctx),
     clientRows(ctx).catch(() => [] as ClientsPanel['rows']),
     endedClients(ctx, null).catch(() => []),
@@ -122,14 +159,15 @@ export async function overview(ctx: PageContext): Promise<Panel[]> {
   ]);
   const d = valueOf(deliver);
   const dPeak = valueOf(deliverPeak);
-  const c = valueOf(consumers);
-  const cWas = valueOf(consumersWas);
+  const c = consumersOf(rows);
+  const cAgo = valueOf(consumersAgo);
   const mem = valueOf(memory);
   const r = valueOf(ready);
   const u = valueOf(unacked);
   const p = valueOf(publish);
   const rr = growth.size ? [...growth.values()].reduce((a, b) => a + b, 0) : null;
-  const dropped = d !== null && dPeak !== null && dPeak > 1 && d < dPeak / 2;
+  const lags = deliverLags(d, p, rr);
+  const waiting = rows.some((q) => q.type !== 'stream' && q.ready > 0 && q.consumers === 0);
 
   const summary: StatPanel = {
     id: 'summary',
@@ -146,7 +184,7 @@ export async function overview(ctx: PageContext): Promise<Panel[]> {
         sub:
           rr !== null && Math.abs(rr) >= 0.05
             ? { key: rr > 0 ? `${P}.growing` : `${P}.draining`, values: { n: perMin(rr) } }
-            : usualSub(r, usualReady),
+            : (usualSub(r, usualReady) ?? { key: `${P}.steady` }),
         severity: rr !== null && rr > 0.5 ? 'warning' : undefined,
       },
       {
@@ -154,7 +192,10 @@ export async function overview(ctx: PageContext): Promise<Panel[]> {
         labelKey: `${P}.unacked`,
         value: u,
         unit: 'count',
-        sub: usualSub(u, usualUnacked),
+        sub:
+          (u ?? 0) > 10_000
+            ? { key: `${P}.unackedHigh` }
+            : (usualSub(u, usualUnacked) ?? { key: `${P}.normal` }),
         severity: (u ?? 0) > 10_000 ? 'warning' : undefined,
       },
       {
@@ -162,17 +203,21 @@ export async function overview(ctx: PageContext): Promise<Panel[]> {
         labelKey: `${P}.publish`,
         value: p,
         unit: 'per_second',
-        sub: usualSub(p, usualPublish),
+        sub: usualSub(p, usualPublish) ?? { key: `${P}.messagesASecond` },
       },
       {
         id: 'deliver',
         labelKey: `${P}.deliver`,
         value: d,
         unit: 'per_second',
-        sub: dropped
-          ? { key: `${P}.wasRate`, values: { n: Math.round(dPeak! * 10) / 10 } }
-          : usualSub(d, usualDeliver),
-        severity: dropped ? 'warning' : undefined,
+        // Behind the publishers while ready grows: a backlog draining is not a drop.
+        sub:
+          lags && dPeak !== null && dPeak > (d ?? 0)
+            ? { key: `${P}.wasRate`, values: { n: round(dPeak) } }
+            : lags
+              ? { key: `${P}.behindPublish` }
+              : (usualSub(d, usualDeliver) ?? { key: `${P}.messagesASecond` }),
+        severity: lags ? 'warning' : undefined,
       },
       {
         id: 'consumers',
@@ -180,10 +225,11 @@ export async function overview(ctx: PageContext): Promise<Panel[]> {
         value: c,
         unit: 'count',
         sub:
-          c !== null && cWas !== null && cWas > c
-            ? { key: `${P}.was`, values: { n: cWas } }
-            : undefined,
-        severity: c !== null && cWas !== null && cWas > c ? 'warning' : undefined,
+          c !== null && cAgo !== null && cAgo !== c
+            ? { key: `${P}.anHourAgo`, values: { n: cAgo } }
+            : { key: `${P}.steady` },
+        // Red only when messages wait for nobody: present consumers are never red.
+        severity: c === 0 && waiting ? 'critical' : undefined,
       },
       {
         id: 'memory',
@@ -202,7 +248,7 @@ export async function overview(ctx: PageContext): Promise<Panel[]> {
     .filter((e) => e.at !== null && e.at >= from)
     .map((e) => ({
       at: e.at!,
-      text: { key: `${P}.markerEnded`, values: { name: e.name, how: e.how } },
+      text: { key: `${P}.markerEnded`, values: { name: e.name, how: e.how, at: e.at } },
       severity: 'critical' as Severity,
     }));
 
@@ -215,9 +261,10 @@ export async function overview(ctx: PageContext): Promise<Panel[]> {
       )
     : [];
   const restLine = topLine.length ? minus(readyLine[0], topLine[0]) : null;
+  const look = needALook(rows);
 
   return [
-    await flow(ctx, rows, clients),
+    await flow(ctx, rows, clients, r, c),
     summary,
     {
       id: 'rates',
@@ -243,50 +290,22 @@ export async function overview(ctx: PageContext): Promise<Panel[]> {
       series: topName
         ? [
             { name: topName, points: pointsOf(topLine[0]) },
-            ...(restLine
-              ? [
-                  {
-                    nameKey: `${P}.series.otherQueues`,
-                    points: restLine,
-                  },
-                ]
-              : []),
+            ...(restLine ? [{ nameKey: `${P}.series.otherQueues`, points: restLine }] : []),
           ]
         : [{ nameKey: `${P}.series.ready`, points: pointsOf(readyLine[0]) }],
     },
-    await checks(ctx, rows),
+    { ...(await checks(ctx, rows)), layout: 'side' },
     {
       id: 'needLook',
       title: `${P}.needLook`,
       kind: 'queues',
-      span: 2,
+      span: 1,
+      layout: 'main',
+      // No queue with a finding: the panel says so in one line, with the link to all queues.
       state: rows.length ? 'ok' : 'empty',
       full: false,
       total: rows.length,
-      rows: rows.slice(0, 6),
-    },
-    {
-      id: 'lost',
-      title: `${P}.unroutable`,
-      kind: 'line',
-      span: 2,
-      unit: 'per_second',
-      state: lostLine.red.length ? 'ok' : 'empty',
-      note: { key: `${P}.deadLetterNote` },
-      series: [
-        {
-          nameKey: `${P}.series.redeliver`,
-          points: pointsOf(lostLine.red[0]),
-          severity: 'warning',
-        },
-        {
-          nameKey: `${P}.series.dropped`,
-          points: pointsOf(lostLine.dropped[0]),
-          severity: 'critical',
-        },
-        { nameKey: `${P}.series.returned`, points: pointsOf(lostLine.returned[0]) },
-        { nameKey: `${P}.series.deadLettered`, points: pointsOf(lostLine.dead[0]) },
-      ],
+      rows: look.slice(0, 6),
     },
   ];
 }
@@ -305,33 +324,40 @@ const queueNameOf = (l: Record<string, string>) =>
   !l.vhost || l.vhost === '/' ? (l.queue ?? '') : `${l.vhost}/${l.queue ?? ''}`;
 const esc = (v: string) => v.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
+/** Up to three rows: all of them, or the first two and "N more". */
+function upTo3<T, R>(items: T[], row: (t: T) => R, more: (rest: T[]) => R): R[] {
+  return items.length <= 3 ? items.map(row) : [...items.slice(0, 2).map(row), more(items.slice(2))];
+}
+
 /**
  * Publishers → exchanges → queues → consumers, with the rate between each. Publishers and
- * consumers are the clients the agents saw (by the direction of their traffic: a guess,
- * shown only where clear); with no flows, RabbitMQ's own counts of publishing channels and
- * consumers stand in. Exchanges and queues are RabbitMQ's.
+ * consumers are the clients the agents saw (by the direction of their traffic: a guess, shown
+ * only where clear); with no flows, RabbitMQ's own counts of publishing channels and consumers
+ * stand in. Exchanges and queues are RabbitMQ's. The consumer count is the page's one source
+ * (consumersOf), and a client is gone only when it ended and isn't connected now (1.1.1).
  */
 export async function flow(
   ctx: PageContext,
   queues: QueueRow[],
   clients: ClientsPanel['rows'],
+  readyTotal: number | null = null,
+  consumerCount: number | null = consumersOf(queues),
 ): Promise<FlowPanel> {
   const s = one(ctx.row.id);
-  const [routed, received, delivered, pubChannels, consumers, exRates, exNames, unroutable] =
+  const [routed, received, delivered, pubChannels, exRates, exNames, unroutable] =
     await Promise.all([
-      instant(ctx, `sum(rate(rabbitmq_global_messages_routed_total{${s}}[5m]))`),
-      instant(ctx, `sum(rate(rabbitmq_global_messages_received_total{${s}}[5m]))`),
-      instant(ctx, `sum(rate(rabbitmq_global_messages_delivered_total{${s}}[5m]))`),
+      instant(ctx, `sum(rate(rabbitmq_global_messages_routed_total{${s}}[${RATE}]))`),
+      instant(ctx, `sum(rate(rabbitmq_global_messages_received_total{${s}}[${RATE}]))`),
+      instant(ctx, `sum(rate(rabbitmq_global_messages_delivered_total{${s}}[${RATE}]))`),
       instant(ctx, `sum(rabbitmq_global_publishers{${s}})`),
-      instant(ctx, `sum(rabbitmq_consumers{${s}})`),
       instant(
         ctx,
-        `sum by (vhost, exchange) (rate(rabbitmq_detailed_exchange_messages_published_total{${s}}[5m]))`,
+        `sum by (vhost, exchange) (rate(rabbitmq_detailed_exchange_messages_published_total{${s}}[${RATE}]))`,
       ),
       instant(ctx, `max by (vhost, exchange, type) (rabbitmq_cluster_exchange_name{${s}})`),
       instant(
         ctx,
-        `sum(rate({__name__=~"rabbitmq_global_messages_unroutable_(dropped|returned)_total",${s}}[5m]))`,
+        `sum(rate({__name__=~"rabbitmq_global_messages_unroutable_(dropped|returned)_total",${s}}[${RATE}]))`,
       ),
     ]);
   const typeOf = new Map(
@@ -352,10 +378,34 @@ export async function flow(
   const cons = clients.filter(
     (c) => c.mostly === 'consumes' || (c.state.key === 'ended' && c.mostly !== 'publishes'),
   );
-  const ready = queues.reduce((a, q) => a + q.ready, 0);
+  const ready = readyTotal ?? queues.reduce((a, q) => a + q.ready, 0);
   const deep = [...queues].sort((a, b) => b.ready - a.ready);
   const worst = queues.find((q) => q.severity === 'critical');
-  const more = (n: number, shown: number) => (n > shown ? n - shown : 0);
+  const moreRow = (n: number, value: number | null, unit: Unit) => ({
+    name: '',
+    nameKey: `${P}.flow.more`,
+    value,
+    unit,
+    text: { key: `${P}.flow.moreN`, values: { n } },
+  });
+  const exList: FlowPanel['columns'][number]['rows'] = [
+    ...exRows.slice(0, un !== null && un > 0 ? 2 : 3).map((e) => ({
+      name: e.type ? `${e.name} (${e.type})` : e.name,
+      value: round(e.rate),
+      unit: 'per_second' as Unit,
+    })),
+    ...(un !== null && un > 0
+      ? [
+          {
+            name: '',
+            nameKey: `${P}.flow.unroutable`,
+            value: round(un),
+            unit: 'per_second' as Unit,
+            severity: 'warning' as Severity,
+          },
+        ]
+      : []),
+  ];
   const columns: FlowPanel['columns'] = [
     {
       id: 'publishers',
@@ -364,25 +414,21 @@ export async function flow(
         : { key: `${P}.flow.publishersChannels`, values: { n: valueOf(pubChannels) } },
       value: valueOf(received),
       unit: 'per_second',
-      rows: [
-        ...pubs.slice(0, 2).map((c) => ({
+      rows: upTo3(
+        pubs,
+        (c) => ({
           name: c.name,
           value: c.sends,
           unit: 'bytes_per_second' as Unit,
           ...(c.link ? { link: c.link } : {}),
-        })),
-        ...(more(pubs.length, 2)
-          ? [
-              {
-                name: '',
-                nameKey: `${P}.flow.more`,
-                value: null,
-                unit: 'count' as Unit,
-                text: { key: `${P}.flow.moreN`, values: { n: pubs.length - 2 } },
-              },
-            ]
-          : []),
-      ],
+        }),
+        (rest) =>
+          moreRow(
+            rest.length,
+            rest.reduce((a, c) => a + (c.sends ?? 0), 0),
+            'bytes_per_second',
+          ),
+      ),
       next: valueOf(received),
     },
     {
@@ -391,24 +437,7 @@ export async function flow(
       value: exRows.length ? exRows.reduce((a, e) => a + e.rate, 0) : valueOf(received),
       unit: 'per_second',
       valueKey: `${P}.flow.in`,
-      rows: [
-        ...exRows.slice(0, 2).map((e) => ({
-          name: e.type ? `${e.name} (${e.type})` : e.name,
-          value: round(e.rate),
-          unit: 'per_second' as Unit,
-        })),
-        ...(un !== null && un > 0
-          ? [
-              {
-                name: '',
-                nameKey: `${P}.flow.unroutable`,
-                value: round(un),
-                unit: 'per_second' as Unit,
-                severity: 'warning' as Severity,
-              },
-            ]
-          : []),
-      ],
+      rows: exList,
       next: valueOf(routed),
     },
     {
@@ -418,51 +447,55 @@ export async function flow(
       unit: 'count',
       valueKey: `${P}.flow.ready`,
       ...(worst ? { severity: 'critical' as Severity } : {}),
-      rows: [
-        ...deep.slice(0, 2).map((q) => ({
+      rows: upTo3<QueueRow, FlowPanel['columns'][number]['rows'][number]>(
+        deep,
+        (q) => ({
           name: q.name,
           value: q.ready,
           unit: 'count' as Unit,
-          ...(q.severity ? { severity: q.severity } : {}),
+          ...(q.severity === 'critical' ? { severity: q.severity } : {}),
           link: { kind: 'queue' as const, vhost: q.vhost, queue: q.queue, name: q.name },
-        })),
-        ...(more(deep.length, 2)
-          ? [
-              {
-                name: '',
-                nameKey: `${P}.flow.more`,
-                value: deep.slice(2).reduce((a, q) => a + q.ready, 0),
-                unit: 'count' as Unit,
-                text: { key: `${P}.flow.moreN`, values: { n: deep.length - 2 } },
-              },
-            ]
-          : []),
-      ],
+        }),
+        (rest) =>
+          moreRow(
+            rest.length,
+            rest.reduce((a, q) => a + q.ready, 0),
+            'count',
+          ),
+      ),
       next: valueOf(delivered),
     },
     {
       id: 'consumers',
       title: flows
         ? { key: `${P}.flow.consumers`, values: { n: cons.length } }
-        : { key: `${P}.flow.consumersCount`, values: { n: valueOf(consumers) } },
+        : { key: `${P}.flow.consumersCount`, values: { n: consumerCount } },
       value: valueOf(delivered),
       unit: 'per_second',
-      rows: cons.slice(0, 3).map((c) =>
-        c.state.key === 'ended'
-          ? {
-              name: c.name,
-              value: null,
-              unit: 'count' as Unit,
-              text: { key: `${P}.flow.gone`, values: { at: c.state.values?.at ?? null } },
-              severity: 'critical' as Severity,
-              ...(c.link ? { link: c.link } : {}),
-            }
-          : {
-              name: c.name,
-              value: c.receives,
-              unit: 'bytes_per_second' as Unit,
-              ...(c.link ? { link: c.link } : {}),
-            },
+      rows: upTo3(
+        cons,
+        (c) =>
+          c.state.key === 'ended'
+            ? {
+                name: c.name,
+                value: null,
+                unit: 'count' as Unit,
+                text: { key: `${P}.flow.gone`, values: { at: c.state.values?.at ?? null } },
+                severity: 'critical' as Severity,
+                ...(c.link ? { link: c.link } : {}),
+              }
+            : {
+                name: c.name,
+                value: c.receives,
+                unit: 'bytes_per_second' as Unit,
+                ...(c.link ? { link: c.link } : {}),
+              },
+        (rest) =>
+          moreRow(
+            rest.length,
+            rest.reduce((a, c) => a + (c.receives ?? 0), 0),
+            'bytes_per_second',
+          ),
       ),
     },
   ];
@@ -502,7 +535,7 @@ export async function checks(ctx: PageContext, rows: QueueRow[]): Promise<Checks
       ),
       instant(
         ctx,
-        `sum(rate({__name__=~"rabbitmq_global_messages_unroutable_(dropped|returned)_total",${s}}[5m]))`,
+        `sum(rate({__name__=~"rabbitmq_global_messages_unroutable_(dropped|returned)_total",${s}}[${RATE}]))`,
       ),
       instant(
         ctx,
@@ -540,7 +573,7 @@ export async function checks(ctx: PageContext, rows: QueueRow[]): Promise<Checks
       id: 'memory',
       labelKey: `${P}.checks.memory`,
       state: (ma ?? 0) > 0 ? 'fail' : 'pass',
-      value: { key: `${P}.checks.ofLimit`, values: { pct: pct(valueOf(memRatio)) } },
+      value: { key: `${P}.checks.ofLimit`, values: { pct: pctText(valueOf(memRatio)) } },
       ...((ma ?? 0) > 0 ? { link: { kind: 'tab' as const, tab: 'nodes', name: 'nodes' } } : {}),
     });
   const da = valueOf(diskAlarm);
@@ -654,12 +687,27 @@ export async function checks(ctx: PageContext, rows: QueueRow[]): Promise<Checks
     items: anyData ? items : [],
   };
 }
-const pct = (v: number | null) => (v === null ? null : Math.round(v * 100));
 
 // --------------------------------------------------------------------------- Queues
 
-export async function queuesTab(ctx: PageContext): Promise<Panel[]> {
-  const rows = await queueRows(ctx);
+export async function queuesTab(input: PageContext): Promise<Panel[]> {
+  const ctx = aligned(input);
+  const s = one(ctx.row.id);
+  const w = rateWindow(ctx);
+  const g = (m: string) => `sum(rate(rabbitmq_global_messages_${m}_total{${s}}[${w}]))`;
+  const [rows, red, dropped, returned, dead] = await Promise.all([
+    queueRows(ctx),
+    range(ctx, g('redelivered')),
+    range(ctx, g('unroutable_dropped')),
+    range(ctx, g('unroutable_returned')),
+    range(
+      ctx,
+      `sum(rate({__name__=~"rabbitmq_global_messages_dead_lettered_.*_total",${s}}[${w}]))`,
+    ),
+  ]);
+  const series = [red, dropped, returned, dead];
+  // All zero for the whole range: one line says so instead of a flat chart (1.1.1).
+  const anyLost = series.some((x) => x[0]?.points.some(([, v]) => v !== null && v > 0));
   return [
     {
       id: 'queues',
@@ -671,6 +719,21 @@ export async function queuesTab(ctx: PageContext): Promise<Panel[]> {
       full: true,
       total: rows.length,
       rows: [...rows].sort(byNeed),
+    },
+    {
+      id: 'lost',
+      title: `${P}.unroutable`,
+      kind: 'line',
+      span: 2,
+      unit: 'per_second',
+      state: red.length && anyLost ? 'ok' : 'empty',
+      note: { key: `${P}.deadLetterNote` },
+      series: [
+        { nameKey: `${P}.series.redeliver`, points: pointsOf(red[0]), severity: 'warning' },
+        { nameKey: `${P}.series.dropped`, points: pointsOf(dropped[0]), severity: 'critical' },
+        { nameKey: `${P}.series.returned`, points: pointsOf(returned[0]) },
+        { nameKey: `${P}.series.deadLettered`, points: pointsOf(dead[0]) },
+      ],
     },
   ];
 }

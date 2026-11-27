@@ -66,6 +66,7 @@ const base = {
   state: State,
   missing: Type.Optional(Text),
   note: Type.Optional(Text),
+  layout: Type.Optional(Type.Union([Type.Literal('side'), Type.Literal('main')])),
 };
 
 export const PanelSchema = Type.Union([

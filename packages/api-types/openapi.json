@@ -37429,6 +37429,18 @@
                                   }
                                 }
                               },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
+                              },
                               "kind": {
                                 "anyOf": [
                                   {
@@ -37729,6 +37741,18 @@
                                   }
                                 }
                               },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["bars"]
@@ -37900,6 +37924,18 @@
                                   }
                                 }
                               },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["hist"]
@@ -38013,6 +38049,18 @@
                                     }
                                   }
                                 }
+                              },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
                               },
                               "kind": {
                                 "type": "string",
@@ -38199,6 +38247,18 @@
                                   }
                                 }
                               },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["heat"]
@@ -38353,6 +38413,18 @@
                                   }
                                 }
                               },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["table"]
@@ -38502,6 +38574,18 @@
                                     }
                                   }
                                 }
+                              },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
                               },
                               "kind": {
                                 "type": "string",
@@ -38711,6 +38795,18 @@
                                     }
                                   }
                                 }
+                              },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
                               },
                               "kind": {
                                 "type": "string",
@@ -39117,6 +39213,18 @@
                                   }
                                 }
                               },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["checks"]
@@ -39362,6 +39470,18 @@
                                     }
                                   }
                                 }
+                              },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
                               },
                               "kind": {
                                 "type": "string",
@@ -39629,6 +39749,18 @@
                                     }
                                   }
                                 }
+                              },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
                               },
                               "kind": {
                                 "type": "string",
@@ -39943,6 +40075,18 @@
                                   }
                                 }
                               },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["nodes"]
@@ -40181,6 +40325,18 @@
                                     }
                                   }
                                 }
+                              },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
                               },
                               "kind": {
                                 "type": "string",
@@ -40423,6 +40579,18 @@
                                   }
                                 }
                               },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["facts"]
@@ -40617,6 +40785,18 @@
                                     }
                                   }
                                 }
+                              },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
                               },
                               "kind": {
                                 "type": "string",
@@ -40868,6 +41048,18 @@
                                     }
                                   }
                                 }
+                              },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
                               },
                               "kind": {
                                 "type": "string",

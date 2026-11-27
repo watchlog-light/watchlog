@@ -8,7 +8,7 @@ import { sql } from 'kysely';
 import { usualBands, usualWindow } from '../../anomaly/usual.js';
 import { endedClients, lastConsumedAt, queueGrowth } from './rabbitmq.js';
 import { esc, queueRows, watermarkIn } from './rabbitmq-queues.js';
-import { P } from './rabbitmq-tabs.js';
+import { aligned, P, rateWindow } from './rabbitmq-tabs.js';
 import { instant, one, pointsOf, range, valueOf, windowOf } from './query.js';
 import type {
   CausePanel,
@@ -52,7 +52,9 @@ export const QUEUE_PRESETS: QueueAlertsPanel['presets'] = [
   },
 ];
 
-export async function queuePage(ctx: PageContext): Promise<Panel[]> {
+export async function queuePage(input: PageContext): Promise<Panel[]> {
+  const ctx = aligned(input);
+  const w = rateWindow(ctx);
   const vhost = ctx.params?.vhost ?? '/';
   const queue = ctx.params?.queue;
   if (!queue) return [];
@@ -79,15 +81,18 @@ export async function queuePage(ctx: PageContext): Promise<Panel[]> {
     queueRows(ctx, { vhost, queue }),
     queueGrowth(ctx),
     lastConsumedAt(ctx, `vhost="${esc(vhost)}",queue="${esc(queue)}"`),
-    instant(ctx, `sum(rate(rabbitmq_detailed_queue_messages_acked_total{${q}}[5m]))`),
-    lastPositive(ctx, `sum(rate(rabbitmq_detailed_queue_messages_acked_total{${q}}[5m]))`),
+    instant(ctx, `sum(rate(rabbitmq_detailed_queue_messages_acked_total{${q}}[2m]))`),
+    lastPositive(ctx, `sum(rate(rabbitmq_detailed_queue_messages_acked_total{${q}}[2m]))`),
     range(ctx, `sum(rabbitmq_detailed_queue_messages_ready{${q}})`),
     range(ctx, `sum(rabbitmq_detailed_queue_messages_unacked{${q}})`),
-    range(ctx, `sum(rate(rabbitmq_detailed_queue_exchange_messages_published_total{${q}}[5m]))`),
-    range(ctx, `sum(rate(rabbitmq_detailed_queue_messages_acked_total{${q}}[5m]))`),
-    range(ctx, `sum(rate(rabbitmq_detailed_queue_messages_redelivered_total{${q}}[5m]))`),
+    range(ctx, `sum(rate(rabbitmq_detailed_queue_exchange_messages_published_total{${q}}[${w}]))`),
+    range(ctx, `sum(rate(rabbitmq_detailed_queue_messages_acked_total{${q}}[${w}]))`),
+    range(ctx, `sum(rate(rabbitmq_detailed_queue_messages_redelivered_total{${q}}[${w}]))`),
     range(ctx, `sum(rabbitmq_detailed_queue_consumers{${q}})`),
-    range(ctx, `max(rabbitmq_detailed_queue_consumer_utilisation{${q}})`),
+    range(
+      ctx,
+      `(1 - max(rabbitmq_detailed_queue_consumer_utilisation{${q}})) and on () (sum(rabbitmq_detailed_queue_consumers{${q}}) > 0)`,
+    ),
     instant(ctx, `max by (member, type, membership) (rabbitmq_detailed_queue_info{${q}})`),
     instant(ctx, `count(max by (member) (rabbitmq_detailed_raft_term_total{${q}}))`),
     instant(ctx, `max(rabbitmq_detailed_raft_entry_commit_latency_seconds{${q}})`),

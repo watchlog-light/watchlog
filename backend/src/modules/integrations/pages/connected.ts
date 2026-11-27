@@ -70,6 +70,28 @@ export const SOURCE =
   'namespace, workload_kind, workload, container, compose_project, compose_service';
 const q = escapeLabelValue;
 
+/**
+ * Whether a flow's source is the monitored service itself (1.1.1): its own pods, Compose
+ * service, container or unit talking to its port are never one of its clients.
+ */
+export function isServiceItself(
+  t: PageContext['row']['target'],
+  l: Record<string, string>,
+): boolean {
+  switch (t.kind) {
+    case 'workload':
+      return l.namespace === t.namespace && l.workload === t.workload;
+    case 'compose':
+      return l.compose_project === t.compose_project && l.compose_service === t.compose_service;
+    case 'container':
+      return l.container === t.container;
+    case 'native':
+      return l.workload === t.workload;
+    default:
+      return false;
+  }
+}
+
 /** The destination matcher for the service's target; null when nothing can match yet. */
 export async function destination(ctx: PageContext): Promise<string | null> {
   const t = ctx.row.target;
@@ -116,7 +138,9 @@ export async function connectedTo(ctx: PageContext, limit = 20): Promise<Connect
     dst
       ? ctx.vm.query(
           scope,
-          `sum by (${SOURCE}) (increase(watchlog_flow_connections_total{${dst}}[${ctx.range}s])) > 0`,
+          // New connections, or traffic on a long-lived one (1.1.1: a publisher that connected
+          // yesterday opens none today and still is a client).
+          `(sum by (${SOURCE}) (increase(watchlog_flow_connections_total{${dst}}[${ctx.range}s])) > 0) or (sum by (${SOURCE}) (increase(watchlog_flow_bytes_total{${dst}}[${ctx.range}s])) > 0) * 0`,
           at,
         )
       : Promise.resolve([]),
@@ -138,7 +162,9 @@ export async function connectedTo(ctx: PageContext, limit = 20): Promise<Connect
     const l = c.labels;
     const n = Math.round(c.points[0]?.[1] ?? 0);
     const f = Math.round(failedBy.get(key(l)) ?? 0);
-    // WatchLog's collector and agents reach every service they read: not its clients.
+    // WatchLog's collector and agents reach every service they read: not its clients. Nor is
+    // the service itself (1.1.1: a broker's pods talk to their own port).
+    if (isServiceItself(ctx.row.target, l)) return [];
     if (l.workload && own.workloads.has(`${l.namespace}/${l.workload}`)) return [];
     if (!l.workload && l.container && own.containers.has(l.container)) return [];
     if (l.workload) {

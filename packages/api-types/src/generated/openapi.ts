@@ -13467,6 +13467,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     kind: 'line' | 'stack';
                     /** @description The dashboard's unit names */
                     unit:
@@ -13519,6 +13520,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'bars';
                     /** @description The dashboard's unit names */
@@ -13555,6 +13557,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'hist';
                     buckets: {
@@ -13580,6 +13583,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'gauge';
                     items: {
@@ -13624,6 +13628,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'heat';
                     /** @description The dashboard's unit names */
@@ -13656,6 +13661,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'table';
                     columns: string[];
@@ -13682,6 +13688,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'stat';
                     tiles: {
@@ -13725,6 +13732,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'flow';
                     columns: {
@@ -13817,6 +13825,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'checks';
                     items: {
@@ -13875,6 +13884,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'queues';
                     full: boolean;
@@ -13920,6 +13930,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'clients';
                     rows: {
@@ -13987,6 +13998,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'nodes';
                     items: {
@@ -14033,6 +14045,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'timeline';
                     events: {
@@ -14091,6 +14104,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'facts';
                     rows: {
@@ -14132,6 +14146,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'cause';
                     text: {
@@ -14192,6 +14207,7 @@ export interface paths {
                         [key: string]: string | number | null;
                       };
                     };
+                    layout?: 'side' | 'main';
                     /** @enum {string} */
                     kind: 'queue_alerts';
                     vhost: string;

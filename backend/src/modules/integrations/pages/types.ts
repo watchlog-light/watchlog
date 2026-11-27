@@ -27,6 +27,11 @@ interface Base {
   missing?: Text;
   /** A short note beside the title ("top 100 of 340 tables"). */
   note?: Text;
+  /**
+   * Two panels side by side in one row (1.1.1): a 380 px column ('side') and the rest ('main'),
+   * e.g. RabbitMQ's health checks and the queues that need a look.
+   */
+  layout?: 'side' | 'main';
 }
 
 /** A link on a panel (1.1.0): a workload or container page, a queue's page, a tab, the docs. */

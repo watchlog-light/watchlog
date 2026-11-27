@@ -49,6 +49,8 @@ export const DLQ = /dead.?letter|\.dlq|\.dlx|-dlq|_dlq/i;
 export function severityOf(row: Omit<QueueRow, 'severity'>): Severity | undefined {
   if (row.type !== 'stream' && row.ready > 0 && row.consumers === 0)
     return DLQ.test(row.queue) ? 'warning' : 'critical';
+  // Consumers that can't keep up (1.1.1): 95% busy or more, with messages waiting.
+  if (row.consumers && row.busy !== null && row.busy >= 0.95 && row.ready > 0) return 'warning';
   if (row.drain.state === 'growing' && row.ready > 1000) return 'warning';
   if (row.unacked > UNACKED_HIGH) return 'warning';
   if (row.drain.state === 'never' && row.ready > 0 && row.type !== 'stream') return 'warning';
@@ -77,11 +79,11 @@ export async function queueRows(
     instant(ctx, `max by (${QBY}) (rabbitmq_detailed_queue_consumer_utilisation{${s}})`),
     instant(
       ctx,
-      `sum by (${QBY}) (rate(rabbitmq_detailed_queue_exchange_messages_published_total{${s}}[5m]))`,
+      `sum by (${QBY}) (rate(rabbitmq_detailed_queue_exchange_messages_published_total{${s}}[2m]))`,
     ),
     instant(
       ctx,
-      `sum by (${QBY}) (rate({__name__=~"rabbitmq_detailed_queue_messages_delivered(_ack)?_total",${s}}[5m]))`,
+      `sum by (${QBY}) (rate({__name__=~"rabbitmq_detailed_queue_messages_delivered(_ack)?_total",${s}}[2m]))`,
     ),
     instant(ctx, `max by (${QBY}, type) (rabbitmq_detailed_queue_info{${s}})`),
   ]);
@@ -106,7 +108,9 @@ export async function queueRows(
       in: round2(i.get(k) ?? null),
       out: round2(o.get(k) ?? null),
       consumers: c.get(k) ?? null,
-      busy: b.get(k) ?? null,
+      // RabbitMQ's consumer utilisation is the share of time the queue can deliver at once: 1
+      // means the consumers keep up. Busy is the rest (1.1.1), and only with consumers.
+      busy: busyOf(b.get(k) ?? null, c.get(k) ?? null),
     };
     const row = { ...base, drain: drainOf(base) };
     const severity = severityOf(row);
@@ -127,8 +131,19 @@ export async function watermarkIn(ctx: PageContext): Promise<number | null> {
     `min((max by (member) (rabbitmq_resident_memory_limit_bytes{${s}}) - max by (member) (rabbitmq_process_resident_memory_bytes{${s}})) / (max by (member) (deriv(rabbitmq_process_resident_memory_bytes{${s}}[15m])) > 0))`,
   );
   const v = rows[0]?.points[0]?.[1];
-  return v === undefined || v === null || !Number.isFinite(v) || v < 0 ? null : Math.round(v);
+  return v === undefined || v === null || !Number.isFinite(v) || v < 0 || v > WATERMARK_HORIZON
+    ? null
+    : Math.round(v);
 }
+
+/** How busy the consumers are: 1 − RabbitMQ's consumer utilisation, with consumers only. */
+export function busyOf(utilisation: number | null, consumers: number | null): number | null {
+  if (utilisation === null || !consumers) return null;
+  return Math.round(Math.min(1, Math.max(0, 1 - utilisation)) * 100) / 100;
+}
+
+/** Beyond a week a memory clock says nothing useful ("in about 1881 d"): no clock then. */
+export const WATERMARK_HORIZON = 7 * 86_400;
 
 const round2 = (v: number | null) => (v === null ? null : Math.round(v * 100) / 100);
 export const esc = (v: string) => v.replace(/\\/g, '\\\\').replace(/"/g, '\\"');

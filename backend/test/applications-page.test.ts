@@ -342,9 +342,9 @@ describe('the service page', () => {
 
     // Before any series: the panels say they're empty, not an error.
     const p = (await api('GET', `/applications/${id}/panels`)).json();
-    // RabbitMQ's Overview (1.1.0): the flow, the tiles, two charts, the checks, the queues
-    // that need a look, the lost messages.
-    expect(p.panels.map((x: { state: string }) => x.state)).toEqual(Array(7).fill('empty'));
+    // RabbitMQ's Overview (1.1.1): the flow, the tiles, two charts, the checks, the queues
+    // that need a look (the lost messages moved to the Queues tab).
+    expect(p.panels.map((x: { state: string }) => x.state)).toEqual(Array(6).fill('empty'));
   });
 
   it('marks a tab whose privilege is missing, and says what to grant', async () => {

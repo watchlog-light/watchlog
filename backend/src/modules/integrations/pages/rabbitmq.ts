@@ -14,7 +14,7 @@ import { ago } from './owners.js';
 import { instant, one, some, SPARK_RANGE, valueOf } from './query.js';
 import { queueName, QBY, UNACKED_HIGH, watermarkIn } from './rabbitmq-queues.js';
 import { queuePage } from './rabbitmq-queue.js';
-import { clientsTab, nodesTab, overview, queueCount, queuesTab } from './rabbitmq-tabs.js';
+import { aligned, clientsTab, nodesTab, overview, queueCount, queuesTab } from './rabbitmq-tabs.js';
 import type { QuerySeries } from '../../../lib/victoria.js';
 import type { IntegrationPage, PageContext, Reason, RowMetrics } from './types.js';
 
@@ -240,16 +240,19 @@ const COMMAND = (ctx: PageContext, member: string | undefined) => {
   return 'rabbitmq-plugins enable rabbitmq_prometheus';
 };
 
-async function reasons(ctx: PageContext): Promise<Reason[]> {
+async function reasons(input: PageContext): Promise<Reason[]> {
+  // The page's one instant (1.1.1): the findings read what the tiles and checks read.
+  const ctx = aligned(input);
   const s = one(ctx.row.id);
   // Streams keep what they hold, and dead-letter queues usually have no consumer: neither is
   // a queue that lost its consumers or falls behind (1.1.0). Dead letters have their own finding.
   const notThese = `unless on (${QBY}) (max by (${QBY}) (rabbitmq_detailed_queue_info{${s},type="stream"}) or max by (${QBY}) (rabbitmq_detailed_queue_messages_ready{${s},queue=~"${DLQ_RE}"}))`;
   const [idle, growing, alarms, unacked, dead, deadQueues] = await Promise.all([
-    // Ready messages, no consumer, and more coming.
+    // Ready messages and no consumer, as the checks and the rows see it (1.1.1): critical while
+    // more comes in, a warning while it doesn't. The default rule still waits 5 minutes of growth.
     instant(
       ctx,
-      `((sum by (${QBY}) (rabbitmq_detailed_queue_messages_ready{${s}}) > 0) and (sum by (${QBY}) (rabbitmq_detailed_queue_consumers{${s}}) == 0) and (sum by (${QBY}) (deriv(rabbitmq_detailed_queue_messages_ready{${s}}[5m])) > 0)) ${notThese}`,
+      `((sum by (${QBY}) (rabbitmq_detailed_queue_messages_ready{${s}}) > 0) and (sum by (${QBY}) (rabbitmq_detailed_queue_consumers{${s}}) == 0)) ${notThese}`,
     ),
     instant(
       ctx,
@@ -282,8 +285,9 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
       watermarkIn(ctx),
     ]);
     const first = ended[0];
+    const grows = (growth.get(queueName(top.labels)) ?? 0) > 0;
     out.push({
-      severity: 'critical',
+      severity: grows ? 'critical' : 'warning',
       code: 'queue_no_consumers',
       facts: {
         queue: queueName(top.labels),

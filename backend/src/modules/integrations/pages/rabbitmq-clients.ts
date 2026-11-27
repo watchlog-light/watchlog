@@ -4,7 +4,7 @@
 // connections it opened, the bytes each way now, and how it ended when it did. Its role is a
 // guess from the traffic's direction ("Mostly publishes"), given only when one way clearly
 // dominates; RabbitMQ's metrics don't say which client publishes to or consumes which queue.
-import { destination, ownComponents, SOURCE } from './connected.js';
+import { destination, isServiceItself, ownComponents, SOURCE } from './connected.js';
 import { endedOf } from './rabbitmq.js';
 import type { ClientsPanel, PageContext, Severity, Text } from './types.js';
 
@@ -26,6 +26,23 @@ export function mostlyOf(sent: number, received: number): Row['mostly'] {
   return null;
 }
 
+/**
+ * A client's state (1.1.1): gone only when it ended and nothing of it is connected now. A
+ * restarted pod or container that is connected again runs (its restart is said, not in red).
+ */
+export function clientStateOf(
+  ended: { how: string; at: number | null } | null,
+  connectedNow: boolean,
+): { state: Text; severity?: Severity } {
+  if (ended && !connectedNow)
+    return {
+      state: { key: 'ended', values: { how: ended.how, at: ended.at } },
+      severity: /OOM|CrashLoop|gone|Exited \((?!0\))/.test(ended.how) ? 'critical' : 'warning',
+    };
+  if (ended) return { state: { key: 'restarted', values: { how: ended.how, at: ended.at } } };
+  return { state: { key: connectedNow ? 'running' : 'quiet' } };
+}
+
 const keyOf = (l: Record<string, string>) =>
   [l.namespace, l.workload_kind, l.workload, l.container, l.compose_project, l.compose_service]
     .map((v) => v ?? '')
@@ -42,7 +59,9 @@ export async function clientRows(ctx: PageContext): Promise<Row[]> {
   const [conns, day, now, own, hosts] = await Promise.all([
     q(`sum by (${SOURCE}) (increase(watchlog_flow_connections_total{${sel}}[24h]))`),
     q(`sum by (${SOURCE}, dir) (increase(watchlog_flow_bytes_total{${sel}}[24h]))`),
-    q(`sum by (${SOURCE}, dir) (rate(watchlog_flow_bytes_total{${sel}}[5m]))`),
+    // Connected now: any byte in the last two minutes (an idle AMQP connection still sends
+    // heartbeats).
+    q(`sum by (${SOURCE}, dir) (rate(watchlog_flow_bytes_total{${sel}}[2m]))`),
     ownComponents(ctx),
     // A container's page is under its host.
     q(
@@ -73,6 +92,8 @@ export async function clientRows(ctx: PageContext): Promise<Row[]> {
     if (l.workload && own.workloads.has(`${l.namespace}/${l.workload}`)) continue;
     if (!l.workload && l.container && own.containers.has(l.container)) continue;
     if (!l.workload && !l.container) continue;
+    // The broker's own pods or containers talk to it too: never a client of itself.
+    if (isServiceItself(ctx.row.target, l)) continue;
     const d = dayBy.get(k) ?? { sent: 0, received: 0 };
     const n = nowBy.get(k);
     const ended = l.workload
@@ -82,13 +103,7 @@ export async function clientRows(ctx: PageContext): Promise<Row[]> {
           null,
         )
       : await endedOf(ctx, { container: l.container! }, null);
-    const quiet = !n || n.sent + n.received < 1;
-    let state: Text = { key: quiet ? 'quiet' : 'running' };
-    let severity: Severity | undefined;
-    if (ended) {
-      state = { key: 'ended', values: { how: ended.how, at: ended.at } };
-      severity = /OOM|CrashLoop|gone|Exited \((?!0\))/.test(ended.how) ? 'critical' : 'warning';
-    }
+    const { state, severity } = clientStateOf(ended, !!n && n.sent + n.received > 0);
     const where: Text = l.workload
       ? {
           key: 'whereWorkload',
