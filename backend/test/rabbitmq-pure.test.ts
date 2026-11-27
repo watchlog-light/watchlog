@@ -47,6 +47,9 @@ describe('a queue that needs a look', () => {
     expect(severityOf(row({ ready: 5000, in: 10, out: 5 }))).toBe('warning');
     expect(severityOf(row({ unacked: 20_000 }))).toBe('warning');
     expect(severityOf(row({}))).toBeUndefined();
+    // A dead-letter queue without a consumer is usual: a warning, its dead letters are.
+    expect(severityOf(row({ queue: 'orders.payments.dlq', consumers: 0, out: 0 }))).toBe('warning');
+    expect(severityOf(row({ queue: 'billing-dead-letter', consumers: 0, out: 0 }))).toBe('warning');
     // A stream keeps what it holds: no consumer isn't a problem there.
     expect(severityOf(row({ type: 'stream', consumers: 0, out: 0 }))).toBeUndefined();
   });

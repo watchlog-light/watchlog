@@ -20,6 +20,8 @@ import type { IntegrationPage, PageContext, Reason, RowMetrics } from './types.j
 
 const P = 'integrations.rabbitmq.panels';
 const DAY = 86_400;
+/** Dead-letter queue names, as a MetricsQL regex (the same as rabbitmq-queues.ts's DLQ). */
+export const DLQ_RE = '(?i).*(dead.?letter|\\\\.dlq|\\\\.dlx|-dlq|_dlq).*';
 
 interface Node {
   member?: string;
@@ -240,15 +242,18 @@ const COMMAND = (ctx: PageContext, member: string | undefined) => {
 
 async function reasons(ctx: PageContext): Promise<Reason[]> {
   const s = one(ctx.row.id);
+  // Streams keep what they hold, and dead-letter queues usually have no consumer: neither is
+  // a queue that lost its consumers or falls behind (1.1.0). Dead letters have their own finding.
+  const notThese = `unless on (${QBY}) (max by (${QBY}) (rabbitmq_detailed_queue_info{${s},type="stream"}) or max by (${QBY}) (rabbitmq_detailed_queue_messages_ready{${s},queue=~"${DLQ_RE}"}))`;
   const [idle, growing, alarms, unacked, dead, deadQueues] = await Promise.all([
     // Ready messages, no consumer, and more coming.
     instant(
       ctx,
-      `(sum by (${QBY}) (rabbitmq_detailed_queue_messages_ready{${s}}) > 0) and (sum by (${QBY}) (rabbitmq_detailed_queue_consumers{${s}}) == 0) and (sum by (${QBY}) (deriv(rabbitmq_detailed_queue_messages_ready{${s}}[5m])) > 0)`,
+      `((sum by (${QBY}) (rabbitmq_detailed_queue_messages_ready{${s}}) > 0) and (sum by (${QBY}) (rabbitmq_detailed_queue_consumers{${s}}) == 0) and (sum by (${QBY}) (deriv(rabbitmq_detailed_queue_messages_ready{${s}}[5m])) > 0)) ${notThese}`,
     ),
     instant(
       ctx,
-      `(sum by (${QBY}) (deriv(rabbitmq_detailed_queue_messages_ready{${s}}[15m])) > 0.5) and (sum by (${QBY}) (rabbitmq_detailed_queue_consumers{${s}}) > 0) and (sum by (${QBY}) (rabbitmq_detailed_queue_messages_ready{${s}}) > 1000)`,
+      `((sum by (${QBY}) (deriv(rabbitmq_detailed_queue_messages_ready{${s}}[15m])) > 0.5) and (sum by (${QBY}) (rabbitmq_detailed_queue_consumers{${s}}) > 0) and (sum by (${QBY}) (rabbitmq_detailed_queue_messages_ready{${s}}) > 1000)) ${notThese}`,
     ),
     instant(
       ctx,

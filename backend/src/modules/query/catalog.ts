@@ -1021,7 +1021,12 @@ const ENTRIES = {
     agg: 'max',
     expr: (s) => {
       const by = 'service, service_type, vhost, queue';
-      return `(sum by (${by}) (rabbitmq_detailed_queue_messages_ready${s()}) > 0) and (sum by (${by}) (rabbitmq_detailed_queue_consumers${s()}) == 0) and (sum by (${by}) (deriv(rabbitmq_detailed_queue_messages_ready${s()}[5m])) > 0)`;
+      // Not a stream (it keeps what it holds) nor a dead-letter queue (1.1.0: their dead
+      // letters are rabbitmq.dead_lettered.rate's).
+      const m = s().slice(1, -1);
+      const sel = (extra: string) => `{${m ? `${m},` : ''}${extra}}`;
+      const skip = `unless on (${by}) (max by (${by}) (rabbitmq_detailed_queue_info${sel('type="stream"')}) or max by (${by}) (rabbitmq_detailed_queue_messages_ready${sel('queue=~"(?i).*(dead.?letter|\\\\.dlq|\\\\.dlx|-dlq|_dlq).*"')}))`;
+      return `((sum by (${by}) (rabbitmq_detailed_queue_messages_ready${s()}) > 0) and (sum by (${by}) (rabbitmq_detailed_queue_consumers${s()}) == 0) and (sum by (${by}) (deriv(rabbitmq_detailed_queue_messages_ready${s()}[5m])) > 0)) ${skip}`;
     },
   },
   /** Each queue's ready messages (1.1.0): a queue's own depth alert. */

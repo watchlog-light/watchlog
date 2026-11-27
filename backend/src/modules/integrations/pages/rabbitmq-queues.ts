@@ -38,9 +38,17 @@ export function drainOf(row: {
   return { state: 'growing' };
 }
 
-/** A queue that needs a look: nothing consumes it, it grows, or holds many unacked. */
+/** A queue named like a dead-letter queue (`orders.dlq`, `orders-dead-letter`). */
+export const DLQ = /dead.?letter|\.dlq|\.dlx|-dlq|_dlq/i;
+
+/**
+ * A queue that needs a look: nothing consumes it, it grows, or holds many unacked. A
+ * dead-letter queue without a consumer is usual (a warning: its dead letters are), a stream
+ * keeps what it holds (never a problem for that).
+ */
 export function severityOf(row: Omit<QueueRow, 'severity'>): Severity | undefined {
-  if (row.type !== 'stream' && row.ready > 0 && row.consumers === 0) return 'critical';
+  if (row.type !== 'stream' && row.ready > 0 && row.consumers === 0)
+    return DLQ.test(row.queue) ? 'warning' : 'critical';
   if (row.drain.state === 'growing' && row.ready > 1000) return 'warning';
   if (row.unacked > UNACKED_HIGH) return 'warning';
   if (row.drain.state === 'never' && row.ready > 0 && row.type !== 'stream') return 'warning';
