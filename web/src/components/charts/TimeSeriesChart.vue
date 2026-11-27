@@ -158,6 +158,13 @@ function yAxisTicks(): { interval: number; max: number } | undefined {
   return { interval, max: Math.max(interval, Math.ceil(max / interval) * interval) };
 }
 
+/** One row of marker labels above the plot. */
+const LABEL_ROW = 16;
+/** Room above the plot for the legend and the marker labels' rows. */
+function markerTop(): number {
+  const n = shownMarkers.value.filter((m) => m.labelled).length;
+  return n === 0 ? 28 : n === 1 ? 46 : 46 + LABEL_ROW;
+}
 function decorations() {
   const muted = token('--text-muted');
   const [spanFrom, spanTo] = span.value;
@@ -169,6 +176,11 @@ function decorations() {
     const f = Math.min(Math.max((ts - spanFrom) / (spanTo - spanFrom || 1), 0), 1);
     return Math.max(Math.round(plotWidth * Math.max(f, 1 - f)) - 8, 80);
   };
+  // Two or more labels take turns on two rows above the plot, so neighbours never write over
+  // each other; with several, each stays on one line, cut at its room (the time comes first).
+  const labelled = shownMarkers.value.filter((m) => m.labelled).sort((a, b) => a.ts - b.ts);
+  const many = labelled.length > 1;
+  const row = (m: ChartMarker) => (many ? labelled.indexOf(m) % 2 : 0);
   const lines = [
     ...shownMarkers.value.map((m) => ({
       xAxis: m.ts * 1000,
@@ -182,8 +194,9 @@ function decorations() {
             position: 'end',
             align: rightHalf(m.ts) ? 'right' : 'left',
             width: room(m.ts),
-            overflow: 'break',
+            overflow: many ? 'truncate' : 'break',
             lineHeight: 14,
+            distance: 5 + row(m) * LABEL_ROW,
             color: token(m.colorToken ?? '--text-muted'),
             fontSize: 12,
           }
@@ -275,7 +288,7 @@ function render() {
       grid: {
         left: 8,
         right: 16,
-        top: shownMarkers.value.some((m) => m.labelled) ? 46 : 28,
+        top: markerTop(),
         bottom: 8,
         containLabel: true,
       },

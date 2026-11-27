@@ -450,6 +450,36 @@ describe('1.1.1: the design and one source of truth', () => {
     expect(mark.label.show).toBe(true);
   });
 
+  it('A6: two markers write their labels on two rows, never over each other', async () => {
+    setOption.mockClear();
+    const ended = (at: number, name: string) => ({
+      at,
+      text: { key: `${P}.markerEnded`, values: { name, how: 'OOMKilled', at } },
+    });
+    await mountPanel({
+      ...base,
+      id: 'rates',
+      title: `${P}.publishDeliver`,
+      kind: 'line',
+      unit: 'per_second',
+      markers: [ended(1800, 'shop/consumer'), ended(2400, 'shop/payments-worker')],
+      series: [
+        {
+          nameKey: `${P}.series.publish`,
+          points: [
+            [1200, 3],
+            [3000, 3],
+          ],
+        },
+      ],
+    });
+    const opt = setOption.mock.calls.at(-1)![0];
+    const [a, b] = opt.series[0].markLine.data;
+    expect(a.label.distance).not.toBe(b.label.distance);
+    expect([a.label.overflow, b.label.overflow]).toEqual(['truncate', 'truncate']);
+    expect(opt.grid.top).toBeGreaterThan(46);
+  });
+
   it('B5: the lost chart is one line when everything is zero', async () => {
     const at = Math.floor(Date.now() / 1000);
     const w = await mountPanel({
